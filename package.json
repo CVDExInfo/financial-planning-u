@@ -1,5 +1,5 @@
 {
-    "name": "spark-template",
+    "name": "financial-planning-management-ui",
     "private": true,
     "version": "0.0.0",
     "type": "module",
@@ -9,7 +9,11 @@
         "build": "tsc -b --noCheck && vite build",
         "lint": "eslint .",
         "optimize": "vite optimize",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "typecheck": "tsc --noEmit",
+        "test": "echo \"Tests coming soon\"",
+        "e2e": "echo \"E2E tests coming soon\"",
+        "generate-data": "node scripts/generate-mock-data.js"
     },
     "dependencies": {
         "@github/spark": "^0.39.0",
