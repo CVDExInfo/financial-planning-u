@@ -17,6 +17,7 @@ export default defineConfig({
     createIconImportProxy() as PluginOption,
     sparkPlugin() as PluginOption,
   ],
+  base: process.env.NODE_ENV === 'production' ? '/financial-planning-u/' : '/',
   resolve: {
     alias: {
       '@': resolve(projectRoot, 'src')

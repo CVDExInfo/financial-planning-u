@@ -15,7 +15,7 @@ This document outlines the GitHub Pages deployment configuration for the Financi
 - **Permissions**: Configured for GitHub Pages deployment with proper GITHUB_TOKEN permissions
 
 ### 2. Vite Configuration Updates (`vite.config.ts`)
-- **Base Path**: Set to `/spark-template/` for GitHub Pages compatibility
+- **Base Path**: Set to `/financial-planning-u/` for GitHub Pages compatibility
 - **Build Optimization**: 
   - Source maps enabled for debugging
   - Manual chunks for better caching (react-vendor, router, query, charts, ui)
@@ -38,7 +38,7 @@ This document outlines the GitHub Pages deployment configuration for the Financi
 1. **Push to main** → GitHub Actions triggered
 2. **Build succeeds** → Artifact uploaded to `gh-pages` branch
 3. **GitHub Pages** → Automatically serves content from `gh-pages`
-4. **Live URL**: `https://[username].github.io/spark-template/`
+4. **Live URL**: `https://[username].github.io/financial-planning-u/`
 
 ## 📋 Manual Setup Steps
 
@@ -63,7 +63,7 @@ After the first successful deployment:
 
 The base path configuration automatically switches:
 - **Development** (`npm run dev`): Base path `/`
-- **Production** (`npm run build`): Base path `/spark-template/`
+- **Production** (`npm run build`): Base path `/financial-planning-u/`
 
 This ensures local development works normally while production deployment works on GitHub Pages.
 
