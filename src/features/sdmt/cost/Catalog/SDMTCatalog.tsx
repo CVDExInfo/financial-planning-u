@@ -28,6 +28,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Search, Edit, Trash2, Upload, Download } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
+import Protected from '@/components/Protected';
 import { toast } from 'sonner';
 import type { LineItem } from '@/types/domain';
 import ApiService from '@/lib/api';
@@ -38,6 +40,9 @@ export function SDMTCatalog() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  // Use the new permissions system
+  const { canCreate, canUpdate, canDelete, isReadOnly, currentRole } = usePermissions();
 
   useEffect(() => {
     loadLineItems();
@@ -87,7 +92,10 @@ export function SDMTCatalog() {
           <h1 className="text-3xl font-bold">Cost Catalog</h1>
           <p className="text-muted-foreground">Manage project line items and cost components</p>
         </div>
-        <Badge className="module-badge-sdmt">SDMT Module</Badge>
+        <div className="flex items-center gap-2">
+          <Badge className="module-badge-sdmt">SDMT Module</Badge>
+          {isReadOnly() && <Badge variant="outline" className="text-xs">Read Only</Badge>}
+        </div>
       </div>
 
       {/* Actions Bar */}
@@ -124,13 +132,14 @@ export function SDMTCatalog() {
               <Download size={16} />
               Export
             </Button>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus size={16} />
-                  Add Line Item
-                </Button>
-              </DialogTrigger>
+            <Protected action="create">
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Plus size={16} />
+                    Add Line Item
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Add New Line Item</DialogTitle>
@@ -199,6 +208,7 @@ export function SDMTCatalog() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            </Protected>
           </div>
         </CardContent>
       </Card>
@@ -307,12 +317,16 @@ export function SDMTCatalog() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm">
-                            <Edit size={16} />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-destructive">
-                            <Trash2 size={16} />
-                          </Button>
+                          <Protected action="update">
+                            <Button variant="ghost" size="sm">
+                              <Edit size={16} />
+                            </Button>
+                          </Protected>
+                          <Protected action="delete">
+                            <Button variant="ghost" size="sm" className="text-destructive">
+                              <Trash2 size={16} />
+                            </Button>
+                          </Protected>
                         </div>
                       </TableCell>
                     </TableRow>

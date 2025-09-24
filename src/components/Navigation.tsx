@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ModuleType, UserRole } from '@/types/domain';
+import { ModuleType } from '@/types/domain';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ChevronDown, Calculator, BarChart3, Settings } from 'lucide-react';
-import { useKV } from '@github/spark/hooks';
+import { ChevronDown, Calculator, BarChart3, Settings, LogOut, User } from 'lucide-react';
+import { useAuth } from '@/components/AuthProvider';
+import { getDefaultRouteForRole, getRoleInfo } from '@/lib/auth';
 import { toast } from 'sonner';
 
 interface NavigationProps {
@@ -21,107 +23,32 @@ interface NavigationProps {
 export function Navigation({ currentModule }: NavigationProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [currentRole, setCurrentRole] = useKV<UserRole>('user-role', 'PMO');
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    // Get user info from Spark runtime
-    if (typeof window !== 'undefined' && (window as any).spark) {
-      (window as any).spark.user().then(setUser).catch(() => {
-        // Fallback for demo
-        setUser({
-          login: 'demo-user',
-          email: 'demo@ikusi.com',
-          avatarUrl: '',
-          isOwner: true
-        });
-      });
-    } else {
-      // Fallback for demo
-      setUser({
-        login: 'demo-user',
-        email: 'demo@ikusi.com',
-        avatarUrl: '',
-        isOwner: true
-      });
-    }
-  }, []);
+  const { user, currentRole, availableRoles, setRole, canAccessRoute, signOut } = useAuth();
 
   // Check if current route is accessible when role or location changes
   useEffect(() => {
     if (!canAccessRoute(location.pathname)) {
       // Redirect to appropriate module based on role
-      if (currentRole === 'PMO') {
-        navigate('/pmo/prefactura/estimator');
-      } else if (currentRole === 'SDMT') {
-        navigate('/sdmt/cost/catalog');
-      } else {
-        navigate('/');
-      }
+      const defaultRoute = getDefaultRouteForRole(currentRole);
+      navigate(defaultRoute);
+      
+      toast.info('Redirected to accessible page', {
+        description: 'You were redirected to a page accessible with your current role'
+      });
     }
-  }, [currentRole, location.pathname, navigate]);
-
-  const roleOptions: { role: UserRole; label: string; description: string }[] = [
-    { role: 'PMO', label: 'PMO', description: 'Project Management Office' },
-    { role: 'SDMT', label: 'SDMT', description: 'Service Delivery Management Team' },
-    { role: 'VENDOR', label: 'Vendor', description: 'External Vendor/Contractor' },
-    { role: 'EXEC_RO', label: 'Executive', description: 'Executive (Read Only)' },
-  ];
+  }, [currentRole, location.pathname, navigate, canAccessRoute]);
 
   const getModuleBadgeClass = (module: ModuleType) => {
     return module === 'PMO' ? 'module-badge-pmo' : 'module-badge-sdmt';
   };
 
-  const canAccessRoute = (route: string, role?: UserRole): boolean => {
-    const roleToCheck = role || currentRole || 'PMO';
-    // Simple role-based access control
-    if (route.startsWith('/pmo/')) {
-      return ['PMO', 'EXEC_RO'].includes(roleToCheck);
-    }
-    if (route.startsWith('/sdmt/')) {
-      return ['SDMT', 'PMO', 'EXEC_RO'].includes(roleToCheck);
-    }
-    return true;
+  const handleRoleChange = (newRole: string) => {
+    setRole(newRole as any);
   };
 
-  const handleRoleChange = (newRole: UserRole) => {
-    const oldRole = currentRole;
-    console.log('Navigation - Role change requested:', { from: oldRole, to: newRole, currentPath: location.pathname });
-    
-    setCurrentRole(newRole);
-    
-    // Show feedback about role change
-    toast.success(`Role changed to ${newRole}`, {
-      description: `You now have ${newRole} permissions`
-    });
-    
-    // Navigate to appropriate module's home page based on role
-    let newPath: string | null = null;
-    
-    console.log('Navigation - Checking access for current path:', location.pathname, 'with new role:', newRole);
-    console.log('Navigation - canAccessRoute result:', canAccessRoute(location.pathname, newRole));
-    
-    if (newRole === 'PMO' && !canAccessRoute(location.pathname, newRole)) {
-      newPath = '/pmo/prefactura/estimator';
-    } else if (newRole === 'SDMT' && !canAccessRoute(location.pathname, newRole)) {
-      newPath = '/sdmt/cost/catalog';
-    } else if (newRole === 'VENDOR' && !canAccessRoute(location.pathname, newRole)) {
-      // Vendors typically have limited access, redirect to a safe page
-      newPath = '/sdmt/cost/catalog';
-    } else if (newRole === 'EXEC_RO' && !canAccessRoute(location.pathname, newRole)) {
-      // Executives can see most things, but redirect to home if current route is not accessible
-      newPath = '/';
-    }
-    
-    console.log('Navigation - Calculated new path:', newPath);
-    
-    if (newPath && newPath !== location.pathname) {
-      console.log('Navigation - Navigating to:', newPath);
-      navigate(newPath);
-      toast.info(`Redirected to ${newRole} module`, {
-        description: 'You were redirected to a page accessible with your new role'
-      });
-    }
+  const handleSignOut = () => {
+    signOut();
+    navigate('/');
   };
 
   const moduleNavItems = {
@@ -148,7 +75,7 @@ export function Navigation({ currentModule }: NavigationProps) {
     // If current route is not accessible, show navigation for default module based on role
     else if (currentRole === 'PMO') {
       return moduleNavItems.PMO;
-    } else if (['SDMT', 'VENDOR'].includes(currentRole || 'PMO')) {
+    } else if (['SDMT', 'VENDOR'].includes(currentRole)) {
       return moduleNavItems.SDMT;
     }
     return [];
@@ -207,28 +134,33 @@ export function Navigation({ currentModule }: NavigationProps) {
           {/* User Menu */}
           <div className="flex items-center space-x-4">
             {/* Role Switcher */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Badge variant="secondary">{currentRole}</Badge>
-                  <ChevronDown size={14} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                {roleOptions.map((option) => (
-                  <DropdownMenuItem
-                    key={option.role}
-                    onClick={() => handleRoleChange(option.role)}
-                    className={currentRole === option.role ? 'bg-muted' : ''}
-                  >
-                    <div className="flex flex-col">
-                      <div className="font-medium">{option.label}</div>
-                      <div className="text-xs text-muted-foreground">{option.description}</div>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {availableRoles.length > 1 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Badge variant="secondary">{currentRole}</Badge>
+                    <ChevronDown size={14} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {availableRoles.map((role) => {
+                    const roleInfo = getRoleInfo(role);
+                    return (
+                      <DropdownMenuItem
+                        key={role}
+                        onClick={() => handleRoleChange(role)}
+                        className={currentRole === role ? 'bg-muted' : ''}
+                      >
+                        <div className="flex flex-col">
+                          <div className="font-medium">{roleInfo.label}</div>
+                          <div className="text-xs text-muted-foreground">{roleInfo.description}</div>
+                        </div>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             {/* User Avatar */}
             {user && (
@@ -250,6 +182,18 @@ export function Navigation({ currentModule }: NavigationProps) {
                       </p>
                     </div>
                   </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile" className="flex items-center">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile & Roles</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sign out</span>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

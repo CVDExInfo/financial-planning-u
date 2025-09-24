@@ -5,7 +5,8 @@ import { Toaster } from 'sonner';
 import Navigation from '@/components/Navigation';
 import ProjectContextBar from '@/components/ProjectContextBar';
 import AccessControl from '@/components/AccessControl';
-
+import { AuthProvider, useAuth } from '@/components/AuthProvider';
+import LoginPage from '@/components/LoginPage';
 
 // PMO Features
 import PMOEstimatorWizard from '@/features/pmo/prefactura/Estimator/PMOEstimatorWizard';
@@ -20,6 +21,7 @@ import SDMTChanges from '@/features/sdmt/cost/Changes/SDMTChanges';
 
 // Home page
 import HomePage from '@/features/HomePage';
+import UserProfile from '@/components/UserProfile';
 
 // Hook to determine current module
 function useCurrentModule() {
@@ -34,9 +36,27 @@ function useCurrentModule() {
 }
 
 function AppContent() {
+  const { isAuthenticated, isLoading } = useAuth();
   const currentModule = useCurrentModule();
   const location = useLocation();
   const showProjectContextBar = location.pathname.startsWith('/sdmt/');
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mx-auto mb-4">
+            <span className="text-primary-foreground font-bold text-sm">I</span>
+          </div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -48,6 +68,9 @@ function AppContent() {
           <Routes>
             {/* Home */}
             <Route path="/" element={<HomePage />} />
+            
+            {/* User Profile */}
+            <Route path="/profile" element={<UserProfile />} />
             
             {/* PMO Routes */}
             <Route path="/pmo/prefactura/estimator" element={<PMOEstimatorWizard />} />
@@ -74,7 +97,9 @@ function AppContent() {
 function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

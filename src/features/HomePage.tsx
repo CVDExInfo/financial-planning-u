@@ -3,14 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Calculator, BarChart3, Users, TrendingUp, Shield } from 'lucide-react';
-import { useKV } from '@github/spark/hooks';
-import { UserRole } from '@/types/domain';
+import { useAuth } from '@/components/AuthProvider';
+import { canAccessRoute } from '@/lib/auth';
+import Protected from '@/components/Protected';
 
 export function HomePage() {
-  const [currentRole] = useKV<UserRole>('user-role', 'PMO');
+  const { currentRole, canAccessRoute: userCanAccessRoute } = useAuth();
 
-  const canAccessPMO = ['PMO', 'EXEC_RO'].includes(currentRole || 'PMO');
-  const canAccessSDMT = ['SDMT', 'PMO', 'EXEC_RO'].includes(currentRole || 'PMO');
+  const canAccessPMO = userCanAccessRoute('/pmo/prefactura/estimator');
+  const canAccessSDMT = userCanAccessRoute('/sdmt/cost/catalog');
 
   // Debug logging
   console.log('HomePage - Current Role:', currentRole);
@@ -41,13 +42,19 @@ export function HomePage() {
             Comprehensive solution for project cost estimation, forecasting, and financial management
             across PMO and SDMT workflows
           </p>
-          {!canAccessPMO && !canAccessSDMT && (
-            <div className="mt-4 p-4 bg-muted rounded-lg max-w-md mx-auto">
-              <p className="text-sm text-muted-foreground">
-                Your current role ({currentRole}) has limited access. Use the role switcher in the top navigation to change permissions.
-              </p>
-            </div>
-          )}
+          <Protected 
+            roles={['PMO', 'SDMT']} 
+            hideWhenDenied={false}
+            fallback={
+              <div className="mt-4 p-4 bg-muted rounded-lg max-w-md mx-auto">
+                <p className="text-sm text-muted-foreground">
+                  Your current role ({currentRole}) has limited access. Use the role switcher in the top navigation to change permissions.
+                </p>
+              </div>
+            }
+          >
+            <div></div>
+          </Protected>
         </div>
 
         {/* Module Cards */}
@@ -96,19 +103,23 @@ export function HomePage() {
                 </div>
               </div>
               
-              {canAccessPMO ? (
+              <Protected 
+                roles={['PMO', 'EXEC_RO']}
+                hideWhenDenied={false}
+                fallback={
+                  <Button className="w-full gap-2" size="lg" disabled>
+                    PMO Access Required
+                    <Shield size={16} />
+                  </Button>
+                }
+              >
                 <Link to="/pmo/prefactura/estimator">
                   <Button className="w-full gap-2" size="lg">
                     Launch PMO Estimator
                     <ArrowRight size={16} />
                   </Button>
                 </Link>
-              ) : (
-                <Button className="w-full gap-2" size="lg" disabled>
-                  PMO Access Required
-                  <Shield size={16} />
-                </Button>
-              )}
+              </Protected>
             </CardContent>
           </Card>
 

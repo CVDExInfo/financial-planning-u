@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useLocation, Navigate } from 'react-router-dom';
-import { useKV } from '@github/spark/hooks';
 import { UserRole } from '@/types/domain';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ShieldAlert } from 'lucide-react';
+import { useAuth } from '@/components/AuthProvider';
+import { getDefaultRouteForRole } from '@/lib/auth';
 
 interface AccessControlProps {
   children: React.ReactNode;
@@ -18,12 +19,12 @@ export function AccessControl({
   fallbackPath = '/' 
 }: AccessControlProps) {
   const location = useLocation();
-  const [currentRole] = useKV<UserRole>('user-role', 'PMO');
+  const { currentRole, canAccessRoute } = useAuth();
   const [shouldRedirect, setShouldRedirect] = useState(false);
 
   useEffect(() => {
     // Check if current role has access
-    const hasAccess = checkAccess(location.pathname, currentRole || 'PMO');
+    const hasAccess = checkAccess(location.pathname, currentRole);
     if (!hasAccess) {
       // Add a small delay to prevent flash of error message
       const timer = setTimeout(() => setShouldRedirect(true), 100);
@@ -38,21 +39,16 @@ export function AccessControl({
       return requiredRoles.includes(role);
     }
 
-    // Default role-based access control
-    if (route.startsWith('/pmo/')) {
-      return ['PMO', 'EXEC_RO'].includes(role);
-    }
-    if (route.startsWith('/sdmt/')) {
-      return ['SDMT', 'PMO', 'EXEC_RO'].includes(role);
-    }
-    return true;
+    // Use the auth system's access control
+    return canAccessRoute(route);
   };
 
   if (shouldRedirect) {
-    return <Navigate to={fallbackPath} replace />;
+    const defaultRoute = getDefaultRouteForRole(currentRole);
+    return <Navigate to={defaultRoute} replace />;
   }
 
-  const hasAccess = checkAccess(location.pathname, currentRole || 'PMO');
+  const hasAccess = checkAccess(location.pathname, currentRole);
 
   if (!hasAccess) {
     return (

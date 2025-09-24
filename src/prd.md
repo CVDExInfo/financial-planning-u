@@ -30,6 +30,24 @@
 - **Scenarios**: Baseline cloning with delta modeling and waterfall visualization
 - **Changes**: Approval workflow for budget modifications
 
+### Authentication & Role Management
+- **What**: GitHub-based authentication with role-based access control and permission management
+- **Why**: Ensures data security, proper audit trails, and appropriate access levels for different user types
+- **Success Criteria**: Seamless single sign-on, role-based UI adaptation, granular permission control
+
+#### Role Definitions
+- **PMO**: Full access to estimator and SDMT modules, can create baselines and approve changes
+- **SDMT**: Full access to cost management suite, can manage forecasts and reconciliation
+- **VENDOR**: Limited access to catalog and reconciliation uploads only
+- **EXEC_RO**: Read-only access to all modules for executive reporting and oversight
+
+#### Permission Structure
+- **Create**: Add new records (line items, scenarios, change requests)
+- **Read**: View existing data and reports
+- **Update**: Modify existing records and forecasts
+- **Delete**: Remove records (with appropriate safeguards)
+- **Approve**: Authorize changes and budget modifications
+
 ### Project Context System
 - **What**: Persistent project selector with baseline reference and billing forecasts
 - **Why**: Maintains context across all SDMT workflows
