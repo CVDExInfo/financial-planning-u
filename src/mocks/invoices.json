@@ -3,60 +3,97 @@
     "id": "INV-001",
     "line_item_id": "LI-001",
     "month": 1,
+    "amount": 16800,
+    "currency": "USD",
     "file_url": "/uploads/invoice-001.pdf",
+    "file_name": "Developer_Invoice_Jan_2024.pdf",
     "status": "Matched",
-    "comments": ["Matched to senior developer hours", "Exchange rate applied correctly"]
+    "comments": ["Verified against timesheet", "Approved by manager"],
+    "uploaded_by": "vendor@contractor.com",
+    "uploaded_at": "2024-02-05T14:20:00Z",
+    "matched_at": "2024-02-06T09:15:00Z",
+    "matched_by": "sdmt-analyst@ikusi.com"
   },
   {
     "id": "INV-002",
     "line_item_id": "LI-001",
     "month": 2,
-    "file_url": "/uploads/invoice-002.pdf", 
-    "status": "Matched"
+    "amount": 17200,
+    "currency": "USD",
+    "file_url": "/uploads/invoice-002.pdf",
+    "file_name": "Developer_Invoice_Feb_2024.pdf",
+    "status": "Matched",
+    "comments": ["Included overtime hours"],
+    "uploaded_by": "vendor@contractor.com",
+    "uploaded_at": "2024-03-05T14:20:00Z",
+    "matched_at": "2024-03-06T10:30:00Z",
+    "matched_by": "sdmt-analyst@ikusi.com"
   },
   {
     "id": "INV-003",
     "line_item_id": "LI-002",
-    "month": 2,
+    "month": 1,
+    "amount": 17500,
+    "currency": "USD",
     "file_url": "/uploads/invoice-003.pdf",
-    "status": "Matched"
+    "file_name": "Frontend_Team_Invoice_Jan_2024.pdf",
+    "status": "Matched",
+    "uploaded_by": "vendor@frontend-team.com",
+    "uploaded_at": "2024-02-05T16:45:00Z",
+    "matched_at": "2024-02-07T11:00:00Z",
+    "matched_by": "sdmt-analyst@ikusi.com"
   },
   {
-    "id": "INV-004", 
+    "id": "INV-004",
     "line_item_id": "LI-003",
     "month": 1,
+    "amount": 3200,
+    "currency": "USD",
     "file_url": "/uploads/invoice-004.pdf",
-    "status": "Disputed",
-    "comments": ["Amount higher than planned", "Requires approval for overage"]
+    "file_name": "AWS_Invoice_Jan_2024.pdf",
+    "status": "Matched",
+    "uploaded_by": "aws-billing@amazon.com",
+    "uploaded_at": "2024-02-01T08:00:00Z",
+    "matched_at": "2024-02-01T09:30:00Z",
+    "matched_by": "sdmt-analyst@ikusi.com"
   },
   {
     "id": "INV-005",
     "line_item_id": "LI-003",
-    "month": 3,
+    "month": 2,
+    "amount": 3900,
+    "currency": "USD",
     "file_url": "/uploads/invoice-005.pdf",
+    "file_name": "AWS_Invoice_Feb_2024.pdf",
     "status": "Disputed",
-    "comments": ["Scope change not pre-approved", "Additional services included"]
+    "comments": ["Amount exceeds forecast by $150", "Investigating unusual data transfer charges"],
+    "uploaded_by": "aws-billing@amazon.com",
+    "uploaded_at": "2024-03-01T08:00:00Z"
   },
   {
     "id": "INV-006",
     "line_item_id": "LI-004",
     "month": 1,
+    "amount": 6000,
+    "currency": "USD",
     "file_url": "/uploads/invoice-006.pdf",
+    "file_name": "Office365_License_Invoice.pdf",
     "status": "Matched",
-    "comments": ["Hardware delivery confirmed", "Installation complete"]
+    "uploaded_by": "microsoft-billing@microsoft.com",
+    "uploaded_at": "2024-01-15T10:00:00Z",
+    "matched_at": "2024-01-16T14:20:00Z",
+    "matched_by": "sdmt-analyst@ikusi.com"
   },
   {
     "id": "INV-007",
-    "line_item_id": "LI-001",
-    "month": 3,
+    "line_item_id": "LI-005",
+    "month": 2,
+    "amount": 16666,
+    "currency": "USD",
     "file_url": "/uploads/invoice-007.pdf",
-    "status": "Pending"
-  },
-  {
-    "id": "INV-008",
-    "line_item_id": "LI-002",
-    "month": 3,
-    "file_url": "/uploads/invoice-008.pdf",
-    "status": "Pending"
+    "file_name": "Accenture_Consulting_Feb_2024.pdf",
+    "status": "Pending",
+    "uploaded_by": "billing@accenture.com",
+    "uploaded_at": "2024-03-01T16:00:00Z"
   }
 ]

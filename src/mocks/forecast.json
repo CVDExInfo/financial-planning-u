@@ -1,60 +1,139 @@
-{
-  "project_id": "PRJ-IKUSI-PLATFORM",
-  "periods": [
-    {
-      "line_item_id": "LI-001",
-      "forecasts": [
-        { "month": 1, "planned": 17000, "forecast": 17000, "actual": 16800, "variance": -200, "variance_reason": "FX" },
-        { "month": 2, "planned": 17000, "forecast": 17200, "actual": 17200, "variance": 200 },
-        { "month": 3, "planned": 17000, "forecast": 17000, "actual": 16900, "variance": -100 },
-        { "month": 4, "planned": 17000, "forecast": 17500, "actual": 0, "variance": -17000 },
-        { "month": 5, "planned": 17000, "forecast": 17500, "actual": 0, "variance": -17000 },
-        { "month": 6, "planned": 17000, "forecast": 17200, "actual": 0, "variance": -17000 }
-      ]
-    },
-    {
-      "line_item_id": "LI-002",
-      "forecasts": [
-        { "month": 1, "planned": 0, "forecast": 0, "actual": 0, "variance": 0 },
-        { "month": 2, "planned": 12600, "forecast": 12800, "actual": 12800, "variance": 200 },
-        { "month": 3, "planned": 12600, "forecast": 12600, "actual": 12400, "variance": -200, "variance_reason": "logística" },
-        { "month": 4, "planned": 12600, "forecast": 13000, "actual": 0, "variance": -12600 },
-        { "month": 5, "planned": 12600, "forecast": 13000, "actual": 0, "variance": -12600 },
-        { "month": 6, "planned": 12600, "forecast": 12800, "actual": 0, "variance": -12600 }
-      ]
-    },
-    {
-      "line_item_id": "LI-003",
-      "forecasts": [
-        { "month": 1, "planned": 2800, "forecast": 2800, "actual": 2850, "variance": 50 },
-        { "month": 2, "planned": 2800, "forecast": 2900, "actual": 2900, "variance": 100 },
-        { "month": 3, "planned": 2800, "forecast": 3100, "actual": 3200, "variance": 400, "variance_reason": "scope" },
-        { "month": 4, "planned": 2800, "forecast": 3100, "actual": 0, "variance": -2800 },
-        { "month": 5, "planned": 2800, "forecast": 3100, "actual": 0, "variance": -2800 },
-        { "month": 6, "planned": 2800, "forecast": 3000, "actual": 0, "variance": -2800 }
-      ]
-    },
-    {
-      "line_item_id": "LI-004",
-      "forecasts": [
-        { "month": 1, "planned": 60000, "forecast": 58000, "actual": 58000, "variance": -2000, "variance_reason": "vendor_delay" },
-        { "month": 2, "planned": 0, "forecast": 0, "actual": 0, "variance": 0 },
-        { "month": 3, "planned": 0, "forecast": 0, "actual": 0, "variance": 0 },
-        { "month": 4, "planned": 0, "forecast": 0, "actual": 0, "variance": 0 },
-        { "month": 5, "planned": 0, "forecast": 0, "actual": 0, "variance": 0 },
-        { "month": 6, "planned": 0, "forecast": 0, "actual": 0, "variance": 0 }
-      ]
-    },
-    {
-      "line_item_id": "LI-005",
-      "forecasts": [
-        { "month": 1, "planned": 0, "forecast": 0, "actual": 0, "variance": 0 },
-        { "month": 2, "planned": 0, "forecast": 0, "actual": 0, "variance": 0 },
-        { "month": 3, "planned": 0, "forecast": 0, "actual": 0, "variance": 0 },
-        { "month": 4, "planned": 0, "forecast": 0, "actual": 0, "variance": 0 },
-        { "month": 5, "planned": 0, "forecast": 0, "actual": 0, "variance": 0 },
-        { "month": 6, "planned": 25000, "forecast": 26000, "actual": 0, "variance": -25000 }
-      ]
-    }
-  ]
-}
+[
+  {
+    "line_item_id": "LI-001",
+    "month": 1,
+    "planned": 17000,
+    "forecast": 17000,
+    "actual": 16800,
+    "variance": -200,
+    "variance_reason": "scope",
+    "notes": "Slightly under due to delayed start",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  },
+  {
+    "line_item_id": "LI-001",
+    "month": 2,
+    "planned": 17000,
+    "forecast": 17200,
+    "actual": 17200,
+    "variance": 200,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  },
+  {
+    "line_item_id": "LI-001",
+    "month": 3,
+    "planned": 17000,
+    "forecast": 17000,
+    "actual": 0,
+    "variance": -17000,
+    "last_updated": "2024-04-01T09:00:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  },
+  {
+    "line_item_id": "LI-002",
+    "month": 1,
+    "planned": 18000,
+    "forecast": 18000,
+    "actual": 17500,
+    "variance": -500,
+    "variance_reason": "vendor_delay",
+    "notes": "One developer started mid-month",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  },
+  {
+    "line_item_id": "LI-002",
+    "month": 2,
+    "planned": 18000,
+    "forecast": 18000,
+    "actual": 18000,
+    "variance": 0,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  },
+  {
+    "line_item_id": "LI-002",
+    "month": 3,
+    "planned": 18000,
+    "forecast": 18000,
+    "actual": 0,
+    "variance": -18000,
+    "last_updated": "2024-04-01T09:00:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  },
+  {
+    "line_item_id": "LI-003",
+    "month": 1,
+    "planned": 3500,
+    "forecast": 3500,
+    "actual": 3200,
+    "variance": -300,
+    "variance_reason": "logística",
+    "notes": "Lower than expected usage in first month",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  },
+  {
+    "line_item_id": "LI-003",
+    "month": 2,
+    "planned": 3500,
+    "forecast": 3800,
+    "actual": 3750,
+    "variance": 250,
+    "notes": "Usage ramping up as expected",
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  },
+  {
+    "line_item_id": "LI-003",
+    "month": 3,
+    "planned": 3500,
+    "forecast": 3600,
+    "actual": 0,
+    "variance": -3500,
+    "last_updated": "2024-04-01T09:00:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  },
+  {
+    "line_item_id": "LI-004",
+    "month": 1,
+    "planned": 6000,
+    "forecast": 6000,
+    "actual": 6000,
+    "variance": 0,
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  },
+  {
+    "line_item_id": "LI-005",
+    "month": 2,
+    "planned": 16666,
+    "forecast": 16666,
+    "actual": 16666,
+    "variance": 0,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  },
+  {
+    "line_item_id": "LI-005",
+    "month": 3,
+    "planned": 16667,
+    "forecast": 16667,
+    "actual": 0,
+    "variance": -16667,
+    "last_updated": "2024-04-01T09:00:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  },
+  {
+    "line_item_id": "LI-005",
+    "month": 4,
+    "planned": 16667,
+    "forecast": 16667,
+    "actual": 0,
+    "variance": -16667,
+    "last_updated": "2024-05-01T09:00:00Z",
+    "updated_by": "sdmt-analyst@ikusi.com"
+  }
+]

@@ -1,58 +1,76 @@
-import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Toaster } from 'sonner';
+
+// Components
+import Navigation from '@/components/Navigation';
+import ProjectContextBar from '@/components/ProjectContextBar';
+
+// PMO Features
+import PMOEstimatorWizard from '@/features/pmo/prefactura/Estimator/PMOEstimatorWizard';
+
+// SDMT Features - We'll create these placeholders for now
+import SDMTCatalog from '@/features/sdmt/cost/Catalog/SDMTCatalog';
+import SDMTForecast from '@/features/sdmt/cost/Forecast/SDMTForecast';
+import SDMTReconciliation from '@/features/sdmt/cost/Reconciliation/SDMTReconciliation';
+import SDMTCashflow from '@/features/sdmt/cost/Cashflow/SDMTCashflow';
+import SDMTScenarios from '@/features/sdmt/cost/Scenarios/SDMTScenarios';
+import SDMTChanges from '@/features/sdmt/cost/Changes/SDMTChanges';
+
+// Home page
+import HomePage from '@/features/HomePage';
+
+// Hook to determine current module
+function useCurrentModule() {
+  const location = useLocation();
+  
+  if (location.pathname.startsWith('/pmo/')) {
+    return 'PMO';
+  } else if (location.pathname.startsWith('/sdmt/')) {
+    return 'SDMT';
+  }
+  return undefined;
+}
+
+function AppContent() {
+  const currentModule = useCurrentModule();
+  const location = useLocation();
+  const showProjectContextBar = location.pathname.startsWith('/sdmt/');
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navigation currentModule={currentModule} />
+      {showProjectContextBar && <ProjectContextBar />}
+      
+      <main>
+        <Routes>
+          {/* Home */}
+          <Route path="/" element={<HomePage />} />
+          
+          {/* PMO Routes */}
+          <Route path="/pmo/prefactura/estimator" element={<PMOEstimatorWizard />} />
+          
+          {/* SDMT Routes */}
+          <Route path="/sdmt/cost/catalog" element={<SDMTCatalog />} />
+          <Route path="/sdmt/cost/forecast" element={<SDMTForecast />} />
+          <Route path="/sdmt/cost/reconciliation" element={<SDMTReconciliation />} />
+          <Route path="/sdmt/cost/cashflow" element={<SDMTCashflow />} />
+          <Route path="/sdmt/cost/scenarios" element={<SDMTScenarios />} />
+          <Route path="/sdmt/cost/changes" element={<SDMTChanges />} />
+          
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
+      
+      <Toaster position="top-right" />
+    </div>
+  );
+}
 
 function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-background text-foreground">
-        <div className="p-8">
-          <h1 className="text-4xl font-bold mb-4">Financial Planning & Management</h1>
-          <p className="text-muted-foreground mb-8">Ikusi Digital Platform</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-6 bg-card rounded-lg border">
-              <h2 className="text-xl font-semibold mb-2">PMO Pre-Factura Estimator</h2>
-              <p className="text-muted-foreground mb-4">Create baseline budget estimates for project planning</p>
-              <a href="/pmo/prefactura/estimator" className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded">
-                Open Estimator
-              </a>
-            </div>
-            
-            <div className="p-6 bg-card rounded-lg border">
-              <h2 className="text-xl font-semibold mb-2">SDMT Cost Management</h2>
-              <p className="text-muted-foreground mb-4">Track costs, forecasts, and manage project finances</p>
-              <a href="/sdmt/cost/catalog" className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded">
-                Open Cost Manager
-              </a>
-            </div>
-          </div>
-        </div>
-        
-        <Routes>
-          <Route path="/" element={
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <h3 className="text-2xl font-bold mb-2">Welcome to Financial Planning</h3>
-                <p className="text-muted-foreground">Select a module above to get started</p>
-              </div>
-            </div>
-          } />
-          
-          <Route path="/pmo/prefactura/estimator" element={
-            <div className="p-8">
-              <h1 className="text-3xl font-bold mb-4">PMO Pre-Factura Estimator</h1>
-              <p className="text-muted-foreground">Estimator wizard will be implemented here</p>
-            </div>
-          } />
-          
-          <Route path="/sdmt/cost/catalog" element={
-            <div className="p-8">
-              <h1 className="text-3xl font-bold mb-4">SDMT Cost Catalog</h1>
-              <p className="text-muted-foreground">Cost catalog will be implemented here</p>
-            </div>
-          } />
-        </Routes>
-      </div>
+      <AppContent />
     </BrowserRouter>
   );
 }

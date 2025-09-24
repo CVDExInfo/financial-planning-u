@@ -1,23 +1,74 @@
-{
-  "project_id": "PRJ-IKUSI-PLATFORM",
-  "monthly_inflows": [
-    { "month": 1, "amount": 85000 },
-    { "month": 2, "amount": 75000 },
-    { "month": 3, "amount": 78000 },
-    { "month": 4, "amount": 72000 },
-    { "month": 5, "amount": 75000 },
-    { "month": 6, "amount": 95000 },
-    { "month": 7, "amount": 70000 },
-    { "month": 8, "amount": 70000 },
-    { "month": 9, "amount": 70000 },
-    { "month": 10, "amount": 70000 },
-    { "month": 11, "amount": 70000 },
-    { "month": 12, "amount": 85000 },
-    { "month": 13, "amount": 65000 },
-    { "month": 14, "amount": 65000 },
-    { "month": 15, "amount": 65000 },
-    { "month": 16, "amount": 65000 },
-    { "month": 17, "amount": 65000 },
-    { "month": 18, "amount": 90000 }
-  ]
-}
+[
+  {
+    "month": 1,
+    "amount": 45000,
+    "currency": "USD",
+    "status": "collected"
+  },
+  {
+    "month": 2,
+    "amount": 47500,
+    "currency": "USD",
+    "status": "collected"
+  },
+  {
+    "month": 3,
+    "amount": 42000,
+    "currency": "USD",
+    "status": "invoiced"
+  },
+  {
+    "month": 4,
+    "amount": 40000,
+    "currency": "USD",
+    "status": "planned"
+  },
+  {
+    "month": 5,
+    "amount": 38500,
+    "currency": "USD",
+    "status": "planned"
+  },
+  {
+    "month": 6,
+    "amount": 38500,
+    "currency": "USD",
+    "status": "planned"
+  },
+  {
+    "month": 7,
+    "amount": 38500,
+    "currency": "USD",
+    "status": "planned"
+  },
+  {
+    "month": 8,
+    "amount": 38500,
+    "currency": "USD",
+    "status": "planned"
+  },
+  {
+    "month": 9,
+    "amount": 38500,
+    "currency": "USD",
+    "status": "planned"
+  },
+  {
+    "month": 10,
+    "amount": 38500,
+    "currency": "USD",
+    "status": "planned"
+  },
+  {
+    "month": 11,
+    "amount": 38500,
+    "currency": "USD",
+    "status": "planned"
+  },
+  {
+    "month": 12,
+    "amount": 38500,
+    "currency": "USD",
+    "status": "planned"
+  }
+]
