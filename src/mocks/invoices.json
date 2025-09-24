@@ -1,0 +1,62 @@
+[
+  {
+    "id": "INV-001",
+    "line_item_id": "LI-001",
+    "month": 1,
+    "file_url": "/uploads/invoice-001.pdf",
+    "status": "Matched",
+    "comments": ["Matched to senior developer hours", "Exchange rate applied correctly"]
+  },
+  {
+    "id": "INV-002",
+    "line_item_id": "LI-001",
+    "month": 2,
+    "file_url": "/uploads/invoice-002.pdf", 
+    "status": "Matched"
+  },
+  {
+    "id": "INV-003",
+    "line_item_id": "LI-002",
+    "month": 2,
+    "file_url": "/uploads/invoice-003.pdf",
+    "status": "Matched"
+  },
+  {
+    "id": "INV-004", 
+    "line_item_id": "LI-003",
+    "month": 1,
+    "file_url": "/uploads/invoice-004.pdf",
+    "status": "Disputed",
+    "comments": ["Amount higher than planned", "Requires approval for overage"]
+  },
+  {
+    "id": "INV-005",
+    "line_item_id": "LI-003",
+    "month": 3,
+    "file_url": "/uploads/invoice-005.pdf",
+    "status": "Disputed",
+    "comments": ["Scope change not pre-approved", "Additional services included"]
+  },
+  {
+    "id": "INV-006",
+    "line_item_id": "LI-004",
+    "month": 1,
+    "file_url": "/uploads/invoice-006.pdf",
+    "status": "Matched",
+    "comments": ["Hardware delivery confirmed", "Installation complete"]
+  },
+  {
+    "id": "INV-007",
+    "line_item_id": "LI-001",
+    "month": 3,
+    "file_url": "/uploads/invoice-007.pdf",
+    "status": "Pending"
+  },
+  {
+    "id": "INV-008",
+    "line_item_id": "LI-002",
+    "month": 3,
+    "file_url": "/uploads/invoice-008.pdf",
+    "status": "Pending"
+  }
+]
