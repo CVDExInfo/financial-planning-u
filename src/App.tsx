@@ -1,121 +1,59 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'sonner';
-
-import { Navigation } from '@/components/Navigation';
-import { ProjectContextBar } from '@/components/ProjectContextBar';
-import { RoleProvider } from '@/components/RoleProvider';
-
-// PMO Routes
-import { EstimatorWizard } from '@/features/pmo/prefactura/EstimatorWizard';
-
-// SDMT Routes  
-import { CostCatalog } from '@/features/sdmt/cost/Catalog/CostCatalog';
-import { ForecastGrid } from '@/features/sdmt/cost/Forecast/ForecastGrid';
-import { Reconciliation } from '@/features/sdmt/cost/Recon/Reconciliation';
-import { CashFlowAnalysis } from '@/features/sdmt/cost/Cashflow/CashFlowAnalysis';
-import { ScenarioManager } from '@/features/sdmt/cost/Scenarios/ScenarioManager';
-import { ChangeManager } from '@/features/sdmt/cost/Changes/ChangeManager';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
 
 function App() {
-  const [currentModule, setCurrentModule] = useState<'PMO' | 'SDMT'>('PMO');
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <RoleProvider>
-        <BrowserRouter>
-          <div className="min-h-screen bg-background">
-            <Navigation 
-              currentModule={currentModule} 
-              onModuleChange={setCurrentModule} 
-            />
+    <BrowserRouter>
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="p-8">
+          <h1 className="text-4xl font-bold mb-4">Financial Planning & Management</h1>
+          <p className="text-muted-foreground mb-8">Ikusi Digital Platform</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 bg-card rounded-lg border">
+              <h2 className="text-xl font-semibold mb-2">PMO Pre-Factura Estimator</h2>
+              <p className="text-muted-foreground mb-4">Create baseline budget estimates for project planning</p>
+              <a href="/pmo/prefactura/estimator" className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded">
+                Open Estimator
+              </a>
+            </div>
             
-            <Routes>
-              {/* Root redirect */}
-              <Route path="/" element={<Navigate to="/pmo/prefactura/estimator" replace />} />
-              
-              {/* PMO Routes */}
-              <Route 
-                path="/pmo/prefactura/estimator" 
-                element={
-                  <div>
-                    <EstimatorWizard />
-                  </div>
-                } 
-              />
-              
-              {/* SDMT Routes - All include ProjectContextBar */}
-              <Route 
-                path="/sdmt/cost/catalog" 
-                element={
-                  <div>
-                    <ProjectContextBar />
-                    <CostCatalog />
-                  </div>
-                } 
-              />
-              <Route 
-                path="/sdmt/cost/forecast" 
-                element={
-                  <div>
-                    <ProjectContextBar />
-                    <ForecastGrid />
-                  </div>
-                } 
-              />
-              <Route 
-                path="/sdmt/cost/recon" 
-                element={
-                  <div>
-                    <ProjectContextBar />
-                    <Reconciliation />
-                  </div>
-                } 
-              />
-              <Route 
-                path="/sdmt/cost/cashflow" 
-                element={
-                  <div>
-                    <ProjectContextBar />
-                    <CashFlowAnalysis />
-                  </div>
-                } 
-              />
-              <Route 
-                path="/sdmt/cost/scenarios" 
-                element={
-                  <div>
-                    <ProjectContextBar />
-                    <ScenarioManager />
-                  </div>
-                } 
-              />
-              <Route 
-                path="/sdmt/cost/changes" 
-                element={
-                  <div>
-                    <ProjectContextBar />
-                    <ChangeManager />
-                  </div>
-                } 
-              />
-            </Routes>
-            
-            <Toaster position="top-right" />
+            <div className="p-6 bg-card rounded-lg border">
+              <h2 className="text-xl font-semibold mb-2">SDMT Cost Management</h2>
+              <p className="text-muted-foreground mb-4">Track costs, forecasts, and manage project finances</p>
+              <a href="/sdmt/cost/catalog" className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded">
+                Open Cost Manager
+              </a>
+            </div>
           </div>
-        </BrowserRouter>
-      </RoleProvider>
-    </QueryClientProvider>
+        </div>
+        
+        <Routes>
+          <Route path="/" element={
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <h3 className="text-2xl font-bold mb-2">Welcome to Financial Planning</h3>
+                <p className="text-muted-foreground">Select a module above to get started</p>
+              </div>
+            </div>
+          } />
+          
+          <Route path="/pmo/prefactura/estimator" element={
+            <div className="p-8">
+              <h1 className="text-3xl font-bold mb-4">PMO Pre-Factura Estimator</h1>
+              <p className="text-muted-foreground">Estimator wizard will be implemented here</p>
+            </div>
+          } />
+          
+          <Route path="/sdmt/cost/catalog" element={
+            <div className="p-8">
+              <h1 className="text-3xl font-bold mb-4">SDMT Cost Catalog</h1>
+              <p className="text-muted-foreground">Cost catalog will be implemented here</p>
+            </div>
+          } />
+        </Routes>
+      </div>
+    </BrowserRouter>
   );
 }
 

@@ -1,257 +1,151 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Copy, GitBranch, TrendUp, TrendDown } from '@phosphor-icons/react';
-import ApiService from '@/lib/api';
-import type { Scenario } from '@/types/domain';
+import { GitBranch, Copy, Plus } from '@phosphor-icons/react';
 
 export function ScenarioManager() {
-  const [selectedScenario, setSelectedScenario] = useState<string>('SCN-001');
-  
-  const { data: scenarios = [], isLoading } = useQuery({
-    queryKey: ['scenarios', 'PRJ-IKUSI-PLATFORM'],
-    queryFn: () => ApiService.getScenarios('PRJ-IKUSI-PLATFORM'),
-  });
-
-  const currentScenario = scenarios.find(s => s.id === selectedScenario);
-
-  if (isLoading) {
-    return (
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-muted rounded w-1/3 mb-6"></div>
-          <div className="grid grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-48 bg-muted rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const scenarios = [
+    {
+      id: 'base',
+      name: 'Baseline',
+      type: 'baseline',
+      total_cost: 1200000,
+      created_date: '2024-01-01',
+      status: 'active'
+    },
+    {
+      id: 'scenario_1',
+      name: 'Optimistic - 15% Rate Reduction',
+      type: 'scenario',
+      total_cost: 1020000,
+      created_date: '2024-01-15',
+      status: 'draft'
+    },
+    {
+      id: 'scenario_2', 
+      name: 'Conservative - FX Risk (20% COP devaluation)',
+      type: 'scenario',
+      total_cost: 1440000,
+      created_date: '2024-01-20',
+      status: 'review'
+    }
+  ];
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center space-x-2">
-            <span>Scenario Manager</span>
-            <Badge className="module-badge-sdmt">SDMT</Badge>
-          </h1>
-          <p className="text-muted-foreground">
-            Clone baselines and explore "what-if" scenarios with adjustable parameters
-          </p>
-        </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" className="flex items-center space-x-2">
-            <Copy size={16} />
-            <span>Clone Baseline</span>
-          </Button>
-          <Button className="flex items-center space-x-2 bg-sdmt hover:bg-sdmt/90">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <GitBranch size={32} className="text-sdmt" />
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Scenario Manager</h1>
+              <p className="text-muted-foreground mt-1">
+                Create and compare different cost scenarios and what-if analyses
+              </p>
+            </div>
+          </div>
+          
+          <Button className="flex items-center space-x-2">
             <Plus size={16} />
-            <span>New Scenario</span>
+            <span>Create Scenario</span>
           </Button>
         </div>
       </div>
 
-      {/* Scenario Selector */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <GitBranch size={20} />
-              <div>
-                <div className="font-medium">Current Scenario</div>
-                <div className="text-sm text-muted-foreground">
-                  Compare different planning assumptions
-                </div>
-              </div>
-            </div>
-            <Select value={selectedScenario} onValueChange={setSelectedScenario}>
-              <SelectTrigger className="w-64">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {scenarios.map((scenario) => (
-                  <SelectItem key={scenario.id} value={scenario.id}>
-                    {scenario.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Scenario Cards */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
+      {/* Scenarios Grid */}
+      <div className="grid gap-6">
         {scenarios.map((scenario) => (
-          <Card 
-            key={scenario.id} 
-            className={`cursor-pointer transition-all ${
-              selectedScenario === scenario.id ? 'ring-2 ring-primary' : ''
-            }`}
-            onClick={() => setSelectedScenario(scenario.id)}
-          >
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>{scenario.name}</span>
-                {scenario.id === 'SCN-001' && (
-                  <Badge variant="outline">Baseline</Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">
-                  {scenario.deltas.length} adjustments
-                </div>
-                {scenario.deltas.length > 0 && (
-                  <div className="space-y-1">
-                    {scenario.deltas.slice(0, 2).map((delta, index) => (
-                      <div key={index} className="text-xs bg-accent/50 rounded px-2 py-1">
-                        {delta.type === 'fx_adjustment' && `FX Rate ${((delta.factor - 1) * 100).toFixed(0)}%`}
-                        {delta.type === 'timeline_shift' && `Delayed ${delta.months}M`}
-                      </div>
-                    ))}
+          <Card key={scenario.id} className="glass-card hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <h3 className="text-xl font-semibold">{scenario.name}</h3>
+                    <Badge variant={scenario.type === 'baseline' ? 'default' : 'secondary'}>
+                      {scenario.type === 'baseline' ? 'Baseline' : 'Scenario'}
+                    </Badge>
+                    <Badge variant={
+                      scenario.status === 'active' ? 'default' :
+                      scenario.status === 'review' ? 'secondary' : 'outline'
+                    }>
+                      {scenario.status}
+                    </Badge>
                   </div>
-                )}
-                {scenario.deltas.length === 0 && (
-                  <div className="text-xs text-muted-foreground">Original baseline</div>
-                )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Total Project Cost</div>
+                      <div className="text-2xl font-bold text-foreground">
+                        ${scenario.total_cost.toLocaleString()}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="text-sm text-muted-foreground">Variance from Baseline</div>
+                      <div className={`text-2xl font-bold ${
+                        scenario.total_cost > 1200000 ? 'text-destructive' : 
+                        scenario.total_cost < 1200000 ? 'text-primary' : 'text-muted-foreground'
+                      }`}>
+                        {scenario.total_cost === 1200000 ? 'Baseline' : 
+                         `${scenario.total_cost > 1200000 ? '+' : ''}${((scenario.total_cost - 1200000) / 1200000 * 100).toFixed(1)}%`}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="text-sm text-muted-foreground">Created</div>
+                      <div className="text-lg font-semibold">{scenario.created_date}</div>
+                    </div>
+                  </div>
+
+                  {/* Scenario Details */}
+                  {scenario.id === 'scenario_1' && (
+                    <div className="mt-4 p-4 bg-muted/30 rounded-lg">
+                      <div className="text-sm font-medium mb-2">Adjustments:</div>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        <li>• Senior Developer rates: -15% ($7,225 → $6,141)</li>
+                        <li>• Junior Developer rates: -15% ($4,200 → $3,570)</li>
+                        <li>• Assumes improved market conditions</li>
+                      </ul>
+                    </div>
+                  )}
+
+                  {scenario.id === 'scenario_2' && (
+                    <div className="mt-4 p-4 bg-muted/30 rounded-lg">
+                      <div className="text-sm font-medium mb-2">Adjustments:</div>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        <li>• USD/COP rate: 4,200 → 5,040 (+20%)</li>
+                        <li>• COP-denominated costs increased accordingly</li>
+                        <li>• Hedging costs added (+2%)</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex space-x-2 ml-4">
+                  <Button size="sm" variant="outline" className="flex items-center space-x-2">
+                    <Copy size={14} />
+                    <span>Clone</span>
+                  </Button>
+                  <Button size="sm">View Details</Button>
+                </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Scenario Details */}
-      {currentScenario && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Scenario Details: {currentScenario.name}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {currentScenario.deltas.length > 0 ? (
-              <div className="space-y-4">
-                <h4 className="font-medium">Applied Adjustments</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  {currentScenario.deltas.map((delta, index) => (
-                    <div key={index} className="border border-border rounded-lg p-3">
-                      <div className="font-medium mb-1">
-                        {delta.type === 'fx_adjustment' && 'Foreign Exchange Adjustment'}
-                        {delta.type === 'timeline_shift' && 'Timeline Shift'}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {delta.type === 'fx_adjustment' && `Rate multiplier: ${delta.factor}x`}
-                        {delta.type === 'timeline_shift' && `Delay: ${delta.months} months`}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-6 text-muted-foreground">
-                <div className="text-lg mb-2">📋 Baseline Scenario</div>
-                <div className="text-sm">Original project baseline without modifications</div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Scenario Controls */}
-      <Card className="mb-6">
+      {/* Scenario Comparison */}
+      <Card className="glass-card mt-8">
         <CardHeader>
-          <CardTitle>Scenario Controls</CardTitle>
+          <CardTitle>Scenario Comparison</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-medium mb-3">Financial Adjustments</h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 border border-border rounded-lg">
-                  <div>
-                    <div className="font-medium">FTE Rates</div>
-                    <div className="text-sm text-muted-foreground">Adjust labor rates</div>
-                  </div>
-                  <Button size="sm" variant="outline">
-                    <TrendUp size={14} />
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between p-3 border border-border rounded-lg">
-                  <div>
-                    <div className="font-medium">FX Rate</div>
-                    <div className="text-sm text-muted-foreground">Currency adjustment</div>
-                  </div>
-                  <Button size="sm" variant="outline">
-                    <TrendUp size={14} />
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between p-3 border border-border rounded-lg">
-                  <div>
-                    <div className="font-medium">Indexation %</div>
-                    <div className="text-sm text-muted-foreground">Inflation rate</div>
-                  </div>
-                  <Button size="sm" variant="outline">
-                    <TrendUp size={14} />
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <div>
-              <h4 className="font-medium mb-3">Timeline & Scope</h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 border border-border rounded-lg">
-                  <div>
-                    <div className="font-medium">CAPEX Deferral</div>
-                    <div className="text-sm text-muted-foreground">Delay capital expenses</div>
-                  </div>
-                  <Button size="sm" variant="outline">
-                    <TrendDown size={14} />
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between p-3 border border-border rounded-lg">
-                  <div>
-                    <div className="font-medium">License Tiers</div>
-                    <div className="text-sm text-muted-foreground">Adjust software costs</div>
-                  </div>
-                  <Button size="sm" variant="outline">
-                    <TrendUp size={14} />
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between p-3 border border-border rounded-lg">
-                  <div>
-                    <div className="font-medium">Timeline Shift</div>
-                    <div className="text-sm text-muted-foreground">Project delay</div>
-                  </div>
-                  <Button size="sm" variant="outline">
-                    <TrendDown size={14} />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Delta Waterfall Placeholder */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Delta Waterfall</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64 flex items-center justify-center text-center">
-            <div>
-              <div className="text-lg mb-2">📊 Waterfall Chart</div>
-              <div className="text-sm text-muted-foreground">
-                Visual breakdown of cost changes from baseline to current scenario
-              </div>
-            </div>
+          <div className="bg-muted/30 rounded-lg p-8 text-center">
+            <GitBranch size={48} className="mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold mb-2">Detailed Comparison View</h3>
+            <p className="text-muted-foreground">
+              Side-by-side comparison of scenarios with waterfall variance analysis
+            </p>
           </div>
         </CardContent>
       </Card>
