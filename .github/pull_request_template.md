@@ -1,51 +1,57 @@
-## Self-QC Checklist
+## 🧪 Self-QC Checklist
 
-Please verify all items before requesting review:
+Please verify the following before submitting your PR:
 
-### 🖼️ Screenshots & Documentation
-- [ ] Screenshots/GIFs included (both light/dark modes) for key changes
-- [ ] Estimator wizard screenshots (if PMO changes)
-- [ ] SDMT tab screenshots with Project Context Bar visible (if SDMT changes)
-- [ ] Charts render correctly and include export functionality
-- [ ] Mobile responsiveness verified
+### 🎨 Visual & UX Requirements
+- [ ] Screenshots/GIFs attached showing changes in both light and dark themes
+- [ ] Estimator wizard or SDMT tabs visible with Project Context Bar (if applicable)  
+- [ ] No hard-coded hex colors in components - using CSS custom properties only
+- [ ] All interactive elements have proper focus states and accessibility
+- [ ] Mobile responsive design tested on smaller screens
 
-### ✅ Functionality
-- [ ] Charts render with real data and PNG/PDF export works
+### 📊 Data & Charts
+- [ ] Charts render with real mock data and respond to interactions
+- [ ] Chart export to PNG/PDF functionality working
+- [ ] Data grids handle empty states gracefully
+- [ ] Loading and error states implemented
+
+### 📤 Excel Export & Import Features  
 - [ ] Designed Excel exports open correctly with pivots/charts and protected formulas
 - [ ] Import functionality maps ≥95% of rows with validation report
-- [ ] Drill-down from charts to tables functions properly
-- [ ] All form validation works as expected
+- [ ] CSV/XLSX upload with MappingWizard tested end-to-end
 
-### 🎨 Design & Accessibility  
-- [ ] No hard-coded hex colors in components - uses design tokens only
-- [ ] WCAG 2.2 AA compliance (contrast ≥4.5:1, focus states, labels)
-- [ ] Enhanced focus rings visible and functional
-- [ ] Glass morphism effects applied to cards where appropriate
+### 🔄 Navigation & Drill-downs
+- [ ] Drill-down from charts to data tables works correctly with applied filters
+- [ ] Deep links preserve application state (project selection, date ranges, etc.)
+- [ ] Module navigation (PMO/SDMT) functions properly
 
-### 🏗️ Code Quality
-- [ ] TypeScript types added for all new data structures
-- [ ] No ITSM/SLAs/tickets functionality (out of scope)
-- [ ] Error boundaries handle failures gracefully
-- [ ] Loading states implemented for async operations
-- [ ] Console errors/warnings addressed
+### ✅ Technical Quality
+- [ ] TypeScript compilation passes with no errors
+- [ ] ESLint passes with no warnings  
+- [ ] All components properly typed with domain interfaces
+- [ ] Performance: interactions respond within 100ms
+- [ ] No console errors or warnings in browser
 
-### 🧪 Testing
-- [ ] Manual testing completed for modified features
-- [ ] Edge cases considered (empty states, failed imports, network errors)
-- [ ] Cross-browser compatibility verified (Chrome, Firefox, Safari)
+### 🚫 Scope Compliance  
+- [ ] No ITSM/SLAs/ServiceNow/tickets functionality included
+- [ ] Only budget/expense management and forecasting features
+- [ ] Stays within defined PMO Estimator + SDMT Cost Management scope
+
+### 📝 Documentation
+- [ ] Component documentation updated for complex logic
+- [ ] API client changes documented if applicable
+- [ ] README updated if new features affect setup/usage
+
+---
 
 ## Description
 
-Brief description of changes and their impact on user experience.
+Brief description of what this PR adds/changes/fixes.
 
-## Impact
+## Testing
 
-- [ ] Breaking change
-- [ ] New feature
-- [ ] Bug fix
-- [ ] Performance improvement
-- [ ] Accessibility improvement
+Describe how you tested these changes.
 
-## Testing Notes
+## Screenshots
 
-Describe your testing approach and any specific scenarios tested.
+Attach screenshots showing the changes in action.

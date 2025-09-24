@@ -4,7 +4,9 @@ A comprehensive enterprise financial planning and management platform built with
 
 ## 🚀 Live Demo
 
-Access the live application: [Coming Soon - Will be deployed automatically]
+🌐 **Live Application**: https://your-username.github.io/spark-template/
+
+*Automatically deployed from main branch via GitHub Actions*
 
 ## ✨ Features
 
