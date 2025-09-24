@@ -3,10 +3,80 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calculator, ArrowRight, Download, FileText } from '@phosphor-icons/react';
+import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
+import { LineItem } from '@/types/domain';
+import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
+import { toast } from 'sonner';
 
 export function EstimatorWizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 5;
+
+  // Mock line items for demonstration
+  const mockLineItems: LineItem[] = [
+    {
+      id: 'labor_1',
+      category: 'Labor',
+      subtype: 'Senior Developer',
+      description: 'Senior Software Developer - 12 months',
+      one_time: false,
+      recurring: true,
+      qty: 2,
+      unit_cost: 8500,
+      currency: 'USD',
+      start_month: 1,
+      end_month: 12,
+      amortization: 'none',
+      capex_flag: false,
+      indexation_policy: 'CPI'
+    },
+    {
+      id: 'labor_2',
+      category: 'Labor',
+      subtype: 'Junior Developer',
+      description: 'Junior Software Developer - 12 months',
+      one_time: false,
+      recurring: true,
+      qty: 3,
+      unit_cost: 4200,
+      currency: 'USD',
+      start_month: 1,
+      end_month: 12,
+      amortization: 'none',
+      capex_flag: false,
+      indexation_policy: 'CPI'
+    },
+    {
+      id: 'software_1',
+      category: 'Software',
+      description: 'AWS Infrastructure - Monthly',
+      one_time: false,
+      recurring: true,
+      qty: 1,
+      unit_cost: 2500,
+      currency: 'USD',
+      start_month: 1,
+      end_month: 12,
+      amortization: 'none',
+      capex_flag: false,
+      indexation_policy: 'none'
+    },
+    {
+      id: 'hardware_1',
+      category: 'Hardware',
+      description: 'Development Equipment',
+      one_time: true,
+      recurring: false,
+      qty: 5,
+      unit_cost: 3000,
+      currency: 'USD',
+      start_month: 1,
+      end_month: 1,
+      amortization: 'straight_line',
+      capex_flag: true,
+      indexation_policy: 'none'
+    }
+  ];
 
   const steps = [
     { id: 1, title: 'Deal Inputs', description: 'Project basics and currency settings' },
@@ -26,6 +96,52 @@ export function EstimatorWizard() {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  const handleExcelExport = async () => {
+    try {
+      const baseline = {
+        baseline_id: `baseline_${Date.now()}`,
+        project_id: 'demo_project',
+        created_by: 'PMO User',
+        accepted_by: 'Project Manager',
+        accepted_ts: new Date().toISOString(),
+        signature_hash: 'demo_hash_123',
+        line_items: mockLineItems,
+        monthly_totals: generateMonthlyTotals(mockLineItems),
+        assumptions: [
+          'Exchange rate USD/COP: 4,200 (fixed for 12 months)',
+          'Labor rates include 30% on-costs (benefits, taxes, etc)',
+          'CPI indexation applied annually at 3.5%',
+          'Hardware amortized over 36 months'
+        ]
+      };
+
+      const buffer = await excelExporter.exportBaselineBudget(baseline);
+      downloadExcelFile(buffer, `Baseline_Budget_${new Date().toISOString().split('T')[0]}.xlsx`);
+      
+      toast.success('Baseline budget exported successfully');
+    } catch (error) {
+      toast.error('Failed to export baseline budget');
+    }
+  };
+
+  const generateMonthlyTotals = (items: LineItem[]) => {
+    const monthlyTotals: Array<{ month: number; amount_planned: number }> = [];
+    for (let month = 1; month <= 12; month++) {
+      const total = items.reduce((sum, item) => {
+        if (month >= item.start_month && month <= item.end_month) {
+          return sum + (item.qty * item.unit_cost);
+        }
+        return sum;
+      }, 0);
+      
+      monthlyTotals.push({
+        month,
+        amount_planned: total
+      });
+    }
+    return monthlyTotals;
   };
 
   return (
@@ -106,7 +222,7 @@ export function EstimatorWizard() {
                 <Download size={16} />
                 <span>Export PDF</span>
               </Button>
-              <Button variant="outline" className="flex items-center space-x-2">
+              <Button variant="outline" className="flex items-center space-x-2" onClick={handleExcelExport}>
                 <FileText size={16} />
                 <span>Export Excel</span>
               </Button>
@@ -123,6 +239,14 @@ export function EstimatorWizard() {
           )}
         </div>
       </div>
+
+      {/* Charts and Insights Panel - Show on all steps for immediate feedback */}
+      <ChartInsightsPanel
+        lineItems={mockLineItems}
+        monthlyTotals={generateMonthlyTotals(mockLineItems)}
+        mode="estimator"
+        className="mt-6"
+      />
     </div>
   );
 }

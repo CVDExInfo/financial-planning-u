@@ -3,21 +3,53 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Upload, Download, File, CheckCircle, XCircle, Clock } from '@phosphor-icons/react';
 import ApiService from '@/lib/api';
-import type { InvoiceDoc } from '@/types/domain';
+import type { InvoiceDoc, ForecastCell } from '@/types/domain';
+import { ImportWizard } from '@/components/ImportWizard';
+import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
+import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
+import { toast } from 'sonner';
 
 export function Reconciliation() {
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'Pending' | 'Matched' | 'Disputed'>('all');
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ['invoices', 'PRJ-IKUSI-PLATFORM'],
     queryFn: () => ApiService.getInvoices('PRJ-IKUSI-PLATFORM'),
   });
 
+  const { data: forecastData = [] } = useQuery({
+    queryKey: ['forecast', 'PRJ-IKUSI-PLATFORM'],
+    queryFn: () => ApiService.getForecast('PRJ-IKUSI-PLATFORM'),
+  });
+
+  const { data: lineItems = [] } = useQuery({
+    queryKey: ['lineItems', 'PRJ-IKUSI-PLATFORM'],
+    queryFn: () => ApiService.getLineItems('PRJ-IKUSI-PLATFORM'),
+  });
+
   const filteredInvoices = selectedStatus === 'all' 
     ? invoices 
     : invoices.filter(inv => inv.status === selectedStatus);
+
+  const handleImportComplete = (data: any[], report: any) => {
+    toast.success(`Successfully imported ${data.length} invoice records`);
+    setIsImportDialogOpen(false);
+    // In a real app, you'd refresh the data or update the state
+  };
+
+  const handleExportVarianceReport = async () => {
+    try {
+      const buffer = await excelExporter.exportVarianceReport(forecastData, lineItems);
+      downloadExcelFile(buffer, `Variance_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success('Variance report exported successfully');
+    } catch (error) {
+      toast.error('Failed to export variance report');
+    }
+  };
 
   const getStatusIcon = (status: InvoiceDoc['status']) => {
     switch (status) {
@@ -64,11 +96,27 @@ export function Reconciliation() {
           </p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" className="flex items-center space-x-2">
-            <Upload size={16} />
-            <span>Upload Invoice</span>
-          </Button>
-          <Button variant="outline" className="flex items-center space-x-2">
+          <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex items-center space-x-2">
+                <Upload size={16} />
+                <span>Upload Invoice</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Import Invoice Data</DialogTitle>
+                <DialogDescription>
+                  Upload CSV or Excel files with invoice data for reconciliation
+                </DialogDescription>
+              </DialogHeader>
+              <ImportWizard
+                onImportComplete={handleImportComplete}
+                targetSchema="invoices"
+              />
+            </DialogContent>
+          </Dialog>
+          <Button variant="outline" className="flex items-center space-x-2" onClick={handleExportVarianceReport}>
             <Download size={16} />
             <span>Variance Report</span>
           </Button>
@@ -222,6 +270,14 @@ export function Reconciliation() {
           </CardContent>
         </Card>
       )}
+
+      {/* Reconciliation Analytics and Insights */}
+      <ChartInsightsPanel
+        lineItems={lineItems}
+        forecastData={forecastData}
+        mode="reconciliation"
+        className="mt-6"
+      />
     </div>
   );
 }

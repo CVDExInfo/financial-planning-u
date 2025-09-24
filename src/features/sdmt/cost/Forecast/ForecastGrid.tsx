@@ -3,16 +3,27 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Upload, Download, Table } from '@phosphor-icons/react';
 import ApiService from '@/lib/api';
-import type { ForecastCell } from '@/types/domain';
+import type { ForecastCell, LineItem } from '@/types/domain';
+import { ImportWizard } from '@/components/ImportWizard';
+import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
+import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
+import { toast } from 'sonner';
 
 export function ForecastGrid() {
   const [selectedPeriod, setSelectedPeriod] = useState(12);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
   const { data: forecastData = [], isLoading } = useQuery({
     queryKey: ['forecast', 'PRJ-IKUSI-PLATFORM'],
     queryFn: () => ApiService.getForecast('PRJ-IKUSI-PLATFORM'),
+  });
+
+  const { data: lineItems = [] } = useQuery({
+    queryKey: ['lineItems', 'PRJ-IKUSI-PLATFORM'],
+    queryFn: () => ApiService.getLineItems('PRJ-IKUSI-PLATFORM'),
   });
 
   const formatCurrency = (amount: number) => {
@@ -37,6 +48,22 @@ export function ForecastGrid() {
     acc[cell.line_item_id].push(cell);
     return acc;
   }, {} as Record<string, ForecastCell[]>);
+
+  const handleImportComplete = (data: any[], report: any) => {
+    toast.success(`Successfully imported ${data.length} forecast records`);
+    setIsImportDialogOpen(false);
+    // In a real app, you'd refresh the data or update the state
+  };
+
+  const handleExcelExport = async () => {
+    try {
+      const buffer = await excelExporter.exportForecastGrid(forecastData, lineItems);
+      downloadExcelFile(buffer, `Forecast_Grid_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success('Forecast grid exported successfully');
+    } catch (error) {
+      toast.error('Failed to export forecast grid');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -63,11 +90,27 @@ export function ForecastGrid() {
           </p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" className="flex items-center space-x-2">
-            <Upload size={16} />
-            <span>Import CSV/Excel</span>
-          </Button>
-          <Button variant="outline" className="flex items-center space-x-2">
+          <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex items-center space-x-2">
+                <Upload size={16} />
+                <span>Import CSV/Excel</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Import Forecast Data</DialogTitle>
+                <DialogDescription>
+                  Upload CSV or Excel files with forecast data using our advanced import wizard
+                </DialogDescription>
+              </DialogHeader>
+              <ImportWizard
+                onImportComplete={handleImportComplete}
+                targetSchema="forecast"
+              />
+            </DialogContent>
+          </Dialog>
+          <Button variant="outline" className="flex items-center space-x-2" onClick={handleExcelExport}>
             <Download size={16} />
             <span>Export Excel</span>
           </Button>
@@ -216,20 +259,13 @@ export function ForecastGrid() {
         </Card>
       </div>
 
-      {/* Insights Section */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Insights</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <div className="text-lg mb-2">📊 Chart visualizations would appear here</div>
-            <div className="text-sm">
-              Line chart showing planned vs forecast vs actual trends, and variance waterfall
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Enhanced Insights Section with Interactive Charts */}
+      <ChartInsightsPanel
+        lineItems={lineItems}
+        forecastData={forecastData}
+        mode="forecast"
+        className="mt-6"
+      />
     </div>
   );
 }

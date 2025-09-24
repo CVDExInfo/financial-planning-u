@@ -4,11 +4,23 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TrendUp, TrendDown, Download, ChartLine } from '@phosphor-icons/react';
 import ApiService from '@/lib/api';
+import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
+import { toast } from 'sonner';
 
 export function CashFlowAnalysis() {
   const { data: cashFlowData, isLoading } = useQuery({
     queryKey: ['cashflow', 'PRJ-IKUSI-PLATFORM'],
     queryFn: () => ApiService.getCashFlow('PRJ-IKUSI-PLATFORM'),
+  });
+
+  const { data: forecastData = [] } = useQuery({
+    queryKey: ['forecast', 'PRJ-IKUSI-PLATFORM'],
+    queryFn: () => ApiService.getForecast('PRJ-IKUSI-PLATFORM'),
+  });
+
+  const { data: billingPlan = [] } = useQuery({
+    queryKey: ['billingPlan', 'PRJ-IKUSI-PLATFORM'],
+    queryFn: () => ApiService.getBillingPlan('PRJ-IKUSI-PLATFORM'),
   });
 
   const formatCurrency = (amount: number) => {
@@ -21,6 +33,11 @@ export function CashFlowAnalysis() {
 
   const formatPercentage = (pct: number) => {
     return `${pct.toFixed(1)}%`;
+  };
+
+  const handleDrillToForecast = () => {
+    // In a real app, this would navigate to forecast with filters applied
+    toast.success('Navigating to forecast view with cash flow filters...');
   };
 
   if (isLoading) {
@@ -62,7 +79,7 @@ export function CashFlowAnalysis() {
             <Download size={16} />
             <span>Export Report</span>
           </Button>
-          <Button variant="outline" className="flex items-center space-x-2">
+          <Button variant="outline" className="flex items-center space-x-2" onClick={handleDrillToForecast}>
             <ChartLine size={16} />
             <span>Drill to Forecast</span>
           </Button>
@@ -111,39 +128,13 @@ export function CashFlowAnalysis() {
         </Card>
       </div>
 
-      {/* Charts Placeholder */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Cash Flow Over Time</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center text-center">
-              <div>
-                <div className="text-lg mb-2">📊 Area Chart</div>
-                <div className="text-sm text-muted-foreground">
-                  Overlay chart showing inflows vs outflows by month
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Margin Trend</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center text-center">
-              <div>
-                <div className="text-lg mb-2">📈 Line Chart</div>
-                <div className="text-sm text-muted-foreground">
-                  Margin percentage trend over time
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Enhanced Interactive Charts and Analytics */}
+      <ChartInsightsPanel
+        forecastData={forecastData}
+        billingPlan={Array.isArray(billingPlan) ? billingPlan : []}
+        mode="cashflow"
+        className="mb-6"
+      />
 
       {/* Monthly Breakdown */}
       <Card className="mb-6">
@@ -190,23 +181,6 @@ export function CashFlowAnalysis() {
                 })}
               </tbody>
             </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Category Breakdown */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Cost Category Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64 flex items-center justify-center text-center">
-            <div>
-              <div className="text-lg mb-2">🍩 Donut Chart</div>
-              <div className="text-sm text-muted-foreground">
-                Outflow breakdown by cost category (Labor, Software, Hardware, Services)
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>
