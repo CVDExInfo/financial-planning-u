@@ -4,6 +4,8 @@ import { Toaster } from 'sonner';
 // Components
 import Navigation from '@/components/Navigation';
 import ProjectContextBar from '@/components/ProjectContextBar';
+import AccessControl from '@/components/AccessControl';
+import RoleDebugPanel from '@/components/RoleDebugPanel';
 
 // PMO Features
 import PMOEstimatorWizard from '@/features/pmo/prefactura/Estimator/PMOEstimatorWizard';
@@ -42,27 +44,30 @@ function AppContent() {
       {showProjectContextBar && <ProjectContextBar />}
       
       <main>
-        <Routes>
-          {/* Home */}
-          <Route path="/" element={<HomePage />} />
-          
-          {/* PMO Routes */}
-          <Route path="/pmo/prefactura/estimator" element={<PMOEstimatorWizard />} />
-          
-          {/* SDMT Routes */}
-          <Route path="/sdmt/cost/catalog" element={<SDMTCatalog />} />
-          <Route path="/sdmt/cost/forecast" element={<SDMTForecast />} />
-          <Route path="/sdmt/cost/reconciliation" element={<SDMTReconciliation />} />
-          <Route path="/sdmt/cost/cashflow" element={<SDMTCashflow />} />
-          <Route path="/sdmt/cost/scenarios" element={<SDMTScenarios />} />
-          <Route path="/sdmt/cost/changes" element={<SDMTChanges />} />
-          
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <AccessControl>
+          <Routes>
+            {/* Home */}
+            <Route path="/" element={<HomePage />} />
+            
+            {/* PMO Routes */}
+            <Route path="/pmo/prefactura/estimator" element={<PMOEstimatorWizard />} />
+            
+            {/* SDMT Routes */}
+            <Route path="/sdmt/cost/catalog" element={<SDMTCatalog />} />
+            <Route path="/sdmt/cost/forecast" element={<SDMTForecast />} />
+            <Route path="/sdmt/cost/reconciliation" element={<SDMTReconciliation />} />
+            <Route path="/sdmt/cost/cashflow" element={<SDMTCashflow />} />
+            <Route path="/sdmt/cost/scenarios" element={<SDMTScenarios />} />
+            <Route path="/sdmt/cost/changes" element={<SDMTChanges />} />
+            
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AccessControl>
       </main>
       
       <Toaster position="top-right" />
+      <RoleDebugPanel />
     </div>
   );
 }

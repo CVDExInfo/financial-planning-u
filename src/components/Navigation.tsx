@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ModuleType, UserRole } from '@/types/domain';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChevronDown, Calculator, BarChart3, Settings } from 'lucide-react';
 import { useKV } from '@github/spark/hooks';
+import { toast } from 'sonner';
 
 interface NavigationProps {
   currentModule?: ModuleType;
@@ -19,6 +20,7 @@ interface NavigationProps {
 
 export function Navigation({ currentModule }: NavigationProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [currentRole, setCurrentRole] = useKV<UserRole>('user-role', 'PMO');
   const [user, setUser] = useState<any>(null);
 
@@ -45,6 +47,20 @@ export function Navigation({ currentModule }: NavigationProps) {
     }
   }, []);
 
+  // Check if current route is accessible when role or location changes
+  useEffect(() => {
+    if (!canAccessRoute(location.pathname)) {
+      // Redirect to appropriate module based on role
+      if (currentRole === 'PMO') {
+        navigate('/pmo/prefactura/estimator');
+      } else if (currentRole === 'SDMT') {
+        navigate('/sdmt/cost/catalog');
+      } else {
+        navigate('/');
+      }
+    }
+  }, [currentRole, location.pathname, navigate]);
+
   const roleOptions: { role: UserRole; label: string; description: string }[] = [
     { role: 'PMO', label: 'PMO', description: 'Project Management Office' },
     { role: 'SDMT', label: 'SDMT', description: 'Service Delivery Management Team' },
@@ -56,15 +72,56 @@ export function Navigation({ currentModule }: NavigationProps) {
     return module === 'PMO' ? 'module-badge-pmo' : 'module-badge-sdmt';
   };
 
-  const canAccessRoute = (route: string): boolean => {
+  const canAccessRoute = (route: string, role?: UserRole): boolean => {
+    const roleToCheck = role || currentRole || 'PMO';
     // Simple role-based access control
     if (route.startsWith('/pmo/')) {
-      return ['PMO', 'EXEC_RO'].includes(currentRole || 'PMO');
+      return ['PMO', 'EXEC_RO'].includes(roleToCheck);
     }
     if (route.startsWith('/sdmt/')) {
-      return ['SDMT', 'PMO', 'EXEC_RO'].includes(currentRole || 'PMO');
+      return ['SDMT', 'PMO', 'EXEC_RO'].includes(roleToCheck);
     }
     return true;
+  };
+
+  const handleRoleChange = (newRole: UserRole) => {
+    const oldRole = currentRole;
+    console.log('Navigation - Role change requested:', { from: oldRole, to: newRole, currentPath: location.pathname });
+    
+    setCurrentRole(newRole);
+    
+    // Show feedback about role change
+    toast.success(`Role changed to ${newRole}`, {
+      description: `You now have ${newRole} permissions`
+    });
+    
+    // Navigate to appropriate module's home page based on role
+    let newPath: string | null = null;
+    
+    console.log('Navigation - Checking access for current path:', location.pathname, 'with new role:', newRole);
+    console.log('Navigation - canAccessRoute result:', canAccessRoute(location.pathname, newRole));
+    
+    if (newRole === 'PMO' && !canAccessRoute(location.pathname, newRole)) {
+      newPath = '/pmo/prefactura/estimator';
+    } else if (newRole === 'SDMT' && !canAccessRoute(location.pathname, newRole)) {
+      newPath = '/sdmt/cost/catalog';
+    } else if (newRole === 'VENDOR' && !canAccessRoute(location.pathname, newRole)) {
+      // Vendors typically have limited access, redirect to a safe page
+      newPath = '/sdmt/cost/catalog';
+    } else if (newRole === 'EXEC_RO' && !canAccessRoute(location.pathname, newRole)) {
+      // Executives can see most things, but redirect to home if current route is not accessible
+      newPath = '/';
+    }
+    
+    console.log('Navigation - Calculated new path:', newPath);
+    
+    if (newPath && newPath !== location.pathname) {
+      console.log('Navigation - Navigating to:', newPath);
+      navigate(newPath);
+      toast.info(`Redirected to ${newRole} module`, {
+        description: 'You were redirected to a page accessible with your new role'
+      });
+    }
   };
 
   const moduleNavItems = {
@@ -79,6 +136,22 @@ export function Navigation({ currentModule }: NavigationProps) {
       { path: '/sdmt/cost/scenarios', label: 'Scenarios', icon: Settings },
       { path: '/sdmt/cost/changes', label: 'Changes', icon: Settings },
     ]
+  };
+
+  const getVisibleModuleNavItems = () => {
+    // Show navigation based on current route and role access
+    if (location.pathname.startsWith('/pmo/') && canAccessRoute(location.pathname)) {
+      return moduleNavItems.PMO;
+    } else if (location.pathname.startsWith('/sdmt/') && canAccessRoute(location.pathname)) {
+      return moduleNavItems.SDMT;
+    }
+    // If current route is not accessible, show navigation for default module based on role
+    else if (currentRole === 'PMO') {
+      return moduleNavItems.PMO;
+    } else if (['SDMT', 'VENDOR'].includes(currentRole || 'PMO')) {
+      return moduleNavItems.SDMT;
+    }
+    return [];
   };
 
   return (
@@ -106,32 +179,30 @@ export function Navigation({ currentModule }: NavigationProps) {
           </div>
 
           {/* Module Navigation */}
-          {currentModule && (
-            <div className="hidden md:flex items-center space-x-1">
-              {moduleNavItems[currentModule]
-                ?.filter(item => canAccessRoute(item.path))
-                .map((item) => {
-                  const Icon = item.icon;
-                  const isActive = location.pathname === item.path;
-                  return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      className={`
-                        flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors
-                        ${isActive 
-                          ? 'bg-primary text-primary-foreground' 
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                        }
-                      `}
-                    >
-                      <Icon size={16} />
-                      <span>{item.label}</span>
-                    </Link>
-                  );
-                })}
-            </div>
-          )}
+          <div className="hidden md:flex items-center space-x-1">
+            {getVisibleModuleNavItems()
+              ?.filter(item => canAccessRoute(item.path))
+              .map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`
+                      flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors
+                      ${isActive 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      }
+                    `}
+                  >
+                    <Icon size={16} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+          </div>
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
@@ -147,7 +218,7 @@ export function Navigation({ currentModule }: NavigationProps) {
                 {roleOptions.map((option) => (
                   <DropdownMenuItem
                     key={option.role}
-                    onClick={() => setCurrentRole(option.role)}
+                    onClick={() => handleRoleChange(option.role)}
                     className={currentRole === option.role ? 'bg-muted' : ''}
                   >
                     <div className="flex flex-col">

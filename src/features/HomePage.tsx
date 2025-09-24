@@ -2,17 +2,33 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, Calculator, BarChart3, Users, TrendingUp } from 'lucide-react';
+import { ArrowRight, Calculator, BarChart3, Users, TrendingUp, Shield } from 'lucide-react';
+import { useKV } from '@github/spark/hooks';
+import { UserRole } from '@/types/domain';
 
 export function HomePage() {
+  const [currentRole] = useKV<UserRole>('user-role', 'PMO');
+
+  const canAccessPMO = ['PMO', 'EXEC_RO'].includes(currentRole || 'PMO');
+  const canAccessSDMT = ['SDMT', 'PMO', 'EXEC_RO'].includes(currentRole || 'PMO');
+
+  // Debug logging
+  console.log('HomePage - Current Role:', currentRole);
+  console.log('HomePage - Can Access PMO:', canAccessPMO);
+  console.log('HomePage - Can Access SDMT:', canAccessSDMT);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Hero Section */}
         <div className="text-center mb-16">
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center items-center gap-4 mb-6">
             <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-2xl">I</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Shield size={16} className="text-muted-foreground" />
+              <Badge variant="outline">{currentRole} User</Badge>
             </div>
           </div>
           <h1 className="text-5xl font-bold mb-4">
@@ -25,18 +41,28 @@ export function HomePage() {
             Comprehensive solution for project cost estimation, forecasting, and financial management
             across PMO and SDMT workflows
           </p>
+          {!canAccessPMO && !canAccessSDMT && (
+            <div className="mt-4 p-4 bg-muted rounded-lg max-w-md mx-auto">
+              <p className="text-sm text-muted-foreground">
+                Your current role ({currentRole}) has limited access. Use the role switcher in the top navigation to change permissions.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Module Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
           {/* PMO Module */}
-          <Card className="glass-card hover:shadow-lg transition-all duration-300 border-primary/20">
+          <Card className={`glass-card hover:shadow-lg transition-all duration-300 border-primary/20 ${!canAccessPMO ? 'opacity-60' : ''}`}>
             <CardHeader className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
                   <Calculator className="text-primary" size={24} />
                 </div>
-                <Badge className="module-badge-pmo">PMO Module</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge className="module-badge-pmo">PMO Module</Badge>
+                  {!canAccessPMO && <Badge variant="outline" className="text-xs">Restricted</Badge>}
+                </div>
               </div>
               <div>
                 <CardTitle className="text-2xl mb-2">Pre-Factura Estimator</CardTitle>
@@ -70,23 +96,33 @@ export function HomePage() {
                 </div>
               </div>
               
-              <Link to="/pmo/prefactura/estimator">
-                <Button className="w-full gap-2" size="lg">
-                  Launch PMO Estimator
-                  <ArrowRight size={16} />
+              {canAccessPMO ? (
+                <Link to="/pmo/prefactura/estimator">
+                  <Button className="w-full gap-2" size="lg">
+                    Launch PMO Estimator
+                    <ArrowRight size={16} />
+                  </Button>
+                </Link>
+              ) : (
+                <Button className="w-full gap-2" size="lg" disabled>
+                  PMO Access Required
+                  <Shield size={16} />
                 </Button>
-              </Link>
+              )}
             </CardContent>
           </Card>
 
           {/* SDMT Module */}
-          <Card className="glass-card hover:shadow-lg transition-all duration-300 border-[oklch(0.58_0.15_180)]/20">
+          <Card className={`glass-card hover:shadow-lg transition-all duration-300 border-[oklch(0.58_0.15_180)]/20 ${!canAccessSDMT ? 'opacity-60' : ''}`}>
             <CardHeader className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="w-12 h-12 bg-[oklch(0.58_0.15_180)]/10 rounded-lg flex items-center justify-center">
                   <BarChart3 className="text-[oklch(0.58_0.15_180)]" size={24} />
                 </div>
-                <Badge className="module-badge-sdmt">SDMT Module</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge className="module-badge-sdmt">SDMT Module</Badge>
+                  {!canAccessSDMT && <Badge variant="outline" className="text-xs">Restricted</Badge>}
+                </div>
               </div>
               <div>
                 <CardTitle className="text-2xl mb-2">Cost Management Suite</CardTitle>
@@ -124,16 +160,28 @@ export function HomePage() {
                 </div>
               </div>
               
-              <Link to="/sdmt/cost/catalog">
+              {canAccessSDMT ? (
+                <Link to="/sdmt/cost/catalog">
+                  <Button 
+                    variant="outline" 
+                    className="w-full gap-2 border-[oklch(0.58_0.15_180)]/50 hover:bg-[oklch(0.58_0.15_180)]/5" 
+                    size="lg"
+                  >
+                    Enter SDMT Suite
+                    <ArrowRight size={16} />
+                  </Button>
+                </Link>
+              ) : (
                 <Button 
                   variant="outline" 
-                  className="w-full gap-2 border-[oklch(0.58_0.15_180)]/50 hover:bg-[oklch(0.58_0.15_180)]/5" 
-                  size="lg"
+                  className="w-full gap-2" 
+                  size="lg" 
+                  disabled
                 >
-                  Enter SDMT Suite
-                  <ArrowRight size={16} />
+                  SDMT Access Required
+                  <Shield size={16} />
                 </Button>
-              </Link>
+              )}
             </CardContent>
           </Card>
         </div>
