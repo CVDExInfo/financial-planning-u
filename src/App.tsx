@@ -5,7 +5,7 @@ import { Toaster } from 'sonner';
 import Navigation from '@/components/Navigation';
 import ProjectContextBar from '@/components/ProjectContextBar';
 import AccessControl from '@/components/AccessControl';
-import RoleDebugPanel from '@/components/RoleDebugPanel';
+
 
 // PMO Features
 import PMOEstimatorWizard from '@/features/pmo/prefactura/Estimator/PMOEstimatorWizard';
@@ -67,7 +67,6 @@ function AppContent() {
       </main>
       
       <Toaster position="top-right" />
-      <RoleDebugPanel />
     </div>
   );
 }
