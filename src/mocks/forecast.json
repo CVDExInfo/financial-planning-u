@@ -9,7 +9,7 @@
     "variance_reason": "scope",
     "notes": "Slightly under due to delayed start",
     "last_updated": "2024-02-01T15:30:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   },
   {
     "line_item_id": "LI-001",
@@ -19,7 +19,7 @@
     "actual": 17200,
     "variance": 200,
     "last_updated": "2024-03-01T10:15:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   },
   {
     "line_item_id": "LI-001",
@@ -29,7 +29,7 @@
     "actual": 0,
     "variance": -17000,
     "last_updated": "2024-04-01T09:00:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   },
   {
     "line_item_id": "LI-002",
@@ -41,7 +41,7 @@
     "variance_reason": "vendor_delay",
     "notes": "One developer started mid-month",
     "last_updated": "2024-02-01T15:30:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   },
   {
     "line_item_id": "LI-002",
@@ -51,7 +51,7 @@
     "actual": 18000,
     "variance": 0,
     "last_updated": "2024-03-01T10:15:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   },
   {
     "line_item_id": "LI-002",
@@ -61,7 +61,7 @@
     "actual": 0,
     "variance": -18000,
     "last_updated": "2024-04-01T09:00:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   },
   {
     "line_item_id": "LI-003",
@@ -73,7 +73,7 @@
     "variance_reason": "logística",
     "notes": "Lower than expected usage in first month",
     "last_updated": "2024-02-01T15:30:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   },
   {
     "line_item_id": "LI-003",
@@ -84,7 +84,7 @@
     "variance": 250,
     "notes": "Usage ramping up as expected",
     "last_updated": "2024-03-01T10:15:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   },
   {
     "line_item_id": "LI-003",
@@ -94,7 +94,7 @@
     "actual": 0,
     "variance": -3500,
     "last_updated": "2024-04-01T09:00:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   },
   {
     "line_item_id": "LI-004",
@@ -104,7 +104,7 @@
     "actual": 6000,
     "variance": 0,
     "last_updated": "2024-02-01T15:30:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   },
   {
     "line_item_id": "LI-005",
@@ -114,7 +114,7 @@
     "actual": 16666,
     "variance": 0,
     "last_updated": "2024-03-01T10:15:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   },
   {
     "line_item_id": "LI-005",
@@ -124,7 +124,7 @@
     "actual": 0,
     "variance": -16667,
     "last_updated": "2024-04-01T09:00:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   },
   {
     "line_item_id": "LI-005",
@@ -134,6 +134,6 @@
     "actual": 0,
     "variance": -16667,
     "last_updated": "2024-05-01T09:00:00Z",
-    "updated_by": "sdmt-analyst@ikusi.com"
+    "updated_by": "sdmt-analyst@enterprise.com"
   }
 ]

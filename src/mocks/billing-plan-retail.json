@@ -1,0 +1,38 @@
+[
+  {
+    "month": 1,
+    "amount": 67000,
+    "currency": "USD",
+    "status": "collected"
+  },
+  {
+    "month": 2,
+    "amount": 73000,
+    "currency": "USD",
+    "status": "collected"
+  },
+  {
+    "month": 3,
+    "amount": 81000,
+    "currency": "USD",
+    "status": "invoiced"
+  },
+  {
+    "month": 4,
+    "amount": 76000,
+    "currency": "USD",
+    "status": "planned"
+  },
+  {
+    "month": 5,
+    "amount": 82000,
+    "currency": "USD",
+    "status": "planned"
+  },
+  {
+    "month": 6,
+    "amount": 69000,
+    "currency": "USD",
+    "status": "planned"
+  }
+]

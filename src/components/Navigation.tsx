@@ -89,11 +89,11 @@ export function Navigation({ currentModule }: NavigationProps) {
           <div className="flex items-center space-x-4">
             <Link to="/" className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">I</span>
+                <span className="text-primary-foreground font-bold text-sm">E</span>
               </div>
               <div>
                 <h1 className="font-semibold text-foreground">Financial Planning</h1>
-                <p className="text-xs text-muted-foreground">Ikusi Digital Platform</p>
+                <p className="text-xs text-muted-foreground">Enterprise PMO Platform</p>
               </div>
             </Link>
             

@@ -25,7 +25,7 @@ export function HomePage() {
         <div className="text-center mb-16">
           <div className="flex justify-center items-center gap-4 mb-6">
             <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-2xl">I</span>
+              <span className="text-primary-foreground font-bold text-2xl">E</span>
             </div>
             <div className="flex items-center gap-2">
               <Shield size={16} className="text-muted-foreground" />
@@ -36,7 +36,7 @@ export function HomePage() {
             Financial Planning & Management
           </h1>
           <p className="text-xl text-muted-foreground mb-2">
-            Ikusi Digital Platform
+            Enterprise PMO Platform
           </p>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
             Comprehensive solution for project cost estimation, forecasting, and financial management

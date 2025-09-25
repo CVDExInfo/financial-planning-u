@@ -13,9 +13,13 @@ import {
 } from '@/types/domain';
 
 import baselineData from '@/mocks/baseline.json';
+import baselineFintechData from '@/mocks/baseline-fintech.json';
+import baselineRetailData from '@/mocks/baseline-retail.json';
 import forecastData from '@/mocks/forecast.json';
 import invoicesData from '@/mocks/invoices.json';
 import billingPlanData from '@/mocks/billing-plan.json';
+import billingPlanFintechData from '@/mocks/billing-plan-fintech.json';
+import billingPlanRetailData from '@/mocks/billing-plan-retail.json';
 
 // Mock API service with simulated async operations and proper types
 export class ApiService {
@@ -26,9 +30,9 @@ export class ApiService {
     await this.delay(100);
     return [
       {
-        id: 'PRJ-IKUSI-PLATFORM',
-        name: 'Ikusi Digital Platform',
-        description: 'Digital transformation platform for enterprise clients',
+        id: 'PRJ-HEALTHCARE-MODERNIZATION',
+        name: 'Healthcare System Modernization',
+        description: 'Digital transformation for national healthcare provider',
         baseline_id: 'BL-2024-001',
         baseline_accepted_at: '2024-01-15T10:30:00Z',
         next_billing_periods: billingPlanData.slice(0, 3) as BillingPeriod[],
@@ -36,18 +40,24 @@ export class ApiService {
         created_at: '2024-01-10T09:00:00Z'
       },
       {
-        id: 'PRJ-MOBILE-APP',
-        name: 'Mobile Application Suite',
-        description: 'Cross-platform mobile application development',
+        id: 'PRJ-FINTECH-PLATFORM',
+        name: 'Banking Core Platform Upgrade',
+        description: 'Next-generation banking platform with real-time processing',
         baseline_id: 'BL-2024-002',
         baseline_accepted_at: '2024-01-20T14:15:00Z',
-        next_billing_periods: [
-          { month: 2, amount: 85000, currency: 'USD', status: 'planned' },
-          { month: 3, amount: 76000, currency: 'USD', status: 'planned' },
-          { month: 4, amount: 91000, currency: 'USD', status: 'planned' }
-        ],
+        next_billing_periods: billingPlanFintechData.slice(0, 3) as BillingPeriod[],
         status: 'active',
         created_at: '2024-01-12T10:00:00Z'
+      },
+      {
+        id: 'PRJ-RETAIL-ANALYTICS',
+        name: 'Retail Intelligence & Analytics Suite',
+        description: 'AI-powered analytics platform for retail optimization',
+        baseline_id: 'BL-2024-003',
+        baseline_accepted_at: '2024-02-05T09:45:00Z',
+        next_billing_periods: billingPlanRetailData.slice(0, 3) as BillingPeriod[],
+        status: 'active',
+        created_at: '2024-01-25T11:30:00Z'
       }
     ];
   }
@@ -63,20 +73,63 @@ export class ApiService {
 
   static async getBillingPlan(project_id: string): Promise<{ monthly_inflows: BillingPeriod[] }> {
     await this.delay(200);
+    
+    // Return appropriate billing plan based on project
+    let billingData;
+    switch (project_id) {
+      case 'PRJ-HEALTHCARE-MODERNIZATION':
+        billingData = billingPlanData;
+        break;
+      case 'PRJ-FINTECH-PLATFORM':
+        billingData = billingPlanFintechData;
+        break;
+      case 'PRJ-RETAIL-ANALYTICS':
+        billingData = billingPlanRetailData;
+        break;
+      default:
+        billingData = billingPlanData;
+    }
+    
     return {
-      monthly_inflows: billingPlanData as BillingPeriod[]
+      monthly_inflows: billingData as BillingPeriod[]
     };
   }
 
   static async getBaseline(baseline_id: string): Promise<BaselineBudget> {
     await this.delay(200);
-    return baselineData as BaselineBudget;
+    
+    // Return appropriate baseline based on ID
+    switch (baseline_id) {
+      case 'BL-2024-001':
+        return baselineData as BaselineBudget;
+      case 'BL-2024-002':
+        return baselineFintechData as BaselineBudget;
+      case 'BL-2024-003':
+        return baselineRetailData as BaselineBudget;
+      default:
+        return baselineData as BaselineBudget;
+    }
   }
 
   // SDMT Cost Management
   static async getLineItems(project_id: string): Promise<LineItem[]> {
     await this.delay(200);
-    const baseline = baselineData as BaselineBudget;
+    
+    // Return appropriate line items based on project
+    let baseline;
+    switch (project_id) {
+      case 'PRJ-HEALTHCARE-MODERNIZATION':
+        baseline = baselineData as BaselineBudget;
+        break;
+      case 'PRJ-FINTECH-PLATFORM':
+        baseline = baselineFintechData as BaselineBudget;
+        break;
+      case 'PRJ-RETAIL-ANALYTICS':
+        baseline = baselineRetailData as BaselineBudget;
+        break;
+      default:
+        baseline = baselineData as BaselineBudget;
+    }
     return baseline.line_items;
   }
 
@@ -87,7 +140,7 @@ export class ApiService {
       id: `item_${Date.now()}`,
       created_at: now,
       updated_at: now,
-      created_by: 'sdmt-user@ikusi.com',
+      created_by: 'sdmt-user@enterprise.com',
       ...lineItem
     };
   }
