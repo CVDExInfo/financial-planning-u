@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -23,45 +22,25 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
-import { Search, Check, ChevronDown, ExternalLink } from 'lucide-react';
+import { Check, ChevronDown, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useKV } from '@github/spark/hooks';
-import type { Project } from '@/types/domain';
-import ApiService from '@/lib/api';
+import { useProject } from '@/contexts/ProjectContext';
 
 interface ProjectContextBarProps {
   className?: string;
 }
 
 export function ProjectContextBar({ className }: ProjectContextBarProps) {
-  const [selectedProject, setSelectedProject] = useKV<string>('selected-project-id', '');
-  const [selectedPeriod, setSelectedPeriod] = useKV<string>('selected-period', '12');
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    selectedProjectId, 
+    setSelectedProjectId,
+    selectedPeriod, 
+    setSelectedPeriod,
+    currentProject, 
+    projects, 
+    loading 
+  } = useProject();
   const [open, setOpen] = useState(false);
-
-  const currentProject = projects.find(p => p.id === selectedProject);
-
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  const loadProjects = async () => {
-    try {
-      setLoading(true);
-      const projectData = await ApiService.getProjects();
-      setProjects(projectData);
-      
-      // Auto-select first project if none selected
-      if (!selectedProject && projectData.length > 0) {
-        setSelectedProject(projectData[0].id);
-      }
-    } catch (error) {
-      console.error('Failed to load projects:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatCurrency = (amount: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
@@ -132,14 +111,14 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                           key={project.id}
                           value={project.id}
                           onSelect={(currentValue) => {
-                            setSelectedProject(currentValue === selectedProject ? "" : currentValue);
+                            setSelectedProjectId(currentValue === selectedProjectId ? "" : currentValue);
                             setOpen(false);
                           }}
                         >
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              selectedProject === project.id ? "opacity-100" : "opacity-0"
+                              selectedProjectId === project.id ? "opacity-100" : "opacity-0"
                             )}
                           />
                           <div className="flex flex-col">

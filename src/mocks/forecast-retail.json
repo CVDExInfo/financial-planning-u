@@ -1,0 +1,132 @@
+[
+  {
+    "line_item_id": "LI-RET-001",
+    "month": 1,
+    "planned": 20000,
+    "forecast": 21000,
+    "actual": 20500,
+    "variance": 1000,
+    "variance_reason": "scope",
+    "notes": "Additional data science resources needed",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-RET-001",
+    "month": 2,
+    "planned": 20000,
+    "forecast": 20500,
+    "actual": 20200,
+    "variance": 500,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-RET-001",
+    "month": 3,
+    "planned": 20000,
+    "forecast": 20000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-04-01T09:00:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-RET-002",
+    "month": 1,
+    "planned": 16000,
+    "forecast": 16800,
+    "actual": 16500,
+    "variance": 800,
+    "variance_reason": "indexation",
+    "notes": "Salary indexation adjustment",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-RET-002",
+    "month": 2,
+    "planned": 16000,
+    "forecast": 16200,
+    "actual": 16100,
+    "variance": 200,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-RET-002",
+    "month": 3,
+    "planned": 16000,
+    "forecast": 16000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-04-01T09:00:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-RET-003",
+    "month": 1,
+    "planned": 5000,
+    "forecast": 5200,
+    "actual": 5100,
+    "variance": 200,
+    "variance_reason": "vendor_delay",
+    "notes": "Google Cloud platform costs",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-RET-003",
+    "month": 2,
+    "planned": 5000,
+    "forecast": 5000,
+    "actual": 4950,
+    "variance": 0,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-RET-004",
+    "month": 1,
+    "planned": 18000,
+    "forecast": 17500,
+    "actual": 17800,
+    "variance": -500,
+    "variance_reason": "scope",
+    "notes": "Reduced training requirements",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-RET-004",
+    "month": 2,
+    "planned": 18000,
+    "forecast": 18200,
+    "actual": 18000,
+    "variance": 200,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-RET-005",
+    "month": 1,
+    "planned": 9000,
+    "forecast": 9300,
+    "actual": 9200,
+    "variance": 300,
+    "variance_reason": "capex",
+    "notes": "Hardware procurement delays",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-RET-005",
+    "month": 2,
+    "planned": 9000,
+    "forecast": 9100,
+    "actual": 9000,
+    "variance": 100,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  }
+]

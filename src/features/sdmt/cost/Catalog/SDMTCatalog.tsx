@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, Search, Edit, Trash2, Share, Download } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useProject } from '@/contexts/ProjectContext';
 import Protected from '@/components/Protected';
 import ModuleBadge from '@/components/ModuleBadge';
 import { toast } from 'sonner';
@@ -43,18 +44,22 @@ export function SDMTCatalog() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const { selectedProjectId, currentProject } = useProject();
 
   // Use the new permissions system
   const { canCreate, canUpdate, canDelete, isReadOnly, currentRole } = usePermissions();
 
+  // Load data when project changes
   useEffect(() => {
-    loadLineItems();
-  }, []);
+    if (selectedProjectId) {
+      loadLineItems();
+    }
+  }, [selectedProjectId]);
 
   const loadLineItems = async () => {
     try {
       setLoading(true);
-      const items = await ApiService.getLineItems('current-project');
+      const items = await ApiService.getLineItems(selectedProjectId);
       setLineItems(items);
     } catch (error) {
       toast.error('Failed to load line items');
@@ -199,7 +204,14 @@ export function SDMTCatalog() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Cost Catalog</h1>
-          <p className="text-muted-foreground">Manage project line items and cost components</p>
+          <p className="text-muted-foreground">
+            Manage project line items and cost components
+            {currentProject && (
+              <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                {currentProject.name}
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <ModuleBadge />

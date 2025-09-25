@@ -16,7 +16,11 @@ import baselineData from '@/mocks/baseline.json';
 import baselineFintechData from '@/mocks/baseline-fintech.json';
 import baselineRetailData from '@/mocks/baseline-retail.json';
 import forecastData from '@/mocks/forecast.json';
+import forecastFintechData from '@/mocks/forecast-fintech.json';
+import forecastRetailData from '@/mocks/forecast-retail.json';
 import invoicesData from '@/mocks/invoices.json';
+import invoicesFintechData from '@/mocks/invoices-fintech.json';
+import invoicesRetailData from '@/mocks/invoices-retail.json';
 import billingPlanData from '@/mocks/billing-plan.json';
 import billingPlanFintechData from '@/mocks/billing-plan-fintech.json';
 import billingPlanRetailData from '@/mocks/billing-plan-retail.json';
@@ -169,7 +173,24 @@ export class ApiService {
   // Forecast Management
   static async getForecastData(project_id: string, months: number): Promise<ForecastCell[]> {
     await this.delay(300);
-    return forecastData as ForecastCell[];
+    
+    // Return appropriate forecast data based on project
+    let data;
+    switch (project_id) {
+      case 'PRJ-HEALTHCARE-MODERNIZATION':
+        data = forecastData;
+        break;
+      case 'PRJ-FINTECH-PLATFORM':
+        data = forecastFintechData;
+        break;
+      case 'PRJ-RETAIL-ANALYTICS':
+        data = forecastRetailData;
+        break;
+      default:
+        data = forecastData;
+    }
+    
+    return data as ForecastCell[];
   }
 
   static async updateForecast(project_id: string, updates: ForecastCell[]): Promise<void> {
@@ -193,7 +214,24 @@ export class ApiService {
   // Reconciliation
   static async getInvoices(project_id: string): Promise<InvoiceDoc[]> {
     await this.delay(250);
-    return invoicesData as InvoiceDoc[];
+    
+    // Return appropriate invoice data based on project
+    let data;
+    switch (project_id) {
+      case 'PRJ-HEALTHCARE-MODERNIZATION':
+        data = invoicesData;
+        break;
+      case 'PRJ-FINTECH-PLATFORM':
+        data = invoicesFintechData;
+        break;
+      case 'PRJ-RETAIL-ANALYTICS':
+        data = invoicesRetailData;
+        break;
+      default:
+        data = invoicesData;
+    }
+    
+    return data as InvoiceDoc[];
   }
 
   static async uploadInvoice(project_id: string, file: File, line_item_id: string, month: number): Promise<InvoiceDoc> {

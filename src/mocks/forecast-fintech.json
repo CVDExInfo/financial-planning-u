@@ -1,0 +1,133 @@
+[
+  {
+    "line_item_id": "LI-FIN-001",
+    "month": 1,
+    "planned": 25000,
+    "forecast": 26000,
+    "actual": 25800,
+    "variance": 1000,
+    "variance_reason": "FX",
+    "notes": "Currency fluctuation impact",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-FIN-001",
+    "month": 2,
+    "planned": 25000,
+    "forecast": 25500,
+    "actual": 25200,
+    "variance": 500,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-FIN-001",
+    "month": 3,
+    "planned": 25000,
+    "forecast": 25000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-04-01T09:00:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-FIN-002",
+    "month": 1,
+    "planned": 22000,
+    "forecast": 23000,
+    "actual": 22800,
+    "variance": 1000,
+    "variance_reason": "scope",
+    "notes": "Additional security requirements",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-FIN-002",
+    "month": 2,
+    "planned": 22000,
+    "forecast": 22000,
+    "actual": 21900,
+    "variance": 0,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-FIN-002",
+    "month": 3,
+    "planned": 22000,
+    "forecast": 22200,
+    "actual": 0,
+    "variance": 200,
+    "variance_reason": "indexation",
+    "last_updated": "2024-04-01T09:00:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-FIN-003",
+    "month": 1,
+    "planned": 8000,
+    "forecast": 8500,
+    "actual": 8200,
+    "variance": 500,
+    "variance_reason": "vendor_delay",
+    "notes": "AWS costs higher than expected",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-FIN-003",
+    "month": 2,
+    "planned": 8000,
+    "forecast": 8200,
+    "actual": 8100,
+    "variance": 200,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-FIN-004",
+    "month": 1,
+    "planned": 15000,
+    "forecast": 14500,
+    "actual": 14800,
+    "variance": -500,
+    "variance_reason": "scope",
+    "notes": "Early completion of milestone",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-FIN-004",
+    "month": 2,
+    "planned": 15000,
+    "forecast": 15200,
+    "actual": 15000,
+    "variance": 200,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-FIN-005",
+    "month": 1,
+    "planned": 12000,
+    "forecast": 12800,
+    "actual": 12600,
+    "variance": 800,
+    "variance_reason": "FX",
+    "notes": "COP strengthened against USD",
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-FIN-005",
+    "month": 2,
+    "planned": 12000,
+    "forecast": 12000,
+    "actual": 12100,
+    "variance": 0,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  }
+]

@@ -6,6 +6,7 @@ import Navigation from '@/components/Navigation';
 import ProjectContextBar from '@/components/ProjectContextBar';
 import AccessControl from '@/components/AccessControl';
 import { AuthProvider, useAuth } from '@/components/AuthProvider';
+import { ProjectProvider } from '@/contexts/ProjectContext';
 import LoginPage from '@/components/LoginPage';
 
 // PMO Features
@@ -63,31 +64,61 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation currentModule={currentModule} />
-      {showProjectContextBar && <ProjectContextBar />}
+      {showProjectContextBar && (
+        <ProjectProvider>
+          <ProjectContextBar />
+        </ProjectProvider>
+      )}
       
       <main>
         <AccessControl>
-          <Routes>
-            {/* Home */}
-            <Route path="/" element={<HomePage />} />
-            
-            {/* User Profile */}
-            <Route path="/profile" element={<UserProfile />} />
-            
-            {/* PMO Routes */}
-            <Route path="/pmo/prefactura/estimator" element={<PMOEstimatorWizard />} />
-            
-            {/* SDMT Routes */}
-            <Route path="/sdmt/cost/catalog" element={<SDMTCatalog />} />
-            <Route path="/sdmt/cost/forecast" element={<SDMTForecast />} />
-            <Route path="/sdmt/cost/reconciliation" element={<SDMTReconciliation />} />
-            <Route path="/sdmt/cost/cashflow" element={<SDMTCashflow />} />
-            <Route path="/sdmt/cost/scenarios" element={<SDMTScenarios />} />
-            <Route path="/sdmt/cost/changes" element={<SDMTChanges />} />
-            
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          {showProjectContextBar ? (
+            <ProjectProvider>
+              <Routes>
+                {/* Home */}
+                <Route path="/" element={<HomePage />} />
+                
+                {/* User Profile */}
+                <Route path="/profile" element={<UserProfile />} />
+                
+                {/* PMO Routes */}
+                <Route path="/pmo/prefactura/estimator" element={<PMOEstimatorWizard />} />
+                
+                {/* SDMT Routes */}
+                <Route path="/sdmt/cost/catalog" element={<SDMTCatalog />} />
+                <Route path="/sdmt/cost/forecast" element={<SDMTForecast />} />
+                <Route path="/sdmt/cost/reconciliation" element={<SDMTReconciliation />} />
+                <Route path="/sdmt/cost/cashflow" element={<SDMTCashflow />} />
+                <Route path="/sdmt/cost/scenarios" element={<SDMTScenarios />} />
+                <Route path="/sdmt/cost/changes" element={<SDMTChanges />} />
+                
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </ProjectProvider>
+          ) : (
+            <Routes>
+              {/* Home */}
+              <Route path="/" element={<HomePage />} />
+              
+              {/* User Profile */}
+              <Route path="/profile" element={<UserProfile />} />
+              
+              {/* PMO Routes */}
+              <Route path="/pmo/prefactura/estimator" element={<PMOEstimatorWizard />} />
+              
+              {/* SDMT Routes */}
+              <Route path="/sdmt/cost/catalog" element={<SDMTCatalog />} />
+              <Route path="/sdmt/cost/forecast" element={<SDMTForecast />} />
+              <Route path="/sdmt/cost/reconciliation" element={<SDMTReconciliation />} />
+              <Route path="/sdmt/cost/cashflow" element={<SDMTCashflow />} />
+              <Route path="/sdmt/cost/scenarios" element={<SDMTScenarios />} />
+              <Route path="/sdmt/cost/changes" element={<SDMTChanges />} />
+              
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          )}
         </AccessControl>
       </main>
       

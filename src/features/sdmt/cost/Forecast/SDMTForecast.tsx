@@ -27,6 +27,7 @@ import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
 import ModuleBadge from '@/components/ModuleBadge';
 import type { ForecastCell, LineItem } from '@/types/domain.d.ts';
 import { useAuth } from '@/components/AuthProvider';
+import { useProject } from '@/contexts/ProjectContext';
 import { useNavigate } from 'react-router-dom';
 import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
@@ -39,20 +40,24 @@ export function SDMTForecast() {
   const [editingCell, setEditingCell] = useState<{ line_item_id: string; month: number; type: 'forecast' | 'actual' } | null>(null);
   const [editValue, setEditValue] = useState('');
   const { user } = useAuth();
+  const { selectedProjectId, selectedPeriod, currentProject } = useProject();
   const navigate = useNavigate();
 
+  // Load data when project or period changes
   useEffect(() => {
-    loadForecastData();
-    loadLineItems();
-  }, []);
+    if (selectedProjectId) {
+      loadForecastData();
+      loadLineItems();
+    }
+  }, [selectedProjectId, selectedPeriod]);
 
   const loadForecastData = async () => {
     try {
       setLoading(true);
-      const data = await ApiService.getForecastData('current-project', 12);
+      const data = await ApiService.getForecastData(selectedProjectId, parseInt(selectedPeriod));
       
       // Get matched invoices and sync with actuals
-      const invoices = await ApiService.getInvoices('current-project');
+      const invoices = await ApiService.getInvoices(selectedProjectId);
       const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
       
       // Update forecast data with actual amounts from matched invoices
@@ -83,7 +88,7 @@ export function SDMTForecast() {
 
   const loadLineItems = async () => {
     try {
-      const items = await ApiService.getLineItems('current-project');
+      const items = await ApiService.getLineItems(selectedProjectId);
       setLineItems(items);
     } catch (error) {
       console.error('Failed to load line items:', error);
@@ -272,7 +277,14 @@ export function SDMTForecast() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Forecast Management</h1>
-          <p className="text-muted-foreground">Track planned vs forecast vs actual costs across time periods</p>
+          <p className="text-muted-foreground">
+            Track planned vs forecast vs actual costs across time periods
+            {currentProject && (
+              <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                {currentProject.name}
+              </span>
+            )}
+          </p>
         </div>
         <ModuleBadge />
       </div>
@@ -383,7 +395,14 @@ export function SDMTForecast() {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="text-muted-foreground">Loading forecast data...</div>
+              <div className="text-center">
+                <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center mx-auto mb-2 animate-pulse">
+                  <span className="text-primary font-bold text-sm">📊</span>
+                </div>
+                <div className="text-muted-foreground">
+                  Loading forecast data{currentProject ? ` for ${currentProject.name}` : ''}...
+                </div>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">

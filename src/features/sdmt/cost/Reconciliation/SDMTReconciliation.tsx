@@ -32,6 +32,7 @@ import {
 import { Upload, FileCheck, AlertTriangle, ExternalLink, Plus, X, Download, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useKV } from '@github/spark/hooks';
+import { useProject } from '@/contexts/ProjectContext';
 import ModuleBadge from '@/components/ModuleBadge';
 import type { InvoiceDoc, LineItem, ForecastCell } from '@/types/domain.d.ts';
 import ApiService from '@/lib/api';
@@ -56,15 +57,19 @@ export function SDMTReconciliation() {
   
   const location = useLocation();
   const navigate = useNavigate();
+  const { selectedProjectId } = useProject();
   
   // Parse URL params for filtering (when coming from forecast)
   const urlParams = new URLSearchParams(location.search);
   const filterLineItem = urlParams.get('line_item');
   const filterMonth = urlParams.get('month');
 
+  // Load data when project changes
   useEffect(() => {
-    loadInvoices();
-    loadLineItems();
+    if (selectedProjectId) {
+      loadInvoices();
+      loadLineItems();
+    }
     
     // Pre-populate form if coming from forecast
     if (filterLineItem) {
@@ -75,12 +80,12 @@ export function SDMTReconciliation() {
       }));
       setShowUploadForm(true);
     }
-  }, [filterLineItem, filterMonth]);
+  }, [selectedProjectId, filterLineItem, filterMonth]);
 
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const data = await ApiService.getInvoices('current-project');
+      const data = await ApiService.getInvoices(selectedProjectId);
       setInvoices(data);
     } catch (error) {
       toast.error('Failed to load invoices');
@@ -92,7 +97,7 @@ export function SDMTReconciliation() {
 
   const loadLineItems = async () => {
     try {
-      const items = await ApiService.getLineItems('current-project');
+      const items = await ApiService.getLineItems(selectedProjectId);
       setLineItems(items);
     } catch (error) {
       console.error('Failed to load line items:', error);
