@@ -24,34 +24,65 @@ import { Plus, Trash2, Server, CreditCard } from 'lucide-react';
 import type { NonLaborEstimate, Currency } from '@/types/domain.d.ts';
 
 const CATEGORIES = [
-  'Infrastructure',
-  'Software Licenses',
-  'Cloud Services',
-  'Professional Services',
-  'Hardware',
-  'Training',
-  'Travel & Expenses',
-  'Third Party Services'
+  'Support',
+  'Infrastructure Services',
+  'Premium Services',
+  'Standard Services',
+  'Basic Services',
+  'Operation Services',
+  'Admin Services',
+  'Training Services'
 ];
 
 const COMMON_ITEMS = {
-  'Infrastructure': [
-    'AWS/Azure Cloud Infrastructure',
-    'Database Hosting',
-    'CDN Services',
-    'Load Balancers'
+  'Support': [
+    'Ikusi Platinum',
+    'Ikusi Gold',
+    'Ikusi Premium',
+    'Ikusi Star',
+    'Ikusi Go'
   ],
-  'Software Licenses': [
-    'Development Tools',
-    'Office 365',
-    'Database Licenses',
-    'Security Software'
+  'Infrastructure Services': [
+    'Cloud Infrastructure Management',
+    'Database Administration',
+    'Network Operations',
+    'Security Management'
   ],
-  'Cloud Services': [
-    'Compute Instances',
-    'Storage',
-    'Data Transfer',
-    'Monitoring Tools'
+  'Premium Services': [
+    'Ikusi Platinum Advanced Support',
+    'System Architecture Consulting',
+    'Performance Optimization',
+    'Security Audits'
+  ],
+  'Standard Services': [
+    'Ikusi Gold Standard Support',
+    'Regular Maintenance',
+    'Basic Monitoring',
+    'Standard Updates'
+  ],
+  'Basic Services': [
+    'Ikusi Go Entry Support',
+    'Basic Setup',
+    'Documentation',
+    'Initial Configuration'
+  ],
+  'Operation Services': [
+    'System Operations',
+    '24/7 Monitoring',
+    'Incident Response',
+    'Performance Management'
+  ],
+  'Admin Services': [
+    'System Administration',
+    'User Management',
+    'Configuration Management',
+    'Backup Services'
+  ],
+  'Training Services': [
+    'User Training',
+    'Admin Training',
+    'Technical Documentation',
+    'Knowledge Transfer'
   ]
 };
 

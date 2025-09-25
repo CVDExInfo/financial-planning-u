@@ -11,28 +11,28 @@ export function CostCatalog() {
   // Mock data for demonstration
   const mockLineItems = [
     {
-      id: 'labor_1',
-      category: 'Labor',
-      subtype: 'Senior Developer',
-      description: 'Senior Software Developer - 12 months',
+      id: 'support_1',
+      category: 'Support',
+      subtype: 'Premium Services',
+      description: 'Ikusi Platinum - 12 months',
       unit_cost: 8500,
       currency: 'USD',
       recurring: true
     },
     {
-      id: 'labor_2', 
-      category: 'Labor',
-      subtype: 'Junior Developer',
-      description: 'Junior Software Developer - 12 months',
+      id: 'support_2', 
+      category: 'Support',
+      subtype: 'Standard Services',
+      description: 'Ikusi Gold - 12 months',
       unit_cost: 4200,
       currency: 'USD',
       recurring: true
     },
     {
-      id: 'software_1',
-      category: 'Software',
-      subtype: 'License',
-      description: 'Enterprise Development Tools License',
+      id: 'support_3',
+      category: 'Support',
+      subtype: 'Basic Services',
+      description: 'Ikusi Go - License Setup',
       unit_cost: 1200,
       currency: 'USD',
       recurring: false

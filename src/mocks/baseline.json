@@ -13,9 +13,9 @@
   "line_items": [
     {
       "id": "LI-001",
-      "category": "Labor",
-      "subtype": "Development",
-      "description": "Senior Healthcare Solutions Architect",
+      "category": "Support",
+      "subtype": "Premium Services",
+      "description": "Ikusi Platinum",
       "one_time": false,
       "recurring": true,
       "qty": 1,
@@ -34,9 +34,9 @@
     },
     {
       "id": "LI-002",
-      "category": "Labor",
-      "subtype": "Development",
-      "description": "Full Stack Developer (Healthcare)",
+      "category": "Support",
+      "subtype": "Premium Services",
+      "description": "Ikusi Gold",
       "one_time": false,
       "recurring": true,
       "qty": 3,
@@ -55,10 +55,10 @@
     },
     {
       "id": "LI-003",
-      "category": "Infrastructure",
-      "subtype": "Cloud Services",
+      "category": "Support",
+      "subtype": "Infrastructure Services",
       "vendor": "AWS",
-      "description": "HIPAA-Compliant Cloud Infrastructure (EC2, RDS, VPC)",
+      "description": "Ikusi Premium",
       "one_time": false,
       "recurring": true,
       "qty": 1,
@@ -77,10 +77,10 @@
     },
     {
       "id": "LI-004",
-      "category": "Software",
+      "category": "Support",
       "subtype": "Licenses",
-      "vendor": "Epic Systems",
-      "description": "Electronic Health Record (EHR) System Licenses",
+      "vendor": "Microsoft",
+      "description": "Ikusi Go",
       "one_time": true,
       "recurring": false,
       "qty": 100,
@@ -100,10 +100,10 @@
     },
     {
       "id": "LI-005",
-      "category": "Professional Services",
+      "category": "Support",
       "subtype": "Consulting",
-      "vendor": "McKinsey & Company",
-      "description": "Healthcare Digital Transformation Strategy",
+      "vendor": "Ikusi Technologies",
+      "description": "Ikusi Star",
       "one_time": true,
       "recurring": false,
       "qty": 150,
@@ -122,9 +122,9 @@
     },
     {
       "id": "LI-006",
-      "category": "Labor",
-      "subtype": "QA/Testing",
-      "description": "Healthcare Compliance & Security Testing Specialist",
+      "category": "Support",
+      "subtype": "Operation Services",
+      "description": "Ikusi Premium",
       "one_time": false,
       "recurring": true,
       "qty": 2,
@@ -159,10 +159,11 @@
   "assumptions": [
     "FX rate USD/COP assumed at 4000 for duration",
     "CPI indexation applied quarterly at 3% annual rate",
-    "AWS HIPAA-compliant infrastructure costs may vary based on compliance requirements",
-    "Healthcare compliance consulting delivered in Q1 only",
-    "EHR system deployment includes data migration and staff training",
-    "Security testing starts in month 3 after initial development phase"
+    "Ikusi Platinum includes 24/7 premium support with dedicated account management",
+    "Ikusi Gold provides standard business hours support with enhanced SLAs",
+    "Ikusi Premium covers infrastructure monitoring and maintenance",
+    "Ikusi Go includes basic setup and initial configuration",
+    "Ikusi Star provides specialized consulting and strategic guidance"
   ],
   "fx_meta": [
     {
