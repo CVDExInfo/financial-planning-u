@@ -261,7 +261,7 @@ export function SDMTForecast() {
               <DialogTrigger asChild>
                 <Button className="gap-2">
                   <Share2 size={16} />
-                  Share Forecast
+                  Share
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
@@ -273,12 +273,20 @@ export function SDMTForecast() {
                 </DialogHeader>
                 <div className="py-6 space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <Button variant="outline" className="h-20 flex flex-col gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex flex-col gap-2"
+                      onClick={() => toast.success('Excel report generated successfully')}
+                    >
                       <Download size={24} />
                       <span>Excel Report</span>
                       <span className="text-xs text-muted-foreground">Detailed forecast with formulas</span>
                     </Button>
-                    <Button variant="outline" className="h-20 flex flex-col gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex flex-col gap-2"
+                      onClick={() => toast.success('PDF summary generated successfully')}
+                    >
                       <Share2 size={24} />
                       <span>PDF Summary</span>
                       <span className="text-xs text-muted-foreground">Executive summary format</span>
@@ -287,10 +295,6 @@ export function SDMTForecast() {
                 </div>
               </DialogContent>
             </Dialog>
-            <Button variant="outline" className="gap-2">
-              <Download size={16} />
-              Export Data
-            </Button>
           </div>
           <div className="text-sm text-muted-foreground">
             Last updated: {new Date().toLocaleDateString()}
