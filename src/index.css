@@ -145,3 +145,27 @@
   color: var(--sdmt-accent);
   border: 1px solid oklch(from var(--sdmt-accent) l c h / 0.2);
 }
+
+/* Premium feature styling */
+.premium-tab {
+  position: relative;
+  opacity: 0.7;
+}
+
+.premium-tab::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    oklch(from var(--border) l c h / 0.1) 2px,
+    oklch(from var(--border) l c h / 0.1) 4px
+  );
+  pointer-events: none;
+  border-radius: var(--radius);
+}

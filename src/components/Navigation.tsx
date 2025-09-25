@@ -10,6 +10,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChevronDown, Calculator, BarChart3, Settings, LogOut, User, BookOpen, FileCheck, GitPullRequest, TrendingUp, Layers } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
@@ -18,6 +24,13 @@ import { toast } from 'sonner';
 
 interface NavigationProps {
   currentModule?: ModuleType;
+}
+
+interface NavigationItem {
+  path: string;
+  label: string;
+  icon: any;
+  isPremium?: boolean;
 }
 
 export function Navigation({ currentModule }: NavigationProps) {
@@ -51,7 +64,7 @@ export function Navigation({ currentModule }: NavigationProps) {
     navigate('/');
   };
 
-  const moduleNavItems = {
+  const moduleNavItems: Record<string, NavigationItem[]> = {
     PMO: [
       { path: '/pmo/prefactura/estimator', label: 'Estimator', icon: Calculator },
     ],
@@ -60,8 +73,8 @@ export function Navigation({ currentModule }: NavigationProps) {
       { path: '/sdmt/cost/forecast', label: 'Forecast', icon: TrendingUp },
       { path: '/sdmt/cost/reconciliation', label: 'Reconciliation', icon: FileCheck },
       { path: '/sdmt/cost/changes', label: 'Changes', icon: GitPullRequest },
-      { path: '/sdmt/cost/cashflow', label: 'Cash Flow', icon: BarChart3 },
-      { path: '/sdmt/cost/scenarios', label: 'Scenarios', icon: Layers },
+      { path: '/sdmt/cost/cashflow', label: 'Cash Flow', icon: BarChart3, isPremium: true },
+      { path: '/sdmt/cost/scenarios', label: 'Scenarios', icon: Layers, isPremium: true },
     ]
   };
 
@@ -106,30 +119,62 @@ export function Navigation({ currentModule }: NavigationProps) {
           </div>
 
           {/* Module Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
-            {getVisibleModuleNavItems()
-              ?.filter(item => canAccessRoute(item.path))
-              .map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.path;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`
-                      flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors
-                      ${isActive 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                      }
-                    `}
-                  >
-                    <Icon size={16} />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-          </div>
+          <TooltipProvider>
+            <div className="hidden md:flex items-center space-x-1">
+              {getVisibleModuleNavItems()
+                ?.filter(item => canAccessRoute(item.path))
+                .map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  const isPremium = item.isPremium;
+                  
+                  const linkElement = (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`
+                        flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors relative
+                        ${isActive 
+                          ? isPremium 
+                            ? 'bg-muted text-muted-foreground border border-border' 
+                            : 'bg-primary text-primary-foreground'
+                          : isPremium
+                            ? 'text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/50 border border-dashed border-border'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                        }
+                      `}
+                    >
+                      <Icon size={16} className={isPremium ? 'opacity-70' : ''} />
+                      <span className={isPremium ? 'opacity-70' : ''}>{item.label}</span>
+                      {isPremium && (
+                        <Badge 
+                          variant="outline" 
+                          className="ml-1 text-xs px-1 py-0 h-4 text-muted-foreground/60 border-muted-foreground/30"
+                        >
+                          +
+                        </Badge>
+                      )}
+                    </Link>
+                  );
+
+                  if (isPremium) {
+                    return (
+                      <Tooltip key={item.path}>
+                        <TooltipTrigger asChild>
+                          {linkElement}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">Premium Add-on Feature</p>
+                          <p className="text-xs text-muted-foreground">Additional cost applies</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+
+                  return linkElement;
+                })}
+            </div>
+          </TooltipProvider>
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
