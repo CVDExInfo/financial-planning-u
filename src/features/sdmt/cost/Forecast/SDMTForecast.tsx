@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,27 +47,34 @@ export function SDMTForecast() {
   useEffect(() => {
     if (selectedProjectId) {
       console.log('🔄 Forecast: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
+      // Reset state before loading new data
+      setForecastData([]);
+      setLineItems([]);
       loadForecastData();
       loadLineItems();
     }
   }, [selectedProjectId, selectedPeriod, projectChangeCount]);
 
   const loadForecastData = async () => {
+    if (!selectedProjectId) {
+      console.log('❌ No project selected, skipping forecast load');
+      return;
+    }
+
     try {
       setLoading(true);
-      console.log('📊 Loading forecast data for project:', selectedProjectId);
-      console.log('🔄 Project changed! Loading new forecast data...');
+      console.log('📊 Loading forecast data for project:', selectedProjectId, 'period:', selectedPeriod);
       
       const data = await ApiService.getForecastData(selectedProjectId, parseInt(selectedPeriod));
-      console.log('📈 Raw forecast data received:', data.length, 'records');
-      console.log('📈 Sample forecast data:', data.slice(0, 2));
+      console.log('📈 Raw forecast data received:', data.length, 'records for project:', selectedProjectId);
+      console.log('📈 Sample forecast data:', data.slice(0, 3));
       
       // Get matched invoices and sync with actuals
       const invoices = await ApiService.getInvoices(selectedProjectId);
-      console.log('🧾 Invoices loaded:', invoices.length, 'records');
-      console.log('🧾 Sample invoice data:', invoices.slice(0, 2));
+      console.log('🧾 Invoices loaded:', invoices.length, 'records for project:', selectedProjectId);
       
       const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
+      console.log('🧾 Matched invoices:', matchedInvoices.length, 'records');
       
       // Update forecast data with actual amounts from matched invoices
       const updatedData = data.map(cell => {
@@ -78,7 +85,7 @@ export function SDMTForecast() {
         if (matchedInvoice) {
           return {
             ...cell,
-            actual: matchedInvoice.amount,
+            actual: matchedInvoice.amount || 0,
             variance: cell.forecast - cell.planned // Keep forecast-based variance
           };
         }
@@ -86,27 +93,42 @@ export function SDMTForecast() {
         return cell;
       });
       
+      console.log('🔄 Setting forecast data...', updatedData.length, 'cells');
       setForecastData(updatedData);
-      console.log('✅ Forecast data processed and set:', updatedData.length, 'cells for project', selectedProjectId);
-      console.log('💰 Total planned amount:', updatedData.reduce((sum, cell) => sum + cell.planned, 0));
-      console.log('💰 Total forecast amount:', updatedData.reduce((sum, cell) => sum + cell.forecast, 0));
+      
+      console.log('✅ Forecast data loaded for project:', selectedProjectId);
+      console.log('💰 Total planned:', updatedData.reduce((sum, cell) => sum + (cell.planned || 0), 0));
+      console.log('💰 Total forecast:', updatedData.reduce((sum, cell) => sum + (cell.forecast || 0), 0));
+      console.log('💰 Total actual:', updatedData.reduce((sum, cell) => sum + (cell.actual || 0), 0));
+      
     } catch (error) {
+      console.error('❌ Failed to load forecast data for project:', selectedProjectId, error);
       toast.error('Failed to load forecast data');
-      console.error(error);
+      setForecastData([]); // Clear data on error
     } finally {
       setLoading(false);
     }
   };
 
   const loadLineItems = async () => {
+    if (!selectedProjectId) {
+      console.log('❌ No project selected, skipping line items load');
+      return;
+    }
+
     try {
       console.log('📋 Loading line items for project:', selectedProjectId);
       const items = await ApiService.getLineItems(selectedProjectId);
-      console.log('📋 Line items loaded:', items.length, 'items for project', selectedProjectId);
-      console.log('📋 Sample line items:', items.slice(0, 2).map(item => ({ id: item.id, description: item.description, category: item.category })));
+      console.log('📋 Line items loaded:', items.length, 'items for project:', selectedProjectId);
+      console.log('📋 Sample line items:', items.slice(0, 3).map(item => ({ 
+        id: item.id, 
+        description: item.description, 
+        category: item.category 
+      })));
       setLineItems(items);
     } catch (error) {
-      console.error('Failed to load line items:', error);
+      console.error('❌ Failed to load line items for project:', selectedProjectId, error);
+      setLineItems([]); // Clear data on error
     }
   };
 
@@ -154,56 +176,94 @@ export function SDMTForecast() {
   };
 
   // Group forecast data by line item and month for display
-  const forecastGrid = lineItems.map(lineItem => {
-    const itemForecasts = forecastData.filter(f => f.line_item_id === lineItem.id);
-    const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const forecastGrid = useMemo(() => {
+    const grid = lineItems.map(lineItem => {
+      const itemForecasts = forecastData.filter(f => f.line_item_id === lineItem.id);
+      const months = Array.from({ length: 12 }, (_, i) => i + 1);
+      
+      const monthlyData = months.map(month => {
+        const cell = itemForecasts.find(f => f.month === month);
+        return cell || {
+          line_item_id: lineItem.id,
+          month,
+          planned: 0,
+          forecast: 0,
+          actual: 0,
+          variance: 0,
+          last_updated: '',
+          updated_by: ''
+        };
+      });
+
+      // Check if the line item has any non-zero values to show
+      const hasNonZeroValues = monthlyData.some(cell => 
+        (cell.planned || 0) > 0 || (cell.forecast || 0) > 0 || (cell.actual || 0) > 0
+      );
+
+      return { 
+        lineItem, 
+        monthlyData,
+        hasNonZeroValues
+      };
+    }).filter(item => item.hasNonZeroValues); // Only show items with data
+
+    console.log('📊 Recalculating grid for project:', selectedProjectId, 'with', grid.length, 'items');
     
-    const monthlyData = months.map(month => {
-      const cell = itemForecasts.find(f => f.month === month);
-      return cell || {
-        line_item_id: lineItem.id,
+    return grid;
+  }, [lineItems, forecastData, selectedProjectId]);
+
+  // Calculate totals and metrics - using useMemo to ensure it updates when data changes
+  const metrics = useMemo(() => {
+    const totalVariance = forecastData.reduce((sum, cell) => sum + (cell.variance || 0), 0);
+    const totalPlanned = forecastData.reduce((sum, cell) => sum + (cell.planned || 0), 0);
+    const totalForecast = forecastData.reduce((sum, cell) => sum + (cell.forecast || 0), 0);
+    const totalActual = forecastData.reduce((sum, cell) => sum + (cell.actual || 0), 0);
+    const variancePercentage = totalPlanned > 0 ? (totalVariance / totalPlanned) * 100 : 0;
+    const actualVariance = totalActual - totalForecast;
+    const actualVariancePercentage = totalForecast > 0 ? (actualVariance / totalForecast) * 100 : 0;
+
+    console.log('📊 Recalculating metrics for', forecastData.length, 'data points');
+    console.log('📊 Project:', selectedProjectId, 'Totals - P:', totalPlanned, 'F:', totalForecast, 'A:', totalActual);
+
+    return {
+      totalVariance,
+      totalPlanned,
+      totalForecast,
+      totalActual,
+      variancePercentage,
+      actualVariance,
+      actualVariancePercentage
+    };
+  }, [forecastData, selectedProjectId]);
+
+  const { 
+    totalVariance, 
+    totalPlanned, 
+    totalForecast, 
+    totalActual, 
+    variancePercentage, 
+    actualVariance, 
+    actualVariancePercentage 
+  } = metrics;
+
+  // Chart data - recalculate when forecastData changes
+  const monthlyTrends = useMemo(() => {
+    const trends = Array.from({ length: 12 }, (_, i) => {
+      const month = i + 1;
+      const monthData = forecastData.filter(cell => cell.month === month);
+      return {
         month,
-        planned: 0,
-        forecast: 0,
-        actual: 0,
-        variance: 0,
-        last_updated: '',
-        updated_by: ''
+        Planned: monthData.reduce((sum, cell) => sum + (cell.planned || 0), 0),
+        Forecast: monthData.reduce((sum, cell) => sum + (cell.forecast || 0), 0),
+        Actual: monthData.reduce((sum, cell) => sum + (cell.actual || 0), 0)
       };
     });
 
-    // Check if the line item has any non-zero values to show
-    const hasNonZeroValues = monthlyData.some(cell => 
-      cell.planned > 0 || cell.forecast > 0 || cell.actual > 0
-    );
-
-    return { 
-      lineItem, 
-      monthlyData,
-      hasNonZeroValues
-    };
-  }).filter(item => item.hasNonZeroValues); // Only show items with data
-
-  // Calculate totals and metrics
-  const totalVariance = forecastData.reduce((sum, cell) => sum + cell.variance, 0);
-  const totalPlanned = forecastData.reduce((sum, cell) => sum + cell.planned, 0);
-  const totalForecast = forecastData.reduce((sum, cell) => sum + cell.forecast, 0);
-  const totalActual = forecastData.reduce((sum, cell) => sum + cell.actual, 0);
-  const variancePercentage = totalPlanned > 0 ? (totalVariance / totalPlanned) * 100 : 0;
-  const actualVariance = totalActual - totalForecast;
-  const actualVariancePercentage = totalForecast > 0 ? (actualVariance / totalForecast) * 100 : 0;
-
-  // Chart data
-  const monthlyTrends = Array.from({ length: 12 }, (_, i) => {
-    const month = i + 1;
-    const monthData = forecastData.filter(cell => cell.month === month);
-    return {
-      month,
-      Planned: monthData.reduce((sum, cell) => sum + cell.planned, 0),
-      Forecast: monthData.reduce((sum, cell) => sum + cell.forecast, 0),
-      Actual: monthData.reduce((sum, cell) => sum + cell.actual, 0)
-    };
-  });
+    console.log('📊 Recalculating chart trends for project:', selectedProjectId);
+    console.log('📊 Sample month data:', trends.slice(0, 3));
+    
+    return trends;
+  }, [forecastData, selectedProjectId]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -319,6 +379,13 @@ export function SDMTForecast() {
               </span>
             )}
           </p>
+          {/* Debug info */}
+          <div className="mt-2 text-xs text-muted-foreground space-x-4">
+            <span>Project: {selectedProjectId}</span>
+            <span>Data points: {forecastData.length}</span>
+            <span>Line items: {lineItems.length}</span>
+            <span>Grid rows: {forecastGrid.length}</span>
+          </div>
         </div>
         <ModuleBadge />
       </div>
@@ -437,7 +504,21 @@ export function SDMTForecast() {
                   Loading forecast data{currentProject ? ` for ${currentProject.name}` : ''}...
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Project Change #{projectChangeCount}
+                  Project: {selectedProjectId} | Change #{projectChangeCount}
+                </div>
+              </div>
+            </div>
+          ) : forecastGrid.length === 0 ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="text-center space-y-3">
+                <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-muted-foreground font-bold text-sm">📋</span>
+                </div>
+                <div className="text-muted-foreground">
+                  No forecast data available for {currentProject?.name || 'this project'}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Project ID: {selectedProjectId}
                 </div>
               </div>
             </div>
@@ -568,52 +649,54 @@ export function SDMTForecast() {
       </Card>
 
       {/* Charts and Analytics */}
-      <ChartInsightsPanel
-        title="Forecast Analytics & Trends"
-        charts={[
-          <LineChartComponent
-            key="forecast-trends"
-            data={monthlyTrends}
-            lines={[
-              { dataKey: 'Planned', name: 'Planned', color: 'oklch(0.45 0.12 200)', strokeDasharray: '5 5' },
-              { dataKey: 'Forecast', name: 'Forecast', color: 'oklch(0.61 0.15 160)', strokeWidth: 3 },
-              { dataKey: 'Actual', name: 'Actual', color: 'oklch(0.72 0.15 65)' }
-            ]}
-            title="Monthly Forecast Trends"
-          />,
-          <StackedColumnsChart
-            key="variance-analysis"
-            data={monthlyTrends.map(month => ({
-              month: month.month,
-              'Over Budget': Math.max(0, month.Forecast - month.Planned),
-              'Under Budget': Math.min(0, month.Forecast - month.Planned)
-            }))}
-            stacks={[
-              { dataKey: 'Over Budget', name: 'Over Budget', color: 'oklch(0.65 0.2 30)' },
-              { dataKey: 'Under Budget', name: 'Under Budget', color: 'oklch(0.55 0.15 140)' }
-            ]}
-            title="Variance Analysis"
-          />
-        ]}
-        insights={[
-          {
-            title: "Forecast Accuracy",
-            value: `${(100 - Math.abs(variancePercentage)).toFixed(1)}%`,
-            type: variancePercentage < 5 ? 'positive' : variancePercentage > 15 ? 'negative' : 'neutral'
-          },
-          {
-            title: "Largest Variance",
-            value: formatCurrency(Math.max(...forecastData.map(c => Math.abs(c.variance)))),
-            type: 'neutral'
-          },
-          {
-            title: "Forecast vs Planned",
-            value: totalForecast > totalPlanned ? 'Over Budget' : totalForecast < totalPlanned ? 'Under Budget' : 'On Target',
-            type: totalForecast > totalPlanned ? 'negative' : totalForecast < totalPlanned ? 'positive' : 'neutral'
-          }
-        ]}
-        onExport={handleExcelExport}
-      />
+      {!loading && forecastData.length > 0 && (
+        <ChartInsightsPanel
+          title="Forecast Analytics & Trends"
+          charts={[
+            <LineChartComponent
+              key={`forecast-trends-${selectedProjectId}`}
+              data={monthlyTrends}
+              lines={[
+                { dataKey: 'Planned', name: 'Planned', color: 'oklch(0.45 0.12 200)', strokeDasharray: '5 5' },
+                { dataKey: 'Forecast', name: 'Forecast', color: 'oklch(0.61 0.15 160)', strokeWidth: 3 },
+                { dataKey: 'Actual', name: 'Actual', color: 'oklch(0.72 0.15 65)' }
+              ]}
+              title="Monthly Forecast Trends"
+            />,
+            <StackedColumnsChart
+              key={`variance-analysis-${selectedProjectId}`}
+              data={monthlyTrends.map(month => ({
+                month: month.month,
+                'Over Budget': Math.max(0, month.Forecast - month.Planned),
+                'Under Budget': Math.min(0, month.Forecast - month.Planned)
+              }))}
+              stacks={[
+                { dataKey: 'Over Budget', name: 'Over Budget', color: 'oklch(0.65 0.2 30)' },
+                { dataKey: 'Under Budget', name: 'Under Budget', color: 'oklch(0.55 0.15 140)' }
+              ]}
+              title="Variance Analysis"
+            />
+          ]}
+          insights={[
+            {
+              title: "Forecast Accuracy",
+              value: `${(100 - Math.abs(variancePercentage)).toFixed(1)}%`,
+              type: variancePercentage < 5 ? 'positive' : variancePercentage > 15 ? 'negative' : 'neutral'
+            },
+            {
+              title: "Largest Variance",
+              value: formatCurrency(Math.max(...forecastData.map(c => Math.abs(c.variance || 0)))),
+              type: 'neutral'
+            },
+            {
+              title: "Forecast vs Planned",
+              value: totalForecast > totalPlanned ? 'Over Budget' : totalForecast < totalPlanned ? 'Under Budget' : 'On Target',
+              type: totalForecast > totalPlanned ? 'negative' : totalForecast < totalPlanned ? 'positive' : 'neutral'
+            }
+          ]}
+          onExport={handleExcelExport}
+        />
+      )}
     </div>
   );
 }
