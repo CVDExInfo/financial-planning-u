@@ -27,13 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Edit, Trash2, Upload, Download } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Share, Download } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import Protected from '@/components/Protected';
 import ModuleBadge from '@/components/ModuleBadge';
 import { toast } from 'sonner';
-import type { LineItem } from '@/types/domain';
+import type { LineItem, BaselineBudget } from '@/types/domain';
 import ApiService from '@/lib/api';
+import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 
 export function SDMTCatalog() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
@@ -85,6 +86,85 @@ export function SDMTCatalog() {
     return item.recurring ? baseCost * duration : baseCost;
   };
 
+  const handleShare = async () => {
+    try {
+      toast.loading('Generating shareable report...');
+      
+      // Create a formatted summary document
+      const catalogSummary = {
+        title: 'Cost Catalog Summary',
+        generated: new Date().toISOString(),
+        project_id: 'current-project', // Would come from context
+        total_items: filteredItems.length,
+        categories: categories.length,
+        total_estimated_cost: filteredItems.reduce((sum, item) => sum + calculateTotalCost(item), 0),
+        line_items: filteredItems.map(item => ({
+          id: item.id,
+          category: item.category,
+          description: item.description,
+          total_cost: calculateTotalCost(item),
+          currency: item.currency
+        }))
+      };
+
+      // Create a shareable link (mock implementation)
+      const shareableData = btoa(JSON.stringify(catalogSummary));
+      const shareUrl = `${window.location.origin}/shared/catalog?data=${shareableData}`;
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(shareUrl);
+      
+      toast.dismiss();
+      toast.success('Shareable link copied to clipboard!');
+    } catch (error) {
+      toast.dismiss();
+      toast.error('Failed to generate shareable report');
+      console.error('Share error:', error);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      toast.loading('Preparing Excel export...');
+      
+      // Create a baseline budget structure for export
+      const totalAmount = filteredItems.reduce((sum, item) => sum + calculateTotalCost(item), 0);
+      
+      const mockBaseline: BaselineBudget = {
+        baseline_id: `catalog-${Date.now()}`,
+        project_id: 'current-project',
+        project_name: 'Current Project Catalog',
+        created_by: currentRole,
+        accepted_by: currentRole,
+        accepted_ts: new Date().toISOString(),
+        signature_hash: 'mock-hash',
+        line_items: filteredItems,
+        monthly_totals: [],
+        assumptions: [
+          'Cost estimates based on current market rates',
+          'Currency rates as of ' + new Date().toLocaleDateString(),
+          'Includes all line items in current catalog view'
+        ],
+        total_amount: totalAmount,
+        currency: 'USD',
+        created_at: new Date().toISOString(),
+        status: 'draft'
+      };
+
+      const buffer = await excelExporter.exportBaselineBudget(mockBaseline);
+      const filename = `cost-catalog-${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      downloadExcelFile(buffer, filename);
+      
+      toast.dismiss();
+      toast.success('Excel file downloaded successfully');
+    } catch (error) {
+      toast.dismiss();
+      toast.error('Failed to export catalog');
+      console.error('Export error:', error);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -125,11 +205,19 @@ export function SDMTCatalog() {
             </Select>
           </div>
           <div className="flex items-center space-x-2">
-            <Button variant="outline" className="gap-2">
-              <Upload size={16} />
-              Import
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={handleShare}
+            >
+              <Share size={16} />
+              Share
             </Button>
-            <Button variant="outline" className="gap-2">
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={handleExport}
+            >
               <Download size={16} />
               Export
             </Button>
