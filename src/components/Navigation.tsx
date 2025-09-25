@@ -109,13 +109,6 @@ export function Navigation({ currentModule }: NavigationProps) {
                 <p className="text-xs text-muted-foreground">Enterprise PMO Platform</p>
               </div>
             </Link>
-            
-            {/* Module Badge */}
-            {currentModule && (
-              <Badge className={getModuleBadgeClass(currentModule)}>
-                {currentModule}
-              </Badge>
-            )}
           </div>
 
           {/* Module Navigation */}

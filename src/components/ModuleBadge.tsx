@@ -8,17 +8,8 @@ interface ModuleBadgeProps {
 }
 
 export function ModuleBadge({ className }: ModuleBadgeProps) {
-  const location = useLocation();
-  const { currentRole } = useAuth();
-  
-  const currentModule = getCurrentModuleContext(location.pathname, currentRole);
-  const badgeClass = currentModule === 'PMO' ? 'module-badge-pmo' : 'module-badge-sdmt';
-  
-  return (
-    <Badge className={`${badgeClass} ${className || ''}`}>
-      {currentModule} Module
-    </Badge>
-  );
+  // Hide the module badge as requested
+  return null;
 }
 
 export default ModuleBadge;
