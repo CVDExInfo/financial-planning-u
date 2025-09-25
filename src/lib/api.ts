@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import {
+import type {
   BillingPeriod,
   LineItem,
   BaselineBudget,
@@ -10,7 +10,7 @@ import {
   Project,
   APIResponse,
   PaginatedResponse
-} from '@/types/domain';
+} from '@/types/domain.d.ts';
 
 import baselineData from '@/mocks/baseline.json';
 import baselineFintechData from '@/mocks/baseline-fintech.json';

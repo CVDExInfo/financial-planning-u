@@ -32,9 +32,10 @@ import { usePermissions } from '@/hooks/usePermissions';
 import Protected from '@/components/Protected';
 import ModuleBadge from '@/components/ModuleBadge';
 import { toast } from 'sonner';
-import type { LineItem, BaselineBudget } from '@/types/domain';
+import type { LineItem, BaselineBudget } from '@/types/domain.d.ts';
 import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
+import { PDFExporter, formatReportCurrency } from '@/lib/pdf-export';
 
 export function SDMTCatalog() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
@@ -88,37 +89,64 @@ export function SDMTCatalog() {
 
   const handleShare = async () => {
     try {
-      toast.loading('Generating shareable report...');
+      toast.loading('Generating professional report...');
       
-      // Create a formatted summary document
-      const catalogSummary = {
+      const totalCost = filteredItems.reduce((sum, item) => sum + calculateTotalCost(item), 0);
+      const laborCost = filteredItems
+        .filter(item => item.category === 'Labor')
+        .reduce((sum, item) => sum + calculateTotalCost(item), 0);
+      const nonLaborCost = totalCost - laborCost;
+      
+      const reportData = {
         title: 'Cost Catalog Summary',
-        generated: new Date().toISOString(),
-        project_id: 'current-project', // Would come from context
-        total_items: filteredItems.length,
-        categories: categories.length,
-        total_estimated_cost: filteredItems.reduce((sum, item) => sum + calculateTotalCost(item), 0),
-        line_items: filteredItems.map(item => ({
-          id: item.id,
-          category: item.category,
-          description: item.description,
-          total_cost: calculateTotalCost(item),
-          currency: item.currency
-        }))
+        subtitle: 'Project Cost Structure Analysis',
+        generated: new Date().toLocaleDateString(),
+        metrics: [
+          {
+            label: 'Total Line Items',
+            value: filteredItems.length.toString(),
+            color: '#64748b'
+          },
+          {
+            label: 'Total Estimated Cost',
+            value: formatReportCurrency(totalCost),
+            color: '#2BB673'
+          },
+          {
+            label: 'Labor Costs',
+            value: formatReportCurrency(laborCost),
+            change: `${((laborCost / totalCost) * 100).toFixed(1)}% of total`,
+            changeType: 'neutral' as const,
+            color: '#14B8A6'
+          },
+          {
+            label: 'Non-Labor Costs',
+            value: formatReportCurrency(nonLaborCost),
+            change: `${((nonLaborCost / totalCost) * 100).toFixed(1)}% of total`,
+            changeType: 'neutral' as const,
+            color: '#f59e0b'
+          }
+        ],
+        summary: [
+          `Cost catalog contains ${filteredItems.length} line items across ${categories.length} categories`,
+          `Labor costs represent ${((laborCost / totalCost) * 100).toFixed(1)}% of total budget`,
+          `${filteredItems.filter(item => item.recurring).length} recurring cost items identified`,
+          `${filteredItems.filter(item => item.capex_flag).length} items flagged as capital expenditure`
+        ],
+        recommendations: [
+          'Review recurring items for potential optimization opportunities',
+          'Validate vendor quotes for significant non-labor items',
+          'Consider bundling similar services for better pricing',
+          'Establish clear cost center mappings for accurate tracking'
+        ]
       };
 
-      // Create a shareable link (mock implementation)
-      const shareableData = btoa(JSON.stringify(catalogSummary));
-      const shareUrl = `${window.location.origin}/shared/catalog?data=${shareableData}`;
-      
-      // Copy to clipboard
-      await navigator.clipboard.writeText(shareUrl);
-      
+      await PDFExporter.exportToPDF(reportData);
       toast.dismiss();
-      toast.success('Shareable link copied to clipboard!');
+      toast.success('Professional catalog report generated!');
     } catch (error) {
       toast.dismiss();
-      toast.error('Failed to generate shareable report');
+      toast.error('Failed to generate professional report');
       console.error('Share error:', error);
     }
   };

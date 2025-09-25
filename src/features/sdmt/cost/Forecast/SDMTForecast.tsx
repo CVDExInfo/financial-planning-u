@@ -25,11 +25,12 @@ import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import LineChartComponent from '@/components/charts/LineChart';
 import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
 import ModuleBadge from '@/components/ModuleBadge';
-import type { ForecastCell, LineItem } from '@/types/domain';
+import type { ForecastCell, LineItem } from '@/types/domain.d.ts';
 import { useAuth } from '@/components/AuthProvider';
 import { useNavigate } from 'react-router-dom';
 import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
+import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastCell[]>([]);
@@ -211,69 +212,54 @@ export function SDMTForecast() {
 
   const handlePDFExport = async () => {
     try {
-      // For now, simulate PDF export - in production this would generate actual PDF
       const reportData = {
-        title: 'Forecast Summary Report',
+        title: 'Cost Forecast Analysis',
+        subtitle: 'Executive Summary & Variance Report',
         generated: new Date().toLocaleDateString(),
-        totalPlanned: formatCurrency(totalPlanned),
-        totalForecast: formatCurrency(totalForecast),
-        totalActual: formatCurrency(totalActual),
-        variance: formatCurrency(totalVariance),
-        variancePercentage: `${Math.abs(variancePercentage).toFixed(1)}%`
+        metrics: [
+          {
+            label: 'Total Planned Budget',
+            value: formatReportCurrency(totalPlanned),
+            color: '#64748b'
+          },
+          {
+            label: 'Current Forecast',
+            value: formatReportCurrency(totalForecast),
+            change: formatReportPercentage(((totalForecast - totalPlanned) / totalPlanned) * 100),
+            changeType: getChangeType(totalForecast - totalPlanned),
+            color: '#2BB673'
+          },
+          {
+            label: 'Actual Expenses',
+            value: formatReportCurrency(totalActual),
+            change: formatReportPercentage(((totalActual - totalPlanned) / totalPlanned) * 100),
+            changeType: getChangeType(totalActual - totalPlanned),
+            color: '#14B8A6'
+          },
+          {
+            label: 'Budget Variance',
+            value: formatReportCurrency(Math.abs(totalVariance)),
+            change: formatReportPercentage(Math.abs(variancePercentage)),
+            changeType: getChangeType(-Math.abs(totalVariance)),
+            color: totalVariance > 0 ? '#ef4444' : '#22c55e'
+          }
+        ],
+        summary: [
+          `Total project budget variance: ${formatReportCurrency(totalVariance)} (${variancePercentage.toFixed(1)}%)`,
+          `${forecastData.filter(f => f.variance > 0).length} line items showing cost overruns`,
+          `${forecastData.filter(f => f.variance < 0).length} line items under budget`,
+          `Current forecast accuracy: ${(100 - Math.abs(variancePercentage)).toFixed(1)}%`
+        ],
+        recommendations: [
+          totalVariance > 50000 ? 'Immediate budget review required for significant overruns' : 'Budget variance within acceptable range',
+          'Focus on line items with highest variance impact for cost optimization',
+          'Consider updating forecast models based on actual performance trends',
+          'Implement enhanced tracking for high-risk cost categories'
+        ]
       };
-      
-      // Create a simple HTML report and print it
-      const printContent = `
-        <html>
-          <head>
-            <title>Forecast Summary Report</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 40px; }
-              .header { text-align: center; margin-bottom: 30px; }
-              .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-              .metric { padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-              .metric-value { font-size: 24px; font-weight: bold; color: #2BB673; }
-              .metric-label { font-size: 14px; color: #666; margin-top: 5px; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>Forecast Summary Report</h1>
-              <p>Generated on ${reportData.generated}</p>
-            </div>
-            <div class="metrics">
-              <div class="metric">
-                <div class="metric-value">${reportData.totalPlanned}</div>
-                <div class="metric-label">Total Planned</div>
-              </div>
-              <div class="metric">
-                <div class="metric-value">${reportData.totalForecast}</div>
-                <div class="metric-label">Total Forecast</div>
-              </div>
-              <div class="metric">
-                <div class="metric-value">${reportData.totalActual}</div>
-                <div class="metric-label">Total Actual</div>
-              </div>
-              <div class="metric">
-                <div class="metric-value">${reportData.variance}</div>
-                <div class="metric-label">Variance (${reportData.variancePercentage})</div>
-              </div>
-            </div>
-          </body>
-        </html>
-      `;
-      
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(printContent);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 250);
-      }
-      
-      toast.success('PDF summary generated successfully');
+
+      await PDFExporter.exportToPDF(reportData);
+      toast.success('Professional forecast report generated');
     } catch (error) {
       toast.error('Failed to generate PDF summary');
       console.error(error);

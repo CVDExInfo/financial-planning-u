@@ -15,7 +15,7 @@ import FXIndexationStep from './steps/FXIndexationStep';
 import ReviewSignStep from './steps/ReviewSignStep';
 
 // Import types
-import type { DealInputs, LaborEstimate, NonLaborEstimate } from '@/types/domain';
+import type { DealInputs, LaborEstimate, NonLaborEstimate } from '@/types/domain.d.ts';
 
 interface EstimatorStep {
   id: string;

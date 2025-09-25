@@ -21,9 +21,10 @@ import { toast } from 'sonner';
 import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
-import type { DealInputs, LaborEstimate, NonLaborEstimate } from '@/types/domain';
+import type { DealInputs, LaborEstimate, NonLaborEstimate } from '@/types/domain.d.ts';
 import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
+import { PDFExporter, formatReportCurrency, formatReportPercentage } from '@/lib/pdf-export';
 
 interface ReviewSignStepProps {
   data: {
@@ -217,6 +218,82 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
       toast.success('Baseline budget exported successfully');
     } catch (error) {
       toast.error('Failed to export baseline budget');
+      console.error(error);
+    }
+  };
+
+  const handleExportPDFSummary = async () => {
+    if (!signatureComplete || !baselineId) {
+      toast.error('Please complete the digital signature first');
+      return;
+    }
+
+    try {
+      const totalLaborCost = laborEstimates.reduce((sum, labor) => {
+        const baseHours = labor.hours_per_month * labor.fte_count * 12;
+        const baseCost = baseHours * labor.hourly_rate;
+        return sum + baseCost + (baseCost * labor.on_cost_percentage / 100);
+      }, 0);
+
+      const totalNonLaborCost = nonLaborEstimates.reduce((sum, item) => {
+        const duration = item.end_month && item.start_month ? 
+          (item.end_month - item.start_month + 1) : 1;
+        return sum + (item.one_time ? item.amount : item.amount * duration);
+      }, 0);
+
+      const totalAmount = totalLaborCost + totalNonLaborCost;
+      const laborPercentage = (totalLaborCost / totalAmount) * 100;
+
+      const reportData = {
+        title: 'Project Baseline Budget',
+        subtitle: 'PMO Pre-Factura Estimate Summary',
+        generated: new Date().toLocaleDateString(),
+        metrics: [
+          {
+            label: 'Total Project Cost',
+            value: formatReportCurrency(totalAmount),
+            color: '#2BB673'
+          },
+          {
+            label: 'Labor Costs',
+            value: formatReportCurrency(totalLaborCost),
+            change: `${laborPercentage.toFixed(1)}% of total`,
+            changeType: 'neutral' as const,
+            color: '#14B8A6'
+          },
+          {
+            label: 'Non-Labor Costs',
+            value: formatReportCurrency(totalNonLaborCost),
+            change: `${(100 - laborPercentage).toFixed(1)}% of total`,
+            changeType: 'neutral' as const,
+            color: '#f59e0b'
+          },
+          {
+            label: 'Team Size',
+            value: `${laborEstimates.reduce((sum, labor) => sum + labor.fte_count, 0)} FTE`,
+            change: `${laborEstimates.length} roles`,
+            changeType: 'positive' as const,
+            color: '#6366f1'
+          }
+        ],
+        summary: [
+          `Project: ${dealInputs?.project_name || 'Unnamed Project'}`,
+          `Duration: ${dealInputs?.duration_months || 12} months`,
+          `Team composition: ${laborEstimates.length} roles, ${laborEstimates.reduce((sum, labor) => sum + labor.fte_count, 0)} FTE`,
+          `Baseline ID: ${baselineId} (digitally signed)`
+        ],
+        recommendations: [
+          'Review labor rates quarterly for market alignment',
+          'Validate vendor quotes before project commencement',
+          'Establish change control process for scope modifications',
+          'Monitor actual costs against baseline for variance analysis'
+        ]
+      };
+
+      await PDFExporter.exportToPDF(reportData);
+      toast.success('Professional baseline summary generated');
+    } catch (error) {
+      toast.error('Failed to generate PDF summary');
       console.error(error);
     }
   };
@@ -504,10 +581,16 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
             </div>
 
             <div className="flex justify-between items-center">
-              <Button variant="outline" className="gap-2" onClick={handleExportBaseline}>
-                <FileSpreadsheet size={16} />
-                Export Baseline
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" className="gap-2" onClick={handleExportBaseline}>
+                  <FileSpreadsheet size={16} />
+                  Export Excel
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={handleExportPDFSummary}>
+                  <FileText size={16} />
+                  Share Report
+                </Button>
+              </div>
               <Button onClick={handleComplete} className="gap-2" size="lg">
                 Complete & Handoff to SDMT
                 <CheckCircle2 size={16} />

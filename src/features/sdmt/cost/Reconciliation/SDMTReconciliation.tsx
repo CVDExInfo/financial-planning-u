@@ -29,12 +29,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Upload, FileCheck, AlertTriangle, ExternalLink, Plus, X } from 'lucide-react';
+import { Upload, FileCheck, AlertTriangle, ExternalLink, Plus, X, Download, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useKV } from '@github/spark/hooks';
 import ModuleBadge from '@/components/ModuleBadge';
-import type { InvoiceDoc, LineItem } from '@/types/domain';
+import type { InvoiceDoc, LineItem, ForecastCell } from '@/types/domain.d.ts';
 import ApiService from '@/lib/api';
+import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
+import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
 
 export function SDMTReconciliation() {
   const [invoices, setInvoices] = useState<InvoiceDoc[]>([]);
@@ -183,6 +185,109 @@ export function SDMTReconciliation() {
     const item = lineItems.find(li => li.id === lineItemId);
     return item ? `${item.description} (${item.category})` : lineItemId;
   };
+
+  // Export functions
+  const handleExportVarianceReport = async () => {
+    try {
+      toast.loading('Generating variance report...');
+      
+      // Convert invoice data to forecast format for variance analysis
+      const mockForecastData: ForecastCell[] = filteredInvoices.map(invoice => {
+        const lineItem = lineItems.find(li => li.id === invoice.line_item_id);
+        // Mock planned amount based on line item
+        const plannedAmount = lineItem ? (lineItem.qty * lineItem.unit_cost) : invoice.amount;
+        
+        return {
+          line_item_id: invoice.line_item_id,
+          month: invoice.month,
+          planned: plannedAmount,
+          forecast: plannedAmount,
+          actual: invoice.amount,
+          variance: invoice.amount - plannedAmount,
+          variance_reason: invoice.status === 'Disputed' ? 'scope' : undefined,
+          notes: invoice.comments?.[0],
+          last_updated: invoice.uploaded_at,
+          updated_by: invoice.uploaded_by
+        } as ForecastCell;
+      });
+
+      const buffer = await excelExporter.exportVarianceReport(mockForecastData, lineItems);
+      const filename = `invoice-variance-report-${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      downloadExcelFile(buffer, filename);
+      
+      toast.dismiss();
+      toast.success('Variance report exported successfully');
+    } catch (error) {
+      toast.dismiss();
+      toast.error('Failed to export variance report');
+      console.error('Export error:', error);
+    }
+  };
+
+  const handleShareReconciliationSummary = async () => {
+    try {
+      toast.loading('Generating professional reconciliation report...');
+      
+      const totalAmount = filteredInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+      const matchRate = filteredInvoices.length ? ((matchedCount / filteredInvoices.length) * 100) : 0;
+      const averageInvoiceAmount = filteredInvoices.length ? totalAmount / filteredInvoices.length : 0;
+      
+      const reportData = {
+        title: 'Invoice Reconciliation Report',
+        subtitle: 'Financial Control & Compliance Summary',
+        generated: new Date().toLocaleDateString(),
+        metrics: [
+          {
+            label: 'Total Invoices Processed',
+            value: filteredInvoices.length.toString(),
+            color: '#64748b'
+          },
+          {
+            label: 'Successfully Matched',
+            value: matchedCount.toString(),
+            change: `${matchRate.toFixed(1)}% match rate`,
+            changeType: (matchRate >= 80 ? 'positive' : matchRate >= 60 ? 'neutral' : 'negative') as 'positive' | 'negative' | 'neutral',
+            color: '#22c55e'
+          },
+          {
+            label: 'Pending Review',
+            value: pendingCount.toString(),
+            change: pendingCount > 0 ? 'Requires attention' : 'All current',
+            changeType: (pendingCount > 0 ? 'neutral' : 'positive') as 'positive' | 'negative' | 'neutral',
+            color: '#f59e0b'
+          },
+          {
+            label: 'Disputed Items',
+            value: disputedCount.toString(),
+            change: disputedCount > 0 ? 'Need resolution' : 'None',
+            changeType: (disputedCount > 0 ? 'negative' : 'positive') as 'positive' | 'negative' | 'neutral',
+            color: disputedCount > 0 ? '#ef4444' : '#22c55e'
+          }
+        ],
+        summary: [
+          `Processed ${filteredInvoices.length} invoices worth ${formatReportCurrency(totalAmount)}`,
+          `Invoice match rate: ${matchRate.toFixed(1)}% (${matchedCount}/${filteredInvoices.length})`,
+          `Average invoice amount: ${formatReportCurrency(averageInvoiceAmount)}`,
+          `${disputedCount} disputes require immediate attention`
+        ],
+        recommendations: [
+          matchRate < 80 ? 'Improve invoice matching process - current rate below target' : 'Maintain excellent matching performance',
+          pendingCount > 0 ? `Process ${pendingCount} pending invoices to improve cycle time` : 'No pending items - excellent processing speed',
+          disputedCount > 0 ? `Resolve ${disputedCount} disputed invoices to reduce financial risk` : 'No disputes - strong vendor relationship management',
+          'Implement automated matching rules to improve efficiency'
+        ]
+      };
+
+      await PDFExporter.exportToPDF(reportData);
+      toast.dismiss();
+      toast.success('Professional reconciliation report generated!');
+    } catch (error) {
+      toast.dismiss();
+      toast.error('Failed to generate professional report');
+      console.error('Share error:', error);
+    }
+  };
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -206,6 +311,24 @@ export function SDMTReconciliation() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleShareReconciliationSummary}
+            className="gap-2"
+          >
+            <Share2 size={16} />
+            Share
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleExportVarianceReport}
+            className="gap-2"
+          >
+            <Download size={16} />
+            Export
+          </Button>
           <ModuleBadge />
           <Button onClick={() => setShowUploadForm(true)} className="gap-2">
             <Plus size={16} />
