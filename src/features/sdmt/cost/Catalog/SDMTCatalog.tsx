@@ -44,7 +44,7 @@ export function SDMTCatalog() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const { selectedProjectId, currentProject } = useProject();
+  const { selectedProjectId, currentProject, projectChangeCount } = useProject();
 
   // Use the new permissions system
   const { canCreate, canUpdate, canDelete, isReadOnly, currentRole } = usePermissions();
@@ -52,9 +52,10 @@ export function SDMTCatalog() {
   // Load data when project changes
   useEffect(() => {
     if (selectedProjectId) {
+      console.log('📂 Catalog: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
       loadLineItems();
     }
-  }, [selectedProjectId]);
+  }, [selectedProjectId, projectChangeCount]);
 
   const loadLineItems = async () => {
     try {

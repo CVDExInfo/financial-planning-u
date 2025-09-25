@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useKV } from '@github/spark/hooks';
 import ApiService from '@/lib/api';
 import type { Project } from '@/types/domain';
@@ -12,17 +12,26 @@ interface ProjectContextType {
   projects: Project[];
   loading: boolean;
   refreshProject: () => Promise<void>;
+  projectChangeCount: number; // Track how many times project has changed for debugging
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
-  const [selectedProjectId, setSelectedProjectId] = useKV<string>('selected-project-id', '');
+  const [selectedProjectId, setSelectedProjectIdKV] = useKV<string>('selected-project-id', '');
   const [selectedPeriod, setSelectedPeriod] = useKV<string>('selected-period', '12');
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [projectChangeCount, setProjectChangeCount] = useState(0);
 
   const currentProject = projects.find(p => p.id === selectedProjectId);
+
+  // Enhanced project setter that triggers change counter
+  const setSelectedProjectId = useCallback((projectId: string) => {
+    console.log('🔄 Project changing from:', selectedProjectId, 'to:', projectId);
+    setSelectedProjectIdKV(projectId);
+    setProjectChangeCount(prev => prev + 1);
+  }, [selectedProjectId, setSelectedProjectIdKV]);
 
   const loadProjects = async () => {
     try {
@@ -32,6 +41,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       
       // Auto-select first project if none selected
       if (!selectedProjectId && projectData.length > 0) {
+        console.log('🎯 Auto-selecting first project:', projectData[0].id);
         setSelectedProjectId(projectData[0].id);
       }
     } catch (error) {
@@ -45,6 +55,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     loadProjects();
   }, []);
 
+  // Log project changes for debugging
+  useEffect(() => {
+    if (selectedProjectId) {
+      console.log('📊 Project context changed:', {
+        projectId: selectedProjectId,
+        projectName: currentProject?.name,
+        changeCount: projectChangeCount
+      });
+    }
+  }, [selectedProjectId, currentProject?.name, projectChangeCount]);
+
   const refreshProject = async () => {
     await loadProjects();
   };
@@ -57,7 +78,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     currentProject,
     projects,
     loading,
-    refreshProject
+    refreshProject,
+    projectChangeCount
   };
 
   return (

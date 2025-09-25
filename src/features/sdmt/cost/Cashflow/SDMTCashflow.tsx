@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,18 +7,62 @@ import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import LineChartComponent from '@/components/charts/LineChart';
 import StackedColumnsChart from '@/components/charts/StackedColumnsChart';
 import ModuleBadge from '@/components/ModuleBadge';
+import { useProject } from '@/contexts/ProjectContext';
+import ApiService from '@/lib/api';
 
 export function SDMTCashflow() {
-  // Mock data for demonstration
-  const cashflowData = Array.from({ length: 12 }, (_, i) => ({
-    month: i + 1,
-    Inflows: 100000 + Math.random() * 20000,
-    Outflows: 85000 + Math.random() * 15000,
-    'Net Flow': 0
-  })).map(item => ({
-    ...item,
-    'Net Flow': item.Inflows - item.Outflows
-  }));
+  const { selectedProjectId, currentProject, selectedPeriod, projectChangeCount } = useProject();
+  const [cashflowData, setCashflowData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load data when project changes
+  useEffect(() => {
+    if (selectedProjectId) {
+      console.log('💰 Cashflow: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
+      loadCashflowData();
+    }
+  }, [selectedProjectId, selectedPeriod, projectChangeCount]);
+
+  const loadCashflowData = async () => {
+    try {
+      setLoading(true);
+      const data = await ApiService.getCashFlowData(selectedProjectId, parseInt(selectedPeriod));
+      
+      // Transform API data to chart format
+      const transformedData = Array.from({ length: 12 }, (_, i) => {
+        const month = i + 1;
+        const inflow = data.inflows.find(inf => inf.month === month);
+        const outflow = data.outflows.find(out => out.month === month);
+        const inflowAmount = inflow?.amount || 0;
+        const outflowAmount = outflow?.amount || 0;
+        
+        return {
+          month,
+          Inflows: inflowAmount,
+          Outflows: outflowAmount,
+          'Net Flow': inflowAmount - outflowAmount
+        };
+      });
+      
+      setCashflowData(transformedData);
+      console.log('✅ Cashflow data loaded for project:', selectedProjectId);
+    } catch (error) {
+      console.error('Failed to load cashflow data:', error);
+      // Fallback to mock data if API fails
+      const fallbackData = Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        Inflows: 100000 + Math.random() * 20000,
+        Outflows: 85000 + Math.random() * 15000,
+        'Net Flow': 0
+      })).map(item => ({
+        ...item,
+        'Net Flow': item.Inflows - item.Outflows
+      }));
+      setCashflowData(fallbackData);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Project performance data
   const projectPerformanceData = [

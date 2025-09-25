@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,9 @@ import {
 import { Plus, Clock, CheckCircle2, XCircle, AlertCircle, Eye } from 'lucide-react';
 import ModuleBadge from '@/components/ModuleBadge';
 import ApprovalWorkflow from './ApprovalWorkflow';
+import { useProject } from '@/contexts/ProjectContext';
+import ApiService from '@/lib/api';
+import type { ChangeRequest as DomainChangeRequest } from '@/types/domain.d.ts';
 
 interface ChangeRequest {
   id: string;
@@ -46,8 +49,48 @@ interface ApprovalStep {
 }
 
 export function SDMTChanges() {
+  const { selectedProjectId, currentProject, projectChangeCount } = useProject();
+  const [changeRequests, setChangeRequests] = useState<DomainChangeRequest[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedChange, setSelectedChange] = useState<ChangeRequest | null>(null);
   const [isWorkflowDialogOpen, setIsWorkflowDialogOpen] = useState(false);
+
+  // Load data when project changes
+  useEffect(() => {
+    if (selectedProjectId) {
+      console.log('📋 Changes: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
+      loadChangeRequests();
+    }
+  }, [selectedProjectId, projectChangeCount]);
+
+  const loadChangeRequests = async () => {
+    try {
+      setLoading(true);
+      const data = await ApiService.getChangeRequests(selectedProjectId);
+      setChangeRequests(data);
+      console.log('✅ Change requests loaded for project:', selectedProjectId);
+    } catch (error) {
+      console.error('Failed to load change requests:', error);
+      // Fallback to mock data - convert to domain type
+      const mockData: DomainChangeRequest[] = mockChanges.map(change => ({
+        id: change.id,
+        baseline_id: 'BL-2024-001',
+        title: change.title,
+        description: change.description,
+        impact_amount: change.impact,
+        currency: 'USD',
+        affected_line_items: change.affectedLineItems,
+        justification: change.businessJustification,
+        requested_by: change.requestedBy,
+        requested_at: change.requestedAt,
+        status: change.status,
+        approvals: []
+      }));
+      setChangeRequests(mockData);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const mockChanges: ChangeRequest[] = [
     {
@@ -196,19 +239,26 @@ export function SDMTChanges() {
     }
   };
 
-  const pendingCount = mockChanges.filter(c => c.status === 'pending').length;
-  const approvedCount = mockChanges.filter(c => c.status === 'approved').length;
-  const rejectedCount = mockChanges.filter(c => c.status === 'rejected').length;
-  const totalImpact = mockChanges
+  const pendingCount = changeRequests.filter(c => c.status === 'pending').length;
+  const approvedCount = changeRequests.filter(c => c.status === 'approved').length;
+  const rejectedCount = changeRequests.filter(c => c.status === 'rejected').length;
+  const totalImpact = changeRequests
     .filter(c => c.status === 'approved')
-    .reduce((sum, c) => sum + c.impact, 0);
+    .reduce((sum, c) => sum + c.impact_amount, 0);
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Change Management</h1>
-          <p className="text-muted-foreground">Track budget change requests and approval workflows</p>
+          <p className="text-muted-foreground">
+            Track budget change requests and approval workflows
+            {currentProject && (
+              <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                {currentProject.name}
+              </span>
+            )}
+          </p>
         </div>
         <ModuleBadge />
       </div>

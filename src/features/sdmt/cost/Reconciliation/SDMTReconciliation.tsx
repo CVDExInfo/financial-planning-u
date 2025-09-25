@@ -57,7 +57,7 @@ export function SDMTReconciliation() {
   
   const location = useLocation();
   const navigate = useNavigate();
-  const { selectedProjectId } = useProject();
+  const { selectedProjectId, projectChangeCount } = useProject();
   
   // Parse URL params for filtering (when coming from forecast)
   const urlParams = new URLSearchParams(location.search);
@@ -67,6 +67,7 @@ export function SDMTReconciliation() {
   // Load data when project changes
   useEffect(() => {
     if (selectedProjectId) {
+      console.log('🧾 Reconciliation: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
       loadInvoices();
       loadLineItems();
     }
@@ -80,7 +81,7 @@ export function SDMTReconciliation() {
       }));
       setShowUploadForm(true);
     }
-  }, [selectedProjectId, filterLineItem, filterMonth]);
+  }, [selectedProjectId, filterLineItem, filterMonth, projectChangeCount]);
 
   const loadInvoices = async () => {
     try {

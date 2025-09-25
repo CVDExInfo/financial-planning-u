@@ -40,20 +40,22 @@ export function SDMTForecast() {
   const [editingCell, setEditingCell] = useState<{ line_item_id: string; month: number; type: 'forecast' | 'actual' } | null>(null);
   const [editValue, setEditValue] = useState('');
   const { user } = useAuth();
-  const { selectedProjectId, selectedPeriod, currentProject } = useProject();
+  const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount } = useProject();
   const navigate = useNavigate();
 
   // Load data when project or period changes
   useEffect(() => {
     if (selectedProjectId) {
+      console.log('🔄 Forecast: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
       loadForecastData();
       loadLineItems();
     }
-  }, [selectedProjectId, selectedPeriod]);
+  }, [selectedProjectId, selectedPeriod, projectChangeCount]);
 
   const loadForecastData = async () => {
     try {
       setLoading(true);
+      console.log('📊 Loading forecast data for project:', selectedProjectId);
       const data = await ApiService.getForecastData(selectedProjectId, parseInt(selectedPeriod));
       
       // Get matched invoices and sync with actuals
@@ -78,6 +80,7 @@ export function SDMTForecast() {
       });
       
       setForecastData(updatedData);
+      console.log('✅ Forecast data loaded:', updatedData.length, 'cells for project', selectedProjectId);
     } catch (error) {
       toast.error('Failed to load forecast data');
       console.error(error);
@@ -88,8 +91,10 @@ export function SDMTForecast() {
 
   const loadLineItems = async () => {
     try {
+      console.log('📋 Loading line items for project:', selectedProjectId);
       const items = await ApiService.getLineItems(selectedProjectId);
       setLineItems(items);
+      console.log('✅ Line items loaded:', items.length, 'items for project', selectedProjectId);
     } catch (error) {
       console.error('Failed to load line items:', error);
     }
