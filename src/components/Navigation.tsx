@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ChevronDown, Calculator, BarChart3, Settings, LogOut, User } from 'lucide-react';
+import { ChevronDown, Calculator, BarChart3, Settings, LogOut, User, BookOpen, FileCheck, GitPullRequest, TrendingUp, Layers } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getDefaultRouteForRole, getRoleInfo } from '@/lib/auth';
 import { toast } from 'sonner';
@@ -56,12 +56,12 @@ export function Navigation({ currentModule }: NavigationProps) {
       { path: '/pmo/prefactura/estimator', label: 'Estimator', icon: Calculator },
     ],
     SDMT: [
-      { path: '/sdmt/cost/catalog', label: 'Catalog', icon: Settings },
-      { path: '/sdmt/cost/forecast', label: 'Forecast', icon: BarChart3 },
-      { path: '/sdmt/cost/reconciliation', label: 'Reconciliation', icon: Settings },
+      { path: '/sdmt/cost/catalog', label: 'Catalog', icon: BookOpen },
+      { path: '/sdmt/cost/forecast', label: 'Forecast', icon: TrendingUp },
+      { path: '/sdmt/cost/reconciliation', label: 'Reconciliation', icon: FileCheck },
+      { path: '/sdmt/cost/changes', label: 'Changes', icon: GitPullRequest },
       { path: '/sdmt/cost/cashflow', label: 'Cash Flow', icon: BarChart3 },
-      { path: '/sdmt/cost/scenarios', label: 'Scenarios', icon: Settings },
-      { path: '/sdmt/cost/changes', label: 'Changes', icon: Settings },
+      { path: '/sdmt/cost/scenarios', label: 'Scenarios', icon: Layers },
     ]
   };
 
