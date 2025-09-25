@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import LineChartComponent from '@/components/charts/LineChart';
+import ModuleBadge from '@/components/ModuleBadge';
 
 export function SDMTCashflow() {
   // Mock data for demonstration
@@ -23,7 +24,7 @@ export function SDMTCashflow() {
           <h1 className="text-3xl font-bold">Cash Flow & Margin Analysis</h1>
           <p className="text-muted-foreground">Monitor project cash flows and profitability metrics</p>
         </div>
-        <Badge className="module-badge-sdmt">SDMT Module</Badge>
+        <ModuleBadge />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -26,11 +26,13 @@ import UserProfile from '@/components/UserProfile';
 // Hook to determine current module
 function useCurrentModule() {
   const location = useLocation();
+  const { currentRole } = useAuth();
   
   if (location.pathname.startsWith('/pmo/')) {
     return 'PMO';
   } else if (location.pathname.startsWith('/sdmt/')) {
-    return 'SDMT';
+    // PMO users accessing SDMT routes are still working in their PMO capacity
+    return currentRole === 'PMO' ? 'PMO' : 'SDMT';
   }
   return undefined;
 }

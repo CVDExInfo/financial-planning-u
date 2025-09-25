@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Copy, BarChart3 } from 'lucide-react';
+import ModuleBadge from '@/components/ModuleBadge';
 
 export function SDMTScenarios() {
   return (
@@ -11,7 +12,7 @@ export function SDMTScenarios() {
           <h1 className="text-3xl font-bold">Scenario Planning</h1>
           <p className="text-muted-foreground">Model different cost scenarios and compare outcomes</p>
         </div>
-        <Badge className="module-badge-sdmt">SDMT Module</Badge>
+        <ModuleBadge />
       </div>
 
       <div className="flex justify-between items-center">

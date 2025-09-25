@@ -10,6 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Plus, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import ModuleBadge from '@/components/ModuleBadge';
 
 export function SDMTChanges() {
   const mockChanges = [
@@ -66,7 +67,7 @@ export function SDMTChanges() {
           <h1 className="text-3xl font-bold">Change Management</h1>
           <p className="text-muted-foreground">Track budget change requests and approval workflows</p>
         </div>
-        <Badge className="module-badge-sdmt">SDMT Module</Badge>
+        <ModuleBadge />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

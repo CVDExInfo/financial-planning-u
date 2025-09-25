@@ -32,6 +32,7 @@ import {
 import { Upload, FileCheck, AlertTriangle, ExternalLink, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useKV } from '@github/spark/hooks';
+import ModuleBadge from '@/components/ModuleBadge';
 import type { InvoiceDoc, LineItem } from '@/types/domain';
 import ApiService from '@/lib/api';
 
@@ -205,7 +206,7 @@ export function SDMTReconciliation() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Badge className="module-badge-sdmt">SDMT Module</Badge>
+          <ModuleBadge />
           <Button onClick={() => setShowUploadForm(true)} className="gap-2">
             <Plus size={16} />
             Upload Invoice

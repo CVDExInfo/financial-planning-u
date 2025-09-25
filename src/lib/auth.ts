@@ -1,4 +1,4 @@
-import { UserRole, UserInfo } from '@/types/domain';
+import { UserRole, UserInfo, ModuleType } from '@/types/domain';
 
 /**
  * Authentication and authorization utilities
@@ -186,3 +186,27 @@ export const DEMO_USERS: Record<string, Partial<UserInfo>> = {
     current_role: 'EXEC_RO'
   }
 };
+
+/**
+ * Get the current module context for display
+ * Determines whether to show PMO or SDMT module badge based on user role and route
+ */
+export function getCurrentModuleContext(currentPath: string, userRole: UserRole): ModuleType {
+  // If user is on a PMO route, always show PMO
+  if (currentPath.startsWith('/pmo/')) {
+    return 'PMO';
+  }
+  
+  // For SDMT routes, show the module based on the user's primary role
+  if (currentPath.startsWith('/sdmt/')) {
+    // PMO users accessing SDMT routes are still working in their PMO capacity
+    if (userRole === 'PMO') {
+      return 'PMO';
+    }
+    // SDMT and vendor users show SDMT
+    return 'SDMT';
+  }
+  
+  // Default fallback
+  return userRole === 'PMO' ? 'PMO' : 'SDMT';
+}

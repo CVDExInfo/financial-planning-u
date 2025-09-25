@@ -30,6 +30,7 @@ import {
 import { Plus, Search, Edit, Trash2, Upload, Download } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import Protected from '@/components/Protected';
+import ModuleBadge from '@/components/ModuleBadge';
 import { toast } from 'sonner';
 import type { LineItem } from '@/types/domain';
 import ApiService from '@/lib/api';
@@ -93,7 +94,7 @@ export function SDMTCatalog() {
           <p className="text-muted-foreground">Manage project line items and cost components</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge className="module-badge-sdmt">SDMT Module</Badge>
+          <ModuleBadge />
           {isReadOnly() && <Badge variant="outline" className="text-xs">Read Only</Badge>}
         </div>
       </div>

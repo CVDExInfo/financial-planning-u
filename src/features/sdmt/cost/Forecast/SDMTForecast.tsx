@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import LineChartComponent from '@/components/charts/LineChart';
 import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
+import ModuleBadge from '@/components/ModuleBadge';
 import type { ForecastCell, LineItem } from '@/types/domain';
 import { useAuth } from '@/components/AuthProvider';
 import { useNavigate } from 'react-router-dom';
@@ -201,7 +202,7 @@ export function SDMTForecast() {
           <h1 className="text-3xl font-bold">Forecast Management</h1>
           <p className="text-muted-foreground">Track planned vs forecast vs actual costs across time periods</p>
         </div>
-        <Badge className="module-badge-sdmt">SDMT Module</Badge>
+        <ModuleBadge />
       </div>
 
       {/* Summary Cards */}
