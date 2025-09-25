@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -27,16 +28,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Edit, Trash2, Share, Download } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Share, Download, Package, Star } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useProject } from '@/contexts/ProjectContext';
 import Protected from '@/components/Protected';
 import ModuleBadge from '@/components/ModuleBadge';
+import { ServiceTierSelector } from '@/components/ServiceTierSelector';
 import { toast } from 'sonner';
 import type { LineItem, BaselineBudget } from '@/types/domain.d.ts';
 import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency } from '@/lib/pdf-export';
+import { createServiceLineItem } from '@/lib/pricing-calculator';
 
 export function SDMTCatalog() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
@@ -230,20 +233,34 @@ export function SDMTCatalog() {
         </div>
       </div>
 
-      {/* Actions Bar */}
-      <Card>
-        <CardContent className="flex items-center justify-between p-4">
-          <div className="flex items-center space-x-4 flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
-              <Input
-                placeholder="Search by description or category..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-[300px]"
-              />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+      {/* Main Content */}
+      <Tabs defaultValue="line-items" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="line-items" className="flex items-center gap-2">
+            <Package size={16} />
+            Line Items
+          </TabsTrigger>
+          <TabsTrigger value="service-tiers" className="flex items-center gap-2">
+            <Star size={16} />
+            Ikusi Service Tiers
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="line-items" className="space-y-6">
+          {/* Actions Bar */}
+          <Card>
+            <CardContent className="flex items-center justify-between p-4">
+              <div className="flex items-center space-x-4 flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+                  <Input
+                    placeholder="Search by description or category..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 w-[300px]"
+                  />
+                </div>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue />
               </SelectTrigger>
@@ -487,6 +504,40 @@ export function SDMTCatalog() {
           )}
         </CardContent>
       </Card>
+      </TabsContent>
+
+      <TabsContent value="service-tiers" className="space-y-6">
+        <ServiceTierSelector 
+          onTierSelected={(tierId, tierData) => {
+            try {
+              // Import service catalog
+              import('@/mocks/ikusi-service-catalog.json').then(serviceCatalog => {
+                const lineItem = createServiceLineItem(tierId, serviceCatalog.default, {
+                  quantity: 1,
+                  months: 12,
+                  cost_center: 'IT-SERVICES',
+                  gl_code: '6000-001'
+                });
+                
+                const newItem: LineItem = {
+                  ...lineItem as LineItem,
+                  id: `LI-${Date.now()}`,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                  created_by: currentRole
+                };
+                
+                setLineItems(prev => [...prev, newItem]);
+                toast.success(`${tierData.name} service tier added to catalog!`);
+              });
+            } catch (error) {
+              toast.error('Failed to add service tier to catalog');
+              console.error('Service tier selection error:', error);
+            }
+          }}
+        />
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }

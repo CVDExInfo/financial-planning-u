@@ -1,0 +1,401 @@
+{
+  "catalog_version": "2024.1",
+  "last_updated": "2024-01-15T10:00:00Z",
+  "currency": "USD",
+  "service_tiers": [
+    {
+      "id": "ikusi-go",
+      "name": "Ikusi Go",
+      "tier": "Essential",
+      "description": "Basic setup and foundational services for startups and small projects",
+      "target_market": "Startups, small businesses, proof-of-concepts",
+      "pricing_model": "fixed_monthly",
+      "base_price": 899,
+      "setup_fee": 500,
+      "minimum_commitment_months": 3,
+      "features": {
+        "core_services": [
+          "Basic system setup and configuration",
+          "Standard email support (48h response)",
+          "Monthly health checks",
+          "Basic documentation package",
+          "Up to 2 users"
+        ],
+        "technical_specs": {
+          "support_hours": "Business hours (9-5 EST)",
+          "sla_uptime": "95%",
+          "response_time": "48 hours",
+          "included_incidents": 5,
+          "storage_gb": 10,
+          "bandwidth_gb": 100
+        }
+      },
+      "pricing_tiers": [
+        {
+          "volume_min": 1,
+          "volume_max": 3,
+          "unit_price": 899,
+          "discount_pct": 0
+        },
+        {
+          "volume_min": 4,
+          "volume_max": 12,
+          "unit_price": 809,
+          "discount_pct": 10
+        },
+        {
+          "volume_min": 13,
+          "volume_max": null,
+          "unit_price": 719,
+          "discount_pct": 20
+        }
+      ],
+      "add_ons": [
+        {
+          "name": "Additional Users (per user)",
+          "price": 50,
+          "unit": "monthly"
+        },
+        {
+          "name": "Extended Support Hours",
+          "price": 200,
+          "unit": "monthly"
+        }
+      ]
+    },
+    {
+      "id": "ikusi-premium",
+      "name": "Ikusi Premium",
+      "tier": "Professional",
+      "description": "Enhanced services with proactive monitoring and dedicated support",
+      "target_market": "Growing companies, established SMEs",
+      "pricing_model": "tiered_monthly",
+      "base_price": 2899,
+      "setup_fee": 1500,
+      "minimum_commitment_months": 6,
+      "features": {
+        "core_services": [
+          "Advanced system setup and optimization",
+          "Priority email and phone support (24h response)",
+          "Weekly health checks and proactive monitoring",
+          "Comprehensive documentation and training",
+          "Up to 10 users",
+          "Basic analytics and reporting",
+          "Quarterly business reviews"
+        ],
+        "technical_specs": {
+          "support_hours": "Extended hours (7-7 EST)",
+          "sla_uptime": "98%",
+          "response_time": "24 hours",
+          "included_incidents": 20,
+          "storage_gb": 100,
+          "bandwidth_gb": 500
+        }
+      },
+      "pricing_tiers": [
+        {
+          "volume_min": 1,
+          "volume_max": 6,
+          "unit_price": 2899,
+          "discount_pct": 0
+        },
+        {
+          "volume_min": 7,
+          "volume_max": 12,
+          "unit_price": 2609,
+          "discount_pct": 10
+        },
+        {
+          "volume_min": 13,
+          "volume_max": 24,
+          "unit_price": 2319,
+          "discount_pct": 20
+        },
+        {
+          "volume_min": 25,
+          "volume_max": null,
+          "unit_price": 2029,
+          "discount_pct": 30
+        }
+      ],
+      "add_ons": [
+        {
+          "name": "Additional Users (per user)",
+          "price": 150,
+          "unit": "monthly"
+        },
+        {
+          "name": "Advanced Analytics Package",
+          "price": 500,
+          "unit": "monthly"
+        },
+        {
+          "name": "Custom Integration (per integration)",
+          "price": 800,
+          "unit": "one_time"
+        }
+      ]
+    },
+    {
+      "id": "ikusi-gold",
+      "name": "Ikusi Gold",
+      "tier": "Enterprise",
+      "description": "Full-service enterprise solution with dedicated resources",
+      "target_market": "Mid-market enterprises, complex implementations",
+      "pricing_model": "custom_enterprise",
+      "base_price": 6899,
+      "setup_fee": 3000,
+      "minimum_commitment_months": 12,
+      "features": {
+        "core_services": [
+          "Enterprise-grade setup and customization",
+          "Dedicated account manager and technical lead",
+          "24/7 phone and email support (4h response)",
+          "Daily monitoring and weekly optimization",
+          "Unlimited users",
+          "Advanced analytics and custom reporting",
+          "Monthly strategic reviews and roadmap planning",
+          "Priority feature requests"
+        ],
+        "technical_specs": {
+          "support_hours": "24/7 coverage",
+          "sla_uptime": "99.5%",
+          "response_time": "4 hours",
+          "included_incidents": 100,
+          "storage_gb": 500,
+          "bandwidth_gb": 2000
+        }
+      },
+      "pricing_tiers": [
+        {
+          "volume_min": 1,
+          "volume_max": 12,
+          "unit_price": 6899,
+          "discount_pct": 0
+        },
+        {
+          "volume_min": 13,
+          "volume_max": 24,
+          "unit_price": 6209,
+          "discount_pct": 10
+        },
+        {
+          "volume_min": 25,
+          "volume_max": 36,
+          "unit_price": 5519,
+          "discount_pct": 20
+        },
+        {
+          "volume_min": 37,
+          "volume_max": null,
+          "unit_price": 4829,
+          "discount_pct": 30
+        }
+      ],
+      "add_ons": [
+        {
+          "name": "Additional Dedicated Engineer",
+          "price": 8000,
+          "unit": "monthly"
+        },
+        {
+          "name": "Custom Development Hours (per hour)",
+          "price": 175,
+          "unit": "hourly"
+        },
+        {
+          "name": "Disaster Recovery Setup",
+          "price": 5000,
+          "unit": "one_time"
+        }
+      ]
+    },
+    {
+      "id": "ikusi-platinum",
+      "name": "Ikusi Platinum",
+      "tier": "Premium Enterprise",
+      "description": "White-glove service with dedicated team and unlimited support",
+      "target_market": "Large enterprises, mission-critical systems",
+      "pricing_model": "dedicated_team",
+      "base_price": 15899,
+      "setup_fee": 8000,
+      "minimum_commitment_months": 24,
+      "features": {
+        "core_services": [
+          "Dedicated project team (PM, Tech Lead, Engineers)",
+          "White-glove onboarding and migration",
+          "24/7 premium support with 1h response SLA",
+          "Continuous monitoring and optimization",
+          "Unlimited users and integrations",
+          "Real-time analytics and executive dashboards",
+          "Weekly executive briefings",
+          "Guaranteed feature delivery timelines"
+        ],
+        "technical_specs": {
+          "support_hours": "24/7 white-glove service",
+          "sla_uptime": "99.9%",
+          "response_time": "1 hour",
+          "included_incidents": "Unlimited",
+          "storage_gb": "Unlimited",
+          "bandwidth_gb": "Unlimited"
+        }
+      },
+      "pricing_tiers": [
+        {
+          "volume_min": 1,
+          "volume_max": 24,
+          "unit_price": 15899,
+          "discount_pct": 0
+        },
+        {
+          "volume_min": 25,
+          "volume_max": 36,
+          "unit_price": 14309,
+          "discount_pct": 10
+        },
+        {
+          "volume_min": 37,
+          "volume_max": null,
+          "unit_price": 12719,
+          "discount_pct": 20
+        }
+      ],
+      "add_ons": [
+        {
+          "name": "Additional Project Manager",
+          "price": 12000,
+          "unit": "monthly"
+        },
+        {
+          "name": "On-site Support Days (per day)",
+          "price": 2500,
+          "unit": "daily"
+        },
+        {
+          "name": "Compliance Package (SOC2, HIPAA, etc.)",
+          "price": 15000,
+          "unit": "one_time"
+        }
+      ]
+    },
+    {
+      "id": "ikusi-star",
+      "name": "Ikusi Star",
+      "tier": "Strategic Partnership",
+      "description": "Strategic consulting and transformation services for digital innovation",
+      "target_market": "Fortune 500, digital transformation initiatives",
+      "pricing_model": "strategic_consulting",
+      "base_price": 35000,
+      "setup_fee": 25000,
+      "minimum_commitment_months": 36,
+      "features": {
+        "core_services": [
+          "C-level strategic consulting and advisory",
+          "Digital transformation roadmap and execution",
+          "Dedicated transformation team (15+ specialists)",
+          "24/7 mission-critical support with 30min response",
+          "Custom platform development and integration",
+          "Executive coaching and change management",
+          "Monthly board-level reporting",
+          "Innovation lab access and emerging tech pilots"
+        ],
+        "technical_specs": {
+          "support_hours": "24/7 mission-critical coverage",
+          "sla_uptime": "99.95%",
+          "response_time": "30 minutes",
+          "included_incidents": "Unlimited",
+          "storage_gb": "Enterprise unlimited",
+          "bandwidth_gb": "Enterprise unlimited"
+        }
+      },
+      "pricing_tiers": [
+        {
+          "volume_min": 1,
+          "volume_max": 36,
+          "unit_price": 35000,
+          "discount_pct": 0
+        },
+        {
+          "volume_min": 37,
+          "volume_max": null,
+          "unit_price": 31500,
+          "discount_pct": 10
+        }
+      ],
+      "add_ons": [
+        {
+          "name": "Additional Strategic Consultant",
+          "price": 25000,
+          "unit": "monthly"
+        },
+        {
+          "name": "Innovation Workshop (per workshop)",
+          "price": 15000,
+          "unit": "workshop"
+        },
+        {
+          "name": "Executive Leadership Program",
+          "price": 50000,
+          "unit": "program"
+        }
+      ]
+    }
+  ],
+  "cross_tier_services": {
+    "training_packages": [
+      {
+        "name": "Basic User Training",
+        "price": 500,
+        "duration_days": 1,
+        "max_participants": 10
+      },
+      {
+        "name": "Advanced Admin Training",
+        "price": 1500,
+        "duration_days": 3,
+        "max_participants": 8
+      },
+      {
+        "name": "Executive Strategy Workshop",
+        "price": 5000,
+        "duration_days": 2,
+        "max_participants": 15
+      }
+    ],
+    "professional_services": [
+      {
+        "name": "Data Migration Service",
+        "price_range": "2000-15000",
+        "pricing_model": "complexity_based"
+      },
+      {
+        "name": "Custom Integration Development",
+        "price": 175,
+        "unit": "hourly",
+        "minimum_hours": 40
+      },
+      {
+        "name": "Performance Optimization",
+        "price": 8000,
+        "unit": "project",
+        "duration_weeks": 4
+      }
+    ]
+  },
+  "pricing_policies": {
+    "payment_terms": {
+      "net_days": 30,
+      "early_payment_discount": 2,
+      "late_payment_fee": 1.5
+    },
+    "contract_terms": {
+      "auto_renewal": true,
+      "cancellation_notice_days": 90,
+      "price_lock_period_months": 12
+    },
+    "volume_discounts": {
+      "multi_tier_discount": 5,
+      "enterprise_negotiation_threshold": 100000
+    }
+  }
+}

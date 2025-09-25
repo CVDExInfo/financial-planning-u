@@ -37,6 +37,14 @@ export type LineItem = {
   created_at: string;
   updated_at: string;
   created_by: string;
+  // Service tier specific fields
+  service_tier?: string;
+  service_type?: string;
+  sla_uptime?: string;
+  support_model?: string;
+  deliverable?: string;
+  max_participants?: number;
+  duration_days?: number;
 };
 
 // Monthly totals for budget planning

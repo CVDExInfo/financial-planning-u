@@ -20,11 +20,24 @@ A comprehensive financial planning and management platform that enables project 
 - **Success criteria**: Generates BaselineBudget with signature hash, exports to Excel/PDF
 
 ### SDMT Cost Catalog Management
-- **Functionality**: CRUD operations for line items with file attachments
-- **Purpose**: Maintain comprehensive cost item database
+- **Functionality**: CRUD operations for line items with file attachments and comprehensive Ikusi service tier integration
+- **Purpose**: Maintain comprehensive cost item database with intelligent service recommendations
 - **Trigger**: SDMT role accessing catalog tab
-- **Progression**: View items → Add/Edit → Upload evidence → Save changes
-- **Success criteria**: Persistent storage of categorized cost items
+- **Progression**: View items → Add/Edit → Select from Ikusi service tiers → Upload evidence → Save changes
+- **Success criteria**: Persistent storage of categorized cost items with detailed service tier specifications
+
+#### Enhanced Ikusi Service Tier Integration
+- **Service Tiers Available**:
+  - **Ikusi Go** ($899/month): Essential tier for startups and small projects, 95% SLA, business hours support
+  - **Ikusi Premium** ($2,899/month): Professional tier with proactive monitoring, 98% SLA, extended hours support
+  - **Ikusi Gold** ($6,899/month): Enterprise solution with dedicated resources, 99.5% SLA, 24/7 support
+  - **Ikusi Platinum** ($15,899/month): White-glove service for mission-critical systems, 99.9% SLA, 1-hour response
+  - **Ikusi Star** ($35,000/month): Strategic partnership with C-level advisory, 99.95% SLA, 30-minute response
+
+- **Intelligent Recommendations**: Algorithm-based tier suggestions based on budget, SLA requirements, support hours, and project complexity
+- **Volume Pricing**: Automatic discount calculation based on commitment length (10-30% discounts available)
+- **Professional Services**: Custom development, training programs, and consulting services with transparent hourly rates
+- **ROI Calculator**: Built-in upgrade cost analysis with estimated return on investment calculations
 
 ### Dynamic Forecast Grid
 - **Functionality**: 60-month virtualized grid with inline editing
