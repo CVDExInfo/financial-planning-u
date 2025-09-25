@@ -19,20 +19,24 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Upload, Download, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { Share2, Download, TrendingUp, TrendingDown, AlertTriangle, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import LineChartComponent from '@/components/charts/LineChart';
 import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
 import type { ForecastCell, LineItem } from '@/types/domain';
+import { useAuth } from '@/components/AuthProvider';
+import { useNavigate } from 'react-router-dom';
 import ApiService from '@/lib/api';
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastCell[]>([]);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingCell, setEditingCell] = useState<{ line_item_id: string; month: number } | null>(null);
+  const [editingCell, setEditingCell] = useState<{ line_item_id: string; month: number; type: 'forecast' | 'actual' } | null>(null);
   const [editValue, setEditValue] = useState('');
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadForecastData();
@@ -43,7 +47,29 @@ export function SDMTForecast() {
     try {
       setLoading(true);
       const data = await ApiService.getForecastData('current-project', 12);
-      setForecastData(data);
+      
+      // Get matched invoices and sync with actuals
+      const invoices = await ApiService.getInvoices('current-project');
+      const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
+      
+      // Update forecast data with actual amounts from matched invoices
+      const updatedData = data.map(cell => {
+        const matchedInvoice = matchedInvoices.find(inv => 
+          inv.line_item_id === cell.line_item_id && inv.month === cell.month
+        );
+        
+        if (matchedInvoice) {
+          return {
+            ...cell,
+            actual: matchedInvoice.amount,
+            variance: cell.forecast - cell.planned // Keep forecast-based variance
+          };
+        }
+        
+        return cell;
+      });
+      
+      setForecastData(updatedData);
     } catch (error) {
       toast.error('Failed to load forecast data');
       console.error(error);
@@ -61,31 +87,47 @@ export function SDMTForecast() {
     }
   };
 
-  const handleCellEdit = (line_item_id: string, month: number) => {
+  const handleCellEdit = (line_item_id: string, month: number, type: 'forecast' | 'actual') => {
     const cell = forecastData.find(c => c.line_item_id === line_item_id && c.month === month);
-    setEditingCell({ line_item_id, month });
-    setEditValue(cell?.forecast?.toString() || '0');
+    setEditingCell({ line_item_id, month, type });
+    const currentValue = type === 'forecast' ? cell?.forecast : cell?.actual;
+    setEditValue(currentValue?.toString() || '0');
   };
 
   const handleCellSave = () => {
     if (editingCell) {
       const updatedData = forecastData.map(cell => {
         if (cell.line_item_id === editingCell.line_item_id && cell.month === editingCell.month) {
-          const newForecast = parseFloat(editValue) || 0;
+          const newValue = parseFloat(editValue) || 0;
+          const updates = editingCell.type === 'forecast' 
+            ? { forecast: newValue, variance: newValue - cell.planned }
+            : { actual: newValue };
+          
           return {
             ...cell,
-            forecast: newForecast,
-            variance: newForecast - cell.planned,
+            ...updates,
             last_updated: new Date().toISOString(),
-            updated_by: 'current-user'
+            updated_by: user?.login || 'current-user'
           };
         }
         return cell;
       });
       setForecastData(updatedData);
       setEditingCell(null);
-      toast.success('Forecast updated successfully');
+      toast.success(`${editingCell.type === 'forecast' ? 'Forecast' : 'Actual'} updated successfully`);
     }
+  };
+
+  // Check if user can edit forecast (PMO role) or actuals (SDMT role)
+  const canEditForecast = user?.current_role === 'PMO' || user?.current_role === 'SDMT';
+  const canEditActual = user?.current_role === 'SDMT';
+
+  // Function to navigate to reconciliation with filters
+  const navigateToReconciliation = (line_item_id: string, month?: number) => {
+    const params = new URLSearchParams();
+    params.set('line_item', line_item_id);
+    if (month) params.set('month', month.toString());
+    navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
   };
 
   // Group forecast data by line item and month for display
@@ -114,7 +156,10 @@ export function SDMTForecast() {
   const totalVariance = forecastData.reduce((sum, cell) => sum + cell.variance, 0);
   const totalPlanned = forecastData.reduce((sum, cell) => sum + cell.planned, 0);
   const totalForecast = forecastData.reduce((sum, cell) => sum + cell.forecast, 0);
+  const totalActual = forecastData.reduce((sum, cell) => sum + cell.actual, 0);
   const variancePercentage = totalPlanned > 0 ? (totalVariance / totalPlanned) * 100 : 0;
+  const actualVariance = totalActual - totalForecast;
+  const actualVariancePercentage = totalForecast > 0 ? (actualVariance / totalForecast) * 100 : 0;
 
   // Chart data
   const monthlyTrends = Array.from({ length: 12 }, (_, i) => {
@@ -160,17 +205,26 @@ export function SDMTForecast() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{formatCurrency(totalPlanned)}</div>
             <p className="text-sm text-muted-foreground">Total Planned</p>
+            <p className="text-xs text-muted-foreground">From Planview</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{formatCurrency(totalForecast)}</div>
             <p className="text-sm text-muted-foreground">Total Forecast</p>
+            <p className="text-xs text-muted-foreground">PMO Adjusted</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalActual)}</div>
+            <p className="text-sm text-muted-foreground">Total Actual</p>
+            <p className="text-xs text-muted-foreground">SDMT Tracked</p>
           </CardContent>
         </Card>
         <Card>
@@ -180,16 +234,21 @@ export function SDMTForecast() {
             </div>
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               {getVarianceIcon(totalVariance)}
-              Total Variance
+              Forecast Variance
             </p>
+            <p className="text-xs text-muted-foreground">{Math.abs(variancePercentage).toFixed(1)}%</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className={`text-2xl font-bold ${variancePercentage >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {Math.abs(variancePercentage).toFixed(1)}%
+            <div className={`text-2xl font-bold ${actualVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {formatCurrency(Math.abs(actualVariance))}
             </div>
-            <p className="text-sm text-muted-foreground">Variance %</p>
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
+              {getVarianceIcon(actualVariance)}
+              Actual Variance
+            </p>
+            <p className="text-xs text-muted-foreground">{Math.abs(actualVariancePercentage).toFixed(1)}%</p>
           </CardContent>
         </Card>
       </div>
@@ -201,32 +260,36 @@ export function SDMTForecast() {
             <Dialog>
               <DialogTrigger asChild>
                 <Button className="gap-2">
-                  <Upload size={16} />
-                  Import Forecast
+                  <Share2 size={16} />
+                  Share Forecast
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Import Forecast Data</DialogTitle>
+                  <DialogTitle>Share Forecast Data</DialogTitle>
                   <DialogDescription>
-                    Upload CSV or Excel file with forecast data. The file should contain columns for 
-                    line_item_id, month, and forecast values.
+                    Export and share forecast data in multiple formats for stakeholders and reporting.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="py-6">
-                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
-                    <Upload size={48} className="mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-4">
-                      Drag and drop your file here, or click to browse
-                    </p>
-                    <Button variant="outline">Choose File</Button>
+                <div className="py-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button variant="outline" className="h-20 flex flex-col gap-2">
+                      <Download size={24} />
+                      <span>Excel Report</span>
+                      <span className="text-xs text-muted-foreground">Detailed forecast with formulas</span>
+                    </Button>
+                    <Button variant="outline" className="h-20 flex flex-col gap-2">
+                      <Share2 size={24} />
+                      <span>PDF Summary</span>
+                      <span className="text-xs text-muted-foreground">Executive summary format</span>
+                    </Button>
                   </div>
                 </div>
               </DialogContent>
             </Dialog>
             <Button variant="outline" className="gap-2">
               <Download size={16} />
-              Export Forecast
+              Export Data
             </Button>
           </div>
           <div className="text-sm text-muted-foreground">
@@ -276,12 +339,16 @@ export function SDMTForecast() {
                       {monthlyData.map(cell => (
                         <TableCell key={cell.month} className="p-1">
                           <div className="space-y-1 text-xs">
+                            {/* Planned (Read-only) */}
                             <div className="text-muted-foreground">
                               P: ${(cell.planned / 1000).toFixed(0)}k
                             </div>
+                            
+                            {/* Forecast (Editable by PMO/SDMT) */}
                             <div>
                               {editingCell?.line_item_id === cell.line_item_id && 
-                               editingCell?.month === cell.month ? (
+                               editingCell?.month === cell.month && 
+                               editingCell?.type === 'forecast' ? (
                                 <Input
                                   value={editValue}
                                   onChange={(e) => setEditValue(e.target.value)}
@@ -292,16 +359,57 @@ export function SDMTForecast() {
                                 />
                               ) : (
                                 <div
-                                  className="cursor-pointer hover:bg-muted rounded p-1"
-                                  onClick={() => handleCellEdit(cell.line_item_id, cell.month)}
+                                  className={`cursor-pointer hover:bg-muted rounded p-1 ${
+                                    !canEditForecast ? 'cursor-default' : ''
+                                  }`}
+                                  onClick={() => canEditForecast && handleCellEdit(cell.line_item_id, cell.month, 'forecast')}
+                                  title={canEditForecast ? 'Click to edit forecast' : 'No permission to edit forecast'}
                                 >
                                   F: ${(cell.forecast / 1000).toFixed(0)}k
                                 </div>
                               )}
                             </div>
-                            <div className="text-muted-foreground">
-                              A: ${(cell.actual / 1000).toFixed(0)}k
+                            
+                            {/* Actual (Editable by SDMT only) */}
+                            <div>
+                              {editingCell?.line_item_id === cell.line_item_id && 
+                               editingCell?.month === cell.month && 
+                               editingCell?.type === 'actual' ? (
+                                <Input
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onBlur={handleCellSave}
+                                  onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
+                                  className="h-6 text-xs"
+                                  autoFocus
+                                />
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <div
+                                    className={`cursor-pointer hover:bg-muted rounded p-1 flex-1 ${
+                                      !canEditActual ? 'cursor-default' : ''
+                                    }`}
+                                    onClick={() => canEditActual && handleCellEdit(cell.line_item_id, cell.month, 'actual')}
+                                    title={canEditActual ? 'Click to edit actual' : 'No permission to edit actuals'}
+                                  >
+                                    A: ${(cell.actual / 1000).toFixed(0)}k
+                                  </div>
+                                  {cell.actual > 0 && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-4 w-4 p-0"
+                                      onClick={() => navigateToReconciliation(cell.line_item_id, cell.month)}
+                                      title="View related invoices"
+                                    >
+                                      <ExternalLink size={10} />
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
                             </div>
+                            
+                            {/* Variance */}
                             {cell.variance !== 0 && (
                               <div className={`px-1 rounded text-xs ${getVarianceColor(cell.variance)}`}>
                                 {cell.variance > 0 ? '+' : ''}${(cell.variance / 1000).toFixed(0)}k
