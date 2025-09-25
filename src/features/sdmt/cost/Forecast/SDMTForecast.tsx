@@ -172,8 +172,17 @@ export function SDMTForecast() {
       };
     });
 
-    return { lineItem, monthlyData };
-  });
+    // Check if the line item has any non-zero values to show
+    const hasNonZeroValues = monthlyData.some(cell => 
+      cell.planned > 0 || cell.forecast > 0 || cell.actual > 0
+    );
+
+    return { 
+      lineItem, 
+      monthlyData,
+      hasNonZeroValues
+    };
+  }).filter(item => item.hasNonZeroValues); // Only show items with data
 
   // Calculate totals and metrics
   const totalVariance = forecastData.reduce((sum, cell) => sum + cell.variance, 0);
@@ -201,6 +210,16 @@ export function SDMTForecast() {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  // Format currency for grid display (full amounts, not abbreviated)
+  const formatGridCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -427,11 +446,13 @@ export function SDMTForecast() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="sticky left-0 bg-background min-w-[250px]">Line Item</TableHead>
-                    <TableHead className="text-center">Type</TableHead>
+                    <TableHead className="sticky left-0 bg-background min-w-[300px]">Line Item</TableHead>
                     {Array.from({ length: 12 }, (_, i) => (
-                      <TableHead key={i + 1} className="text-center min-w-[120px]">
+                      <TableHead key={i + 1} className="text-center min-w-[140px]">
                         M{i + 1}
+                        <div className="text-xs font-normal text-muted-foreground mt-1">
+                          P / F / A
+                        </div>
                       </TableHead>
                     ))}
                   </TableRow>
@@ -445,88 +466,93 @@ export function SDMTForecast() {
                           <div className="text-sm text-muted-foreground">{lineItem.category}</div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="text-xs">
-                          P/F/A
-                        </Badge>
-                      </TableCell>
                       {monthlyData.map(cell => (
-                        <TableCell key={cell.month} className="p-1">
-                          <div className="space-y-1 text-xs">
-                            {/* Planned (Read-only) */}
-                            <div className="text-muted-foreground">
-                              P: ${(cell.planned / 1000).toFixed(0)}k
-                            </div>
+                        <TableCell key={cell.month} className="p-2">
+                          <div className="space-y-2 text-xs">
+                            {/* Planned (Read-only) - only show if > 0 */}
+                            {cell.planned > 0 && (
+                              <div className="text-muted-foreground bg-muted/20 px-2 py-1 rounded">
+                                P: {formatGridCurrency(cell.planned)}
+                              </div>
+                            )}
                             
-                            {/* Forecast (Editable by PMO/SDMT) */}
-                            <div>
-                              {editingCell?.line_item_id === cell.line_item_id && 
-                               editingCell?.month === cell.month && 
-                               editingCell?.type === 'forecast' ? (
-                                <Input
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(e.target.value)}
-                                  onBlur={handleCellSave}
-                                  onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
-                                  className="h-6 text-xs"
-                                  autoFocus
-                                />
-                              ) : (
-                                <div
-                                  className={`cursor-pointer hover:bg-muted rounded p-1 ${
-                                    !canEditForecast ? 'cursor-default' : ''
-                                  }`}
-                                  onClick={() => canEditForecast && handleCellEdit(cell.line_item_id, cell.month, 'forecast')}
-                                  title={canEditForecast ? 'Click to edit forecast' : 'No permission to edit forecast'}
-                                >
-                                  F: ${(cell.forecast / 1000).toFixed(0)}k
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* Actual (Editable by SDMT only) */}
-                            <div>
-                              {editingCell?.line_item_id === cell.line_item_id && 
-                               editingCell?.month === cell.month && 
-                               editingCell?.type === 'actual' ? (
-                                <Input
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(e.target.value)}
-                                  onBlur={handleCellSave}
-                                  onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
-                                  className="h-6 text-xs"
-                                  autoFocus
-                                />
-                              ) : (
-                                <div className="flex items-center gap-1">
+                            {/* Forecast (Editable by PMO/SDMT) - only show if > 0 or planned > 0 */}
+                            {(cell.forecast > 0 || cell.planned > 0) && (
+                              <div>
+                                {editingCell?.line_item_id === cell.line_item_id && 
+                                 editingCell?.month === cell.month && 
+                                 editingCell?.type === 'forecast' ? (
+                                  <Input
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onBlur={handleCellSave}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
+                                    className="h-7 text-xs"
+                                    autoFocus
+                                  />
+                                ) : (
                                   <div
-                                    className={`cursor-pointer hover:bg-muted rounded p-1 flex-1 ${
-                                      !canEditActual ? 'cursor-default' : ''
+                                    className={`px-2 py-1 rounded transition-colors ${
+                                      canEditForecast 
+                                        ? 'cursor-pointer hover:bg-primary/10 bg-primary/5 text-primary font-medium'
+                                        : 'cursor-default bg-muted/10 text-muted-foreground'
                                     }`}
-                                    onClick={() => canEditActual && handleCellEdit(cell.line_item_id, cell.month, 'actual')}
-                                    title={canEditActual ? 'Click to edit actual' : 'No permission to edit actuals'}
+                                    onClick={() => canEditForecast && handleCellEdit(cell.line_item_id, cell.month, 'forecast')}
+                                    title={canEditForecast ? 'Click to edit forecast' : 'No permission to edit forecast'}
                                   >
-                                    A: ${(cell.actual / 1000).toFixed(0)}k
+                                    F: {formatGridCurrency(cell.forecast)}
                                   </div>
-                                  {cell.actual > 0 && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-4 w-4 p-0"
-                                      onClick={() => navigateToReconciliation(cell.line_item_id, cell.month)}
-                                      title="View related invoices"
-                                    >
-                                      <ExternalLink size={10} />
-                                    </Button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
+                                )}
+                              </div>
+                            )}
                             
-                            {/* Variance */}
+                            {/* Actual (Editable by SDMT only) - only show if > 0 or there's forecast/planned */}
+                            {(cell.actual > 0 || cell.forecast > 0 || cell.planned > 0) && (
+                              <div>
+                                {editingCell?.line_item_id === cell.line_item_id && 
+                                 editingCell?.month === cell.month && 
+                                 editingCell?.type === 'actual' ? (
+                                  <Input
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onBlur={handleCellSave}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
+                                    className="h-7 text-xs"
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <div
+                                      className={`px-2 py-1 rounded flex-1 transition-colors ${
+                                        canEditActual 
+                                          ? 'cursor-pointer hover:bg-blue-50 bg-blue-50/50 text-blue-700 font-medium'
+                                          : 'cursor-default bg-muted/10 text-muted-foreground'
+                                      }`}
+                                      onClick={() => canEditActual && handleCellEdit(cell.line_item_id, cell.month, 'actual')}
+                                      title={canEditActual ? 'Click to edit actual' : 'No permission to edit actuals'}
+                                    >
+                                      A: {formatGridCurrency(cell.actual)}
+                                    </div>
+                                    {cell.actual > 0 && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-5 w-5 p-0 hover:bg-blue-100"
+                                        onClick={() => navigateToReconciliation(cell.line_item_id, cell.month)}
+                                        title="View related invoices"
+                                      >
+                                        <ExternalLink size={12} />
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Variance Indicator */}
                             {cell.variance !== 0 && (
-                              <div className={`px-1 rounded text-xs ${getVarianceColor(cell.variance)}`}>
-                                {cell.variance > 0 ? '+' : ''}${(cell.variance / 1000).toFixed(0)}k
+                              <div className={`px-2 py-1 rounded text-xs font-medium text-center ${getVarianceColor(cell.variance)}`}>
+                                {cell.variance > 0 ? '+' : ''}{formatGridCurrency(cell.variance)}
                               </div>
                             )}
                           </div>

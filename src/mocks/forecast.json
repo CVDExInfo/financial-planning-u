@@ -5,7 +5,7 @@
     "planned": 17000,
     "forecast": 17000,
     "actual": 16800,
-    "variance": -200,
+    "variance": 0,
     "variance_reason": "scope",
     "notes": "Slightly under due to delayed start",
     "last_updated": "2024-02-01T15:30:00Z",
@@ -26,10 +26,100 @@
     "month": 3,
     "planned": 17000,
     "forecast": 17000,
-    "actual": 0,
-    "variance": -17000,
+    "actual": 16900,
+    "variance": 0,
     "last_updated": "2024-04-01T09:00:00Z",
     "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-001",
+    "month": 4,
+    "planned": 17000,
+    "forecast": 17300,
+    "actual": 0,
+    "variance": 300,
+    "last_updated": "2024-05-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-001",
+    "month": 5,
+    "planned": 17000,
+    "forecast": 17100,
+    "actual": 0,
+    "variance": 100,
+    "last_updated": "2024-06-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-001",
+    "month": 6,
+    "planned": 17000,
+    "forecast": 16800,
+    "actual": 0,
+    "variance": -200,
+    "last_updated": "2024-07-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-001",
+    "month": 7,
+    "planned": 17000,
+    "forecast": 17000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-08-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-001",
+    "month": 8,
+    "planned": 17000,
+    "forecast": 17000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-09-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-001",
+    "month": 9,
+    "planned": 17000,
+    "forecast": 17000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-10-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-001",
+    "month": 10,
+    "planned": 17000,
+    "forecast": 17000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-11-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-001",
+    "month": 11,
+    "planned": 17000,
+    "forecast": 17000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-12-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-001",
+    "month": 12,
+    "planned": 17000,
+    "forecast": 17000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2025-01-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
   },
   {
     "line_item_id": "LI-002",
@@ -37,7 +127,7 @@
     "planned": 18000,
     "forecast": 18000,
     "actual": 17500,
-    "variance": -500,
+    "variance": 0,
     "variance_reason": "vendor_delay",
     "notes": "One developer started mid-month",
     "last_updated": "2024-02-01T15:30:00Z",
@@ -58,10 +148,100 @@
     "month": 3,
     "planned": 18000,
     "forecast": 18000,
-    "actual": 0,
-    "variance": -18000,
+    "actual": 18200,
+    "variance": 0,
     "last_updated": "2024-04-01T09:00:00Z",
     "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-002",
+    "month": 4,
+    "planned": 18000,
+    "forecast": 18500,
+    "actual": 0,
+    "variance": 500,
+    "last_updated": "2024-05-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-002",
+    "month": 5,
+    "planned": 18000,
+    "forecast": 18300,
+    "actual": 0,
+    "variance": 300,
+    "last_updated": "2024-06-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-002",
+    "month": 6,
+    "planned": 18000,
+    "forecast": 18000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-07-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-002",
+    "month": 7,
+    "planned": 18000,
+    "forecast": 18000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-08-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-002",
+    "month": 8,
+    "planned": 18000,
+    "forecast": 18000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-09-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-002",
+    "month": 9,
+    "planned": 18000,
+    "forecast": 18000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-10-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-002",
+    "month": 10,
+    "planned": 18000,
+    "forecast": 18000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-11-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-002",
+    "month": 11,
+    "planned": 18000,
+    "forecast": 18000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-12-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-002",
+    "month": 12,
+    "planned": 18000,
+    "forecast": 18000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2025-01-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
   },
   {
     "line_item_id": "LI-003",
@@ -69,7 +249,7 @@
     "planned": 3500,
     "forecast": 3500,
     "actual": 3200,
-    "variance": -300,
+    "variance": 0,
     "variance_reason": "logística",
     "notes": "Lower than expected usage in first month",
     "last_updated": "2024-02-01T15:30:00Z",
@@ -81,7 +261,7 @@
     "planned": 3500,
     "forecast": 3800,
     "actual": 3750,
-    "variance": 250,
+    "variance": 300,
     "notes": "Usage ramping up as expected",
     "last_updated": "2024-03-01T10:15:00Z",
     "updated_by": "sdmt-analyst@enterprise.com"
@@ -91,10 +271,100 @@
     "month": 3,
     "planned": 3500,
     "forecast": 3600,
-    "actual": 0,
-    "variance": -3500,
+    "actual": 3580,
+    "variance": 100,
     "last_updated": "2024-04-01T09:00:00Z",
     "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-003",
+    "month": 4,
+    "planned": 3500,
+    "forecast": 3700,
+    "actual": 0,
+    "variance": 200,
+    "last_updated": "2024-05-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-003",
+    "month": 5,
+    "planned": 3500,
+    "forecast": 3600,
+    "actual": 0,
+    "variance": 100,
+    "last_updated": "2024-06-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-003",
+    "month": 6,
+    "planned": 3500,
+    "forecast": 3500,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-07-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-003",
+    "month": 7,
+    "planned": 3500,
+    "forecast": 3500,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-08-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-003",
+    "month": 8,
+    "planned": 3500,
+    "forecast": 3500,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-09-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-003",
+    "month": 9,
+    "planned": 3500,
+    "forecast": 3500,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-10-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-003",
+    "month": 10,
+    "planned": 3500,
+    "forecast": 3500,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-11-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-003",
+    "month": 11,
+    "planned": 3500,
+    "forecast": 3500,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-12-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-003",
+    "month": 12,
+    "planned": 3500,
+    "forecast": 3500,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2025-01-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
   },
   {
     "line_item_id": "LI-004",
@@ -102,6 +372,126 @@
     "planned": 6000,
     "forecast": 6000,
     "actual": 6000,
+    "variance": 0,
+    "last_updated": "2024-02-01T15:30:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-004",
+    "month": 2,
+    "planned": 6000,
+    "forecast": 6000,
+    "actual": 5800,
+    "variance": 0,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-004",
+    "month": 3,
+    "planned": 6000,
+    "forecast": 6000,
+    "actual": 6100,
+    "variance": 0,
+    "last_updated": "2024-04-01T09:00:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-004",
+    "month": 4,
+    "planned": 6000,
+    "forecast": 6200,
+    "actual": 0,
+    "variance": 200,
+    "last_updated": "2024-05-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-004",
+    "month": 5,
+    "planned": 6000,
+    "forecast": 6100,
+    "actual": 0,
+    "variance": 100,
+    "last_updated": "2024-06-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-004",
+    "month": 6,
+    "planned": 6000,
+    "forecast": 6000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-07-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-004",
+    "month": 7,
+    "planned": 0,
+    "forecast": 0,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-08-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-004",
+    "month": 8,
+    "planned": 0,
+    "forecast": 0,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-09-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-004",
+    "month": 9,
+    "planned": 0,
+    "forecast": 0,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-10-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-004",
+    "month": 10,
+    "planned": 0,
+    "forecast": 0,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-11-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-004",
+    "month": 11,
+    "planned": 0,
+    "forecast": 0,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-12-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-004",
+    "month": 12,
+    "planned": 0,
+    "forecast": 0,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2025-01-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-005",
+    "month": 1,
+    "planned": 16666,
+    "forecast": 16666,
+    "actual": 16500,
     "variance": 0,
     "last_updated": "2024-02-01T15:30:00Z",
     "updated_by": "sdmt-analyst@enterprise.com"
@@ -121,8 +511,8 @@
     "month": 3,
     "planned": 16667,
     "forecast": 16667,
-    "actual": 0,
-    "variance": -16667,
+    "actual": 16800,
+    "variance": 0,
     "last_updated": "2024-04-01T09:00:00Z",
     "updated_by": "sdmt-analyst@enterprise.com"
   },
@@ -130,10 +520,210 @@
     "line_item_id": "LI-005",
     "month": 4,
     "planned": 16667,
+    "forecast": 17000,
+    "actual": 0,
+    "variance": 333,
+    "last_updated": "2024-05-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-005",
+    "month": 5,
+    "planned": 16667,
+    "forecast": 16800,
+    "actual": 0,
+    "variance": 133,
+    "last_updated": "2024-06-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-005",
+    "month": 6,
+    "planned": 16667,
     "forecast": 16667,
     "actual": 0,
-    "variance": -16667,
-    "last_updated": "2024-05-01T09:00:00Z",
+    "variance": 0,
+    "last_updated": "2024-07-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-005",
+    "month": 7,
+    "planned": 16667,
+    "forecast": 16667,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-08-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-005",
+    "month": 8,
+    "planned": 16667,
+    "forecast": 16667,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-09-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-005",
+    "month": 9,
+    "planned": 16667,
+    "forecast": 16667,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-10-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-005",
+    "month": 10,
+    "planned": 16667,
+    "forecast": 16667,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-11-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-005",
+    "month": 11,
+    "planned": 16667,
+    "forecast": 16667,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-12-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-005",
+    "month": 12,
+    "planned": 16667,
+    "forecast": 16667,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2025-01-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-006",
+    "month": 1,
+    "planned": 15000,
+    "forecast": 15000,
+    "actual": 14800,
+    "variance": 0,
+    "last_updated": "2024-02-01T15:30:00Z",
     "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-006",
+    "month": 2,
+    "planned": 15000,
+    "forecast": 15000,
+    "actual": 15200,
+    "variance": 0,
+    "last_updated": "2024-03-01T10:15:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-006",
+    "month": 3,
+    "planned": 15000,
+    "forecast": 15000,
+    "actual": 15000,
+    "variance": 0,
+    "last_updated": "2024-04-01T09:00:00Z",
+    "updated_by": "sdmt-analyst@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-006",
+    "month": 4,
+    "planned": 15000,
+    "forecast": 15000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-05-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-006",
+    "month": 5,
+    "planned": 15000,
+    "forecast": 15000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-06-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-006",
+    "month": 6,
+    "planned": 15000,
+    "forecast": 15000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-07-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-006",
+    "month": 7,
+    "planned": 15000,
+    "forecast": 15000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-08-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-006",
+    "month": 8,
+    "planned": 15000,
+    "forecast": 15000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-09-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-006",
+    "month": 9,
+    "planned": 15000,
+    "forecast": 15000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-10-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-006",
+    "month": 10,
+    "planned": 15000,
+    "forecast": 15000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-11-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-006",
+    "month": 11,
+    "planned": 15000,
+    "forecast": 15000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2024-12-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
+  },
+  {
+    "line_item_id": "LI-006",
+    "month": 12,
+    "planned": 15000,
+    "forecast": 15000,
+    "actual": 0,
+    "variance": 0,
+    "last_updated": "2025-01-01T09:00:00Z",
+    "updated_by": "pmo-manager@enterprise.com"
   }
 ]
