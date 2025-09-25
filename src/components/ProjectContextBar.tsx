@@ -26,7 +26,7 @@ import { Separator } from '@/components/ui/separator';
 import { Search, Check, ChevronDown, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useKV } from '@github/spark/hooks';
-import type { Project, BillingPeriod } from '@/types/domain';
+import type { Project } from '@/types/domain';
 import ApiService from '@/lib/api';
 
 interface ProjectContextBarProps {
@@ -80,13 +80,6 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
     });
   };
 
-  const getNextBillingChips = (periods: BillingPeriod[]) => {
-    return periods.slice(0, 3).map((period, index) => (
-      <Badge key={period.month} variant="outline" className="text-xs">
-        M{period.month}: {formatCurrency(period.amount, period.currency)}
-      </Badge>
-    ));
-  };
 
   const periodOptions = [
     { value: '3', label: '3 months' },
@@ -182,17 +175,7 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
             </div>
           )}
 
-          <Separator orientation="vertical" className="h-6" />
 
-          {/* Next Billing Periods */}
-          {currentProject?.next_billing_periods && currentProject.next_billing_periods.length > 0 && (
-            <div className="flex items-center space-x-2">
-              <span className="text-sm font-medium text-foreground">Next Billing:</span>
-              <div className="flex items-center space-x-1">
-                {getNextBillingChips(currentProject.next_billing_periods)}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Period Selector */}
