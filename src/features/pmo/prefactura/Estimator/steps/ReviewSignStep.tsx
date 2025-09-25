@@ -14,13 +14,16 @@ import {
   Users,
   Server,
   TrendingUp,
-  PenTool
+  PenTool,
+  FileSpreadsheet
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
 import type { DealInputs, LaborEstimate, NonLaborEstimate } from '@/types/domain';
 import ApiService from '@/lib/api';
+import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 
 interface ReviewSignStepProps {
   data: {
@@ -123,6 +126,99 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
 
   const handleComplete = () => {
     onNext(); // This will navigate to SDMT
+  };
+
+  const handleExportBaseline = async () => {
+    if (!signatureComplete || !baselineId) {
+      toast.error('Please complete the digital signature first');
+      return;
+    }
+
+    try {
+      // Calculate total amount
+      const totalLaborCost = laborEstimates.reduce((sum, labor) => {
+        const baseHours = labor.hours_per_month * labor.fte_count * 12; // 12 months
+        const baseCost = baseHours * labor.hourly_rate;
+        const onCost = baseCost * (labor.on_cost_percentage / 100);
+        return sum + baseCost + onCost;
+      }, 0);
+      
+      const totalNonLaborCost = nonLaborEstimates.reduce((sum, item) => sum + item.amount, 0);
+      const totalAmount = totalLaborCost + totalNonLaborCost;
+
+      // Create baseline data structure for export
+      const baselineData = {
+        baseline_id: baselineId,
+        project_id: dealInputs?.project_name || 'Unknown Project',
+        project_name: dealInputs?.project_name || 'Unknown Project',
+        created_by: 'Current User', // In real app, get from auth
+        accepted_by: 'Current User',
+        accepted_ts: new Date().toISOString(),
+        signature_hash: `signature_${baselineId}`,
+        total_amount: totalAmount,
+        currency: 'USD' as const,
+        created_at: new Date().toISOString(),
+        status: 'signed' as const,
+        line_items: [
+          ...laborEstimates.map((labor, index) => ({
+            id: `labor_${index}`,
+            category: 'Labor',
+            subtype: labor.level,
+            description: `${labor.role} (${labor.level}) - ${labor.fte_count} FTE`,
+            one_time: false,
+            recurring: true,
+            qty: labor.fte_count,
+            unit_cost: labor.hourly_rate * labor.hours_per_month,
+            currency: 'USD' as const,
+            start_month: labor.start_month,
+            end_month: labor.end_month,
+            amortization: 'none' as const,
+            capex_flag: false,
+            indexation_policy: 'none' as const,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            created_by: 'Current User'
+          })),
+          ...nonLaborEstimates.map((nonLabor, index) => ({
+            id: `nonlabor_${index}`,
+            category: nonLabor.category,
+            description: nonLabor.description,
+            one_time: nonLabor.one_time,
+            recurring: !nonLabor.one_time,
+            qty: 1,
+            unit_cost: nonLabor.amount,
+            currency: nonLabor.currency,
+            start_month: nonLabor.start_month || 1,
+            end_month: nonLabor.end_month || 1,
+            amortization: 'none' as const,
+            capex_flag: nonLabor.capex_flag,
+            vendor: nonLabor.vendor,
+            indexation_policy: 'none' as const,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            created_by: 'Current User'
+          }))
+        ],
+        monthly_totals: monthlyBreakdown.map(month => ({
+          month: month.month,
+          amount_planned: month.Labor + month['Non-Labor']
+        })),
+        assumptions: [
+          'Labor rates include standard benefits and overhead',
+          'FX rates locked at booking time',
+          'Non-labor costs subject to vendor confirmation',
+          'Timeline assumes standard project execution'
+        ]
+      };
+
+      const buffer = await excelExporter.exportBaselineBudget(baselineData);
+      const filename = `baseline-budget-${baselineId}-${new Date().toISOString().split('T')[0]}.xlsx`;
+      downloadExcelFile(buffer, filename);
+      toast.success('Baseline budget exported successfully');
+    } catch (error) {
+      toast.error('Failed to export baseline budget');
+      console.error(error);
+    }
   };
 
   return (
@@ -408,8 +504,8 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
             </div>
 
             <div className="flex justify-between items-center">
-              <Button variant="outline" className="gap-2">
-                <Download size={16} />
+              <Button variant="outline" className="gap-2" onClick={handleExportBaseline}>
+                <FileSpreadsheet size={16} />
                 Export Baseline
               </Button>
               <Button onClick={handleComplete} className="gap-2" size="lg">

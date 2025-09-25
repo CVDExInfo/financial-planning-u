@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Share2, Download, TrendingUp, TrendingDown, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Share2, Download, TrendingUp, TrendingDown, AlertTriangle, ExternalLink, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import LineChartComponent from '@/components/charts/LineChart';
@@ -29,6 +29,7 @@ import type { ForecastCell, LineItem } from '@/types/domain';
 import { useAuth } from '@/components/AuthProvider';
 import { useNavigate } from 'react-router-dom';
 import ApiService from '@/lib/api';
+import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastCell[]>([]);
@@ -194,6 +195,91 @@ export function SDMTForecast() {
     return null;
   };
 
+  // Export functions
+  const handleExcelExport = async () => {
+    try {
+      const exporter = excelExporter;
+      const buffer = await exporter.exportForecastGrid(forecastData, lineItems);
+      const filename = `forecast-data-${new Date().toISOString().split('T')[0]}.xlsx`;
+      downloadExcelFile(buffer, filename);
+      toast.success('Excel report exported successfully');
+    } catch (error) {
+      toast.error('Failed to export Excel report');
+      console.error(error);
+    }
+  };
+
+  const handlePDFExport = async () => {
+    try {
+      // For now, simulate PDF export - in production this would generate actual PDF
+      const reportData = {
+        title: 'Forecast Summary Report',
+        generated: new Date().toLocaleDateString(),
+        totalPlanned: formatCurrency(totalPlanned),
+        totalForecast: formatCurrency(totalForecast),
+        totalActual: formatCurrency(totalActual),
+        variance: formatCurrency(totalVariance),
+        variancePercentage: `${Math.abs(variancePercentage).toFixed(1)}%`
+      };
+      
+      // Create a simple HTML report and print it
+      const printContent = `
+        <html>
+          <head>
+            <title>Forecast Summary Report</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 40px; }
+              .header { text-align: center; margin-bottom: 30px; }
+              .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+              .metric { padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+              .metric-value { font-size: 24px; font-weight: bold; color: #2BB673; }
+              .metric-label { font-size: 14px; color: #666; margin-top: 5px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Forecast Summary Report</h1>
+              <p>Generated on ${reportData.generated}</p>
+            </div>
+            <div class="metrics">
+              <div class="metric">
+                <div class="metric-value">${reportData.totalPlanned}</div>
+                <div class="metric-label">Total Planned</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value">${reportData.totalForecast}</div>
+                <div class="metric-label">Total Forecast</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value">${reportData.totalActual}</div>
+                <div class="metric-label">Total Actual</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value">${reportData.variance}</div>
+                <div class="metric-label">Variance (${reportData.variancePercentage})</div>
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+      
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+        }, 250);
+      }
+      
+      toast.success('PDF summary generated successfully');
+    } catch (error) {
+      toast.error('Failed to generate PDF summary');
+      console.error(error);
+    }
+  };
+
   return (
     <div className="max-w-full mx-auto p-6 space-y-6">
       {/* Header */}
@@ -277,16 +363,16 @@ export function SDMTForecast() {
                     <Button 
                       variant="outline" 
                       className="h-20 flex flex-col gap-2"
-                      onClick={() => toast.success('Excel report generated successfully')}
+                      onClick={handleExcelExport}
                     >
-                      <Download size={24} />
+                      <FileSpreadsheet size={24} />
                       <span>Excel Report</span>
                       <span className="text-xs text-muted-foreground">Detailed forecast with formulas</span>
                     </Button>
                     <Button 
                       variant="outline" 
                       className="h-20 flex flex-col gap-2"
-                      onClick={() => toast.success('PDF summary generated successfully')}
+                      onClick={handlePDFExport}
                     >
                       <Share2 size={24} />
                       <span>PDF Summary</span>
@@ -477,7 +563,7 @@ export function SDMTForecast() {
             type: totalForecast > totalPlanned ? 'negative' : totalForecast < totalPlanned ? 'positive' : 'neutral'
           }
         ]}
-        onExport={() => toast.success('Forecast data exported successfully')}
+        onExport={handleExcelExport}
       />
     </div>
   );
