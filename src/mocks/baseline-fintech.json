@@ -134,11 +134,6 @@
       "created_at": "2024-01-12T10:19:00Z",
       "updated_at": "2024-01-12T10:19:00Z",
       "created_by": "pmo-user@enterprise.com"
-    }
-      "indexation_policy": "CPI",
-      "created_at": "2024-01-12T10:16:00Z",
-      "updated_at": "2024-01-12T10:16:00Z",
-      "created_by": "pmo-user@enterprise.com"
     },
     {
       "id": "LI-F003",
