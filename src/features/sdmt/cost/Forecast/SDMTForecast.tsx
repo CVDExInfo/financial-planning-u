@@ -56,10 +56,17 @@ export function SDMTForecast() {
     try {
       setLoading(true);
       console.log('📊 Loading forecast data for project:', selectedProjectId);
+      console.log('🔄 Project changed! Loading new forecast data...');
+      
       const data = await ApiService.getForecastData(selectedProjectId, parseInt(selectedPeriod));
+      console.log('📈 Raw forecast data received:', data.length, 'records');
+      console.log('📈 Sample forecast data:', data.slice(0, 2));
       
       // Get matched invoices and sync with actuals
       const invoices = await ApiService.getInvoices(selectedProjectId);
+      console.log('🧾 Invoices loaded:', invoices.length, 'records');
+      console.log('🧾 Sample invoice data:', invoices.slice(0, 2));
+      
       const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
       
       // Update forecast data with actual amounts from matched invoices
@@ -80,7 +87,9 @@ export function SDMTForecast() {
       });
       
       setForecastData(updatedData);
-      console.log('✅ Forecast data loaded:', updatedData.length, 'cells for project', selectedProjectId);
+      console.log('✅ Forecast data processed and set:', updatedData.length, 'cells for project', selectedProjectId);
+      console.log('💰 Total planned amount:', updatedData.reduce((sum, cell) => sum + cell.planned, 0));
+      console.log('💰 Total forecast amount:', updatedData.reduce((sum, cell) => sum + cell.forecast, 0));
     } catch (error) {
       toast.error('Failed to load forecast data');
       console.error(error);
@@ -93,8 +102,9 @@ export function SDMTForecast() {
     try {
       console.log('📋 Loading line items for project:', selectedProjectId);
       const items = await ApiService.getLineItems(selectedProjectId);
+      console.log('📋 Line items loaded:', items.length, 'items for project', selectedProjectId);
+      console.log('📋 Sample line items:', items.slice(0, 2).map(item => ({ id: item.id, description: item.description, category: item.category })));
       setLineItems(items);
-      console.log('✅ Line items loaded:', items.length, 'items for project', selectedProjectId);
     } catch (error) {
       console.error('Failed to load line items:', error);
     }
@@ -286,7 +296,7 @@ export function SDMTForecast() {
             Track planned vs forecast vs actual costs across time periods
             {currentProject && (
               <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                {currentProject.name}
+                {currentProject.name} | Change #{projectChangeCount}
               </span>
             )}
           </p>
@@ -400,12 +410,15 @@ export function SDMTForecast() {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="text-center">
+              <div className="text-center space-y-3">
                 <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center mx-auto mb-2 animate-pulse">
                   <span className="text-primary font-bold text-sm">📊</span>
                 </div>
                 <div className="text-muted-foreground">
                   Loading forecast data{currentProject ? ` for ${currentProject.name}` : ''}...
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Project Change #{projectChangeCount}
                 </div>
               </div>
             </div>

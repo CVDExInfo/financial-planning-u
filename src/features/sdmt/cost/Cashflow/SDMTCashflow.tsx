@@ -134,7 +134,14 @@ export function SDMTCashflow() {
               🎁 Premium Add-on
             </Badge>
           </div>
-          <p className="text-muted-foreground">Monitor project cash flows and profitability metrics</p>
+          <p className="text-muted-foreground">
+            Monitor project cash flows and profitability metrics
+            {currentProject && (
+              <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                {currentProject.name} | Change #{projectChangeCount}
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">

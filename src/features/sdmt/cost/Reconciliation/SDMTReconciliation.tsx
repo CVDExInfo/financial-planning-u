@@ -57,7 +57,7 @@ export function SDMTReconciliation() {
   
   const location = useLocation();
   const navigate = useNavigate();
-  const { selectedProjectId, projectChangeCount } = useProject();
+  const { selectedProjectId, currentProject, projectChangeCount } = useProject();
   
   // Parse URL params for filtering (when coming from forecast)
   const urlParams = new URLSearchParams(location.search);
@@ -299,7 +299,14 @@ export function SDMTReconciliation() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Invoice Reconciliation</h1>
-          <p className="text-muted-foreground">Upload and match invoices against forecasted amounts</p>
+          <p className="text-muted-foreground">
+            Upload and match invoices against forecasted amounts
+            {currentProject && (
+              <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                {currentProject.name} | Change #{projectChangeCount}
+              </span>
+            )}
+          </p>
           {(filterLineItem || filterMonth) && (
             <div className="flex items-center gap-2 mt-2">
               <Badge variant="outline">

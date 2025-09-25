@@ -64,39 +64,11 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation currentModule={currentModule} />
-      {showProjectContextBar && (
-        <ProjectProvider>
-          <ProjectContextBar />
-        </ProjectProvider>
-      )}
       
-      <main>
-        <AccessControl>
-          {showProjectContextBar ? (
-            <ProjectProvider>
-              <Routes>
-                {/* Home */}
-                <Route path="/" element={<HomePage />} />
-                
-                {/* User Profile */}
-                <Route path="/profile" element={<UserProfile />} />
-                
-                {/* PMO Routes */}
-                <Route path="/pmo/prefactura/estimator" element={<PMOEstimatorWizard />} />
-                
-                {/* SDMT Routes */}
-                <Route path="/sdmt/cost/catalog" element={<SDMTCatalog />} />
-                <Route path="/sdmt/cost/forecast" element={<SDMTForecast />} />
-                <Route path="/sdmt/cost/reconciliation" element={<SDMTReconciliation />} />
-                <Route path="/sdmt/cost/cashflow" element={<SDMTCashflow />} />
-                <Route path="/sdmt/cost/scenarios" element={<SDMTScenarios />} />
-                <Route path="/sdmt/cost/changes" element={<SDMTChanges />} />
-                
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </ProjectProvider>
-          ) : (
+      <ProjectProvider>
+        {showProjectContextBar && <ProjectContextBar />}
+        <main>
+          <AccessControl>
             <Routes>
               {/* Home */}
               <Route path="/" element={<HomePage />} />
@@ -118,9 +90,9 @@ function AppContent() {
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-          )}
-        </AccessControl>
-      </main>
+          </AccessControl>
+        </main>
+      </ProjectProvider>
       
       <Toaster position="top-right" />
     </div>

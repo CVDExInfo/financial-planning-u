@@ -118,22 +118,35 @@ export class ApiService {
   // SDMT Cost Management
   static async getLineItems(project_id: string): Promise<LineItem[]> {
     await this.delay(200);
+    console.log('🔄 API: Getting line items for project_id:', project_id);
     
     // Return appropriate line items based on project
     let baseline;
     switch (project_id) {
       case 'PRJ-HEALTHCARE-MODERNIZATION':
         baseline = baselineData as BaselineBudget;
+        console.log('📊 API: Returning HEALTHCARE data');
         break;
       case 'PRJ-FINTECH-PLATFORM':
         baseline = baselineFintechData as BaselineBudget;
+        console.log('📊 API: Returning FINTECH data');
         break;
       case 'PRJ-RETAIL-ANALYTICS':
         baseline = baselineRetailData as BaselineBudget;
+        console.log('📊 API: Returning RETAIL data');
         break;
       default:
         baseline = baselineData as BaselineBudget;
+        console.log('📊 API: Returning DEFAULT (healthcare) data for unknown project:', project_id);
     }
+    
+    console.log('📊 API: Returning', baseline.line_items.length, 'line items');
+    console.log('📊 API: Sample items:', baseline.line_items.slice(0, 2).map(item => ({ 
+      id: item.id, 
+      description: item.description, 
+      unit_cost: item.unit_cost 
+    })));
+    
     return baseline.line_items;
   }
 
@@ -173,24 +186,34 @@ export class ApiService {
   // Forecast Management
   static async getForecastData(project_id: string, months: number): Promise<ForecastCell[]> {
     await this.delay(300);
+    console.log('🔄 API: Getting forecast data for project_id:', project_id, 'months:', months);
     
     // Return appropriate forecast data based on project
     let data;
     switch (project_id) {
       case 'PRJ-HEALTHCARE-MODERNIZATION':
         data = forecastData;
+        console.log('📊 API: Returning HEALTHCARE forecast data');
         break;
       case 'PRJ-FINTECH-PLATFORM':
         data = forecastFintechData;
+        console.log('📊 API: Returning FINTECH forecast data');
         break;
       case 'PRJ-RETAIL-ANALYTICS':
         data = forecastRetailData;
+        console.log('📊 API: Returning RETAIL forecast data');
         break;
       default:
         data = forecastData;
+        console.log('📊 API: Returning DEFAULT (healthcare) forecast data for unknown project:', project_id);
     }
     
-    return data as ForecastCell[];
+    const result = data as ForecastCell[];
+    console.log('📊 API: Returning', result.length, 'forecast cells');
+    console.log('📊 API: Total planned amount:', result.reduce((sum, cell) => sum + cell.planned, 0));
+    console.log('📊 API: Total forecast amount:', result.reduce((sum, cell) => sum + cell.forecast, 0));
+    
+    return result;
   }
 
   static async updateForecast(project_id: string, updates: ForecastCell[]): Promise<void> {
@@ -214,24 +237,32 @@ export class ApiService {
   // Reconciliation
   static async getInvoices(project_id: string): Promise<InvoiceDoc[]> {
     await this.delay(250);
+    console.log('🔄 API: Getting invoices for project_id:', project_id);
     
     // Return appropriate invoice data based on project
     let data;
     switch (project_id) {
       case 'PRJ-HEALTHCARE-MODERNIZATION':
         data = invoicesData;
+        console.log('🧾 API: Returning HEALTHCARE invoice data');
         break;
       case 'PRJ-FINTECH-PLATFORM':
         data = invoicesFintechData;
+        console.log('🧾 API: Returning FINTECH invoice data');
         break;
       case 'PRJ-RETAIL-ANALYTICS':
         data = invoicesRetailData;
+        console.log('🧾 API: Returning RETAIL invoice data');
         break;
       default:
         data = invoicesData;
+        console.log('🧾 API: Returning DEFAULT (healthcare) invoice data for unknown project:', project_id);
     }
     
-    return data as InvoiceDoc[];
+    const result = data as InvoiceDoc[];
+    console.log('🧾 API: Returning', result.length, 'invoices');
+    
+    return result;
   }
 
   static async uploadInvoice(project_id: string, file: File, line_item_id: string, month: number): Promise<InvoiceDoc> {

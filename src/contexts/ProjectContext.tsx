@@ -26,11 +26,24 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
   const currentProject = projects.find(p => p.id === selectedProjectId);
 
-  // Enhanced project setter that triggers change counter
+  // Enhanced project setter that triggers change counter and forces updates
   const setSelectedProjectId = useCallback((projectId: string) => {
-    console.log('🔄 Project changing from:', selectedProjectId, 'to:', projectId);
-    setSelectedProjectIdKV(projectId);
-    setProjectChangeCount(prev => prev + 1);
+    if (projectId !== selectedProjectId) {
+      console.log('🔄 Project changing from:', selectedProjectId, 'to:', projectId);
+      
+      // Clear current project to force re-renders
+      setSelectedProjectIdKV('');
+      setProjectChangeCount(prev => prev + 1);
+      
+      // Set loading state briefly to show project switching
+      setLoading(true);
+      
+      // Short delay to ensure UI sees the change
+      setTimeout(() => {
+        setSelectedProjectIdKV(projectId);
+        setLoading(false);
+      }, 150);
+    }
   }, [selectedProjectId, setSelectedProjectIdKV]);
 
   const loadProjects = async () => {

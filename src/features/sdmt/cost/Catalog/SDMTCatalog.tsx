@@ -60,8 +60,18 @@ export function SDMTCatalog() {
   const loadLineItems = async () => {
     try {
       setLoading(true);
+      console.log('📂 Catalog: Loading line items for project:', selectedProjectId);
       const items = await ApiService.getLineItems(selectedProjectId);
+      console.log('📂 Raw line items received:', items.length, 'items');
+      console.log('📂 Sample catalog items:', items.slice(0, 3).map(item => ({ 
+        id: item.id, 
+        description: item.description, 
+        category: item.category,
+        unit_cost: item.unit_cost 
+      })));
+      
       setLineItems(items);
+      console.log('✅ Catalog data updated for project:', selectedProjectId);
     } catch (error) {
       toast.error('Failed to load line items');
       console.error(error);
@@ -209,7 +219,7 @@ export function SDMTCatalog() {
             Manage project line items and cost components
             {currentProject && (
               <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                {currentProject.name}
+                {currentProject.name} | Change #{projectChangeCount}
               </span>
             )}
           </p>
@@ -383,7 +393,17 @@ export function SDMTCatalog() {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="text-muted-foreground">Loading line items...</div>
+              <div className="text-center space-y-3">
+                <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center mx-auto mb-2 animate-pulse">
+                  <span className="text-primary font-bold text-sm">📂</span>
+                </div>
+                <div className="text-muted-foreground">
+                  Loading line items{currentProject ? ` for ${currentProject.name}` : ''}...
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Project Change #{projectChangeCount}
+                </div>
+              </div>
             </div>
           ) : filteredItems.length === 0 ? (
             <div className="text-center py-12">
