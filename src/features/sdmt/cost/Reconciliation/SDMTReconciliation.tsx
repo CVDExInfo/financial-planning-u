@@ -34,6 +34,9 @@ import { toast } from 'sonner';
 import { useKV } from '@github/spark/hooks';
 import { useProject } from '@/contexts/ProjectContext';
 import ModuleBadge from '@/components/ModuleBadge';
+import DataContainer from '@/components/DataContainer';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import { useAsyncOperation } from '@/hooks/useAsyncOperation';
 import type { InvoiceDoc, LineItem, ForecastCell } from '@/types/domain.d.ts';
 import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
@@ -58,6 +61,14 @@ export function SDMTReconciliation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { selectedProjectId, currentProject, projectChangeCount } = useProject();
+  
+  // Use async operation hook for uploads
+  const uploadOperation = useAsyncOperation({
+    onSuccess: () => {
+      setShowUploadForm(false);
+      loadInvoices(); // Refresh data
+    }
+  });
   
   // Parse URL params for filtering (when coming from forecast)
   const urlParams = new URLSearchParams(location.search);

@@ -6,6 +6,8 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useKV } from '@github/spark/hooks';
+import ProgressIndicator from '@/components/ProgressIndicator';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 // Import step components (we'll create these)
 import DealInputsStep from './steps/DealInputsStep';

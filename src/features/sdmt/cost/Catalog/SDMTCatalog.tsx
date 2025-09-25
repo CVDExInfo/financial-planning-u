@@ -34,6 +34,8 @@ import { useProject } from '@/contexts/ProjectContext';
 import Protected from '@/components/Protected';
 import ModuleBadge from '@/components/ModuleBadge';
 import { ServiceTierSelector } from '@/components/ServiceTierSelector';
+import DataContainer from '@/components/DataContainer';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'sonner';
 import type { LineItem, BaselineBudget } from '@/types/domain.d.ts';
 import ApiService from '@/lib/api';
@@ -44,6 +46,7 @@ import { createServiceLineItem } from '@/lib/pricing-calculator';
 export function SDMTCatalog() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -171,7 +174,10 @@ export function SDMTCatalog() {
   };
 
   const handleExport = async () => {
+    if (exporting) return;
+    
     try {
+      setExporting('excel');
       toast.loading('Preparing Excel export...');
       
       // Create a baseline budget structure for export
@@ -209,6 +215,8 @@ export function SDMTCatalog() {
       toast.dismiss();
       toast.error('Failed to export catalog');
       console.error('Export error:', error);
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -285,9 +293,14 @@ export function SDMTCatalog() {
               variant="outline" 
               className="gap-2"
               onClick={handleExport}
+              disabled={exporting !== null}
             >
-              <Download size={16} />
-              Export
+              {exporting === 'excel' ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <Download size={16} />
+              )}
+              {exporting === 'excel' ? 'Exporting...' : 'Export'}
             </Button>
             <Protected action="create">
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

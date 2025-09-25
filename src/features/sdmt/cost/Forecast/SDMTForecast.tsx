@@ -25,6 +25,8 @@ import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import LineChartComponent from '@/components/charts/LineChart';
 import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
 import ModuleBadge from '@/components/ModuleBadge';
+import DataContainer from '@/components/DataContainer';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import type { ForecastCell, LineItem } from '@/types/domain.d.ts';
 import { useAuth } from '@/components/AuthProvider';
 import { useProject } from '@/contexts/ProjectContext';
@@ -37,6 +39,7 @@ export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastCell[]>([]);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
   const [editingCell, setEditingCell] = useState<{ line_item_id: string; month: number; type: 'forecast' | 'actual' } | null>(null);
   const [editValue, setEditValue] = useState('');
   const { user } = useAuth();
@@ -297,7 +300,10 @@ export function SDMTForecast() {
 
   // Export functions
   const handleExcelExport = async () => {
+    if (exporting) return;
+    
     try {
+      setExporting('excel');
       const exporter = excelExporter;
       const buffer = await exporter.exportForecastGrid(forecastData, lineItems);
       const filename = `forecast-data-${new Date().toISOString().split('T')[0]}.xlsx`;
@@ -306,11 +312,16 @@ export function SDMTForecast() {
     } catch (error) {
       toast.error('Failed to export Excel report');
       console.error(error);
+    } finally {
+      setExporting(null);
     }
   };
 
   const handlePDFExport = async () => {
+    if (exporting) return;
+    
     try {
+      setExporting('pdf');
       const reportData = {
         title: 'Cost Forecast Analysis',
         subtitle: 'Executive Summary & Variance Report',
@@ -362,6 +373,8 @@ export function SDMTForecast() {
     } catch (error) {
       toast.error('Failed to generate PDF summary');
       console.error(error);
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -463,19 +476,33 @@ export function SDMTForecast() {
                       variant="outline" 
                       className="h-20 flex flex-col gap-2"
                       onClick={handleExcelExport}
+                      disabled={exporting !== null}
                     >
-                      <FileSpreadsheet size={24} />
+                      {exporting === 'excel' ? (
+                        <LoadingSpinner size="sm" />
+                      ) : (
+                        <FileSpreadsheet size={24} />
+                      )}
                       <span>Excel Report</span>
-                      <span className="text-xs text-muted-foreground">Detailed forecast with formulas</span>
+                      <span className="text-xs text-muted-foreground">
+                        {exporting === 'excel' ? 'Generating...' : 'Detailed forecast with formulas'}
+                      </span>
                     </Button>
                     <Button 
                       variant="outline" 
                       className="h-20 flex flex-col gap-2"
                       onClick={handlePDFExport}
+                      disabled={exporting !== null}
                     >
-                      <Share2 size={24} />
+                      {exporting === 'pdf' ? (
+                        <LoadingSpinner size="sm" />
+                      ) : (
+                        <Share2 size={24} />
+                      )}
                       <span>PDF Summary</span>
-                      <span className="text-xs text-muted-foreground">Executive summary format</span>
+                      <span className="text-xs text-muted-foreground">
+                        {exporting === 'pdf' ? 'Generating...' : 'Executive summary format'}
+                      </span>
                     </Button>
                   </div>
                 </div>

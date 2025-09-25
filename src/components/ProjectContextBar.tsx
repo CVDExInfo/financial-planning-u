@@ -22,9 +22,11 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Check, ChevronDown, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProject } from '@/contexts/ProjectContext';
+import LoadingSpinner from './LoadingSpinner';
 
 interface ProjectContextBarProps {
   className?: string;
@@ -91,8 +93,14 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                   role="combobox"
                   aria-expanded={open}
                   className="w-[280px] justify-between"
+                  disabled={loading}
                 >
-                  {currentProject ? (
+                  {loading ? (
+                    <div className="flex items-center space-x-2">
+                      <LoadingSpinner size="sm" />
+                      <span>Loading projects...</span>
+                    </div>
+                  ) : currentProject ? (
                     <span className="truncate">{currentProject.name}</span>
                   ) : (
                     "Select project..."
@@ -139,7 +147,12 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
           <Separator orientation="vertical" className="h-6" />
 
           {/* Baseline Badge */}
-          {currentProject?.baseline_id && (
+          {loading ? (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-foreground">Baseline:</span>
+              <Skeleton className="h-6 w-24" />
+            </div>
+          ) : currentProject?.baseline_id ? (
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium text-foreground">Baseline:</span>
               <Badge variant="default" className="gap-1">
@@ -152,7 +165,7 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                 </span>
               )}
             </div>
-          )}
+          ) : null}
 
 
         </div>
