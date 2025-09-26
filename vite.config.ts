@@ -22,4 +22,22 @@ export default defineConfig({
       '@': resolve(projectRoot, 'src')
     }
   },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tabs',
+      'lucide-react',
+      'recharts'
+    ]
+  },
+  build: {
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true
+    }
+  }
 });

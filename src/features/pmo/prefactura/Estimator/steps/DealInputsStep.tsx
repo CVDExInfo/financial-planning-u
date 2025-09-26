@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, X } from 'lucide-react';
 import type { DealInputs, Currency } from '@/types/domain.d.ts';
 
-const dealInputsSchema = z.object({
+const dealInputsSchema: z.ZodType<DealInputs> = z.object({
   project_name: z.string().min(1, 'Project name is required'),
   project_description: z.string().optional(),
   currency: z.enum(['USD', 'COP']),
@@ -33,7 +33,7 @@ const dealInputsSchema = z.object({
   contract_value: z.number().optional(),
   client_name: z.string().optional(),
   assumptions: z.array(z.string()).default([])
-});
+}) as z.ZodType<DealInputs>;
 
 interface DealInputsStepProps {
   data: DealInputs | null;
