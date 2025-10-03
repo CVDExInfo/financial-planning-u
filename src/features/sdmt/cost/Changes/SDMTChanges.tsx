@@ -22,7 +22,7 @@ import ModuleBadge from '@/components/ModuleBadge';
 import ApprovalWorkflow from './ApprovalWorkflow';
 import { useProject } from '@/contexts/ProjectContext';
 import ApiService from '@/lib/api';
-import type { ChangeRequest as DomainChangeRequest } from '@/types/domain.d.ts';
+import type { ChangeRequest as DomainChangeRequest } from '@/types/domain';
 
 interface ChangeRequest {
   id: string;

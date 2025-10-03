@@ -27,7 +27,7 @@ import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
 import ModuleBadge from '@/components/ModuleBadge';
 import DataContainer from '@/components/DataContainer';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import type { ForecastCell, LineItem } from '@/types/domain.d.ts';
+import type { ForecastCell, LineItem } from '@/types/domain';
 import { useAuth } from '@/components/AuthProvider';
 import { useProject } from '@/contexts/ProjectContext';
 import { useNavigate } from 'react-router-dom';

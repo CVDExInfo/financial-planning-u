@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
-import type { DealInputs, LaborEstimate, NonLaborEstimate } from '@/types/domain.d.ts';
+import type { DealInputs, LaborEstimate, NonLaborEstimate } from '@/types/domain';
 import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage } from '@/lib/pdf-export';

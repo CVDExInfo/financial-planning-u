@@ -17,22 +17,6 @@ export default defineConfig({
     createIconImportProxy() as PluginOption,
     sparkPlugin() as PluginOption,
   ],
-  base: process.env.NODE_ENV === 'production' ? '/financial-planning-u/' : '/',
-  build: {
-    // Enable source maps for debugging
-    sourcemap: true,
-    // Optimize chunk splitting for better caching
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
-          'charts': ['recharts', 'd3'],
-          'query': ['@tanstack/react-query'],
-        }
-      }
-    }
-  },
   resolve: {
     alias: {
       '@': resolve(projectRoot, 'src')

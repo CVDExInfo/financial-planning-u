@@ -1,5 +1,5 @@
 import * as ExcelJS from 'exceljs';
-import type { BaselineBudget, ForecastCell, LineItem } from '@/types/domain.d.ts';
+import type { BaselineBudget, ForecastCell, LineItem } from '@/types/domain';
 
 /**
  * Professional Excel export utilities with designed templates

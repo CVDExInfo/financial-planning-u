@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { Plus, X } from 'lucide-react';
-import type { DealInputs, Currency } from '@/types/domain.d.ts';
+import type { DealInputs, Currency } from '@/types/domain';
 
 const dealInputsSchema = z.object({
   project_name: z.string().min(1, 'Project name is required'),

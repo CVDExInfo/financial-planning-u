@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Trash2, Server, CreditCard } from 'lucide-react';
-import type { NonLaborEstimate, Currency } from '@/types/domain.d.ts';
+import type { NonLaborEstimate, Currency } from '@/types/domain';
 
 const CATEGORIES = [
   'Support',

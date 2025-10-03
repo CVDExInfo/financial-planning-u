@@ -37,7 +37,7 @@ import ModuleBadge from '@/components/ModuleBadge';
 import DataContainer from '@/components/DataContainer';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useAsyncOperation } from '@/hooks/useAsyncOperation';
-import type { InvoiceDoc, LineItem, ForecastCell } from '@/types/domain.d.ts';
+import type { InvoiceDoc, LineItem, ForecastCell } from '@/types/domain';
 import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';

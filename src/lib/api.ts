@@ -10,7 +10,7 @@ import type {
   Project,
   APIResponse,
   PaginatedResponse
-} from '@/types/domain.d.ts';
+} from '@/types/domain';
 
 import baselineData from '@/mocks/baseline.json';
 import baselineFintechData from '@/mocks/baseline-fintech.json';

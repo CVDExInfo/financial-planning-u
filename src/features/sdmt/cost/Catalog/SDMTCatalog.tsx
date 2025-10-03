@@ -37,7 +37,7 @@ import { ServiceTierSelector } from '@/components/ServiceTierSelector';
 import DataContainer from '@/components/DataContainer';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'sonner';
-import type { LineItem, BaselineBudget } from '@/types/domain.d.ts';
+import type { LineItem, BaselineBudget } from '@/types/domain';
 import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency } from '@/lib/pdf-export';

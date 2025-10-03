@@ -21,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trash2, Calculator } from 'lucide-react';
-import type { LaborEstimate } from '@/types/domain.d.ts';
+import type { LaborEstimate } from '@/types/domain';
 
 // Labor rate presets by country and role
 const LABOR_PRESETS = {
