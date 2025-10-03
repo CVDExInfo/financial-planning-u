@@ -161,7 +161,7 @@ export class IkusiPricingCalculator {
           'enterprise': { 'ikusi-platinum': 25, 'ikusi-star': 30, 'ikusi-gold': 10 }
         };
         
-        const complexityScore = complexityScores[complexity]?.[tier.id] || 0;
+        const complexityScore = complexityScores[complexity]?.[tier.id as keyof typeof complexityScores[typeof complexity]] || 0;
         score += complexityScore;
         
         if (complexityScore > 15) {
