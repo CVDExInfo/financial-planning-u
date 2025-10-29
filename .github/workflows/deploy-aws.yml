@@ -50,12 +50,15 @@ jobs:
           
       - name: Sync to S3
         run: |
+          # Upload assets with long-term cache (1 year = 31536000 seconds)
+          # Safe because assets have content hashes in their filenames
           aws s3 sync dist/ s3://${{ vars.S3_BUCKET_NAME }}/finanzas/ --delete \
             --cache-control "public,max-age=31536000,immutable" \
             --exclude "index.html" \
             --exclude "*.json"
           
           # Upload index.html and manifest files with no-cache
+          # These files need to be revalidated on every request to ensure users get the latest version
           aws s3 sync dist/ s3://${{ vars.S3_BUCKET_NAME }}/finanzas/ \
             --cache-control "public,max-age=0,must-revalidate" \
             --include "index.html" \

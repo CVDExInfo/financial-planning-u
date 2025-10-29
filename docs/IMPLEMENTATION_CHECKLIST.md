@@ -57,7 +57,7 @@ This checklist covers all the steps required to deploy the Financial Planning UI
   - Attach deployment policy with S3 and CloudFront permissions
 
 - [ ] **Note IAM role ARN**
-  - Role ARN: `arn:aws:iam::703671891952:role/______________`
+  - Role ARN: `arn:aws:iam::<AWS_ACCOUNT_ID>:role/______________`
 
 ### 4. Optional: SSM Parameter Store
 
@@ -74,7 +74,7 @@ This checklist covers all the steps required to deploy the Financial Planning UI
 
 Navigate to: Settings → Secrets and variables → Actions → Variables
 
-- [ ] `AWS_ACCOUNT_ID` = `703671891952`
+- [ ] `AWS_ACCOUNT_ID` = `<your-aws-account-id>` (e.g., 703671891952)
 - [ ] `AWS_REGION` = `us-east-2`
 - [ ] `S3_BUCKET_NAME` = `______________`
 - [ ] `CLOUDFRONT_DIST_ID` = `______________`
@@ -89,7 +89,7 @@ Navigate to: Settings → Secrets and variables → Actions → Variables
 
 Navigate to: Settings → Secrets and variables → Actions → Secrets
 
-- [ ] `OIDC_AWS_ROLE_ARN` = `arn:aws:iam::703671891952:role/______________`
+- [ ] `OIDC_AWS_ROLE_ARN` = `arn:aws:iam::<AWS_ACCOUNT_ID>:role/______________`
 
 ## Pre-Deployment Validation
 
@@ -269,16 +269,16 @@ aws cloudfront create-invalidation \
 
 Deployment is successful when:
 
-- [x] Build completes without errors
-- [x] Files sync to S3 successfully
-- [x] CloudFront invalidation completes
-- [x] Application loads at `https://<distribution-domain>/finanzas/`
-- [x] Deep links work correctly
-- [x] Browser refresh on any route works
-- [x] Login/authentication works
-- [x] API calls succeed
-- [x] All features function as expected
-- [x] No console errors in browser
+- [ ] Build completes without errors
+- [ ] Files sync to S3 successfully
+- [ ] CloudFront invalidation completes
+- [ ] Application loads at `https://<distribution-domain>/finanzas/`
+- [ ] Deep links work correctly
+- [ ] Browser refresh on any route works
+- [ ] Login/authentication works
+- [ ] API calls succeed
+- [ ] All features function as expected
+- [ ] No console errors in browser
 
 ## Documentation
 
