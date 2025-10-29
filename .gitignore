@@ -29,6 +29,15 @@ dist-ssr
 packages
 pids
 .file-manifest
-.devcontainer/
 
 .spark-workbench-id
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+
+# Backup files
+*.bak
