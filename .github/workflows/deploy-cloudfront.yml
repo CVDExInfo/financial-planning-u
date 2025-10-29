@@ -1,0 +1,77 @@
+name: Deploy to CloudFront
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Type check
+        run: npx tsc --noEmit
+        
+      - name: Lint
+        run: npm run lint
+        
+      - name: Build application
+        run: npm run build
+        env:
+          NODE_ENV: production
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_ACTA_API_ID: ${{ vars.VITE_ACTA_API_ID }}
+          VITE_COGNITO_CLIENT_ID: ${{ vars.COGNITO_CLIENT_ID }}
+          VITE_COGNITO_POOL_ID: ${{ vars.COGNITO_POOL_ID }}
+          VITE_COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN }}
+          
+      - name: Sync to S3
+        run: |
+          aws s3 sync dist/ s3://${{ vars.S3_BUCKET_NAME }}/finanzas/ --delete \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "index.html" \
+            --exclude "*.json"
+          
+          # Upload index.html and manifest files with no-cache
+          aws s3 sync dist/ s3://${{ vars.S3_BUCKET_NAME }}/finanzas/ \
+            --cache-control "public,max-age=0,must-revalidate" \
+            --include "index.html" \
+            --include "*.json"
+        
+      - name: Create CloudFront invalidation
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ vars.CLOUDFRONT_DIST_ID }} \
+            --paths "/finanzas/*" \
+            --output json
+            
+      - name: Deployment summary
+        run: |
+          echo "✅ Deployment successful!"
+          echo "Distribution: ${{ vars.DISTRIBUTION_DOMAIN_NAME }}"
+          echo "Base URL: https://${{ vars.DISTRIBUTION_DOMAIN_NAME }}/finanzas/"
+          echo "CloudFront Distribution ID: ${{ vars.CLOUDFRONT_DIST_ID }}"
+          echo "S3 Bucket: ${{ vars.S3_BUCKET_NAME }}"

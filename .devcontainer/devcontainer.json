@@ -1,0 +1,47 @@
+{
+  "name": "Financial Planning UI - Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/aws-cli:1": {
+      "version": "latest"
+    }
+  },
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "github.copilot",
+        "github.copilot-chat",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next"
+      ],
+      "settings": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "eslint.validate": [
+          "javascript",
+          "javascriptreact",
+          "typescript",
+          "typescriptreact"
+        ]
+      }
+    }
+  },
+  
+  "postCreateCommand": "npm install",
+  
+  "forwardPorts": [5173],
+  
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite Dev Server",
+      "onAutoForward": "notify"
+    }
+  }
+}

@@ -100,8 +100,11 @@ function AppContent() {
 }
 
 function App() {
+  // Set basename to /finanzas in production for CloudFront deployment
+  const basename = import.meta.env.PROD ? '/finanzas' : '/';
+  
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <AuthProvider>
         <AppContent />
       </AuthProvider>
