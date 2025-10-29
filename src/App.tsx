@@ -101,7 +101,7 @@ function AppContent() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/finanzas">
       <AuthProvider>
         <AppContent />
       </AuthProvider>

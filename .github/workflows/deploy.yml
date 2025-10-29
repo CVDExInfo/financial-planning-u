@@ -1,68 +1,131 @@
-name: Deploy to GitHub Pages
+name: Deploy Financial UI
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: ["main"]
+  workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
-  contents: read
-  pages: write
   id-token: write
+  contents: read
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  S3_BUCKET: ${{ vars.S3_BUCKET_NAME }}
+  DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID }}
+  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+  VITE_ACTA_API_ID: ${{ vars.VITE_ACTA_API_ID }}
 
 jobs:
-  # Build job
-  build:
+  preflight-checks:
+    name: Preflight Checks
     runs-on: ubuntu-latest
+    steps:
+      - name: Verify Required Variables
+        run: |
+          echo "Verifying required environment variables..."
+          
+          if [ "${{ vars.AWS_REGION }}" != "us-east-2" ]; then
+            echo "❌ ERROR: AWS_REGION must be us-east-2, got: ${{ vars.AWS_REGION }}"
+            exit 1
+          fi
+          
+          if [ "${{ vars.CLOUDFRONT_DIST_ID }}" != "EPQU7PVDLQXUA" ]; then
+            echo "❌ ERROR: CLOUDFRONT_DIST_ID must be EPQU7PVDLQXUA, got: ${{ vars.CLOUDFRONT_DIST_ID }}"
+            exit 1
+          fi
+          
+          if [ "${{ vars.DISTRIBUTION_DOMAIN_NAME }}" != "d7t9x3j66yd8k.cloudfront.net" ]; then
+            echo "❌ ERROR: DISTRIBUTION_DOMAIN_NAME must be d7t9x3j66yd8k.cloudfront.net, got: ${{ vars.DISTRIBUTION_DOMAIN_NAME }}"
+            exit 1
+          fi
+          
+          if [ -z "${{ secrets.OIDC_AWS_ROLE_ARN }}" ]; then
+            echo "❌ ERROR: OIDC_AWS_ROLE_ARN secret is not set"
+            exit 1
+          fi
+          
+          echo "✅ All preflight checks passed"
+          echo "   Region: ${{ vars.AWS_REGION }}"
+          echo "   Distribution: ${{ vars.CLOUDFRONT_DIST_ID }}"
+          echo "   Domain: ${{ vars.DISTRIBUTION_DOMAIN_NAME }}"
+          echo "   S3 Bucket: ${{ vars.S3_BUCKET_NAME }}"
+
+  build-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    needs: preflight-checks
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
-      - name: Setup Node
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
-          
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-        
-      - name: Install dependencies
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Dependencies
         run: npm ci
-        
-      - name: Type check
-        run: npm run typecheck
-        
-      - name: Lint
-        run: npm run lint
-        
-      - name: Build with Vite
+
+      - name: Build Application
         run: npm run build
         env:
           NODE_ENV: production
-          
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './dist'
 
-  # Deployment job
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+
+      - name: Verify S3 Bucket Access
+        run: |
+          echo "Verifying access to S3 bucket: $S3_BUCKET"
+          if aws s3 ls "s3://$S3_BUCKET" > /dev/null 2>&1; then
+            echo "✅ S3 bucket exists and is accessible"
+          else
+            echo "⚠️  S3 bucket not found or not accessible. It may need to be created via Terraform."
+            echo "    Run the Terraform configuration in the infra/ directory first."
+            exit 1
+          fi
+
+      - name: Upload to S3
+        run: |
+          echo "Syncing files to S3 bucket: $S3_BUCKET"
+          aws s3 sync dist/ s3://$S3_BUCKET/ --delete --cache-control "public,max-age=31536000,immutable" --exclude "index.html" --exclude "*.html"
+          aws s3 sync dist/ s3://$S3_BUCKET/ --cache-control "public,max-age=0,must-revalidate" --exclude "*" --include "index.html" --include "*.html"
+          echo "✅ Files synced successfully"
+
+      - name: Invalidate CloudFront Cache
+        run: |
+          echo "Creating CloudFront invalidation for distribution: $DIST_ID"
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id $DIST_ID \
+            --paths "/finanzas/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+          echo "✅ Invalidation created: $INVALIDATION_ID"
+          echo "   View status at: https://console.aws.amazon.com/cloudfront/v3/home#/distributions/$DIST_ID"
+
+      - name: Deployment Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Deployment completed successfully**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Distribution**: $DIST_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Domain**: ${{ vars.DISTRIBUTION_DOMAIN_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Path**: /finanzas/*" >> $GITHUB_STEP_SUMMARY
+          echo "- **S3 Bucket**: $S3_BUCKET" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: $AWS_REGION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Access URLs" >> $GITHUB_STEP_SUMMARY
+          echo "- https://${{ vars.DISTRIBUTION_DOMAIN_NAME }}/finanzas/" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Rollback" >> $GITHUB_STEP_SUMMARY
+          echo "To rollback, restore the previous S3 bucket version:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "aws s3api list-object-versions --bucket $S3_BUCKET --prefix index.html" >> $GITHUB_STEP_SUMMARY
+          echo "# Then restore specific version as needed" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
