@@ -218,7 +218,9 @@ The deployment workflow uses a **local composite action** instead of external Ma
 - ✅ No external dependencies (repository restriction compliant)
 - ✅ Full control over implementation
 - ✅ Transparent operation (view source in `.github/actions/oidc-configure-aws/action.yml`)
-- ✅ Same security as `aws-actions/configure-aws-credentials@v4`
+- ✅ Equivalent functionality to `aws-actions/configure-aws-credentials@v4`
+
+**Note:** While this implementation provides equivalent OIDC functionality, the official AWS action benefits from broader community review and AWS's direct maintenance. This custom action is suitable for environments where Marketplace actions are restricted.
 
 **Documentation:** See `.github/actions/oidc-configure-aws/README.md`
 

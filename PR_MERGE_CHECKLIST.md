@@ -54,7 +54,8 @@ Before first deployment, verify AWS console has:
 
 - [ ] **OIDC Provider** configured:
   ```bash
-  aws iam list-open-id-connect-providers | grep token.actions.githubusercontent.com
+  aws iam list-open-id-connect-providers | grep "token.actions.githubusercontent.com"
+  # Should return: "Arn": "arn:aws:iam::703671891952:oidc-provider/token.actions.githubusercontent.com"
   ```
 
 - [ ] **IAM Role** with trust policy for GitHub Actions:
