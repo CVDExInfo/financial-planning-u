@@ -9,53 +9,52 @@ permissions:
   id-token: write
   contents: read
 
-env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
-  S3_BUCKET: ${{ vars.S3_BUCKET_NAME }}
-  DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID }}
-  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
-  VITE_ACTA_API_ID: ${{ vars.VITE_ACTA_API_ID }}
-
 jobs:
-  preflight-checks:
-    name: Preflight Checks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Verify Required Variables
-        run: |
-          echo "Verifying required environment variables..."
-          
-          if [ "${{ vars.AWS_REGION }}" != "us-east-2" ]; then
-            echo "❌ ERROR: AWS_REGION must be us-east-2, got: ${{ vars.AWS_REGION }}"
-            exit 1
-          fi
-          
-          if [ "${{ vars.CLOUDFRONT_DIST_ID }}" != "EPQU7PVDLQXUA" ]; then
-            echo "❌ ERROR: CLOUDFRONT_DIST_ID must be EPQU7PVDLQXUA, got: ${{ vars.CLOUDFRONT_DIST_ID }}"
-            exit 1
-          fi
-          
-          if [ "${{ vars.DISTRIBUTION_DOMAIN_NAME }}" != "d7t9x3j66yd8k.cloudfront.net" ]; then
-            echo "❌ ERROR: DISTRIBUTION_DOMAIN_NAME must be d7t9x3j66yd8k.cloudfront.net, got: ${{ vars.DISTRIBUTION_DOMAIN_NAME }}"
-            exit 1
-          fi
-          
-          if [ -z "${{ secrets.OIDC_AWS_ROLE_ARN }}" ]; then
-            echo "❌ ERROR: OIDC_AWS_ROLE_ARN secret is not set"
-            exit 1
-          fi
-          
-          echo "✅ All preflight checks passed"
-          echo "   Region: ${{ vars.AWS_REGION }}"
-          echo "   Distribution: ${{ vars.CLOUDFRONT_DIST_ID }}"
-          echo "   Domain: ${{ vars.DISTRIBUTION_DOMAIN_NAME }}"
-          echo "   S3 Bucket: ${{ vars.S3_BUCKET_NAME }}"
-
   build-deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
-    needs: preflight-checks
+    
+    # One authoritative env block
+    env:
+      # Map repo Variables to runtime env
+      AWS_REGION:                 ${{ vars.AWS_REGION }}
+      S3_BUCKET:                  ${{ vars.S3_BUCKET_NAME }}
+      CLOUDFRONT_DIST_ID:         ${{ vars.CLOUDFRONT_DIST_ID }}
+      DISTRIBUTION_DOMAIN_NAME:   ${{ vars.DISTRIBUTION_DOMAIN_NAME }}
+      VITE_API_BASE_URL:          ${{ vars.VITE_API_BASE_URL }}
+      VITE_ACTA_API_ID:           ${{ vars.VITE_ACTA_API_ID }}
+      # Boolean for preflight (true/false) without exposing secrets
+      OIDC_PRESENT:               ${{ secrets.OIDC_AWS_ROLE_ARN != '' }}
     steps:
+      # ✅ Correct, shell-level preflight (no ${{ ... }} inside Bash)
+      - name: Preflight Checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Verifying required environment variables..."
+          required=(AWS_REGION S3_BUCKET CLOUDFRONT_DIST_ID DISTRIBUTION_DOMAIN_NAME)
+          for k in "${required[@]}"; do
+            v="${!k:-}"
+            if [[ -z "$v" ]]; then
+              echo "❌ ERROR: $k is empty"; exit 1
+            fi
+          done
+
+          [[ "$AWS_REGION" == "us-east-2" ]] || { echo "❌ ERROR: AWS_REGION must be us-east-2, got: $AWS_REGION"; exit 1; }
+          [[ "$CLOUDFRONT_DIST_ID" == "EPQU7PVDLQXUA" ]] || { echo "❌ ERROR: CLOUDFRONT_DIST_ID mismatch: $CLOUDFRONT_DIST_ID"; exit 1; }
+          [[ "$DISTRIBUTION_DOMAIN_NAME" == "d7t9x3j66yd8k.cloudfront.net" ]] || { echo "❌ ERROR: DISTRIBUTION_DOMAIN_NAME mismatch: $DISTRIBUTION_DOMAIN_NAME"; exit 1; }
+
+          # Secret presence without printing it
+          if [[ "${OIDC_PRESENT}" != "true" ]]; then
+            echo "❌ ERROR: OIDC_AWS_ROLE_ARN secret is not set"; exit 1
+          fi
+
+          echo "✅ All preflight checks passed"
+          echo "   Region: $AWS_REGION"
+          echo "   Distribution: $CLOUDFRONT_DIST_ID"
+          echo "   Domain: $DISTRIBUTION_DOMAIN_NAME"
+          echo "   S3 Bucket: $S3_BUCKET"
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -85,6 +84,7 @@ jobs:
       - name: Fallback to Static Credentials (If Needed)
         if: steps.configure-aws-oidc.outcome == 'failure' && vars.FALLBACK_STATIC_KEYS == 'true'
         run: |
+          set -euo pipefail
           echo "⚠️  OIDC authentication failed. Using static credentials fallback."
           echo "   This is a temporary measure and should be replaced with OIDC."
           
@@ -100,6 +100,7 @@ jobs:
 
       - name: Verify Authentication Method
         run: |
+          set -euo pipefail
           if [ "${{ steps.configure-aws-oidc.outcome }}" = "success" ]; then
             echo "✅ Using OIDC authentication (preferred)"
           else
@@ -109,6 +110,7 @@ jobs:
 
       - name: Verify S3 Bucket Access
         run: |
+          set -euo pipefail
           echo "Verifying access to S3 bucket: $S3_BUCKET"
           if aws s3 ls "s3://$S3_BUCKET" > /dev/null 2>&1; then
             echo "✅ S3 bucket exists and is accessible"
@@ -155,6 +157,7 @@ jobs:
 
       - name: Upload to S3
         run: |
+          set -euo pipefail
           echo "Syncing files to S3 bucket: $S3_BUCKET"
           aws s3 sync dist/ s3://$S3_BUCKET/ --delete --cache-control "public,max-age=31536000,immutable" --exclude "index.html" --exclude "*.html"
           aws s3 sync dist/ s3://$S3_BUCKET/ --cache-control "public,max-age=0,must-revalidate" --exclude "*" --include "index.html" --include "*.html"
@@ -162,29 +165,31 @@ jobs:
 
       - name: Invalidate CloudFront Cache
         run: |
-          echo "Creating CloudFront invalidation for distribution: $DIST_ID"
+          set -euo pipefail
+          echo "Creating CloudFront invalidation for distribution: $CLOUDFRONT_DIST_ID"
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
-            --distribution-id $DIST_ID \
+            --distribution-id $CLOUDFRONT_DIST_ID \
             --paths "/finanzas/*" \
             --query 'Invalidation.Id' \
             --output text)
           echo "✅ Invalidation created: $INVALIDATION_ID"
-          echo "   View status at: https://console.aws.amazon.com/cloudfront/v3/home#/distributions/$DIST_ID"
+          echo "   View status at: https://console.aws.amazon.com/cloudfront/v3/home#/distributions/$CLOUDFRONT_DIST_ID"
 
       - name: Deployment Summary
         run: |
+          set -euo pipefail
           echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Deployment completed successfully**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Distribution**: $DIST_ID" >> $GITHUB_STEP_SUMMARY
-          echo "- **Domain**: ${{ vars.DISTRIBUTION_DOMAIN_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Distribution**: $CLOUDFRONT_DIST_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Domain**: $DISTRIBUTION_DOMAIN_NAME" >> $GITHUB_STEP_SUMMARY
           echo "- **Path**: /finanzas/*" >> $GITHUB_STEP_SUMMARY
           echo "- **S3 Bucket**: $S3_BUCKET" >> $GITHUB_STEP_SUMMARY
           echo "- **Region**: $AWS_REGION" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Access URLs" >> $GITHUB_STEP_SUMMARY
-          echo "- https://${{ vars.DISTRIBUTION_DOMAIN_NAME }}/finanzas/" >> $GITHUB_STEP_SUMMARY
+          echo "- https://$DISTRIBUTION_DOMAIN_NAME/finanzas/" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Rollback" >> $GITHUB_STEP_SUMMARY
           echo "To rollback, restore the previous S3 bucket version:" >> $GITHUB_STEP_SUMMARY
