@@ -201,6 +201,27 @@ OAC Configuration:
 
 ## IAM and OIDC
 
+### OIDC Implementation
+
+The deployment workflow uses a **local composite action** instead of external Marketplace actions to comply with repository restrictions.
+
+**Location:** `.github/actions/oidc-configure-aws/`
+
+**How it works:**
+1. Validates OIDC context (checks for required environment variables)
+2. Requests GitHub OIDC token via GitHub API
+3. Calls AWS STS `assume-role-with-web-identity`
+4. Exports temporary credentials to environment
+5. Verifies credentials with `aws sts get-caller-identity`
+
+**Benefits over Marketplace actions:**
+- ✅ No external dependencies (repository restriction compliant)
+- ✅ Full control over implementation
+- ✅ Transparent operation (view source in `.github/actions/oidc-configure-aws/action.yml`)
+- ✅ Same security as `aws-actions/configure-aws-credentials@v4`
+
+**Documentation:** See `.github/actions/oidc-configure-aws/README.md`
+
 ### OIDC Trust Relationship
 
 Example IAM role trust policy for GitHub Actions OIDC:
