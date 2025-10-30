@@ -32,6 +32,9 @@ pids
 
 .spark-workbench-id
 
+# TypeScript build cache
+*.tsbuildinfo
+
 # Terraform
 *.tfstate
 *.tfstate.*

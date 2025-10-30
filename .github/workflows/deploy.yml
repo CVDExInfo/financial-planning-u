@@ -74,10 +74,38 @@ jobs:
           NODE_ENV: production
 
       - name: Configure AWS Credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        id: configure-aws-oidc
+        continue-on-error: true
+        uses: ./.github/actions/oidc-configure-aws
         with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          session_name: deploy-${{ github.run_id }}
+
+      - name: Fallback to Static Credentials (If Needed)
+        if: steps.configure-aws-oidc.outcome == 'failure' && vars.FALLBACK_STATIC_KEYS == 'true'
+        run: |
+          echo "⚠️  OIDC authentication failed. Using static credentials fallback."
+          echo "   This is a temporary measure and should be replaced with OIDC."
+          
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "❌ ERROR: Static credentials not available"
+            exit 1
+          fi
+          
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=${{ env.AWS_REGION }}" >> $GITHUB_ENV
+          echo "✅ Static credentials configured"
+
+      - name: Verify Authentication Method
+        run: |
+          if [ "${{ steps.configure-aws-oidc.outcome }}" = "success" ]; then
+            echo "✅ Using OIDC authentication (preferred)"
+          else
+            echo "⚠️  Using static credentials (fallback)"
+          fi
+          aws sts get-caller-identity
 
       - name: Verify S3 Bucket Access
         run: |
@@ -85,9 +113,44 @@ jobs:
           if aws s3 ls "s3://$S3_BUCKET" > /dev/null 2>&1; then
             echo "✅ S3 bucket exists and is accessible"
           else
-            echo "⚠️  S3 bucket not found or not accessible. It may need to be created via Terraform."
-            echo "    Run the Terraform configuration in the infra/ directory first."
-            exit 1
+            echo "⚠️  S3 bucket not found. Creating bucket..."
+            
+            # Create bucket in us-east-2
+            aws s3api create-bucket \
+              --bucket "$S3_BUCKET" \
+              --region "$AWS_REGION" \
+              --create-bucket-configuration LocationConstraint="$AWS_REGION"
+            
+            # Block all public access
+            aws s3api put-public-access-block \
+              --bucket "$S3_BUCKET" \
+              --public-access-block-configuration \
+                "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+            
+            # Enable versioning for rollback capability
+            aws s3api put-bucket-versioning \
+              --bucket "$S3_BUCKET" \
+              --versioning-configuration Status=Enabled
+            
+            # Enable server-side encryption
+            aws s3api put-bucket-encryption \
+              --bucket "$S3_BUCKET" \
+              --server-side-encryption-configuration '{
+                "Rules": [{
+                  "ApplyServerSideEncryptionByDefault": {
+                    "SSEAlgorithm": "AES256"
+                  },
+                  "BucketKeyEnabled": true
+                }]
+              }'
+            
+            echo "✅ S3 bucket created successfully with:"
+            echo "   - Public access blocked"
+            echo "   - Versioning enabled"
+            echo "   - Encryption enabled (AES256)"
+            echo ""
+            echo "⚠️  IMPORTANT: Configure CloudFront OAC bucket policy manually:"
+            echo "   See docs/ops/readme.md for the required bucket policy"
           fi
 
       - name: Upload to S3
