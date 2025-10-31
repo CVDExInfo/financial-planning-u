@@ -1,0 +1,73 @@
+### Health
+GET http://127.0.0.1:3000/health
+
+### Get Catalog Rubros
+GET http://127.0.0.1:3000/catalog/rubros
+
+### Create project (replace token if authorizer used locally)
+POST http://127.0.0.1:3000/projects
+Content-Type: application/json
+Authorization: Bearer <dev-jwt>
+
+{
+  "cliente": "Cliente Alpha",
+  "nombre": "Proyecto A",
+  "fecha_inicio": "2025-01-01",
+  "fecha_fin": "2025-09-30",
+  "moneda": "COP"
+}
+
+### List projects (replace token if authorizer used locally)
+GET http://127.0.0.1:3000/projects
+Authorization: Bearer <dev-jwt>
+
+### Get project rubros (stub - returns 501)
+GET http://127.0.0.1:3000/projects/P-123/rubros
+Authorization: ******
+
+### Bulk allocations (stub - returns 501)
+PUT http://127.0.0.1:3000/projects/P-123/allocations:bulk
+Content-Type: application/json
+Authorization: ******
+
+{
+  "allocations": []
+}
+
+### Get financial plan (stub - returns 501)
+GET http://127.0.0.1:3000/projects/P-123/plan?mes=2025-01
+Authorization: ******
+
+### Ingest payroll (stub - returns 501)
+POST http://127.0.0.1:3000/payroll/ingest
+Content-Type: application/json
+Authorization: ******
+
+{
+  "file": "payroll-data"
+}
+
+### Close month (stub - returns 501)
+POST http://127.0.0.1:3000/close-month?mes=2025-01
+Authorization: ******
+
+### Get adjustments (stub - returns 501)
+GET http://127.0.0.1:3000/adjustments
+Authorization: ******
+
+### Get alerts (stub - returns 501)
+GET http://127.0.0.1:3000/alerts
+Authorization: ******
+
+### Get providers (stub - returns 501)
+GET http://127.0.0.1:3000/providers
+Authorization: ******
+
+### Prefacturas webhook (stub - returns 501)
+POST http://127.0.0.1:3000/prefacturas/webhook
+Content-Type: application/json
+Authorization: ******
+
+{
+  "data": "webhook-payload"
+}
