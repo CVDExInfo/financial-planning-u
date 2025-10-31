@@ -1,0 +1,1983 @@
+openapi: 3.1.0
+info:
+  title: Finanzas API - Financial Planning & Service Delivery Control
+  version: 1.0.0
+  description: |
+    Complete API for managing financial planning, project tracking, payroll integration,
+    budget allocations, and service delivery control. Supports prefactura webhook integration
+    and comprehensive budget tracking for SDT (Service Delivery Team).
+    
+    **Region**: us-east-2  
+    **Base Path**: /finanzas/  
+    **Authentication**: OIDC via AWS Cognito JWT  
+    **RBAC**: JWT groups include `SDT` for Service Delivery Team access
+  contact:
+    name: API Support
+    email: support@finanzas.example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.finanzas.example.com/finanzas
+    description: Production API Server (us-east-2)
+  - url: https://staging-api.finanzas.example.com/finanzas
+    description: Staging API Server
+  - url: http://localhost:3000/finanzas
+    description: Local Development Server
+
+tags:
+  - name: Projects
+    description: Project management and handoff operations
+  - name: Catalog
+    description: Budget rubros (line items) catalog management
+  - name: Allocations
+    description: Budget allocation and financial planning
+  - name: Payroll
+    description: Payroll integration and monthly closing
+  - name: Adjustments
+    description: Budget adjustments and reallocations
+  - name: Movements
+    description: Financial movements tracking and approval workflow
+  - name: Alerts
+    description: Financial alerts and notifications
+  - name: Providers
+    description: Provider/vendor management
+  - name: Webhooks
+    description: External webhook integrations
+
+security:
+  - CognitoJWT: []
+
+paths:
+  /projects:
+    post:
+      tags:
+        - Projects
+      summary: Create new project
+      description: Creates a new project with initial configuration and financial parameters
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreate'
+            example:
+              name: "Mobile Banking App MVP"
+              code: "PROJ-2025-001"
+              client: "Global Bank Corp"
+              start_date: "2025-01-15"
+              end_date: "2025-12-31"
+              currency: "USD"
+              mod_total: 1500000
+              description: "MVP for mobile banking application with core features"
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+              example:
+                id: "proj_7x9k2m4n8p"
+                name: "Mobile Banking App MVP"
+                code: "PROJ-2025-001"
+                client: "Global Bank Corp"
+                start_date: "2025-01-15"
+                end_date: "2025-12-31"
+                currency: "USD"
+                mod_total: 1500000
+                status: "active"
+                description: "MVP for mobile banking application with core features"
+                created_at: "2025-10-31T03:12:00Z"
+                updated_at: "2025-10-31T03:12:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags:
+        - Projects
+      summary: List projects
+      description: Retrieves a paginated list of all projects with optional filtering
+      operationId: listProjects
+      parameters:
+        - name: status
+          in: query
+          description: Filter by project status
+          schema:
+            type: string
+            enum: [active, completed, on_hold, cancelled]
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of results to skip for pagination
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectList'
+              example:
+                data:
+                  - id: "proj_7x9k2m4n8p"
+                    name: "Mobile Banking App MVP"
+                    code: "PROJ-2025-001"
+                    client: "Global Bank Corp"
+                    status: "active"
+                    mod_total: 1500000
+                    currency: "USD"
+                  - id: "proj_3a5b7c9d1e"
+                    name: "ERP System Upgrade"
+                    code: "PROJ-2025-002"
+                    client: "Manufacturing Inc"
+                    status: "active"
+                    mod_total: 2800000
+                    currency: "USD"
+                total: 2
+                limit: 20
+                offset: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /projects/{id}/handoff:
+    post:
+      tags:
+        - Projects
+      summary: Process project handoff
+      description: Registers the handoff of a project from sales to service delivery with budget distribution
+      operationId: createHandoff
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: string
+            pattern: '^proj_[a-z0-9]{10}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Handoff'
+            example:
+              mod_total: 1500000
+              pct_ingenieros: 65
+              pct_sdm: 35
+              aceptado_por: "juan.perez@company.com"
+              fecha_handoff: "2025-11-01"
+              notas: "Budget approved by PMO, team allocation confirmed"
+      responses:
+        '200':
+          description: Handoff processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Handoff record ID
+                  project_id:
+                    type: string
+                    description: Associated project ID
+                  status:
+                    type: string
+                    enum: [accepted, pending, rejected]
+                  budget_ingenieros:
+                    type: number
+                    description: Budget allocated to engineers
+                  budget_sdm:
+                    type: number
+                    description: Budget allocated to SDM
+                  created_at:
+                    type: string
+                    format: date-time
+              example:
+                id: "handoff_2k4m6n8p0r"
+                project_id: "proj_7x9k2m4n8p"
+                status: "accepted"
+                budget_ingenieros: 975000
+                budget_sdm: 525000
+                aceptado_por: "juan.perez@company.com"
+                fecha_handoff: "2025-11-01"
+                created_at: "2025-10-31T03:15:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /catalog/rubros:
+    get:
+      tags:
+        - Catalog
+      summary: Get budget rubros catalog
+      description: Retrieves the complete catalog of available budget rubros (line items)
+      operationId: listRubros
+      parameters:
+        - name: tipo_ejecucion
+          in: query
+          description: Filter by execution type
+          schema:
+            type: string
+            enum: [mensual, puntual, por_hito]
+      responses:
+        '200':
+          description: Rubros catalog retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RubroList'
+              example:
+                data:
+                  - id: "rubro_1a2b3c4d5e"
+                    code: "RUBRO-001"
+                    nombre: "Desarrollo Backend"
+                    categoria: "Ingeniería"
+                    tipo_ejecucion: "mensual"
+                    descripcion: "Desarrollo y mantenimiento backend"
+                  - id: "rubro_6f7g8h9i0j"
+                    code: "RUBRO-002"
+                    nombre: "Infraestructura Cloud"
+                    categoria: "Infraestructura"
+                    tipo_ejecucion: "mensual"
+                    descripcion: "Costos de infraestructura AWS/Azure"
+                  - id: "rubro_k1l2m3n4o5"
+                    code: "RUBRO-003"
+                    nombre: "Capacitación Equipo"
+                    categoria: "Capacitación"
+                    tipo_ejecucion: "puntual"
+                    descripcion: "Cursos y certificaciones"
+                total: 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /projects/{id}/rubros:
+    post:
+      tags:
+        - Catalog
+      summary: Add rubro to project
+      description: Associates a budget rubro with a specific project and defines execution parameters
+      operationId: createProjectRubro
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: string
+            pattern: '^proj_[a-z0-9]{10}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RubroCreate'
+            example:
+              rubro_id: "rubro_1a2b3c4d5e"
+              monto_total: 120000
+              tipo_ejecucion: "mensual"
+              meses_programados: ["2025-11", "2025-12", "2026-01", "2026-02"]
+              notas: "Equipo de 2 desarrolladores backend senior"
+      responses:
+        '201':
+          description: Rubro added to project successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rubro'
+              example:
+                id: "proj_rubro_7m8n9p0q1r"
+                project_id: "proj_7x9k2m4n8p"
+                rubro_id: "rubro_1a2b3c4d5e"
+                code: "RUBRO-001"
+                nombre: "Desarrollo Backend"
+                monto_total: 120000
+                tipo_ejecucion: "mensual"
+                meses_programados: ["2025-11", "2025-12", "2026-01", "2026-02"]
+                monto_mensual: 30000
+                created_at: "2025-10-31T03:20:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    get:
+      tags:
+        - Catalog
+      summary: List project rubros
+      description: Gets all budget rubros associated with a specific project
+      operationId: listProjectRubros
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: string
+            pattern: '^proj_[a-z0-9]{10}$'
+      responses:
+        '200':
+          description: Project rubros retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RubroList'
+              example:
+                data:
+                  - id: "proj_rubro_7m8n9p0q1r"
+                    rubro_id: "rubro_1a2b3c4d5e"
+                    code: "RUBRO-001"
+                    nombre: "Desarrollo Backend"
+                    monto_total: 120000
+                    tipo_ejecucion: "mensual"
+                    meses_programados: ["2025-11", "2025-12"]
+                total: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{id}/allocations:bulk:
+    put:
+      tags:
+        - Allocations
+      summary: Bulk update allocations
+      description: Updates budget allocations for multiple rubros in a single operation
+      operationId: bulkUpdateAllocations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: string
+            pattern: '^proj_[a-z0-9]{10}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AllocationBulk'
+            example:
+              allocations:
+                - rubro_id: "rubro_1a2b3c4d5e"
+                  mes: "2025-11"
+                  monto_planeado: 30000
+                - rubro_id: "rubro_1a2b3c4d5e"
+                  mes: "2025-12"
+                  monto_planeado: 32000
+                - rubro_id: "rubro_6f7g8h9i0j"
+                  mes: "2025-11"
+                  monto_planeado: 15000
+      responses:
+        '200':
+          description: Allocations updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated_count:
+                    type: integer
+                    description: Number of allocations updated
+                  allocations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rubro_id:
+                          type: string
+                        mes:
+                          type: string
+                        monto_planeado:
+                          type: number
+                        status:
+                          type: string
+              example:
+                updated_count: 3
+                allocations:
+                  - rubro_id: "rubro_1a2b3c4d5e"
+                    mes: "2025-11"
+                    monto_planeado: 30000
+                    status: "updated"
+                  - rubro_id: "rubro_1a2b3c4d5e"
+                    mes: "2025-12"
+                    monto_planeado: 32000
+                    status: "updated"
+                  - rubro_id: "rubro_6f7g8h9i0j"
+                    mes: "2025-11"
+                    monto_planeado: 15000
+                    status: "updated"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{id}/plan:
+    get:
+      tags:
+        - Allocations
+      summary: Get project financial plan
+      description: Retrieves the financial plan for a specific project and month, including planned costs breakdown
+      operationId: getProjectPlan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: string
+            pattern: '^proj_[a-z0-9]{10}$'
+        - name: mes
+          in: query
+          required: true
+          description: Month in YYYY-MM format
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+          example: "2025-10"
+      responses:
+        '200':
+          description: Financial plan retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanMes'
+              example:
+                project_id: "proj_7x9k2m4n8p"
+                mes: "2025-10"
+                plan_ing: 65000
+                plan_sdm: 35000
+                non_recurrentes:
+                  - rubro_id: "rubro_k1l2m3n4o5"
+                    nombre: "Capacitación Equipo"
+                    monto: 8000
+                  - rubro_id: "rubro_p6q7r8s9t0"
+                    nombre: "Licencias Software"
+                    monto: 5000
+                total_mes: 113000
+                currency: "USD"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /payroll/ingest:
+    post:
+      tags:
+        - Payroll
+      summary: Ingest payroll data
+      description: Imports payroll data for a specific month to compare against budget
+      operationId: ingestPayroll
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayrollIngest'
+            example:
+              mes: "2025-10"
+              nomina_total: 98500
+              desglose:
+                ingenieros: 64000
+                sdm: 34500
+              source: "SAP_HR"
+              uploaded_by: "hr.admin@company.com"
+      responses:
+        '202':
+          description: Payroll data accepted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Payroll ingest record ID
+                  mes:
+                    type: string
+                    description: Month processed
+                  status:
+                    type: string
+                    enum: [processing, completed, failed]
+                  nomina_total:
+                    type: number
+                    description: Total payroll amount
+                  created_at:
+                    type: string
+                    format: date-time
+              example:
+                id: "payroll_3x5y7z9a1b"
+                mes: "2025-10"
+                status: "processing"
+                nomina_total: 98500
+                created_at: "2025-10-31T03:25:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /close-month:
+    post:
+      tags:
+        - Payroll
+      summary: Close monthly period
+      description: Closes the financial period for a month and generates coverage report
+      operationId: closeMonth
+      parameters:
+        - name: mes
+          in: query
+          required: true
+          description: Month to close in YYYY-MM format
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+          example: "2025-10"
+      responses:
+        '200':
+          description: Month closed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CierreMes'
+              example:
+                mes: "2025-10"
+                cobertura: 114.72
+                nomina: 98500
+                ingresos_facturados: 113000
+                gap: 15500
+                alertas:
+                  - type: "coverage_above_target"
+                    severity: "warning"
+                    message: "Coverage exceeded 110% target"
+                  - type: "positive_gap"
+                    severity: "info"
+                    message: "Positive gap of $15,500"
+                closed_at: "2025-10-31T23:59:59Z"
+                closed_by: "finance.manager@company.com"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /report/cobertura:
+    get:
+      tags:
+        - Payroll
+      summary: Get coverage report
+      description: Retrieves coverage analysis across projects and months
+      operationId: getCoverageReport
+      parameters:
+        - name: start_date
+          in: query
+          description: Start date in YYYY-MM format
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+        - name: end_date
+          in: query
+          description: End date in YYYY-MM format
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+        - name: project_id
+          in: query
+          description: Filter by specific project
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Coverage report retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: object
+                    properties:
+                      start:
+                        type: string
+                      end:
+                        type: string
+                  summary:
+                    type: object
+                    properties:
+                      avg_cobertura:
+                        type: number
+                      total_nomina:
+                        type: number
+                      total_ingresos:
+                        type: number
+                  monthly_data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CierreMes'
+              example:
+                period:
+                  start: "2025-01"
+                  end: "2025-10"
+                summary:
+                  avg_cobertura: 108.5
+                  total_nomina: 985000
+                  total_ingresos: 1068725
+                monthly_data:
+                  - mes: "2025-10"
+                    cobertura: 114.72
+                    nomina: 98500
+                    ingresos_facturados: 113000
+                    gap: 15500
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /adjustments:
+    post:
+      tags:
+        - Adjustments
+      summary: Create budget adjustment
+      description: Creates a budget adjustment with pro-rata distribution when needed
+      operationId: createAdjustment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustmentCreate'
+            example:
+              project_id: "proj_7x9k2m4n8p"
+              tipo: "exceso"
+              monto: 1000000
+              origen_rubro_id: "rubro_1a2b3c4d5e"
+              fecha_inicio: "2025-11"
+              metodo_distribucion: "pro_rata_forward"
+              justificacion: "Ampliación de alcance aprobada por cliente"
+              solicitado_por: "pm.leader@company.com"
+      responses:
+        '201':
+          description: Adjustment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Adjustment'
+              example:
+                id: "adj_9c1d3e5f7g"
+                project_id: "proj_7x9k2m4n8p"
+                tipo: "exceso"
+                monto: 1000000
+                estado: "pending_approval"
+                origen_rubro_id: "rubro_1a2b3c4d5e"
+                fecha_inicio: "2025-11"
+                metodo_distribucion: "pro_rata_forward"
+                meses_impactados: ["2025-11", "2025-12", "2026-01"]
+                distribucion:
+                  - mes: "2025-11"
+                    monto: 333333.33
+                  - mes: "2025-12"
+                    monto: 333333.33
+                  - mes: "2026-01"
+                    monto: 333333.34
+                created_at: "2025-10-31T03:30:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags:
+        - Adjustments
+      summary: List adjustments
+      description: Retrieves list of budget adjustments with optional filtering
+      operationId: listAdjustments
+      parameters:
+        - name: project_id
+          in: query
+          description: Filter by project
+          schema:
+            type: string
+        - name: estado
+          in: query
+          description: Filter by approval state
+          schema:
+            type: string
+            enum: [pending_approval, approved, rejected]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Adjustments list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdjustmentList'
+              example:
+                data:
+                  - id: "adj_9c1d3e5f7g"
+                    project_id: "proj_7x9k2m4n8p"
+                    tipo: "exceso"
+                    monto: 1000000
+                    estado: "approved"
+                    created_at: "2025-10-31T03:30:00Z"
+                total: 1
+                limit: 20
+                offset: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /movements:
+    post:
+      tags:
+        - Movements
+      summary: Create financial movement
+      description: Records a financial movement that requires approval workflow
+      operationId: createMovement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovementCreate'
+            example:
+              project_id: "proj_7x9k2m4n8p"
+              rubro_id: "rubro_1a2b3c4d5e"
+              tipo: "gasto"
+              monto: 25000
+              fecha: "2025-10-28"
+              descripcion: "Pago consultoría especializada Q4"
+              proveedor_id: "prov_8h9i0j1k2l"
+              evidencia_url: "https://storage.example.com/invoices/INV-2025-1028.pdf"
+      responses:
+        '201':
+          description: Movement created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Movement'
+              example:
+                id: "mov_4n5o6p7q8r"
+                project_id: "proj_7x9k2m4n8p"
+                rubro_id: "rubro_1a2b3c4d5e"
+                tipo: "gasto"
+                monto: 25000
+                fecha: "2025-10-28"
+                estado: "pending"
+                descripcion: "Pago consultoría especializada Q4"
+                proveedor_id: "prov_8h9i0j1k2l"
+                created_at: "2025-10-31T03:35:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags:
+        - Movements
+      summary: List movements
+      description: Retrieves list of financial movements with filtering options
+      operationId: listMovements
+      parameters:
+        - name: project_id
+          in: query
+          description: Filter by project
+          schema:
+            type: string
+        - name: estado
+          in: query
+          description: Filter by approval state
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - name: tipo
+          in: query
+          description: Filter by movement type
+          schema:
+            type: string
+            enum: [gasto, ingreso, ajuste]
+        - name: start_date
+          in: query
+          description: Start date filter (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Movements list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementList'
+              example:
+                data:
+                  - id: "mov_4n5o6p7q8r"
+                    project_id: "proj_7x9k2m4n8p"
+                    rubro_id: "rubro_1a2b3c4d5e"
+                    tipo: "gasto"
+                    monto: 25000
+                    estado: "pending"
+                    fecha: "2025-10-28"
+                total: 1
+                limit: 50
+                offset: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /movements/{id}/approve:
+    post:
+      tags:
+        - Movements
+      summary: Approve movement
+      description: Approves a pending financial movement
+      operationId: approveMovement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Movement ID
+          schema:
+            type: string
+            pattern: '^mov_[a-z0-9]{10}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Approval'
+            example:
+              aprobado_por: "finance.manager@company.com"
+              comentarios: "Aprobado - documentación correcta"
+      responses:
+        '200':
+          description: Movement approved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Movement'
+              example:
+                id: "mov_4n5o6p7q8r"
+                project_id: "proj_7x9k2m4n8p"
+                tipo: "gasto"
+                monto: 25000
+                estado: "approved"
+                aprobado_por: "finance.manager@company.com"
+                aprobado_en: "2025-10-31T03:40:00Z"
+                comentarios: "Aprobado - documentación correcta"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /movements/{id}/reject:
+    post:
+      tags:
+        - Movements
+      summary: Reject movement
+      description: Rejects a pending financial movement with reason
+      operationId: rejectMovement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Movement ID
+          schema:
+            type: string
+            pattern: '^mov_[a-z0-9]{10}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Rejection'
+            example:
+              rechazado_por: "finance.manager@company.com"
+              motivo: "Documentación incompleta - falta factura original"
+      responses:
+        '200':
+          description: Movement rejected successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Movement'
+              example:
+                id: "mov_4n5o6p7q8r"
+                project_id: "proj_7x9k2m4n8p"
+                tipo: "gasto"
+                monto: 25000
+                estado: "rejected"
+                rechazado_por: "finance.manager@company.com"
+                rechazado_en: "2025-10-31T03:40:00Z"
+                motivo: "Documentación incompleta - falta factura original"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /alerts:
+    get:
+      tags:
+        - Alerts
+      summary: Get financial alerts
+      description: Retrieves active financial alerts for budget overruns, coverage issues, etc.
+      operationId: listAlerts
+      parameters:
+        - name: project_id
+          in: query
+          description: Filter by project
+          schema:
+            type: string
+        - name: severity
+          in: query
+          description: Filter by severity level
+          schema:
+            type: string
+            enum: [critical, warning, info]
+        - name: type
+          in: query
+          description: Filter by alert type
+          schema:
+            type: string
+            enum: [budget_overrun, coverage_low, payment_pending, allocation_missing]
+      responses:
+        '200':
+          description: Alerts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        project_id:
+                          type: string
+                        type:
+                          type: string
+                        severity:
+                          type: string
+                        message:
+                          type: string
+                        details:
+                          type: object
+                        created_at:
+                          type: string
+                          format: date-time
+                  total:
+                    type: integer
+              example:
+                data:
+                  - id: "alert_7s8t9u0v1w"
+                    project_id: "proj_7x9k2m4n8p"
+                    type: "budget_overrun"
+                    severity: "warning"
+                    message: "Rubro 'Desarrollo Backend' at 85% of budget"
+                    details:
+                      rubro_id: "rubro_1a2b3c4d5e"
+                      budget: 120000
+                      spent: 102000
+                      percentage: 85
+                    created_at: "2025-10-30T10:00:00Z"
+                  - id: "alert_2x3y4z5a6b"
+                    project_id: "proj_3a5b7c9d1e"
+                    type: "coverage_low"
+                    severity: "critical"
+                    message: "Coverage below 100% for October"
+                    details:
+                      mes: "2025-10"
+                      cobertura: 92.3
+                      target: 105
+                    created_at: "2025-10-31T01:00:00Z"
+                total: 2
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /providers:
+    post:
+      tags:
+        - Providers
+      summary: Create provider
+      description: Registers a new provider/vendor in the system
+      operationId: createProvider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderCreate'
+            example:
+              nombre: "TechConsulting Solutions LLC"
+              tax_id: "RFC-987654321"
+              tipo: "servicios"
+              contacto_nombre: "María García"
+              contacto_email: "maria.garcia@techconsulting.com"
+              contacto_telefono: "+1-555-0123"
+              pais: "USA"
+              notas: "Proveedor preferente para consultoría especializada"
+      responses:
+        '201':
+          description: Provider created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Provider'
+              example:
+                id: "prov_8h9i0j1k2l"
+                nombre: "TechConsulting Solutions LLC"
+                tax_id: "RFC-987654321"
+                tipo: "servicios"
+                contacto_nombre: "María García"
+                contacto_email: "maria.garcia@techconsulting.com"
+                contacto_telefono: "+1-555-0123"
+                pais: "USA"
+                estado: "active"
+                created_at: "2025-10-31T03:45:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags:
+        - Providers
+      summary: List providers
+      description: Retrieves list of registered providers
+      operationId: listProviders
+      parameters:
+        - name: tipo
+          in: query
+          description: Filter by provider type
+          schema:
+            type: string
+            enum: [servicios, materiales, software, infraestructura]
+        - name: estado
+          in: query
+          description: Filter by provider status
+          schema:
+            type: string
+            enum: [active, inactive, suspended]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Providers list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderList'
+              example:
+                data:
+                  - id: "prov_8h9i0j1k2l"
+                    nombre: "TechConsulting Solutions LLC"
+                    tax_id: "RFC-987654321"
+                    tipo: "servicios"
+                    estado: "active"
+                  - id: "prov_3m4n5o6p7q"
+                    nombre: "Cloud Infrastructure Corp"
+                    tax_id: "RFC-123456789"
+                    tipo: "infraestructura"
+                    estado: "active"
+                total: 2
+                limit: 20
+                offset: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /prefacturas/webhook:
+    post:
+      tags:
+        - Webhooks
+      summary: Prefactura webhook
+      description: Receives prefactura events from external systems for automatic processing
+      operationId: prefacturaWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrefacturaEvent'
+            example:
+              event_type: "prefactura.created"
+              event_id: "evt_9r8s7t6u5v"
+              timestamp: "2025-10-31T03:50:00Z"
+              data:
+                project_id: "proj_7x9k2m4n8p"
+                rubro_id: "rubro_1a2b3c4d5e"
+                monto: 30000
+                mes: "2025-11"
+                folio: "PREFACT-2025-110001"
+                descripcion: "Desarrollo backend - Noviembre 2025"
+      responses:
+        '202':
+          description: Webhook event accepted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [accepted, processing]
+                  event_id:
+                    type: string
+                  message:
+                    type: string
+              example:
+                status: "accepted"
+                event_id: "evt_9r8s7t6u5v"
+                message: "Prefactura event queued for processing"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    CognitoJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        AWS Cognito JWT token. Include the token in the Authorization header as: 
+        `Authorization: Bearer <token>`
+        
+        Token must include valid groups claim with 'SDT' group for Service Delivery Team access.
+
+  schemas:
+    ProjectCreate:
+      type: object
+      required:
+        - name
+        - code
+        - client
+        - start_date
+        - end_date
+        - currency
+        - mod_total
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 200
+          description: Project name
+        code:
+          type: string
+          pattern: '^PROJ-\d{4}-\d{3}$'
+          description: Unique project code
+        client:
+          type: string
+          minLength: 2
+          maxLength: 200
+          description: Client name
+        start_date:
+          type: string
+          format: date
+          description: Project start date
+        end_date:
+          type: string
+          format: date
+          description: Project end date
+        currency:
+          type: string
+          enum: [USD, EUR, MXN]
+          description: Project currency
+        mod_total:
+          type: number
+          minimum: 0
+          description: Total budget amount (MOD - Monto Original Dealsheet)
+        description:
+          type: string
+          maxLength: 1000
+          description: Project description
+
+    Project:
+      allOf:
+        - $ref: '#/components/schemas/ProjectCreate'
+        - type: object
+          required:
+            - id
+            - status
+            - created_at
+            - updated_at
+          properties:
+            id:
+              type: string
+              pattern: '^proj_[a-z0-9]{10}$'
+              description: Unique project identifier
+            status:
+              type: string
+              enum: [active, completed, on_hold, cancelled]
+              description: Current project status
+            created_at:
+              type: string
+              format: date-time
+              description: Creation timestamp
+            updated_at:
+              type: string
+              format: date-time
+              description: Last update timestamp
+
+    ProjectList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        total:
+          type: integer
+          description: Total number of projects
+        limit:
+          type: integer
+          description: Page size limit
+        offset:
+          type: integer
+          description: Pagination offset
+
+    Handoff:
+      type: object
+      required:
+        - mod_total
+        - pct_ingenieros
+        - pct_sdm
+        - aceptado_por
+        - fecha_handoff
+      properties:
+        mod_total:
+          type: number
+          minimum: 0
+          description: Total budget being handed off
+        pct_ingenieros:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Percentage allocated to engineers
+        pct_sdm:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Percentage allocated to SDM (Service Delivery Management)
+        aceptado_por:
+          type: string
+          format: email
+          description: Email of person accepting handoff
+        fecha_handoff:
+          type: string
+          format: date
+          description: Date of handoff
+        notas:
+          type: string
+          maxLength: 2000
+          description: Additional notes
+
+    RubroCreate:
+      type: object
+      required:
+        - rubro_id
+        - monto_total
+        - tipo_ejecucion
+      properties:
+        rubro_id:
+          type: string
+          pattern: '^rubro_[a-z0-9]{10}$'
+          description: Reference to catalog rubro
+        monto_total:
+          type: number
+          minimum: 0
+          description: Total amount for this rubro
+        tipo_ejecucion:
+          type: string
+          enum: [mensual, puntual, por_hito]
+          description: Execution type - monthly, one-time, or milestone-based
+        meses_programados:
+          type: array
+          items:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+          description: Scheduled months in YYYY-MM format
+        notas:
+          type: string
+          maxLength: 1000
+          description: Additional notes
+
+    Rubro:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: '^(rubro|proj_rubro)_[a-z0-9]{10}$'
+          description: Unique rubro identifier
+        project_id:
+          type: string
+          description: Associated project (if project-specific)
+        rubro_id:
+          type: string
+          description: Reference to catalog rubro
+        code:
+          type: string
+          description: Rubro code
+        nombre:
+          type: string
+          description: Rubro name
+        categoria:
+          type: string
+          description: Category
+        monto_total:
+          type: number
+          description: Total amount
+        tipo_ejecucion:
+          type: string
+          enum: [mensual, puntual, por_hito]
+          description: Execution type
+        meses_programados:
+          type: array
+          items:
+            type: string
+          description: Scheduled months
+        monto_mensual:
+          type: number
+          description: Monthly amount (for mensual type)
+        descripcion:
+          type: string
+          description: Description
+        created_at:
+          type: string
+          format: date-time
+
+    RubroList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rubro'
+        total:
+          type: integer
+
+    AllocationBulk:
+      type: object
+      required:
+        - allocations
+      properties:
+        allocations:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - rubro_id
+              - mes
+              - monto_planeado
+            properties:
+              rubro_id:
+                type: string
+                pattern: '^rubro_[a-z0-9]{10}$'
+              mes:
+                type: string
+                pattern: '^\d{4}-\d{2}$'
+              monto_planeado:
+                type: number
+                minimum: 0
+
+    PlanMes:
+      type: object
+      properties:
+        project_id:
+          type: string
+          description: Project identifier
+        mes:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          description: Month in YYYY-MM format
+        plan_ing:
+          type: number
+          description: Planned engineering costs
+        plan_sdm:
+          type: number
+          description: Planned SDM costs
+        non_recurrentes:
+          type: array
+          items:
+            type: object
+            properties:
+              rubro_id:
+                type: string
+              nombre:
+                type: string
+              monto:
+                type: number
+          description: Non-recurring costs breakdown
+        total_mes:
+          type: number
+          description: Total monthly amount
+        currency:
+          type: string
+          enum: [USD, EUR, MXN]
+
+    PayrollIngest:
+      type: object
+      required:
+        - mes
+        - nomina_total
+      properties:
+        mes:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          description: Month in YYYY-MM format
+        nomina_total:
+          type: number
+          minimum: 0
+          description: Total payroll amount
+        desglose:
+          type: object
+          properties:
+            ingenieros:
+              type: number
+              description: Engineers payroll
+            sdm:
+              type: number
+              description: SDM payroll
+          description: Payroll breakdown by category
+        source:
+          type: string
+          description: Source system (e.g., SAP_HR)
+        uploaded_by:
+          type: string
+          format: email
+          description: User who uploaded the data
+
+    CierreMes:
+      type: object
+      properties:
+        mes:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          description: Month in YYYY-MM format
+        cobertura:
+          type: number
+          description: Coverage percentage (ingresos/nomina * 100)
+        nomina:
+          type: number
+          description: Total payroll for the month
+        ingresos_facturados:
+          type: number
+          description: Total invoiced revenue
+        gap:
+          type: number
+          description: Difference between revenue and payroll
+        alertas:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              severity:
+                type: string
+                enum: [critical, warning, info]
+              message:
+                type: string
+          description: Generated alerts
+        closed_at:
+          type: string
+          format: date-time
+        closed_by:
+          type: string
+          format: email
+
+    AdjustmentCreate:
+      type: object
+      required:
+        - project_id
+        - tipo
+        - monto
+        - fecha_inicio
+        - solicitado_por
+      properties:
+        project_id:
+          type: string
+          pattern: '^proj_[a-z0-9]{10}$'
+        tipo:
+          type: string
+          enum: [exceso, reduccion, reasignacion]
+          description: Type of adjustment
+        monto:
+          type: number
+          minimum: 0
+          description: Adjustment amount
+        origen_rubro_id:
+          type: string
+          description: Source rubro (if reasignacion)
+        destino_rubro_id:
+          type: string
+          description: Destination rubro (if reasignacion)
+        fecha_inicio:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          description: Starting month for adjustment
+        metodo_distribucion:
+          type: string
+          enum: [pro_rata_forward, pro_rata_all, single_month]
+          description: Distribution method
+        justificacion:
+          type: string
+          maxLength: 2000
+          description: Justification for adjustment
+        solicitado_por:
+          type: string
+          format: email
+
+    Adjustment:
+      allOf:
+        - $ref: '#/components/schemas/AdjustmentCreate'
+        - type: object
+          required:
+            - id
+            - estado
+            - created_at
+          properties:
+            id:
+              type: string
+              pattern: '^adj_[a-z0-9]{10}$'
+            estado:
+              type: string
+              enum: [pending_approval, approved, rejected]
+            meses_impactados:
+              type: array
+              items:
+                type: string
+                pattern: '^\d{4}-\d{2}$'
+            distribucion:
+              type: array
+              items:
+                type: object
+                properties:
+                  mes:
+                    type: string
+                  monto:
+                    type: number
+            aprobado_por:
+              type: string
+              format: email
+            aprobado_en:
+              type: string
+              format: date-time
+            created_at:
+              type: string
+              format: date-time
+
+    AdjustmentList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Adjustment'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    MovementCreate:
+      type: object
+      required:
+        - project_id
+        - rubro_id
+        - tipo
+        - monto
+        - fecha
+        - descripcion
+      properties:
+        project_id:
+          type: string
+          pattern: '^proj_[a-z0-9]{10}$'
+        rubro_id:
+          type: string
+          pattern: '^rubro_[a-z0-9]{10}$'
+        tipo:
+          type: string
+          enum: [gasto, ingreso, ajuste]
+          description: Movement type
+        monto:
+          type: number
+          description: Amount (positive for ingreso, can be negative for ajuste)
+        fecha:
+          type: string
+          format: date
+          description: Movement date
+        descripcion:
+          type: string
+          minLength: 5
+          maxLength: 500
+          description: Movement description
+        proveedor_id:
+          type: string
+          pattern: '^prov_[a-z0-9]{10}$'
+          description: Provider ID (for gasto)
+        evidencia_url:
+          type: string
+          format: uri
+          description: URL to supporting documentation
+
+    Movement:
+      allOf:
+        - $ref: '#/components/schemas/MovementCreate'
+        - type: object
+          required:
+            - id
+            - estado
+            - created_at
+          properties:
+            id:
+              type: string
+              pattern: '^mov_[a-z0-9]{10}$'
+            estado:
+              type: string
+              enum: [pending, approved, rejected]
+            aprobado_por:
+              type: string
+              format: email
+            aprobado_en:
+              type: string
+              format: date-time
+            rechazado_por:
+              type: string
+              format: email
+            rechazado_en:
+              type: string
+              format: date-time
+            comentarios:
+              type: string
+            motivo:
+              type: string
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    MovementList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Movement'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    Approval:
+      type: object
+      required:
+        - aprobado_por
+      properties:
+        aprobado_por:
+          type: string
+          format: email
+          description: Email of approver
+        comentarios:
+          type: string
+          maxLength: 1000
+          description: Approval comments
+
+    Rejection:
+      type: object
+      required:
+        - rechazado_por
+        - motivo
+      properties:
+        rechazado_por:
+          type: string
+          format: email
+          description: Email of rejector
+        motivo:
+          type: string
+          minLength: 10
+          maxLength: 1000
+          description: Rejection reason
+
+    ProviderCreate:
+      type: object
+      required:
+        - nombre
+        - tax_id
+        - tipo
+      properties:
+        nombre:
+          type: string
+          minLength: 3
+          maxLength: 200
+          description: Provider name
+        tax_id:
+          type: string
+          minLength: 5
+          maxLength: 50
+          description: Tax ID / RFC
+        tipo:
+          type: string
+          enum: [servicios, materiales, software, infraestructura]
+          description: Provider type
+        contacto_nombre:
+          type: string
+          maxLength: 200
+        contacto_email:
+          type: string
+          format: email
+        contacto_telefono:
+          type: string
+          maxLength: 50
+        pais:
+          type: string
+          minLength: 2
+          maxLength: 100
+        notas:
+          type: string
+          maxLength: 2000
+
+    Provider:
+      allOf:
+        - $ref: '#/components/schemas/ProviderCreate'
+        - type: object
+          required:
+            - id
+            - estado
+            - created_at
+          properties:
+            id:
+              type: string
+              pattern: '^prov_[a-z0-9]{10}$'
+            estado:
+              type: string
+              enum: [active, inactive, suspended]
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    ProviderList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Provider'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    PrefacturaEvent:
+      type: object
+      required:
+        - event_type
+        - event_id
+        - timestamp
+        - data
+      properties:
+        event_type:
+          type: string
+          enum: [prefactura.created, prefactura.updated, prefactura.cancelled]
+          description: Type of webhook event
+        event_id:
+          type: string
+          pattern: '^evt_[a-z0-9]{10}$'
+          description: Unique event identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+        data:
+          type: object
+          required:
+            - project_id
+            - rubro_id
+            - monto
+            - mes
+          properties:
+            project_id:
+              type: string
+              pattern: '^proj_[a-z0-9]{10}$'
+            rubro_id:
+              type: string
+              pattern: '^rubro_[a-z0-9]{10}$'
+            monto:
+              type: number
+              minimum: 0
+            mes:
+              type: string
+              pattern: '^\d{4}-\d{2}$'
+            folio:
+              type: string
+              description: Invoice folio
+            descripcion:
+              type: string
+              maxLength: 500
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Error code for programmatic handling
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+
+  responses:
+    BadRequest:
+      description: Bad Request - Invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "BAD_REQUEST"
+            message: "Invalid request parameters"
+            details:
+              field: "mod_total"
+              error: "Must be a positive number"
+            timestamp: "2025-10-31T03:55:00Z"
+
+    Unauthorized:
+      description: Unauthorized - Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "UNAUTHORIZED"
+            message: "Authentication required"
+            details:
+              reason: "Missing or invalid JWT token"
+            timestamp: "2025-10-31T03:55:00Z"
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "FORBIDDEN"
+            message: "Insufficient permissions to access this resource"
+            details:
+              required_group: "SDT"
+              user_groups: ["users"]
+            timestamp: "2025-10-31T03:55:00Z"
+
+    NotFound:
+      description: Not Found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "NOT_FOUND"
+            message: "Resource not found"
+            details:
+              resource_type: "project"
+              resource_id: "proj_invalid123"
+            timestamp: "2025-10-31T03:55:00Z"
