@@ -140,16 +140,24 @@ paths:
                     name: "Mobile Banking App MVP"
                     code: "PROJ-2025-001"
                     client: "Global Bank Corp"
+                    start_date: "2025-01-15"
+                    end_date: "2025-12-31"
                     status: "active"
                     mod_total: 1500000
                     currency: "USD"
+                    created_at: "2025-10-31T03:12:00Z"
+                    updated_at: "2025-10-31T03:12:00Z"
                   - id: "proj_3a5b7c9d1e"
                     name: "ERP System Upgrade"
                     code: "PROJ-2025-002"
                     client: "Manufacturing Inc"
+                    start_date: "2025-02-01"
+                    end_date: "2025-11-30"
                     status: "active"
                     mod_total: 2800000
                     currency: "USD"
+                    created_at: "2025-10-30T10:00:00Z"
+                    updated_at: "2025-10-30T10:00:00Z"
                 total: 2
                 limit: 20
                 offset: 0
@@ -716,6 +724,8 @@ paths:
                 origen_rubro_id: "rubro_1a2b3c4d5e"
                 fecha_inicio: "2025-11"
                 metodo_distribucion: "pro_rata_forward"
+                justificacion: "Ampliación de alcance aprobada por cliente"
+                solicitado_por: "pm.leader@company.com"
                 meses_impactados: ["2025-11", "2025-12", "2026-01"]
                 distribucion:
                   - mes: "2025-11"
@@ -768,6 +778,8 @@ paths:
                     project_id: "proj_7x9k2m4n8p"
                     tipo: "exceso"
                     monto: 1000000
+                    fecha_inicio: "2025-11"
+                    solicitado_por: "pm.leader@company.com"
                     estado: "approved"
                     created_at: "2025-10-31T03:30:00Z"
                 total: 1
@@ -876,6 +888,9 @@ paths:
                     monto: 25000
                     estado: "pending"
                     fecha: "2025-10-28"
+                    descripcion: "Pago consultoría especializada Q4"
+                    created_at: "2025-10-31T03:35:00Z"
+                    updated_at: "2025-10-31T03:35:00Z"
                 total: 1
                 limit: 50
                 offset: 0
@@ -918,12 +933,17 @@ paths:
               example:
                 id: "mov_4n5o6p7q8r"
                 project_id: "proj_7x9k2m4n8p"
+                rubro_id: "rubro_1a2b3c4d5e"
                 tipo: "gasto"
                 monto: 25000
+                fecha: "2025-10-28"
+                descripcion: "Pago consultoría especializada Q4"
                 estado: "approved"
                 aprobado_por: "finance.manager@company.com"
                 aprobado_en: "2025-10-31T03:40:00Z"
                 comentarios: "Aprobado - documentación correcta"
+                created_at: "2025-10-31T03:35:00Z"
+                updated_at: "2025-10-31T03:40:00Z"
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -967,12 +987,17 @@ paths:
               example:
                 id: "mov_4n5o6p7q8r"
                 project_id: "proj_7x9k2m4n8p"
+                rubro_id: "rubro_1a2b3c4d5e"
                 tipo: "gasto"
                 monto: 25000
+                fecha: "2025-10-28"
+                descripcion: "Pago consultoría especializada Q4"
                 estado: "rejected"
                 rechazado_por: "finance.manager@company.com"
                 rechazado_en: "2025-10-31T03:40:00Z"
                 motivo: "Documentación incompleta - falta factura original"
+                created_at: "2025-10-31T03:35:00Z"
+                updated_at: "2025-10-31T03:40:00Z"
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1151,11 +1176,13 @@ paths:
                     tax_id: "RFC-987654321"
                     tipo: "servicios"
                     estado: "active"
+                    created_at: "2025-10-31T03:45:00Z"
                   - id: "prov_3m4n5o6p7q"
                     nombre: "Cloud Infrastructure Corp"
                     tax_id: "RFC-123456789"
                     tipo: "infraestructura"
                     estado: "active"
+                    created_at: "2025-10-30T09:00:00Z"
                 total: 2
                 limit: 20
                 offset: 0
