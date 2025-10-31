@@ -1,122 +1,85 @@
-name: 'Configure AWS Credentials via OIDC'
-description: 'Local composite action to configure AWS credentials using GitHub OIDC tokens, avoiding external marketplace actions'
+name: "Configure AWS via OIDC (local)"
+description: "Assume an AWS IAM role using GitHub OIDC and export short-lived creds"
 inputs:
   role_arn:
-    description: 'AWS IAM Role ARN to assume via OIDC'
+    description: "IAM role ARN to assume"
     required: true
   aws_region:
-    description: 'AWS region for STS endpoint'
-    required: false
-    default: 'us-east-2'
+    description: "AWS region"
+    required: true
   session_name:
-    description: 'Role session name for CloudTrail auditing'
+    description: "STS session name"
     required: false
-    default: 'github-actions-oidc'
-
+    default: "gh-oidc-${{ github.run_id }}"
+  duration_seconds:
+    description: "Session duration in seconds (900-43200)"
+    required: false
+    default: "3600"
 outputs:
   aws_access_key_id:
-    description: 'AWS Access Key ID from assumed role'
-    value: ${{ steps.assume-role.outputs.aws_access_key_id }}
+    value: ${{ steps.export.outputs.aws_access_key_id }}
   aws_secret_access_key:
-    description: 'AWS Secret Access Key from assumed role'
-    value: ${{ steps.assume-role.outputs.aws_secret_access_key }}
+    value: ${{ steps.export.outputs.aws_secret_access_key }}
   aws_session_token:
-    description: 'AWS Session Token from assumed role'
-    value: ${{ steps.assume-role.outputs.aws_session_token }}
-
+    value: ${{ steps.export.outputs.aws_session_token }}
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
-    - name: Validate OIDC context
+    - name: Sanity & region
       shell: bash
       run: |
-        if [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
-          echo "❌ ERROR: OIDC token request environment variables not found"
-          echo "   Ensure the workflow has 'id-token: write' permission"
-          exit 1
-        fi
-        echo "✅ OIDC context validated"
+        set -euo pipefail
+        : "${{ inputs.role_arn }}?missing role_arn"
+        : "${{ inputs.aws_region }}?missing aws_region"
+        echo "AWS_DEFAULT_REGION=${{ inputs.aws_region }}" >> "$GITHUB_ENV"
 
-    - name: Request GitHub OIDC token
-      id: get-token
+    - name: Request OIDC token
+      id: oidc
       shell: bash
       run: |
-        echo "Requesting OIDC token from GitHub..."
-        
-        OIDC_TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
-        
-        if [ -z "$OIDC_TOKEN" ] || [ "$OIDC_TOKEN" = "null" ]; then
-          echo "❌ ERROR: Failed to retrieve OIDC token"
-          exit 1
-        fi
-        
-        echo "✅ OIDC token retrieved successfully"
-        echo "::add-mask::$OIDC_TOKEN"
-        echo "oidc_token=$OIDC_TOKEN" >> $GITHUB_OUTPUT
+        set -euo pipefail
+        : "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:?ID token request token missing}"
+        : "${ACTIONS_ID_TOKEN_REQUEST_URL:?ID token request URL missing}"
+        OIDC_RESP=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com")
+        OIDC_TOKEN=$(python - <<'PY'\nimport json,sys;print(json.load(sys.stdin)['value'])\nPY <<<"$OIDC_RESP")
+        if [ -z "$OIDC_TOKEN" ]; then echo "❌ Failed to obtain OIDC token"; exit 1; fi
+        echo "token=$OIDC_TOKEN" >> "$GITHUB_OUTPUT"
 
-    - name: Assume AWS role with web identity
-      id: assume-role
+    - name: Assume role with web identity
+      id: assume
       shell: bash
-      env:
-        ROLE_ARN: ${{ inputs.role_arn }}
-        AWS_REGION: ${{ inputs.aws_region }}
-        SESSION_NAME: ${{ inputs.session_name }}
-        OIDC_TOKEN: ${{ steps.get-token.outputs.oidc_token }}
       run: |
-        echo "Assuming AWS role: $ROLE_ARN"
-        echo "Region: $AWS_REGION"
-        echo "Session name: $SESSION_NAME"
-        
-        # Call AWS STS to assume role with web identity
-        CREDENTIALS=$(aws sts assume-role-with-web-identity \
-          --role-arn "$ROLE_ARN" \
-          --role-session-name "$SESSION_NAME" \
-          --web-identity-token "$OIDC_TOKEN" \
-          --duration-seconds 3600 \
-          --region "$AWS_REGION" \
-          --output json)
-        
-        if [ $? -ne 0 ]; then
-          echo "❌ ERROR: Failed to assume role with web identity"
-          exit 1
-        fi
-        
-        # Extract credentials using jq
-        AWS_ACCESS_KEY_ID=$(echo "$CREDENTIALS" | jq -r '.Credentials.AccessKeyId')
-        AWS_SECRET_ACCESS_KEY=$(echo "$CREDENTIALS" | jq -r '.Credentials.SecretAccessKey')
-        AWS_SESSION_TOKEN=$(echo "$CREDENTIALS" | jq -r '.Credentials.SessionToken')
-        
-        # Validate credentials were extracted
-        if [ -z "$AWS_ACCESS_KEY_ID" ] || [ "$AWS_ACCESS_KEY_ID" = "null" ]; then
-          echo "❌ ERROR: Failed to extract AWS credentials from response"
-          exit 1
-        fi
-        
-        # Mask sensitive values in logs
-        echo "::add-mask::$AWS_ACCESS_KEY_ID"
-        echo "::add-mask::$AWS_SECRET_ACCESS_KEY"
-        echo "::add-mask::$AWS_SESSION_TOKEN"
-        
-        # Export to outputs
-        echo "aws_access_key_id=$AWS_ACCESS_KEY_ID" >> $GITHUB_OUTPUT
-        echo "aws_secret_access_key=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_OUTPUT
-        echo "aws_session_token=$AWS_SESSION_TOKEN" >> $GITHUB_OUTPUT
-        
-        # Export to environment for subsequent steps in the job
-        echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
-        echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
-        echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> $GITHUB_ENV
-        echo "AWS_DEFAULT_REGION=$AWS_REGION" >> $GITHUB_ENV
-        
-        echo "✅ AWS credentials configured successfully"
-        
-        # Verify credentials work
-        IDENTITY=$(aws sts get-caller-identity --output json 2>&1)
-        if [ $? -eq 0 ]; then
-          echo "✅ Credential verification successful"
-          echo "   Account: $(echo $IDENTITY | jq -r '.Account')"
-          echo "   User/Role: $(echo $IDENTITY | jq -r '.Arn')"
-        else
-          echo "⚠️  WARNING: Could not verify credentials"
-        fi
+        set -euo pipefail
+        SESSION="${{ inputs.session_name }}"
+        CREDS=$(aws sts assume-role-with-web-identity \
+          --role-arn "${{ inputs.role_arn }}" \
+          --role-session-name "$SESSION" \
+          --web-identity-token "${{ steps.oidc.outputs.token }}" \
+          --duration-seconds "${{ inputs.duration_seconds }}" \
+          --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+          --output text)
+        if [ -z "$CREDS" ]; then echo "❌ STS AssumeRoleWithWebIdentity failed"; exit 1; fi
+        AKID=$(echo "$CREDS" | awk '{print $1}')
+        SAK=$(echo "$CREDS" | awk '{print $2}')
+        STK=$(echo "$CREDS" | awk '{print $3}')
+        echo "::add-mask::$AKID"
+        echo "::add-mask::$SAK"
+        echo "::add-mask::$STK"
+        {
+          echo "AWS_ACCESS_KEY_ID=$AKID"
+          echo "AWS_SECRET_ACCESS_KEY=$SAK"
+          echo "AWS_SESSION_TOKEN=$STK"
+        } >> "$GITHUB_ENV"
+        echo "aws_access_key_id=$AKID" >> "$GITHUB_OUTPUT"
+        echo "aws_secret_access_key=$SAK" >> "$GITHUB_OUTPUT"
+        echo "aws_session_token=$STK" >> "$GITHUB_OUTPUT"
+
+    - name: Verify identity
+      id: export
+      shell: bash
+      run: |
+        aws sts get-caller-identity
+        echo "aws_access_key_id=$AWS_ACCESS_KEY_ID" >> "$GITHUB_OUTPUT"
+        echo "aws_secret_access_key=$AWS_SECRET_ACCESS_KEY" >> "$GITHUB_OUTPUT"
+        echo "aws_session_token=$AWS_SESSION_TOKEN" >> "$GITHUB_OUTPUT"
