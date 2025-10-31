@@ -1,0 +1,57 @@
+name: Test Finanzas API
+on:
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  unit-and-local:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SAM CLI
+        run: |
+          pipx install aws-sam-cli
+          sam --version
+
+      - name: Install deps & unit tests
+        working-directory: services/finanzas-api
+        run: |
+          npm ci
+          npm test
+
+      - name: SAM build
+        working-directory: services/finanzas-api
+        run: |
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          sam build
+
+      - name: SAM local startup & smoke (no auth)
+        working-directory: services/finanzas-api
+        run: |
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          nohup sam local start-api --warm-containers EAGER > sam.out 2>&1 &
+          # Wait for SAM local to start (12s is sufficient for smoke test)
+          sleep 12
+          curl -sS --fail http://127.0.0.1:3000/health | jq .
+          curl -sS --fail http://127.0.0.1:3000/catalog/rubros | jq .
+
+      - name: Summary
+        if: success()
+        run: |
+          {
+            echo "## Finanzas API Tests Passed ✅"
+            echo ""
+            echo "- Unit tests: ✅ Passed"
+            echo "- SAM local smoke: ✅ Passed"
+            echo ""
+            echo "### Endpoints Tested"
+            echo "- \`GET /health\` - 200 OK"
+            echo "- \`GET /catalog/rubros\` - 200 OK"
+          } >> $GITHUB_STEP_SUMMARY
