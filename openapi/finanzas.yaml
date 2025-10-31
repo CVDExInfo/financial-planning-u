@@ -19,10 +19,15 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: https://api.finanzas.example.com/finanzas
-    description: Production API Server (us-east-2)
-  - url: https://staging-api.finanzas.example.com/finanzas
-    description: Staging API Server
+  - url: https://{apiId}.execute-api.us-east-2.amazonaws.com/{stage}/finanzas
+    description: AWS API Gateway endpoint (us-east-2)
+    variables:
+      apiId:
+        default: your-api-id
+        description: API Gateway ID (replace with actual ID after deployment)
+      stage:
+        default: dev
+        description: Deployment stage (dev, staging, prod)
   - url: http://localhost:3000/finanzas
     description: Local Development Server
 

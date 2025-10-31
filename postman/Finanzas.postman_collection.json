@@ -1181,13 +1181,15 @@
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "https://api.finanzas.example.com/finanzas",
-			"type": "string"
+			"value": "https://your-api-id.execute-api.us-east-2.amazonaws.com/dev/finanzas",
+			"type": "string",
+			"description": "API Gateway endpoint. Replace 'your-api-id' with actual API Gateway ID and 'dev' with stage (dev/staging/prod) after deployment."
 		},
 		{
 			"key": "jwt_token",
 			"value": "your-cognito-jwt-token-here",
-			"type": "string"
+			"type": "string",
+			"description": "AWS Cognito JWT token with cognito:groups containing SDT for access"
 		}
 	]
 }

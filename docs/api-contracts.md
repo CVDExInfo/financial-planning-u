@@ -23,13 +23,15 @@ Authorization: Bearer <your-cognito-jwt-token>
 
 ### RBAC (Role-Based Access Control)
 
-Access control is managed through JWT group claims. The following groups are supported:
+Access control is managed through JWT group claims. **All endpoints require a valid Cognito JWT token with the `cognito:groups` claim containing the `SDT` group** for Service Delivery Team access.
+
+The following groups are supported:
 
 - **SDT** (Service Delivery Team): Full access to service delivery operations, project management, and financial tracking
 - **PMO**: Access to project creation and handoff operations
 - **Finance**: Access to payroll, adjustments, and closing operations
 
-Your JWT token must include the appropriate group in the `cognito:groups` claim to access protected endpoints.
+Your JWT token must include the appropriate group in the `cognito:groups` claim to access protected endpoints. Without the proper group membership, requests will return a `403 Forbidden` error.
 
 ### Example JWT Token Structure
 
@@ -42,6 +44,32 @@ Your JWT token must include the appropriate group in the `cognito:groups` claim 
   "exp": 1730000000
 }
 ```
+
+### Server URL Configuration
+
+The API uses AWS API Gateway with environment-based URLs:
+
+```
+https://{apiId}.execute-api.us-east-2.amazonaws.com/{stage}/finanzas
+```
+
+Where:
+- `{apiId}`: Your API Gateway ID (assigned after deployment)
+- `{stage}`: Environment stage (`dev`, `staging`, or `prod`)
+
+**Example**: `https://abc123xyz.execute-api.us-east-2.amazonaws.com/dev/finanzas`
+
+### ID Pattern Alignment
+
+All resource IDs follow a consistent pattern aligned with the WS2 backend implementation:
+
+- **Project IDs**: `^proj_[a-z0-9]{10}$` (e.g., `proj_7x9k2m4n8p`)
+- **Rubro IDs**: `^rubro_[a-z0-9]{10}$` (e.g., `rubro_1a2b3c4d5e`)
+- **Movement IDs**: `^mov_[a-z0-9]{10}$` (e.g., `mov_4n5o6p7q8r`)
+- **Provider IDs**: `^prov_[a-z0-9]{10}$` (e.g., `prov_8h9i0j1k2l`)
+- **Adjustment IDs**: `^adj_[a-z0-9]{10}$` (e.g., `adj_9c1d3e5f7g`)
+
+These patterns are enforced in the OpenAPI schema and must be followed by the backend implementation to ensure consistency across the API.
 
 ## API Endpoints Summary
 

@@ -63,6 +63,20 @@ This table verifies that all required endpoints are implemented in the OpenAPI s
 
 ## Validation Evidence
 
+### Spectral Lint Command
+
+The OpenAPI specification was validated using Spectral CLI with the following command:
+
+```bash
+npx spectral lint openapi/finanzas.yaml --format stylish
+```
+
+**Result**: ✅ **PASS - No errors found**
+
+```
+No results with a severity of 'error' found!
+```
+
 ### Spectral Lint Results
 ```
 ✓ PASS - No errors found
