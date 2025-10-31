@@ -9,9 +9,11 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION:            ${{ vars.AWS_REGION }}
-  FINZ_API_STACK:        ${{ vars.FINZ_API_STACK }}
-  FINZ_API_STAGE:        ${{ vars.FINZ_API_STAGE }}
+  AWS_REGION:       ${{ vars.AWS_REGION || 'us-east-2' }}
+  FINZ_API_STACK:   ${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}
+  FINZ_API_STAGE:   ${{ vars.FINZ_API_STAGE || 'dev' }}
+  COGNITO_USER_POOL_ID:  ${{ vars.COGNITO_USER_POOL_ID }}
+  COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }}
 
 jobs:
   deploy-api:
@@ -22,15 +24,16 @@ jobs:
       - name: Preflight env
         run: |
           set -euo pipefail
-          for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE; do : "${!k:?$k empty}"; done
+          for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_USER_POOL_ARN; do
+            : "${!k:?$k empty}"
+          done
           echo "Env OK"
 
       - name: Configure AWS (OIDC)
-        uses: ./.github/actions/oidc-configure-aws
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
-          aws_region: ${{ env.AWS_REGION }}
-          session_name: deploy-api-${{ github.run_id }}
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Verify identity
         run: aws sts get-caller-identity
@@ -50,7 +53,10 @@ jobs:
           sam deploy --no-confirm-changeset \
             --stack-name "${FINZ_API_STACK}" \
             --resolve-s3 --capabilities CAPABILITY_IAM \
-            --parameter-overrides CognitoUserPoolArn=${{ vars.COGNITO_USER_POOL_ARN }} CognitoUserPoolId=${{ vars.COGNITO_USER_POOL_ID }} StageName=${FINZ_API_STAGE}
+            --parameter-overrides \
+              CognitoUserPoolArn=${{ env.COGNITO_USER_POOL_ARN }} \
+              CognitoUserPoolId=${{ env.COGNITO_USER_POOL_ID }} \
+              StageName=${{ env.FINZ_API_STAGE }}
 
       - name: Output API info
         id: out
@@ -86,7 +92,7 @@ jobs:
             echo "# Get catalog rubros (public)"
             echo "curl -sS ${{ steps.out.outputs.api_url }}/catalog/rubros"
             echo ""
-            echo "# Create project (requires JWT with SDT group)"
+            echo "# Create project (JWT with SDT group required)"
             echo "curl -sS -X POST ${{ steps.out.outputs.api_url }}/projects \\"
             echo "  -H \"Authorization: Bearer \$JWT_TOKEN\" \\"
             echo "  -H \"Content-Type: application/json\" \\"
