@@ -59,19 +59,23 @@ However, the preflight check will **fail** if Cognito variables are not set, as 
 
 ## OIDC Authentication
 
-The deploy workflow uses the official AWS action:
+We use a local OIDC composite action to comply with repo policy: only GitHub- or valencia94-owned actions.
+
+The deploy workflow uses our local composite action:
 ```yaml
 - name: Configure AWS (OIDC)
-  uses: aws-actions/configure-aws-credentials@v4
+  uses: ./.github/actions/oidc-configure-aws
   with:
-    role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
-    aws-region: ${{ env.AWS_REGION }}
+    role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+    aws_region: ${{ env.AWS_REGION }}
+    session_name: deploy-api-${{ github.run_id }}
 ```
 
-After authentication, the workflow verifies the identity with:
-```bash
-aws sts get-caller-identity
-```
+The local action handles:
+- Requesting GitHub OIDC token
+- Assuming AWS IAM role with web identity
+- Exporting AWS credentials to environment
+- Verifying identity with `aws sts get-caller-identity`
 
 Expected output format:
 ```json
