@@ -1,7 +1,6 @@
 name: Deploy Finanzas API (dev)
 on:
-  push:
-    branches: [ "module/finanzas-api-mvp" ]
+  push: { branches: [ "module/finanzas-api-mvp" ] }
   workflow_dispatch: {}
 
 permissions:
@@ -12,8 +11,8 @@ env:
   AWS_REGION:       ${{ vars.AWS_REGION || 'us-east-2' }}
   FINZ_API_STACK:   ${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}
   FINZ_API_STAGE:   ${{ vars.FINZ_API_STAGE || 'dev' }}
-  COGNITO_USER_POOL_ID:  ${{ vars.COGNITO_USER_POOL_ID }}  # Required - no default
-  COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }} # Required - no default
+  COGNITO_USER_POOL_ID:  ${{ vars.COGNITO_USER_POOL_ID }}   # required
+  COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }}  # required
 
 jobs:
   deploy-api:
@@ -25,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_USER_POOL_ARN; do
-            : "${!k:?$k empty}"
+            v="${!k:-}"; [ -n "$v" ] || { echo "❌ $k is empty"; exit 1; }
           done
           echo "Env OK"
 
@@ -35,6 +34,9 @@ jobs:
           role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
           aws_region: ${{ env.AWS_REGION }}
           session_name: deploy-api-${{ github.run_id }}
+
+      - name: Verify identity (fail fast)
+        run: aws sts get-caller-identity
 
       - name: Install SAM CLI
         run: |
@@ -67,36 +69,30 @@ jobs:
         working-directory: services/finanzas-api
         run: |
           API_ID=$(aws cloudformation describe-stacks --stack-name "${FINZ_API_STACK}" \
-              --query "Stacks[0].Outputs[?OutputKey=='FinzApiId'].OutputValue" --output text)
+            --query "Stacks[0].Outputs[?OutputKey=='FinzApiId'].OutputValue" --output text)
           API_URL=$(aws cloudformation describe-stacks --stack-name "${FINZ_API_STACK}" \
-              --query "Stacks[0].Outputs[?OutputKey=='FinzApiUrl'].OutputValue" --output text)
-          echo "api_id=$API_ID" >> $GITHUB_OUTPUT
+            --query "Stacks[0].Outputs[?OutputKey=='FinzApiUrl'].OutputValue" --output text)
+          echo "api_id=$API_ID"  >> $GITHUB_OUTPUT
           echo "api_url=$API_URL" >> $GITHUB_OUTPUT
 
       - name: Smoke (health)
-        run: |
-          curl -sS --fail "${{ steps.out.outputs.api_url }}/health" | jq .
+        run: curl -sS --fail "${{ steps.out.outputs.api_url }}/health" | jq .
 
       - name: Summary
         run: |
           {
             echo "## Finanzas API (dev) deployed"
-            echo ""
             echo "- Region: ${AWS_REGION}"
             echo "- Stack: ${FINZ_API_STACK}"
             echo "- Stage: ${FINZ_API_STAGE}"
             echo "- API ID: ${{ steps.out.outputs.api_id }}"
             echo "- URL: ${{ steps.out.outputs.api_url }}"
             echo ""
-            echo "### Sample cURL Commands"
+            echo "### Sample cURL"
             echo '```bash'
-            echo "# Health check (public)"
             echo "curl -sS ${{ steps.out.outputs.api_url }}/health"
-            echo ""
-            echo "# Get catalog rubros (public)"
             echo "curl -sS ${{ steps.out.outputs.api_url }}/catalog/rubros"
-            echo ""
-            echo "# Create project (JWT with SDT group required)"
+            echo "# Requires JWT with SDT group:"
             echo "curl -sS -X POST ${{ steps.out.outputs.api_url }}/projects \\"
             echo "  -H \"Authorization: Bearer \$JWT_TOKEN\" \\"
             echo "  -H \"Content-Type: application/json\" \\"
