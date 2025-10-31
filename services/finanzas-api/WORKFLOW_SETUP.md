@@ -29,10 +29,10 @@ This document describes the GitHub Actions workflows for the Finanzas API and th
 ### Repository Variables
 Navigate to: **Settings → Secrets and variables → Actions → Variables**
 
-Add the following variables:
+Add the following variables (example values shown for dev environment):
 
-| Variable Name | Value | Description |
-|---------------|-------|-------------|
+| Variable Name | Example Value (dev) | Description |
+|---------------|---------------------|-------------|
 | `AWS_REGION` | `us-east-2` | AWS region for deployment |
 | `FINZ_API_STACK` | `finanzas-sd-api-dev` | CloudFormation stack name |
 | `FINZ_API_STAGE` | `dev` | API Gateway stage name |
@@ -42,10 +42,10 @@ Add the following variables:
 ### Repository Secrets
 Navigate to: **Settings → Secrets and variables → Actions → Secrets**
 
-Add the following secret:
+Add the following secret (example value shown for dev environment):
 
-| Secret Name | Value | Description |
-|-------------|-------|-------------|
+| Secret Name | Example Value (dev) | Description |
+|-------------|---------------------|-------------|
 | `OIDC_AWS_ROLE_ARN` | `arn:aws:iam::703671891952:role/ProjectplaceLambdaRole` | IAM role ARN for OIDC authentication |
 
 ## Workflow Defaults
@@ -81,6 +81,8 @@ Expected output format:
   "Arn": "arn:aws:sts::703671891952:assumed-role/ProjectplaceLambdaRole/..."
 }
 ```
+
+> **Note:** Account ID and role name shown above are examples. Your actual values will differ based on your AWS environment.
 
 ## Deployment Summary
 

@@ -37,6 +37,7 @@ jobs:
         run: |
           export PATH="$PWD/node_modules/.bin:$PATH"
           nohup sam local start-api --warm-containers EAGER > sam.out 2>&1 &
+          # Wait for SAM local to start (12s is sufficient for smoke test)
           sleep 12
           curl -sS --fail http://127.0.0.1:3000/health | jq .
           curl -sS --fail http://127.0.0.1:3000/catalog/rubros | jq .

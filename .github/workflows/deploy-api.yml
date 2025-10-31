@@ -12,8 +12,8 @@ env:
   AWS_REGION:       ${{ vars.AWS_REGION || 'us-east-2' }}
   FINZ_API_STACK:   ${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}
   FINZ_API_STAGE:   ${{ vars.FINZ_API_STAGE || 'dev' }}
-  COGNITO_USER_POOL_ID:  ${{ vars.COGNITO_USER_POOL_ID }}
-  COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }}
+  COGNITO_USER_POOL_ID:  ${{ vars.COGNITO_USER_POOL_ID }}  # Required - no default
+  COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }} # Required - no default
 
 jobs:
   deploy-api:
