@@ -148,8 +148,6 @@ Resources:
           CognitoJwt:
             JwtConfiguration:
               issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
-              audience:
-                - sts.amazonaws.com  # not strictly used by API GW; left as placeholder
             IdentitySource: "$request.header.Authorization"
         DefaultAuthorizer: CognitoJwt
 
@@ -198,6 +196,26 @@ Resources:
         ListProjects:
           Type: HttpApi
           Properties: { Path: /projects, Method: GET, ApiId: !Ref Api }
+
+  CatalogFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/catalog.ts
+    Properties:
+      CodeUri: src/
+      Handler: catalog.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        ListRubros:
+          Type: HttpApi
+          Properties: { Path: /catalog/rubros, Method: GET, ApiId: !Ref Api }
 
   HandoffFn:
     Type: AWS::Serverless::Function

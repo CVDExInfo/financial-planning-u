@@ -78,8 +78,18 @@ jobs:
             echo "- API ID: ${{ steps.out.outputs.api_id }}"
             echo "- URL: ${{ steps.out.outputs.api_url }}"
             echo ""
-            echo "### Sample cURL"
+            echo "### Sample cURL Commands"
             echo '```bash'
+            echo "# Health check (public)"
             echo "curl -sS ${{ steps.out.outputs.api_url }}/health"
+            echo ""
+            echo "# Get catalog rubros (public)"
+            echo "curl -sS ${{ steps.out.outputs.api_url }}/catalog/rubros"
+            echo ""
+            echo "# Create project (requires JWT with SDT group)"
+            echo "curl -sS -X POST ${{ steps.out.outputs.api_url }}/projects \\"
+            echo "  -H \"Authorization: Bearer \$JWT_TOKEN\" \\"
+            echo "  -H \"Content-Type: application/json\" \\"
+            echo "  -d '{\"cliente\":\"Cliente Alpha\",\"nombre\":\"Proyecto A\",\"fecha_inicio\":\"2025-01-01\",\"fecha_fin\":\"2025-09-30\",\"moneda\":\"COP\"}'"
             echo '```'
           } >> $GITHUB_STEP_SUMMARY

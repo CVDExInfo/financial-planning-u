@@ -1,6 +1,9 @@
 ### Health
 GET http://127.0.0.1:3000/health
 
+### Get Catalog Rubros
+GET http://127.0.0.1:3000/catalog/rubros
+
 ### Create project (replace token if authorizer used locally)
 POST http://127.0.0.1:3000/projects
 Content-Type: application/json
@@ -13,3 +16,7 @@ Authorization: Bearer <dev-jwt>
   "fecha_fin": "2025-09-30",
   "moneda": "COP"
 }
+
+### List projects (replace token if authorizer used locally)
+GET http://127.0.0.1:3000/projects
+Authorization: Bearer <dev-jwt>
