@@ -1,0 +1,22 @@
+{
+  "name": "finanzas-sd-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo 'TS build not required by SAM if using plain .ts via esbuild bundling later' && exit 0",
+    "test": "jest --runInBand",
+    "sam:build": "sam build",
+    "sam:local": "sam local start-api --warm-containers EAGER",
+    "sam:deploy": "sam deploy --no-confirm-changeset --stack-name finanzas-sd-api-dev --resolve-s3 --capabilities CAPABILITY_IAM"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.129",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.0",
+    "aws-sdk": "^2.1566.0",
+    "esbuild": "^0.19.11",
+    "jest": "^29.7.0",
+    "typescript": "^5.6.2"
+  }
+}

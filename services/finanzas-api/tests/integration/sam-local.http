@@ -1,0 +1,15 @@
+### Health
+GET http://127.0.0.1:3000/health
+
+### Create project (replace token if authorizer used locally)
+POST http://127.0.0.1:3000/projects
+Content-Type: application/json
+Authorization: Bearer <dev-jwt>
+
+{
+  "cliente": "Cliente Alpha",
+  "nombre": "Proyecto A",
+  "fecha_inicio": "2025-01-01",
+  "fecha_fin": "2025-09-30",
+  "moneda": "COP"
+}

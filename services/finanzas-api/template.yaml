@@ -1,0 +1,272 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Finanzas SD API (HTTP API + Cognito JWT + DynamoDB + EventBridge) – dev stage
+
+Parameters:
+  CognitoUserPoolArn:
+    Type: String
+    Description: Existing Cognito User Pool ARN (from acta-ui)
+  CognitoUserPoolId:
+    Type: String
+    Description: Existing Cognito User Pool ID (from acta-ui) - e.g., us-east-2_FyHLtOhiY
+    Default: us-east-2_FyHLtOhiY
+  StageName:
+    Type: String
+    Default: dev
+  TablePrefix:
+    Type: String
+    Default: finz_
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 15
+    MemorySize: 256
+    Architectures: [x86_64]
+    Tracing: Active
+    Environment:
+      Variables:
+        NODE_OPTIONS: --enable-source-maps
+        TABLE_PROJECTS: !Sub ${TablePrefix}projects
+        TABLE_RUBROS: !Sub ${TablePrefix}rubros
+        TABLE_ALLOC: !Sub ${TablePrefix}allocations
+        TABLE_PAYROLL: !Sub ${TablePrefix}payroll_actuals
+        TABLE_ADJ: !Sub ${TablePrefix}adjustments
+        TABLE_ALERTS: !Sub ${TablePrefix}alerts
+        TABLE_PROVIDERS: !Sub ${TablePrefix}providers
+        TABLE_AUDIT: !Sub ${TablePrefix}audit_log
+
+Resources:
+  # ========== DynamoDB tables ==========
+  ProjectsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${TablePrefix}projects
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  RubrosTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${TablePrefix}rubros
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  AllocationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${TablePrefix}allocations
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  PayrollTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${TablePrefix}payroll_actuals
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  AdjustmentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${TablePrefix}adjustments
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  AlertsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${TablePrefix}alerts
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  ProvidersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${TablePrefix}providers
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  AuditTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${TablePrefix}audit_log
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  # ========== HTTP API with Cognito JWT ==========
+  Api:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref StageName
+      CorsConfiguration:
+        AllowMethods: [GET,POST,PUT,OPTIONS]
+        AllowOrigins: ['*']
+        AllowHeaders: ['Authorization','Content-Type']
+      Auth:
+        Authorizers:
+          CognitoJwt:
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
+              audience:
+                - sts.amazonaws.com  # not strictly used by API GW; left as placeholder
+            IdentitySource: "$request.header.Authorization"
+        DefaultAuthorizer: CognitoJwt
+
+  # ========== Lambdas ==========
+  HealthFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/health.ts
+    Properties:
+      CodeUri: src/
+      Handler: health.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        Health:
+          Type: HttpApi
+          Properties: { Path: /health, Method: GET, ApiId: !Ref Api }
+
+  ProjectsFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/projects.ts
+    Properties:
+      CodeUri: src/
+      Handler: projects.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectsTable
+      Events:
+        CreateProject:
+          Type: HttpApi
+          Properties: { Path: /projects, Method: POST, ApiId: !Ref Api }
+        ListProjects:
+          Type: HttpApi
+          Properties: { Path: /projects, Method: GET, ApiId: !Ref Api }
+
+  HandoffFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/handoff.ts
+    Properties:
+      CodeUri: src/
+      Handler: handoff.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditTable
+      Events:
+        Handoff:
+          Type: HttpApi
+          Properties: 
+            Path: "/projects/{id}/handoff"
+            Method: POST
+            ApiId: !Ref Api
+
+  # Example monthly alert (PEP-3). Add logic later.
+  AlertsPep3Fn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/health.ts
+    Properties:
+      CodeUri: src/
+      Handler: health.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+
+  Pep3Rule:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: cron(0 8 1 * ? *)  # monthly, 8am UTC 1st
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt AlertsPep3Fn.Arn
+          Id: pep3-target
+  Pep3Permission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref AlertsPep3Fn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt Pep3Rule.Arn
+
+Outputs:
+  FinzApiId:
+    Description: HTTP API ID
+    Value: !Ref Api
+    Export:
+      Name: finz-api-id
+  FinzApiUrl:
+    Description: HTTP API URL
+    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
+    Export:
+      Name: finz-api-url

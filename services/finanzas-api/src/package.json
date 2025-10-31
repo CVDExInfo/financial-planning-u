@@ -1,0 +1,15 @@
+{
+  "name": "finanzas-handlers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "aws-sdk": "^2.1566.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.129",
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.19.11",
+    "typescript": "^5.6.2"
+  }
+}
