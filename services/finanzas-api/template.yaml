@@ -244,7 +244,8 @@ Resources:
             Method: POST
             ApiId: !Ref Api
 
-  # Example monthly alert (PEP-3). Add logic later.
+  # TODO: Implement PEP-3 monthly alert logic for budget variance detection
+  # Currently reuses health handler as placeholder
   AlertsPep3Fn:
     Type: AWS::Serverless::Function
     Metadata:
@@ -260,6 +261,237 @@ Resources:
       Handler: health.handler
       Policies:
         - AWSLambdaBasicExecutionRole
+
+  # R1 MVP endpoints - stubbed for initial slice
+  RubrosFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/rubros.ts
+    Properties:
+      CodeUri: src/
+      Handler: rubros.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RubrosTable
+      Events:
+        CreateRubro:
+          Type: HttpApi
+          Properties: 
+            Path: "/projects/{id}/rubros"
+            Method: POST
+            ApiId: !Ref Api
+        ListRubros:
+          Type: HttpApi
+          Properties: 
+            Path: "/projects/{id}/rubros"
+            Method: GET
+            ApiId: !Ref Api
+
+  AllocationsFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/allocations.ts
+    Properties:
+      CodeUri: src/
+      Handler: allocations.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AllocationsTable
+      Events:
+        BulkAllocations:
+          Type: HttpApi
+          Properties: 
+            Path: "/projects/{id}/allocations:bulk"
+            Method: PUT
+            ApiId: !Ref Api
+
+  PlanFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/plan.ts
+    Properties:
+      CodeUri: src/
+      Handler: plan.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProjectsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref AllocationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref PayrollTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref AdjustmentsTable
+      Events:
+        GetPlan:
+          Type: HttpApi
+          Properties: 
+            Path: "/projects/{id}/plan"
+            Method: GET
+            ApiId: !Ref Api
+
+  PayrollFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/payroll.ts
+    Properties:
+      CodeUri: src/
+      Handler: payroll.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PayrollTable
+      Events:
+        IngestPayroll:
+          Type: HttpApi
+          Properties: { Path: /payroll/ingest, Method: POST, ApiId: !Ref Api }
+
+  CloseMonthFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/close-month.ts
+    Properties:
+      CodeUri: src/
+      Handler: close-month.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AllocationsTable
+      Events:
+        CloseMonth:
+          Type: HttpApi
+          Properties: { Path: /close-month, Method: POST, ApiId: !Ref Api }
+
+  AdjustmentsFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/adjustments.ts
+    Properties:
+      CodeUri: src/
+      Handler: adjustments.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AdjustmentsTable
+      Events:
+        CreateAdjustment:
+          Type: HttpApi
+          Properties: { Path: /adjustments, Method: POST, ApiId: !Ref Api }
+        ListAdjustments:
+          Type: HttpApi
+          Properties: { Path: /adjustments, Method: GET, ApiId: !Ref Api }
+
+  AlertsFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/alerts.ts
+    Properties:
+      CodeUri: src/
+      Handler: alerts.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBReadPolicy:
+            TableName: !Ref AlertsTable
+      Events:
+        GetAlerts:
+          Type: HttpApi
+          Properties: { Path: /alerts, Method: GET, ApiId: !Ref Api }
+
+  ProvidersFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/providers.ts
+    Properties:
+      CodeUri: src/
+      Handler: providers.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProvidersTable
+      Events:
+        CreateProvider:
+          Type: HttpApi
+          Properties: { Path: /providers, Method: POST, ApiId: !Ref Api }
+        ListProviders:
+          Type: HttpApi
+          Properties: { Path: /providers, Method: GET, ApiId: !Ref Api }
+
+  PrefacturasFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/prefacturas.ts
+    Properties:
+      CodeUri: src/
+      Handler: prefacturas.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditTable
+      Events:
+        WebhookPost:
+          Type: HttpApi
+          Properties: { Path: /prefacturas/webhook, Method: POST, ApiId: !Ref Api }
+        WebhookGet:
+          Type: HttpApi
+          Properties: { Path: /prefacturas/webhook, Method: GET, ApiId: !Ref Api }
 
   Pep3Rule:
     Type: AWS::Events::Rule
