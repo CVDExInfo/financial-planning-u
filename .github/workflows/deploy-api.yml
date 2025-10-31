@@ -43,9 +43,15 @@ jobs:
           pipx install aws-sam-cli
           sam --version
 
+      - name: Install dependencies
+        working-directory: services/finanzas-api
+        run: npm ci
+
       - name: Build
         working-directory: services/finanzas-api
-        run: sam build
+        run: |
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          sam build
 
       - name: Deploy (dev)
         working-directory: services/finanzas-api
