@@ -2,7 +2,6 @@
   "name": "finanzas-sd-api",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "build": "echo 'TS build not required by SAM if using plain .ts via esbuild bundling later' && exit 0",
     "test": "jest --runInBand",
