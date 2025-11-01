@@ -32,7 +32,14 @@ jobs:
         run: |
           set -euo pipefail
           echo "Verifying required environment variables..."
-          required=(AWS_REGION S3_BUCKET CLOUDFRONT_DIST_ID DISTRIBUTION_DOMAIN_NAME VITE_API_BASE_URL VITE_ACTA_API_ID)
+          required=(
+            AWS_REGION
+            S3_BUCKET
+            CLOUDFRONT_DIST_ID
+            DISTRIBUTION_DOMAIN_NAME
+            VITE_API_BASE_URL
+            VITE_ACTA_API_ID
+          )
           for k in "${required[@]}"; do
             v="${!k:-}"
             if [[ -z "$v" ]]; then
