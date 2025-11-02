@@ -140,9 +140,11 @@ Resources:
     Properties:
       StageName: !Ref StageName
       CorsConfiguration:
+        AllowOrigins:
+          - https://d7t9x3j66yd8k.cloudfront.net
         AllowMethods: [GET,POST,PUT,OPTIONS]
-        AllowOrigins: ['*']
         AllowHeaders: ['Authorization','Content-Type']
+        MaxAge: 3600
       Auth:
         Authorizers:
           CognitoJwt:
