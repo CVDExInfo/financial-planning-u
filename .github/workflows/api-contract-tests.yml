@@ -1,0 +1,74 @@
+name: API Contract Tests (Newman)
+on:
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION:   ${{ vars.AWS_REGION }}         # e.g. us-east-2
+      DEV_API_URL:  ${{ vars.DEV_API_URL }}        # e.g. https://<apiId>.execute-api.us-east-2.amazonaws.com/dev/finanzas
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preflight repo settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          for k in AWS_REGION DEV_API_URL COGNITO_USER_POOL_ID COGNITO_WEB_CLIENT; do
+            v="${{ vars[k] || '' }}"
+            [ -z "$v" ] && { echo "❌ Missing repo variable: $k"; exit 1; }
+          done
+          for s in USERNAME PASSWORD OIDC_AWS_ROLE_ARN; do
+            echo "${{ secrets[s] || '' }}" | grep -q .
+            [ $? -ne 0 ] && { echo "❌ Missing repo secret: $s"; exit 1; }
+          done
+          echo "✅ Vars/Secrets OK"
+
+      # OIDC (local) – keep your existing local OIDC action here
+      - name: Configure AWS (OIDC)
+        uses: ./.github/actions/oidc-configure-aws
+        with:
+          role_arn:   ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+
+      # NEW: Generate runtime Cognito Access Token
+      - name: Get Cognito Access Token
+        id: jwt
+        uses: ./.github/actions/cognito-generate-jwt
+        with:
+          region:        ${{ env.AWS_REGION }}
+          user_pool_id:  ${{ vars.COGNITO_USER_POOL_ID }}
+          app_client_id: ${{ vars.COGNITO_WEB_CLIENT }}
+          username:      ${{ secrets.USERNAME }}
+          password:      ${{ secrets.PASSWORD }}
+
+      - name: Install newman
+        run: npm i -g newman
+
+      - name: Build runtime Postman environment
+        run: |
+          mkdir -p .tmp
+          jq --arg base "${{ env.DEV_API_URL }}" --arg token "${{ steps.jwt.outputs.access_token }}" \
+            '.values |= map( if .key=="base_url" then .value=$base else . end )
+             | .values |= map( if .key=="jwt_token" then .value=$token else . end )' \
+            postman/environments/dev.json > .tmp/dev.runtime.json
+
+      - name: Run Postman tests
+        run: |
+          newman run postman/tests/finanzas.postman_collection.json \
+            -e .tmp/dev.runtime.json --reporters cli,junit --reporter-junit-export .tmp/newman.xml
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Newman Results" >> $GITHUB_STEP_SUMMARY
+          if [ -f ".tmp/newman.xml" ]; then
+            echo "JUnit report generated" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No report generated" >> $GITHUB_STEP_SUMMARY
+          fi

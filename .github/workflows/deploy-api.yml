@@ -13,6 +13,7 @@ env:
   FINZ_API_STAGE:   ${{ vars.FINZ_API_STAGE || 'dev' }}
   COGNITO_USER_POOL_ID:  ${{ vars.COGNITO_USER_POOL_ID }}   # required
   COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }}  # required
+  COGNITO_WEB_CLIENT:    ${{ vars.COGNITO_WEB_CLIENT }}     # required for JWT generation
 
 jobs:
   deploy-api:
@@ -23,10 +24,13 @@ jobs:
       - name: Preflight env
         run: |
           set -euo pipefail
-          for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_USER_POOL_ARN; do
+          for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_USER_POOL_ARN COGNITO_WEB_CLIENT; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ $k is empty"; exit 1; }
           done
-          echo "Env OK"
+          for s in USERNAME PASSWORD OIDC_AWS_ROLE_ARN; do
+            [ -n "${{ secrets[s] || '' }}" ] || { echo "❌ Missing secret: $s"; exit 1; }
+          done
+          echo "✅ Env & Secrets OK"
 
       - name: Configure AWS (OIDC)
         uses: ./.github/actions/oidc-configure-aws
@@ -77,6 +81,25 @@ jobs:
 
       - name: Smoke (health)
         run: curl -sS --fail "${{ steps.out.outputs.api_url }}/health" | jq .
+
+      # Generate Cognito token (reuse local action)
+      - name: Get Cognito Access Token (smoke)
+        id: jwt
+        uses: ./.github/actions/cognito-generate-jwt
+        with:
+          region:        ${{ env.AWS_REGION }}
+          user_pool_id:  ${{ vars.COGNITO_USER_POOL_ID }}
+          app_client_id: ${{ vars.COGNITO_WEB_CLIENT }}
+          username:      ${{ secrets.USERNAME }}
+          password:      ${{ secrets.PASSWORD }}
+
+      # Optional protected smoke (create project)
+      - name: Smoke (protected POST /projects)
+        run: |
+          curl -sS -X POST "${{ steps.out.outputs.api_url }}/projects" \
+            -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" \
+            -H "Content-Type: application/json" \
+            -d '{"cliente":"Cliente Alpha","nombre":"Proyecto A","fecha_inicio":"2025-01-01","fecha_fin":"2025-09-30","moneda":"COP"}' | jq .
 
       - name: Summary
         run: |

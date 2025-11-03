@@ -1,0 +1,59 @@
+name: Cognito – Generate Access Token
+description: Generate a Cognito AccessToken (JWT) for CI using USERNAME/PASSWORD
+inputs:
+  region:
+    required: true
+  user_pool_id:
+    required: true
+  app_client_id:
+    required: true
+  username:
+    required: true
+  password:
+    required: true
+outputs:
+  access_token:
+    value: ${{ steps.out.outputs.access_token }}
+runs:
+  using: composite
+  steps:
+    - id: out
+      shell: bash
+      run: |
+        set -euo pipefail
+        REG="${{ inputs.region }}"
+        POOL="${{ inputs.user_pool_id }}"
+        CLIENT="${{ inputs.app_client_id }}"
+        USER="${{ inputs.username }}"
+        PASS="${{ inputs.password }}"
+
+        # Attempt USER_PASSWORD_AUTH (requires app client without client secret & with user-password auth enabled)
+        set +e
+        TOKEN=$(aws cognito-idp initiate-auth \
+          --region "$REG" \
+          --auth-flow USER_PASSWORD_AUTH \
+          --client-id "$CLIENT" \
+          --auth-parameters USERNAME="$USER",PASSWORD="$PASS" \
+          --query 'AuthenticationResult.AccessToken' \
+          --output text 2>/dev/null)
+        RC=$?
+        set -e
+
+        if [ $RC -ne 0 ] || [ -z "$TOKEN" ] || [ "$TOKEN" = "None" ]; then
+          # Fallback: ADMIN_USER_PASSWORD_AUTH (works when the app client has a client secret)
+          TOKEN=$(aws cognito-idp admin-initiate-auth \
+            --region "$REG" \
+            --user-pool-id "$POOL" \
+            --client-id "$CLIENT" \
+            --auth-flow ADMIN_USER_PASSWORD_AUTH \
+            --auth-parameters USERNAME="$USER",PASSWORD="$PASS" \
+            --query 'AuthenticationResult.AccessToken' \
+            --output text)
+        fi
+
+        if [ -z "$TOKEN" ] || [ "$TOKEN" = "None" ]; then
+          echo "❌ Failed to obtain Cognito access token. Check: USERNAME/PASSWORD secrets and app client flow permissions."
+          exit 1
+        fi
+
+        echo "access_token=$TOKEN" >> "$GITHUB_OUTPUT"
