@@ -13,6 +13,7 @@ env:
   FINZ_API_STAGE:   ${{ vars.FINZ_API_STAGE || 'dev' }}
   COGNITO_USER_POOL_ID:  ${{ vars.COGNITO_USER_POOL_ID }}   # required
   COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }}  # required
+  COGNITO_WEB_CLIENT:    ${{ vars.COGNITO_WEB_CLIENT }}     # required
 
 jobs:
   deploy-api:
@@ -83,7 +84,7 @@ jobs:
         uses: ./.github/actions/cognito-generate-jwt
         with:
           user_pool_id: ${{ env.COGNITO_USER_POOL_ID }}
-          client_id: ${{ vars.COGNITO_WEB_CLIENT }}
+          client_id: ${{ env.COGNITO_WEB_CLIENT }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
           aws_region: ${{ env.AWS_REGION }}

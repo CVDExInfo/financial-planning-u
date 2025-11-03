@@ -44,10 +44,12 @@ runs:
         # Extract access token
         ACCESS_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.AccessToken')
         
-        if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+        if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ] || [ "$ACCESS_TOKEN" = "" ]; then
           echo "❌ Failed to obtain access token"
           exit 1
         fi
         
         echo "✅ Successfully obtained JWT access token"
+        # Mask the token to prevent it from appearing in logs
+        echo "::add-mask::$ACCESS_TOKEN"
         echo "access_token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
