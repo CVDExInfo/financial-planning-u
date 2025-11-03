@@ -1,0 +1,71 @@
+### Create adjustment - exceso with pro-rata distribution
+POST http://127.0.0.1:3000/adjustments
+Content-Type: application/json
+Authorization: Bearer <dev-jwt>
+
+{
+  "project_id": "proj_7x9k2m4n8p",
+  "tipo": "exceso",
+  "monto": 1000000,
+  "origen_rubro_id": "rubro_1a2b3c4d5e",
+  "fecha_inicio": "2025-11",
+  "metodo_distribucion": "pro_rata_forward",
+  "meses_impactados": 3,
+  "justificacion": "Ampliación de alcance aprobada por cliente",
+  "solicitado_por": "pm.leader@company.com"
+}
+
+### Create adjustment - simple deficit
+POST http://127.0.0.1:3000/adjustments
+Content-Type: application/json
+Authorization: Bearer <dev-jwt>
+
+{
+  "project_id": "proj_7x9k2m4n8p",
+  "tipo": "deficit",
+  "monto": 50000,
+  "justificacion": "Budget shortfall in Q4"
+}
+
+### List all adjustments
+GET http://127.0.0.1:3000/adjustments
+Authorization: Bearer <dev-jwt>
+
+### List adjustments by project
+GET http://127.0.0.1:3000/adjustments?project_id=proj_7x9k2m4n8p
+Authorization: Bearer <dev-jwt>
+
+### List adjustments by estado
+GET http://127.0.0.1:3000/adjustments?estado=pending_approval
+Authorization: Bearer <dev-jwt>
+
+### Test validation - missing required fields
+POST http://127.0.0.1:3000/adjustments
+Content-Type: application/json
+Authorization: Bearer <dev-jwt>
+
+{
+  "project_id": "proj_123"
+}
+
+### Test validation - invalid tipo
+POST http://127.0.0.1:3000/adjustments
+Content-Type: application/json
+Authorization: Bearer <dev-jwt>
+
+{
+  "project_id": "proj_123",
+  "tipo": "invalid",
+  "monto": 1000
+}
+
+### Test validation - negative monto
+POST http://127.0.0.1:3000/adjustments
+Content-Type: application/json
+Authorization: Bearer <dev-jwt>
+
+{
+  "project_id": "proj_123",
+  "tipo": "exceso",
+  "monto": -1000
+}
