@@ -39,7 +39,15 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 };
 
 async function createAdjustment(event: APIGatewayProxyEventV2, userId: string, startTime: number) {
-  const body = JSON.parse(event.body ?? '{}');
+  let body;
+  try {
+    body = JSON.parse(event.body ?? '{}');
+  } catch (error) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Invalid JSON in request body' })
+    };
+  }
   
   // Validate required fields
   if (!body.project_id || !body.tipo || !body.monto) {
@@ -69,14 +77,24 @@ async function createAdjustment(event: APIGatewayProxyEventV2, userId: string, s
   const now = new Date().toISOString();
 
   // Calculate pro-rata distribution if applicable
+  const DECIMAL_PRECISION = 100;
   let distribucion = [];
   if (body.metodo_distribucion === 'pro_rata_forward' && body.fecha_inicio) {
     const meses_impactados = body.meses_impactados || 3; // Default to 3 months
-    const montoPerMonth = Math.floor(body.monto / meses_impactados * 100) / 100;
-    const remainder = Math.round((body.monto - montoPerMonth * (meses_impactados - 1)) * 100) / 100;
+    const montoPerMonth = Math.floor(body.monto / meses_impactados * DECIMAL_PRECISION) / DECIMAL_PRECISION;
+    const remainder = Math.round((body.monto - montoPerMonth * (meses_impactados - 1)) * DECIMAL_PRECISION) / DECIMAL_PRECISION;
+    
+    // Validate fecha_inicio is first day of month to avoid date calculation issues
+    const fechaInicio = new Date(body.fecha_inicio + '-01');
+    if (isNaN(fechaInicio.getTime())) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Invalid fecha_inicio format. Expected YYYY-MM' })
+      };
+    }
     
     for (let i = 0; i < meses_impactados; i++) {
-      const fecha = new Date(body.fecha_inicio);
+      const fecha = new Date(fechaInicio);
       fecha.setMonth(fecha.getMonth() + i);
       const mes = fecha.toISOString().substring(0, 7);
       

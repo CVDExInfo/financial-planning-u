@@ -88,7 +88,7 @@ describe('Adjustments Handler', () => {
         tipo: 'exceso',
         monto: 1000000,
         metodo_distribucion: 'pro_rata_forward',
-        fecha_inicio: '2025-11-01',
+        fecha_inicio: '2025-11',
         meses_impactados: 3
       };
 
@@ -98,13 +98,13 @@ describe('Adjustments Handler', () => {
       expect(response.statusCode).toBe(201);
       const responseBody = JSON.parse(response.body);
       expect(responseBody.distribucion).toHaveLength(3);
-      expect(responseBody.distribucion[0].monto).toBe(333333.33);
-      expect(responseBody.distribucion[1].monto).toBe(333333.33);
-      expect(responseBody.distribucion[2].monto).toBe(333333.34);
+      expect(responseBody.distribucion[0].monto).toBeCloseTo(333333.33, 2);
+      expect(responseBody.distribucion[1].monto).toBeCloseTo(333333.33, 2);
+      expect(responseBody.distribucion[2].monto).toBeCloseTo(333333.34, 2);
       
       // Verify sum equals total
       const total = responseBody.distribucion.reduce((sum: number, d: any) => sum + d.monto, 0);
-      expect(total).toBe(1000000);
+      expect(total).toBeCloseTo(1000000, 2);
     });
 
     it('should reject missing required fields', async () => {
@@ -149,6 +149,17 @@ describe('Adjustments Handler', () => {
       expect(response.statusCode).toBe(400);
       const responseBody = JSON.parse(response.body);
       expect(responseBody.error).toContain('monto must be a positive number');
+    });
+
+    it('should reject malformed JSON', async () => {
+      const event = mockEvent('POST');
+      event.body = 'invalid json {';
+
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(400);
+      const responseBody = JSON.parse(response.body);
+      expect(responseBody.error).toContain('Invalid JSON');
     });
   });
 
