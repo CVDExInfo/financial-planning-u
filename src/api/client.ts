@@ -52,8 +52,15 @@ async function getAuthToken(): Promise<string | null> {
       return 'mock-jwt-token';
     }
 
+    // Validate required environment variable
+    const clientId = import.meta.env.VITE_COGNITO_WEB_CLIENT_ID;
+    if (!clientId) {
+      console.warn('VITE_COGNITO_WEB_CLIENT_ID not configured. Token retrieval will fail.');
+      return null;
+    }
+
     // Try to get token from localStorage (where Cognito typically stores it)
-    const cognitoKey = `CognitoIdentityServiceProvider.${import.meta.env.VITE_COGNITO_WEB_CLIENT_ID}`;
+    const cognitoKey = `CognitoIdentityServiceProvider.${clientId}`;
     const userKeys = Object.keys(localStorage).filter(key => 
       key.startsWith(cognitoKey) && key.endsWith('.idToken')
     );
@@ -170,8 +177,10 @@ export async function apiClient<T>(
 
     // Handle 401 - Unauthorized (token expired or invalid)
     if (response.status === 401) {
-      // TODO: Implement token refresh logic
-      // For now, we'll just throw an error
+      // TODO(Issue #XXX): Implement automatic token refresh
+      // For now, we throw an error that the application can catch and handle
+      // by redirecting to login or triggering a manual token refresh.
+      // Priority: High - Affects UX when tokens expire
       const errorData: ApiError = {
         code: 'UNAUTHORIZED',
         message: 'Authentication required. Please log in again.',
