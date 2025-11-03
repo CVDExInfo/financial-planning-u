@@ -1,0 +1,29 @@
+{
+  "data": [
+    {
+      "id": "rubro_1a2b3c4d5e",
+      "code": "RUBRO-001",
+      "nombre": "Desarrollo Backend",
+      "categoria": "Ingeniería",
+      "tipo_ejecucion": "mensual",
+      "descripcion": "Desarrollo y mantenimiento backend"
+    },
+    {
+      "id": "rubro_6f7g8h9i0j",
+      "code": "RUBRO-002",
+      "nombre": "Infraestructura Cloud",
+      "categoria": "Infraestructura",
+      "tipo_ejecucion": "mensual",
+      "descripcion": "Costos de infraestructura AWS/Azure"
+    },
+    {
+      "id": "rubro_k1l2m3n4o5",
+      "code": "RUBRO-003",
+      "nombre": "Capacitación Equipo",
+      "categoria": "Capacitación",
+      "tipo_ejecucion": "puntual",
+      "descripcion": "Cursos y certificaciones"
+    }
+  ],
+  "total": 3
+}

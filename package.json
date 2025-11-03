@@ -12,7 +12,8 @@
         "build": "tsc -b --noCheck && vite build",
         "lint": "eslint .",
         "optimize": "vite optimize",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "generate-api-types": "openapi-typescript openapi/finanzas.yaml -o src/types/api.d.ts"
     },
     "dependencies": {
         "@github/spark": "^0.39.0",
@@ -92,6 +93,7 @@
         "eslint-plugin-react-hooks": "^5.2.0",
         "eslint-plugin-react-refresh": "^0.4.19",
         "globals": "^16.0.0",
+        "openapi-typescript": "^7.10.1",
         "tailwindcss": "^4.1.11",
         "typescript": "~5.9.3",
         "typescript-eslint": "^8.46.2",

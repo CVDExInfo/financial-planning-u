@@ -1,0 +1,23 @@
+{
+  "data": [
+    {
+      "id": "prov_8h9i0j1k2l",
+      "nombre": "TechConsulting Solutions LLC",
+      "tax_id": "RFC-987654321",
+      "tipo": "servicios",
+      "estado": "active",
+      "created_at": "2025-10-31T03:45:00Z"
+    },
+    {
+      "id": "prov_3m4n5o6p7q",
+      "nombre": "Cloud Infrastructure Corp",
+      "tax_id": "RFC-123456789",
+      "tipo": "infraestructura",
+      "estado": "active",
+      "created_at": "2025-10-30T09:00:00Z"
+    }
+  ],
+  "total": 2,
+  "limit": 20,
+  "offset": 0
+}

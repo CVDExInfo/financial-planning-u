@@ -1,0 +1,20 @@
+{
+  "project_id": "proj_7x9k2m4n8p",
+  "mes": "2025-11",
+  "plan_ing": 65000,
+  "plan_sdm": 35000,
+  "non_recurrentes": [
+    {
+      "rubro_id": "rubro_k1l2m3n4o5",
+      "nombre": "Capacitación Equipo",
+      "monto": 8000
+    },
+    {
+      "rubro_id": "rubro_p6q7r8s9t0",
+      "nombre": "Licencias Software",
+      "monto": 5000
+    }
+  ],
+  "total_mes": 113000,
+  "currency": "USD"
+}

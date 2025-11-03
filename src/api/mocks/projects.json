@@ -1,0 +1,35 @@
+{
+  "data": [
+    {
+      "id": "proj_7x9k2m4n8p",
+      "name": "Mobile Banking App MVP",
+      "code": "PROJ-2025-001",
+      "client": "Global Bank Corp",
+      "start_date": "2025-01-15",
+      "end_date": "2025-12-31",
+      "status": "active",
+      "mod_total": 1500000,
+      "currency": "USD",
+      "description": "MVP for mobile banking application with core features",
+      "created_at": "2025-10-31T03:12:00Z",
+      "updated_at": "2025-10-31T03:12:00Z"
+    },
+    {
+      "id": "proj_3a5b7c9d1e",
+      "name": "ERP System Upgrade",
+      "code": "PROJ-2025-002",
+      "client": "Manufacturing Inc",
+      "start_date": "2025-02-01",
+      "end_date": "2025-11-30",
+      "status": "active",
+      "mod_total": 2800000,
+      "currency": "USD",
+      "description": "Comprehensive ERP system modernization",
+      "created_at": "2025-10-30T10:00:00Z",
+      "updated_at": "2025-10-30T10:00:00Z"
+    }
+  ],
+  "total": 2,
+  "limit": 20,
+  "offset": 0
+}

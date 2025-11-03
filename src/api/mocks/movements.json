@@ -1,0 +1,19 @@
+{
+  "data": [
+    {
+      "id": "mov_4n5o6p7q8r",
+      "project_id": "proj_7x9k2m4n8p",
+      "rubro_id": "rubro_1a2b3c4d5e",
+      "tipo": "gasto",
+      "monto": 25000,
+      "estado": "pending",
+      "fecha": "2025-10-28",
+      "descripcion": "Pago consultoría especializada Q4",
+      "created_at": "2025-10-31T03:35:00Z",
+      "updated_at": "2025-10-31T03:35:00Z"
+    }
+  ],
+  "total": 1,
+  "limit": 50,
+  "offset": 0
+}
