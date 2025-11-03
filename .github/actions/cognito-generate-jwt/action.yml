@@ -56,4 +56,5 @@ runs:
           exit 1
         fi
 
+        echo "::add-mask::$TOKEN"
         echo "access_token=$TOKEN" >> "$GITHUB_OUTPUT"

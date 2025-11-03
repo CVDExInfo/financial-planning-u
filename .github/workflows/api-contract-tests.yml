@@ -23,10 +23,10 @@ jobs:
             v="${{ vars[k] || '' }}"
             [ -z "$v" ] && { echo "❌ Missing repo variable: $k"; exit 1; }
           done
-          for s in USERNAME PASSWORD OIDC_AWS_ROLE_ARN; do
-            echo "${{ secrets[s] || '' }}" | grep -q .
-            [ $? -ne 0 ] && { echo "❌ Missing repo secret: $s"; exit 1; }
-          done
+          # Check secrets individually without exposing their values
+          [ -z "${{ secrets.USERNAME }}" ] && { echo "❌ Missing repo secret: USERNAME"; exit 1; }
+          [ -z "${{ secrets.PASSWORD }}" ] && { echo "❌ Missing repo secret: PASSWORD"; exit 1; }
+          [ -z "${{ secrets.OIDC_AWS_ROLE_ARN }}" ] && { echo "❌ Missing repo secret: OIDC_AWS_ROLE_ARN"; exit 1; }
           echo "✅ Vars/Secrets OK"
 
       # OIDC (local) – keep your existing local OIDC action here

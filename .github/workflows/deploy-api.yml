@@ -27,9 +27,10 @@ jobs:
           for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_USER_POOL_ARN COGNITO_WEB_CLIENT; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ $k is empty"; exit 1; }
           done
-          for s in USERNAME PASSWORD OIDC_AWS_ROLE_ARN; do
-            [ -n "${{ secrets[s] || '' }}" ] || { echo "❌ Missing secret: $s"; exit 1; }
-          done
+          # Check secrets individually without exposing their values
+          [ -z "${{ secrets.USERNAME }}" ] && { echo "❌ Missing secret: USERNAME"; exit 1; }
+          [ -z "${{ secrets.PASSWORD }}" ] && { echo "❌ Missing secret: PASSWORD"; exit 1; }
+          [ -z "${{ secrets.OIDC_AWS_ROLE_ARN }}" ] && { echo "❌ Missing secret: OIDC_AWS_ROLE_ARN"; exit 1; }
           echo "✅ Env & Secrets OK"
 
       - name: Configure AWS (OIDC)
