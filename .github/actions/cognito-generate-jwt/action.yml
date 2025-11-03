@@ -1,0 +1,55 @@
+name: Generate Cognito JWT
+description: Authenticates with AWS Cognito and generates a JWT access token
+
+inputs:
+  user_pool_id:
+    description: 'Cognito User Pool ID'
+    required: true
+  client_id:
+    description: 'Cognito Web Client ID'
+    required: true
+  username:
+    description: 'Cognito username'
+    required: true
+  password:
+    description: 'Cognito password'
+    required: true
+  aws_region:
+    description: 'AWS region'
+    required: true
+
+outputs:
+  access_token:
+    description: 'JWT access token'
+    value: ${{ steps.auth.outputs.access_token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Authenticate and get JWT
+      id: auth
+      shell: bash
+      run: |
+        set -euo pipefail
+        
+        # Authenticate with Cognito and get tokens
+        AUTH_RESPONSE=$(aws cognito-idp initiate-auth \
+          --region "${{ inputs.aws_region }}" \
+          --auth-flow USER_PASSWORD_AUTH \
+          --client-id "${{ inputs.client_id }}" \
+          --auth-parameters "USERNAME=${{ inputs.username }},PASSWORD=${{ inputs.password }}" \
+          --query 'AuthenticationResult' \
+          --output json)
+        
+        # Extract access token
+        ACCESS_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.AccessToken')
+        
+        if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ] || [ "$ACCESS_TOKEN" = "" ]; then
+          echo "❌ Failed to obtain access token"
+          exit 1
+        fi
+        
+        echo "✅ Successfully obtained JWT access token"
+        # Mask the token to prevent it from appearing in logs
+        echo "::add-mask::$ACCESS_TOKEN"
+        echo "access_token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
