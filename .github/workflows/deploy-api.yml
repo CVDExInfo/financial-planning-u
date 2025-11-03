@@ -78,6 +78,25 @@ jobs:
       - name: Smoke (health)
         run: curl -sS --fail "${{ steps.out.outputs.api_url }}/health" | jq .
 
+      - name: Generate Cognito JWT
+        id: jwt
+        uses: ./.github/actions/cognito-generate-jwt
+        with:
+          user_pool_id: ${{ env.COGNITO_USER_POOL_ID }}
+          client_id: ${{ vars.COGNITO_WEB_CLIENT }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          aws_region: ${{ env.AWS_REGION }}
+
+      - name: Smoke (protected POST /projects)
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          curl -sS -X POST "${{ steps.out.outputs.api_url }}/projects" \
+            -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" \
+            -H "Content-Type: application/json" \
+            -d '{"cliente":"Cliente Alpha","nombre":"Proyecto A","fecha_inicio":"2025-01-01","fecha_fin":"2025-09-30","moneda":"COP"}' | jq .
+
       - name: Summary
         run: |
           {

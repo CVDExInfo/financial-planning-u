@@ -1,0 +1,83 @@
+name: API Contract Tests
+on:
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    # Promote repo vars + secret presence flags
+    env:
+      AWS_REGION:           ${{ vars.AWS_REGION }}
+      DEV_API_URL:          ${{ vars.DEV_API_URL }}
+      COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
+      COGNITO_WEB_CLIENT:   ${{ vars.COGNITO_WEB_CLIENT }}
+      HAS_USERNAME:         ${{ secrets.USERNAME != '' }}
+      HAS_PASSWORD:         ${{ secrets.PASSWORD != '' }}
+      HAS_OIDC_ROLE:        ${{ secrets.OIDC_AWS_ROLE_ARN != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preflight repo settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          for k in AWS_REGION DEV_API_URL COGNITO_USER_POOL_ID COGNITO_WEB_CLIENT; do
+            v="${!k:-}"
+            [[ -n "$v" ]] || { echo "❌ Missing env: $k"; exit 1; }
+          done
+          [[ "$HAS_USERNAME"  == "true" ]] || { echo "❌ Missing repo secret: USERNAME"; exit 1; }
+          [[ "$HAS_PASSWORD"  == "true" ]] || { echo "❌ Missing repo secret: PASSWORD"; exit 1; }
+          [[ "$HAS_OIDC_ROLE" == "true" ]] || { echo "❌ Missing repo secret: OIDC_AWS_ROLE_ARN"; exit 1; }
+          echo "✅ Vars/Secrets OK"
+
+      - name: Configure AWS (OIDC)
+        uses: ./.github/actions/oidc-configure-aws
+        with:
+          role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          session_name: contract-tests-${{ github.run_id }}
+
+      - name: Generate Cognito JWT
+        id: jwt
+        uses: ./.github/actions/cognito-generate-jwt
+        with:
+          user_pool_id: ${{ env.COGNITO_USER_POOL_ID }}
+          client_id: ${{ env.COGNITO_WEB_CLIENT }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          aws_region: ${{ env.AWS_REGION }}
+
+      - name: Test health endpoint (unauthenticated)
+        run: |
+          curl -sS --fail "${{ env.DEV_API_URL }}/health" | jq .
+
+      - name: Test catalog/rubros (unauthenticated)
+        run: |
+          curl -sS --fail "${{ env.DEV_API_URL }}/catalog/rubros" | jq .
+
+      - name: Test POST /projects (authenticated)
+        run: |
+          set -euo pipefail
+          curl -sS -X POST "${{ env.DEV_API_URL }}/projects" \
+            -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" \
+            -H "Content-Type: application/json" \
+            -d '{"cliente":"Cliente Alpha","nombre":"Proyecto A","fecha_inicio":"2025-01-01","fecha_fin":"2025-09-30","moneda":"COP"}' | jq .
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## API Contract Tests"
+            echo "- Base URL: $DEV_API_URL"
+            echo "- Pool: $COGNITO_USER_POOL_ID / Web client: $COGNITO_WEB_CLIENT"
+          } >> $GITHUB_STEP_SUMMARY
