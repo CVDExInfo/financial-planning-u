@@ -500,11 +500,10 @@ curl -sS -X OPTIONS \
 **Diagnosis**:
 
 ```bash
-# Check CloudFront custom error responses
+# Check CloudFront custom error responses (CloudFront is a global service)
 aws cloudfront get-distribution-config \
   --id EPQU7PVDLQXUA \
-  --query 'DistributionConfig.CustomErrorResponses' \
-  --region us-east-1
+  --query 'DistributionConfig.CustomErrorResponses'
 ```
 
 **Resolution**:
