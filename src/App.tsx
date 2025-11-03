@@ -20,6 +20,9 @@ import SDMTCashflow from '@/features/sdmt/cost/Cashflow/SDMTCashflow';
 import SDMTScenarios from '@/features/sdmt/cost/Scenarios/SDMTScenarios';
 import SDMTChanges from '@/features/sdmt/cost/Changes/SDMTChanges';
 
+// API Demo (for development/testing)
+import { FinanzasApiExample } from '@/api/FinanzasApiExample';
+
 // Home page
 import HomePage from '@/features/HomePage';
 import UserProfile from '@/components/UserProfile';
@@ -86,6 +89,9 @@ function AppContent() {
               <Route path="/sdmt/cost/cashflow" element={<SDMTCashflow />} />
               <Route path="/sdmt/cost/scenarios" element={<SDMTScenarios />} />
               <Route path="/sdmt/cost/changes" element={<SDMTChanges />} />
+              
+              {/* API Demo Route (for development/testing) */}
+              <Route path="/dev/api-demo" element={<FinanzasApiExample />} />
               
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
