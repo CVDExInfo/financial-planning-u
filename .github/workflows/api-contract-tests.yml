@@ -50,7 +50,7 @@ jobs:
       - name: Normalize base URL
         run: |
           set -euo pipefail
-          : "${DEV_API_URL:?DEV_API_URL is empty (set repo variable to your Finanzas dev URL)}"
+          : "${DEV_API_URL:?DEV_API_URL is empty}"
           echo "Using DEV_API_URL: ${DEV_API_URL}"
           echo "BASE=${DEV_API_URL%/}" >> $GITHUB_ENV
 
@@ -64,18 +64,17 @@ jobs:
           password: ${{ secrets.PASSWORD }}
           aws_region: ${{ env.AWS_REGION }}
 
-      - name: Test health endpoint (unauthenticated)
+      - name: Test GET /health
         run: |
-          curl -sS --fail "${BASE}/health" | jq .
+          curl -sS --fail "$BASE/health" | jq .
 
-      - name: Test catalog/rubros (unauthenticated)
+      - name: Test GET /catalog/rubros
         run: |
-          curl -sS --fail "${BASE}/catalog/rubros" | jq .
+          curl -sS --fail "$BASE/catalog/rubros" | jq .
 
       - name: Test POST /projects (authenticated)
         run: |
-          set -euo pipefail
-          curl -sS --fail -X POST "${BASE}/projects" \
+          curl -sS --fail -X POST "$BASE/projects" \
             -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" \
             -H "Content-Type: application/json" \
             -H "Accept: application/json" \
