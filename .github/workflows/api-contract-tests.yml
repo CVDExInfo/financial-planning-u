@@ -53,6 +53,15 @@ jobs:
           aws_region: ${{ env.AWS_REGION }}
           session_name: contract-tests-${{ github.run_id }}
 
+      - name: Normalize base URL
+        run: |
+          set -euo pipefail
+          : "${DEV_API_URL:?DEV_API_URL is empty}"
+          # Strip whitespace and trailing slashes
+          CLEAN_URL=$(echo "$DEV_API_URL" | tr -d '\r\n' | sed 's:/*$::')
+          echo "Using DEV_API_URL: ${CLEAN_URL}"
+          echo "BASE=${CLEAN_URL}" >> "$GITHUB_ENV"
+
       - name: Generate Cognito JWT
         id: jwt
         uses: ./.github/actions/cognito-generate-jwt
@@ -63,26 +72,16 @@ jobs:
           password: ${{ secrets.PASSWORD }}
           aws_region: ${{ env.AWS_REGION }}
 
-      - name: Normalize base URL
-        run: |
-          set -euo pipefail
-          : "${DEV_API_URL:?DEV_API_URL is empty}"
-          # Strip whitespace and trailing slashes
-          CLEAN_URL=$(echo "$DEV_API_URL" | tr -d '\r\n' | sed 's:/*$::')
-          echo "Using DEV_API_URL: ${CLEAN_URL}"
-          echo "BASE=${CLEAN_URL}" >> "$GITHUB_ENV"
-
-      - name: Test health endpoint (unauthenticated)
+      - name: Test GET /health
         run: |
           curl -sS --fail "$BASE/health" | jq .
 
-      - name: Test catalog/rubros (unauthenticated)
+      - name: Test GET /catalog/rubros
         run: |
           curl -sS --fail "$BASE/catalog/rubros" | jq .
 
       - name: Test POST /projects (authenticated)
         run: |
-          set -euo pipefail
           curl -sS --fail -X POST "$BASE/projects" \
             -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" \
             -H "Content-Type: application/json" \
