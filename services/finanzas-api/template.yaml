@@ -153,6 +153,14 @@ Resources:
             IdentitySource: "$request.header.Authorization"
         DefaultAuthorizer: CognitoJwt
 
+  # Explicit stage with AutoDeploy to ensure deployments trigger on updates
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref Api
+      StageName: !Ref StageName
+      AutoDeploy: true
+
   # ========== Lambdas ==========
   HealthFn:
     Type: AWS::Serverless::Function
@@ -172,7 +180,12 @@ Resources:
       Events:
         Health:
           Type: HttpApi
-          Properties: { Path: /health, Method: GET, ApiId: !Ref Api }
+          Properties: 
+            Path: /health
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: NONE
 
   ProjectsFn:
     Type: AWS::Serverless::Function
@@ -217,7 +230,12 @@ Resources:
       Events:
         ListRubros:
           Type: HttpApi
-          Properties: { Path: /catalog/rubros, Method: GET, ApiId: !Ref Api }
+          Properties:
+            Path: /catalog/rubros
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: NONE
 
   HandoffFn:
     Type: AWS::Serverless::Function

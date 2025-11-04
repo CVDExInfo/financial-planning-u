@@ -27,6 +27,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Normalize line endings for local actions
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y dos2unix
+          find .github/actions -type f -print0 | xargs -0 dos2unix || true
+
       - name: Preflight repo settings
         shell: bash
         run: |
@@ -57,27 +63,36 @@ jobs:
           password: ${{ secrets.PASSWORD }}
           aws_region: ${{ env.AWS_REGION }}
 
+      - name: Normalize base URL
+        run: |
+          set -euo pipefail
+          : "${DEV_API_URL:?DEV_API_URL is empty}"
+          echo "Using DEV_API_URL: ${DEV_API_URL}"
+          printf 'BASE=%s\n' "${DEV_API_URL%/}" >> "$GITHUB_ENV"
+
       - name: Test health endpoint (unauthenticated)
         run: |
-          curl -sS --fail "${{ env.DEV_API_URL }}/health" | jq .
+          curl -sS --fail "$BASE/health" | jq .
 
       - name: Test catalog/rubros (unauthenticated)
         run: |
-          curl -sS --fail "${{ env.DEV_API_URL }}/catalog/rubros" | jq .
+          curl -sS --fail "$BASE/catalog/rubros" | jq .
 
       - name: Test POST /projects (authenticated)
         run: |
           set -euo pipefail
-          curl -sS -X POST "${{ env.DEV_API_URL }}/projects" \
+          curl -sS --fail -X POST "$BASE/projects" \
             -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" \
             -H "Content-Type: application/json" \
-            -d '{"cliente":"Cliente Alpha","nombre":"Proyecto A","fecha_inicio":"2025-01-01","fecha_fin":"2025-09-30","moneda":"COP"}' | jq .
+            -H "Accept: application/json" \
+            -d '{"cliente":"Cliente Alpha","nombre":"Proyecto A","fecha_inicio":"2025-01-01","fecha_fin":"2025-09-30","moneda":"COP"}' \
+          | jq .
 
       - name: Summary
         if: always()
         run: |
           {
             echo "## API Contract Tests"
-            echo "- Base URL: $DEV_API_URL"
+            echo "- Base URL: ${BASE}"
             echo "- Pool: $COGNITO_USER_POOL_ID / Web client: $COGNITO_WEB_CLIENT"
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"

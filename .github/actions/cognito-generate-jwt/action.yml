@@ -52,4 +52,4 @@ runs:
         echo "✅ Successfully obtained JWT access token"
         # Mask the token to prevent it from appearing in logs
         echo "::add-mask::$ACCESS_TOKEN"
-        echo "access_token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
+        printf 'access_token=%s\n' "$ACCESS_TOKEN" >> "$GITHUB_OUTPUT"
