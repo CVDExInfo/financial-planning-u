@@ -32,7 +32,7 @@ runs:
         set -euo pipefail
         [ -z "${{ inputs.role_arn }}" ] && { echo "role_arn missing"; exit 1; }
         [ -z "${{ inputs.aws_region }}" ] && { echo "aws_region missing"; exit 1; }
-        echo "AWS_DEFAULT_REGION=${{ inputs.aws_region }}" >> "$GITHUB_ENV"
+        printf 'AWS_DEFAULT_REGION=%s\n' "${{ inputs.aws_region }}" >> "$GITHUB_ENV"
 
     - name: Request OIDC token
       id: oidc
@@ -43,7 +43,7 @@ runs:
         OIDC_RESP=$(curl -sfL -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$token_url")
         OIDC_TOKEN=$(python -c "import json,sys; print(json.load(sys.stdin)['value'])" <<<"$OIDC_RESP")
         [ -z "$OIDC_TOKEN" ] && { echo "OIDC token missing"; exit 1; }
-        echo "token=$OIDC_TOKEN" >> "$GITHUB_OUTPUT"
+        printf 'token=%s\n' "$OIDC_TOKEN" >> "$GITHUB_OUTPUT"
 
     - name: Assume role with web identity
       id: export
@@ -61,12 +61,12 @@ runs:
         echo "::add-mask::$AKID"
         echo "::add-mask::$SAK"
         echo "::add-mask::$STK"
-        echo "aws_access_key_id=$AKID" >> "$GITHUB_OUTPUT"
-        echo "aws_secret_access_key=$SAK" >> "$GITHUB_OUTPUT"
-        echo "aws_session_token=$STK" >> "$GITHUB_OUTPUT"
-        echo "AWS_ACCESS_KEY_ID=$AKID" >> "$GITHUB_ENV"
-        echo "AWS_SECRET_ACCESS_KEY=$SAK" >> "$GITHUB_ENV"
-        echo "AWS_SESSION_TOKEN=$STK" >> "$GITHUB_ENV"
+        printf 'aws_access_key_id=%s\n' "$AKID" >> "$GITHUB_OUTPUT"
+        printf 'aws_secret_access_key=%s\n' "$SAK" >> "$GITHUB_OUTPUT"
+        printf 'aws_session_token=%s\n' "$STK" >> "$GITHUB_OUTPUT"
+        printf 'AWS_ACCESS_KEY_ID=%s\n' "$AKID" >> "$GITHUB_ENV"
+        printf 'AWS_SECRET_ACCESS_KEY=%s\n' "$SAK" >> "$GITHUB_ENV"
+        printf 'AWS_SESSION_TOKEN=%s\n' "$STK" >> "$GITHUB_ENV"
 
     - name: Verify identity
       shell: bash

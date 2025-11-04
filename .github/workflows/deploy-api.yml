@@ -21,6 +21,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Normalize line endings for local actions
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y dos2unix
+          find .github/actions -type f -print0 | xargs -0 dos2unix || true
+
       - name: Preflight env
         run: |
           set -euo pipefail
@@ -97,6 +103,13 @@ jobs:
             -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" \
             -H "Content-Type: application/json" \
             -d '{"cliente":"Cliente Alpha","nombre":"Proyecto A","fecha_inicio":"2025-01-01","fecha_fin":"2025-09-30","moneda":"COP"}' | jq .
+
+      - name: Show routes
+        run: |
+          API_ID=$(aws cloudformation describe-stacks --stack-name "${FINZ_API_STACK}" \
+            --query "Stacks[0].Outputs[?OutputKey=='FinzApiId'].OutputValue" --output text || true)
+          echo "API_ID: $API_ID"
+          aws apigatewayv2 get-routes --api-id "$API_ID" --query 'Items[].RouteKey' --output text || true
 
       - name: Summary
         run: |
