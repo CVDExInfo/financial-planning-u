@@ -67,8 +67,10 @@ jobs:
         run: |
           set -euo pipefail
           : "${DEV_API_URL:?DEV_API_URL is empty}"
-          echo "Using DEV_API_URL: ${DEV_API_URL}"
-          printf 'BASE=%s\n' "${DEV_API_URL%/}" >> "$GITHUB_ENV"
+          # Strip whitespace and trailing slashes
+          CLEAN_URL=$(echo "$DEV_API_URL" | tr -d '\r\n' | sed 's:/*$::')
+          echo "Using DEV_API_URL: ${CLEAN_URL}"
+          echo "BASE=${CLEAN_URL}" >> "$GITHUB_ENV"
 
       - name: Test health endpoint (unauthenticated)
         run: |
