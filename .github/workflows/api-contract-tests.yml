@@ -47,6 +47,53 @@ jobs:
           aws_region: ${{ env.AWS_REGION }}
           session_name: contract-tests-${{ github.run_id }}
 
+      - name: Discover API endpoint from CloudFormation (optional)
+        id: discover
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          STACK_NAME="${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}"
+          STAGE_NAME="${{ vars.FINZ_API_STAGE || 'dev' }}"
+
+          echo "Attempting to discover API endpoint from CloudFormation stack: ${STACK_NAME}"
+
+          # Try to get ApiEndpoint from CloudFormation stack
+          API_ENDPOINT=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='FinzApiUrl'].OutputValue" \
+            --output text 2>/dev/null || echo "")
+
+          if [[ -n "$API_ENDPOINT" && "$API_ENDPOINT" != "None" ]]; then
+            echo "✅ Found API endpoint from CloudFormation: ${API_ENDPOINT}"
+            echo "discovered_url=${API_ENDPOINT}" >> $GITHUB_OUTPUT
+            echo "source=CloudFormation" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  Could not discover API endpoint from CloudFormation, will use repo variable"
+            echo "discovered_url=" >> $GITHUB_OUTPUT
+            echo "source=RepoVariable" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set API base URL
+        id: baseurl
+        run: |
+          set -euo pipefail
+
+          # Use discovered URL if available, otherwise fall back to DEV_API_URL
+          if [[ -n "${{ steps.discover.outputs.discovered_url }}" ]]; then
+            URL="${{ steps.discover.outputs.discovered_url }}"
+            SOURCE="${{ steps.discover.outputs.source }}"
+          else
+            URL="${{ env.DEV_API_URL }}"
+            SOURCE="RepoVariable"
+          fi
+
+          # Normalize: remove trailing slash
+          BASE="${URL%/}"
+
+          echo "base_url=${BASE}" >> $GITHUB_OUTPUT
+          echo "source=${SOURCE}" >> $GITHUB_OUTPUT
+          echo "✅ Using API base URL: ${BASE} (source: ${SOURCE})"
+
       - name: Generate Cognito JWT
         id: jwt
         uses: ./.github/actions/cognito-generate-jwt
@@ -59,18 +106,22 @@ jobs:
 
       - name: Test health endpoint (unauthenticated)
         run: |
-          curl -sS --fail "${{ env.DEV_API_URL }}/health" | jq .
+          BASE="${{ steps.baseurl.outputs.base_url }}"
+          curl -sS --fail "${BASE}/health" | jq .
 
       - name: Test catalog/rubros (unauthenticated)
         run: |
-          curl -sS --fail "${{ env.DEV_API_URL }}/catalog/rubros" | jq .
+          BASE="${{ steps.baseurl.outputs.base_url }}"
+          curl -sS --fail "${BASE}/catalog/rubros" | jq .
 
       - name: Test POST /projects (authenticated)
         run: |
           set -euo pipefail
-          curl -sS -X POST "${{ env.DEV_API_URL }}/projects" \
+          BASE="${{ steps.baseurl.outputs.base_url }}"
+          curl -sS --fail -X POST "${BASE}/projects" \
             -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" \
             -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
             -d '{"cliente":"Cliente Alpha","nombre":"Proyecto A","fecha_inicio":"2025-01-01","fecha_fin":"2025-09-30","moneda":"COP"}' | jq .
 
       - name: Summary
@@ -78,6 +129,7 @@ jobs:
         run: |
           {
             echo "## API Contract Tests"
-            echo "- Base URL: $DEV_API_URL"
+            echo "- Base URL: ${{ steps.baseurl.outputs.base_url }}"
+            echo "- URL Source: ${{ steps.baseurl.outputs.source }}"
             echo "- Pool: $COGNITO_USER_POOL_ID / Web client: $COGNITO_WEB_CLIENT"
           } >> $GITHUB_STEP_SUMMARY
