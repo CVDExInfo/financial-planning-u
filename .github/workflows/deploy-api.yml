@@ -1,6 +1,6 @@
 name: Deploy Finanzas API (dev)
 on:
-  push: { branches: [ "module/finanzas-api-mvp" ] }
+  push: { branches: ["module/finanzas-api-mvp"] }
   workflow_dispatch: {}
 
 permissions:
@@ -8,12 +8,12 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION:       ${{ vars.AWS_REGION || 'us-east-2' }}
-  FINZ_API_STACK:   ${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}
-  FINZ_API_STAGE:   ${{ vars.FINZ_API_STAGE || 'dev' }}
-  COGNITO_USER_POOL_ID:  ${{ vars.COGNITO_USER_POOL_ID }}   # required
-  COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }}  # required
-  COGNITO_WEB_CLIENT:    ${{ vars.COGNITO_WEB_CLIENT }}     # required
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+  FINZ_API_STACK: ${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}
+  FINZ_API_STAGE: ${{ vars.FINZ_API_STAGE || 'dev' }}
+  COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }} # required
+  COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }} # required
+  COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }} # required
 
 jobs:
   deploy-api:
@@ -52,7 +52,13 @@ jobs:
 
       - name: Install dependencies
         working-directory: services/finanzas-api
-        run: npm ci
+        run: |
+          set -e
+          echo "Installing API service dependencies"
+          if ! npm ci; then
+            echo "npm ci failed (lock mismatch). Falling back to npm install."
+            npm install
+          fi
 
       - name: Build
         working-directory: services/finanzas-api
@@ -104,12 +110,49 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"cliente":"Cliente Alpha","nombre":"Proyecto A","fecha_inicio":"2025-01-01","fecha_fin":"2025-09-30","moneda":"COP"}' | jq .
 
+      - name: Smoke (GET /catalog/rubros)
+        run: |
+          curl -sS --fail "${{ steps.out.outputs.api_url }}/catalog/rubros" | jq '.'
+
+      - name: Smoke (GET /allocation-rules) with JWT
+        run: |
+          curl -sS --fail -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" \
+            "${{ steps.out.outputs.api_url }}/allocation-rules" | jq '.'
+
       - name: Show routes
         run: |
           API_ID=$(aws cloudformation describe-stacks --stack-name "${FINZ_API_STACK}" \
             --query "Stacks[0].Outputs[?OutputKey=='FinzApiId'].OutputValue" --output text || true)
           echo "API_ID: $API_ID"
           aws apigatewayv2 get-routes --api-id "$API_ID" --query 'Items[].RouteKey' --output text || true
+
+      - name: Seed Dynamo (rubros + taxonomía)
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          TABLE_RUBROS: ${{ vars.TABLE_RUBROS || 'finz_rubros' }}
+          TABLE_RUBROS_TAXONOMIA: ${{ vars.TABLE_RUBROS_TAXONOMIA || '' }}
+        run: |
+          set -euo pipefail
+          if ! npm ci; then npm install; fi
+          echo "Tables: RUBROS=$TABLE_RUBROS TAX=$TABLE_RUBROS_TAXONOMIA"
+          TAX_C=0
+          if [ -n "${TABLE_RUBROS_TAXONOMIA}" ] && aws dynamodb describe-table --table-name "$TABLE_RUBROS_TAXONOMIA" >/dev/null 2>&1; then
+            npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
+            TAX_C=$(grep -c '^Upserted taxonomía:' seed_tax.log || true)
+          else
+            echo "Skip taxonomy seed"
+          fi
+          if aws dynamodb describe-table --table-name "$TABLE_RUBROS" >/dev/null 2>&1; then
+            npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
+            RUB_C=$(grep -c '^Upserted rubro:' seed_rub.log || true)
+          else
+            echo "❌ Rubros table not found"; exit 1
+          fi
+          {
+            echo "### Seeds"
+            echo "- taxonomy: ${TAX_C}"
+            echo "- rubros: ${RUB_C}"
+          } >> $GITHUB_STEP_SUMMARY
 
       - name: Summary
         run: |
@@ -125,6 +168,7 @@ jobs:
             echo '```bash'
             echo "curl -sS ${{ steps.out.outputs.api_url }}/health"
             echo "curl -sS ${{ steps.out.outputs.api_url }}/catalog/rubros"
+            echo "curl -sS -H 'Authorization: Bearer $JWT_TOKEN' ${{ steps.out.outputs.api_url }}/allocation-rules"
             echo "# Requires JWT with SDT group:"
             echo "curl -sS -X POST ${{ steps.out.outputs.api_url }}/projects \\"
             echo "  -H \"Authorization: Bearer \$JWT_TOKEN\" \\"

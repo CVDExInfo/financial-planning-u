@@ -1,0 +1,228 @@
+name: R1 Finanzas Dev Pipeline
+
+on:
+  push:
+    branches: [ "r1-finanzas-dev-wiring" ]
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: write
+
+env:
+  AWS_REGION:             ${{ vars.AWS_REGION || 'us-east-2' }}
+  FINZ_API_STACK:         ${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}
+  FINZ_API_STAGE:         ${{ vars.FINZ_API_STAGE || 'dev' }}
+  VITE_API_BASE_URL:      ${{ vars.VITE_API_BASE_URL }}
+  VITE_FINZ_ENABLED:      ${{ vars.VITE_FINZ_ENABLED || 'true' }}
+  TABLE_RUBROS:           ${{ vars.TABLE_RUBROS || 'finz_rubros' }}
+  TABLE_RUBROS_TAXONOMIA: ${{ vars.TABLE_RUBROS_TAXONOMIA || '' }}
+  CLOUDFRONT_DIST_ID:     ${{ vars.CLOUDFRONT_DIST_ID }}
+
+jobs:
+  deploy-api-seed-ui-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Normalize line endings for local actions
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y dos2unix
+          find .github/actions -type f -print0 | xargs -0 dos2unix || true
+
+      - name: Preflight
+        run: |
+          set -euo pipefail
+          for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE VITE_API_BASE_URL CLOUDFRONT_DIST_ID; do
+            v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing var: $k"; exit 1; }
+          done
+          echo "✅ Vars OK"
+
+      - name: Configure AWS (OIDC)
+        uses: ./.github/actions/oidc-configure-aws
+        with:
+          role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          session_name: r1-pipeline-${{ github.run_id }}
+
+      - name: Install SAM CLI
+        run: |
+          pipx install aws-sam-cli
+          sam --version
+
+      - name: Build API
+        working-directory: services/finanzas-api
+        run: |
+          if ! npm ci; then npm install; fi
+          sam build
+
+      - name: Deploy API
+        working-directory: services/finanzas-api
+        run: |
+          sam deploy --no-confirm-changeset \
+            --stack-name "${FINZ_API_STACK}" \
+            --resolve-s3 --capabilities CAPABILITY_IAM \
+            --parameter-overrides \
+              CognitoUserPoolArn=${{ vars.COGNITO_USER_POOL_ARN }} \
+              CognitoUserPoolId=${{ vars.COGNITO_USER_POOL_ID }} \
+              StageName=${{ env.FINZ_API_STAGE }}
+
+      - name: Capture API outputs
+        id: api
+        run: |
+          API_ID=$(aws cloudformation describe-stacks --stack-name "${FINZ_API_STACK}" \
+            --query "Stacks[0].Outputs[?OutputKey=='FinzApiId'].OutputValue" --output text)
+          API_URL=$(aws cloudformation describe-stacks --stack-name "${FINZ_API_STACK}" \
+            --query "Stacks[0].Outputs[?OutputKey=='FinzApiUrl'].OutputValue" --output text)
+          echo "api_id=$API_ID" >> $GITHUB_OUTPUT
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+          {
+            echo "## API Deploy"
+            echo "- ApiId: $API_ID"
+            echo "- URL:   $API_URL"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate JWT
+        id: jwt
+        uses: ./.github/actions/cognito-generate-jwt
+        with:
+          user_pool_id: ${{ vars.COGNITO_USER_POOL_ID }}
+          client_id: ${{ vars.COGNITO_WEB_CLIENT }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          aws_region: ${{ env.AWS_REGION }}
+
+      - name: API Smokes
+        env:
+          BASE: ${{ steps.api.outputs.api_url }}
+          TOKEN: ${{ steps.jwt.outputs.access_token }}
+        run: |
+          set -euo pipefail
+          echo "### GET /health" >> $GITHUB_STEP_SUMMARY
+          H=$(curl -sS -f "$BASE/health"); echo "$H" | jq . | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### GET /catalog/rubros" >> $GITHUB_STEP_SUMMARY
+          R=$(curl -sS -f "$BASE/catalog/rubros"); COUNT=$(echo "$R" | jq '.data|length//0'); echo "Items: $COUNT" | tee -a $GITHUB_STEP_SUMMARY
+          echo "$R" | jq '.data[:5]' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### GET /allocation-rules (auth)" >> $GITHUB_STEP_SUMMARY
+          AR=$(curl -sS -f -H "Authorization: Bearer $TOKEN" "$BASE/allocation-rules"); ARC=$(echo "$AR" | jq '.data|length//0'); echo "Rules: $ARC" | tee -a $GITHUB_STEP_SUMMARY
+          echo "$AR" | jq '.data[:3]' >> $GITHUB_STEP_SUMMARY
+
+      - name: Seed Dynamo (rubros + taxonomía)
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          TABLE_RUBROS: ${{ env.TABLE_RUBROS }}
+          TABLE_RUBROS_TAXONOMIA: ${{ env.TABLE_RUBROS_TAXONOMIA }}
+        run: |
+          set -euo pipefail
+          if ! npm ci; then npm install; fi
+          # Seed taxonomy only if table name provided and exists
+          TAX_C=0
+          if [ -n "${TABLE_RUBROS_TAXONOMIA}" ]; then
+            if aws dynamodb describe-table --table-name "${TABLE_RUBROS_TAXONOMIA}" >/dev/null 2>&1; then
+              echo "Seeding taxonomía into ${TABLE_RUBROS_TAXONOMIA}"
+              npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
+              TAX_C=$(grep -c '^Upserted taxonomía:' seed_tax.log || true)
+            else
+              echo "⚠️  Taxonomía table ${TABLE_RUBROS_TAXONOMIA} not found. Skipping."
+            fi
+          else
+            echo "ℹ️  TABLE_RUBROS_TAXONOMIA not set. Skipping taxonomy seed."
+          fi
+          # Seed rubros (required)
+          if aws dynamodb describe-table --table-name "${TABLE_RUBROS}" >/dev/null 2>&1; then
+            npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
+            RUB_C=$(grep -c '^Upserted rubro:' seed_rub.log || true)
+          else
+            echo "❌ Rubros table ${TABLE_RUBROS} not found"; exit 1
+          fi
+          echo "### Dynamo Seeds" >> $GITHUB_STEP_SUMMARY
+          echo "- taxonomía: ${TAX_C}" >> $GITHUB_STEP_SUMMARY
+          echo "- rubros: ${RUB_C}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Build & Deploy UI
+        env:
+          VITE_API_BASE_URL: ${{ steps.api.outputs.api_url }}
+          VITE_FINZ_ENABLED: ${{ env.VITE_FINZ_ENABLED }}
+        run: |
+          set -euo pipefail
+          echo "VITE_API_BASE_URL=$VITE_API_BASE_URL" >> $GITHUB_ENV
+          if ! npm ci; then npm install; fi
+          npm run build
+          aws s3 sync dist/ "s3://${{ vars.S3_BUCKET_NAME }}/finanzas/" --delete
+          aws cloudfront create-invalidation --distribution-id "${{ env.CLOUDFRONT_DIST_ID }}" --paths '/finanzas/*'
+
+      - name: UI Smoke
+        run: |
+          DOMAIN=$(aws cloudfront get-distribution --id "${{ env.CLOUDFRONT_DIST_ID }}" --query 'Distribution.DomainName' --output text)
+          URL="https://${DOMAIN}/finanzas/"
+          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -L "$URL")
+          echo "## UI" >> $GITHUB_STEP_SUMMARY
+          echo "- URL: $URL" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: $STATUS" >> $GITHUB_STEP_SUMMARY
+
+      - name: Append DEPLOYMENT_SUMMARY.md
+        run: |
+          set -euo pipefail
+          CF_DOMAIN=$(aws cloudfront get-distribution --id "${{ env.CLOUDFRONT_DIST_ID }}" --query 'Distribution.DomainName' --output text)
+          CF_URL="https://${CF_DOMAIN}/finanzas/"
+          API_URL=${{ steps.api.outputs.api_url }}
+          cat > docs/DEPLOYMENT_SUMMARY.md <<EOF
+          # Deployment Summary (dev)
+
+          This document is updated by the deployment workflows to capture evidence for R1.
+
+          ## API
+
+          - ApiId: ${{ steps.api.outputs.api_id }}
+          - Stage: ${{ env.FINZ_API_STAGE }}
+          - URL: ${API_URL}
+          - CORS Allowlist: <https://${CF_DOMAIN}>
+          - Health: Collected in step summary
+          - Rubros: Seeded (counts below)
+          - Catalog response shape: { data: [] }
+
+          ## UI
+
+          - CloudFront URL: <${CF_URL}>
+          - Feature flag VITE_FINZ_ENABLED: expected=${{ env.VITE_FINZ_ENABLED }}
+          - Fetch sample size: see UI smoke/API smokes
+
+          ## Newman
+
+          - Status: (see workflow run)
+          - Failing tests (if any):
+
+          ## DynamoDB Seeders
+
+          - rubros: (see step summary)
+          - taxonomía: (see step summary)
+          - Key pattern: pk/sk (e.g., pk=RUBRO#<id>, sk=DEF; taxonomy pk=LINEA#<linea_codigo>, sk=CATEGORIA#<categoria_codigo>)
+
+          ## Environment Echoes
+
+          - Region: ${{ env.AWS_REGION }}
+          - Stage: ${{ env.FINZ_API_STAGE }}
+          - VITE_API_BASE_URL: ${API_URL}
+          EOF
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add docs/DEPLOYMENT_SUMMARY.md
+          git commit -m "ci: update DEPLOYMENT_SUMMARY.md"
+          git push
+
+      - name: Newman (Postman collection)
+        continue-on-error: true
+        env:
+          DEV_API_URL: ${{ steps.api.outputs.api_url }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+        run: |
+          sudo npm i -g newman
+          newman run postman/Finanzas.postman_collection.json \
+            --env-var baseUrl=${DEV_API_URL} \
+            --reporters cli,junit --reporter-junit-export newman.xml || true
+          PASS=$([ -f newman.xml ] && grep -o 'testsuite tests="[0-9]*" failures="0"' newman.xml >/dev/null && echo OK || echo FAIL)
+          echo "## Newman" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: $PASS" >> $GITHUB_STEP_SUMMARY

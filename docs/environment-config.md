@@ -1,186 +1,92 @@
-# Environment Configuration
+# Environment Configuration (Finanzas Module)
 
-This document describes the required GitHub repository/organization variables and secrets for the Financial Planning UI CI/CD pipeline.
+This document captures the environment variables and deployment pathing required for the Finanzas (budget management) module across local development, CI workflows, and CloudFront/S3 hosting.
 
-## GitHub Variables (Repository or Organization Level)
+## Overview
 
-These variables should be configured in GitHub repository settings under Settings → Secrets and variables → Actions → Variables.
+The Finanzas UI is served from a CloudFront distribution backed by an S3 bucket under the SPA base path `/finanzas/`. The React Router `basename` and Vite `base` must match this path to ensure deep-linking works when users refresh on nested routes (e.g. `/finanzas/catalog/rubros`).
 
-### Required Variables
+## Variables Matrix
 
-| Variable Name | Value | Description |
-|---------------|-------|-------------|
-| `AWS_ACCOUNT_ID` | `703671891952` | AWS account ID for resource ARNs |
-| `AWS_REGION` | `us-east-2` | AWS region for S3, IAM, and SSM resources |
-| `S3_BUCKET_NAME` | `ukusi-ui-finanzas-prod` | S3 bucket name for static assets |
-| `CLOUDFRONT_DIST_ID` | `EPQU7PVDLQXUA` | CloudFront distribution ID |
-| `DISTRIBUTION_DOMAIN_NAME` | `d7t9x3j66yd8k.cloudfront.net` | CloudFront distribution domain name |
+| Variable             | Scope              | Required                  | Description                                                 | Notes                                                      |
+| -------------------- | ------------------ | ------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------- |
+| `VITE_API_BASE_URL`  | Build / Runtime    | Yes                       | Base URL of deployed Finanzas API stage (no trailing slash) | Normalized in deploy workflows to remove trailing slashes. |
+| `VITE_FINZ_ENABLED`  | Build / Runtime    | Recommended               | Feature flag to enable Finanzas routes in the UI            | Set to `true` in dev to expose catalog.                    |
+| `AWS_REGION`         | CI Deploy          | Yes                       | AWS region for SAM/API + S3/CloudFront                      | Defaults to `us-east-2` if not provided.                   |
+| `S3_BUCKET_NAME`     | CI Deploy          | Yes                       | Target bucket for SPA assets                                | Must match Terraform output.                               |
+| `CLOUDFRONT_DIST_ID` | CI Deploy          | Yes                       | Distribution to invalidate after UI deploy                  | SPA path invalidated: `/finanzas/*`.                       |
+| `OIDC_AWS_ROLE_ARN`  | CI Deploy (Secret) | Yes                       | Federated role used by GitHub Actions via OIDC              | Provided as secret in workflow input.                      |
+| `TABLE_RUBROS`       | API Seed Script    | Yes (for seed)            | DynamoDB table name for Rubros definitions                  | Passed to seed script execution context.                   |
+| `COGNITO_JWKS_URL`   | API Contract Tests | Yes (protected endpoints) | JWKS endpoint to validate Cognito JWTs                      | Derived from UserPool; used in tests.                      |
 
-### Application Variables
-
-| Variable Name | Example Value | Description |
-|---------------|---------------|-------------|
-| `VITE_API_BASE_URL` | `https://api.example.com` | Base URL for backend API |
-| `VITE_ACTA_API_ID` | `acta-api-id-here` | ACTA API identifier |
-
-### Optional Cognito Variables
-
-| Variable Name | Example Value | Description |
-|---------------|---------------|-------------|
-| `COGNITO_CLIENT_ID` | `client-id-here` | AWS Cognito User Pool Client ID |
-| `COGNITO_POOL_ID` | `us-east-2_XXXXX` | AWS Cognito User Pool ID |
-| `COGNITO_DOMAIN` | `auth.example.com` | Cognito domain for authentication |
-
-## GitHub Secrets (Repository or Organization Level)
-
-These secrets should be configured in GitHub repository settings under Settings → Secrets and variables → Actions → Secrets.
-
-### Required Secrets
-
-| Secret Name | Description | Format |
-|-------------|-------------|--------|
-| `OIDC_AWS_ROLE_ARN` | IAM role ARN for OIDC authentication | `arn:aws:iam::703671891952:role/github-actions-finanzas-prod` |
-
-### ⚠️ IMPORTANT: Do NOT Use Static AWS Keys
-
-The repository may have the following secrets configured, but they should **NOT** be used:
-- `AWS_ACCESS_KEY_ID` (legacy - do not use)
-- `AWS_SECRET_ACCESS_KEY` (legacy - do not use)
-
-The CI/CD pipeline uses **OIDC (OpenID Connect)** for authentication, which is more secure and does not require long-lived credentials.
-
-## Setting Up Variables and Secrets
-
-### Via GitHub Web UI
-
-1. Go to your repository on GitHub
-2. Click **Settings** → **Secrets and variables** → **Actions**
-3. Click **Variables** tab to add variables
-4. Click **Secrets** tab to add secrets
-5. Use **New repository variable/secret** or **New organization variable/secret**
-
-### Organization-Level Configuration
-
-For centralized management across multiple repositories:
-
-1. Go to your Organization settings
-2. Click **Secrets and variables** → **Actions**
-3. Configure organization-level variables and secrets
-4. Select repository access (e.g., `financial-planning-u` and `acta-ui`)
-
-This ensures consistent naming conventions and prevents drift between related projects.
-
-## Runtime Configuration with AWS SSM Parameter Store
-
-For dynamic configuration that may change without redeployment, you can optionally fetch values from AWS SSM Parameter Store after OIDC authentication.
-
-### SSM Parameter Naming Convention
-
-```
-/ui/shared/*        - Shared across all UI applications
-/ui/finanzas/*      - Specific to Financial Planning UI
-```
-
-### Example SSM Parameters
-
-```
-/ui/shared/cognito_client_id
-/ui/shared/cognito_pool_id
-/ui/shared/cognito_domain
-/ui/finanzas/api_base_url
-/ui/finanzas/acta_api_id
-```
-
-### Fetching from SSM in Workflow
-
-To enable runtime SSM parameter fetching, add this step after OIDC authentication:
-
-```yaml
-- name: Fetch Configuration from SSM
-  run: |
-    export VITE_API_BASE_URL=$(aws ssm get-parameter --name /ui/finanzas/api_base_url --query 'Parameter.Value' --output text)
-    export VITE_ACTA_API_ID=$(aws ssm get-parameter --name /ui/finanzas/acta_api_id --query 'Parameter.Value' --output text)
-    export VITE_COGNITO_CLIENT_ID=$(aws ssm get-parameter --name /ui/shared/cognito_client_id --query 'Parameter.Value' --output text)
-    # Add to GITHUB_ENV for subsequent steps
-    echo "VITE_API_BASE_URL=$VITE_API_BASE_URL" >> $GITHUB_ENV
-    echo "VITE_ACTA_API_ID=$VITE_ACTA_API_ID" >> $GITHUB_ENV
-```
-
-**Note**: This is optional and should be toggled based on your configuration management strategy.
-
-## Verification
-
-### Preflight Checks
-
-The deployment workflow includes automatic verification of required variables:
-
-```yaml
-- name: Verify Required Variables
-  run: |
-    if [ "${{ vars.AWS_REGION }}" != "us-east-2" ]; then
-      echo "❌ ERROR: AWS_REGION must be us-east-2"
-      exit 1
-    fi
-    # ... additional checks
-```
-
-### Testing Locally
-
-You cannot test OIDC authentication locally, but you can verify variable availability:
+## Local Development
 
 ```bash
-# Set environment variables (for local testing only)
-export AWS_REGION=us-east-2
-export S3_BUCKET=ukusi-ui-finanzas-prod
-export DIST_ID=EPQU7PVDLQXUA
-export VITE_API_BASE_URL=https://api.example.com
-export VITE_ACTA_API_ID=acta-api-id
-
-# Build with environment variables
-npm run build
+# .env.local (example)
+VITE_API_BASE_URL=https://abc123.execute-api.us-east-2.amazonaws.com/dev
+VITE_FINZ_ENABLED=true
 ```
 
-## Security Best Practices
+Run local dev server:
 
-1. **Never commit secrets** to the repository
-2. **Use OIDC** instead of static AWS credentials
-3. **Rotate secrets** regularly (if using any)
-4. **Limit variable access** to specific repositories or workflows
-5. **Use organization-level variables** for shared configuration
-6. **Audit access** to secrets regularly
+```bash
+npm run dev
+```
+
+## Build Considerations
+
+1. Trailing Slash Removal: `VITE_API_BASE_URL` is sanitized during CI to avoid `//` in fetch URLs.
+2. SPA Base Path: Ensure `vite.config.ts` has `base: '/finanzas/'`. Router `basename` must match.
+3. Feature Flag: If `VITE_FINZ_ENABLED` is not `true`, Finanzas routes are not registered (safe dark-launch).
+
+## CloudFront / S3 Pathing
+
+- UI assets uploaded to: `s3://<S3_BUCKET_NAME>/finanzas/`.
+- CloudFront must forward `/finanzas/*` to the S3 origin.
+- 403/404 responses should be rewritten to `/finanzas/index.html` for deep links.
+
+## API Integration
+
+The UI client (`finanzasClient.ts`) builds requests as:
+
+```
+{VITE_API_BASE_URL}/catalog/rubros
+```
+
+It strips any trailing slash from `VITE_API_BASE_URL` and adds an `Authorization` header when a token (`finz_jwt`) is present in `localStorage`.
+
+## Seeding Data
+
+The seed script `services/finanzas-api/scripts/seed_rubros.ts` requires:
+
+```bash
+TABLE_RUBROS=<dynamodb-table-name>
+```
+
+Run (example):
+
+```bash
+npm run seed:rubros
+```
+
+(Executed from the `services/finanzas-api/` directory; ensure AWS credentials configured.)
+
+## CI Workflow Alignment
+
+- `deploy-ui.yml` checks required vars (`S3_BUCKET_NAME`, `CLOUDFRONT_DIST_ID`, `VITE_API_BASE_URL`), normalizes API base, builds with feature flags, syncs to S3, then invalidates CloudFront.
+- Future improvement: Add smoke test requesting `/finanzas/catalog/rubros` post-deploy with `curl` and append status to summary.
 
 ## Troubleshooting
 
-### Missing Variable Error
+| Symptom                                         | Likely Cause                          | Fix                                                    |
+| ----------------------------------------------- | ------------------------------------- | ------------------------------------------------------ |
+| 404 on refresh of nested route                  | Missing SPA error rewrite             | Configure CloudFront to serve `index.html` on 403/404. |
+| API calls show double slash (`//catalog`)       | Trailing slash in `VITE_API_BASE_URL` | Normalize or remove trailing slash.                    |
+| Finanzas route missing                          | Feature flag not set                  | Set `VITE_FINZ_ENABLED=true` and rebuild.              |
+| CORS errors from API                            | CloudFront domain not in AllowOrigins | Update SAM template CORS config and redeploy.          |
+| Seed script fails with `TABLE_RUBROS` undefined | Missing env variable                  | Export `TABLE_RUBROS` before running script.           |
 
-```
-Error: Required variable AWS_REGION is not set
-```
+## Next Steps
 
-**Solution**: Add the variable in GitHub repository/organization settings.
-
-### OIDC Authentication Failed
-
-```
-Error: Failed to assume role arn:aws:iam::703671891952:role/...
-```
-
-**Solution**: 
-1. Verify OIDC_AWS_ROLE_ARN secret is set correctly
-2. Check IAM role trust relationship allows GitHub Actions
-3. Ensure IAM role has required permissions
-
-### Build-Time Variable Not Available
-
-```
-Error: VITE_API_BASE_URL is undefined
-```
-
-**Solution**: Vite environment variables must be prefixed with `VITE_` and set before running `npm run build`.
-
-## References
-
-- [GitHub Actions: Using secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets)
-- [GitHub Actions: Using variables](https://docs.github.com/en/actions/learn-github-actions/variables)
-- [Configuring OpenID Connect in AWS](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
-- [AWS SSM Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html)
+- Add post-deploy UI smoke to confirm Rubros table renders.
+- Document protected endpoints and JWT acquisition flow once Cognito setup is finalized.

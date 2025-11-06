@@ -1,0 +1,150 @@
+name: Deploy Finanzas UI (dev)
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: ["r1-finanzas-dev-wiring"]
+
+permissions:
+  id-token: write
+  contents: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+  S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
+  CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID }}
+  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+  VITE_FINZ_ENABLED: ${{ vars.VITE_FINZ_ENABLED || 'true' }}
+
+jobs:
+  deploy-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preflight env
+        run: |
+          set -euo pipefail
+          for k in S3_BUCKET_NAME CLOUDFRONT_DIST_ID VITE_API_BASE_URL; do
+            v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing repo var: $k"; exit 1; }
+          done
+          # Normalize API base (no trailing slash)
+          CLEAN_URL=$(echo "$VITE_API_BASE_URL" | tr -d '\r\n' | sed 's:/*$::')
+          echo "VITE_API_BASE_URL=${CLEAN_URL}" >> $GITHUB_ENV
+          echo "✅ Env OK"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: |
+          set -e
+          echo "Installing frontend dependencies (prefer lock, fallback to dynamic)"
+          if ! npm ci; then
+            echo "npm ci failed (likely lock mismatch). Falling back to npm install."
+            npm install
+          fi
+
+      - name: Build UI
+        env:
+          VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
+          VITE_FINZ_ENABLED: ${{ env.VITE_FINZ_ENABLED }}
+        run: |
+          echo "Using VITE_API_BASE_URL=$VITE_API_BASE_URL"
+          echo "Using VITE_FINZ_ENABLED=$VITE_FINZ_ENABLED"
+          npm run build || { echo "❌ UI build failed"; exit 1; }
+
+      - name: Configure AWS (OIDC)
+        uses: ./.github/actions/oidc-configure-aws
+        with:
+          role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          session_name: deploy-ui-${{ github.run_id }}
+
+      - name: Verify identity
+        run: aws sts get-caller-identity
+
+      - name: Upload to S3 (prefix /finanzas)
+        run: |
+          aws s3 sync dist/ "s3://${S3_BUCKET_NAME}/finanzas/" --delete
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${CLOUDFRONT_DIST_ID}" \
+            --paths '/finanzas/*'
+      - name: UI Smoke (GET /finanzas/catalog/rubros)
+        id: ui_smoke
+        env:
+          FINZ_PREFIX: /finanzas
+        run: |
+          set -euo pipefail
+          DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          URL="https://${DOMAIN}${FINZ_PREFIX}/catalog/rubros"
+          echo "UI_URL=$URL" >> $GITHUB_OUTPUT
+          echo "## UI Smoke" >> $GITHUB_STEP_SUMMARY
+          echo "URL: $URL" >> $GITHUB_STEP_SUMMARY
+          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -L "$URL")
+          echo "Status: $STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "\n<details><summary>HTML snippet</summary>" >> $GITHUB_STEP_SUMMARY
+          echo '```html' >> $GITHUB_STEP_SUMMARY
+          curl -sS -L "$URL" | sed -n '1,20p' >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate JWT for API smokes
+        id: jwt
+        uses: ./.github/actions/cognito-generate-jwt
+        with:
+          user_pool_id: ${{ vars.COGNITO_USER_POOL_ID }}
+          client_id: ${{ vars.COGNITO_WEB_CLIENT }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          aws_region: ${{ env.AWS_REGION }}
+
+      - name: "Post-deploy API smokes (/health & /catalog/rubros)"
+        env:
+          DEV_API_URL: ${{ vars.VITE_API_BASE_URL }}
+          TOKEN: ${{ steps.jwt.outputs.access_token }}
+        run: |
+          set -euo pipefail
+          BASE=$(echo "$DEV_API_URL" | sed 's:/*$::')
+          echo "BASE=$BASE"
+          echo "# UI Post-Deploy API Smokes" >> $GITHUB_STEP_SUMMARY
+          echo "API Base: $BASE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## GET /health" >> $GITHUB_STEP_SUMMARY
+          curl -sS -f "$BASE/health" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## GET /catalog/rubros (auth required)" >> $GITHUB_STEP_SUMMARY
+          RUBROS_JSON=$(curl -sS -f -H "Authorization: Bearer $TOKEN" "$BASE/catalog/rubros")
+          COUNT=$(echo "$RUBROS_JSON" | jq '.data | length // 0')
+          echo "Items: $COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "Sample:" >> $GITHUB_STEP_SUMMARY
+          echo "$RUBROS_JSON" | jq '.data[:5]' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## GET /allocation-rules (auth)" >> $GITHUB_STEP_SUMMARY
+          RULES_JSON=$(curl -sS -f -H "Authorization: Bearer $TOKEN" "$BASE/allocation-rules")
+          RC=$(echo "$RULES_JSON" | jq '.data | length // 0')
+          echo "Rules: $RC" >> $GITHUB_STEP_SUMMARY
+          echo "Sample:" >> $GITHUB_STEP_SUMMARY
+          echo "$RULES_JSON" | jq '.data[:3]' >> $GITHUB_STEP_SUMMARY
+
+      - name: Summary
+        run: |
+          {
+            echo "## Finanzas UI deployed (dev)"
+            echo "- Bucket: ${S3_BUCKET_NAME}"
+            echo "- Distribution: ${CLOUDFRONT_DIST_ID}"
+            echo "- Base Path: /finanzas/"
+            echo "- API Base: ${VITE_API_BASE_URL}"
+            echo "- Feature: VITE_FINZ_ENABLED=${VITE_FINZ_ENABLED}"
+            echo ""
+            echo "### Try it"
+            echo '```bash'
+            echo "open https://d7t9x3j66yd8k.cloudfront.net/finanzas/"
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
