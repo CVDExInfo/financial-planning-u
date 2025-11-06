@@ -26,23 +26,8 @@ import SDMTChanges from '@/features/sdmt/cost/Changes/SDMTChanges';
 import HomePage from '@/features/HomePage';
 import UserProfile from '@/components/UserProfile';
 
-// Hook to determine current module
-function useCurrentModule() {
-  const location = useLocation();
-  const { currentRole } = useAuth();
-  
-  if (location.pathname.startsWith('/pmo/')) {
-    return 'PMO';
-  } else if (location.pathname.startsWith('/sdmt/')) {
-    // PMO users accessing SDMT routes are still working in their PMO capacity
-    return currentRole === 'PMO' ? 'PMO' : 'SDMT';
-  }
-  return undefined;
-}
-
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
-  const currentModule = useCurrentModule();
   const location = useLocation();
   const showProjectContextBar = location.pathname.startsWith('/sdmt/');
 
@@ -65,7 +50,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation currentModule={currentModule} />
+      <Navigation />
       
       <ProjectProvider>
         {showProjectContextBar && <ProjectContextBar />}
