@@ -99,7 +99,7 @@ jobs:
           password: ${{ secrets.PASSWORD }}
           aws_region: ${{ env.AWS_REGION }}
 
-      - name: Post-deploy smokes (API: /health and /catalog/rubros)
+      - name: "Post-deploy API smokes (/health & /catalog/rubros)"
         env:
           DEV_API_URL: ${{ vars.VITE_API_BASE_URL }}
           TOKEN: ${{ steps.jwt.outputs.access_token }}
@@ -107,7 +107,7 @@ jobs:
           set -euo pipefail
           BASE=$(echo "$DEV_API_URL" | sed 's:/*$::')
           echo "BASE=$BASE"
-          echo "# UI Post-Deploy Smokes" >> $GITHUB_STEP_SUMMARY
+          echo "# UI Post-Deploy API Smokes" >> $GITHUB_STEP_SUMMARY
           echo "API Base: $BASE" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## GET /health" >> $GITHUB_STEP_SUMMARY
