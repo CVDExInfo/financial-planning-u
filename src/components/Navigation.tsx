@@ -82,7 +82,7 @@ export function Navigation() {
       return moduleNavItems.PMO;
     } else if (location.pathname.startsWith('/sdmt/') && canAccessRoute(location.pathname)) {
       return moduleNavItems.SDMT;
-    } else if (location.pathname.startsWith('/finanzas/') && import.meta.env.VITE_FINZ_ENABLED === 'true') {
+    } else if (location.pathname.startsWith('/finanzas/') && import.meta.env.VITE_FINZ_ENABLED === 'true' && canAccessRoute(location.pathname)) {
       return moduleNavItems.FINANZAS;
     }
     // If current route is not accessible, show navigation for default module based on role
