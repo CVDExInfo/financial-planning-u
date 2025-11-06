@@ -67,6 +67,15 @@ jobs:
       - name: Build
         working-directory: services/finanzas-api
         run: |
+          set -euo pipefail
+          # Install project dependencies (dev deps include esbuild & ts-node)
+          if ! npm ci; then
+            npm install
+          fi
+          # Ensure esbuild is available on the host PATH for SAM builder
+          npm i -g esbuild || true
+          # Also install into project node_modules as a fallback
+          npm install esbuild --no-save || true
           export PATH="$PWD/node_modules/.bin:$PATH"
           sam build
 
@@ -153,13 +162,13 @@ jobs:
           echo "Tables: RUBROS=$TABLE_RUBROS TAX=$TABLE_RUBROS_TAXONOMIA"
           TAX_C=0
           if [ -n "${TABLE_RUBROS_TAXONOMIA}" ] && aws dynamodb describe-table --table-name "$TABLE_RUBROS_TAXONOMIA" >/dev/null 2>&1; then
-            npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
+            npx ts-node --transpile-only scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
             TAX_C=$(grep -c '^Upserted taxonomía:' seed_tax.log || true)
           else
             echo "Skip taxonomy seed"
           fi
           if aws dynamodb describe-table --table-name "$TABLE_RUBROS" >/dev/null 2>&1; then
-            npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
+            npx ts-node --transpile-only scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
             RUB_C=$(grep -c '^Upserted rubro:' seed_rub.log || true)
           else
             echo "❌ Rubros table not found"; exit 1
