@@ -85,6 +85,7 @@ aws apigatewayv2 get-routes --api-id "$HOST_ID" --query 'Items[].RouteKey' --out
 ### Adding Another Environment
 
 For a new stage (e.g., `qa`):
+
 1. Deploy SAM stack for that stage; capture `FinzApiUrl` output.
 2. Set a branch or workflow variable `FINZ_API_STACK=finanzas-sd-api-qa`.
 3. (Optional) Set `FINZ_EXPECTED_API_ID` for the qa API id.
@@ -93,7 +94,6 @@ For a new stage (e.g., `qa`):
 ### Summary
 
 The CI system now *derives* the API base URL at deploy time, validates it targets the correct gateway, confirms `/health` exists, and only then runs endpoint smokes using a true `Bearer $TOKEN`. This prevents silent drift to an unrelated API and gives early, explicit failure signals.
-
 
 ## Local Development
 
