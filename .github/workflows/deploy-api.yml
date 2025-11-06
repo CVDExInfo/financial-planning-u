@@ -17,6 +17,7 @@ env:
   COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }} # required
   COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }} # required
   COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }} # required
+  EXPECTED_API_ID: ${{ vars.FINZ_EXPECTED_API_ID || 'm3g6am67aj' }}
 
 jobs:
   deploy-api:
@@ -91,6 +92,16 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='FinzApiUrl'].OutputValue" --output text)
           echo "api_id=$API_ID"  >> $GITHUB_OUTPUT
           echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+
+      - name: Guard - canonical API id and /health route present
+        run: |
+          set -euo pipefail
+          HOST_ID=$(echo "${{ steps.out.outputs.api_url }}" | awk -F'[/.]' '{print $3}')
+          if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
+            echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID} from ${{ steps.out.outputs.api_url }}"; exit 1;
+          fi
+          aws apigatewayv2 get-routes --api-id "$HOST_ID" --query 'Items[].RouteKey' --output text | tr '\t' '\n' | grep -q "GET /health" || {
+            echo "❌ Route GET /health not found on API ${HOST_ID}"; exit 1; }
 
       - name: Smoke (health)
         run: curl -sS --fail "${{ steps.out.outputs.api_url }}/health" | jq .

@@ -17,6 +17,7 @@ env:
   DEV_API_URL: ${{ vars.DEV_API_URL || '' }}
   VITE_FINZ_ENABLED: ${{ vars.VITE_FINZ_ENABLED || 'true' }}
   VITE_USE_MOCKS: "false"
+  EXPECTED_API_ID: ${{ vars.FINZ_EXPECTED_API_ID || 'm3g6am67aj' }}
 
 jobs:
   deploy-ui:
@@ -48,6 +49,17 @@ jobs:
             npm install
           fi
 
+      - name: Normalize API base from repo var
+        run: |
+          set -euo pipefail
+          if [ -z "${DEV_API_URL}" ]; then
+            echo "❌ DEV_API_URL repo var is empty. Set it to the Finanzas API stage URL."; exit 1;
+          fi
+          CLEAN_URL="${DEV_API_URL%/}"
+          echo "DEV_API_URL=$CLEAN_URL" >> $GITHUB_ENV
+          echo "VITE_API_BASE_URL=$CLEAN_URL" >> $GITHUB_ENV
+          echo "Using DEV_API_URL=$CLEAN_URL"
+
       - name: Build UI
         env:
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
@@ -69,28 +81,13 @@ jobs:
       - name: Verify identity
         run: aws sts get-caller-identity
 
-      - name: Resolve API URL from CloudFormation
-        run: |
-          set -euo pipefail
-          API_URL=$(aws cloudformation describe-stacks --stack-name "${FINZ_API_STACK}" \
-            --query "Stacks[0].Outputs[?OutputKey=='FinzApiUrl'].OutputValue" --output text)
-          if [ -z "${API_URL}" ] || [ "${API_URL}" = "None" ]; then
-            echo "❌ Could not resolve API URL from stack ${FINZ_API_STACK}"; exit 1;
-          fi
-          CLEAN_URL=$(echo "$API_URL" | sed 's:/*$::')
-          echo "DEV_API_URL=${CLEAN_URL}" >> $GITHUB_ENV
-          echo "VITE_API_BASE_URL=${CLEAN_URL}" >> $GITHUB_ENV
-          echo "Resolved API URL: ${CLEAN_URL}"
-
       - name: Guard - correct API and /health exists
-        env:
-          EXPECTED_API_ID: ${{ vars.FINZ_EXPECTED_API_ID || '' }}
         run: |
           set -euo pipefail
           BASE="$DEV_API_URL"
           HOST_ID=$(echo "$BASE" | awk -F'[/.]' '{print $3}')
-          # If EXPECTED_API_ID provided, enforce it
-          if [ -n "${EXPECTED_API_ID}" ] && [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
+          # Enforce canonical API id
+          if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
             echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID} from ${BASE}"; exit 1;
           fi
           # Verify route exists on the API
@@ -192,7 +189,7 @@ jobs:
             echo "- Bucket: ${S3_BUCKET_NAME}"
             echo "- Distribution: ${CLOUDFRONT_DIST_ID}"
             echo "- Base Path: /finanzas/"
-            echo "- API Base: ${VITE_API_BASE_URL} (derived from DEV_API_URL)"
+            echo "- API Base: ${VITE_API_BASE_URL} (from vars.DEV_API_URL)"
             echo "- Feature: VITE_FINZ_ENABLED=${VITE_FINZ_ENABLED}"
             echo "- Mocks: VITE_USE_MOCKS=${VITE_USE_MOCKS}"
             echo ""

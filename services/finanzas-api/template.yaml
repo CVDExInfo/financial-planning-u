@@ -181,8 +181,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -208,8 +208,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -235,8 +235,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -264,8 +264,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -289,8 +289,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -320,8 +320,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -339,8 +339,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -372,8 +372,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -399,8 +399,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -432,8 +432,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -456,8 +456,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -482,8 +482,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -509,8 +509,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -533,8 +533,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
@@ -560,8 +560,8 @@ Resources:
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: false
-        Target: es2022
+        Minify: true
+        Target: node18
         Sourcemap: true
         ExternalModules:
           - aws-sdk
