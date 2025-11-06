@@ -1,0 +1,144 @@
+name: Finanzas Smokes (no deploy)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+  DEV_API_URL: ${{ vars.DEV_API_URL || '' }}
+  EXPECTED_API_ID: ${{ vars.FINZ_EXPECTED_API_ID || 'm3g6am67aj' }}
+  CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID || '' }}
+  FINZ_API_STACK: ${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Normalize line endings for local actions
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y dos2unix
+          find .github/actions -type f -print0 | xargs -0 dos2unix || true
+
+      - name: Preflight env
+        run: |
+          set -euo pipefail
+          : "${DEV_API_URL:?DEV_API_URL repo var is empty. Set to the Finanzas API stage URL.}"
+          CLEAN_URL="${DEV_API_URL%/}"
+          printf '%s\n' "DEV_API_URL=$CLEAN_URL" >> "$GITHUB_ENV"
+          sed -i 's/\r$//' "$GITHUB_ENV"
+          echo "Using DEV_API_URL=$CLEAN_URL"
+
+      - name: Configure AWS (OIDC)
+        uses: ./.github/actions/oidc-configure-aws
+        with:
+          role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          session_name: smoke-only-${{ github.run_id }}
+
+      - name: Verify identity
+        run: aws sts get-caller-identity
+
+      - name: Guard - correct API and /health exists
+        run: |
+          set -euo pipefail
+          BASE="$DEV_API_URL"
+          HOST_ID=$(echo "$BASE" | awk -F'[/.]' '{print $3}')
+          if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
+            echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID} from ${BASE}"; exit 1;
+          fi
+          aws apigatewayv2 get-routes --api-id "$HOST_ID" --query 'Items[].RouteKey' --output text | tr '\t' '\n' | grep -q "GET /health" || {
+            echo "❌ Route GET /health not found on API ${HOST_ID}"; exit 1; }
+
+      - name: Readiness - wait for /health (max 90s)
+        env:
+          BASE: ${{ env.DEV_API_URL }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 18); do
+            CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || true)
+            if [ "$CODE" = "200" ]; then
+              echo "API ready (health=200)"; break
+            fi
+            echo "Waiting for API to be ready... (try $i, code=$CODE)"; sleep 5
+            if [ "$i" = "18" ]; then echo "❌ API not ready in time"; exit 1; fi
+          done
+
+      - name: Generate JWT for protected smokes
+        id: jwt
+        uses: ./.github/actions/cognito-generate-jwt
+        with:
+          user_pool_id: ${{ vars.COGNITO_USER_POOL_ID }}
+          client_id: ${{ vars.COGNITO_WEB_CLIENT }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          aws_region: ${{ env.AWS_REGION }}
+
+      - name: API Smokes
+        env:
+          BASE: ${{ env.DEV_API_URL }}
+          TOKEN: ${{ steps.jwt.outputs.access_token }}
+        run: |
+          set -euo pipefail
+          echo "# Smoke-only API Checks" >> $GITHUB_STEP_SUMMARY
+          echo "API Base: $BASE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## GET /health" >> $GITHUB_STEP_SUMMARY
+          curl -sS -f "$BASE/health" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## GET /catalog/rubros" >> $GITHUB_STEP_SUMMARY
+          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/catalog/rubros" || true)
+          if [ "$STATUS" != "200" ]; then
+            echo "Unauth status: $STATUS (retrying with Authorization)" >> $GITHUB_STEP_SUMMARY
+            RUBROS_JSON=$(curl -sS -f -H "Authorization: Bearer $TOKEN" "$BASE/catalog/rubros")
+          else
+            RUBROS_JSON=$(curl -sS -f "$BASE/catalog/rubros")
+          fi
+          COUNT=$(echo "$RUBROS_JSON" | jq '.data | length // 0')
+          echo "Items: $COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "Sample:" >> $GITHUB_STEP_SUMMARY
+          echo "$RUBROS_JSON" | jq '.data[:5]' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## GET /allocation-rules (auth)" >> $GITHUB_STEP_SUMMARY
+          AR=$(curl -sS -f -H "Authorization: Bearer $TOKEN" "$BASE/allocation-rules")
+          ARC=$(echo "$AR" | jq '.data | length // 0')
+          echo "Rules: $ARC" >> $GITHUB_STEP_SUMMARY
+          echo "$AR" | jq '.data[:3]' >> $GITHUB_STEP_SUMMARY
+
+      - name: UI Smokes (optional)
+        if: env.CLOUDFRONT_DIST_ID != ''
+        env:
+          FINZ_PREFIX: /finanzas
+        run: |
+          set -euo pipefail
+          DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          ROOT="https://${DOMAIN}${FINZ_PREFIX}/"
+          echo "# Smoke-only UI Checks" >> $GITHUB_STEP_SUMMARY
+          echo "Root: $ROOT" >> $GITHUB_STEP_SUMMARY
+          echo "## HEAD /finanzas/" >> $GITHUB_STEP_SUMMARY
+          curl -sS -I "$ROOT" | head -n 1 | tee -a $GITHUB_STEP_SUMMARY
+          echo "## GET /finanzas/ (snippet)" >> $GITHUB_STEP_SUMMARY
+          curl -sS -L "$ROOT" | sed -n '1,20p' >> $GITHUB_STEP_SUMMARY || true
+
+      - name: Collect CatalogFn logs (last 100 lines)
+        if: failure()
+        env:
+          STACK: ${{ env.FINZ_API_STACK }}
+        run: |
+          set -euo pipefail
+          FN=$(aws cloudformation list-stack-resources --stack-name "$STACK" \
+            --query "StackResourceSummaries[?LogicalResourceId=='CatalogFn'].PhysicalResourceId" --output text)
+          echo "CatalogFn: $FN" | tee -a $GITHUB_STEP_SUMMARY
+          if [ -n "$FN" ]; then
+            LOG="/aws/lambda/$FN"
+            echo "### CloudWatch Logs (CatalogFn)" >> $GITHUB_STEP_SUMMARY
+            aws logs get-log-events --log-group-name "$LOG" --log-stream-name $(aws logs describe-log-streams --log-group-name "$LOG" --order-by LastEventTime --descending --max-items 1 --query 'logStreams[0].logStreamName' --output text) --limit 100 --query 'events[].message' --output text | tail -n 100 | sed 's/^/    /' >> $GITHUB_STEP_SUMMARY || true
+          else
+            echo "Could not resolve CatalogFn physical id" | tee -a $GITHUB_STEP_SUMMARY
+          fi
