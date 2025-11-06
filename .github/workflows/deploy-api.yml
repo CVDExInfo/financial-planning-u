@@ -68,7 +68,6 @@ jobs:
         working-directory: services/finanzas-api
         run: |
           export PATH="$PWD/node_modules/.bin:$PATH"
-          npm i -g esbuild
           sam build
 
       - name: Deploy (dev)
