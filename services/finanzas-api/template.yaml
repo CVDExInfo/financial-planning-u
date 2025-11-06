@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: Finanzas SD API (HTTP API + Cognito JWT + DynamoDB + EventBridge) – dev stage
 
@@ -27,22 +27,23 @@ Globals:
     Environment:
       Variables:
         NODE_OPTIONS: --enable-source-maps
-        TABLE_PROJECTS: !Join ['', [!Ref TablePrefix, 'projects']]
-        TABLE_RUBROS: !Join ['', [!Ref TablePrefix, 'rubros']]
-        TABLE_RUBROS_TAXONOMIA: !Join ['', [!Ref TablePrefix, 'rubros_taxonomia']]
-        TABLE_ALLOC: !Join ['', [!Ref TablePrefix, 'allocations']]
-        TABLE_PAYROLL: !Join ['', [!Ref TablePrefix, 'payroll_actuals']]
-        TABLE_ADJ: !Join ['', [!Ref TablePrefix, 'adjustments']]
-        TABLE_ALERTS: !Join ['', [!Ref TablePrefix, 'alerts']]
-        TABLE_PROVIDERS: !Join ['', [!Ref TablePrefix, 'providers']]
-        TABLE_AUDIT: !Join ['', [!Ref TablePrefix, 'audit_log']]
+        TABLE_PROJECTS: !Join ["", [!Ref TablePrefix, "projects"]]
+        TABLE_RUBROS: !Join ["", [!Ref TablePrefix, "rubros"]]
+        TABLE_RUBROS_TAXONOMIA:
+          !Join ["", [!Ref TablePrefix, "rubros_taxonomia"]]
+        TABLE_ALLOC: !Join ["", [!Ref TablePrefix, "allocations"]]
+        TABLE_PAYROLL: !Join ["", [!Ref TablePrefix, "payroll_actuals"]]
+        TABLE_ADJ: !Join ["", [!Ref TablePrefix, "adjustments"]]
+        TABLE_ALERTS: !Join ["", [!Ref TablePrefix, "alerts"]]
+        TABLE_PROVIDERS: !Join ["", [!Ref TablePrefix, "providers"]]
+        TABLE_AUDIT: !Join ["", [!Ref TablePrefix, "audit_log"]]
 
 Resources:
   # ========== DynamoDB tables ==========
   ProjectsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ['', [!Ref TablePrefix, 'projects']]
+      TableName: !Join ["", [!Ref TablePrefix, "projects"]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -54,7 +55,7 @@ Resources:
   RubrosTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ['', [!Ref TablePrefix, 'rubros']]
+      TableName: !Join ["", [!Ref TablePrefix, "rubros"]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -66,7 +67,7 @@ Resources:
   RubrosTaxonomiaTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ['', [!Ref TablePrefix, 'rubros_taxonomia']]
+      TableName: !Join ["", [!Ref TablePrefix, "rubros_taxonomia"]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -78,7 +79,7 @@ Resources:
   AllocationsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ['', [!Ref TablePrefix, 'allocations']]
+      TableName: !Join ["", [!Ref TablePrefix, "allocations"]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -90,7 +91,7 @@ Resources:
   PayrollTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ['', [!Ref TablePrefix, 'payroll_actuals']]
+      TableName: !Join ["", [!Ref TablePrefix, "payroll_actuals"]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -102,7 +103,7 @@ Resources:
   AdjustmentsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ['', [!Ref TablePrefix, 'adjustments']]
+      TableName: !Join ["", [!Ref TablePrefix, "adjustments"]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -114,7 +115,7 @@ Resources:
   AlertsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ['', [!Ref TablePrefix, 'alerts']]
+      TableName: !Join ["", [!Ref TablePrefix, "alerts"]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -126,7 +127,7 @@ Resources:
   ProvidersTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ['', [!Ref TablePrefix, 'providers']]
+      TableName: !Join ["", [!Ref TablePrefix, "providers"]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -138,7 +139,7 @@ Resources:
   AuditTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ['', [!Ref TablePrefix, 'audit_log']]
+      TableName: !Join ["", [!Ref TablePrefix, "audit_log"]]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -155,8 +156,8 @@ Resources:
       CorsConfiguration:
         AllowOrigins:
           - https://d7t9x3j66yd8k.cloudfront.net
-        AllowMethods: [GET,POST,PUT,OPTIONS]
-        AllowHeaders: ['Authorization','Content-Type']
+        AllowMethods: [GET, POST, PUT, OPTIONS]
+        AllowHeaders: ["Authorization", "Content-Type"]
         MaxAge: 3600
       Auth:
         Authorizers:
@@ -193,7 +194,7 @@ Resources:
       Events:
         Health:
           Type: HttpApi
-          Properties: 
+          Properties:
             Path: /health
             Method: GET
             ApiId: !Ref Api
@@ -250,6 +251,29 @@ Resources:
             Auth:
               Authorizer: NONE
 
+  AllocationRulesGet:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2022
+        Sourcemap: true
+        EntryPoints:
+          - handlers/allocationRules.get.ts
+    Properties:
+      CodeUri: src/
+      Handler: allocationRules.get.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        GetAllocationRules:
+          Type: HttpApi
+          Properties:
+            Path: /allocation-rules
+            Method: GET
+            ApiId: !Ref Api
+
   HandoffFn:
     Type: AWS::Serverless::Function
     Metadata:
@@ -272,7 +296,7 @@ Resources:
       Events:
         Handoff:
           Type: HttpApi
-          Properties: 
+          Properties:
             Path: "/projects/{id}/handoff"
             Method: POST
             ApiId: !Ref Api
@@ -316,13 +340,13 @@ Resources:
       Events:
         CreateRubro:
           Type: HttpApi
-          Properties: 
+          Properties:
             Path: "/projects/{id}/rubros"
             Method: POST
             ApiId: !Ref Api
         ListRubros:
           Type: HttpApi
-          Properties: 
+          Properties:
             Path: "/projects/{id}/rubros"
             Method: GET
             ApiId: !Ref Api
@@ -347,7 +371,7 @@ Resources:
       Events:
         BulkAllocations:
           Type: HttpApi
-          Properties: 
+          Properties:
             Path: "/projects/{id}/allocations:bulk"
             Method: PUT
             ApiId: !Ref Api
@@ -378,7 +402,7 @@ Resources:
       Events:
         GetPlan:
           Type: HttpApi
-          Properties: 
+          Properties:
             Path: "/projects/{id}/plan"
             Method: GET
             ApiId: !Ref Api
@@ -521,15 +545,17 @@ Resources:
       Events:
         WebhookPost:
           Type: HttpApi
-          Properties: { Path: /prefacturas/webhook, Method: POST, ApiId: !Ref Api }
+          Properties:
+            { Path: /prefacturas/webhook, Method: POST, ApiId: !Ref Api }
         WebhookGet:
           Type: HttpApi
-          Properties: { Path: /prefacturas/webhook, Method: GET, ApiId: !Ref Api }
+          Properties:
+            { Path: /prefacturas/webhook, Method: GET, ApiId: !Ref Api }
 
   Pep3Rule:
     Type: AWS::Events::Rule
     Properties:
-      ScheduleExpression: cron(0 8 1 * ? *)  # monthly, 8am UTC 1st
+      ScheduleExpression: cron(0 8 1 * ? *) # monthly, 8am UTC 1st
       State: ENABLED
       Targets:
         - Arn: !GetAtt AlertsPep3Fn.Arn

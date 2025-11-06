@@ -1,1195 +1,1230 @@
 {
-	"info": {
-		"_postman_id": "finanzas-api-collection",
-		"name": "Finanzas API - Financial Planning & Service Delivery",
-		"description": "Complete API collection for financial planning, project tracking, payroll integration, and service delivery control.\n\n**Region**: us-east-2  \n**Base Path**: /finanzas/  \n**Authentication**: OIDC via AWS Cognito JWT  \n**RBAC**: JWT groups include `SDT` for Service Delivery Team access",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "finanzas-api"
-	},
-	"auth": {
-		"type": "bearer",
-		"bearer": [
-			{
-				"key": "token",
-				"value": "{{jwt_token}}",
-				"type": "string"
-			}
-		]
-	},
-	"item": [
-		{
-			"name": "Projects",
-			"item": [
-				{
-					"name": "Create Project",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"Mobile Banking App MVP\",\n  \"code\": \"PROJ-2025-001\",\n  \"client\": \"Global Bank Corp\",\n  \"start_date\": \"2025-01-15\",\n  \"end_date\": \"2025-12-31\",\n  \"currency\": \"USD\",\n  \"mod_total\": 1500000,\n  \"description\": \"MVP for mobile banking application with core features\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/projects",
-							"host": ["{{base_url}}"],
-							"path": ["projects"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Project Created",
-							"originalRequest": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"name\": \"Mobile Banking App MVP\",\n  \"code\": \"PROJ-2025-001\",\n  \"client\": \"Global Bank Corp\",\n  \"start_date\": \"2025-01-15\",\n  \"end_date\": \"2025-12-31\",\n  \"currency\": \"USD\",\n  \"mod_total\": 1500000,\n  \"description\": \"MVP for mobile banking application with core features\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{base_url}}/projects",
-									"host": ["{{base_url}}"],
-									"path": ["projects"]
-								}
-							},
-							"status": "Created",
-							"code": 201,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"id\": \"proj_7x9k2m4n8p\",\n  \"name\": \"Mobile Banking App MVP\",\n  \"code\": \"PROJ-2025-001\",\n  \"client\": \"Global Bank Corp\",\n  \"start_date\": \"2025-01-15\",\n  \"end_date\": \"2025-12-31\",\n  \"currency\": \"USD\",\n  \"mod_total\": 1500000,\n  \"status\": \"active\",\n  \"description\": \"MVP for mobile banking application with core features\",\n  \"created_at\": \"2025-10-31T03:12:00Z\",\n  \"updated_at\": \"2025-10-31T03:12:00Z\"\n}"
-						}
-					]
-				},
-				{
-					"name": "List Projects",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/projects?status=active&limit=20",
-							"host": ["{{base_url}}"],
-							"path": ["projects"],
-							"query": [
-								{
-									"key": "status",
-									"value": "active"
-								},
-								{
-									"key": "limit",
-									"value": "20"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Projects List",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/projects?status=active&limit=20",
-									"host": ["{{base_url}}"],
-									"path": ["projects"],
-									"query": [
-										{
-											"key": "status",
-											"value": "active"
-										},
-										{
-											"key": "limit",
-											"value": "20"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"data\": [\n    {\n      \"id\": \"proj_7x9k2m4n8p\",\n      \"name\": \"Mobile Banking App MVP\",\n      \"code\": \"PROJ-2025-001\",\n      \"client\": \"Global Bank Corp\",\n      \"status\": \"active\",\n      \"mod_total\": 1500000,\n      \"currency\": \"USD\"\n    },\n    {\n      \"id\": \"proj_3a5b7c9d1e\",\n      \"name\": \"ERP System Upgrade\",\n      \"code\": \"PROJ-2025-002\",\n      \"client\": \"Manufacturing Inc\",\n      \"status\": \"active\",\n      \"mod_total\": 2800000,\n      \"currency\": \"USD\"\n    }\n  ],\n  \"total\": 2,\n  \"limit\": 20,\n  \"offset\": 0\n}"
-						}
-					]
-				},
-				{
-					"name": "Create Project Handoff",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"mod_total\": 1500000,\n  \"pct_ingenieros\": 65,\n  \"pct_sdm\": 35,\n  \"aceptado_por\": \"juan.perez@company.com\",\n  \"fecha_handoff\": \"2025-11-01\",\n  \"notas\": \"Budget approved by PMO, team allocation confirmed\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/projects/proj_7x9k2m4n8p/handoff",
-							"host": ["{{base_url}}"],
-							"path": ["projects", "proj_7x9k2m4n8p", "handoff"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Handoff Created",
-							"originalRequest": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"mod_total\": 1500000,\n  \"pct_ingenieros\": 65,\n  \"pct_sdm\": 35,\n  \"aceptado_por\": \"juan.perez@company.com\",\n  \"fecha_handoff\": \"2025-11-01\",\n  \"notas\": \"Budget approved by PMO, team allocation confirmed\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{base_url}}/projects/proj_7x9k2m4n8p/handoff",
-									"host": ["{{base_url}}"],
-									"path": ["projects", "proj_7x9k2m4n8p", "handoff"]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"id\": \"handoff_2k4m6n8p0r\",\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"status\": \"accepted\",\n  \"budget_ingenieros\": 975000,\n  \"budget_sdm\": 525000,\n  \"aceptado_por\": \"juan.perez@company.com\",\n  \"fecha_handoff\": \"2025-11-01\",\n  \"created_at\": \"2025-10-31T03:15:00Z\"\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Catalog",
-			"item": [
-				{
-					"name": "List Rubros Catalog",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/catalog/rubros",
-							"host": ["{{base_url}}"],
-							"path": ["catalog", "rubros"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Rubros List",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/catalog/rubros",
-									"host": ["{{base_url}}"],
-									"path": ["catalog", "rubros"]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"data\": [\n    {\n      \"id\": \"rubro_1a2b3c4d5e\",\n      \"code\": \"RUBRO-001\",\n      \"nombre\": \"Desarrollo Backend\",\n      \"categoria\": \"Ingeniería\",\n      \"tipo_ejecucion\": \"mensual\",\n      \"descripcion\": \"Desarrollo y mantenimiento backend\"\n    },\n    {\n      \"id\": \"rubro_6f7g8h9i0j\",\n      \"code\": \"RUBRO-002\",\n      \"nombre\": \"Infraestructura Cloud\",\n      \"categoria\": \"Infraestructura\",\n      \"tipo_ejecucion\": \"mensual\",\n      \"descripcion\": \"Costos de infraestructura AWS/Azure\"\n    },\n    {\n      \"id\": \"rubro_k1l2m3n4o5\",\n      \"code\": \"RUBRO-003\",\n      \"nombre\": \"Capacitación Equipo\",\n      \"categoria\": \"Capacitación\",\n      \"tipo_ejecucion\": \"puntual\",\n      \"descripcion\": \"Cursos y certificaciones\"\n    }\n  ],\n  \"total\": 3\n}"
-						}
-					]
-				},
-				{
-					"name": "Add Rubro to Project",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"monto_total\": 120000,\n  \"tipo_ejecucion\": \"mensual\",\n  \"meses_programados\": [\"2025-11\", \"2025-12\", \"2026-01\", \"2026-02\"],\n  \"notas\": \"Equipo de 2 desarrolladores backend senior\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/projects/proj_7x9k2m4n8p/rubros",
-							"host": ["{{base_url}}"],
-							"path": ["projects", "proj_7x9k2m4n8p", "rubros"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Rubro Added",
-							"originalRequest": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"monto_total\": 120000,\n  \"tipo_ejecucion\": \"mensual\",\n  \"meses_programados\": [\"2025-11\", \"2025-12\", \"2026-01\", \"2026-02\"],\n  \"notas\": \"Equipo de 2 desarrolladores backend senior\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{base_url}}/projects/proj_7x9k2m4n8p/rubros",
-									"host": ["{{base_url}}"],
-									"path": ["projects", "proj_7x9k2m4n8p", "rubros"]
-								}
-							},
-							"status": "Created",
-							"code": 201,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"id\": \"proj_rubro_7m8n9p0q1r\",\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"code\": \"RUBRO-001\",\n  \"nombre\": \"Desarrollo Backend\",\n  \"monto_total\": 120000,\n  \"tipo_ejecucion\": \"mensual\",\n  \"meses_programados\": [\"2025-11\", \"2025-12\", \"2026-01\", \"2026-02\"],\n  \"monto_mensual\": 30000,\n  \"created_at\": \"2025-10-31T03:20:00Z\"\n}"
-						}
-					]
-				},
-				{
-					"name": "List Project Rubros",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/projects/proj_7x9k2m4n8p/rubros",
-							"host": ["{{base_url}}"],
-							"path": ["projects", "proj_7x9k2m4n8p", "rubros"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Project Rubros",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/projects/proj_7x9k2m4n8p/rubros",
-									"host": ["{{base_url}}"],
-									"path": ["projects", "proj_7x9k2m4n8p", "rubros"]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"data\": [\n    {\n      \"id\": \"proj_rubro_7m8n9p0q1r\",\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"code\": \"RUBRO-001\",\n      \"nombre\": \"Desarrollo Backend\",\n      \"monto_total\": 120000,\n      \"tipo_ejecucion\": \"mensual\",\n      \"meses_programados\": [\"2025-11\", \"2025-12\"]\n    }\n  ],\n  \"total\": 1\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Allocations",
-			"item": [
-				{
-					"name": "Bulk Update Allocations",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"allocations\": [\n    {\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"mes\": \"2025-11\",\n      \"monto_planeado\": 30000\n    },\n    {\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"mes\": \"2025-12\",\n      \"monto_planeado\": 32000\n    },\n    {\n      \"rubro_id\": \"rubro_6f7g8h9i0j\",\n      \"mes\": \"2025-11\",\n      \"monto_planeado\": 15000\n    }\n  ]\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/projects/proj_7x9k2m4n8p/allocations:bulk",
-							"host": ["{{base_url}}"],
-							"path": ["projects", "proj_7x9k2m4n8p", "allocations:bulk"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Allocations Updated",
-							"originalRequest": {
-								"method": "PUT",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"allocations\": [\n    {\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"mes\": \"2025-11\",\n      \"monto_planeado\": 30000\n    },\n    {\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"mes\": \"2025-12\",\n      \"monto_planeado\": 32000\n    },\n    {\n      \"rubro_id\": \"rubro_6f7g8h9i0j\",\n      \"mes\": \"2025-11\",\n      \"monto_planeado\": 15000\n    }\n  ]\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{base_url}}/projects/proj_7x9k2m4n8p/allocations:bulk",
-									"host": ["{{base_url}}"],
-									"path": ["projects", "proj_7x9k2m4n8p", "allocations:bulk"]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"updated_count\": 3,\n  \"allocations\": [\n    {\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"mes\": \"2025-11\",\n      \"monto_planeado\": 30000,\n      \"status\": \"updated\"\n    },\n    {\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"mes\": \"2025-12\",\n      \"monto_planeado\": 32000,\n      \"status\": \"updated\"\n    },\n    {\n      \"rubro_id\": \"rubro_6f7g8h9i0j\",\n      \"mes\": \"2025-11\",\n      \"monto_planeado\": 15000,\n      \"status\": \"updated\"\n    }\n  ]\n}"
-						}
-					]
-				},
-				{
-					"name": "Get Project Plan",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/projects/proj_7x9k2m4n8p/plan?mes=2025-10",
-							"host": ["{{base_url}}"],
-							"path": ["projects", "proj_7x9k2m4n8p", "plan"],
-							"query": [
-								{
-									"key": "mes",
-									"value": "2025-10"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Project Plan",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/projects/proj_7x9k2m4n8p/plan?mes=2025-10",
-									"host": ["{{base_url}}"],
-									"path": ["projects", "proj_7x9k2m4n8p", "plan"],
-									"query": [
-										{
-											"key": "mes",
-											"value": "2025-10"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"mes\": \"2025-10\",\n  \"plan_ing\": 65000,\n  \"plan_sdm\": 35000,\n  \"non_recurrentes\": [\n    {\n      \"rubro_id\": \"rubro_k1l2m3n4o5\",\n      \"nombre\": \"Capacitación Equipo\",\n      \"monto\": 8000\n    },\n    {\n      \"rubro_id\": \"rubro_p6q7r8s9t0\",\n      \"nombre\": \"Licencias Software\",\n      \"monto\": 5000\n    }\n  ],\n  \"total_mes\": 113000,\n  \"currency\": \"USD\"\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Payroll",
-			"item": [
-				{
-					"name": "Ingest Payroll Data",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"mes\": \"2025-10\",\n  \"nomina_total\": 98500,\n  \"desglose\": {\n    \"ingenieros\": 64000,\n    \"sdm\": 34500\n  },\n  \"source\": \"SAP_HR\",\n  \"uploaded_by\": \"hr.admin@company.com\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/payroll/ingest",
-							"host": ["{{base_url}}"],
-							"path": ["payroll", "ingest"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Payroll Accepted",
-							"originalRequest": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"mes\": \"2025-10\",\n  \"nomina_total\": 98500,\n  \"desglose\": {\n    \"ingenieros\": 64000,\n    \"sdm\": 34500\n  },\n  \"source\": \"SAP_HR\",\n  \"uploaded_by\": \"hr.admin@company.com\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{base_url}}/payroll/ingest",
-									"host": ["{{base_url}}"],
-									"path": ["payroll", "ingest"]
-								}
-							},
-							"status": "Accepted",
-							"code": 202,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"id\": \"payroll_3x5y7z9a1b\",\n  \"mes\": \"2025-10\",\n  \"status\": \"processing\",\n  \"nomina_total\": 98500,\n  \"created_at\": \"2025-10-31T03:25:00Z\"\n}"
-						}
-					]
-				},
-				{
-					"name": "Close Month",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/close-month?mes=2025-10",
-							"host": ["{{base_url}}"],
-							"path": ["close-month"],
-							"query": [
-								{
-									"key": "mes",
-									"value": "2025-10"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Month Closed",
-							"originalRequest": {
-								"method": "POST",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/close-month?mes=2025-10",
-									"host": ["{{base_url}}"],
-									"path": ["close-month"],
-									"query": [
-										{
-											"key": "mes",
-											"value": "2025-10"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"mes\": \"2025-10\",\n  \"cobertura\": 114.72,\n  \"nomina\": 98500,\n  \"ingresos_facturados\": 113000,\n  \"gap\": 15500,\n  \"alertas\": [\n    {\n      \"type\": \"coverage_above_target\",\n      \"severity\": \"warning\",\n      \"message\": \"Coverage exceeded 110% target\"\n    },\n    {\n      \"type\": \"positive_gap\",\n      \"severity\": \"info\",\n      \"message\": \"Positive gap of $15,500\"\n    }\n  ],\n  \"closed_at\": \"2025-10-31T23:59:59Z\",\n  \"closed_by\": \"finance.manager@company.com\"\n}"
-						}
-					]
-				},
-				{
-					"name": "Get Coverage Report",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/report/cobertura?start_date=2025-01&end_date=2025-10",
-							"host": ["{{base_url}}"],
-							"path": ["report", "cobertura"],
-							"query": [
-								{
-									"key": "start_date",
-									"value": "2025-01"
-								},
-								{
-									"key": "end_date",
-									"value": "2025-10"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Coverage Report",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/report/cobertura?start_date=2025-01&end_date=2025-10",
-									"host": ["{{base_url}}"],
-									"path": ["report", "cobertura"],
-									"query": [
-										{
-											"key": "start_date",
-											"value": "2025-01"
-										},
-										{
-											"key": "end_date",
-											"value": "2025-10"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"period\": {\n    \"start\": \"2025-01\",\n    \"end\": \"2025-10\"\n  },\n  \"summary\": {\n    \"avg_cobertura\": 108.5,\n    \"total_nomina\": 985000,\n    \"total_ingresos\": 1068725\n  },\n  \"monthly_data\": [\n    {\n      \"mes\": \"2025-10\",\n      \"cobertura\": 114.72,\n      \"nomina\": 98500,\n      \"ingresos_facturados\": 113000,\n      \"gap\": 15500\n    }\n  ]\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Adjustments",
-			"item": [
-				{
-					"name": "Create Adjustment",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"tipo\": \"exceso\",\n  \"monto\": 1000000,\n  \"origen_rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"fecha_inicio\": \"2025-11\",\n  \"metodo_distribucion\": \"pro_rata_forward\",\n  \"justificacion\": \"Ampliación de alcance aprobada por cliente\",\n  \"solicitado_por\": \"pm.leader@company.com\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/adjustments",
-							"host": ["{{base_url}}"],
-							"path": ["adjustments"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Adjustment Created",
-							"originalRequest": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"tipo\": \"exceso\",\n  \"monto\": 1000000,\n  \"origen_rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"fecha_inicio\": \"2025-11\",\n  \"metodo_distribucion\": \"pro_rata_forward\",\n  \"justificacion\": \"Ampliación de alcance aprobada por cliente\",\n  \"solicitado_por\": \"pm.leader@company.com\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{base_url}}/adjustments",
-									"host": ["{{base_url}}"],
-									"path": ["adjustments"]
-								}
-							},
-							"status": "Created",
-							"code": 201,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"id\": \"adj_9c1d3e5f7g\",\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"tipo\": \"exceso\",\n  \"monto\": 1000000,\n  \"estado\": \"pending_approval\",\n  \"origen_rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"fecha_inicio\": \"2025-11\",\n  \"metodo_distribucion\": \"pro_rata_forward\",\n  \"meses_impactados\": [\"2025-11\", \"2025-12\", \"2026-01\"],\n  \"distribucion\": [\n    {\n      \"mes\": \"2025-11\",\n      \"monto\": 333333.33\n    },\n    {\n      \"mes\": \"2025-12\",\n      \"monto\": 333333.33\n    },\n    {\n      \"mes\": \"2026-01\",\n      \"monto\": 333333.34\n    }\n  ],\n  \"created_at\": \"2025-10-31T03:30:00Z\"\n}"
-						}
-					]
-				},
-				{
-					"name": "List Adjustments",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/adjustments?project_id=proj_7x9k2m4n8p",
-							"host": ["{{base_url}}"],
-							"path": ["adjustments"],
-							"query": [
-								{
-									"key": "project_id",
-									"value": "proj_7x9k2m4n8p"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Adjustments List",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/adjustments?project_id=proj_7x9k2m4n8p",
-									"host": ["{{base_url}}"],
-									"path": ["adjustments"],
-									"query": [
-										{
-											"key": "project_id",
-											"value": "proj_7x9k2m4n8p"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"data\": [\n    {\n      \"id\": \"adj_9c1d3e5f7g\",\n      \"project_id\": \"proj_7x9k2m4n8p\",\n      \"tipo\": \"exceso\",\n      \"monto\": 1000000,\n      \"estado\": \"approved\",\n      \"created_at\": \"2025-10-31T03:30:00Z\"\n    }\n  ],\n  \"total\": 1,\n  \"limit\": 20,\n  \"offset\": 0\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Movements",
-			"item": [
-				{
-					"name": "Create Movement",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"tipo\": \"gasto\",\n  \"monto\": 25000,\n  \"fecha\": \"2025-10-28\",\n  \"descripcion\": \"Pago consultoría especializada Q4\",\n  \"proveedor_id\": \"prov_8h9i0j1k2l\",\n  \"evidencia_url\": \"https://storage.example.com/invoices/INV-2025-1028.pdf\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/movements",
-							"host": ["{{base_url}}"],
-							"path": ["movements"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Movement Created",
-							"originalRequest": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"tipo\": \"gasto\",\n  \"monto\": 25000,\n  \"fecha\": \"2025-10-28\",\n  \"descripcion\": \"Pago consultoría especializada Q4\",\n  \"proveedor_id\": \"prov_8h9i0j1k2l\",\n  \"evidencia_url\": \"https://storage.example.com/invoices/INV-2025-1028.pdf\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{base_url}}/movements",
-									"host": ["{{base_url}}"],
-									"path": ["movements"]
-								}
-							},
-							"status": "Created",
-							"code": 201,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"id\": \"mov_4n5o6p7q8r\",\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"tipo\": \"gasto\",\n  \"monto\": 25000,\n  \"fecha\": \"2025-10-28\",\n  \"estado\": \"pending\",\n  \"descripcion\": \"Pago consultoría especializada Q4\",\n  \"proveedor_id\": \"prov_8h9i0j1k2l\",\n  \"created_at\": \"2025-10-31T03:35:00Z\"\n}"
-						}
-					]
-				},
-				{
-					"name": "List Movements",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/movements?project_id=proj_7x9k2m4n8p&estado=pending",
-							"host": ["{{base_url}}"],
-							"path": ["movements"],
-							"query": [
-								{
-									"key": "project_id",
-									"value": "proj_7x9k2m4n8p"
-								},
-								{
-									"key": "estado",
-									"value": "pending"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Movements List",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/movements?project_id=proj_7x9k2m4n8p&estado=pending",
-									"host": ["{{base_url}}"],
-									"path": ["movements"],
-									"query": [
-										{
-											"key": "project_id",
-											"value": "proj_7x9k2m4n8p"
-										},
-										{
-											"key": "estado",
-											"value": "pending"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"data\": [\n    {\n      \"id\": \"mov_4n5o6p7q8r\",\n      \"project_id\": \"proj_7x9k2m4n8p\",\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"tipo\": \"gasto\",\n      \"monto\": 25000,\n      \"estado\": \"pending\",\n      \"fecha\": \"2025-10-28\"\n    }\n  ],\n  \"total\": 1,\n  \"limit\": 50,\n  \"offset\": 0\n}"
-						}
-					]
-				},
-				{
-					"name": "Approve Movement",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"aprobado_por\": \"finance.manager@company.com\",\n  \"comentarios\": \"Aprobado - documentación correcta\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/movements/mov_4n5o6p7q8r/approve",
-							"host": ["{{base_url}}"],
-							"path": ["movements", "mov_4n5o6p7q8r", "approve"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Movement Approved",
-							"originalRequest": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"aprobado_por\": \"finance.manager@company.com\",\n  \"comentarios\": \"Aprobado - documentación correcta\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{base_url}}/movements/mov_4n5o6p7q8r/approve",
-									"host": ["{{base_url}}"],
-									"path": ["movements", "mov_4n5o6p7q8r", "approve"]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"id\": \"mov_4n5o6p7q8r\",\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"tipo\": \"gasto\",\n  \"monto\": 25000,\n  \"estado\": \"approved\",\n  \"aprobado_por\": \"finance.manager@company.com\",\n  \"aprobado_en\": \"2025-10-31T03:40:00Z\",\n  \"comentarios\": \"Aprobado - documentación correcta\"\n}"
-						}
-					]
-				},
-				{
-					"name": "Reject Movement",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"rechazado_por\": \"finance.manager@company.com\",\n  \"motivo\": \"Documentación incompleta - falta factura original\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/movements/mov_4n5o6p7q8r/reject",
-							"host": ["{{base_url}}"],
-							"path": ["movements", "mov_4n5o6p7q8r", "reject"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Movement Rejected",
-							"originalRequest": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"rechazado_por\": \"finance.manager@company.com\",\n  \"motivo\": \"Documentación incompleta - falta factura original\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{base_url}}/movements/mov_4n5o6p7q8r/reject",
-									"host": ["{{base_url}}"],
-									"path": ["movements", "mov_4n5o6p7q8r", "reject"]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"id\": \"mov_4n5o6p7q8r\",\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"tipo\": \"gasto\",\n  \"monto\": 25000,\n  \"estado\": \"rejected\",\n  \"rechazado_por\": \"finance.manager@company.com\",\n  \"rechazado_en\": \"2025-10-31T03:40:00Z\",\n  \"motivo\": \"Documentación incompleta - falta factura original\"\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Alerts",
-			"item": [
-				{
-					"name": "Get Financial Alerts",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/alerts?severity=warning",
-							"host": ["{{base_url}}"],
-							"path": ["alerts"],
-							"query": [
-								{
-									"key": "severity",
-									"value": "warning"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Alerts List",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/alerts?severity=warning",
-									"host": ["{{base_url}}"],
-									"path": ["alerts"],
-									"query": [
-										{
-											"key": "severity",
-											"value": "warning"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"data\": [\n    {\n      \"id\": \"alert_7s8t9u0v1w\",\n      \"project_id\": \"proj_7x9k2m4n8p\",\n      \"type\": \"budget_overrun\",\n      \"severity\": \"warning\",\n      \"message\": \"Rubro 'Desarrollo Backend' at 85% of budget\",\n      \"details\": {\n        \"rubro_id\": \"rubro_1a2b3c4d5e\",\n        \"budget\": 120000,\n        \"spent\": 102000,\n        \"percentage\": 85\n      },\n      \"created_at\": \"2025-10-30T10:00:00Z\"\n    },\n    {\n      \"id\": \"alert_2x3y4z5a6b\",\n      \"project_id\": \"proj_3a5b7c9d1e\",\n      \"type\": \"coverage_low\",\n      \"severity\": \"critical\",\n      \"message\": \"Coverage below 100% for October\",\n      \"details\": {\n        \"mes\": \"2025-10\",\n        \"cobertura\": 92.3,\n        \"target\": 105\n      },\n      \"created_at\": \"2025-10-31T01:00:00Z\"\n    }\n  ],\n  \"total\": 2\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Providers",
-			"item": [
-				{
-					"name": "Create Provider",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"TechConsulting Solutions LLC\",\n  \"tax_id\": \"RFC-987654321\",\n  \"tipo\": \"servicios\",\n  \"contacto_nombre\": \"María García\",\n  \"contacto_email\": \"maria.garcia@techconsulting.com\",\n  \"contacto_telefono\": \"+1-555-0123\",\n  \"pais\": \"USA\",\n  \"notas\": \"Proveedor preferente para consultoría especializada\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/providers",
-							"host": ["{{base_url}}"],
-							"path": ["providers"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Provider Created",
-							"originalRequest": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"nombre\": \"TechConsulting Solutions LLC\",\n  \"tax_id\": \"RFC-987654321\",\n  \"tipo\": \"servicios\",\n  \"contacto_nombre\": \"María García\",\n  \"contacto_email\": \"maria.garcia@techconsulting.com\",\n  \"contacto_telefono\": \"+1-555-0123\",\n  \"pais\": \"USA\",\n  \"notas\": \"Proveedor preferente para consultoría especializada\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{base_url}}/providers",
-									"host": ["{{base_url}}"],
-									"path": ["providers"]
-								}
-							},
-							"status": "Created",
-							"code": 201,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"id\": \"prov_8h9i0j1k2l\",\n  \"nombre\": \"TechConsulting Solutions LLC\",\n  \"tax_id\": \"RFC-987654321\",\n  \"tipo\": \"servicios\",\n  \"contacto_nombre\": \"María García\",\n  \"contacto_email\": \"maria.garcia@techconsulting.com\",\n  \"contacto_telefono\": \"+1-555-0123\",\n  \"pais\": \"USA\",\n  \"estado\": \"active\",\n  \"created_at\": \"2025-10-31T03:45:00Z\"\n}"
-						}
-					]
-				},
-				{
-					"name": "List Providers",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/providers?tipo=servicios",
-							"host": ["{{base_url}}"],
-							"path": ["providers"],
-							"query": [
-								{
-									"key": "tipo",
-									"value": "servicios"
-								}
-							]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Providers List",
-							"originalRequest": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{base_url}}/providers?tipo=servicios",
-									"host": ["{{base_url}}"],
-									"path": ["providers"],
-									"query": [
-										{
-											"key": "tipo",
-											"value": "servicios"
-										}
-									]
-								}
-							},
-							"status": "OK",
-							"code": 200,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"data\": [\n    {\n      \"id\": \"prov_8h9i0j1k2l\",\n      \"nombre\": \"TechConsulting Solutions LLC\",\n      \"tax_id\": \"RFC-987654321\",\n      \"tipo\": \"servicios\",\n      \"estado\": \"active\"\n    },\n    {\n      \"id\": \"prov_3m4n5o6p7q\",\n      \"nombre\": \"Cloud Infrastructure Corp\",\n      \"tax_id\": \"RFC-123456789\",\n      \"tipo\": \"infraestructura\",\n      \"estado\": \"active\"\n    }\n  ],\n  \"total\": 2,\n  \"limit\": 20,\n  \"offset\": 0\n}"
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Webhooks",
-			"item": [
-				{
-					"name": "Prefactura Webhook",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"event_type\": \"prefactura.created\",\n  \"event_id\": \"evt_9r8s7t6u5v\",\n  \"timestamp\": \"2025-10-31T03:50:00Z\",\n  \"data\": {\n    \"project_id\": \"proj_7x9k2m4n8p\",\n    \"rubro_id\": \"rubro_1a2b3c4d5e\",\n    \"monto\": 30000,\n    \"mes\": \"2025-11\",\n    \"folio\": \"PREFACT-2025-110001\",\n    \"descripcion\": \"Desarrollo backend - Noviembre 2025\"\n  }\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/prefacturas/webhook",
-							"host": ["{{base_url}}"],
-							"path": ["prefacturas", "webhook"]
-						}
-					},
-					"response": [
-						{
-							"name": "Success - Webhook Accepted",
-							"originalRequest": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"event_type\": \"prefactura.created\",\n  \"event_id\": \"evt_9r8s7t6u5v\",\n  \"timestamp\": \"2025-10-31T03:50:00Z\",\n  \"data\": {\n    \"project_id\": \"proj_7x9k2m4n8p\",\n    \"rubro_id\": \"rubro_1a2b3c4d5e\",\n    \"monto\": 30000,\n    \"mes\": \"2025-11\",\n    \"folio\": \"PREFACT-2025-110001\",\n    \"descripcion\": \"Desarrollo backend - Noviembre 2025\"\n  }\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{base_url}}/prefacturas/webhook",
-									"host": ["{{base_url}}"],
-									"path": ["prefacturas", "webhook"]
-								}
-							},
-							"status": "Accepted",
-							"code": 202,
-							"_postman_previewlanguage": "json",
-							"header": [
-								{
-									"key": "Content-Type",
-									"value": "application/json"
-								}
-							],
-							"cookie": [],
-							"body": "{\n  \"status\": \"accepted\",\n  \"event_id\": \"evt_9r8s7t6u5v\",\n  \"message\": \"Prefactura event queued for processing\"\n}"
-						}
-					]
-				}
-			]
-		}
-	],
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		},
-		{
-			"listen": "test",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		}
-	],
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "https://your-api-id.execute-api.us-east-2.amazonaws.com/dev/finanzas",
-			"type": "string",
-			"description": "API Gateway endpoint. Replace 'your-api-id' with actual API Gateway ID and 'dev' with stage (dev/staging/prod) after deployment."
-		},
-		{
-			"key": "jwt_token",
-			"value": "your-cognito-jwt-token-here",
-			"type": "string",
-			"description": "AWS Cognito JWT token with cognito:groups containing SDT for access"
-		}
-	]
+  "info": {
+    "_postman_id": "finanzas-api-collection",
+    "name": "Finanzas API - Financial Planning & Service Delivery",
+    "description": "Complete API collection for financial planning, project tracking, payroll integration, and service delivery control.\n\n**Region**: us-east-2  \n**Base Path**: /finanzas/  \n**Authentication**: OIDC via AWS Cognito JWT  \n**RBAC**: JWT groups include `SDT` for Service Delivery Team access",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "finanzas-api"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mobile Banking App MVP\",\n  \"code\": \"PROJ-2025-001\",\n  \"client\": \"Global Bank Corp\",\n  \"start_date\": \"2025-01-15\",\n  \"end_date\": \"2025-12-31\",\n  \"currency\": \"USD\",\n  \"mod_total\": 1500000,\n  \"description\": \"MVP for mobile banking application with core features\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/projects",
+              "host": ["{{base_url}}"],
+              "path": ["projects"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Project Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Mobile Banking App MVP\",\n  \"code\": \"PROJ-2025-001\",\n  \"client\": \"Global Bank Corp\",\n  \"start_date\": \"2025-01-15\",\n  \"end_date\": \"2025-12-31\",\n  \"currency\": \"USD\",\n  \"mod_total\": 1500000,\n  \"description\": \"MVP for mobile banking application with core features\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/projects",
+                  "host": ["{{base_url}}"],
+                  "path": ["projects"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"proj_7x9k2m4n8p\",\n  \"name\": \"Mobile Banking App MVP\",\n  \"code\": \"PROJ-2025-001\",\n  \"client\": \"Global Bank Corp\",\n  \"start_date\": \"2025-01-15\",\n  \"end_date\": \"2025-12-31\",\n  \"currency\": \"USD\",\n  \"mod_total\": 1500000,\n  \"status\": \"active\",\n  \"description\": \"MVP for mobile banking application with core features\",\n  \"created_at\": \"2025-10-31T03:12:00Z\",\n  \"updated_at\": \"2025-10-31T03:12:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects?status=active&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["projects"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "active"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Projects List",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/projects?status=active&limit=20",
+                  "host": ["{{base_url}}"],
+                  "path": ["projects"],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "active"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"proj_7x9k2m4n8p\",\n      \"name\": \"Mobile Banking App MVP\",\n      \"code\": \"PROJ-2025-001\",\n      \"client\": \"Global Bank Corp\",\n      \"status\": \"active\",\n      \"mod_total\": 1500000,\n      \"currency\": \"USD\"\n    },\n    {\n      \"id\": \"proj_3a5b7c9d1e\",\n      \"name\": \"ERP System Upgrade\",\n      \"code\": \"PROJ-2025-002\",\n      \"client\": \"Manufacturing Inc\",\n      \"status\": \"active\",\n      \"mod_total\": 2800000,\n      \"currency\": \"USD\"\n    }\n  ],\n  \"total\": 2,\n  \"limit\": 20,\n  \"offset\": 0\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Project Handoff",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mod_total\": 1500000,\n  \"pct_ingenieros\": 65,\n  \"pct_sdm\": 35,\n  \"aceptado_por\": \"juan.perez@company.com\",\n  \"fecha_handoff\": \"2025-11-01\",\n  \"notas\": \"Budget approved by PMO, team allocation confirmed\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/projects/proj_7x9k2m4n8p/handoff",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "proj_7x9k2m4n8p", "handoff"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Handoff Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"mod_total\": 1500000,\n  \"pct_ingenieros\": 65,\n  \"pct_sdm\": 35,\n  \"aceptado_por\": \"juan.perez@company.com\",\n  \"fecha_handoff\": \"2025-11-01\",\n  \"notas\": \"Budget approved by PMO, team allocation confirmed\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/projects/proj_7x9k2m4n8p/handoff",
+                  "host": ["{{base_url}}"],
+                  "path": ["projects", "proj_7x9k2m4n8p", "handoff"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"handoff_2k4m6n8p0r\",\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"status\": \"accepted\",\n  \"budget_ingenieros\": 975000,\n  \"budget_sdm\": 525000,\n  \"aceptado_por\": \"juan.perez@company.com\",\n  \"fecha_handoff\": \"2025-11-01\",\n  \"created_at\": \"2025-10-31T03:15:00Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Catalog",
+      "item": [
+        {
+          "name": "List Rubros Catalog",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/catalog/rubros",
+              "host": ["{{base_url}}"],
+              "path": ["catalog", "rubros"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Rubros List",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/catalog/rubros",
+                  "host": ["{{base_url}}"],
+                  "path": ["catalog", "rubros"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"rubro_1a2b3c4d5e\",\n      \"code\": \"RUBRO-001\",\n      \"nombre\": \"Desarrollo Backend\",\n      \"categoria\": \"Ingeniería\",\n      \"tipo_ejecucion\": \"mensual\",\n      \"descripcion\": \"Desarrollo y mantenimiento backend\"\n    },\n    {\n      \"id\": \"rubro_6f7g8h9i0j\",\n      \"code\": \"RUBRO-002\",\n      \"nombre\": \"Infraestructura Cloud\",\n      \"categoria\": \"Infraestructura\",\n      \"tipo_ejecucion\": \"mensual\",\n      \"descripcion\": \"Costos de infraestructura AWS/Azure\"\n    },\n    {\n      \"id\": \"rubro_k1l2m3n4o5\",\n      \"code\": \"RUBRO-003\",\n      \"nombre\": \"Capacitación Equipo\",\n      \"categoria\": \"Capacitación\",\n      \"tipo_ejecucion\": \"puntual\",\n      \"descripcion\": \"Cursos y certificaciones\"\n    }\n  ],\n  \"total\": 3\n}"
+            }
+          ]
+        },
+        {
+          "name": "Add Rubro to Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"monto_total\": 120000,\n  \"tipo_ejecucion\": \"mensual\",\n  \"meses_programados\": [\"2025-11\", \"2025-12\", \"2026-01\", \"2026-02\"],\n  \"notas\": \"Equipo de 2 desarrolladores backend senior\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/projects/proj_7x9k2m4n8p/rubros",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "proj_7x9k2m4n8p", "rubros"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Rubro Added",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"monto_total\": 120000,\n  \"tipo_ejecucion\": \"mensual\",\n  \"meses_programados\": [\"2025-11\", \"2025-12\", \"2026-01\", \"2026-02\"],\n  \"notas\": \"Equipo de 2 desarrolladores backend senior\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/projects/proj_7x9k2m4n8p/rubros",
+                  "host": ["{{base_url}}"],
+                  "path": ["projects", "proj_7x9k2m4n8p", "rubros"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"proj_rubro_7m8n9p0q1r\",\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"code\": \"RUBRO-001\",\n  \"nombre\": \"Desarrollo Backend\",\n  \"monto_total\": 120000,\n  \"tipo_ejecucion\": \"mensual\",\n  \"meses_programados\": [\"2025-11\", \"2025-12\", \"2026-01\", \"2026-02\"],\n  \"monto_mensual\": 30000,\n  \"created_at\": \"2025-10-31T03:20:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Project Rubros",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/proj_7x9k2m4n8p/rubros",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "proj_7x9k2m4n8p", "rubros"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Project Rubros",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/projects/proj_7x9k2m4n8p/rubros",
+                  "host": ["{{base_url}}"],
+                  "path": ["projects", "proj_7x9k2m4n8p", "rubros"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"proj_rubro_7m8n9p0q1r\",\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"code\": \"RUBRO-001\",\n      \"nombre\": \"Desarrollo Backend\",\n      \"monto_total\": 120000,\n      \"tipo_ejecucion\": \"mensual\",\n      \"meses_programados\": [\"2025-11\", \"2025-12\"]\n    }\n  ],\n  \"total\": 1\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Allocation Rules",
+      "item": [
+        {
+          "name": "List Allocation Rules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/allocation-rules",
+              "host": ["{{base_url}}"],
+              "path": ["allocation-rules"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Allocation Rules",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/allocation-rules",
+                  "host": ["{{base_url}}"],
+                  "path": ["allocation-rules"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "cookie": [],
+              "body": "{\n  \"data\": [\n    {\n      \"rule_id\": \"AR-MOD-ING-001\",\n      \"linea_codigo\": \"MOD-ING\",\n      \"driver\": \"percent\",\n      \"split\": [\n        { \"to\": { \"project_id\": \"PRJ-HEALTHCARE-MODERNIZATION\" }, \"pct\": 60 },\n        { \"to\": { \"project_id\": \"PRJ-FINTECH-PLATFORM\" }, \"pct\": 25 },\n        { \"to\": { \"project_id\": \"PRJ-RETAIL-ANALYTICS\" }, \"pct\": 15 }\n      ],\n      \"active\": true\n    },\n    {\n      \"rule_id\": \"AR-TEC-LAB-001\",\n      \"linea_codigo\": \"TEC-LAB\",\n      \"driver\": \"fixed\",\n      \"fixed_amount\": 15000,\n      \"split\": [ { \"to\": { \"cost_center\": \"LAB-MTY\" }, \"pct\": 100 } ],\n      \"active\": true\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Allocations",
+      "item": [
+        {
+          "name": "Bulk Update Allocations",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"allocations\": [\n    {\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"mes\": \"2025-11\",\n      \"monto_planeado\": 30000\n    },\n    {\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"mes\": \"2025-12\",\n      \"monto_planeado\": 32000\n    },\n    {\n      \"rubro_id\": \"rubro_6f7g8h9i0j\",\n      \"mes\": \"2025-11\",\n      \"monto_planeado\": 15000\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/projects/proj_7x9k2m4n8p/allocations:bulk",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "proj_7x9k2m4n8p", "allocations:bulk"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Allocations Updated",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"allocations\": [\n    {\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"mes\": \"2025-11\",\n      \"monto_planeado\": 30000\n    },\n    {\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"mes\": \"2025-12\",\n      \"monto_planeado\": 32000\n    },\n    {\n      \"rubro_id\": \"rubro_6f7g8h9i0j\",\n      \"mes\": \"2025-11\",\n      \"monto_planeado\": 15000\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/projects/proj_7x9k2m4n8p/allocations:bulk",
+                  "host": ["{{base_url}}"],
+                  "path": ["projects", "proj_7x9k2m4n8p", "allocations:bulk"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"updated_count\": 3,\n  \"allocations\": [\n    {\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"mes\": \"2025-11\",\n      \"monto_planeado\": 30000,\n      \"status\": \"updated\"\n    },\n    {\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"mes\": \"2025-12\",\n      \"monto_planeado\": 32000,\n      \"status\": \"updated\"\n    },\n    {\n      \"rubro_id\": \"rubro_6f7g8h9i0j\",\n      \"mes\": \"2025-11\",\n      \"monto_planeado\": 15000,\n      \"status\": \"updated\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Project Plan",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/proj_7x9k2m4n8p/plan?mes=2025-10",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "proj_7x9k2m4n8p", "plan"],
+              "query": [
+                {
+                  "key": "mes",
+                  "value": "2025-10"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Project Plan",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/projects/proj_7x9k2m4n8p/plan?mes=2025-10",
+                  "host": ["{{base_url}}"],
+                  "path": ["projects", "proj_7x9k2m4n8p", "plan"],
+                  "query": [
+                    {
+                      "key": "mes",
+                      "value": "2025-10"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"mes\": \"2025-10\",\n  \"plan_ing\": 65000,\n  \"plan_sdm\": 35000,\n  \"non_recurrentes\": [\n    {\n      \"rubro_id\": \"rubro_k1l2m3n4o5\",\n      \"nombre\": \"Capacitación Equipo\",\n      \"monto\": 8000\n    },\n    {\n      \"rubro_id\": \"rubro_p6q7r8s9t0\",\n      \"nombre\": \"Licencias Software\",\n      \"monto\": 5000\n    }\n  ],\n  \"total_mes\": 113000,\n  \"currency\": \"USD\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Payroll",
+      "item": [
+        {
+          "name": "Ingest Payroll Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mes\": \"2025-10\",\n  \"nomina_total\": 98500,\n  \"desglose\": {\n    \"ingenieros\": 64000,\n    \"sdm\": 34500\n  },\n  \"source\": \"SAP_HR\",\n  \"uploaded_by\": \"hr.admin@company.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payroll/ingest",
+              "host": ["{{base_url}}"],
+              "path": ["payroll", "ingest"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Payroll Accepted",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"mes\": \"2025-10\",\n  \"nomina_total\": 98500,\n  \"desglose\": {\n    \"ingenieros\": 64000,\n    \"sdm\": 34500\n  },\n  \"source\": \"SAP_HR\",\n  \"uploaded_by\": \"hr.admin@company.com\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/payroll/ingest",
+                  "host": ["{{base_url}}"],
+                  "path": ["payroll", "ingest"]
+                }
+              },
+              "status": "Accepted",
+              "code": 202,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"payroll_3x5y7z9a1b\",\n  \"mes\": \"2025-10\",\n  \"status\": \"processing\",\n  \"nomina_total\": 98500,\n  \"created_at\": \"2025-10-31T03:25:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Close Month",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/close-month?mes=2025-10",
+              "host": ["{{base_url}}"],
+              "path": ["close-month"],
+              "query": [
+                {
+                  "key": "mes",
+                  "value": "2025-10"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Month Closed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/close-month?mes=2025-10",
+                  "host": ["{{base_url}}"],
+                  "path": ["close-month"],
+                  "query": [
+                    {
+                      "key": "mes",
+                      "value": "2025-10"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"mes\": \"2025-10\",\n  \"cobertura\": 114.72,\n  \"nomina\": 98500,\n  \"ingresos_facturados\": 113000,\n  \"gap\": 15500,\n  \"alertas\": [\n    {\n      \"type\": \"coverage_above_target\",\n      \"severity\": \"warning\",\n      \"message\": \"Coverage exceeded 110% target\"\n    },\n    {\n      \"type\": \"positive_gap\",\n      \"severity\": \"info\",\n      \"message\": \"Positive gap of $15,500\"\n    }\n  ],\n  \"closed_at\": \"2025-10-31T23:59:59Z\",\n  \"closed_by\": \"finance.manager@company.com\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Coverage Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/report/cobertura?start_date=2025-01&end_date=2025-10",
+              "host": ["{{base_url}}"],
+              "path": ["report", "cobertura"],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2025-01"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2025-10"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Coverage Report",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/report/cobertura?start_date=2025-01&end_date=2025-10",
+                  "host": ["{{base_url}}"],
+                  "path": ["report", "cobertura"],
+                  "query": [
+                    {
+                      "key": "start_date",
+                      "value": "2025-01"
+                    },
+                    {
+                      "key": "end_date",
+                      "value": "2025-10"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"period\": {\n    \"start\": \"2025-01\",\n    \"end\": \"2025-10\"\n  },\n  \"summary\": {\n    \"avg_cobertura\": 108.5,\n    \"total_nomina\": 985000,\n    \"total_ingresos\": 1068725\n  },\n  \"monthly_data\": [\n    {\n      \"mes\": \"2025-10\",\n      \"cobertura\": 114.72,\n      \"nomina\": 98500,\n      \"ingresos_facturados\": 113000,\n      \"gap\": 15500\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Adjustments",
+      "item": [
+        {
+          "name": "Create Adjustment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"tipo\": \"exceso\",\n  \"monto\": 1000000,\n  \"origen_rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"fecha_inicio\": \"2025-11\",\n  \"metodo_distribucion\": \"pro_rata_forward\",\n  \"justificacion\": \"Ampliación de alcance aprobada por cliente\",\n  \"solicitado_por\": \"pm.leader@company.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/adjustments",
+              "host": ["{{base_url}}"],
+              "path": ["adjustments"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Adjustment Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"tipo\": \"exceso\",\n  \"monto\": 1000000,\n  \"origen_rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"fecha_inicio\": \"2025-11\",\n  \"metodo_distribucion\": \"pro_rata_forward\",\n  \"justificacion\": \"Ampliación de alcance aprobada por cliente\",\n  \"solicitado_por\": \"pm.leader@company.com\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/adjustments",
+                  "host": ["{{base_url}}"],
+                  "path": ["adjustments"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"adj_9c1d3e5f7g\",\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"tipo\": \"exceso\",\n  \"monto\": 1000000,\n  \"estado\": \"pending_approval\",\n  \"origen_rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"fecha_inicio\": \"2025-11\",\n  \"metodo_distribucion\": \"pro_rata_forward\",\n  \"meses_impactados\": [\"2025-11\", \"2025-12\", \"2026-01\"],\n  \"distribucion\": [\n    {\n      \"mes\": \"2025-11\",\n      \"monto\": 333333.33\n    },\n    {\n      \"mes\": \"2025-12\",\n      \"monto\": 333333.33\n    },\n    {\n      \"mes\": \"2026-01\",\n      \"monto\": 333333.34\n    }\n  ],\n  \"created_at\": \"2025-10-31T03:30:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Adjustments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/adjustments?project_id=proj_7x9k2m4n8p",
+              "host": ["{{base_url}}"],
+              "path": ["adjustments"],
+              "query": [
+                {
+                  "key": "project_id",
+                  "value": "proj_7x9k2m4n8p"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Adjustments List",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/adjustments?project_id=proj_7x9k2m4n8p",
+                  "host": ["{{base_url}}"],
+                  "path": ["adjustments"],
+                  "query": [
+                    {
+                      "key": "project_id",
+                      "value": "proj_7x9k2m4n8p"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"adj_9c1d3e5f7g\",\n      \"project_id\": \"proj_7x9k2m4n8p\",\n      \"tipo\": \"exceso\",\n      \"monto\": 1000000,\n      \"estado\": \"approved\",\n      \"created_at\": \"2025-10-31T03:30:00Z\"\n    }\n  ],\n  \"total\": 1,\n  \"limit\": 20,\n  \"offset\": 0\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Movements",
+      "item": [
+        {
+          "name": "Create Movement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"tipo\": \"gasto\",\n  \"monto\": 25000,\n  \"fecha\": \"2025-10-28\",\n  \"descripcion\": \"Pago consultoría especializada Q4\",\n  \"proveedor_id\": \"prov_8h9i0j1k2l\",\n  \"evidencia_url\": \"https://storage.example.com/invoices/INV-2025-1028.pdf\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/movements",
+              "host": ["{{base_url}}"],
+              "path": ["movements"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Movement Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"tipo\": \"gasto\",\n  \"monto\": 25000,\n  \"fecha\": \"2025-10-28\",\n  \"descripcion\": \"Pago consultoría especializada Q4\",\n  \"proveedor_id\": \"prov_8h9i0j1k2l\",\n  \"evidencia_url\": \"https://storage.example.com/invoices/INV-2025-1028.pdf\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/movements",
+                  "host": ["{{base_url}}"],
+                  "path": ["movements"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"mov_4n5o6p7q8r\",\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"rubro_id\": \"rubro_1a2b3c4d5e\",\n  \"tipo\": \"gasto\",\n  \"monto\": 25000,\n  \"fecha\": \"2025-10-28\",\n  \"estado\": \"pending\",\n  \"descripcion\": \"Pago consultoría especializada Q4\",\n  \"proveedor_id\": \"prov_8h9i0j1k2l\",\n  \"created_at\": \"2025-10-31T03:35:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Movements",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/movements?project_id=proj_7x9k2m4n8p&estado=pending",
+              "host": ["{{base_url}}"],
+              "path": ["movements"],
+              "query": [
+                {
+                  "key": "project_id",
+                  "value": "proj_7x9k2m4n8p"
+                },
+                {
+                  "key": "estado",
+                  "value": "pending"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Movements List",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/movements?project_id=proj_7x9k2m4n8p&estado=pending",
+                  "host": ["{{base_url}}"],
+                  "path": ["movements"],
+                  "query": [
+                    {
+                      "key": "project_id",
+                      "value": "proj_7x9k2m4n8p"
+                    },
+                    {
+                      "key": "estado",
+                      "value": "pending"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"mov_4n5o6p7q8r\",\n      \"project_id\": \"proj_7x9k2m4n8p\",\n      \"rubro_id\": \"rubro_1a2b3c4d5e\",\n      \"tipo\": \"gasto\",\n      \"monto\": 25000,\n      \"estado\": \"pending\",\n      \"fecha\": \"2025-10-28\"\n    }\n  ],\n  \"total\": 1,\n  \"limit\": 50,\n  \"offset\": 0\n}"
+            }
+          ]
+        },
+        {
+          "name": "Approve Movement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"aprobado_por\": \"finance.manager@company.com\",\n  \"comentarios\": \"Aprobado - documentación correcta\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/movements/mov_4n5o6p7q8r/approve",
+              "host": ["{{base_url}}"],
+              "path": ["movements", "mov_4n5o6p7q8r", "approve"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Movement Approved",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"aprobado_por\": \"finance.manager@company.com\",\n  \"comentarios\": \"Aprobado - documentación correcta\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/movements/mov_4n5o6p7q8r/approve",
+                  "host": ["{{base_url}}"],
+                  "path": ["movements", "mov_4n5o6p7q8r", "approve"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"mov_4n5o6p7q8r\",\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"tipo\": \"gasto\",\n  \"monto\": 25000,\n  \"estado\": \"approved\",\n  \"aprobado_por\": \"finance.manager@company.com\",\n  \"aprobado_en\": \"2025-10-31T03:40:00Z\",\n  \"comentarios\": \"Aprobado - documentación correcta\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Reject Movement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rechazado_por\": \"finance.manager@company.com\",\n  \"motivo\": \"Documentación incompleta - falta factura original\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/movements/mov_4n5o6p7q8r/reject",
+              "host": ["{{base_url}}"],
+              "path": ["movements", "mov_4n5o6p7q8r", "reject"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Movement Rejected",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"rechazado_por\": \"finance.manager@company.com\",\n  \"motivo\": \"Documentación incompleta - falta factura original\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/movements/mov_4n5o6p7q8r/reject",
+                  "host": ["{{base_url}}"],
+                  "path": ["movements", "mov_4n5o6p7q8r", "reject"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"mov_4n5o6p7q8r\",\n  \"project_id\": \"proj_7x9k2m4n8p\",\n  \"tipo\": \"gasto\",\n  \"monto\": 25000,\n  \"estado\": \"rejected\",\n  \"rechazado_por\": \"finance.manager@company.com\",\n  \"rechazado_en\": \"2025-10-31T03:40:00Z\",\n  \"motivo\": \"Documentación incompleta - falta factura original\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Alerts",
+      "item": [
+        {
+          "name": "Get Financial Alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/alerts?severity=warning",
+              "host": ["{{base_url}}"],
+              "path": ["alerts"],
+              "query": [
+                {
+                  "key": "severity",
+                  "value": "warning"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Alerts List",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/alerts?severity=warning",
+                  "host": ["{{base_url}}"],
+                  "path": ["alerts"],
+                  "query": [
+                    {
+                      "key": "severity",
+                      "value": "warning"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"alert_7s8t9u0v1w\",\n      \"project_id\": \"proj_7x9k2m4n8p\",\n      \"type\": \"budget_overrun\",\n      \"severity\": \"warning\",\n      \"message\": \"Rubro 'Desarrollo Backend' at 85% of budget\",\n      \"details\": {\n        \"rubro_id\": \"rubro_1a2b3c4d5e\",\n        \"budget\": 120000,\n        \"spent\": 102000,\n        \"percentage\": 85\n      },\n      \"created_at\": \"2025-10-30T10:00:00Z\"\n    },\n    {\n      \"id\": \"alert_2x3y4z5a6b\",\n      \"project_id\": \"proj_3a5b7c9d1e\",\n      \"type\": \"coverage_low\",\n      \"severity\": \"critical\",\n      \"message\": \"Coverage below 100% for October\",\n      \"details\": {\n        \"mes\": \"2025-10\",\n        \"cobertura\": 92.3,\n        \"target\": 105\n      },\n      \"created_at\": \"2025-10-31T01:00:00Z\"\n    }\n  ],\n  \"total\": 2\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Providers",
+      "item": [
+        {
+          "name": "Create Provider",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"TechConsulting Solutions LLC\",\n  \"tax_id\": \"RFC-987654321\",\n  \"tipo\": \"servicios\",\n  \"contacto_nombre\": \"María García\",\n  \"contacto_email\": \"maria.garcia@techconsulting.com\",\n  \"contacto_telefono\": \"+1-555-0123\",\n  \"pais\": \"USA\",\n  \"notas\": \"Proveedor preferente para consultoría especializada\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/providers",
+              "host": ["{{base_url}}"],
+              "path": ["providers"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Provider Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"TechConsulting Solutions LLC\",\n  \"tax_id\": \"RFC-987654321\",\n  \"tipo\": \"servicios\",\n  \"contacto_nombre\": \"María García\",\n  \"contacto_email\": \"maria.garcia@techconsulting.com\",\n  \"contacto_telefono\": \"+1-555-0123\",\n  \"pais\": \"USA\",\n  \"notas\": \"Proveedor preferente para consultoría especializada\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/providers",
+                  "host": ["{{base_url}}"],
+                  "path": ["providers"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"prov_8h9i0j1k2l\",\n  \"nombre\": \"TechConsulting Solutions LLC\",\n  \"tax_id\": \"RFC-987654321\",\n  \"tipo\": \"servicios\",\n  \"contacto_nombre\": \"María García\",\n  \"contacto_email\": \"maria.garcia@techconsulting.com\",\n  \"contacto_telefono\": \"+1-555-0123\",\n  \"pais\": \"USA\",\n  \"estado\": \"active\",\n  \"created_at\": \"2025-10-31T03:45:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers?tipo=servicios",
+              "host": ["{{base_url}}"],
+              "path": ["providers"],
+              "query": [
+                {
+                  "key": "tipo",
+                  "value": "servicios"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Providers List",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/providers?tipo=servicios",
+                  "host": ["{{base_url}}"],
+                  "path": ["providers"],
+                  "query": [
+                    {
+                      "key": "tipo",
+                      "value": "servicios"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"prov_8h9i0j1k2l\",\n      \"nombre\": \"TechConsulting Solutions LLC\",\n      \"tax_id\": \"RFC-987654321\",\n      \"tipo\": \"servicios\",\n      \"estado\": \"active\"\n    },\n    {\n      \"id\": \"prov_3m4n5o6p7q\",\n      \"nombre\": \"Cloud Infrastructure Corp\",\n      \"tax_id\": \"RFC-123456789\",\n      \"tipo\": \"infraestructura\",\n      \"estado\": \"active\"\n    }\n  ],\n  \"total\": 2,\n  \"limit\": 20,\n  \"offset\": 0\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Prefactura Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_type\": \"prefactura.created\",\n  \"event_id\": \"evt_9r8s7t6u5v\",\n  \"timestamp\": \"2025-10-31T03:50:00Z\",\n  \"data\": {\n    \"project_id\": \"proj_7x9k2m4n8p\",\n    \"rubro_id\": \"rubro_1a2b3c4d5e\",\n    \"monto\": 30000,\n    \"mes\": \"2025-11\",\n    \"folio\": \"PREFACT-2025-110001\",\n    \"descripcion\": \"Desarrollo backend - Noviembre 2025\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/prefacturas/webhook",
+              "host": ["{{base_url}}"],
+              "path": ["prefacturas", "webhook"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success - Webhook Accepted",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"event_type\": \"prefactura.created\",\n  \"event_id\": \"evt_9r8s7t6u5v\",\n  \"timestamp\": \"2025-10-31T03:50:00Z\",\n  \"data\": {\n    \"project_id\": \"proj_7x9k2m4n8p\",\n    \"rubro_id\": \"rubro_1a2b3c4d5e\",\n    \"monto\": 30000,\n    \"mes\": \"2025-11\",\n    \"folio\": \"PREFACT-2025-110001\",\n    \"descripcion\": \"Desarrollo backend - Noviembre 2025\"\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/prefacturas/webhook",
+                  "host": ["{{base_url}}"],
+                  "path": ["prefacturas", "webhook"]
+                }
+              },
+              "status": "Accepted",
+              "code": 202,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"status\": \"accepted\",\n  \"event_id\": \"evt_9r8s7t6u5v\",\n  \"message\": \"Prefactura event queued for processing\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://your-api-id.execute-api.us-east-2.amazonaws.com/dev/finanzas",
+      "type": "string",
+      "description": "API Gateway endpoint. Replace 'your-api-id' with actual API Gateway ID and 'dev' with stage (dev/staging/prod) after deployment."
+    },
+    {
+      "key": "jwt_token",
+      "value": "your-cognito-jwt-token-here",
+      "type": "string",
+      "description": "AWS Cognito JWT token with cognito:groups containing SDT for access"
+    }
+  ]
 }

@@ -1,15 +1,21 @@
-import React from 'react';
-import { RUBROS_ENRICHED } from '@/modules/finanzas/data/rubros.catalog.enriched';
+import React from "react";
+import { RUBROS_ENRICHED } from "@/modules/finanzas/data/rubros.catalog.enriched";
 
 function Cell({ children }: { children: React.ReactNode }) {
-  return <td className="px-3 py-2 border-b border-border text-sm text-foreground">{children}</td>;
+  return (
+    <td className="px-3 py-2 border-b border-border text-sm text-foreground">
+      {children}
+    </td>
+  );
 }
 
 export default function RubrosCatalog() {
   const rows = RUBROS_ENRICHED;
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <h2 className="text-xl font-semibold mb-4">Gestión presupuesto — Catálogo de Rubros</h2>
+      <h2 className="text-xl font-semibold mb-4">
+        Gestión presupuesto — Catálogo de Rubros
+      </h2>
       <div className="rounded-lg border border-border overflow-hidden bg-card">
         <table className="w-full border-collapse">
           <thead>
@@ -33,7 +39,10 @@ export default function RubrosCatalog() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                <td
+                  colSpan={5}
+                  className="px-3 py-6 text-center text-muted-foreground"
+                >
                   No hay rubros disponibles.
                 </td>
               </tr>
@@ -41,8 +50,9 @@ export default function RubrosCatalog() {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted-foreground mt-3">Mostrando {rows.length} rubros.</p>
+      <p className="text-xs text-muted-foreground mt-3">
+        Mostrando {rows.length} rubros.
+      </p>
     </div>
   );
 }
- 

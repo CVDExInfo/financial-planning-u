@@ -3,7 +3,7 @@ name: Deploy Finanzas UI (dev)
 on:
   workflow_dispatch: {}
   push:
-    branches: [ "r1-finanzas-dev-wiring" ]
+    branches: ["r1-finanzas-dev-wiring"]
 
 permissions:
   id-token: write

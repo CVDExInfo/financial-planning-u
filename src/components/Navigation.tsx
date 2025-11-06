@@ -1,26 +1,37 @@
-import { useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ModuleType } from '@/types/domain';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ModuleType } from "@/types/domain";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ChevronDown, Calculator, BarChart3, LogOut, User, BookOpen, FileCheck, GitPullRequest, TrendingUp, Layers } from 'lucide-react';
-import { useAuth } from '@/components/AuthProvider';
-import { getDefaultRouteForRole, getRoleInfo } from '@/lib/auth';
-import { toast } from 'sonner';
+} from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  ChevronDown,
+  Calculator,
+  BarChart3,
+  LogOut,
+  User,
+  BookOpen,
+  FileCheck,
+  GitPullRequest,
+  TrendingUp,
+  Layers,
+} from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
+import { getDefaultRouteForRole, getRoleInfo } from "@/lib/auth";
+import { toast } from "sonner";
 
 // (No props currently)
 
@@ -35,7 +46,14 @@ interface NavigationItem {
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, currentRole, availableRoles, setRole, canAccessRoute, signOut } = useAuth();
+  const {
+    user,
+    currentRole,
+    availableRoles,
+    setRole,
+    canAccessRoute,
+    signOut,
+  } = useAuth();
 
   // Check if current route is accessible when role or location changes
   useEffect(() => {
@@ -43,9 +61,10 @@ export function Navigation() {
       // Redirect to appropriate module based on role
       const defaultRoute = getDefaultRouteForRole(currentRole);
       navigate(defaultRoute);
-      
-      toast.info('Redirected to accessible page', {
-        description: 'You were redirected to a page accessible with your current role'
+
+      toast.info("Redirected to accessible page", {
+        description:
+          "You were redirected to a page accessible with your current role",
       });
     }
   }, [currentRole, location.pathname, navigate, canAccessRoute]);
@@ -56,38 +75,65 @@ export function Navigation() {
 
   const handleSignOut = () => {
     signOut();
-    navigate('/');
+    navigate("/");
   };
 
   const moduleNavItems: Record<string, NavigationItem[]> = {
     PMO: [
-      { path: '/pmo/prefactura/estimator', label: 'Estimator', icon: Calculator },
+      {
+        path: "/pmo/prefactura/estimator",
+        label: "Estimator",
+        icon: Calculator,
+      },
     ],
     SDMT: [
-      { path: '/sdmt/cost/catalog', label: 'Catalog', icon: BookOpen },
-      { path: '/sdmt/cost/forecast', label: 'Forecast', icon: TrendingUp },
-      { path: '/sdmt/cost/reconciliation', label: 'Reconciliation', icon: FileCheck },
-      { path: '/sdmt/cost/changes', label: 'Changes', icon: GitPullRequest },
-      { path: '/sdmt/cost/cashflow', label: 'Cash Flow', icon: BarChart3, isPremium: true },
-      { path: '/sdmt/cost/scenarios', label: 'Scenarios', icon: Layers, isPremium: true },
+      { path: "/sdmt/cost/catalog", label: "Catalog", icon: BookOpen },
+      { path: "/sdmt/cost/forecast", label: "Forecast", icon: TrendingUp },
+      {
+        path: "/sdmt/cost/reconciliation",
+        label: "Reconciliation",
+        icon: FileCheck,
+      },
+      { path: "/sdmt/cost/changes", label: "Changes", icon: GitPullRequest },
+      {
+        path: "/sdmt/cost/cashflow",
+        label: "Cash Flow",
+        icon: BarChart3,
+        isPremium: true,
+      },
+      {
+        path: "/sdmt/cost/scenarios",
+        label: "Scenarios",
+        icon: Layers,
+        isPremium: true,
+      },
       // Finanzas R1 - visible when feature flag enabled
-      ...(import.meta.env.VITE_FINZ_ENABLED === 'true' ? [
-        { path: '/finanzas/rubros', label: 'Rubros', icon: BookOpen }
-      ] : [])
-    ]
+      ...(import.meta.env.VITE_FINZ_ENABLED === "true"
+        ? [
+            { path: "/catalog/rubros", label: "Rubros", icon: BookOpen },
+            { path: "/rules", label: "Rules", icon: BookOpen },
+          ]
+        : []),
+    ],
   };
 
   const getVisibleModuleNavItems = () => {
     // Show navigation based on current route and role access
-    if (location.pathname.startsWith('/pmo/') && canAccessRoute(location.pathname)) {
+    if (
+      location.pathname.startsWith("/pmo/") &&
+      canAccessRoute(location.pathname)
+    ) {
       return moduleNavItems.PMO;
-    } else if (location.pathname.startsWith('/sdmt/') && canAccessRoute(location.pathname)) {
+    } else if (
+      location.pathname.startsWith("/sdmt/") &&
+      canAccessRoute(location.pathname)
+    ) {
       return moduleNavItems.SDMT;
     }
     // If current route is not accessible, show navigation for default module based on role
-    else if (currentRole === 'PMO') {
+    else if (currentRole === "PMO") {
       return moduleNavItems.PMO;
-    } else if (['SDMT', 'VENDOR'].includes(currentRole)) {
+    } else if (["SDMT", "VENDOR"].includes(currentRole)) {
       return moduleNavItems.SDMT;
     }
     return [];
@@ -101,11 +147,17 @@ export function Navigation() {
           <div className="flex items-center space-x-4">
             <Link to="/" className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">E</span>
+                <span className="text-primary-foreground font-bold text-sm">
+                  E
+                </span>
               </div>
               <div>
-                <h1 className="font-semibold text-foreground">Financial Planning</h1>
-                <p className="text-xs text-muted-foreground">Enterprise PMO Platform</p>
+                <h1 className="font-semibold text-foreground">
+                  Financial Planning
+                </h1>
+                <p className="text-xs text-muted-foreground">
+                  Enterprise PMO Platform
+                </p>
               </div>
             </Link>
           </div>
@@ -114,33 +166,39 @@ export function Navigation() {
           <TooltipProvider>
             <div className="hidden md:flex items-center space-x-1">
               {getVisibleModuleNavItems()
-                ?.filter(item => canAccessRoute(item.path))
+                ?.filter((item) => canAccessRoute(item.path))
                 .map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.path;
                   const isPremium = item.isPremium;
-                  
+
                   const linkElement = (
                     <Link
                       key={item.path}
                       to={item.path}
                       className={`
                         flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors relative
-                        ${isActive 
-                          ? isPremium 
-                            ? 'bg-muted text-muted-foreground border border-border' 
-                            : 'bg-primary text-primary-foreground'
-                          : isPremium
-                            ? 'text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/50 border border-dashed border-border'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                        ${
+                          isActive
+                            ? isPremium
+                              ? "bg-muted text-muted-foreground border border-border"
+                              : "bg-primary text-primary-foreground"
+                            : isPremium
+                            ? "text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/50 border border-dashed border-border"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         }
                       `}
                     >
-                      <Icon size={16} className={isPremium ? 'opacity-70' : ''} />
-                      <span className={isPremium ? 'opacity-70' : ''}>{item.label}</span>
+                      <Icon
+                        size={16}
+                        className={isPremium ? "opacity-70" : ""}
+                      />
+                      <span className={isPremium ? "opacity-70" : ""}>
+                        {item.label}
+                      </span>
                       {isPremium && (
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className="ml-1 text-xs px-1 py-0 h-4 text-muted-foreground/60 border-muted-foreground/30"
                         >
                           +
@@ -152,12 +210,12 @@ export function Navigation() {
                   if (isPremium) {
                     return (
                       <Tooltip key={item.path}>
-                        <TooltipTrigger asChild>
-                          {linkElement}
-                        </TooltipTrigger>
+                        <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
                         <TooltipContent>
                           <p className="font-medium">Premium Add-on Feature</p>
-                          <p className="text-xs text-muted-foreground">Additional cost applies</p>
+                          <p className="text-xs text-muted-foreground">
+                            Additional cost applies
+                          </p>
                         </TooltipContent>
                       </Tooltip>
                     );
@@ -186,11 +244,13 @@ export function Navigation() {
                       <DropdownMenuItem
                         key={role}
                         onClick={() => handleRoleChange(role)}
-                        className={currentRole === role ? 'bg-muted' : ''}
+                        className={currentRole === role ? "bg-muted" : ""}
                       >
                         <div className="flex flex-col">
                           <div className="font-medium">{roleInfo.label}</div>
-                          <div className="text-xs text-muted-foreground">{roleInfo.description}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {roleInfo.description}
+                          </div>
                         </div>
                       </DropdownMenuItem>
                     );
@@ -203,19 +263,27 @@ export function Navigation() {
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Button
+                    variant="ghost"
+                    className="relative h-8 w-8 rounded-full"
+                  >
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatarUrl || ''} alt={user.login || 'User'} />
-                      <AvatarFallback>{(user.login || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                      <AvatarImage
+                        src={user.avatarUrl || ""}
+                        alt={user.login || "User"}
+                      />
+                      <AvatarFallback>
+                        {(user.login || "U").charAt(0).toUpperCase()}
+                      </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end">
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{user.login || 'Demo User'}</p>
+                      <p className="font-medium">{user.login || "Demo User"}</p>
                       <p className="w-[200px] truncate text-sm text-muted-foreground">
-                        {user.email || 'demo@ikusi.com'}
+                        {user.email || "demo@ikusi.com"}
                       </p>
                     </div>
                   </div>
@@ -227,7 +295,10 @@ export function Navigation() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="text-destructive"
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Sign out</span>
                   </DropdownMenuItem>

@@ -6,7 +6,7 @@ info:
     Complete API for managing financial planning, project tracking, payroll integration,
     budget allocations, and service delivery control. Supports prefactura webhook integration
     and comprehensive budget tracking for SDT (Service Delivery Team).
-    
+
     **Region**: us-east-2  
     **Base Path**: /finanzas/  
     **Authentication**: OIDC via AWS Cognito JWT  
@@ -67,7 +67,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectCreate'
+              $ref: "#/components/schemas/ProjectCreate"
             example:
               name: "Mobile Banking App MVP"
               code: "PROJ-2025-001"
@@ -78,12 +78,12 @@ paths:
               mod_total: 1500000
               description: "MVP for mobile banking application with core features"
       responses:
-        '201':
+        "201":
           description: Project created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Project'
+                $ref: "#/components/schemas/Project"
               example:
                 id: "proj_7x9k2m4n8p"
                 name: "Mobile Banking App MVP"
@@ -97,12 +97,12 @@ paths:
                 description: "MVP for mobile banking application with core features"
                 created_at: "2025-10-31T03:12:00Z"
                 updated_at: "2025-10-31T03:12:00Z"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
     get:
       tags:
@@ -133,12 +133,12 @@ paths:
             minimum: 0
             default: 0
       responses:
-        '200':
+        "200":
           description: List of projects retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectList'
+                $ref: "#/components/schemas/ProjectList"
               example:
                 data:
                   - id: "proj_7x9k2m4n8p"
@@ -166,10 +166,10 @@ paths:
                 total: 2
                 limit: 20
                 offset: 0
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /projects/{id}/handoff:
     post:
@@ -185,13 +185,13 @@ paths:
           description: Project ID
           schema:
             type: string
-            pattern: '^proj_[a-z0-9]{10}$'
+            pattern: "^proj_[a-z0-9]{10}$"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Handoff'
+              $ref: "#/components/schemas/Handoff"
             example:
               mod_total: 1500000
               pct_ingenieros: 65
@@ -200,7 +200,7 @@ paths:
               fecha_handoff: "2025-11-01"
               notas: "Budget approved by PMO, team allocation confirmed"
       responses:
-        '200':
+        "200":
           description: Handoff processed successfully
           content:
             application/json:
@@ -234,14 +234,14 @@ paths:
                 aceptado_por: "juan.perez@company.com"
                 fecha_handoff: "2025-11-01"
                 created_at: "2025-10-31T03:15:00Z"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /catalog/rubros:
     get:
@@ -258,12 +258,12 @@ paths:
             type: string
             enum: [mensual, puntual, por_hito]
       responses:
-        '200':
+        "200":
           description: Rubros catalog retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RubroList'
+                $ref: "#/components/schemas/RubroList"
               example:
                 data:
                   - id: "rubro_1a2b3c4d5e"
@@ -285,10 +285,62 @@ paths:
                     tipo_ejecucion: "puntual"
                     descripcion: "Cursos y certificaciones"
                 total: 3
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /allocation-rules:
+    get:
+      tags:
+        - Allocations
+      summary: Get allocation rules (MVP)
+      description: Returns active allocation rules that distribute costs by percent, hours, tickets, or fixed amounts.
+      operationId: listAllocationRules
+      responses:
+        "200":
+          description: Allocation rules retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rule_id:
+                          type: string
+                        linea_codigo:
+                          type: string
+                        driver:
+                          type: string
+                          enum: [percent, hours, tickets, fixed]
+                        split:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              to:
+                                type: object
+                                properties:
+                                  project_id: { type: string }
+                                  cost_center: { type: string }
+                              pct:
+                                type: number
+                        fixed_amount:
+                          type: number
+                        rate_per_hour:
+                          type: number
+                        rate_per_ticket:
+                          type: number
+                        active:
+                          type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /projects/{id}/rubros:
     post:
@@ -304,13 +356,13 @@ paths:
           description: Project ID
           schema:
             type: string
-            pattern: '^proj_[a-z0-9]{10}$'
+            pattern: "^proj_[a-z0-9]{10}$"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RubroCreate'
+              $ref: "#/components/schemas/RubroCreate"
             example:
               rubro_id: "rubro_1a2b3c4d5e"
               monto_total: 120000
@@ -318,12 +370,12 @@ paths:
               meses_programados: ["2025-11", "2025-12", "2026-01", "2026-02"]
               notas: "Equipo de 2 desarrolladores backend senior"
       responses:
-        '201':
+        "201":
           description: Rubro added to project successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Rubro'
+                $ref: "#/components/schemas/Rubro"
               example:
                 id: "proj_rubro_7m8n9p0q1r"
                 project_id: "proj_7x9k2m4n8p"
@@ -335,14 +387,14 @@ paths:
                 meses_programados: ["2025-11", "2025-12", "2026-01", "2026-02"]
                 monto_mensual: 30000
                 created_at: "2025-10-31T03:20:00Z"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
     get:
       tags:
@@ -357,14 +409,14 @@ paths:
           description: Project ID
           schema:
             type: string
-            pattern: '^proj_[a-z0-9]{10}$'
+            pattern: "^proj_[a-z0-9]{10}$"
       responses:
-        '200':
+        "200":
           description: Project rubros retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RubroList'
+                $ref: "#/components/schemas/RubroList"
               example:
                 data:
                   - id: "proj_rubro_7m8n9p0q1r"
@@ -375,12 +427,12 @@ paths:
                     tipo_ejecucion: "mensual"
                     meses_programados: ["2025-11", "2025-12"]
                 total: 1
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /projects/{id}/allocations:bulk:
     put:
@@ -396,13 +448,13 @@ paths:
           description: Project ID
           schema:
             type: string
-            pattern: '^proj_[a-z0-9]{10}$'
+            pattern: "^proj_[a-z0-9]{10}$"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AllocationBulk'
+              $ref: "#/components/schemas/AllocationBulk"
             example:
               allocations:
                 - rubro_id: "rubro_1a2b3c4d5e"
@@ -415,7 +467,7 @@ paths:
                   mes: "2025-11"
                   monto_planeado: 15000
       responses:
-        '200':
+        "200":
           description: Allocations updated successfully
           content:
             application/json:
@@ -453,14 +505,14 @@ paths:
                     mes: "2025-11"
                     monto_planeado: 15000
                     status: "updated"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /projects/{id}/plan:
     get:
@@ -476,7 +528,7 @@ paths:
           description: Project ID
           schema:
             type: string
-            pattern: '^proj_[a-z0-9]{10}$'
+            pattern: "^proj_[a-z0-9]{10}$"
         - name: mes
           in: query
           required: true
@@ -486,12 +538,12 @@ paths:
             pattern: '^\d{4}-\d{2}$'
           example: "2025-10"
       responses:
-        '200':
+        "200":
           description: Financial plan retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlanMes'
+                $ref: "#/components/schemas/PlanMes"
               example:
                 project_id: "proj_7x9k2m4n8p"
                 mes: "2025-10"
@@ -506,14 +558,14 @@ paths:
                     monto: 5000
                 total_mes: 113000
                 currency: "USD"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /payroll/ingest:
     post:
@@ -527,7 +579,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PayrollIngest'
+              $ref: "#/components/schemas/PayrollIngest"
             example:
               mes: "2025-10"
               nomina_total: 98500
@@ -537,7 +589,7 @@ paths:
               source: "SAP_HR"
               uploaded_by: "hr.admin@company.com"
       responses:
-        '202':
+        "202":
           description: Payroll data accepted for processing
           content:
             application/json:
@@ -565,12 +617,12 @@ paths:
                 status: "processing"
                 nomina_total: 98500
                 created_at: "2025-10-31T03:25:00Z"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /close-month:
     post:
@@ -589,12 +641,12 @@ paths:
             pattern: '^\d{4}-\d{2}$'
           example: "2025-10"
       responses:
-        '200':
+        "200":
           description: Month closed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CierreMes'
+                $ref: "#/components/schemas/CierreMes"
               example:
                 mes: "2025-10"
                 cobertura: 114.72
@@ -610,14 +662,14 @@ paths:
                     message: "Positive gap of $15,500"
                 closed_at: "2025-10-31T23:59:59Z"
                 closed_by: "finance.manager@company.com"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /report/cobertura:
     get:
@@ -645,7 +697,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Coverage report retrieved successfully
           content:
             application/json:
@@ -671,7 +723,7 @@ paths:
                   monthly_data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/CierreMes'
+                      $ref: "#/components/schemas/CierreMes"
               example:
                 period:
                   start: "2025-01"
@@ -686,10 +738,10 @@ paths:
                     nomina: 98500
                     ingresos_facturados: 113000
                     gap: 15500
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /adjustments:
     post:
@@ -703,7 +755,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AdjustmentCreate'
+              $ref: "#/components/schemas/AdjustmentCreate"
             example:
               project_id: "proj_7x9k2m4n8p"
               tipo: "exceso"
@@ -714,12 +766,12 @@ paths:
               justificacion: "Ampliación de alcance aprobada por cliente"
               solicitado_por: "pm.leader@company.com"
       responses:
-        '201':
+        "201":
           description: Adjustment created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Adjustment'
+                $ref: "#/components/schemas/Adjustment"
               example:
                 id: "adj_9c1d3e5f7g"
                 project_id: "proj_7x9k2m4n8p"
@@ -740,12 +792,12 @@ paths:
                   - mes: "2026-01"
                     monto: 333333.34
                 created_at: "2025-10-31T03:30:00Z"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
     get:
       tags:
@@ -771,12 +823,12 @@ paths:
             type: integer
             default: 20
       responses:
-        '200':
+        "200":
           description: Adjustments list retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdjustmentList'
+                $ref: "#/components/schemas/AdjustmentList"
               example:
                 data:
                   - id: "adj_9c1d3e5f7g"
@@ -790,10 +842,10 @@ paths:
                 total: 1
                 limit: 20
                 offset: 0
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /movements:
     post:
@@ -807,7 +859,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MovementCreate'
+              $ref: "#/components/schemas/MovementCreate"
             example:
               project_id: "proj_7x9k2m4n8p"
               rubro_id: "rubro_1a2b3c4d5e"
@@ -818,12 +870,12 @@ paths:
               proveedor_id: "prov_8h9i0j1k2l"
               evidencia_url: "https://storage.example.com/invoices/INV-2025-1028.pdf"
       responses:
-        '201':
+        "201":
           description: Movement created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Movement'
+                $ref: "#/components/schemas/Movement"
               example:
                 id: "mov_4n5o6p7q8r"
                 project_id: "proj_7x9k2m4n8p"
@@ -835,12 +887,12 @@ paths:
                 descripcion: "Pago consultoría especializada Q4"
                 proveedor_id: "prov_8h9i0j1k2l"
                 created_at: "2025-10-31T03:35:00Z"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
     get:
       tags:
@@ -878,12 +930,12 @@ paths:
             type: integer
             default: 50
       responses:
-        '200':
+        "200":
           description: Movements list retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MovementList'
+                $ref: "#/components/schemas/MovementList"
               example:
                 data:
                   - id: "mov_4n5o6p7q8r"
@@ -899,10 +951,10 @@ paths:
                 total: 1
                 limit: 50
                 offset: 0
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /movements/{id}/approve:
     post:
@@ -918,23 +970,23 @@ paths:
           description: Movement ID
           schema:
             type: string
-            pattern: '^mov_[a-z0-9]{10}$'
+            pattern: "^mov_[a-z0-9]{10}$"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Approval'
+              $ref: "#/components/schemas/Approval"
             example:
               aprobado_por: "finance.manager@company.com"
               comentarios: "Aprobado - documentación correcta"
       responses:
-        '200':
+        "200":
           description: Movement approved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Movement'
+                $ref: "#/components/schemas/Movement"
               example:
                 id: "mov_4n5o6p7q8r"
                 project_id: "proj_7x9k2m4n8p"
@@ -949,14 +1001,14 @@ paths:
                 comentarios: "Aprobado - documentación correcta"
                 created_at: "2025-10-31T03:35:00Z"
                 updated_at: "2025-10-31T03:40:00Z"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /movements/{id}/reject:
     post:
@@ -972,23 +1024,23 @@ paths:
           description: Movement ID
           schema:
             type: string
-            pattern: '^mov_[a-z0-9]{10}$'
+            pattern: "^mov_[a-z0-9]{10}$"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Rejection'
+              $ref: "#/components/schemas/Rejection"
             example:
               rechazado_por: "finance.manager@company.com"
               motivo: "Documentación incompleta - falta factura original"
       responses:
-        '200':
+        "200":
           description: Movement rejected successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Movement'
+                $ref: "#/components/schemas/Movement"
               example:
                 id: "mov_4n5o6p7q8r"
                 project_id: "proj_7x9k2m4n8p"
@@ -1003,14 +1055,14 @@ paths:
                 motivo: "Documentación incompleta - falta factura original"
                 created_at: "2025-10-31T03:35:00Z"
                 updated_at: "2025-10-31T03:40:00Z"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /alerts:
     get:
@@ -1036,9 +1088,15 @@ paths:
           description: Filter by alert type
           schema:
             type: string
-            enum: [budget_overrun, coverage_low, payment_pending, allocation_missing]
+            enum:
+              [
+                budget_overrun,
+                coverage_low,
+                payment_pending,
+                allocation_missing,
+              ]
       responses:
-        '200':
+        "200":
           description: Alerts retrieved successfully
           content:
             application/json:
@@ -1091,10 +1149,10 @@ paths:
                       target: 105
                     created_at: "2025-10-31T01:00:00Z"
                 total: 2
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /providers:
     post:
@@ -1108,7 +1166,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProviderCreate'
+              $ref: "#/components/schemas/ProviderCreate"
             example:
               nombre: "TechConsulting Solutions LLC"
               tax_id: "RFC-987654321"
@@ -1119,12 +1177,12 @@ paths:
               pais: "USA"
               notas: "Proveedor preferente para consultoría especializada"
       responses:
-        '201':
+        "201":
           description: Provider created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Provider'
+                $ref: "#/components/schemas/Provider"
               example:
                 id: "prov_8h9i0j1k2l"
                 nombre: "TechConsulting Solutions LLC"
@@ -1136,12 +1194,12 @@ paths:
                 pais: "USA"
                 estado: "active"
                 created_at: "2025-10-31T03:45:00Z"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
     get:
       tags:
@@ -1168,12 +1226,12 @@ paths:
             type: integer
             default: 20
       responses:
-        '200':
+        "200":
           description: Providers list retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProviderList'
+                $ref: "#/components/schemas/ProviderList"
               example:
                 data:
                   - id: "prov_8h9i0j1k2l"
@@ -1191,10 +1249,10 @@ paths:
                 total: 2
                 limit: 20
                 offset: 0
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /prefacturas/webhook:
     post:
@@ -1208,7 +1266,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PrefacturaEvent'
+              $ref: "#/components/schemas/PrefacturaEvent"
             example:
               event_type: "prefactura.created"
               event_id: "evt_9r8s7t6u5v"
@@ -1221,7 +1279,7 @@ paths:
                 folio: "PREFACT-2025-110001"
                 descripcion: "Desarrollo backend - Noviembre 2025"
       responses:
-        '202':
+        "202":
           description: Webhook event accepted for processing
           content:
             application/json:
@@ -1239,10 +1297,10 @@ paths:
                 status: "accepted"
                 event_id: "evt_9r8s7t6u5v"
                 message: "Prefactura event queued for processing"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
 components:
   securitySchemes:
@@ -1253,7 +1311,7 @@ components:
       description: |
         AWS Cognito JWT token. Include the token in the Authorization header as: 
         `Authorization: Bearer <token>`
-        
+
         Token must include valid groups claim with 'SDT' group for Service Delivery Team access.
 
   schemas:
@@ -1305,7 +1363,7 @@ components:
 
     Project:
       allOf:
-        - $ref: '#/components/schemas/ProjectCreate'
+        - $ref: "#/components/schemas/ProjectCreate"
         - type: object
           required:
             - id
@@ -1315,7 +1373,7 @@ components:
           properties:
             id:
               type: string
-              pattern: '^proj_[a-z0-9]{10}$'
+              pattern: "^proj_[a-z0-9]{10}$"
               description: Unique project identifier
             status:
               type: string
@@ -1336,7 +1394,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/Project'
+            $ref: "#/components/schemas/Project"
         total:
           type: integer
           description: Total number of projects
@@ -1392,7 +1450,7 @@ components:
       properties:
         rubro_id:
           type: string
-          pattern: '^rubro_[a-z0-9]{10}$'
+          pattern: "^rubro_[a-z0-9]{10}$"
           description: Reference to catalog rubro
         monto_total:
           type: number
@@ -1418,7 +1476,7 @@ components:
       properties:
         id:
           type: string
-          pattern: '^(rubro|proj_rubro)_[a-z0-9]{10}$'
+          pattern: "^(rubro|proj_rubro)_[a-z0-9]{10}$"
           description: Unique rubro identifier
         project_id:
           type: string
@@ -1463,7 +1521,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/Rubro'
+            $ref: "#/components/schemas/Rubro"
         total:
           type: integer
 
@@ -1484,7 +1542,7 @@ components:
             properties:
               rubro_id:
                 type: string
-                pattern: '^rubro_[a-z0-9]{10}$'
+                pattern: "^rubro_[a-z0-9]{10}$"
               mes:
                 type: string
                 pattern: '^\d{4}-\d{2}$'
@@ -1609,7 +1667,7 @@ components:
       properties:
         project_id:
           type: string
-          pattern: '^proj_[a-z0-9]{10}$'
+          pattern: "^proj_[a-z0-9]{10}$"
         tipo:
           type: string
           enum: [exceso, reduccion, reasignacion]
@@ -1642,7 +1700,7 @@ components:
 
     Adjustment:
       allOf:
-        - $ref: '#/components/schemas/AdjustmentCreate'
+        - $ref: "#/components/schemas/AdjustmentCreate"
         - type: object
           required:
             - id
@@ -1651,7 +1709,7 @@ components:
           properties:
             id:
               type: string
-              pattern: '^adj_[a-z0-9]{10}$'
+              pattern: "^adj_[a-z0-9]{10}$"
             estado:
               type: string
               enum: [pending_approval, approved, rejected]
@@ -1685,7 +1743,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/Adjustment'
+            $ref: "#/components/schemas/Adjustment"
         total:
           type: integer
         limit:
@@ -1705,10 +1763,10 @@ components:
       properties:
         project_id:
           type: string
-          pattern: '^proj_[a-z0-9]{10}$'
+          pattern: "^proj_[a-z0-9]{10}$"
         rubro_id:
           type: string
-          pattern: '^rubro_[a-z0-9]{10}$'
+          pattern: "^rubro_[a-z0-9]{10}$"
         tipo:
           type: string
           enum: [gasto, ingreso, ajuste]
@@ -1727,7 +1785,7 @@ components:
           description: Movement description
         proveedor_id:
           type: string
-          pattern: '^prov_[a-z0-9]{10}$'
+          pattern: "^prov_[a-z0-9]{10}$"
           description: Provider ID (for gasto)
         evidencia_url:
           type: string
@@ -1736,7 +1794,7 @@ components:
 
     Movement:
       allOf:
-        - $ref: '#/components/schemas/MovementCreate'
+        - $ref: "#/components/schemas/MovementCreate"
         - type: object
           required:
             - id
@@ -1745,7 +1803,7 @@ components:
           properties:
             id:
               type: string
-              pattern: '^mov_[a-z0-9]{10}$'
+              pattern: "^mov_[a-z0-9]{10}$"
             estado:
               type: string
               enum: [pending, approved, rejected]
@@ -1778,7 +1836,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/Movement'
+            $ref: "#/components/schemas/Movement"
         total:
           type: integer
         limit:
@@ -1856,7 +1914,7 @@ components:
 
     Provider:
       allOf:
-        - $ref: '#/components/schemas/ProviderCreate'
+        - $ref: "#/components/schemas/ProviderCreate"
         - type: object
           required:
             - id
@@ -1865,7 +1923,7 @@ components:
           properties:
             id:
               type: string
-              pattern: '^prov_[a-z0-9]{10}$'
+              pattern: "^prov_[a-z0-9]{10}$"
             estado:
               type: string
               enum: [active, inactive, suspended]
@@ -1882,7 +1940,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/Provider'
+            $ref: "#/components/schemas/Provider"
         total:
           type: integer
         limit:
@@ -1904,7 +1962,7 @@ components:
           description: Type of webhook event
         event_id:
           type: string
-          pattern: '^evt_[a-z0-9]{10}$'
+          pattern: "^evt_[a-z0-9]{10}$"
           description: Unique event identifier
         timestamp:
           type: string
@@ -1920,10 +1978,10 @@ components:
           properties:
             project_id:
               type: string
-              pattern: '^proj_[a-z0-9]{10}$'
+              pattern: "^proj_[a-z0-9]{10}$"
             rubro_id:
               type: string
-              pattern: '^rubro_[a-z0-9]{10}$'
+              pattern: "^rubro_[a-z0-9]{10}$"
             monto:
               type: number
               minimum: 0
@@ -1964,7 +2022,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
           example:
             code: "BAD_REQUEST"
             message: "Invalid request parameters"
@@ -1978,7 +2036,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
           example:
             code: "UNAUTHORIZED"
             message: "Authentication required"
@@ -1991,7 +2049,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
           example:
             code: "FORBIDDEN"
             message: "Insufficient permissions to access this resource"
@@ -2005,7 +2063,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
           example:
             code: "NOT_FOUND"
             message: "Resource not found"
