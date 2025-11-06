@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ModuleType } from '@/types/domain';
 import { Badge } from '@/components/ui/badge';
@@ -17,23 +17,22 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ChevronDown, Calculator, BarChart3, Settings, LogOut, User, BookOpen, FileCheck, GitPullRequest, TrendingUp, Layers } from 'lucide-react';
+import { ChevronDown, Calculator, BarChart3, LogOut, User, BookOpen, FileCheck, GitPullRequest, TrendingUp, Layers } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { getDefaultRouteForRole, getRoleInfo } from '@/lib/auth';
 import { toast } from 'sonner';
 
-interface NavigationProps {
-  currentModule?: ModuleType;
-}
+// (No props currently)
 
 interface NavigationItem {
   path: string;
   label: string;
-  icon: any;
+  // Icon is a React component (lucide-react exports FC accepting size prop)
+  icon: React.ComponentType<{ size?: number; className?: string }>;
   isPremium?: boolean;
 }
 
-export function Navigation({ currentModule }: NavigationProps) {
+export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, currentRole, availableRoles, setRole, canAccessRoute, signOut } = useAuth();
@@ -51,12 +50,8 @@ export function Navigation({ currentModule }: NavigationProps) {
     }
   }, [currentRole, location.pathname, navigate, canAccessRoute]);
 
-  const getModuleBadgeClass = (module: ModuleType) => {
-    return module === 'PMO' ? 'module-badge-pmo' : 'module-badge-sdmt';
-  };
-
   const handleRoleChange = (newRole: string) => {
-    setRole(newRole as any);
+    setRole(newRole as ModuleType);
   };
 
   const handleSignOut = () => {

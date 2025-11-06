@@ -91,7 +91,7 @@ function AppContent() {
               
               {/* Finanzas R1 Routes (feature-flagged) */}
               {import.meta.env.VITE_FINZ_ENABLED === 'true' && (
-                <Route path="/finanzas/catalog/rubros" element={<RubrosCatalog />} />
+                <Route path="/rubros" element={<RubrosCatalog />} />
               )}
 
               {/* Fallback */}
