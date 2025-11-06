@@ -126,7 +126,7 @@ export function Navigation() {
       return moduleNavItems.SDMT;
     // Finanzas routes live at /catalog/* and /rules inside basename /finanzas
     if (
-      (path.startsWith("/catalog/") || path.startsWith("/rules")) &&
+      (path.startsWith("/catalog/") || path === "/rules" || path.startsWith("/rules/")) &&
       moduleNavItems.FINZ.length
     ) {
       return moduleNavItems.FINZ;
