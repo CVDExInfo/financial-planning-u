@@ -90,8 +90,8 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='FinzApiId'].OutputValue" --output text)
           API_URL=$(aws cloudformation describe-stacks --stack-name "${FINZ_API_STACK}" \
             --query "Stacks[0].Outputs[?OutputKey=='FinzApiUrl'].OutputValue" --output text)
-          echo "api_id=$API_ID"  >> $GITHUB_OUTPUT
-          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+          printf 'api_id=%s\n' "$API_ID" >> "$GITHUB_OUTPUT"
+          printf 'api_url=%s\n' "$API_URL" >> "$GITHUB_OUTPUT"
 
       - name: Guard - canonical API id and /health route present
         run: |
@@ -148,6 +148,8 @@ jobs:
           TABLE_RUBROS_TAXONOMIA: ${{ vars.TABLE_RUBROS_TAXONOMIA || '' }}
         run: |
           set -euo pipefail
+          : "${TABLE_RUBROS:=finz_rubros}"
+          : "${TABLE_RUBROS_TAXONOMIA:=finz_rubros_taxonomia}"
           if ! npm ci; then npm install; fi
           echo "Tables: RUBROS=$TABLE_RUBROS TAX=$TABLE_RUBROS_TAXONOMIA"
           TAX_C=0

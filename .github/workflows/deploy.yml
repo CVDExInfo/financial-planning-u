@@ -102,9 +102,10 @@ jobs:
             exit 1
           fi
           
-          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
-          echo "AWS_DEFAULT_REGION=${{ env.AWS_REGION }}" >> $GITHUB_ENV
+          printf 'AWS_ACCESS_KEY_ID=%s\n' "${{ secrets.AWS_ACCESS_KEY_ID }}" >> "$GITHUB_ENV"
+          printf 'AWS_SECRET_ACCESS_KEY=%s\n' "${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> "$GITHUB_ENV"
+          printf 'AWS_DEFAULT_REGION=%s\n' "${{ env.AWS_REGION }}" >> "$GITHUB_ENV"
+          sed -i 's/\r$//' "$GITHUB_ENV"
           echo "✅ Static credentials configured"
 
       - name: Verify Authentication Method

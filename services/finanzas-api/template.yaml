@@ -167,13 +167,7 @@ Resources:
             IdentitySource: "$request.header.Authorization"
         DefaultAuthorizer: CognitoJwt
 
-  # Explicit stage with AutoDeploy to ensure deployments trigger on updates
-  ApiStage:
-    Type: AWS::ApiGatewayV2::Stage
-    Properties:
-      ApiId: !Ref Api
-      StageName: !Ref StageName
-      AutoDeploy: true
+  # Note: Serverless::HttpApi with StageName will create and manage the stage automatically.
 
   # ========== Lambdas ==========
   HealthFn:

@@ -42,7 +42,8 @@ jobs:
           echo "✅ Vars OK"
           # Normalize DEV_API_URL (strip trailing slash)
           CLEAN_URL="${DEV_API_URL%/}"
-          echo "DEV_API_URL=$CLEAN_URL" >> $GITHUB_ENV
+          printf '%s\n' "DEV_API_URL=$CLEAN_URL" >> "$GITHUB_ENV"
+          sed -i 's/\r$//' "$GITHUB_ENV"
 
       - name: Configure AWS (OIDC)
         uses: ./.github/actions/oidc-configure-aws
@@ -81,8 +82,8 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='FinzApiId'].OutputValue" --output text)
           API_URL=$(aws cloudformation describe-stacks --stack-name "${FINZ_API_STACK}" \
             --query "Stacks[0].Outputs[?OutputKey=='FinzApiUrl'].OutputValue" --output text)
-          echo "api_id=$API_ID" >> $GITHUB_OUTPUT
-          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+          printf 'api_id=%s\n' "$API_ID" >> "$GITHUB_OUTPUT"
+          printf 'api_url=%s\n' "$API_URL" >> "$GITHUB_OUTPUT"
           {
             echo "## API Deploy"
             echo "- ApiId: $API_ID"
@@ -134,6 +135,8 @@ jobs:
           TABLE_RUBROS_TAXONOMIA: ${{ env.TABLE_RUBROS_TAXONOMIA }}
         run: |
           set -euo pipefail
+          : "${TABLE_RUBROS:=finz_rubros}"
+          : "${TABLE_RUBROS_TAXONOMIA:=finz_rubros_taxonomia}"
           if ! npm ci; then npm install; fi
           # Seed taxonomy only if table name provided and exists
           TAX_C=0
@@ -166,8 +169,11 @@ jobs:
           VITE_USE_MOCKS: ${{ env.VITE_USE_MOCKS }}
         run: |
           set -euo pipefail
-          echo "VITE_API_BASE_URL=$VITE_API_BASE_URL" >> $GITHUB_ENV
-          echo "VITE_USE_MOCKS=$VITE_USE_MOCKS" >> $GITHUB_ENV
+          CLEAN_URL="${VITE_API_BASE_URL%/}"
+          printf '%s\n' "VITE_API_BASE_URL=$CLEAN_URL" >> "$GITHUB_ENV"
+          printf '%s\n' "VITE_FINZ_ENABLED=true" >> "$GITHUB_ENV"
+          printf '%s\n' "VITE_USE_MOCKS=$VITE_USE_MOCKS" >> "$GITHUB_ENV"
+          sed -i 's/\r$//' "$GITHUB_ENV"
           if ! npm ci; then npm install; fi
           npm run build
           aws s3 sync dist/ "s3://${{ vars.S3_BUCKET_NAME }}/finanzas/" --delete

@@ -31,7 +31,8 @@ jobs:
           for k in S3_BUCKET_NAME CLOUDFRONT_DIST_ID; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing repo var: $k"; exit 1; }
           done
-          echo "VITE_USE_MOCKS=false" >> $GITHUB_ENV
+          printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
+          sed -i 's/\r$//' "$GITHUB_ENV"
           echo "✅ Env OK"
 
       - name: Setup Node
@@ -56,8 +57,9 @@ jobs:
             echo "❌ DEV_API_URL repo var is empty. Set it to the Finanzas API stage URL."; exit 1;
           fi
           CLEAN_URL="${DEV_API_URL%/}"
-          echo "DEV_API_URL=$CLEAN_URL" >> $GITHUB_ENV
-          echo "VITE_API_BASE_URL=$CLEAN_URL" >> $GITHUB_ENV
+          printf '%s\n' "DEV_API_URL=$CLEAN_URL" >> "$GITHUB_ENV"
+          printf '%s\n' "VITE_API_BASE_URL=$CLEAN_URL" >> "$GITHUB_ENV"
+          sed -i 's/\r$//' "$GITHUB_ENV"
           echo "Using DEV_API_URL=$CLEAN_URL"
 
       - name: Build UI
@@ -133,7 +135,7 @@ jobs:
           set -euo pipefail
           DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
           URL="https://${DOMAIN}${FINZ_PREFIX}/catalog/rubros"
-          echo "UI_URL=$URL" >> $GITHUB_OUTPUT
+          printf 'UI_URL=%s\n' "$URL" >> "$GITHUB_OUTPUT"
           echo "## UI Smoke" >> $GITHUB_STEP_SUMMARY
           echo "URL: $URL" >> $GITHUB_STEP_SUMMARY
           STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -L "$URL")
