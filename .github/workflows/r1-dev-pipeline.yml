@@ -2,7 +2,7 @@ name: R1 Finanzas Dev Pipeline
 
 on:
   push:
-    branches: [ "r1-finanzas-dev-wiring" ]
+    branches: ["r1-finanzas-dev-wiring"]
   workflow_dispatch: {}
 
 permissions:
@@ -10,14 +10,14 @@ permissions:
   contents: write
 
 env:
-  AWS_REGION:             ${{ vars.AWS_REGION || 'us-east-2' }}
-  FINZ_API_STACK:         ${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}
-  FINZ_API_STAGE:         ${{ vars.FINZ_API_STAGE || 'dev' }}
-  VITE_API_BASE_URL:      ${{ vars.VITE_API_BASE_URL }}
-  VITE_FINZ_ENABLED:      ${{ vars.VITE_FINZ_ENABLED || 'true' }}
-  TABLE_RUBROS:           ${{ vars.TABLE_RUBROS || 'finz_rubros' }}
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+  FINZ_API_STACK: ${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}
+  FINZ_API_STAGE: ${{ vars.FINZ_API_STAGE || 'dev' }}
+  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+  VITE_FINZ_ENABLED: ${{ vars.VITE_FINZ_ENABLED || 'true' }}
+  TABLE_RUBROS: ${{ vars.TABLE_RUBROS || 'finz_rubros' }}
   TABLE_RUBROS_TAXONOMIA: ${{ vars.TABLE_RUBROS_TAXONOMIA || '' }}
-  CLOUDFRONT_DIST_ID:     ${{ vars.CLOUDFRONT_DIST_ID }}
+  CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID }}
 
 jobs:
   deploy-api-seed-ui-test:
