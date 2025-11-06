@@ -61,7 +61,6 @@ jobs:
         working-directory: services/finanzas-api
         run: |
           if ! npm ci; then npm install; fi
-          npm i -g esbuild
           sam build
 
       - name: Deploy API
