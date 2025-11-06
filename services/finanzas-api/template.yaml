@@ -184,6 +184,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/health.ts
     Properties:
@@ -209,6 +211,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/projects.ts
     Properties:
@@ -234,6 +238,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/catalog.ts
     Properties:
@@ -261,6 +267,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/allocationRules.get.ts
     Properties:
@@ -284,6 +292,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/handoff.ts
     Properties:
@@ -313,6 +323,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/health.ts
     Properties:
@@ -330,6 +342,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/rubros.ts
     Properties:
@@ -361,6 +375,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/allocations.ts
     Properties:
@@ -386,6 +402,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/plan.ts
     Properties:
@@ -417,6 +435,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/payroll.ts
     Properties:
@@ -439,6 +459,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/close-month.ts
     Properties:
@@ -463,6 +485,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/adjustments.ts
     Properties:
@@ -488,6 +512,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/alerts.ts
     Properties:
@@ -510,6 +536,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/providers.ts
     Properties:
@@ -535,6 +563,8 @@ Resources:
         Minify: false
         Target: es2022
         Sourcemap: true
+        ExternalModules:
+          - aws-sdk
         EntryPoints:
           - src/handlers/prefacturas.ts
     Properties:
