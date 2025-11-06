@@ -60,7 +60,8 @@ jobs:
           # Strip whitespace and trailing slashes
           CLEAN_URL=$(echo "$DEV_API_URL" | tr -d '\r\n' | sed 's:/*$::')
           echo "Using DEV_API_URL: ${CLEAN_URL}"
-          echo "BASE=${CLEAN_URL}" >> "$GITHUB_ENV"
+          printf 'BASE=%s\n' "$CLEAN_URL" >> "$GITHUB_ENV"
+          sed -i 's/\r$//' "$GITHUB_ENV"
 
       - name: Generate Cognito JWT
         id: jwt
