@@ -185,7 +185,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/health.ts
+          - src/handlers/health.ts
     Properties:
       CodeUri: .
       Handler: health.handler
@@ -210,7 +210,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/projects.ts
+          - src/handlers/projects.ts
     Properties:
       CodeUri: .
       Handler: projects.handler
@@ -235,7 +235,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/catalog.ts
+          - src/handlers/catalog.ts
     Properties:
       CodeUri: .
       Handler: catalog.handler
@@ -262,7 +262,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/allocationRules.get.ts
+          - src/handlers/allocationRules.get.ts
     Properties:
       CodeUri: .
       Handler: allocationRules.get.handler
@@ -285,7 +285,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/handoff.ts
+          - src/handlers/handoff.ts
     Properties:
       CodeUri: .
       Handler: handoff.handler
@@ -314,7 +314,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/health.ts
+          - src/handlers/health.ts
     Properties:
       CodeUri: .
       Handler: health.handler
@@ -331,7 +331,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/rubros.ts
+          - src/handlers/rubros.ts
     Properties:
       CodeUri: .
       Handler: rubros.handler
@@ -362,7 +362,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/allocations.ts
+          - src/handlers/allocations.ts
     Properties:
       CodeUri: .
       Handler: allocations.handler
@@ -387,7 +387,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/plan.ts
+          - src/handlers/plan.ts
     Properties:
       CodeUri: .
       Handler: plan.handler
@@ -418,7 +418,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/payroll.ts
+          - src/handlers/payroll.ts
     Properties:
       CodeUri: .
       Handler: payroll.handler
@@ -440,7 +440,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/close-month.ts
+          - src/handlers/close-month.ts
     Properties:
       CodeUri: .
       Handler: close-month.handler
@@ -464,7 +464,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/adjustments.ts
+          - src/handlers/adjustments.ts
     Properties:
       CodeUri: .
       Handler: adjustments.handler
@@ -489,7 +489,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/alerts.ts
+          - src/handlers/alerts.ts
     Properties:
       CodeUri: .
       Handler: alerts.handler
@@ -511,7 +511,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/providers.ts
+          - src/handlers/providers.ts
     Properties:
       CodeUri: .
       Handler: providers.handler
@@ -536,7 +536,7 @@ Resources:
         Target: es2022
         Sourcemap: true
         EntryPoints:
-          - handlers/prefacturas.ts
+          - src/handlers/prefacturas.ts
     Properties:
       CodeUri: .
       Handler: prefacturas.handler

@@ -15,7 +15,7 @@ env:
   FINZ_API_STAGE: ${{ vars.FINZ_API_STAGE || 'dev' }}
   DEV_API_URL: ${{ vars.DEV_API_URL || vars.VITE_API_BASE_URL }}
   VITE_FINZ_ENABLED: ${{ vars.VITE_FINZ_ENABLED || 'true' }}
-  VITE_USE_MOCKS: 'false'
+  VITE_USE_MOCKS: "false"
   TABLE_RUBROS: ${{ vars.TABLE_RUBROS || 'finz_rubros' }}
   TABLE_RUBROS_TAXONOMIA: ${{ vars.TABLE_RUBROS_TAXONOMIA || '' }}
   CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID }}
