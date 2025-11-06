@@ -105,6 +105,20 @@ jobs:
           aws apigatewayv2 get-routes --api-id "$HOST_ID" --query 'Items[].RouteKey' --output text | tr '\t' '\n' | grep -q "GET /health" || {
             echo "❌ Route GET /health not found on API ${HOST_ID}"; exit 1; }
 
+      - name: Readiness - wait for /health (max 90s)
+        env:
+          BASE: ${{ steps.api.outputs.api_url }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 18); do
+            CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || true)
+            if [ "$CODE" = "200" ]; then
+              echo "API ready (health=200)"; break
+            fi
+            echo "Waiting for API to be ready... (try $i, code=$CODE)"; sleep 5
+            if [ "$i" = "18" ]; then echo "❌ API not ready in time"; exit 1; fi
+          done
+
       - name: Generate JWT
         id: jwt
         uses: ./.github/actions/cognito-generate-jwt
@@ -199,47 +213,34 @@ jobs:
           CF_DOMAIN=$(aws cloudfront get-distribution --id "${{ env.CLOUDFRONT_DIST_ID }}" --query 'Distribution.DomainName' --output text)
           CF_URL="https://${CF_DOMAIN}/finanzas/"
           API_URL=${{ steps.api.outputs.api_url }}
-          cat > docs/DEPLOYMENT_SUMMARY.md <<EOF
-          # Deployment Summary (dev)
-
-          This document is updated by the deployment workflows to capture evidence for R1.
-
-          ## API
-
-          - ApiId: ${{ steps.api.outputs.api_id }}
-          - Stage: ${{ env.FINZ_API_STAGE }}
-          - URL: ${API_URL}
-          - CORS Allowlist: <https://${CF_DOMAIN}>
-          - Health: Collected in step summary
-          - Rubros: Seeded (counts below)
-          - Catalog response shape: { data: [] }
-
-          ## UI
-
-          - CloudFront URL: <${CF_URL}>
-          - Feature flag VITE_FINZ_ENABLED: expected=${{ env.VITE_FINZ_ENABLED }}
-          - Fetch sample size: see UI smoke/API smokes
-
-          ## Newman
-
-          - Status: (see workflow run)
-          - Failing tests (if any):
-
-          ## DynamoDB Seeders
-
-          - rubros: (see step summary)
-          - taxonomía: (see step summary)
-          - Key pattern: pk/sk (e.g., pk=RUBRO#<id>, sk=DEF; taxonomy pk=LINEA#<linea_codigo>, sk=CATEGORIA#<categoria_codigo>)
-
-          ## Environment Echoes
-
-          - Region: ${{ env.AWS_REGION }}
-          - Stage: ${{ env.FINZ_API_STAGE }}
-          - VITE_API_BASE_URL: ${API_URL}
-          EOF
+          {
+            echo "# Deployment Summary (dev)"
+            echo ""
+            echo "Updated by R1 Dev Pipeline run $GITHUB_RUN_NUMBER at $(date -u '+%Y-%m-%dT%H:%M:%SZ')."
+            echo ""
+            echo "## API"
+            echo "- ApiId: ${{ steps.api.outputs.api_id }}"
+            echo "- Stage: ${{ env.FINZ_API_STAGE }}"
+            echo "- URL: ${API_URL}"
+            echo "- CORS Allowlist: <https://${CF_DOMAIN}>"
+            echo "- Health: see workflow summary"
+            echo "- Rubros seed count: see workflow summary"
+            echo ""
+            echo "## UI"
+            echo "- CloudFront URL: <${CF_URL}>"
+            echo "- Feature flag VITE_FINZ_ENABLED: expected=${{ env.VITE_FINZ_ENABLED }}"
+            echo ""
+            echo "## Newman"
+            echo "- Status: see workflow summary"
+            echo ""
+            echo "## Environment"
+            echo "- Region: ${{ env.AWS_REGION }}"
+            echo "- Stage: ${{ env.FINZ_API_STAGE }}"
+            echo "- VITE_API_BASE_URL: ${API_URL}"
+          } >> DEPLOYMENT_SUMMARY.md
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add docs/DEPLOYMENT_SUMMARY.md
+          git add DEPLOYMENT_SUMMARY.md
           git commit -m "ci: update DEPLOYMENT_SUMMARY.md"
           git push
 
