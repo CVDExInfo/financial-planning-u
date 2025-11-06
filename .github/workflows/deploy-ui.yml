@@ -71,6 +71,27 @@ jobs:
             --distribution-id "${CLOUDFRONT_DIST_ID}" \
             --paths '/finanzas/*'
 
+      - name: UI Smoke (GET /finanzas/catalog/rubros)
+        id: ui_smoke
+        env:
+          FINZ_PREFIX: /finanzas
+        run: |
+          set -euo pipefail
+          DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          URL="https://${DOMAIN}${FINZ_PREFIX}/catalog/rubros"
+          echo "UI_URL=$URL" >> $GITHUB_OUTPUT
+          echo "## UI Smoke" >> $GITHUB_STEP_SUMMARY
+          echo "URL: $URL" >> $GITHUB_STEP_SUMMARY
+          # Fetch headers and final URL after redirects
+          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -L "$URL")
+          echo "Status: $STATUS" >> $GITHUB_STEP_SUMMARY
+          # Print first 20 lines of body for verification (non-fatal)
+          echo "\n<details><summary>HTML snippet</summary>" >> $GITHUB_STEP_SUMMARY
+          echo '```html' >> $GITHUB_STEP_SUMMARY
+          curl -sS -L "$URL" | sed -n '1,20p' >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+
       - name: Generate JWT for API smokes
         id: jwt
         uses: ./.github/actions/cognito-generate-jwt
