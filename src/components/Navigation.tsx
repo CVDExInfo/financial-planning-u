@@ -72,7 +72,7 @@ export function Navigation() {
       { path: '/sdmt/cost/scenarios', label: 'Scenarios', icon: Layers, isPremium: true },
       // Finanzas R1 - visible when feature flag enabled
       ...(import.meta.env.VITE_FINZ_ENABLED === 'true' ? [
-        { path: '/finanzas/catalog/rubros', label: 'Rubros', icon: BookOpen }
+        { path: '/finanzas/rubros', label: 'Rubros', icon: BookOpen }
       ] : [])
     ]
   };
