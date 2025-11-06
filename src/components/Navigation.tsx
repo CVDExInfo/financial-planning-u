@@ -70,10 +70,9 @@ export function Navigation() {
       { path: '/sdmt/cost/changes', label: 'Changes', icon: GitPullRequest },
       { path: '/sdmt/cost/cashflow', label: 'Cash Flow', icon: BarChart3, isPremium: true },
       { path: '/sdmt/cost/scenarios', label: 'Scenarios', icon: Layers, isPremium: true },
-      // Finanzas R1 - visible when feature flag enabled
-      ...(import.meta.env.VITE_FINZ_ENABLED === 'true' ? [
-        { path: '/finanzas/rubros', label: 'Rubros', icon: BookOpen }
-      ] : [])
+    ],
+    FINANZAS: [
+      { path: '/finanzas/rubros', label: 'Rubros', icon: BookOpen }
     ]
   };
 
@@ -83,6 +82,8 @@ export function Navigation() {
       return moduleNavItems.PMO;
     } else if (location.pathname.startsWith('/sdmt/') && canAccessRoute(location.pathname)) {
       return moduleNavItems.SDMT;
+    } else if (location.pathname.startsWith('/finanzas/') && import.meta.env.VITE_FINZ_ENABLED === 'true') {
+      return moduleNavItems.FINANZAS;
     }
     // If current route is not accessible, show navigation for default module based on role
     else if (currentRole === 'PMO') {

@@ -15,12 +15,12 @@ const ROLE_HIERARCHY: Record<UserRole, number> = {
 // Role permissions mapping
 const ROLE_PERMISSIONS = {
   PMO: {
-    routes: ['/pmo/**', '/sdmt/**'],
+    routes: ['/pmo/**', '/sdmt/**', '/finanzas/**'],
     actions: ['create', 'read', 'update', 'delete', 'approve'],
     description: 'Full access to PMO estimator and SDMT cost management'
   },
   SDMT: {
-    routes: ['/sdmt/**'],
+    routes: ['/sdmt/**', '/finanzas/**'],
     actions: ['create', 'read', 'update', 'delete'],
     description: 'Full access to SDMT cost management modules'
   },
@@ -30,7 +30,7 @@ const ROLE_PERMISSIONS = {
     description: 'Limited access to cost catalog and reconciliation uploads'
   },
   EXEC_RO: {
-    routes: ['/pmo/**', '/sdmt/**'],
+    routes: ['/pmo/**', '/sdmt/**', '/finanzas/**'],
     actions: ['read'],
     description: 'Read-only access to all modules for executive reporting'
   }
