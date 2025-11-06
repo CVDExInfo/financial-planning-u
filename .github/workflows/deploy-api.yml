@@ -1,6 +1,9 @@
 name: Deploy Finanzas API (dev)
 on:
-  push: { branches: ["module/finanzas-api-mvp"] }
+  push:
+    branches:
+      - "module/finanzas-api-mvp"
+      - "r1-finanzas-dev-wiring"
   workflow_dispatch: {}
 
 permissions:
