@@ -241,6 +241,8 @@ Resources:
       Handler: catalog.handler
       Policies:
         - AWSLambdaBasicExecutionRole
+        - DynamoDBReadPolicy:
+            TableName: !Ref RubrosTable
       Events:
         ListRubros:
           Type: HttpApi

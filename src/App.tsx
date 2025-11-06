@@ -23,6 +23,7 @@ import SDMTCatalog from "@/features/sdmt/cost/Catalog/SDMTCatalog";
 // Finanzas module (R1) - Gestion presupuesto
 import RubrosCatalog from "@/modules/finanzas/RubrosCatalog";
 import AllocationRulesPreview from "@/modules/finanzas/AllocationRulesPreview";
+import FinanzasHome from "./modules/finanzas/FinanzasHome";
 import SDMTForecast from "@/features/sdmt/cost/Forecast/SDMTForecast";
 import SDMTReconciliation from "@/features/sdmt/cost/Reconciliation/SDMTReconciliation";
 import SDMTCashflow from "@/features/sdmt/cost/Cashflow/SDMTCashflow";
@@ -76,8 +77,12 @@ function AppContent() {
         <main>
           <AccessControl>
             <Routes>
-              {/* Home */}
-              <Route path="/" element={<HomePage />} />
+              {/* Finanzas root (app served under /finanzas) */}
+              {import.meta.env.VITE_FINZ_ENABLED === "true" ? (
+                <Route path="/" element={<FinanzasHome />} />
+              ) : (
+                <Route path="/" element={<HomePage />} />
+              )}
 
               {/* User Profile */}
               <Route path="/profile" element={<UserProfile />} />
@@ -102,6 +107,7 @@ function AppContent() {
               {/* Finanzas R1 Routes (feature-flagged) */}
               {import.meta.env.VITE_FINZ_ENABLED === "true" && (
                 <>
+                  {/* Finanzas routes (relative to basename /finanzas) */}
                   <Route path="/catalog/rubros" element={<RubrosCatalog />} />
                   <Route path="/rules" element={<AllocationRulesPreview />} />
                 </>

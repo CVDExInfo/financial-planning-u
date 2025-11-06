@@ -107,36 +107,34 @@ export function Navigation() {
         icon: Layers,
         isPremium: true,
       },
-      // Finanzas R1 - visible when feature flag enabled
-      ...(import.meta.env.VITE_FINZ_ENABLED === "true"
+    ],
+    FINZ:
+      import.meta.env.VITE_FINZ_ENABLED === "true"
         ? [
             { path: "/catalog/rubros", label: "Rubros", icon: BookOpen },
             { path: "/rules", label: "Rules", icon: BookOpen },
           ]
-        : []),
-    ],
+        : [],
   };
 
   const getVisibleModuleNavItems = () => {
-    // Show navigation based on current route and role access
+    const path = location.pathname;
+    // Direct module path detection
+    if (path.startsWith("/pmo/") && canAccessRoute(path))
+      return moduleNavItems.PMO;
+    if (path.startsWith("/sdmt/") && canAccessRoute(path))
+      return moduleNavItems.SDMT;
+    // Finanzas routes live at /catalog/* and /rules inside basename /finanzas
     if (
-      location.pathname.startsWith("/pmo/") &&
-      canAccessRoute(location.pathname)
+      (path.startsWith("/catalog/") || path === "/rules" || path.startsWith("/rules/")) &&
+      moduleNavItems.FINZ.length
     ) {
-      return moduleNavItems.PMO;
-    } else if (
-      location.pathname.startsWith("/sdmt/") &&
-      canAccessRoute(location.pathname)
-    ) {
-      return moduleNavItems.SDMT;
+      return moduleNavItems.FINZ;
     }
-    // If current route is not accessible, show navigation for default module based on role
-    else if (currentRole === "PMO") {
-      return moduleNavItems.PMO;
-    } else if (["SDMT", "VENDOR"].includes(currentRole)) {
-      return moduleNavItems.SDMT;
-    }
-    return [];
+    // Fallback to role default set + append FINZ if feature enabled for visibility
+    const base =
+      currentRole === "PMO" ? moduleNavItems.PMO : moduleNavItems.SDMT;
+    return [...base, ...moduleNavItems.FINZ];
   };
 
   return (

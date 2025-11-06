@@ -13,8 +13,9 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
   S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
   CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID }}
-  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+  DEV_API_URL: ${{ vars.DEV_API_URL || vars.VITE_API_BASE_URL }}
   VITE_FINZ_ENABLED: ${{ vars.VITE_FINZ_ENABLED || 'true' }}
+  VITE_USE_MOCKS: 'false'
 
 jobs:
   deploy-ui:
@@ -25,13 +26,15 @@ jobs:
       - name: Preflight env
         run: |
           set -euo pipefail
-          for k in S3_BUCKET_NAME CLOUDFRONT_DIST_ID VITE_API_BASE_URL; do
+          for k in S3_BUCKET_NAME CLOUDFRONT_DIST_ID DEV_API_URL; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing repo var: $k"; exit 1; }
           done
-          # Normalize API base (no trailing slash)
-          CLEAN_URL=$(echo "$VITE_API_BASE_URL" | tr -d '\r\n' | sed 's:/*$::')
+          # Normalize API base (no trailing slash) from DEV_API_URL authoritative source
+          CLEAN_URL=$(echo "$DEV_API_URL" | tr -d '\r\n' | sed 's:/*$::')
+          echo "DEV_API_URL=${CLEAN_URL}" >> $GITHUB_ENV
           echo "VITE_API_BASE_URL=${CLEAN_URL}" >> $GITHUB_ENV
-          echo "✅ Env OK"
+          echo "VITE_USE_MOCKS=false" >> $GITHUB_ENV
+          echo "✅ Env OK (API base normalized)"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -52,9 +55,11 @@ jobs:
         env:
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
           VITE_FINZ_ENABLED: ${{ env.VITE_FINZ_ENABLED }}
+          VITE_USE_MOCKS: ${{ env.VITE_USE_MOCKS }}
         run: |
           echo "Using VITE_API_BASE_URL=$VITE_API_BASE_URL"
           echo "Using VITE_FINZ_ENABLED=$VITE_FINZ_ENABLED"
+          echo "Using VITE_USE_MOCKS=$VITE_USE_MOCKS"
           npm run build || { echo "❌ UI build failed"; exit 1; }
 
       - name: Configure AWS (OIDC)
@@ -76,6 +81,28 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id "${CLOUDFRONT_DIST_ID}" \
             --paths '/finanzas/*'
+      - name: UI Smoke (HEAD /finanzas/ root)
+        env:
+          FINZ_PREFIX: /finanzas
+        run: |
+          set -euo pipefail
+          DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+            ROOT="https://${DOMAIN}${FINZ_PREFIX}/"
+          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -I "$ROOT")
+          echo "## UI Root (HEAD)" >> $GITHUB_STEP_SUMMARY
+          echo "URL: $ROOT" >> $GITHUB_STEP_SUMMARY
+          echo "Status: $STATUS" >> $GITHUB_STEP_SUMMARY
+      - name: UI Smoke (GET /finanzas/ root)
+        env:
+          FINZ_PREFIX: /finanzas
+        run: |
+          set -euo pipefail
+          DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          ROOT="https://${DOMAIN}${FINZ_PREFIX}/"
+          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -L "$ROOT")
+          echo "## UI Root (GET)" >> $GITHUB_STEP_SUMMARY
+          echo "URL: $ROOT" >> $GITHUB_STEP_SUMMARY
+          echo "Status: $STATUS" >> $GITHUB_STEP_SUMMARY
       - name: UI Smoke (GET /finanzas/catalog/rubros)
         id: ui_smoke
         env:
@@ -107,7 +134,7 @@ jobs:
 
       - name: "Post-deploy API smokes (/health & /catalog/rubros)"
         env:
-          DEV_API_URL: ${{ vars.VITE_API_BASE_URL }}
+          DEV_API_URL: ${{ env.DEV_API_URL }}
           TOKEN: ${{ steps.jwt.outputs.access_token }}
         run: |
           set -euo pipefail
@@ -140,8 +167,9 @@ jobs:
             echo "- Bucket: ${S3_BUCKET_NAME}"
             echo "- Distribution: ${CLOUDFRONT_DIST_ID}"
             echo "- Base Path: /finanzas/"
-            echo "- API Base: ${VITE_API_BASE_URL}"
+            echo "- API Base: ${VITE_API_BASE_URL} (derived from DEV_API_URL)"
             echo "- Feature: VITE_FINZ_ENABLED=${VITE_FINZ_ENABLED}"
+            echo "- Mocks: VITE_USE_MOCKS=${VITE_USE_MOCKS}"
             echo ""
             echo "### Try it"
             echo '```bash'
