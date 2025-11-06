@@ -27,21 +27,22 @@ Globals:
     Environment:
       Variables:
         NODE_OPTIONS: --enable-source-maps
-        TABLE_PROJECTS: !Sub ${TablePrefix}projects
-        TABLE_RUBROS: !Sub ${TablePrefix}rubros
-        TABLE_ALLOC: !Sub ${TablePrefix}allocations
-        TABLE_PAYROLL: !Sub ${TablePrefix}payroll_actuals
-        TABLE_ADJ: !Sub ${TablePrefix}adjustments
-        TABLE_ALERTS: !Sub ${TablePrefix}alerts
-        TABLE_PROVIDERS: !Sub ${TablePrefix}providers
-        TABLE_AUDIT: !Sub ${TablePrefix}audit_log
+        TABLE_PROJECTS: !Join ['', [!Ref TablePrefix, 'projects']]
+        TABLE_RUBROS: !Join ['', [!Ref TablePrefix, 'rubros']]
+        TABLE_RUBROS_TAXONOMIA: !Join ['', [!Ref TablePrefix, 'rubros_taxonomia']]
+        TABLE_ALLOC: !Join ['', [!Ref TablePrefix, 'allocations']]
+        TABLE_PAYROLL: !Join ['', [!Ref TablePrefix, 'payroll_actuals']]
+        TABLE_ADJ: !Join ['', [!Ref TablePrefix, 'adjustments']]
+        TABLE_ALERTS: !Join ['', [!Ref TablePrefix, 'alerts']]
+        TABLE_PROVIDERS: !Join ['', [!Ref TablePrefix, 'providers']]
+        TABLE_AUDIT: !Join ['', [!Ref TablePrefix, 'audit_log']]
 
 Resources:
   # ========== DynamoDB tables ==========
   ProjectsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}projects
+      TableName: !Join ['', [!Ref TablePrefix, 'projects']]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -53,7 +54,19 @@ Resources:
   RubrosTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}rubros
+      TableName: !Join ['', [!Ref TablePrefix, 'rubros']]
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  RubrosTaxonomiaTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Join ['', [!Ref TablePrefix, 'rubros_taxonomia']]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -65,7 +78,7 @@ Resources:
   AllocationsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}allocations
+      TableName: !Join ['', [!Ref TablePrefix, 'allocations']]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -77,7 +90,7 @@ Resources:
   PayrollTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}payroll_actuals
+      TableName: !Join ['', [!Ref TablePrefix, 'payroll_actuals']]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -89,7 +102,7 @@ Resources:
   AdjustmentsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}adjustments
+      TableName: !Join ['', [!Ref TablePrefix, 'adjustments']]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -101,7 +114,7 @@ Resources:
   AlertsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}alerts
+      TableName: !Join ['', [!Ref TablePrefix, 'alerts']]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -113,7 +126,7 @@ Resources:
   ProvidersTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}providers
+      TableName: !Join ['', [!Ref TablePrefix, 'providers']]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -125,7 +138,7 @@ Resources:
   AuditTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}audit_log
+      TableName: !Join ['', [!Ref TablePrefix, 'audit_log']]
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }

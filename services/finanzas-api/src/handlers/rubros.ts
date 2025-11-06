@@ -16,6 +16,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     // TODO: Create/update rubro for project
     return {
       statusCode: 501,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: 'POST /projects/{id}/rubros - not implemented yet' })
     };
   }
@@ -23,7 +24,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
   // GET - list rubros for project
   // TODO: Fetch from DynamoDB rubros table
   return {
-    statusCode: 501,
-    body: JSON.stringify({ message: 'GET /projects/{id}/rubros - not implemented yet' })
+    statusCode: 200,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: [] })
   };
 };

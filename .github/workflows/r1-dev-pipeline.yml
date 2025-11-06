@@ -15,8 +15,8 @@ env:
   FINZ_API_STAGE:         ${{ vars.FINZ_API_STAGE || 'dev' }}
   VITE_API_BASE_URL:      ${{ vars.VITE_API_BASE_URL }}
   VITE_FINZ_ENABLED:      ${{ vars.VITE_FINZ_ENABLED || 'true' }}
-  TABLE_RUBROS:           ${{ vars.TABLE_RUBROS }}
-  TABLE_RUBROS_TAXONOMIA: ${{ vars.TABLE_RUBROS_TAXONOMIA }}
+  TABLE_RUBROS:           ${{ vars.TABLE_RUBROS || 'finz_rubros' }}
+  TABLE_RUBROS_TAXONOMIA: ${{ vars.TABLE_RUBROS_TAXONOMIA || '' }}
   CLOUDFRONT_DIST_ID:     ${{ vars.CLOUDFRONT_DIST_ID }}
 
 jobs:
@@ -34,7 +34,7 @@ jobs:
       - name: Preflight
         run: |
           set -euo pipefail
-          for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE VITE_API_BASE_URL TABLE_RUBROS TABLE_RUBROS_TAXONOMIA CLOUDFRONT_DIST_ID; do
+          for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE VITE_API_BASE_URL CLOUDFRONT_DIST_ID; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing var: $k"; exit 1; }
           done
           echo "✅ Vars OK"
@@ -114,10 +114,26 @@ jobs:
         run: |
           set -euo pipefail
           npm ci
-          npx ts-node --compiler-options '{"module":"CommonJS"}' src/modules/seed_rubros_taxonomia.ts | tee seed_tax.log
-          npx ts-node --compiler-options '{"module":"CommonJS"}' src/modules/seed_rubros.ts | tee seed_rub.log
-          TAX_C=$(grep -c '^Upserted taxonomía:' seed_tax.log || true)
-          RUB_C=$(grep -c '^Upserted rubro:' seed_rub.log || true)
+          # Seed taxonomy only if table name provided and exists
+          TAX_C=0
+          if [ -n "${TABLE_RUBROS_TAXONOMIA}" ]; then
+            if aws dynamodb describe-table --table-name "${TABLE_RUBROS_TAXONOMIA}" >/dev/null 2>&1; then
+              echo "Seeding taxonomía into ${TABLE_RUBROS_TAXONOMIA}"
+              npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
+              TAX_C=$(grep -c '^Upserted taxonomía:' seed_tax.log || true)
+            else
+              echo "⚠️  Taxonomía table ${TABLE_RUBROS_TAXONOMIA} not found. Skipping."
+            fi
+          else
+            echo "ℹ️  TABLE_RUBROS_TAXONOMIA not set. Skipping taxonomy seed."
+          fi
+          # Seed rubros (required)
+          if aws dynamodb describe-table --table-name "${TABLE_RUBROS}" >/dev/null 2>&1; then
+            npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
+            RUB_C=$(grep -c '^Upserted rubro:' seed_rub.log || true)
+          else
+            echo "❌ Rubros table ${TABLE_RUBROS} not found"; exit 1
+          fi
           echo "### Dynamo Seeds" >> $GITHUB_STEP_SUMMARY
           echo "- taxonomía: ${TAX_C}" >> $GITHUB_STEP_SUMMARY
           echo "- rubros: ${RUB_C}" >> $GITHUB_STEP_SUMMARY
@@ -162,6 +178,7 @@ jobs:
           - CORS Allowlist: <https://${CF_DOMAIN}>
           - Health: Collected in step summary
           - Rubros: Seeded (counts below)
+          - Catalog response shape: { data: [] }
 
           ## UI
 
@@ -178,6 +195,7 @@ jobs:
 
           - rubros: (see step summary)
           - taxonomía: (see step summary)
+          - Key pattern: pk/sk (e.g., pk=RUBRO#<id>, sk=DEF; taxonomy pk=LINEA#<linea_codigo>, sk=CATEGORIA#<categoria_codigo>)
 
           ## Environment Echoes
 
