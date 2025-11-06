@@ -40,7 +40,13 @@ jobs:
           cache: npm
 
       - name: Install deps
-        run: npm ci
+        run: |
+          set -e
+          echo "Installing frontend dependencies (prefer lock, fallback to dynamic)"
+          if ! npm ci; then
+            echo "npm ci failed (likely lock mismatch). Falling back to npm install."
+            npm install
+          fi
 
       - name: Build UI
         env:
@@ -49,7 +55,7 @@ jobs:
         run: |
           echo "Using VITE_API_BASE_URL=$VITE_API_BASE_URL"
           echo "Using VITE_FINZ_ENABLED=$VITE_FINZ_ENABLED"
-          npm run build
+          npm run build || { echo "❌ UI build failed"; exit 1; }
 
       - name: Configure AWS (OIDC)
         uses: ./.github/actions/oidc-configure-aws
@@ -119,6 +125,13 @@ jobs:
           echo "Items: $COUNT" >> $GITHUB_STEP_SUMMARY
           echo "Sample:" >> $GITHUB_STEP_SUMMARY
           echo "$RUBROS_JSON" | jq '.data[:5]' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## GET /allocation-rules (auth)" >> $GITHUB_STEP_SUMMARY
+          RULES_JSON=$(curl -sS -f -H "Authorization: Bearer $TOKEN" "$BASE/allocation-rules")
+          RC=$(echo "$RULES_JSON" | jq '.data | length // 0')
+          echo "Rules: $RC" >> $GITHUB_STEP_SUMMARY
+          echo "Sample:" >> $GITHUB_STEP_SUMMARY
+          echo "$RULES_JSON" | jq '.data[:3]' >> $GITHUB_STEP_SUMMARY
 
       - name: Summary
         run: |

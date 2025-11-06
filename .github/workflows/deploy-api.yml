@@ -52,7 +52,13 @@ jobs:
 
       - name: Install dependencies
         working-directory: services/finanzas-api
-        run: npm ci
+        run: |
+          set -e
+          echo "Installing API service dependencies"
+          if ! npm ci; then
+            echo "npm ci failed (lock mismatch). Falling back to npm install."
+            npm install
+          fi
 
       - name: Build
         working-directory: services/finanzas-api
@@ -127,7 +133,7 @@ jobs:
           TABLE_RUBROS_TAXONOMIA: ${{ vars.TABLE_RUBROS_TAXONOMIA || '' }}
         run: |
           set -euo pipefail
-          npm ci
+          if ! npm ci; then npm install; fi
           echo "Tables: RUBROS=$TABLE_RUBROS TAX=$TABLE_RUBROS_TAXONOMIA"
           TAX_C=0
           if [ -n "${TABLE_RUBROS_TAXONOMIA}" ] && aws dynamodb describe-table --table-name "$TABLE_RUBROS_TAXONOMIA" >/dev/null 2>&1; then

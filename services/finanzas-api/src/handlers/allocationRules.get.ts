@@ -33,7 +33,11 @@ const SAMPLE = [
 
 // Returns sample allocation rules for MVP; secured via default Cognito authorizer
 export const handler = async (event: APIGatewayProxyEventV2) => {
-  ensureSDT(event);
+  // Allow local SAM smoke tests to bypass auth if explicitly enabled
+  const skipAuth = process.env.SKIP_AUTH === "true";
+  if (!skipAuth) {
+    ensureSDT(event);
+  }
   return {
     statusCode: 200,
     headers: { "Content-Type": "application/json" },

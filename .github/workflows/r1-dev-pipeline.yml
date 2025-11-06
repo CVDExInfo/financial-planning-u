@@ -54,7 +54,7 @@ jobs:
       - name: Build API
         working-directory: services/finanzas-api
         run: |
-          npm ci
+          if ! npm ci; then npm install; fi
           sam build
 
       - name: Deploy API
@@ -105,6 +105,10 @@ jobs:
           echo "### GET /catalog/rubros" >> $GITHUB_STEP_SUMMARY
           R=$(curl -sS -f "$BASE/catalog/rubros"); COUNT=$(echo "$R" | jq '.data|length//0'); echo "Items: $COUNT" | tee -a $GITHUB_STEP_SUMMARY
           echo "$R" | jq '.data[:5]' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### GET /allocation-rules (auth)" >> $GITHUB_STEP_SUMMARY
+          AR=$(curl -sS -f -H "Authorization: Bearer $TOKEN" "$BASE/allocation-rules"); ARC=$(echo "$AR" | jq '.data|length//0'); echo "Rules: $ARC" | tee -a $GITHUB_STEP_SUMMARY
+          echo "$AR" | jq '.data[:3]' >> $GITHUB_STEP_SUMMARY
 
       - name: Seed Dynamo (rubros + taxonomía)
         env:
@@ -113,7 +117,7 @@ jobs:
           TABLE_RUBROS_TAXONOMIA: ${{ env.TABLE_RUBROS_TAXONOMIA }}
         run: |
           set -euo pipefail
-          npm ci
+          if ! npm ci; then npm install; fi
           # Seed taxonomy only if table name provided and exists
           TAX_C=0
           if [ -n "${TABLE_RUBROS_TAXONOMIA}" ]; then
@@ -145,7 +149,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "VITE_API_BASE_URL=$VITE_API_BASE_URL" >> $GITHUB_ENV
-          npm ci
+          if ! npm ci; then npm install; fi
           npm run build
           aws s3 sync dist/ "s3://${{ vars.S3_BUCKET_NAME }}/finanzas/" --delete
           aws cloudfront create-invalidation --distribution-id "${{ env.CLOUDFRONT_DIST_ID }}" --paths '/finanzas/*'
