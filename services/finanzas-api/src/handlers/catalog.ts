@@ -44,8 +44,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     // Narrow the projection to relevant attributes for bandwidth efficiency
     ProjectionExpression:
       "rubro_id, nombre, categoria, linea_codigo, tipo_costo, tipo_ejecucion, descripcion",
-    // Filter only definition rows if table contains multiple sk variants
-    // Note: safe if attribute sk exists; if not, Dynamo will ignore it in filter
+    // Filter only definition rows. In this table, some items may have an 'sk' attribute to distinguish between different item types
+    // (e.g., versioning, metadata, or other variants). Rows with 'sk' = 'DEF' represent the main definition entries for a rubro,
+    // while other 'sk' values (or absence of 'sk') may represent other item types or legacy rows. This filter ensures we only
+    // return definition rows. Note: safe if attribute sk exists; if not, Dynamo will ignore it in filter.
     FilterExpression: "attribute_not_exists(sk) OR sk = :def",
     ExpressionAttributeValues: { ":def": "DEF" },
   } as const;
