@@ -184,7 +184,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/health.ts
@@ -211,7 +211,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/projects.ts
@@ -238,7 +238,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/catalog.ts
@@ -267,7 +267,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/allocationRules.get.ts
@@ -292,7 +292,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/handoff.ts
@@ -323,7 +323,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/health.ts
@@ -342,7 +342,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/rubros.ts
@@ -375,7 +375,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/allocations.ts
@@ -402,7 +402,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/plan.ts
@@ -435,7 +435,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/payroll.ts
@@ -459,7 +459,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/close-month.ts
@@ -485,7 +485,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/adjustments.ts
@@ -512,7 +512,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/alerts.ts
@@ -536,7 +536,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/providers.ts
@@ -563,7 +563,7 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        ExternalModules:
+        External:
           - aws-sdk
         EntryPoints:
           - src/handlers/prefacturas.ts
