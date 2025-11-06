@@ -57,12 +57,12 @@ export default function RubrosCatalog() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={(r as any).rubro_id || (r as any).id || (r as any).nombre} className="hover:bg-muted/50">
-                <Cell>{(r as any).rubro_id || (r as any).id || "—"}</Cell>
-                <Cell>{(r as any).nombre}</Cell>
-                <Cell>{(r as any).categoria || ""}</Cell>
-                <Cell>{(r as any).linea_codigo || ""}</Cell>
-                <Cell>{(r as any).tipo_costo || ""}</Cell>
+              <tr key={r.rubro_id || (r as any).id || r.nombre} className="hover:bg-muted/50">
+                <Cell>{r.rubro_id || (r as any).id || "—"}</Cell>
+                <Cell>{r.nombre}</Cell>
+                <Cell>{r.categoria || ""}</Cell>
+                <Cell>{r.linea_codigo || ""}</Cell>
+                <Cell>{r.tipo_costo || ""}</Cell>
               </tr>
             ))}
             {rows.length === 0 && !loading && !error && (
