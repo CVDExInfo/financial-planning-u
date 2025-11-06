@@ -13,18 +13,18 @@ jobs:
   build-deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
-    
+
     # One authoritative env block
     env:
       # Map repo Variables to runtime env
-      AWS_REGION:                 ${{ vars.AWS_REGION }}
-      S3_BUCKET:                  ${{ vars.S3_BUCKET_NAME }}
-      CLOUDFRONT_DIST_ID:         ${{ vars.CLOUDFRONT_DIST_ID }}
-      DISTRIBUTION_DOMAIN_NAME:   ${{ vars.DISTRIBUTION_DOMAIN_NAME }}
-      VITE_API_BASE_URL:          ${{ vars.VITE_API_BASE_URL }}
-      VITE_ACTA_API_ID:           ${{ vars.VITE_ACTA_API_ID }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      S3_BUCKET: ${{ vars.S3_BUCKET_NAME }}
+      CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID }}
+      DISTRIBUTION_DOMAIN_NAME: ${{ vars.DISTRIBUTION_DOMAIN_NAME }}
+      VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+      VITE_ACTA_API_ID: ${{ vars.VITE_ACTA_API_ID }}
       # Boolean for preflight (true/false) without exposing secrets
-      OIDC_PRESENT:               ${{ secrets.OIDC_AWS_ROLE_ARN != '' }}
+      OIDC_PRESENT: ${{ secrets.OIDC_AWS_ROLE_ARN != '' }}
     steps:
       # ✅ Correct, shell-level preflight (no ${{ ... }} inside Bash)
       - name: Preflight Checks
@@ -96,12 +96,12 @@ jobs:
           set -euo pipefail
           echo "⚠️  OIDC authentication failed. Using static credentials fallback."
           echo "   This is a temporary measure and should be replaced with OIDC."
-          
+
           if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
             echo "❌ ERROR: Static credentials not available"
             exit 1
           fi
-          
+
           printf 'AWS_ACCESS_KEY_ID=%s\n' "${{ secrets.AWS_ACCESS_KEY_ID }}" >> "$GITHUB_ENV"
           printf 'AWS_SECRET_ACCESS_KEY=%s\n' "${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> "$GITHUB_ENV"
           printf 'AWS_DEFAULT_REGION=%s\n' "${{ env.AWS_REGION }}" >> "$GITHUB_ENV"
