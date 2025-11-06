@@ -75,6 +75,10 @@ export function Navigation({ currentModule }: NavigationProps) {
       { path: '/sdmt/cost/changes', label: 'Changes', icon: GitPullRequest },
       { path: '/sdmt/cost/cashflow', label: 'Cash Flow', icon: BarChart3, isPremium: true },
       { path: '/sdmt/cost/scenarios', label: 'Scenarios', icon: Layers, isPremium: true },
+      // Finanzas R1 - visible when feature flag enabled
+      ...(import.meta.env.VITE_FINZ_ENABLED === 'true' ? [
+        { path: '/finanzas/catalog/rubros', label: 'Rubros', icon: BookOpen }
+      ] : [])
     ]
   };
 

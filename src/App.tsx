@@ -14,6 +14,8 @@ import PMOEstimatorWizard from '@/features/pmo/prefactura/Estimator/PMOEstimator
 
 // SDMT Features - We'll create these placeholders for now
 import SDMTCatalog from '@/features/sdmt/cost/Catalog/SDMTCatalog';
+// Finanzas module (R1) - Gestion presupuesto
+import RubrosCatalog from '@/modules/finanzas/RubrosCatalog';
 import SDMTForecast from '@/features/sdmt/cost/Forecast/SDMTForecast';
 import SDMTReconciliation from '@/features/sdmt/cost/Reconciliation/SDMTReconciliation';
 import SDMTCashflow from '@/features/sdmt/cost/Cashflow/SDMTCashflow';
@@ -87,6 +89,11 @@ function AppContent() {
               <Route path="/sdmt/cost/scenarios" element={<SDMTScenarios />} />
               <Route path="/sdmt/cost/changes" element={<SDMTChanges />} />
               
+              {/* Finanzas R1 Routes (feature-flagged) */}
+              {import.meta.env.VITE_FINZ_ENABLED === 'true' && (
+                <Route path="/finanzas/catalog/rubros" element={<RubrosCatalog />} />
+              )}
+
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
