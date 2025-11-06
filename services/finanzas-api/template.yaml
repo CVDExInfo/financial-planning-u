@@ -187,7 +187,7 @@ Resources:
         EntryPoints:
           - handlers/health.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: health.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -212,7 +212,7 @@ Resources:
         EntryPoints:
           - handlers/projects.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: projects.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -237,7 +237,7 @@ Resources:
         EntryPoints:
           - handlers/catalog.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: catalog.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -264,7 +264,7 @@ Resources:
         EntryPoints:
           - handlers/allocationRules.get.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: allocationRules.get.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -287,7 +287,7 @@ Resources:
         EntryPoints:
           - handlers/handoff.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: handoff.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -316,7 +316,7 @@ Resources:
         EntryPoints:
           - handlers/health.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: health.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -333,7 +333,7 @@ Resources:
         EntryPoints:
           - handlers/rubros.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: rubros.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -364,7 +364,7 @@ Resources:
         EntryPoints:
           - handlers/allocations.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: allocations.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -389,7 +389,7 @@ Resources:
         EntryPoints:
           - handlers/plan.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: plan.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -420,7 +420,7 @@ Resources:
         EntryPoints:
           - handlers/payroll.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: payroll.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -442,7 +442,7 @@ Resources:
         EntryPoints:
           - handlers/close-month.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: close-month.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -466,7 +466,7 @@ Resources:
         EntryPoints:
           - handlers/adjustments.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: adjustments.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -491,7 +491,7 @@ Resources:
         EntryPoints:
           - handlers/alerts.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: alerts.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -513,7 +513,7 @@ Resources:
         EntryPoints:
           - handlers/providers.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: providers.handler
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -538,7 +538,7 @@ Resources:
         EntryPoints:
           - handlers/prefacturas.ts
     Properties:
-      CodeUri: src/
+      CodeUri: .
       Handler: prefacturas.handler
       Policies:
         - AWSLambdaBasicExecutionRole

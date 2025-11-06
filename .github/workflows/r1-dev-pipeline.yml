@@ -13,8 +13,9 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
   FINZ_API_STACK: ${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}
   FINZ_API_STAGE: ${{ vars.FINZ_API_STAGE || 'dev' }}
-  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+  DEV_API_URL: ${{ vars.DEV_API_URL || vars.VITE_API_BASE_URL }}
   VITE_FINZ_ENABLED: ${{ vars.VITE_FINZ_ENABLED || 'true' }}
+  VITE_USE_MOCKS: 'false'
   TABLE_RUBROS: ${{ vars.TABLE_RUBROS || 'finz_rubros' }}
   TABLE_RUBROS_TAXONOMIA: ${{ vars.TABLE_RUBROS_TAXONOMIA || '' }}
   CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID }}
@@ -55,6 +56,7 @@ jobs:
         working-directory: services/finanzas-api
         run: |
           if ! npm ci; then npm install; fi
+          npm i -g esbuild
           sam build
 
       - name: Deploy API
@@ -146,9 +148,11 @@ jobs:
         env:
           VITE_API_BASE_URL: ${{ steps.api.outputs.api_url }}
           VITE_FINZ_ENABLED: ${{ env.VITE_FINZ_ENABLED }}
+          VITE_USE_MOCKS: ${{ env.VITE_USE_MOCKS }}
         run: |
           set -euo pipefail
           echo "VITE_API_BASE_URL=$VITE_API_BASE_URL" >> $GITHUB_ENV
+          echo "VITE_USE_MOCKS=$VITE_USE_MOCKS" >> $GITHUB_ENV
           if ! npm ci; then npm install; fi
           npm run build
           aws s3 sync dist/ "s3://${{ vars.S3_BUCKET_NAME }}/finanzas/" --delete
@@ -162,6 +166,7 @@ jobs:
           echo "## UI" >> $GITHUB_STEP_SUMMARY
           echo "- URL: $URL" >> $GITHUB_STEP_SUMMARY
           echo "- Status: $STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "- VITE_USE_MOCKS: $VITE_USE_MOCKS" >> $GITHUB_STEP_SUMMARY
 
       - name: Append DEPLOYMENT_SUMMARY.md
         run: |
