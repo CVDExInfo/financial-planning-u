@@ -151,6 +151,23 @@ jobs:
         run: |
           curl -sS --fail "${{ steps.out.outputs.api_url }}/catalog/rubros" | jq '.'
 
+      - name: Collect CatalogFn logs (last 100 lines)
+        if: failure()
+        env:
+          STACK: ${{ env.FINZ_API_STACK }}
+        run: |
+          set -euo pipefail
+          FN=$(aws cloudformation list-stack-resources --stack-name "$STACK" \
+            --query "StackResourceSummaries[?LogicalResourceId=='CatalogFn'].PhysicalResourceId" --output text)
+          echo "CatalogFn: $FN" | tee -a $GITHUB_STEP_SUMMARY
+          if [ -n "$FN" ]; then
+            LOG="/aws/lambda/$FN"
+            echo "### CloudWatch Logs (CatalogFn)" >> $GITHUB_STEP_SUMMARY
+            aws logs get-log-events --log-group-name "$LOG" --log-stream-name $(aws logs describe-log-streams --log-group-name "$LOG" --order-by LastEventTime --descending --max-items 1 --query 'logStreams[0].logStreamName' --output text) --limit 100 --query 'events[].message' --output text | tail -n 100 | sed 's/^/    /' >> $GITHUB_STEP_SUMMARY || true
+          else
+            echo "Could not resolve CatalogFn physical id" | tee -a $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Smoke (GET /allocation-rules) with JWT
         run: |
           curl -sS --fail -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" \
