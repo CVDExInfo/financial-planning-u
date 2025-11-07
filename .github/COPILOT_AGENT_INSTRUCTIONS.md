@@ -248,3 +248,123 @@ Assume role ProjectplaceLambdaRole (OIDC), region us-east-2, ensure DEV_API_URL,
 
 ITERATION
 Autonomous, no approvals, iterate until GREEN; append all results to $GITHUB_STEP_SUMMARY.
+
+---
+
+## ADDENDUM — UI Action → API Route Contract (REQUIRED)
+
+**SCOPE**
+- Limit changes to: `src/modules/finanzas/**`, `src/api/**`, `src/components/**` (handlers/UX only)
+- Do not modify PMO/legacy areas
+
+**OBJECTIVE**
+For each actionable UI control in Finanzas (buttons/menus/forms), ensure the full chain is wired:
+UI onClick/onSubmit → typed client method → correct API route (method+path) → JWT header → success/error UX → state update → re-render
+
+**TASKS**
+1) Create Action Map at `docs/ui-api-action-map.md` listing:
+   - UI element (file, component, selector text)
+   - Client method (`src/api/finanzasClient.ts`)
+   - HTTP method & path (must match `openapi/finanzas.yaml`)
+   - Auth needed (yes/no)
+   - Success effect (toast, table refresh, navigation)
+   - Error handling (message, retry)
+
+2) Implement/verify for these minimum actions:
+   - "Cargar catálogo" (Rubros view load) → GET `/catalog/rubros`
+   - "Ver reglas" → GET `/allocation-rules`
+   - "Crear proyecto" → POST `/projects`
+   - "Asignar allocations (bulk)" → PUT `/projects/{id}/allocations:bulk`
+   - "Registrar ajuste" → POST `/adjustments`
+
+3) Client & headers:
+   - Base URL from `import.meta.env.VITE_API_BASE_URL` (trimmed)
+   - Always send `Authorization: Bearer <ID_TOKEN>` for protected routes
+   - Centralize fetch in `src/api/finanzasClient.ts` with typed methods and try/catch mapping errors to user messages
+
+4) UX & state:
+   - While calling: disable button + show spinner
+   - On success: show toast + refresh affected list/table (idempotent re-fetch)
+   - On error: show toast with reason + re-enable controls (no dead ends)
+
+5) Evidence (append to $GITHUB_STEP_SUMMARY):
+   - Action Map table (snippet of 5 rows)
+   - Code refs for each action (component line numbers + client method names)
+   - Terminal proof: curl of each endpoint 200 + brief screen recording or DOM snippet showing UI state change
+
+**GREEN CRITERIA**
+- Each listed UI action produces correct network call (method & path), includes Authorization header where required, results in expected UI update
+- Action Map matches `openapi/finanzas.yaml` one-to-one; no orphan buttons or dead menus
+
+---
+
+## LANE 3 — QA (Smokes + Newman + Guards + Evidence)
+
+**ROLE**
+Copilot_QA (QA Analyst) under AIGOR supervision — enforce guards, run API/UI smokes, Newman tests, assemble Evidence Pack
+
+**OPERATOR POLICY**
+- AUTONOMOUS: no approvals; iterate until GREEN with Evidence Pack
+- Use OIDC role; Region us-east-2
+
+**SCOPE ENFORCEMENT**
+- ✅ Allowed: `.github/workflows/api-contract-tests.yml`, `.github/workflows/deploy-api.yml` (smokes section), `.github/workflows/deploy-ui.yml` (UI smokes), `postman/**`, `docs/**`
+- ❌ Off-limits: backend handlers, FE code (QA files only)
+
+**OBJECTIVE**
+Guarantee system is GREEN end-to-end: guards prevent drift; Postman/Newman passes; Evidence Pack complete and readable
+
+**PRE-FLIGHT**
+- Require vars: `AWS_REGION`, `DEV_API_URL`, `EXPECTED_API_ID=m3g6am67aj`
+- Require secrets: `USERNAME`, `PASSWORD` (JWT step), OIDC role
+
+**DELIVERABLES**
+- Guard steps in workflows:
+  * Fail if `DEV_API_URL`'s API id ≠ m3g6am67aj
+  * Verify `/health` route exists after deploy
+  * Use `printf` for `$GITHUB_ENV`; strip CRLF; no blank lines
+- Postman collection & environment (OpenAPI aligned)
+- `api-contract-tests.yml` workflow that runs Newman and attaches report
+- Evidence Pack lines appended to `$GITHUB_STEP_SUMMARY`
+
+**TASKS**
+A) Add guards to `deploy-api.yml` & `deploy-ui.yml`:
+   ```bash
+   API_ID=$(echo "$DEV_API_URL" | awk -F'[/.]' '{print $3}')
+   [ "$API_ID" = "m3g6am67aj" ] || { echo "❌ Wrong API id $API_ID"; exit 1; }
+   ```
+   - Routes check: list API routes; ensure `GET /health` exists
+   - `$GITHUB_ENV` via `printf`; `sed -i 's/\r$//' "$GITHUB_ENV"`
+
+B) API smokes (deploy-api):
+   - `curl -f $BASE/health | jq .`
+   - `curl -f -H "Authorization: Bearer $TOKEN" $BASE/catalog/rubros` → count>0; log sample
+   - `curl -f -H "Authorization: Bearer $TOKEN" $BASE/allocation-rules` → sample
+
+C) UI smokes (deploy-ui):
+   - `curl -I https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
+   - `curl -s https://d7t9x3j66yd8k.cloudfront.net/finanzas/ | head -n 20`
+
+D) Newman tests:
+   - Run `postman/Finanzas.collection.json` against `${DEV_API_URL}`
+   - Attach report artifact
+   - Summarize pass/fail
+
+E) Evidence Pack (append to $GITHUB_STEP_SUMMARY):
+   - ApiId/Url, health JSON, rubros count+sample (first 5), rules sample (first 3)
+   - Seed counts, UI snippet, Newman summary
+   - Update/commit `DEPLOYMENT_SUMMARY.md`
+
+**TESTS / CHECKS**
+- Guards trip on wrong API id or missing `/health`
+- API smokes 200; UI smokes 200; Newman GREEN
+- Evidence Pack fully populated
+
+**GREEN CRITERIA**
+- All QA workflows GREEN; guards enforce correct API and route presence
+- Evidence Pack attached and complete
+
+**ITERATION POLICY**
+- Fix → re-run until GREEN; no approvals; log all results in Evidence Pack
+
+```
