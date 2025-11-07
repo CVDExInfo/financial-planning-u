@@ -1,5 +1,6 @@
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { ddb, tableName } from "../lib/dynamo";
+import { ScanCommand } from "@aws-sdk/lib-dynamodb";
 
 type RubroItem = {
   rubro_id?: string;
@@ -53,8 +54,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       ExpressionAttributeValues: { ":def": "DEF" },
     } as const;
 
-    const out = await ddb.scan(params).promise();
-    const items = (out.Items || []) as RubroItem[];
+  const out = await ddb.send(new ScanCommand(params));
+  const items = (out.Items || []) as unknown as RubroItem[];
     const data = items
       .filter((it) => !!it.rubro_id && !!it.nombre)
       .map((it) => ({

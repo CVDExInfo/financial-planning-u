@@ -1,6 +1,9 @@
-import AWS from "aws-sdk";
-export const ddb = new AWS.DynamoDB.DocumentClient({
-  apiVersion: "2012-08-10",
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+
+const ddbClient = new DynamoDBClient({});
+export const ddb = DynamoDBDocumentClient.from(ddbClient, {
+  marshallOptions: { removeUndefinedValues: true },
 });
 const env = process.env;
 
