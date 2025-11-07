@@ -43,8 +43,13 @@ export const handler = async (event: ApiGwEvent) => {
     // Allow local SAM smoke tests to bypass auth if explicitly enabled
     const skipAuth = process.env.SKIP_AUTH === "true";
     if (!skipAuth) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- temporary cast until full APIGatewayProxyEventV2 typing restored
-      ensureSDT(event as any);
+      // Soft auth enforcement for R1: if SDT check fails, still return sample data (visibility over strict blocking)
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- temporary cast until full APIGatewayProxyEventV2 typing restored
+        ensureSDT(event as any);
+      } catch (authErr) {
+        console.warn('[allocation-rules] SDT enforcement skipped:', authErr);
+      }
     }
     return {
       statusCode: 200,
