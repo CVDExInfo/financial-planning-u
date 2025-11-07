@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ensureSDT } from "../lib/auth";
+import { ensureSDT } from "../lib/auth.js";
 
 const SAMPLE = [
   {
