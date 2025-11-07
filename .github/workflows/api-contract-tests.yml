@@ -89,12 +89,12 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          
+
           POSTMAN_FILE="postman/Finanzas.postman_collection.json"
           OUTPUT_FILE="/tmp/newman-report.json"
-          
+
           echo "Running Newman with collection: $POSTMAN_FILE"
-          
+
           # Create temporary environment file
           cat > /tmp/newman-env.json <<EOF
           {
@@ -114,14 +114,14 @@ jobs:
             ]
           }
           EOF
-          
+
           newman run "$POSTMAN_FILE" \
             --environment /tmp/newman-env.json \
             --reporters json,cli \
             --reporter-json-export "$OUTPUT_FILE" \
             --timeout-request 10000 \
             --timeout-script 5000 || true
-          
+
           printf '%s\n' "newman_report=$OUTPUT_FILE" >> "$GITHUB_OUTPUT"
           echo "✅ Newman tests completed"
 
@@ -130,7 +130,7 @@ jobs:
         run: |
           set -euo pipefail
           REPORT="/tmp/newman-report.json"
-          
+
           {
             echo "## Newman Contract Test Results"
             echo ""
@@ -169,12 +169,12 @@ jobs:
           set -euo pipefail
           BASE="${{ env.BASE }}"
           JWT="${{ steps.jwt.outputs.id_token }}"
-          
+
           {
             echo "## Core Action Smoke Tests (MVP)"
             echo ""
           } >> $GITHUB_STEP_SUMMARY
-          
+
           # Action 1: Load Rubros
           {
             echo "### Action 1: Load Rubros (GET /catalog/rubros)"
@@ -191,7 +191,7 @@ jobs:
             fi
             echo ""
           } >> $GITHUB_STEP_SUMMARY
-          
+
           # Action 2: View Allocation Rules
           {
             echo "### Action 2: View Allocation Rules (GET /allocation-rules)"
@@ -208,7 +208,7 @@ jobs:
             fi
             echo ""
           } >> $GITHUB_STEP_SUMMARY
-          
+
           # Action 3: Create Project
           {
             echo "### Action 3: Create Project (POST /projects)"
@@ -227,14 +227,14 @@ jobs:
             fi
             echo ""
           } >> $GITHUB_STEP_SUMMARY
-          
+
           # Action 4: Bulk Allocate (skipped - requires valid project)
           {
             echo "### Action 4: Bulk Allocate (PUT /projects/{id}/allocations:bulk)"
             echo "- Status: SKIPPED (requires valid project_id from Action 3)"
             echo ""
           } >> $GITHUB_STEP_SUMMARY
-          
+
           # Action 5: Record Adjustment
           {
             echo "### Action 5: Record Adjustment (POST /adjustments)"

@@ -9,26 +9,29 @@
 ## 1. API Deployment Status
 
 ### Infrastructure
+
 - **Region:** us-east-2
 - **Stack:** finanzas-sd-api-dev (CloudFormation)
 - **API ID:** m3g6am67aj
-- **HTTP API URL:** https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
+- **HTTP API URL:** <https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev>
 - **Auth:** Cognito ID token (JWT bearer)
 - **Authorizer:** CognitoJwt
 
 ### Cognito Configuration
+
 - **User Pool ID:** us-east-2_FyHLtOhiY
 - **Web Client ID:** dshos5iou44tuach7ta3ici5m
-- **Issuer:** https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY
+- **Issuer:** <https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY>
 - **Token Type:** ID token (token_use: "id")
 - **Audience:** dshos5iou44tuach7ta3ici5m
-- **Test User:** christian.valencia@ikusi.com (SDT, admin, FIN, AUD groups)
+- **Test User:** <christian.valencia@ikusi.com> (SDT, admin, FIN, AUD groups)
 
 ---
 
 ## 2. Core Actions - Smoke Test Results
 
 ### Summary
+
 ✅ **5/5 Core Actions PASS**  
 ✅ **All protected routes return 200/201/501**  
 ✅ **All public routes return 200**
@@ -36,11 +39,13 @@
 ### Detailed Results
 
 #### Action 1: Load Rubros (GET /catalog/rubros)
+
 - **Route:** GET /catalog/rubros
 - **Auth:** ID Token (Bearer header)
 - **Status:** ✅ 200 OK
 - **Response Count:** **71 rubros** loaded and verified
 - **Sample Rubro:**
+
   ```json
   {
     "rubro_id": "RB0001",
@@ -49,14 +54,17 @@
     "tipo_ejecucion": "mensual"
   }
   ```
+
 - **Verification:** Response parsed successfully, array contains 71 items ✅
 
 #### Action 2: View Allocation Rules (GET /allocation-rules)
+
 - **Route:** GET /allocation-rules
 - **Auth:** ID Token (Bearer header)
 - **Status:** ✅ 200 OK
 - **Response Count:** **2 rules** returned
 - **Sample Rules:**
+
   ```json
   [
     {
@@ -73,19 +81,24 @@
     }
   ]
   ```
+
 - **Verification:** Both rules accessible with valid auth ✅
 
 #### Action 3: Public Health Check (GET /health)
+
 - **Route:** GET /health
 - **Auth:** None (public)
 - **Status:** ✅ 200 OK
 - **Response:**
+
   ```json
   { "status": "ok" }
   ```
+
 - **Verification:** API responsive and healthy ✅
 
 #### Action 4: Create Project (POST /projects)
+
 - **Route:** POST /projects
 - **Auth:** ID Token (Bearer header)
 - **Status:** ✅ 501 Not Implemented (expected for MVP)
@@ -93,6 +106,7 @@
 - **Auth Enforcement:** ✅ Returns 401 if token missing/invalid
 
 #### Action 5: Record Adjustment (POST /adjustments)
+
 - **Route:** POST /adjustments
 - **Auth:** ID Token (Bearer header)
 - **Status:** ✅ 501 Not Implemented (expected for MVP)
@@ -104,19 +118,22 @@
 ## 3. Authorization & Security
 
 ### JWT Token Validation
+
 ✅ **Token Type:** id (not access_token)  
 ✅ **Audience Claim:** dshos5iou44tuach7ta3ici5m (correct)  
-✅ **Issuer:** https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY  
+✅ **Issuer:** <https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY>  
 ✅ **Groups:** [SDT, admin, FIN, AUD, ...] (SDT enforcement active)  
 ✅ **Expiration:** Non-expired token used for all tests
 
 ### Protected Route Auth Enforcement
+
 - **GET /catalog/rubros:** ✅ Requires valid ID token
 - **GET /allocation-rules:** ✅ Requires valid ID token
 - **POST /projects:** ✅ Requires valid ID token + SDT group
 - **POST /adjustments:** ✅ Requires valid ID token + SDT group
 
 ### Missing Token Behavior
+
 - Returns 401 Unauthorized (proper HTTP status)
 - Returns valid JSON error message
 
@@ -125,12 +142,14 @@
 ## 4. Deployment Guards Status
 
 ### API Deployment Guards
+
 ✅ **API ID Verification:** m3g6am67aj matches expected value  
 ✅ **Mandatory Routes:** GET /health, GET /catalog/rubros, POST /projects present  
 ✅ **Authorizer Presence:** CognitoJwt authorizer configured  
 ✅ **Environment Validation:** All required vars set
 
 ### UI Deployment Guards
+
 ✅ **S3 Bucket:** ukusi-ui-finanzas-prod exists and writable  
 ✅ **CloudFront Distribution:** EPQU7PVDLQXUA verified  
 ✅ **API Endpoint:** Canonical API ID validated from URL  
@@ -141,6 +160,7 @@
 ## 5. Data Seeding Verification
 
 ### Rubros Catalog
+
 - **Table:** finz_rubros (DynamoDB)
 - **Total Records:** **71 rubros**
 - **Seed Script:** scripts/ts-seeds/seed_rubros.ts
@@ -150,6 +170,7 @@
   - All include nombre, categoria, tipo_ejecucion fields
 
 ### Allocation Rules (Reference Data)
+
 - **Table:** N/A (hardcoded in handler for MVP)
 - **Rules Count:** **2 sample rules**
 - **Return Status:** ✅ 200 OK
@@ -159,19 +180,22 @@
 ## 6. Frontend Deployment Status
 
 ### PMO Portal
+
 - **Base Path:** /
 - **Build:** dist-pmo/
-- **URL:** https://d7t9x3j66yd8k.cloudfront.net/
+- **URL:** <https://d7t9x3j66yd8k.cloudfront.net/>
 - **Status:** ✅ Deployed
 
 ### Finanzas Portal
+
 - **Base Path:** /finanzas/
 - **Build:** dist-finanzas/
-- **URL:** https://d7t9x3j66yd8k.cloudfront.net/finanzas/
-- **Environment:** VITE_API_BASE_URL = https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
+- **URL:** <https://d7t9x3j66yd8k.cloudfront.net/finanzas/>
+- **Environment:** VITE_API_BASE_URL = <https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev>
 - **Status:** ✅ Deployed
 
 ### Asset Verification
+
 ✅ **Base paths embedded in HTML:** /finanzas/assets/ (correct for subpath)  
 ✅ **CSS/JS loaded:** No 404s on asset requests  
 ✅ **CloudFront Cache:** Invalidated after deployment
@@ -197,12 +221,14 @@ All 5 minimum UI → API action mappings documented and verified:
 ## 8. Contract Testing Status
 
 ### Newman Setup
+
 ✅ **Collection:** postman/Finanzas.postman_collection.json  
 ✅ **Environment:** Dynamically injected base_url and jwt_token  
 ✅ **Reporters:** JSON + CLI  
 ✅ **Workflow:** .github/workflows/api-contract-tests.yml ready
 
 ### Core Smoke Tests (Run Manually)
+
 ```bash
 # All tests GREEN via curl
 curl -sS https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/health
@@ -222,16 +248,19 @@ curl -sS -H "Authorization: Bearer $ID_TOKEN" \
 ## 9. Deployment Artifacts
 
 ### Commits (QA Lane)
+
 1. **4b2f7bd** - docs: add UI action map with 5 minimum actions
 2. **5a54d90** - ci: add deployment guards (API routes, S3/CloudFront)
 3. **59ce595** - ci: enhance contract tests with Newman and core action smokes
 
 ### Documentation Created
+
 - ✅ docs/ui-api-action-map.md (265 lines, 5 actions mapped)
 - ✅ .github/COPILOT_AGENT_INSTRUCTIONS.md (ADDENDUM + LANE 3 sections)
 - ✅ QA_EVIDENCE_PACK.md (this file)
 
 ### Workflows Enhanced
+
 - ✅ .github/workflows/deploy-api.yml (mandatory route verification)
 - ✅ .github/workflows/deploy-ui.yml (S3/CloudFront guards)
 - ✅ .github/workflows/api-contract-tests.yml (Newman + 5 action smokes)
@@ -241,30 +270,35 @@ curl -sS -H "Authorization: Bearer $ID_TOKEN" \
 ## 10. Merge Readiness Checklist
 
 ### Code Quality
+
 - ✅ All 3 API lanes GREEN (API, FE, QA)
 - ✅ No compilation errors
 - ✅ TypeScript checks pass
 - ✅ ESLint compliance verified
 
 ### Testing
+
 - ✅ 5/5 core actions pass smoke tests
 - ✅ JWT authorization validated
 - ✅ Protected routes enforce auth correctly
 - ✅ Data seeding verified (71 rubros)
 
 ### Documentation
+
 - ✅ UI→API action mappings complete
 - ✅ Deployment guards in place
 - ✅ Evidence trail fully documented
 - ✅ README and architecture docs updated
 
 ### Infrastructure
+
 - ✅ API deployed and healthy
 - ✅ Both UIs deployed (PMO + Finanzas)
 - ✅ Cognito auth operational
 - ✅ DynamoDB seeded
 
 ### Security
+
 - ✅ ID token enforcement active
 - ✅ SDT group validation works
 - ✅ Protected routes return 401 on missing auth

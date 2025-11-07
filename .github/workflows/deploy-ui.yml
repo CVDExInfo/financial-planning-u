@@ -98,7 +98,7 @@ jobs:
           aws s3api head-bucket --bucket "${S3_BUCKET_NAME}" || {
             echo "❌ S3 bucket ${S3_BUCKET_NAME} not found"; exit 1; }
           echo "✅ S3 bucket found: ${S3_BUCKET_NAME}"
-          
+
           echo "Verifying CloudFront distribution exists..."
           aws cloudfront get-distribution --id "${CLOUDFRONT_DIST_ID}" >/dev/null || {
             echo "❌ CloudFront distribution ${CLOUDFRONT_DIST_ID} not found"; exit 1; }
@@ -110,10 +110,10 @@ jobs:
           set -euo pipefail
           BASE="${DEV_API_URL%/}"
           echo "Verifying API endpoint exists at $BASE"
-          
+
           HOST_ID=$(echo "$BASE" | awk -F'[/.]' '{print $3}')
           echo "Extracted API host ID: $HOST_ID"
-          
+
           if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
             echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID}"; exit 1;
           fi
@@ -194,7 +194,7 @@ jobs:
           echo "## Post-Deploy API Smokes" >> $GITHUB_STEP_SUMMARY
           echo "Base: $BASE" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Health (public)
           echo "### GET /health" >> $GITHUB_STEP_SUMMARY
           curl -sS -f "$BASE/health" | jq . >> $GITHUB_STEP_SUMMARY || echo "⚠️  Could not fetch /health" >> $GITHUB_STEP_SUMMARY
@@ -219,4 +219,3 @@ jobs:
             echo "- PMO: https://d7t9x3j66yd8k.cloudfront.net/"
             echo "- Finanzas: https://d7t9x3j66yd8k.cloudfront.net/finanzas/"
           } >> $GITHUB_STEP_SUMMARY
-

@@ -12,6 +12,7 @@
 The **QA (LANE 3)** phase of the Finanzas Financial Planning Platform has been **successfully completed**. All deliverables are implemented, tested, and verified. The solution is ready for production merge.
 
 ### Lane Metrics
+
 - ✅ **5/5 Core Actions** tested and GREEN
 - ✅ **4 Commits** pushed with comprehensive changes
 - ✅ **3 Key Artifacts** created (Action Map, Guards, Newman)
@@ -24,10 +25,12 @@ The **QA (LANE 3)** phase of the Finanzas Financial Planning Platform has been *
 ## Deliverables Completed
 
 ### 1. UI Action Map Documentation
+
 **File:** `docs/ui-api-action-map.md` (265 lines)  
 **Commit:** 4b2f7bd
 
 Complete mapping of 5 minimum UI→API actions:
+
 - Load Rubros → GET /catalog/rubros
 - View Allocation Rules → GET /allocation-rules  
 - Create Project → POST /projects
@@ -35,6 +38,7 @@ Complete mapping of 5 minimum UI→API actions:
 - Record Adjustment → POST /adjustments
 
 Includes:
+
 - Component file references
 - HTTP method + path
 - Auth requirements (Bearer ID token)
@@ -43,27 +47,32 @@ Includes:
 - UX flow diagrams
 
 ### 2. Deployment Guards
+
 **Files:** `.github/workflows/deploy-api.yml`, `.github/workflows/deploy-ui.yml`  
 **Commit:** 5a54d90
 
 Added mandatory safety checks:
 
 **API Guards:**
+
 - ✅ Verify canonical API ID (m3g6am67aj)
 - ✅ Verify mandatory routes exist (GET /health, GET /catalog/rubros, POST /projects)
 - ✅ Verify authorizer present (CognitoJwt)
 - ✅ Verify all required env vars set
 
 **UI Guards:**
+
 - ✅ Verify S3 bucket exists (ukusi-ui-finanzas-prod)
 - ✅ Verify CloudFront distribution exists (EPQU7PVDLQXUA)
 - ✅ Verify API endpoint ID matches expected value
 
 ### 3. Newman & Contract Tests
+
 **File:** `.github/workflows/api-contract-tests.yml` (250+ lines)  
 **Commit:** 59ce595
 
 Complete contract testing framework:
+
 - Newman collection runner integrated
 - Postman collection: postman/Finanzas.postman_collection.json
 - Dynamic environment injection (base_url, jwt_token)
@@ -73,10 +82,12 @@ Complete contract testing framework:
 - Manual curl fallback tests
 
 ### 4. Evidence Pack & Sign-Off
+
 **File:** `QA_EVIDENCE_PACK.md` (250+ lines)  
 **Commit:** 0a395fe
 
 Comprehensive evidence documentation:
+
 - ✅ 5/5 core actions smoke test results
 - ✅ JWT authorization validation
 - ✅ Protected route auth enforcement
@@ -87,10 +98,12 @@ Comprehensive evidence documentation:
 - ✅ Merge readiness checklist
 
 ### 5. Agent Instructions Update
+
 **File:** `.github/COPILOT_AGENT_INSTRUCTIONS.md`  
 **Commit:** 3d388e6
 
 Added comprehensive QA lane specifications:
+
 - ADDENDUM: UI Action Contract requirements
 - LANE 3: Complete QA lane procedures
 - All 5 minimum action definitions
@@ -140,13 +153,15 @@ Step 4: Smoke Test Results
 ## Security & Auth Verification
 
 ### JWT Token Validation ✅
+
 - ✅ Token type: `id` (not access_token)
 - ✅ Audience claim: dshos5iou44tuach7ta3ici5m
-- ✅ Issuer: https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY
+- ✅ Issuer: <https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY>
 - ✅ Groups: [SDT, admin, FIN, AUD, ...] (SDT present)
 - ✅ Not expired
 
 ### Protected Route Auth Enforcement ✅
+
 - ✅ GET /catalog/rubros: Requires Bearer token
 - ✅ GET /allocation-rules: Requires Bearer token
 - ✅ POST /projects: Requires Bearer token + SDT group
@@ -158,19 +173,22 @@ Step 4: Smoke Test Results
 ## Infrastructure Status
 
 ### API (us-east-2)
+
 - **Stack:** finanzas-sd-api-dev ✅
 - **API ID:** m3g6am67aj ✅
-- **URL:** https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev ✅
+- **URL:** <https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev> ✅
 - **Auth:** Cognito ID token (JWT bearer) ✅
 - **Health:** 200 OK ✅
 
 ### Frontend (CloudFront)
+
 - **Distribution:** d7t9x3j66yd8k.cloudfront.net ✅
 - **PMO Portal:** https://.../  (root path) ✅
 - **Finanzas Portal:** https://.../finanzas/  (subpath) ✅
 - **S3 Bucket:** ukusi-ui-finanzas-prod ✅
 
 ### Data
+
 - **Rubros Table:** 71 records seeded ✅
 - **Rules:** 2 sample allocation rules ✅
 
@@ -191,18 +209,21 @@ Step 4: Smoke Test Results
 ## Full Lane Status (3/3 Complete)
 
 ### LANE 1: API ✅ COMPLETE
+
 - JWT auth fixed (ID token validation)
 - Protected routes GREEN (200/501)
 - Data seeding verified
 - Error handling normalized
 
 ### LANE 2: Frontend ✅ COMPLETE
+
 - Dual-SPA build separation (PMO + Finanzas)
 - Base paths embedded correctly
 - Live API wired
 - Deploy workflow updated
 
 ### LANE 3: QA ✅ COMPLETE
+
 - Action map documented
 - Deployment guards added
 - Newman tests configured
@@ -214,30 +235,35 @@ Step 4: Smoke Test Results
 ## Merge Readiness Checklist
 
 ### Code Quality
+
 - ✅ No TypeScript errors
 - ✅ No ESLint violations
 - ✅ Proper error handling
 - ✅ Security best practices followed
 
 ### Testing
+
 - ✅ 5/5 core actions pass
 - ✅ Auth enforcement verified
 - ✅ Data integrity confirmed
 - ✅ Guard checks pass
 
 ### Documentation
+
 - ✅ Action map complete
 - ✅ Deployment guards documented
 - ✅ Evidence trail complete
 - ✅ README updated
 
 ### Infrastructure
+
 - ✅ API deployed
 - ✅ Both UIs deployed
 - ✅ Auth operational
 - ✅ Data seeded
 
 ### Security
+
 - ✅ JWT enforcement active
 - ✅ Protected routes secure
 - ✅ No auth bypass
@@ -262,6 +288,7 @@ Step 4: Smoke Test Results
 This branch is ready to be merged to `main` for production deployment.
 
 **Post-Merge Actions:**
+
 1. Deploy to production CloudFront distribution
 2. Monitor API logs for performance
 3. Collect user feedback on MVP features

@@ -123,12 +123,14 @@ All 5 core actions validated. API, FE, and QA lanes complete and ready for merge
 #### Deployment Guards Status
 
 ✅ **API Guards (deploy-api.yml):**
+
 - API ID verification: m3g6am67aj ✅
 - Mandatory routes present: GET /health, GET /catalog/rubros, POST /projects ✅
 - Authorizer present: CognitoJwt ✅
 - Environment validation: All vars set ✅
 
 ✅ **UI Guards (deploy-ui.yml):**
+
 - S3 bucket exists: ukusi-ui-finanzas-prod ✅
 - CloudFront distribution exists: EPQU7PVDLQXUA ✅
 - API ID validation: Verified from DEV_API_URL ✅
@@ -162,11 +164,13 @@ All 5 core actions validated. API, FE, and QA lanes complete and ready for merge
 ### Merge Readiness
 
 **All 3 Lanes Complete:**
+
 - ✅ **LANE 1 (API):** Auth fixed, protected routes GREEN, seed data verified
 - ✅ **LANE 2 (FE):** Dual-SPA build separation, base paths correct, deploy workflow updated
 - ✅ **LANE 3 (QA):** Action map created, guards added, contract tests ready
 
 **Production Checklist:**
+
 - ✅ JWT authorizer enforcing ID token (not access token)
 - ✅ All protected routes return 200 with valid auth
 - ✅ Public routes accessible without token

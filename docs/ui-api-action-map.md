@@ -26,6 +26,7 @@ Definitive mapping of UI controls to API endpoints with full request/response ch
 ## Client Methods (src/api/finanzasClient.ts)
 
 ### getRubros()
+
 ```typescript
 export async function getRubros(): Promise<RubroItem[]> {
   const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
@@ -42,6 +43,7 @@ export async function getRubros(): Promise<RubroItem[]> {
 ```
 
 ### getAllocationRules()
+
 ```typescript
 export async function getAllocationRules(): Promise<AllocationRule[]> {
   const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
@@ -58,6 +60,7 @@ export async function getAllocationRules(): Promise<AllocationRule[]> {
 ```
 
 ### createProject(data: CreateProjectInput)
+
 ```typescript
 export async function createProject(data: CreateProjectInput): Promise<Project> {
   const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
@@ -81,6 +84,7 @@ export async function createProject(data: CreateProjectInput): Promise<Project> 
 ```
 
 ### bulkAllocateRubros(projectId: string, allocations: Allocation[])
+
 ```typescript
 export async function bulkAllocateRubros(projectId: string, allocations: Allocation[]): Promise<void> {
   const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
@@ -102,6 +106,7 @@ export async function bulkAllocateRubros(projectId: string, allocations: Allocat
 ```
 
 ### recordAdjustment(data: AdjustmentInput)
+
 ```typescript
 export async function recordAdjustment(data: AdjustmentInput): Promise<Adjustment> {
   const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
@@ -129,6 +134,7 @@ export async function recordAdjustment(data: AdjustmentInput): Promise<Adjustmen
 ## UX Flow per Action
 
 ### Action 1: Load Rubros
+
 ```
 [User visits /finanzas/catalog/rubros]
   ↓
@@ -143,6 +149,7 @@ export async function recordAdjustment(data: AdjustmentInput): Promise<Adjustmen
 ```
 
 ### Action 2: View Allocation Rules
+
 ```
 [User clicks "Ver Reglas" tab]
   ↓
@@ -158,6 +165,7 @@ export async function recordAdjustment(data: AdjustmentInput): Promise<Adjustmen
 ```
 
 ### Action 3: Create Project
+
 ```
 [User fills form + clicks "Crear"]
   ↓
@@ -172,6 +180,7 @@ export async function recordAdjustment(data: AdjustmentInput): Promise<Adjustmen
 ```
 
 ### Action 4: Bulk Allocate
+
 ```
 [User selects rubros + amounts + clicks "Guardar"]
   ↓
@@ -186,6 +195,7 @@ export async function recordAdjustment(data: AdjustmentInput): Promise<Adjustmen
 ```
 
 ### Action 5: Record Adjustment
+
 ```
 [User fills adjustment form + clicks "Registrar"]
   ↓
@@ -205,9 +215,11 @@ export async function recordAdjustment(data: AdjustmentInput): Promise<Adjustmen
 ## API Endpoint Details (from openapi/finanzas.yaml)
 
 ### GET /catalog/rubros
+
 - **Auth:** Cognito ID token (Bearer)
 - **Response:** `{ data: RubroItem[] }`
 - **Sample Response:**
+
   ```json
   {
     "data": [
@@ -219,9 +231,11 @@ export async function recordAdjustment(data: AdjustmentInput): Promise<Adjustmen
   ```
 
 ### GET /allocation-rules
+
 - **Auth:** Cognito ID token (Bearer)
 - **Response:** `{ data: AllocationRule[] }`
 - **Sample Response:**
+
   ```json
   {
     "data": [
@@ -231,16 +245,19 @@ export async function recordAdjustment(data: AdjustmentInput): Promise<Adjustmen
   ```
 
 ### POST /projects
+
 - **Auth:** Cognito ID token (Bearer)
 - **Body:** `{ name: string, description?: string, ... }`
 - **Response:** `{ project_id: string, name: string, ... }`
 
 ### PUT /projects/{id}/allocations:bulk
+
 - **Auth:** Cognito ID token (Bearer)
 - **Body:** `{ allocations: [ { rubro_id: string, amount: number }, ... ] }`
 - **Response:** `{ success: true, updated_count: number }`
 
 ### POST /adjustments
+
 - **Auth:** Cognito ID token (Bearer)
 - **Body:** `{ project_id: string, type: string, amount: number, reason: string }`
 - **Response:** `{ adjustment_id: string, ... }`

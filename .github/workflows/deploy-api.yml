@@ -109,17 +109,17 @@ jobs:
           if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
             echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID} from ${{ steps.out.outputs.api_url }}"; exit 1;
           fi
-          
+
           echo "Verifying routes on API ${HOST_ID}..."
           ROUTES=$(aws apigatewayv2 get-routes --api-id "$HOST_ID" --query 'Items[].RouteKey' --output text)
-          
+
           # Verify mandatory routes
           for ROUTE in "GET /health" "GET /catalog/rubros" "POST /projects"; do
             echo "$ROUTES" | tr '\t' '\n' | grep -q "^${ROUTE}$" || {
               echo "❌ Mandatory route '${ROUTE}' not found on API ${HOST_ID}"; exit 1; }
             echo "✅ Route found: ${ROUTE}"
           done
-          
+
           # Verify authorizer
           AUTH_COUNT=$(aws apigatewayv2 get-authorizers --api-id "$HOST_ID" --query 'length(Items[?Name==`CognitoJwt`])')
           if [ "$AUTH_COUNT" = "0" ]; then
