@@ -105,6 +105,20 @@ jobs:
           aws apigatewayv2 get-routes --api-id "$HOST_ID" --query 'Items[].RouteKey' --output text | tr '\t' '\n' | grep -q "GET /health" || {
             echo "❌ Route GET /health not found on API ${HOST_ID}"; exit 1; }
 
+      - name: Readiness - wait for /health (max 90s)
+        env:
+          BASE: ${{ steps.api.outputs.api_url }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 18); do
+            CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || true)
+            if [ "$CODE" = "200" ]; then
+              echo "API ready (health=200)"; break
+            fi
+            echo "Waiting for API to be ready... (try $i, code=$CODE)"; sleep 5
+            if [ "$i" = "18" ]; then echo "❌ API not ready in time"; exit 1; fi
+          done
+
       - name: Generate JWT
         id: jwt
         uses: ./.github/actions/cognito-generate-jwt
@@ -132,6 +146,23 @@ jobs:
           AR=$(curl -sS -f -H "Authorization: Bearer $TOKEN" "$BASE/allocation-rules"); ARC=$(echo "$AR" | jq '.data|length//0'); echo "Rules: $ARC" | tee -a $GITHUB_STEP_SUMMARY
           echo "$AR" | jq '.data[:3]' >> $GITHUB_STEP_SUMMARY
 
+      - name: Collect CatalogFn logs (last 100 lines)
+        if: failure()
+        env:
+          STACK: ${{ env.FINZ_API_STACK }}
+        run: |
+          set -euo pipefail
+          FN=$(aws cloudformation list-stack-resources --stack-name "$STACK" \
+            --query "StackResourceSummaries[?LogicalResourceId=='CatalogFn'].PhysicalResourceId" --output text)
+          echo "CatalogFn: $FN" | tee -a $GITHUB_STEP_SUMMARY
+          if [ -n "$FN" ]; then
+            LOG="/aws/lambda/$FN"
+            echo "### CloudWatch Logs (CatalogFn)" >> $GITHUB_STEP_SUMMARY
+            aws logs get-log-events --log-group-name "$LOG" --log-stream-name $(aws logs describe-log-streams --log-group-name "$LOG" --order-by LastEventTime --descending --max-items 1 --query 'logStreams[0].logStreamName' --output text) --limit 100 --query 'events[].message' --output text | tail -n 100 | sed 's/^/    /' >> $GITHUB_STEP_SUMMARY || true
+          else
+            echo "Could not resolve CatalogFn physical id" | tee -a $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Seed Dynamo (rubros + taxonomía)
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
@@ -147,7 +178,7 @@ jobs:
           if [ -n "${TABLE_RUBROS_TAXONOMIA}" ]; then
             if aws dynamodb describe-table --table-name "${TABLE_RUBROS_TAXONOMIA}" >/dev/null 2>&1; then
               echo "Seeding taxonomía into ${TABLE_RUBROS_TAXONOMIA}"
-              npx ts-node --transpile-only scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
+              npx ts-node --transpile-only --esm scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
               TAX_C=$(grep -c '^Upserted taxonomía:' seed_tax.log || true)
             else
               echo "⚠️  Taxonomía table ${TABLE_RUBROS_TAXONOMIA} not found. Skipping."
@@ -157,7 +188,7 @@ jobs:
           fi
           # Seed rubros (required)
           if aws dynamodb describe-table --table-name "${TABLE_RUBROS}" >/dev/null 2>&1; then
-            npx ts-node --transpile-only scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
+            npx ts-node --transpile-only --esm scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
             RUB_C=$(grep -c '^Upserted rubro:' seed_rub.log || true)
           else
             echo "❌ Rubros table ${TABLE_RUBROS} not found"; exit 1
@@ -199,47 +230,34 @@ jobs:
           CF_DOMAIN=$(aws cloudfront get-distribution --id "${{ env.CLOUDFRONT_DIST_ID }}" --query 'Distribution.DomainName' --output text)
           CF_URL="https://${CF_DOMAIN}/finanzas/"
           API_URL=${{ steps.api.outputs.api_url }}
-          cat > docs/DEPLOYMENT_SUMMARY.md <<EOF
-          # Deployment Summary (dev)
-
-          This document is updated by the deployment workflows to capture evidence for R1.
-
-          ## API
-
-          - ApiId: ${{ steps.api.outputs.api_id }}
-          - Stage: ${{ env.FINZ_API_STAGE }}
-          - URL: ${API_URL}
-          - CORS Allowlist: <https://${CF_DOMAIN}>
-          - Health: Collected in step summary
-          - Rubros: Seeded (counts below)
-          - Catalog response shape: { data: [] }
-
-          ## UI
-
-          - CloudFront URL: <${CF_URL}>
-          - Feature flag VITE_FINZ_ENABLED: expected=${{ env.VITE_FINZ_ENABLED }}
-          - Fetch sample size: see UI smoke/API smokes
-
-          ## Newman
-
-          - Status: (see workflow run)
-          - Failing tests (if any):
-
-          ## DynamoDB Seeders
-
-          - rubros: (see step summary)
-          - taxonomía: (see step summary)
-          - Key pattern: pk/sk (e.g., pk=RUBRO#<id>, sk=DEF; taxonomy pk=LINEA#<linea_codigo>, sk=CATEGORIA#<categoria_codigo>)
-
-          ## Environment Echoes
-
-          - Region: ${{ env.AWS_REGION }}
-          - Stage: ${{ env.FINZ_API_STAGE }}
-          - VITE_API_BASE_URL: ${API_URL}
-          EOF
+          {
+            echo "# Deployment Summary (dev)"
+            echo ""
+            echo "Updated by R1 Dev Pipeline run $GITHUB_RUN_NUMBER at $(date -u '+%Y-%m-%dT%H:%M:%SZ')."
+            echo ""
+            echo "## API"
+            echo "- ApiId: ${{ steps.api.outputs.api_id }}"
+            echo "- Stage: ${{ env.FINZ_API_STAGE }}"
+            echo "- URL: ${API_URL}"
+            echo "- CORS Allowlist: <https://${CF_DOMAIN}>"
+            echo "- Health: see workflow summary"
+            echo "- Rubros seed count: see workflow summary"
+            echo ""
+            echo "## UI"
+            echo "- CloudFront URL: <${CF_URL}>"
+            echo "- Feature flag VITE_FINZ_ENABLED: expected=${{ env.VITE_FINZ_ENABLED }}"
+            echo ""
+            echo "## Newman"
+            echo "- Status: see workflow summary"
+            echo ""
+            echo "## Environment"
+            echo "- Region: ${{ env.AWS_REGION }}"
+            echo "- Stage: ${{ env.FINZ_API_STAGE }}"
+            echo "- VITE_API_BASE_URL: ${API_URL}"
+          } >> DEPLOYMENT_SUMMARY.md
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add docs/DEPLOYMENT_SUMMARY.md
+          git add DEPLOYMENT_SUMMARY.md
           git commit -m "ci: update DEPLOYMENT_SUMMARY.md"
           git push
 

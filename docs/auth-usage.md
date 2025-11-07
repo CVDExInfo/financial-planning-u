@@ -5,6 +5,7 @@ This document provides examples of how to use the authentication and role manage
 ## Basic Authentication Hooks
 
 ### Getting current user and role information
+
 ```tsx
 import { useAuth, useCurrentUser, useCurrentRole } from '@/components/AuthProvider';
 
@@ -29,6 +30,7 @@ function MyComponent() {
 ```
 
 ### Checking permissions
+
 ```tsx
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -48,6 +50,7 @@ function ActionButton() {
 ## Conditional Rendering with Protected Component
 
 ### Hide content based on role
+
 ```tsx
 import Protected from '@/components/Protected';
 
@@ -87,6 +90,7 @@ function AdminPanel() {
 ## Route Protection
 
 ### Using AccessControl component
+
 ```tsx
 import AccessControl from '@/components/AccessControl';
 
@@ -116,6 +120,7 @@ function App() {
 ## Role Management
 
 ### Role switching component
+
 ```tsx
 import { useCurrentRole } from '@/components/AuthProvider';
 import { getRoleInfo } from '@/lib/auth';
@@ -139,6 +144,7 @@ function RoleSwitcher() {
 ```
 
 ### Dynamic navigation based on role
+
 ```tsx
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -168,6 +174,7 @@ function Navigation() {
 ## Advanced Permission Patterns
 
 ### Component that adapts to role
+
 ```tsx
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -203,6 +210,7 @@ function DataTable({ data }) {
 ```
 
 ### Form with role-based field access
+
 ```tsx
 function ProjectForm({ project }) {
   const { canUpdate, hasAnyRole } = usePermissions();
@@ -241,6 +249,7 @@ function ProjectForm({ project }) {
 ## Testing Role-Based Features
 
 ### Mock user for testing
+
 ```tsx
 // In test files
 import { AuthProvider } from '@/components/AuthProvider';
@@ -284,9 +293,96 @@ test('Vendor users cannot see create button', () => {
 6. **Handle loading states** for async authentication
 7. **Provide clear feedback** when users don't have access to features
 
+## Backend JWT Authorizer (Finanzas API)
+
+The Finanzas API (SAM template `services/finanzas-api/template.yaml`) secures all non-health routes with an HTTP API JWT Authorizer backed by Cognito.
+
+### Configuration (SAM)
+
+```yaml
+Auth:
+  Authorizers:
+    CognitoJwt:
+      JwtConfiguration:
+        Issuer: https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
+        Audience:
+          - ${CognitoUserPoolClientId}
+      IdentitySource: "$request.header.Authorization"
+  DefaultAuthorizer: CognitoJwt
+```
+
+Runtime expects `Authorization: Bearer <JWT>` header containing a **Cognito ID Token** (NOT the access token). The handler layer enforces SDT group membership via `ensureSDT` in `src/lib/auth.ts`.
+
+### Required Claims
+
+| Claim | Purpose |
+|-------|---------|
+| `cognito:groups` | Must include `SDT` for protected endpoints |
+| `aud` | Must match the App Client ID (`dshos5iou44tuach7ta3ici5m`) |
+| `iss` | Must match `https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY` |
+
+### Token Acquisition (Workflow / CLI)
+
+```bash
+aws cognito-idp initiate-auth \
+  --auth-flow USER_PASSWORD_AUTH \
+  --client-id dshos5iou44tuach7ta3ici5m \
+  --auth-parameters USERNAME="$USERNAME",PASSWORD="$PASSWORD" \
+  --region us-east-2 | jq -r '.AuthenticationResult.IdToken'
+```
+
+### Decoding for Debugging
+
+```bash
+ID_TOKEN=... # paste token
+cut -d '.' -f2 <<< "$ID_TOKEN" | base64 -d | jq
+```
+
+### Access Logs (Authorizer Diagnostics)
+
+The HTTP API writes access logs to the CloudWatch Log Group:
+
+```
+/aws/http-api/dev/finz-access
+```
+
+Format (simplified for quick grep):
+
+```
+$context.requestId $context.identity.sourceIp $context.status $context.authorizer.error
+```
+
+Sample tail:
+
+```bash
+aws logs tail /aws/http-api/dev/finz-access --since 10m --region us-east-2 | grep '401'
+```
+
+If you see authorizer errors (e.g. `Unauthorized`), verify token segments (3 parts), `aud`, `iss`, and presence of `cognito:groups`.
+
+### Local Bypass (SAM Local Only)
+
+Set environment variable `SKIP_AUTH=true` for specific functions during `sam local start-api` to short‑circuit `ensureSDT`. Never enable this in deployed stacks.
+
+### Fallback Behavior
+
+If Dynamo seed tables are not yet populated, some handlers (e.g. catalog) return an enriched static fallback and add header `X-Fallback: true`. This still requires a valid JWT unless explicitly public.
+
+### Smoke Test Script
+
+`scripts/test-protected-endpoints.sh` automates:
+
+1. Resolving API URL from CloudFormation outputs
+2. Fetching Cognito ID token
+3. Decoding header/claims for inspection
+4. Curling `/catalog/rubros`, `/allocation-rules`, `/adjustments`
+
+Keep this script up-to-date with any new protected endpoints.
+
 ## Common Patterns to Avoid
 
 ❌ **Don't check roles directly in business logic**
+
 ```tsx
 // Bad
 if (currentRole === 'PMO') {
@@ -300,6 +396,7 @@ if (canPerformAction('approve')) {
 ```
 
 ❌ **Don't forget to handle loading states**
+
 ```tsx
 // Bad
 const { user } = useAuth();
@@ -313,6 +410,7 @@ return <div>Welcome {user.login}</div>;
 ```
 
 ❌ **Don't hardcode role assumptions**
+
 ```tsx
 // Bad - assumes PMO always has full access
 if (currentRole === 'PMO') {

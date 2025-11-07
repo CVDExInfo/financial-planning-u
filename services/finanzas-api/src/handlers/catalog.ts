@@ -1,5 +1,6 @@
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { ddb, tableName } from "../lib/dynamo";
+import { ScanCommand } from "@aws-sdk/lib-dynamodb";
 
 type RubroItem = {
   rubro_id?: string;
@@ -28,52 +29,74 @@ function decodeNextToken(token: string | undefined) {
 }
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
-  // Query params: limit (1-200), nextToken (opaque)
-  const qp = event.queryStringParameters || {};
-  const limit = Math.min(
-    Math.max(parseInt(qp.limit || "100", 10) || 100, 1),
-    200
-  );
-  const startKey = decodeNextToken(qp.nextToken);
+  // Minimal enriched fallback to avoid 500 while DDB/Tables are not ready
+  const FALLBACK: RubroItem[] = [
+    {
+      rubro_id: "R-OPS-N1",
+      nombre: "Operación / Infra",
+      categoria: "OPEX",
+      linea_codigo: "OPS",
+      tipo_costo: "RECURRENT",
+      tipo_ejecucion: "INTERNAL",
+      descripcion: "Gastos operativos base",
+    },
+  ];
 
-  // For R1 we do a simple Scan over the rubros table (seeded). Future: add GSI and Query by linea/categoria.
-  const params = {
-    TableName: tableName("rubros"),
-    Limit: limit,
-    ExclusiveStartKey: startKey,
-    // Narrow the projection to relevant attributes for bandwidth efficiency
-    ProjectionExpression:
-      "rubro_id, nombre, categoria, linea_codigo, tipo_costo, tipo_ejecucion, descripcion",
-    // Filter only definition rows. In this table, some items may have an 'sk' attribute to distinguish between different item types
-    // (e.g., versioning, metadata, or other variants). Rows with 'sk' = 'DEF' represent the main definition entries for a rubro,
-    // while other 'sk' values (or absence of 'sk') may represent other item types or legacy rows. This filter ensures we only
-    // return definition rows. Note: safe if attribute sk exists; if not, Dynamo will ignore it in filter.
-    FilterExpression: "attribute_not_exists(sk) OR sk = :def",
-    ExpressionAttributeValues: { ":def": "DEF" },
-  } as const;
+  try {
+    // Query params: limit (1-200), nextToken (opaque)
+    const qp = event.queryStringParameters || {};
+    const limit = Math.min(
+      Math.max(parseInt(qp.limit || "100", 10) || 100, 1),
+      200
+    );
+    const startKey = decodeNextToken(qp.nextToken);
 
-  const out = await ddb.scan(params).promise();
-  const items = (out.Items || []) as RubroItem[];
-  const data = items
-    .filter((it) => !!it.rubro_id && !!it.nombre)
-    .map((it) => ({
-      rubro_id: it.rubro_id!,
-      nombre: it.nombre!,
-      categoria: it.categoria ?? undefined,
-      linea_codigo: it.linea_codigo ?? undefined,
-      tipo_costo: it.tipo_costo ?? undefined,
-      tipo_ejecucion: it.tipo_ejecucion ?? undefined,
-      descripcion: it.descripcion ?? undefined,
-    }));
+    // For R1 we do a simple Scan over the rubros table (seeded). Future: add GSI and Query by linea/categoria.
+    const params = {
+      TableName: tableName("rubros"),
+      Limit: limit,
+      ExclusiveStartKey: startKey,
+      // Narrow the projection to relevant attributes for bandwidth efficiency
+      ProjectionExpression:
+        "rubro_id, nombre, categoria, linea_codigo, tipo_costo, tipo_ejecucion, descripcion",
+      // Filter only definition rows. In this table, some items may have an 'sk' attribute to distinguish between different item types
+      // (e.g., versioning, metadata, or other variants). Rows with 'sk' = 'DEF' represent the main definition entries for a rubro,
+      // while other 'sk' values (or absence of 'sk') may represent other item types or legacy rows. This filter ensures we only
+      // return definition rows. Note: safe if attribute sk exists; if not, Dynamo will ignore it in filter.
+      FilterExpression: "attribute_not_exists(sk) OR sk = :def",
+      ExpressionAttributeValues: { ":def": "DEF" },
+    } as const;
 
-  const nextToken = encodeNextToken(
-    out.LastEvaluatedKey as unknown as Record<string, unknown> | undefined
-  );
+    const out = await ddb.send(new ScanCommand(params));
+    const items = (out.Items || []) as RubroItem[];
+    const data = items
+      .filter((it) => !!it.rubro_id && !!it.nombre)
+      .map((it) => ({
+        rubro_id: it.rubro_id!,
+        nombre: it.nombre!,
+        categoria: it.categoria ?? undefined,
+        linea_codigo: it.linea_codigo ?? undefined,
+        tipo_costo: it.tipo_costo ?? undefined,
+        tipo_ejecucion: it.tipo_ejecucion ?? undefined,
+        descripcion: it.descripcion ?? undefined,
+      }));
 
-  return {
-    statusCode: 200,
-    headers: { "Content-Type": "application/json" },
-    // Keep envelope compatible; include optional pagination fields for future use
-    body: JSON.stringify({ data, total: data.length, nextToken }),
-  };
+    const nextToken = encodeNextToken(
+      out.LastEvaluatedKey as unknown as Record<string, unknown> | undefined
+    );
+
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json" },
+      // Keep envelope compatible; include optional pagination fields for future use
+      body: JSON.stringify({ data, total: data.length, nextToken }),
+    };
+  } catch (err) {
+    console.warn("/catalog/rubros fallback due to error:", err);
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json", "X-Fallback": "true" },
+      body: JSON.stringify({ data: FALLBACK, total: FALLBACK.length }),
+    };
+  }
 };

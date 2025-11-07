@@ -5,9 +5,11 @@ This document describes the GitHub Actions workflows for the Finanzas API and th
 ## Workflows
 
 ### 1. Test Workflow (`test-api.yml`)
+
 **Triggers:** Pull requests to `main`, manual dispatch
 
 **Purpose:** Validates code quality before merging
+
 - Runs unit tests
 - Builds with SAM
 - Starts SAM local and performs smoke tests on public endpoints
@@ -15,9 +17,11 @@ This document describes the GitHub Actions workflows for the Finanzas API and th
 **No secrets/variables required** - runs entirely locally
 
 ### 2. Deploy Workflow (`deploy-api.yml`)
+
 **Triggers:** Push to `module/finanzas-api-mvp` branch, manual dispatch
 
 **Purpose:** Deploys the API to AWS dev environment
+
 - Authenticates via OIDC
 - Builds with SAM
 - Deploys to AWS using CloudFormation
@@ -27,6 +31,7 @@ This document describes the GitHub Actions workflows for the Finanzas API and th
 ## Required Configuration
 
 ### Repository Variables
+
 Navigate to: **Settings → Secrets and variables → Actions → Variables**
 
 Add the following variables (example values shown for dev environment):
@@ -38,8 +43,10 @@ Add the following variables (example values shown for dev environment):
 | `FINZ_API_STAGE` | `dev` | API Gateway stage name |
 | `COGNITO_USER_POOL_ID` | `us-east-2_FyHLtOhiY` | Cognito User Pool ID for JWT auth |
 | `COGNITO_USER_POOL_ARN` | `arn:aws:cognito-idp:us-east-2:703671891952:userpool/us-east-2_FyHLtOhiY` | Cognito User Pool ARN |
+| `COGNITO_USER_POOL_CLIENT_ID` | `dshos5iou44tuach7ta3ici5m` | Cognito app client ID used by Finanzas SD |
 
 ### Repository Secrets
+
 Navigate to: **Settings → Secrets and variables → Actions → Secrets**
 
 Add the following secret (example value shown for dev environment):
@@ -51,6 +58,7 @@ Add the following secret (example value shown for dev environment):
 ## Workflow Defaults
 
 The deploy workflow includes sensible defaults if variables are not set:
+
 - `AWS_REGION` defaults to `us-east-2`
 - `FINZ_API_STACK` defaults to `finanzas-sd-api-dev`
 - `FINZ_API_STAGE` defaults to `dev`
@@ -62,6 +70,7 @@ However, the preflight check will **fail** if Cognito variables are not set, as 
 We use a local OIDC composite action to comply with repo policy: only GitHub- or valencia94-owned actions.
 
 The deploy workflow uses our local composite action:
+
 ```yaml
 - name: Configure AWS (OIDC)
   uses: ./.github/actions/oidc-configure-aws
@@ -72,12 +81,14 @@ The deploy workflow uses our local composite action:
 ```
 
 The local action handles:
+
 - Requesting GitHub OIDC token
 - Assuming AWS IAM role with web identity
 - Exporting AWS credentials to environment
 - Verifying identity with `aws sts get-caller-identity`
 
 Expected output format:
+
 ```json
 {
   "UserId": "AROA...:session-name",
@@ -91,6 +102,7 @@ Expected output format:
 ## Deployment Summary
 
 The deploy workflow generates a GitHub Actions summary that includes:
+
 - Region, Stack, and Stage information
 - API ID and URL
 - Sample cURL commands for testing:
@@ -101,6 +113,7 @@ The deploy workflow generates a GitHub Actions summary that includes:
 ## Testing Locally
 
 ### Unit Tests
+
 ```bash
 cd services/finanzas-api
 npm ci
@@ -108,6 +121,7 @@ npm test
 ```
 
 ### SAM Local
+
 ```bash
 cd services/finanzas-api
 sam build
@@ -123,6 +137,7 @@ See `tests/integration/sam-local.http` for all available endpoints (including st
 ## API Endpoints Status
 
 ### ✅ Implemented (Returns 200/201)
+
 - `GET /health` - Health check (public, no auth)
 - `GET /catalog/rubros` - Budget categories catalog (public, no auth)
 - `POST /projects` - Create project (requires JWT)
@@ -130,6 +145,7 @@ See `tests/integration/sam-local.http` for all available endpoints (including st
 - `POST /projects/{id}/handoff` - Project handoff (requires JWT)
 
 ### 🚧 Stubbed (Returns 501 Not Implemented)
+
 - `POST/GET /projects/{id}/rubros` - Project budget line items
 - `PUT /projects/{id}/allocations:bulk` - Bulk resource allocations
 - `GET /projects/{id}/plan?mes=YYYY-MM` - Financial plan generation
@@ -145,25 +161,33 @@ All stubbed handlers contain TODO comments with implementation guidance.
 ## Troubleshooting
 
 ### Preflight Check Fails
+
 If you see errors like `AWS_REGION empty` or `COGNITO_USER_POOL_ID empty`:
+
 1. Verify all required variables are set in GitHub repository settings
 2. Check for typos in variable names
 3. Ensure you're looking at the correct repository
 
 ### OIDC Authentication Fails
+
 If authentication fails:
+
 1. Verify the IAM role ARN is correct
 2. Ensure the role has a trust policy that allows GitHub Actions OIDC
 3. Check that the role has necessary permissions for CloudFormation, SAM, DynamoDB, etc.
 
 ### SAM Deploy Fails
+
 Common issues:
+
 1. Stack already exists with different parameters - delete and redeploy
 2. Insufficient IAM permissions - check role policies
 3. DynamoDB table names conflict - ensure unique table prefix
 
 ### SAM Local Fails
+
 Common issues:
+
 1. Docker not running - start Docker daemon
 2. Port 3000 in use - stop other services or change port
 3. Build artifacts missing - run `sam build` first

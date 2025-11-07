@@ -10,12 +10,19 @@ Parameters:
     Type: String
     Description: Existing Cognito User Pool ID (from acta-ui) - e.g., us-east-2_FyHLtOhiY
     Default: us-east-2_FyHLtOhiY
+  CognitoUserPoolClientId:
+    Type: String
+    Description: Cognito app client ID used by Finanzas SD UI
+    Default: dshos5iou44tuach7ta3ici5m
   StageName:
     Type: String
     Default: dev
   TablePrefix:
     Type: String
     Default: finz_
+  SkipAuth:
+    Type: String
+    Default: "false"
 
 Globals:
   Function:
@@ -27,23 +34,35 @@ Globals:
     Environment:
       Variables:
         NODE_OPTIONS: --enable-source-maps
-        TABLE_PROJECTS: !Join ["", [!Ref TablePrefix, "projects"]]
-        TABLE_RUBROS: !Join ["", [!Ref TablePrefix, "rubros"]]
-        TABLE_RUBROS_TAXONOMIA:
-          !Join ["", [!Ref TablePrefix, "rubros_taxonomia"]]
-        TABLE_ALLOC: !Join ["", [!Ref TablePrefix, "allocations"]]
-        TABLE_PAYROLL: !Join ["", [!Ref TablePrefix, "payroll_actuals"]]
-        TABLE_ADJ: !Join ["", [!Ref TablePrefix, "adjustments"]]
-        TABLE_ALERTS: !Join ["", [!Ref TablePrefix, "alerts"]]
-        TABLE_PROVIDERS: !Join ["", [!Ref TablePrefix, "providers"]]
-        TABLE_AUDIT: !Join ["", [!Ref TablePrefix, "audit_log"]]
+        TABLE_PROJECTS: !Sub "${TablePrefix}projects"
+        TABLE_RUBROS: !Sub "${TablePrefix}rubros"
+        TABLE_RUBROS_TAXONOMIA: !Sub "${TablePrefix}rubros_taxonomia"
+        TABLE_ALLOC: !Sub "${TablePrefix}allocations"
+        TABLE_PAYROLL: !Sub "${TablePrefix}payroll_actuals"
+        TABLE_ADJ: !Sub "${TablePrefix}adjustments"
+        TABLE_ALERTS: !Sub "${TablePrefix}alerts"
+        TABLE_PROVIDERS: !Sub "${TablePrefix}providers"
+        TABLE_AUDIT: !Sub "${TablePrefix}audit_log"
+        STAGE_NAME: !Ref StageName
 
 Resources:
   # ========== DynamoDB tables ==========
+  ApiAccessLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      # Dedicated access log group for HTTP API authorizer/integration diagnostics
+      LogGroupName: !Sub "/aws/http-api/${StageName}/finz-access"
+      RetentionInDays: 14
+  ApiAccessLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      # Dedicated access log group for HTTP API authorizer/integration diagnostics
+      LogGroupName: !Sub "/aws/http-api/${StageName}/finz-access"
+      RetentionInDays: 7
   ProjectsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ["", [!Ref TablePrefix, "projects"]]
+      TableName: !Sub "${TablePrefix}projects"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -55,7 +74,7 @@ Resources:
   RubrosTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ["", [!Ref TablePrefix, "rubros"]]
+      TableName: !Sub "${TablePrefix}rubros"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -67,7 +86,7 @@ Resources:
   RubrosTaxonomiaTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ["", [!Ref TablePrefix, "rubros_taxonomia"]]
+      TableName: !Sub "${TablePrefix}rubros_taxonomia"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -79,7 +98,7 @@ Resources:
   AllocationsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ["", [!Ref TablePrefix, "allocations"]]
+      TableName: !Sub "${TablePrefix}allocations"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -91,7 +110,7 @@ Resources:
   PayrollTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ["", [!Ref TablePrefix, "payroll_actuals"]]
+      TableName: !Sub "${TablePrefix}payroll_actuals"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -103,7 +122,7 @@ Resources:
   AdjustmentsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ["", [!Ref TablePrefix, "adjustments"]]
+      TableName: !Sub "${TablePrefix}adjustments"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -115,7 +134,7 @@ Resources:
   AlertsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ["", [!Ref TablePrefix, "alerts"]]
+      TableName: !Sub "${TablePrefix}alerts"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -127,7 +146,7 @@ Resources:
   ProvidersTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ["", [!Ref TablePrefix, "providers"]]
+      TableName: !Sub "${TablePrefix}providers"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -139,7 +158,7 @@ Resources:
   AuditTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join ["", [!Ref TablePrefix, "audit_log"]]
+      TableName: !Sub "${TablePrefix}audit_log"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -153,6 +172,10 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: !Ref StageName
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogs.Arn
+        # Simplified format per operational spec (master prompt)
+        Format: "$context.requestId $context.identity.sourceIp $context.status $context.authorizer.error"
       CorsConfiguration:
         AllowOrigins:
           - https://d7t9x3j66yd8k.cloudfront.net
@@ -163,7 +186,9 @@ Resources:
         Authorizers:
           CognitoJwt:
             JwtConfiguration:
-              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
+              Audience:
+                - !Ref CognitoUserPoolClientId
+              Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
             IdentitySource: "$request.header.Authorization"
         DefaultAuthorizer: CognitoJwt
 
@@ -219,10 +244,20 @@ Resources:
       Events:
         CreateProject:
           Type: HttpApi
-          Properties: { Path: /projects, Method: POST, ApiId: !Ref Api }
+          Properties:
+            Path: /projects
+            Method: POST
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
         ListProjects:
           Type: HttpApi
-          Properties: { Path: /projects, Method: GET, ApiId: !Ref Api }
+          Properties:
+            Path: /projects
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   CatalogFn:
     Type: AWS::Serverless::Function
@@ -232,8 +267,6 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
           - src/handlers/catalog.ts
     Properties:
@@ -243,6 +276,8 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - DynamoDBReadPolicy:
             TableName: !Ref RubrosTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref RubrosTaxonomiaTable
       Events:
         ListRubros:
           Type: HttpApi
@@ -251,7 +286,7 @@ Resources:
             Method: GET
             ApiId: !Ref Api
             Auth:
-              Authorizer: NONE
+              Authorizer: CognitoJwt
 
   AllocationRulesGet:
     Type: AWS::Serverless::Function
@@ -264,12 +299,15 @@ Resources:
         External:
           - aws-sdk
         EntryPoints:
-          - src/handlers/allocationRules.get.ts
+          - src/handlers/allocationRules.ts
     Properties:
       CodeUri: .
-      Handler: allocationRules.get.handler
+      Handler: allocationRules.handler
       Policies:
         - AWSLambdaBasicExecutionRole
+      Environment:
+        Variables:
+          SKIP_AUTH: !Ref SkipAuth
       Events:
         GetAllocationRules:
           Type: HttpApi
@@ -277,6 +315,8 @@ Resources:
             Path: /allocation-rules
             Method: GET
             ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   HandoffFn:
     Type: AWS::Serverless::Function
@@ -306,6 +346,8 @@ Resources:
             Path: "/projects/{id}/handoff"
             Method: POST
             ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   # TODO: Implement PEP-3 monthly alert logic for budget variance detection
   # Currently reuses health handler as placeholder
@@ -354,12 +396,16 @@ Resources:
             Path: "/projects/{id}/rubros"
             Method: POST
             ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
         ListRubros:
           Type: HttpApi
           Properties:
             Path: "/projects/{id}/rubros"
             Method: GET
             ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   AllocationsFn:
     Type: AWS::Serverless::Function
@@ -387,6 +433,8 @@ Resources:
             Path: "/projects/{id}/allocations:bulk"
             Method: PUT
             ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   PlanFn:
     Type: AWS::Serverless::Function
@@ -420,6 +468,8 @@ Resources:
             Path: "/projects/{id}/plan"
             Method: GET
             ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   PayrollFn:
     Type: AWS::Serverless::Function
@@ -443,7 +493,12 @@ Resources:
       Events:
         IngestPayroll:
           Type: HttpApi
-          Properties: { Path: /payroll/ingest, Method: POST, ApiId: !Ref Api }
+          Properties:
+            Path: /payroll/ingest
+            Method: POST
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   CloseMonthFn:
     Type: AWS::Serverless::Function
@@ -469,7 +524,12 @@ Resources:
       Events:
         CloseMonth:
           Type: HttpApi
-          Properties: { Path: /close-month, Method: POST, ApiId: !Ref Api }
+          Properties:
+            Path: /close-month
+            Method: POST
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   AdjustmentsFn:
     Type: AWS::Serverless::Function
@@ -493,10 +553,20 @@ Resources:
       Events:
         CreateAdjustment:
           Type: HttpApi
-          Properties: { Path: /adjustments, Method: POST, ApiId: !Ref Api }
+          Properties:
+            Path: /adjustments
+            Method: POST
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
         ListAdjustments:
           Type: HttpApi
-          Properties: { Path: /adjustments, Method: GET, ApiId: !Ref Api }
+          Properties:
+            Path: /adjustments
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   AlertsFn:
     Type: AWS::Serverless::Function
@@ -520,7 +590,12 @@ Resources:
       Events:
         GetAlerts:
           Type: HttpApi
-          Properties: { Path: /alerts, Method: GET, ApiId: !Ref Api }
+          Properties:
+            Path: /alerts
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   ProvidersFn:
     Type: AWS::Serverless::Function
@@ -544,10 +619,20 @@ Resources:
       Events:
         CreateProvider:
           Type: HttpApi
-          Properties: { Path: /providers, Method: POST, ApiId: !Ref Api }
+          Properties:
+            Path: /providers
+            Method: POST
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
         ListProviders:
           Type: HttpApi
-          Properties: { Path: /providers, Method: GET, ApiId: !Ref Api }
+          Properties:
+            Path: /providers
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   PrefacturasFn:
     Type: AWS::Serverless::Function
@@ -572,11 +657,19 @@ Resources:
         WebhookPost:
           Type: HttpApi
           Properties:
-            { Path: /prefacturas/webhook, Method: POST, ApiId: !Ref Api }
+            Path: /prefacturas/webhook
+            Method: POST
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
         WebhookGet:
           Type: HttpApi
           Properties:
-            { Path: /prefacturas/webhook, Method: GET, ApiId: !Ref Api }
+            Path: /prefacturas/webhook
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   Pep3Rule:
     Type: AWS::Events::Rule

@@ -2,6 +2,28 @@
 
 ## What Changed
 
+### (Finanzas API Addendum)
+
+Latest iteration adds:
+
+- Cognito JWT authorizer (Issuer & Audience) enforced across protected routes
+- Access logs (7d retention) for HTTP API at `/aws/http-api/dev/finz-access`
+- Deployment workflow evidence: routes + authorizers list, seed counts, adjustments stub status
+- Extended smoke tests: `/health`, `/catalog/rubros`, `/allocation-rules`, `/adjustments` (501 expected until implemented)
+
+### Current API Evidence (dev)
+
+| Item | Value |
+|------|-------|
+| API ID (expected) | m3g6am67aj |
+| Authorizer | CognitoJwt |
+| Issuer | <https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY> |
+| Audience | dshos5iou44tuach7ta3ici5m |
+| Protected Routes | /catalog/rubros, /allocation-rules, /projects (GET/POST), /projects/{id}/rubros (GET/POST), /projects/{id}/allocations:bulk (PUT), /payroll/ingest (POST), /close-month (POST), /adjustments (GET/POST), /alerts (GET), /providers (GET/POST), /prefacturas/webhook (GET/POST) |
+| Public Route | /health |
+| Seeds (rubros, taxonomy) | Refer to latest GHA run summary |
+| Adjustments Endpoint | 501 (stub) |
+
 This PR implements a secure, resilient CI/CD deployment workflow for the Financial Planning UI under CloudFront path `/finanzas/*`.
 
 ### Key Components
@@ -46,11 +68,12 @@ The workflow runs automatically on every push to `main`:
 git push origin main
 ```
 
-Monitor at: https://github.com/valencia94/financial-planning-u/actions
+Monitor at: <https://github.com/valencia94/financial-planning-u/actions>
 
 ### Manual Deployment
 
 Trigger via GitHub Actions UI:
+
 1. Go to Actions → "Deploy Financial UI"
 2. Click "Run workflow"
 3. Select branch (default: main)
@@ -59,9 +82,10 @@ Trigger via GitHub Actions UI:
 ### Verify Deployment
 
 After workflow completes:
+
 1. Check workflow logs for: "✅ Using OIDC authentication (preferred)"
-2. Visit: https://d7t9x3j66yd8k.cloudfront.net/finanzas/
-3. Test deep links: https://d7t9x3j66yd8k.cloudfront.net/finanzas/pmo/prefactura/estimator
+2. Visit: <https://d7t9x3j66yd8k.cloudfront.net/finanzas/>
+3. Test deep links: <https://d7t9x3j66yd8k.cloudfront.net/finanzas/pmo/prefactura/estimator>
 4. Verify browser refresh works on nested routes
 
 ## How to Toggle the Fallback
@@ -71,32 +95,34 @@ After workflow completes:
 **When to use:** OIDC setup incomplete or temporarily unavailable
 
 **Steps:**
+
 1. Go to repository Settings → Secrets and Variables → Actions → Variables
 2. Add variable: `FALLBACK_STATIC_KEYS` = `true`
 3. Ensure secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are set
 4. Re-run workflow
 
 **Via GitHub CLI:**
+
 ```bash
 gh variable set FALLBACK_STATIC_KEYS --body "true"
 ```
 
 **Workflow will use:**
+
 - OIDC first (always attempts)
 - If OIDC fails, falls back to static keys
 - Logs show: "⚠️ Using static credentials (fallback)"
 
-### Disable Static Key Fallback (Recommended)
-
-**When to use:** Once OIDC is working
 
 **Steps:**
+
 1. Go to repository Settings → Secrets and Variables → Actions → Variables
 2. Delete variable `FALLBACK_STATIC_KEYS` (or set to `'false'`)
 3. Workflow will use OIDC only
 4. If OIDC fails, workflow fails (safer default)
 
 **Via GitHub CLI:**
+
 ```bash
 gh variable delete FALLBACK_STATIC_KEYS
 ```
@@ -105,7 +131,7 @@ gh variable delete FALLBACK_STATIC_KEYS
 
 ### From GitHub UI
 
-1. Go to: https://github.com/valencia94/financial-planning-u/actions
+1. Go to: <https://github.com/valencia94/financial-planning-u/actions>
 2. Click "Deploy Financial UI" workflow
 3. Click "Run workflow" button
 4. Select branch (default: main)
@@ -179,12 +205,15 @@ git push origin main
 **Error:** "Failed to assume role with web identity"
 
 **Check:**
+
 1. OIDC provider exists:
+
    ```bash
    aws iam list-open-id-connect-providers | grep token.actions.githubusercontent.com
    ```
 
 2. Role trust policy is correct:
+
    ```bash
    aws iam get-role --role-name github-actions-finanzas-prod
    ```
@@ -192,16 +221,14 @@ git push origin main
 3. Role has required permissions (S3, CloudFront)
 
 **Temporary Fix:**
+
 - Enable static key fallback: `FALLBACK_STATIC_KEYS=true`
 - Deploy once
 - Fix OIDC setup
 - Disable fallback
 
-### Deployment Fails - S3 Access
-
-**Error:** S3 access denied or bucket not found
-
 **Solutions:**
+
 1. Verify bucket exists: `aws s3 ls s3://ukusi-ui-finanzas-prod/`
 2. Check IAM permissions for S3
 3. Bucket will be auto-created if missing (first run)
@@ -211,10 +238,13 @@ git push origin main
 **Error:** CloudFront invalidation fails
 
 **Solutions:**
+
 1. Verify distribution exists:
+
    ```bash
    aws cloudfront get-distribution --id EPQU7PVDLQXUA
    ```
+
 2. Check IAM permissions for CloudFront
 3. Verify distribution ID is correct: `EPQU7PVDLQXUA`
 
@@ -223,10 +253,12 @@ git push origin main
 **Problem:** Assets return 404 or paths are wrong
 
 **Solutions:**
+
 1. Verify base path in `vite.config.ts`: `base: '/finanzas/'`
 2. Verify router basename in `src/App.tsx`: `basename="/finanzas"`
 3. Check CloudFront behavior path pattern: `/finanzas/*`
 4. Clear CloudFront cache:
+
    ```bash
    aws cloudfront create-invalidation \
      --distribution-id EPQU7PVDLQXUA \
@@ -238,6 +270,7 @@ git push origin main
 **Problem:** Refreshing on `/finanzas/pmo/...` returns 404
 
 **Solutions:**
+
 1. Verify CloudFront custom error responses are configured:
    - Error 403 → Response `/finanzas/index.html` (200)
    - Error 404 → Response `/finanzas/index.html` (200)
@@ -251,6 +284,7 @@ These must be configured in AWS Console before first deployment:
 ### 1. OIDC Provider (One-Time)
 
 If not already created:
+
 ```bash
 aws iam create-open-id-connect-provider \
   --url https://token.actions.githubusercontent.com \
@@ -261,14 +295,16 @@ aws iam create-open-id-connect-provider \
 ### 2. IAM Role (One-Time)
 
 Create role with trust policy for GitHub Actions:
+
 - See `docs/ops/readme.md` for complete trust policy
 - Attach policies for S3 and CloudFront access
-
+ 
 ### 3. CloudFront Configuration (Verify)
 
 **Verify these settings (do not modify other behaviors):**
 
 ✅ **Behavior for `/finanzas/*`:**
+
 - Path pattern: `/finanzas/*`
 - Origin: S3 bucket `ukusi-ui-finanzas-prod`
 - Origin Access Control: Configured
@@ -277,21 +313,25 @@ Create role with trust policy for GitHub Actions:
 - Cache policy: Long TTL for assets
 
 ✅ **Custom Error Responses:**
+
 - Error 403 → Response Code 200, Response Page `/finanzas/index.html`
 - Error 404 → Response Code 200, Response Page `/finanzas/index.html`
 
 ✅ **Origin Access Control (OAC):**
+
 - S3 bucket policy allows CloudFront OAC
 - See `docs/ops/readme.md` for bucket policy
 
 ### 4. GitHub Secrets & Variables
 
 **Secrets** (Settings → Secrets and Variables → Actions → Secrets):
+
 - `OIDC_AWS_ROLE_ARN`: arn:aws:iam::703671891952:role/github-actions-finanzas-prod
 - `AWS_ACCESS_KEY_ID`: (optional, fallback only)
 - `AWS_SECRET_ACCESS_KEY`: (optional, fallback only)
 
 **Variables** (Settings → Secrets and Variables → Actions → Variables):
+
 - `AWS_REGION`: us-east-2
 - `S3_BUCKET_NAME`: ukusi-ui-finanzas-prod
 - `CLOUDFRONT_DIST_ID`: EPQU7PVDLQXUA
@@ -305,7 +345,7 @@ Create role with trust policy for GitHub Actions:
 After first successful deployment:
 
 - [ ] Verify OIDC was used (check workflow logs)
-- [ ] Access https://d7t9x3j66yd8k.cloudfront.net/finanzas/
+- [ ] Access <https://d7t9x3j66yd8k.cloudfront.net/finanzas/>
 - [ ] Test deep link navigation
 - [ ] Test browser refresh on nested routes
 - [ ] Verify assets load (no 404s in DevTools)
@@ -316,11 +356,11 @@ After first successful deployment:
 
 ## Support & References
 
-- **Repository:** https://github.com/valencia94/financial-planning-u
+- **Repository:** <https://github.com/valencia94/financial-planning-u>
 - **Deployment Guide:** `docs/deploy.md`
 - **Operations Guide:** `docs/ops/readme.md`
 - **OIDC Action Docs:** `.github/actions/oidc-configure-aws/README.md`
-- **Actions:** https://github.com/valencia94/financial-planning-u/actions
+- **Actions:** <https://github.com/valencia94/financial-planning-u/actions>
 
 ## Key Contacts
 
