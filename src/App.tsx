@@ -126,8 +126,15 @@ function AppContent() {
 }
 
 function App() {
+  // Determine basename based on build target or environment
+  // If VITE_APP_BASENAME is set (passed from build), use it
+  // Otherwise infer from VITE_FINZ_ENABLED or default to /finanzas
+  const basename = import.meta.env.VITE_APP_BASENAME || (
+    import.meta.env.VITE_FINZ_ENABLED === "false" ? "/" : "/finanzas/"
+  ).replace(/\/$/, "");
+
   return (
-    <BrowserRouter basename="/finanzas">
+    <BrowserRouter basename={basename}>
       <AuthProvider>
         <AppContent />
       </AuthProvider>

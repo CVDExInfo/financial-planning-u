@@ -8,6 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_FINZ_ENABLED?: string;
   readonly VITE_USE_MOCKS?: string;
   readonly VITE_API_JWT_TOKEN?: string;
+  readonly VITE_APP_BASENAME?: string;
 }
 
 interface ImportMeta {

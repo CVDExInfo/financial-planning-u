@@ -73,7 +73,7 @@ jobs:
       - name: "Build Finanzas SDT Portal (base: /finanzas/)"
         env:
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
-          VITE_FINZ_ENABLED: ${{ env.VITE_FINZ_ENABLED }}
+          VITE_FINZ_ENABLED: "true"
           VITE_USE_MOCKS: ${{ env.VITE_USE_MOCKS }}
         run: |
           echo "Building Finanzas SDT Portal (base: /finanzas/)..."
