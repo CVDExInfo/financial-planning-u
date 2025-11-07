@@ -65,8 +65,9 @@ jobs:
 
       - name: "Build PMO Portal (base: /)"
         run: |
-          echo "Building PMO Portal..."
-          npm run build:pmo || { echo "❌ PMO build failed"; exit 1; }
+          echo "Building PMO Portal (base: /)..."
+          BUILD_TARGET=pmo npm run build || { echo "❌ PMO build failed"; exit 1; }
+          mkdir -p tmp-pmo && mv dist/* tmp-pmo/ && rm -rf dist && mv tmp-pmo dist-pmo
           echo "✅ PMO Portal built → dist-pmo/"
 
       - name: "Build Finanzas SDT Portal (base: /finanzas/)"
@@ -75,11 +76,9 @@ jobs:
           VITE_FINZ_ENABLED: ${{ env.VITE_FINZ_ENABLED }}
           VITE_USE_MOCKS: ${{ env.VITE_USE_MOCKS }}
         run: |
-          echo "Building Finanzas SDT Portal..."
-          echo "Using VITE_API_BASE_URL=$VITE_API_BASE_URL"
-          echo "Using VITE_FINZ_ENABLED=$VITE_FINZ_ENABLED"
-          echo "Using VITE_USE_MOCKS=$VITE_USE_MOCKS"
-          npm run build:finanzas || { echo "❌ Finanzas build failed"; exit 1; }
+          echo "Building Finanzas SDT Portal (base: /finanzas/)..."
+          BUILD_TARGET=finanzas npm run build || { echo "❌ Finanzas build failed"; exit 1; }
+          mkdir -p tmp-finanzas && mv dist/* tmp-finanzas/ && rm -rf dist && mv tmp-finanzas dist-finanzas
           echo "✅ Finanzas Portal built → dist-finanzas/"
 
       - name: Configure AWS (OIDC)
