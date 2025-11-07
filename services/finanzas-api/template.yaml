@@ -280,7 +280,7 @@ Resources:
             Method: GET
             ApiId: !Ref Api
             Auth:
-              Authorizer: CognitoJwt
+              Authorizer: NONE
 
   AllocationRulesGet:
     Type: AWS::Serverless::Function
