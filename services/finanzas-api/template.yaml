@@ -16,6 +16,9 @@ Parameters:
   TablePrefix:
     Type: String
     Default: finz_
+  SkipAuth:
+    Type: String
+    Default: "false"
 
 Globals:
   Function:
@@ -37,6 +40,7 @@ Globals:
         TABLE_ALERTS: !Join ["", [!Ref TablePrefix, "alerts"]]
         TABLE_PROVIDERS: !Join ["", [!Ref TablePrefix, "providers"]]
         TABLE_AUDIT: !Join ["", [!Ref TablePrefix, "audit_log"]]
+        STAGE_NAME: !Ref StageName
 
 Resources:
   # ========== DynamoDB tables ==========
@@ -232,8 +236,6 @@ Resources:
         Minify: true
         Target: node18
         Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
           - src/handlers/catalog.ts
     Properties:
@@ -243,6 +245,8 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - DynamoDBReadPolicy:
             TableName: !Ref RubrosTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref RubrosTaxonomiaTable
       Events:
         ListRubros:
           Type: HttpApi
@@ -270,6 +274,9 @@ Resources:
       Handler: allocationRules.get.handler
       Policies:
         - AWSLambdaBasicExecutionRole
+      Environment:
+        Variables:
+          SKIP_AUTH: !Ref SkipAuth
       Events:
         GetAllocationRules:
           Type: HttpApi
