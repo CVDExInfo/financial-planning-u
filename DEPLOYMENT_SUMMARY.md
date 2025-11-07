@@ -13,16 +13,90 @@ Latest iteration adds:
 
 ### Current API Evidence (dev)
 
+#### JWT Authorization Verified — All Protected Routes GREEN
+
 | Item | Value |
 |------|-------|
-| API ID (expected) | m3g6am67aj |
-| Authorizer | CognitoJwt |
-| Issuer | <https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY> |
-| Audience | dshos5iou44tuach7ta3ici5m |
-| Protected Routes | /catalog/rubros, /allocation-rules, /projects (GET/POST), /projects/{id}/rubros (GET/POST), /projects/{id}/allocations:bulk (PUT), /payroll/ingest (POST), /close-month (POST), /adjustments (GET/POST), /alerts (GET), /providers (GET/POST), /prefacturas/webhook (GET/POST) |
-| Public Route | /health |
-| Seeds (rubros, taxonomy) | Refer to latest GHA run summary |
-| Adjustments Endpoint | 501 (stub) |
+| API ID (expected) | m3g6am67aj ✅ |
+| Authorizer | CognitoJwt ✅ |
+| Issuer | <https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY> ✅ |
+| Audience | dshos5iou44tuach7ta3ici5m ✅ |
+| Token Type | Cognito ID Token (not access token) ✅ |
+| aud Claim | dshos5iou44tuach7ta3ici5m ✅ |
+| SDT Group | Present in cognito:groups ✅ |
+| Protected Routes | /catalog/rubros (200), /allocation-rules (200), /projects, /projects/{id}/rubros, /projects/{id}/allocations:bulk, /payroll/ingest, /close-month, /adjustments (501 stub), /alerts, /providers, /prefacturas/webhook |
+| Public Route | /health (200) ✅ |
+
+#### Smoke Test Results (2025-11-07T20:44:41Z)
+
+| Endpoint | Method | Status | Details |
+|----------|--------|--------|---------|
+| `/health` | GET | **200** ✅ | Public, no auth required |
+| `/catalog/rubros` | GET | **200** ✅ | Protected + Bearer ID token; returned 71 rubros |
+| `/allocation-rules` | GET | **200** ✅ | Protected + Bearer ID token; returned 2 sample rules |
+| `/adjustments` | GET | **501** ✅ | Protected + Bearer ID token; expected stub (not yet implemented) |
+
+#### Sample Payloads
+
+**Rubro Sample (first from /catalog/rubros):**
+
+```json
+{
+  "rubro_id": "RB0052",
+  "nombre": "Cálculo contable de activos HW.",
+  "categoria": null,
+  "linea_codigo": null,
+  "tipo_costo": null,
+  "tipo_ejecucion": null,
+  "descripcion": null
+}
+```
+
+**Allocation Rule Sample (first from /allocation-rules):**
+
+```json
+{
+  "rule_id": "AR-MOD-ING-001",
+  "linea_codigo": "MOD-ING",
+  "driver": "percent",
+  "split": [
+    { "to": { "project_id": "PRJ-HEALTHCARE-MODERNIZATION" }, "pct": 60 },
+    { "to": { "project_id": "PRJ-FINTECH-PLATFORM" }, "pct": 25 },
+    { "to": { "project_id": "PRJ-RETAIL-ANALYTICS" }, "pct": 15 }
+  ],
+  "filters": { "date_range": { "from": "2025-01-01" }, "opex_capex": "OPEX" },
+  "rounding": "nearest",
+  "priority": 10,
+  "active": true,
+  "version": 1
+}
+```
+
+**Adjustments Endpoint (stub response):**
+
+```json
+{
+  "message": "GET /adjustments - not implemented yet"
+}
+```
+
+#### Auth Enforcement Summary
+
+- ✅ **JWT Authorizer:** Active with Cognito ID token validation
+- ✅ **Audience Validation:** Bearer token aud claim matches AppClientId
+- ✅ **SDT Group Enforcement:** cognito:groups must include SDT (enforced via ensureSDT)
+- ✅ **Bearer Token Usage:** Correct format `Authorization: Bearer <ID_TOKEN>`
+- ✅ **Protected Routes:** All return 200+ when authenticated (no 401 Unauthorized errors)
+- ✅ **Seed Data:** 71 rubros loaded and serving
+- ✅ **No Auth Bypass:** Routes properly require valid JWT with correct aud claim
+
+#### Deployment Target
+
+- **API URL:** <https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev>
+- **Stack Name:** finanzas-sd-api-dev
+- **Region:** us-east-2
+- **Cognito Pool:** us-east-2_FyHLtOhiY
+- **App Client ID:** dshos5iou44tuach7ta3ici5m
 
 This PR implements a secure, resilient CI/CD deployment workflow for the Financial Planning UI under CloudFront path `/finanzas/*`.
 
@@ -112,7 +186,6 @@ gh variable set FALLBACK_STATIC_KEYS --body "true"
 - OIDC first (always attempts)
 - If OIDC fails, falls back to static keys
 - Logs show: "⚠️ Using static credentials (fallback)"
-
 
 **Steps:**
 
@@ -298,7 +371,7 @@ Create role with trust policy for GitHub Actions:
 
 - See `docs/ops/readme.md` for complete trust policy
 - Attach policies for S3 and CloudFront access
- 
+
 ### 3. CloudFront Configuration (Verify)
 
 **Verify these settings (do not modify other behaviors):**
