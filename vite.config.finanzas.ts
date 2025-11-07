@@ -8,20 +8,13 @@ import { resolve } from 'path'
 
 const projectRoot = process.env.PROJECT_ROOT || import.meta.dirname
 
-// Dual-SPA build configuration selector
-// BUILD_TARGET env var selects which SPA to build:
-//   - BUILD_TARGET=pmo     → PMO Portal (dist-pmo/, base: /)
-//   - BUILD_TARGET=finanzas → Finanzas SDT Portal (dist-finanzas/, base: /finanzas/)
-//   - default              → Finanzas (for backward compatibility)
-const buildTarget = process.env.BUILD_TARGET || 'finanzas'
-const isPmo = buildTarget === 'pmo'
-
+// Finanzas SDT Portal build configuration
+// Output: dist-finanzas/ → deployed to S3 /finanzas/ prefix via CloudFront
 export default defineConfig({
-  base: isPmo ? '/' : '/finanzas/',
+  base: '/finanzas/',
   plugins: [
     react(),
     tailwindcss(),
-    // DO NOT REMOVE
     createIconImportProxy() as PluginOption,
     sparkPlugin() as PluginOption,
   ],
@@ -43,7 +36,7 @@ export default defineConfig({
     ]
   },
   build: {
-    outDir: isPmo ? 'dist-pmo' : 'dist-finanzas',
+    outDir: 'dist-finanzas',
     commonjsOptions: {
       include: [/node_modules/],
       transformMixedEsModules: true

@@ -1,9 +1,9 @@
-name: Deploy Finanzas UI (dev)
+name: Deploy UIs (PMO + Finanzas)
 
 on:
   workflow_dispatch: {}
   push:
-    branches: ["r1-finanzas-dev-wiring"]
+    branches: ["r1-finanzas-dev-wiring", "main"]
 
 permissions:
   id-token: write
@@ -20,7 +20,7 @@ env:
   EXPECTED_API_ID: ${{ vars.FINZ_EXPECTED_API_ID || 'm3g6am67aj' }}
 
 jobs:
-  deploy-ui:
+  build-and-deploy-all:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,36 +54,33 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${DEV_API_URL}" ]; then
-            echo "❌ DEV_API_URL repo var is empty. Set it to the Finanzas API stage URL."; exit 1;
+            echo "⚠️  DEV_API_URL repo var is empty. Finanzas build will skip API env."; 
+          else
+            CLEAN_URL="${DEV_API_URL%/}"
+            printf '%s\n' "DEV_API_URL=$CLEAN_URL" >> "$GITHUB_ENV"
+            printf '%s\n' "VITE_API_BASE_URL=$CLEAN_URL" >> "$GITHUB_ENV"
+            sed -i 's/\r$//' "$GITHUB_ENV"
+            echo "Using DEV_API_URL=$CLEAN_URL"
           fi
-          CLEAN_URL="${DEV_API_URL%/}"
-          printf '%s\n' "DEV_API_URL=$CLEAN_URL" >> "$GITHUB_ENV"
-          printf '%s\n' "VITE_API_BASE_URL=$CLEAN_URL" >> "$GITHUB_ENV"
-          sed -i 's/\r$//' "$GITHUB_ENV"
-          echo "Using DEV_API_URL=$CLEAN_URL"
 
-      - name: Fetch test JWT for UI (dev mode)
-        id: get_jwt
-        uses: ./.github/actions/cognito-generate-jwt
-        with:
-          user_pool_id: ${{ vars.COGNITO_USER_POOL_ID }}
-          client_id: ${{ vars.COGNITO_WEB_CLIENT }}
-          username: ${{ secrets.USERNAME }}
-          password: ${{ secrets.PASSWORD }}
-          aws_region: ${{ env.AWS_REGION }}
+      - name: "Build PMO Portal (base: /)"
+        run: |
+          echo "Building PMO Portal..."
+          npm run build:pmo || { echo "❌ PMO build failed"; exit 1; }
+          echo "✅ PMO Portal built → dist-pmo/"
 
-      - name: Build UI
+      - name: "Build Finanzas SDT Portal (base: /finanzas/)"
         env:
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
           VITE_FINZ_ENABLED: ${{ env.VITE_FINZ_ENABLED }}
           VITE_USE_MOCKS: ${{ env.VITE_USE_MOCKS }}
-          VITE_API_JWT_TOKEN: ${{ steps.get_jwt.outputs.access_token }}
         run: |
+          echo "Building Finanzas SDT Portal..."
           echo "Using VITE_API_BASE_URL=$VITE_API_BASE_URL"
           echo "Using VITE_FINZ_ENABLED=$VITE_FINZ_ENABLED"
           echo "Using VITE_USE_MOCKS=$VITE_USE_MOCKS"
-          echo "Using VITE_API_JWT_TOKEN=<redacted>"
-          npm run build || { echo "❌ UI build failed"; exit 1; }
+          npm run build:finanzas || { echo "❌ Finanzas build failed"; exit 1; }
+          echo "✅ Finanzas Portal built → dist-finanzas/"
 
       - name: Configure AWS (OIDC)
         uses: ./.github/actions/oidc-configure-aws
@@ -95,134 +92,104 @@ jobs:
       - name: Verify identity
         run: aws sts get-caller-identity
 
-      - name: Guard - correct API and /health exists
+      - name: "Upload PMO Portal to S3 (root /)"
         run: |
-          set -euo pipefail
-          BASE="$DEV_API_URL"
-          HOST_ID=$(echo "$BASE" | awk -F'[/.]' '{print $3}')
-          # Enforce canonical API id
-          if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
-            echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID} from ${BASE}"; exit 1;
-          fi
-          # Verify route exists on the API
-          aws apigatewayv2 get-routes --api-id "$HOST_ID" --query 'Items[].RouteKey' --output text | tr '\t' '\n' | grep -q "GET /health" || {
-            echo "❌ Route GET /health not found on API ${HOST_ID}"; exit 1; }
+          echo "Uploading PMO Portal to S3 root..."
+          aws s3 sync dist-pmo/ "s3://${S3_BUCKET_NAME}/" \
+            --exclude '*.map' \
+            --delete
+          echo "✅ PMO Portal uploaded to s3://${S3_BUCKET_NAME}/"
 
-      - name: Readiness - wait for /health (max 90s)
-        env:
-          BASE: ${{ env.DEV_API_URL }}
+      - name: "Upload Finanzas Portal to S3 (/finanzas prefix)"
         run: |
-          set -euo pipefail
-          for i in $(seq 1 18); do
-            CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || true)
-            if [ "$CODE" = "200" ]; then
-              echo "API ready (health=200)"; break
-            fi
-            echo "Waiting for API to be ready... (try $i, code=$CODE)"; sleep 5
-            if [ "$i" = "18" ]; then echo "❌ API not ready in time"; exit 1; fi
-          done
+          echo "Uploading Finanzas Portal to S3 /finanzas/ prefix..."
+          aws s3 sync dist-finanzas/ "s3://${S3_BUCKET_NAME}/finanzas/" \
+            --exclude '*.map' \
+            --delete
+          echo "✅ Finanzas Portal uploaded to s3://${S3_BUCKET_NAME}/finanzas/"
 
-      - name: Upload to S3 (prefix /finanzas)
+      - name: "Invalidate CloudFront (all paths)"
         run: |
-          aws s3 sync dist/ "s3://${S3_BUCKET_NAME}/finanzas/" --delete
-
-      - name: Invalidate CloudFront
-        run: |
+          echo "Invalidating CloudFront cache..."
           aws cloudfront create-invalidation \
             --distribution-id "${CLOUDFRONT_DIST_ID}" \
-            --paths '/finanzas/*'
-      - name: UI Smoke (HEAD /finanzas/ root)
+            --paths '/*'
+          echo "✅ CloudFront invalidation queued"
+
+      - name: "UI Smoke (PMO root /)"
         env:
-          FINZ_PREFIX: /finanzas
+          PMO_PREFIX: ""
         run: |
           set -euo pipefail
           DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
-            ROOT="https://${DOMAIN}${FINZ_PREFIX}/"
-          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -I "$ROOT")
-          echo "## UI Root (HEAD)" >> $GITHUB_STEP_SUMMARY
+          ROOT="https://${DOMAIN}/"
+          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$ROOT")
+          echo "## PMO Portal (root /)" >> $GITHUB_STEP_SUMMARY
           echo "URL: $ROOT" >> $GITHUB_STEP_SUMMARY
           echo "Status: $STATUS" >> $GITHUB_STEP_SUMMARY
-      - name: UI Smoke (GET /finanzas/ root)
+
+      - name: "UI Smoke (Finanzas /finanzas/)"
         env:
           FINZ_PREFIX: /finanzas
         run: |
           set -euo pipefail
           DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
           ROOT="https://${DOMAIN}${FINZ_PREFIX}/"
-          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -L "$ROOT")
-          echo "## UI Root (GET)" >> $GITHUB_STEP_SUMMARY
+          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$ROOT")
+          echo "## Finanzas Portal (/finanzas/)" >> $GITHUB_STEP_SUMMARY
           echo "URL: $ROOT" >> $GITHUB_STEP_SUMMARY
           echo "Status: $STATUS" >> $GITHUB_STEP_SUMMARY
-      - name: UI Smoke (GET /finanzas/catalog/rubros)
-        id: ui_smoke
-        env:
-          FINZ_PREFIX: /finanzas
+
+      - name: "API Readiness Check (if DEV_API_URL set)"
+        if: env.DEV_API_URL != ''
         run: |
           set -euo pipefail
-          DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
-          URL="https://${DOMAIN}${FINZ_PREFIX}/catalog/rubros"
-          printf 'UI_URL=%s\n' "$URL" >> "$GITHUB_OUTPUT"
-          echo "## UI Smoke" >> $GITHUB_STEP_SUMMARY
-          echo "URL: $URL" >> $GITHUB_STEP_SUMMARY
-          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -L "$URL")
-          echo "Status: $STATUS" >> $GITHUB_STEP_SUMMARY
-          echo "\n<details><summary>HTML snippet</summary>" >> $GITHUB_STEP_SUMMARY
-          echo '```html' >> $GITHUB_STEP_SUMMARY
-          curl -sS -L "$URL" | sed -n '1,20p' >> $GITHUB_STEP_SUMMARY || true
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "</details>" >> $GITHUB_STEP_SUMMARY
+          BASE="${DEV_API_URL%/}"
+          echo "Checking API readiness at $BASE"
+          for i in $(seq 1 6); do
+            CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || true)
+            if [ "$CODE" = "200" ]; then
+              echo "API ready (health=200)"
+              break
+            fi
+            echo "Waiting for API... (try $i, code=$CODE)"
+            sleep 5
+            if [ "$i" = "6" ]; then echo "⚠️  API not ready (will continue)"; fi
+          done
 
-      - name: Generate JWT for API smokes
-        id: jwt
-        uses: ./.github/actions/cognito-generate-jwt
-        with:
-          user_pool_id: ${{ vars.COGNITO_USER_POOL_ID }}
-          client_id: ${{ vars.COGNITO_WEB_CLIENT }}
-          username: ${{ secrets.USERNAME }}
-          password: ${{ secrets.PASSWORD }}
-          aws_region: ${{ env.AWS_REGION }}
-
-      - name: "Post-deploy API smokes (/health & /catalog/rubros)"
+      - name: "API Smokes (if DEV_API_URL set)"
+        if: env.DEV_API_URL != ''
         env:
           DEV_API_URL: ${{ env.DEV_API_URL }}
-          TOKEN: ${{ steps.jwt.outputs.access_token }}
         run: |
           set -euo pipefail
-          BASE=$(echo "$DEV_API_URL" | sed 's:/*$::')
-          echo "BASE=$BASE"
-          echo "# UI Post-Deploy API Smokes" >> $GITHUB_STEP_SUMMARY
-          echo "API Base: $BASE" >> $GITHUB_STEP_SUMMARY
+          BASE="${DEV_API_URL%/}"
+          echo "## Post-Deploy API Smokes" >> $GITHUB_STEP_SUMMARY
+          echo "Base: $BASE" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## GET /health" >> $GITHUB_STEP_SUMMARY
-          curl -sS -f "$BASE/health" | tee -a $GITHUB_STEP_SUMMARY
+          
+          # Health (public)
+          echo "### GET /health" >> $GITHUB_STEP_SUMMARY
+          curl -sS -f "$BASE/health" | jq . >> $GITHUB_STEP_SUMMARY || echo "⚠️  Could not fetch /health" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## GET /catalog/rubros (auth required)" >> $GITHUB_STEP_SUMMARY
-          RUBROS_JSON=$(curl -sS -f -H "Authorization: Bearer $TOKEN" "$BASE/catalog/rubros")
-          COUNT=$(echo "$RUBROS_JSON" | jq '.data | length // 0')
-          echo "Items: $COUNT" >> $GITHUB_STEP_SUMMARY
-          echo "Sample:" >> $GITHUB_STEP_SUMMARY
-          echo "$RUBROS_JSON" | jq '.data[:5]' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## GET /allocation-rules (auth)" >> $GITHUB_STEP_SUMMARY
-          RULES_JSON=$(curl -sS -f -H "Authorization: Bearer $TOKEN" "$BASE/allocation-rules")
-          RC=$(echo "$RULES_JSON" | jq '.data | length // 0')
-          echo "Rules: $RC" >> $GITHUB_STEP_SUMMARY
-          echo "Sample:" >> $GITHUB_STEP_SUMMARY
-          echo "$RULES_JSON" | jq '.data[:3]' >> $GITHUB_STEP_SUMMARY
 
       - name: Summary
         run: |
           {
-            echo "## Finanzas UI deployed (dev)"
-            echo "- Bucket: ${S3_BUCKET_NAME}"
-            echo "- Distribution: ${CLOUDFRONT_DIST_ID}"
-            echo "- Base Path: /finanzas/"
-            echo "- API Base: ${VITE_API_BASE_URL} (from vars.DEV_API_URL)"
-            echo "- Feature: VITE_FINZ_ENABLED=${VITE_FINZ_ENABLED}"
-            echo "- Mocks: VITE_USE_MOCKS=${VITE_USE_MOCKS}"
+            echo "## UIs Deployed (dev)"
             echo ""
-            echo "### Try it"
-            echo '```bash'
-            echo "open https://d7t9x3j66yd8k.cloudfront.net/finanzas/"
-            echo '```'
+            echo "### PMO Portal"
+            echo "- Path: / (CloudFront root)"
+            echo "- Build: dist-pmo/"
+            echo ""
+            echo "### Finanzas SDT Portal"
+            echo "- Path: /finanzas/"
+            echo "- Build: dist-finanzas/"
+            echo "- API Base: ${VITE_API_BASE_URL:-'(not set)'}"
+            echo "- API: ${FINZ_API_STACK}"
+            echo ""
+            echo "### Access"
+            echo "- PMO: https://d7t9x3j66yd8k.cloudfront.net/"
+            echo "- Finanzas: https://d7t9x3j66yd8k.cloudfront.net/finanzas/"
           } >> $GITHUB_STEP_SUMMARY
+

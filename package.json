@@ -10,9 +10,13 @@
     "dev": "vite",
     "kill": "fuser -k 5000/tcp",
     "build": "tsc -b --noCheck && vite build",
+    "build:pmo": "tsc -b --noCheck && BUILD_TARGET=pmo vite build",
+    "build:finanzas": "tsc -b --noCheck && BUILD_TARGET=finanzas vite build",
     "lint": "eslint .",
     "optimize": "vite optimize",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preview:pmo": "BUILD_TARGET=pmo vite preview",
+    "preview:finanzas": "BUILD_TARGET=finanzas vite preview"
   },
   "dependencies": {
     "@github/spark": "^0.39.0",
