@@ -95,7 +95,7 @@ async function convertMarkdownToPdf(markdownPath) {
     const launchArgs = isCI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [];
     
     // Convert markdown to PDF
-    const pdf = await mdToPdf(
+    await mdToPdf(
       { path: markdownPath },
       {
         dest: pdfPath,
