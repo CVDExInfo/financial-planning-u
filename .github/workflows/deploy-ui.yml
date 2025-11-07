@@ -91,6 +91,34 @@ jobs:
       - name: Verify identity
         run: aws sts get-caller-identity
 
+      - name: "Guard - S3 bucket and CloudFront exist"
+        run: |
+          set -euo pipefail
+          echo "Verifying S3 bucket exists..."
+          aws s3api head-bucket --bucket "${S3_BUCKET_NAME}" || {
+            echo "❌ S3 bucket ${S3_BUCKET_NAME} not found"; exit 1; }
+          echo "✅ S3 bucket found: ${S3_BUCKET_NAME}"
+          
+          echo "Verifying CloudFront distribution exists..."
+          aws cloudfront get-distribution --id "${CLOUDFRONT_DIST_ID}" >/dev/null || {
+            echo "❌ CloudFront distribution ${CLOUDFRONT_DIST_ID} not found"; exit 1; }
+          echo "✅ CloudFront distribution found: ${CLOUDFRONT_DIST_ID}"
+
+      - name: "Guard - API endpoint present (if provided)"
+        if: env.DEV_API_URL != ''
+        run: |
+          set -euo pipefail
+          BASE="${DEV_API_URL%/}"
+          echo "Verifying API endpoint exists at $BASE"
+          
+          HOST_ID=$(echo "$BASE" | awk -F'[/.]' '{print $3}')
+          echo "Extracted API host ID: $HOST_ID"
+          
+          if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
+            echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID}"; exit 1;
+          fi
+          echo "✅ API endpoint ID verified: ${HOST_ID}"
+
       - name: "Upload PMO Portal to S3 (root /)"
         run: |
           echo "Uploading PMO Portal to S3 root..."
