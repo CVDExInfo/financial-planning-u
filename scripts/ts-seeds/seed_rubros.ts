@@ -7,8 +7,8 @@
 
 import { DynamoDBClient, PutItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
-import { RUBROS } from "../../src/modules/rubros.catalog";
-import { enrichRubro } from "../../src/modules/rubros.catalog.enriched";
+import { RUBROS } from "../../src/modules/rubros.catalog.ts";
+import { enrichRubro } from "../../src/modules/rubros.catalog.enriched.ts";
 
 const AWS_REGION = process.env.AWS_REGION || "us-east-2";
 const TABLE = process.env.TABLE_RUBROS || "finz_rubros";
@@ -21,6 +21,7 @@ if (!TABLE) {
 const ddb = new DynamoDBClient({ region: AWS_REGION });
 
 async function main() {
+  let count = 0;
   for (const base of RUBROS) {
     const r = enrichRubro(base);
     const item = {
@@ -46,7 +47,9 @@ async function main() {
     });
     await ddb.send(cmd);
     console.log(`Upserted rubro: ${r.rubro_id}`);
+    count += 1;
   }
+  console.log(`TOTAL_RUBROS=${count}`);
   console.log("✅ Rubros seed complete");
 }
 

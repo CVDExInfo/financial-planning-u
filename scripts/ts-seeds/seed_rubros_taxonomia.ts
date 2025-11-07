@@ -7,7 +7,7 @@
 
 import { DynamoDBClient, PutItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
-import { CATALOGO_RUBROS } from "../../src/modules/rubros.taxonomia";
+import { CATALOGO_RUBROS } from "../../src/modules/rubros.taxonomia.ts";
 
 const AWS_REGION = process.env.AWS_REGION || "us-east-2";
 const TABLE = process.env.TABLE_RUBROS_TAXONOMIA || "finz_rubros_taxonomia";
@@ -20,6 +20,7 @@ if (!TABLE) {
 const ddb = new DynamoDBClient({ region: AWS_REGION });
 
 async function main() {
+  let count = 0;
   for (const row of CATALOGO_RUBROS) {
     const item = {
       pk: `LINEA#${row.linea_codigo}`,
@@ -39,7 +40,9 @@ async function main() {
     });
     await ddb.send(cmd);
     console.log(`Upserted taxonomía: ${row.linea_codigo}`);
+    count += 1;
   }
+  console.log(`TOTAL_RUBROS_TAXONOMIA=${count}`);
   console.log("✅ Taxonomía seed complete");
 }
 

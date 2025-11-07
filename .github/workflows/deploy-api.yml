@@ -88,6 +88,7 @@ jobs:
             --parameter-overrides \
               CognitoUserPoolArn=${{ env.COGNITO_USER_POOL_ARN }} \
               CognitoUserPoolId=${{ env.COGNITO_USER_POOL_ID }} \
+              CognitoUserPoolClientId=${{ env.COGNITO_WEB_CLIENT }} \
               StageName=${{ env.FINZ_API_STAGE }}
 
       - name: Output API info
@@ -110,6 +111,10 @@ jobs:
           fi
           aws apigatewayv2 get-routes --api-id "$HOST_ID" --query 'Items[].RouteKey' --output text | tr '\t' '\n' | grep -q "GET /health" || {
             echo "❌ Route GET /health not found on API ${HOST_ID}"; exit 1; }
+          AUTH_COUNT=$(aws apigatewayv2 get-authorizers --api-id "$HOST_ID" --query 'length(Items[?Name==`CognitoJwt`])')
+          if [ "$AUTH_COUNT" = "0" ]; then
+            echo "❌ CognitoJwt authorizer not found on API ${HOST_ID}"; exit 1;
+          fi
 
       - name: Readiness - wait for /health (max 90s)
         env:
@@ -151,6 +156,13 @@ jobs:
         run: |
           curl -sS --fail "${{ steps.out.outputs.api_url }}/catalog/rubros" | jq '.'
 
+      - name: Smoke (GET /adjustments) expect 501
+        continue-on-error: true
+        run: |
+          CODE=$(curl -s -o /tmp/adj.json -w '%{http_code}' -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" "${{ steps.out.outputs.api_url }}/adjustments" || true)
+          echo "Adjustments status: $CODE" | tee -a $GITHUB_STEP_SUMMARY
+          head -c 400 /tmp/adj.json || true
+
       - name: Collect CatalogFn logs (last 100 lines)
         if: failure()
         env:
@@ -178,7 +190,11 @@ jobs:
           API_ID=$(aws cloudformation describe-stacks --stack-name "${FINZ_API_STACK}" \
             --query "Stacks[0].Outputs[?OutputKey=='FinzApiId'].OutputValue" --output text || true)
           echo "API_ID: $API_ID"
-          aws apigatewayv2 get-routes --api-id "$API_ID" --query 'Items[].RouteKey' --output text || true
+          aws apigatewayv2 get-routes --api-id "$API_ID" --query 'Items[].RouteKey' --output text | tr '\t' '\n' | sort || true
+          echo "### Routes" >> $GITHUB_STEP_SUMMARY
+          aws apigatewayv2 get-routes --api-id "$API_ID" --query 'Items[].RouteKey' --output text | tr '\t' '\n' | sort | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || true
+          echo "### Authorizers" >> $GITHUB_STEP_SUMMARY
+          aws apigatewayv2 get-authorizers --api-id "$API_ID" --query 'Items[].Name' --output text | tr '\t' '\n' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || true
 
       - name: Seed Dynamo (rubros + taxonomía)
         env:
@@ -219,6 +235,7 @@ jobs:
             echo "- Stage: ${FINZ_API_STAGE}"
             echo "- API ID: ${{ steps.out.outputs.api_id }}"
             echo "- URL: ${{ steps.out.outputs.api_url }}"
+            echo "- Authorizer: CognitoJwt (Issuer=https://cognito-idp.us-east-2.amazonaws.com/${{ env.COGNITO_USER_POOL_ID }}, Audience=${{ env.COGNITO_WEB_CLIENT }})"
             echo ""
             echo "### Sample cURL"
             echo '```bash'

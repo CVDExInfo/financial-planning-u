@@ -9,6 +9,7 @@ This implementation addresses all issues identified in the problem statement for
 ### 1. Deploy Workflow (`deploy-api.yml`)
 
 **Issues Fixed:**
+
 - ✅ Replaced local OIDC action path with official `aws-actions/configure-aws-credentials@v4`
 - ✅ Added sensible defaults for AWS_REGION, FINZ_API_STACK, FINZ_API_STAGE
 - ✅ Added COGNITO_USER_POOL_ID and COGNITO_USER_POOL_ARN to environment and preflight check
@@ -18,6 +19,7 @@ This implementation addresses all issues identified in the problem statement for
 - ✅ Improved summary output with comprehensive curl examples
 
 **Key Improvements:**
+
 ```yaml
 # Before: Local action (would fail if not present)
 uses: ./.github/actions/oidc-configure-aws
@@ -27,6 +29,7 @@ uses: aws-actions/configure-aws-credentials@v4
 ```
 
 **New Steps:**
+
 - Install dependencies step added before SAM build
 - PATH configuration for esbuild in build step
 - Comments clarifying required vs optional variables
@@ -36,6 +39,7 @@ uses: aws-actions/configure-aws-credentials@v4
 **Purpose:** Validates code quality before merging to main
 
 **Features:**
+
 - Runs on pull requests to main branch
 - Manual dispatch trigger available
 - Installs SAM CLI
@@ -45,12 +49,14 @@ uses: aws-actions/configure-aws-credentials@v4
 - Generates success summary
 
 **Endpoints Tested:**
+
 - `GET /health` - Expects 200 OK
 - `GET /catalog/rubros` - Expects 200 OK with rubros data
 
 ### 3. Documentation (`WORKFLOW_SETUP.md`) - NEW
 
 **Contents:**
+
 - Complete workflow descriptions
 - Required variables and secrets (with example values)
 - OIDC authentication explanation
@@ -71,6 +77,7 @@ Set in: **Settings → Secrets and variables → Actions → Variables**
 | FINZ_API_STAGE | dev | ✅ Yes |
 | COGNITO_USER_POOL_ID | us-east-2_FyHLtOhiY | ❌ No - Required |
 | COGNITO_USER_POOL_ARN | arn:aws:cognito-idp:... | ❌ No - Required |
+| COGNITO_USER_POOL_CLIENT_ID | dshos5iou44tuach7ta3ici5m | ❌ No - Required |
 
 ### Repository Secrets (Required)
 
@@ -81,6 +88,7 @@ Set in: **Settings → Secrets and variables → Actions → Secrets**
 ## API Implementation Status
 
 ### ✅ Implemented (5 endpoints)
+
 - `GET /health` - Health check (public)
 - `GET /catalog/rubros` - Budget categories (public)
 - `POST /projects` - Create project (authenticated)
@@ -88,6 +96,7 @@ Set in: **Settings → Secrets and variables → Actions → Secrets**
 - `POST /projects/{id}/handoff` - Project handoff (authenticated)
 
 ### 🚧 Stubbed (9 endpoints returning 501)
+
 - `POST/GET /projects/{id}/rubros`
 - `PUT /projects/{id}/allocations:bulk`
 - `GET /projects/{id}/plan?mes=YYYY-MM`
@@ -103,6 +112,7 @@ All stubbed handlers contain TODO comments with implementation guidance.
 ## Testing Results
 
 ### Local Tests ✅
+
 ```
 cd services/finanzas-api
 npm ci
@@ -116,6 +126,7 @@ npm test
 ```
 
 ### SAM Build ✅
+
 ```
 cd services/finanzas-api
 export PATH="$PWD/node_modules/.bin:$PATH"
@@ -127,12 +138,14 @@ Built Template: .aws-sam/build/template.yaml
 ```
 
 ### Security Scan ✅
+
 - CodeQL analysis: 0 alerts found
 - No vulnerabilities detected in workflow configurations
 
 ## What Happens Next
 
 ### For Test Workflow
+
 1. Triggers automatically on PRs to main
 2. Runs unit tests
 3. Builds with SAM
@@ -141,6 +154,7 @@ Built Template: .aws-sam/build/template.yaml
 6. Reports success/failure
 
 ### For Deploy Workflow
+
 1. Triggers on push to module/finanzas-api-mvp or manual dispatch
 2. Validates all required variables exist
 3. Authenticates via OIDC with AWS
