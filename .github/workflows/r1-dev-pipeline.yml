@@ -178,7 +178,7 @@ jobs:
           if [ -n "${TABLE_RUBROS_TAXONOMIA}" ]; then
             if aws dynamodb describe-table --table-name "${TABLE_RUBROS_TAXONOMIA}" >/dev/null 2>&1; then
               echo "Seeding taxonomía into ${TABLE_RUBROS_TAXONOMIA}"
-              npx ts-node --transpile-only scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
+              npx ts-node --transpile-only --esm scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
               TAX_C=$(grep -c '^Upserted taxonomía:' seed_tax.log || true)
             else
               echo "⚠️  Taxonomía table ${TABLE_RUBROS_TAXONOMIA} not found. Skipping."
@@ -188,7 +188,7 @@ jobs:
           fi
           # Seed rubros (required)
           if aws dynamodb describe-table --table-name "${TABLE_RUBROS}" >/dev/null 2>&1; then
-            npx ts-node --transpile-only scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
+            npx ts-node --transpile-only --esm scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
             RUB_C=$(grep -c '^Upserted rubro:' seed_rub.log || true)
           else
             echo "❌ Rubros table ${TABLE_RUBROS} not found"; exit 1
