@@ -12,7 +12,8 @@
     "build": "tsc -b --noCheck && vite build",
     "lint": "eslint .",
     "optimize": "vite optimize",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-docs-pdf": "node scripts/generate-docs-pdf.cjs"
   },
   "dependencies": {
     "@github/spark": "^0.39.0",
@@ -91,11 +92,12 @@
     "@vitejs/plugin-react": "^5.1.0",
     "@vitejs/plugin-react-swc": "^3.10.1",
     "eslint": "^9.28.0",
-    "ts-node": "^10.9.2",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
+    "md-to-pdf": "^5.2.4",
     "tailwindcss": "^4.1.11",
+    "ts-node": "^10.9.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.2",
     "vite": "^6.3.5"

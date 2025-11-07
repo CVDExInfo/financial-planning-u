@@ -48,3 +48,6 @@ pids
 # AWS SAM
 .aws-sam/
 samconfig.toml
+
+# Generated PDFs
+docs-pdf/
