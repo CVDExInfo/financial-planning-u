@@ -135,13 +135,31 @@ jobs:
             --delete
           echo "✅ Finanzas Portal uploaded to s3://${S3_BUCKET_NAME}/finanzas/"
 
+      - name: "Verify CloudFront Behaviors"
+        run: |
+          set -euo pipefail
+          echo "Checking CloudFront distribution behaviors..."
+          BEHAVIORS=$(aws cloudfront get-distribution-config --id "${CLOUDFRONT_DIST_ID}" --query 'DistributionConfig.CacheBehaviors[*].PathPattern' --output text || echo "")
+          echo "Current behaviors: $BEHAVIORS"
+          
+          if echo "$BEHAVIORS" | grep -q '/finanzas/\*'; then
+            echo "✅ /finanzas/* behavior found"
+          else
+            echo "⚠️  WARNING: /finanzas/* behavior not found"
+            echo "   This could cause Finanzas portal to be served incorrectly"
+            echo "   Consider adding a specific behavior for /finanzas/* path pattern"
+          fi
+
       - name: "Invalidate CloudFront (all paths)"
         run: |
           echo "Invalidating CloudFront cache..."
-          aws cloudfront create-invalidation \
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
             --distribution-id "${CLOUDFRONT_DIST_ID}" \
-            --paths '/*'
-          echo "✅ CloudFront invalidation queued"
+            --paths '/*' '/finanzas/*' '/finanzas/index.html' \
+            --query 'Invalidation.Id' \
+            --output text)
+          echo "✅ CloudFront invalidation queued: $INVALIDATION_ID"
+          echo "   Paths: /*, /finanzas/*, /finanzas/index.html"
 
       - name: "UI Smoke (PMO root /)"
         env:
