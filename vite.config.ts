@@ -4,13 +4,29 @@ import { defineConfig, PluginOption } from "vite";
 
 import sparkPlugin from "@github/spark/spark-vite-plugin";
 import createIconImportProxy from "@github/spark/vitePhosphorIconProxyPlugin";
-import { resolve } from 'path'
+import { resolve } from "path";
+import { fileURLToPath } from "url";
 
-const projectRoot = process.env.PROJECT_ROOT || import.meta.dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = resolve(__filename, "..");
+const projectRoot = process.env.PROJECT_ROOT || __dirname;
 
-// https://vite.dev/config/
-export default defineConfig({
-  base: '/finanzas/',
+// Dual-SPA build configuration selector
+// BUILD_TARGET env var selects which SPA to build:
+//   - BUILD_TARGET=pmo     → PMO Portal (dist-pmo/, base: /)
+//   - BUILD_TARGET=finanzas → Finanzas SDT Portal (dist-finanzas/, base: /finanzas/)
+//   - default              → Finanzas (for backward compatibility)
+const buildTarget = process.env.BUILD_TARGET || "finanzas";
+const isPmo = buildTarget === "pmo";
+
+console.log(
+  `[Vite] Configuring for ${
+    isPmo ? "PMO" : "FINANZAS"
+  } (BUILD_TARGET=${buildTarget})`
+);
+
+export default defineConfig(() => ({
+  base: isPmo ? "/" : "/finanzas/",
   plugins: [
     react(),
     tailwindcss(),
@@ -20,25 +36,26 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': resolve(projectRoot, 'src')
-    }
+      "@": resolve(projectRoot, "src"),
+    },
   },
   optimizeDeps: {
     include: [
-      'react',
-      'react-dom',
-      'react-router-dom',
-      '@radix-ui/react-dialog',
-      '@radix-ui/react-select',
-      '@radix-ui/react-tabs',
-      'lucide-react',
-      'recharts'
-    ]
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-select",
+      "@radix-ui/react-tabs",
+      "lucide-react",
+      "recharts",
+    ],
   },
   build: {
+    outDir: isPmo ? "dist-pmo" : "dist-finanzas",
     commonjsOptions: {
       include: [/node_modules/],
-      transformMixedEsModules: true
-    }
-  }
-});
+      transformMixedEsModules: true,
+    },
+  },
+}));

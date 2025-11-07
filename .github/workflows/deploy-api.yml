@@ -102,19 +102,30 @@ jobs:
           printf 'api_id=%s\n' "$API_ID" >> "$GITHUB_OUTPUT"
           printf 'api_url=%s\n' "$API_URL" >> "$GITHUB_OUTPUT"
 
-      - name: Guard - canonical API id and /health route present
+      - name: Guard - canonical API id and required routes present
         run: |
           set -euo pipefail
           HOST_ID=$(echo "${{ steps.out.outputs.api_url }}" | awk -F'[/.]' '{print $3}')
           if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
             echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID} from ${{ steps.out.outputs.api_url }}"; exit 1;
           fi
-          aws apigatewayv2 get-routes --api-id "$HOST_ID" --query 'Items[].RouteKey' --output text | tr '\t' '\n' | grep -q "GET /health" || {
-            echo "❌ Route GET /health not found on API ${HOST_ID}"; exit 1; }
+
+          echo "Verifying routes on API ${HOST_ID}..."
+          ROUTES=$(aws apigatewayv2 get-routes --api-id "$HOST_ID" --query 'Items[].RouteKey' --output text)
+
+          # Verify mandatory routes
+          for ROUTE in "GET /health" "GET /catalog/rubros" "POST /projects"; do
+            echo "$ROUTES" | tr '\t' '\n' | grep -q "^${ROUTE}$" || {
+              echo "❌ Mandatory route '${ROUTE}' not found on API ${HOST_ID}"; exit 1; }
+            echo "✅ Route found: ${ROUTE}"
+          done
+
+          # Verify authorizer
           AUTH_COUNT=$(aws apigatewayv2 get-authorizers --api-id "$HOST_ID" --query 'length(Items[?Name==`CognitoJwt`])')
           if [ "$AUTH_COUNT" = "0" ]; then
             echo "❌ CognitoJwt authorizer not found on API ${HOST_ID}"; exit 1;
           fi
+          echo "✅ CognitoJwt authorizer present"
 
       - name: Readiness - wait for /health (max 90s)
         env:

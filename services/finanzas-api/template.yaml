@@ -53,12 +53,6 @@ Resources:
       # Dedicated access log group for HTTP API authorizer/integration diagnostics
       LogGroupName: !Sub "/aws/http-api/${StageName}/finz-access"
       RetentionInDays: 14
-  ApiAccessLogs:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      # Dedicated access log group for HTTP API authorizer/integration diagnostics
-      LogGroupName: !Sub "/aws/http-api/${StageName}/finz-access"
-      RetentionInDays: 7
   ProjectsTable:
     Type: AWS::DynamoDB::Table
     Properties:

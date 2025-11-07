@@ -3,24 +3,24 @@ description: Authenticates with AWS Cognito and generates a JWT access token
 
 inputs:
   user_pool_id:
-    description: 'Cognito User Pool ID'
+    description: "Cognito User Pool ID"
     required: true
   client_id:
-    description: 'Cognito Web Client ID'
+    description: "Cognito Web Client ID"
     required: true
   username:
-    description: 'Cognito username'
+    description: "Cognito username"
     required: true
   password:
-    description: 'Cognito password'
+    description: "Cognito password"
     required: true
   aws_region:
-    description: 'AWS region'
+    description: "AWS region"
     required: true
 
 outputs:
   access_token:
-    description: 'JWT access token'
+    description: "JWT ID token (with aud claim for API Gateway authorizer)"
     value: ${{ steps.auth.outputs.access_token }}
 
 runs:
@@ -31,7 +31,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        
+
         # Authenticate with Cognito and get tokens
         AUTH_RESPONSE=$(aws cognito-idp initiate-auth \
           --region "${{ inputs.aws_region }}" \
@@ -40,16 +40,17 @@ runs:
           --auth-parameters "USERNAME=${{ inputs.username }},PASSWORD=${{ inputs.password }}" \
           --query 'AuthenticationResult' \
           --output json)
-        
-        # Extract access token
-        ACCESS_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.AccessToken')
-        
-        if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ] || [ "$ACCESS_TOKEN" = "" ]; then
-          echo "❌ Failed to obtain access token"
+
+        # Extract ID token (has aud claim for JWT authorizer validation)
+        # Note: API Gateway JWT authorizer requires aud claim in token; AccessToken lacks this
+        ID_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.IdToken')
+
+        if [ -z "$ID_TOKEN" ] || [ "$ID_TOKEN" = "null" ] || [ "$ID_TOKEN" = "" ]; then
+          echo "❌ Failed to obtain ID token"
           exit 1
         fi
-        
-        echo "✅ Successfully obtained JWT access token"
+
+        echo "✅ Successfully obtained JWT ID token"
         # Mask the token to prevent it from appearing in logs
-        echo "::add-mask::$ACCESS_TOKEN"
-        printf 'access_token=%s\n' "$ACCESS_TOKEN" >> "$GITHUB_OUTPUT"
+        echo "::add-mask::$ID_TOKEN"
+        printf 'access_token=%s\n' "$ID_TOKEN" >> "$GITHUB_OUTPUT"

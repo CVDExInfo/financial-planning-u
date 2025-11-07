@@ -2,6 +2,9 @@ import { z } from "zod";
 
 // Env config
 const BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+// Optional: Dev/test mode token (set at build time via VITE_API_JWT_TOKEN)
+// For production, tokens are obtained via OAuth
+const STATIC_TEST_TOKEN = import.meta.env.VITE_API_JWT_TOKEN || "";
 
 if (!BASE) {
   // Non-fatal in dev; API client will throw on call
@@ -32,8 +35,8 @@ export const RubroListSchema = z.object({
 export type Rubro = z.infer<typeof RubroSchema>;
 
 function getAuthHeader(): Record<string, string> {
-  // If you later store a JWT in localStorage/session, add it here.
-  const token = localStorage.getItem("finz_jwt");
+  // Priority: 1) localStorage token, 2) static test token from env (for dev/CI)
+  const token = localStorage.getItem("finz_jwt") || STATIC_TEST_TOKEN;
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
