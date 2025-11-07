@@ -15,7 +15,7 @@ export default function FinanzasHome() {
       </header>
       <div className="grid gap-4 md:grid-cols-2">
         <a
-          href="/finanzas/catalog/rubros"
+          href="/catalog/rubros"
           className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors"
         >
           <h2 className="font-medium mb-1">Catálogo de Rubros</h2>
@@ -25,7 +25,7 @@ export default function FinanzasHome() {
           </p>
         </a>
         <a
-          href="/finanzas/rules"
+          href="/rules"
           className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors"
         >
           <h2 className="font-medium mb-1">Reglas de Asignación</h2>

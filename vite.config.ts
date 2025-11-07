@@ -29,7 +29,9 @@ export default defineConfig(() => ({
   base: isPmo ? "/" : "/finanzas/",
   define: {
     // Pass build target to frontend so it can set correct basename
-    "import.meta.env.VITE_APP_BASENAME": JSON.stringify(isPmo ? "/" : "/finanzas"),
+    "import.meta.env.VITE_APP_BASENAME": JSON.stringify(
+      isPmo ? "/" : "/finanzas"
+    ),
   },
   plugins: [
     react(),
