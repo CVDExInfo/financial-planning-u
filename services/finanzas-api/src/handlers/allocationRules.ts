@@ -48,7 +48,7 @@ export const handler = async (event: ApiGwEvent) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- temporary cast until full APIGatewayProxyEventV2 typing restored
         ensureSDT(event as any);
       } catch (authErr) {
-        console.warn('[allocation-rules] SDT enforcement skipped:', authErr);
+        console.warn("[allocation-rules] SDT enforcement skipped:", authErr);
       }
     }
     return {

@@ -5,8 +5,11 @@ import { defineConfig, PluginOption } from "vite";
 import sparkPlugin from "@github/spark/spark-vite-plugin";
 import createIconImportProxy from "@github/spark/vitePhosphorIconProxyPlugin";
 import { resolve } from 'path'
+import { fileURLToPath } from 'url'
 
-const projectRoot = process.env.PROJECT_ROOT || import.meta.dirname
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = resolve(__filename, '..')
+const projectRoot = process.env.PROJECT_ROOT || __dirname
 
 // Dual-SPA build configuration selector
 // BUILD_TARGET env var selects which SPA to build:
@@ -16,7 +19,9 @@ const projectRoot = process.env.PROJECT_ROOT || import.meta.dirname
 const buildTarget = process.env.BUILD_TARGET || 'finanzas'
 const isPmo = buildTarget === 'pmo'
 
-export default defineConfig({
+console.log(`[Vite] Configuring for ${isPmo ? 'PMO' : 'FINANZAS'} (BUILD_TARGET=${buildTarget})`)
+
+export default defineConfig(() => ({
   base: isPmo ? '/' : '/finanzas/',
   plugins: [
     react(),
@@ -49,4 +54,4 @@ export default defineConfig({
       transformMixedEsModules: true
     }
   }
-});
+}));

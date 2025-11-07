@@ -16,7 +16,7 @@ export const handler = async (event: ApiGwEvent) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- temporary cast until full APIGatewayProxyEventV2 typing restored
       ensureSDT(event as any);
     } catch (authErr) {
-      console.warn('[adjustments] SDT enforcement skipped:', authErr);
+      console.warn("[adjustments] SDT enforcement skipped:", authErr);
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- requestContext shape provided by API Gateway v2
     const method = (event.requestContext as any).http.method;
