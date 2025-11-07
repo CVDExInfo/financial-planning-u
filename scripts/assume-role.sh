@@ -38,11 +38,12 @@ if [[ -n "$SOURCE_PROFILE" ]]; then
 fi
 
 # Perform assume role
-AKID=$(aws sts assume-role "${ASSUME_ARGS[@]}" --query 'Credentials.AccessKeyId' --output text)
-SECK=$(aws sts assume-role "${ASSUME_ARGS[@]}" --query 'Credentials.SecretAccessKey' --output text)
-TOKN=$(aws sts assume-role "${ASSUME_ARGS[@]}" --query 'Credentials.SessionToken' --output text)
-EXP=$(aws sts assume-role "${ASSUME_ARGS[@]}" --query 'Credentials.Expiration' --output text)
-ARN=$(aws sts assume-role "${ASSUME_ARGS[@]}" --query 'AssumedRoleUser.Arn' --output text)
+RESP=$(aws sts assume-role "${ASSUME_ARGS[@]}")
+AKID=$(echo "$RESP" | jq -r '.Credentials.AccessKeyId')
+SECK=$(echo "$RESP" | jq -r '.Credentials.SecretAccessKey')
+TOKN=$(echo "$RESP" | jq -r '.Credentials.SessionToken')
+EXP=$(echo "$RESP" | jq -r '.Credentials.Expiration')
+ARN=$(echo "$RESP" | jq -r '.AssumedRoleUser.Arn')
 
 export AWS_ACCESS_KEY_ID="$AKID"
 export AWS_SECRET_ACCESS_KEY="$SECK"

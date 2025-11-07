@@ -1,10 +1,9 @@
+import AWS from "aws-sdk";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+const client = new DynamoDBClient({});
+export const ddb = DynamoDBDocumentClient.from(client);
 
-const ddbClient = new DynamoDBClient({});
-export const ddb = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
 const env = process.env;
 
 type TableKey =
