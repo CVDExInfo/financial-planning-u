@@ -62,15 +62,27 @@ jobs:
           sed -i 's/\r$//' "$GITHUB_ENV"
           echo "Using DEV_API_URL=$CLEAN_URL"
 
+      - name: Fetch test JWT for UI (dev mode)
+        id: get_jwt
+        uses: ./.github/actions/cognito-generate-jwt
+        with:
+          user_pool_id: ${{ vars.COGNITO_USER_POOL_ID }}
+          client_id: ${{ vars.COGNITO_WEB_CLIENT }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          aws_region: ${{ env.AWS_REGION }}
+
       - name: Build UI
         env:
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
           VITE_FINZ_ENABLED: ${{ env.VITE_FINZ_ENABLED }}
           VITE_USE_MOCKS: ${{ env.VITE_USE_MOCKS }}
+          VITE_API_JWT_TOKEN: ${{ steps.get_jwt.outputs.access_token }}
         run: |
           echo "Using VITE_API_BASE_URL=$VITE_API_BASE_URL"
           echo "Using VITE_FINZ_ENABLED=$VITE_FINZ_ENABLED"
           echo "Using VITE_USE_MOCKS=$VITE_USE_MOCKS"
+          echo "Using VITE_API_JWT_TOKEN=<redacted>"
           npm run build || { echo "❌ UI build failed"; exit 1; }
 
       - name: Configure AWS (OIDC)
