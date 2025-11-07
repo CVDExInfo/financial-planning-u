@@ -118,6 +118,7 @@ The UI currently uses mock data in `src/lib/api.ts`. To integrate the live API, 
 - `npm run build` → production build (dist/)
 - `npm run preview` → preview the built app
 - `npm run lint` → lint the workspace
+- `npm run generate-docs-pdf` → generate PDF versions of all documentation files
 - `scripts/create-s3-bucket.sh` → create and configure the S3 bucket for hosting
 - `scripts/deploy-check.sh` → CI-friendly build verification (lint/build). Adjust as needed.
 
@@ -139,6 +140,7 @@ The UI currently uses mock data in `src/lib/api.ts`. To integrate the live API, 
 - Backend (API): `services/finanzas-api/` (SAM template and handlers)
 - OpenAPI: `openapi/finanzas.yaml`
 - Docs: `docs/` (API coverage, environment, auth usage)
+- PDF Docs: `docs-pdf/` (PDF versions of all documentation files, generated via `npm run generate-docs-pdf`)
 
 ---
 
