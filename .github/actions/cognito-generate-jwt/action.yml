@@ -20,7 +20,7 @@ inputs:
 
 outputs:
   access_token:
-    description: 'JWT access token'
+    description: 'JWT ID token (with aud claim for API Gateway authorizer)'
     value: ${{ steps.auth.outputs.access_token }}
 
 runs:
@@ -41,15 +41,16 @@ runs:
           --query 'AuthenticationResult' \
           --output json)
         
-        # Extract access token
-        ACCESS_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.AccessToken')
+        # Extract ID token (has aud claim for JWT authorizer validation)
+        # Note: API Gateway JWT authorizer requires aud claim in token; AccessToken lacks this
+        ID_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.IdToken')
         
-        if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ] || [ "$ACCESS_TOKEN" = "" ]; then
-          echo "❌ Failed to obtain access token"
+        if [ -z "$ID_TOKEN" ] || [ "$ID_TOKEN" = "null" ] || [ "$ID_TOKEN" = "" ]; then
+          echo "❌ Failed to obtain ID token"
           exit 1
         fi
         
-        echo "✅ Successfully obtained JWT access token"
+        echo "✅ Successfully obtained JWT ID token"
         # Mask the token to prevent it from appearing in logs
-        echo "::add-mask::$ACCESS_TOKEN"
-        printf 'access_token=%s\n' "$ACCESS_TOKEN" >> "$GITHUB_OUTPUT"
+        echo "::add-mask::$ID_TOKEN"
+        printf 'access_token=%s\n' "$ID_TOKEN" >> "$GITHUB_OUTPUT"
