@@ -1,4 +1,5 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
+// Use explicit .js extension for Node16 ESM (compiled output)
 import { ensureSDT } from "../lib/auth.js";
 
 // TODO: Implement adjustments management
