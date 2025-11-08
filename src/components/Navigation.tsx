@@ -127,7 +127,10 @@ export function Navigation() {
     // Finanzas routes live at /catalog/* and /rules inside basename /finanzas
     // Also show FINZ nav on home page (/) when Finanzas is the home module
     if (
-      (path === "/" || path.startsWith("/catalog/") || path === "/rules" || path.startsWith("/rules/")) &&
+      (path === "/" ||
+        path.startsWith("/catalog/") ||
+        path === "/rules" ||
+        path.startsWith("/rules/")) &&
       moduleNavItems.FINZ.length
     ) {
       return moduleNavItems.FINZ;

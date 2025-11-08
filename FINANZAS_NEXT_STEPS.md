@@ -3,17 +3,20 @@
 ## Current Status
 
 ✅ **Web Accessibility Verified**
+
 - PMO Portal: `https://d7t9x3j66yd8k.cloudfront.net/` → HTTP 200
 - Finanzas Portal: `https://d7t9x3j66yd8k.cloudfront.net/finanzas/` → HTTP 200
 - Finanzas Catalog: `https://d7t9x3j66yd8k.cloudfront.net/finanzas/catalog/rubros` → HTTP 200
 
 ✅ **Code Fixes Applied**
+
 - Dynamic basename routing for dual-SPA (PMO / Finanzas)
 - Navigation module detection updated
 - Links fixed to use relative paths
 - `/catalog/rubros` endpoint auth disabled
 
 ✅ **Deployment Tools Created**
+
 - `DEPLOYMENT_DIAGNOSTICS.md` - Comprehensive troubleshooting guide
 - `scripts/verify-deployment.sh` - Automated verification script
 - Enhanced `deploy-ui.yml` with CloudFront behavior checks
@@ -27,10 +30,12 @@ You need AWS console access to confirm these CloudFront settings. Here's what to
 **Path:** AWS Console → CloudFront → Distributions → `d7t9x3j66yd8k`
 
 **Check Origins tab:**
+
 - Verify S3 bucket exists and is accessible
 - Domain should be: `ukusi-ui-finanzas-prod.s3.us-east-2.amazonaws.com` (or similar)
 
 **Check Behaviors tab:**
+
 - Default behavior should serve S3 bucket with default root object: `index.html`
 - **CRITICAL:** Look for `/finanzas/*` behavior
   - If EXISTS: Good ✅
@@ -41,6 +46,7 @@ You need AWS console access to confirm these CloudFront settings. Here's what to
 **Path:** AWS Console → S3 → Buckets → `ukusi-ui-finanzas-prod`
 
 Verify these files exist:
+
 ```
 /
 ├── index.html (PMO Portal)
@@ -63,12 +69,14 @@ Current app client: `dshos5iou44tuach7ta3ici5m`
 **Update these fields:**
 
 **Allowed callback URLs:**
+
 ```
 https://d7t9x3j66yd8k.cloudfront.net/
 https://d7t9x3j66yd8k.cloudfront.net/finanzas/
 ```
 
 **Allowed sign-out URLs:**
+
 ```
 https://d7t9x3j66yd8k.cloudfront.net/
 https://d7t9x3j66yd8k.cloudfront.net/finanzas/
@@ -114,6 +122,7 @@ aws cloudfront get-distribution-config \
 ```
 
 Expected output should include:
+
 ```
 /finanzas/*   s3-origin-name
 ```
@@ -177,6 +186,7 @@ cd /workspaces/financial-planning-u
 ```
 
 This checks:
+
 - ✅ CloudFront behaviors
 - ✅ S3 bucket contents
 - ✅ Web accessibility (HTTP status)
@@ -195,14 +205,14 @@ f1ecc5c - fix: dynamic basename routing for dual-SPA (PMO and Finanzas)
 
 | Component | Status | URL |
 |-----------|--------|-----|
-| PMO Portal | ✅ HTTP 200 | https://d7t9x3j66yd8k.cloudfront.net/ |
-| Finanzas Portal | ✅ HTTP 200 | https://d7t9x3j66yd8k.cloudfront.net/finanzas/ |
-| Finanzas Catalog | ✅ HTTP 200 | https://d7t9x3j66yd8k.cloudfront.net/finanzas/catalog/rubros |
-| API Health | ✅ Live | https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/health |
+| PMO Portal | ✅ HTTP 200 | <https://d7t9x3j66yd8k.cloudfront.net/> |
+| Finanzas Portal | ✅ HTTP 200 | <https://d7t9x3j66yd8k.cloudfront.net/finanzas/> |
+| Finanzas Catalog | ✅ HTTP 200 | <https://d7t9x3j66yd8k.cloudfront.net/finanzas/catalog/rubros> |
+| API Health | ✅ Live | <https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/health> |
 | Build: PMO | ✅ dist-pmo/ | BUILD_TARGET=pmo npm run build |
 | Build: Finanzas | ✅ dist-finanzas/ | BUILD_TARGET=finanzas npm run build |
 
 ---
 
 **Last Updated:** 2025-11-07
-**Prepared for:** christian.valencia@ikusi.com
+**Prepared for:** <christian.valencia@ikusi.com>

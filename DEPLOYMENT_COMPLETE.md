@@ -31,11 +31,13 @@ S3 Bucket Content
 ### Build Configuration
 
 **Vite Configuration** (`vite.config.ts`):
+
 - `BUILD_TARGET=pmo` → builds PMO Portal with `base: /`
 - `BUILD_TARGET=finanzas` → builds Finanzas Portal with `base: /finanzas/`
 - Dynamic `VITE_APP_BASENAME` passed to frontend for correct routing
 
 **GitHub Workflow** (`.github/workflows/deploy-ui.yml`):
+
 - Builds both SPAs in parallel
 - Uploads PMO to S3 root: `s3://${S3_BUCKET_NAME}/`
 - Uploads Finanzas to S3 prefix: `s3://${S3_BUCKET_NAME}/finanzas/`
@@ -57,6 +59,7 @@ S3 Bucket Content
 **Problem:** Both SPAs hardcoded to `/finanzas` basename, breaking PMO portal routing.
 
 **Solution:**
+
 - `App.tsx` now reads `VITE_APP_BASENAME` from environment
 - `vite.config.ts` passes correct basename via `define`
 - PMO builds with `VITE_APP_BASENAME=/`
@@ -67,6 +70,7 @@ S3 Bucket Content
 **Problem:** Finanzas navigation items not showing on home page.
 
 **Solution:**
+
 - Updated `Navigation.tsx` to detect `/` path as Finanzas route
 - Fixed `FinanzasHome.tsx` links from `/finanzas/catalog/rubros` → `/catalog/rubros`
 - Links now relative to BrowserRouter basename
@@ -76,6 +80,7 @@ S3 Bucket Content
 **Problem:** `/catalog/rubros` returning 401 Unauthorized (should be public).
 
 **Solution:**
+
 - Updated `template.yaml` (SAM): `CatalogFn` event auth set to `Authorizer: NONE`
 - Endpoint now accessible without authentication
 - Allows public access to rubro catalog
@@ -89,6 +94,7 @@ S3 Bucket Content
 ```
 
 This script checks:
+
 - ✅ CloudFront distribution accessibility
 - ✅ S3 bucket content (both PMO and Finanzas)
 - ✅ HTTP status codes for key endpoints
@@ -116,12 +122,14 @@ This script checks:
 ### ✅ R1 MVP Finanzas Module
 
 **Available Endpoints:**
+
 - `GET /catalog/rubros` - List rubros with taxonomy (public, no auth)
 - `GET /allocation-rules` - List allocation rules (requires auth)
 - `POST /projects` - Create project (MVP stub, 501)
 - `POST /adjustments` - Create adjustment (MVP stub, 501)
 
 **UI Features:**
+
 - Finanzas home page with module overview
 - Rubros catalog display with pagination
 - Allocation rules preview
@@ -196,6 +204,7 @@ If Finanzas module doesn't display:
    - Cmd+Shift+R (Mac) or Ctrl+Shift+F5 (Windows)
 
 2. **Check CloudFront invalidation:**
+
    ```bash
    aws cloudfront create-invalidation \
      --distribution-id EPQU7PVDLQXUA \
@@ -203,6 +212,7 @@ If Finanzas module doesn't display:
    ```
 
 3. **Verify S3 content:**
+
    ```bash
    aws s3 ls s3://ukusi-ui-finanzas-prod/finanzas/ --recursive
    ```
@@ -226,11 +236,13 @@ If Finanzas module doesn't display:
 ## Performance Metrics
 
 **Build Times:**
+
 - PMO Portal: ~15-20s
 - Finanzas Portal: ~15-20s
 - Total deployment: ~2-3 minutes
 
 **Asset Sizes (gzip):**
+
 - PMO index.html: 0.41 kB
 - PMO CSS: ~33 kB
 - PMO JS: ~617 kB
@@ -239,14 +251,17 @@ If Finanzas module doesn't display:
 ## Security Considerations
 
 ✅ **JWT Authentication**
+
 - Cognito ID token validation on protected routes
 - Token injection via Authorization header
 
 ✅ **Public Endpoints**
+
 - `/catalog/rubros` intentionally public for browsing
 - `/health` public for monitoring
 
 ✅ **CloudFront**
+
 - HTTPS only (HTTP redirects to HTTPS)
 - Cache control headers set appropriately
 

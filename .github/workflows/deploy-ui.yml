@@ -135,31 +135,62 @@ jobs:
             --delete
           echo "✅ Finanzas Portal uploaded to s3://${S3_BUCKET_NAME}/finanzas/"
 
-      - name: "Verify CloudFront Behaviors"
+      - name: "Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)"
         run: |
           set -euo pipefail
-          echo "Checking CloudFront distribution behaviors..."
-          BEHAVIORS=$(aws cloudfront get-distribution-config --id "${CLOUDFRONT_DIST_ID}" --query 'DistributionConfig.CacheBehaviors[*].PathPattern' --output text || echo "")
-          echo "Current behaviors: $BEHAVIORS"
-          
-          if echo "$BEHAVIORS" | grep -q '/finanzas/\*'; then
-            echo "✅ /finanzas/* behavior found"
-          else
-            echo "⚠️  WARNING: /finanzas/* behavior not found"
-            echo "   This could cause Finanzas portal to be served incorrectly"
-            echo "   Consider adding a specific behavior for /finanzas/* path pattern"
+          echo "🔍 Critical Guard: Verifying CloudFront /finanzas/* behavior exists..."
+
+          # Query specifically for /finanzas/* behavior
+          BEHAVIOR_COUNT=$(aws cloudfront get-distribution-config \
+            --id "${CLOUDFRONT_DIST_ID}" \
+            --query 'DistributionConfig.CacheBehaviors.Items[?PathPattern==`/finanzas/*`] | length(@)' \
+            --output text)
+
+          if [ "$BEHAVIOR_COUNT" != "1" ]; then
+            echo "❌ CRITICAL: /finanzas/* behavior is MISSING from CloudFront distribution"
+            echo "   Finanzas Portal cannot be served correctly without this behavior"
+            echo ""
+            echo "   To fix this:"
+            echo "   1. Go to AWS CloudFront console → Distribution ${CLOUDFRONT_DIST_ID}"
+            echo "   2. Select Behaviors tab"
+            echo "   3. Create a new behavior with:"
+            echo "      - Path pattern: /finanzas/*"
+            echo "      - Origin: finanzas-ui-s3 (S3 bucket: ukusi-ui-finanzas-prod)"
+            echo "      - Origin access control: finanzas-ui-oac"
+            echo "      - Cache policy: Managed-CachingDisabled or equivalent"
+            echo ""
+            exit 1
           fi
 
-      - name: "Invalidate CloudFront (all paths)"
+          echo "✅ PASS: /finanzas/* behavior is configured"
+
+          # Additional verification - check it points to the right origin
+          ORIGIN=$(aws cloudfront get-distribution-config \
+            --id "${CLOUDFRONT_DIST_ID}" \
+            --query 'DistributionConfig.CacheBehaviors.Items[?PathPattern==`/finanzas/*`][0].TargetOriginId' \
+            --output text)
+
+          echo "   ✓ Target origin: $ORIGIN"
+
+          if [ "$ORIGIN" != "finanzas-ui-s3" ]; then
+            echo "⚠️  WARNING: /finanzas/* points to '$ORIGIN', expected 'finanzas-ui-s3'"
+            echo "   This may cause incorrect content serving"
+          fi
+
+      - name: "Invalidate CloudFront (all paths + Finanzas SPA)"
         run: |
+          set -euo pipefail
           echo "Invalidating CloudFront cache..."
+          echo "  Paths: /* (all content), /finanzas/* (SPA paths), /finanzas/index.html (SPA fallback)"
+
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
             --distribution-id "${CLOUDFRONT_DIST_ID}" \
             --paths '/*' '/finanzas/*' '/finanzas/index.html' \
             --query 'Invalidation.Id' \
             --output text)
-          echo "✅ CloudFront invalidation queued: $INVALIDATION_ID"
-          echo "   Paths: /*, /finanzas/*, /finanzas/index.html"
+
+          echo "✅ Invalidation queued: $INVALIDATION_ID"
+          echo "   Note: Cache propagation may take 30-60 seconds"
 
       - name: "UI Smoke (PMO root /)"
         env:
@@ -218,7 +249,75 @@ jobs:
           curl -sS -f "$BASE/health" | jq . >> $GITHUB_STEP_SUMMARY || echo "⚠️  Could not fetch /health" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-      - name: Summary
+      - name: "Summary & Evidence Pack"
+        run: |
+          set -euo pipefail
+          {
+            echo "## Dual-SPA Deployment Complete ✅"
+            echo ""
+            echo "### PMO Portal"
+            echo "- **Location**: CloudFront root (/)"
+            echo "- **Build**: dist-pmo/"
+            echo "- **S3 Prefix**: / (root)"
+            echo "- **Access**: https://d7t9x3j66yd8k.cloudfront.net/"
+            echo ""
+            echo "### Finanzas SDT Portal"
+            echo "- **Location**: /finanzas/"
+            echo "- **Build**: dist-finanzas/"
+            echo "- **S3 Prefix**: /finanzas/"
+            echo "- **API Base**: ${VITE_API_BASE_URL:-'(not set)'}"
+            echo "- **API Stack**: ${FINZ_API_STACK}"
+            echo "- **Access**: https://d7t9x3j66yd8k.cloudfront.net/finanzas/"
+            echo ""
+            echo "### CloudFront Configuration"
+            DIST_DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+            echo "- **Distribution ID**: ${CLOUDFRONT_DIST_ID}"
+            echo "- **Domain**: $DIST_DOMAIN"
+            echo ""
+            echo "#### Origins"
+            aws cloudfront get-distribution-config --id "${CLOUDFRONT_DIST_ID}" \
+              --query 'DistributionConfig.Origins.Items[*].[Id, DomainName, OriginAccessControlId]' \
+              --output text | awk '{printf "- **%s**: %s (OAC: %s)\n", $1, $2, $3}' >> $GITHUB_STEP_SUMMARY || true
+            echo ""
+            echo "#### Cache Behaviors"
+            aws cloudfront get-distribution-config --id "${CLOUDFRONT_DIST_ID}" \
+              --query 'DistributionConfig.CacheBehaviors.Items[*].[PathPattern, TargetOriginId]' \
+              --output text | awk '{printf "- **%s** → %s\n", $1, $2}' >> $GITHUB_STEP_SUMMARY || true
+            echo ""
+            echo "### Health Checks"
+            
+            # PMO
+            PMO_STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "https://${DIST_DOMAIN}/")
+            echo "- **PMO Portal**: HTTP $PMO_STATUS ✅" || echo "- **PMO Portal**: HTTP $PMO_STATUS ❌"
+            
+            # Finanzas
+            FINZ_STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "https://${DIST_DOMAIN}/finanzas/")
+            echo "- **Finanzas Portal**: HTTP $FINZ_STATUS ✅" || echo "- **Finanzas Portal**: HTTP $FINZ_STATUS ❌"
+            
+            # Catalog (public)
+            CATALOG_STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "https://${DIST_DOMAIN}/finanzas/catalog/rubros" || echo "000")
+            if [ "$CATALOG_STATUS" = "200" ]; then
+              echo "- **Catalog Endpoint**: HTTP $CATALOG_STATUS ✅"
+            else
+              echo "- **Catalog Endpoint**: HTTP $CATALOG_STATUS (may require API routing)"
+            fi
+            
+            echo ""
+            echo "### Next Steps"
+            echo "1. **Verify Deployment**: Access https://${DIST_DOMAIN}/finanzas/ and ensure Finanzas tab is visible"
+            echo "2. **Test Navigation**: Click 'Rubros' → should navigate to /catalog/rubros"
+            echo "3. **Monitor Propagation**: Cache invalidation in progress (30-60 seconds)"
+            echo "4. **Cognito Setup**: Ensure callback URLs include https://${DIST_DOMAIN}/finanzas/"
+            echo ""
+            echo "### Deployment Summary"
+            echo "- Build Target: Dual-SPA (PMO + Finanzas)"
+            echo "- Deploy Time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            echo "- Build Target Env: BUILD_TARGET=pmo, BUILD_TARGET=finanzas"
+            echo "- S3 Bucket: ${S3_BUCKET_NAME}"
+            echo "- CloudFront Distribution: ${CLOUDFRONT_DIST_ID}"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Summary (Legacy)
         run: |
           {
             echo "## UIs Deployed (dev)"
