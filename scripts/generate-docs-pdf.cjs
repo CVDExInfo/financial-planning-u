@@ -158,25 +158,50 @@ async function main() {
   // Convert each file
   let successCount = 0;
   let errorCount = 0;
+  const generatedFiles = [];
 
   for (const markdownFile of markdownFiles) {
     try {
       await convertMarkdownToPdf(markdownFile);
+      // Calculate the output PDF path
+      const relativePath = path.relative(DOCS_DIR, markdownFile);
+      const pdfPath = path.join(OUTPUT_DIR, relativePath.replace('.md', '.pdf'));
+      generatedFiles.push(pdfPath);
       successCount++;
     } catch (error) {
       errorCount++;
     }
   }
 
-  console.log(`\n${'='.repeat(60)}`);
+  console.log(`\n${'='.repeat(70)}`);
   console.log(`PDF Generation Complete!`);
-  console.log(`${'='.repeat(60)}`);
+  console.log(`${'='.repeat(70)}`);
   console.log(`✓ Successfully converted: ${successCount} files`);
   if (errorCount > 0) {
     console.log(`✗ Failed to convert: ${errorCount} files`);
   }
-  console.log(`Output directory: ${OUTPUT_DIR}`);
-  console.log(`${'='.repeat(60)}\n`);
+  console.log(`${'='.repeat(70)}\n`);
+  
+  // Print detailed location information
+  console.log(`📁 PDF FILES LOCATION:`);
+  console.log(`${'─'.repeat(70)}`);
+  console.log(`Absolute path: ${OUTPUT_DIR}`);
+  console.log(`Relative path: ${path.relative(process.cwd(), OUTPUT_DIR)}`);
+  console.log(``);
+  console.log(`ℹ️  NOTE: The 'docs-pdf/' directory is listed in .gitignore`);
+  console.log(`   PDF files are NOT committed to the repository.`);
+  console.log(`${'─'.repeat(70)}\n`);
+  
+  // List all generated files
+  if (generatedFiles.length > 0) {
+    console.log(`📄 Generated PDF files (${generatedFiles.length}):`);
+    console.log(`${'─'.repeat(70)}`);
+    generatedFiles.forEach((file, index) => {
+      const relPath = path.relative(OUTPUT_DIR, file);
+      console.log(`${String(index + 1).padStart(2, ' ')}. ${relPath}`);
+    });
+    console.log(`${'─'.repeat(70)}\n`);
+  }
 
   if (errorCount > 0) {
     process.exit(1);
