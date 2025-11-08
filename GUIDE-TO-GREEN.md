@@ -8,14 +8,14 @@
 
 ## Ground Truth (Exact Values)
 
-| Component | Value |
-|-----------|-------|
-| **CloudFront (UI)** | https://d7t9x3j66yd8k.cloudfront.net/finanzas/ |
-| **Finanzas API** | https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev |
-| **Region** | us-east-2 |
-| **Cognito App Client** | dshos5iou44tuach7ta3ici5m |
-| **Cognito Pool** | us-east-2_FyHLtOhiY |
-| **DynamoDB Tables** | finz_rubros, finz_rubros_taxonomia, finz_projects, finz_adjustments, finz_audit_log |
+| Component              | Value                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| **CloudFront (UI)**    | https://d7t9x3j66yd8k.cloudfront.net/finanzas/                                      |
+| **Finanzas API**       | https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev                          |
+| **Region**             | us-east-2                                                                           |
+| **Cognito App Client** | dshos5iou44tuach7ta3ici5m                                                           |
+| **Cognito Pool**       | us-east-2_FyHLtOhiY                                                                 |
+| **DynamoDB Tables**    | finz_rubros, finz_rubros_taxonomia, finz_projects, finz_adjustments, finz_audit_log |
 
 ---
 
@@ -43,6 +43,7 @@ bash scripts/finanzas-e2e-smoke.sh
 ### Step 3: Verify Output
 
 Look for all ✅ marks:
+
 - ✅ Auth: IdToken obtained
 - ✅ API Health: 200 OK
 - ✅ Catalog: 200 OK, 71 rubros
@@ -54,15 +55,15 @@ Look for all ✅ marks:
 
 ## What This Tests
 
-| Component | Test | Proves |
-|-----------|------|--------|
-| **Cognito** | Get ID token | Auth flow working |
-| **API Gateway** | Health endpoint | Routing to Lambda |
-| **Public Endpoint** | GET /catalog/rubros | No-auth endpoint working |
+| Component              | Test                  | Proves                    |
+| ---------------------- | --------------------- | ------------------------- |
+| **Cognito**            | Get ID token          | Auth flow working         |
+| **API Gateway**        | Health endpoint       | Routing to Lambda         |
+| **Public Endpoint**    | GET /catalog/rubros   | No-auth endpoint working  |
 | **Protected Endpoint** | GET /allocation-rules | Bearer token auth working |
-| **Lambda Handler** | POST /adjustments | Lambda executing code |
-| **DynamoDB** | get-item after insert | Data persists to DB |
-| **Audit Log** | scan audit_log | Logging working |
+| **Lambda Handler**     | POST /adjustments     | Lambda executing code     |
+| **DynamoDB**           | get-item after insert | Data persists to DB       |
+| **Audit Log**          | scan audit_log        | Logging working           |
 
 ---
 

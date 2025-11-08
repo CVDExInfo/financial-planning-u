@@ -88,10 +88,21 @@ export function getDefaultUserRole(user: UserInfo): UserRole {
 
 /**
  * Get all available roles for a user
- * In a real system, this would be based on user's assigned permissions
+ * Priority: 1) Use JWT roles if available, 2) Infer from user attributes
  */
 export function getAvailableRoles(user: UserInfo): UserRole[] {
-  // Owners and PMO users can switch to any role for demonstration
+  // If user has JWT-provided roles (from Cognito groups), use them
+  if (user.roles && user.roles.length > 0) {
+    // User has explicit roles from JWT/Cognito groups
+    // Add EXEC_RO as option if not already present (for reporting)
+    const roles = [...user.roles];
+    if (!roles.includes("EXEC_RO")) {
+      roles.push("EXEC_RO");
+    }
+    return roles;
+  }
+
+  // Fallback: Owners and PMO users can switch to any role for demonstration
   if (user.isOwner || user.email.toLowerCase().includes("pmo")) {
     return ["PMO", "SDMT", "VENDOR", "EXEC_RO"];
   }

@@ -134,6 +134,7 @@ Tables:
 ### ✅ Smoke Tests - All Green
 
 Run terminal test:
+
 ```bash
 export USERNAME="christian.valencia@ikusi.com"
 export PASSWORD="Velatia@2025"
@@ -152,13 +153,13 @@ Expected: All 6 sections pass with ✅
 
 ### ✅ API Endpoints Verified
 
-| Endpoint | Method | Auth | Status | Data |
-|----------|--------|------|--------|------|
-| /health | GET | No | 200 | OK |
-| /catalog/rubros | GET | No | 200 | 71 items |
-| /allocation-rules | GET | Yes | 200 | 2 items |
-| /projects | POST | Yes | Ready | Can create |
-| /adjustments | POST | Yes | Ready | Can create |
+| Endpoint          | Method | Auth | Status | Data       |
+| ----------------- | ------ | ---- | ------ | ---------- |
+| /health           | GET    | No   | 200    | OK         |
+| /catalog/rubros   | GET    | No   | 200    | 71 items   |
+| /allocation-rules | GET    | Yes  | 200    | 2 items    |
+| /projects         | POST   | Yes  | Ready  | Can create |
+| /adjustments      | POST   | Yes  | Ready  | Can create |
 
 ---
 
@@ -272,6 +273,7 @@ Expected: All 6 sections pass with ✅
 ### For QA Testing
 
 1. **Run E2E Smoke Test:**
+
    ```bash
    export USERNAME="christian.valencia@ikusi.com"
    export PASSWORD="Velatia@2025"
@@ -279,6 +281,7 @@ Expected: All 6 sections pass with ✅
    ```
 
 2. **Run Browser Smoke Tests:**
+
    ```bash
    bash scripts/finanzas-smoke-tests.sh christian.valencia@ikusi.com Velatia@2025
    ```
@@ -292,15 +295,18 @@ Expected: All 6 sections pass with ✅
 ### For Production Monitoring
 
 1. **CloudWatch Logs:** Monitor Lambda execution
+
    ```bash
    aws logs tail /aws/lambda/finanzas-sd-api --follow
    ```
 
 2. **DynamoDB Metrics:** Monitor table performance
+
    - Check consumed read/write capacity
    - Monitor item sizes
 
 3. **CloudFront Metrics:** Monitor cache hit ratio
+
    - Target >90% for static assets
    - Monitor origin latency
 
@@ -333,15 +339,15 @@ Expected: All 6 sections pass with ✅
 
 ## Performance Baseline
 
-| Metric | Value | Target |
-|--------|-------|--------|
-| **Build Time** | ~2.5s | <5s |
-| **Bundle Size** | 2.4 MB | <3 MB |
-| **Gzip Size** | ~600 KB | <1 MB |
-| **CloudFront Cache Hit** | Pending | >90% |
-| **API Response Time** | <100ms | <200ms |
-| **Lambda Cold Start** | <1s | <2s |
-| **DynamoDB Latency** | <10ms | <50ms |
+| Metric                   | Value   | Target |
+| ------------------------ | ------- | ------ |
+| **Build Time**           | ~2.5s   | <5s    |
+| **Bundle Size**          | 2.4 MB  | <3 MB  |
+| **Gzip Size**            | ~600 KB | <1 MB  |
+| **CloudFront Cache Hit** | Pending | >90%   |
+| **API Response Time**    | <100ms  | <200ms |
+| **Lambda Cold Start**    | <1s     | <2s    |
+| **DynamoDB Latency**     | <10ms   | <50ms  |
 
 ---
 
@@ -381,6 +387,7 @@ Ready for end-user testing and production deployment.
 **Last Updated:** 2025-11-08
 
 For more details, see:
+
 - `GUIDE-TO-GREEN.md` - Quick start guide
 - `docs/ui-api-action-map.md` - Complete API mapping
 - `scripts/finanzas-e2e-smoke.sh` - Automated verification
