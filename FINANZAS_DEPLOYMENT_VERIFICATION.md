@@ -3,6 +3,7 @@
 ## 🎯 Deployment Overview
 
 **Source of Truth (Exact Values)**
+
 - CloudFront Distribution: `EPQU7PVDLQXUA`
 - CloudFront Domain: `https://d7t9x3j66yd8k.cloudfront.net`
 - Finanzas UI Bucket: `ukusi-ui-finanzas-prod`
@@ -17,14 +18,17 @@
 ### Code Configuration
 
 - [x] **Vite Config**: `base: "/finanzas/"` for `BUILD_TARGET=finanzas`
+
   - Location: `vite.config.ts`
   - When: Applied, assets resolve to `/finanzas/assets/*`
 
 - [x] **React Router**: `basename="/finanzas"` dynamically set from `VITE_APP_BASENAME`
+
   - Location: `src/App.tsx`
   - When: All routes are prefixed with `/finanzas`
 
 - [x] **API Client**: Uses `import.meta.env.VITE_API_BASE_URL` (never `window.location.origin`)
+
   - Location: `src/api/finanzasClient.ts`
   - When: API calls correctly target API Gateway
 
@@ -49,14 +53,17 @@ VITE_AWS_REGION=us-east-2
 The workflow includes these guards to fail the build if:
 
 1. **Asset Path Guard**: `dist-finanzas/index.html` contains `/assets/` instead of `/finanzas/assets/`
+
    - Indicates Vite `base` not set correctly
    - Fix: Rebuild with `BUILD_TARGET=finanzas`
 
 2. **GitHub Domain Guard**: Build contains `github.dev` or `codespaces` references
+
    - Indicates Codespaces URL leakage
    - Fix: Remove hardcoded Codespaces URLs from source
 
 3. **GitHub Content Guard**: `index.html` contains `githubusercontent.com` or `github.com` links
+
    - Indicates hardcoded GitHub domain references
    - Fix: Use relative URLs or CloudFront domain
 
@@ -111,7 +118,7 @@ aws cloudfront create-invalidation \
 
 ### 1. CloudFront Configuration Verification
 
-**Check that /finanzas/* behavior exists and is correctly configured:**
+**Check that /finanzas/\* behavior exists and is correctly configured:**
 
 ```bash
 # Query the behavior
@@ -125,6 +132,7 @@ aws cloudfront get-distribution \
 ```
 
 **If output is empty or different:**
+
 - Go to AWS CloudFront console → Distribution EPQU7PVDLQXUA
 - Select "Behaviors" tab
 - Verify behavior with path pattern `/finanzas/*` exists
@@ -153,7 +161,7 @@ curl -s https://d7t9x3j66yd8k.cloudfront.net/finanzas/ | \
 curl -s https://d7t9x3j66yd8k.cloudfront.net/finanzas/ | grep -i github.dev
 # Expected: No matches (empty output = good)
 
-# Check for codespaces references  
+# Check for codespaces references
 curl -s https://d7t9x3j66yd8k.cloudfront.net/finanzas/ | grep -i codespaces
 # Expected: No matches
 ```
@@ -228,12 +236,14 @@ curl -fsS \
 **Problem**: index.html is new but assets look old/missing
 
 **Diagnosis**:
+
 ```bash
 curl -s https://d7t9x3j66yd8k.cloudfront.net/finanzas/index.html | \
   grep -o 'src="[^"]*"' | head -5
 ```
 
-**Solution**: 
+**Solution**:
+
 - Check that asset paths use `/finanzas/assets/*` not `/assets/*`
 - Ensure Vite build used `base: "/finanzas/"`
 - Rebuild with `BUILD_TARGET=finanzas`
@@ -248,13 +258,16 @@ curl -s https://d7t9x3j66yd8k.cloudfront.net/finanzas/index.html | \
 **Problem**: `/finanzas/` path returns 403 Forbidden or 404 Not Found
 
 **Diagnosis**:
+
 ```bash
 curl -I https://d7t9x3j66yd8k.cloudfront.net/finanzas/
 # Check status code
 ```
 
 **Solutions**:
+
 1. Verify S3 bucket contains files:
+
    ```bash
    aws s3api head-object \
      --bucket ukusi-ui-finanzas-prod \
@@ -263,6 +276,7 @@ curl -I https://d7t9x3j66yd8k.cloudfront.net/finanzas/
    ```
 
 2. Verify CloudFront behavior SPA fallback:
+
    - Go to CloudFront distribution
    - Check `/finanzas/*` behavior has "Default root object" or error responses configured
    - Error response: 404 → `/finanzas/index.html` (200)
@@ -277,7 +291,9 @@ curl -I https://d7t9x3j66yd8k.cloudfront.net/finanzas/
 **Problem**: Protected endpoints return 401
 
 **Solutions**:
+
 1. Verify you're using **ID Token**, not Access Token:
+
    ```bash
    # Check token type in JWT
    echo $ID_TOKEN | cut -d'.' -f2 | base64 -d | jq '.token_use'
@@ -285,6 +301,7 @@ curl -I https://d7t9x3j66yd8k.cloudfront.net/finanzas/
    ```
 
 2. Verify token `aud` matches App Client ID:
+
    ```bash
    echo $ID_TOKEN | cut -d'.' -f2 | base64 -d | jq '.aud'
    # Should output: "dshos5iou44tuach7ta3ici5m"
@@ -299,15 +316,17 @@ curl -I https://d7t9x3j66yd8k.cloudfront.net/finanzas/
 **Root Cause**: `base` not set or not propagated correctly in vite.config.ts
 
 **Fix**:
+
 ```typescript
 // In vite.config.ts
 export default defineConfig(() => ({
-  base: isPmo ? "/" : "/finanzas/",  // ✅ Critical!
+  base: isPmo ? "/" : "/finanzas/", // ✅ Critical!
   // ...
 }));
 ```
 
 Rebuild:
+
 ```bash
 BUILD_TARGET=finanzas npm run build
 ```
@@ -378,4 +397,3 @@ echo "🎉 If all checks pass, deployment is GREEN!"
 - **React Router**: https://reactrouter.com/start/library/start-tutorial
 - **Cognito**: https://docs.aws.amazon.com/cognito/latest/developerguide/
 - **API Gateway HTTP API**: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api.html
-

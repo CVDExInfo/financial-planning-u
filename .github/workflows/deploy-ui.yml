@@ -85,7 +85,7 @@ jobs:
           fi
           printf '%s\n' "VITE_AWS_REGION=us-east-2" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
-          
+
           echo "Building Finanzas SDT Portal (base: /finanzas/)..."
           BUILD_TARGET=finanzas npm run build || { echo "❌ Finanzas build failed"; exit 1; }
           mkdir -p tmp-finanzas && mv dist/* tmp-finanzas/ && rm -rf dist && mv tmp-finanzas dist-finanzas
@@ -264,11 +264,11 @@ jobs:
           DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
           ROOT="https://${DOMAIN}${FINZ_PREFIX}/"
           STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$ROOT")
-          
+
           echo "## Finanzas Portal (/finanzas/)" >> $GITHUB_STEP_SUMMARY
           echo "URL: $ROOT" >> $GITHUB_STEP_SUMMARY
           echo "HTTP Status: $STATUS" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "$STATUS" = "200" ]; then
             echo "✅ HTTP $STATUS - Portal is accessible" >> $GITHUB_STEP_SUMMARY
             

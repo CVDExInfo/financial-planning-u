@@ -1,6 +1,7 @@
 # Finanzas Deployment - Implementation Checklist ✅
 
 ## Document Status
+
 **Date**: November 8, 2025  
 **Status**: 🟢 IMPLEMENTATION COMPLETE  
 **Deployment Type**: Dual-SPA (PMO + Finanzas) to CloudFront  
@@ -28,6 +29,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
 ## B. Frontend Build Fixes ✅
 
 ### Vite Configuration (VERIFIED)
+
 - [x] File: `vite.config.ts`
 - [x] Setting: `base: isPmo ? "/" : "/finanzas/"`
   - For `BUILD_TARGET=finanzas`: `base: "/finanzas/"`
@@ -38,6 +40,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
   ```
 
 ### React Router Basename (VERIFIED)
+
 - [x] File: `src/App.tsx`
 - [x] Setting: Dynamic basename from `VITE_APP_BASENAME` env
   - Fallback: `/finanzas` when `VITE_FINZ_ENABLED=true`
@@ -53,6 +56,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
   ```
 
 ### API Client Configuration (VERIFIED)
+
 - [x] File: `src/api/finanzasClient.ts`
 - [x] Reading: `import.meta.env.VITE_API_BASE_URL`
   - NO `window.location.origin` usage
@@ -63,16 +67,19 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
   ```
 
 ### Code Leakage Audit (VERIFIED)
+
 - [x] Searched: `grep -R "github.dev|codespaces|window.location.origin" src/`
 - [x] Results: 1 match found in `src/lib/pdf-export.ts` line 337
 - [x] Fixed: Removed `window.location.origin` default parameter
+
   ```typescript
   // BEFORE:
   static createShareableURL(data: PDFReportData, baseUrl: string = window.location.origin): string {
-  
+
   // AFTER:
   static createShareableURL(data: PDFReportData, baseUrl: string = ''): string {
   ```
+
 - [x] Verification: URL defaults to relative path or uses provided CloudFront domain
 
 ---
@@ -80,6 +87,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
 ## C. Pipeline Configuration ✅
 
 ### Build Environment Variables (IMPLEMENTED)
+
 - [x] File: `.github/workflows/deploy-ui.yml`
 - [x] Step: "Build Finanzas SDT Portal"
 - [x] Implementation: Printf-based env export (no blank lines)
@@ -93,6 +101,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
   ```
 
 ### Build Guards (IMPLEMENTED)
+
 - [x] File: `.github/workflows/deploy-ui.yml`
 - [x] Step: "Guard - Build artifact validation"
 - [x] Guard 1: Asset path check
@@ -115,6 +124,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
   ```
 
 ### S3 Upload with Caching (IMPLEMENTED)
+
 - [x] File: `.github/workflows/deploy-ui.yml`
 - [x] Step: "Upload Finanzas Portal to S3 (/finanzas prefix)"
 - [x] Immutable assets uploaded with:
@@ -129,8 +139,9 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
   - Effect: Always fresh index, preventing stale deployments
 
 ### CloudFront Behavior Verification (IMPLEMENTED)
+
 - [x] File: `.github/workflows/deploy-ui.yml`
-- [x] Step: "Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)"
+- [x] Step: "Guard - Verify CloudFront /finanzas/\* Behavior (CRITICAL)"
 - [x] Checks performed:
   1. Behavior exists: Query for `/finanzas/*` path pattern
   2. Target origin: Verify points to `finanzas-ui-s3`
@@ -143,6 +154,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
   ```
 
 ### CloudFront Invalidation (IMPLEMENTED)
+
 - [x] File: `.github/workflows/deploy-ui.yml`
 - [x] Step: "Invalidate CloudFront (all paths + Finanzas SPA)"
 - [x] Paths invalidated:
@@ -159,6 +171,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
 ## D. Post-Deployment Verification ✅
 
 ### UI Smoke Tests (IMPLEMENTED)
+
 - [x] File: `.github/workflows/deploy-ui.yml`
 - [x] Step: "UI Smoke (PMO root /)"
 - [x] Step: "UI Smoke (Finanzas /finanzas/)"
@@ -173,6 +186,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
   ```
 
 ### API Smoke Tests (IMPLEMENTED)
+
 - [x] File: `.github/workflows/deploy-ui.yml`
 - [x] Step: "API Smokes (if DEV_API_URL set)"
 - [x] Health check (public):
@@ -180,21 +194,23 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
   curl -sS https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/health
   ```
 - [x] Protected endpoints documentation:
+
   ```bash
   # Get IdToken (not AccessToken!)
   aws cognito-idp initiate-auth --region us-east-2 \
     --auth-flow USER_PASSWORD_AUTH --client-id dshos5iou44tuach7ta3ici5m \
     --auth-parameters USERNAME=$USER PASSWORD=$PASS \
     --query 'AuthenticationResult.IdToken' --output text
-  
+
   # Test protected endpoints
   curl -H "Authorization: Bearer $ID_TOKEN" $API/catalog/rubros
   curl -H "Authorization: Bearer $ID_TOKEN" $API/allocation-rules
   ```
 
 ### CloudFront Sanity Check (IMPLEMENTED)
+
 - [x] File: `.github/workflows/deploy-ui.yml`
-- [x] Step: "Guard - Verify CloudFront /finanzas/* Behavior"
+- [x] Step: "Guard - Verify CloudFront /finanzas/\* Behavior"
 - [x] Post-patch verification query:
   ```bash
   aws cloudfront get-distribution --id EPQU7PVDLQXUA \
@@ -208,6 +224,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
 ## E. Evidence & Documentation ✅
 
 ### Deployment Guide (CREATED)
+
 - [x] File: `FINANZAS_DEPLOYMENT_VERIFICATION.md`
 - [x] Contents:
   - Source of truth values
@@ -218,6 +235,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
   - Final verification script
 
 ### Smoke Test Script (CREATED)
+
 - [x] File: `scripts/finanzas-smoke-tests.sh`
 - [x] Features:
   - CloudFront configuration verification
@@ -233,6 +251,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
   ```
 
 ### GitHub Actions Summary (IMPLEMENTED)
+
 - [x] File: `.github/workflows/deploy-ui.yml`
 - [x] Step: "Summary & Evidence Pack"
 - [x] Evidence provided in `$GITHUB_STEP_SUMMARY`:
@@ -248,6 +267,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
 ## F. Deployment Readiness Checklist
 
 ### Code ✅
+
 - [x] Vite base = `/finanzas/` (finanzas build)
 - [x] Router basename = `/finanzas`
 - [x] API client uses `VITE_API_BASE_URL` only
@@ -256,17 +276,20 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
 - [x] No GitHub domain hardcodes
 
 ### Build ✅
+
 - [x] Environment variables set via printf
 - [x] Build guards implemented (assets, github.dev, domains)
 - [x] CloudFront behavior validation
 - [x] Build target selection logic
 
 ### Deployment ✅
+
 - [x] S3 upload with correct paths and cache headers
-- [x] CloudFront invalidation of /finanzas/*
+- [x] CloudFront invalidation of /finanzas/\*
 - [x] Behavior verification post-deploy
 
 ### Testing ✅
+
 - [x] UI smoke tests in workflow
 - [x] API smoke tests in workflow
 - [x] Asset path verification
@@ -274,6 +297,7 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
 - [x] Stand-alone smoke test script
 
 ### Documentation ✅
+
 - [x] Deployment verification guide
 - [x] Smoke test script
 - [x] GitHub Actions summary evidence
@@ -284,38 +308,41 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
 
 ## G. Critical URLs & IDs
 
-| Component | Value |
-|-----------|-------|
-| CloudFront Distribution ID | `EPQU7PVDLQXUA` |
-| CloudFront Domain | `https://d7t9x3j66yd8k.cloudfront.net` |
-| S3 Bucket | `ukusi-ui-finanzas-prod` |
-| S3 Prefix for Finanzas | `/finanzas/` |
-| CloudFront Behavior Path | `/finanzas/*` |
-| CloudFront Origin | `finanzas-ui-s3` |
-| API Gateway Base | `https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev` |
-| API Gateway Region | `us-east-2` |
-| API Host ID | `m3g6am67aj` |
-| Cognito Client ID | `dshos5iou44tuach7ta3ici5m` |
-| Cognito Region | `us-east-2` |
-| Cognito Callback URL | `https://d7t9x3j66yd8k.cloudfront.net/finanzas/` |
-| Cognito Sign-out URL | `https://d7t9x3j66yd8k.cloudfront.net/finanzas/` |
+| Component                  | Value                                                        |
+| -------------------------- | ------------------------------------------------------------ |
+| CloudFront Distribution ID | `EPQU7PVDLQXUA`                                              |
+| CloudFront Domain          | `https://d7t9x3j66yd8k.cloudfront.net`                       |
+| S3 Bucket                  | `ukusi-ui-finanzas-prod`                                     |
+| S3 Prefix for Finanzas     | `/finanzas/`                                                 |
+| CloudFront Behavior Path   | `/finanzas/*`                                                |
+| CloudFront Origin          | `finanzas-ui-s3`                                             |
+| API Gateway Base           | `https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev` |
+| API Gateway Region         | `us-east-2`                                                  |
+| API Host ID                | `m3g6am67aj`                                                 |
+| Cognito Client ID          | `dshos5iou44tuach7ta3ici5m`                                  |
+| Cognito Region             | `us-east-2`                                                  |
+| Cognito Callback URL       | `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`             |
+| Cognito Sign-out URL       | `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`             |
 
 ---
 
 ## H. How to Use This Implementation
 
 ### For Developers
+
 1. **Local Build**: Set `BUILD_TARGET=finanzas npm run build`
 2. **Verify Assets**: Check `dist-finanzas/index.html` contains `/finanzas/assets/` paths
 3. **Run Smoke Tests**: Execute `bash scripts/finanzas-smoke-tests.sh` after deployment
 
 ### For CI/CD
+
 1. **Trigger**: Merge to `main` branch
 2. **Workflow**: `.github/workflows/deploy-ui.yml` automatically runs
 3. **Guards**: All checks run automatically; build fails if guards fail
 4. **Summary**: Review `$GITHUB_STEP_SUMMARY` for evidence
 
 ### For Operations
+
 1. **Monitor**: Check CloudFront cache metrics and invalidation status
 2. **Verify**: Run `scripts/finanzas-smoke-tests.sh username password` post-deploy
 3. **Troubleshoot**: Follow procedures in `FINANZAS_DEPLOYMENT_VERIFICATION.md`
@@ -433,4 +460,3 @@ Serve Finanzas SPA from CloudFront `/finanzas/*` and call API Gateway directly, 
 **Implementation**: Complete  
 **Testing**: Ready  
 **Deployment**: Ready
-

@@ -11,11 +11,11 @@ interface PDFReportData {
     label: string;
     value: string;
     change?: string;
-    changeType?: 'positive' | 'negative' | 'neutral';
+    changeType?: "positive" | "negative" | "neutral";
     color?: string;
   }>;
   charts?: Array<{
-    type: 'donut' | 'line' | 'bar';
+    type: "donut" | "line" | "bar";
     title: string;
     data: any[];
   }>;
@@ -28,7 +28,15 @@ export class PDFExporter {
    * Generate a visually appealing HTML report for printing/PDF
    */
   static generateHTMLReport(data: PDFReportData): string {
-    const { title, subtitle, generated, metrics, charts, summary, recommendations } = data;
+    const {
+      title,
+      subtitle,
+      generated,
+      metrics,
+      charts,
+      summary,
+      recommendations,
+    } = data;
 
     return `
       <!DOCTYPE html>
@@ -262,42 +270,68 @@ export class PDFExporter {
           <div class="report-container">
             <div class="header">
               <h1>${title}</h1>
-              ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
+              ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ""}
               <div class="generated">Generated on ${generated}</div>
             </div>
             
             <div class="content">
-              ${metrics.length > 0 ? `
+              ${
+                metrics.length > 0
+                  ? `
                 <div class="metrics-grid">
-                  ${metrics.map(metric => `
+                  ${metrics
+                    .map(
+                      (metric) => `
                     <div class="metric-card">
-                      <div class="metric-value" ${metric.color ? `style="color: ${metric.color}"` : ''}>${metric.value}</div>
+                      <div class="metric-value" ${
+                        metric.color ? `style="color: ${metric.color}"` : ""
+                      }>${metric.value}</div>
                       <div class="metric-label">${metric.label}</div>
-                      ${metric.change ? `
-                        <div class="metric-change ${metric.changeType || 'neutral'}">${metric.change}</div>
-                      ` : ''}
+                      ${
+                        metric.change
+                          ? `
+                        <div class="metric-change ${
+                          metric.changeType || "neutral"
+                        }">${metric.change}</div>
+                      `
+                          : ""
+                      }
                     </div>
-                  `).join('')}
+                  `
+                    )
+                    .join("")}
                 </div>
-              ` : ''}
+              `
+                  : ""
+              }
               
-              ${summary && summary.length > 0 ? `
+              ${
+                summary && summary.length > 0
+                  ? `
                 <div class="section">
                   <div class="section-title">Executive Summary</div>
                   <ul class="summary-list">
-                    ${summary.map(item => `<li>${item}</li>`).join('')}
+                    ${summary.map((item) => `<li>${item}</li>`).join("")}
                   </ul>
                 </div>
-              ` : ''}
+              `
+                  : ""
+              }
               
-              ${recommendations && recommendations.length > 0 ? `
+              ${
+                recommendations && recommendations.length > 0
+                  ? `
                 <div class="section">
                   <div class="section-title">Key Recommendations</div>
                   <ul class="recommendations-list">
-                    ${recommendations.map(item => `<li>${item}</li>`).join('')}
+                    ${recommendations
+                      .map((item) => `<li>${item}</li>`)
+                      .join("")}
                   </ul>
                 </div>
-              ` : ''}
+              `
+                  : ""
+              }
             </div>
             
             <div class="footer">
@@ -315,16 +349,16 @@ export class PDFExporter {
    */
   static async exportToPDF(data: PDFReportData): Promise<void> {
     const htmlContent = this.generateHTMLReport(data);
-    
-    const printWindow = window.open('', '_blank', 'width=1200,height=800');
+
+    const printWindow = window.open("", "_blank", "width=1200,height=800");
     if (!printWindow) {
-      throw new Error('Popup blocked - please allow popups for this site');
+      throw new Error("Popup blocked - please allow popups for this site");
     }
-    
+
     printWindow.document.write(htmlContent);
     printWindow.document.close();
     printWindow.focus();
-    
+
     // Wait for content to load, then trigger print
     setTimeout(() => {
       printWindow.print();
@@ -336,17 +370,22 @@ export class PDFExporter {
    * Note: baseUrl should be the CloudFront domain (e.g., https://d7t9x3j66yd8k.cloudfront.net)
    * NOT window.location.origin or github.dev URLs
    */
-  static createShareableURL(data: PDFReportData, baseUrl: string = ''): string {
+  static createShareableURL(data: PDFReportData, baseUrl: string = ""): string {
     const compressedData = btoa(JSON.stringify(data));
-    const finalUrl = baseUrl ? `${baseUrl}/shared/report?data=${compressedData}` : `/shared/report?data=${compressedData}`;
+    const finalUrl = baseUrl
+      ? `${baseUrl}/shared/report?data=${compressedData}`
+      : `/shared/report?data=${compressedData}`;
     return finalUrl;
   }
 }
 
 // Helper function to format currency values
-export const formatReportCurrency = (amount: number, currency = 'USD'): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
+export const formatReportCurrency = (
+  amount: number,
+  currency = "USD"
+): string => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
     currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
@@ -355,12 +394,14 @@ export const formatReportCurrency = (amount: number, currency = 'USD'): string =
 
 // Helper function to format percentages
 export const formatReportPercentage = (value: number, decimals = 1): string => {
-  return `${value >= 0 ? '+' : ''}${value.toFixed(decimals)}%`;
+  return `${value >= 0 ? "+" : ""}${value.toFixed(decimals)}%`;
 };
 
 // Helper function to determine change type
-export const getChangeType = (value: number): 'positive' | 'negative' | 'neutral' => {
-  if (value > 0) return 'positive';
-  if (value < 0) return 'negative';
-  return 'neutral';
+export const getChangeType = (
+  value: number
+): "positive" | "negative" | "neutral" => {
+  if (value > 0) return "positive";
+  if (value < 0) return "negative";
+  return "neutral";
 };
