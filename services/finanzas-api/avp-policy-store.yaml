@@ -1,0 +1,206 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Amazon Verified Permissions Policy Store for Finanzas SD
+
+Parameters:
+  PolicyStoreName:
+    Type: String
+    Default: FinanzasPolicyStore
+    Description: Name of the AVP Policy Store
+  
+  ValidationMode:
+    Type: String
+    Default: STRICT
+    AllowedValues:
+      - STRICT
+      - OFF
+    Description: Schema validation mode for Cedar policies
+
+Resources:
+  # AVP Policy Store
+  FinanzasPolicyStore:
+    Type: AWS::VerifiedPermissions::PolicyStore
+    Properties:
+      ValidationSettings:
+        Mode: !Ref ValidationMode
+      Description: Cedar 4.5 policy store for Finanzas SD authorization
+
+  # Static Policies (non-templated)
+  
+  # Policy 1: Health endpoint access
+  HealthPolicy:
+    Type: AWS::VerifiedPermissions::Policy
+    Properties:
+      PolicyStoreId: !Ref FinanzasPolicyStore
+      Definition:
+        Static:
+          Description: Allow health check for all environments
+          Statement: |
+            permit (
+              principal, 
+              action in [Finanzas::Action::"ViewHealth"], 
+              resource
+            )
+            when { context.env == "dev" || context.env == "stg" || context.env == "prod" };
+
+  # Policy 2: Read-only catalog and rules
+  CatalogRulesReadPolicy:
+    Type: AWS::VerifiedPermissions::Policy
+    Properties:
+      PolicyStoreId: !Ref FinanzasPolicyStore
+      Definition:
+        Static:
+          Description: SDT/FIN/AUD can read rubros and rules
+          Statement: |
+            permit (
+              principal,
+              action in [Finanzas::Action::"ViewRubros", Finanzas::Action::"ViewRules"],
+              resource
+            )
+            when { "SDT" in context.jwt_groups || "FIN" in context.jwt_groups || "AUD" in context.jwt_groups };
+
+  # Policy 5: Payroll ingest
+  PayrollIngestPolicy:
+    Type: AWS::VerifiedPermissions::Policy
+    Properties:
+      PolicyStoreId: !Ref FinanzasPolicyStore
+      Definition:
+        Static:
+          Description: FIN can ingest payroll
+          Statement: |
+            permit (
+              principal,
+              action in [Finanzas::Action::"IngestPayroll"],
+              resource
+            )
+            when { "FIN" in context.jwt_groups };
+
+  # Policy 7a: View Prefactura
+  ViewPrefacturaPolicy:
+    Type: AWS::VerifiedPermissions::Policy
+    Properties:
+      PolicyStoreId: !Ref FinanzasPolicyStore
+      Definition:
+        Static:
+          Description: AUD/FIN/PMO can view prefacturas
+          Statement: |
+            permit (principal, action in [Finanzas::Action::"ViewPrefactura"], resource)
+            when { "AUD" in context.jwt_groups || "FIN" in context.jwt_groups || "PMO" in context.jwt_groups };
+
+  # Policy 7b: Send Prefactura
+  SendPrefacturaPolicy:
+    Type: AWS::VerifiedPermissions::Policy
+    Properties:
+      PolicyStoreId: !Ref FinanzasPolicyStore
+      Definition:
+        Static:
+          Description: FIN can send prefacturas
+          Statement: |
+            permit (principal, action in [Finanzas::Action::"SendPrefactura"], resource)
+            when { "FIN" in context.jwt_groups };
+
+  # Policy 7c: Approve Prefactura
+  ApprovePrefacturaPolicy:
+    Type: AWS::VerifiedPermissions::Policy
+    Properties:
+      PolicyStoreId: !Ref FinanzasPolicyStore
+      Definition:
+        Static:
+          Description: PMO/FIN can approve prefacturas
+          Statement: |
+            permit (principal, action in [Finanzas::Action::"ApprovePrefactura"], resource)
+            when { "PMO" in context.jwt_groups || "FIN" in context.jwt_groups };
+
+  # Policy 8: Safety deny for suspended users
+  SuspendedUserDenyPolicy:
+    Type: AWS::VerifiedPermissions::Policy
+    Properties:
+      PolicyStoreId: !Ref FinanzasPolicyStore
+      Definition:
+        Static:
+          Description: Deny all actions for suspended users
+          Statement: |
+            forbid (principal, action, resource)
+            when { context.suspended == true };
+
+  # Policy Templates (with slots)
+  
+  # Template 3: Project Member Access
+  ProjectMemberAccessTemplate:
+    Type: AWS::VerifiedPermissions::PolicyTemplate
+    Properties:
+      PolicyStoreId: !Ref FinanzasPolicyStore
+      Description: Allow project members (SDT/FIN) to view and post adjustments, view plan
+      Statement: |
+        permit (
+          principal,
+          action in [Finanzas::Action::"ViewAdjustments", Finanzas::Action::"CreateAdjustment", Finanzas::Action::"ViewPlan"],
+          resource
+        )
+        when {
+          principal in ?project &&
+          (resource.project == ?project || context.project_id == ?project) &&
+          ("SDT" in context.jwt_groups || "FIN" in context.jwt_groups)
+        };
+
+  # Template 4: Finance Write Access
+  FinanceWriteAccessTemplate:
+    Type: AWS::VerifiedPermissions::PolicyTemplate
+    Properties:
+      PolicyStoreId: !Ref FinanzasPolicyStore
+      Description: Finance team can modify rules/providers/allocations in a project
+      Statement: |
+        permit (
+          principal,
+          action in [Finanzas::Action::"ModifyRules", Finanzas::Action::"UpsertProvider", Finanzas::Action::"BulkAllocate"],
+          resource
+        )
+        when {
+          principal in ?project &&
+          (resource.project == ?project || context.project_id == ?project) &&
+          ("FIN" in context.jwt_groups)
+        };
+
+  # Template 6: Close Month Access
+  CloseMonthAccessTemplate:
+    Type: AWS::VerifiedPermissions::PolicyTemplate
+    Properties:
+      PolicyStoreId: !Ref FinanzasPolicyStore
+      Description: FIN only can close month with project membership
+      Statement: |
+        permit (principal, action in [Finanzas::Action::"CloseMonth"], resource)
+        when {
+          principal in ?project &&
+          (resource == ?project || context.project_id == ?project) &&
+          ("FIN" in context.jwt_groups)
+        };
+
+Outputs:
+  PolicyStoreId:
+    Description: AVP Policy Store ID
+    Value: !Ref FinanzasPolicyStore
+    Export:
+      Name: !Sub "${AWS::StackName}-PolicyStoreId"
+  
+  PolicyStoreArn:
+    Description: AVP Policy Store ARN
+    Value: !GetAtt FinanzasPolicyStore.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-PolicyStoreArn"
+  
+  ProjectMemberAccessTemplateId:
+    Description: Policy Template ID for Project Member Access
+    Value: !Ref ProjectMemberAccessTemplate
+    Export:
+      Name: !Sub "${AWS::StackName}-ProjectMemberAccessTemplateId"
+  
+  FinanceWriteAccessTemplateId:
+    Description: Policy Template ID for Finance Write Access
+    Value: !Ref FinanceWriteAccessTemplate
+    Export:
+      Name: !Sub "${AWS::StackName}-FinanceWriteAccessTemplateId"
+  
+  CloseMonthAccessTemplateId:
+    Description: Policy Template ID for Close Month Access
+    Value: !Ref CloseMonthAccessTemplate
+    Export:
+      Name: !Sub "${AWS::StackName}-CloseMonthAccessTemplateId"

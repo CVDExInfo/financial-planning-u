@@ -1,0 +1,57 @@
+{
+  "policyTemplates": [
+    {
+      "templateId": "ProjectMemberAccess",
+      "description": "Allow project members (SDT/FIN) to view and post adjustments, view plan",
+      "slots": ["project"]
+    },
+    {
+      "templateId": "FinanceWriteAccess",
+      "description": "Finance team can modify rules/providers/allocations in a project",
+      "slots": ["project"]
+    },
+    {
+      "templateId": "CloseMonthAccess",
+      "description": "FIN only can close month with project membership",
+      "slots": ["project"]
+    }
+  ],
+  "instantiationExamples": [
+    {
+      "description": "Project member access (SDT/FIN) on PRJ-ACME-NOC",
+      "templateId": "ProjectMemberAccess",
+      "principal": null,
+      "resource": {
+        "entityType": "Finanzas::Project",
+        "entityId": "PRJ-ACME-NOC"
+      },
+      "annotations": {
+        "purpose": "ACME NOC base access"
+      }
+    },
+    {
+      "description": "Finance Close Month on PRJ-ACME-NOC",
+      "templateId": "CloseMonthAccess",
+      "principal": null,
+      "resource": {
+        "entityType": "Finanzas::Project",
+        "entityId": "PRJ-ACME-NOC"
+      },
+      "annotations": {
+        "purpose": "ACME NOC month closure"
+      }
+    },
+    {
+      "description": "Finance Write Access on PRJ-ACME-NOC",
+      "templateId": "FinanceWriteAccess",
+      "principal": null,
+      "resource": {
+        "entityType": "Finanzas::Project",
+        "entityId": "PRJ-ACME-NOC"
+      },
+      "annotations": {
+        "purpose": "ACME NOC finance operations"
+      }
+    }
+  ]
+}
