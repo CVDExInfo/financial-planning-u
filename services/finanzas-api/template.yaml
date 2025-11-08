@@ -23,6 +23,10 @@ Parameters:
   SkipAuth:
     Type: String
     Default: "false"
+  PolicyStoreId:
+    Type: String
+    Description: Amazon Verified Permissions Policy Store ID (leave empty to skip AVP checks)
+    Default: ""
 
 Globals:
   Function:
@@ -44,6 +48,18 @@ Globals:
         TABLE_PROVIDERS: !Sub "${TablePrefix}providers"
         TABLE_AUDIT: !Sub "${TablePrefix}audit_log"
         STAGE_NAME: !Ref StageName
+        POLICY_STORE_ID: !Ref PolicyStoreId
+    # Global IAM policy statements for all functions
+    Policies:
+      - Statement:
+          - Effect: Allow
+            Action:
+              - verifiedpermissions:IsAuthorizedWithToken
+            Resource: "*"
+            # Note: Scoped down with condition if PolicyStoreId is provided
+            Condition:
+              StringEquals:
+                "verifiedpermissions:PolicyStoreId": !Ref PolicyStoreId
 
 Resources:
   # ========== DynamoDB tables ==========

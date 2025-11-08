@@ -1,0 +1,11 @@
+{
+  "templateId": "FinanceWriteAccess",
+  "principal": null,
+  "resource": {
+    "entityType": "Finanzas::Project",
+    "entityId": "PRJ-ACME-NOC"
+  },
+  "annotations": {
+    "purpose": "Finance write access for ACME NOC project"
+  }
+}

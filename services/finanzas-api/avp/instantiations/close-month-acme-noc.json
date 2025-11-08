@@ -1,0 +1,11 @@
+{
+  "templateId": "CloseMonthAccess",
+  "principal": null,
+  "resource": {
+    "entityType": "Finanzas::Project",
+    "entityId": "PRJ-ACME-NOC"
+  },
+  "annotations": {
+    "purpose": "Finance close month access for ACME NOC project"
+  }
+}

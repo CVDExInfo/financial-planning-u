@@ -1,0 +1,11 @@
+{
+  "templateId": "ProjectMemberAccess",
+  "principal": null,
+  "resource": {
+    "entityType": "Finanzas::Project",
+    "entityId": "PRJ-ACME-NOC"
+  },
+  "annotations": {
+    "purpose": "ACME NOC base access for SDT/FIN members"
+  }
+}
