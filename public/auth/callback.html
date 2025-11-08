@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Authenticating…</title>
+    <meta name="robots" content="noindex" />
+    <style>
+      body { font-family: system-ui, sans-serif; margin:40px; color:#222; }
+      .box { max-width:500px; margin:auto; padding:24px; border:1px solid #ddd; border-radius:12px; }
+      code { background:#f6f6f6; padding:2px 4px; border-radius:4px; font-size:13px; }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h1>Signing you in…</h1>
+      <p id="status">Processing identity token.</p>
+      <p style="font-size:12px">If you are not redirected automatically, choose: <a href="/finanzas/" id="finzLink">Finanzas</a> | <a href="/" id="pmoLink">PMO</a></p>
+      <script>
+        (function () {
+          function fail(msg){
+            document.getElementById('status').textContent = msg;
+          }
+          // Extract tokens from implicit flow hash (#id_token=...&access_token=...)
+          const hash = location.hash.startsWith('#') ? location.hash.slice(1) : '';
+          const params = new URLSearchParams(hash);
+          const idToken = params.get('id_token');
+          if(!idToken){ fail('No id_token present.'); return; }
+          // Lightweight JWT payload decode
+          function decodeJWT(t){ try { const p = t.split('.')[1]; return JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/'))); } catch(e){ return {}; } }
+          const claims = decodeJWT(idToken);
+          // Persist unified token
+          localStorage.setItem('cv.jwt', idToken);
+          // Backward compatibility (Finanzas legacy key)
+          localStorage.setItem('finz_jwt', idToken);
+          const groupsRaw = claims['cognito:groups'] || claims['groups'] || [];
+          const groups = Array.isArray(groupsRaw) ? groupsRaw : groupsRaw.toString().split(',').map(s=>s.trim()).filter(Boolean);
+          const has = g => groups.includes(g);
+          const canSDT = groups.some(g => ['SDT','FIN','AUD','sdmt','fin','aud'].includes(g));
+          const canPMO = groups.some(g => ['PM','PMO','EXEC_RO','VENDOR','admin','pmo'].includes(g));
+          // Preference resolution for dual-role users
+          const pref = localStorage.getItem('cv.module');
+          let target;
+          if (canSDT && !canPMO) target = '/finanzas/';
+          else if (canPMO && !canSDT) target = '/';
+          else { // both
+            if (pref === 'pmo' && canPMO) target = '/';
+            else if (pref === 'finanzas' && canSDT) target = '/finanzas/';
+            else target = '/finanzas/'; // default bias to Finanzas
+          }
+          document.getElementById('status').textContent = 'Redirecting…';
+          setTimeout(() => { location.replace(target); }, 50);
+        })();
+      </script>
+    </div>
+  </body>
+</html>

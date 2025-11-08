@@ -33,7 +33,9 @@ export default defineConfig(() => ({
       isPmo ? "/" : "/finanzas"
     ),
     // Enable Finanzas-only mode when building for Finanzas
-    "import.meta.env.VITE_FINZ_ENABLED": JSON.stringify(!isPmo ? "true" : "false"),
+    "import.meta.env.VITE_FINZ_ENABLED": JSON.stringify(
+      !isPmo ? "true" : "false"
+    ),
   },
   plugins: [
     react(),

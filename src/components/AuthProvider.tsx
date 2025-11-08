@@ -5,13 +5,16 @@ import React, {
   useState,
   ReactNode,
 } from "react";
+
+// Spark global type (development mode)
+interface SparkAPI { user: () => Promise<any>; }
+declare global { interface Window { spark?: SparkAPI } }
 import { UserInfo, UserRole } from "@/types/domain";
 import {
   getDefaultUserRole,
   getAvailableRoles,
   canAccessRoute,
   canPerformAction,
-  getDefaultRouteForRole,
   DEMO_USERS,
 } from "@/lib/auth";
 import {
@@ -62,7 +65,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Persist current role selection
   const [currentRole, setCurrentRole] = useKV<UserRole>(
     "user-current-role",
-    "SDT"
+    "SDMT"
   );
 
   const isAuthenticated = !!user;
@@ -79,7 +82,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setAvailableRoles(roles);
 
       // Set default role if none is set or current role is not available
-      const effectiveCurrentRole = currentRole || "SDT";
+    const effectiveCurrentRole = currentRole || "SDMT";
       if (!roles.includes(effectiveCurrentRole)) {
         const defaultRole = getDefaultUserRole(user);
         setCurrentRole(defaultRole);
@@ -151,8 +154,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error("No ID token received from authentication service");
       }
 
-      // ✅ Store JWT (this is the key fix)
-      localStorage.setItem("finz_jwt", AuthenticationResult.IdToken);
+  // ✅ Store JWT (unified + legacy for backward compatibility)
+  localStorage.setItem("cv.jwt", AuthenticationResult.IdToken);
+  localStorage.setItem("finz_jwt", AuthenticationResult.IdToken);
 
       // Optional: Store refresh token
       if (AuthenticationResult.RefreshToken) {
@@ -166,6 +170,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await initializeAuth();
 
       toast.success("Signed in successfully");
+
+      // Explicit redirect safeguard for Finanzas-only build target
+      if (import.meta.env.VITE_FINZ_ENABLED === "true") {
+        try {
+          window.location.replace("/finanzas/");
+        } catch (e) {
+          console.warn("Redirect failed", e);
+        }
+      }
     } catch (err) {
       // Clear any partial tokens on error
       localStorage.removeItem("finz_jwt");
@@ -188,7 +201,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       // 1. Check for valid JWT in localStorage (existing session)
-      const jwt = localStorage.getItem("finz_jwt");
+      const jwt =
+        localStorage.getItem("cv.jwt") ||
+        localStorage.getItem("finz_jwt") ||
+        localStorage.getItem("spark_jwt");
       if (jwt) {
         try {
           if (isTokenValid(jwt)) {
@@ -229,15 +245,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       // 2. Check for Spark (development mode only)
-      if (typeof window !== "undefined" && (window as any).spark?.user) {
+      if (typeof window !== "undefined" && window.spark?.user) {
         try {
-          const sparkUser = await (window as any).spark.user();
+          const sparkUser = await window.spark.user();
           const demoUserData = DEMO_USERS[sparkUser.login] || {};
 
           const user: UserInfo = {
             ...sparkUser,
-            roles: demoUserData.roles || ["SDT"],
-            current_role: "SDT",
+            roles: demoUserData.roles || ["SDMT"],
+            current_role: "SDMT",
           };
 
           setUser(user);
@@ -272,8 +288,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signOut = (): void => {
     // Clear JWT and related auth data
-    localStorage.removeItem("finz_jwt");
-    localStorage.removeItem("finz_refresh_token");
+  localStorage.removeItem("finz_jwt");
+  localStorage.removeItem("finz_refresh_token");
+  localStorage.removeItem("cv.jwt");
 
     setUser(null);
     setCurrentRole("PMO");
@@ -293,6 +310,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const previousRole = currentRole;
     setCurrentRole(role);
+    // Persist preference for dual-role routing (neutral callback)
+    try {
+      if (role === "PMO") localStorage.setItem("cv.module", "pmo");
+      else localStorage.setItem("cv.module", "finanzas");
+    } catch {
+      // Preference storage is non-critical; ignore errors (e.g., private mode)
+    }
 
     // Update user object
     if (user) {
