@@ -59,12 +59,12 @@ export function Navigation() {
   // Skip redirects when in Finanzas-only mode (VITE_FINZ_ENABLED=true)
   useEffect(() => {
     const isFinanzasOnly = import.meta.env.VITE_FINZ_ENABLED === "true";
-    
+
     // In Finanzas-only mode, keep all Finanzas routes accessible
     if (isFinanzasOnly) {
       return; // No redirects in Finanzas mode
     }
-    
+
     if (!canAccessRoute(location.pathname)) {
       // Redirect to appropriate module based on role
       const defaultRoute = getDefaultRouteForRole(currentRole);
