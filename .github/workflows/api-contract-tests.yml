@@ -156,7 +156,7 @@ jobs:
 
       - name: "Upload Newman Report"
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: newman-report
           path: /tmp/newman-report.json

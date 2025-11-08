@@ -243,3 +243,27 @@ export function getCurrentModuleContext(
   // Default fallback
   return userRole === "PMO" ? "PMO" : "SDMT";
 }
+
+/**
+ * Check if user should have access to the Finanzas (SDT) module
+ * Based on Cognito groups: SDT, FIN, AUD
+ * 
+ * @param userRoles User's mapped roles from Cognito groups
+ * @returns true if user has access to Finanzas module
+ */
+export function canAccessFinanzasModule(userRoles: UserRole[]): boolean {
+  // Users with SDMT role (mapped from SDT, FIN, AUD groups) have access
+  return userRoles.includes("SDMT");
+}
+
+/**
+ * Check if user should have access to the PMO module
+ * Based on Cognito groups: PMO, EXEC_RO, VENDOR
+ * 
+ * @param userRoles User's mapped roles from Cognito groups
+ * @returns true if user has access to PMO module
+ */
+export function canAccessPMOModule(userRoles: UserRole[]): boolean {
+  // Users with PMO, EXEC_RO, or VENDOR roles have access
+  return userRoles.some(role => ["PMO", "EXEC_RO", "VENDOR"].includes(role));
+}

@@ -31,6 +31,7 @@ import {
 } from "@/lib/jwt";
 import { useKV } from "@github/spark/hooks";
 import { toast } from "sonner";
+import awsConfig from "@/config/aws";
 
 interface AuthContextType {
   // Authentication state
@@ -104,8 +105,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     password: string
   ): Promise<void> => {
     setError(null);
-    const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
-    const region = import.meta.env.VITE_COGNITO_REGION || "us-east-2";
+    // Use environment variable if available, otherwise fall back to aws config
+    const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID || awsConfig.aws_user_pools_web_client_id;
+    const region = import.meta.env.VITE_COGNITO_REGION || awsConfig.aws_cognito_region;
 
     if (!clientId) {
       throw new Error("Cognito client ID not configured");

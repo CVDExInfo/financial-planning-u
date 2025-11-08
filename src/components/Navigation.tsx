@@ -30,7 +30,7 @@ import {
   Layers,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
-import { getDefaultRouteForRole, getRoleInfo } from "@/lib/auth";
+import { getDefaultRouteForRole, getRoleInfo, canAccessFinanzasModule, canAccessPMOModule } from "@/lib/auth";
 import { toast } from "sonner";
 
 // (No props currently)
@@ -127,10 +127,16 @@ export function Navigation() {
 
   const getVisibleModuleNavItems = () => {
     const path = location.pathname;
+    const userRoles = user?.roles || [];
+    
+    // Check module access based on Cognito groups
+    const hasFinanzasAccess = canAccessFinanzasModule(userRoles);
+    const hasPMOAccess = canAccessPMOModule(userRoles);
+    
     // Direct module path detection
-    if (path.startsWith("/pmo/") && canAccessRoute(path))
+    if (path.startsWith("/pmo/") && canAccessRoute(path) && hasPMOAccess)
       return moduleNavItems.PMO;
-    if (path.startsWith("/sdmt/") && canAccessRoute(path))
+    if (path.startsWith("/sdmt/") && canAccessRoute(path) && hasFinanzasAccess)
       return moduleNavItems.SDMT;
     // Finanzas routes live at /catalog/* and /rules inside basename /finanzas
     // Also show FINZ nav on home page (/) when Finanzas is the home module
@@ -139,14 +145,27 @@ export function Navigation() {
         path.startsWith("/catalog/") ||
         path === "/rules" ||
         path.startsWith("/rules/")) &&
-      moduleNavItems.FINZ.length
+      moduleNavItems.FINZ.length &&
+      hasFinanzasAccess
     ) {
       return moduleNavItems.FINZ;
     }
     // Fallback to role default set + append FINZ if feature enabled for visibility
-    const base =
-      currentRole === "PMO" ? moduleNavItems.PMO : moduleNavItems.SDMT;
-    return [...base, ...moduleNavItems.FINZ];
+    // Only show modules the user has access to based on their Cognito groups
+    let items: NavigationItem[] = [];
+    
+    if (currentRole === "PMO" && hasPMOAccess) {
+      items = [...moduleNavItems.PMO];
+    } else if (hasFinanzasAccess) {
+      items = [...moduleNavItems.SDMT];
+    }
+    
+    // Add Finanzas routes if user has access
+    if (hasFinanzasAccess) {
+      items = [...items, ...moduleNavItems.FINZ];
+    }
+    
+    return items;
   };
 
   return (
