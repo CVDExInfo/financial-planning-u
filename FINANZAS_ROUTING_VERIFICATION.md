@@ -218,6 +218,7 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 **Cause:** Cognito did not return a token (auth failed or wrong flow).
 
 **Fix:**
+
 - Verify Cognito credentials are correct.
 - Check that `response_type=token` matches the App Client settings (Hosted UI section).
 - Ensure "Implicit" grant type is enabled in App Client.
@@ -229,14 +230,17 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 **Cause:** Groups not being read or routing logic failure.
 
 **Debug:**
+
 1. DevTools → Network → filter `/auth/callback.html` request.
 2. Look for `#id_token=...` in the redirect URL.
 3. DevTools → Console → manually run:
    ```javascript
    const hash = new URLSearchParams(location.hash.slice(1));
-   const token = hash.get('id_token');
-   const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
-   console.log('Groups:', payload['cognito:groups']);
+   const token = hash.get("id_token");
+   const payload = JSON.parse(
+     atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+   );
+   console.log("Groups:", payload["cognito:groups"]);
    ```
 4. Verify groups are present and correct.
 5. If groups are wrong, update Cognito group membership in AWS console.
@@ -248,6 +252,7 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 **Cause:** AuthProvider initialization may not have picked up the new token.
 
 **Fix:**
+
 1. Clear localStorage: `localStorage.clear()`.
 2. Reload page.
 3. If using LoginPage, re-authenticate.
@@ -259,6 +264,7 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 **Cause:** Cognito did not return `id_token` (possibly wrong grant type or scopes).
 
 **Fix:**
+
 - Check response in Network tab: should include `#id_token=...`.
 - Verify Cognito App Client settings → Allowed OAuth Flows → "Implicit" is checked.
 
@@ -286,13 +292,13 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 
 ## Files Changed
 
-| File | Change | Purpose |
-|------|--------|---------|
-| `public/auth/callback.html` | ✨ NEW | Neutral callback page; decodes token, routes by groups |
+| File                              | Change     | Purpose                                                          |
+| --------------------------------- | ---------- | ---------------------------------------------------------------- |
+| `public/auth/callback.html`       | ✨ NEW     | Neutral callback page; decodes token, routes by groups           |
 | `src/components/AuthProvider.tsx` | 🔧 UPDATED | Unified token key (cv.jwt), explicit redirect, module preference |
-| `.env` | 🔧 UPDATED | `VITE_FINZ_ENABLED=true` added |
-| `vite.config.ts` | 🔧 UPDATED | `define` section embeds `VITE_FINZ_ENABLED` |
-| `dist/` | 🔨 REBUILT | New bundle deployed to S3 |
+| `.env`                            | 🔧 UPDATED | `VITE_FINZ_ENABLED=true` added                                   |
+| `vite.config.ts`                  | 🔧 UPDATED | `define` section embeds `VITE_FINZ_ENABLED`                      |
+| `dist/`                           | 🔨 REBUILT | New bundle deployed to S3                                        |
 
 ---
 

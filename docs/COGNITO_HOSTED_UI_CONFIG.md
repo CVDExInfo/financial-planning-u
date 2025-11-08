@@ -41,11 +41,12 @@ The error **"Login pages unavailable"** means the Cognito App Client is not conf
 In the **Authentication flows configuration** section:
 
 1. **Under "Authentication flows":**
+
    - ✅ Check: **User password-based authentication (ALLOW_USER_PASSWORD_AUTH)**
    - ✅ Check: **Allow refresh token based authentication (ALLOW_REFRESH_TOKEN_AUTH)**
    - ✅ Check: **Allow implicit OAuth authFlow (ALLOW_IMPLICIT_OAUTH_AUTH_FLOW)**
 
-   *(These enable both internal login and Hosted UI flows)*
+   _(These enable both internal login and Hosted UI flows)_
 
 2. **Click "Save changes"** at the bottom of the page
 
@@ -75,14 +76,16 @@ In the **Authentication flows configuration** section:
 #### 5a. Allowed OAuth Flows
 
 Check both:
+
 - ✅ **Implicit code**
 - ✅ **Authorization code**
 
-*(Implicit is what we're using; Authorization code is for future PKCE flow)*
+_(Implicit is what we're using; Authorization code is for future PKCE flow)_
 
 #### 5b. Allowed OAuth Scopes
 
 Check all three:
+
 - ✅ **openid**
 - ✅ **email**
 - ✅ **profile**
@@ -117,6 +120,7 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 ```
 
 **Expected Result:**
+
 - See Cognito login form (username/password fields)
 - Log in with test credentials
 - Redirect to `https://d7t9x3j66yd8k.cloudfront.net/auth/callback.html` (briefly)
@@ -124,6 +128,7 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 - localStorage contains `cv.jwt` and `finz_jwt`
 
 **If still seeing "Login pages unavailable":**
+
 1. Clear browser cache: `Cmd+Shift+Delete`
 2. Wait another minute
 3. Try the URL again
@@ -132,13 +137,13 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 
 ## Configuration Summary Table
 
-| Setting | Value | Purpose |
-|---------|-------|---------|
-| **Client ID** | `dshos5iou44tuach7ta3ici5m` | Identifies the app to Cognito |
-| **Auth Flows** | USER_PASSWORD_AUTH, IMPLICIT_OAUTH | Enable internal + Hosted UI login |
-| **Callback URLs** | `/auth/callback.html`, `/finanzas/`, `/` | Where Cognito redirects after login |
-| **OAuth Flows** | Implicit, Code | Support both implicit (Hosted UI) and code flows |
-| **Scopes** | openid, email, profile | What user data we can read |
+| Setting           | Value                                    | Purpose                                          |
+| ----------------- | ---------------------------------------- | ------------------------------------------------ |
+| **Client ID**     | `dshos5iou44tuach7ta3ici5m`              | Identifies the app to Cognito                    |
+| **Auth Flows**    | USER_PASSWORD_AUTH, IMPLICIT_OAUTH       | Enable internal + Hosted UI login                |
+| **Callback URLs** | `/auth/callback.html`, `/finanzas/`, `/` | Where Cognito redirects after login              |
+| **OAuth Flows**   | Implicit, Code                           | Support both implicit (Hosted UI) and code flows |
+| **Scopes**        | openid, email, profile                   | What user data we can read                       |
 
 ---
 
@@ -149,6 +154,7 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 **Cause:** Implicit OAuth flow not enabled or callback URL not added.
 
 **Fix:**
+
 - Verify ✅ "Allow implicit OAuth authFlow" is checked
 - Verify callback URL `https://d7t9x3j66yd8k.cloudfront.net/auth/callback.html` is in the list
 - Save and wait 2 minutes
@@ -160,6 +166,7 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 **Cause:** The redirect URL in the login link doesn't match the allowed callback URLs.
 
 **Fix:**
+
 - Ensure the callback URL is spelled exactly:  
   `https://d7t9x3j66yd8k.cloudfront.net/auth/callback.html`
 - No trailing slash
@@ -172,6 +179,7 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 **Cause:** User credentials wrong or Cognito user not created.
 
 **Fix:**
+
 - Verify the user exists in Cognito → Users
 - Verify the password is correct
 - Check CloudWatch Logs (Cognito → CloudWatch Logs) for error details
@@ -183,6 +191,7 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 **Cause:** AuthProvider not reading the tokens correctly.
 
 **Fix:**
+
 - Open DevTools → Application → localStorage
 - Verify `cv.jwt` exists and is not empty
 - Reload the page; AuthProvider should initialize from localStorage
@@ -194,11 +203,13 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 Once Hosted UI is working:
 
 1. **Test all three user types:**
+
    - SDT-only → should land at `/finanzas/`
    - PMO-only → should land at `/`
    - Dual-role → should land at `/finanzas/` by default
 
 2. **Verify token content:**
+
    - Open DevTools → Application → localStorage
    - Find `cv.jwt` value
    - Paste into https://jwt.io to decode and verify groups are present
@@ -222,4 +233,3 @@ Once Hosted UI is working:
 ---
 
 **Questions?** Check the troubleshooting section above or review the Finanzas Routing Verification guide.
-

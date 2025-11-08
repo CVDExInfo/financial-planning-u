@@ -13,12 +13,13 @@ Go to: https://console.aws.amazon.com/cognito/ → User pools → `us-east-2_FyH
 ### Authentication Flows Configuration
 
 - [ ] ✅ User password-based authentication (ALLOW_USER_PASSWORD_AUTH)
-- [ ] ✅ Allow refresh token based authentication (ALLOW_REFRESH_TOKEN_AUTH)  
+- [ ] ✅ Allow refresh token based authentication (ALLOW_REFRESH_TOKEN_AUTH)
 - [ ] ✅ Allow implicit OAuth authFlow (ALLOW_IMPLICIT_OAUTH_AUTH_FLOW)
 
 ### Hosted UI Settings – Callback URLs
 
 Add all three:
+
 - [ ] `https://d7t9x3j66yd8k.cloudfront.net/auth/callback.html`
 - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
 - [ ] `https://d7t9x3j66yd8k.cloudfront.net/`
@@ -59,4 +60,3 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 2. Wait 2 minutes
 3. Try again
 4. Check troubleshooting in `COGNITO_HOSTED_UI_CONFIG.md`
-

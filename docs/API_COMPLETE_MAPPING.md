@@ -8,16 +8,16 @@
 
 ## Quick Summary
 
-| Category | Routes | Implemented | UI Component |
-|----------|--------|-------------|--------------|
-| **Health & Status** | 1 | ✅ | N/A |
-| **Catalog (Read-Only)** | 2 | ✅ | RubrosCatalog, AllocationRulesPreview |
-| **Projects (CRUD)** | 5 | ⚠️ Partial | Dashboard (planned) |
-| **Providers** | 2 | ⚠️ Stub | Dashboard (planned) |
-| **Adjustments** | 2 | ⚠️ Stub | Dashboard (planned) |
-| **Alerts** | 1 | ⚠️ Stub | Dashboard (planned) |
-| **Advanced Ops** | 5 | ⚠️ Stub | Various (post-MVP) |
-| **Total** | **18** | **✅ 2 Live** | **16 planned** |
+| Category                | Routes | Implemented   | UI Component                          |
+| ----------------------- | ------ | ------------- | ------------------------------------- |
+| **Health & Status**     | 1      | ✅            | N/A                                   |
+| **Catalog (Read-Only)** | 2      | ✅            | RubrosCatalog, AllocationRulesPreview |
+| **Projects (CRUD)**     | 5      | ⚠️ Partial    | Dashboard (planned)                   |
+| **Providers**           | 2      | ⚠️ Stub       | Dashboard (planned)                   |
+| **Adjustments**         | 2      | ⚠️ Stub       | Dashboard (planned)                   |
+| **Alerts**              | 1      | ⚠️ Stub       | Dashboard (planned)                   |
+| **Advanced Ops**        | 5      | ⚠️ Stub       | Various (post-MVP)                    |
+| **Total**               | **18** | **✅ 2 Live** | **16 planned**                        |
 
 ---
 
@@ -26,6 +26,7 @@
 ### 🟢 HEALTH & PUBLIC
 
 #### GET /health
+
 - **Auth:** ❌ No auth required
 - **Description:** Service health check
 - **Response:** `{ "service": "finanzas-sd-api", "version": "1.0", ... }`
@@ -39,6 +40,7 @@
 ### 🟢 CATALOG (READ-ONLY, LIVE)
 
 #### GET /catalog/rubros
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Get all 71 rubros from DynamoDB finz_rubros table
 - **Response:** `{ "data": [ { "id": "...", "nombre": "...", "categoria": "...", ... } ], "total": 71 }`
@@ -55,6 +57,7 @@
 ---
 
 #### GET /allocation-rules
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Get allocation rules from DynamoDB finz_allocations table
 - **Response:** `{ "data": [ { "id": "...", "ruleType": "...", ... } ], "total": 2 }`
@@ -73,6 +76,7 @@
 ### 🟡 PROJECTS (CRUD, PARTIAL)
 
 #### GET /projects
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Get all projects
 - **Response:** `{ "data": [ ... ], "total": 0 }`
@@ -87,6 +91,7 @@
 ---
 
 #### POST /projects
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Create new project
 - **Request Body:** `{ "name": "...", "description": "..." }`
@@ -99,6 +104,7 @@
 ---
 
 #### GET /projects/{id}/plan
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Get financial plan for a project
 - **Path Param:** `id` (project ID)
@@ -111,6 +117,7 @@
 ---
 
 #### GET /projects/{id}/rubros
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Get rubros assigned to a project
 - **Path Param:** `id` (project ID)
@@ -123,6 +130,7 @@
 ---
 
 #### POST /projects/{id}/rubros
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Assign rubros to a project
 - **Path Param:** `id` (project ID)
@@ -136,6 +144,7 @@
 ---
 
 #### PUT /projects/{id}/allocations:bulk
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Bulk allocate rubros to a project
 - **Path Param:** `id` (project ID)
@@ -149,6 +158,7 @@
 ---
 
 #### POST /projects/{id}/handoff
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Handoff a project (state transition)
 - **Path Param:** `id` (project ID)
@@ -164,6 +174,7 @@
 ### 🟡 PROVIDERS (CRUD, STUB)
 
 #### GET /providers
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Get all providers
 - **Response:** `{ "data": [], "total": 0 }`
@@ -176,6 +187,7 @@
 ---
 
 #### POST /providers
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Create new provider
 - **Request Body:** `{ "name": "...", "code": "...", ... }`
@@ -190,6 +202,7 @@
 ### 🟡 ADJUSTMENTS (CRUD, STUB)
 
 #### GET /adjustments
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Get all adjustments
 - **Response:** `{ "data": [], "total": 0 }`
@@ -202,6 +215,7 @@
 ---
 
 #### POST /adjustments
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Create new adjustment
 - **Request Body:** `{ "adjustment_data": {...} }`
@@ -216,6 +230,7 @@
 ### 🟡 ALERTS (READ-ONLY, STUB)
 
 #### GET /alerts
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Get system alerts and warnings
 - **Response:** `{ "alerts": [], "total": 0 }`
@@ -230,6 +245,7 @@
 ### 🟡 ADVANCED OPERATIONS (POST, STUB)
 
 #### POST /close-month
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Close accounting period (month-end operations)
 - **Request Body:** `{ "month": "2025-11", ... }`
@@ -242,6 +258,7 @@
 ---
 
 #### POST /payroll/ingest
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Ingest payroll data (from HR system)
 - **Request Body:** `{ "payroll_data": {...} }`
@@ -254,6 +271,7 @@
 ---
 
 #### GET /prefacturas/webhook
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Get prefactura webhook status/config
 - **Lambda:** `finanzas-sd-api-dev-PrefacturasFn-gRlRkUNaYe80`
@@ -265,6 +283,7 @@
 ---
 
 #### POST /prefacturas/webhook
+
 - **Auth:** ✅ Requires JWT Bearer token
 - **Description:** Handle prefactura webhook events
 - **Request Body:** `{ "webhook_data": {...} }`
@@ -279,16 +298,19 @@
 ## Authentication Flow (All Protected Routes)
 
 1. **UI obtains JWT:**
+
    - Via Cognito Hosted UI → `/auth/callback.html` → decodes `id_token`
    - Stores in `localStorage.cv.jwt` and `localStorage.finz_jwt`
 
 2. **API request includes Bearer token:**
+
    ```bash
    curl -H "Authorization: Bearer $JWT" \
         https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/catalog/rubros
    ```
 
 3. **API Gateway Authorizer verifies JWT:**
+
    - Checks signature against Cognito public keys
    - Verifies audience: `dshos5iou44tuach7ta3ici5m`
    - Verifies issuer: `https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY`
@@ -312,6 +334,7 @@ bash scripts/test-all-api-routes.sh
 ```
 
 **Expected Output:**
+
 - ✅ 2 routes: 200 OK (health, /catalog/rubros, /allocation-rules)
 - ⚠️ 16 routes: 200 OK or 400/404 (stub implementations or missing data)
 - ❌ 0 routes: 401/403 (auth should work for all)
@@ -320,28 +343,30 @@ bash scripts/test-all-api-routes.sh
 
 ## DynamoDB Tables (All 9 Verified)
 
-| Table | Items | Status | API Routes |
-|-------|-------|--------|-----------|
-| `finz_rubros` | 71 ✅ | Live | GET /catalog/rubros |
-| `finz_rubros_taxonomia` | ? | Verified | Internal (taxonomy) |
-| `finz_allocations` | 2 ✅ | Live | GET /allocation-rules |
-| `finz_projects` | 0 | Ready | GET/POST /projects, /projects/{id}/... |
-| `finz_adjustments` | 0 | Ready | GET/POST /adjustments |
-| `finz_audit_log` | ? | Ready | Logged by handoff, close-month |
-| `finz_alerts` | 0 | Ready | GET /alerts |
-| `finz_payroll_actuals` | 0 | Ready | POST /payroll/ingest |
-| `finz_providers` | 0 | Ready | GET/POST /providers |
+| Table                   | Items | Status   | API Routes                             |
+| ----------------------- | ----- | -------- | -------------------------------------- |
+| `finz_rubros`           | 71 ✅ | Live     | GET /catalog/rubros                    |
+| `finz_rubros_taxonomia` | ?     | Verified | Internal (taxonomy)                    |
+| `finz_allocations`      | 2 ✅  | Live     | GET /allocation-rules                  |
+| `finz_projects`         | 0     | Ready    | GET/POST /projects, /projects/{id}/... |
+| `finz_adjustments`      | 0     | Ready    | GET/POST /adjustments                  |
+| `finz_audit_log`        | ?     | Ready    | Logged by handoff, close-month         |
+| `finz_alerts`           | 0     | Ready    | GET /alerts                            |
+| `finz_payroll_actuals`  | 0     | Ready    | POST /payroll/ingest                   |
+| `finz_providers`        | 0     | Ready    | GET/POST /providers                    |
 
 ---
 
 ## UI Components & Routes
 
 ### Currently Live
+
 - ✅ `RubrosCatalog.tsx` → `/catalog/rubros` → GET /catalog/rubros
 - ✅ `AllocationRulesPreview.tsx` → `/rules` → GET /allocation-rules
 - ✅ `FinanzasHome.tsx` → `/` → Links to Catalog/Rules
 
 ### Future Implementation (Post-MVP)
+
 - `ProjectDashboard.tsx` → `/projects` → GET /projects
 - `ProjectDetail.tsx` → `/projects/{id}` → GET /projects/{id}/plan, /rubros, etc.
 - `ProviderManagement.tsx` → `/providers` → GET/POST /providers
@@ -355,18 +380,21 @@ bash scripts/test-all-api-routes.sh
 ## Implementation Status
 
 ### Phase 1 (MVP - COMPLETE ✅)
+
 - ✅ Health check
 - ✅ GET /catalog/rubros (71 rubros from DynamoDB)
 - ✅ GET /allocation-rules (2 rules from DynamoDB)
 - ✅ JWT authentication from UI to API
 
 ### Phase 2 (Post-MVP)
+
 - ⏳ Projects CRUD
 - ⏳ Providers CRUD
 - ⏳ Adjustments CRUD
 - ⏳ Alerts retrieval
 
 ### Phase 3 (Advanced)
+
 - ⏳ Month close operation
 - ⏳ Payroll ingestion
 - ⏳ Prefactura webhook integration
@@ -388,9 +416,9 @@ bash scripts/test-all-api-routes.sh
 ---
 
 **Next Steps:**
+
 1. Run `test-all-api-routes.sh` to verify all routes respond
 2. Implement stub handlers for Phase 2 routes
 3. Wire UI components to APIs as they're implemented
 4. Add error handling and logging to Lambda functions
 5. Document each route's request/response schema in API client
-
