@@ -7,8 +7,14 @@ import React, {
 } from "react";
 
 // Spark global type (development mode)
-interface SparkAPI { user: () => Promise<any>; }
-declare global { interface Window { spark?: SparkAPI } }
+interface SparkAPI {
+  user: () => Promise<any>;
+}
+declare global {
+  interface Window {
+    spark?: SparkAPI;
+  }
+}
 import { UserInfo, UserRole } from "@/types/domain";
 import {
   getDefaultUserRole,
@@ -82,7 +88,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setAvailableRoles(roles);
 
       // Set default role if none is set or current role is not available
-    const effectiveCurrentRole = currentRole || "SDMT";
+      const effectiveCurrentRole = currentRole || "SDMT";
       if (!roles.includes(effectiveCurrentRole)) {
         const defaultRole = getDefaultUserRole(user);
         setCurrentRole(defaultRole);
@@ -154,9 +160,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error("No ID token received from authentication service");
       }
 
-  // ✅ Store JWT (unified + legacy for backward compatibility)
-  localStorage.setItem("cv.jwt", AuthenticationResult.IdToken);
-  localStorage.setItem("finz_jwt", AuthenticationResult.IdToken);
+      // ✅ Store JWT (unified + legacy for backward compatibility)
+      localStorage.setItem("cv.jwt", AuthenticationResult.IdToken);
+      localStorage.setItem("finz_jwt", AuthenticationResult.IdToken);
 
       // Optional: Store refresh token
       if (AuthenticationResult.RefreshToken) {
@@ -288,9 +294,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signOut = (): void => {
     // Clear JWT and related auth data
-  localStorage.removeItem("finz_jwt");
-  localStorage.removeItem("finz_refresh_token");
-  localStorage.removeItem("cv.jwt");
+    localStorage.removeItem("finz_jwt");
+    localStorage.removeItem("finz_refresh_token");
+    localStorage.removeItem("cv.jwt");
 
     setUser(null);
     setCurrentRole("PMO");

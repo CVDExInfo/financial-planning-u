@@ -7,21 +7,22 @@
 
 ## Test Environment
 
-| Component | Value |
-|-----------|-------|
-| **CloudFront URL** | `https://d7t9x3j66yd8k.cloudfront.net/` |
-| **Finanzas SPA** | `https://d7t9x3j66yd8k.cloudfront.net/finanzas/` |
-| **Callback Page** | `https://d7t9x3j66yd8k.cloudfront.net/auth/callback.html` |
-| **Cognito Domain** | `us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com` |
-| **Client ID** | `dshos5iou44tuach7ta3ici5m` |
-| **User Pool** | `us-east-2_FyHLtOhiY` |
-| **API Endpoint** | `https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev` |
+| Component          | Value                                                        |
+| ------------------ | ------------------------------------------------------------ |
+| **CloudFront URL** | `https://d7t9x3j66yd8k.cloudfront.net/`                      |
+| **Finanzas SPA**   | `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`             |
+| **Callback Page**  | `https://d7t9x3j66yd8k.cloudfront.net/auth/callback.html`    |
+| **Cognito Domain** | `us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com`        |
+| **Client ID**      | `dshos5iou44tuach7ta3ici5m`                                  |
+| **User Pool**      | `us-east-2_FyHLtOhiY`                                        |
+| **API Endpoint**   | `https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev` |
 
 ---
 
 ## Hosted UI Login URLs
 
 ### Option A: Neutral Callback (Recommended – Groups-based Routing)
+
 Routes SDT users → `/finanzas/`, PMO users → `/`, dual-role → preference or Finanzas default.
 
 ```
@@ -33,11 +34,13 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login
 ```
 
 **Single-line:**
+
 ```
 https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dshos5iou44tuach7ta3ici5m&response_type=token&scope=openid+email+profile&redirect_uri=https%3A%2F%2Fd7t9x3j66yd8k.cloudfront.net%2Fauth%2Fcallback.html
 ```
 
 ### Option B: Direct Finanzas (Fast Path – for Finanzas-only users)
+
 Routes all users directly to `/finanzas/` after login.
 
 ```
@@ -49,6 +52,7 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 ## Test Case 1: Known Working User (Christian Valencia)
 
 **Credentials:**
+
 - Email: `christian.valencia@ikusi.com`
 - Password: `Velatia@2025`
 
@@ -79,6 +83,7 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 ```
 
 **Expected Flow:**
+
 1. Click Option A (neutral callback) → Login form
 2. Enter credentials → Cognito validates
 3. Redirect to `/auth/callback.html#id_token=...`
@@ -100,11 +105,13 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 **Reason:** `NotAuthorizedException: Incorrect username or password`
 
 **Action Required:**
+
 1. Verify credentials are correct in Cognito User Pool
 2. Ensure user is confirmed (not in `FORCE_CHANGE_PASSWORD` state)
 3. Re-provide correct password or create a test SDT-only user
 
 **Once credentials are valid, expected flow:**
+
 1. Click Option A (neutral callback) → Login form
 2. Enter SDT-only credentials → Cognito validates
 3. Redirect to `/auth/callback.html#id_token=...`
@@ -123,6 +130,7 @@ https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/login?client_id=dsho
 ### `public/auth/callback.html`
 
 Neutral router that:
+
 1. Extracts `id_token` from URL hash (`#id_token=...`)
 2. Stores in localStorage:
    - `cv.jwt` (unified key)
@@ -140,6 +148,7 @@ Neutral router that:
 ### `src/components/AuthProvider.tsx` (Updated)
 
 Changes:
+
 1. **Token precedence on init:** `cv.jwt` → `finz_jwt` → `spark_jwt`
 2. **On Cognito login:**
    - Stores both `cv.jwt` and `finz_jwt`
@@ -154,6 +163,7 @@ Changes:
 ### `vite.config.ts` (Updated)
 
 Defines at build time:
+
 - `VITE_FINZ_ENABLED="true"` when `BUILD_TARGET=finanzas`
 - Ensures app knows it's running in Finanzas-only mode
 
@@ -182,11 +192,13 @@ Password: Velatia@2025
 ### Step 3: Verify Callback Routing
 
 **Check URL:** Should briefly show:
+
 ```
 https://d7t9x3j66yd8k.cloudfront.net/auth/callback.html#id_token=eyJ...&access_token=eyJ...&expires_in=3600&...
 ```
 
 Then auto-redirect to:
+
 ```
 https://d7t9x3j66yd8k.cloudfront.net/finanzas/
 ```
@@ -194,11 +206,13 @@ https://d7t9x3j66yd8k.cloudfront.net/finanzas/
 ### Step 4: Verify Finanzas Home
 
 **Expected elements:**
+
 - Page title: "Financial Planning & Management"
 - Navigation: ["Rubros" link, "Rules" link]
 - Welcome message or empty state
 
 **Not expected:**
+
 - "PMO Platform" header
 - PMO project list
 - Dashboard tabs
@@ -206,6 +220,7 @@ https://d7t9x3j66yd8k.cloudfront.net/finanzas/
 ### Step 5: DevTools Verification
 
 #### localStorage (Application tab):
+
 ```
 cv.jwt        = eyJ... (IdToken, starts with header.payload.signature)
 finz_jwt      = eyJ... (same)
@@ -213,6 +228,7 @@ cv.module     = 'finanzas' (if user switched roles before)
 ```
 
 #### Network tab (filter `catalog` or `rubros`):
+
 ```
 GET https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/catalog/rubros
   Headers:
@@ -222,7 +238,9 @@ GET https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/catalog/rubros
 ```
 
 #### Console:
+
 No auth errors. If Finanzas mode is correctly detected:
+
 ```
 [Vite] import.meta.env.VITE_FINZ_ENABLED = "true"
 ```
@@ -232,6 +250,7 @@ No auth errors. If Finanzas mode is correctly detected:
 **Not yet implemented in Finanzas UI** – would appear as a menu or modal.
 
 Expected behavior (future):
+
 1. User clicks "Switch to PMO"
 2. `cv.module = 'pmo'` stored in localStorage
 3. Page reloads → Callback logic honors preference
@@ -281,19 +300,23 @@ Expected behavior (future):
 ## Known Issues & Limitations
 
 ### 1. Credentials for valencia42003@gmail.com
+
 **Status:** Not yet validated  
 **Action:** Verify or provide correct SDT-only test user
 
 ### 2. PMO Module Not Deployed
+
 **Status:** Only Finanzas (`/finanzas/`) SPA deployed  
 **Impact:** PMO routing (/) will 404 if PMO SPA not on CloudFront root  
 **Fix:** Deploy PMO build to CloudFront root or use separate domain
 
 ### 3. UI Role Switcher Not Yet Implemented
+
 **Status:** Preference stored but no UI button  
 **Roadmap:** Add role selector in Navigation (requires UI design)
 
 ### 4. Password Reset / MFA
+
 **Status:** Not yet wired  
 **Roadmap:** Future sprint after SDT login is stable
 
@@ -313,6 +336,7 @@ Expected behavior (future):
 ## Rollback Plan
 
 If issues arise:
+
 1. Revert commit: `git revert <commit-hash>`
 2. Rebuild without callback: `BUILD_TARGET=finanzas npm run build`
 3. Deploy only `/finanzas/` SPA, remove `/auth/callback.html`
@@ -323,4 +347,3 @@ If issues arise:
 **Status:** 🟡 Awaiting SDT user credential validation  
 **Confidence:** High (Christian user verified ✅, logic sound ✅)  
 **Timeline:** Ready for production once SDT test passes
-
