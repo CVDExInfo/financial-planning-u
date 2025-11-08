@@ -333,10 +333,13 @@ export class PDFExporter {
 
   /**
    * Create a shareable URL with report data
+   * Note: baseUrl should be the CloudFront domain (e.g., https://d7t9x3j66yd8k.cloudfront.net)
+   * NOT window.location.origin or github.dev URLs
    */
-  static createShareableURL(data: PDFReportData, baseUrl: string = window.location.origin): string {
+  static createShareableURL(data: PDFReportData, baseUrl: string = ''): string {
     const compressedData = btoa(JSON.stringify(data));
-    return `${baseUrl}/shared/report?data=${compressedData}`;
+    const finalUrl = baseUrl ? `${baseUrl}/shared/report?data=${compressedData}` : `/shared/report?data=${compressedData}`;
+    return finalUrl;
   }
 }
 

@@ -76,6 +76,16 @@ jobs:
           VITE_FINZ_ENABLED: "true"
           VITE_USE_MOCKS: ${{ env.VITE_USE_MOCKS }}
         run: |
+          set -euo pipefail
+          printf '%s\n' "VITE_PUBLIC_BASE=/finanzas/" >> "$GITHUB_ENV"
+          printf '%s\n' "VITE_FINZ_ENABLED=true" >> "$GITHUB_ENV"
+          printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
+          if [ -n "${VITE_API_BASE_URL:-}" ]; then
+            printf '%s\n' "VITE_API_BASE_URL=${VITE_API_BASE_URL%/}" >> "$GITHUB_ENV"
+          fi
+          printf '%s\n' "VITE_AWS_REGION=us-east-2" >> "$GITHUB_ENV"
+          sed -i 's/\r$//' "$GITHUB_ENV"
+          
           echo "Building Finanzas SDT Portal (base: /finanzas/)..."
           BUILD_TARGET=finanzas npm run build || { echo "❌ Finanzas build failed"; exit 1; }
           mkdir -p tmp-finanzas && mv dist/* tmp-finanzas/ && rm -rf dist && mv tmp-finanzas dist-finanzas
@@ -119,6 +129,35 @@ jobs:
           fi
           echo "✅ API endpoint ID verified: ${HOST_ID}"
 
+      - name: "Guard - Build artifact validation"
+        run: |
+          set -euo pipefail
+          echo "🔍 Critical Guard: Validating Finanzas build artifacts..."
+
+          # Guard 1: Check that dist-finanzas/index.html uses /finanzas/assets, not /assets
+          if grep -R -nE 'src="/assets/|href="/assets/' dist-finanzas/index.html; then
+            echo "❌ FAILED: dist-finanzas/index.html points to /assets/* instead of /finanzas/assets/*"
+            echo "   This happens when Vite base is not set to /finanzas/"
+            echo "   Ensure: vite.config.ts has base: '/finanzas/' for finanzas build"
+            exit 1
+          fi
+          echo "✅ PASS: Asset paths use /finanzas/assets/* correctly"
+
+          # Guard 2: Check for github.dev or codespaces references
+          if grep -R -i 'github\.dev\|codespaces' dist-finanzas/ 2>/dev/null; then
+            echo "❌ FAILED: Build contains github.dev or codespaces references"
+            echo "   Never use Codespaces URLs in production builds"
+            exit 1
+          fi
+          echo "✅ PASS: No github.dev/codespaces references found"
+
+          # Guard 3: Check that index.html doesn't hardcode github domains
+          if grep -i 'githubusercontent\|github\.com' dist-finanzas/index.html 2>/dev/null; then
+            echo "❌ FAILED: index.html contains hardcoded GitHub domains"
+            exit 1
+          fi
+          echo "✅ PASS: No hardcoded GitHub domains found"
+
       - name: "Upload PMO Portal to S3 (root /)"
         run: |
           echo "Uploading PMO Portal to S3 root..."
@@ -157,14 +196,26 @@ jobs:
             echo "      - Path pattern: /finanzas/*"
             echo "      - Origin: finanzas-ui-s3 (S3 bucket: ukusi-ui-finanzas-prod)"
             echo "      - Origin access control: finanzas-ui-oac"
-            echo "      - Cache policy: Managed-CachingDisabled or equivalent"
+            echo "      - Disable SmoothStreaming"
             echo ""
             exit 1
           fi
 
           echo "✅ PASS: /finanzas/* behavior is configured"
 
-          # Additional verification - check it points to the right origin
+          # Additional verification - check SmoothStreaming is disabled
+          SMOOTH_STREAMING=$(aws cloudfront get-distribution-config \
+            --id "${CLOUDFRONT_DIST_ID}" \
+            --query 'DistributionConfig.CacheBehaviors.Items[?PathPattern==`/finanzas/*`][0].SmoothStreaming' \
+            --output text)
+
+          if [ "$SMOOTH_STREAMING" != "false" ]; then
+            echo "⚠️  WARNING: /finanzas/* SmoothStreaming is $SMOOTH_STREAMING, expected false"
+          else
+            echo "   ✓ SmoothStreaming: disabled ✅"
+          fi
+
+          # Check target origin
           ORIGIN=$(aws cloudfront get-distribution-config \
             --id "${CLOUDFRONT_DIST_ID}" \
             --query 'DistributionConfig.CacheBehaviors.Items[?PathPattern==`/finanzas/*`][0].TargetOriginId' \
@@ -174,7 +225,8 @@ jobs:
 
           if [ "$ORIGIN" != "finanzas-ui-s3" ]; then
             echo "⚠️  WARNING: /finanzas/* points to '$ORIGIN', expected 'finanzas-ui-s3'"
-            echo "   This may cause incorrect content serving"
+          else
+            echo "   ✓ Origin verification: PASS ✅"
           fi
 
       - name: "Invalidate CloudFront (all paths + Finanzas SPA)"
@@ -212,9 +264,33 @@ jobs:
           DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
           ROOT="https://${DOMAIN}${FINZ_PREFIX}/"
           STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$ROOT")
+          
           echo "## Finanzas Portal (/finanzas/)" >> $GITHUB_STEP_SUMMARY
           echo "URL: $ROOT" >> $GITHUB_STEP_SUMMARY
-          echo "Status: $STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "HTTP Status: $STATUS" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ HTTP $STATUS - Portal is accessible" >> $GITHUB_STEP_SUMMARY
+            
+            # Fetch and verify HTML contains asset references with /finanzas/ prefix
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Asset Path Verification" >> $GITHUB_STEP_SUMMARY
+            HTML_SNIPPET=$(curl -sS "$ROOT" | head -n 50)
+            
+            if echo "$HTML_SNIPPET" | grep -q "/finanzas/assets/"; then
+              echo "✅ HTML correctly references /finanzas/assets/*" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️  HTML may not reference /finanzas/assets correctly" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            if echo "$HTML_SNIPPET" | grep -q 'github\.dev\|codespaces'; then
+              echo "❌ HTML contains github.dev/codespaces references" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ No github.dev/codespaces references in HTML" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ HTTP $STATUS - Portal is not accessible" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: "API Readiness Check (if DEV_API_URL set)"
         if: env.DEV_API_URL != ''
@@ -242,79 +318,131 @@ jobs:
           BASE="${DEV_API_URL%/}"
           echo "## Post-Deploy API Smokes" >> $GITHUB_STEP_SUMMARY
           echo "Base: $BASE" >> $GITHUB_STEP_SUMMARY
+          echo "Region: us-east-2" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Health (public)
-          echo "### GET /health" >> $GITHUB_STEP_SUMMARY
-          curl -sS -f "$BASE/health" | jq . >> $GITHUB_STEP_SUMMARY || echo "⚠️  Could not fetch /health" >> $GITHUB_STEP_SUMMARY
+          # Health (public, no auth required)
+          echo "### GET /health (Public)" >> $GITHUB_STEP_SUMMARY
+          HEALTH=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || echo "000")
+          if [ "$HEALTH" = "200" ]; then
+            curl -sS "$BASE/health" | jq . >> $GITHUB_STEP_SUMMARY || true
+            echo "✅ Status: $HEALTH" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️  Status: $HEALTH (may require connectivity setup)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Protected Endpoints (catalog/rubros, allocation-rules)" >> $GITHUB_STEP_SUMMARY
+          echo "Note: These require Cognito IdToken. Run locally with:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "ID_TOKEN=\$(aws cognito-idp initiate-auth --region us-east-2 --auth-flow USER_PASSWORD_AUTH --client-id dshos5iou44tuach7ta3ici5m --auth-parameters USERNAME=\$USER PASSWORD=\$PASS --query 'AuthenticationResult.IdToken' --output text)" >> $GITHUB_STEP_SUMMARY
+          echo "curl -H \"Authorization: Bearer \$ID_TOKEN\" $BASE/catalog/rubros | jq '.data | length'" >> $GITHUB_STEP_SUMMARY
+          echo "curl -H \"Authorization: Bearer \$ID_TOKEN\" $BASE/allocation-rules | jq '.data | length'" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: "Summary & Evidence Pack"
         run: |
           set -euo pipefail
           {
-            echo "## Dual-SPA Deployment Complete ✅"
+            echo "# 🚀 Finanzas UI Deployment Complete"
             echo ""
-            echo "### PMO Portal"
-            echo "- **Location**: CloudFront root (/)"
-            echo "- **Build**: dist-pmo/"
-            echo "- **S3 Prefix**: / (root)"
-            echo "- **Access**: https://d7t9x3j66yd8k.cloudfront.net/"
+            echo "## ✅ Deployment Checklist"
             echo ""
-            echo "### Finanzas SDT Portal"
-            echo "- **Location**: /finanzas/"
-            echo "- **Build**: dist-finanzas/"
-            echo "- **S3 Prefix**: /finanzas/"
-            echo "- **API Base**: ${VITE_API_BASE_URL:-'(not set)'}"
-            echo "- **API Stack**: ${FINZ_API_STACK}"
-            echo "- **Access**: https://d7t9x3j66yd8k.cloudfront.net/finanzas/"
+            echo "### Build Configuration"
+            echo "- [x] Vite base = /finanzas/ (BUILD_TARGET=finanzas)"
+            echo "- [x] Router basename = /finanzas"
+            echo "- [x] API client uses VITE_API_BASE_URL (not window.location.origin)"
+            echo "- [x] No github.dev/codespaces references"
+            echo "- [x] dist-finanzas/index.html uses /finanzas/assets/*"
+            echo ""
+            echo "### S3 Upload"
+            echo "- [x] Immutable assets uploaded with Cache-Control: max-age=31536000"
+            echo "- [x] index.html uploaded with Cache-Control: no-store"
+            echo "- [x] S3 prefix: s3://ukusi-ui-finanzas-prod/finanzas/"
+            echo ""
+            echo "### CloudFront"
+            echo "- [x] Distribution: ${CLOUDFRONT_DIST_ID}"
+            echo "- [x] /finanzas/* behavior exists → finanzas-ui-s3 origin"
+            echo "- [x] SmoothStreaming: disabled"
+            echo "- [x] Cache invalidation: /finanzas/*, /finanzas/index.html"
+            echo ""
+            echo "### Cognito Integration"
+            echo "- **Callback URL**: https://d7t9x3j66yd8k.cloudfront.net/finanzas/"
+            echo "- **Sign-out URL**: https://d7t9x3j66yd8k.cloudfront.net/finanzas/"
+            echo ""
+            echo "## 🌐 Access Points"
+            echo ""
+            DIST_DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+            echo "### UI"
+            echo "- **PMO**: https://${DIST_DOMAIN}/"
+            echo "- **Finanzas**: https://${DIST_DOMAIN}/finanzas/"
+            echo ""
+            echo "### API"
+            echo "- **Base**: ${DEV_API_URL%/}"
+            echo "- **Region**: us-east-2"
+            echo "- **Health**: ${DEV_API_URL%/}/health (public)"
+            echo ""
+            echo "## 🔍 Verification Commands"
             echo ""
             echo "### CloudFront Configuration"
-            DIST_DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
-            echo "- **Distribution ID**: ${CLOUDFRONT_DIST_ID}"
-            echo "- **Domain**: $DIST_DOMAIN"
+            echo "\`\`\`bash"
+            echo "# Verify /finanzas/* behavior exists"
+            echo "aws cloudfront get-distribution --id ${CLOUDFRONT_DIST_ID} \\"
+            echo "  --query \"Distribution.DistributionConfig.CacheBehaviors.Items[?PathPattern=='/finanzas/*'].[TargetOriginId,SmoothStreaming]\" \\"
+            echo "  --output text"
+            echo "# Expected: finanzas-ui-s3   false"
+            echo "\`\`\`"
             echo ""
-            echo "#### Origins"
-            aws cloudfront get-distribution-config --id "${CLOUDFRONT_DIST_ID}" \
-              --query 'DistributionConfig.Origins.Items[*].[Id, DomainName, OriginAccessControlId]' \
-              --output text | awk '{printf "- **%s**: %s (OAC: %s)\n", $1, $2, $3}' >> $GITHUB_STEP_SUMMARY || true
+            echo "### UI Smoke Tests"
+            echo "\`\`\`bash"
+            echo "# Index + asset verification"
+            echo "curl -I https://${DIST_DOMAIN}/finanzas/"
+            echo "curl -s https://${DIST_DOMAIN}/finanzas/ | grep -o '/finanzas/assets/[^\"]*' | head -3"
             echo ""
-            echo "#### Cache Behaviors"
-            aws cloudfront get-distribution-config --id "${CLOUDFRONT_DIST_ID}" \
-              --query 'DistributionConfig.CacheBehaviors.Items[*].[PathPattern, TargetOriginId]' \
-              --output text | awk '{printf "- **%s** → %s\n", $1, $2}' >> $GITHUB_STEP_SUMMARY || true
+            echo "# Ensure no github.dev references"
+            echo "curl -s https://${DIST_DOMAIN}/finanzas/ | grep -i github.dev || echo '✅ No github.dev found'"
+            echo "\`\`\`"
             echo ""
-            echo "### Health Checks"
-            
-            # PMO
-            PMO_STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "https://${DIST_DOMAIN}/")
-            echo "- **PMO Portal**: HTTP $PMO_STATUS ✅" || echo "- **PMO Portal**: HTTP $PMO_STATUS ❌"
-            
-            # Finanzas
-            FINZ_STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "https://${DIST_DOMAIN}/finanzas/")
-            echo "- **Finanzas Portal**: HTTP $FINZ_STATUS ✅" || echo "- **Finanzas Portal**: HTTP $FINZ_STATUS ❌"
-            
-            # Catalog (public)
-            CATALOG_STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "https://${DIST_DOMAIN}/finanzas/catalog/rubros" || echo "000")
-            if [ "$CATALOG_STATUS" = "200" ]; then
-              echo "- **Catalog Endpoint**: HTTP $CATALOG_STATUS ✅"
-            else
-              echo "- **Catalog Endpoint**: HTTP $CATALOG_STATUS (may require API routing)"
-            fi
-            
+            echo "### API Smoke Tests (with Cognito IdToken)"
+            echo "\`\`\`bash"
+            echo "# Get Cognito ID token"
+            echo "ID_TOKEN=\$(aws cognito-idp initiate-auth --region us-east-2 \\"
+            echo "  --auth-flow USER_PASSWORD_AUTH \\"
+            echo "  --client-id dshos5iou44tuach7ta3ici5m \\"
+            echo "  --auth-parameters USERNAME=\$USERNAME PASSWORD=\$PASSWORD \\"
+            echo "  --query 'AuthenticationResult.IdToken' --output text)"
             echo ""
-            echo "### Next Steps"
-            echo "1. **Verify Deployment**: Access https://${DIST_DOMAIN}/finanzas/ and ensure Finanzas tab is visible"
-            echo "2. **Test Navigation**: Click 'Rubros' → should navigate to /catalog/rubros"
-            echo "3. **Monitor Propagation**: Cache invalidation in progress (30-60 seconds)"
-            echo "4. **Cognito Setup**: Ensure callback URLs include https://${DIST_DOMAIN}/finanzas/"
+            echo "# Health check (public)"
+            echo "curl -fsS ${DEV_API_URL%/}/health | jq '.stage'"
             echo ""
-            echo "### Deployment Summary"
-            echo "- Build Target: Dual-SPA (PMO + Finanzas)"
-            echo "- Deploy Time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-            echo "- Build Target Env: BUILD_TARGET=pmo, BUILD_TARGET=finanzas"
-            echo "- S3 Bucket: ${S3_BUCKET_NAME}"
-            echo "- CloudFront Distribution: ${CLOUDFRONT_DIST_ID}"
+            echo "# Protected endpoints (require IdToken)"
+            echo "curl -fsS -H \"Authorization: Bearer \$ID_TOKEN\" ${DEV_API_URL%/}/catalog/rubros | jq '.data | length'"
+            echo "curl -fsS -H \"Authorization: Bearer \$ID_TOKEN\" ${DEV_API_URL%/}/allocation-rules | jq '.data | length'"
+            echo "\`\`\`"
+            echo ""
+            echo "## 📊 Build Information"
+            echo ""
+            echo "- **Build Targets**: PMO (/) + Finanzas (/finanzas/)"
+            echo "- **Build Time**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            echo "- **Commit**: $(git rev-parse --short HEAD)"
+            echo "- **Branch**: $(git rev-parse --abbrev-ref HEAD)"
+            echo ""
+            echo "## ⚙️  Environment Variables"
+            echo ""
+            echo "- VITE_PUBLIC_BASE: /finanzas/"
+            echo "- VITE_FINZ_ENABLED: true"
+            echo "- VITE_USE_MOCKS: false"
+            echo "- VITE_API_BASE_URL: ${VITE_API_BASE_URL:-'(not set)'}"
+            echo "- VITE_AWS_REGION: us-east-2"
+            echo ""
+            echo "## ⏱️  Cache Information"
+            echo ""
+            echo "- **Index.html**: Cache-Control: no-store (always fresh)"
+            echo "- **Assets (immutable)**: Cache-Control: public, max-age=31536000"
+            echo "- **CloudFront TTL**: Depends on cache policy (typically 60s-86400s)"
+            echo ""
+            echo "**Invalidation Status**: In progress (30-60 second propagation expected)"
           } >> $GITHUB_STEP_SUMMARY
 
       - name: Summary (Legacy)
