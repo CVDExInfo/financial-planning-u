@@ -128,8 +128,14 @@ function convertMermaidToSVG(mmdPath: string): string {
   try {
     logger.info(`Converting Mermaid diagram: ${path.basename(mmdPath)}`);
     
+    // Create puppeteer config for CI environments
+    const puppeteerConfig = path.join(CONFIG.TEMP_DIR, 'puppeteer-config.json');
+    fs.writeFileSync(puppeteerConfig, JSON.stringify({
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }));
+    
     // Use mermaid CLI to convert .mmd to .svg
-    execSync(`npx -y mmdc -i "${mmdPath}" -o "${outputPath}" -b transparent`, {
+    execSync(`npx -y mmdc -i "${mmdPath}" -o "${outputPath}" -b transparent --puppeteerConfigFile "${puppeteerConfig}"`, {
       stdio: 'pipe',
     });
     
