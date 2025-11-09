@@ -1,0 +1,157 @@
+name: update-cloudfront
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [dev, stg, prod]
+        default: dev
+
+jobs:
+  attach-api:
+    runs-on: ubuntu-latest
+    permissions: { id-token: write, contents: read }
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      DIST_ID:    ${{ vars.CLOUDFRONT_DIST_ID }}
+      CF_DOMAIN:  ${{ vars.DISTRIBUTION_DOMAIN_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve Finanzas API ID & stage
+        id: resolve_api
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Prefer DEV_API_URL (e.g., https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev)
+          if [[ -n "${{ vars.DEV_API_URL }}" ]]; then
+            url="${{ vars.DEV_API_URL }}"
+            apiid=$(echo "$url" | sed -E 's@https://([^.]+)\..*@\1@')
+            stage=$(echo "$url" | awk -F'/' '{print $4}')
+          fi
+          # Fallback: read from CFN outputs if needed
+          if [[ -z "${apiid:-}" || -z "${stage:-}" ]]; then
+            stack="${{ vars.FINZ_API_STACK }}"
+            [[ -z "$stack" ]] && { echo "FINZ_API_STACK missing"; exit 1; }
+            apiid=$(aws cloudformation describe-stacks --stack-name "$stack" \
+                      --query "Stacks[0].Outputs[?OutputKey=='FinzApiId'].OutputValue" --output text)
+            endpoint=$(aws cloudformation describe-stacks --stack-name "$stack" \
+                      --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" --output text)
+            stage="${{ vars.FINZ_API_STAGE }}"
+            [[ "$stage" == "None" || -z "$stage" ]] && stage=$(echo "$endpoint" | awk -F'/' '{print $4}')
+          fi
+          echo "API_ID=$apiid"   | tee -a $GITHUB_ENV
+          echo "API_STAGE=$stage"| tee -a $GITHUB_ENV
+          echo "Resolved API: $apiid, stage: $stage"
+
+      - name: Upsert CloudFront Function (path rewrite)
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENV="${{ github.event.inputs.environment }}"
+          FN_NAME="finanzas-sd-${ENV}-api-path-rewrite"
+          cat > fn.js <<'JS'
+          function handler(event) {
+            var r = event.request;
+            if (r.uri.startsWith('/finanzas/api/')) r.uri = r.uri.replace(/^\/finanzas\/api/, '');
+            else if (r.uri === '/finanzas/api') r.uri = '/';
+            return r;
+          }
+          JS
+          # create or update
+          if aws cloudfront describe-function --name "$FN_NAME" >/dev/null 2>&1; then
+            aws cloudfront update-function --name "$FN_NAME" --runtime cloudfront-js-1.0 --function-code fileb://fn.js --function-config Comment="Finanzas API path rewrite"
+          else
+            aws cloudfront create-function --name "$FN_NAME" --runtime cloudfront-js-1.0 --function-code fileb://fn.js --function-config Comment="Finanzas API path rewrite"
+          fi
+          # publish to get a versioned ARN
+          PUBLISH=$(aws cloudfront publish-function --name "$FN_NAME")
+          FN_ARN=$(echo "$PUBLISH" | jq -r '.FunctionSummary.FunctionMetadata.FunctionARN')
+          echo "FN_ARN=$FN_ARN" | tee -a $GITHUB_ENV
+
+      - name: Get current distribution config
+        id: get_cfg
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws cloudfront get-distribution-config --id "$DIST_ID" > dist.json
+          jq '."DistributionConfig"' dist.json > cfg.json
+          ETag=$(jq -r '."ETag"' dist.json)
+          echo "ETAG=$ETag" >> $GITHUB_ENV
+
+      - name: Merge API origin and behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          API_DOMAIN="${API_ID}.execute-api.${AWS_REGION}.amazonaws.com"
+          # add origin if missing
+          if ! jq -e '.Origins.Items[]?|select(.Id=="ApiGwOrigin")' cfg.json >/dev/null; then
+            cfg=$(jq --arg d "$API_DOMAIN" --arg s "/${API_STAGE}" '
+              .Origins.Items += [{
+                "Id":"ApiGwOrigin",
+                "DomainName": $d,
+                "OriginPath": $s,
+                "CustomOriginConfig": {
+                  "HTTPPort":80,"HTTPSPort":443,"OriginProtocolPolicy":"https-only",
+                  "OriginSslProtocols":{"Quantity":1,"Items":["TLSv1.2"]}
+                }
+              }] | .Origins.Quantity += 1' cfg.json)
+            printf "%s" "$cfg" > cfg.json
+          fi
+          # ensure CustomErrorResponses for SPA
+          cfg=$(jq '
+            .CustomErrorResponses = ( .CustomErrorResponses // { "Quantity": 0, "Items": [] } ) |
+            .CustomErrorResponses.Items = (
+              .CustomErrorResponses.Items
+              + [{"ErrorCode":403,"ResponsePagePath":"/finanzas/index.html","ResponseCode":"200","ErrorCachingMinTTL":10}]
+              + [{"ErrorCode":404,"ResponsePagePath":"/finanzas/index.html","ResponseCode":"200","ErrorCachingMinTTL":10}]
+            )
+            | .CustomErrorResponses.Items |= (unique_by(.ErrorCode))
+            | .CustomErrorResponses.Quantity = (.CustomErrorResponses.Items|length)
+          ' cfg.json)
+          printf "%s" "$cfg" > cfg.json
+          # add cache behavior if missing
+          if ! jq -e '.CacheBehaviors.Items[]?|select(.PathPattern=="finanzas/api/*")' cfg.json >/dev/null; then
+            cfg=$(jq --arg arn "$FN_ARN" '
+              .CacheBehaviors = ( .CacheBehaviors // {"Quantity":0,"Items":[]}) |
+              .CacheBehaviors.Items = (
+                [{"PathPattern":"finanzas/api/*",
+                  "TargetOriginId":"ApiGwOrigin",
+                  "ViewerProtocolPolicy":"redirect-to-https",
+                  "Compress":true,
+                  "AllowedMethods":{"Quantity":7,"Items":["GET","HEAD","OPTIONS","PUT","POST","PATCH","DELETE"],"CachedMethods":{"Quantity":3,"Items":["GET","HEAD","OPTIONS"]}},
+                  "CachePolicyId":"413f1601-64f1-4fe4-b6e4-48c1c1b29f7e",
+                  "OriginRequestPolicyId":"b689b0a8-53d0-40ab-baf2-68738e2966ac",
+                  "FunctionAssociations":{"Quantity":1,"Items":[{"EventType":"viewer-request","FunctionARN":$arn}]}
+                }] + .CacheBehaviors.Items
+              )
+              | .CacheBehaviors.Quantity = (.CacheBehaviors.Items|length)
+            ' cfg.json)
+            printf "%s" "$cfg" > cfg.json
+          fi
+
+      - name: Update distribution (If-Match)
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -n --argjson cfg "$(cat cfg.json)" '{ DistributionConfig: $cfg }' > body.json
+          aws cloudfront update-distribution --id "$DIST_ID" --if-match "$ETAG" --distribution-config file://cfg.json
+
+      - name: Evidence & smokes
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "### Finanzas CDN (existing distribution updated)" >> $GITHUB_STEP_SUMMARY
+          echo "- **DistributionId**: $DIST_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Domain**: https://$CF_DOMAIN" >> $GITHUB_STEP_SUMMARY
+          echo "- **API ID**: $API_ID (stage: $API_STAGE)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Smokes" >> $GITHUB_STEP_SUMMARY
+          echo "\`curl -I https://$CF_DOMAIN/finanzas/ | head -n1\`" >> $GITHUB_STEP_SUMMARY
+          echo "\`curl https://$CF_DOMAIN/finanzas/api/health\`" >> $GITHUB_STEP_SUMMARY
