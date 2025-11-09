@@ -1,0 +1,159 @@
+name: Documentation Generator - Bilingual Pipeline
+
+# Manual trigger only, restricted to main branch
+on:
+  workflow_dispatch:
+    branches:
+      - main
+
+permissions:
+  contents: write  # Required to commit and push generated documentation
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for commit
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      # Step 2: Setup Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      # Step 3: Install project dependencies
+      - name: Install dependencies
+        run: npm ci
+      
+      # Step 4: Install Pandoc for document conversion
+      - name: Install Pandoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-xetex texlive-fonts-recommended texlive-latex-extra
+          pandoc --version
+      
+      # Step 5: Install Mermaid CLI for diagram rendering
+      - name: Install Mermaid CLI
+        run: |
+          npm install -g @mermaid-js/mermaid-cli@11.4.1
+          mmdc --version
+      
+      # Step 6: Install Chromium for mermaid-cli (required for rendering)
+      - name: Install Chromium dependencies
+        run: |
+          sudo apt-get install -y chromium-browser
+          export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+          export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+      
+      # Step 7: Run documentation rendering script
+      - name: Generate documentation
+        env:
+          USE_CVDEX_BRANDING: ${{ vars.USE_CVDEX_BRANDING || 'false' }}
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+        run: |
+          echo "Branding: $USE_CVDEX_BRANDING"
+          npm run render-docs
+      
+      # Step 8: Verify output files exist
+      - name: Verify generated files
+        run: |
+          echo "Checking for generated documentation files..."
+          ls -lah public/docs/latest/
+          
+          # Count PDF and DOCX files
+          PDF_COUNT=$(find public/docs/latest -name "*.pdf" -type f | wc -l)
+          DOCX_COUNT=$(find public/docs/latest -name "*.docx" -type f | wc -l)
+          
+          echo "Generated files:"
+          echo "  PDFs: $PDF_COUNT"
+          echo "  DOCXs: $DOCX_COUNT"
+          
+          # Verify index.html exists
+          if [ ! -f public/docs/latest/index.html ]; then
+            echo "Error: index.html not found"
+            exit 1
+          fi
+          
+          echo "✓ All expected output files generated successfully"
+      
+      # Step 9: Configure Git
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      # Step 10: Commit and push generated files
+      - name: Commit and push documentation
+        run: |
+          # Add generated files
+          git add public/docs/latest/
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          # Commit with [skip ci] to avoid triggering other workflows
+          git commit -m "Update generated documentation [skip ci]
+
+          Generated bilingual documentation (PDF and DOCX) with corporate branding.
+          
+          - Branding: ${{ vars.USE_CVDEX_BRANDING == 'true' && 'CVDex' || 'Ikusi' }}
+          - Generated at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          - Workflow: ${{ github.workflow }}
+          - Run: ${{ github.run_number }}"
+          
+          # Push to main branch
+          git push origin main
+          
+          echo "✓ Documentation committed and pushed successfully"
+      
+      # Step 11: Create artifact for download (optional)
+      - name: Upload documentation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: finanzas-docs-latest
+          path: public/docs/latest/
+          retention-days: 90
+          if-no-files-found: error
+      
+      # Step 12: Summary
+      - name: Generate job summary
+        if: always()
+        run: |
+          echo "## Documentation Generation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branding:** ${{ vars.USE_CVDEX_BRANDING == 'true' && 'CVDex' || 'Ikusi' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Generated At:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Generated Files" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -d public/docs/latest ]; then
+            PDF_COUNT=$(find public/docs/latest -name "*.pdf" -type f | wc -l)
+            DOCX_COUNT=$(find public/docs/latest -name "*.docx" -type f | wc -l)
+            echo "- **PDF files:** $PDF_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- **DOCX files:** $DOCX_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Files List" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            ls -lh public/docs/latest/ >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Output directory not found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Access Documentation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "View the documentation index at: \`public/docs/latest/index.html\`" >> $GITHUB_STEP_SUMMARY

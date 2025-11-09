@@ -17,7 +17,8 @@
     "preview": "vite preview",
     "preview:pmo": "BUILD_TARGET=pmo vite preview",
     "preview:finanzas": "BUILD_TARGET=finanzas vite preview",
-    "generate-docs-pdf": "node scripts/generate-docs-pdf.cjs"
+    "generate-docs-pdf": "node scripts/generate-docs-pdf.cjs",
+    "render-docs": "ts-node scripts/docs/render-docs.ts"
   },
   "dependencies": {
     "@github/spark": "^0.39.0",
@@ -89,8 +90,10 @@
     "@aws-sdk/client-dynamodb": "^3.925.0",
     "@aws-sdk/util-dynamodb": "^3.925.0",
     "@eslint/js": "^9.21.0",
+    "@mermaid-js/mermaid-cli": "^11.4.1",
     "@stoplight/spectral-cli": "^6.15.0",
     "@tailwindcss/postcss": "^4.1.8",
+    "@types/node": "^22.10.2",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^5.1.0",

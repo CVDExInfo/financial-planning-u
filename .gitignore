@@ -51,3 +51,6 @@ samconfig.toml
 
 # Generated PDFs
 docs-pdf/
+
+# Documentation pipeline temporary files
+public/docs/temp/

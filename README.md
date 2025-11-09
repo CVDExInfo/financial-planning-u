@@ -150,7 +150,8 @@ The UI currently uses mock data in `src/lib/api.ts`. To integrate the live API, 
 - `npm run build` → production build (dist/)
 - `npm run preview` → preview the built app
 - `npm run lint` → lint the workspace
-- `npm run generate-docs-pdf` → generate PDF versions of all documentation files
+- `npm run generate-docs-pdf` → generate PDF versions of all documentation files (legacy)
+- `npm run render-docs` → generate bilingual PDF/DOCX documentation with corporate branding
 - `scripts/create-s3-bucket.sh` → create and configure the S3 bucket for hosting
 - `scripts/deploy-check.sh` → CI-friendly build verification (lint/build). Adjust as needed.
 
@@ -171,8 +172,12 @@ The UI currently uses mock data in `src/lib/api.ts`. To integrate the live API, 
 - Infra (UI hosting): `infra/` (Terraform + manual CF instructions)
 - Backend (API): `services/finanzas-api/` (SAM template and handlers)
 - OpenAPI: `openapi/finanzas.yaml`
-- Docs: `docs/` (API coverage, environment, auth usage)
-- PDF Docs: `docs-pdf/` (PDF versions of all documentation files, generated via `npm run generate-docs-pdf`)
+- Docs: `docs/` (API coverage, environment, auth usage, SOPs, architecture)
+- Documentation Pipeline: `scripts/docs/` (bilingual PDF/DOCX generator with corporate branding)
+- Generated Docs: `public/docs/latest/` (bilingual PDF and DOCX files with index.html)
+- Diagrams: `diagrams/` (Mermaid and Draw.io source files)
+- Branding Assets: `assets/` (logos, templates, styles for documentation)
+- PDF Docs (Legacy): `docs-pdf/` (PDF versions generated via `npm run generate-docs-pdf`)
 - Architecture: See `docs/tree.structure.md` for detailed repository structure and architecture decisions
 
 ---

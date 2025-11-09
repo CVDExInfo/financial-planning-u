@@ -1,0 +1,59 @@
+graph TB
+    subgraph "User Interface / Interfaz de Usuario"
+        UI[React Frontend<br/>Frontend React]
+    end
+    
+    subgraph "CDN Layer / Capa CDN"
+        CF[CloudFront<br/>Distribution]
+        S3[S3 Bucket<br/>Cubeta S3]
+    end
+    
+    subgraph "Authentication / Autenticación"
+        COG[AWS Cognito<br/>User Pool]
+    end
+    
+    subgraph "API Layer / Capa API"
+        APIGW[API Gateway<br/>Gateway API]
+        AUTH[Auth Lambda<br/>Lambda Auth]
+    end
+    
+    subgraph "Business Logic / Lógica de Negocio"
+        PMO[PMO Lambda<br/>Lambda PMO]
+        SDMT[SDMT Lambda<br/>Lambda SDMT]
+        VENDOR[Vendor Lambda<br/>Lambda Vendor]
+    end
+    
+    subgraph "Authorization / Autorización"
+        AVP[Amazon Verified<br/>Permissions]
+    end
+    
+    subgraph "Data Layer / Capa de Datos"
+        DDB[(DynamoDB<br/>Tables)]
+    end
+    
+    UI -->|HTTPS| CF
+    CF --> S3
+    UI -->|Login/Signup| COG
+    COG -->|JWT Token| UI
+    UI -->|API Calls + JWT| APIGW
+    APIGW --> AUTH
+    AUTH -->|Validate| COG
+    AUTH -->|Check Permissions| AVP
+    AUTH --> PMO
+    AUTH --> SDMT
+    AUTH --> VENDOR
+    PMO --> DDB
+    SDMT --> DDB
+    VENDOR --> DDB
+    
+    style UI fill:#e1f5ff
+    style CF fill:#fff4e6
+    style S3 fill:#fff4e6
+    style COG fill:#ffe6e6
+    style APIGW fill:#e6ffe6
+    style AUTH fill:#e6ffe6
+    style PMO fill:#f0e6ff
+    style SDMT fill:#f0e6ff
+    style VENDOR fill:#f0e6ff
+    style AVP fill:#ffe6f0
+    style DDB fill:#fff0cc

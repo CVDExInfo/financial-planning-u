@@ -1,0 +1,114 @@
+% Finanzas SD Documentation LaTeX Template
+% Supports bilingual (Spanish/English) content with corporate branding
+
+\documentclass[12pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,english]{babel}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{titling}
+
+% Page geometry
+\geometry{
+  a4paper,
+  top=25mm,
+  bottom=25mm,
+  left=20mm,
+  right=20mm,
+  headheight=15mm,
+  headsep=10mm,
+  footskip=10mm
+}
+
+% Corporate colors
+\definecolor{brandblue}{RGB}{0,51,102}
+\definecolor{brandlightblue}{RGB}{0,102,204}
+
+% Hyperlink setup
+\hypersetup{
+  colorlinks=true,
+  linkcolor=brandblue,
+  filecolor=brandblue,
+  urlcolor=brandlightblue,
+  pdftitle={$title$},
+  pdfauthor={$author$},
+  pdfsubject={Finanzas SD Documentation},
+}
+
+% Header and footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{brandblue}{\textbf{$title$}}}
+\fancyhead[R]{\includegraphics[height=8mm]{$logo$}}
+\fancyfoot[C]{\small\textcolor{gray}{Finanzas SD Documentation}}
+\fancyfoot[R]{\small\textcolor{gray}{Page \thepage\ of \pageref{LastPage}}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% Title page
+\pretitle{%
+  \begin{center}
+  \LARGE
+  \includegraphics[width=0.4\textwidth]{$logo$}\\[\bigskipamount]
+}
+\posttitle{\end{center}}
+
+% Document metadata
+\title{$title$}
+\author{$author$}
+\date{$date$}
+
+\begin{document}
+
+% Cover page
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+  
+  \includegraphics[width=0.5\textwidth]{$logo$}
+  
+  \vspace{2cm}
+  
+  {\Huge\bfseries\textcolor{brandblue}{$title$}\par}
+  
+  \vspace{1cm}
+  
+  {\Large\textcolor{brandlightblue}{$subtitle$}\par}
+  
+  \vspace{1.5cm}
+  
+  {\large
+  \textbf{Finanzas SD Documentation}\\
+  \textbf{Documentación de Finanzas SD}
+  \par}
+  
+  \vfill
+  
+  {\large
+  $author$\\
+  $date$
+  \par}
+  
+  \vspace{1cm}
+  
+  {\small\textcolor{gray}{Confidential - Internal Use Only}\par}
+  
+\end{titlepage}
+
+% Table of contents (optional)
+$if(toc)$
+\tableofcontents
+\newpage
+$endif$
+
+% Main content
+$body$
+
+\end{document}
