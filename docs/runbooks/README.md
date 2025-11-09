@@ -8,6 +8,8 @@ This directory contains operational runbooks for the Financial Planning U platfo
 
 **Purpose:** Complete step-by-step guide for deploying the CloudFront distribution update and AVP policy store integration.
 
+**Quick Reference:** [Deployment Checklist](./cloudfront-avp-deployment-checklist.md)
+
 **When to use:**
 - Initial setup of CloudFront proxy for Finanzas API
 - Deploying AVP policy store for fine-grained authorization
