@@ -173,7 +173,8 @@ The UI currently uses mock data in `src/lib/api.ts`. To integrate the live API, 
 - OpenAPI: `openapi/finanzas.yaml`
 - Docs: `docs/` (API coverage, environment, auth usage)
 - PDF Docs: `docs-pdf/` (PDF versions of all documentation files, generated via `npm run generate-docs-pdf`)
+- Architecture: See `docs/tree.structure.md` for detailed repository structure and architecture decisions
 
 ---
 
-Questions or issues? Start with `infra/README.md` for hosting details, `docs/endpoint-coverage.md` for API validation, or open an issue in this repo.
+Questions or issues? Start with `docs/tree.structure.md` for architecture overview, `infra/README.md` for hosting details, `docs/endpoint-coverage.md` for API validation, or open an issue in this repo.
