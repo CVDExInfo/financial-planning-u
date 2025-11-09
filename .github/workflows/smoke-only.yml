@@ -1,7 +1,16 @@
 name: Finanzas Smokes (no deploy)
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test (dev or prod)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
 
 permissions:
   id-token: write
@@ -9,10 +18,12 @@ permissions:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
-  DEV_API_URL: ${{ vars.DEV_API_URL || '' }}
+  DEPLOYMENT_ENV: ${{ github.event.inputs.environment || 'dev' }}
+  # Use environment-specific values
+  DEV_API_URL: ${{ github.event.inputs.environment == 'prod' && 'https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/prod' || (vars.DEV_API_URL || 'https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev') }}
   EXPECTED_API_ID: ${{ vars.FINZ_EXPECTED_API_ID || 'm3g6am67aj' }}
   CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID || '' }}
-  FINZ_API_STACK: ${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}
+  FINZ_API_STACK: ${{ github.event.inputs.environment == 'prod' && 'finanzas-sd-api-prod' || (vars.FINZ_API_STACK || 'finanzas-sd-api-dev') }}
 
 jobs:
   smoke:
@@ -29,11 +40,14 @@ jobs:
       - name: Preflight env
         run: |
           set -euo pipefail
-          : "${DEV_API_URL:?DEV_API_URL repo var is empty. Set to the Finanzas API stage URL.}"
+          echo "🚀 Testing Environment: ${DEPLOYMENT_ENV}"
+          echo "📦 Stack Name: ${FINZ_API_STACK}"
+          echo "🔌 API URL: ${DEV_API_URL}"
+          : "${DEV_API_URL:?DEV_API_URL is empty. Cannot proceed.}"
           CLEAN_URL="${DEV_API_URL%/}"
           printf '%s\n' "DEV_API_URL=$CLEAN_URL" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
-          echo "Using DEV_API_URL=$CLEAN_URL"
+          echo "✅ Using DEV_API_URL=$CLEAN_URL"
 
       - name: Configure AWS (OIDC)
         uses: ./.github/actions/oidc-configure-aws
@@ -86,8 +100,10 @@ jobs:
           TOKEN: ${{ steps.jwt.outputs.access_token }}
         run: |
           set -euo pipefail
-          echo "# Smoke-only API Checks" >> $GITHUB_STEP_SUMMARY
-          echo "API Base: $BASE" >> $GITHUB_STEP_SUMMARY
+          echo "# Smoke-only API Checks (${DEPLOYMENT_ENV})" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: ${DEPLOYMENT_ENV}" >> $GITHUB_STEP_SUMMARY
+          echo "**API Base**: $BASE" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack**: ${FINZ_API_STACK}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## GET /health" >> $GITHUB_STEP_SUMMARY
           curl -sS -f "$BASE/health" | tee -a $GITHUB_STEP_SUMMARY
