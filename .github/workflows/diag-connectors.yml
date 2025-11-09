@@ -13,10 +13,10 @@ permissions:
 
 env:
   AWS_REGION: us-east-2
-  # Expected repo variables (adjust if your names differ)
-  CF_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DIST_ID }}
-  DEV_API_URL: ${{ vars.DEV_API_URL }}
-  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+  # Stage-specific repo variables (stage is selected via workflow input)
+  CF_DISTRIBUTION_ID: ${{ inputs.stage == 'prod' && vars.CLOUDFRONT_DIST_ID_PROD || (inputs.stage == 'stg' && vars.CLOUDFRONT_DIST_ID_STG || vars.CLOUDFRONT_DIST_ID) }}
+  DEV_API_URL: ${{ inputs.stage == 'prod' && vars.PROD_API_URL || (inputs.stage == 'stg' && vars.STG_API_URL || vars.DEV_API_URL) }}
+  VITE_API_BASE_URL: ${{ inputs.stage == 'prod' && vars.VITE_API_BASE_URL_PROD || (inputs.stage == 'stg' && vars.VITE_API_BASE_URL_STG || vars.VITE_API_BASE_URL) }}
 
 jobs:
   diag:
@@ -155,3 +155,9 @@ jobs:
           echo "4. **If AVP stack is missing**: Consider adding it for enhanced RBAC (optional)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Time completed**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup temporary files
+        if: always()
+        run: |
+          rm -f cf.json
+          echo "Cleaned up temporary diagnostic files"
