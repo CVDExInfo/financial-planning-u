@@ -19,10 +19,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Configure AWS (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: ./.github/actions/oidc-configure-aws
         with:
-          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          session_name: update-cloudfront-${{ github.run_id }}
 
       - name: Resolve Finanzas API ID & stage
         id: resolve_api
