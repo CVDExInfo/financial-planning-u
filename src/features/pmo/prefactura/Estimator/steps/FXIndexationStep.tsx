@@ -169,7 +169,9 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                FX rates will be applied to all USD-denominated costs when converting to local reporting currency.
+                <strong>What this means:</strong> If any project costs are paid in US dollars, this exchange rate will automatically convert them to Colombian pesos for your reports.
+                <br />
+                <strong>Action needed:</strong> Verify the exchange rate is current. Update it if you have a more recent rate from your finance team.
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -262,7 +264,11 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
             <Alert>
               <TrendingUp className="h-4 w-4" />
               <AlertDescription>
-                Indexation will be applied {indexationData.adjustment_frequency} starting from month 4 of the project.
+                <strong>What this means:</strong> Costs will automatically increase over time to account for inflation, helping you budget accurately for longer projects.
+                <br />
+                <strong>When it happens:</strong> Adjustments start in month 4 and apply {indexationData.adjustment_frequency}. The first 3 months use fixed costs.
+                <br />
+                <strong>Action needed:</strong> Confirm the inflation rates match your company's financial planning assumptions.
               </AlertDescription>
             </Alert>
           </CardContent>
