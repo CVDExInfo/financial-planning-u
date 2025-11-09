@@ -63,8 +63,8 @@ jobs:
           aws cloudfront get-distribution-config --id "$CF_DISTRIBUTION_ID" > cf.json
 
           # Check /finanzas/* behavior
-          HIT=$(jq -r '.DistributionConfig.CacheBehaviors.Items[]? | select(.PathPattern=="/finanzas/*") | .PathPattern' cf.json)
-          if [ -z "$HIT" ]; then
+          FINANZAS_BEHAVIOR=$(jq -r '.DistributionConfig.CacheBehaviors.Items[]? | select(.PathPattern=="/finanzas/*") | .PathPattern' cf.json)
+          if [ -z "$FINANZAS_BEHAVIOR" ]; then
             echo ":x: Missing CloudFront behavior for /finanzas/*" >> $GITHUB_STEP_SUMMARY
             echo "   **Action Required**: Add CloudFront behavior with path pattern /finanzas/*" >> $GITHUB_STEP_SUMMARY
           else
@@ -74,9 +74,7 @@ jobs:
             ORIGIN=$(jq -r '.DistributionConfig.CacheBehaviors.Items[]? | select(.PathPattern=="/finanzas/*") | .TargetOriginId' cf.json)
             echo "   - Target Origin: $ORIGIN" >> $GITHUB_STEP_SUMMARY
 
-            # Check SmoothStreaming
-            SMOOTH=$(jq -r '.DistributionConfig.CacheBehaviors.Items[]? | select(.PathPattern=="/finanzas/*") | .SmoothStreaming' cf.json)
-            echo "   - SmoothStreaming: $SMOOTH" >> $GITHUB_STEP_SUMMARY
+            # (SmoothStreaming property check removed as it is not relevant for SPA applications)
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -87,6 +85,10 @@ jobs:
           echo "## SPA Fallback Configuration" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          if [ ! -f cf.json ]; then
+            echo ":warning: cf.json not found. Skipping SPA fallback checks." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
           # Check 404 error response
           ERR_404=$(jq -r '.DistributionConfig.CustomErrorResponses.Items[]? | select(.ErrorCode==404) | .ResponsePagePath' cf.json)
           if [ -z "$ERR_404" ]; then
