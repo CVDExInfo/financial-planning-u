@@ -328,8 +328,9 @@ function processMarkdownFiles(): Array<{ name: string; pdf: string; docx: string
         pdf: `${basename}.pdf`,
         docx: `${basename}.docx`,
       });
-    } catch (error) {
+    } catch (err) {
       logger.error(`Failed to process: ${path.basename(mdFile)}`);
+      logger.error(String(err));
     }
   }
   
@@ -453,15 +454,15 @@ ${colors.bright}${colors.cyan}╔═══════════════�
 ${colors.green}${colors.bright}✓ Documentation pipeline completed successfully!${colors.reset}
 `);
     
-  } catch (error) {
+  } catch (err) {
     logger.error('Documentation pipeline failed');
-    console.error(error);
+    console.error(err);
     process.exit(1);
   }
 }
 
 // Run the script
-main().catch(error => {
-  console.error('Fatal error:', error);
+main().catch(err => {
+  console.error('Fatal error:', err);
   process.exit(1);
 });
