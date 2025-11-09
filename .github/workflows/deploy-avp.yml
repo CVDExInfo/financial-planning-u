@@ -1,0 +1,157 @@
+name: Deploy AVP (Finanzas)
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Stage (dev|stg|prod)"
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - stg
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+
+jobs:
+  deploy-avp:
+    runs-on: ubuntu-latest
+    outputs:
+      policy_store_id: ${{ steps.output_store_id.outputs.policy_store_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Normalize line endings for local actions
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y dos2unix
+          find .github/actions -type f -print0 | xargs -0 dos2unix || true
+
+      - name: Configure AWS (OIDC)
+        uses: ./.github/actions/oidc-configure-aws
+        with:
+          role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          session_name: deploy-avp-${{ github.run_id }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Deploy AVP Policy Store
+        id: deploy_stack
+        working-directory: services/finanzas-api
+        run: |
+          set -euo pipefail
+          STACK_NAME="finanzas-avp-${{ inputs.stage }}"
+          echo "Deploying AVP Policy Store: $STACK_NAME"
+          
+          aws cloudformation deploy \
+            --template-file avp-policy-store.yaml \
+            --stack-name "$STACK_NAME" \
+            --capabilities CAPABILITY_IAM \
+            --parameter-overrides \
+              PolicyStoreName="FinanzasPolicyStore-${{ inputs.stage }}" \
+              ValidationMode=STRICT \
+            --no-fail-on-empty-changeset
+          
+          echo "stack_name=$STACK_NAME" >> $GITHUB_OUTPUT
+
+      - name: Get Policy Store ID
+        id: output_store_id
+        run: |
+          set -euo pipefail
+          STACK_NAME="${{ steps.deploy_stack.outputs.stack_name }}"
+          
+          POLICY_STORE_ID=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query 'Stacks[0].Outputs[?OutputKey==`PolicyStoreId`].OutputValue' \
+            --output text)
+          
+          if [ -z "$POLICY_STORE_ID" ] || [ "$POLICY_STORE_ID" = "None" ]; then
+            echo "❌ Failed to retrieve Policy Store ID from stack outputs"
+            exit 1
+          fi
+          
+          echo "Policy Store ID: $POLICY_STORE_ID"
+          echo "policy_store_id=$POLICY_STORE_ID" >> $GITHUB_OUTPUT
+          echo "POLICY_STORE_ID=$POLICY_STORE_ID" >> $GITHUB_ENV
+
+      - name: Verify Policy Store
+        run: |
+          set -euo pipefail
+          POLICY_STORE_ID="${{ steps.output_store_id.outputs.policy_store_id }}"
+          
+          echo "Verifying policy store: $POLICY_STORE_ID"
+          
+          # Get policy store details
+          STORE_INFO=$(aws verifiedpermissions get-policy-store \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --query '{arn:arn,validationMode:validationSettings.mode,createdDate:createdDate}' \
+            --output json)
+          
+          echo "Policy Store Details:"
+          echo "$STORE_INFO" | jq .
+          
+          # List policies
+          POLICY_COUNT=$(aws verifiedpermissions list-policies \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --max-results 100 \
+            --query 'length(policies)' \
+            --output text)
+          
+          echo "Total policies in store: $POLICY_COUNT"
+          
+          # List policy templates
+          TEMPLATE_COUNT=$(aws verifiedpermissions list-policy-templates \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --max-results 100 \
+            --query 'length(policyTemplates)' \
+            --output text)
+          
+          echo "Total policy templates in store: $TEMPLATE_COUNT"
+
+      - name: Summary
+        run: |
+          {
+            echo "## 🔐 AVP Policy Store Deployed"
+            echo ""
+            echo "### Deployment Details"
+            echo "| Property | Value |"
+            echo "|----------|-------|"
+            echo "| Region | ${{ env.AWS_REGION }} |"
+            echo "| Stack | ${{ steps.deploy_stack.outputs.stack_name }} |"
+            echo "| Stage | ${{ inputs.stage }} |"
+            echo "| Policy Store ID | ${{ steps.output_store_id.outputs.policy_store_id }} |"
+            echo ""
+            echo "### Next Steps"
+            echo ""
+            echo "1. **Update GitHub Secrets/Variables**: Add the following to repository variables:"
+            echo '   ```'
+            echo "   POLICY_STORE_ID_${{ inputs.stage }}=${{ steps.output_store_id.outputs.policy_store_id }}"
+            echo '   ```'
+            echo ""
+            echo "2. **Deploy API**: Run the API deployment workflow with this Policy Store ID"
+            echo ""
+            echo "3. **Verify Integration**: Check Lambda logs for AVP authorization calls"
+            echo ""
+            echo "### Verification Commands"
+            echo '```bash'
+            echo "# List policy stores"
+            echo "aws verifiedpermissions list-policy-stores --region ${{ env.AWS_REGION }}"
+            echo ""
+            echo "# Get schema"
+            echo "aws verifiedpermissions get-schema --region ${{ env.AWS_REGION }} \\"
+            echo "  --policy-store-id ${{ steps.output_store_id.outputs.policy_store_id }}"
+            echo ""
+            echo "# List policies"
+            echo "aws verifiedpermissions list-policies --region ${{ env.AWS_REGION }} \\"
+            echo "  --policy-store-id ${{ steps.output_store_id.outputs.policy_store_id }}"
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
