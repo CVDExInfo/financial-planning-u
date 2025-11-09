@@ -226,6 +226,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     } catch (err) {
       // Clear any partial tokens on error
+      localStorage.removeItem("cv.jwt");
       localStorage.removeItem("finz_jwt");
       localStorage.removeItem("finz_refresh_token");
 
@@ -272,6 +273,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
               current_role: defaultRole,
             };
 
+            // Ensure token is stored in both cv.jwt and finz_jwt for cross-module compatibility
+            // If user logged into PMO first and navigates to Finanzas, this ensures the token is available
+            const cvJwt = localStorage.getItem("cv.jwt");
+            const finzJwt = localStorage.getItem("finz_jwt");
+            if (cvJwt && !finzJwt) {
+              localStorage.setItem("finz_jwt", cvJwt);
+            } else if (finzJwt && !cvJwt) {
+              localStorage.setItem("cv.jwt", finzJwt);
+            }
+
             setUser(authenticatedUser);
             setAvailableRoles(authenticatedUser.roles);
             setIsLoading(false);
@@ -279,11 +290,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           } else {
             // Expired or invalid: clear and continue
             console.warn("[Auth] JWT expired or invalid, clearing");
+            localStorage.removeItem("cv.jwt");
             localStorage.removeItem("finz_jwt");
             localStorage.removeItem("finz_refresh_token");
           }
         } catch (e) {
           console.warn("[Auth] Failed to process JWT:", e);
+          localStorage.removeItem("cv.jwt");
           localStorage.removeItem("finz_jwt");
           localStorage.removeItem("finz_refresh_token");
         }
