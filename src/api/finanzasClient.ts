@@ -34,6 +34,33 @@ export const RubroListSchema = z.object({
 
 export type Rubro = z.infer<typeof RubroSchema>;
 
+// Allocation Rules Schema
+export const AllocationRuleSchema = z.object({
+  rule_id: z.string(),
+  linea_codigo: z.string(),
+  driver: z.string(),
+  split: z
+    .array(
+      z.object({
+        to: z.object({
+          project_id: z.string().optional(),
+          cost_center: z.string().optional(),
+        }),
+        pct: z.number(),
+      })
+    )
+    .optional(),
+  fixed_amount: z.number().optional(),
+  active: z.boolean(),
+  priority: z.number().optional(),
+});
+
+export const AllocationRuleListSchema = z.object({
+  data: z.array(AllocationRuleSchema),
+});
+
+export type AllocationRule = z.infer<typeof AllocationRuleSchema>;
+
 function getAuthHeader(): Record<string, string> {
   // Priority: 1) localStorage token, 2) static test token from env (for dev/CI)
   const token = localStorage.getItem("finz_jwt") || STATIC_TEST_TOKEN;
@@ -75,6 +102,16 @@ export const finanzasClient = {
     if (!parsed.success) {
       console.error(parsed.error);
       throw new Error("Invalid rubros response");
+    }
+    return parsed.data.data;
+  },
+
+  async getAllocationRules(): Promise<AllocationRule[]> {
+    const data = await http<{ data: unknown }>("/allocation-rules");
+    const parsed = AllocationRuleListSchema.safeParse(data);
+    if (!parsed.success) {
+      console.error(parsed.error);
+      throw new Error("Invalid allocation rules response");
     }
     return parsed.data.data;
   },

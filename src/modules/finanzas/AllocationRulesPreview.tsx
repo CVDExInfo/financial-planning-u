@@ -1,37 +1,30 @@
 import { useEffect, useState } from "react";
-
-type Rule = {
-  rule_id: string;
-  linea_codigo: string;
-  driver: string;
-  split?: { to: { project_id?: string; cost_center?: string }; pct: number }[];
-  fixed_amount?: number;
-  active: boolean;
-};
+import finanzasClient, { AllocationRule } from "@/api/finanzasClient";
 
 export default function AllocationRulesPreview() {
-  const [rules, setRules] = useState<Rule[]>([]);
+  const [rules, setRules] = useState<AllocationRule[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       try {
-        const base =
-          import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "") || "";
-        const res = await fetch(`${base}/allocation-rules`, {
-          headers: { Accept: "application/json" },
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        setRules(json.data || []);
+        setLoading(true);
+        const data = await finanzasClient.getAllocationRules();
+        if (!cancelled) setRules(data);
       } catch (e: any) {
-        setError(e.message || "Failed loading rules");
+        console.error(e);
+        if (!cancelled)
+          setError(e?.message || "Failed loading allocation rules");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loading)
