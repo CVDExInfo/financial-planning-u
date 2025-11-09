@@ -5,6 +5,7 @@ set -euo pipefail
 
 STACK_NAME=${STACK_NAME:-finanzas-sd-api-dev}
 REGION=${AWS_REGION:-us-east-2}
+STAGE=${STAGE:-dev}
 : "${CLIENT_ID:?CLIENT_ID required}" 
 : "${USERNAME:?USERNAME required}" 
 : "${PASSWORD:?PASSWORD required}" 
@@ -21,6 +22,7 @@ if [[ -z "$API_URL" || "$API_URL" == "None" ]]; then
 fi
 
 echo "[info] API_URL=$API_URL"
+echo "[info] STAGE=$STAGE"
 
 echo "[info] Initiating USER_PASSWORD_AUTH to fetch tokens" >&2
 AUTH_JSON=$(aws cognito-idp initiate-auth \
@@ -78,7 +80,7 @@ run_call /allocation-rules
 run_call /adjustments
 
 echo "[info] Recent access log lines (last 2m) (showing any 401)" >&2
-LOG_GROUP="/aws/http-api/dev/finz-access"
+LOG_GROUP="/aws/http-api/${STAGE}/finz-access"
 aws logs tail "$LOG_GROUP" --since 2m --region "$REGION" 2>/dev/null | grep -E ' 401 |"401"' || echo "[warn] No access log events or insufficient permissions" >&2
 
 echo "[done]" >&2

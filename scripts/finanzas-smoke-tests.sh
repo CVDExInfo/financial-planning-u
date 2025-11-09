@@ -4,19 +4,35 @@
 # Run this after deployment to verify Finanzas SPA is correctly served from CloudFront
 # and API Gateway is accessible.
 #
-# Usage: bash scripts/finanzas-smoke-tests.sh [cognito-username] [cognito-password]
+# Usage: bash scripts/finanzas-smoke-tests.sh [cognito-username] [cognito-password] [environment]
+#
+# Environment: prod or dev (default: dev)
 #
 
 set -euo pipefail
+
+# Environment selection (prod or dev)
+ENVIRONMENT=${3:-${ENVIRONMENT:-dev}}
 
 # Source of Truth - HARD VALUES
 CF_DIST="EPQU7PVDLQXUA"
 CF_DOMAIN="d7t9x3j66yd8k.cloudfront.net"
 CF_URL="https://${CF_DOMAIN}"
 FINANZAS_URL="${CF_URL}/finanzas"
-API_BASE="https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev"
+
+# API base URL based on environment
+if [ "$ENVIRONMENT" = "prod" ]; then
+  API_BASE="https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/prod"
+else
+  API_BASE="https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev"
+fi
+
 COGNITO_CLIENT_ID="dshos5iou44tuach7ta3ici5m"
 AWS_REGION="us-east-2"
+
+echo "🚀 Running smoke tests for environment: $ENVIRONMENT"
+echo "   API Base: $API_BASE"
+echo ""
 
 # Colors
 RED='\033[0;31m'

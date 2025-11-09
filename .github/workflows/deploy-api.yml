@@ -1,9 +1,10 @@
-name: Deploy Finanzas API (dev)
+name: Deploy Finanzas API
 on:
   push:
     branches:
       - "module/finanzas-api-mvp"
       - "r1-finanzas-dev-wiring"
+      - "main"
   workflow_dispatch: {}
 
 permissions:
@@ -12,8 +13,11 @@ permissions:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
-  FINZ_API_STACK: ${{ vars.FINZ_API_STACK || 'finanzas-sd-api-dev' }}
-  FINZ_API_STAGE: ${{ vars.FINZ_API_STAGE || 'dev' }}
+  # Determine environment based on branch
+  DEPLOYMENT_ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+  # Use prod stack and stage for main branch, dev otherwise
+  FINZ_API_STACK: ${{ github.ref == 'refs/heads/main' && 'finanzas-sd-api-prod' || (vars.FINZ_API_STACK || 'finanzas-sd-api-dev') }}
+  FINZ_API_STAGE: ${{ github.ref == 'refs/heads/main' && 'prod' || (vars.FINZ_API_STAGE || 'dev') }}
   COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }} # required
   COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }} # required
   COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }} # required
@@ -35,10 +39,15 @@ jobs:
       - name: Preflight env
         run: |
           set -euo pipefail
+          echo "🚀 Deployment Environment: ${DEPLOYMENT_ENV}"
+          echo "📦 Stack Name: ${FINZ_API_STACK}"
+          echo "🔌 Stage: ${FINZ_API_STAGE}"
+          echo "🌐 Region: ${AWS_REGION}"
+          echo "🔑 Expected API ID: ${EXPECTED_API_ID}"
           for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_USER_POOL_ARN; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ $k is empty"; exit 1; }
           done
-          echo "Env OK"
+          echo "✅ Env OK"
 
       - name: Configure AWS (OIDC)
         uses: ./.github/actions/oidc-configure-aws
@@ -277,11 +286,12 @@ jobs:
       - name: Summary
         run: |
           {
-            echo "## 🚀 Finanzas API (dev) deployed"
+            echo "## 🚀 Finanzas API (${DEPLOYMENT_ENV}) deployed"
             echo ""
             echo "### Deployment Details"
             echo "| Property | Value |"
             echo "|----------|-------|"
+            echo "| **Environment** | **${DEPLOYMENT_ENV}** |"
             echo "| Region | ${AWS_REGION} |"
             echo "| Stack | ${FINZ_API_STACK} |"
             echo "| Stage | ${FINZ_API_STAGE} |"
