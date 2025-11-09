@@ -354,8 +354,7 @@ jobs:
           
           # Install newman if not present
           if ! command -v newman &> /dev/null; then
-            npm install -g newman || echo "Newman install failed, skipping tests"
-            exit 0
+            npm install -g newman
           fi
           
           # Run Newman tests
