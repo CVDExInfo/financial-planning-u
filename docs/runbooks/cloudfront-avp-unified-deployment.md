@@ -118,9 +118,18 @@ The workflow performs the following automated steps:
 
 2. **Deploy CloudFront Function (Path Rewrite)**
    - Creates or updates the function: `finanzas-sd-dev-api-path-rewrite`
-   - Function strips `/finanzas/api` prefix from incoming URIs
+   - Function strips `/finanzas/api` prefix from incoming URIs before they reach the origin
    - Example: `GET /finanzas/api/projects` → origin receives `/projects`
-   - Function is published and its ARN is captured
+   - Function code:
+     ```javascript
+     function handler(event) {
+       var r = event.request;
+       if (r.uri.startsWith('/finanzas/api/')) r.uri = r.uri.replace(/^\/finanzas\/api/, '');
+       else if (r.uri === '/finanzas/api') r.uri = '/';
+       return r;
+     }
+     ```
+   - Function is published and its ARN is captured for cache behavior association
 
 3. **Merge API Origin**
    - Fetches current distribution config with ETag for concurrency control
@@ -134,9 +143,9 @@ The workflow performs the following automated steps:
    - Routes matching requests to `ApiGwOrigin`
    - Redirects HTTP to HTTPS
    - Allows all standard HTTP methods (GET, POST, PUT, DELETE, etc.)
-   - Uses managed `CachingDisabled` policy (no caching for dynamic API)
+   - Uses managed `CachingDisabled` policy (ID: `413f1601-64f1-4fe4-b6e4-48c1c1b29f7e`) for dynamic API responses
    - Attaches CloudFront Function for path rewriting on viewer requests
-   - Uses managed origin request policy to forward all headers including `Authorization`
+   - Uses managed `AllViewerExceptHostHeader` origin request policy (ID: `b689b0a8-53d0-40ab-baf2-68738e2966ac`) to forward all viewer headers including `Authorization`
 
 5. **Ensure SPA Fallback Errors**
    - Adds custom error responses for HTTP 403 and 404
@@ -146,6 +155,17 @@ The workflow performs the following automated steps:
 6. **Update CloudFront Distribution**
    - Updates distribution via AWS CLI using captured ETag
    - Finanzas UI (`/finanzas/*`) and API (`/finanzas/api/*`) behaviors are configured
+
+**Complete Request Flow Example:**
+
+Browser makes request: `https://d7t9x3j66yd8k.cloudfront.net/finanzas/api/health`
+1. CloudFront receives request at `/finanzas/api/health`
+2. Path pattern `/finanzas/api/*` matches, routes to `ApiGwOrigin`
+3. CloudFront Function rewrites path: `/finanzas/api/health` → `/health`
+4. CloudFront adds OriginPath: `/dev` + `/health` = `/dev/health`
+5. Request sent to: `https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/health`
+6. API Gateway processes request with Cognito JWT authorization
+7. Response returned through CloudFront to browser
 
 #### 1.3 Verify CloudFront Changes
 
@@ -231,11 +251,13 @@ gh workflow run deploy-avp.yml -f stage=dev
 1. **Deploy CloudFormation Stack**
    - Stack name: `finanzas-avp-dev`
    - Template: `services/finanzas-api/avp-policy-store.yaml`
-   - Creates AVP policy store with strict validation mode
-   - Deploys static Cedar policies and policy templates
+   - Creates AVP policy store with `ValidationMode=STRICT` (enforces Cedar schema validation)
+   - Deploys static Cedar policies (health, catalog, project access)
+   - Deploys policy templates (project member access, finance write, close month)
 
 2. **Retrieve Policy Store ID**
-   - Extracts `PolicyStoreId` from CloudFormation outputs
+   - Extracts `PolicyStoreId` from CloudFormation stack outputs
+   - Output key: `PolicyStoreId`
    - Displays in workflow summary
 
 3. **Verify Policy Store**
