@@ -25,7 +25,9 @@ console.log(
   } (BUILD_TARGET=${buildTarget})`
 );
 
-export default defineConfig(() => ({
+export default defineConfig(() => {
+  const outDir = isPmo ? "dist-pmo" : "dist-finanzas";
+  return {
   base: isPmo ? "/" : "/finanzas/",
   define: {
     // Pass build target to frontend so it can set correct basename
@@ -42,7 +44,7 @@ export default defineConfig(() => ({
     tailwindcss(),
     // DO NOT REMOVE
     createIconImportProxy() as PluginOption,
-    sparkPlugin() as PluginOption,
+    sparkPlugin({ outputDir: outDir }) as PluginOption,
   ],
   resolve: {
     alias: {
@@ -62,10 +64,11 @@ export default defineConfig(() => ({
     ],
   },
   build: {
-    outDir: isPmo ? "dist-pmo" : "dist-finanzas",
+    outDir: outDir,
     commonjsOptions: {
       include: [/node_modules/],
       transformMixedEsModules: true,
     },
   },
-}));
+};
+});
