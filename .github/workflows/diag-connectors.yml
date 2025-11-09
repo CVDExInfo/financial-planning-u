@@ -1,0 +1,82 @@
+name: diag-connectors-and-routing
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Stage to inspect (dev|stg|prod)"
+        required: true
+        default: "dev"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+  # Expected repo variables (adjust if your names differ)
+  CF_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DIST_ID }}
+  DEV_API_URL: ${{ vars.DEV_API_URL }}
+  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Who am I (GitHub)
+        run: |
+          echo "Repo: $GITHUB_REPOSITORY" >> $GITHUB_STEP_SUMMARY
+          echo "Actor: $GITHUB_ACTOR" >> $GITHUB_STEP_SUMMARY
+
+      - name: Configure AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify STS identity
+        run: |
+          aws sts get-caller-identity | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Check CloudFront behavior for /finanzas/*
+        if: env.CF_DISTRIBUTION_ID != ''
+        run: |
+          aws cloudfront get-distribution-config --id "$CF_DISTRIBUTION_ID" > cf.json
+          cat cf.json >> $GITHUB_STEP_SUMMARY
+          HIT=$(jq -r '.DistributionConfig.CacheBehaviors.Items[]? | select(.PathPattern=="/finanzas/*") | .PathPattern' cf.json)
+          if [ -z "$HIT" ]; then
+            echo ":x: Missing CloudFront behavior for /finanzas/*" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo ":white_check_mark: Found behavior for /finanzas/*" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: SPA fallback (404->/index.html) present?
+        if: env.CF_DISTRIBUTION_ID != ''
+        run: |
+          ERR=$(jq -r '.DistributionConfig.CustomErrorResponses.Items[]? | select(.ErrorCode==404) | .ResponsePagePath' cf.json)
+          if [ "$ERR" != "/index.html" ]; then
+            echo ":x: 404 fallback to /index.html not configured" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo ":white_check_mark: 404 fallback to /index.html is set" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: FE envs (build-time)
+        run: |
+          echo "VITE_API_BASE_URL=${VITE_API_BASE_URL}" >> $GITHUB_STEP_SUMMARY
+          if [ -z "${VITE_API_BASE_URL}" ]; then
+            echo ":x: VITE_API_BASE_URL is empty; Finanzas routes will not work" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo ":white_check_mark: VITE_API_BASE_URL present" >> $GITHUB_STEP_SUMMARY
+
+      - name: Detect AVP wiring (optional)
+        run: |
+          if [ -f services/finanzas-api/security/avp.yaml ]; then
+            echo ":white_check_mark: AVP IaC detected" >> $GITHUB_STEP_SUMMARY
+          else
+            echo ":warning: No AVP stack found (services/finanzas-api/security/avp.yaml missing)" >> $GITHUB_STEP_SUMMARY
+          fi
