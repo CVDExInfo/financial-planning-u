@@ -6,8 +6,8 @@ flowchart TB
   end
 
   subgraph System[Finanzas SD System]
-    S1[Persist request (DDB)]
-    S2[Generate PDF with folio/sello (S3)]
+    S1["Persist request (DDB)"]
+    S2["Generate PDF with folio/sello (S3)"]
     S3[Send initial email]
     S4[72h reminder if pending]
     S5[Write audit events]
