@@ -1,0 +1,16 @@
+sequenceDiagram
+  participant UI as UI (SPA)
+  participant API as API GW + Lambda
+  participant DDB as DynamoDB
+  participant S3 as S3 (PDFs)
+  participant SP as SharePoint (Graph)
+  participant CW as CloudWatch
+
+  UI->>API: POST /prefacturas (JWT)
+  API->>DDB: PutItem PrefacturaRequest + Audit
+  API->>S3: PutObject PDF (folio/sello)
+  API->>DDB: Update PrefacturaRequest (doc link)
+  API-->>UI: 201 + links
+  API->>SP: Deposit PDF + metadata
+  API->>DDB: Update PrefacturaRequest (SharePoint ref)
+  API->>CW: Logs/metrics

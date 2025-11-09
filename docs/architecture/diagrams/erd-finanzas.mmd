@@ -1,0 +1,165 @@
+classDiagram
+  class User {
+    uuid user_id
+    email
+    display_name
+  }
+
+  class Role {
+    name (SDT|PM|FIN|AUD)
+  }
+
+  class CognitoGroup {
+    group_name
+  }
+
+  class Project {
+    project_id
+    name
+    pm_user_id
+    status
+  }
+
+  class Rubro {
+    rubro_id
+    name
+    cost_center
+    imput_rules/json
+  }
+
+  class Allocation {
+    allocation_id
+    project_id
+    rubro_id
+    amount_budgeted
+    amount_committed
+    amount_actual
+    period(YYYY-MM)
+  }
+
+  class PayrollActual {
+    payroll_id
+    project_id
+    employee_id
+    amount
+    period(YYYY-MM)
+  }
+
+  class Adjustment {
+    adjustment_id
+    project_id
+    rubro_id
+    amount
+    reason
+    created_at
+  }
+
+  class Alert {
+    alert_id
+    project_id
+    type
+    payload/json
+    created_at
+  }
+
+  class Provider {
+    provider_id
+    name
+    tax_id
+    contact_email
+  }
+
+  class AuditLog {
+    audit_id
+    entity
+    entity_id
+    action
+    actor_user_id
+    timestamp
+    metadata/json
+  }
+
+  %% Pre-facturas domain
+  class PrefacturaRequest {
+    pref_id
+    project_id
+    provider_id
+    rubro_id
+    amount
+    currency
+    created_by
+    status(draft|submitted|approved|rejected|archived)
+    created_at
+  }
+
+  class ApprovalEvent {
+    approval_id
+    pref_id
+    actor_user_id
+    decision(approve|reject)
+    comment
+    timestamp
+  }
+
+  class Document {
+    doc_id
+    pref_id
+    s3_key
+    sha256
+    folio
+    stamped_at
+  }
+
+  class SharepointDeposit {
+    sp_id
+    pref_id
+    sp_site
+    sp_path
+    deposited_at
+  }
+
+  class NotificationLog {
+    notif_id
+    pref_id
+    recipient_email
+    type(initial|reminder72h)
+    channel(email)
+    sent_at
+    status
+  }
+
+  %% Actors (explicit)
+  class ServiceDeliveryManager {
+    user_id
+  }
+
+  class ProjectManager {
+    user_id
+  }
+
+  %% Relationships
+  User "1" -- "many" Role : has
+  Role "1" -- "many" CognitoGroup : maps_to
+  User "1" -- "many" Project : may_manage (PM)
+
+  Project "1" -- "many" Allocation : has
+  Project "1" -- "many" PayrollActual : has
+  Project "1" -- "many" Adjustment : has
+  Project "1" -- "many" Alert : raises
+  Project "1" -- "many" PrefacturaRequest : requests
+
+  Rubro "1" -- "many" Allocation : classifies
+  Rubro "1" -- "many" PrefacturaRequest : classifies
+  Provider "1" -- "many" PrefacturaRequest : issues
+
+  PrefacturaRequest "1" -- "many" ApprovalEvent : lifecycle
+  PrefacturaRequest "1" -- "many" Document : produces
+  PrefacturaRequest "1" -- "many" NotificationLog : notifies
+  PrefacturaRequest "1" -- "0..1" SharepointDeposit : deposited
+
+  ServiceDeliveryManager "1" -- "many" Project : oversees
+  ProjectManager "1" -- "many" PrefacturaRequest : approves
+  User "1" -- "many" ApprovalEvent : acts
+  AuditLog ..> User : actor
+  AuditLog ..> PrefacturaRequest : tracks
+  AuditLog ..> Project : tracks
