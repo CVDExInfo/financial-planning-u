@@ -18,6 +18,7 @@ env:
   COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }} # required
   COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }} # required
   EXPECTED_API_ID: ${{ vars.FINZ_EXPECTED_API_ID || 'm3g6am67aj' }}
+  POLICY_STORE_ID: ${{ vars.POLICY_STORE_ID || '' }} # optional, from AVP deployment
 
 jobs:
   deploy-api:
@@ -48,6 +49,41 @@ jobs:
 
       - name: Verify identity (fail fast)
         run: aws sts get-caller-identity
+
+      - name: Preflight - Verify AVP Policy Store (optional)
+        id: avp_check
+        run: |
+          set -euo pipefail
+          if [ -n "${POLICY_STORE_ID:-}" ]; then
+            echo "Verifying AVP Policy Store: $POLICY_STORE_ID"
+            
+            # Check if policy store exists
+            if aws verifiedpermissions get-policy-store \
+              --region "${AWS_REGION}" \
+              --policy-store-id "$POLICY_STORE_ID" \
+              --query 'policyStoreId' --output text >/dev/null 2>&1; then
+              
+              echo "✅ AVP Policy Store verified: $POLICY_STORE_ID"
+              echo "avp_enabled=true" >> $GITHUB_OUTPUT
+              
+              # Optional: Verify schema exists
+              if aws verifiedpermissions get-schema \
+                --region "${AWS_REGION}" \
+                --policy-store-id "$POLICY_STORE_ID" \
+                --query 'schema' --output text >/dev/null 2>&1; then
+                echo "✅ AVP Schema verified"
+              else
+                echo "⚠️  Warning: AVP Policy Store exists but schema not found"
+              fi
+            else
+              echo "❌ AVP Policy Store not found: $POLICY_STORE_ID"
+              echo "Run 'Deploy AVP' workflow first to provision the policy store"
+              exit 1
+            fi
+          else
+            echo "ℹ️  POLICY_STORE_ID not set - AVP authorization will be skipped"
+            echo "avp_enabled=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Install SAM CLI
         run: |
@@ -89,7 +125,8 @@ jobs:
               CognitoUserPoolArn=${{ env.COGNITO_USER_POOL_ARN }} \
               CognitoUserPoolId=${{ env.COGNITO_USER_POOL_ID }} \
               CognitoUserPoolClientId=${{ env.COGNITO_WEB_CLIENT }} \
-              StageName=${{ env.FINZ_API_STAGE }}
+              StageName=${{ env.FINZ_API_STAGE }} \
+              PolicyStoreId="${POLICY_STORE_ID:-}"
 
       - name: Output API info
         id: out
@@ -251,6 +288,10 @@ jobs:
             echo "| API ID | ${{ steps.out.outputs.api_id }} |"
             echo "| API URL | ${{ steps.out.outputs.api_url }} |"
             echo "| Expected API ID | ${EXPECTED_API_ID} |"
+            echo "| AVP Enabled | ${{ steps.avp_check.outputs.avp_enabled || 'false' }} |"
+            if [ -n "${POLICY_STORE_ID:-}" ]; then
+              echo "| Policy Store ID | ${POLICY_STORE_ID} |"
+            fi
             echo ""
             echo "### Authentication"
             echo "- **Authorizer**: CognitoJwt"

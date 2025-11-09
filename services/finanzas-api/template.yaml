@@ -27,6 +27,10 @@ Parameters:
     Type: String
     Default: 'https://d7t9x3j66yd8k.cloudfront.net'
     Description: CloudFront domain for CORS (e.g., https://d7t9x3j66yd8k.cloudfront.net)
+  PolicyStoreId:
+    Type: String
+    Default: ""
+    Description: Amazon Verified Permissions Policy Store ID (optional, for fine-grained authorization)
 
 Globals:
   Function:
@@ -48,6 +52,7 @@ Globals:
         TABLE_PROVIDERS: !Sub "${TablePrefix}providers"
         TABLE_AUDIT: !Sub "${TablePrefix}audit_log"
         STAGE_NAME: !Ref StageName
+        POLICY_STORE_ID: !Ref PolicyStoreId
 
 Resources:
   # ========== DynamoDB tables ==========
@@ -239,6 +244,12 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:
             TableName: !Ref ProjectsTable
+        - Statement:
+            - Sid: AVPIsAuthorizedWithToken
+              Effect: Allow
+              Action:
+                - verifiedpermissions:IsAuthorizedWithToken
+              Resource: !Sub "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*"
       Events:
         CreateProject:
           Type: HttpApi
@@ -424,6 +435,12 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:
             TableName: !Ref AllocationsTable
+        - Statement:
+            - Sid: AVPIsAuthorizedWithToken
+              Effect: Allow
+              Action:
+                - verifiedpermissions:IsAuthorizedWithToken
+              Resource: !Sub "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*"
       Events:
         BulkAllocations:
           Type: HttpApi
@@ -519,6 +536,12 @@ Resources:
             TableName: !Ref ProjectsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref AllocationsTable
+        - Statement:
+            - Sid: AVPIsAuthorizedWithToken
+              Effect: Allow
+              Action:
+                - verifiedpermissions:IsAuthorizedWithToken
+              Resource: !Sub "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*"
       Events:
         CloseMonth:
           Type: HttpApi
@@ -548,6 +571,12 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:
             TableName: !Ref AdjustmentsTable
+        - Statement:
+            - Sid: AVPIsAuthorizedWithToken
+              Effect: Allow
+              Action:
+                - verifiedpermissions:IsAuthorizedWithToken
+              Resource: !Sub "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*"
       Events:
         CreateAdjustment:
           Type: HttpApi
