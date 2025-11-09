@@ -1,0 +1,163 @@
+name: diag-connectors-and-routing
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Stage to inspect (dev|stg|prod)"
+        required: true
+        default: "dev"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+  # Stage-specific repo variables (stage is selected via workflow input)
+  CF_DISTRIBUTION_ID: ${{ inputs.stage == 'prod' && vars.CLOUDFRONT_DIST_ID_PROD || (inputs.stage == 'stg' && vars.CLOUDFRONT_DIST_ID_STG || vars.CLOUDFRONT_DIST_ID) }}
+  DEV_API_URL: ${{ inputs.stage == 'prod' && vars.PROD_API_URL || (inputs.stage == 'stg' && vars.STG_API_URL || vars.DEV_API_URL) }}
+  VITE_API_BASE_URL: ${{ inputs.stage == 'prod' && vars.VITE_API_BASE_URL_PROD || (inputs.stage == 'stg' && vars.VITE_API_BASE_URL_STG || vars.VITE_API_BASE_URL) }}
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Who am I (GitHub)
+        run: |
+          echo "# Diagnostic Report: CloudFront & Environment Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository**: $GITHUB_REPOSITORY" >> $GITHUB_STEP_SUMMARY
+          echo "**Actor**: $GITHUB_ACTOR" >> $GITHUB_STEP_SUMMARY
+          echo "**Stage**: ${{ inputs.stage }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow Run**: #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Configure AWS via OIDC
+        uses: ./.github/actions/oidc-configure-aws
+        with:
+          role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          session_name: diag-${{ github.run_id }}
+
+      - name: Verify STS identity
+        run: |
+          echo "## AWS Authentication" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo ":white_check_mark: Successfully authenticated via OIDC" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          aws sts get-caller-identity >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check CloudFront behavior for /finanzas/*
+        if: env.CF_DISTRIBUTION_ID != ''
+        continue-on-error: true
+        run: |
+          echo "## CloudFront Diagnostics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          aws cloudfront get-distribution-config --id "$CF_DISTRIBUTION_ID" > cf.json
+
+          # Check /finanzas/* behavior
+          FINANZAS_BEHAVIOR=$(jq -r '.DistributionConfig.CacheBehaviors.Items[]? | select(.PathPattern=="/finanzas/*") | .PathPattern' cf.json)
+          if [ -z "$FINANZAS_BEHAVIOR" ]; then
+            echo ":x: Missing CloudFront behavior for /finanzas/*" >> $GITHUB_STEP_SUMMARY
+            echo "   **Action Required**: Add CloudFront behavior with path pattern /finanzas/*" >> $GITHUB_STEP_SUMMARY
+          else
+            echo ":white_check_mark: Found behavior for /finanzas/*" >> $GITHUB_STEP_SUMMARY
+
+            # Get target origin
+            ORIGIN=$(jq -r '.DistributionConfig.CacheBehaviors.Items[]? | select(.PathPattern=="/finanzas/*") | .TargetOriginId' cf.json)
+            echo "   - Target Origin: $ORIGIN" >> $GITHUB_STEP_SUMMARY
+
+            # (SmoothStreaming property check removed as it is not relevant for SPA applications)
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: SPA fallback (404 and 403 -> /finanzas/index.html) present?
+        if: env.CF_DISTRIBUTION_ID != ''
+        continue-on-error: true
+        run: |
+          echo "## SPA Fallback Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ ! -f cf.json ]; then
+            echo ":warning: cf.json not found. Skipping SPA fallback checks." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          # Check 404 error response
+          ERR_404=$(jq -r '.DistributionConfig.CustomErrorResponses.Items[]? | select(.ErrorCode==404) | .ResponsePagePath' cf.json)
+          if [ -z "$ERR_404" ]; then
+            echo ":x: No 404 error response configured" >> $GITHUB_STEP_SUMMARY
+          elif [ "$ERR_404" != "/finanzas/index.html" ] && [ "$ERR_404" != "/index.html" ]; then
+            echo ":warning: 404 fallback configured but points to: $ERR_404" >> $GITHUB_STEP_SUMMARY
+            echo "   Expected: /finanzas/index.html or /index.html" >> $GITHUB_STEP_SUMMARY
+          else
+            echo ":white_check_mark: 404 fallback to $ERR_404 is set" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Check 403 error response (common for S3 origin)
+          ERR_403=$(jq -r '.DistributionConfig.CustomErrorResponses.Items[]? | select(.ErrorCode==403) | .ResponsePagePath' cf.json)
+          if [ -z "$ERR_403" ]; then
+            echo ":warning: No 403 error response configured (may affect S3 deep linking)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo ":white_check_mark: 403 fallback to $ERR_403 is set" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: FE envs (build-time)
+        continue-on-error: true
+        run: |
+          echo "## Frontend Environment Variables" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- VITE_API_BASE_URL: ${VITE_API_BASE_URL:-'(not set)'}" >> $GITHUB_STEP_SUMMARY
+          echo "- DEV_API_URL: ${DEV_API_URL:-'(not set)'}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -z "${VITE_API_BASE_URL}" ]; then
+            echo ":x: VITE_API_BASE_URL is empty; Finanzas routes will not work" >> $GITHUB_STEP_SUMMARY
+            echo "   **Action Required**: Set VITE_API_BASE_URL repository variable" >> $GITHUB_STEP_SUMMARY
+          else
+            echo ":white_check_mark: VITE_API_BASE_URL is configured" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Detect AVP wiring (optional)
+        continue-on-error: true
+        run: |
+          echo "## AVP (Verified Permissions) Stack" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f services/finanzas-api/security/avp.yaml ]; then
+            echo ":white_check_mark: AVP IaC detected at services/finanzas-api/security/avp.yaml" >> $GITHUB_STEP_SUMMARY
+          else
+            echo ":warning: No AVP stack found (services/finanzas-api/security/avp.yaml missing)" >> $GITHUB_STEP_SUMMARY
+            echo "   This is optional but recommended for RBAC governance" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Diagnostic Summary
+        if: always()
+        run: |
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Based on the diagnostics above:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **If CloudFront /finanzas/* behavior is missing**: Add it manually via AWS Console or Terraform" >> $GITHUB_STEP_SUMMARY
+          echo "2. **If SPA fallback is missing**: Configure 404/403 error responses to /finanzas/index.html" >> $GITHUB_STEP_SUMMARY
+          echo "3. **If VITE_API_BASE_URL is not set**: Add it as a repository variable in GitHub Settings" >> $GITHUB_STEP_SUMMARY
+          echo "4. **If AVP stack is missing**: Consider adding it for enhanced RBAC (optional)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Time completed**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup temporary files
+        if: always()
+        run: |
+          rm -f cf.json
+          echo "Cleaned up temporary diagnostic files"
