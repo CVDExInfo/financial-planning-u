@@ -82,7 +82,6 @@ jobs:
         run: |
           echo "Building PMO Portal (base: /)..."
           BUILD_TARGET=pmo npm run build || { echo "❌ PMO build failed"; exit 1; }
-          mkdir -p tmp-pmo && mv dist/* tmp-pmo/ && rm -rf dist && mv tmp-pmo dist-pmo
           echo "✅ PMO Portal built → dist-pmo/"
 
       - name: "Build Finanzas SDT Portal (base: /finanzas/)"
@@ -119,7 +118,6 @@ jobs:
           echo "  Environment: ${DEPLOYMENT_ENV}"
           echo "  API Base URL: ${VITE_API_BASE_URL}"
           BUILD_TARGET=finanzas npm run build || { echo "❌ Finanzas build failed"; exit 1; }
-          mkdir -p tmp-finanzas && mv dist/* tmp-finanzas/ && rm -rf dist && mv tmp-finanzas dist-finanzas
           echo "✅ Finanzas Portal built → dist-finanzas/"
 
       - name: Configure AWS (OIDC)
