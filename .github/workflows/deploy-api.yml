@@ -220,13 +220,13 @@ jobs:
           echo "Tables: RUBROS=$TABLE_RUBROS TAX=$TABLE_RUBROS_TAXONOMIA"
           TAX_C=0
           if [ -n "${TABLE_RUBROS_TAXONOMIA}" ] && aws dynamodb describe-table --table-name "$TABLE_RUBROS_TAXONOMIA" >/dev/null 2>&1; then
-            npx ts-node --transpile-only --esm scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
+            npx ts-node --project tsconfig.node.json scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
             TAX_C=$(grep -c '^Upserted taxonomía:' seed_tax.log || true)
           else
             echo "Skip taxonomy seed"
           fi
           if aws dynamodb describe-table --table-name "$TABLE_RUBROS" >/dev/null 2>&1; then
-            npx ts-node --transpile-only --esm scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
+            npx ts-node --project tsconfig.node.json scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
             RUB_C=$(grep -c '^Upserted rubro:' seed_rub.log || true)
           else
             echo "❌ Rubros table not found"; exit 1
