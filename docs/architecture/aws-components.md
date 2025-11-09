@@ -11,8 +11,8 @@ flowchart LR
     UI -->|HTTPs| CF
 
     subgraph API[API Layer]
-      APIGW[API Gateway HTTP API]\nStage: dev
-      COG[Cognito User Pool]\nJWT Authorizer
+      APIGW["API Gateway HTTP API<br/>Stage: dev"]
+      COG["Cognito User Pool<br/>JWT Authorizer"]
       L1[Lambda: health]
       L2[Lambda: catalog]
       L3[Lambda: allocation-rules]

@@ -1,11 +1,11 @@
 flowchart LR
   DEV[Developer Commit/PR] --> GA[GitHub Actions (OIDC)]
-  GA --> T1[Unit & API contract tests\n(Newman + mocks)]
+  GA --> T1["Unit & API contract tests<br/>(Newman + mocks)"]
   GA --> B1[SAM build]
   GA --> D1[SAM deploy finanzas-sd-api (dev)]
   GA --> U1[Vite build & deploy UI (preview)]
   GA --> O1[Deploy Observability stack]
-  D1 --> SUM[$GITHUB_STEP_SUMMARY\nApiId/URL/Smoke (/health)]
+  D1 --> SUM["$GITHUB_STEP_SUMMARY<br/>ApiId/URL/Smoke (/health)"]
   U1 --> SUM
   O1 --> SUM
   SUM --> APPROVE[Stage Promotion (stg/prod)]
