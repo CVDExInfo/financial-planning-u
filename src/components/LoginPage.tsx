@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, LogIn, AlertCircle } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { loginWithHostedUI } from "@/config/aws";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -126,6 +127,29 @@ export function LoginPage() {
                 )}
               </Button>
             </form>
+
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            {/* Hosted UI Login Button */}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={loginWithHostedUI}
+              disabled={isLoading}
+              className="w-full"
+            >
+              Sign in with Cognito Hosted UI
+            </Button>
 
             {/* Demo Credentials (Development) */}
             <div className="p-4 rounded-lg bg-muted/50 border border-border/50 space-y-3">

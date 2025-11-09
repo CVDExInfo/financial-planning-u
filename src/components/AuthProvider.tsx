@@ -299,6 +299,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.removeItem("finz_jwt");
     localStorage.removeItem("finz_refresh_token");
     localStorage.removeItem("cv.jwt");
+    localStorage.removeItem("cv.module");
 
     setUser(null);
     setCurrentRole("PMO");
@@ -306,6 +307,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null);
 
     toast.success("Signed out successfully");
+
+    // For Finanzas-only build, redirect to login
+    // For PMO build or dual-module, stay on current path (will show login if needed)
+    if (import.meta.env.VITE_FINZ_ENABLED === "true") {
+      // Redirect to Finanzas home (which will show login page due to no auth)
+      setTimeout(() => {
+        window.location.href = "/finanzas/";
+      }, 500);
+    }
   };
 
   const setRole = (role: UserRole): void => {

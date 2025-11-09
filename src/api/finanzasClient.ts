@@ -62,8 +62,11 @@ export const AllocationRuleListSchema = z.object({
 export type AllocationRule = z.infer<typeof AllocationRuleSchema>;
 
 function getAuthHeader(): Record<string, string> {
-  // Priority: 1) localStorage token, 2) static test token from env (for dev/CI)
-  const token = localStorage.getItem("finz_jwt") || STATIC_TEST_TOKEN;
+  // Priority: 1) Unified cv.jwt, 2) Legacy finz_jwt, 3) Static test token from env (for dev/CI)
+  const token =
+    localStorage.getItem("cv.jwt") ||
+    localStorage.getItem("finz_jwt") ||
+    STATIC_TEST_TOKEN;
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
