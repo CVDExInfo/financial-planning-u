@@ -582,12 +582,6 @@ jobs:
             echo ""
             echo "**Deployment Status**: ✅ Complete"
           } >> $GITHUB_STEP_SUMMARY
-            echo "- **Index.html**: Cache-Control: no-store (always fresh)"
-            echo "- **Assets (immutable)**: Cache-Control: public, max-age=31536000"
-            echo "- **CloudFront TTL**: Depends on cache policy (typically 60s-86400s)"
-            echo ""
-            echo "**Invalidation Status**: In progress (30-60 second propagation expected)"
-          } >> $GITHUB_STEP_SUMMARY
 
       - name: Summary (Legacy)
         run: |

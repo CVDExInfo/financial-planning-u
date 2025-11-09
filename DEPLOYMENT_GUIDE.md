@@ -301,3 +301,289 @@ If deployment causes issues:
 - [AWS CloudFront Cache Behaviors](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesCacheBehavior)
 - [AWS Cognito Hosted UI](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-app-integration.html)
 - [S3 Sync Documentation](https://docs.aws.amazon.com/cli/latest/reference/s3/sync.html)
+
+---
+
+## Finanzas API Deployment
+
+### API Architecture
+
+```
+API Gateway (m3g6am67aj)
+├── /dev (Development stage)
+│   └── Stack: finanzas-sd-api-dev
+└── /prod (Production stage)
+    └── Stack: finanzas-sd-api-prod
+```
+
+### API Deployment Configuration
+
+The API deployment workflow (`deploy-api.yml`) uses branch-based environment detection:
+
+| Branch | Environment | Stack Name | Stage | API URL |
+|--------|-------------|------------|-------|---------|
+| `main` | **prod** | finanzas-sd-api-prod | prod | .../prod |
+| Others | **dev** | finanzas-sd-api-dev | dev | .../dev |
+
+### Production API Deployment
+
+#### Automated Deployment (GitHub Actions)
+
+1. **Trigger**: Push to `main` branch or manual workflow dispatch
+2. **Build**: SAM builds Lambda functions with esbuild
+3. **Deploy**: CloudFormation stack with name `finanzas-sd-api-prod`
+4. **Verify**: Smoke tests for health and catalog endpoints
+5. **Seed**: Populate DynamoDB tables with rubros taxonomy
+
+#### Manual Deployment
+
+If automated deployment fails or for initial setup:
+
+```bash
+# Navigate to API directory
+cd services/finanzas-api
+
+# Install dependencies
+npm ci
+
+# Build with SAM
+sam build
+
+# Deploy to production
+sam deploy \
+  --stack-name finanzas-sd-api-prod \
+  --resolve-s3 \
+  --capabilities CAPABILITY_IAM \
+  --parameter-overrides \
+    CognitoUserPoolArn=arn:aws:cognito-idp:us-east-2:ACCOUNT:userpool/us-east-2_FyHLtOhiY \
+    CognitoUserPoolId=us-east-2_FyHLtOhiY \
+    CognitoUserPoolClientId=dshos5iou44tuach7ta3ici5m \
+    StageName=prod \
+    PolicyStoreId=""
+
+# Seed DynamoDB tables (if needed)
+TABLE_RUBROS=finz_rubros \
+TABLE_RUBROS_TAXONOMIA=finz_rubros_taxonomia \
+  npx ts-node --project tsconfig.node.json scripts/ts-seeds/seed_rubros.ts
+
+TABLE_RUBROS_TAXONOMIA=finz_rubros_taxonomia \
+  npx ts-node --project tsconfig.node.json scripts/ts-seeds/seed_rubros_taxonomia.ts
+```
+
+### API Verification
+
+#### 1. Validate Deployment
+
+Run the validation script:
+
+```bash
+bash scripts/validate-prod-deployment.sh
+```
+
+This script checks:
+- CloudFormation stack exists
+- API Gateway stage is deployed
+- Required routes are present
+- CognitoJwt authorizer is configured
+- Health endpoint responds correctly
+- Catalog endpoint is accessible
+
+#### 2. Test Protected Endpoints
+
+```bash
+# Set environment variables
+export STAGE=prod
+export STACK_NAME=finanzas-sd-api-prod
+export API_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/prod
+export CLIENT_ID=dshos5iou44tuach7ta3ici5m
+export USERNAME=your_username
+export PASSWORD=your_password
+export USER_POOL_ID=us-east-2_FyHLtOhiY
+
+# Run protected endpoint tests
+bash scripts/test-protected-endpoints.sh
+```
+
+#### 3. Manual Endpoint Tests
+
+```bash
+# Health endpoint (public)
+curl -sS https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/prod/health | jq '.'
+
+# Expected response:
+# {
+#   "ok": true,
+#   "stage": "prod",
+#   "timestamp": "2025-11-09T..."
+# }
+
+# Catalog endpoint (public)
+curl -sS https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/prod/catalog/rubros | jq '.total'
+
+# Allocation rules (requires JWT)
+ID_TOKEN=$(aws cognito-idp initiate-auth \
+  --region us-east-2 \
+  --auth-flow USER_PASSWORD_AUTH \
+  --client-id dshos5iou44tuach7ta3ici5m \
+  --auth-parameters USERNAME=$USERNAME PASSWORD=$PASSWORD \
+  --query 'AuthenticationResult.IdToken' --output text)
+
+curl -sS -H "Authorization: Bearer $ID_TOKEN" \
+  https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/prod/allocation-rules | jq '.'
+```
+
+### API Troubleshooting
+
+#### Issue: Stage not found on API Gateway
+
+**Cause**: Stack deployed but stage not created
+
+**Solution**:
+1. Check CloudFormation stack status:
+   ```bash
+   aws cloudformation describe-stacks --stack-name finanzas-sd-api-prod
+   ```
+2. Verify API Gateway stages:
+   ```bash
+   aws apigatewayv2 get-stages --api-id m3g6am67aj
+   ```
+3. Redeploy if needed:
+   ```bash
+   cd services/finanzas-api
+   sam build
+   sam deploy --stack-name finanzas-sd-api-prod --parameter-overrides StageName=prod
+   ```
+
+#### Issue: 401 Unauthorized on protected endpoints
+
+**Cause**: Invalid JWT token or authorizer misconfiguration
+
+**Solution**:
+1. Verify token is valid:
+   ```bash
+   # Decode JWT payload (requires jq)
+   echo $ID_TOKEN | cut -d '.' -f2 | base64 -d | jq '.'
+   ```
+2. Check token expiration (exp claim)
+3. Verify authorizer configuration:
+   ```bash
+   aws apigatewayv2 get-authorizers --api-id m3g6am67aj
+   ```
+
+#### Issue: 403 Forbidden or Missing Authentication Token
+
+**Cause**: Missing or malformed Authorization header
+
+**Solution**:
+1. Ensure header format is: `Authorization: Bearer <token>`
+2. Verify token is not empty:
+   ```bash
+   echo "Token length: ${#ID_TOKEN}"
+   ```
+3. Check API Gateway logs:
+   ```bash
+   aws logs tail /aws/http-api/prod/finz-access --since 5m
+   ```
+
+#### Issue: DynamoDB tables not seeded
+
+**Cause**: Seeding step failed or was skipped
+
+**Solution**:
+1. Check if tables exist:
+   ```bash
+   aws dynamodb describe-table --table-name finz_rubros
+   aws dynamodb describe-table --table-name finz_rubros_taxonomia
+   ```
+2. Manually seed:
+   ```bash
+   cd /path/to/repo
+   TABLE_RUBROS=finz_rubros npx ts-node --project tsconfig.node.json scripts/ts-seeds/seed_rubros.ts
+   TABLE_RUBROS_TAXONOMIA=finz_rubros_taxonomia npx ts-node --project tsconfig.node.json scripts/ts-seeds/seed_rubros_taxonomia.ts
+   ```
+
+### Rollback Procedure
+
+If production deployment fails:
+
+1. **Identify last working version**:
+   ```bash
+   git log --oneline -n 10
+   ```
+
+2. **Rollback stack to previous version**:
+   ```bash
+   # Get previous template from S3 (SAM stores them)
+   aws cloudformation update-stack \
+     --stack-name finanzas-sd-api-prod \
+     --use-previous-template
+   ```
+
+3. **Or redeploy from a specific commit**:
+   ```bash
+   git checkout <previous-commit-sha>
+   cd services/finanzas-api
+   sam build
+   sam deploy --stack-name finanzas-sd-api-prod
+   ```
+
+### Monitoring
+
+#### CloudWatch Logs
+
+```bash
+# API Access Logs
+aws logs tail /aws/http-api/prod/finz-access --follow
+
+# Lambda Function Logs (example for CatalogFn)
+FUNCTION_NAME=$(aws cloudformation describe-stack-resources \
+  --stack-name finanzas-sd-api-prod \
+  --query "StackResources[?LogicalResourceId=='CatalogFn'].PhysicalResourceId" \
+  --output text)
+aws logs tail /aws/lambda/$FUNCTION_NAME --follow
+```
+
+#### Metrics
+
+View API Gateway metrics in CloudWatch:
+- Request count
+- 4XX errors
+- 5XX errors
+- Latency
+- Integration latency
+
+## Deployment Checklist
+
+### Pre-Deployment
+
+- [ ] Code changes reviewed and tested locally
+- [ ] All tests pass
+- [ ] Security scan completed (CodeQL, dependency check)
+- [ ] Documentation updated
+- [ ] Cognito configuration verified
+- [ ] AWS credentials configured
+
+### During Deployment
+
+- [ ] GitHub Actions workflow started
+- [ ] Build completes successfully
+- [ ] Stack deployment succeeds
+- [ ] Smoke tests pass
+- [ ] DynamoDB tables seeded
+
+### Post-Deployment
+
+- [ ] Health endpoint responds with 200
+- [ ] Catalog endpoint returns data
+- [ ] Protected endpoints require JWT
+- [ ] UI can authenticate and access API
+- [ ] CloudWatch logs show no errors
+- [ ] All checklist items verified
+- [ ] Team notified of deployment
+
+## Emergency Contacts
+
+For production issues:
+- DevOps Team: @devops
+- Backend Team: @backend
+- On-Call Engineer: (see PagerDuty rotation)
