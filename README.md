@@ -4,6 +4,38 @@ Enterprise-grade UI for PMO Pre-Factura estimation and SDMT cost/forecasting. Th
 
 The backend for this project lives under `services/finanzas-api` and is defined with AWS SAM. The OpenAPI contract is in `openapi/finanzas.yaml`.
 
+## 🔐 Authentication
+
+This application uses **AWS Cognito** for authentication with support for:
+- Direct username/password login (USER_PASSWORD_AUTH)
+- Cognito Hosted UI (OAuth 2.0 implicit flow)
+- Role-based access control using Cognito groups
+- Token persistence across sessions
+- Multi-role user support
+
+**📖 For complete authentication documentation, see [AUTHENTICATION_FLOW.md](./AUTHENTICATION_FLOW.md)**
+
+### Development Credentials
+
+For local development and testing:
+- **Email**: `christian.valencia@ikusi.com`
+- **Password**: `Velatia@2025`
+
+### Required Environment Variables
+
+```bash
+# Cognito Configuration
+VITE_COGNITO_REGION=us-east-2
+VITE_COGNITO_USER_POOL_ID=us-east-2_FyHLtOhiY
+VITE_COGNITO_CLIENT_ID=dshos5iou44tuach7ta3ici5m
+VITE_COGNITO_DOMAIN=us-east-2-fyhltohiy.auth.us-east-2.amazoncognito.com
+
+# API & CloudFront
+VITE_CLOUDFRONT_URL=https://d7t9x3j66yd8k.cloudfront.net
+VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
+VITE_FINZ_ENABLED=true
+```
+
 ## Overview
 
 - Frontend: React 19, Vite 6, Tailwind v4, GitHub Spark design system, Radix UI

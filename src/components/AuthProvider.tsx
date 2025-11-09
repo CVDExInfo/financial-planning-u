@@ -179,16 +179,54 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       toast.success("Signed in successfully");
 
-      // Explicit redirect safeguard for Finanzas-only build target
-      if (import.meta.env.VITE_FINZ_ENABLED === "true") {
-        try {
-          window.location.replace("/finanzas/");
-        } catch (e) {
-          console.warn("Redirect failed", e);
+      // Role-based redirect logic (matches callback.html behavior)
+      // Decode the token to get groups and determine redirect
+      const decoded = decodeJWT(AuthenticationResult.IdToken);
+      const groups = getGroupsFromClaims(decoded);
+      
+      const canSDT = groups.some((g) =>
+        ["SDT", "FIN", "AUD", "sdmt", "fin", "aud"].includes(g.toUpperCase())
+      );
+      const canPMO = groups.some((g) =>
+        ["PM", "PMO", "EXEC_RO", "VENDOR", "admin", "pmo"].includes(g.toUpperCase())
+      );
+
+      // Preference resolution for dual-role users
+      const pref = localStorage.getItem("cv.module");
+      let targetPath = "/";
+
+      if (canSDT && !canPMO) {
+        targetPath = "/finanzas/";
+      } else if (canPMO && !canSDT) {
+        targetPath = "/";
+      } else if (canSDT && canPMO) {
+        // Both roles - use preference or default to Finanzas
+        if (pref === "pmo" && canPMO) {
+          targetPath = "/";
+        } else if (pref === "finanzas" && canSDT) {
+          targetPath = "/finanzas/";
+        } else {
+          // Default bias to Finanzas for dual-role users
+          targetPath = "/finanzas/";
         }
+      }
+
+      // For Finanzas-only build, always redirect to /finanzas/ regardless
+      if (import.meta.env.VITE_FINZ_ENABLED === "true") {
+        targetPath = "/finanzas/";
+      }
+
+      // Perform redirect
+      try {
+        setTimeout(() => {
+          window.location.replace(targetPath);
+        }, 100);
+      } catch (e) {
+        console.warn("Redirect failed", e);
       }
     } catch (err) {
       // Clear any partial tokens on error
+      localStorage.removeItem("cv.jwt");
       localStorage.removeItem("finz_jwt");
       localStorage.removeItem("finz_refresh_token");
 
@@ -235,6 +273,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
               current_role: defaultRole,
             };
 
+            // Ensure token is stored in both cv.jwt and finz_jwt for cross-module compatibility
+            // If user logged into PMO first and navigates to Finanzas, this ensures the token is available
+            const cvJwt = localStorage.getItem("cv.jwt");
+            const finzJwt = localStorage.getItem("finz_jwt");
+            if (cvJwt && !finzJwt) {
+              localStorage.setItem("finz_jwt", cvJwt);
+            } else if (finzJwt && !cvJwt) {
+              localStorage.setItem("cv.jwt", finzJwt);
+            }
+
             setUser(authenticatedUser);
             setAvailableRoles(authenticatedUser.roles);
             setIsLoading(false);
@@ -242,11 +290,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           } else {
             // Expired or invalid: clear and continue
             console.warn("[Auth] JWT expired or invalid, clearing");
+            localStorage.removeItem("cv.jwt");
             localStorage.removeItem("finz_jwt");
             localStorage.removeItem("finz_refresh_token");
           }
         } catch (e) {
           console.warn("[Auth] Failed to process JWT:", e);
+          localStorage.removeItem("cv.jwt");
           localStorage.removeItem("finz_jwt");
           localStorage.removeItem("finz_refresh_token");
         }
@@ -299,6 +349,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.removeItem("finz_jwt");
     localStorage.removeItem("finz_refresh_token");
     localStorage.removeItem("cv.jwt");
+    localStorage.removeItem("cv.module");
 
     setUser(null);
     setCurrentRole("PMO");
@@ -306,6 +357,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null);
 
     toast.success("Signed out successfully");
+
+    // For Finanzas-only build, redirect to login
+    // For PMO build or dual-module, stay on current path (will show login if needed)
+    if (import.meta.env.VITE_FINZ_ENABLED === "true") {
+      // Redirect to Finanzas home (which will show login page due to no auth)
+      setTimeout(() => {
+        window.location.href = "/finanzas/";
+      }, 500);
+    }
   };
 
   const setRole = (role: UserRole): void => {

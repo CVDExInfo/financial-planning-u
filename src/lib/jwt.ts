@@ -163,13 +163,15 @@ export async function refreshJWT(
       throw new Error("No ID token in refresh response");
     }
 
-    // Store new ID token
+    // Store new ID token (both unified and legacy keys)
+    localStorage.setItem("cv.jwt", AuthenticationResult.IdToken);
     localStorage.setItem("finz_jwt", AuthenticationResult.IdToken);
     console.log("[JWT] Token refreshed successfully");
     return AuthenticationResult.IdToken;
   } catch (error) {
     console.error("[JWT] Token refresh error:", error);
     // Clear tokens on refresh failure
+    localStorage.removeItem("cv.jwt");
     localStorage.removeItem("finz_jwt");
     localStorage.removeItem("finz_refresh_token");
     return null;

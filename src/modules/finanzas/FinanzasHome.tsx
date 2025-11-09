@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 export default function FinanzasHome() {
   return (
@@ -14,25 +15,25 @@ export default function FinanzasHome() {
         </p>
       </header>
       <div className="grid gap-4 md:grid-cols-2">
-        <a
-          href="/catalog/rubros"
-          className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors"
+        <Link
+          to="/catalog/rubros"
+          className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors block"
         >
           <h2 className="font-medium mb-1">Catálogo de Rubros</h2>
           <p className="text-xs text-muted-foreground">
             Lista enriquecida de rubros con taxonomía, línea contable y tipo de
             costo.
           </p>
-        </a>
-        <a
-          href="/rules"
-          className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors"
+        </Link>
+        <Link
+          to="/rules"
+          className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors block"
         >
           <h2 className="font-medium mb-1">Reglas de Asignación</h2>
           <p className="text-xs text-muted-foreground">
             Vista previa de reglas MVP (driver percent, fixed, tickets, hours).
           </p>
-        </a>
+        </Link>
       </div>
       <section className="text-xs text-muted-foreground">
         <p>
