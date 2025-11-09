@@ -24,7 +24,6 @@ import SDMTCatalog from "@/features/sdmt/cost/Catalog/SDMTCatalog";
 import RubrosCatalog from "@/modules/finanzas/RubrosCatalog";
 import AllocationRulesPreview from "@/modules/finanzas/AllocationRulesPreview";
 import FinanzasHome from "./modules/finanzas/FinanzasHome";
-import FinanzasDiag from "@/pages/_diag/FinanzasDiag";
 import SDMTForecast from "@/features/sdmt/cost/Forecast/SDMTForecast";
 import SDMTReconciliation from "@/features/sdmt/cost/Reconciliation/SDMTReconciliation";
 import SDMTCashflow from "@/features/sdmt/cost/Cashflow/SDMTCashflow";
@@ -111,8 +110,6 @@ function AppContent() {
                   {/* Finanzas routes (relative to basename /finanzas) */}
                   <Route path="/catalog/rubros" element={<RubrosCatalog />} />
                   <Route path="/rules" element={<AllocationRulesPreview />} />
-                  {/* Diagnostics page - for debugging deployment issues */}
-                  <Route path="/_diag" element={<FinanzasDiag />} />
                 </>
               )}
 
