@@ -1,0 +1,203 @@
+{
+  "info": {
+    "name": "Finanzas API Smoke Tests",
+    "description": "Automated smoke tests for Finanzas SDT API deployment verification",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "API_BASE_URL",
+      "value": "https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{API_BASE_URL}}/health",
+          "host": ["{{API_BASE_URL}}"],
+          "path": ["health"]
+        },
+        "description": "Public health check endpoint - no authentication required"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has ok field', () => {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json).to.have.property('ok');",
+              "  pm.expect(json.ok).to.be.true;",
+              "});",
+              "",
+              "pm.test('Response has stage field', () => {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json).to.have.property('stage');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog - Rubros (Public)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{API_BASE_URL}}/catalog/rubros",
+          "host": ["{{API_BASE_URL}}"],
+          "path": ["catalog", "rubros"]
+        },
+        "description": "Public catalog endpoint - returns list of rubros"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has data array', () => {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json).to.have.property('data');",
+              "  pm.expect(json.data).to.be.an('array');",
+              "});",
+              "",
+              "pm.test('Data array is not empty', () => {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.data.length).to.be.greaterThan(0);",
+              "});",
+              "",
+              "pm.test('Rubros have required fields', () => {",
+              "  const json = pm.response.json();",
+              "  if (json.data.length > 0) {",
+              "    const rubro = json.data[0];",
+              "    pm.expect(rubro).to.have.property('nombre');",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Allocation Rules (Protected - Skip if no token)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{JWT_TOKEN}}",
+            "type": "text",
+            "disabled": false
+          }
+        ],
+        "url": {
+          "raw": "{{API_BASE_URL}}/allocation-rules",
+          "host": ["{{API_BASE_URL}}"],
+          "path": ["allocation-rules"]
+        },
+        "description": "Protected endpoint - requires JWT token from Cognito"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Skip test if no JWT token is provided",
+              "if (!pm.environment.get('JWT_TOKEN') && !pm.variables.get('JWT_TOKEN')) {",
+              "  pm.test.skip('JWT token not provided - skipping protected endpoint test');",
+              "} else {",
+              "  pm.test('Status is 200 or 401/403', () => {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 401, 403]);",
+              "  });",
+              "  ",
+              "  if (pm.response.code === 200) {",
+              "    pm.test('Response has data array', () => {",
+              "      const json = pm.response.json();",
+              "      pm.expect(json).to.have.property('data');",
+              "      pm.expect(json.data).to.be.an('array');",
+              "    });",
+              "  } else {",
+              "    pm.test('Unauthorized response is expected without valid token', () => {",
+              "      pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+              "    });",
+              "  }",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "CORS Preflight - Health",
+      "request": {
+        "method": "OPTIONS",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "https://d7t9x3j66yd8k.cloudfront.net",
+            "type": "text"
+          },
+          {
+            "key": "Access-Control-Request-Method",
+            "value": "GET",
+            "type": "text"
+          },
+          {
+            "key": "Access-Control-Request-Headers",
+            "value": "authorization,content-type",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{API_BASE_URL}}/health",
+          "host": ["{{API_BASE_URL}}"],
+          "path": ["health"]
+        },
+        "description": "CORS preflight check - verifies CORS is configured correctly"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200 or 204', () => {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+              "});",
+              "",
+              "pm.test('CORS headers are present', () => {",
+              "  pm.expect(pm.response.headers.has('access-control-allow-origin') || ",
+              "            pm.response.headers.has('Access-Control-Allow-Origin')).to.be.true;",
+              "});",
+              "",
+              "pm.test('CORS allows CloudFront origin', () => {",
+              "  const allowOrigin = pm.response.headers.get('access-control-allow-origin') || ",
+              "                      pm.response.headers.get('Access-Control-Allow-Origin');",
+              "  if (allowOrigin) {",
+              "    pm.expect(allowOrigin).to.match(/cloudfront\\.net|\\*/);",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
