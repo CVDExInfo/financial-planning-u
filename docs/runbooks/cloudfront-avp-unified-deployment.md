@@ -4,6 +4,8 @@
 
 This runbook provides step-by-step instructions for executing the complete CloudFront distribution update and AVP (Amazon Verified Permissions) policy store integration for the Finanzas SD module. This deployment consolidates both the frontend UI routing and backend API routing behind the existing CloudFront distribution, while enabling fine-grained authorization through AVP.
 
+> **Quick Reference:** For a condensed checklist format, see [cloudfront-avp-deployment-checklist.md](./cloudfront-avp-deployment-checklist.md)
+
 ## Branch Setup
 
 **Branch Name:** `infra/cloudfront-avp-sync`
