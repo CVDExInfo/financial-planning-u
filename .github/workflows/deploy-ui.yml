@@ -345,11 +345,71 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+      - name: "Newman API Smoke Tests (if DEV_API_URL set)"
+        if: env.DEV_API_URL != ''
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          BASE="${DEV_API_URL%/}"
+          
+          # Install newman if not present
+          if ! command -v newman &> /dev/null; then
+            npm install -g newman || echo "Newman install failed, skipping tests"
+            exit 0
+          fi
+          
+          # Run Newman tests
+          echo "## 🧪 Newman API Smoke Tests" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if newman run postman/finanzas-smokes.json \
+            --env-var "API_BASE_URL=${BASE}" \
+            --reporters cli,json \
+            --reporter-json-export /tmp/newman-report.json 2>&1 | tee /tmp/newman.log; then
+            
+            echo "✅ **Newman tests passed**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Extract summary from JSON report
+            if [ -f /tmp/newman-report.json ]; then
+              echo "### Test Summary" >> $GITHUB_STEP_SUMMARY
+              jq -r '.run.stats | "- **Total Requests**: \(.requests.total)\n- **Assertions**: \(.assertions.total)\n- **Passed**: \(.assertions.total - .assertions.failed)\n- **Failed**: \(.assertions.failed)"' /tmp/newman-report.json >> $GITHUB_STEP_SUMMARY || true
+            fi
+          else
+            echo "⚠️  **Newman tests had failures** (non-blocking)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            tail -20 /tmp/newman.log >> $GITHUB_STEP_SUMMARY || true
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
       - name: "Summary & Evidence Pack"
         run: |
           set -euo pipefail
           {
             echo "# 🚀 Finanzas UI Deployment Complete"
+            echo ""
+            echo "## 📊 Build Information"
+            echo ""
+            echo "- **Build Targets**: PMO (/) + Finanzas (/finanzas/)"
+            echo "- **Build Time**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            echo "- **Commit SHA**: $(git rev-parse --short HEAD)"
+            echo "- **Commit Message**: $(git log -1 --pretty=%B | head -1)"
+            echo "- **Branch**: $(git rev-parse --abbrev-ref HEAD)"
+            echo ""
+            echo "## ⚙️  Environment Variables Used"
+            echo ""
+            echo "| Variable | Value |"
+            echo "|----------|-------|"
+            echo "| VITE_PUBLIC_BASE | /finanzas/ |"
+            echo "| VITE_FINZ_ENABLED | true |"
+            echo "| VITE_USE_MOCKS | false |"
+            echo "| VITE_API_BASE_URL | ${VITE_API_BASE_URL:-'(not set)'} |"
+            echo "| VITE_AWS_REGION | us-east-2 |"
+            echo "| BUILD_TARGET | finanzas |"
+            echo "| DEV_API_URL | ${DEV_API_URL:-'(not set)'} |"
+            echo "| EXPECTED_API_ID | ${EXPECTED_API_ID} |"
             echo ""
             echo "## ✅ Deployment Checklist"
             echo ""
@@ -363,7 +423,8 @@ jobs:
             echo "### S3 Upload"
             echo "- [x] Immutable assets uploaded with Cache-Control: max-age=31536000"
             echo "- [x] index.html uploaded with Cache-Control: no-store"
-            echo "- [x] S3 prefix: s3://ukusi-ui-finanzas-prod/finanzas/"
+            echo "- [x] S3 Bucket: ${S3_BUCKET_NAME}"
+            echo "- [x] S3 Prefix: s3://${S3_BUCKET_NAME}/finanzas/"
             echo ""
             echo "### CloudFront"
             echo "- [x] Distribution: ${CLOUDFRONT_DIST_ID}"
@@ -381,11 +442,13 @@ jobs:
             echo "### UI"
             echo "- **PMO**: https://${DIST_DOMAIN}/"
             echo "- **Finanzas**: https://${DIST_DOMAIN}/finanzas/"
+            echo "- **Diagnostics**: https://${DIST_DOMAIN}/finanzas/_diag"
             echo ""
             echo "### API"
             echo "- **Base**: ${DEV_API_URL%/}"
             echo "- **Region**: us-east-2"
             echo "- **Health**: ${DEV_API_URL%/}/health (public)"
+            echo "- **Expected API ID**: ${EXPECTED_API_ID}"
             echo ""
             echo "## 🔍 Verification Commands"
             echo ""
