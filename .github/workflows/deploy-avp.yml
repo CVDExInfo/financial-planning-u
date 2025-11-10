@@ -12,6 +12,16 @@ on:
           - dev
           - stg
           - prod
+  workflow_call:
+    inputs:
+      stage:
+        description: "Stage (dev|stg|prod)"
+        required: true
+        type: string
+    outputs:
+      policy_store_id:
+        description: "The ID of the deployed AVP Policy Store"
+        value: ${{ jobs.deploy-avp.outputs.policy_store_id }}
 
 permissions:
   id-token: write
