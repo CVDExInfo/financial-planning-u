@@ -134,7 +134,6 @@ TEST SUMMARY
 - Allocations (1): PUT /projects/{id}/allocations:bulk
 - Handoff (1): POST /projects/{id}/handoff
 - Alerts (1): GET /alerts
-- Advanced (3): /close-month, /payroll/ingest, /prefacturas/webhook
 
 ---
 
@@ -253,7 +252,6 @@ Timeline: 4-6 weeks estimated (Q4 2025)
 
 **Status:** Q1 2026
 
-Routes: 4 (Close Month, Payroll Ingest, Prefactura Webhooks)
 
 Timeline: 6-8 weeks estimated
 
@@ -281,8 +279,6 @@ Adjustments:     GET  /adjustments
 Alerts:          GET  /alerts
 Close Month:     POST /close-month
 Payroll:         POST /payroll/ingest
-Webhooks:        GET  /prefacturas/webhook
-                 POST /prefacturas/webhook
 ```
 
 ### AWS Resources

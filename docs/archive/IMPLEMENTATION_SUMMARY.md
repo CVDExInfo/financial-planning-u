@@ -223,7 +223,6 @@ vite.config.ts (base path)
 
 Once deployed:
 - Application accessible at: `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
-- Deep links work: `https://d7t9x3j66yd8k.cloudfront.net/finanzas/pmo/prefactura/estimator`
 - Cache hit ratio: Target >85%
 - Error rate: Target <1%
 - Deployment time: ~5-10 minutes

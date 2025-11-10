@@ -24,7 +24,6 @@ This table verifies that all required endpoints are implemented in the OpenAPI s
 | **Alerts** | `/alerts` | GET | ✓ | ✓ | ✓ | 200 |
 | **Providers** | `/providers` | POST | ✓ | ✓ | ✓ | 201 |
 | **Providers** | `/providers` | GET | ✓ | ✓ | ✓ | 200 |
-| **Webhooks** | `/prefacturas/webhook` | POST | ✓ | ✓ | ✓ | 202 |
 
 ## Summary
 
@@ -58,7 +57,6 @@ This table verifies that all required endpoints are implemented in the OpenAPI s
 20. ✓ **ProviderCreate** - Provider/vendor creation
 21. ✓ **Provider** - Complete provider model
 22. ✓ **ProviderList** - Paginated providers
-23. ✓ **PrefacturaEvent** - Webhook event for prefacturas
 24. ✓ **Error** - Standardized error response
 
 ## Validation Evidence
@@ -103,4 +101,3 @@ No results with a severity of 'error' found!
 3. **Approval Workflow**: Movements have approve/reject endpoints with estado tracking
 4. **Budget Split**: Handoff shows pct_ingenieros (65%) and pct_sdm (35%) allocation
 5. **Execution Types**: Rubros support mensual, puntual, por_hito with programmed months
-6. **Webhook Integration**: Prefactura webhook for external system integration

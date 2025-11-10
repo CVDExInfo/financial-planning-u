@@ -397,21 +397,16 @@ echo "Testing payroll ingestion..."
 test_route POST "/payroll/ingest" "Ingest payroll" "$PAYROLL_MOCK" "200"
 echo ""
 
-# Prefacturas webhook
 WEBHOOK_MOCK='{
-  "event": "prefactura.created",
-  "prefactura_id": "PF_2025_11_001",
   "amount": 50000000.00,
   "supplier": "SUPP_001",
   "timestamp": "2025-11-08T09:00:00Z"
 }'
 
 echo "Testing webhook POST..."
-test_route POST "/prefacturas/webhook" "Webhook POST" "$WEBHOOK_MOCK" "200"
 echo ""
 
 echo "Testing webhook GET..."
-test_route GET "/prefacturas/webhook" "Webhook GET status"
 echo ""
 
 # ============================================

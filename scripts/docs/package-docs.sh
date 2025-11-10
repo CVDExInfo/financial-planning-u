@@ -14,7 +14,7 @@ rm -rf "$PKG_ROOT"
 mkdir -p "$PKG_ROOT" "$REL_DIR"
 
 # Curated structure for client delivery (premium ordering)
-mkdir -p "$PKG_ROOT"/{01_Executive,02_AWS_Architecture,03_ERD,04_Data_Flows,05_Prefactura_Swimlane,06_SOPs,07_Governance,08_UI_Layouts,99_Appendix}
+mkdir -p "$PKG_ROOT"/{01_Executive,02_AWS_Architecture,03_ERD,04_Data_Flows,06_SOPs,07_Governance,08_UI_Layouts,99_Appendix}
 
 # Map outputs into curated folders (adjust names if your MD files differ)
 cp -f "$OUT_DIR/Executive_Summary.pdf"          "$PKG_ROOT/01_Executive/" 2>/dev/null || true
@@ -29,8 +29,7 @@ cp -f "$OUT_DIR/ERD.docx"                       "$PKG_ROOT/03_ERD/" 2>/dev/null 
 cp -f "$OUT_DIR/Data_Flows.pdf"                 "$PKG_ROOT/04_Data_Flows/" 2>/dev/null || true
 cp -f "$OUT_DIR/Data_Flows.docx"                "$PKG_ROOT/04_Data_Flows/" 2>/dev/null || true
 
-cp -f "$OUT_DIR/Prefactura_Swimlane.pdf"        "$PKG_ROOT/05_Prefactura_Swimlane/" 2>/dev/null || true
-cp -f "$OUT_DIR/Prefactura_Swimlane.docx"       "$PKG_ROOT/05_Prefactura_Swimlane/" 2>/dev/null || true
+# Invoice-related content organized separately
 
 # SOPs (bilingual)
 cp -f "$OUT_DIR/SOP_Ikusi.pdf"                  "$PKG_ROOT/06_SOPs/" 2>/dev/null || true

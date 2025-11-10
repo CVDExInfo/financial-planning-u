@@ -24,7 +24,6 @@ Complete API contract specification delivered for the Finanzas financial plannin
 6. Movements (5 endpoints) - Financial movements with approval workflow
 7. Alerts (1 endpoint) - Financial alerts and notifications
 8. Providers (2 endpoints) - Vendor management
-9. Webhooks (1 endpoint) - Prefactura event integration
 
 ### 2. Postman Collection ✓
 **File**: `postman/Finanzas.postman_collection.json`
@@ -85,7 +84,6 @@ Complete API contract specification delivered for the Finanzas financial plannin
 3. **Coverage Calculation**: Formula: (ingresos_facturados / nomina) × 100
 4. **Approval Workflow**: Multi-state approval process for movements
 5. **Execution Types**: Support for mensual, puntual, and por_hito rubros
-6. **Webhook Integration**: External prefactura event processing
 
 ## Validation & Testing
 
@@ -154,7 +152,6 @@ Creates $1M adjustment with pro-rata forward distribution:
 5. **CierreMes**: Month closing with coverage calculation and alerts
 6. **Adjustment**: Budget adjustment with pro-rata distribution methods
 7. **Movement**: Financial movement with approval state machine
-8. **PrefacturaEvent**: Webhook event from external invoicing systems
 
 ### Enumerations
 

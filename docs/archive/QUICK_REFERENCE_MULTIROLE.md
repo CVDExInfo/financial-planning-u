@@ -123,7 +123,6 @@ https://d7t9x3j66yd8k.cloudfront.net/finanzas/
 
 ### PMO Role
 
-- /pmo/prefactura/estimator
 - /sdmt/cost/\* (all SDMT modules)
 
 ### SDMT Role

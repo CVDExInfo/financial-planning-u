@@ -27,11 +27,9 @@ Esta matriz RACI define roles y responsabilidades para actividades clave en el s
 
 ---
 
-## EN: Pre-facturas / Pre-Invoicing
 
 | Activity | PM | FIN | SDT | AUD | SRE |
 |----------|----|----|-----|-----|-----|
-| Generate pre-factura request | R | I | C | I | - |
 | Validate business justification | C | R | A | - | - |
 | Approve/Reject request | C | R,A | I | I | - |
 | Generate PDF with folio/stamp | - | - | - | - | R |
@@ -40,11 +38,9 @@ Esta matriz RACI define roles y responsabilidades para actividades clave en el s
 | Generate traceability report | C | R | A | C | - |
 | Audit trail review | I | C | - | R,A | - |
 
-## ES: Pre-facturas
 
 | Actividad | PM | FIN | SDT | AUD | SRE |
 |-----------|----|----|-----|-----|-----|
-| Generar solicitud pre-factura | R | I | C | I | - |
 | Validar justificación de negocio | C | R | A | - | - |
 | Aprobar/Rechazar solicitud | C | R,A | I | I | - |
 | Generar PDF con folio/sello | - | - | - | - | R |
@@ -151,13 +147,11 @@ Esta matriz RACI define roles y responsabilidades para actividades clave en el s
 
 ### PM (Project Manager)
 - Owns project budget and delivery
-- Creates pre-factura requests
 - Approves project-level adjustments
 - Reviews project execution reports
 
 ### FIN (Finance Team)
 - Owns financial accuracy and compliance
-- Approves pre-facturas and adjustments
 - Manages monthly close process
 - Generates financial reports
 
@@ -183,13 +177,11 @@ Esta matriz RACI define roles y responsabilidades para actividades clave en el s
 
 ### PM (Gerente de Proyecto)
 - Dueño del presupuesto y entrega del proyecto
-- Crea solicitudes de pre-factura
 - Aprueba ajustes a nivel de proyecto
 - Revisa reportes de ejecución del proyecto
 
 ### FIN (Equipo de Finanzas)
 - Dueño de precisión financiera y cumplimiento
-- Aprueba pre-facturas y ajustes
 - Gestiona proceso de cierre mensual
 - Genera reportes financieros
 

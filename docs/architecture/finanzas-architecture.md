@@ -60,7 +60,6 @@ The Finanzas Service Delivery (SD) module provides comprehensive financial plann
 │  • AdjustmentsFn    (budget adjust)  │      │  • finz_providers           │
 │  • AlertsFn         (GET alerts)     │      │  • finz_audit_log           │
 │  • ProvidersFn      (CRUD providers) │      │                             │
-│  • PrefacturasFn    (webhook)        │      │  Billing: PAY_PER_REQUEST   │
 │  • HandoffFn        (project handoff)│      │  GSI: As needed per table   │
 │                                      │      │                             │
 │  Runtime: Node.js 20.x               │      └─────────────────────────────┘
@@ -185,8 +184,6 @@ GET     /adjustments                     → AdjustmentsFn (JWT + SDT)
 GET     /alerts                          → AlertsFn (JWT + SDT)
 POST    /providers                       → ProvidersFn (JWT + SDT)
 GET     /providers                       → ProvidersFn (JWT + SDT)
-POST    /prefacturas/webhook             → PrefacturasFn (JWT + SDT)
-GET     /prefacturas/webhook             → PrefacturasFn (JWT + SDT)
 ```
 
 **Authorization**:

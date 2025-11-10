@@ -25,7 +25,6 @@ Este documento define prácticas de seguridad e IAM para Finanzas SD, asegurando
 
 ### Cognito Groups
 - **SDT** (Service Delivery Team): Full system access, administrative functions
-- **PM** (Project Manager): Project management, pre-factura creation, budget oversight
 - **FIN** (Finance): Financial approval, budget management, reporting
 - **AUD** (Audit): Read-only access, audit trail review, compliance reporting
 
@@ -45,7 +44,6 @@ Este documento define prácticas de seguridad e IAM para Finanzas SD, asegurando
 
 ### Grupos Cognito
 - **SDT** (Equipo de Entrega de Servicios): Acceso completo al sistema, funciones administrativas
-- **PM** (Gerente de Proyecto): Gestión de proyectos, creación de pre-facturas, supervisión presupuestaria
 - **FIN** (Finanzas): Aprobación financiera, gestión presupuestaria, reportes
 - **AUD** (Auditoría): Acceso solo lectura, revisión de registro de auditoría, reportes de cumplimiento
 

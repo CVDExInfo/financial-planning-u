@@ -182,7 +182,6 @@
 - GET /movements
 - POST /payroll/ingest
 - Close Month workflow
-- Prefactura workflow
 
 ---
 
@@ -230,7 +229,6 @@
 
 ### Workflows
 - ❌ Close Month not implemented
-- ❌ Prefactura approval not implemented
 - ❌ Payroll ingest not implemented
 - ❌ Project handoff not implemented
 

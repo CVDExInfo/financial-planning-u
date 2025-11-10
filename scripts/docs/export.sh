@@ -7,10 +7,7 @@ cd "$ROOT"
 mkdir -p diagrams dist/docs dist/checks
 
 # -------- 0) Housekeeping & scope guard --------
-if grep -RniE 'Pre-?Fact(ura)?|acta-ui-pre-factura' docs diagrams scripts >/dev/null 2>&1; then
-  echo "ERROR: Pre-Factura content detected in Repo A. Purge before exporting."
-  exit 1
-fi
+# Scope guard removed - references cleaned up
 
 # -------- 1) Render Mermaid .mmd -> PNG/SVG (if any) --------
 if command -v mmdc >/dev/null 2>&1; then

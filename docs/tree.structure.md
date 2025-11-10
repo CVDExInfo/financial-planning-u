@@ -9,7 +9,6 @@
 ## Overview
 
 This repository contains a multi-module enterprise financial planning application with:
-- **PMO Module**: Pre-factura estimation and billing management
 - **SDMT Module**: Service delivery cost tracking and forecasting  
 - **Finanzas Module (R1)**: Budget management (Rubros catalog, allocation rules)
 
@@ -37,8 +36,6 @@ The application is built with React 19, Vite 6, TypeScript, and Tailwind CSS v4,
 │   ├── features/                 # Feature modules (domain-driven)
 │   │   ├── HomePage.tsx          # Landing page
 │   │   ├── pmo/                  # PMO features
-│   │   │   └── prefactura/
-│   │   │       └── Estimator/    # Pre-factura estimation wizard
 │   │   └── sdmt/                 # SDMT features
 │   │       └── cost/             # Cost management
 │   │           ├── Catalog/      # Line items catalog
@@ -282,7 +279,6 @@ aws cloudfront create-invalidation --distribution-id EPQU7PVDLQXUA --paths '/fin
 - `/profile` - User profile
 
 ### PMO Routes
-- `/pmo/prefactura/estimator` - Pre-factura estimation wizard
 
 ### SDMT Routes  
 - `/sdmt/cost/catalog` - Line items catalog

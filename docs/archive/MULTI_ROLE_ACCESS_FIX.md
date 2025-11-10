@@ -137,7 +137,6 @@ User can now switch between:
 
 ```
 If current role = PMO:
-  ✅ Show /pmo/prefactura/estimator
   ✅ Show /sdmt/cost/* (PMO can manage SDMT for other departments)
 
 If current role = SDMT:

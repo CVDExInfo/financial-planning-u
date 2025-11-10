@@ -34,9 +34,6 @@ Project metadata and budget allocations.
   - `createdAt` - Timestamp
   - `updatedAt` - Timestamp
 
-#### 3. Prefacturas
-Pre-factura (preliminary invoice) records.
-- **Primary Key**: `prefacturaId` (String)
 - **Sort Key**: `createdAt` (String)
 - **Attributes**:
   - `projectId` - Associated project
@@ -72,7 +69,6 @@ Budget allocation and tracking records.
 Approval workflow state management.
 - **Primary Key**: `approvalId` (String)
 - **Attributes**:
-  - `entityType` - Type of entity (prefactura, budget)
   - `entityId` - ID of the entity being approved
   - `requestedBy` - User ID who requested approval
   - `assignedTo` - User ID assigned to approve
@@ -135,21 +131,15 @@ System configuration and user preferences.
 ### Relationships
 
 ```
-Users (1) ─── submits ──> (N) Prefacturas
 Users (1) ─── manages ──> (N) Projects
-Projects (1) ─── contains ──> (N) Prefacturas
 Projects (1) ─── has ──> (N) Budgets
-Prefacturas (1) ─── requires ──> (1) Approvals
 Budgets (1) ─── requires ──> (1) Approvals
-Prefacturas (1) ─── generates ──> (N) Documents
 Users (1) ─── receives ──> (N) Notifications
 Users (1) ─── performs ──> (N) Audit Logs
 ```
 
 ### Access Patterns
 
-1. **Get user's prefacturas**: Query by `submittedBy` using GSI
-2. **Get project's prefacturas**: Query by `projectId` using GSI
 3. **Get pending approvals for user**: Query by `assignedTo` and `status=pending` using GSI
 4. **Get user's notifications**: Query by `userId` and sort by `createdAt`
 5. **Get audit logs for entity**: Query by `entityId` using GSI
@@ -167,6 +157,5 @@ El sistema Finanzas SD utiliza las siguientes entidades de datos principales alm
 
 ### Relaciones entre Entidades
 
-Los usuarios envían pre-facturas para proyectos, los proyectos tienen presupuestos asignados, y todas las acciones se registran en el registro de auditoría para cumplimiento normativo.
 
 ![ERD Diagram](img/roles-and-responsibilities.svg)

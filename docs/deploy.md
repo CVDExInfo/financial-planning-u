@@ -202,11 +202,9 @@ aws cloudfront create-invalidation \
 
 ## SPA Deep Linking
 
-The application supports deep linking (e.g., `/finanzas/pmo/prefactura/estimator`) through CloudFront custom error responses.
 
 ### How It Works
 
-1. User navigates to `/finanzas/pmo/prefactura/estimator`
 2. CloudFront attempts to fetch the file from S3
 3. S3 returns 404 (file doesn't exist)
 4. CloudFront maps 404 → 200 and returns `/finanzas/index.html`
@@ -223,7 +221,6 @@ Custom error responses must be configured:
 
 ```bash
 # Test deep link (should return HTML, not 404)
-curl -I https://d7t9x3j66yd8k.cloudfront.net/finanzas/pmo/prefactura/estimator
 
 # Should return:
 # HTTP/2 200
@@ -235,7 +232,6 @@ curl -I https://d7t9x3j66yd8k.cloudfront.net/finanzas/pmo/prefactura/estimator
 After deployment:
 
 - [ ] Root path loads: https://d7t9x3j66yd8k.cloudfront.net/finanzas/
-- [ ] Deep link works: https://d7t9x3j66yd8k.cloudfront.net/finanzas/pmo/prefactura/estimator
 - [ ] Assets load correctly (check browser DevTools)
 - [ ] Navigation within app works
 - [ ] Browser refresh on nested routes works

@@ -44,7 +44,6 @@ Comprehensive verification completed on all **20+ API routes** from the Finanzas
 | **Providers**   | 2      | ProvidersFn (GET/POST)                                 | Connected ✅ |
 | **Adjustments** | 2      | AdjustmentsFn (GET/POST)                               | Connected ✅ |
 | **Alerts**      | 1      | AlertsFn                                               | Connected ✅ |
-| **Advanced**    | 5      | CloseMonthFn, PayrollFn, PrefacturasFn                 | Connected ✅ |
 
 All 16 stubs return `200 OK` with placeholder messages → **Ready for business logic implementation**.
 
@@ -142,7 +141,6 @@ Return 200 with [ { rubros... } ]
 | AlertPanel       | Dashboard        | GET /alerts                           | Phase 2 |
 | PayrollImport    | `/payroll`       | POST /payroll/ingest                  | Phase 3 |
 | MonthClose       | `/admin`         | POST /close-month                     | Phase 3 |
-| Webhook          | Settings         | GET/POST /prefacturas/webhook         | Phase 3 |
 | ...              | ...              | ...                                   | ...     |
 
 ---
@@ -219,7 +217,6 @@ bash scripts/test-all-api-routes.sh
 
 - Month-end close (complex transaction)
 - Payroll ingestion (integration)
-- Prefactura webhooks (external integration)
 
 ---
 

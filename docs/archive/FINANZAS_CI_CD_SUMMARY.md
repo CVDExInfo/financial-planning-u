@@ -105,7 +105,6 @@ Set in: **Settings → Secrets and variables → Actions → Secrets**
 - `POST/GET /adjustments`
 - `GET /alerts`
 - `POST/GET /providers`
-- `POST/GET /prefacturas/webhook`
 
 All stubbed handlers contain TODO comments with implementation guidance.
 

@@ -23,14 +23,12 @@ Located in `docs/architecture/`
 - **Architecture Diagrams** (`docs/architecture/diagrams/`):
   - `erd-finanzas.mmd` - Entity-Relationship Diagram showing all tables, actors, and relationships
   - `aws-architecture.mmd` - AWS infrastructure and service architecture
-  - `prefacturas-approval-swimlane.mmd` - Pre-invoicing approval workflow
   - `data-lineage.mmd` - Data flow and processing pipeline
   - `cicd-pipeline.mmd` - CI/CD deployment pipeline
 
 ### Process Documentation
 
 #### Ikusi Processes (`docs/process/ikusi/`)
-- **[SOP-prefacturas-ikusi.md](process/ikusi/SOP-prefacturas-ikusi.md)** - Pre-invoicing Standard Operating Procedure (ES/EN)
 - **[SOP-finanzas-ikusi.md](process/ikusi/SOP-finanzas-ikusi.md)** - Financial Management SOP (ES/EN)
 
 #### CVDex Processes (`docs/process/cvdex/`)
@@ -78,14 +76,12 @@ Ubicada en `docs/architecture/`
 - **Diagramas de Arquitectura** (`docs/architecture/diagrams/`):
   - `erd-finanzas.mmd` - Diagrama Entidad-Relación mostrando todas las tablas, actores y relaciones
   - `aws-architecture.mmd` - Arquitectura de infraestructura y servicios AWS
-  - `prefacturas-approval-swimlane.mmd` - Flujo de trabajo de aprobación de pre-facturas
   - `data-lineage.mmd` - Flujo de datos y pipeline de procesamiento
   - `cicd-pipeline.mmd` - Pipeline de despliegue CI/CD
 
 ### Documentación de Procesos
 
 #### Procesos Ikusi (`docs/process/ikusi/`)
-- **[SOP-prefacturas-ikusi.md](process/ikusi/SOP-prefacturas-ikusi.md)** - Procedimiento Operativo Estándar de Pre-facturación (ES/EN)
 - **[SOP-finanzas-ikusi.md](process/ikusi/SOP-finanzas-ikusi.md)** - SOP de Gestión Financiera (ES/EN)
 
 #### Procesos CVDex (`docs/process/cvdex/`)
@@ -137,8 +133,6 @@ Ubicada en `docs/architecture/`
 8. **audit_log** - Complete audit trail
 9. **http_api** - API context and metadata
 
-### Pre-Facturas Domain Tables
-- **prefactura_request** - Pre-invoice requests
 - **approval_event** - Approval workflow events
 - **document** - Generated PDFs with folio/stamp
 - **notification_log** - Email notifications
@@ -164,8 +158,6 @@ Ubicada en `docs/architecture/`
 8. **audit_log** - Registro de auditoría completo
 9. **http_api** - Contexto y metadatos de API
 
-### Tablas del Dominio Pre-Facturas
-- **prefactura_request** - Solicitudes de pre-facturas
 - **approval_event** - Eventos del flujo de aprobación
 - **document** - PDFs generados con folio/sello
 - **notification_log** - Notificaciones por correo electrónico
@@ -183,7 +175,6 @@ Ubicada en `docs/architecture/`
 ## EN: How to Use This Documentation
 
 1. **For Developers**: Start with `architecture/finanzas-architecture.md` and the architecture diagrams
-2. **For Project Managers**: Review `process/ikusi/SOP-prefacturas-ikusi.md` and `ui/layouts-and-states.md`
 3. **For Operations**: See `process/cvdex/runbook-ci-cd.md` and `ops/` directory
 4. **For Auditors**: Review `governance/controls-and-audit.md` and `governance/raci-matrix.md`
 5. **For Deployment & Verification**: See `finanzas-release/` directory for critical production deployment documentation
@@ -192,7 +183,6 @@ Ubicada en `docs/architecture/`
 ## ES: Cómo Usar Esta Documentación
 
 1. **Para Desarrolladores**: Comience con `architecture/finanzas-architecture.md` y los diagramas de arquitectura
-2. **Para Gerentes de Proyecto**: Revise `process/ikusi/SOP-prefacturas-ikusi.md` y `ui/layouts-and-states.md`
 3. **Para Operaciones**: Vea `process/cvdex/runbook-ci-cd.md` y el directorio `ops/`
 4. **Para Auditores**: Revise `governance/controls-and-audit.md` y `governance/raci-matrix.md`
 5. **Para Despliegue y Verificación**: Vea el directorio `finanzas-release/` para documentación crítica de despliegue en producción

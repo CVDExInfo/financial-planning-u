@@ -144,7 +144,6 @@ This document provides a comprehensive functional review of the Finanzas UI and 
 | Workflow | Status | Notes |
 |----------|--------|-------|
 | Close Month | ⏳ Pending | |
-| Prefactura approval | ⏳ Pending | |
 | Payroll ingest | ⏳ Pending | |
 | Project handoff | ⏳ Pending | |
 | Success responses received | ⏳ Pending | |

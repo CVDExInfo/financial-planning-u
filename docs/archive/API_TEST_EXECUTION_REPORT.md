@@ -51,8 +51,6 @@
 | 15  | `/alerts`                         | GET    | ❌ FAIL | 501       | Yes  | Not implemented                     |
 | 16  | `/close-month`                    | POST   | ⚠️ WARN | 400       | Yes  | Route exists, data validation issue |
 | 17  | `/payroll/ingest`                 | POST   | ❌ FAIL | 501       | Yes  | Not implemented                     |
-| 18  | `/prefacturas/webhook`            | POST   | ❌ FAIL | 501       | Yes  | Not implemented                     |
-| 19  | `/prefacturas/webhook`            | GET    | ❌ FAIL | 501       | Yes  | Not implemented                     |
 
 ---
 
@@ -97,7 +95,6 @@
 - `/adjustments` (GET/POST)
 - `/alerts` (GET)
 - `/payroll/ingest` (POST)
-- `/prefacturas/webhook` (GET/POST)
 - `/projects/{id}/rubros` (POST)
 - `/projects/{id}/allocations:bulk` (PUT)
 
@@ -254,7 +251,6 @@ Total Routes Tested:     19
 2. Implement business logic for `/adjustments` (11 functions)
 3. Implement business logic for `/alerts` (11 functions)
 4. Implement business logic for `/payroll/ingest` (11 functions)
-5. Implement business logic for `/prefacturas/webhook` (11 functions)
 
 ### Testing
 
