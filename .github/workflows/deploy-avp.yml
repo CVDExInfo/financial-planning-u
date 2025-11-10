@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: us-east-2
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
 
 jobs:
   deploy-avp:
@@ -33,6 +33,29 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y dos2unix
           find .github/actions -type f -print0 | xargs -0 dos2unix || true
+
+      - name: Preflight - Verify Required Variables
+        run: |
+          set -euo pipefail
+          echo "🔍 Verifying required environment variables..."
+          
+          # Check COGNITO_USER_POOL_ARN
+          if [ -z "${{ vars.COGNITO_USER_POOL_ARN }}" ]; then
+            echo "❌ COGNITO_USER_POOL_ARN is not set"
+            echo "Please set this variable in repository settings: Settings → Secrets and variables → Actions → Variables"
+            exit 1
+          fi
+          echo "✅ COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }}"
+          
+          # Check COGNITO_WEB_CLIENT
+          if [ -z "${{ vars.COGNITO_WEB_CLIENT }}" ]; then
+            echo "❌ COGNITO_WEB_CLIENT is not set"
+            echo "Please set this variable in repository settings: Settings → Secrets and variables → Actions → Variables"
+            exit 1
+          fi
+          echo "✅ COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}"
+          
+          echo "✅ All required variables are present"
 
       - name: Configure AWS (OIDC)
         uses: ./.github/actions/oidc-configure-aws
@@ -96,23 +119,36 @@ jobs:
             --definition file://avp/schema.cedar \
             --region $AWS_REGION
           
-          echo "✅ Schema uploaded successfully"
+          echo "Verifying schema was attached..."
+          SCHEMA_JSON=$(aws verifiedpermissions get-schema \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --region $AWS_REGION \
+            --query 'schema' \
+            --output text)
+          
+          if [ -n "$SCHEMA_JSON" ] && [ "$SCHEMA_JSON" != "None" ]; then
+            echo "✅ Schema attached successfully"
+          else
+            echo "❌ Schema upload failed - schema not found after upload"
+            exit 1
+          fi
 
       - name: Bind Cognito Identity Source
         run: |
           set -euo pipefail
           POLICY_STORE_ID="${{ steps.output_store_id.outputs.policy_store_id }}"
+          USER_POOL_ARN="${{ vars.COGNITO_USER_POOL_ARN }}"
           
           echo "Creating Cognito identity source for policy store: $POLICY_STORE_ID"
           
           # Check if identity source already exists to make this idempotent
-          EXISTING_SOURCES=$(aws verifiedpermissions list-identity-sources \
+          EXISTING_COUNT=$(aws verifiedpermissions list-identity-sources \
             --policy-store-id "$POLICY_STORE_ID" \
             --region $AWS_REGION \
-            --query 'identitySources[?configuration.cognitoUserPoolConfiguration.userPoolArn==`${{ vars.COGNITO_USER_POOL_ARN }}`]' \
-            --output json)
+            --output json | jq --arg arn "$USER_POOL_ARN" '[.identitySources[] | select(.configuration.cognitoUserPoolConfiguration.userPoolArn == $arn)] | length')
           
-          if [ "$(echo "$EXISTING_SOURCES" | jq 'length')" -eq 0 ]; then
+          if [ "$EXISTING_COUNT" -eq 0 ]; then
+            echo "Creating new Cognito identity source..."
             aws verifiedpermissions create-identity-source \
               --policy-store-id "$POLICY_STORE_ID" \
               --configuration "cognitoUserPoolConfiguration={userPoolArn=${{ vars.COGNITO_USER_POOL_ARN }},clientIds=[${{ vars.COGNITO_WEB_CLIENT }}]}" \
@@ -122,6 +158,20 @@ jobs:
             echo "✅ Cognito identity source created"
           else
             echo "ℹ️  Cognito identity source already exists, skipping creation"
+          fi
+          
+          # Verify identity source is present
+          FINAL_COUNT=$(aws verifiedpermissions list-identity-sources \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --region $AWS_REGION \
+            --query 'length(identitySources)' \
+            --output text)
+          
+          if [ "$FINAL_COUNT" -gt 0 ]; then
+            echo "✅ Cognito identity source bound ($FINAL_COUNT source(s))"
+          else
+            echo "❌ No identity source found after creation attempt"
+            exit 1
           fi
 
       - name: Verify Policy Store
@@ -174,7 +224,7 @@ jobs:
             exit 1
           fi
           
-          # List policies
+          # List and validate policies
           echo ""
           POLICY_COUNT=$(aws verifiedpermissions list-policies \
             --policy-store-id "$POLICY_STORE_ID" \
@@ -184,7 +234,14 @@ jobs:
           
           echo "Total policies in store: $POLICY_COUNT"
           
-          # List policy templates
+          # Expected: 7 static policies (Health, CatalogRules, PayrollIngest, ViewPrefactura, SendPrefactura, ApprovePrefactura, SuspendedUserDeny)
+          if [ "$POLICY_COUNT" -ge 7 ]; then
+            echo "✅ Policy count matches expected (≥7)"
+          else
+            echo "⚠️  Warning: Expected at least 7 policies, found $POLICY_COUNT"
+          fi
+          
+          # List and validate policy templates
           TEMPLATE_COUNT=$(aws verifiedpermissions list-policy-templates \
             --policy-store-id "$POLICY_STORE_ID" \
             --max-results 100 \
@@ -192,19 +249,34 @@ jobs:
             --output text)
           
           echo "Total policy templates in store: $TEMPLATE_COUNT"
+          
+          # Expected: 3 templates (ProjectMemberAccess, FinanceWriteAccess, CloseMonthAccess)
+          if [ "$TEMPLATE_COUNT" -eq 3 ]; then
+            echo "✅ Template count matches expected (3)"
+          else
+            echo "⚠️  Warning: Expected 3 templates, found $TEMPLATE_COUNT"
+          fi
 
       - name: Summary
         run: |
           set -euo pipefail
           POLICY_STORE_ID="${{ steps.output_store_id.outputs.policy_store_id }}"
           
+          # Track failures
+          HAS_ERRORS=0
+          
           # Get current status
           SCHEMA_STATUS="❌ Not verified"
-          if aws verifiedpermissions get-schema \
+          SCHEMA_TEXT=$(aws verifiedpermissions get-schema \
             --policy-store-id "$POLICY_STORE_ID" \
             --region ${{ env.AWS_REGION }} \
-            --query 'schema' --output text >/dev/null 2>&1; then
+            --query 'schema' --output text 2>/dev/null || echo "")
+          
+          if [ -n "$SCHEMA_TEXT" ] && [ "$SCHEMA_TEXT" != "None" ]; then
             SCHEMA_STATUS="✅ Schema attached"
+          else
+            SCHEMA_STATUS="❌ Schema not found"
+            HAS_ERRORS=1
           fi
           
           IDENTITY_COUNT=$(aws verifiedpermissions list-identity-sources \
@@ -216,6 +288,9 @@ jobs:
           IDENTITY_STATUS="❌ Not configured"
           if [ "$IDENTITY_COUNT" -gt 0 ]; then
             IDENTITY_STATUS="✅ Cognito identity source bound ($IDENTITY_COUNT source(s))"
+          else
+            IDENTITY_STATUS="❌ No identity sources found"
+            HAS_ERRORS=1
           fi
           
           POLICY_COUNT=$(aws verifiedpermissions list-policies \
@@ -225,12 +300,22 @@ jobs:
             --query 'length(policies)' \
             --output text || echo "0")
           
+          POLICY_STATUS="✅ $POLICY_COUNT policies"
+          if [ "$POLICY_COUNT" -lt 7 ]; then
+            POLICY_STATUS="⚠️ $POLICY_COUNT policies (expected ≥7)"
+          fi
+          
           TEMPLATE_COUNT=$(aws verifiedpermissions list-policy-templates \
             --policy-store-id "$POLICY_STORE_ID" \
             --region ${{ env.AWS_REGION }} \
             --max-results 100 \
             --query 'length(policyTemplates)' \
             --output text || echo "0")
+          
+          TEMPLATE_STATUS="✅ $TEMPLATE_COUNT templates"
+          if [ "$TEMPLATE_COUNT" -ne 3 ]; then
+            TEMPLATE_STATUS="⚠️ $TEMPLATE_COUNT templates (expected 3)"
+          fi
           
           {
             echo "## 🔐 AVP Policy Store Deployed Successfully"
@@ -241,8 +326,8 @@ jobs:
             echo "| Policy Store | ✅ Created |"
             echo "| Cedar Schema | $SCHEMA_STATUS |"
             echo "| Cognito Identity Source | $IDENTITY_STATUS |"
-            echo "| Static Policies | ✅ $POLICY_COUNT policies |"
-            echo "| Policy Templates | ✅ $TEMPLATE_COUNT templates |"
+            echo "| Static Policies | $POLICY_STATUS |"
+            echo "| Policy Templates | $TEMPLATE_STATUS |"
             echo ""
             echo "### Deployment Details"
             echo "| Property | Value |"
@@ -305,3 +390,11 @@ jobs:
             echo "- ✅ Static policies for health checks, catalog access, and role-based permissions"
             echo "- ✅ Policy templates for project-specific access control"
           } >> $GITHUB_STEP_SUMMARY
+          
+          # Fail if critical components are missing
+          if [ "$HAS_ERRORS" -ne 0 ]; then
+            echo ""
+            echo "❌ Deployment failed: Critical AVP components are missing"
+            echo "Please review the errors above and re-run the workflow"
+            exit 1
+          fi
