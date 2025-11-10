@@ -8,9 +8,16 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-DIAGRAMS_DIR="$REPO_ROOT/diagrams"
+DIAGRAMS_DIR_ROOT="$REPO_ROOT/diagrams"
+DIAGRAMS_DIR_DOCS="$REPO_ROOT/docs/diagrams"
+DIAGRAMS_DIR_ARCH="$REPO_ROOT/docs/architecture/diagrams"
 
 echo "🔍 Validating Mermaid diagrams..."
+echo ""
+echo "Searching in:"
+echo "  - $DIAGRAMS_DIR_ROOT"
+echo "  - $DIAGRAMS_DIR_DOCS"
+echo "  - $DIAGRAMS_DIR_ARCH"
 echo ""
 
 # Colors
@@ -24,12 +31,14 @@ TOTAL=0
 ERRORS=0
 WARNINGS=0
 
-# Find all .mmd files
-while IFS= read -r -d '' file; do
+# Function to check a single diagram file
+check_diagram() {
+    local file=$1
     TOTAL=$((TOTAL + 1))
     filename=$(basename "$file")
+    relative_path=$(echo "$file" | sed "s|$REPO_ROOT/||")
     
-    echo "Checking: $filename"
+    echo "Checking: $relative_path"
     
     # Basic syntax checks
     ERROR_FOUND=false
@@ -42,7 +51,7 @@ while IFS= read -r -d '' file; do
     fi
     
     # Check for common syntax issues
-    if grep -q "graph TB" "$file" || grep -q "graph LR" "$file" || grep -q "sequenceDiagram" "$file"; then
+    if grep -q "graph TB" "$file" || grep -q "graph LR" "$file" || grep -q "flowchart TB" "$file" || grep -q "flowchart LR" "$file" || grep -q "sequenceDiagram" "$file"; then
         # Check for unclosed brackets
         OPEN_BRACKETS=$(grep -o '\[' "$file" | wc -l)
         CLOSE_BRACKETS=$(grep -o '\]' "$file" | wc -l)
@@ -65,12 +74,21 @@ while IFS= read -r -d '' file; do
             echo -e "${GREEN}  ✓ Syntax looks good${NC}"
         fi
     else
-        echo -e "${YELLOW}  ⚠ Warning: No diagram type found (should start with graph, sequenceDiagram, etc.)${NC}"
+        echo -e "${YELLOW}  ⚠ Warning: No diagram type found (should start with graph, flowchart, sequenceDiagram, etc.)${NC}"
         WARNINGS=$((WARNINGS + 1))
     fi
     
     echo ""
-done < <(find "$DIAGRAMS_DIR" -name "*.mmd" -type f -print0)
+}
+
+# Find and check all .mmd files in all diagram directories
+for DIAGRAMS_DIR in "$DIAGRAMS_DIR_ROOT" "$DIAGRAMS_DIR_DOCS" "$DIAGRAMS_DIR_ARCH"; do
+    if [ -d "$DIAGRAMS_DIR" ]; then
+        while IFS= read -r -d '' file; do
+            check_diagram "$file"
+        done < <(find "$DIAGRAMS_DIR" -name "*.mmd" -type f -print0)
+    fi
+done
 
 # Summary
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
