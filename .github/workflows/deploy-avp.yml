@@ -83,6 +83,47 @@ jobs:
           echo "policy_store_id=$POLICY_STORE_ID" >> $GITHUB_OUTPUT
           echo "POLICY_STORE_ID=$POLICY_STORE_ID" >> $GITHUB_ENV
 
+      - name: Upload AVP Schema
+        working-directory: services/finanzas-api
+        run: |
+          set -euo pipefail
+          POLICY_STORE_ID="${{ steps.output_store_id.outputs.policy_store_id }}"
+          
+          echo "Uploading Cedar schema to policy store: $POLICY_STORE_ID"
+          
+          aws verifiedpermissions put-schema \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --definition file://avp/schema.cedar \
+            --region $AWS_REGION
+          
+          echo "✅ Schema uploaded successfully"
+
+      - name: Bind Cognito Identity Source
+        run: |
+          set -euo pipefail
+          POLICY_STORE_ID="${{ steps.output_store_id.outputs.policy_store_id }}"
+          
+          echo "Creating Cognito identity source for policy store: $POLICY_STORE_ID"
+          
+          # Check if identity source already exists to make this idempotent
+          EXISTING_SOURCES=$(aws verifiedpermissions list-identity-sources \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --region $AWS_REGION \
+            --query 'identitySources[?configuration.cognitoUserPoolConfiguration.userPoolArn==`${{ vars.COGNITO_USER_POOL_ARN }}`]' \
+            --output json)
+          
+          if [ "$(echo "$EXISTING_SOURCES" | jq 'length')" -eq 0 ]; then
+            aws verifiedpermissions create-identity-source \
+              --policy-store-id "$POLICY_STORE_ID" \
+              --configuration "cognitoUserPoolConfiguration={userPoolArn=${{ vars.COGNITO_USER_POOL_ARN }},clientIds=[${{ vars.COGNITO_WEB_CLIENT }}]}" \
+              --principal-entity-type "Finanzas::User" \
+              --region $AWS_REGION
+            
+            echo "✅ Cognito identity source created"
+          else
+            echo "ℹ️  Cognito identity source already exists, skipping creation"
+          fi
+
       - name: Verify Policy Store
         run: |
           set -euo pipefail
@@ -99,7 +140,42 @@ jobs:
           echo "Policy Store Details:"
           echo "$STORE_INFO" | jq .
           
+          # Verify schema exists
+          echo ""
+          echo "Verifying Cedar schema..."
+          SCHEMA_JSON=$(aws verifiedpermissions get-schema \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --region $AWS_REGION \
+            --query 'schema' \
+            --output text)
+          
+          if [ -n "$SCHEMA_JSON" ] && [ "$SCHEMA_JSON" != "None" ]; then
+            echo "✅ Cedar schema attached"
+          else
+            echo "❌ Schema not found"
+            exit 1
+          fi
+          
+          # Verify identity sources
+          echo ""
+          echo "Verifying Cognito identity source..."
+          IDENTITY_SOURCES=$(aws verifiedpermissions list-identity-sources \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --region $AWS_REGION \
+            --query 'identitySources' \
+            --output json)
+          
+          IDENTITY_COUNT=$(echo "$IDENTITY_SOURCES" | jq 'length')
+          if [ "$IDENTITY_COUNT" -gt 0 ]; then
+            echo "✅ Cognito identity source bound ($IDENTITY_COUNT source(s))"
+            echo "$IDENTITY_SOURCES" | jq -r '.[] | "  - " + .identitySourceId + " (" + .configuration.cognitoUserPoolConfiguration.userPoolArn + ")"'
+          else
+            echo "❌ No identity sources found"
+            exit 1
+          fi
+          
           # List policies
+          echo ""
           POLICY_COUNT=$(aws verifiedpermissions list-policies \
             --policy-store-id "$POLICY_STORE_ID" \
             --max-results 100 \
@@ -119,8 +195,54 @@ jobs:
 
       - name: Summary
         run: |
+          set -euo pipefail
+          POLICY_STORE_ID="${{ steps.output_store_id.outputs.policy_store_id }}"
+          
+          # Get current status
+          SCHEMA_STATUS="❌ Not verified"
+          if aws verifiedpermissions get-schema \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'schema' --output text >/dev/null 2>&1; then
+            SCHEMA_STATUS="✅ Schema attached"
+          fi
+          
+          IDENTITY_COUNT=$(aws verifiedpermissions list-identity-sources \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'length(identitySources)' \
+            --output text || echo "0")
+          
+          IDENTITY_STATUS="❌ Not configured"
+          if [ "$IDENTITY_COUNT" -gt 0 ]; then
+            IDENTITY_STATUS="✅ Cognito identity source bound ($IDENTITY_COUNT source(s))"
+          fi
+          
+          POLICY_COUNT=$(aws verifiedpermissions list-policies \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --region ${{ env.AWS_REGION }} \
+            --max-results 100 \
+            --query 'length(policies)' \
+            --output text || echo "0")
+          
+          TEMPLATE_COUNT=$(aws verifiedpermissions list-policy-templates \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --region ${{ env.AWS_REGION }} \
+            --max-results 100 \
+            --query 'length(policyTemplates)' \
+            --output text || echo "0")
+          
           {
-            echo "## 🔐 AVP Policy Store Deployed"
+            echo "## 🔐 AVP Policy Store Deployed Successfully"
+            echo ""
+            echo "### Deployment Status"
+            echo "| Component | Status |"
+            echo "|-----------|--------|"
+            echo "| Policy Store | ✅ Created |"
+            echo "| Cedar Schema | $SCHEMA_STATUS |"
+            echo "| Cognito Identity Source | $IDENTITY_STATUS |"
+            echo "| Static Policies | ✅ $POLICY_COUNT policies |"
+            echo "| Policy Templates | ✅ $TEMPLATE_COUNT templates |"
             echo ""
             echo "### Deployment Details"
             echo "| Property | Value |"
@@ -128,30 +250,58 @@ jobs:
             echo "| Region | ${{ env.AWS_REGION }} |"
             echo "| Stack | ${{ steps.deploy_stack.outputs.stack_name }} |"
             echo "| Stage | ${{ inputs.stage }} |"
-            echo "| Policy Store ID | ${{ steps.output_store_id.outputs.policy_store_id }} |"
+            echo "| Policy Store ID | \`${{ steps.output_store_id.outputs.policy_store_id }}\` |"
+            echo "| Cognito User Pool | ${{ vars.COGNITO_USER_POOL_ARN }} |"
+            echo "| Cognito Client | ${{ vars.COGNITO_WEB_CLIENT }} |"
             echo ""
             echo "### Next Steps"
             echo ""
-            echo "1. **Update GitHub Secrets/Variables**: Add the following to repository variables:"
+            echo "1. **Update GitHub Variables**: Add the following to repository variables (Settings → Secrets and variables → Actions → Variables):"
             echo '   ```'
-            echo "   POLICY_STORE_ID_${{ inputs.stage }}=${{ steps.output_store_id.outputs.policy_store_id }}"
+            echo "   POLICY_STORE_ID=${{ steps.output_store_id.outputs.policy_store_id }}"
             echo '   ```'
             echo ""
-            echo "2. **Deploy API**: Run the API deployment workflow with this Policy Store ID"
+            echo "2. **Deploy API**: Run the \`Deploy Finanzas API\` workflow"
+            echo "   - The API will automatically use the \`POLICY_STORE_ID\` variable"
+            echo "   - AVP authorization will be enabled for protected endpoints"
             echo ""
-            echo "3. **Verify Integration**: Check Lambda logs for AVP authorization calls"
+            echo "3. **Test Authorization**: Use the API with Cognito JWT tokens"
+            echo "   - Different user groups (SDT, FIN, AUD, PMO) will have different access levels"
+            echo "   - Check Lambda logs for AVP authorization decisions"
             echo ""
             echo "### Verification Commands"
             echo '```bash'
-            echo "# List policy stores"
-            echo "aws verifiedpermissions list-policy-stores --region ${{ env.AWS_REGION }}"
+            echo "# Get policy store details"
+            echo "aws verifiedpermissions get-policy-store \\"
+            echo "  --policy-store-id ${{ steps.output_store_id.outputs.policy_store_id }} \\"
+            echo "  --region ${{ env.AWS_REGION }}"
             echo ""
             echo "# Get schema"
-            echo "aws verifiedpermissions get-schema --region ${{ env.AWS_REGION }} \\"
-            echo "  --policy-store-id ${{ steps.output_store_id.outputs.policy_store_id }}"
+            echo "aws verifiedpermissions get-schema \\"
+            echo "  --policy-store-id ${{ steps.output_store_id.outputs.policy_store_id }} \\"
+            echo "  --region ${{ env.AWS_REGION }}"
+            echo ""
+            echo "# List identity sources"
+            echo "aws verifiedpermissions list-identity-sources \\"
+            echo "  --policy-store-id ${{ steps.output_store_id.outputs.policy_store_id }} \\"
+            echo "  --region ${{ env.AWS_REGION }}"
             echo ""
             echo "# List policies"
-            echo "aws verifiedpermissions list-policies --region ${{ env.AWS_REGION }} \\"
-            echo "  --policy-store-id ${{ steps.output_store_id.outputs.policy_store_id }}"
+            echo "aws verifiedpermissions list-policies \\"
+            echo "  --policy-store-id ${{ steps.output_store_id.outputs.policy_store_id }} \\"
+            echo "  --region ${{ env.AWS_REGION }}"
+            echo ""
+            echo "# List policy templates"
+            echo "aws verifiedpermissions list-policy-templates \\"
+            echo "  --policy-store-id ${{ steps.output_store_id.outputs.policy_store_id }} \\"
+            echo "  --region ${{ env.AWS_REGION }}"
             echo '```'
+            echo ""
+            echo "### 🎉 Policy Store Ready for API Integration"
+            echo ""
+            echo "The AVP Policy Store is now fully configured with:"
+            echo "- ✅ Cedar 4.5 schema defining entities, actions, and context"
+            echo "- ✅ Cognito User Pool as the identity source"
+            echo "- ✅ Static policies for health checks, catalog access, and role-based permissions"
+            echo "- ✅ Policy templates for project-specific access control"
           } >> $GITHUB_STEP_SUMMARY
