@@ -1,0 +1,114 @@
+%% End-to-End Process Flow with Roles
+%% Flujo de Proceso de Extremo a Extremo con Roles
+%% High-quality, comprehensive flow diagram showing all actors and interactions
+
+graph TB
+    %% Define Actors/Roles
+    subgraph "👤 External Users / Usuarios Externos"
+        VENDOR[Vendor<br/>Proveedor]
+        PM[Project Manager<br/>Gerente de Proyecto]
+    end
+    
+    subgraph "👥 Internal Users / Usuarios Internos"
+        PMO_USER[PMO User<br/>Usuario PMO]
+        SDMT_USER[SDMT User<br/>Usuario SDMT]
+        ADMIN[System Admin<br/>Administrador]
+    end
+    
+    subgraph "🌐 Frontend Layer / Capa Frontend"
+        WEB[React Web App<br/>Aplicación Web React]
+        CDN[CloudFront CDN<br/>CDN CloudFront]
+        S3_STATIC[S3 Static Assets<br/>Activos Estáticos S3]
+    end
+    
+    subgraph "🔐 Authentication / Autenticación"
+        COGNITO[AWS Cognito<br/>User Pool]
+        LOGIN[Login Portal<br/>Portal de Inicio]
+    end
+    
+    subgraph "🚪 API Gateway Layer / Capa API Gateway"
+        APIGW[API Gateway<br/>Gateway API]
+        AUTH_LAMBDA[Authorizer Lambda<br/>Lambda Autorizador]
+        AVP[Amazon Verified<br/>Permissions]
+    end
+    
+    subgraph "⚙️ Business Logic / Lógica de Negocio"
+        direction TB
+        PMO_LAMBDA[PMO Service<br/>Servicio PMO]
+        SDMT_LAMBDA[SDMT Service<br/>Servicio SDMT]
+        VENDOR_LAMBDA[Vendor Service<br/>Servicio Proveedor]
+        ADMIN_LAMBDA[Admin Service<br/>Servicio Admin]
+    end
+    
+    subgraph "💾 Data Layer / Capa de Datos"
+        DDB_PMO[(PMO Database<br/>Base de Datos PMO)]
+        DDB_SDMT[(SDMT Database<br/>Base de Datos SDMT)]
+        DDB_VENDOR[(Vendor Database<br/>Base de Datos Proveedor)]
+        DDB_USERS[(Users Database<br/>Base de Datos Usuarios)]
+    end
+    
+    %% User Flow - Vendor
+    VENDOR -->|1. Access System<br/>Acceder al Sistema| CDN
+    CDN -->|2. Serve App<br/>Servir App| WEB
+    WEB -->|3. Login<br/>Iniciar Sesión| LOGIN
+    LOGIN -->|4. Authenticate<br/>Autenticar| COGNITO
+    COGNITO -->|5. JWT Token| WEB
+    WEB -->|6. API Request + Token<br/>Solicitud API + Token| APIGW
+    
+    %% User Flow - PMO
+    PMO_USER -->|1. Access System<br/>Acceder al Sistema| CDN
+    
+    %% User Flow - SDMT
+    SDMT_USER -->|1. Access System<br/>Acceder al Sistema| CDN
+    
+    %% User Flow - PM
+    PM -->|1. Access System<br/>Acceder al Sistema| CDN
+    
+    %% User Flow - Admin
+    ADMIN -->|1. Access System<br/>Acceder al Sistema| CDN
+    
+    %% CDN Layer
+    CDN <-->|Content Delivery<br/>Entrega de Contenido| S3_STATIC
+    
+    %% API Authorization Flow
+    APIGW -->|7. Verify Token<br/>Verificar Token| AUTH_LAMBDA
+    AUTH_LAMBDA -->|8. Validate User<br/>Validar Usuario| COGNITO
+    AUTH_LAMBDA -->|9. Check Permissions<br/>Verificar Permisos| AVP
+    
+    %% Service Routing
+    AUTH_LAMBDA -->|10a. Route to Service<br/>Enrutar a Servicio| PMO_LAMBDA
+    AUTH_LAMBDA -->|10b. Route to Service<br/>Enrutar a Servicio| SDMT_LAMBDA
+    AUTH_LAMBDA -->|10c. Route to Service<br/>Enrutar a Servicio| VENDOR_LAMBDA
+    AUTH_LAMBDA -->|10d. Route to Service<br/>Enrutar a Servicio| ADMIN_LAMBDA
+    
+    %% Data Access
+    PMO_LAMBDA <-->|11. CRUD Operations<br/>Operaciones CRUD| DDB_PMO
+    SDMT_LAMBDA <-->|11. CRUD Operations<br/>Operaciones CRUD| DDB_SDMT
+    VENDOR_LAMBDA <-->|11. CRUD Operations<br/>Operaciones CRUD| DDB_VENDOR
+    ADMIN_LAMBDA <-->|11. User Management<br/>Gestión de Usuarios| DDB_USERS
+    
+    %% Response Flow
+    PMO_LAMBDA -->|12. Response<br/>Respuesta| APIGW
+    SDMT_LAMBDA -->|12. Response<br/>Respuesta| APIGW
+    VENDOR_LAMBDA -->|12. Response<br/>Respuesta| APIGW
+    ADMIN_LAMBDA -->|12. Response<br/>Respuesta| APIGW
+    APIGW -->|13. Return Data<br/>Retornar Datos| WEB
+    
+    %% Cross-service interactions
+    PMO_LAMBDA -.->|Budget Requests<br/>Solicitudes de Presupuesto| VENDOR_LAMBDA
+    SDMT_LAMBDA -.->|Project Data<br/>Datos de Proyecto| PMO_LAMBDA
+    
+    %% Styling
+    classDef userStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#000
+    classDef frontendStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef authStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef apiStyle fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef serviceStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
+    classDef dataStyle fill:#e0f2f1,stroke:#00796b,stroke-width:3px,color:#000
+    
+    class VENDOR,PM,PMO_USER,SDMT_USER,ADMIN userStyle
+    class WEB,CDN,S3_STATIC frontendStyle
+    class COGNITO,LOGIN authStyle
+    class APIGW,AUTH_LAMBDA,AVP apiStyle
+    class PMO_LAMBDA,SDMT_LAMBDA,VENDOR_LAMBDA,ADMIN_LAMBDA serviceStyle
+    class DDB_PMO,DDB_SDMT,DDB_VENDOR,DDB_USERS dataStyle
