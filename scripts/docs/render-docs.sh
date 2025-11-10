@@ -31,7 +31,7 @@ EOF
 
 # 1) Convert Mermaid diagrams (.mmd) -> SVG
 shopt -s nullglob
-for mmd in "$DIAG_DIR"/*.mmd "$DOCS_DIR"/*.mmd; do
+for mmd in "$DIAG_DIR"/*.mmd "$DOCS_DIR"/*.mmd "$DOCS_DIR"/architecture/diagrams/*.mmd; do
   base="$(basename "$mmd" .mmd)"
   echo "Rendering Mermaid: $mmd"
   mmdc -i "$mmd" \

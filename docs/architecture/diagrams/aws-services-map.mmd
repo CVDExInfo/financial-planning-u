@@ -1,0 +1,226 @@
+---
+title: Financial Planning System - AWS Services Map
+description: Comprehensive map of all AWS services utilized in the architecture
+---
+
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#FF9900','primaryTextColor':'#fff','secondaryColor':'#146EB4','tertiaryColor':'#3F8624'}}}%%
+
+mindmap
+  root((Financial Planning<br/>AWS Services))
+    Compute & Serverless
+      AWS Lambda
+        PMO Service Functions
+        SDMT Service Functions
+        Forecast Engine
+        Reconciliation Engine
+        Analytics Processor
+        Export Generator
+      Lambda Layers
+        Shared Dependencies
+        AWS SDK Extensions
+        Custom Libraries
+      
+    API & Integration
+      API Gateway
+        REST API Endpoints
+        Custom Authorizers
+        Request Validation
+        Throttling & Quotas
+      Amazon EventBridge
+        Scheduled Jobs
+        Event Routing
+        Cross-Service Integration
+      AWS Step Functions
+        Long-running Workflows
+        Saga Orchestration
+      
+    Storage & Databases
+      DynamoDB
+        Projects Table
+        Budget Baselines Table
+        Cost Catalog Table
+        Forecast Allocations Table
+        Invoice Records Table
+        User Preferences Table
+      Amazon S3
+        Static Website Hosting
+        Document Storage
+        Export Archives
+        Backup & Versioning
+      ElastiCache Redis
+        Session Caching
+        Query Results Cache
+        Real-time Aggregations
+      
+    Content Delivery & Frontend
+      CloudFront
+        Global CDN
+        Path-based Routing
+        SSL/TLS Termination
+        Edge Caching
+      S3 for SPA
+        React Application
+        Origin Access Control
+        Private Bucket
+      Route 53
+        DNS Management
+        Health Checks
+        Traffic Routing
+      
+    Security & Identity
+      AWS Cognito
+        User Pools
+        Identity Pools
+        OAuth 2.0 / OIDC
+        Group Management
+      Amazon Verified Permissions
+        Cedar Policy Engine
+        RBAC Implementation
+        Fine-grained Authorization
+      AWS Secrets Manager
+        API Credentials
+        Database Passwords
+        Third-party Keys
+        Auto-rotation
+      AWS KMS
+        Encryption Keys
+        Data at Rest
+        Data in Transit
+        Envelope Encryption
+      AWS WAF
+        DDoS Protection
+        Rate Limiting
+        Geo-blocking
+        Bot Detection
+      AWS Shield
+        Standard Protection
+        Advanced DDoS Mitigation
+      
+    Observability & Monitoring
+      CloudWatch
+        Logs
+          Lambda Logs
+          API Gateway Logs
+          Application Logs
+        Metrics
+          Custom Business Metrics
+          AWS Service Metrics
+          Dashboard Widgets
+        Alarms
+          Error Rate Alerts
+          Latency Alerts
+          Budget Alerts
+        Insights
+          Log Insights Queries
+          Contributor Insights
+      AWS X-Ray
+        Distributed Tracing
+        Service Map
+        Performance Analytics
+        Error Analysis
+      CloudWatch Synthetics
+        Canary Tests
+        Availability Monitoring
+        SLA Tracking
+      
+    Messaging & Notifications
+      Amazon SNS
+        Budget Alerts
+        Approval Notifications
+        System Events
+      Amazon SQS
+        Async Processing Queues
+        Dead Letter Queues
+        FIFO Queues
+      Amazon SES
+        Transactional Email
+        Budget Reports
+        Alert Notifications
+      
+    Infrastructure & Deployment
+      AWS CloudFormation
+        Infrastructure as Code
+        Stack Management
+        Drift Detection
+      AWS SAM
+        Serverless Application Model
+        Local Testing
+        Deployment Templates
+      AWS Systems Manager
+        Parameter Store
+        Session Manager
+        Patch Manager
+      AWS CodeBuild
+        CI/CD Integration
+        Build Environments
+      AWS CodePipeline
+        Deployment Automation
+        Multi-stage Pipelines
+      
+    Networking & VPC
+      Amazon VPC
+        Private Subnets
+        NAT Gateways
+        Security Groups
+        Network ACLs
+      VPC Endpoints
+        S3 Gateway Endpoint
+        DynamoDB Gateway Endpoint
+        Interface Endpoints
+      
+    Analytics & Business Intelligence
+      Amazon QuickSight
+        Executive Dashboards
+        Cost Analytics
+        Custom Reports
+      AWS Glue
+        Data Catalog
+        ETL Jobs optional
+      Amazon Athena
+        S3 Query Engine
+        Log Analytics
+      
+    Backup & Disaster Recovery
+      AWS Backup
+        Automated Backups
+        Cross-region Replication
+        Retention Policies
+      DynamoDB Backups
+        Point-in-time Recovery
+        On-demand Backups
+      S3 Versioning
+        Object Versioning
+        Lifecycle Policies
+      
+    Compliance & Governance
+      AWS CloudTrail
+        Audit Logs
+        API Activity
+        Compliance Evidence
+      AWS Config
+        Resource Inventory
+        Compliance Rules
+        Change Tracking
+      AWS Organizations
+        Multi-account Strategy
+        Service Control Policies
+      AWS IAM
+        Roles & Policies
+        Least Privilege
+        Service-to-service Auth
+      
+    Cost Management
+      AWS Cost Explorer
+        Cost Analysis
+        Budget Forecasting
+      AWS Budgets
+        Budget Alerts
+        Cost Anomaly Detection
+      AWS Cost & Usage Reports
+        Detailed Billing Data
+      
+    External Integrations
+      Microsoft Graph API
+        SharePoint Integration
+        OneDrive Storage
+        Calendar Events
