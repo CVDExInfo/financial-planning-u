@@ -144,6 +144,60 @@ During local development, the app will use a demo user if Spark runtime isn’t 
 
 The UI currently uses mock data in `src/lib/api.ts`. To integrate the live API, introduce an HTTP client (e.g., fetch or axios) with a configurable base URL and progressively replace `ApiService` methods.
 
+## CI/CD & Quality Gates
+
+This repository includes automated quality gates to ensure code quality and prevent regressions:
+
+### For Developers
+
+Before pushing changes, run:
+```bash
+# Build Finanzas with correct configuration
+BUILD_TARGET=finanzas npm run build
+
+# Run build guards to validate output
+./scripts/build-guards-finanzas.sh
+
+# Expected: ✅ All build guards passed!
+```
+
+**Quick Reference**: See `docs/QUICK_REFERENCE.md` for fast commands and troubleshooting.
+
+### PR Workflow
+
+Every PR to `main` automatically runs:
+- ✅ Environment variables validation
+- ✅ Finanzas UI build with production config
+- ✅ Build guards (base path, dev URLs, asset integrity)
+- ✅ Code quality checks (ESLint)
+- ✅ API health check
+
+**Status**: All checks must pass before merging.
+
+### Build Guards
+
+The `scripts/build-guards-finanzas.sh` script validates:
+1. Build artifacts exist
+2. Base path is `/finanzas/assets/` (not `/assets/`)
+3. No hardcoded development URLs (github.dev, codespaces)
+4. Environment variables are set
+5. Asset files (JS/CSS) are present
+
+### Documentation
+
+- **Complete Guide**: `docs/WORKFLOW_SETUP.md` - CI/CD workflows, local testing, troubleshooting
+- **Branch Protection**: `docs/BRANCH_PROTECTION_SETUP.md` - GitHub configuration for admins
+- **Quick Reference**: `docs/QUICK_REFERENCE.md` - Fast commands and common fixes
+- **Test Results**: `docs/CI_CD_TEST_RESULTS.md` - Validation evidence
+- **Scripts**: `scripts/README.md` - All available scripts documented
+
+### Workflows
+
+- `.github/workflows/finanzas-pr-checks.yml` - PR quality gates (runs on PRs to main)
+- `.github/workflows/test-api.yml` - API unit tests and SAM validation
+- `.github/workflows/deploy-ui.yml` - Deployment with comprehensive guards
+- `.github/workflows/smoke-only.yml` - Manual smoke testing
+
 ## Useful scripts
 
 - `npm run dev` → start local dev server
@@ -152,6 +206,8 @@ The UI currently uses mock data in `src/lib/api.ts`. To integrate the live API, 
 - `npm run lint` → lint the workspace
 - `npm run generate-docs-pdf` → generate PDF versions of all documentation files (legacy)
 - `npm run render-docs` → generate bilingual PDF/DOCX documentation with corporate branding
+- `scripts/build-guards-finanzas.sh` → **validate Finanzas build artifacts (CI/CD quality gate)**
+- `scripts/finanzas-e2e-smoke.sh` → end-to-end smoke tests with Cognito
 - `scripts/create-s3-bucket.sh` → create and configure the S3 bucket for hosting
 - `scripts/deploy-check.sh` → CI-friendly build verification (lint/build). Adjust as needed.
 
