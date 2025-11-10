@@ -9,16 +9,20 @@ This directory contains the documentation rendering pipeline for the Finanzas SD
 - **Dual-format Output**: Generates both PDF and DOCX files from source documentation
 - **Bilingual Support**: Preserves both Spanish and English content with proper encoding
 - **Corporate Branding**: Supports CVDex and Ikusi branding (configurable via environment variable)
-- **Diagram Rendering**: Converts Mermaid (.mmd) diagrams to SVG
+- **High-Quality Diagram Rendering**: Converts Mermaid (.mmd) diagrams to SVG with 2x scaling for crisp visuals
 - **Professional Styling**: Branded cover pages, headers, footers, and consistent typography
-- **Index Generation**: Creates navigable index.html for easy document access
+- **Index Generation**: Creates navigable index.html for easy document and diagram access
+- **Diagram Validation**: Pre-flight syntax checking for Mermaid diagrams
+- **Comprehensive Diagrams**: Includes system architecture, end-to-end flows, and role matrices
 
 ## Directory Structure
 
 ```
 scripts/docs/
 ├── render-docs.ts        # Main rendering script
-└── tsconfig.json         # TypeScript configuration
+├── validate-diagrams.sh  # Diagram syntax validation script
+├── tsconfig.json         # TypeScript configuration
+└── README.md             # This file
 
 docs/                      # Source Markdown documentation
 ├── architecture/          # Architecture documentation
@@ -26,9 +30,12 @@ docs/                      # Source Markdown documentation
 └── ...                    # Other documentation folders
 
 diagrams/                  # Diagram source files
-├── *.mmd                  # Mermaid diagram files
-├── *.drawio               # Draw.io diagram files (manual export needed)
-└── *.svg                  # SVG images
+├── system-architecture.mmd       # System architecture diagram
+├── end-to-end-flow.mmd          # Complete flow with user roles
+├── roles-and-responsibilities.mmd # Role access matrix
+├── *.mmd                         # Other Mermaid diagrams
+├── *.drawio                      # Draw.io diagrams (manual export needed)
+└── *.svg                         # SVG images
 
 assets/
 ├── logo/                  # Brand logos
@@ -41,6 +48,7 @@ assets/
 
 public/docs/latest/        # Generated output (committed to repo)
 ├── index.html             # Navigation index
+├── *.svg                  # Generated diagram SVGs
 ├── *.pdf                  # Generated PDF files
 └── *.docx                 # Generated DOCX files
 ```
@@ -68,12 +76,17 @@ All prerequisites are automatically installed by the workflow.
    npm ci
    ```
 
-2. **Run with default branding (Ikusi):**
+2. **Validate diagrams (optional but recommended):**
+   ```bash
+   ./scripts/docs/validate-diagrams.sh
+   ```
+
+3. **Run with default branding (Ikusi):**
    ```bash
    npm run render-docs
    ```
 
-3. **Run with CVDex branding:**
+4. **Run with CVDex branding:**
    ```bash
    USE_CVDEX_BRANDING=true npm run render-docs
    ```
@@ -87,9 +100,11 @@ All prerequisites are automatically installed by the workflow.
 5. **Click "Run workflow"** to start
 
 The workflow will:
+- Validate diagram syntax
 - Install all required tools
-- Process documentation and diagrams
+- Process documentation and diagrams with high-quality rendering
 - Generate PDF and DOCX files
+- Deploy generated diagrams to output directory
 - Commit outputs to `public/docs/latest/`
 - Create downloadable artifacts
 
@@ -164,7 +179,19 @@ graph TD
     B --> C[End]
 ```
 
-Diagrams are automatically converted to SVG during rendering.
+**Diagram Quality Settings:**
+- 2x scale rendering for high resolution
+- Custom theme with professional colors
+- Optimized spacing and layout (80px node spacing, 80px rank spacing)
+- Support for bilingual labels using `<br/>` for line breaks
+- Emojis supported in node labels (🔐, 🌐, etc.)
+
+Diagrams are automatically converted to SVG during rendering and copied to the output directory.
+
+**Existing High-Quality Diagrams:**
+- `system-architecture.mmd` - Layered system architecture with all components
+- `end-to-end-flow.mmd` - Complete user flow showing all roles and interactions  
+- `roles-and-responsibilities.mmd` - Role-based access control matrix
 
 #### Draw.io Diagrams
 
@@ -214,7 +241,9 @@ Generated files are stored in `public/docs/latest/`:
 **Solution**: 
 - Ensure Chromium/Chrome is installed
 - Set PUPPETEER_EXECUTABLE_PATH environment variable
-- Check Mermaid syntax in `.mmd` files
+- Check Mermaid syntax using `./scripts/docs/validate-diagrams.sh`
+- Verify diagram file is not empty
+- Check for unbalanced brackets or parentheses
 
 ### Unicode/Encoding Issues
 

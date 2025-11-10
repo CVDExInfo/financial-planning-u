@@ -36,7 +36,7 @@ jobs:
       - name: Install Pandoc
         run: |
           sudo apt-get update
-          sudo apt-get install -y pandoc texlive-xetex texlive-fonts-recommended texlive-latex-extra
+          sudo apt-get install -y pandoc texlive-xetex texlive-fonts-recommended texlive-latex-extra texlive-lang-spanish
           pandoc --version
       
       # Step 5: Install Mermaid CLI for diagram rendering
@@ -52,7 +52,14 @@ jobs:
           export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
           export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
       
-      # Step 7: Run documentation rendering script
+      # Step 7: Validate diagram syntax
+      - name: Validate diagrams
+        run: |
+          echo "Validating Mermaid diagram syntax..."
+          chmod +x scripts/docs/validate-diagrams.sh
+          ./scripts/docs/validate-diagrams.sh
+      
+      # Step 13: Run documentation rendering script
       - name: Generate documentation
         env:
           USE_CVDEX_BRANDING: ${{ vars.USE_CVDEX_BRANDING || 'false' }}
@@ -61,19 +68,21 @@ jobs:
           echo "Branding: $USE_CVDEX_BRANDING"
           npm run render-docs
       
-      # Step 8: Verify output files exist
+      # Step 13: Verify output files exist
       - name: Verify generated files
         run: |
           echo "Checking for generated documentation files..."
           ls -lah public/docs/latest/
           
-          # Count PDF and DOCX files
+          # Count PDF, DOCX, and SVG files
           PDF_COUNT=$(find public/docs/latest -name "*.pdf" -type f | wc -l)
           DOCX_COUNT=$(find public/docs/latest -name "*.docx" -type f | wc -l)
+          SVG_COUNT=$(find public/docs/latest -name "*.svg" -type f | wc -l)
           
           echo "Generated files:"
           echo "  PDFs: $PDF_COUNT"
           echo "  DOCXs: $DOCX_COUNT"
+          echo "  Diagrams (SVG): $SVG_COUNT"
           
           # Verify index.html exists
           if [ ! -f public/docs/latest/index.html ]; then
@@ -81,15 +90,20 @@ jobs:
             exit 1
           fi
           
+          # Verify at least some diagrams were generated
+          if [ $SVG_COUNT -lt 1 ]; then
+            echo "Warning: No diagram SVG files found"
+          fi
+          
           echo "✓ All expected output files generated successfully"
       
-      # Step 9: Configure Git
+      # Step 13: Configure Git
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
       
-      # Step 10: Commit and push generated files
+      # Step 13: Commit and push generated files
       - name: Commit and push documentation
         run: |
           # Add generated files
@@ -116,7 +130,7 @@ jobs:
           
           echo "✓ Documentation committed and pushed successfully"
       
-      # Step 11: Create artifact for download (optional)
+      # Step 13: Create artifact for download (optional)
       - name: Upload documentation artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -125,7 +139,7 @@ jobs:
           retention-days: 90
           if-no-files-found: error
       
-      # Step 12: Summary
+      # Step 13: Summary
       - name: Generate job summary
         if: always()
         run: |
@@ -141,8 +155,20 @@ jobs:
           if [ -d public/docs/latest ]; then
             PDF_COUNT=$(find public/docs/latest -name "*.pdf" -type f | wc -l)
             DOCX_COUNT=$(find public/docs/latest -name "*.docx" -type f | wc -l)
+            SVG_COUNT=$(find public/docs/latest -name "*.svg" -type f | wc -l)
             echo "- **PDF files:** $PDF_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "- **DOCX files:** $DOCX_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- **Diagram files (SVG):** $SVG_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Diagrams Generated" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if [ $SVG_COUNT -gt 0 ]; then
+              echo "The following high-quality diagrams were generated:" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              find public/docs/latest -name "*.svg" -type f -exec basename {} \; | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ No diagrams were generated" >> $GITHUB_STEP_SUMMARY
+            fi
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### Files List" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
