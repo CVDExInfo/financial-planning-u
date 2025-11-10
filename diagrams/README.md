@@ -26,16 +26,15 @@ graph TD
 **Mermaid Documentation**: https://mermaid.js.org/
 
 ### Draw.io Diagrams (.drawio)
-Draw.io diagrams require manual export to SVG before they can be used in documentation.
+Draw.io diagrams are currently not automatically processed. If you need to include Draw.io diagrams, please export them to SVG format manually.
 
 **Creating Draw.io diagrams:**
 1. Create diagram at https://app.diagrams.net/
-2. Save as `.drawio` file in this directory
-3. **Export to SVG**: File → Export as → SVG
-4. Save SVG in this directory with same base name
-5. Reference in Markdown: `![Diagram Name](../diagrams/your-diagram.svg)`
+2. **Export to SVG**: File → Export as → SVG
+3. Save SVG in this directory with a descriptive name
+4. Reference in Markdown: `![Diagram Name](../diagrams/your-diagram.svg)`
 
-**Note**: Automated Draw.io conversion is not yet implemented. Manual export is required.
+**Note**: Automated Draw.io conversion is not implemented. Only Mermaid diagrams (.mmd) are automatically converted during the build process.
 
 ### SVG Images (.svg)
 SVG images can be used directly without conversion.
@@ -107,15 +106,27 @@ sequenceDiagram
 
 ## Current Diagrams
 
-- `system-architecture.mmd` - High-level system architecture showing main components
+- `end-to-end-flow.mmd` - Comprehensive end-to-end process flow showing all actors, components, and interactions with bilingual labels
+- `system-architecture.mmd` - High-level system architecture showing main components and their relationships
+- `roles-and-responsibilities.mmd` - Role definitions and responsibility matrix for the system
+
+## Quality Standards
+
+Our diagrams follow enterprise-grade quality standards:
+
+- **Professional Styling**: Consistent color schemes, proper spacing, and clear visual hierarchy
+- **Bilingual Labels**: All diagrams include English/Spanish labels for international accessibility
+- **Clear Typography**: Readable fonts and appropriately sized text
+- **Intuitive Flow**: Logical progression and clear relationships between components
+- **Modern Aesthetics**: Contemporary design with appropriate use of color, shape, and icons
 
 ## Future Enhancements
 
-- [ ] Automated Draw.io to SVG conversion
 - [ ] PlantUML support
-- [ ] Graphviz DOT file support
+- [ ] Graphviz DOT file support  
 - [ ] Automatic bilingual diagram generation
-- [ ] Diagram validation and linting
+- [ ] Interactive diagram validation
+- [ ] Animated sequence diagrams for presentations
 
 ## Contributing
 

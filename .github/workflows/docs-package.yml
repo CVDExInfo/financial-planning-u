@@ -25,7 +25,7 @@ jobs:
 
       - name: Install diagram CLIs
         run: |
-          npm i -g @mermaid-js/mermaid-cli drawio-export
+          npm i -g @mermaid-js/mermaid-cli
 
       - name: Prepare branding templates
         run: |

@@ -1,6 +1,21 @@
+---
+title: Financial Planning System - End-to-End Architecture
+config:
+  theme: base
+  themeVariables:
+    primaryColor: "#e3f2fd"
+    primaryTextColor: "#000"
+    primaryBorderColor: "#1976d2"
+    lineColor: "#424242"
+    secondaryColor: "#f3e5f5"
+    tertiaryColor: "#fff3e0"
+    fontSize: "16px"
+    fontFamily: "Arial, Helvetica, sans-serif"
+---
 %% End-to-End Process Flow with Roles
 %% Flujo de Proceso de Extremo a Extremo con Roles
-%% High-quality, comprehensive flow diagram showing all actors and interactions
+%% Enterprise-grade, comprehensive architectural flow diagram
+%% Shows all actors, components, and interactions with bilingual labels
 
 graph TB
     %% Define Actors/Roles
@@ -98,12 +113,12 @@ graph TB
     PMO_LAMBDA -.->|Budget Requests<br/>Solicitudes de Presupuesto| VENDOR_LAMBDA
     SDMT_LAMBDA -.->|Project Data<br/>Datos de Proyecto| PMO_LAMBDA
     
-    %% Styling
-    classDef userStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#000
-    classDef frontendStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
-    classDef authStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
-    classDef apiStyle fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
-    classDef serviceStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
+    %% Styling with enhanced visual hierarchy and professional color palette
+    classDef userStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#000,rx:5,ry:5
+    classDef frontendStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2.5px,color:#000,rx:5,ry:5
+    classDef authStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2.5px,color:#000,rx:5,ry:5
+    classDef apiStyle fill:#e8f5e9,stroke:#388e3c,stroke-width:2.5px,color:#000,rx:5,ry:5
+    classDef serviceStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2.5px,color:#000,rx:5,ry:5
     classDef dataStyle fill:#e0f2f1,stroke:#00796b,stroke-width:3px,color:#000
     
     class VENDOR,PM,PMO_USER,SDMT_USER,ADMIN userStyle
