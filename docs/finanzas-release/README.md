@@ -35,20 +35,40 @@ The Finanzas module is a separate Single Page Application (SPA) that runs alongs
    - Cache invalidation procedures
    - Post-deployment verification steps
 
+4. **[DEPLOYMENT_VERIFICATION_CHECKLIST.md](./DEPLOYMENT_VERIFICATION_CHECKLIST.md)**
+   - Complete go/no-go checklist for production deployments
+   - 10-section verification covering all system components
+   - Evidence collection requirements
+   - Sign-off section for deployment team
+
+5. **[VERIFICATION_SCRIPTS_GUIDE.md](./VERIFICATION_SCRIPTS_GUIDE.md)**
+   - Quick reference for running verification scripts
+   - Expected outputs and how to interpret results
+   - Troubleshooting guide for common failures
+   - Daily and weekly verification workflows
+
+6. **[TEST_EVIDENCE_SUMMARY.md](./TEST_EVIDENCE_SUMMARY.md)**
+   - Automated test coverage matrix
+   - Evidence collection guide for audit/compliance
+   - Continuous verification procedures
+   - CI/CD integration recommendations
+
 ## Quick Start
 
 ### For New Deployments
 
-1. Review **[FINANZAS-DEPLOYMENT-COMPLETE.md](./FINANZAS-DEPLOYMENT-COMPLETE.md)** for infrastructure ground truth
-2. Follow configuration steps in **[FINANZAS_NEXT_STEPS.md](./FINANZAS_NEXT_STEPS.md)**
-3. Run verification scripts (see below)
-4. Use **[FINANZAS_DEPLOYMENT_VERIFICATION.md](./FINANZAS_DEPLOYMENT_VERIFICATION.md)** for manual testing
+1. **Quick verification (5 min):** Follow [QUICK_START.md](./QUICK_START.md) for fast-track verification
+2. Review **[FINANZAS-DEPLOYMENT-COMPLETE.md](./FINANZAS-DEPLOYMENT-COMPLETE.md)** for infrastructure ground truth
+3. Follow configuration steps in **[FINANZAS_NEXT_STEPS.md](./FINANZAS_NEXT_STEPS.md)**
+4. Run verification scripts (see below)
+5. Use **[FINANZAS_DEPLOYMENT_VERIFICATION.md](./FINANZAS_DEPLOYMENT_VERIFICATION.md)** for manual testing
 
 ### For Troubleshooting
 
 1. Start with **[FINANZAS_NEXT_STEPS.md](./FINANZAS_NEXT_STEPS.md)** - Check CloudFront behavior, S3 content, and Cognito settings
 2. Run automated verification (see Verification Scripts below)
 3. Review **[FINANZAS_DEPLOYMENT_VERIFICATION.md](./FINANZAS_DEPLOYMENT_VERIFICATION.md)** for specific test cases
+4. Consult **[VERIFICATION_SCRIPTS_GUIDE.md](./VERIFICATION_SCRIPTS_GUIDE.md)** troubleshooting section
 
 ## Verification Scripts
 
