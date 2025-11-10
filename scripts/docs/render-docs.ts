@@ -22,6 +22,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// ESM-compatible __dirname and __filename
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Configuration
 const CONFIG = {
@@ -119,7 +125,7 @@ function findFiles(dir: string, ext: string): string[] {
 }
 
 /**
- * Convert Mermaid diagram to SVG
+ * Convert Mermaid diagram to SVG with high quality settings
  */
 function convertMermaidToSVG(mmdPath: string): string {
   const basename = path.basename(mmdPath, CONFIG.MERMAID_EXT);
@@ -128,16 +134,60 @@ function convertMermaidToSVG(mmdPath: string): string {
   try {
     logger.info(`Converting Mermaid diagram: ${path.basename(mmdPath)}`);
     
-    // Create puppeteer config for CI environments
+    // Create puppeteer config for CI environments with better quality
     const puppeteerConfig = path.join(CONFIG.TEMP_DIR, 'puppeteer-config.json');
     fs.writeFileSync(puppeteerConfig, JSON.stringify({
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     }));
     
-    // Use mermaid CLI to convert .mmd to .svg
-    execSync(`npx -y mmdc -i "${mmdPath}" -o "${outputPath}" -b transparent --puppeteerConfigFile "${puppeteerConfig}"`, {
-      stdio: 'pipe',
-    });
+    // Create mermaid config for better quality rendering
+    const mermaidConfig = path.join(CONFIG.TEMP_DIR, 'mermaid-config.json');
+    fs.writeFileSync(mermaidConfig, JSON.stringify({
+      theme: 'default',
+      themeVariables: {
+        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontSize: '16px',
+        primaryColor: '#bbdefb',
+        primaryTextColor: '#000',
+        primaryBorderColor: '#1976d2',
+        lineColor: '#424242',
+        secondaryColor: '#c8e6c9',
+        tertiaryColor: '#fff9c4'
+      },
+      flowchart: {
+        htmlLabels: true,
+        curve: 'basis',
+        padding: 20,
+        nodeSpacing: 80,
+        rankSpacing: 80,
+        useMaxWidth: true
+      },
+      sequence: {
+        diagramMarginX: 50,
+        diagramMarginY: 20,
+        actorMargin: 50,
+        width: 180,
+        height: 65,
+        boxMargin: 10,
+        boxTextMargin: 5,
+        noteMargin: 10,
+        messageMargin: 40,
+        mirrorActors: true,
+        useMaxWidth: true
+      }
+    }));
+    
+    // Use mermaid CLI to convert .mmd to .svg with high quality settings
+    // Scale 2 for better resolution, background transparent
+    execSync(
+      `npx -y mmdc -i "${mmdPath}" -o "${outputPath}" ` +
+      `-b transparent -s 2 ` +
+      `--configFile "${mermaidConfig}" ` +
+      `--puppeteerConfigFile "${puppeteerConfig}"`,
+      {
+        stdio: 'pipe',
+      }
+    );
     
     logger.success(`Generated SVG: ${basename}.svg`);
     return outputPath;
@@ -164,6 +214,11 @@ function processDiagrams(): Map<string, string> {
       const svgPath = convertMermaidToSVG(mmdFile);
       const basename = path.basename(mmdFile, CONFIG.MERMAID_EXT);
       diagramMap.set(basename, svgPath);
+      
+      // Copy diagram to output directory for PDF embedding
+      const outputSvgPath = path.join(CONFIG.OUTPUT_DIR, `${basename}.svg`);
+      fs.copyFileSync(svgPath, outputSvgPath);
+      logger.success(`Copied diagram to output: ${basename}.svg`);
     } catch (error) {
       logger.error(`Failed to process: ${path.basename(mmdFile)}`);
     }
@@ -202,7 +257,6 @@ function convertMarkdownToPDF(mdPath: string, metadata: DocumentMetadata): void 
   try {
     logger.info(`Converting to PDF: ${relativePath}`);
     
-    const logoPath = getLogoPath();
     const templatePath = path.join(CONFIG.ASSETS_DIR, 'branding', 'template.tex');
     
     // Pandoc command with LaTeX template and metadata
@@ -216,7 +270,6 @@ function convertMarkdownToPDF(mdPath: string, metadata: DocumentMetadata): void 
       `--metadata author="${metadata.author}"`,
       `--metadata date="${metadata.date}"`,
       `--metadata subtitle="${metadata.subtitle}"`,
-      `--variable logo="${logoPath}"`,
     ];
     
     // Add template if it exists
@@ -346,12 +399,22 @@ function processMarkdownFiles(): Array<{ name: string; pdf: string; docx: string
 /**
  * Generate index.html for documentation
  */
-function generateIndex(docs: Array<{ name: string; pdf: string; docx: string }>): void {
+function generateIndex(
+  docs: Array<{ name: string; pdf: string; docx: string }>,
+  diagrams: Map<string, string>
+): void {
   logger.section('Generating index.html...');
   
   const brandName = CONFIG.USE_CVDEX_BRANDING ? 'CVDex' : 'Ikusi';
   const cssPath = path.join(CONFIG.ASSETS_DIR, 'branding', 'styles.css');
   const css = fs.existsSync(cssPath) ? fs.readFileSync(cssPath, 'utf-8') : '';
+  
+  const diagramsList = Array.from(diagrams.keys())
+    .map(name => `
+      <li>
+        <a href="${name}.svg" target="_blank">📊 ${name}</a>
+      </li>
+    `).join('\n');
   
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -368,6 +431,15 @@ function generateIndex(docs: Array<{ name: string; pdf: string; docx: string }>)
   </header>
   
   <main>
+    <section>
+      <h2>EN: System Diagrams / ES: Diagramas del Sistema</h2>
+      <p>EN: High-quality architecture and flow diagrams</p>
+      <p>ES: Diagramas de arquitectura y flujo de alta calidad</p>
+      <ul class="doc-index">
+        ${diagramsList}
+      </ul>
+    </section>
+    
     <section>
       <h2>EN: Available Documents</h2>
       <p>Select a document to download in your preferred format (PDF or DOCX).</p>
@@ -448,10 +520,11 @@ ${colors.bright}${colors.cyan}╔═══════════════�
     }
     
     // Generate index
-    generateIndex(processedDocs);
+    generateIndex(processedDocs, diagramMap);
     
     // Summary
     logger.section('Summary');
+    logger.success(`Total diagrams processed: ${diagramMap.size}`);
     logger.success(`Total documents processed: ${processedDocs.length}`);
     logger.success(`Output location: ${CONFIG.OUTPUT_DIR}`);
     logger.info(`View the documentation index at: ${path.join(CONFIG.OUTPUT_DIR, 'index.html')}`);

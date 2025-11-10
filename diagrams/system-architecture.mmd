@@ -1,59 +1,102 @@
+%% Finanzas SD System Architecture
+%% Arquitectura del Sistema Finanzas SD
+%% High-quality architecture diagram with improved visual clarity
+
 graph TB
-    subgraph "User Interface / Interfaz de Usuario"
-        UI[React Frontend<br/>Frontend React]
+    %% User Interface Layer
+    subgraph "🖥️ User Interface Layer / Capa de Interfaz de Usuario"
+        direction LR
+        UI[React Frontend<br/>SPA Application<br/>---<br/>Frontend React<br/>Aplicación SPA]
     end
     
-    subgraph "CDN Layer / Capa CDN"
-        CF[CloudFront<br/>Distribution]
-        S3[S3 Bucket<br/>Cubeta S3]
+    %% Content Delivery Layer
+    subgraph "🌐 CDN & Delivery Layer / Capa CDN y Entrega"
+        direction TB
+        CF[CloudFront Distribution<br/>Global CDN<br/>---<br/>Distribución CloudFront<br/>CDN Global]
+        S3[S3 Bucket<br/>Static Assets<br/>---<br/>Cubeta S3<br/>Activos Estáticos]
+        CF --> S3
     end
     
-    subgraph "Authentication / Autenticación"
-        COG[AWS Cognito<br/>User Pool]
+    %% Authentication Layer
+    subgraph "🔐 Authentication Layer / Capa de Autenticación"
+        direction TB
+        COG[AWS Cognito<br/>User Pool & Identity<br/>---<br/>Pool de Usuarios e Identidad]
+        JWT[JWT Tokens<br/>Session Management<br/>---<br/>Tokens JWT<br/>Gestión de Sesión]
+        COG --> JWT
     end
     
-    subgraph "API Layer / Capa API"
-        APIGW[API Gateway<br/>Gateway API]
-        AUTH[Auth Lambda<br/>Lambda Auth]
+    %% API Layer
+    subgraph "🚪 API Gateway Layer / Capa de API Gateway"
+        direction TB
+        APIGW[API Gateway<br/>REST API Endpoints<br/>---<br/>Gateway API<br/>Endpoints REST]
+        AUTH[Authorizer Lambda<br/>Request Validation<br/>---<br/>Lambda Autorizador<br/>Validación de Solicitud]
+        APIGW --> AUTH
     end
     
-    subgraph "Business Logic / Lógica de Negocio"
-        PMO[PMO Lambda<br/>Lambda PMO]
-        SDMT[SDMT Lambda<br/>Lambda SDMT]
-        VENDOR[Vendor Lambda<br/>Lambda Vendor]
+    %% Authorization Layer
+    subgraph "✅ Authorization Layer / Capa de Autorización"
+        direction TB
+        AVP[Amazon Verified<br/>Permissions Engine<br/>---<br/>Motor de Permisos<br/>Verificados de Amazon]
+        POLICY[Policy Store<br/>RBAC Rules<br/>---<br/>Almacén de Políticas<br/>Reglas RBAC]
+        AVP --> POLICY
     end
     
-    subgraph "Authorization / Autorización"
-        AVP[Amazon Verified<br/>Permissions]
+    %% Business Logic Layer
+    subgraph "⚙️ Business Logic Layer / Capa de Lógica de Negocio"
+        direction LR
+        PMO[PMO Service Lambda<br/>Project Portfolio Mgmt<br/>---<br/>Lambda Servicio PMO<br/>Gestión Cartera Proyectos]
+        SDMT[SDMT Service Lambda<br/>SD Management Tools<br/>---<br/>Lambda Servicio SDMT<br/>Herramientas Gestión SD]
+        VENDOR[Vendor Service Lambda<br/>Supplier Management<br/>---<br/>Lambda Servicio Proveedor<br/>Gestión de Proveedores]
     end
     
-    subgraph "Data Layer / Capa de Datos"
-        DDB[(DynamoDB<br/>Tables)]
+    %% Data Layer
+    subgraph "💾 Data Persistence Layer / Capa de Persistencia de Datos"
+        direction LR
+        DDB[(DynamoDB Tables<br/>NoSQL Database<br/>---<br/>Tablas DynamoDB<br/>Base de Datos NoSQL)]
+        DDB_BACKUP[(Backup & Recovery<br/>Point-in-Time Recovery<br/>---<br/>Respaldo y Recuperación<br/>Recuperación Punto en Tiempo)]
+        DDB --> DDB_BACKUP
     end
     
-    UI -->|HTTPS| CF
-    CF --> S3
-    UI -->|Login/Signup| COG
-    COG -->|JWT Token| UI
-    UI -->|API Calls + JWT| APIGW
-    APIGW --> AUTH
-    AUTH -->|Validate| COG
-    AUTH -->|Check Permissions| AVP
-    AUTH --> PMO
-    AUTH --> SDMT
-    AUTH --> VENDOR
-    PMO --> DDB
-    SDMT --> DDB
-    VENDOR --> DDB
+    %% Main Flow Connections
+    UI -->|1. HTTPS Requests<br/>Solicitudes HTTPS| CF
+    UI -->|2. Login/Signup<br/>Iniciar Sesión/Registrarse| COG
+    COG -->|3. JWT Token<br/>Token JWT| UI
+    UI -->|4. API Calls + JWT<br/>Llamadas API + JWT| APIGW
     
-    style UI fill:#e1f5ff
-    style CF fill:#fff4e6
-    style S3 fill:#fff4e6
-    style COG fill:#ffe6e6
-    style APIGW fill:#e6ffe6
-    style AUTH fill:#e6ffe6
-    style PMO fill:#f0e6ff
-    style SDMT fill:#f0e6ff
-    style VENDOR fill:#f0e6ff
-    style AVP fill:#ffe6f0
-    style DDB fill:#fff0cc
+    %% API Gateway Flow
+    AUTH -->|5. Validate Token<br/>Validar Token| COG
+    AUTH -->|6. Check Permissions<br/>Verificar Permisos| AVP
+    
+    %% Service Routing
+    AUTH -->|7. Route Request<br/>Enrutar Solicitud| PMO
+    AUTH -->|7. Route Request<br/>Enrutar Solicitud| SDMT
+    AUTH -->|7. Route Request<br/>Enrutar Solicitud| VENDOR
+    
+    %% Data Access
+    PMO -->|8. Data Operations<br/>Operaciones de Datos| DDB
+    SDMT -->|8. Data Operations<br/>Operaciones de Datos| DDB
+    VENDOR -->|8. Data Operations<br/>Operaciones de Datos| DDB
+    
+    %% Response Flow
+    PMO -->|9. Response<br/>Respuesta| APIGW
+    SDMT -->|9. Response<br/>Respuesta| APIGW
+    VENDOR -->|9. Response<br/>Respuesta| APIGW
+    APIGW -->|10. JSON Response<br/>Respuesta JSON| UI
+    
+    %% Styling with better contrast and clarity
+    classDef uiLayer fill:#bbdefb,stroke:#1976d2,stroke-width:3px,color:#000,font-weight:bold
+    classDef cdnLayer fill:#fff9c4,stroke:#f57f17,stroke-width:3px,color:#000,font-weight:bold
+    classDef authLayer fill:#ffccbc,stroke:#d84315,stroke-width:3px,color:#000,font-weight:bold
+    classDef apiLayer fill:#c8e6c9,stroke:#388e3c,stroke-width:3px,color:#000,font-weight:bold
+    classDef authzLayer fill:#f8bbd0,stroke:#c2185b,stroke-width:3px,color:#000,font-weight:bold
+    classDef serviceLayer fill:#e1bee7,stroke:#7b1fa2,stroke-width:3px,color:#000,font-weight:bold
+    classDef dataLayer fill:#b2dfdb,stroke:#00695c,stroke-width:3px,color:#000,font-weight:bold
+    
+    class UI uiLayer
+    class CF,S3 cdnLayer
+    class COG,JWT authLayer
+    class APIGW,AUTH apiLayer
+    class AVP,POLICY authzLayer
+    class PMO,SDMT,VENDOR serviceLayer
+    class DDB,DDB_BACKUP dataLayer
+

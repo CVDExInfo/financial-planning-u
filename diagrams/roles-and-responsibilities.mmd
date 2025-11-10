@@ -1,0 +1,114 @@
+%% Roles and Responsibilities Matrix
+%% Matriz de Roles y Responsabilidades
+%% Clear visualization of user roles and their system access
+
+graph LR
+    %% Role Definitions
+    subgraph "👥 System Roles / Roles del Sistema"
+        direction TB
+        R1[🔴 System Admin<br/>Administrador del Sistema]
+        R2[🟠 PMO User<br/>Usuario PMO]
+        R3[🟡 SDMT User<br/>Usuario SDMT]
+        R4[🟢 Project Manager<br/>Gerente de Proyecto]
+        R5[🔵 Vendor<br/>Proveedor]
+    end
+    
+    %% Capability Mapping
+    subgraph "⚙️ System Capabilities / Capacidades del Sistema"
+        direction TB
+        
+        subgraph "User Management / Gestión de Usuarios"
+            C1[Create Users<br/>Crear Usuarios]
+            C2[Manage Roles<br/>Gestionar Roles]
+            C3[Set Permissions<br/>Establecer Permisos]
+        end
+        
+        subgraph "Portfolio Management / Gestión de Cartera"
+            C4[View Portfolio<br/>Ver Cartera]
+            C5[Create Projects<br/>Crear Proyectos]
+            C6[Approve Budgets<br/>Aprobar Presupuestos]
+        end
+        
+        subgraph "SD Management / Gestión SD"
+            C7[Create SD Requests<br/>Crear Solicitudes SD]
+            C8[Track Progress<br/>Seguir Progreso]
+            C9[Approve Deliverables<br/>Aprobar Entregables]
+        end
+        
+        subgraph "Vendor Operations / Operaciones Proveedor"
+            C10[Submit Invoices<br/>Enviar Facturas]
+            C11[View Assignments<br/>Ver Asignaciones]
+            C12[Update Status<br/>Actualizar Estado]
+        end
+        
+        subgraph "Reporting / Reportes"
+            C13[Generate Reports<br/>Generar Reportes]
+            C14[Export Data<br/>Exportar Datos]
+            C15[View Analytics<br/>Ver Analíticas]
+        end
+    end
+    
+    %% Admin Access - Full Access
+    R1 -.->|Full Access<br/>Acceso Completo| C1
+    R1 -.->|Full Access| C2
+    R1 -.->|Full Access| C3
+    R1 -.->|Full Access| C4
+    R1 -.->|Full Access| C5
+    R1 -.->|Full Access| C6
+    R1 -.->|Full Access| C7
+    R1 -.->|Full Access| C8
+    R1 -.->|Full Access| C9
+    R1 -.->|Full Access| C10
+    R1 -.->|Full Access| C11
+    R1 -.->|Full Access| C12
+    R1 -.->|Full Access| C13
+    R1 -.->|Full Access| C14
+    R1 -.->|Full Access| C15
+    
+    %% PMO User Access
+    R2 -.->|Read/Write<br/>Lectura/Escritura| C4
+    R2 -.->|Read/Write| C5
+    R2 -.->|Approve<br/>Aprobar| C6
+    R2 -.->|Read Only<br/>Solo Lectura| C7
+    R2 -.->|Read Only| C8
+    R2 -.->|Read/Write| C13
+    R2 -.->|Read/Write| C14
+    R2 -.->|Read/Write| C15
+    
+    %% SDMT User Access
+    R3 -.->|Read Only| C4
+    R3 -.->|Read/Write| C7
+    R3 -.->|Read/Write| C8
+    R3 -.->|Approve| C9
+    R3 -.->|Read Only| C10
+    R3 -.->|Read/Write| C13
+    R3 -.->|Read/Write| C14
+    
+    %% Project Manager Access
+    R4 -.->|Read Only| C4
+    R4 -.->|Read Only| C7
+    R4 -.->|Read/Write| C8
+    R4 -.->|Read Only| C11
+    R4 -.->|Read Only| C13
+    R4 -.->|Read/Write| C15
+    
+    %% Vendor Access
+    R5 -.->|Read/Write| C10
+    R5 -.->|Read Only| C11
+    R5 -.->|Read/Write| C12
+    R5 -.->|Read Only| C13
+    
+    %% Styling
+    classDef adminRole fill:#ffcdd2,stroke:#c62828,stroke-width:4px,color:#000,font-weight:bold
+    classDef pmoRole fill:#ffe0b2,stroke:#e65100,stroke-width:3px,color:#000,font-weight:bold
+    classDef sdmtRole fill:#fff9c4,stroke:#f57f17,stroke-width:3px,color:#000,font-weight:bold
+    classDef pmRole fill:#c8e6c9,stroke:#2e7d32,stroke-width:3px,color:#000,font-weight:bold
+    classDef vendorRole fill:#bbdefb,stroke:#1565c0,stroke-width:3px,color:#000,font-weight:bold
+    classDef capability fill:#f5f5f5,stroke:#616161,stroke-width:2px,color:#000
+    
+    class R1 adminRole
+    class R2 pmoRole
+    class R3 sdmtRole
+    class R4 pmRole
+    class R5 vendorRole
+    class C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11,C12,C13,C14,C15 capability

@@ -18,7 +18,7 @@
     "preview:pmo": "BUILD_TARGET=pmo vite preview",
     "preview:finanzas": "BUILD_TARGET=finanzas vite preview",
     "generate-docs-pdf": "node scripts/generate-docs-pdf.cjs",
-    "render-docs": "ts-node scripts/docs/render-docs.ts"
+    "render-docs": "node --loader ts-node/esm scripts/docs/render-docs.ts"
   },
   "dependencies": {
     "@github/spark": "^0.39.0",
