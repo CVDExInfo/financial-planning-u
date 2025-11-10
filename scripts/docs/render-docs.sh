@@ -17,27 +17,42 @@ else
   BRAND_LOGO="$LOGO_DIR/ikusi.png"
 fi
 
+# 0.1) Create puppeteer config for CI environments
+PUPPETEER_CONFIG="$OUT_DIR/tmp/puppeteer-config.json"
+cat > "$PUPPETEER_CONFIG" << 'EOF'
+{
+  "args": [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage"
+  ]
+}
+EOF
+
 # 1) Convert Mermaid diagrams (.mmd) -> SVG
 shopt -s nullglob
-for mmd in "$DIAG_DIR"/*.mmd "$DOCS_DIR"/*.mmd; do
+for mmd in "$DIAG_DIR"/*.mmd "$DOCS_DIR"/*.mmd "$DOCS_DIR"/architecture/diagrams/*.mmd; do
   base="$(basename "$mmd" .mmd)"
   echo "Rendering Mermaid: $mmd"
-  mmdc -i "$mmd" -o "$OUT_DIR/img/${base}.svg" --backgroundColor transparent --scale 1 || echo "Warning: Failed to convert $mmd"
+  mmdc -i "$mmd" \
+    -o "$OUT_DIR/img/${base}.svg" \
+    --backgroundColor transparent \
+    --scale 1 \
+    --puppeteerConfigFile "$PUPPETEER_CONFIG" \
+    || echo "Warning: Failed to convert $mmd"
 done
 
-# 2) Convert Draw.io diagrams (.drawio) -> SVG
-for d in "$DIAG_DIR"/*.drawio "$DOCS_DIR"/*.drawio; do
-  base="$(basename "$d" .drawio)"
-  echo "Exporting Draw.io: $d"
-  drawio-export --format svg --output "$OUT_DIR/img/${base}.svg" "$d" || echo "Warning: Failed to convert $d"
-done
-
-# 3) Copy any static SVG/PNG from diagrams/ to OUT/img
+# 2) Copy any static SVG/PNG from diagrams/ to OUT/img
 for img in "$DIAG_DIR"/*.svg "$DIAG_DIR"/*.png; do
   cp -f "$img" "$OUT_DIR/img/" || true
 done
 
-# 4) Render Markdown -> PDF/DOCX (and optional HTML)
+# 2.1) Also copy generated SVGs to root of OUT_DIR for direct access
+for svg in "$OUT_DIR/img"/*.svg; do
+  [ -f "$svg" ] && cp -f "$svg" "$OUT_DIR/" || true
+done
+
+# 3) Render Markdown -> PDF/DOCX (and optional HTML)
 # Requirements:
 # - $BRAND_DIR/template.tex (LaTeX template uses cover/header/footer images; includes logo)
 # - $BRAND_DIR/reference.docx (Word styles with header/footer & logo)
@@ -83,7 +98,7 @@ find "$DOCS_DIR" -type f -name "*.md" -print0 | while IFS= read -r -d '' md; do
   render_one "$md" || echo "Warning: Failed to render $md"
 done
 
-# 5) Generate an index.html listing
+# 4) Generate an index.html listing
 {
   echo "<!doctype html><html><head><meta charset='utf-8'><title>Documentation – latest</title></head><body>"
   echo "<h1>Documentation (Latest)</h1><ul>"

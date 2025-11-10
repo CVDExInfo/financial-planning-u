@@ -9,7 +9,7 @@ This directory contains the documentation rendering pipeline for the Finanzas SD
 - **Dual-format Output**: Generates both PDF and DOCX files from source documentation
 - **Bilingual Support**: Preserves both Spanish and English content with proper encoding
 - **Corporate Branding**: Supports CVDex and Ikusi branding (configurable via environment variable)
-- **High-Quality Diagram Rendering**: Converts Mermaid (.mmd) diagrams to SVG with 2x scaling for crisp visuals
+- **High-Quality Diagram Rendering**: Converts Mermaid (.mmd) diagrams to SVG with CI-compatible puppeteer configuration
 - **Professional Styling**: Branded cover pages, headers, footers, and consistent typography
 - **Index Generation**: Creates navigable index.html for easy document and diagram access
 - **Diagram Validation**: Pre-flight syntax checking for Mermaid diagrams
@@ -34,8 +34,7 @@ diagrams/                  # Diagram source files
 ├── end-to-end-flow.mmd          # Complete flow with user roles
 ├── roles-and-responsibilities.mmd # Role access matrix
 ├── *.mmd                         # Other Mermaid diagrams
-├── *.drawio                      # Draw.io diagrams (manual export needed)
-└── *.svg                         # SVG images
+└── *.svg                         # SVG images (static or pre-rendered)
 
 assets/
 ├── logo/                  # Brand logos
@@ -58,6 +57,7 @@ public/docs/latest/        # Generated output (committed to repo)
 ### Local Development
 - Node.js >= 18.18
 - npm >= 9
+- Mermaid CLI: `npm i -g @mermaid-js/mermaid-cli`
 - Pandoc >= 2.x (for document conversion)
 - LaTeX distribution (for PDF generation)
   - On Ubuntu/Debian: `sudo apt-get install texlive-xetex texlive-fonts-recommended texlive-latex-extra`
