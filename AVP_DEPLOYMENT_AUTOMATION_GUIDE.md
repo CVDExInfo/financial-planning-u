@@ -2,7 +2,19 @@
 
 ## Overview
 
-The AVP (Amazon Verified Permissions) deployment workflow has been enhanced to fully automate the Policy Store initialization. This eliminates manual CLI steps and ensures every deployment creates a complete, verified Policy Store ready for API integration.
+The AVP (Amazon Verified Permissions) deployment workflow has been **hardened and enhanced** to provide 100% reliable, self-verifying deployments. This eliminates manual CLI steps, provides comprehensive validation, and ensures every deployment creates a complete, verified Policy Store ready for API integration.
+
+## Recent Enhancements (2025-11)
+
+The workflow now includes:
+
+1. ✅ **Preflight Variable Checks** - Validates required Cognito variables before starting
+2. ✅ **AWS Region Flexibility** - Supports `vars.AWS_REGION` instead of hardcoding
+3. ✅ **Schema Verification** - Confirms schema is successfully attached after upload
+4. ✅ **Identity Source Validation** - Fixed query logic and added count verification
+5. ✅ **Policy/Template Count Checks** - Validates expected counts (≥7 policies, 3 templates)
+6. ✅ **Fail-Fast Error Handling** - Workflow fails immediately if critical components are missing
+7. ✅ **Workflow Call Support** - Can be invoked programmatically by other workflows
 
 ## What's Automated
 
@@ -78,6 +90,11 @@ gh workflow run deploy-avp.yml -f stage=dev
 
 ## Workflow Steps Explained
 
+### 0. Preflight - Verify Required Variables ⚡ NEW
+- **Checks**: `COGNITO_USER_POOL_ARN` and `COGNITO_WEB_CLIENT` are set
+- **Fails fast**: If variables are missing, workflow stops with clear instructions
+- **Purpose**: Prevents wasted time deploying only to fail at identity source binding
+
 ### 1. Deploy AVP Policy Store
 - Creates CloudFormation stack `finanzas-avp-{stage}`
 - Deploys Policy Store with Cedar 4.5 validation
@@ -87,24 +104,29 @@ gh workflow run deploy-avp.yml -f stage=dev
 - Retrieves the Policy Store ID from stack outputs
 - Exports to `GITHUB_OUTPUT` and `GITHUB_ENV` for subsequent steps
 
-### 3. Upload AVP Schema
+### 3. Upload AVP Schema ⚡ ENHANCED
 - Uploads Cedar schema from `services/finanzas-api/avp/schema.cedar`
 - Defines entity types, actions, and context structure
-- Required for STRICT validation mode
+- **Now verifies**: Schema is actually attached by calling `get-schema`
+- **Fails**: If schema upload doesn't result in retrievable schema
 
-### 4. Bind Cognito Identity Source
+### 4. Bind Cognito Identity Source ⚡ ENHANCED
 - Creates identity source linking Cognito User Pool to AVP
 - Sets principal entity type to `Finanzas::User`
-- **Idempotent**: Checks if source exists before creating
+- **Idempotent**: Uses fixed jq query to check if source exists before creating
+- **Validates**: Confirms identity source count is > 0 after creation
 
-### 5. Verify Policy Store
+### 5. Verify Policy Store ⚡ ENHANCED
 - Validates schema attachment
 - Confirms identity source binding
-- Counts policies and templates
+- **Now checks**: Policy count is ≥7 (expected static policies)
+- **Now checks**: Template count is 3 (expected policy templates)
 - Fails if any component is missing
 
-### 6. Summary
-- Displays comprehensive deployment status
+### 6. Summary ⚡ ENHANCED
+- Displays comprehensive deployment status with validation indicators
+- **Tracks errors**: Sets `HAS_ERRORS` flag if schema or identity source missing
+- **Fails workflow**: If critical components (schema, identity source) are not present
 - Provides verification commands
 - Shows next steps for API deployment
 
@@ -120,11 +142,38 @@ Deployment Status
 ✅ Policy Store Created
 ✅ Cedar Schema attached
 ✅ Cognito identity source bound (1 source(s))
-✅ 8 static policies
-✅ 3 policy templates
+✅ 7 policies (expected ≥7)
+✅ 3 templates (expected 3)
 
 Policy Store ID: ps-1234567890abcdef
 ```
+
+If any component fails validation, you'll see:
+
+```
+❌ Deployment failed: Critical AVP components are missing
+Please review the errors above and re-run the workflow
+```
+
+## Programmatic Workflow Invocation ⚡ NEW
+
+The workflow now supports `workflow_call`, allowing it to be invoked by other workflows:
+
+```yaml
+jobs:
+  deploy-avp:
+    uses: ./.github/workflows/deploy-avp.yml
+    with:
+      stage: dev
+    secrets: inherit
+  
+  deploy-api:
+    needs: deploy-avp
+    uses: ./.github/workflows/deploy-api.yml
+    secrets: inherit
+```
+
+This enables automated pipeline chaining where API deployment only runs after successful AVP deployment.
 
 ## Next Steps After Deployment
 
@@ -222,10 +271,39 @@ aws verifiedpermissions list-policies \
 
 **Error**: `❌ Schema not found` or `❌ No identity sources found`
 
+**Cause**: Upload or creation step failed silently
+
 **Solution**: 
-1. Check workflow logs for upload/creation errors
-2. Manually upload schema: `aws verifiedpermissions put-schema --policy-store-id ps-xxx --definition file://avp/schema.cedar`
-3. Manually create identity source (see workflow step for command)
+1. Check workflow logs for specific error messages in upload/creation steps
+2. The workflow now fails fast at the Summary step with clear error messages
+3. Review the preflight check to ensure variables are set correctly
+4. Manually upload schema if needed: `aws verifiedpermissions put-schema --policy-store-id ps-xxx --definition file://avp/schema.cedar`
+5. Manually create identity source if needed (see workflow step for command)
+
+### Policy/Template Count Mismatch ⚡ NEW
+
+**Warning**: `⚠️ Expected at least 7 policies, found 5`
+
+**Cause**: CloudFormation stack may not have created all static policies
+
+**Solution**:
+1. Check CloudFormation stack events in AWS Console
+2. Verify `avp-policy-store.yaml` defines all expected policies
+3. Re-deploy the workflow to sync policies
+4. Expected counts:
+   - **Policies**: ≥7 (Health, CatalogRules, PayrollIngest, ViewPrefactura, SendPrefactura, ApprovePrefactura, SuspendedUserDeny)
+   - **Templates**: 3 (ProjectMemberAccess, FinanceWriteAccess, CloseMonthAccess)
+
+### Missing Required Variables ⚡ NEW
+
+**Error**: `❌ COGNITO_USER_POOL_ARN is not set`
+
+**Cause**: Repository variables not configured
+
+**Solution**:
+1. Go to repository Settings → Secrets and variables → Actions → Variables
+2. Add the missing variable with correct value
+3. Re-run the workflow
 
 ## Idempotency
 
