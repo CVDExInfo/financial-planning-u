@@ -22,14 +22,14 @@ shopt -s nullglob
 for mmd in "$DIAG_DIR"/*.mmd "$DOCS_DIR"/*.mmd; do
   base="$(basename "$mmd" .mmd)"
   echo "Rendering Mermaid: $mmd"
-  mmdc -i "$mmd" -o "$OUT_DIR/img/${base}.svg" --backgroundColor transparent --scale 1
+  mmdc -i "$mmd" -o "$OUT_DIR/img/${base}.svg" --backgroundColor transparent --scale 1 || echo "Warning: Failed to convert $mmd"
 done
 
 # 2) Convert Draw.io diagrams (.drawio) -> SVG
 for d in "$DIAG_DIR"/*.drawio "$DOCS_DIR"/*.drawio; do
   base="$(basename "$d" .drawio)"
   echo "Exporting Draw.io: $d"
-  drawio-export --format svg --output "$OUT_DIR/img/${base}.svg" "$d"
+  drawio-export --format svg --output "$OUT_DIR/img/${base}.svg" "$d" || echo "Warning: Failed to convert $d"
 done
 
 # 3) Copy any static SVG/PNG from diagrams/ to OUT/img
@@ -46,20 +46,30 @@ render_one() {
   name="$(basename "${src_md%.*}")"
   echo "Rendering: $src_md"
 
-  pandoc "$src_md" \
+  # Try PDF generation
+  if pandoc "$src_md" \
     --from gfm \
     --resource-path="$DOCS_DIR:$DIAG_DIR:$OUT_DIR/img" \
     --metadata=logo:"$BRAND_LOGO" \
     --metadata=title:"$name" \
     --pdf-engine=xelatex \
     --template="$BRAND_DIR/template.tex" \
-    -o "$OUT_DIR/${name}.pdf"
+    -o "$OUT_DIR/${name}.pdf" 2>/dev/null; then
+    echo "  ✓ PDF generated"
+  else
+    echo "  ⚠ Warning: PDF generation failed for $name"
+  fi
 
-  pandoc "$src_md" \
+  # Try DOCX generation
+  if pandoc "$src_md" \
     --from gfm \
     --resource-path="$DOCS_DIR:$DIAG_DIR:$OUT_DIR/img" \
     --reference-doc="$BRAND_DIR/reference.docx" \
-    -o "$OUT_DIR/${name}.docx"
+    -o "$OUT_DIR/${name}.docx" 2>/dev/null; then
+    echo "  ✓ DOCX generated"
+  else
+    echo "  ⚠ Warning: DOCX generation failed for $name"
+  fi
 
   # Optional HTML preview (comment out if not needed)
   # pandoc "$src_md" \
@@ -70,7 +80,7 @@ render_one() {
 
 # Render top-level docs and subfolders
 find "$DOCS_DIR" -type f -name "*.md" -print0 | while IFS= read -r -d '' md; do
-  render_one "$md"
+  render_one "$md" || echo "Warning: Failed to render $md"
 done
 
 # 5) Generate an index.html listing

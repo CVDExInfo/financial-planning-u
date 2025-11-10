@@ -14,16 +14,17 @@
 \usepackage{longtable}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{framed}
+
+% Code blocks shading
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+
+% Syntax highlighting environment for code
+\newenvironment{Highlighting}{\begin{Shaded}}{\end{Shaded}}
 
 % ---------- Brand Fonts (fallbacks if not present) ----------
-\setmainfont{DejaVu Sans}[
-  Path = /usr/share/fonts/truetype/dejavu/,
-  Extension = .ttf,
-  UprightFont = *,
-  BoldFont = *-Bold,
-  ItalicFont = *-Oblique,
-  BoldItalicFont = *-BoldOblique
-]
+\setmainfont{DejaVu Sans}
 \setsansfont{DejaVu Sans}
 \setmonofont{DejaVu Sans Mono}
 
