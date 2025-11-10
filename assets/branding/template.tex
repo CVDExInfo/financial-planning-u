@@ -1,43 +1,45 @@
-% Finanzas SD Documentation LaTeX Template
-% Supports bilingual (Spanish/English) content with corporate branding
-
-\documentclass[12pt,a4paper]{article}
-
-% Packages
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage[spanish,english]{babel}
+% Finanzas SD – Branded PDF Template (CVDex/Ikusi)
+% Usage: pandoc --pdf-engine=xelatex --template=assets/branding/template.tex \
+%               --metadata=title:"<Doc Title>" --metadata=logo:"assets/logo/cvdex.png"
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{fontspec}
 \usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{setspace}
 \usepackage{fancyhdr}
 \usepackage{lastpage}
-\usepackage{hyperref}
-\usepackage{geometry}
-\usepackage{xcolor}
-\usepackage{titling}
-\usepackage{fancyvrb}
-\usepackage{framed}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
 \usepackage{longtable}
 \usepackage{booktabs}
 \usepackage{array}
-\usepackage{calc}
+\usepackage{framed}
 
-% Code highlighting
-\usepackage{listings}
-\lstset{
-  basicstyle=\ttfamily\small,
-  breaklines=true,
-  frame=single,
-  backgroundcolor=\color{gray!10}
-}
-
-% Shaded environment for code blocks
+% Code blocks shading
 \definecolor{shadecolor}{RGB}{248,248,248}
 \newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
 
-% Highlighting environment for code
+% Syntax highlighting environment for code
 \newenvironment{Highlighting}{\begin{Shaded}}{\end{Shaded}}
 
-% Syntax highlighting commands (simplified)
+% ---------- Brand Fonts (fallbacks if not present) ----------
+\setmainfont{DejaVu Sans}
+\setsansfont{DejaVu Sans}
+\setmonofont{DejaVu Sans Mono}
+
+% ---------- Brand Palette ----------
+% CVDex/Ikusi tonal anchor – adjust if needed
+\definecolor{BrandPrimary}{HTML}{0C6E4F} % Ikusi green (#4ac795 is accent), use deeper tone for text rules
+\definecolor{BrandAccent}{HTML}{4AC795}
+\definecolor{BrandGray}{HTML}{5B6770}
+
+% ---------- Title & Section Styling ----------
+\titleformat{\section}{\large\bfseries\color{BrandPrimary}}{\thesection}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries\color{BrandPrimary}}{\thesubsection}{0.5em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{BrandGray}}{\thesubsubsection}{0.5em}{}
+
+% Syntax highlighting commands (for pandoc compatibility)
 \newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{#1}}}
 \newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.56,0.13,0.00}{#1}}
 \newcommand{\DecValTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
@@ -74,92 +76,51 @@
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 
-% Page geometry
-\geometry{
-  a4paper,
-  top=25mm,
-  bottom=25mm,
-  left=20mm,
-  right=20mm,
-  headheight=15mm,
-  headsep=10mm,
-  footskip=10mm
-}
-
-% Corporate colors
-\definecolor{brandblue}{RGB}{0,51,102}
-\definecolor{brandlightblue}{RGB}{0,102,204}
-
-% Hyperlink setup
-\hypersetup{
-  colorlinks=true,
-  linkcolor=brandblue,
-  filecolor=brandblue,
-  urlcolor=brandlightblue,
-  pdftitle={$title$},
-  pdfauthor={$author$},
-  pdfsubject={Finanzas SD Documentation},
-}
-
-% Header and footer
+% ---------- Header / Footer ----------
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small\textcolor{brandblue}{\textbf{$title$}}}
-\fancyhead[R]{\small\textcolor{brandblue}{\textbf{$author$}}}
-\fancyfoot[C]{\small\textcolor{gray}{Finanzas SD Documentation}}
-\fancyfoot[R]{\small\textcolor{gray}{Page \thepage\ of \pageref{LastPage}}}
-\renewcommand{\headrulewidth}{0.4pt}
-\renewcommand{\footrulewidth}{0.4pt}
+% Header: logo left, doc title right
+$if(logo)$
+\lhead{\vspace{-0.5em}\includegraphics[height=14pt]{$logo$}}
+$endif$
+\rhead{\vspace{-0.5em}\color{BrandGray}\small $title$}
+% Footer: bilingual footer + page numbers
+\lfoot{\color{BrandGray}\scriptsize Finanzas SD Documentation / Documentación de Finanzas SD}
+\rfoot{\color{BrandGray}\scriptsize Page \thepage\ of \pageref{LastPage}}
 
-% Document metadata
-\title{$title$}
-\author{$author$}
-\date{$date$}
+% ---------- Cover Page ----------
+\newcommand{\makemycover}{
+  \begin{titlepage}
+    \centering
+    \vspace*{1.5cm}
+    $if(logo)$
+    \includegraphics[height=2.2cm]{$logo$}\par
+    $endif$
+    \vspace{1.5cm}
+    {\Huge\bfseries $title$\par}
+    \vspace{0.5cm}
+    {\Large Finanzas SD – Architecture, Flows \& SOPs \par}
+    \vspace{0.25cm}
+    {\large Arquitectura, Flujos y Procedimientos \par}
+    \vfill
+    {\large \today \par}
+  \end{titlepage}
+}
 
+% ---------- Pandoc Variables ----------
+\newcommand{\thetitle}{$title$}
+
+% ---------- Document ----------
 \begin{document}
+\makemycover
+\onehalfspacing
 
-% Cover page
-\begin{titlepage}
-  \centering
-  \vspace*{2cm}
-  
-  {\Huge\bfseries\textcolor{brandblue}{$author$}\par}
-  
-  \vspace{2cm}
-  
-  {\Huge\bfseries\textcolor{brandblue}{$title$}\par}
-  
-  \vspace{1cm}
-  
-  {\Large\textcolor{brandlightblue}{$subtitle$}\par}
-  
-  \vspace{1.5cm}
-  
-  {\large
-  \textbf{Finanzas SD Documentation}\\
-  \textbf{Documentación de Finanzas SD}
-  \par}
-  
-  \vfill
-  
-  {\large
-  $author$\\
-  $date$
-  \par}
-  
-  \vspace{1cm}
-  
-  {\small\textcolor{gray}{Confidential - Internal Use Only}\par}
-  
-\end{titlepage}
-
-% Table of contents (optional)
 $if(toc)$
+{\hypersetup{linkcolor=BrandPrimary}
 \tableofcontents
-\newpage
+\newpage}
 $endif$
 
-% Main content
 $body$
 
 \end{document}
