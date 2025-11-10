@@ -47,6 +47,11 @@ for img in "$DIAG_DIR"/*.svg "$DIAG_DIR"/*.png; do
   cp -f "$img" "$OUT_DIR/img/" || true
 done
 
+# 2.1) Also copy generated SVGs to root of OUT_DIR for direct access
+for svg in "$OUT_DIR/img"/*.svg; do
+  [ -f "$svg" ] && cp -f "$svg" "$OUT_DIR/" || true
+done
+
 # 3) Render Markdown -> PDF/DOCX (and optional HTML)
 # Requirements:
 # - $BRAND_DIR/template.tex (LaTeX template uses cover/header/footer images; includes logo)
