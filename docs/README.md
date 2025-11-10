@@ -53,6 +53,14 @@ Located in `docs/architecture/`
 - Deployment guides
 - Monitoring and alerting
 
+### Finanzas Production Release (`docs/finanzas-release/`)
+- **[README.md](finanzas-release/README.md)** - Critical deployment documentation and verification procedures
+- **[DEPLOYMENT_VERIFICATION_CHECKLIST.md](finanzas-release/DEPLOYMENT_VERIFICATION_CHECKLIST.md)** - Complete deployment checklist
+- **[VERIFICATION_SCRIPTS_GUIDE.md](finanzas-release/VERIFICATION_SCRIPTS_GUIDE.md)** - Verification scripts usage guide
+- **[FINANZAS-DEPLOYMENT-COMPLETE.md](finanzas-release/FINANZAS-DEPLOYMENT-COMPLETE.md)** - Ground truth infrastructure values
+- **[FINANZAS_DEPLOYMENT_VERIFICATION.md](finanzas-release/FINANZAS_DEPLOYMENT_VERIFICATION.md)** - Manual verification procedures
+- **[FINANZAS_NEXT_STEPS.md](finanzas-release/FINANZAS_NEXT_STEPS.md)** - Configuration guides and troubleshooting
+
 ### Additional Documentation
 - **[quick-reference.md](quick-reference.md)** - Quick reference guide (ES/EN)
 - **[auth-usage.md](auth-usage.md)** - Authentication usage guide
@@ -99,6 +107,14 @@ Ubicada en `docs/architecture/`
 - Runbooks y procedimientos operacionales
 - Guías de despliegue
 - Monitoreo y alertas
+
+### Finanzas Despliegue en Producción (`docs/finanzas-release/`)
+- **[README.md](finanzas-release/README.md)** - Documentación crítica de despliegue y procedimientos de verificación
+- **[DEPLOYMENT_VERIFICATION_CHECKLIST.md](finanzas-release/DEPLOYMENT_VERIFICATION_CHECKLIST.md)** - Lista de verificación completa de despliegue
+- **[VERIFICATION_SCRIPTS_GUIDE.md](finanzas-release/VERIFICATION_SCRIPTS_GUIDE.md)** - Guía de uso de scripts de verificación
+- **[FINANZAS-DEPLOYMENT-COMPLETE.md](finanzas-release/FINANZAS-DEPLOYMENT-COMPLETE.md)** - Valores de infraestructura de referencia
+- **[FINANZAS_DEPLOYMENT_VERIFICATION.md](finanzas-release/FINANZAS_DEPLOYMENT_VERIFICATION.md)** - Procedimientos de verificación manual
+- **[FINANZAS_NEXT_STEPS.md](finanzas-release/FINANZAS_NEXT_STEPS.md)** - Guías de configuración y solución de problemas
 
 ### Documentación Adicional
 - **[quick-reference.md](quick-reference.md)** - Guía de referencia rápida (ES/EN)
@@ -170,7 +186,8 @@ Ubicada en `docs/architecture/`
 2. **For Project Managers**: Review `process/ikusi/SOP-prefacturas-ikusi.md` and `ui/layouts-and-states.md`
 3. **For Operations**: See `process/cvdex/runbook-ci-cd.md` and `ops/` directory
 4. **For Auditors**: Review `governance/controls-and-audit.md` and `governance/raci-matrix.md`
-5. **For Quick Reference**: See `quick-reference.md`
+5. **For Deployment & Verification**: See `finanzas-release/` directory for critical production deployment documentation
+6. **For Quick Reference**: See `quick-reference.md`
 
 ## ES: Cómo Usar Esta Documentación
 
@@ -178,7 +195,8 @@ Ubicada en `docs/architecture/`
 2. **Para Gerentes de Proyecto**: Revise `process/ikusi/SOP-prefacturas-ikusi.md` y `ui/layouts-and-states.md`
 3. **Para Operaciones**: Vea `process/cvdex/runbook-ci-cd.md` y el directorio `ops/`
 4. **Para Auditores**: Revise `governance/controls-and-audit.md` y `governance/raci-matrix.md`
-5. **Para Referencia Rápida**: Vea `quick-reference.md`
+5. **Para Despliegue y Verificación**: Vea el directorio `finanzas-release/` para documentación crítica de despliegue en producción
+6. **Para Referencia Rápida**: Vea `quick-reference.md`
 
 ---
 
