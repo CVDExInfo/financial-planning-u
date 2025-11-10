@@ -1,20 +1,20 @@
 flowchart LR
-  A[User (PM/FIN/SDT/AUD)] --> CF[CloudFront /finanzas/*]
-  CF --> UI[Vite/React (SPA)]
-  UI -->|JWT| APIGW[API Gateway (finanzas-sd-api dev/stg/prod)]
-  A -->|Auth| COG[Cognito User Pool (acta-ui groups SDT/PM/FIN/AUD)]
+  A["User (PM/FIN/SDT/AUD)"] --> CF["CloudFront /finanzas/*"]
+  CF --> UI["Vite/React (SPA)"]
+  UI -->|JWT| APIGW["API Gateway (finanzas-sd-api dev/stg/prod)"]
+  A -->|Auth| COG["Cognito User Pool (acta-ui groups SDT/PM/FIN/AUD)"]
   APIGW -->|Validate| COG
-  APIGW --> L1[Lambda: projects/*]
+  APIGW --> L1["Lambda: projects/*"]
   APIGW --> L2[Lambda: catalog/rubros]
-  APIGW --> L3[Lambda: allocations/*]
+  APIGW --> L3["Lambda: allocations/*"]
   APIGW --> L4[Lambda: payroll/ingest]
-  APIGW --> L5[Lambda: adjustments/*]
-  APIGW --> L6[Lambda: alerts/*]
+  APIGW --> L5["Lambda: adjustments/*"]
+  APIGW --> L6["Lambda: alerts/*"]
   APIGW --> L7[Lambda: prefacturas/webhook]
-  L1 & L2 & L3 & L4 & L5 & L6 & L7 --> DDB[(DynamoDB tables)]
-  L7 --> S3[(S3: PDFs, artifacts)]
-  S3 --> SP[(Microsoft SharePoint via Graph)]
-  EVB[EventBridge (PEP-3)] -. async .-> L6
+  L1 & L2 & L3 & L4 & L5 & L6 & L7 --> DDB["(DynamoDB tables)"]
+  L7 --> S3["(S3: PDFs, artifacts)"]
+  S3 --> SP["(Microsoft SharePoint via Graph)"]
+  EVB["EventBridge (PEP-3)"] -. async .-> L6
   CW[CloudWatch Logs+Metrics]:::obs -.-&gt; L1
   CW -.-&gt; L2
   CW -.-&gt; L3

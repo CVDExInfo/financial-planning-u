@@ -3,7 +3,7 @@
 ```mermaid
 flowchart LR
   subgraph Client
-    UI[Financial Planning UI (CloudFront/S3)]
+    UI["Financial Planning UI (CloudFront/S3)"]
   end
 
   subgraph AWS
@@ -11,8 +11,8 @@ flowchart LR
     UI -->|HTTPs| CF
 
     subgraph API[API Layer]
-      APIGW[API Gateway HTTP API]\nStage: dev
-      COG[Cognito User Pool]\nJWT Authorizer
+      APIGW["API Gateway HTTP API<br/>Stage: dev"]
+      COG["Cognito User Pool<br/>JWT Authorizer"]
       L1[Lambda: health]
       L2[Lambda: catalog]
       L3[Lambda: allocation-rules]
@@ -30,7 +30,7 @@ flowchart LR
       D8[(DynamoDB finz_alerts)]
     end
 
-    EVB[EventBridge Rule (PEP-3)] --> L1
+    EVB["EventBridge Rule (PEP-3)"] --> L1
     APIGW -->|JWT| COG
     APIGW --> L1 & L2 & L3 & L4
     L4 --> D1 & D2 & D4 & D5 & D6 & D7 & D8
