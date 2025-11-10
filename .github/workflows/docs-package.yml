@@ -1,0 +1,52 @@
+name: Build & Package Bilingual Docs (PDF/DOCX/ZIP)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  docs:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    env:
+      USE_CVDEX_BRANDING: "true"   # set "false" to switch to Ikusi-only branding
+      TZ: "America/Chicago"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install OS deps (Pandoc + TeX)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-xetex texlive-fonts-recommended texlive-latex-extra fonts-lmodern zip
+
+      - name: Install diagram CLIs
+        run: |
+          npm i -g @mermaid-js/mermaid-cli drawio-export
+
+      - name: Prepare branding templates
+        run: |
+          mkdir -p assets/branding assets/logo
+          # Ensure these files exist in repo; Copilot to add/update as needed:
+          # assets/branding/template.tex, assets/branding/reference.docx,
+          # assets/branding/cover.png, assets/branding/header.png, assets/branding/footer.png
+          # assets/logo/cvdex.png, assets/logo/ikusi.png
+
+      - name: Render all docs (PDF, DOCX, optional HTML)
+        run: |
+          bash scripts/docs/render-docs.sh
+
+      - name: Package curated client ZIP
+        run: |
+          bash scripts/docs/package-docs.sh
+
+      - name: Commit generated outputs
+        run: |
+          git config user.name "docs-bot"
+          git config user.email "docs-bot@users.noreply.github.com"
+          git add -A public/docs/latest public/docs/releases || true
+          git commit -m "docs: refresh bilingual PDFs/DOCXs and client ZIP [skip ci]" || true
+          git push
