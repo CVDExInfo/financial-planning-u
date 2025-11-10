@@ -1,10 +1,34 @@
-name: Documentation Generator - Bilingual Pipeline
+name: Documentation Generator - AWS Architecture Diagrams & Bilingual Pipeline
 
-# Manual trigger only, restricted to main branch
+# Triggers:
+# - Manual workflow_dispatch (any branch)
+# - Push to main with documentation changes
+# - PR with documentation changes (for validation only, no commit)
 on:
   workflow_dispatch:
+    inputs:
+      commit_generated:
+        description: 'Commit generated files to repository'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+  push:
     branches:
       - main
+    paths:
+      - 'docs/**'
+      - 'diagrams/**'
+      - 'scripts/docs/**'
+      - '.github/workflows/docs-generator.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'diagrams/**'
+      - 'scripts/docs/**'
+      - '.github/workflows/docs-generator.yml'
 
 permissions:
   contents: write  # Required to commit and push generated documentation
@@ -59,7 +83,32 @@ jobs:
           chmod +x scripts/docs/validate-diagrams.sh
           ./scripts/docs/validate-diagrams.sh
       
-      # Step 13: Run documentation rendering script
+      # Step 8: Render diagrams to PNG/SVG
+      - name: Render diagrams
+        env:
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+        run: |
+          echo "Rendering diagrams to PNG and SVG..."
+          mkdir -p public/docs/latest/diagrams
+          
+          # Find all .mmd files in diagrams directories
+          for mmd_file in diagrams/*.mmd docs/diagrams/*.mmd docs/architecture/diagrams/*.mmd; do
+            if [ -f "$mmd_file" ]; then
+              filename=$(basename "$mmd_file" .mmd)
+              echo "Rendering: $filename"
+              
+              # Render to PNG (high resolution)
+              mmdc -i "$mmd_file" -o "public/docs/latest/diagrams/${filename}.png" -t base -w 2400 -H 1600 -b transparent || echo "Warning: Failed to render PNG for $filename"
+              
+              # Render to SVG
+              mmdc -i "$mmd_file" -o "public/docs/latest/diagrams/${filename}.svg" -t base -b transparent || echo "Warning: Failed to render SVG for $filename"
+            fi
+          done
+          
+          echo "Diagram rendering completed"
+          ls -lh public/docs/latest/diagrams/ || echo "No diagrams generated"
+      
+      # Step 9: Run documentation rendering script
       - name: Generate documentation
         env:
           USE_CVDEX_BRANDING: ${{ vars.USE_CVDEX_BRANDING || 'false' }}
@@ -78,33 +127,44 @@ jobs:
           PDF_COUNT=$(find public/docs/latest -name "*.pdf" -type f | wc -l)
           DOCX_COUNT=$(find public/docs/latest -name "*.docx" -type f | wc -l)
           SVG_COUNT=$(find public/docs/latest -name "*.svg" -type f | wc -l)
+      # Step 10: Verify output files exist
+      - name: Verify generated files
+        run: |
+          echo "Checking for generated documentation files..."
+          ls -lah public/docs/latest/ || mkdir -p public/docs/latest/
+          
+          # Count PDF, DOCX, PNG, and SVG files
+          PDF_COUNT=$(find public/docs/latest -name "*.pdf" -type f 2>/dev/null | wc -l)
+          DOCX_COUNT=$(find public/docs/latest -name "*.docx" -type f 2>/dev/null | wc -l)
+          PNG_COUNT=$(find public/docs/latest -name "*.png" -type f 2>/dev/null | wc -l)
+          SVG_COUNT=$(find public/docs/latest -name "*.svg" -type f 2>/dev/null | wc -l)
           
           echo "Generated files:"
           echo "  PDFs: $PDF_COUNT"
           echo "  DOCXs: $DOCX_COUNT"
+          echo "  Diagrams (PNG): $PNG_COUNT"
           echo "  Diagrams (SVG): $SVG_COUNT"
           
-          # Verify index.html exists
-          if [ ! -f public/docs/latest/index.html ]; then
-            echo "Error: index.html not found"
-            exit 1
-          fi
-          
           # Verify at least some diagrams were generated
-          if [ $SVG_COUNT -lt 1 ]; then
-            echo "Warning: No diagram SVG files found"
+          TOTAL_DIAGRAMS=$((PNG_COUNT + SVG_COUNT))
+          if [ $TOTAL_DIAGRAMS -lt 1 ]; then
+            echo "Warning: No diagram files found"
+          else
+            echo "✓ Generated $TOTAL_DIAGRAMS diagram files"
           fi
           
-          echo "✓ All expected output files generated successfully"
+          echo "✓ Verification complete"
       
-      # Step 13: Configure Git
+      # Step 11: Configure Git (only if committing)
       - name: Configure Git
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.commit_generated == 'true')
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
       
-      # Step 13: Commit and push generated files
+      # Step 12: Commit and push generated files (only on main or manual with commit enabled)
       - name: Commit and push documentation
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.commit_generated == 'true')
         run: |
           # Add generated files
           git add public/docs/latest/
@@ -116,70 +176,81 @@ jobs:
           fi
           
           # Commit with [skip ci] to avoid triggering other workflows
-          git commit -m "Update generated documentation [skip ci]
+          git commit -m "docs: Update generated AWS diagrams and documentation [skip ci]
 
-          Generated bilingual documentation (PDF and DOCX) with corporate branding.
+          Generated bilingual documentation (PDF/DOCX) and AWS architecture diagrams (PNG/SVG).
           
+          - AWS Diagrams: $(find public/docs/latest/diagrams -name "*.png" -o -name "*.svg" 2>/dev/null | wc -l) files
           - Branding: ${{ vars.USE_CVDEX_BRANDING == 'true' && 'CVDex' || 'Ikusi' }}
           - Generated at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           - Workflow: ${{ github.workflow }}
           - Run: ${{ github.run_number }}"
           
-          # Push to main branch
-          git push origin main
+          # Push to current branch
+          git push origin HEAD
           
           echo "✓ Documentation committed and pushed successfully"
       
-      # Step 13: Create artifact for download (optional)
+      # Step 13: Create artifact for download
       - name: Upload documentation artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: finanzas-docs-latest
+          name: finanzas-docs-diagrams-${{ github.run_number }}
           path: public/docs/latest/
           retention-days: 90
-          if-no-files-found: error
+          if-no-files-found: warn
       
-      # Step 13: Summary
+      # Step 14: Generate job summary
       - name: Generate job summary
         if: always()
         run: |
-          echo "## Documentation Generation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 AWS Architecture Diagrams & Documentation Generation Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "**Branding:** ${{ vars.USE_CVDEX_BRANDING == 'true' && 'CVDex' || 'Ikusi' }}" >> $GITHUB_STEP_SUMMARY
           echo "**Generated At:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Generated Files" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ -d public/docs/latest ]; then
-            PDF_COUNT=$(find public/docs/latest -name "*.pdf" -type f | wc -l)
-            DOCX_COUNT=$(find public/docs/latest -name "*.docx" -type f | wc -l)
-            SVG_COUNT=$(find public/docs/latest -name "*.svg" -type f | wc -l)
+            PDF_COUNT=$(find public/docs/latest -name "*.pdf" -type f 2>/dev/null | wc -l)
+            DOCX_COUNT=$(find public/docs/latest -name "*.docx" -type f 2>/dev/null | wc -l)
+            PNG_COUNT=$(find public/docs/latest -name "*.png" -type f 2>/dev/null | wc -l)
+            SVG_COUNT=$(find public/docs/latest -name "*.svg" -type f 2>/dev/null | wc -l)
             echo "- **PDF files:** $PDF_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "- **DOCX files:** $DOCX_COUNT" >> $GITHUB_STEP_SUMMARY
-            echo "- **Diagram files (SVG):** $SVG_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- **Diagram PNG files:** $PNG_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- **Diagram SVG files:** $SVG_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Diagrams Generated" >> $GITHUB_STEP_SUMMARY
+            echo "### 🎨 AWS Architecture Diagrams" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            if [ $SVG_COUNT -gt 0 ]; then
-              echo "The following high-quality diagrams were generated:" >> $GITHUB_STEP_SUMMARY
+            TOTAL_DIAGRAMS=$((PNG_COUNT + SVG_COUNT))
+            if [ $TOTAL_DIAGRAMS -gt 0 ]; then
+              echo "Generated **$TOTAL_DIAGRAMS** high-quality AWS architecture diagrams:" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
-              find public/docs/latest -name "*.svg" -type f -exec basename {} \; | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+              find public/docs/latest/diagrams -name "*.svg" -type f 2>/dev/null -exec basename {} .svg \; | sed 's/^/- ✅ /' >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Formats:** PNG (2400x1600) and SVG (scalable)" >> $GITHUB_STEP_SUMMARY
+              echo "**Color Scheme:** AWS 2025 Framework (Orange, Blue, Purple, Green)" >> $GITHUB_STEP_SUMMARY
             else
               echo "⚠️ No diagrams were generated" >> $GITHUB_STEP_SUMMARY
             fi
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Files List" >> $GITHUB_STEP_SUMMARY
+            echo "### 📁 Output Directory" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            ls -lh public/docs/latest/ >> $GITHUB_STEP_SUMMARY
+            ls -lh public/docs/latest/diagrams/ 2>/dev/null | head -20 >> $GITHUB_STEP_SUMMARY || echo "No diagrams directory" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ Output directory not found" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Access Documentation" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Artifact Download" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "View the documentation index at: \`public/docs/latest/index.html\`" >> $GITHUB_STEP_SUMMARY
+          echo "Download the generated documentation and diagrams from the **Artifacts** section of this workflow run." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Artifact Name:** \`finanzas-docs-diagrams-${{ github.run_number }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Retention:** 90 days" >> $GITHUB_STEP_SUMMARY

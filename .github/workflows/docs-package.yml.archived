@@ -1,4 +1,9 @@
-name: Build & Package Bilingual Docs (PDF/DOCX/ZIP)
+# ARCHIVED: This workflow has been consolidated into docs-generator.yml
+# Date: 2025-11-10
+# Reason: Consolidation of documentation workflows to avoid duplication
+# See: .github/workflows/docs-generator.yml for the consolidated workflow
+
+name: Build & Package Bilingual Docs (PDF/DOCX/ZIP) - ARCHIVED
 
 on:
   workflow_dispatch:
