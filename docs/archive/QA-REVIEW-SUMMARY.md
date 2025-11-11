@@ -160,7 +160,6 @@ const data = await finanzasClient.getAllocationRules();
 - Charts and dashboards
 - Reports and export features
 - CRUD operations (create/edit/delete)
-- Workflow operations (Close Month, Prefactura, etc.)
 - Search and filter functionality
 - Sorting and pagination
 - Print functionality

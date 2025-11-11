@@ -1,4 +1,9 @@
-name: Generate Documentation PDFs
+# ARCHIVED: This workflow has been consolidated into docs-generator.yml
+# Date: 2025-11-10
+# Reason: Consolidation of documentation workflows to avoid duplication
+# See: .github/workflows/docs-generator.yml for the consolidated workflow
+
+name: Generate Documentation PDFs - ARCHIVED
 
 on:
   workflow_dispatch:  # Manual trigger

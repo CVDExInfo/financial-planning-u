@@ -1,0 +1,127 @@
+---
+title: Finanzas SD - AWS Architecture Overview (2025 Framework)
+description: Enterprise-grade AWS web application architecture with horizontal layout
+---
+
+%%{init: {'theme':'base', 'themeVariables': { 
+  'primaryColor':'#FF9900',
+  'primaryTextColor':'#232F3E',
+  'primaryBorderColor':'#232F3E',
+  'lineColor':'#545B64',
+  'secondaryColor':'#EC7211',
+  'tertiaryColor':'#146EB4',
+  'background':'#FFFFFF',
+  'mainBkg':'#FFFFFF',
+  'secondBkg':'#F5F5F5'
+}}}%%
+
+flowchart LR
+    %% Client Layer
+    subgraph CLIENT["🌐 Client Access"]
+        direction TB
+        USERS["👤 Users<br/>PMO / SDMT / VENDOR / EXEC"]
+    end
+    
+    %% Global Edge Layer
+    subgraph EDGE["☁️ Global Edge & CDN"]
+        direction TB
+        CF["CloudFront Distribution<br/>/finanzas/* path pattern<br/>SSL/TLS Termination<br/>WAF Protection"]
+        S3_UI["S3 Bucket Private<br/>React 19 SPA<br/>OAC Access Control<br/>Vite 6 Build"]
+    end
+    
+    %% Authentication Layer
+    subgraph AUTH_LAYER["🔐 Authentication & Identity"]
+        direction TB
+        COGNITO["AWS Cognito User Pool<br/>JWT Token Generation<br/>Groups: PMO, SDMT, VENDOR, EXEC_RO<br/>OAuth 2.0 Implicit Flow"]
+    end
+    
+    %% API Layer
+    subgraph API_LAYER["🚪 API Gateway & Authorization"]
+        direction TB
+        APIGW["API Gateway REST<br/>finanzas-api endpoint<br/>Request Validation<br/>Throttling & Quotas"]
+        AVP["Amazon Verified Permissions<br/>Policy Store<br/>RBAC Engine<br/>Fine-grained Access Control"]
+    end
+    
+    %% Business Logic Layer
+    subgraph COMPUTE["⚙️ Business Logic - Lambda Functions"]
+        direction LR
+        L_PMO["PMO Service<br/>Estimator & Baselines<br/>Digital Signatures"]
+        L_SDMT["SDMT Service<br/>Cost Catalog<br/>Service Tiers"]
+        L_FORECAST["Forecast Service<br/>60-Month Grid<br/>Variance Calculations"]
+        L_ANALYTICS["Analytics Service<br/>Cash Flow Analysis<br/>Margin Projections"]
+        L_RECON["Reconciliation Service<br/>Invoice Matching<br/>Dispute Management"]
+    end
+    
+    %% Data Layer
+    subgraph DATA["💾 Data Persistence & Storage"]
+        direction TB
+        DDB["DynamoDB Tables<br/>Projects, Budgets, Forecasts<br/>Catalog, Invoices, Users<br/>Point-in-time Recovery"]
+        S3_DOCS["S3 Documents Bucket<br/>PDF Exports<br/>Excel Templates<br/>Invoice Attachments"]
+    end
+    
+    %% Integration Layer
+    subgraph INTEGRATIONS["🔗 External Integrations"]
+        direction TB
+        SHAREPOINT["SharePoint Online<br/>Microsoft Graph API<br/>Document Library"]
+        SES["Amazon SES<br/>Email Delivery<br/>Notifications"]
+    end
+    
+    %% Event Processing
+    subgraph EVENTS["📧 Event Processing & Notifications"]
+        direction TB
+        EVENTBRIDGE["EventBridge<br/>Scheduled Jobs<br/>Cross-Service Events"]
+        SNS["SNS Topics<br/>Budget Alerts<br/>System Notifications"]
+    end
+    
+    %% Observability Layer
+    subgraph OBS["📊 Observability & Monitoring"]
+        direction TB
+        CW["CloudWatch<br/>Logs & Metrics<br/>Dashboards"]
+        XRAY["X-Ray<br/>Distributed Tracing<br/>Service Map"]
+    end
+    
+    %% Main Flow - Horizontal
+    USERS -->|1. HTTPS Request| CF
+    CF -->|2. Serve SPA| S3_UI
+    USERS -->|3. Login/Signup| COGNITO
+    COGNITO -->|4. JWT Token| USERS
+    S3_UI -->|5. API Calls + JWT| APIGW
+    APIGW -->|6. Validate Token| COGNITO
+    APIGW -->|7. Check Permissions| AVP
+    
+    %% API to Lambda Routing
+    APIGW -->|8. Route Request| L_PMO
+    APIGW -->|8. Route Request| L_SDMT
+    APIGW -->|8. Route Request| L_FORECAST
+    APIGW -->|8. Route Request| L_ANALYTICS
+    APIGW -->|8. Route Request| L_RECON
+    
+    %% Lambda to Data
+    L_PMO & L_SDMT & L_FORECAST & L_ANALYTICS & L_RECON -->|9. Data Operations| DDB
+    L_PMO & L_ANALYTICS -->|10. Store Documents| S3_DOCS
+    
+    %% External Integrations
+    S3_DOCS -->|11. Upload Docs| SHAREPOINT
+    L_PMO & L_RECON -->|12. Send Email| SES
+    
+    %% Event Flow
+    EVENTBRIDGE -.Scheduled Jobs.-> L_ANALYTICS
+    L_PMO & L_RECON -->|Publish Events| SNS
+    SNS -->|Trigger Actions| SES
+    
+    %% Observability
+    APIGW & L_PMO & L_SDMT & L_FORECAST & L_ANALYTICS & L_RECON -.Logs & Metrics.-> CW
+    APIGW & L_PMO & L_SDMT & L_FORECAST & L_ANALYTICS & L_RECON -.Tracing.-> XRAY
+    
+    %% Styling with AWS 2025 colors
+    classDef awsOrange fill:#FF9900,stroke:#232F3E,stroke-width:3px,color:#000,font-weight:bold
+    classDef awsBlue fill:#146EB4,stroke:#232F3E,stroke-width:3px,color:#fff,font-weight:bold
+    classDef awsPurple fill:#8B5CF6,stroke:#232F3E,stroke-width:3px,color:#fff,font-weight:bold
+    classDef awsGreen fill:#3F8624,stroke:#232F3E,stroke-width:3px,color:#fff,font-weight:bold
+    classDef awsRed fill:#D13212,stroke:#232F3E,stroke-width:3px,color:#fff,font-weight:bold
+    
+    class CF,S3_UI awsOrange
+    class COGNITO,APIGW,AVP awsBlue
+    class L_PMO,L_SDMT,L_FORECAST,L_ANALYTICS,L_RECON awsPurple
+    class DDB,S3_DOCS awsGreen
+    class CW,XRAY awsRed

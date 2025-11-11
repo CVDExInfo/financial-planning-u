@@ -23,8 +23,8 @@ The Finanzas SD system maintains comprehensive audit trails and evidence packs f
   "timestamp": "2024-11-10T06:45:00Z",
   "requestId": "abc-123-def",
   "userId": "user@example.com",
-  "action": "CREATE_PREFACTURA",
-  "entityId": "pf-2024-001",
+  "action": "CREATE_INVOICE",
+  "entityId": "inv-2024-001",
   "ipAddress": "192.168.1.100",
   "userAgent": "Mozilla/5.0...",
   "status": "SUCCESS",
@@ -49,9 +49,8 @@ The Finanzas SD system maintains comprehensive audit trails and evidence packs f
   "logId": "log-2024-11-10-12345",
   "timestamp": "2024-11-10T06:45:00Z",
   "userId": "user@example.com",
-  "action": "APPROVE_PREFACTURA",
-  "entityType": "prefactura",
-  "entityId": "pf-2024-001",
+  "action": "APPROVE_INVOICE",
+  "entityId": "inv-2024-001",
   "changes": {
     "status": {"from": "pending", "to": "approved"},
     "approvedBy": {"from": null, "to": "fin@example.com"},
@@ -93,7 +92,6 @@ The Finanzas SD system maintains comprehensive audit trails and evidence packs f
 **Frequency**: Every 5 minutes
 **Test Cases**:
 - User authentication flow
-- Pre-factura creation API
 - Budget query API
 - PDF generation function
 - SharePoint connectivity
@@ -128,7 +126,6 @@ The Finanzas SD system maintains comprehensive audit trails and evidence packs f
    - File upload restrictions (type, size)
 
 4. **Budget Controls**
-   - Pre-factura amount cannot exceed remaining budget
    - Budget adjustments require approval
    - Alert when budget utilization > 80%
    - Automatic rejection when budget exceeded

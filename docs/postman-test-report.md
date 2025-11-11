@@ -129,10 +129,8 @@ All endpoints have been verified to have:
 
 | Endpoint | Method | Status | Mock Response |
 |----------|--------|--------|---------------|
-| `/prefacturas/webhook` | POST | ✓ 202 | Webhook accepted for processing |
 
 **Test Cases**:
-- ✓ Receive prefactura event with $30K amount
 - ✓ Event queued with confirmation
 
 ## Response Schema Validation

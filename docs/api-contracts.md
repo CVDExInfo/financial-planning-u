@@ -85,7 +85,6 @@ The API is organized into the following categories:
 | **Movements** | 5 endpoints | Financial movements with approval workflow |
 | **Alerts** | 1 endpoint | Financial alerts and notifications |
 | **Providers** | 2 endpoints | Provider/vendor management |
-| **Webhooks** | 1 endpoint | External prefactura event integration |
 
 **Total**: 22 endpoints across 9 categories
 
@@ -637,20 +636,14 @@ X-RateLimit-Reset: 1730000000
 
 ## Webhooks
 
-The API supports webhook integration for external systems to push prefactura events.
 
-### Prefactura Webhook
 
-**Endpoint**: `POST /prefacturas/webhook`
 
-External systems can send prefactura events for automatic processing:
 
 ```bash
-curl -X POST https://api.finanzas.example.com/finanzas/prefacturas/webhook \
   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
   -H "Content-Type: application/json" \
   -d '{
-    "event_type": "prefactura.created",
     "event_id": "evt_9r8s7t6u5v",
     "timestamp": "2025-10-31T03:50:00Z",
     "data": {
@@ -658,7 +651,7 @@ curl -X POST https://api.finanzas.example.com/finanzas/prefacturas/webhook \
       "rubro_id": "rubro_1a2b3c4d5e",
       "monto": 30000,
       "mes": "2025-11",
-      "folio": "PREFACT-2025-110001",
+      "folio": "INV-2025-110001",
       "descripcion": "Desarrollo backend - Noviembre 2025"
     }
   }'
@@ -670,7 +663,6 @@ curl -X POST https://api.finanzas.example.com/finanzas/prefacturas/webhook \
 {
   "status": "accepted",
   "event_id": "evt_9r8s7t6u5v",
-  "message": "Prefactura event queued for processing"
 }
 ```
 
@@ -694,4 +686,3 @@ For API support, questions, or feedback:
 - Support for projects, budget tracking, payroll integration
 - Approval workflows for movements and adjustments
 - Coverage reporting and financial alerts
-- Webhook integration for prefactura events

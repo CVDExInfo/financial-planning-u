@@ -16,13 +16,11 @@ The main dashboard provides a comprehensive view of financial operations for all
    - Language switcher (EN/ES)
 
 2. **Summary Cards**
-   - Active Pre-facturas
    - Pending Approvals
    - Budget Utilization
    - Recent Activities
 
 3. **Quick Actions Panel**
-   - Create Pre-factura (PM role)
    - Approve Requests (FIN role)
    - View Reports (All roles)
    - Manage Budgets (SDM/FIN roles)
@@ -32,7 +30,6 @@ The main dashboard provides a comprehensive view of financial operations for all
    - Filterable by type and user
    - Real-time updates
 
-### Pre-factura Creation Form
 
 #### Layout
 - **Section 1: Project Selection**
@@ -40,7 +37,6 @@ The main dashboard provides a comprehensive view of financial operations for all
   - Display: Current budget status
   - Display: Remaining budget
 
-- **Section 2: Pre-factura Details**
   - Input: Amount ($)
   - Dropdown: Category
   - Textarea: Description
@@ -59,7 +55,6 @@ The main dashboard provides a comprehensive view of financial operations for all
 ### Approval Workflow Screen
 
 #### Layout
-- **Pre-factura Details Panel**
   - Project name and ID
   - Submitter information
   - Amount and category
@@ -74,7 +69,6 @@ The main dashboard provides a comprehensive view of financial operations for all
   - Utilization percentage
 
 - **Historical Context Panel**
-  - Previous pre-facturas for this project
   - Average approval time
   - Approval patterns
 
@@ -93,7 +87,6 @@ The main dashboard provides a comprehensive view of financial operations for all
 
 - **Budget Details Modal**
   - Budget allocation history
-  - Pre-factura breakdown
   - Monthly trends chart
   - Adjustment history
 
@@ -107,7 +100,6 @@ The main dashboard provides a comprehensive view of financial operations for all
 #### Layout
 - **Report Selection Panel**
   - Dropdown: Report type
-    - Pre-factura Summary
     - Budget Utilization
     - Approval History
     - Month-End Close

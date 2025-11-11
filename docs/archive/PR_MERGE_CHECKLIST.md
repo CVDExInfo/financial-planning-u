@@ -121,7 +121,6 @@ After merging to main:
 
 2. **Smoke Test**
    - [ ] Access https://d7t9x3j66yd8k.cloudfront.net/finanzas/
-   - [ ] Test deep link: https://d7t9x3j66yd8k.cloudfront.net/finanzas/pmo/prefactura/estimator
    - [ ] Verify assets load correctly (no 404s)
    - [ ] Test navigation within app
    - [ ] Test browser refresh on nested routes

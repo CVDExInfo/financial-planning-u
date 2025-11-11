@@ -416,25 +416,19 @@ All stub routes are **properly wired** in Lambda and return expected responses. 
   }
   ```
 
-#### Route 18: Get Prefactura Webhook
 
 - **Method:** GET
-- **Path:** `/prefacturas/webhook`
 - **Auth:** YES (JWT)
 - **Expected HTTP:** 200
-- **Lambda Function:** PrefacturasFn
 - **DynamoDB Table:** TBD
 - **UI Component:** WebhookSettings.tsx
 - **UI Path:** Finanzas → Settings → Webhooks
 - **Status:** ⏳ Stub (Ready for Phase 3)
 
-#### Route 19: Post Prefactura Webhook
 
 - **Method:** POST
-- **Path:** `/prefacturas/webhook`
 - **Auth:** YES (JWT)
 - **Expected HTTP:** 201
-- **Lambda Function:** PrefacturasFn
 - **DynamoDB Table:** TBD
 - **UI Component:** WebhookHandler.tsx
 - **UI Path:** Finanzas → Settings → Webhooks → Test
@@ -596,14 +590,12 @@ Routes:
 
 - Close Month (1 route)
 - Payroll Ingest (1 route)
-- Prefactura Webhooks (2 routes)
 
 Total: 4 routes for advanced operations
 
 Requirements:
 
 - Complex transaction logic
-- External integrations (Prefactura)
 - Batch processing (Payroll)
 - Audit logging
 
@@ -667,8 +659,6 @@ Requirements:
 
 13. MonthCloseDialog.tsx → POST /close-month
 14. PayrollImportWizard.tsx → POST /payroll/ingest
-15. WebhookSettings.tsx → GET /prefacturas/webhook
-16. WebhookHandler.tsx → POST /prefacturas/webhook
 
 ---
 

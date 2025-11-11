@@ -3,10 +3,8 @@
 ## EN: Executive Summary
 
 ### Overview
-Finanzas SD is a comprehensive financial planning and management system designed for San Diego Operations. This system integrates pre-facturas (preliminary invoices), budget management, and financial document generation with AWS cloud infrastructure.
 
 ### Key Components
-- **Pre-factura Management**: Digital workflow for preliminary invoice creation and approval
 - **Budget Tracking**: Real-time budget allocation and tracking across projects
 - **Document Generation**: Automated PDF and CSV generation for financial reports
 - **SharePoint Integration**: Secure document storage and sharing
@@ -21,7 +19,6 @@ Finanzas SD is a comprehensive financial planning and management system designed
 
 ### Stakeholders
 - **SDM (San Diego Manager)**: Oversees all financial operations
-- **PM (Project Managers)**: Submit and track pre-facturas
 - **FIN (Finance Team)**: Approve budgets and process payments
 - **AUD (Auditors)**: Review financial records and compliance
 
@@ -30,10 +27,8 @@ Finanzas SD is a comprehensive financial planning and management system designed
 ## ES: Resumen Ejecutivo
 
 ### Descripción General
-Finanzas SD es un sistema integral de planificación y gestión financiera diseñado para las operaciones de San Diego. Este sistema integra pre-facturas (facturas preliminares), gestión de presupuestos y generación de documentos financieros con infraestructura en la nube de AWS.
 
 ### Componentes Clave
-- **Gestión de Pre-facturas**: Flujo de trabajo digital para creación y aprobación de facturas preliminares
 - **Seguimiento de Presupuestos**: Asignación y seguimiento de presupuestos en tiempo real entre proyectos
 - **Generación de Documentos**: Generación automatizada de PDF y CSV para informes financieros
 - **Integración con SharePoint**: Almacenamiento y compartición segura de documentos
@@ -48,6 +43,5 @@ Finanzas SD es un sistema integral de planificación y gestión financiera dise�
 
 ### Partes Interesadas
 - **SDM (Gerente de San Diego)**: Supervisa todas las operaciones financieras
-- **PM (Gerentes de Proyecto)**: Envían y rastrean pre-facturas
 - **FIN (Equipo de Finanzas)**: Aprueban presupuestos y procesan pagos
 - **AUD (Auditores)**: Revisan registros financieros y cumplimiento

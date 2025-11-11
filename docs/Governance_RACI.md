@@ -12,17 +12,11 @@ The RACI matrix defines roles and responsibilities for key activities in the Fin
 - **C** = Consulted (provides input)
 - **I** = Informed (kept updated)
 
-#### Pre-factura Management
 
 | Activity | SDM | PM | FIN | AUD | IT |
 |----------|-----|----|----|-----|-----|
-| Submit Pre-factura | I | R/A | C | I | I |
-| Review Pre-factura | I | I | R/A | I | I |
-| Approve Pre-factura | C | I | R/A | I | I |
-| Reject Pre-factura | C | I | R/A | I | I |
 | Generate PDF | I | I | I | I | R |
 | Upload to SharePoint | I | I | I | I | R |
-| Audit Pre-factura | C | I | C | R/A | C |
 
 #### Budget Management
 
@@ -76,14 +70,12 @@ The RACI matrix defines roles and responsibilities for key activities in the Fin
 - **Owner**: IT with FIN approval
 
 #### 2. Data Retention Policy
-- **Pre-facturas**: 7 years
 - **Budgets**: 7 years
 - **Audit Logs**: 10 years
 - **Documents**: 7 years
 - **Notifications**: 1 year
 
 #### 3. Approval Workflow Policy
-- All pre-facturas require FIN approval
 - Budgets over $50K require SDM approval
 - Budget adjustments require justification
 - Rejected items require documented reason
@@ -109,7 +101,6 @@ The RACI matrix defines roles and responsibilities for key activities in the Fin
 - Vendor selection
 
 #### Operational Decisions (FIN)
-- Pre-factura approvals
 - Month-end close procedures
 - Report distribution
 - Budget variance explanations
@@ -151,7 +142,6 @@ La matriz RACI define roles y responsabilidades para actividades clave en el sis
 - **Propietario**: TI con aprobación de FIN
 
 #### 2. Política de Retención de Datos
-- **Pre-facturas**: 7 años
 - **Presupuestos**: 7 años
 - **Registros de Auditoría**: 10 años
 - **Documentos**: 7 años

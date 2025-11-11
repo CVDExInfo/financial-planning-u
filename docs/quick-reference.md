@@ -72,7 +72,6 @@ The system supports four main user roles:
 
 | Role | Description | Access Level |
 |------|-------------|--------------|
-| **PMO** | Project Management Office | Full access to pre-factura estimation and project management |
 | **SDMT** | Service Delivery Management Team | Access to cost catalog, forecasting, and budget management |
 | **VENDOR** | External Vendors | Limited access to catalog and assigned projects |
 | **EXEC_RO** | Executive Read-Only | View-only access to dashboards and reports |
@@ -89,7 +88,6 @@ El sistema admite cuatro roles principales de usuario:
 
 | Rol | Descripción | Nivel de Acceso |
 |-----|-------------|-----------------|
-| **PMO** | Oficina de Gestión de Proyectos | Acceso completo a estimación de pre-factura y gestión de proyectos |
 | **SDMT** | Equipo de Gestión de Entrega de Servicios | Acceso a catálogo de costos, pronósticos y gestión de presupuesto |
 | **VENDOR** | Proveedores Externos | Acceso limitado al catálogo y proyectos asignados |
 | **EXEC_RO** | Ejecutivo Solo Lectura | Acceso de solo lectura a paneles e informes |
@@ -104,8 +102,6 @@ Si tiene múltiples roles:
 
 ## EN: Common Tasks
 
-### Creating a Pre-Factura Estimate (PMO)
-1. Navigate to **PMO → Pre-Factura → Estimator**
 2. Click **"New Estimate"** button
 3. Fill in project details:
    - Project name
@@ -141,8 +137,6 @@ Si tiene múltiples roles:
 
 ## ES: Tareas Comunes
 
-### Crear una Estimación de Pre-Factura (PMO)
-1. Navegue a **PMO → Pre-Factura → Estimador**
 2. Haga clic en el botón **"Nueva Estimación"**
 3. Complete los detalles del proyecto:
    - Nombre del proyecto

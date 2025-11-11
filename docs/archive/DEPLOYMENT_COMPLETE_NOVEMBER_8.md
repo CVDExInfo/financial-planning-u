@@ -208,7 +208,6 @@ Status: InProgress (expected 2-3 minutes for full propagation)
 ### Phase 3 (Planned)
 
 - Advanced operations (month-end close, payroll ingestion)
-- External integrations (prefactura webhooks)
 - Audit logging and compliance features
 
 ### Monitoring & Maintenance

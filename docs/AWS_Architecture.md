@@ -9,17 +9,14 @@ The Finanzas SD system is built on AWS using serverless and managed services for
 
 #### Compute & API Layer
 - **AWS Lambda**: Serverless compute for all business logic
-  - Pre-factura processing functions
   - Budget calculation functions
   - Document generation functions
 - **Amazon API Gateway**: RESTful API endpoints with throttling and caching
-  - `/api/prefacturas` - Pre-factura management
   - `/api/budgets` - Budget operations
   - `/api/reports` - Report generation
 
 #### Data Layer
 - **Amazon DynamoDB**: NoSQL database for high-performance data storage
-  - `prefacturas` table - Pre-factura records
   - `budgets` table - Budget allocations
   - `audit_logs` table - Audit trail
   - `users` table - User profiles and preferences
@@ -84,14 +81,12 @@ El sistema Finanzas SD está construido en AWS utilizando servicios sin servidor
 
 #### Capa de Computación y API
 - **AWS Lambda**: Computación sin servidor para toda la lógica de negocio
-  - Funciones de procesamiento de pre-facturas
   - Funciones de cálculo de presupuesto
   - Funciones de generación de documentos
 - **Amazon API Gateway**: Endpoints de API RESTful con limitación y caché
 
 #### Capa de Datos
 - **Amazon DynamoDB**: Base de datos NoSQL para almacenamiento de alto rendimiento
-  - Tabla `prefacturas` - Registros de pre-facturas
   - Tabla `budgets` - Asignaciones de presupuesto
   - Tabla `audit_logs` - Registro de auditoría
   - Tabla `users` - Perfiles de usuario y preferencias

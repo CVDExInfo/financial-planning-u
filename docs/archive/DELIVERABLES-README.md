@@ -67,7 +67,6 @@
    GET    /providers                   - List providers
 
 📁 Webhooks (1 endpoint)
-   POST   /prefacturas/webhook         - Prefactura webhook
 ```
 
 **Total**: 21 endpoints
@@ -251,7 +250,6 @@ pending → approved
 8. **Adjustment** - Budget adjustments with distribution
 9. **Movement** - Financial movements with approval
 10. **Provider** - Vendor/supplier information
-11. **PrefacturaEvent** - Webhook events
 
 ### Complete Schema List (29 schemas)
 
@@ -266,7 +264,6 @@ pending → approved
 ✅ MovementCreate, Movement, MovementList  
 ✅ Approval, Rejection  
 ✅ ProviderCreate, Provider, ProviderList  
-✅ PrefacturaEvent  
 ✅ Error  
 
 ---

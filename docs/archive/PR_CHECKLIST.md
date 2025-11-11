@@ -36,7 +36,6 @@ This checklist must be completed and verified before merging this PR.
   - Verify: Review `.github/workflows/deploy.yml`
 
 - [ ] Deep links to /finanzas/* render via SPA fallback
-  - Test: https://d7t9x3j66yd8k.cloudfront.net/finanzas/pmo/prefactura/estimator
   - Should return 200 and serve index.html
   - React Router handles client-side routing
   - Verify: Test multiple deep link paths

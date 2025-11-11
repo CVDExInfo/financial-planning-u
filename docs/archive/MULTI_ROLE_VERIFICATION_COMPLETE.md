@@ -185,7 +185,6 @@ User Avatar Menu:
 
 ```
 Navigation updates to show:
-  ✅ /pmo/prefactura/estimator
   ✅ /sdmt/cost/catalog
   ✅ /sdmt/cost/forecast
   ✅ /sdmt/cost/reconciliation
@@ -329,7 +328,6 @@ Token validation successful
 [ ] 10. Click "PMO" role
 [ ] 11. Navigation updates to show PMO + SDMT modules
 [ ] 12. URL stays on home but nav items change
-[ ] 13. Click a PMO route (e.g., /pmo/prefactura/estimator)
 [ ] 14. Page loads without errors
 
 [ ] 15. Click "SDMT" role

@@ -52,7 +52,6 @@ Key documentation files that are automatically rendered:
 2. **AWS_Architecture.md** - AWS infrastructure and services
 3. **ERD.md** - Entity relationship diagram and data model
 4. **Data_Flows.md** - End-to-end process flows
-5. **Prefactura_Swimlane.md** - Detailed pre-factura workflow
 6. **SOP_Ikusi.md** - Standard operating procedures for Ikusi
 7. **SOP_CVDex.md** - Standard operating procedures for CVDex
 8. **Governance_RACI.md** - RACI matrix and governance policies
@@ -89,9 +88,6 @@ Ikusi_FinanzasSD_Architecture_Pack_YYYYMMDD/
 ├── 04_Data_Flows/
 │   ├── Data_Flows.pdf
 │   └── Data_Flows.docx
-├── 05_Prefactura_Swimlane/
-│   ├── Prefactura_Swimlane.pdf
-│   └── Prefactura_Swimlane.docx
 ├── 06_SOPs/
 │   ├── SOP_Ikusi.pdf
 │   ├── SOP_Ikusi.docx

@@ -68,7 +68,6 @@ Every system action must log:
 - **Actor**: user_id and email
 - **Timestamp**: ISO 8601 format with timezone
 - **Action**: create, read, update, delete, approve, reject
-- **Entity**: affected resource (project, pre-factura, allocation)
 - **Entity ID**: unique identifier
 - **Before/After**: state change details (for updates)
 - **Metadata**: additional context (IP address, user agent, etc.)
@@ -91,7 +90,6 @@ Cada acción del sistema debe registrar:
 - **Actor**: user_id y email
 - **Marca de Tiempo**: Formato ISO 8601 con zona horaria
 - **Acción**: crear, leer, actualizar, eliminar, aprobar, rechazar
-- **Entidad**: recurso afectado (proyecto, pre-factura, asignación)
 - **ID de Entidad**: identificador único
 - **Antes/Después**: detalles de cambio de estado (para actualizaciones)
 - **Metadatos**: contexto adicional (dirección IP, agente de usuario, etc.)
@@ -155,7 +153,6 @@ Cada acción del sistema debe registrar:
 
 ### Monthly Audits
 - Budget execution vs plan
-- Pre-factura approval queue aging
 - Access control review (new users)
 - System error rates
 
@@ -175,7 +172,6 @@ Cada acción del sistema debe registrar:
 
 ### Auditorías Mensuales
 - Ejecución presupuestaria vs plan
-- Antigüedad de cola de aprobación de pre-facturas
 - Revisión de control de acceso (nuevos usuarios)
 - Tasas de error del sistema
 

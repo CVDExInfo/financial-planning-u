@@ -179,8 +179,6 @@ echo ""
 echo -e "${BLUE}[ADVANCED OPERATIONS]${NC}"
 test_route POST "/close-month" "Close month operation" '{"month":"2025-11"}'
 test_route POST "/payroll/ingest" "Ingest payroll data" '{"payroll_data":{}}'
-test_route POST "/prefacturas/webhook" "Prefacturas webhook" '{"webhook_data":{}}'
-test_route GET "/prefacturas/webhook" "Get prefacturas webhook status"
 echo ""
 
 # ============================================

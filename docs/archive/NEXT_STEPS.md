@@ -149,7 +149,6 @@ curl -I https://d7t9x3j66yd8k.cloudfront.net/finanzas/
 # Should return: HTTP/2 200
 
 # Test deep link
-curl -I https://d7t9x3j66yd8k.cloudfront.net/finanzas/pmo/prefactura/estimator
 # Should return: HTTP/2 200 (via error response mapping)
 
 # Test in browser
@@ -158,7 +157,6 @@ open https://d7t9x3j66yd8k.cloudfront.net/finanzas/
 
 **Checklist**:
 - [ ] Root path loads correctly
-- [ ] Deep links work (e.g., `/finanzas/pmo/prefactura/estimator`)
 - [ ] Assets load correctly (check DevTools Network tab)
 - [ ] Navigation within app works
 - [ ] Browser refresh on nested routes works

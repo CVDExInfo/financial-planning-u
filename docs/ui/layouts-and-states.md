@@ -7,7 +7,6 @@
 
 ## EN: Key Screens
 
-### PM — Pre-facturas Inbox
 
 **Purpose**: Dashboard for Project Managers to manage pre-invoice requests
 
@@ -33,16 +32,12 @@
 
 **Empty State**:
 ```
-🗂️ No pre-facturas found
 
 You don't have any pre-invoice requests yet.
 
-[Create Pre-factura Request]
 
-Tip: Pre-facturas allow you to request approval for project expenses.
 ```
 
-### Pre-factura Form
 
 **Purpose**: Create or edit pre-invoice request
 
@@ -86,9 +81,7 @@ Tip: Pre-facturas allow you to request approval for project expenses.
 
 ## ES: Pantallas Clave
 
-### PM — Bandeja de Pre-facturas
 
-**Propósito**: Panel para Gerentes de Proyecto para gestionar solicitudes de pre-facturas
 
 **Diseño**:
 - Encabezado con info de usuario e insignia de rol
@@ -112,18 +105,12 @@ Tip: Pre-facturas allow you to request approval for project expenses.
 
 **Estado Vacío**:
 ```
-🗂️ No se encontraron pre-facturas
 
-Aún no tiene solicitudes de pre-factura.
 
-[Crear Solicitud de Pre-factura]
 
-Consejo: Las pre-facturas le permiten solicitar aprobación para gastos del proyecto.
 ```
 
-### Formulario de Pre-factura
 
-**Propósito**: Crear o editar solicitud de pre-factura
 
 **Campos**:
 1. **Proyecto** (requerido)
@@ -198,7 +185,6 @@ Consejo: Las pre-facturas le permiten solicitar aprobación para gastos del proy
 ```
 ✅ All caught up!
 
-No pending pre-facturas require approval.
 
 Great work! Check back later for new requests.
 ```
@@ -260,7 +246,6 @@ Great work! Check back later for new requests.
 ```
 ✅ ¡Todo al día!
 
-No hay pre-facturas pendientes que requieran aprobación.
 
 ¡Excelente trabajo! Revise más tarde para nuevas solicitudes.
 ```
@@ -426,7 +411,6 @@ Acción: Crear ajuste con razón y docs
 - **Icon**: ✅ checkmark
 - **Message**: Clear action confirmation
 - **Duration**: 5 seconds auto-dismiss
-- **Example**: "Pre-factura PRE-2024-00123 submitted successfully"
 
 ### Error Messages
 - **Toast Notification**: Red banner at top
@@ -436,7 +420,6 @@ Acción: Crear ajuste con razón y docs
 - **Duration**: Manual dismiss (user clicks X)
 - **Example**: 
   ```
-  ⚠️ Failed to submit pre-factura
   
   Budget exceeded for Project Alpha / Labor rubro.
   Remaining budget: 2,000,000 COP
@@ -460,7 +443,6 @@ Acción: Crear ajuste con razón y docs
 - **Icono**: ✅ marca de verificación
 - **Mensaje**: Confirmación de acción clara
 - **Duración**: 5 segundos auto-descartar
-- **Ejemplo**: "Pre-factura PRE-2024-00123 enviada exitosamente"
 
 ### Mensajes de Error
 - **Notificación Toast**: Banner rojo en la parte superior
@@ -470,7 +452,6 @@ Acción: Crear ajuste con razón y docs
 - **Duración**: Descarte manual (usuario hace clic en X)
 - **Ejemplo**:
   ```
-  ⚠️ Fallo al enviar pre-factura
   
   Presupuesto excedido para Proyecto Alpha / rubro Labor.
   Presupuesto restante: 2,000,000 COP

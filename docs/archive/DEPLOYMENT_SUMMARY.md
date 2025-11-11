@@ -24,7 +24,6 @@ Latest iteration adds:
 | Token Type | Cognito ID Token (not access token) ✅ |
 | aud Claim | dshos5iou44tuach7ta3ici5m ✅ |
 | SDT Group | Present in cognito:groups ✅ |
-| Protected Routes | /catalog/rubros (200), /allocation-rules (200), /projects, /projects/{id}/rubros, /projects/{id}/allocations:bulk, /payroll/ingest, /close-month, /adjustments (501 stub), /alerts, /providers, /prefacturas/webhook |
 | Public Route | /health (200) ✅ |
 
 #### Smoke Test Results (2025-11-07T20:44:41Z)
@@ -242,7 +241,6 @@ After workflow completes:
 
 1. Check workflow logs for: "✅ Using OIDC authentication (preferred)"
 2. Visit: <https://d7t9x3j66yd8k.cloudfront.net/finanzas/>
-3. Test deep links: <https://d7t9x3j66yd8k.cloudfront.net/finanzas/pmo/prefactura/estimator>
 4. Verify browser refresh works on nested routes
 
 ## How to Toggle the Fallback

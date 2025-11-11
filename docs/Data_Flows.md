@@ -2,25 +2,19 @@
 
 ## EN: System Data Flows
 
-### 1. Pre-factura Submission Flow
 
 **Actors**: Project Manager (PM), System, Finance Team (FIN), SharePoint
 
 **Flow**:
 1. PM logs into Finanzas SD portal
-2. PM navigates to "Create Pre-factura" form
-3. PM fills in pre-factura details:
    - Project selection
    - Amount
    - Description
    - Category
    - Attachments (optional)
 4. System validates input data
-5. System creates pre-factura record in DynamoDB
 6. System generates notification for Finance approver
-7. FIN receives notification and reviews pre-factura
 8. FIN approves or rejects with comments
-9. System updates pre-factura status
 10. System generates PDF document
 11. System uploads PDF to S3
 12. System deposits PDF to SharePoint (if configured)
@@ -46,7 +40,6 @@
 7. Approver reviews and approves budget
 8. System activates budget for project
 9. System notifies project team
-10. Budget becomes available for pre-facturas
 
 **Data Elements**:
 - Input: Project ID, Fiscal Year, Quarter, Amount
@@ -80,19 +73,15 @@
 
 **Flow**:
 1. FIN initiates payroll processing
-2. System retrieves approved pre-facturas for period
 3. System calculates totals by project and category
 4. System generates payroll summary report
 5. System exports data to CSV format
 6. FIN reviews and validates totals
 7. FIN exports to HR/Payroll system
-8. System marks pre-facturas as processed
 9. System generates audit log entries
 
 **Data Elements**:
-- Input: Payroll period, Approved pre-facturas
 - Processing: Aggregation, Calculations, CSV generation
-- Output: Payroll summary CSV, Updated pre-factura status, Audit logs
 
 ### 5. Month-End Close Flow
 
@@ -100,11 +89,9 @@
 
 **Flow**:
 1. FIN initiates month-end close process
-2. System locks all pre-facturas for the month
 3. System calculates budget utilization per project
 4. System generates month-end reports:
    - Budget vs Actual
-   - Pre-factura summary
    - Outstanding approvals
    - Variance analysis
 5. System generates PDF reports
@@ -115,7 +102,6 @@
 10. System unlocks system for next month
 
 **Data Elements**:
-- Input: Fiscal month, All pre-facturas, All budgets
 - Processing: Calculations, Report generation, Data archival
 - Output: Month-end reports (PDF), Variance analysis, Archived data
 
@@ -144,12 +130,10 @@
 
 ## ES: Flujos de Datos del Sistema
 
-### 1. Flujo de Envío de Pre-factura
 
 **Actores**: Gerente de Proyecto (PM), Sistema, Equipo de Finanzas (FIN), SharePoint
 
 **Flujo**:
-[Traducción del flujo de envío de pre-factura con los mismos 14 pasos]
 
 ### 2. Flujo de Asignación de Presupuesto
 

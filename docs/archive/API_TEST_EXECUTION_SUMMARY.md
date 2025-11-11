@@ -75,7 +75,6 @@
 
 - POST /close-month → MonthCloseDialog.tsx
 - POST /payroll/ingest → PayrollImportWizard.tsx
-- GET/POST /prefacturas/webhook → WebhookSettings.tsx, WebhookHandler.tsx
 
 ---
 

@@ -270,28 +270,20 @@
 
 ---
 
-#### GET /prefacturas/webhook
 
 - **Auth:** ✅ Requires JWT Bearer token
-- **Description:** Get prefactura webhook status/config
-- **Lambda:** `finanzas-sd-api-dev-PrefacturasFn-gRlRkUNaYe80`
 - **DynamoDB:** TBD
 - **UI Mapping:** Integration settings (future)
 - **Status:** ⚠️ **STUB**
-- **Test Command:** `GET /prefacturas/webhook`
 
 ---
 
-#### POST /prefacturas/webhook
 
 - **Auth:** ✅ Requires JWT Bearer token
-- **Description:** Handle prefactura webhook events
 - **Request Body:** `{ "webhook_data": {...} }`
-- **Lambda:** `finanzas-sd-api-dev-PrefacturasFn-gRlRkUNaYe80`
 - **DynamoDB:** TBD
 - **UI Mapping:** Integration callbacks (future)
 - **Status:** ⚠️ **STUB** (complex, post-MVP)
-- **Test Command:** `POST /prefacturas/webhook`
 
 ---
 
@@ -397,7 +389,6 @@ bash scripts/test-all-api-routes.sh
 
 - ⏳ Month close operation
 - ⏳ Payroll ingestion
-- ⏳ Prefactura webhook integration
 
 ---
 

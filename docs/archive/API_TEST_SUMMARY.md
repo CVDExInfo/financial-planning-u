@@ -56,7 +56,6 @@ Cognito → IdToken → localStorage → Authorization: Bearer {token} → API G
 | `/adjustments`                    | GET/POST | 501  | Stub   |
 | `/alerts`                         | GET      | 501  | Stub   |
 | `/payroll/ingest`                 | POST     | 501  | Stub   |
-| `/prefacturas/webhook`            | GET/POST | 501  | Stub   |
 | `/projects/{id}/rubros`           | POST     | 501  | Stub   |
 | `/projects/{id}/allocations:bulk` | PUT      | 501  | Stub   |
 

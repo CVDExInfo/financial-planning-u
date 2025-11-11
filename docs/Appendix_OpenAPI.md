@@ -19,16 +19,6 @@ The full OpenAPI 3.0 specification is available at:
 - `POST /auth/refresh` - Refresh access token
 - `GET /auth/me` - Get current user profile
 
-#### Pre-facturas
-- `GET /api/prefacturas` - List pre-facturas
-- `POST /api/prefacturas` - Create pre-factura
-- `GET /api/prefacturas/{id}` - Get pre-factura details
-- `PUT /api/prefacturas/{id}` - Update pre-factura
-- `DELETE /api/prefacturas/{id}` - Delete pre-factura (draft only)
-- `POST /api/prefacturas/{id}/approve` - Approve pre-factura
-- `POST /api/prefacturas/{id}/reject` - Reject pre-factura
-- `GET /api/prefacturas/{id}/pdf` - Download pre-factura PDF
-
 #### Budgets
 - `GET /api/budgets` - List budgets
 - `POST /api/budgets` - Create budget
@@ -41,7 +31,6 @@ The full OpenAPI 3.0 specification is available at:
 - `POST /api/projects` - Create project
 - `GET /api/projects/{id}` - Get project details
 - `PUT /api/projects/{id}` - Update project
-- `GET /api/projects/{id}/prefacturas` - Get project pre-facturas
 - `GET /api/projects/{id}/budget-summary` - Get project budget summary
 
 #### Reports
@@ -167,7 +156,6 @@ List endpoints support filtering and sorting:
 
 Example:
 ```
-GET /api/prefacturas?filter[status]=pending&sort=-createdAt&limit=50
 ```
 
 ### Postman Collection

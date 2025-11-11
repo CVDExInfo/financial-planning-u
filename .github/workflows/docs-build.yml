@@ -1,0 +1,68 @@
+name: Docs (Build + Package)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, develop, docs/** ]
+    paths:
+      - 'docs/**'
+      - 'diagrams/**'
+      - 'scripts/docs/**'
+      - '.github/workflows/docs-build.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'docs/**'
+      - 'diagrams/**'
+      - 'scripts/docs/**'
+      - '.github/workflows/docs-build.yml'
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # OIDC available if ever needed; not used in this job
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify repo scope (Finanzas-only)
+        run: |
+          set -euo pipefail
+          if grep -RniE 'Pre-?Fact(ura)?|acta-ui-pre-factura' docs diagrams scripts || true; then
+            echo "::error ::Pre-Factura references found in Repo A docs/diagrams/scripts. Please purge them."
+            exit 1
+          fi
+
+      - name: Setup Node (for Mermaid CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Mermaid CLI
+        run: |
+          set -euo pipefail
+          npm i -g @mermaid-js/mermaid-cli@10
+
+      - name: Prepare export scripts
+        run: |
+          chmod +x scripts/docs/export.sh scripts/docs/package.sh
+
+      - name: Render diagrams + Export docs (HTML/PDF) + Package
+        run: |
+          set -euo pipefail
+          scripts/docs/export.sh
+          scripts/docs/package.sh
+
+      - name: Upload dist bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: finanzas-docs-bundle
+          path: |
+            dist/package-*-docs.zip
+            dist/docs/**
+            diagrams/**
+            docs/**
+            dist/checks/**
+          if-no-files-found: error

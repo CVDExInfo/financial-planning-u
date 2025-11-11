@@ -1,0 +1,121 @@
+---
+title: Finanzas SD - Data Lifecycle & Time Series Analytics
+description: ETL pipeline for budget forecasting and cash flow analysis
+---
+
+%%{init: {'theme':'base', 'themeVariables': { 
+  'primaryColor':'#3F8624',
+  'primaryTextColor':'#fff',
+  'primaryBorderColor':'#232F3E',
+  'lineColor':'#545B64',
+  'secondaryColor':'#8B5CF6',
+  'tertiaryColor':'#146EB4'
+}}}%%
+
+flowchart TB
+    %% Data Sources
+    subgraph SOURCES["📊 Data Sources"]
+        direction LR
+        USER_INPUT["User Input<br/>React SPA<br/>60-Month Grid<br/>Invoice Uploads"]
+        SCHEDULED["Scheduled Jobs<br/>EventBridge Rules<br/>Nightly Aggregations"]
+        EXTERNAL["External Systems<br/>SharePoint Docs<br/>Email Attachments"]
+    end
+    
+    %% Ingestion Layer
+    subgraph INGESTION["📥 Data Ingestion"]
+        direction TB
+        API["API Gateway<br/>REST Endpoints<br/>Request Validation"]
+        S3_RAW["S3 Raw Bucket<br/>Invoice PDFs<br/>Excel Imports<br/>CSV Files"]
+    end
+    
+    %% Processing Layer
+    subgraph PROCESSING["⚙️ Data Processing & ETL"]
+        direction LR
+        L_INGEST["Ingestion Lambda<br/>Parse CSV/Excel<br/>Validate Schema<br/>Transform Data"]
+        L_ENRICH["Enrichment Lambda<br/>Calculate Variances<br/>Apply Business Rules<br/>Normalize Amounts"]
+        L_AGGREGATE["Aggregation Lambda<br/>Period Rollups<br/>Project Summaries<br/>Cash Flow Calc"]
+    end
+    
+    %% Storage Layer
+    subgraph STORAGE["💾 Storage & State Management"]
+        direction TB
+        DDB_FORECAST["DynamoDB Forecasts<br/>Time-series Data<br/>Sparse Index: period<br/>60-Month Allocations"]
+        DDB_ANALYTICS["DynamoDB Analytics<br/>Pre-computed Aggregates<br/>Margin Calculations<br/>Variance Reports"]
+        DDB_AUDIT["DynamoDB Audit Log<br/>Change Tracking<br/>User Actions<br/>System Events"]
+    end
+    
+    %% Analytics Layer
+    subgraph ANALYTICS["📈 Analytics & Insights"]
+        direction LR
+        L_CASHFLOW["Cash Flow Lambda<br/>Projection Models<br/>Burn Rate Calc<br/>Trend Analysis"]
+        L_VARIANCE["Variance Analysis<br/>Budget vs Actual<br/>Threshold Alerts<br/>Anomaly Detection"]
+        L_REPORTING["Reporting Lambda<br/>Chart Data Generation<br/>KPI Calculations<br/>Executive Summaries"]
+    end
+    
+    %% Output Layer
+    subgraph OUTPUT["📤 Data Output & Export"]
+        direction TB
+        S3_EXPORT["S3 Export Bucket<br/>PDF Reports<br/>Excel with Formulas<br/>CSV Extracts"]
+        SHAREPOINT_OUT["SharePoint Library<br/>Document Management<br/>Version Control"]
+        API_RESPONSE["API Response<br/>JSON Payloads<br/>Chart Data<br/>Dashboard Widgets"]
+    end
+    
+    %% Monitoring & Optimization
+    subgraph MONITOR["📊 Monitoring & Optimization"]
+        direction TB
+        CW_METRICS["CloudWatch Metrics<br/>Processing Time<br/>Error Rates<br/>Data Volume"]
+        XRAY_TRACE["X-Ray Tracing<br/>End-to-End Latency<br/>Bottleneck Detection"]
+    end
+    
+    %% Event Flow
+    subgraph EVENTS["🔔 Event-Driven Processing"]
+        direction TB
+        EVENTBRIDGE["EventBridge<br/>Scheduled Rules<br/>State Changes<br/>Cross-Account Events"]
+        SNS_ALERTS["SNS Alerts<br/>Variance Thresholds<br/>Data Quality Issues<br/>Processing Failures"]
+    end
+    
+    %% Main Data Flow
+    USER_INPUT & SCHEDULED & EXTERNAL --> API
+    USER_INPUT & EXTERNAL --> S3_RAW
+    
+    API --> L_INGEST
+    S3_RAW --> L_INGEST
+    
+    L_INGEST --> L_ENRICH
+    L_ENRICH --> L_AGGREGATE
+    
+    L_AGGREGATE --> DDB_FORECAST
+    L_AGGREGATE --> DDB_ANALYTICS
+    L_INGEST & L_ENRICH & L_AGGREGATE --> DDB_AUDIT
+    
+    %% Analytics Processing
+    DDB_FORECAST --> L_CASHFLOW
+    DDB_FORECAST --> L_VARIANCE
+    DDB_ANALYTICS --> L_REPORTING
+    
+    %% Output Generation
+    L_CASHFLOW & L_VARIANCE & L_REPORTING --> S3_EXPORT
+    L_CASHFLOW & L_VARIANCE & L_REPORTING --> API_RESPONSE
+    S3_EXPORT --> SHAREPOINT_OUT
+    
+    %% Event-Driven Flow
+    EVENTBRIDGE -.trigger.-> L_AGGREGATE
+    EVENTBRIDGE -.trigger.-> L_CASHFLOW
+    L_VARIANCE -.threshold exceeded.-> SNS_ALERTS
+    
+    %% Monitoring Flow
+    L_INGEST & L_ENRICH & L_AGGREGATE & L_CASHFLOW & L_VARIANCE & L_REPORTING -.metrics.-> CW_METRICS
+    L_INGEST & L_ENRICH & L_AGGREGATE & L_CASHFLOW & L_VARIANCE & L_REPORTING -.traces.-> XRAY_TRACE
+    
+    %% Styling
+    classDef dataGreen fill:#3F8624,stroke:#232F3E,stroke-width:3px,color:#fff,font-weight:bold
+    classDef computePurple fill:#8B5CF6,stroke:#232F3E,stroke-width:3px,color:#fff,font-weight:bold
+    classDef storageBlue fill:#146EB4,stroke:#232F3E,stroke-width:3px,color:#fff,font-weight:bold
+    classDef alertRed fill:#D13212,stroke:#232F3E,stroke-width:3px,color:#fff,font-weight:bold
+    classDef orangeOutput fill:#FF9900,stroke:#232F3E,stroke-width:3px,color:#000,font-weight:bold
+    
+    class DDB_FORECAST,DDB_ANALYTICS,DDB_AUDIT storageBlue
+    class L_INGEST,L_ENRICH,L_AGGREGATE,L_CASHFLOW,L_VARIANCE,L_REPORTING computePurple
+    class S3_EXPORT,SHAREPOINT_OUT,API_RESPONSE orangeOutput
+    class SNS_ALERTS,CW_METRICS,XRAY_TRACE alertRed
+    class API,S3_RAW dataGreen

@@ -183,7 +183,6 @@ After first successful deployment:
 
 2. **Smoke Test**
    - Visit: https://d7t9x3j66yd8k.cloudfront.net/finanzas/
-   - Test deep link: https://d7t9x3j66yd8k.cloudfront.net/finanzas/pmo/prefactura/estimator
    - Verify assets load (check DevTools Network tab)
    - Test navigation within app
    - Test browser refresh on nested routes
