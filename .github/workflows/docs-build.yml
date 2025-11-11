@@ -27,12 +27,61 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # --- OPTIONAL: DEBUG SCAN (non-failing) ---
+      # Shows any Pre-Factura references but does not fail the job.
+      # Keep this while cleaning up, then remove or comment out if you prefer.
+      - name: DEBUG scan (does not fail)
+        run: |
+          set -euo pipefail
+          DIRS=()
+          [ -d docs ] && DIRS+=(docs)
+          [ -d diagrams ] && DIRS+=(diagrams)
+          [ -d scripts ] && DIRS+=(scripts)
+          if [ ${#DIRS[@]} -eq 0 ]; then
+            echo "No docs/diagrams/scripts directories to scan."
+            exit 0
+          fi
+          echo "DEBUG: scanning for Pre-Factura references in: ${DIRS[*]}"
+          grep -RniE 'Pre-?Fact(ura)?|acta-ui-pre-factura' \
+            --binary-files=without-match \
+            --exclude-dir .git \
+            --exclude-dir dist \
+            --exclude-dir node_modules \
+            --exclude '*.png' --exclude '*.jpg' --exclude '*.jpeg' \
+            --exclude '*.svg' --exclude '*.pdf' --exclude '*.zip' \
+            --exclude '*.fig' --exclude '*.lucid' --exclude '*.drawio' \
+            "${DIRS[@]}" || true
+
+      # --- ENFORCING SCOPE CHECK (failing if there are matches) ---
       - name: Verify repo scope (Finanzas-only)
         run: |
           set -euo pipefail
-          if grep -RniE 'Pre-?Fact(ura)?|acta-ui-pre-factura' docs diagrams scripts || true; then
+          DIRS=()
+          [ -d docs ] && DIRS+=(docs)
+          [ -d diagrams ] && DIRS+=(diagrams)
+          [ -d scripts ] && DIRS+=(scripts)
+          if [ ${#DIRS[@]} -eq 0 ]; then
+            echo "No docs/diagrams/scripts directories to scan."
+            exit 0
+          fi
+
+          if grep -RniE 'Pre-?Fact(ura)?|acta-ui-pre-factura' \
+               --binary-files=without-match \
+               --exclude-dir .git \
+               --exclude-dir dist \
+               --exclude-dir node_modules \
+               --exclude '*.png' --exclude '*.jpg' --exclude '*.jpeg' \
+               --exclude '*.svg' --exclude '*.pdf' --exclude '*.zip' \
+               --exclude '*.fig' --exclude '*.lucid' --exclude '*.drawio' \
+               "${DIRS[@]}" > /tmp/prefact_matches.txt 2>/dev/null
+          then
             echo "::error ::Pre-Factura references found in Repo A docs/diagrams/scripts. Please purge them."
+            echo "----- Matches -----"
+            cat /tmp/prefact_matches.txt
+            echo "-------------------"
             exit 1
+          else
+            echo "OK: No Pre-Factura references found."
           fi
 
       - name: Setup Node (for Mermaid CLI)
@@ -47,6 +96,7 @@ jobs:
 
       - name: Prepare export scripts
         run: |
+          set -euo pipefail
           chmod +x scripts/docs/export.sh scripts/docs/package.sh
 
       - name: Render diagrams + Export docs (HTML/PDF) + Package
