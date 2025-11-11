@@ -6,8 +6,9 @@ cd "$ROOT"
 
 mkdir -p diagrams dist/docs dist/checks scripts/docs
 
-# -------- 0) Scope guard (Repo A only) --------
-# Scan *content files* under docs/ and diagrams/ only; ignore scripts and binaries.
+###############################################################################
+# 0) Scope guard (Repo A only) — scan only content files under docs/diagrams
+###############################################################################
 PATTERN='Pre-?Fact(ura)?|acta-ui-pre-factura'
 if grep -RniE "$PATTERN" \
      --binary-files=without-match \
@@ -29,15 +30,19 @@ if grep -RniE "$PATTERN" \
   exit 1
 fi
 
-# -------- 1) Normalize bad image paths in Markdown --------
-# Replace ../docs/diagrams/... with ../diagrams/... because .md lives in /docs and diagrams/ is a sibling of /docs.
+###############################################################################
+# 1) Normalize image paths inside Markdown
+#    ../docs/diagrams/xyz.png  ->  ../diagrams/xyz.png
+###############################################################################
 if find docs -maxdepth 1 -name '*.md' | grep -q .; then
   while IFS= read -r -d '' MD; do
     sed -i.bak -E 's@\.\./docs/diagrams/@../diagrams/@g' "$MD"
   done < <(find docs -maxdepth 1 -name '*.md' -print0)
 fi
 
-# -------- 2) Puppeteer config for mmdc (--no-sandbox) --------
+###############################################################################
+# 2) Mermaid rendering with Puppeteer no-sandbox
+###############################################################################
 PUP_CONF="scripts/docs/puppeteer.json"
 cat > "$PUP_CONF" <<'JSON'
 {
@@ -45,34 +50,35 @@ cat > "$PUP_CONF" <<'JSON'
 }
 JSON
 
-# -------- 3) Render Mermaid .mmd -> PNG/SVG from BOTH docs/** and diagrams/** --------
 render_mermaid_dir () {
   local search_dir="$1"
   if [ -d "$search_dir" ] && command -v mmdc >/dev/null 2>&1; then
     while IFS= read -r -d '' M; do
       base="$(basename "${M%.*}")"
       echo "Rendering Mermaid: $M"
-      # Output goes to top-level diagrams/ no matter where the source sits
       mmdc -p "$PUP_CONF" -i "$M" -o "diagrams/${base}.png"
       mmdc -p "$PUP_CONF" -i "$M" -o "diagrams/${base}.svg"
     done < <(find "$search_dir" -type f -name '*.mmd' -print0)
   fi
 }
-
 render_mermaid_dir "docs"
 render_mermaid_dir "diagrams"
 
-# -------- 4) Lua filter: auto-fit images to page width for PDF --------
+###############################################################################
+# 3) Pandoc PDF auto-fit (Lua filter)
+###############################################################################
 LUA_FILTER="scripts/docs/autofig.lua"
 cat > "$LUA_FILTER" <<'LUA'
--- Auto-scale images in Pandoc output
+-- Ensure images scale to page width in PDF
 function Image(el)
   el.attributes['width'] = el.attributes['width'] or '100%'
   return el
 end
 LUA
 
-# -------- 5) Convert Markdown -> HTML/PDF using Pandoc in Docker --------
+###############################################################################
+# 4) Convert Markdown -> HTML/PDF using Pandoc in Docker
+###############################################################################
 convert_md () {
   local in="$1"
   local name
@@ -88,7 +94,7 @@ convert_md () {
     -o "dist/docs/${name}.html" \
     "$in"
 
-  # PDF (with auto-fit filter)
+  # PDF
   docker run --rm -v "$PWD:/data" pandoc/latex:latest \
     --standalone \
     --from gfm+attributes \
@@ -101,7 +107,6 @@ convert_md () {
     "$in"
 }
 
-# Ensure the canonical doc list exists
 DOCS_LIST=$(cat <<'EOF'
 docs/00-Executive-Summary.md
 docs/10-Architecture-AWS.md
@@ -114,7 +119,7 @@ docs/ZZ-Doc-Index.md
 EOF
 )
 
-# Create missing shells (non-empty so size check won’t trip)
+# Create minimal shells if missing
 while read -r f; do
   if [ ! -f "$f" ]; then
     mkdir -p "$(dirname "$f")"
@@ -126,50 +131,68 @@ while read -r f; do
   fi
 done <<< "$DOCS_LIST"
 
-# Convert each doc
+# Convert each page
 while read -r f; do
   echo "Converting: $f"
   convert_md "$f"
 done <<< "$DOCS_LIST"
 
-# -------- 6) Build index --------
+###############################################################################
+# 5) Index page of outputs
+###############################################################################
 {
   echo "# Document Index"
   echo
-  if command -v stat >/dev/null 2>&1; then
-    find dist/docs -maxdepth 1 -type f -exec sh -c 'for f; do sz=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f"); echo "- $(basename "$f") (${sz} bytes)"; done' sh {} + | sort
-  else
-    ls -l dist/docs
-  fi
+  find dist/docs -maxdepth 1 -type f | while read -r of; do
+    sz=$(stat -f%z "$of" 2>/dev/null || stat -c%s "$of")
+    echo "- $(basename "$of") (${sz} bytes)"
+  done | sort
 } > dist/docs/INDEX.md
 
-# -------- 7) Sanity checks (relaxed) --------
-# Only fail if a file is truly empty or missing; warn on small files (placeholders)
+###############################################################################
+# 6) Sanity checks (relaxed)
+###############################################################################
 fail=0
 while IFS= read -r -d '' out; do
   sz=$(stat -f%z "$out" 2>/dev/null || stat -c%s "$out")
-  base="$(basename "$out")"
   if [ "$sz" -eq 0 ]; then
-    echo "ERROR: Empty export: $base"
+    echo "ERROR: Empty export: $(basename "$out")"
     fail=1
   elif [ "$sz" -lt 500 ]; then
-    echo "WARN: Very small export ($sz bytes): $base"
+    echo "WARN: Very small export ($sz bytes): $(basename "$out")"
   fi
 done < <(find dist/docs -type f \( -name "*.pdf" -o -name "*.html" \) -print0)
 
-# Warn if a referenced diagram file is missing
-missing=0
-while IFS= read -r -d '' line; do
-  file="${line%%:*}"
-  lno="${line##*:}"
-  img=$(sed -n "${lno}p" "$file" | sed -nE 's/.*\(([^)]+)\).*/\1/p')
-  if [ -n "${img:-}" ] && [ ! -f "$(dirname "$file")/$(basename "$img")" ] && [ ! -f "$img" ]; then
-    echo "WARN: Referenced image not found: $img (from $file:$lno)"
-    missing=1
-  fi
-done < <(grep -Rni '!\[.*\](\.\./diagrams/.*\.(png|svg))' docs 2>/dev/null | tr ':' '\0' | xargs -0 -n2 printf "%s:%s\0")
+###############################################################################
+# 7) Warn on missing image files referenced from Markdown (robust parser)
+###############################################################################
+# Pattern: ![alt](../diagrams/<file>.png|svg)
+if grep -RniE '!\[[^]]*\]\(\.\./diagrams/[^)]+\.(png|svg)\)' docs >/tmp/img_refs.txt 2>/dev/null; then
+  while IFS= read -r line; do
+    # Split "path:line:content" safely: first field=path, second=line, rest=content
+    file="${line%%:*}"                    # up to first ':'
+    rest="${line#*:}"                     # after first ':'
+    lno="${rest%%:*}"                     # up to next ':'
+    content="${rest#*:}"                  # after second ':'
 
-# -------- 8) Checksums --------
+    # Extract all ../diagrams/...png|svg occurrences from content
+    while IFS= read -r img; do
+      # Resolve relative to file's directory
+      # file is like docs/10-Architecture-AWS.md; want ../diagrams/foo.png relative to docs/
+      base_dir="$(dirname "$file")"
+      path_rel="$base_dir/$img"
+      path_rel="${path_rel//..\/}"        # collapse one ../
+      # Accept either the resolved path or top-level diagrams/ fallback
+      if [ ! -f "$path_rel" ] && [ ! -f "${img#../}" ]; then
+        echo "WARN: Referenced image not found: $img (from $file:$lno)"
+      fi
+    done < <(echo "$content" | grep -oE '\(\.\./diagrams/[^)]+\.(png|svg)\)' | tr -d '()')
+  done < /tmp/img_refs.txt
+fi
+
+###############################################################################
+# 8) Checksums for traceability
+###############################################################################
 ( find docs -type f; find diagrams -type f; find dist/docs -type f ) \
   | sort | xargs -I{} sh -c 'cksum "{}" || shasum -a 256 "{}"' > dist/checks/checksums.txt || true
 
