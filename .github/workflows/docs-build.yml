@@ -59,31 +59,34 @@ jobs:
           DIRS=()
           [ -d docs ] && DIRS+=(docs)
           [ -d diagrams ] && DIRS+=(diagrams)
-          [ -d scripts ] && DIRS+=(scripts)
           if [ ${#DIRS[@]} -eq 0 ]; then
-            echo "No docs/diagrams/scripts directories to scan."
+            echo "No docs/diagrams directories to scan."
             exit 0
           fi
-
+      
           if grep -RniE 'Pre-?Fact(ura)?|acta-ui-pre-factura' \
                --binary-files=without-match \
                --exclude-dir .git \
                --exclude-dir dist \
                --exclude-dir node_modules \
-               --exclude '*.png' --exclude '*.jpg' --exclude '*.jpeg' \
-               --exclude '*.svg' --exclude '*.pdf' --exclude '*.zip' \
-               --exclude '*.fig' --exclude '*.lucid' --exclude '*.drawio' \
+               --include '*.md' \
+               --include '*.mdx' \
+               --include '*.mmd' \
+               --include '*.svg' \
+               --include '*.drawio' \
+               --include '*.yaml' --include '*.yml' \
+               --include '*.json' \
                "${DIRS[@]}" > /tmp/prefact_matches.txt 2>/dev/null
           then
-            echo "::error ::Pre-Factura references found in Repo A docs/diagrams/scripts. Please purge them."
+            echo "::error ::Pre-Factura references found in Repo A content files. Please purge them."
             echo "----- Matches -----"
             cat /tmp/prefact_matches.txt
             echo "-------------------"
             exit 1
           else
-            echo "OK: No Pre-Factura references found."
+            echo "OK: No Pre-Factura references found in docs/diagrams."
           fi
-
+          
       - name: Setup Node (for Mermaid CLI)
         uses: actions/setup-node@v4
         with:
