@@ -7,8 +7,25 @@ cd "$ROOT"
 mkdir -p diagrams dist/docs dist/checks scripts/docs
 
 # -------- 0) Scope guard (Repo A only) --------
-if grep -RniE 'Pre-?Fact(ura)?|acta-ui-pre-factura' docs diagrams scripts >/dev/null 2>&1; then
-  echo "ERROR: Pre-Factura content detected in Repo A. Purge before exporting."
+# Scan *content files* under docs/ and diagrams/ only; ignore scripts and binaries.
+PATTERN='Pre-?Fact(ura)?|acta-ui-pre-factura'
+if grep -RniE "$PATTERN" \
+     --binary-files=without-match \
+     --exclude-dir .git \
+     --exclude-dir dist \
+     --exclude-dir node_modules \
+     --include '*.md' \
+     --include '*.mdx' \
+     --include '*.mmd' \
+     --include '*.svg' \
+     --include '*.drawio' \
+     --include '*.yaml' --include '*.yml' \
+     --include '*.json' \
+     docs diagrams >/tmp/prefact_matches.txt 2>/dev/null; then
+  echo "ERROR: Pre-Factura content detected in Repo A content files. Purge before exporting."
+  echo "----- Matches -----"
+  cat /tmp/prefact_matches.txt
+  echo "-------------------"
   exit 1
 fi
 
