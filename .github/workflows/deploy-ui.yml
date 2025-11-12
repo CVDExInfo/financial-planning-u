@@ -89,14 +89,14 @@ jobs:
           sed -i 's/\r$//' "$GITHUB_ENV"
 
       # ---- Build PMO (/) ----
-      - name: Build PMO Portal (base: /)
+      - name: Build PMO Portal (base /)
         run: |
           echo "Building PMO Portal (base: /)..."
           BUILD_TARGET=pmo npm run build || { echo "❌ PMO build failed"; exit 1; }
           echo "✅ PMO Portal built → dist-pmo/"
 
       # ---- Build Finanzas (/finanzas) ----
-      - name: Build Finanzas SDT Portal (base: /finanzas/)
+      - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
           VITE_FINZ_ENABLED: "true"
