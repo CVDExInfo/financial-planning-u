@@ -13,8 +13,9 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
   # Determine environment based on branch
   DEPLOYMENT_ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-  # S3 and CloudFront configuration - use specific values for production
-  S3_BUCKET_NAME: ${{ github.ref == 'refs/heads/main' && 'ukusi-ui-finanzas-prod' || vars.S3_BUCKET_NAME }}
+  # S3 buckets - separate for PMO and Finanzas (CRITICAL: do not mix)
+  PMO_BUCKET_NAME: acta-ui-frontend-prod
+  FINANZAS_BUCKET_NAME: ${{ github.ref == 'refs/heads/main' && 'ukusi-ui-finanzas-prod' || vars.FINANZAS_BUCKET_NAME }}
   CLOUDFRONT_DIST_ID: ${{ github.ref == 'refs/heads/main' && 'EPQU7PVDLQXUA' || vars.CLOUDFRONT_DIST_ID }}
   # API configuration - use prod endpoint for main branch, dev for others
   FINZ_API_STACK: ${{ github.ref == 'refs/heads/main' && 'finanzas-sd-api-prod' || (vars.FINZ_API_STACK || 'finanzas-sd-api-dev') }}
@@ -33,10 +34,11 @@ jobs:
         run: |
           set -euo pipefail
           echo "🚀 Deployment Environment: ${DEPLOYMENT_ENV}"
-          echo "📦 S3 Bucket: ${S3_BUCKET_NAME}"
+          echo "📦 PMO S3 Bucket: ${PMO_BUCKET_NAME}"
+          echo "📦 Finanzas S3 Bucket: ${FINANZAS_BUCKET_NAME}"
           echo "🌐 CloudFront Distribution: ${CLOUDFRONT_DIST_ID}"
           echo "🔌 API Endpoint: ${DEV_API_URL:-'(not set)'}"
-          for k in S3_BUCKET_NAME CLOUDFRONT_DIST_ID; do
+          for k in PMO_BUCKET_NAME FINANZAS_BUCKET_NAME CLOUDFRONT_DIST_ID; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing repo var: $k"; exit 1; }
           done
           printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
@@ -130,13 +132,18 @@ jobs:
       - name: Verify identity
         run: aws sts get-caller-identity
 
-      - name: "Guard - S3 bucket and CloudFront exist"
+      - name: "Guard - S3 buckets and CloudFront exist"
         run: |
           set -euo pipefail
-          echo "Verifying S3 bucket exists..."
-          aws s3api head-bucket --bucket "${S3_BUCKET_NAME}" || {
-            echo "❌ S3 bucket ${S3_BUCKET_NAME} not found"; exit 1; }
-          echo "✅ S3 bucket found: ${S3_BUCKET_NAME}"
+          echo "Verifying PMO S3 bucket exists..."
+          aws s3api head-bucket --bucket "${PMO_BUCKET_NAME}" || {
+            echo "❌ S3 bucket ${PMO_BUCKET_NAME} not found"; exit 1; }
+          echo "✅ PMO S3 bucket found: ${PMO_BUCKET_NAME}"
+
+          echo "Verifying Finanzas S3 bucket exists..."
+          aws s3api head-bucket --bucket "${FINANZAS_BUCKET_NAME}" || {
+            echo "❌ S3 bucket ${FINANZAS_BUCKET_NAME} not found"; exit 1; }
+          echo "✅ Finanzas S3 bucket found: ${FINANZAS_BUCKET_NAME}"
 
           echo "Verifying CloudFront distribution exists..."
           aws cloudfront get-distribution --id "${CLOUDFRONT_DIST_ID}" >/dev/null || {
@@ -189,19 +196,19 @@ jobs:
 
       - name: "Upload PMO Portal to S3 (root /)"
         run: |
-          echo "Uploading PMO Portal to S3 root..."
-          aws s3 sync dist-pmo/ "s3://${S3_BUCKET_NAME}/" \
+          echo "Uploading PMO Portal to S3 root (${PMO_BUCKET_NAME})..."
+          aws s3 sync dist-pmo/ "s3://${PMO_BUCKET_NAME}/" \
             --exclude '*.map' \
             --delete
-          echo "✅ PMO Portal uploaded to s3://${S3_BUCKET_NAME}/"
+          echo "✅ PMO Portal uploaded to s3://${PMO_BUCKET_NAME}/"
 
       - name: "Upload Finanzas Portal to S3 (/finanzas prefix)"
         run: |
-          echo "Uploading Finanzas Portal to S3 /finanzas/ prefix..."
-          aws s3 sync dist-finanzas/ "s3://${S3_BUCKET_NAME}/finanzas/" \
+          echo "Uploading Finanzas Portal to S3 /finanzas/ prefix (${FINANZAS_BUCKET_NAME})..."
+          aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
             --exclude '*.map' \
             --delete
-          echo "✅ Finanzas Portal uploaded to s3://${S3_BUCKET_NAME}/finanzas/"
+          echo "✅ Finanzas Portal uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
 
       - name: "Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)"
         run: |

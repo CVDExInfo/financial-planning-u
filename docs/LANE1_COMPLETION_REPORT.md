@@ -22,16 +22,16 @@
 
 ## Deliverables Verification
 
-| Deliverable | Status | Evidence |
-|---|---|---|
-| Unified Login.tsx | ✅ COMPLETE | LoginPage.tsx supports direct + Hosted UI |
-| Hosted UI config | ✅ COMPLETE | aws.ts: domain, redirects, scopes correct |
-| Direct USER_PASSWORD_AUTH | ✅ COMPLETE | AuthProvider.loginWithCognito() implemented |
+| Deliverable               | Status      | Evidence                                        |
+| ------------------------- | ----------- | ----------------------------------------------- |
+| Unified Login.tsx         | ✅ COMPLETE | LoginPage.tsx supports direct + Hosted UI       |
+| Hosted UI config          | ✅ COMPLETE | aws.ts: domain, redirects, scopes correct       |
+| Direct USER_PASSWORD_AUTH | ✅ COMPLETE | AuthProvider.loginWithCognito() implemented     |
 | cv.jwt + finz_jwt storage | ✅ COMPLETE | callback.html + AuthProvider both set both keys |
-| Router basename /finanzas | ✅ COMPLETE | App.tsx, vite.config.ts aligned |
-| <Link> components | ✅ COMPLETE | FinanzasHome.tsx, Navigation.tsx verified |
-| Role-based redirect | ✅ COMPLETE | AuthProvider + callback.html logic matching |
-| README updated | ✅ COMPLETE | Quick Auth Setup section added |
+| Router basename /finanzas | ✅ COMPLETE | App.tsx, vite.config.ts aligned                 |
+| <Link> components         | ✅ COMPLETE | FinanzasHome.tsx, Navigation.tsx verified       |
+| Role-based redirect       | ✅ COMPLETE | AuthProvider + callback.html logic matching     |
+| README updated            | ✅ COMPLETE | Quick Auth Setup section added                  |
 
 ---
 
@@ -107,19 +107,19 @@ const loginWithCognito = async (username, password) => {
   const response = await fetch(`https://cognito-idp.${region}.amazonaws.com/`, {
     body: JSON.stringify({
       AuthFlow: "USER_PASSWORD_AUTH",
-      AuthParameters: { USERNAME, PASSWORD }
-    })
+      AuthParameters: { USERNAME, PASSWORD },
+    }),
   });
-  
+
   // Store BOTH cv.jwt and finz_jwt for compatibility
   localStorage.setItem("cv.jwt", AuthenticationResult.IdToken);
   localStorage.setItem("finz_jwt", AuthenticationResult.IdToken);
-  
+
   // Role-based redirect (matches callback.html logic)
   if (canSDT && !canPMO) targetPath = "/finanzas/";
   else if (canPMO && !canSDT) targetPath = "/";
   else targetPath = "/finanzas/"; // default
-}
+};
 ```
 
 ✅ **PASS**: Direct login stores both JWT keys, redirects by role
@@ -134,15 +134,15 @@ const loginWithCognito = async (username, password) => {
 <script>
   // Extract token from hash fragment
   const idToken = new URLSearchParams(location.hash.slice(1)).get("id_token");
-  
+
   // Decode and extract groups
   const claims = decodeJWT(idToken);
   const groups = claims["cognito:groups"] || [];
-  
+
   // Store BOTH keys
   localStorage.setItem("cv.jwt", idToken);
   localStorage.setItem("finz_jwt", idToken);
-  
+
   // Role-based redirect
   if (groups.includes("SDT") && !groups.includes("PMO")) {
     target = "/finanzas/";
@@ -162,15 +162,18 @@ const loginWithCognito = async (username, password) => {
 **File:** `src/App.tsx` (lines 148-156)
 
 ```typescript
-const basename = import.meta.env.VITE_APP_BASENAME ||
-  (import.meta.env.VITE_FINZ_ENABLED === "false" ? "/" : "/finanzas/")
-    .replace(/\/$/, "");
+const basename =
+  import.meta.env.VITE_APP_BASENAME ||
+  (import.meta.env.VITE_FINZ_ENABLED === "false" ? "/" : "/finanzas/").replace(
+    /\/$/,
+    ""
+  );
 
 <BrowserRouter basename={basename}>
   <AuthProvider>
     <AppContent />
   </AuthProvider>
-</BrowserRouter>
+</BrowserRouter>;
 ```
 
 ✅ **PASS**: Router basename correctly set to `/finanzas`
@@ -226,19 +229,20 @@ if (import.meta.env.VITE_FINZ_ENABLED === "true") {
 
 9 comprehensive test scenarios defined:
 
-| Test | Scenario | Status |
-|---|---|---|
+| Test   | Scenario                      | Status              |
+| ------ | ----------------------------- | ------------------- |
 | Test 1 | LoginPage loads at /finanzas/ | ⏳ Ready for manual |
-| Test 2 | Direct login stores jwt keys | ⏳ Ready for manual |
-| Test 3 | Hosted UI login flow | ⏳ Ready for manual |
-| Test 4 | Deep link navigation | ⏳ Ready for manual |
-| Test 5 | SDT/FIN/AUD role redirect | ⏳ Ready for manual |
-| Test 6 | PMO-only redirect | ⏳ Ready for manual |
-| Test 7 | No token → show login | ⏳ Ready for manual |
-| Test 8 | Link components (no raw <a>) | ✅ Code verified |
-| Test 9 | Logout clears tokens | ⏳ Ready for manual |
+| Test 2 | Direct login stores jwt keys  | ⏳ Ready for manual |
+| Test 3 | Hosted UI login flow          | ⏳ Ready for manual |
+| Test 4 | Deep link navigation          | ⏳ Ready for manual |
+| Test 5 | SDT/FIN/AUD role redirect     | ⏳ Ready for manual |
+| Test 6 | PMO-only redirect             | ⏳ Ready for manual |
+| Test 7 | No token → show login         | ⏳ Ready for manual |
+| Test 8 | Link components (no raw <a>)  | ✅ Code verified    |
+| Test 9 | Logout clears tokens          | ⏳ Ready for manual |
 
 Each test includes:
+
 - Pre-conditions
 - Step-by-step instructions
 - Expected outcomes
@@ -283,12 +287,12 @@ Each test includes:
 
 ## Known Limitations (Non-Blocking)
 
-| Issue | Impact | Lane | Notes |
-|---|---|---|---|
-| Token refresh not implemented | Sessions expire after 1 hour | R2 Enhancement | Users must re-auth; documented in test plan |
-| RBAC backend mismatch | Frontend checks SDT/FIN/AUD; backend only "SDT" | Lane 2 | Will be fixed in backend lane |
-| PMO app not deployed | Dual-role redirect to "/" may fail | Lane 6 | Fallback already in place for Finanzas-only mode |
-| CloudFront SPA fallback untested | Deep links may 404 in prod | Lane 3 | Will be verified by CDN team |
+| Issue                            | Impact                                          | Lane           | Notes                                            |
+| -------------------------------- | ----------------------------------------------- | -------------- | ------------------------------------------------ |
+| Token refresh not implemented    | Sessions expire after 1 hour                    | R2 Enhancement | Users must re-auth; documented in test plan      |
+| RBAC backend mismatch            | Frontend checks SDT/FIN/AUD; backend only "SDT" | Lane 2         | Will be fixed in backend lane                    |
+| PMO app not deployed             | Dual-role redirect to "/" may fail              | Lane 6         | Fallback already in place for Finanzas-only mode |
+| CloudFront SPA fallback untested | Deep links may 404 in prod                      | Lane 3         | Will be verified by CDN team                     |
 
 ---
 
@@ -309,16 +313,16 @@ Each test includes:
 
 ## Files Modified
 
-| File | Changes | Status |
-|---|---|---|
-| `src/config/aws.ts` | Domain fix (hyphen); already correct | ✅ No changes needed |
-| `src/components/AuthProvider.tsx` | Proper direct + Hosted UI auth | ✅ No changes needed |
-| `src/components/LoginPage.tsx` | Unified design; both methods | ✅ No changes needed |
-| `src/App.tsx` | Router basename `/finanzas` | ✅ No changes needed |
-| `vite.config.ts` | Base path `/finanzas/` | ✅ No changes needed |
-| `public/auth/callback.html` | Token parsing + dual-key storage | ✅ No changes needed |
-| `README.md` | Quick Auth Setup added | ✅ Updated |
-| `docs/LANE1_AUTH_UI_TEST_PLAN.md` | NEW: comprehensive test plan | ✅ Created |
+| File                              | Changes                              | Status               |
+| --------------------------------- | ------------------------------------ | -------------------- |
+| `src/config/aws.ts`               | Domain fix (hyphen); already correct | ✅ No changes needed |
+| `src/components/AuthProvider.tsx` | Proper direct + Hosted UI auth       | ✅ No changes needed |
+| `src/components/LoginPage.tsx`    | Unified design; both methods         | ✅ No changes needed |
+| `src/App.tsx`                     | Router basename `/finanzas`          | ✅ No changes needed |
+| `vite.config.ts`                  | Base path `/finanzas/`               | ✅ No changes needed |
+| `public/auth/callback.html`       | Token parsing + dual-key storage     | ✅ No changes needed |
+| `README.md`                       | Quick Auth Setup added               | ✅ Updated           |
+| `docs/LANE1_AUTH_UI_TEST_PLAN.md` | NEW: comprehensive test plan         | ✅ Created           |
 
 **No functional code changes needed—implementation already complete and correct!**
 
@@ -329,6 +333,7 @@ Each test includes:
 ### Immediate (Before Merge)
 
 1. **Manual Testing:** Run through tests 1-9 in local dev
+
    - `npm ci && npm run dev`
    - Navigate to `http://localhost:5173/finanzas/`
    - Test both login methods
@@ -336,10 +341,12 @@ Each test includes:
    - Check localStorage
 
 2. **Build Verification:**
+
    ```bash
    npm run build
    npm run preview
    ```
+
    - Confirm `dist-finanzas/index.html` contains `/finanzas/assets/` (not `/assets/`)
    - No console errors or warnings
 

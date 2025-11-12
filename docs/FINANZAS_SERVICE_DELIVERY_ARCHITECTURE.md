@@ -111,6 +111,7 @@ The Finanzas Service Delivery (SD) module provides comprehensive financial plann
 ```
 
 **Note**: Mode B is documented for future consideration. It requires:
+
 - Additional CloudFront behavior configuration
 - Origin request policy for `Authorization` header forwarding
 - CORS updates to accept CloudFront domain
@@ -131,6 +132,7 @@ The Finanzas Service Delivery (SD) module provides comprehensive financial plann
 **Purpose**: Serve static UI assets with low latency and high availability.
 
 **Configuration**:
+
 - **Origin**: S3 bucket (financial-planning-ui-bucket)
 - **Origin Access Control (OAC)**: Enabled for secure S3 access
 - **Path Pattern**: `/finanzas/*`
@@ -140,6 +142,7 @@ The Finanzas Service Delivery (SD) module provides comprehensive financial plann
 - **Security**: HTTPS only, TLS 1.2+
 
 **Deployment**:
+
 - Managed via GitHub Actions workflow: `.github/workflows/deploy.yml`
 - Cache invalidation on each deployment: `/finanzas/*`
 
@@ -152,6 +155,7 @@ The Finanzas Service Delivery (SD) module provides comprehensive financial plann
 **Purpose**: Route HTTP requests to Lambda functions with JWT authentication.
 
 **Features**:
+
 - **Low latency**: HTTP API optimized for serverless workloads
 - **Pay-per-request**: No upfront costs, scales automatically
 - **Built-in CORS**: Configured for CloudFront domain
@@ -159,15 +163,17 @@ The Finanzas Service Delivery (SD) module provides comprehensive financial plann
 - **Metrics & Logging**: CloudWatch integration
 
 **CORS Configuration**:
+
 ```yaml
 AllowOrigins:
   - https://d7t9x3j66yd8k.cloudfront.net
 AllowMethods: [GET, POST, PUT, OPTIONS]
-AllowHeaders: ['Authorization', 'Content-Type']
+AllowHeaders: ["Authorization", "Content-Type"]
 MaxAge: 3600
 ```
 
 **Endpoints**:
+
 ```
 GET     /health                          → HealthFn (no auth)
 GET     /catalog/rubros                  → CatalogFn (no auth)
@@ -188,6 +194,7 @@ GET     /providers                       → ProvidersFn (JWT + SDT)
 ```
 
 **Authorization**:
+
 - **Public endpoints**: `/health`, `/catalog/rubros`
 - **Protected endpoints**: All others require valid JWT with `SDT` group membership
 
@@ -200,12 +207,14 @@ GET     /providers                       → ProvidersFn (JWT + SDT)
 **Purpose**: Centralized identity and access management.
 
 **Configuration**:
+
 - **App Client**: Dedicated client for Finanzas SD UI
 - **Groups**: `SDT` (Service Delivery Team) for financial operations
 - **Token Lifetime**: Configurable (default: 1 hour access, 7 days refresh)
 - **MFA**: Optional (recommended for production)
 
 **JWT Claims**:
+
 ```json
 {
   "sub": "user-uuid",
@@ -229,6 +238,7 @@ GET     /providers                       → ProvidersFn (JWT + SDT)
 **Build Tool**: esbuild (TypeScript → JavaScript with source maps)
 
 **Environment Variables**:
+
 ```bash
 TABLE_PROJECTS=finz_projects
 TABLE_RUBROS=finz_rubros
@@ -241,23 +251,26 @@ TABLE_AUDIT=finz_audit_log
 ```
 
 **IAM Policies**:
+
 - Each function has least-privilege IAM policies
 - DynamoDB: CRUD policies scoped to specific tables
 - CloudWatch Logs: Write permissions
 - X-Ray: Trace permissions
 
 **Observability**:
+
 - **Logs**: CloudWatch Logs (auto-created log groups)
 - **Metrics**: Lambda metrics (invocations, errors, duration, throttles)
 - **Tracing**: X-Ray enabled for distributed tracing
 
 ### 5. DynamoDB Tables
 
-**Billing Mode**: PAY_PER_REQUEST (on-demand)  
-**Table Prefix**: `finz_`  
+**Billing Mode**: PAY*PER_REQUEST (on-demand)  
+**Table Prefix**: `finz*`  
 **Region**: us-east-2
 
 **Tables**:
+
 1. **finz_projects**: Project master data
    - PK: `PROJECT#{projectId}`, SK: `METADATA`
    - Attributes: cliente, nombre, fecha_inicio, fecha_fin, moneda, estado
@@ -287,6 +300,7 @@ TABLE_AUDIT=finz_audit_log
 **Purpose**: Generate monthly budget variance alerts for projects exceeding thresholds.
 
 **Logic** (to be implemented in AlertsPep3Fn):
+
 1. Query all active projects
 2. Calculate budget vs. actuals for each project
 3. Identify projects with variance > threshold (e.g., ±10%)
@@ -298,6 +312,7 @@ TABLE_AUDIT=finz_audit_log
 ## Data Flow
 
 ### 1. User Authentication
+
 ```
 User → CloudFront (/finanzas) → S3 (UI loads)
   → UI redirects to Cognito (OAuth2 flow)
@@ -307,6 +322,7 @@ User → CloudFront (/finanzas) → S3 (UI loads)
 ```
 
 ### 2. API Request (Protected Endpoint)
+
 ```
 UI (with JWT) → API Gateway
   → API Gateway validates JWT with Cognito issuer
@@ -319,6 +335,7 @@ UI (with JWT) → API Gateway
 ```
 
 ### 3. Health Check (Public Endpoint)
+
 ```
 Monitoring Tool → API Gateway (/health)
   → API Gateway invokes HealthFn (no auth)
@@ -326,6 +343,7 @@ Monitoring Tool → API Gateway (/health)
 ```
 
 ### 4. Monthly Alert Generation (EventBridge)
+
 ```
 EventBridge (cron) → AlertsPep3Fn
   → Query finz_projects (active)
@@ -343,11 +361,13 @@ EventBridge (cron) → AlertsPep3Fn
 ### 1. Authentication & Authorization
 
 **Authentication**: AWS Cognito JWT tokens (OAuth2 / OIDC)
+
 - **Token Type**: Bearer token in `Authorization` header
 - **Validation**: API Gateway built-in JWT authorizer
 - **Issuer**: `https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY`
 
 **Authorization**: Group-based RBAC
+
 - **Group**: `SDT` (Service Delivery Team)
 - **Enforcement**: Lambda functions check `cognito:groups` claim
 - **Failure**: HTTP 403 Forbidden if group not present
@@ -355,18 +375,21 @@ EventBridge (cron) → AlertsPep3Fn
 ### 2. Network Security
 
 **CloudFront**:
+
 - HTTPS only (no HTTP)
 - TLS 1.2+ enforced
 - Origin Access Control (OAC) for S3
 - Geo-restrictions: (optional, configurable)
 
 **API Gateway**:
+
 - HTTPS only
 - CORS restricted to CloudFront domain
 - Throttling: (configurable, default limits apply)
 - WAF: (optional, for DDoS protection)
 
 **DynamoDB**:
+
 - Private VPC endpoint (optional)
 - IAM-based access control
 - Encryption at rest (AWS-managed keys)
@@ -375,11 +398,13 @@ EventBridge (cron) → AlertsPep3Fn
 ### 3. IAM Policies
 
 **Lambda Execution Roles**:
+
 - Least-privilege principle
 - Scoped to specific tables
 - No wildcard actions unless necessary
 
 **CI/CD (GitHub Actions)**:
+
 - OIDC-based authentication (no static keys)
 - Role assumption with session limits
 - Scoped to deployment actions only
@@ -387,11 +412,13 @@ EventBridge (cron) → AlertsPep3Fn
 ### 4. Data Protection
 
 **Encryption**:
+
 - **In Transit**: TLS 1.2+ for all connections
 - **At Rest**: DynamoDB encryption (AWS-managed KMS keys)
 - **S3**: Server-side encryption (AES-256)
 
 **Audit Trail**:
+
 - All mutations logged to `finz_audit_log`
 - CloudWatch Logs for API access
 - X-Ray traces for debugging
@@ -403,6 +430,7 @@ EventBridge (cron) → AlertsPep3Fn
 ### CI/CD Pipelines
 
 **API Deployment**: `.github/workflows/deploy-api.yml`
+
 - Trigger: Push to `module/finanzas-api-mvp` branch
 - Steps:
   1. Checkout code
@@ -415,9 +443,10 @@ EventBridge (cron) → AlertsPep3Fn
   8. Output API URL to GitHub summary
 
 **UI Deployment**: `.github/workflows/deploy.yml`
+
 - Trigger: Push to `main` branch
 - Steps:
-  1. Preflight checks (VITE_* env vars)
+  1. Preflight checks (VITE\_\* env vars)
   2. Checkout code
   3. Install dependencies (npm ci)
   4. Build UI (npm run build)
@@ -428,6 +457,7 @@ EventBridge (cron) → AlertsPep3Fn
 ### Environment Variables
 
 **API Workflow**:
+
 - `AWS_REGION`: us-east-2
 - `FINZ_API_STACK`: finanzas-sd-api-dev
 - `FINZ_API_STAGE`: dev
@@ -435,6 +465,7 @@ EventBridge (cron) → AlertsPep3Fn
 - `COGNITO_USER_POOL_ARN`: arn:aws:cognito-idp:us-east-2:...:userpool/us-east-2_FyHLtOhiY
 
 **UI Workflow**:
+
 - `AWS_REGION`: us-east-2
 - `S3_BUCKET`: financial-planning-ui-bucket
 - `CLOUDFRONT_DIST_ID`: EPQU7PVDLQXUA
@@ -447,21 +478,25 @@ EventBridge (cron) → AlertsPep3Fn
 ## Monitoring & Observability
 
 ### CloudWatch Dashboards
+
 - **API Metrics**: Request count, latency (p50, p99), error rate, throttles
 - **Lambda Metrics**: Invocations, duration, errors, concurrent executions
 - **DynamoDB Metrics**: Read/write capacity consumption, throttled requests
 
 ### Alarms
+
 - **API 5xx Errors**: Alert if error rate > 1% for 5 minutes
 - **Lambda Errors**: Alert if error count > 10 in 5 minutes
 - **DynamoDB Throttles**: Alert on any throttled requests
 
 ### X-Ray Tracing
+
 - Enabled for all Lambda functions
 - Trace API Gateway → Lambda → DynamoDB
 - Visualize latency bottlenecks and errors
 
 ### Logging
+
 - **API Gateway Logs**: Access logs with request ID, latency, status
 - **Lambda Logs**: Structured JSON logging with correlation IDs
 - **Audit Log**: All write operations logged to `finz_audit_log`
@@ -471,6 +506,7 @@ EventBridge (cron) → AlertsPep3Fn
 ## Cost Optimization
 
 ### Estimates (Development Environment)
+
 - **API Gateway**: ~$1/million requests (HTTP API)
 - **Lambda**: Free tier covers most dev workloads
 - **DynamoDB**: PAY_PER_REQUEST ~$1.25/million reads, $6.25/million writes
@@ -480,6 +516,7 @@ EventBridge (cron) → AlertsPep3Fn
 **Expected Monthly Cost (Dev)**: < $10/month with typical development traffic.
 
 ### Optimization Strategies
+
 1. **API Gateway**: Use HTTP API (cheaper than REST API)
 2. **Lambda**: Right-size memory (256 MB default)
 3. **DynamoDB**: On-demand billing for unpredictable workloads
@@ -491,11 +528,13 @@ EventBridge (cron) → AlertsPep3Fn
 ## Disaster Recovery
 
 ### Backup Strategy
+
 - **DynamoDB**: Point-in-time recovery (optional, enable for prod)
 - **S3**: Versioning enabled for rollback
 - **Code**: Git repository is source of truth
 
 ### Rollback Procedures
+
 **API**: Redeploy previous stack version via `sam deploy` with older commit
 **UI**: Restore previous S3 object versions and invalidate cache
 
@@ -507,18 +546,21 @@ EventBridge (cron) → AlertsPep3Fn
 ## Future Enhancements
 
 ### Short-Term (Next 3 months)
+
 - [ ] Implement Mode B (CloudFront API proxy) for latency optimization
 - [ ] Add WAF rules for DDoS protection
 - [ ] Enable DynamoDB PITR for production environment
 - [ ] Implement PEP-3 monthly alert logic in AlertsPep3Fn
 
 ### Mid-Term (3-6 months)
+
 - [ ] Multi-region deployment for high availability
 - [ ] Custom domain for API Gateway (e.g., `api.finanzas.example.com`)
 - [ ] Advanced caching strategies (API Gateway caching, Lambda@Edge)
 - [ ] Integration with external accounting systems (SAP, QuickBooks)
 
 ### Long-Term (6-12 months)
+
 - [ ] Real-time budget alerts via WebSockets (API Gateway WebSocket API)
 - [ ] Machine learning for budget forecasting
 - [ ] GraphQL API for flexible client queries

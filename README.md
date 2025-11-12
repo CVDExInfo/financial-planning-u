@@ -7,6 +7,7 @@ The backend for this project lives under `services/finanzas-api` and is defined 
 ## 🔐 Authentication
 
 This application uses **AWS Cognito** for authentication with support for:
+
 - Direct username/password login (USER_PASSWORD_AUTH)
 - Cognito Hosted UI (OAuth 2.0 implicit flow)
 - Role-based access control using Cognito groups
@@ -18,6 +19,7 @@ This application uses **AWS Cognito** for authentication with support for:
 ### Development Credentials
 
 For local development and testing:
+
 - **Email**: `christian.valencia@ikusi.com`
 - **Password**: `Velatia@2025`
 
@@ -41,24 +43,29 @@ VITE_FINZ_ENABLED=true
 **The app now uses a unified Finanzas-styled login page for all modules.**
 
 1. **Start the dev server:**
+
    ```bash
    npm ci && npm run dev
    ```
 
 2. **Navigate to Finanzas login:**
+
    ```
    http://localhost:5173/finanzas/
    ```
 
 3. **Two login options:**
+
    - **Direct login:** Enter credentials in the form (USER_PASSWORD_AUTH flow)
    - **Cognito Hosted UI:** Click "Sign in with Cognito Hosted UI" button (OAuth implicit flow)
 
 4. **Verify tokens in localStorage:**
+
    - Open DevTools → Application → Local Storage
    - Should see: `cv.jwt` and `finz_jwt` (both methods store both keys)
 
 5. **Deep link test:**
+
    - From FinanzasHome, click "Catálogo de Rubros"
    - URL should be `http://localhost:5173/finanzas/catalog/rubros`
    - Refresh page → should stay on same page (SPA routing works)
@@ -69,6 +76,7 @@ VITE_FINZ_ENABLED=true
    - Dual-role users → preference stored in `cv.module` (default: Finanzas)
 
 **Test Credentials:**
+
 - Email: `christian.valencia@ikusi.com`
 - Password: `Velatia@2025`
 
@@ -189,6 +197,7 @@ This repository includes automated quality gates to ensure code quality and prev
 ### For Developers
 
 Before pushing changes, run:
+
 ```bash
 # Build Finanzas with correct configuration
 BUILD_TARGET=finanzas npm run build
@@ -204,6 +213,7 @@ BUILD_TARGET=finanzas npm run build
 ### PR Workflow
 
 Every PR to `main` automatically runs:
+
 - ✅ Environment variables validation
 - ✅ Finanzas UI build with production config
 - ✅ Build guards (base path, dev URLs, asset integrity)
@@ -215,6 +225,7 @@ Every PR to `main` automatically runs:
 ### Build Guards
 
 The `scripts/build-guards-finanzas.sh` script validates:
+
 1. Build artifacts exist
 2. Base path is `/finanzas/assets/` (not `/assets/`)
 3. No hardcoded development URLs (github.dev, codespaces)

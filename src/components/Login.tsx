@@ -28,7 +28,9 @@ export function Login() {
       await loginWithCognito(email, password);
       // AuthProvider handles redirect post-login
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+      setError(
+        err instanceof Error ? err.message : "Login failed. Please try again."
+      );
       setPassword("");
     } finally {
       setIsLoading(false);

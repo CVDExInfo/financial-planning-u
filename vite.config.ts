@@ -27,54 +27,55 @@ console.log(
 
 export default defineConfig(() => {
   const outDir = isPmo ? "dist-pmo" : "dist-finanzas";
-  const publicBase = process.env.VITE_PUBLIC_BASE || (isPmo ? "/" : "/finanzas/");
-  
+  const publicBase =
+    process.env.VITE_PUBLIC_BASE || (isPmo ? "/" : "/finanzas/");
+
   return {
-  base: publicBase,
-  define: {
-    // Primary source for basename (used in App.tsx)
-    "import.meta.env.VITE_PUBLIC_BASE": JSON.stringify(
-      publicBase.replace(/\/$/, "")
-    ),
-    // Legacy support for VITE_APP_BASENAME
-    "import.meta.env.VITE_APP_BASENAME": JSON.stringify(
-      publicBase.replace(/\/$/, "")
-    ),
-    // Enable Finanzas-only mode when building for Finanzas
-    "import.meta.env.VITE_FINZ_ENABLED": JSON.stringify(
-      !isPmo ? "true" : "false"
-    ),
-  },
-  plugins: [
-    react(),
-    tailwindcss(),
-    // DO NOT REMOVE
-    createIconImportProxy() as PluginOption,
-    sparkPlugin({ outputDir: outDir }) as PluginOption,
-  ],
-  resolve: {
-    alias: {
-      "@": resolve(projectRoot, "src"),
+    base: publicBase,
+    define: {
+      // Primary source for basename (used in App.tsx)
+      "import.meta.env.VITE_PUBLIC_BASE": JSON.stringify(
+        publicBase.replace(/\/$/, "")
+      ),
+      // Legacy support for VITE_APP_BASENAME
+      "import.meta.env.VITE_APP_BASENAME": JSON.stringify(
+        publicBase.replace(/\/$/, "")
+      ),
+      // Enable Finanzas-only mode when building for Finanzas
+      "import.meta.env.VITE_FINZ_ENABLED": JSON.stringify(
+        !isPmo ? "true" : "false"
+      ),
     },
-  },
-  optimizeDeps: {
-    include: [
-      "react",
-      "react-dom",
-      "react-router-dom",
-      "@radix-ui/react-dialog",
-      "@radix-ui/react-select",
-      "@radix-ui/react-tabs",
-      "lucide-react",
-      "recharts",
+    plugins: [
+      react(),
+      tailwindcss(),
+      // DO NOT REMOVE
+      createIconImportProxy() as PluginOption,
+      sparkPlugin({ outputDir: outDir }) as PluginOption,
     ],
-  },
-  build: {
-    outDir: outDir,
-    commonjsOptions: {
-      include: [/node_modules/],
-      transformMixedEsModules: true,
+    resolve: {
+      alias: {
+        "@": resolve(projectRoot, "src"),
+      },
     },
-  },
-};
+    optimizeDeps: {
+      include: [
+        "react",
+        "react-dom",
+        "react-router-dom",
+        "@radix-ui/react-dialog",
+        "@radix-ui/react-select",
+        "@radix-ui/react-tabs",
+        "lucide-react",
+        "recharts",
+      ],
+    },
+    build: {
+      outDir: outDir,
+      commonjsOptions: {
+        include: [/node_modules/],
+        transformMixedEsModules: true,
+      },
+    },
+  };
 });

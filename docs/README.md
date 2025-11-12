@@ -9,26 +9,32 @@ Welcome to the Finanzas SD Module R1 Release documentation portal. This folder c
 ## 🚀 Quick Navigation
 
 ### For Project Managers
+
 - **[FINANZAS_PATH_TO_GREEN.md](FINANZAS_PATH_TO_GREEN.md)** — Executive roadmap with 6 implementation lanes and timelines
 - **[COPILOT_EXECUTION_SUMMARY.md](COPILOT_EXECUTION_SUMMARY.md)** — Autonomous agent execution summary and results
 
 ### For Engineers
 
 #### Frontend (Auth & UI)
+
 - **[LANE1_AUTH_UI_TEST_PLAN.md](LANE1_AUTH_UI_TEST_PLAN.md)** — Manual test scenarios (9 tests, preflight checklist)
 - **[LANE1_COMPLETION_REPORT.md](LANE1_COMPLETION_REPORT.md)** — Lane 1 completion status and evidence
 - **Start here:** [Quick Auth Setup in README.md](../README.md#quick-auth-setup-local-development)
 
 #### Backend (SAM/RBAC)
+
 - **[FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md](FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md)** — Backend architecture overview (Lanes 2-4)
 
 #### DevOps / Infrastructure
+
 - **[FINANZAS_PATH_TO_GREEN.md](FINANZAS_PATH_TO_GREEN.md)** — Lane 3 (CDN/CloudFront) and Lane 4 (CI/CD) specifications
 
 #### QA / Testing
+
 - **[LANE1_AUTH_UI_TEST_PLAN.md](LANE1_AUTH_UI_TEST_PLAN.md)** — Test scenarios for Lane 1 validation
 
 ### For Future Reference
+
 - **[AUDIT_FINANZAS_MODULE_IMPLEMENTATION.md](AUDIT_FINANZAS_MODULE_IMPLEMENTATION.md)** — Current implementation audit vs. design
 - **[FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md](FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md)** — Technical architecture overview
 - **[COPILOT_OPERATING_INSTRUCTIONS.md](COPILOT_OPERATING_INSTRUCTIONS.md)** — Agent operating procedures for future runs
@@ -37,14 +43,14 @@ Welcome to the Finanzas SD Module R1 Release documentation portal. This folder c
 
 ## 📊 Status Dashboard
 
-| Lane | Title | Owner | Status | Target Date |
-|------|-------|-------|--------|-------------|
-| 1 | Auth & UI Unification | Frontend | 🟢 **GREEN** | ✅ Complete |
-| 2 | Backend SAM & RBAC | Backend | ⏳ Ready | Week 2 |
-| 3 | CDN CloudFront & SPA | DevOps | ⏳ Ready | Week 2 |
-| 4 | CI/CD Workflow Cleanup | DevOps | ⏳ Ready | Week 2-3 |
-| 5 | QA Smoke Tests | QA | ⏳ Ready | Week 3 |
-| 6 | Repo Hygiene & Finalization | Team | ⏳ Ready | Week 3 |
+| Lane | Title                       | Owner    | Status       | Target Date |
+| ---- | --------------------------- | -------- | ------------ | ----------- |
+| 1    | Auth & UI Unification       | Frontend | 🟢 **GREEN** | ✅ Complete |
+| 2    | Backend SAM & RBAC          | Backend  | ⏳ Ready     | Week 2      |
+| 3    | CDN CloudFront & SPA        | DevOps   | ⏳ Ready     | Week 2      |
+| 4    | CI/CD Workflow Cleanup      | DevOps   | ⏳ Ready     | Week 2-3    |
+| 5    | QA Smoke Tests              | QA       | ⏳ Ready     | Week 3      |
+| 6    | Repo Hygiene & Finalization | Team     | ⏳ Ready     | Week 3      |
 
 **Overall Status:** Lane 1 ✅ GREEN | Lanes 2-6 ⏳ READY FOR EXECUTION
 
@@ -53,6 +59,7 @@ Welcome to the Finanzas SD Module R1 Release documentation portal. This folder c
 ## 🎯 Lane 1: Auth & UI Unification (COMPLETE ✅)
 
 ### Status
+
 - **Completion:** 100%
 - **Preflight Checks:** 12/12 ✅
 - **Deliverables:** 6/6 ✅
@@ -60,6 +67,7 @@ Welcome to the Finanzas SD Module R1 Release documentation portal. This folder c
 - **Code Changes Required:** NONE (implementation already correct)
 
 ### Key Achievements
+
 1. ✅ Unified login page (Finanzas design) with both direct and Hosted UI
 2. ✅ Token persistence (dual-key: `cv.jwt` + `finz_jwt`)
 3. ✅ Role-based routing (SDT/FIN/AUD → `/finanzas/`, PMO → `/`)
@@ -68,6 +76,7 @@ Welcome to the Finanzas SD Module R1 Release documentation portal. This folder c
 6. ✅ Cognito configuration correct (domain with hyphen, OAuth redirects)
 
 ### Next Steps for Manual Testing
+
 1. Open `README.md` and follow "Quick Auth Setup" guide
 2. Run: `npm ci && npm run dev`
 3. Navigate to `http://localhost:5173/finanzas/`
@@ -80,42 +89,49 @@ Welcome to the Finanzas SD Module R1 Release documentation portal. This folder c
 ## 📖 Document Descriptions
 
 ### FINANZAS_PATH_TO_GREEN.md
+
 **Purpose:** Master execution plan for R1 release  
 **Content:** 6 implementation lanes with detailed specifications, green criteria, and timelines  
 **Audience:** Project managers, team leads  
 **Length:** ~350 lines
 
 ### LANE1_COMPLETION_REPORT.md
+
 **Purpose:** Lane 1 completion documentation with full evidence  
 **Content:** 12 preflight checks, 6 deliverables verification, 7 code verifications, test plan summary, GREEN criteria assessment  
 **Audience:** Frontend engineers, QA, project managers  
 **Length:** ~400 lines
 
 ### LANE1_AUTH_UI_TEST_PLAN.md
+
 **Purpose:** Comprehensive test scenarios for Lane 1 validation  
 **Content:** 12 preflight checks (all PASS), 9 manual test scenarios with step-by-step instructions, evidence collection checklist  
 **Audience:** QA testers, frontend engineers  
 **Length:** ~250 lines
 
 ### COPILOT_EXECUTION_SUMMARY.md
+
 **Purpose:** Record of autonomous agent execution and findings  
 **Content:** What was accomplished, key findings, Lane 1 delivery details, metrics and impact, continuation plan  
 **Audience:** Technical leads, future developers maintaining this code  
 **Length:** ~350 lines
 
 ### FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md
+
 **Purpose:** Technical architecture overview  
 **Content:** Auth flow, backend service design, RBAC patterns, deployment architecture  
 **Audience:** All engineers, architects  
 **Length:** ~300 lines
 
 ### AUDIT_FINANZAS_MODULE_IMPLEMENTATION.md
+
 **Purpose:** Current implementation audit against design spec  
 **Content:** Component-by-component review, configuration verification, identified issues  
 **Audience:** Technical leads, code reviewers  
 **Length:** ~400 lines
 
 ### COPILOT_OPERATING_INSTRUCTIONS.md
+
 **Purpose:** Operating manual for autonomous Copilot agent execution  
 **Content:** Preflight procedure, iteration policy, evidence capture methodology, failure modes  
 **Audience:** Automation engineers, future Copilot runs  
@@ -126,12 +142,14 @@ Welcome to the Finanzas SD Module R1 Release documentation portal. This folder c
 ## 🔧 How to Use These Documents
 
 ### Scenario 1: "I need to test Lane 1"
+
 1. Read **LANE1_AUTH_UI_TEST_PLAN.md** (preflight checks + 9 tests)
 2. Follow **README.md → Quick Auth Setup** section
 3. Execute manual tests in local dev environment
 4. Report results
 
 ### Scenario 2: "I'm implementing Lane 2 (Backend)"
+
 1. Read **FINANZAS_PATH_TO_GREEN.md** (Lane 2 specification)
 2. Review **FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md** for context
 3. Implement SAM template fixes and RBAC updates per specification
@@ -139,11 +157,13 @@ Welcome to the Finanzas SD Module R1 Release documentation portal. This folder c
 5. Document completion per **LANE1_COMPLETION_REPORT.md** template
 
 ### Scenario 3: "I need to understand the current architecture"
+
 1. Read **FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md** (overview)
 2. Review **AUDIT_FINANZAS_MODULE_IMPLEMENTATION.md** (detailed component review)
 3. Reference **LANE1_COMPLETION_REPORT.md** (code verification details)
 
 ### Scenario 4: "I'm assigned to QA and need to validate deployment"
+
 1. Follow **LANE1_AUTH_UI_TEST_PLAN.md** format for your lane
 2. Collect evidence per specification
 3. Document in **$GITHUB_STEP_SUMMARY**
@@ -154,16 +174,19 @@ Welcome to the Finanzas SD Module R1 Release documentation portal. This folder c
 ## 🎓 Learning Resources
 
 ### Understanding the Finanzas Module
+
 - **Architecture Overview:** [FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md](FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md)
 - **Authentication Flow:** [README.md#authentication](../README.md#authentication) + [FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md](FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md#authentication-flow)
 - **RBAC & Authorization:** [LANE1_COMPLETION_REPORT.md#rbac](LANE1_COMPLETION_REPORT.md) (search for "RBAC")
 
 ### Understanding the Release Process
+
 - **Full Roadmap:** [FINANZAS_PATH_TO_GREEN.md](FINANZAS_PATH_TO_GREEN.md)
 - **What's Completed:** [COPILOT_EXECUTION_SUMMARY.md](COPILOT_EXECUTION_SUMMARY.md)
 - **What's Next:** [FINANZAS_PATH_TO_GREEN.md](FINANZAS_PATH_TO_GREEN.md) (Lanes 2-6)
 
 ### Understanding How to Test
+
 - **Lane 1 Tests:** [LANE1_AUTH_UI_TEST_PLAN.md](LANE1_AUTH_UI_TEST_PLAN.md) (your template)
 - **Evidence Collection:** [LANE1_COMPLETION_REPORT.md](LANE1_COMPLETION_REPORT.md) (scroll to "Evidence Collection")
 - **Local Dev Setup:** [README.md#quick-auth-setup-local-development](../README.md#quick-auth-setup-local-development)
@@ -173,18 +196,23 @@ Welcome to the Finanzas SD Module R1 Release documentation portal. This folder c
 ## 📞 Questions & Issues
 
 ### "What's the current status of Lane 1?"
+
 → Check **Status Dashboard** above or read **LANE1_COMPLETION_REPORT.md**
 
 ### "How do I run the manual tests?"
+
 → Follow **LANE1_AUTH_UI_TEST_PLAN.md** (9 test scenarios)
 
 ### "What does my lane require?"
+
 → Read the corresponding section in **FINANZAS_PATH_TO_GREEN.md**
 
 ### "Where's the architecture diagram?"
+
 → Reference **FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md** (text-based; visual diagrams in `/diagrams/`)
 
 ### "I found a bug not covered in these docs"
+
 → Create a GitHub issue with the bug details; reference the relevant section of these docs
 
 ---
@@ -201,16 +229,16 @@ Welcome to the Finanzas SD Module R1 Release documentation portal. This folder c
 
 ## 📝 Document Version History
 
-| Document | Created | Last Updated | Version |
-|----------|---------|--------------|---------|
-| FINANZAS_PATH_TO_GREEN.md | Nov 11 | Nov 11 | 1.0 |
-| LANE1_COMPLETION_REPORT.md | Nov 11 | Nov 11 | 1.0 |
-| LANE1_AUTH_UI_TEST_PLAN.md | Nov 11 | Nov 11 | 1.0 |
-| COPILOT_EXECUTION_SUMMARY.md | Nov 11 | Nov 11 | 1.0 |
-| FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md | Nov 11 | Nov 11 | 1.0 |
-| AUDIT_FINANZAS_MODULE_IMPLEMENTATION.md | Nov 11 | Nov 11 | 1.0 |
-| COPILOT_OPERATING_INSTRUCTIONS.md | Nov 11 | Nov 11 | 1.0 |
-| README.md | Nov 11 | Nov 11 | Updated |
+| Document                                  | Created | Last Updated | Version |
+| ----------------------------------------- | ------- | ------------ | ------- |
+| FINANZAS_PATH_TO_GREEN.md                 | Nov 11  | Nov 11       | 1.0     |
+| LANE1_COMPLETION_REPORT.md                | Nov 11  | Nov 11       | 1.0     |
+| LANE1_AUTH_UI_TEST_PLAN.md                | Nov 11  | Nov 11       | 1.0     |
+| COPILOT_EXECUTION_SUMMARY.md              | Nov 11  | Nov 11       | 1.0     |
+| FINANZAS_SERVICE_DELIVERY_ARCHITECTURE.md | Nov 11  | Nov 11       | 1.0     |
+| AUDIT_FINANZAS_MODULE_IMPLEMENTATION.md   | Nov 11  | Nov 11       | 1.0     |
+| COPILOT_OPERATING_INSTRUCTIONS.md         | Nov 11  | Nov 11       | 1.0     |
+| README.md                                 | Nov 11  | Nov 11       | Updated |
 
 ---
 

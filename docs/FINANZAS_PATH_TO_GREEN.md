@@ -2,14 +2,14 @@
 
 ## Status Dashboard
 
-| Lane | Title | Status | Evidence | Owner |
-|------|-------|--------|----------|-------|
-| 1 | Auth & UI Unification | 🟢 **GREEN** | [LANE1_COMPLETION_REPORT.md](LANE1_COMPLETION_REPORT.md) | Copilot Agent |
-| 2 | Backend SAM & RBAC | ⏳ **NOT STARTED** | — | TBD |
-| 3 | CDN CloudFront & SPA | ⏳ **NOT STARTED** | — | TBD |
-| 4 | CI/CD Workflow & Post-Deploy | ⏳ **NOT STARTED** | — | TBD |
-| 5 | QA Smoke Tests & Evidence | ⏳ **NOT STARTED** | — | TBD |
-| 6 | Repo Hygiene & Finalization | ⏳ **NOT STARTED** | — | TBD |
+| Lane | Title                        | Status             | Evidence                                                 | Owner         |
+| ---- | ---------------------------- | ------------------ | -------------------------------------------------------- | ------------- |
+| 1    | Auth & UI Unification        | 🟢 **GREEN**       | [LANE1_COMPLETION_REPORT.md](LANE1_COMPLETION_REPORT.md) | Copilot Agent |
+| 2    | Backend SAM & RBAC           | ⏳ **NOT STARTED** | —                                                        | TBD           |
+| 3    | CDN CloudFront & SPA         | ⏳ **NOT STARTED** | —                                                        | TBD           |
+| 4    | CI/CD Workflow & Post-Deploy | ⏳ **NOT STARTED** | —                                                        | TBD           |
+| 5    | QA Smoke Tests & Evidence    | ⏳ **NOT STARTED** | —                                                        | TBD           |
+| 6    | Repo Hygiene & Finalization  | ⏳ **NOT STARTED** | —                                                        | TBD           |
 
 ### Lane 1 Summary
 
@@ -189,7 +189,7 @@ Consolidate to a single UI deploy workflow, ensure prod uses correct API ID/URL,
 
 DELIVERABLES
 - Keep: `deploy-ui.yml`, `deploy-api.yml`, `smoke-only.yml`; remove outdated duplicates
-- `deploy-ui.yml`: 
+- `deploy-ui.yml`:
   - Build PMO and Finanzas (dist-pmo, dist-finanzas)
   - Inject `VITE_API_BASE_URL` by environment (dev/stg/prod) using repo vars:
     - e.g., `FINZ_API_ID_PROD`, `FINZ_API_STAGE_PROD=prod` → construct URL
@@ -240,7 +240,7 @@ OBJECTIVE
 Create a deterministic smoke suite against prod that verifies CF, S3, SPA, and API endpoints. Emit a clear Evidence Pack in the GH Summary.
 
 DELIVERABLES
-- Update `scripts/finanzas-smoke-tests.sh`: 
+- Update `scripts/finanzas-smoke-tests.sh`:
   - CF `/` and `/finanzas/` 200
   - grep `/finanzas/assets` in HTML; ensure no `github.dev`
   - print first 20 lines of Finanzas HTML
@@ -312,9 +312,9 @@ ITERATION POLICY
 
 ## Notes for the Agent
 
-* **No pre-approvals.** Execute, prove with evidence, and return only when **all six lanes are GREEN**.
-* **Evidence is mandatory**: paste curl outputs, first 20 lines of HTML, API json excerpts, and screenshots where possible into `$GITHUB_STEP_SUMMARY`.
-* **If any environment variable is missing**, fail fast with a clear message and create an issue auto-assigned to Copilot with the gap.
+- **No pre-approvals.** Execute, prove with evidence, and return only when **all six lanes are GREEN**.
+- **Evidence is mandatory**: paste curl outputs, first 20 lines of HTML, API json excerpts, and screenshots where possible into `$GITHUB_STEP_SUMMARY`.
+- **If any environment variable is missing**, fail fast with a clear message and create an issue auto-assigned to Copilot with the gap.
 
 If you want, I can bundle these into a single **Issue suite** with checklists for each lane so you can assign them sequentially.
 
@@ -323,24 +323,29 @@ If you want, I can bundle these into a single **Issue suite** with checklists fo
 ## Implementation Roadmap
 
 ### Phase 1: Planning & Preflight (All Lanes)
+
 - Verify environment variables and prerequisites for each lane
 - Create feature branches for each lane (6 total)
 - Document any blocking issues
 
 ### Phase 2: Execution (Parallel where possible)
+
 - **Lane 1 & 5**: Auth/UI and QA can run in parallel (QA validates UI)
 - **Lane 2 & 3**: Backend and CDN can run in parallel (independent)
 - **Lane 4**: CI/CD orchestrates Lanes 1-3
 - **Lane 6**: Repo hygiene is final cleanup
 
 ### Phase 3: Validation & Evidence
+
 Each lane produces:
+
 - Test results table in `$GITHUB_STEP_SUMMARY`
 - curl outputs (for infrastructure lanes)
 - Code snippets (for application lanes)
 - Pass/Fail status
 
 ### Phase 4: Integration Testing
+
 - All lanes merge to a `r1-integration` branch
 - Full smoke test suite runs
 - Final evidence pack generated
@@ -350,14 +355,14 @@ Each lane produces:
 
 ## Success Metrics
 
-| Lane | Metric | Target |
-|------|--------|--------|
-| 1 (Auth/UI) | Login success rate | 100% (direct + Hosted UI) |
-| 2 (Backend) | RBAC group acceptance | SDT/FIN/AUD pass, PMO denied |
-| 3 (CDN) | Deep link accessibility | 200 on all paths |
-| 4 (CI/CD) | Workflow reliability | Zero manual interventions |
-| 5 (QA) | Smoke test pass rate | 100% in prod |
-| 6 (Hygiene) | Build success | Pass after cleanup |
+| Lane        | Metric                  | Target                       |
+| ----------- | ----------------------- | ---------------------------- |
+| 1 (Auth/UI) | Login success rate      | 100% (direct + Hosted UI)    |
+| 2 (Backend) | RBAC group acceptance   | SDT/FIN/AUD pass, PMO denied |
+| 3 (CDN)     | Deep link accessibility | 200 on all paths             |
+| 4 (CI/CD)   | Workflow reliability    | Zero manual interventions    |
+| 5 (QA)      | Smoke test pass rate    | 100% in prod                 |
+| 6 (Hygiene) | Build success           | Pass after cleanup           |
 
 ---
 

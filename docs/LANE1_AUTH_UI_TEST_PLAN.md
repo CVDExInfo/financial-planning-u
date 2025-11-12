@@ -9,6 +9,7 @@
 ## Executive Summary
 
 Lane 1 (Auth & UI Unification) validates that:
+
 1. **Finanzas Login Page** (unified) loads at `/finanzas/` ✅
 2. **Direct login (USER_PASSWORD_AUTH)** stores `cv.jwt` + `finz_jwt` ✅
 3. **Cognito Hosted UI** redirects, parses tokens, and stores both keys ✅
@@ -20,20 +21,20 @@ Lane 1 (Auth & UI Unification) validates that:
 
 ## Preflight Checks (COMPLETED)
 
-| Check | Expected | Result | Status |
-|-------|----------|--------|--------|
-| `VITE_PUBLIC_BASE` | `/finanzas/` | ✅ vite.config.ts line 20 | ✅ |
-| `VITE_FINZ_ENABLED` | `true` | ✅ define in vite.config.ts | ✅ |
-| `VITE_COGNITO_USER_POOL_ID` | `us-east-2_FyHLtOhiY` | ✅ aws.ts config | ✅ |
-| `VITE_COGNITO_CLIENT_ID` | `dshos5iou44tuach7ta3ici5m` | ✅ aws.ts config | ✅ |
-| `Cognito domain` | `us-east-2-fyhltohiy.auth.us-east-2.amazoncognito.com` | ✅ aws.ts (with hyphen fix) | ✅ |
-| `Redirect Sign-In` | `/finanzas/auth/callback.html` | ✅ aws.ts oauth config | ✅ |
-| `Redirect Sign-Out` | `/finanzas/` | ✅ aws.ts oauth config | ✅ |
-| `public/auth/callback.html` exists | Yes | ✅ parses tokens, sets cv.jwt + finz_jwt | ✅ |
-| `LoginPage.tsx` unified | Yes | ✅ supports direct + Hosted UI | ✅ |
-| `FinanzasHome.tsx` uses Link | Yes | ✅ React Router <Link> (not raw <a>) | ✅ |
-| `Router basename` | `/finanzas` | ✅ App.tsx line 154 | ✅ |
-| `Navigation.tsx` uses Link | Yes | ✅ 3 matches for <Link> | ✅ |
+| Check                              | Expected                                               | Result                                   | Status |
+| ---------------------------------- | ------------------------------------------------------ | ---------------------------------------- | ------ |
+| `VITE_PUBLIC_BASE`                 | `/finanzas/`                                           | ✅ vite.config.ts line 20                | ✅     |
+| `VITE_FINZ_ENABLED`                | `true`                                                 | ✅ define in vite.config.ts              | ✅     |
+| `VITE_COGNITO_USER_POOL_ID`        | `us-east-2_FyHLtOhiY`                                  | ✅ aws.ts config                         | ✅     |
+| `VITE_COGNITO_CLIENT_ID`           | `dshos5iou44tuach7ta3ici5m`                            | ✅ aws.ts config                         | ✅     |
+| `Cognito domain`                   | `us-east-2-fyhltohiy.auth.us-east-2.amazoncognito.com` | ✅ aws.ts (with hyphen fix)              | ✅     |
+| `Redirect Sign-In`                 | `/finanzas/auth/callback.html`                         | ✅ aws.ts oauth config                   | ✅     |
+| `Redirect Sign-Out`                | `/finanzas/`                                           | ✅ aws.ts oauth config                   | ✅     |
+| `public/auth/callback.html` exists | Yes                                                    | ✅ parses tokens, sets cv.jwt + finz_jwt | ✅     |
+| `LoginPage.tsx` unified            | Yes                                                    | ✅ supports direct + Hosted UI           | ✅     |
+| `FinanzasHome.tsx` uses Link       | Yes                                                    | ✅ React Router <Link> (not raw <a>)     | ✅     |
+| `Router basename`                  | `/finanzas`                                            | ✅ App.tsx line 154                      | ✅     |
+| `Navigation.tsx` uses Link         | Yes                                                    | ✅ 3 matches for <Link>                  | ✅     |
 
 ---
 
@@ -44,6 +45,7 @@ Lane 1 (Auth & UI Unification) validates that:
 **Pre:** `npm ci && npm run dev` running at `http://localhost:5173`
 
 **Steps:**
+
 1. Navigate to `http://localhost:5173/finanzas/`
 2. Verify **LoginPage** renders with:
    - Title: "Financial Planning & Management"
@@ -54,6 +56,7 @@ Lane 1 (Auth & UI Unification) validates that:
    - Dev credentials section
 
 **Expected:**
+
 ```
 ✅ Page loads (no 404 or 500)
 ✅ Both login buttons visible
@@ -69,6 +72,7 @@ Lane 1 (Auth & UI Unification) validates that:
 **Pre:** LoginPage rendered
 
 **Steps:**
+
 1. Fill email: `christian.valencia@ikusi.com`
 2. Fill password: `Velatia@2025`
 3. Click "Sign In"
@@ -80,6 +84,7 @@ Lane 1 (Auth & UI Unification) validates that:
    - `finz_refresh_token` = `...` (optional)
 
 **Expected:**
+
 ```
 ✅ /finanzas/ page loads after login (no redirect to /)
 ✅ FinanzasHome with "Catálogo de Rubros" and "Reglas de Asignación" links visible
@@ -96,6 +101,7 @@ Lane 1 (Auth & UI Unification) validates that:
 **Pre:** LoginPage rendered
 
 **Steps:**
+
 1. Click "Sign in with Cognito Hosted UI"
 2. You are redirected to Cognito Hosted UI (domain: `us-east-2-fyhltohiy.auth.us-east-2.amazoncognito.com`)
 3. Enter credentials
@@ -108,6 +114,7 @@ Lane 1 (Auth & UI Unification) validates that:
    - `finz_jwt` present
 
 **Expected:**
+
 ```
 ✅ Cognito Hosted UI loads (no domain errors)
 ✅ Callback page processes token
@@ -125,6 +132,7 @@ Lane 1 (Auth & UI Unification) validates that:
 **Pre:** User logged in (either login method)
 
 **Steps:**
+
 1. In FinanzasHome, click "Catálogo de Rubros" link
 2. URL changes to `http://localhost:5173/finanzas/catalog/rubros`
 3. RubrosCatalog page loads with table
@@ -132,6 +140,7 @@ Lane 1 (Auth & UI Unification) validates that:
 5. Verify page still loads (no redirect to /finanzas/)
 
 **Expected:**
+
 ```
 ✅ Deep link navigates without full page reload (SPA)
 ✅ URL updates correctly: /finanzas/catalog/rubros
@@ -148,11 +157,13 @@ Lane 1 (Auth & UI Unification) validates that:
 **Pre:** Cognito user has groups: `["SDT"]` or `["FIN"]` or `["AUD"]`
 
 **Steps:**
+
 1. Log in with test user (has SDT group)
 2. Direct login OR Hosted UI
 3. Observe redirect target
 
 **Expected:**
+
 ```
 ✅ After login, redirected to /finanzas/ (not /)
 ✅ FinanzasHome displayed (confirms FINANZAS routing)
@@ -167,11 +178,13 @@ Lane 1 (Auth & UI Unification) validates that:
 **Pre:** Cognito user has groups: `["PMO"]` only (no SDT/FIN/AUD)
 
 **Steps:**
+
 1. Log in with PMO-only user
 2. Direct login OR Hosted UI
 3. Observe redirect target
 
 **Expected:**
+
 ```
 ✅ After login, redirected to / (PMO home)
 ✅ If PMO app deployed, shows PMO UI
@@ -187,11 +200,13 @@ Lane 1 (Auth & UI Unification) validates that:
 **Pre:** Logged in, then cleared localStorage
 
 **Steps:**
+
 1. After login, open DevTools → Application → Local Storage
 2. Delete `cv.jwt`, `finz_jwt`, `finz_refresh_token`
 3. Refresh page (F5)
 
 **Expected:**
+
 ```
 ✅ LoginPage shown (not auth error page)
 ✅ User must re-authenticate
@@ -206,11 +221,13 @@ Lane 1 (Auth & UI Unification) validates that:
 **Pre:** App running, logged in
 
 **Steps:**
+
 1. Use DevTools → Inspector to check FinanzasHome
 2. Inspect "Catálogo de Rubros" link
 3. Verify it's an `<a>` tag with `href` attribute (React Router converts Link to <a>)
 
 **Expected:**
+
 ```
 ✅ <a href="/catalog/rubros"> or similar (React Router Link rendered as <a>)
 ✅ No raw onclick handlers or window.location calls
@@ -225,6 +242,7 @@ Lane 1 (Auth & UI Unification) validates that:
 **Pre:** User logged in
 
 **Steps:**
+
 1. Open Navigation → User dropdown
 2. Click "Sign Out"
 3. Verify localStorage cleared:
@@ -234,6 +252,7 @@ Lane 1 (Auth & UI Unification) validates that:
    - `cv.module` removed
 
 **Expected:**
+
 ```
 ✅ localStorage cleared
 ✅ User redirected to LoginPage
@@ -253,6 +272,7 @@ npm run build
 ```
 
 **Expected:**
+
 ```
 ✅ Build completes successfully (no errors)
 ✅ dist-finanzas/ created
@@ -271,6 +291,7 @@ npm run preview
 ```
 
 **Expected:**
+
 ```
 ✅ Preview server starts (typically http://localhost:4173)
 ✅ Navigating to http://localhost:4173/finanzas/ loads LoginPage
@@ -283,16 +304,16 @@ npm run preview
 
 ## Evidence Summary
 
-| Test | Result | Evidence |
-|------|--------|----------|
-| Preflight Config | ✅ PASS | vite.config.ts, aws.ts, callback.html verified |
-| LoginPage Render | ⏳ PENDING | Manual visual test needed |
-| Direct Login | ⏳ PENDING | Manual e2e test needed |
-| Hosted UI Login | ⏳ PENDING | Manual e2e test needed |
-| Deep Links | ⏳ PENDING | Manual navigation test needed |
-| Role Redirects | ⏳ PENDING | Cognito groups validation needed |
-| Logout | ⏳ PENDING | Manual test needed |
-| Build Output | ⏳ PENDING | npm run build output needed |
+| Test             | Result     | Evidence                                       |
+| ---------------- | ---------- | ---------------------------------------------- |
+| Preflight Config | ✅ PASS    | vite.config.ts, aws.ts, callback.html verified |
+| LoginPage Render | ⏳ PENDING | Manual visual test needed                      |
+| Direct Login     | ⏳ PENDING | Manual e2e test needed                         |
+| Hosted UI Login  | ⏳ PENDING | Manual e2e test needed                         |
+| Deep Links       | ⏳ PENDING | Manual navigation test needed                  |
+| Role Redirects   | ⏳ PENDING | Cognito groups validation needed               |
+| Logout           | ⏳ PENDING | Manual test needed                             |
+| Build Output     | ⏳ PENDING | npm run build output needed                    |
 
 ---
 

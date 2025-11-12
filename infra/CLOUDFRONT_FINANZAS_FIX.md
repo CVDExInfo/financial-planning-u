@@ -3,11 +3,13 @@
 ## 🚨 Current Issue
 
 **Symptom:**
+
 - `https://d7t9x3j66yd8k.cloudfront.net/finanzas/` → Serves OLD PMO build (wrong!)
 - `https://d7t9x3j66yd8k.cloudfront.net/finanzas/index.html` → Serves NEW Finanzas build (correct!)
 
 **Root Cause:**
 CloudFront `/finanzas/*` behavior is missing:
+
 1. Default Root Object configuration
 2. Trailing slash normalization
 3. SPA fallback for client-side routing
@@ -23,11 +25,13 @@ CloudFront `/finanzas/*` behavior is missing:
 **Code:** See `cloudfront-function-finanzas-rewrite.js`
 
 **Purpose:**
+
 - Redirect `/finanzas` → `/finanzas/` (301)
 - Rewrite `/finanzas/` → `/finanzas/index.html`
 - SPA fallback: `/finanzas/catalog/rubros` → `/finanzas/index.html`
 
 **To create:**
+
 ```bash
 # 1. Create the function
 aws cloudfront create-function \
@@ -48,16 +52,18 @@ aws cloudfront publish-function --name finanzas-path-rewrite --if-match $(aws cl
 **Changes needed:**
 
 1. **Attach CloudFront Function:**
+
    - Event type: Viewer request
    - Function: `finanzas-path-rewrite` (ARN from Step 1)
 
 2. **Add Custom Error Responses** (for SPA fallback):
+
    ```
    Error Code: 403 (Forbidden)
    → Response Page Path: /finanzas/index.html
    → HTTP Response Code: 200 (OK)
    → TTL: 0 seconds
-   
+
    Error Code: 404 (Not Found)
    → Response Page Path: /finanzas/index.html
    → HTTP Response Code: 200 (OK)
@@ -141,10 +147,12 @@ Until CloudFront configuration is updated, users can access Finanzas directly vi
 
 **⚠️ Login Issue on `/finanzas/index.html`:**
 If login fails on this URL, it's likely because:
+
 1. Cognito callback URL doesn't include `/finanzas/index.html` (only `/finanzas/`)
 2. Router basename may not handle `index.html` in path
 
 **Recommended Action:** Update Cognito callback URLs to include:
+
 - `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
 - `https://d7t9x3j66yd8k.cloudfront.net/finanzas/index.html` (temporary)
 - `https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html`
@@ -153,16 +161,16 @@ If login fails on this URL, it's likely because:
 
 ## 🎯 Expected Behavior After Fix
 
-| URL | Expected Behavior |
-|-----|-------------------|
-| `/finanzas` | 301 redirect → `/finanzas/` |
-| `/finanzas/` | Serve `/finanzas/index.html` (Finanzas SPA) |
-| `/finanzas/index.html` | Serve `/finanzas/index.html` (Finanzas SPA) |
-| `/finanzas/catalog/rubros` | Serve `/finanzas/index.html` (client-side routing) |
-| `/finanzas/assets/file.js` | Serve actual asset file from S3 |
-| `/finanzas/auth/callback.html` | Serve actual callback file from S3 |
-| `/` | Serve PMO Portal (root index.html) |
-| `/dashboard` | Serve PMO Portal (PMO SPA routing) |
+| URL                            | Expected Behavior                                  |
+| ------------------------------ | -------------------------------------------------- |
+| `/finanzas`                    | 301 redirect → `/finanzas/`                        |
+| `/finanzas/`                   | Serve `/finanzas/index.html` (Finanzas SPA)        |
+| `/finanzas/index.html`         | Serve `/finanzas/index.html` (Finanzas SPA)        |
+| `/finanzas/catalog/rubros`     | Serve `/finanzas/index.html` (client-side routing) |
+| `/finanzas/assets/file.js`     | Serve actual asset file from S3                    |
+| `/finanzas/auth/callback.html` | Serve actual callback file from S3                 |
+| `/`                            | Serve PMO Portal (root index.html)                 |
+| `/dashboard`                   | Serve PMO Portal (PMO SPA routing)                 |
 
 ---
 
@@ -171,6 +179,7 @@ If login fails on this URL, it's likely because:
 **CRITICAL** - This blocks all Finanzas users from accessing the application via the standard URL.
 
 **Impact:**
+
 - ❌ Users hitting `/finanzas/` see PMO app instead of Finanzas
 - ❌ Login redirects may fail (Cognito callbacks expect `/finanzas/`)
 - ❌ Browser bookmarks to `/finanzas/` are broken
@@ -186,7 +195,7 @@ If login fails on this URL, it's likely because:
 - S3 bucket has the file: `s3://ukusi-ui-finanzas-prod/finanzas/index.html`
 - CloudFront `/finanzas/*` behavior matches: `/finanzas/index.html` ✅
 - CloudFront `/finanzas/*` behavior DOES NOT match: `/finanzas/` (no trailing wildcard capture)
-- Result: `/finanzas/` falls through to Default (*) behavior → PMO origin → wrong app
+- Result: `/finanzas/` falls through to Default (\*) behavior → PMO origin → wrong app
 
 ### Why we need the CloudFront Function:
 
@@ -195,6 +204,7 @@ CloudFront behaviors don't have a "default document" setting per behavior (only 
 ### Alternative: S3 Static Website Hosting
 
 If using S3 as a static website origin (not OAC), you could set:
+
 - Index document: `index.html`
 - Error document: `index.html`
 
