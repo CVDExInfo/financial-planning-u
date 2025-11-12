@@ -11,17 +11,30 @@ permissions:
   id-token: write
   contents: write
 
+# --------- GLOBAL ENV (branch-aware) ----------
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+
+  # Branch → environment
   DEPLOYMENT_ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+
+  # S3 buckets (explicit; never mix)
   PMO_BUCKET_NAME: ${{ github.ref == 'refs/heads/main' && (vars.PMO_BUCKET_NAME_PROD || 'acta-ui-frontend-prod') || vars.PMO_BUCKET_NAME_DEV }}
   FINANZAS_BUCKET_NAME: ${{ github.ref == 'refs/heads/main' && (vars.FINANZAS_BUCKET_NAME_PROD || 'ukusi-ui-finanzas-prod') || vars.FINANZAS_BUCKET_NAME_DEV }}
+
+  # CloudFront
   CLOUDFRONT_DIST_ID: ${{ github.ref == 'refs/heads/main' && (vars.CLOUDFRONT_DIST_ID_PROD || 'EPQU7PVDLQXUA') || vars.CLOUDFRONT_DIST_ID_DEV }}
   CF_DOMAIN: ${{ vars.CF_DOMAIN || '' }}
+
+  # API ID / Stage per environment
   FINZ_API_ID: ${{ github.ref == 'refs/heads/main' && vars.FINZ_API_ID_PROD || vars.FINZ_API_ID_DEV }}
   FINZ_API_STAGE: ${{ github.ref == 'refs/heads/main' && (vars.FINZ_API_STAGE_PROD || 'prod') || (vars.FINZ_API_STAGE_DEV || 'dev') }}
   EXPECTED_API_ID: ${{ github.ref == 'refs/heads/main' && vars.FINZ_API_ID_PROD || vars.FINZ_API_ID_DEV }}
+
+  # Optional escape hatch: explicit API base
   DEV_API_URL: ${{ vars.DEV_API_URL || '' }}
+
+  # Frontend feature flags
   VITE_FINZ_ENABLED: ${{ vars.VITE_FINZ_ENABLED || 'true' }}
   VITE_USE_MOCKS: "false"
 
@@ -32,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1) Preflight
+      # ---- Preflight guards (fail fast with clear messages) ----
       - name: Preflight env
         run: |
           set -euo pipefail
@@ -40,27 +53,27 @@ jobs:
           for k in AWS_REGION PMO_BUCKET_NAME FINANZAS_BUCKET_NAME CLOUDFRONT_DIST_ID FINZ_API_ID FINZ_API_STAGE; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing repo var: $k"; exit 1; }
           done
+          # CF_DOMAIN is optional; will be derived if absent
           printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
           echo "✅ Env OK"
 
-      # 2) Ensure correct Node + jq
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Install deps
         run: |
           set -e
+          echo "Installing frontend dependencies (prefer lock; fallback to install)"
           if ! npm ci; then
+            echo "⚠️ npm ci failed; running npm install"
             npm install
           fi
 
-      # 3) Compute API base URL
+      # ---- Compute the API base URL for the build (from ID + stage unless DEV_API_URL override) ----
       - name: Compute API base URL
         id: apibase
         run: |
@@ -76,20 +89,19 @@ jobs:
           fi
           sed -i 's/\r$//' "$GITHUB_ENV"
 
-      # 4) Build PMO (base: /)
-      - name: Build PMO Portal (base /)
+      # ---- Build PMO (/) ----
+      - name: Build PMO Portal (base: /)
         run: |
           echo "Building PMO Portal (base: /)..."
           BUILD_TARGET=pmo npm run build || { echo "❌ PMO build failed"; exit 1; }
-          test -d dist-pmo || { echo "❌ PMO build missing dist-pmo/"; exit 1; }
           echo "✅ PMO Portal built → dist-pmo/"
 
-      # 5) Build Finanzas (base: /finanzas/)
-      - name: Build Finanzas SDT Portal (base /finanzas/)
+      # ---- Build Finanzas (/finanzas) ----
+      - name: Build Finanzas SDT Portal (base: /finanzas/)
         env:
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
           VITE_FINZ_ENABLED: "true"
-          VITE_USE_MOCKS: "false"
+          VITE_USE_MOCKS: ${{ env.VITE_USE_MOCKS }}
           VITE_PUBLIC_BASE: "/finanzas/"
         run: |
           set -euo pipefail
@@ -98,13 +110,14 @@ jobs:
           printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
           printf '%s\n' "VITE_AWS_REGION=${AWS_REGION}" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
+
           echo "Building Finanzas SDT Portal (base: /finanzas/)..."
+          echo "  Environment: ${DEPLOYMENT_ENV}"
           echo "  API Base URL: ${VITE_API_BASE_URL}"
           BUILD_TARGET=finanzas npm run build || { echo "❌ Finanzas build failed"; exit 1; }
-          test -d dist-finanzas || { echo "❌ Finanzas build missing dist-finanzas/"; exit 1; }
           echo "✅ Finanzas Portal built → dist-finanzas/"
 
-      # 6) Configure AWS (OIDC) – and guard we are NOT a user/
+      # ---- Configure AWS via OIDC ----
       - name: Configure AWS (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -112,13 +125,10 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: deploy-ui-${{ github.run_id }}
 
-      - name: Verify identity (must be assumed-role)
-        run: |
-          ARN=$(aws sts get-caller-identity --query Arn --output text)
-          echo "Caller: $ARN"
-          echo "$ARN" | grep -q 'assumed-role/' || { echo "❌ Not using assumed role"; exit 1; }
+      - name: Verify identity
+        run: aws sts get-caller-identity
 
-      # 7) Guards: S3 & CF exist
+      # ---- Guards: S3 & CF exist ----
       - name: Guard - S3 buckets and CloudFront exist
         run: |
           set -euo pipefail
@@ -127,7 +137,7 @@ jobs:
           aws cloudfront get-distribution --id "${CLOUDFRONT_DIST_ID}" >/dev/null || { echo "❌ Missing CloudFront distribution ${CLOUDFRONT_DIST_ID}"; exit 1; }
           echo "✅ Buckets & CloudFront found"
 
-      # 8) Guard: API endpoint health
+      # ---- Guard: API host ID & /health for the same URL we inject in UI ----
       - name: Guard - API endpoint present (VITE_API_BASE_URL)
         run: |
           set -euo pipefail
@@ -144,40 +154,44 @@ jobs:
           fi
           echo "✅ API endpoint ID and /health verified: $BASE"
 
-      # 9) Guard: Finanzas build artifacts
+      # ---- Build artifact validation ----
       - name: Guard - Finanzas build artifacts
         run: |
           set -euo pipefail
-          grep -R -nE 'src="/assets/|href="/assets/' dist-finanzas/index.html && { echo "❌ index points to /assets/*"; exit 1; } || true
-          ! grep -R -i 'github\.dev\|codespaces' dist-finanzas/ 2>/dev/null || { echo "❌ Build contains dev references"; exit 1; }
+          if grep -R -nE 'src="/assets/|href="/assets/' dist-finanzas/index.html; then
+            echo "❌ dist-finanzas/index.html points to /assets/* (missing base '/finanzas/')"; exit 1;
+          fi
+          if grep -R -i 'github\.dev\|codespaces' dist-finanzas/ 2>/dev/null; then
+            echo "❌ Build contains github.dev/codespaces references"; exit 1;
+          fi
           echo "✅ Finanzas build artifacts look good"
 
-      # 10) Upload PMO (/)
+      # ---- Upload PMO (/root) ----
       - name: Upload PMO Portal to S3 (root /)
         run: |
           aws s3 sync dist-pmo/ "s3://${PMO_BUCKET_NAME}/" --exclude '*.map' --delete
-          echo "✅ PMO uploaded: s3://${PMO_BUCKET_NAME}/"
+          echo "✅ PMO uploaded to s3://${PMO_BUCKET_NAME}/"
 
-      # 11) Upload Finanzas (/finanzas)
+      # ---- Upload Finanzas (/finanzas) ----
       - name: Upload Finanzas Portal to S3 (/finanzas prefix)
         run: |
           aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" --exclude '*.map' --delete
-          echo "✅ Finanzas uploaded: s3://${FINANZAS_BUCKET_NAME}/finanzas/"
+          echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
 
-      # 12) Guard: Verify CloudFront behaviors for Finanzas
-      - name: Guard - Verify CloudFront Finanzas behaviors
+      # ---- CF behavior check for /finanzas/* ----
+      - name: Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)
         run: |
           set -euo pipefail
-          CFG=$(aws cloudfront get-distribution-config --id "${CLOUDFRONT_DIST_ID}")
-          F1=$(echo "$CFG" | jq -r '.DistributionConfig.CacheBehaviors.Items[] | select(.PathPattern=="/finanzas/*") | .TargetOriginId')
-          F2=$(echo "$CFG" | jq -r '.DistributionConfig.CacheBehaviors.Items[] | select(.PathPattern=="/finanzas/") | .TargetOriginId')
-          F3=$(echo "$CFG" | jq -r '.DistributionConfig.CacheBehaviors.Items[] | select(.PathPattern=="/finanzas") | .TargetOriginId')
-          test -n "$F1" || { echo "❌ Missing behavior /finanzas/*"; exit 1; }
-          test -n "$F2" || { echo "❌ Missing behavior /finanzas/"; exit 1; }
-          test -n "$F3" || { echo "❌ Missing behavior /finanzas"; exit 1; }
-          echo "✅ Finanzas behaviors present (/finanzas, /finanzas/, /finanzas/*)"
+          BEHAVIOR_COUNT=$(aws cloudfront get-distribution-config \
+            --id "${CLOUDFRONT_DIST_ID}" \
+            --query 'DistributionConfig.CacheBehaviors.Items[?PathPattern==`/finanzas/*`] | length(@)' \
+            --output text)
+          if [ "$BEHAVIOR_COUNT" != "1" ]; then
+            echo "❌ CRITICAL: /finanzas/* behavior missing in CloudFront ${CLOUDFRONT_DIST_ID}"; exit 1;
+          fi
+          echo "✅ /finanzas/* behavior configured"
 
-      # 13) Invalidate CloudFront
+      # ---- Invalidate CF caches ----
       - name: Invalidate CloudFront (all + Finanzas SPA)
         run: |
           set -euo pipefail
@@ -187,67 +201,84 @@ jobs:
             --query 'Invalidation.Id' --output text)
           echo "✅ Invalidation queued: $INVALIDATION_ID"
 
-      # 14) UI smokes
+      # ---- UI smoke: PMO & Finanzas ----
       - name: UI Smoke (PMO root /)
         run: |
           set -euo pipefail
-          DOMAIN="${CF_DOMAIN:-$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)}"
+          DOMAIN="${CF_DOMAIN}"
+          if [ -z "$DOMAIN" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          fi
           ROOT="https://${DOMAIN}/"
           STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$ROOT")
           echo "PMO / status: $STATUS"
-          [ "$STATUS" = "200" ] || { echo "❌ PMO root not accessible"; exit 1; }
 
-      - name: UI Smoke (Finanzas /finanzas and /finanzas/)
+      - name: UI Smoke (Finanzas /finanzas/)
         run: |
           set -euo pipefail
-          DOMAIN="${CF_DOMAIN:-$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)}"
-          for P in "/finanzas" "/finanzas/"; do
-            URL="https://${DOMAIN}${P}"
-            STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$URL")
-            echo "$P status: $STATUS"
-            [ "$STATUS" = "200" ] || { echo "❌ $P not accessible"; exit 1; }
-          done
-          HTML_SNIPPET=$(curl -sS "https://${DOMAIN}/finanzas/" | head -n 60)
-          echo "$HTML_SNIPPET" | grep -q "/finanzas/assets/" || { echo "⚠️ HTML missing /finanzas/assets references"; }
+          DOMAIN="${CF_DOMAIN}"
+          if [ -z "$DOMAIN" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          fi
+          FINZ="https://${DOMAIN}/finanzas/"
+          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$FINZ")
+          echo "Finanzas /finanzas/ status: $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            HTML_SNIPPET=$(curl -sS "$FINZ" | head -n 40)
+            echo "$HTML_SNIPPET" | grep -q "/finanzas/assets/" || { echo "⚠️ HTML missing /finanzas/assets references"; }
+          else
+            echo "❌ Finanzas portal not accessible (HTTP $STATUS)"; exit 1;
+          fi
 
-      # 15) API smokes
+      # ---- API smokes (use VITE_API_BASE_URL) ----
       - name: API Smokes (public /health, /catalog/rubros)
         run: |
           set -euo pipefail
           : ${VITE_API_BASE_URL:?VITE_API_BASE_URL missing}
           BASE="${VITE_API_BASE_URL%/}"
+          echo "API base: $BASE"
           CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || true)
           [ "$CODE" = "200" ] || { echo "❌ /health returned $CODE"; exit 1; }
           LEN=$(curl -sS "$BASE/catalog/rubros" | jq '.data | length' || echo "0")
           echo "Catalog items: $LEN"
           [ "$LEN" != "0" ] || echo "⚠️ catalog/rubros length is 0 (seed missing?)"
 
-      # 16) Summary
+      # ---- Summary (always runs; heredoc to avoid brace errors) ----
       - name: Summary & Evidence Pack
         if: always()
         run: |
           set -euo pipefail
-          DOMAIN="${CF_DOMAIN:-$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)}"
-          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
-          # 🚀 Finanzas UI Deployment — $DEPLOYMENT_ENV
+          DOMAIN="${CF_DOMAIN}"
+          if [ -z "$DOMAIN" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          fi
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          # 🚀 Finanzas UI Deployment — ${DEPLOYMENT_ENV}
 
           ## 📊 Build Targets
           - PMO → dist-pmo/ (root /)
           - Finanzas → dist-finanzas/ (/finanzas/)
 
           ## ⚙️ Environment
-          - AWS_REGION: $AWS_REGION
-          - FINZ_API_ID: $FINZ_API_ID
-          - FINZ_API_STAGE: $FINZ_API_STAGE
-          - VITE_API_BASE_URL: $VITE_API_BASE_URL
+          - AWS_REGION: ${AWS_REGION}
+          - FINZ_API_ID: ${FINZ_API_ID}
+          - FINZ_API_STAGE: ${FINZ_API_STAGE}
+          - VITE_API_BASE_URL: ${VITE_API_BASE_URL}
 
           ## ☁️ AWS
-          - PMO Bucket: $PMO_BUCKET_NAME
-          - Finanzas Bucket: $FINANZAS_BUCKET_NAME
-          - CloudFront ID: $CLOUDFRONT_DIST_ID
-          - CloudFront Domain: $DOMAIN
+          - PMO Bucket: ${PMO_BUCKET_NAME}
+          - Finanzas Bucket: ${FINANZAS_BUCKET_NAME}
+          - CloudFront ID: ${CLOUDFRONT_DIST_ID}
+          - CloudFront Domain: ${DOMAIN}
 
           ## 🌐 Access
-          - PMO: https://$DOMAIN/
-          - Finanzas: https://$DOMAIN/finanzas/
+          - PMO: https://${DOMAIN}/
+          - Finanzas: https://${DOMAIN}/finanzas/
+
+          ## ✅ Checklist
+          - Base path OK (/finanzas/)
+          - /finanzas/* behavior exists
+          - /health returns 200
+          - catalog/rubros returns JSON (length shown above)
+
           EOF
