@@ -38,6 +38,78 @@ VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
 VITE_FINZ_ENABLED=true
 ```
 
+### Cognito Configuration Details
+
+**User Pool:** `us-east-2_FyHLtOhiY`
+**App Client ID (no secret):** `dshos5iou44tuach7ta3ici5m`
+**Cognito Domain:** `us-east-2-fyhltohiy.auth.us-east-2.amazoncognito.com`
+
+**OAuth Flow:** Implicit flow (`responseType: 'token'`)
+- **Redirect Sign In:** `https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html`
+- **Redirect Sign Out:** `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
+
+**Auth Flows Enabled:**
+- `ALLOW_USER_PASSWORD_AUTH` - Direct username/password login
+- `ALLOW_REFRESH_TOKEN_AUTH` - Token refresh
+- `ALLOW_USER_SRP_AUTH` - SRP authentication (optional)
+
+### 3-Step Troubleshooting Guide
+
+#### 1. **"Invalid username or password" error**
+
+**Symptoms:** Login fails with "NotAuthorizedException" or "Invalid username or password"
+
+**Check:**
+```bash
+# Verify user exists and is confirmed
+aws cognito-idp admin-get-user \
+  --user-pool-id us-east-2_FyHLtOhiY \
+  --username christian.valencia@ikusi.com \
+  --region us-east-2
+
+# Look for: UserStatus: CONFIRMED
+```
+
+**Fix:** If user status is `FORCE_CHANGE_PASSWORD` or not confirmed, reset password via AWS Console.
+
+#### 2. **"Unexpected token '<'" or HTML response error**
+
+**Symptoms:** Console shows JSON parse error or "Expected JSON, got text/html"
+
+**Cause:** API returns HTML redirect or error page instead of JSON
+
+**Check:**
+```bash
+# Test API directly
+curl -H "Authorization: Bearer <YOUR_TOKEN>" \
+  https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/health
+```
+
+**Fix:** 
+- Ensure API Gateway authorizer is configured correctly
+- Check CloudFront behavior for `/finanzas/api/*` if using proxy mode
+- Verify token is valid and not expired (check in DevTools → Application → Local Storage)
+
+#### 3. **Hosted UI redirect fails or shows "redirect_uri_mismatch"**
+
+**Symptoms:** After clicking "Sign in with Cognito Hosted UI", redirect fails or shows error
+
+**Check:**
+```bash
+# Verify Cognito OAuth configuration
+aws cognito-idp describe-user-pool-client \
+  --user-pool-id us-east-2_FyHLtOhiY \
+  --client-id dshos5iou44tuach7ta3ici5m \
+  --region us-east-2 \
+  | jq '.UserPoolClient.CallbackURLs, .UserPoolClient.LogoutURLs'
+
+# Should show:
+# CallbackURLs: ["https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html"]
+# LogoutURLs: ["https://d7t9x3j66yd8k.cloudfront.net/finanzas/"]
+```
+
+**Fix:** Update App Client callback URLs in AWS Console → Cognito → User Pools → App Integration → App clients.
+
 ### Quick Auth Setup (Local Development)
 
 **The app now uses a unified Finanzas-styled login page for all modules.**

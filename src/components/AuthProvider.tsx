@@ -29,7 +29,7 @@ import {
   getGroupsFromClaims,
   mapCognitoGroupsToRoles,
 } from "@/lib/jwt";
-import { useKV } from "@github/spark/hooks";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { toast } from "sonner";
 import awsConfig from "@/config/aws";
 
@@ -70,7 +70,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Persist current role selection
-  const [currentRole, setCurrentRole] = useKV<UserRole>(
+  const [currentRole, setCurrentRole] = useLocalStorage<UserRole>(
     "user-current-role",
     "SDMT"
   );

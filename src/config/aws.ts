@@ -104,4 +104,31 @@ export function logoutWithHostedUI(): void {
   window.location.href = logoutUrl;
 }
 
+/**
+ * Pre-flight configuration logging (dev mode only)
+ * Logs Cognito configuration to console for debugging
+ */
+if (import.meta.env.DEV) {
+  console.log('[Cognito Config] Pre-flight check:');
+  console.log('  Region:', aws.Auth.region);
+  console.log('  User Pool ID:', aws.Auth.userPoolId);
+  console.log('  App Client ID:', aws.Auth.userPoolWebClientId);
+  console.log('  Cognito Domain:', aws.oauth.domain);
+  console.log('  Redirect Sign In:', aws.oauth.redirectSignIn);
+  console.log('  Redirect Sign Out:', aws.oauth.redirectSignOut);
+  console.log('  Response Type:', aws.oauth.responseType);
+  console.log('  Auth Flow:', aws.Auth.authenticationFlowType);
+  
+  // Validation warnings
+  if (!aws.oauth.domain || aws.oauth.domain.includes('_')) {
+    console.warn('⚠️  Cognito domain appears malformed. Should be: <domain-prefix>.auth.<region>.amazoncognito.com');
+  }
+  if (!aws.Auth.userPoolWebClientId || aws.Auth.userPoolWebClientId.length < 20) {
+    console.warn('⚠️  App Client ID appears malformed. Should be 26 characters.');
+  }
+  if (!aws.oauth.redirectSignIn.includes('/finanzas/auth/callback.html')) {
+    console.warn('⚠️  Redirect Sign In should point to /finanzas/auth/callback.html');
+  }
+}
+
 export default aws;
