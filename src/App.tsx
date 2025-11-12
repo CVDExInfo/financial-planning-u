@@ -13,7 +13,7 @@ import ProjectContextBar from "@/components/ProjectContextBar";
 import AccessControl from "@/components/AccessControl";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { ProjectProvider } from "@/contexts/ProjectContext";
-import LoginPage from "@/components/LoginPage";
+import Login from "@/components/Login";
 
 // PMO Features
 import PMOEstimatorWizard from "@/features/pmo/prefactura/Estimator/PMOEstimatorWizard";
@@ -65,7 +65,7 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
-    return <LoginPage />;
+    return <Login />;
   }
 
   return (
@@ -126,18 +126,14 @@ function AppContent() {
 }
 
 function App() {
-  // Determine basename based on build target or environment
-  // If VITE_APP_BASENAME is set (passed from build), use it
-  // Otherwise infer from VITE_FINZ_ENABLED or default to /finanzas
+  // Use VITE_PUBLIC_BASE as primary source, fallback to /finanzas
   const basename =
+    import.meta.env.VITE_PUBLIC_BASE ||
     import.meta.env.VITE_APP_BASENAME ||
-    (import.meta.env.VITE_FINZ_ENABLED === "false"
-      ? "/"
-      : "/finanzas/"
-    ).replace(/\/$/, "");
+    "/finanzas";
 
   return (
-    <BrowserRouter basename={basename}>
+    <BrowserRouter basename={basename.replace(/\/$/, "")}>
       <AuthProvider>
         <AppContent />
       </AuthProvider>

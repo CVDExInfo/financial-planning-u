@@ -27,12 +27,18 @@ console.log(
 
 export default defineConfig(() => {
   const outDir = isPmo ? "dist-pmo" : "dist-finanzas";
+  const publicBase = process.env.VITE_PUBLIC_BASE || (isPmo ? "/" : "/finanzas/");
+  
   return {
-  base: isPmo ? "/" : "/finanzas/",
+  base: publicBase,
   define: {
-    // Pass build target to frontend so it can set correct basename
+    // Primary source for basename (used in App.tsx)
+    "import.meta.env.VITE_PUBLIC_BASE": JSON.stringify(
+      publicBase.replace(/\/$/, "")
+    ),
+    // Legacy support for VITE_APP_BASENAME
     "import.meta.env.VITE_APP_BASENAME": JSON.stringify(
-      isPmo ? "/" : "/finanzas"
+      publicBase.replace(/\/$/, "")
     ),
     // Enable Finanzas-only mode when building for Finanzas
     "import.meta.env.VITE_FINZ_ENABLED": JSON.stringify(

@@ -36,6 +36,44 @@ VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
 VITE_FINZ_ENABLED=true
 ```
 
+### Quick Auth Setup (Local Development)
+
+**The app now uses a unified Finanzas-styled login page for all modules.**
+
+1. **Start the dev server:**
+   ```bash
+   npm ci && npm run dev
+   ```
+
+2. **Navigate to Finanzas login:**
+   ```
+   http://localhost:5173/finanzas/
+   ```
+
+3. **Two login options:**
+   - **Direct login:** Enter credentials in the form (USER_PASSWORD_AUTH flow)
+   - **Cognito Hosted UI:** Click "Sign in with Cognito Hosted UI" button (OAuth implicit flow)
+
+4. **Verify tokens in localStorage:**
+   - Open DevTools → Application → Local Storage
+   - Should see: `cv.jwt` and `finz_jwt` (both methods store both keys)
+
+5. **Deep link test:**
+   - From FinanzasHome, click "Catálogo de Rubros"
+   - URL should be `http://localhost:5173/finanzas/catalog/rubros`
+   - Refresh page → should stay on same page (SPA routing works)
+
+6. **Role-based redirect validation:**
+   - SDT/FIN/AUD users → stay in `/finanzas/` after login
+   - PMO-only users → redirect to `/` (if PMO app is deployed)
+   - Dual-role users → preference stored in `cv.module` (default: Finanzas)
+
+**Test Credentials:**
+- Email: `christian.valencia@ikusi.com`
+- Password: `Velatia@2025`
+
+For detailed auth flow and troubleshooting, see [AUTHENTICATION_FLOW.md](./AUTHENTICATION_FLOW.md) and [Lane 1 Test Plan](./docs/LANE1_AUTH_UI_TEST_PLAN.md).
+
 ## Overview
 
 - Frontend: React 19, Vite 6, Tailwind v4, GitHub Spark design system, Radix UI
