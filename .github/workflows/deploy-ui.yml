@@ -18,20 +18,20 @@ env:
   # Branch → environment
   DEPLOYMENT_ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
 
-  # S3 buckets (explicit; never mix)
-  PMO_BUCKET_NAME: ${{ github.ref == 'refs/heads/main' && (vars.PMO_BUCKET_NAME_PROD || 'acta-ui-frontend-prod') || vars.PMO_BUCKET_NAME_DEV }}
-  FINANZAS_BUCKET_NAME: ${{ github.ref == 'refs/heads/main' && (vars.FINANZAS_BUCKET_NAME_PROD || 'ukusi-ui-finanzas-prod') || vars.FINANZAS_BUCKET_NAME_DEV }}
+  # S3 buckets (single bucket per app, shared across branches)
+  PMO_BUCKET_NAME: ${{ vars.PMO_BUCKET_NAME || 'acta-ui-frontend-prod' }}
+  FINANZAS_BUCKET_NAME: ${{ vars.FINANZAS_BUCKET_NAME || 'ukusi-ui-finanzas-prod' }}
 
-  # CloudFront
-  CLOUDFRONT_DIST_ID: ${{ github.ref == 'refs/heads/main' && (vars.CLOUDFRONT_DIST_ID_PROD || 'EPQU7PVDLQXUA') || vars.CLOUDFRONT_DIST_ID_DEV }}
-  CF_DOMAIN: ${{ vars.CF_DOMAIN || '' }}
+  # CloudFront (single distribution)
+  CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID || 'EPQU7PVDLQXUA' }}
+  CF_DOMAIN: ${{ vars.CF_DOMAIN || 'd7t9x3j66yd8k.cloudfront.net' }}
 
-  # API ID / Stage per environment
-  FINZ_API_ID: ${{ github.ref == 'refs/heads/main' && vars.FINZ_API_ID_PROD || vars.FINZ_API_ID_DEV }}
+  # API ID / Stage (ID from vars, stage by branch)
+  FINZ_API_ID: ${{ vars.FINZ_API_ID || 'm3g6am67aj' }}
   FINZ_API_STAGE: ${{ github.ref == 'refs/heads/main' && (vars.FINZ_API_STAGE_PROD || 'prod') || (vars.FINZ_API_STAGE_DEV || 'dev') }}
-  EXPECTED_API_ID: ${{ github.ref == 'refs/heads/main' && vars.FINZ_API_ID_PROD || vars.FINZ_API_ID_DEV }}
+  EXPECTED_API_ID: ${{ vars.FINZ_API_ID || 'm3g6am67aj' }}
 
-  # Optional escape hatch: explicit API base
+  # Optional escape hatch: explicit API base (if set, overrides derived)
   DEV_API_URL: ${{ vars.DEV_API_URL || '' }}
 
   # Frontend feature flags
@@ -53,7 +53,6 @@ jobs:
           for k in AWS_REGION PMO_BUCKET_NAME FINANZAS_BUCKET_NAME CLOUDFRONT_DIST_ID FINZ_API_ID FINZ_API_STAGE; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing repo var: $k"; exit 1; }
           done
-          # CF_DOMAIN is optional; will be derived if absent
           printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
           echo "✅ Env OK"
@@ -117,7 +116,7 @@ jobs:
           BUILD_TARGET=finanzas npm run build || { echo "❌ Finanzas build failed"; exit 1; }
           echo "✅ Finanzas Portal built → dist-finanzas/"
 
-      # ---- Configure AWS via OIDC ----
+      # ---- Configure AWS via OIDC (must be before any aws CLI) ----
       - name: Configure AWS (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
