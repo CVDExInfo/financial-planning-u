@@ -86,10 +86,17 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
     const text = await res.text().catch(() => "");
     throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
   }
+  
+  // Content-Type safety: Guard against HTML responses
   const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) return res.json();
-  // @ts-expect-error - allow unknown return for non-json
-  return undefined;
+  if (!ct.includes("application/json")) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Expected JSON, got ${ct}. First bytes: ${text.slice(0, 80)}`
+    );
+  }
+  
+  return res.json();
 }
 
 export const finanzasClient = {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { useKV } from '@github/spark/hooks';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import ApiService from '@/lib/api';
 import type { Project } from '@/types/domain';
 
@@ -18,8 +18,8 @@ interface ProjectContextType {
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
-  const [selectedProjectId, setSelectedProjectIdKV] = useKV<string>('selected-project-id', '');
-  const [selectedPeriod, setSelectedPeriod] = useKV<string>('selected-period', '12');
+  const [selectedProjectId, setSelectedProjectIdKV] = useLocalStorage<string>('selected-project-id', '');
+  const [selectedPeriod, setSelectedPeriod] = useLocalStorage<string>('selected-period', '12');
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectChangeCount, setProjectChangeCount] = useState(0);

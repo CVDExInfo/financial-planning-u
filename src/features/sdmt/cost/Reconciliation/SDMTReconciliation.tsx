@@ -31,7 +31,6 @@ import {
 } from '@/components/ui/select';
 import { Upload, FileCheck, AlertTriangle, ExternalLink, Plus, X, Download, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useKV } from '@github/spark/hooks';
 import { useProject } from '@/contexts/ProjectContext';
 import ModuleBadge from '@/components/ModuleBadge';
 import DataContainer from '@/components/DataContainer';

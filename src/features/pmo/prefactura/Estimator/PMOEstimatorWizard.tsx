@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { useKV } from '@github/spark/hooks';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import ProgressIndicator from '@/components/ProgressIndicator';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
@@ -64,10 +64,10 @@ export function PMOEstimatorWizard() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   
   // Persistent wizard data
-  const [dealInputs, setDealInputs] = useKV<DealInputs | null>('estimator-deal-inputs', null);
-  const [laborEstimates, setLaborEstimates] = useKV<LaborEstimate[]>('estimator-labor', []);
-  const [nonLaborEstimates, setNonLaborEstimates] = useKV<NonLaborEstimate[]>('estimator-non-labor', []);
-  const [fxIndexationData, setFxIndexationData] = useKV<any>('estimator-fx-indexation', null);
+  const [dealInputs, setDealInputs] = useLocalStorage<DealInputs | null>('estimator-deal-inputs', null);
+  const [laborEstimates, setLaborEstimates] = useLocalStorage<LaborEstimate[]>('estimator-labor', []);
+  const [nonLaborEstimates, setNonLaborEstimates] = useLocalStorage<NonLaborEstimate[]>('estimator-non-labor', []);
+  const [fxIndexationData, setFxIndexationData] = useLocalStorage<any>('estimator-fx-indexation', null);
 
   const currentStep = STEPS[currentStepIndex];
   const isFirstStep = currentStepIndex === 0;
