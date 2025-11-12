@@ -97,7 +97,7 @@ jobs:
           printf '%s\n' "VITE_PUBLIC_BASE=/finanzas/" >> "$GITHUB_ENV"
           printf '%s\n' "VITE_FINZ_ENABLED=true" >> "$GITHUB_ENV"
           printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
-          
+
           # Use environment-specific API endpoint
           if [ -n "${VITE_API_BASE_URL:-}" ]; then
             printf '%s\n' "VITE_API_BASE_URL=${VITE_API_BASE_URL%/}" >> "$GITHUB_ENV"
@@ -112,7 +112,7 @@ jobs:
               echo "⚠️  Fallback to dev API endpoint"
             fi
           fi
-          
+
           printf '%s\n' "VITE_AWS_REGION=us-east-2" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
 
@@ -202,13 +202,13 @@ jobs:
             --delete
           echo "✅ PMO Portal uploaded to s3://${PMO_BUCKET_NAME}/"
 
-      - name: "Upload Finanzas Portal to S3 (bucket root)"
+      - name: "Upload Finanzas Portal to S3 (/finanzas prefix)"
         run: |
-          echo "Uploading Finanzas Portal to S3 bucket root (${FINANZAS_BUCKET_NAME})..."
-          aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/" \
+          echo "Uploading Finanzas Portal to S3 /finanzas/ prefix (${FINANZAS_BUCKET_NAME})..."
+          aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
             --exclude '*.map' \
             --delete
-          echo "✅ Finanzas Portal uploaded to s3://${FINANZAS_BUCKET_NAME}/ (root)"
+          echo "✅ Finanzas Portal uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
 
       - name: "Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)"
         run: |
@@ -383,16 +383,16 @@ jobs:
         run: |
           set -euo pipefail
           BASE="${DEV_API_URL%/}"
-          
+
           # Install newman if not present
           if ! command -v newman &> /dev/null; then
             npm install -g newman
           fi
-          
+
           # Run Newman tests
           echo "## 🧪 Newman API Smoke Tests" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if newman run postman/finanzas-smokes.json \
             --env-var "API_BASE_URL=${BASE}" \
             --reporters cli,json \

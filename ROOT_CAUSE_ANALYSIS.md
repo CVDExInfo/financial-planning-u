@@ -1,6 +1,7 @@
 # 🔍 ROOT CAUSE ANALYSIS & CORRECTIVE ACTION PLAN
 
 ## Problem Statement
+
 - `https://d7t9x3j66yd8k.cloudfront.net/finanzas/` serves the **PMO application** instead of Finanzas
 - Expected: Finanzas SPA with title "Finanzas SDT" and assets at `/finanzas/assets/*`
 - Actual: PMO SPA with title "Ikusi · PMO Platform" and assets at `/assets/`
@@ -8,9 +9,11 @@
 ## Root Cause (CRITICAL)
 
 ### 1. Wrong S3 Bucket Configuration for PMO Upload
+
 The deployment workflow uploads **PMO to the Finanzas S3 bucket** instead of the PMO-specific bucket.
 
 **Current (WRONG):**
+
 ```yaml
 S3_BUCKET_NAME: ukusi-ui-finanzas-prod  # Used for BOTH PMO and Finanzas
 - Upload PMO  → s3://ukusi-ui-finanzas-prod/         ❌ WRONG
@@ -18,6 +21,7 @@ S3_BUCKET_NAME: ukusi-ui-finanzas-prod  # Used for BOTH PMO and Finanzas
 ```
 
 **Should be:**
+
 ```yaml
 PMO_BUCKET:     acta-ui-frontend-prod         ✓ Correct for PMO
 FINANZAS_BUCKET: ukusi-ui-finanzas-prod       ✓ Correct for Finanzas
@@ -26,15 +30,18 @@ FINANZAS_BUCKET: ukusi-ui-finanzas-prod       ✓ Correct for Finanzas
 ```
 
 ### 2. CloudFront Origins Mismatch
+
 The CloudFront distribution is correctly configured with TWO separate origins:
-- **Default (*)** behavior → Origin: `acta-ui-frontend-prod` (PMO)
-- **/finanzas/* ** behavior → Origin: `ukusi-ui-finanzas-prod` (Finanzas)
+
+- **Default (\*)** behavior → Origin: `acta-ui-frontend-prod` (PMO)
+- **/finanzas/\* ** behavior → Origin: `ukusi-ui-finanzas-prod` (Finanzas)
 
 But because PMO is being uploaded to the **Finanzas bucket**, the Default behavior is serving Finanzas bucket content (which happens to be the PMO app that was uploaded there).
 
 ## Evidence of Misconfiguration
 
 1. **HTML Title Check:**
+
    ```bash
    curl -s https://d7t9x3j66yd8k.cloudfront.net/finanzas/ | head -5
    # Expected: "Finanzas SDT" or similar
@@ -42,6 +49,7 @@ But because PMO is being uploaded to the **Finanzas bucket**, the Default behavi
    ```
 
 2. **Asset Path Check:**
+
    ```bash
    curl -s https://d7t9x3j66yd8k.cloudfront.net/finanzas/ | grep -o 'src="/assets/'
    # Expected: (no match; should be /finanzas/assets/)
@@ -55,6 +63,7 @@ But because PMO is being uploaded to the **Finanzas bucket**, the Default behavi
 ## Corrective Actions (REQUIRED)
 
 ### Step 1: Fix the Deployment Workflow
+
 Update `.github/workflows/deploy-ui.yml` to use separate S3 buckets:
 
 ```yaml
@@ -75,6 +84,7 @@ env:
 ```
 
 ### Step 2: Clean Up S3 Buckets
+
 ```bash
 # Remove PMO app from Finanzas bucket (keep only /finanzas/ prefix)
 aws s3 rm s3://ukusi-ui-finanzas-prod/ --recursive --exclude "finanzas/*"
@@ -85,6 +95,7 @@ aws s3 ls s3://ukusi-ui-finanzas-prod/ --recursive
 ```
 
 ### Step 3: Ensure PMO Bucket Has PMO App
+
 ```bash
 # Verify PMO bucket has root-level content
 aws s3 ls s3://acta-ui-frontend-prod/ --recursive
@@ -92,6 +103,7 @@ aws s3 ls s3://acta-ui-frontend-prod/ --recursive
 ```
 
 ### Step 4: Clear CloudFront Cache
+
 ```bash
 aws cloudfront create-invalidation \
   --distribution-id EPQU7PVDLQXUA \
