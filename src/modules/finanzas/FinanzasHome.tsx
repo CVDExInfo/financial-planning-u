@@ -9,12 +9,21 @@ export default function FinanzasHome() {
           Finanzas · Gestión Presupuesto (R1)
         </h1>
         <p className="text-sm text-muted-foreground">
-          Módulo inicial para catálogo de rubros y reglas de asignación (MVP).
+          Módulo inicial para gestión de proyectos, catálogo de rubros y reglas de asignación (MVP).
           Esta sección evolucionará para incluir presupuesto, asignaciones
           mensuales y reconciliaciones de costos.
         </p>
       </header>
       <div className="grid gap-4 md:grid-cols-2">
+        <Link
+          to="/projects"
+          className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors block"
+        >
+          <h2 className="font-medium mb-1">Proyectos</h2>
+          <p className="text-xs text-muted-foreground">
+            Crear y gestionar proyectos financieros con presupuestos y asignaciones.
+          </p>
+        </Link>
         <Link
           to="/catalog/rubros"
           className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors block"
@@ -22,7 +31,7 @@ export default function FinanzasHome() {
           <h2 className="font-medium mb-1">Catálogo de Rubros</h2>
           <p className="text-xs text-muted-foreground">
             Lista enriquecida de rubros con taxonomía, línea contable y tipo de
-            costo.
+            costo. Agrega rubros a proyectos específicos.
           </p>
         </Link>
         <Link
@@ -32,6 +41,24 @@ export default function FinanzasHome() {
           <h2 className="font-medium mb-1">Reglas de Asignación</h2>
           <p className="text-xs text-muted-foreground">
             Vista previa de reglas MVP (driver percent, fixed, tickets, hours).
+          </p>
+        </Link>
+        <Link
+          to="/adjustments"
+          className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors block"
+        >
+          <h2 className="font-medium mb-1">Ajustes Presupuestarios</h2>
+          <p className="text-xs text-muted-foreground">
+            Gestionar excesos, reducciones y reasignaciones de presupuesto.
+          </p>
+        </Link>
+        <Link
+          to="/providers"
+          className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors block"
+        >
+          <h2 className="font-medium mb-1">Proveedores</h2>
+          <p className="text-xs text-muted-foreground">
+            Registrar y administrar proveedores y vendors del sistema.
           </p>
         </Link>
       </div>
