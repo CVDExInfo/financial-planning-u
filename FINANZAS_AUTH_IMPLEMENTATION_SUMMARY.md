@@ -469,6 +469,31 @@ The Finanzas authentication implementation is **complete and ready for productio
 
 The implementation successfully mirrors the acta-ui authentication approach, ensuring consistency across modules while maintaining proper separation of concerns. Users can seamlessly switch between Finanzas and PMO modules with a single login, and the system properly handles role-based access control based on Cognito groups.
 
+### Recent Updates (November 13, 2025)
+
+**Lane 1 Refinements**:
+- ✅ Fixed RubroSchema to include `linea_codigo` and `tipo_costo` fields
+- ✅ Enhanced JSON guard error messages to detect HTML responses (common when API base URL is misconfigured)
+- ✅ Corrected OAuth scope order to match specification: `['openid', 'email', 'profile']`
+- ✅ Improved callback.html role detection with case-insensitive group matching
+- ✅ Added troubleshooting entries for HTML response errors and user confirmation issues
+
+**API Client Improvements**:
+```typescript
+// Enhanced error detection for HTML responses
+if (!ct.includes("application/json")) {
+  const text = await res.text().catch(() => "");
+  const isHTML = text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html");
+  if (isHTML) {
+    throw new Error(
+      `API returned HTML (likely login page or wrong endpoint) instead of JSON. ` +
+      `Check VITE_API_BASE_URL configuration. Content-Type: ${ct || "(none)"}`
+    );
+  }
+  // ... additional error handling
+}
+```
+
 ### Next Actions
 
 1. **Deploy to Production**: Follow deployment instructions above

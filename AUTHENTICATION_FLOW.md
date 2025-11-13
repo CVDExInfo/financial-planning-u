@@ -415,6 +415,14 @@ The API Gateway must have a Cognito authorizer configured:
 - **Cause**: Environment variable mismatch or CORS configuration
 - **Fix**: Verify VITE_* variables are set correctly for production build, check API Gateway CORS settings
 
+**Issue**: "Unexpected token '<'" or "Expected JSON, got HTML" error
+- **Cause**: API base URL is incorrect or pointing to a login page/CloudFront distribution instead of API Gateway
+- **Fix**: Verify `VITE_API_BASE_URL` points to the correct API Gateway URL (not CloudFront), ensure the API endpoint is accessible without authentication for public routes or with proper Bearer token for protected routes
+
+**Issue**: User not confirmed / Password reset required
+- **Cause**: Cognito user account in wrong state
+- **Fix**: Confirm user email via Cognito console or re-invite user; for password reset, use Cognito "Forgot Password" flow
+
 ### Debug Mode
 
 To enable detailed auth logging:
