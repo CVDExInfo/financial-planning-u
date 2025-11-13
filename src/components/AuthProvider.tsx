@@ -12,7 +12,6 @@ import {
   getAvailableRoles,
   canAccessRoute,
   canPerformAction,
-  DEMO_USERS,
 } from "@/lib/auth";
 import {
   decodeJWT,
