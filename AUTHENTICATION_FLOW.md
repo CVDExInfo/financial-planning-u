@@ -469,6 +469,30 @@ To add a new Cognito group → role mapping:
 - [JWT.io](https://jwt.io) - JWT decoder and debugger
 - Acta-UI reference implementation (shared Cognito setup)
 
+## Spark/KV Integration Removal
+
+**Status**: ✅ Fully Removed
+
+As of November 2025, all Spark and KV (Key-Value store) runtime dependencies have been completely removed from the Finanzas application. This change ensures the authentication and user data flows are exclusively Cognito-based.
+
+### What Was Removed
+
+1. **Spark Authentication Fallback**: The development-mode Spark authentication (`window.spark.user()`) has been removed from `AuthProvider.tsx`
+2. **Spark Dependencies**: The `@github/spark` npm package and all related Vite plugins have been removed
+3. **KV Service References**: All KV service URL declarations and user data fetching mechanisms have been removed
+4. **Spark UI Elements**: Any UI components or error messages referencing Spark have been updated
+
+### Current State
+
+- **Authentication**: 100% via AWS Cognito (Hosted UI or USER_PASSWORD_AUTH)
+- **User Data**: Sourced exclusively from Cognito ID token claims and localStorage
+- **Session Management**: JWT tokens stored in localStorage (`cv.jwt`, `finz_jwt`)
+- **No External Dependencies**: No runtime calls to Spark or KV services
+
+### Quality Gates & SDMT Cost Catalog
+
+Any "Quality Gates" functionality or features that previously relied on Spark integration are currently disabled or have been reimplemented using Cognito-based data sources. The SDMT Cost Catalog continues to function using local data and API endpoints without any Spark/KV dependencies.
+
 ---
 
 **Last Updated**: November 2025  

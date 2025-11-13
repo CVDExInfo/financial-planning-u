@@ -24,8 +24,8 @@ export const RubroSchema = z.object({
   descripcion: z.string().optional(),
   centro: z.string().optional(),
   regla: z.string().optional(),
-  linea_codigo: z.string().optional(),
-  tipo_costo: z.string().optional(),
+  linea_codigo: z.string().optional(), // Accounting line or cost center code
+  tipo_costo: z.string().optional(), // Cost type (OPEX, CAPEX, etc.)
   metadata: z.record(z.any()).optional(),
 });
 
