@@ -73,10 +73,10 @@
                 .filter(Boolean);
           const has = (g) => groups.includes(g);
           const canSDT = groups.some((g) =>
-            ["SDT", "FIN", "AUD", "sdmt", "fin", "aud"].includes(g)
+            ["SDT", "FIN", "AUD", "sdmt", "fin", "aud"].includes(g.toUpperCase())
           );
           const canPMO = groups.some((g) =>
-            ["PM", "PMO", "EXEC_RO", "VENDOR", "admin", "pmo"].includes(g)
+            ["PM", "PMO", "EXEC_RO", "VENDOR", "admin", "pmo"].includes(g.toUpperCase())
           );
           // Preference resolution for dual-role users
           const pref = localStorage.getItem("cv.module");
