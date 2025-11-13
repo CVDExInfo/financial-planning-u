@@ -270,14 +270,16 @@ jobs:
           : "${TABLE_RUBROS:=finz_rubros}"
           : "${TABLE_RUBROS_TAXONOMIA:=finz_rubros_taxonomia}"
 
-          # Install dependencies for the scripts (root project)
+          # Install root project dependencies so ts-node and scripts are available
           if ! npm ci; then npm install; fi
           echo "Tables: RUBROS=$TABLE_RUBROS TAX=$TABLE_RUBROS_TAXONOMIA"
 
           TAX_C=0
           if [ -n "${TABLE_RUBROS_TAXONOMIA}" ] && aws dynamodb describe-table --table-name "$TABLE_RUBROS_TAXONOMIA" >/dev/null 2>&1; then
-            # Use ts-node in ESM mode with transpile-only
-            TS_NODE_TRANSPILE_ONLY=1 npx ts-node --esm --project tsconfig.node.json scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
+            # Use Node 20 ESM loader for ts-node (no type-checking, just transpile)
+            TS_NODE_PROJECT=tsconfig.node.json \
+            node --loader ts-node/esm/transpile-only \
+              scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
             TAX_C=$(grep -c '^Upserted taxonomía:' seed_tax.log || true)
           else
             echo "Skip taxonomy seed"
@@ -285,7 +287,9 @@ jobs:
 
           RUB_C=0
           if aws dynamodb describe-table --table-name "$TABLE_RUBROS" >/dev/null 2>&1; then
-            TS_NODE_TRANSPILE_ONLY=1 npx ts-node --esm --project tsconfig.node.json scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
+            TS_NODE_PROJECT=tsconfig.node.json \
+            node --loader ts-node/esm/transpile-only \
+              scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
             RUB_C=$(grep -c '^Upserted rubro:' seed_rub.log || true)
           else
             echo "❌ Rubros table not found"; exit 1
