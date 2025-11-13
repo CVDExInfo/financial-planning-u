@@ -35,7 +35,7 @@ const aws = {
   oauth: {
     // FIXED: Added missing hyphen in domain (us-east-2-fyhltohiy)
     domain: getEnv('VITE_COGNITO_DOMAIN', 'us-east-2-fyhltohiy.auth.us-east-2.amazoncognito.com'),
-    scope: ['email', 'openid', 'profile'],
+    scope: ['openid', 'email', 'profile'], // Order as per R1 requirements
     // Redirects to FINANZAS module callback (not the PMO root)
     // For implicit flow: /finanzas/auth/callback.html
     // For code flow: /finanzas/ (or /finanzas/auth/callback for React route)
