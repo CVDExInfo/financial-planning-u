@@ -18,7 +18,7 @@ interface ProjectContextType {
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
-  const [selectedProjectId, setSelectedProjectIdKV] = useLocalStorage<string>('selected-project-id', '');
+  const [selectedProjectId, setSelectedProjectIdStorage] = useLocalStorage<string>('selected-project-id', '');
   const [selectedPeriod, setSelectedPeriod] = useLocalStorage<string>('selected-period', '12');
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +32,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       console.log('🔄 Project changing from:', selectedProjectId, 'to:', projectId);
       
       // Clear current project to force re-renders
-      setSelectedProjectIdKV('');
+      setSelectedProjectIdStorage('');
       setProjectChangeCount(prev => prev + 1);
       
       // Set loading state briefly to show project switching
@@ -40,11 +40,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       
       // Short delay to ensure UI sees the change
       setTimeout(() => {
-        setSelectedProjectIdKV(projectId);
+        setSelectedProjectIdStorage(projectId);
         setLoading(false);
       }, 150);
     }
-  }, [selectedProjectId, setSelectedProjectIdKV]);
+  }, [selectedProjectId, setSelectedProjectIdStorage]);
 
   const loadProjects = async () => {
     try {

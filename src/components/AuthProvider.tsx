@@ -6,22 +6,12 @@ import React, {
   ReactNode,
 } from "react";
 
-// Spark global type (development mode)
-interface SparkAPI {
-  user: () => Promise<any>;
-}
-declare global {
-  interface Window {
-    spark?: SparkAPI;
-  }
-}
 import { UserInfo, UserRole } from "@/types/domain";
 import {
   getDefaultUserRole,
   getAvailableRoles,
   canAccessRoute,
   canPerformAction,
-  DEMO_USERS,
 } from "@/lib/auth";
 import {
   decodeJWT,
@@ -238,8 +228,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   /**
-   * Initialize authentication from JWT or Spark
-   * Priority: 1) Valid JWT in localStorage, 2) Spark (dev), 3) Not authenticated
+   * Initialize authentication from JWT
+   * Priority: 1) Valid JWT in localStorage, 2) Not authenticated
    */
   const initializeAuth = async () => {
     setIsLoading(true);
@@ -249,8 +239,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // 1. Check for valid JWT in localStorage (existing session)
       const jwt =
         localStorage.getItem("cv.jwt") ||
-        localStorage.getItem("finz_jwt") ||
-        localStorage.getItem("spark_jwt");
+        localStorage.getItem("finz_jwt");
       if (jwt) {
         try {
           if (isTokenValid(jwt)) {
@@ -302,29 +291,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       }
 
-      // 2. Check for Spark (development mode only)
-      if (typeof window !== "undefined" && window.spark?.user) {
-        try {
-          const sparkUser = await window.spark.user();
-          const demoUserData = DEMO_USERS[sparkUser.login] || {};
-
-          const user: UserInfo = {
-            ...sparkUser,
-            roles: demoUserData.roles || ["SDMT"],
-            current_role: "SDMT",
-          };
-
-          setUser(user);
-          setAvailableRoles(user.roles);
-          console.log("[Auth] Authenticated via Spark (dev mode):", user);
-          setIsLoading(false);
-          return;
-        } catch (e) {
-          console.error("[Auth] Spark authentication failed:", e);
-        }
-      }
-
-      // 3. No JWT and no Spark → not authenticated, show LoginPage
+      // 2. No JWT → not authenticated, show LoginPage
       setUser(null);
       setAvailableRoles([]);
       console.log("[Auth] Not authenticated; show LoginPage");
