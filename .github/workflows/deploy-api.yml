@@ -276,8 +276,8 @@ jobs:
 
           TAX_C=0
           if [ -n "${TABLE_RUBROS_TAXONOMIA}" ] && aws dynamodb describe-table --table-name "$TABLE_RUBROS_TAXONOMIA" >/dev/null 2>&1; then
-            # Use ts-node in ESM mode with transpile-only
-            TS_NODE_TRANSPILE_ONLY=1 npx ts-node --esm --project tsconfig.node.json scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
+            # Use ts-node with ESM loader (required when package.json has "type": "module")
+            NODE_OPTIONS='--loader ts-node/esm --no-warnings' TS_NODE_TRANSPILE_ONLY=1 node scripts/ts-seeds/seed_rubros_taxonomia.ts | tee seed_tax.log
             TAX_C=$(grep -c '^Upserted taxonomía:' seed_tax.log || true)
           else
             echo "Skip taxonomy seed"
@@ -285,7 +285,7 @@ jobs:
 
           RUB_C=0
           if aws dynamodb describe-table --table-name "$TABLE_RUBROS" >/dev/null 2>&1; then
-            TS_NODE_TRANSPILE_ONLY=1 npx ts-node --esm --project tsconfig.node.json scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
+            NODE_OPTIONS='--loader ts-node/esm --no-warnings' TS_NODE_TRANSPILE_ONLY=1 node scripts/ts-seeds/seed_rubros.ts | tee seed_rub.log
             RUB_C=$(grep -c '^Upserted rubro:' seed_rub.log || true)
           else
             echo "❌ Rubros table not found"; exit 1
