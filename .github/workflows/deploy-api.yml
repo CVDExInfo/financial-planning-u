@@ -13,17 +13,15 @@ permissions:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
-  # Determine environment based on branch
-  DEPLOYMENT_ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-  # Use prod stack and stage for main branch, dev otherwise
-  FINZ_API_STACK: ${{ github.ref == 'refs/heads/main' && 'finanzas-sd-api-prod' || (vars.FINZ_API_STACK || 'finanzas-sd-api-dev') }}
-  FINZ_API_STAGE: ${{ github.ref == 'refs/heads/main' && 'prod' || (vars.FINZ_API_STAGE || 'dev') }}
+  # Single environment deployment: always use dev stack and stage
+  DEPLOYMENT_ENV: dev
+  FINZ_API_STACK: finanzas-sd-api-dev
+  FINZ_API_STAGE: dev
   COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }} # required
   COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }} # required
   COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }} # required
-  # Per-environment API IDs for guard validation
+  # API ID for guard validation (single dev environment)
   FINZ_API_ID_DEV: ${{ vars.FINZ_API_ID_DEV || 'm3g6am67aj' }}
-  FINZ_API_ID_PROD: ${{ vars.FINZ_API_ID_PROD || '' }}
   POLICY_STORE_ID: ${{ vars.POLICY_STORE_ID || '' }} # optional, from AVP deployment
 
 jobs:
@@ -45,11 +43,7 @@ jobs:
           echo "📦 Stack Name: ${FINZ_API_STACK}"
           echo "🔌 Stage: ${FINZ_API_STAGE}"
           echo "🌐 Region: ${AWS_REGION}"
-          if [ "${DEPLOYMENT_ENV}" = "prod" ]; then
-            echo "🔑 Expected API ID (prod): ${FINZ_API_ID_PROD:-<not set - first deploy>}"
-          else
-            echo "🔑 Expected API ID (dev): ${FINZ_API_ID_DEV}"
-          fi
+          echo "🔑 Expected API ID (dev): ${FINZ_API_ID_DEV}"
           for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_USER_POOL_ARN; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ $k is empty"; exit 1; }
           done
@@ -130,7 +124,7 @@ jobs:
           export PATH="$PWD/node_modules/.bin:$PATH"
           sam build
 
-      - name: Deploy (dev)
+      - name: Deploy
         working-directory: services/finanzas-api
         run: |
           sam deploy --no-confirm-changeset \
@@ -140,7 +134,8 @@ jobs:
               CognitoUserPoolArn=${{ env.COGNITO_USER_POOL_ARN }} \
               CognitoUserPoolId=${{ env.COGNITO_USER_POOL_ID }} \
               CognitoUserPoolClientId=${{ env.COGNITO_WEB_CLIENT }} \
-              StageName=${{ env.FINZ_API_STAGE }} \
+              StageName=dev \
+              TablePrefix=finz_ \
               PolicyStoreId="${POLICY_STORE_ID:-}"
 
       - name: Output API info
@@ -159,22 +154,14 @@ jobs:
           set -euo pipefail
           HOST_ID=$(echo "${{ steps.out.outputs.api_url }}" | awk -F'[/.]' '{print $3}')
 
-          if [ "${DEPLOYMENT_ENV}" = "prod" ] && [ -z "${FINZ_API_ID_PROD:-}" ]; then
-            echo "ℹ️  Skipping API ID check for first prod deploy (FINZ_API_ID_PROD not set)"
-          else
-            # For dev, we always enforce; for prod, we enforce once FINZ_API_ID_PROD is set.
-            if [ "${DEPLOYMENT_ENV}" = "prod" ]; then
-              EXPECTED="${FINZ_API_ID_PROD}"
-            else
-              EXPECTED="${FINZ_API_ID_DEV}"
-            fi
-
-            if [ -n "${EXPECTED:-}" ] && [ "$HOST_ID" != "$EXPECTED" ]; then
-              echo "❌ Expected API id ${EXPECTED}, got ${HOST_ID} from ${{ steps.out.outputs.api_url }}"; exit 1;
-            fi
-
-            echo "✅ API ID matches expected: ${HOST_ID}"
+          # Single environment: always enforce dev API ID
+          EXPECTED="${FINZ_API_ID_DEV}"
+          
+          if [ -n "${EXPECTED:-}" ] && [ "$HOST_ID" != "$EXPECTED" ]; then
+            echo "❌ Expected API id ${EXPECTED}, got ${HOST_ID} from ${{ steps.out.outputs.api_url }}"; exit 1;
           fi
+
+          echo "✅ API ID matches expected: ${HOST_ID}"
 
           echo "Verifying routes on API ${HOST_ID}..."
           ROUTES=$(aws apigatewayv2 get-routes --api-id "$HOST_ID" --query 'Items[].RouteKey' --output text)
@@ -317,11 +304,7 @@ jobs:
             echo "| Stage | ${FINZ_API_STAGE} |"
             echo "| API ID | ${{ steps.out.outputs.api_id }} |"
             echo "| API URL | ${{ steps.out.outputs.api_url }} |"
-            if [ "${DEPLOYMENT_ENV}" = "prod" ]; then
-              echo "| Expected API ID (prod) | ${FINZ_API_ID_PROD:-<not set - first deploy>} |"
-            else
-              echo "| Expected API ID (dev) | ${FINZ_API_ID_DEV} |"
-            fi
+            echo "| Expected API ID (dev) | ${FINZ_API_ID_DEV} |"
             echo "| AVP Enabled | ${{ steps.avp_check.outputs.avp_enabled || 'false' }} |"
             if [ -n "${POLICY_STORE_ID:-}" ]; then
               echo "| Policy Store ID | ${POLICY_STORE_ID} |"
@@ -366,14 +349,10 @@ jobs:
             echo ""
             echo "### Repository Variables for UI Deployment"
             echo ""
-            echo "UI uses \`VITE_API_BASE_URL\` injected from \`FINZ_API_ID_<ENV>\` and stage."
+            echo "UI uses \`VITE_API_BASE_URL\` injected from \`FINZ_API_ID_DEV\` and stage."
             echo "For the current deployment, add this to GitHub repository variables:"
             echo '```'
-            if [ "${DEPLOYMENT_ENV}" = "prod" ]; then
-              echo "FINZ_API_ID_PROD=${{ steps.out.outputs.api_id }}"
-            else
-              echo "FINZ_API_ID_DEV=${{ steps.out.outputs.api_id }}"
-            fi
+            echo "FINZ_API_ID_DEV=${{ steps.out.outputs.api_id }}"
             echo '```'
             echo ""
             echo "Optional override for development (if not using FINZ_API_ID_DEV):"
