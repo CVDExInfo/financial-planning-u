@@ -14,19 +14,15 @@ if (!BASE) {
 }
 
 // Schemas
+// Schema aligned with /catalog/rubros API response
 export const RubroSchema = z.object({
-  id: z.string().optional(),
-  rubro_id: z.string().optional(),
-  code: z.string().optional(),
+  rubro_id: z.string(),
   nombre: z.string(),
   categoria: z.string().optional(),
   tipo_ejecucion: z.string().optional(),
   descripcion: z.string().optional(),
-  centro: z.string().optional(),
-  regla: z.string().optional(),
   linea_codigo: z.string().optional(), // Accounting line or cost center code
   tipo_costo: z.string().optional(), // Cost type (OPEX, CAPEX, etc.)
-  metadata: z.record(z.any()).optional(),
 });
 
 export const RubroListSchema = z.object({

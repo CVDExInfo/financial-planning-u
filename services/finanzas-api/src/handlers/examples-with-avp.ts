@@ -118,7 +118,15 @@ export const createAdjustmentHandler = async (event: APIGatewayProxyEventV2) => 
     { type: 'Finanzas::Adjustment', id: 'new' }
   );
 
-  const body = JSON.parse(event.body ?? '{}');
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(event.body ?? '{}');
+  } catch {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Invalid JSON in request body' })
+    };
+  }
   
   // TODO: Validate and create adjustment
   const adjustmentId = 'ADJ-' + Date.now();
@@ -157,7 +165,16 @@ export const listProvidersHandler = async (event: APIGatewayProxyEventV2) => {
  * Example 6: Close month operation (project-scoped)
  */
 export const closeMonthHandler = async (event: APIGatewayProxyEventV2) => {
-  const body = JSON.parse(event.body ?? '{}');
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(event.body ?? '{}');
+  } catch {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Invalid JSON in request body' })
+    };
+  }
+
   const projectId = body.projectId;
 
   if (!projectId) {
@@ -216,7 +233,16 @@ export const prefacturaWebhookHandler = async (event: APIGatewayProxyEventV2) =>
       body: JSON.stringify({ prefacturas: [] })
     };
   } else if (method === 'POST') {
-    const body = JSON.parse(event.body ?? '{}');
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(event.body ?? '{}');
+    } catch {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Invalid JSON in request body' })
+      };
+    }
+
     const action = body.action; // 'send' or 'approve'
 
     if (action === 'send') {

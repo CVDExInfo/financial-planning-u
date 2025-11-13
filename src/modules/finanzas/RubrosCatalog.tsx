@@ -57,8 +57,8 @@ export default function RubrosCatalog() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.rubro_id || (r as any).id || r.nombre} className="hover:bg-muted/50">
-                <Cell>{r.rubro_id || (r as any).id || "—"}</Cell>
+              <tr key={r.rubro_id || r.nombre} className="hover:bg-muted/50">
+                <Cell>{r.rubro_id || "—"}</Cell>
                 <Cell>{r.nombre}</Cell>
                 <Cell>{r.categoria || ""}</Cell>
                 <Cell>{r.linea_codigo || ""}</Cell>

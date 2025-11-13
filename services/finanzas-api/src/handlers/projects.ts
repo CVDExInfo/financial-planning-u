@@ -7,7 +7,17 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
   ensureSDT(event);
 
   if (event.requestContext.http.method === 'POST') {
-    const body = JSON.parse(event.body ?? '{}');
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(event.body ?? '{}');
+    } catch {
+      return {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Invalid JSON in request body' })
+      };
+    }
+
     const id = 'P-' + crypto.randomUUID();
     const now = new Date().toISOString();
 

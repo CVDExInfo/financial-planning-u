@@ -7,7 +7,17 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
   const id = event.pathParameters?.id;
   if (!id) return { statusCode: 400, body: 'missing project id' };
 
-  const body = JSON.parse(event.body ?? '{}');
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(event.body ?? '{}');
+  } catch {
+    return {
+      statusCode: 400,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Invalid JSON in request body' })
+    };
+  }
+
   const now = new Date().toISOString();
 
   const handoff = {
