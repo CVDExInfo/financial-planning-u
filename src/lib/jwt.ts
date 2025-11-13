@@ -23,6 +23,8 @@ export interface JWTClaims {
  * Decode JWT without verification (verify on backend only)
  * Use only for reading claims; always trust the server to validate signature
  *
+ * Browser-safe implementation using atob (no Node Buffer dependency)
+ *
  * @param token JWT string
  * @returns Decoded claims object
  * @throws Error if JWT format is invalid
@@ -34,9 +36,16 @@ export function decodeJWT(token: string): JWTClaims {
       throw new Error("Invalid JWT format: expected 3 parts");
     }
 
-    const decoded = JSON.parse(
-      Buffer.from(parts[1], "base64").toString("utf8")
-    );
+    const payload = parts[1];
+
+    // Convert base64url to base64
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    // Add padding if needed
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+
+    // Decode base64 to JSON string (browser-safe)
+    const json = atob(padded);
+    const decoded = JSON.parse(json);
 
     return decoded as JWTClaims;
   } catch (error) {

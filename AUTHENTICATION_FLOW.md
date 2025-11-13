@@ -32,9 +32,10 @@ The Finanzas application uses **AWS Cognito** for authentication with support fo
    - Helper functions for Hosted UI flows
 
 4. **JWT Utilities** (`src/lib/jwt.ts`)
-   - Token decoding and validation
+   - Token decoding and validation (browser-safe implementation)
    - Group-to-role mapping
    - Token refresh logic
+   - **Note**: JWT decoding uses `atob` and base64url normalization instead of Node's `Buffer` API to ensure compatibility in browser environments
 
 5. **Callback Handler** (`public/auth/callback.html`)
    - Processes OAuth redirect after Hosted UI login
@@ -144,6 +145,38 @@ The Cognito App Client must be configured with:
 - ALLOW_REFRESH_TOKEN_AUTH: Enabled (for token refresh)
 
 ## Token Management
+
+### Browser-Safe JWT Decoding
+
+**Important**: The JWT decoding implementation in `src/lib/jwt.ts` uses a browser-safe approach to avoid runtime errors.
+
+**Why**: Node.js's `Buffer` API is not available in browser environments. Using `Buffer.from()` in frontend code causes `Buffer is not defined` errors.
+
+**Solution**: The `decodeJWT()` function uses the browser's native `atob()` function with proper base64url-to-base64 conversion:
+
+```typescript
+export function decodeJWT(token: string): JWTClaims {
+  // Split JWT into [header, payload, signature]
+  const parts = token.split(".");
+  const payload = parts[1];
+  
+  // Convert base64url to standard base64
+  const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+  // Add padding if needed
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  
+  // Decode using browser-native atob (no Node Buffer needed)
+  const json = atob(padded);
+  return JSON.parse(json);
+}
+```
+
+**Key Points**:
+- JWTs use base64url encoding (RFC 4648), which differs from standard base64
+- The `-` and `_` characters must be converted to `+` and `/`
+- Padding (`=`) must be added if the string length is not a multiple of 4
+- This approach works in all modern browsers without polyfills
+- **No Node.js Buffer dependency required**
 
 ### Storage Keys
 
