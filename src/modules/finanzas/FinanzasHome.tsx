@@ -43,6 +43,24 @@ export default function FinanzasHome() {
             Vista previa de reglas MVP (driver percent, fixed, tickets, hours).
           </p>
         </Link>
+        <Link
+          to="/adjustments"
+          className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors block"
+        >
+          <h2 className="font-medium mb-1">Ajustes Presupuestarios</h2>
+          <p className="text-xs text-muted-foreground">
+            Gestionar excesos, reducciones y reasignaciones de presupuesto.
+          </p>
+        </Link>
+        <Link
+          to="/providers"
+          className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors block"
+        >
+          <h2 className="font-medium mb-1">Proveedores</h2>
+          <p className="text-xs text-muted-foreground">
+            Registrar y administrar proveedores y vendors del sistema.
+          </p>
+        </Link>
       </div>
       <section className="text-xs text-muted-foreground">
         <p>
