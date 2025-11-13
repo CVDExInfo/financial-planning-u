@@ -415,6 +415,14 @@ The API Gateway must have a Cognito authorizer configured:
 - **Cause**: Environment variable mismatch or CORS configuration
 - **Fix**: Verify VITE_* variables are set correctly for production build, check API Gateway CORS settings
 
+**Issue**: "Unexpected token '<'" or "Expected JSON, got HTML" error
+- **Cause**: API base URL is incorrect or pointing to a login page/CloudFront distribution instead of API Gateway
+- **Fix**: Verify `VITE_API_BASE_URL` points to the correct API Gateway URL (not CloudFront), ensure the API endpoint is accessible without authentication for public routes or with proper Bearer token for protected routes
+
+**Issue**: User not confirmed / Password reset required
+- **Cause**: Cognito user account in wrong state
+- **Fix**: Confirm user email via Cognito console or re-invite user; for password reset, use Cognito "Forgot Password" flow
+
 ### Debug Mode
 
 To enable detailed auth logging:
@@ -460,6 +468,30 @@ To add a new Cognito group → role mapping:
 - [OAuth 2.0 Implicit Grant Flow](https://oauth.net/2/grant-types/implicit/)
 - [JWT.io](https://jwt.io) - JWT decoder and debugger
 - Acta-UI reference implementation (shared Cognito setup)
+
+## Spark/KV Integration Removal
+
+**Status**: ✅ Fully Removed
+
+As of November 2025, all Spark and KV (Key-Value store) runtime dependencies have been completely removed from the Finanzas application. This change ensures the authentication and user data flows are exclusively Cognito-based.
+
+### What Was Removed
+
+1. **Spark Authentication Fallback**: The development-mode Spark authentication (`window.spark.user()`) has been removed from `AuthProvider.tsx`
+2. **Spark Dependencies**: The `@github/spark` npm package and all related Vite plugins have been removed
+3. **KV Service References**: All KV service URL declarations and user data fetching mechanisms have been removed
+4. **Spark UI Elements**: Any UI components or error messages referencing Spark have been updated
+
+### Current State
+
+- **Authentication**: 100% via AWS Cognito (Hosted UI or USER_PASSWORD_AUTH)
+- **User Data**: Sourced exclusively from Cognito ID token claims and localStorage
+- **Session Management**: JWT tokens stored in localStorage (`cv.jwt`, `finz_jwt`)
+- **No External Dependencies**: No runtime calls to Spark or KV services
+
+### Quality Gates & SDMT Cost Catalog
+
+Any "Quality Gates" functionality or features that previously relied on Spark integration are currently disabled or have been reimplemented using Cognito-based data sources. The SDMT Cost Catalog continues to function using local data and API endpoints without any Spark/KV dependencies.
 
 ---
 

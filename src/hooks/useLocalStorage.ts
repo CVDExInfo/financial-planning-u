@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, Dispatch, SetStateAction } from 'reac
 
 /**
  * Custom hook for persisting state to localStorage
- * Replacement for @github/spark useKV hook
  * 
  * @param key - localStorage key
  * @param defaultValue - default value if key doesn't exist

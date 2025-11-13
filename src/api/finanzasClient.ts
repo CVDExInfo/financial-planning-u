@@ -89,8 +89,16 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const ct = res.headers.get("content-type") || "";
   if (!ct.includes("application/json")) {
     const text = await res.text().catch(() => "");
+    // Check if response looks like HTML (common when API base URL is wrong or returns login page)
+    const isHTML = text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html");
+    if (isHTML) {
+      throw new Error(
+        `API returned HTML (likely login page or wrong endpoint) instead of JSON. ` +
+        `Check VITE_API_BASE_URL configuration. Content-Type: ${ct || "(none)"}`
+      );
+    }
     throw new Error(
-      `Expected JSON, got ${ct}. First bytes: ${text.slice(0, 80)}`
+      `Expected JSON, got ${ct || "(none)"}. First bytes: ${text.slice(0, 80)}`
     );
   }
   
