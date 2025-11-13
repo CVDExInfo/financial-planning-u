@@ -21,7 +21,10 @@ env:
   COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }} # required
   COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }} # required
   COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }} # required
-  EXPECTED_API_ID: ${{ vars.FINZ_EXPECTED_API_ID || 'm3g6am67aj' }}
+  # Per-environment API IDs for guard validation
+  FINZ_API_ID_DEV: ${{ vars.FINZ_API_ID_DEV || 'm3g6am67aj' }}
+  FINZ_API_ID_PROD: ${{ vars.FINZ_API_ID_PROD || '' }}
+  EXPECTED_API_ID: ${{ github.ref == 'refs/heads/main' && vars.FINZ_API_ID_PROD || vars.FINZ_API_ID_DEV || 'm3g6am67aj' }}
   POLICY_STORE_ID: ${{ vars.POLICY_STORE_ID || '' }} # optional, from AVP deployment
 
 jobs:
@@ -152,8 +155,15 @@ jobs:
         run: |
           set -euo pipefail
           HOST_ID=$(echo "${{ steps.out.outputs.api_url }}" | awk -F'[/.]' '{print $3}')
-          if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
-            echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID} from ${{ steps.out.outputs.api_url }}"; exit 1;
+
+          # Only enforce EXPECTED_API_ID when we actually have it (for dev and for prod after first deploy)
+          if [ -n "${EXPECTED_API_ID:-}" ]; then
+            if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
+              echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID} from ${{ steps.out.outputs.api_url }}"; exit 1;
+            fi
+            echo "✅ API ID matches expected: ${HOST_ID}"
+          else
+            echo "ℹ️  Skipping API ID check (EXPECTED_API_ID not set - likely first prod deploy)"
           fi
 
           echo "Verifying routes on API ${HOST_ID}..."
@@ -340,9 +350,19 @@ jobs:
             echo "  -d '{\"cliente\":\"Cliente Alpha\",\"nombre\":\"Proyecto A\",\"fecha_inicio\":\"2025-01-01\",\"fecha_fin\":\"2025-09-30\",\"moneda\":\"COP\"}' | jq ."
             echo '```'
             echo ""
-            echo "### Repository Variable for UI Deployment"
+            echo "### Repository Variables for UI Deployment"
             echo ""
-            echo "Add this to GitHub repository variables (Settings → Secrets and variables → Actions):"
+            echo "UI uses \`VITE_API_BASE_URL\` injected from \`FINZ_API_ID_<ENV>\` and stage."
+            echo "For the current deployment, add this to GitHub repository variables:"
+            echo '```'
+            if [ "${DEPLOYMENT_ENV}" = "prod" ]; then
+              echo "FINZ_API_ID_PROD=${{ steps.out.outputs.api_id }}"
+            else
+              echo "FINZ_API_ID_DEV=${{ steps.out.outputs.api_id }}"
+            fi
+            echo '```'
+            echo ""
+            echo "Optional override for development (if not using FINZ_API_ID_DEV):"
             echo '```'
             echo "DEV_API_URL=${{ steps.out.outputs.api_url }}"
             echo '```'
