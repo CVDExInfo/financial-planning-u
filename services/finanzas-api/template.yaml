@@ -719,9 +719,9 @@ Outputs:
     Description: HTTP API ID
     Value: !Ref Api
     Export:
-      Name: finz-api-id
+      Name: !Sub "finz-api-id-${StageName}"
   FinzApiUrl:
     Description: HTTP API URL
     Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
     Export:
-      Name: finz-api-url
+      Name: !Sub "finz-api-url-${StageName}"
