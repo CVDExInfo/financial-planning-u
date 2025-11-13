@@ -24,7 +24,6 @@ env:
   # Per-environment API IDs for guard validation
   FINZ_API_ID_DEV: ${{ vars.FINZ_API_ID_DEV || 'm3g6am67aj' }}
   FINZ_API_ID_PROD: ${{ vars.FINZ_API_ID_PROD || '' }}
-  EXPECTED_API_ID: ${{ github.ref == 'refs/heads/main' && vars.FINZ_API_ID_PROD || vars.FINZ_API_ID_DEV || 'm3g6am67aj' }}
   POLICY_STORE_ID: ${{ vars.POLICY_STORE_ID || '' }} # optional, from AVP deployment
 
 jobs:
@@ -46,7 +45,11 @@ jobs:
           echo "📦 Stack Name: ${FINZ_API_STACK}"
           echo "🔌 Stage: ${FINZ_API_STAGE}"
           echo "🌐 Region: ${AWS_REGION}"
-          echo "🔑 Expected API ID: ${EXPECTED_API_ID}"
+          if [ "${DEPLOYMENT_ENV}" = "prod" ]; then
+            echo "🔑 Expected API ID (prod): ${FINZ_API_ID_PROD:-<not set - first deploy>}"
+          else
+            echo "🔑 Expected API ID (dev): ${FINZ_API_ID_DEV}"
+          fi
           for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_USER_POOL_ARN; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ $k is empty"; exit 1; }
           done
@@ -156,14 +159,21 @@ jobs:
           set -euo pipefail
           HOST_ID=$(echo "${{ steps.out.outputs.api_url }}" | awk -F'[/.]' '{print $3}')
 
-          # Only enforce EXPECTED_API_ID when we actually have it (for dev and for prod after first deploy)
-          if [ -n "${EXPECTED_API_ID:-}" ]; then
-            if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
-              echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID} from ${{ steps.out.outputs.api_url }}"; exit 1;
-            fi
-            echo "✅ API ID matches expected: ${HOST_ID}"
+          if [ "${DEPLOYMENT_ENV}" = "prod" ] && [ -z "${FINZ_API_ID_PROD:-}" ]; then
+            echo "ℹ️  Skipping API ID check for first prod deploy (FINZ_API_ID_PROD not set)"
           else
-            echo "ℹ️  Skipping API ID check (EXPECTED_API_ID not set - likely first prod deploy)"
+            # For dev, we always enforce; for prod, we enforce once FINZ_API_ID_PROD is set.
+            if [ "${DEPLOYMENT_ENV}" = "prod" ]; then
+              EXPECTED="${FINZ_API_ID_PROD}"
+            else
+              EXPECTED="${FINZ_API_ID_DEV}"
+            fi
+
+            if [ -n "${EXPECTED:-}" ] && [ "$HOST_ID" != "$EXPECTED" ]; then
+              echo "❌ Expected API id ${EXPECTED}, got ${HOST_ID} from ${{ steps.out.outputs.api_url }}"; exit 1;
+            fi
+
+            echo "✅ API ID matches expected: ${HOST_ID}"
           fi
 
           echo "Verifying routes on API ${HOST_ID}..."
@@ -307,7 +317,11 @@ jobs:
             echo "| Stage | ${FINZ_API_STAGE} |"
             echo "| API ID | ${{ steps.out.outputs.api_id }} |"
             echo "| API URL | ${{ steps.out.outputs.api_url }} |"
-            echo "| Expected API ID | ${EXPECTED_API_ID} |"
+            if [ "${DEPLOYMENT_ENV}" = "prod" ]; then
+              echo "| Expected API ID (prod) | ${FINZ_API_ID_PROD:-<not set - first deploy>} |"
+            else
+              echo "| Expected API ID (dev) | ${FINZ_API_ID_DEV} |"
+            fi
             echo "| AVP Enabled | ${{ steps.avp_check.outputs.avp_enabled || 'false' }} |"
             if [ -n "${POLICY_STORE_ID:-}" ]; then
               echo "| Policy Store ID | ${POLICY_STORE_ID} |"
