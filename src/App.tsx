@@ -24,6 +24,7 @@ import SDMTCatalog from "@/features/sdmt/cost/Catalog/SDMTCatalog";
 import RubrosCatalog from "@/modules/finanzas/RubrosCatalog";
 import AllocationRulesPreview from "@/modules/finanzas/AllocationRulesPreview";
 import FinanzasHome from "./modules/finanzas/FinanzasHome";
+import ProjectsManager from "@/modules/finanzas/ProjectsManager";
 import SDMTForecast from "@/features/sdmt/cost/Forecast/SDMTForecast";
 import SDMTReconciliation from "@/features/sdmt/cost/Reconciliation/SDMTReconciliation";
 import SDMTCashflow from "@/features/sdmt/cost/Cashflow/SDMTCashflow";
@@ -108,6 +109,7 @@ function AppContent() {
               {import.meta.env.VITE_FINZ_ENABLED === "true" && (
                 <>
                   {/* Finanzas routes (relative to basename /finanzas) */}
+                  <Route path="/projects" element={<ProjectsManager />} />
                   <Route path="/catalog/rubros" element={<RubrosCatalog />} />
                   <Route path="/rules" element={<AllocationRulesPreview />} />
                 </>
