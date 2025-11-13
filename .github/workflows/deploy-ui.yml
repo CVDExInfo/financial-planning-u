@@ -95,6 +95,16 @@ jobs:
           BUILD_TARGET=pmo npm run build || { echo "❌ PMO build failed"; exit 1; }
           echo "✅ PMO Portal built → dist-pmo/"
 
+      # ---- Guard: PMO build artifacts ----
+      - name: Guard - PMO build artifacts
+        run: |
+          set -euo pipefail
+          if grep -R -nE 'src="/finanzas/assets/|href="/finanzas/assets/' dist-pmo/index.html; then
+            echo "❌ dist-pmo/index.html points to /finanzas/assets/* (PMO must use /assets/*)";
+            exit 1;
+          fi
+          echo "✅ PMO build artifacts look good"
+
       # ---- Build Finanzas (/finanzas) ----
       - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
