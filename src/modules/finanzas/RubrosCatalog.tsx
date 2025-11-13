@@ -48,8 +48,16 @@ export default function RubrosCatalog() {
     (async () => {
       try {
         setLoading(true);
+        if (import.meta.env.DEV) {
+          console.log("[RubrosCatalog] Fetching rubros from API...");
+        }
         const data = await finanzasClient.getRubros();
-        if (!cancelled) setRows(data);
+        if (!cancelled) {
+          setRows(data);
+          if (import.meta.env.DEV) {
+            console.log(`[RubrosCatalog] Loaded ${data.length} rubros from API`);
+          }
+        }
       } catch (e: any) {
         console.error(e);
         if (!cancelled) setError(e?.message || "No se pudo cargar el catálogo");

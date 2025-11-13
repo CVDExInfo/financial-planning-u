@@ -6,6 +6,11 @@ const BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 // For production, tokens are obtained via OAuth
 const STATIC_TEST_TOKEN = import.meta.env.VITE_API_JWT_TOKEN || "";
 
+// Debug logging for dev mode
+if (import.meta.env.DEV) {
+  console.log("[Finanzas Client] VITE_API_BASE_URL:", BASE || "(not set)");
+}
+
 if (!BASE) {
   // Non-fatal in dev; API client will throw on call
   console.warn(
