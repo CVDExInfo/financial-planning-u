@@ -12,9 +12,9 @@
     "seed:taxonomy": "ts-node --project ../../tsconfig.node.json ../../scripts/ts-seeds/seed_rubros_taxonomia.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.637.0",
+    "@aws-sdk/client-dynamodb": "^3.931.0",
     "@aws-sdk/client-verifiedpermissions": "^3.637.0",
-    "@aws-sdk/lib-dynamodb": "^3.637.0"
+    "@aws-sdk/lib-dynamodb": "^3.931.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.129",

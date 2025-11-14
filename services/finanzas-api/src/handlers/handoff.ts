@@ -1,6 +1,6 @@
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { ensureSDT } from '../lib/auth';
-import { ddb, tableName } from '../lib/dynamo';
+import { ddb, tableName, PutCommand } from '../lib/dynamo';
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   ensureSDT(event);
@@ -30,7 +30,10 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     ts: now
   };
 
-  await ddb.put({ TableName: tableName('projects'), Item: handoff }).promise();
+  await ddb.send(new PutCommand({
+    TableName: tableName('projects'),
+    Item: handoff
+  }));
 
   // audit
   const audit = {
@@ -40,7 +43,15 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     before: null,
     after: handoff
   };
-  await ddb.put({ TableName: tableName('audit_log'), Item: audit }).promise();
+  
+  await ddb.send(new PutCommand({
+    TableName: tableName('audit_log'),
+    Item: audit
+  }));
 
-  return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+  return { 
+    statusCode: 200, 
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ok: true }) 
+  };
 };

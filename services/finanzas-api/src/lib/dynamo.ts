@@ -1,14 +1,28 @@
-import AWS from "aws-sdk";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-const client = new DynamoDBClient({});
-export const ddb = DynamoDBDocumentClient.from(client);
+import { 
+  DynamoDBDocumentClient,
+  PutCommand,
+  GetCommand,
+  QueryCommand,
+  ScanCommand,
+  UpdateCommand,
+  DeleteCommand
+} from "@aws-sdk/lib-dynamodb";
+
+const client = new DynamoDBClient({ region: process.env.AWS_REGION || "us-east-2" });
+export const ddb = DynamoDBDocumentClient.from(client, {
+  marshallOptions: {
+    removeUndefinedValues: true,
+    convertClassInstanceToMap: true
+  }
+});
 
 const env = process.env;
 
 type TableKey =
   | "projects"
   | "rubros"
+  | "rubros_taxonomia"
   | "allocations"
   | "payroll_actuals"
   | "adjustments"
@@ -17,12 +31,19 @@ type TableKey =
   | "audit_log";
 
 // Conservative defaults to reduce hard failures if env wiring is missing.
-// We only default 'rubros' for R1 to unblock catalog; others still require explicit env to avoid accidental misuse.
-const FALLBACKS: Partial<Record<TableKey, string>> = {
+const FALLBACKS: Record<TableKey, string> = {
+  projects: "finz_projects",
   rubros: "finz_rubros",
+  rubros_taxonomia: "finz_rubros_taxonomia",
+  allocations: "finz_allocations",
+  payroll_actuals: "finz_payroll_actuals",
+  adjustments: "finz_adjustments",
+  alerts: "finz_alerts",
+  providers: "finz_providers",
+  audit_log: "finz_audit_log"
 };
 
-export const tableName = (key: TableKey) => {
+export const tableName = (key: TableKey): string => {
   const envKey = `TABLE_${key.toUpperCase()}`;
   const name = env[envKey] || FALLBACKS[key];
   if (!name) {
@@ -30,3 +51,6 @@ export const tableName = (key: TableKey) => {
   }
   return name;
 };
+
+// Export commands for convenience
+export { PutCommand, GetCommand, QueryCommand, ScanCommand, UpdateCommand, DeleteCommand };

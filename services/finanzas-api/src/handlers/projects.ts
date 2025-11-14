@@ -1,6 +1,6 @@
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { ensureSDT } from '../lib/auth';
-import { ddb, tableName } from '../lib/dynamo';
+import { ddb, tableName, PutCommand, ScanCommand } from '../lib/dynamo';
 import crypto from 'node:crypto';
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
@@ -24,19 +24,39 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const item = {
       pk: `PROJECT#${id}`,
       sk: 'METADATA',
+      id,
       cliente: body.cliente,
       nombre: body.nombre,
       fecha_inicio: body.fecha_inicio,
       fecha_fin: body.fecha_fin,
       moneda: body.moneda,
-      created_at: now
+      presupuesto_total: body.presupuesto_total || 0,
+      estado: 'active',
+      created_at: now,
+      created_by: event.requestContext.authorizer?.jwt?.claims?.email || 'system'
     };
-    await ddb.put({ TableName: tableName('projects'), Item: item }).promise();
+    
+    await ddb.send(new PutCommand({
+      TableName: tableName('projects'),
+      Item: item
+    }));
 
-    return { statusCode: 201, body: JSON.stringify({ id, ...item }) };
+    return { 
+      statusCode: 201, 
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...item }) 
+    };
   }
 
   // GET /projects
-  const items = await ddb.scan({ TableName: tableName('projects'), Limit: 50 }).promise();
-  return { statusCode: 200, body: JSON.stringify(items.Items ?? []) };
+  const result = await ddb.send(new ScanCommand({
+    TableName: tableName('projects'),
+    Limit: 50
+  }));
+  
+  return { 
+    statusCode: 200, 
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(result.Items ?? []) 
+  };
 };
