@@ -50,6 +50,23 @@ export function SDMTCatalog() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<LineItem | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  
+  // Form state for Add/Edit Line Item dialog
+  const [formData, setFormData] = useState({
+    category: '',
+    subtype: '',
+    description: '',
+    qty: 1,
+    unit_cost: 0,
+    currency: 'USD',
+    start_month: 1,
+    end_month: 12,
+    recurring: false
+  });
+  
   const { selectedProjectId, currentProject, projectChangeCount } = useProject();
 
   // Use the new permissions system
@@ -170,6 +187,132 @@ export function SDMTCatalog() {
       toast.dismiss();
       toast.error('Failed to generate professional report');
       console.error('Share error:', error);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      category: '',
+      subtype: '',
+      description: '',
+      qty: 1,
+      unit_cost: 0,
+      currency: 'USD',
+      start_month: 1,
+      end_month: 12,
+      recurring: false
+    });
+  };
+
+  const handleSubmitLineItem = async () => {
+    // Validation
+    if (!formData.category || !formData.description || formData.unit_cost <= 0) {
+      toast.error('Please fill in all required fields (category, description, unit cost)');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      
+      const newItem: Partial<LineItem> = {
+        category: formData.category,
+        subtype: formData.subtype,
+        description: formData.description,
+        qty: formData.qty,
+        unit_cost: formData.unit_cost,
+        currency: formData.currency,
+        recurring: formData.recurring,
+        one_time: !formData.recurring,
+        start_month: formData.start_month,
+        end_month: formData.end_month,
+        capex_flag: false,
+        vendor: '',
+        created_by: currentRole
+      };
+
+      const created = await ApiService.createLineItem(selectedProjectId, newItem);
+      
+      setLineItems(prev => [...prev, created]);
+      toast.success('Line item added successfully');
+      setIsAddDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      toast.error('Failed to add line item');
+      console.error('Add line item error:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditClick = (item: LineItem) => {
+    setEditingItem(item);
+    setFormData({
+      category: item.category,
+      subtype: item.subtype || '',
+      description: item.description,
+      qty: item.qty,
+      unit_cost: item.unit_cost,
+      currency: item.currency,
+      start_month: item.start_month,
+      end_month: item.end_month,
+      recurring: item.recurring || false
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateLineItem = async () => {
+    if (!editingItem) return;
+    
+    if (!formData.category || !formData.description || formData.unit_cost <= 0) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      
+      // Merge form data with existing item to preserve all properties
+      const updatedData: Partial<LineItem> = {
+        ...editingItem,
+        category: formData.category,
+        subtype: formData.subtype,
+        description: formData.description,
+        qty: formData.qty,
+        unit_cost: formData.unit_cost,
+        currency: formData.currency,
+        start_month: formData.start_month,
+        end_month: formData.end_month,
+        recurring: formData.recurring,
+        one_time: !formData.recurring
+      };
+      
+      const updated = await ApiService.updateLineItem(editingItem.id, updatedData);
+      setLineItems(prev => prev.map(item => item.id === editingItem.id ? updated : item));
+      toast.success('Line item updated successfully');
+      setIsEditDialogOpen(false);
+      setEditingItem(null);
+      resetForm();
+    } catch (error) {
+      toast.error('Failed to update line item');
+      console.error('Update error:', error);
+      console.error('Update line item error:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteClick = async (item: LineItem) => {
+    if (!confirm(`Are you sure you want to delete "${item.description}"?`)) {
+      return;
+    }
+    
+    try {
+      await ApiService.deleteLineItem(item.id);
+      setLineItems(prev => prev.filter(i => i.id !== item.id));
+      toast.success('Line item deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete line item');
+      console.error('Delete line item error:', error);
     }
   };
 
@@ -320,8 +463,11 @@ export function SDMTCatalog() {
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label>Category</label>
-                      <Select>
+                      <label>Category *</label>
+                      <Select 
+                        value={formData.category} 
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
@@ -330,35 +476,62 @@ export function SDMTCatalog() {
                           <SelectItem value="Infrastructure">Infrastructure</SelectItem>
                           <SelectItem value="Software">Software</SelectItem>
                           <SelectItem value="Professional Services">Professional Services</SelectItem>
+                          <SelectItem value="Support">Support</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <label>Subtype</label>
-                      <Input placeholder="e.g., Development" />
+                      <Input 
+                        value={formData.subtype}
+                        onChange={(e) => setFormData(prev => ({ ...prev, subtype: e.target.value }))}
+                        placeholder="e.g., Development" 
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label>Description</label>
-                    <Input placeholder="Detailed description of the line item" />
+                    <label>Description *</label>
+                    <Input 
+                      value={formData.description}
+                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Detailed description of the line item" 
+                    />
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label>Quantity</label>
-                      <Input type="number" placeholder="1" />
+                      <Input 
+                        type="number" 
+                        value={formData.qty}
+                        onChange={(e) => setFormData(prev => ({ ...prev, qty: parseInt(e.target.value) || 1 }))}
+                        min="1"
+                        placeholder="1" 
+                      />
                     </div>
                     <div className="space-y-2">
-                      <label>Unit Cost</label>
-                      <Input type="number" placeholder="0.00" />
+                      <label>Unit Cost *</label>
+                      <Input 
+                        type="number" 
+                        value={formData.unit_cost}
+                        onChange={(e) => setFormData(prev => ({ ...prev, unit_cost: parseFloat(e.target.value) || 0 }))}
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00" 
+                      />
                     </div>
                     <div className="space-y-2">
                       <label>Currency</label>
-                      <Select>
+                      <Select 
+                        value={formData.currency}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}
+                      >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="MXN">MXN</SelectItem>
                           <SelectItem value="COP">COP</SelectItem>
                         </SelectContent>
                       </Select>
@@ -366,19 +539,127 @@ export function SDMTCatalog() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  <Button variant="outline" onClick={() => {
+                    setIsAddDialogOpen(false);
+                    resetForm();
+                  }} disabled={submitting}>
                     Cancel
                   </Button>
-                  <Button onClick={() => {
-                    toast.success('Line item added successfully');
-                    setIsAddDialogOpen(false);
-                  }}>
-                    Add Line Item
+                  <Button onClick={handleSubmitLineItem} disabled={submitting}>
+                    {submitting ? 'Adding...' : 'Add Line Item'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
             </Protected>
+            
+            {/* Edit Line Item Dialog */}
+            <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+              setIsEditDialogOpen(open);
+              if (!open) {
+                setEditingItem(null);
+                resetForm();
+              }
+            }}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Edit Line Item</DialogTitle>
+                  <DialogDescription>
+                    Update the cost line item details
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label>Category *</label>
+                      <Select 
+                        value={formData.category} 
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Labor">Labor</SelectItem>
+                          <SelectItem value="Infrastructure">Infrastructure</SelectItem>
+                          <SelectItem value="Software">Software</SelectItem>
+                          <SelectItem value="Professional Services">Professional Services</SelectItem>
+                          <SelectItem value="Support">Support</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label>Subtype</label>
+                      <Input 
+                        value={formData.subtype}
+                        onChange={(e) => setFormData(prev => ({ ...prev, subtype: e.target.value }))}
+                        placeholder="e.g., Development" 
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label>Description *</label>
+                    <Input 
+                      value={formData.description}
+                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Detailed description of the line item" 
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label>Quantity</label>
+                      <Input 
+                        type="number" 
+                        value={formData.qty}
+                        onChange={(e) => setFormData(prev => ({ ...prev, qty: parseInt(e.target.value) || 1 }))}
+                        min="1"
+                        placeholder="1" 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label>Unit Cost *</label>
+                      <Input 
+                        type="number" 
+                        value={formData.unit_cost}
+                        onChange={(e) => setFormData(prev => ({ ...prev, unit_cost: parseFloat(e.target.value) || 0 }))}
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00" 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label>Currency</label>
+                      <Select 
+                        value={formData.currency}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="MXN">MXN</SelectItem>
+                          <SelectItem value="COP">COP</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingItem(null);
+                    resetForm();
+                  }} disabled={submitting}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleUpdateLineItem} disabled={submitting}>
+                    {submitting ? 'Updating...' : 'Update Line Item'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardContent>
       </Card>
@@ -387,14 +668,14 @@ export function SDMTCatalog() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold">{filteredItems.length}</div>
+            <div className="text-2xl font-bold">{lineItems.length}</div>
             <p className="text-sm text-muted-foreground">Total Line Items</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">
-              {formatCurrency(filteredItems.reduce((sum, item) => sum + calculateTotalCost(item), 0), 'USD')}
+              {formatCurrency(lineItems.reduce((sum, item) => sum + calculateTotalCost(item), 0), 'USD')}
             </div>
             <p className="text-sm text-muted-foreground">Total Estimated Cost</p>
           </CardContent>
@@ -408,7 +689,7 @@ export function SDMTCatalog() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">
-              {filteredItems.filter(item => item.recurring).length}
+              {lineItems.filter(item => item.recurring).length}
             </div>
             <p className="text-sm text-muted-foreground">Recurring Items</p>
           </CardContent>
@@ -498,12 +779,23 @@ export function SDMTCatalog() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Protected action="update">
-                            <Button variant="ghost" size="sm">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleEditClick(item)}
+                              title="Edit line item"
+                            >
                               <Edit size={16} />
                             </Button>
                           </Protected>
                           <Protected action="delete">
-                            <Button variant="ghost" size="sm" className="text-destructive">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-destructive"
+                              onClick={() => handleDeleteClick(item)}
+                              title="Delete line item"
+                            >
                               <Trash2 size={16} />
                             </Button>
                           </Protected>

@@ -150,37 +150,67 @@ export class ApiService {
     return baseline.line_items;
   }
 
-  static async createLineItem(lineItem: Omit<LineItem, 'id' | 'created_at' | 'updated_at' | 'created_by'>): Promise<LineItem> {
+  // Line Items
+  static async createLineItem(projectId: string, lineItem: Partial<LineItem>): Promise<LineItem> {
     await this.delay(300);
-    const now = new Date().toISOString();
-    return {
-      id: `item_${Date.now()}`,
-      created_at: now,
-      updated_at: now,
-      created_by: 'sdmt-user@enterprise.com',
-      ...lineItem
+    const newItem: LineItem = {
+      id: `LI-${Date.now()}`,
+      category: lineItem.category || 'Other',
+      subtype: lineItem.subtype,
+      vendor: lineItem.vendor || '',
+      description: lineItem.description || '',
+      one_time: lineItem.one_time ?? true,
+      recurring: lineItem.recurring ?? false,
+      qty: lineItem.qty || 1,
+      unit_cost: lineItem.unit_cost || 0,
+      currency: lineItem.currency || 'USD',
+      start_month: lineItem.start_month || 1,
+      end_month: lineItem.end_month || 12,
+      amortization: lineItem.amortization || 'none',
+      capex_flag: lineItem.capex_flag ?? false,
+      cost_center: lineItem.cost_center,
+      gl_code: lineItem.gl_code,
+      indexation_policy: lineItem.indexation_policy || 'none',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: lineItem.created_by || 'system'
     };
+    return newItem;
   }
 
-  static async updateLineItem(id: string, updates: Partial<LineItem>): Promise<LineItem> {
+  static async updateLineItem(itemId: string, updates: Partial<LineItem>): Promise<LineItem> {
     await this.delay(300);
-    const baseline = baselineData as BaselineBudget;
-    const existingItem = baseline.line_items.find(item => item.id === id);
-    
-    if (!existingItem) {
-      throw new Error(`LineItem with id ${id} not found`);
-    }
-
-    return {
-      ...existingItem,
-      ...updates,
-      updated_at: new Date().toISOString()
+    // In real app, fetch existing item first, then merge updates
+    // For mock, we construct a complete LineItem with updates
+    const updatedItem: LineItem = {
+      id: itemId,
+      category: updates.category || 'Other',
+      subtype: updates.subtype || '',
+      vendor: updates.vendor || '',
+      description: updates.description || '',
+      one_time: updates.one_time ?? true,
+      recurring: updates.recurring ?? false,
+      qty: updates.qty ?? 1,
+      unit_cost: updates.unit_cost ?? 0,
+      currency: updates.currency || 'USD',
+      start_month: updates.start_month ?? 1,
+      end_month: updates.end_month ?? 12,
+      amortization: updates.amortization || 'none',
+      capex_flag: updates.capex_flag ?? false,
+      cost_center: updates.cost_center,
+      gl_code: updates.gl_code,
+      indexation_policy: updates.indexation_policy || 'none',
+      created_at: updates.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: updates.created_by || 'system'
     };
+    return updatedItem;
   }
 
-  static async deleteLineItem(id: string): Promise<void> {
+  static async deleteLineItem(itemId: string): Promise<void> {
     await this.delay(200);
-    // Mock deletion - in real API would remove from database
+    // In a real implementation, this would delete from backend
+    console.log(`Deleted line item: ${itemId}`);
   }
 
   // Forecast Management

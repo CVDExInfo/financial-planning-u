@@ -1,6 +1,7 @@
 // Core domain types for Financial Planning & Management UI
 
-export type Currency = 'USD' | 'COP';
+// Currency type - ISO codes for supported currencies
+export type Currency = 'USD' | 'EUR' | 'MXN' | 'COP';
 export type FXPair = 'USD/COP';
 export type AmortizationType = 'none' | 'straight_line' | 'custom';
 export type IndexationPolicy = 'none' | 'CPI' | 'min_wage';
