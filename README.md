@@ -229,6 +229,28 @@ aws cloudfront create-invalidation \
 
 Tip: There’s a helper script to create the S3 bucket with recommended policies: `scripts/create-s3-bucket.sh`.
 
+### Deployment Verification
+
+Before merging deployment changes (especially PR #126), run the pre-merge verification script:
+
+```bash
+# Verify dev environment
+./scripts/verify-pr126-checklist.sh --stage dev
+
+# Verify prod environment
+./scripts/verify-pr126-checklist.sh --stage prod
+```
+
+This script checks:
+- Repository variables are configured correctly
+- CloudFront function (`finanzas-path-rewrite`) is attached to all `/finanzas*` behaviors
+- CloudFront origin has empty `OriginPath` (critical for correct S3 routing)
+- S3 bucket structure is correct
+- API endpoint is accessible
+- Build artifacts do not contain PMO-specific files (e.g., `aws-exports.js`)
+
+See [PR126_CHECKLIST.md](./PR126_CHECKLIST.md) for detailed requirements and troubleshooting.
+
 ## Pathing and SPA routing
 
 The app is hard-configured for the `/finanzas` base path:
