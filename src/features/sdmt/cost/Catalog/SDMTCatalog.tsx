@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { COST_CATEGORIES, getCategoryByCode } from "@/data/cost-categories";
 import {
   Table,
   TableBody,
@@ -11,7 +12,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -20,101 +21,131 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Plus, Search, Edit, Trash2, Share, Download, Package, Star } from 'lucide-react';
-import { usePermissions } from '@/hooks/usePermissions';
-import { useProject } from '@/contexts/ProjectContext';
-import Protected from '@/components/Protected';
-import ModuleBadge from '@/components/ModuleBadge';
-import { ServiceTierSelector } from '@/components/ServiceTierSelector';
-import DataContainer from '@/components/DataContainer';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import { toast } from 'sonner';
-import type { LineItem, BaselineBudget } from '@/types/domain';
-import ApiService from '@/lib/api';
-import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
-import { PDFExporter, formatReportCurrency } from '@/lib/pdf-export';
-import { createServiceLineItem } from '@/lib/pricing-calculator';
+} from "@/components/ui/select";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Share,
+  Download,
+  Package,
+  Star,
+} from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useProject } from "@/contexts/ProjectContext";
+import Protected from "@/components/Protected";
+import ModuleBadge from "@/components/ModuleBadge";
+import { ServiceTierSelector } from "@/components/ServiceTierSelector";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { toast } from "sonner";
+import type { LineItem, BaselineBudget, Currency } from "@/types/domain";
+import ApiService from "@/lib/api";
+import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
+import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
+import { createServiceLineItem } from "@/lib/pricing-calculator";
 
 export function SDMTCatalog() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<LineItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  
+
   // Form state for Add/Edit Line Item dialog
   const [formData, setFormData] = useState({
-    category: '',
-    subtype: '',
-    description: '',
+    category: "",
+    categoryCode: "",
+    subtype: "",
+    lineItemCode: "",
+    description: "",
     qty: 1,
     unit_cost: 0,
-    currency: 'USD',
+    currency: "USD",
     start_month: 1,
     end_month: 12,
-    recurring: false
+    recurring: false,
   });
-  
-  const { selectedProjectId, currentProject, projectChangeCount } = useProject();
+
+  const { selectedProjectId, currentProject, projectChangeCount } =
+    useProject();
 
   // Use the new permissions system
-  const { canCreate, canUpdate, canDelete, isReadOnly, currentRole } = usePermissions();
+  const { isReadOnly, currentRole } =
+    usePermissions();
 
-  // Load data when project changes
-  useEffect(() => {
-    if (selectedProjectId) {
-      console.log('📂 Catalog: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
-      loadLineItems();
-    }
-  }, [selectedProjectId, projectChangeCount]);
-
-  const loadLineItems = async () => {
+  const loadLineItems = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('📂 Catalog: Loading line items for project:', selectedProjectId);
+      console.log(
+        "📂 Catalog: Loading line items for project:",
+        selectedProjectId
+      );
       const items = await ApiService.getLineItems(selectedProjectId);
-      console.log('📂 Raw line items received:', items.length, 'items');
-      console.log('📂 Sample catalog items:', items.slice(0, 3).map(item => ({ 
-        id: item.id, 
-        description: item.description, 
-        category: item.category,
-        unit_cost: item.unit_cost 
-      })));
-      
+      console.log("📂 Raw line items received:", items.length, "items");
+      console.log(
+        "📂 Sample catalog items:",
+        items.slice(0, 3).map((item) => ({
+          id: item.id,
+          description: item.description,
+          category: item.category,
+          unit_cost: item.unit_cost,
+        }))
+      );
+
       setLineItems(items);
-      console.log('✅ Catalog data updated for project:', selectedProjectId);
+      console.log("✅ Catalog data updated for project:", selectedProjectId);
     } catch (error) {
-      toast.error('Failed to load line items');
+      toast.error("Failed to load line items");
       console.error(error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedProjectId]);
 
-  const filteredItems = lineItems.filter(item => {
-    const matchesSearch = item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
+  // Load data when project changes
+  useEffect(() => {
+    const loadData = async () => {
+      if (selectedProjectId) {
+        console.log(
+          "📂 Catalog: Loading data for project:",
+          selectedProjectId,
+          "change count:",
+          projectChangeCount
+        );
+        await loadLineItems();
+      }
+    };
+    loadData();
+  }, [selectedProjectId, projectChangeCount, loadLineItems]);
+
+  const filteredItems = lineItems.filter((item) => {
+    const matchesSearch =
+      item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory =
+      categoryFilter === "all" || item.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
-  const categories = Array.from(new Set(lineItems.map(item => item.category)));
+  const categories = Array.from(
+    new Set(lineItems.map((item) => item.category))
+  );
 
   const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
       currency,
       minimumFractionDigits: 0,
     }).format(amount);
@@ -128,117 +159,139 @@ export function SDMTCatalog() {
 
   const handleShare = async () => {
     try {
-      toast.loading('Generating professional report...');
-      
-      const totalCost = filteredItems.reduce((sum, item) => sum + calculateTotalCost(item), 0);
+      toast.loading("Generating professional report...");
+
+      const totalCost = filteredItems.reduce(
+        (sum, item) => sum + calculateTotalCost(item),
+        0
+      );
       const laborCost = filteredItems
-        .filter(item => item.category === 'Labor')
+        .filter((item) => item.category === "Labor")
         .reduce((sum, item) => sum + calculateTotalCost(item), 0);
       const nonLaborCost = totalCost - laborCost;
-      
+
       const reportData = {
-        title: 'Cost Catalog Summary',
-        subtitle: 'Project Cost Structure Analysis',
+        title: "Cost Catalog Summary",
+        subtitle: "Project Cost Structure Analysis",
         generated: new Date().toLocaleDateString(),
         metrics: [
           {
-            label: 'Total Line Items',
+            label: "Total Line Items",
             value: filteredItems.length.toString(),
-            color: '#64748b'
+            color: "#64748b",
           },
           {
-            label: 'Total Estimated Cost',
+            label: "Total Estimated Cost",
             value: formatReportCurrency(totalCost),
-            color: '#2BB673'
+            color: "#2BB673",
           },
           {
-            label: 'Labor Costs',
+            label: "Labor Costs",
             value: formatReportCurrency(laborCost),
             change: `${((laborCost / totalCost) * 100).toFixed(1)}% of total`,
-            changeType: 'neutral' as const,
-            color: '#14B8A6'
+            changeType: "neutral" as const,
+            color: "#14B8A6",
           },
           {
-            label: 'Non-Labor Costs',
+            label: "Non-Labor Costs",
             value: formatReportCurrency(nonLaborCost),
-            change: `${((nonLaborCost / totalCost) * 100).toFixed(1)}% of total`,
-            changeType: 'neutral' as const,
-            color: '#f59e0b'
-          }
+            change: `${((nonLaborCost / totalCost) * 100).toFixed(
+              1
+            )}% of total`,
+            changeType: "neutral" as const,
+            color: "#f59e0b",
+          },
         ],
         summary: [
           `Cost catalog contains ${filteredItems.length} line items across ${categories.length} categories`,
-          `Labor costs represent ${((laborCost / totalCost) * 100).toFixed(1)}% of total budget`,
-          `${filteredItems.filter(item => item.recurring).length} recurring cost items identified`,
-          `${filteredItems.filter(item => item.capex_flag).length} items flagged as capital expenditure`
+          `Labor costs represent ${((laborCost / totalCost) * 100).toFixed(
+            1
+          )}% of total budget`,
+          `${
+            filteredItems.filter((item) => item.recurring).length
+          } recurring cost items identified`,
+          `${
+            filteredItems.filter((item) => item.capex_flag).length
+          } items flagged as capital expenditure`,
         ],
         recommendations: [
-          'Review recurring items for potential optimization opportunities',
-          'Validate vendor quotes for significant non-labor items',
-          'Consider bundling similar services for better pricing',
-          'Establish clear cost center mappings for accurate tracking'
-        ]
+          "Review recurring items for potential optimization opportunities",
+          "Validate vendor quotes for significant non-labor items",
+          "Consider bundling similar services for better pricing",
+          "Establish clear cost center mappings for accurate tracking",
+        ],
       };
 
       await PDFExporter.exportToPDF(reportData);
       toast.dismiss();
-      toast.success('Professional catalog report generated!');
+      toast.success("Professional catalog report generated!");
     } catch (error) {
       toast.dismiss();
-      toast.error('Failed to generate professional report');
-      console.error('Share error:', error);
+      toast.error("Failed to generate professional report");
+      console.error("Share error:", error);
     }
   };
 
   const resetForm = () => {
     setFormData({
-      category: '',
-      subtype: '',
-      description: '',
+      category: "",
+      categoryCode: "",
+      subtype: "",
+      lineItemCode: "",
+      description: "",
       qty: 1,
       unit_cost: 0,
-      currency: 'USD',
+      currency: "USD",
       start_month: 1,
       end_month: 12,
-      recurring: false
+      recurring: false,
     });
   };
 
   const handleSubmitLineItem = async () => {
     // Validation
-    if (!formData.category || !formData.description || formData.unit_cost <= 0) {
-      toast.error('Please fill in all required fields (category, description, unit cost)');
+    if (
+      !formData.category ||
+      !formData.description ||
+      formData.unit_cost <= 0
+    ) {
+      toast.error(
+        "Please fill in all required fields (category, description, unit cost)"
+      );
       return;
     }
 
     try {
       setSubmitting(true);
-      
+
       const newItem: Partial<LineItem> = {
         category: formData.category,
         subtype: formData.subtype,
         description: formData.description,
         qty: formData.qty,
         unit_cost: formData.unit_cost,
-        currency: formData.currency,
+        currency: formData.currency as Currency,
         recurring: formData.recurring,
         one_time: !formData.recurring,
         start_month: formData.start_month,
         end_month: formData.end_month,
         capex_flag: false,
-        vendor: '',
-        created_by: currentRole
+        vendor: "",
+        created_by: currentRole,
       };
 
-      const created = await ApiService.createLineItem(selectedProjectId, newItem);
-      
-      setLineItems(prev => [...prev, created]);
-      toast.success('Line item added successfully');
+      const created = await ApiService.createLineItem(
+        selectedProjectId,
+        newItem
+      );
+
+      setLineItems((prev) => [...prev, created]);
+      toast.success("Line item added successfully");
       setIsAddDialogOpen(false);
       resetForm();
     } catch (error) {
-      toast.error('Failed to add line item');
-      console.error('Add line item error:', error);
+      toast.error("Failed to add line item");
+      console.error("Add line item error:", error);
     } finally {
       setSubmitting(false);
     }
@@ -248,29 +301,35 @@ export function SDMTCatalog() {
     setEditingItem(item);
     setFormData({
       category: item.category,
-      subtype: item.subtype || '',
+      categoryCode: "",
+      subtype: item.subtype || "",
+      lineItemCode: "",
       description: item.description,
       qty: item.qty,
       unit_cost: item.unit_cost,
       currency: item.currency,
-      start_month: item.start_month,
-      end_month: item.end_month,
-      recurring: item.recurring || false
+      start_month: item.start_month ?? 1,
+      end_month: item.end_month ?? 12,
+      recurring: item.recurring ?? false,
     });
     setIsEditDialogOpen(true);
   };
 
   const handleUpdateLineItem = async () => {
     if (!editingItem) return;
-    
-    if (!formData.category || !formData.description || formData.unit_cost <= 0) {
-      toast.error('Please fill in all required fields');
+
+    if (
+      !formData.category ||
+      !formData.description ||
+      formData.unit_cost <= 0
+    ) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
     try {
       setSubmitting(true);
-      
+
       // Merge form data with existing item to preserve all properties
       const updatedData: Partial<LineItem> = {
         ...editingItem,
@@ -279,23 +338,28 @@ export function SDMTCatalog() {
         description: formData.description,
         qty: formData.qty,
         unit_cost: formData.unit_cost,
-        currency: formData.currency,
+        currency: formData.currency as Currency,
         start_month: formData.start_month,
         end_month: formData.end_month,
         recurring: formData.recurring,
-        one_time: !formData.recurring
+        one_time: !formData.recurring,
       };
-      
-      const updated = await ApiService.updateLineItem(editingItem.id, updatedData);
-      setLineItems(prev => prev.map(item => item.id === editingItem.id ? updated : item));
-      toast.success('Line item updated successfully');
+
+      const updated = await ApiService.updateLineItem(
+        editingItem.id,
+        updatedData
+      );
+      setLineItems((prev) =>
+        prev.map((item) => (item.id === editingItem.id ? updated : item))
+      );
+      toast.success("Line item updated successfully");
       setIsEditDialogOpen(false);
       setEditingItem(null);
       resetForm();
     } catch (error) {
-      toast.error('Failed to update line item');
-      console.error('Update error:', error);
-      console.error('Update line item error:', error);
+      toast.error("Failed to update line item");
+      console.error("Update error:", error);
+      console.error("Update line item error:", error);
     } finally {
       setSubmitting(false);
     }
@@ -305,59 +369,64 @@ export function SDMTCatalog() {
     if (!confirm(`Are you sure you want to delete "${item.description}"?`)) {
       return;
     }
-    
+
     try {
       await ApiService.deleteLineItem(item.id);
-      setLineItems(prev => prev.filter(i => i.id !== item.id));
-      toast.success('Line item deleted successfully');
+      setLineItems((prev) => prev.filter((i) => i.id !== item.id));
+      toast.success("Line item deleted successfully");
     } catch (error) {
-      toast.error('Failed to delete line item');
-      console.error('Delete line item error:', error);
+      toast.error("Failed to delete line item");
+      console.error("Delete line item error:", error);
     }
   };
 
   const handleExport = async () => {
     if (exporting) return;
-    
+
     try {
-      setExporting('excel');
-      toast.loading('Preparing Excel export...');
-      
+      setExporting("excel");
+      toast.loading("Preparing Excel export...");
+
       // Create a baseline budget structure for export
-      const totalAmount = filteredItems.reduce((sum, item) => sum + calculateTotalCost(item), 0);
-      
+      const totalAmount = filteredItems.reduce(
+        (sum, item) => sum + calculateTotalCost(item),
+        0
+      );
+
       const mockBaseline: BaselineBudget = {
         baseline_id: `catalog-${Date.now()}`,
-        project_id: 'current-project',
-        project_name: 'Current Project Catalog',
+        project_id: "current-project",
+        project_name: "Current Project Catalog",
         created_by: currentRole,
         accepted_by: currentRole,
         accepted_ts: new Date().toISOString(),
-        signature_hash: 'mock-hash',
+        signature_hash: "mock-hash",
         line_items: filteredItems,
         monthly_totals: [],
         assumptions: [
-          'Cost estimates based on current market rates',
-          'Currency rates as of ' + new Date().toLocaleDateString(),
-          'Includes all line items in current catalog view'
+          "Cost estimates based on current market rates",
+          "Currency rates as of " + new Date().toLocaleDateString(),
+          "Includes all line items in current catalog view",
         ],
         total_amount: totalAmount,
-        currency: 'USD',
+        currency: "USD",
         created_at: new Date().toISOString(),
-        status: 'draft'
+        status: "draft",
       };
 
       const buffer = await excelExporter.exportBaselineBudget(mockBaseline);
-      const filename = `cost-catalog-${new Date().toISOString().split('T')[0]}.xlsx`;
-      
+      const filename = `cost-catalog-${
+        new Date().toISOString().split("T")[0]
+      }.xlsx`;
+
       downloadExcelFile(buffer, filename);
-      
+
       toast.dismiss();
-      toast.success('Excel file downloaded successfully');
+      toast.success("Excel file downloaded successfully");
     } catch (error) {
       toast.dismiss();
-      toast.error('Failed to export catalog');
-      console.error('Export error:', error);
+      toast.error("Failed to export catalog");
+      console.error("Export error:", error);
     } finally {
       setExporting(null);
     }
@@ -380,7 +449,11 @@ export function SDMTCatalog() {
         </div>
         <div className="flex items-center gap-2">
           <ModuleBadge />
-          {isReadOnly() && <Badge variant="outline" className="text-xs">Read Only</Badge>}
+          {isReadOnly() && (
+            <Badge variant="outline" className="text-xs">
+              Read Only
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -391,7 +464,10 @@ export function SDMTCatalog() {
             <Package size={16} />
             Line Items
           </TabsTrigger>
-          <TabsTrigger value="service-tiers" className="flex items-center gap-2">
+          <TabsTrigger
+            value="service-tiers"
+            className="flex items-center gap-2"
+          >
             <Star size={16} />
             Ikusi Service Tiers
           </TabsTrigger>
@@ -403,7 +479,10 @@ export function SDMTCatalog() {
             <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center space-x-4 flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+                  <Search
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
+                    size={16}
+                  />
                   <Input
                     placeholder="Search by description or category..."
                     value={searchTerm}
@@ -411,437 +490,631 @@ export function SDMTCatalog() {
                     className="pl-10 w-[300px]"
                   />
                 </div>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map(category => (
-                  <SelectItem key={category} value={category}>{category}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button 
-              variant="outline" 
-              className="gap-2"
-              onClick={handleShare}
-            >
-              <Share size={16} />
-              Share
-            </Button>
-            <Button 
-              variant="outline" 
-              className="gap-2"
-              onClick={handleExport}
-              disabled={exporting !== null}
-            >
-              {exporting === 'excel' ? (
-                <LoadingSpinner size="sm" />
-              ) : (
-                <Download size={16} />
-              )}
-              {exporting === 'excel' ? 'Exporting...' : 'Export'}
-            </Button>
-            <Protected action="create">
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus size={16} />
-                    Add Line Item
-                  </Button>
-                </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Add New Line Item</DialogTitle>
-                  <DialogDescription>
-                    Create a new cost line item for the project catalog
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label>Category *</label>
-                      <Select 
-                        value={formData.category} 
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Labor">Labor</SelectItem>
-                          <SelectItem value="Infrastructure">Infrastructure</SelectItem>
-                          <SelectItem value="Software">Software</SelectItem>
-                          <SelectItem value="Professional Services">Professional Services</SelectItem>
-                          <SelectItem value="Support">Support</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <label>Subtype</label>
-                      <Input 
-                        value={formData.subtype}
-                        onChange={(e) => setFormData(prev => ({ ...prev, subtype: e.target.value }))}
-                        placeholder="e.g., Development" 
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label>Description *</label>
-                    <Input 
-                      value={formData.description}
-                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Detailed description of the line item" 
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label>Quantity</label>
-                      <Input 
-                        type="number" 
-                        value={formData.qty}
-                        onChange={(e) => setFormData(prev => ({ ...prev, qty: parseInt(e.target.value) || 1 }))}
-                        min="1"
-                        placeholder="1" 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label>Unit Cost *</label>
-                      <Input 
-                        type="number" 
-                        value={formData.unit_cost}
-                        onChange={(e) => setFormData(prev => ({ ...prev, unit_cost: parseFloat(e.target.value) || 0 }))}
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00" 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label>Currency</label>
-                      <Select 
-                        value={formData.currency}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="USD">USD</SelectItem>
-                          <SelectItem value="EUR">EUR</SelectItem>
-                          <SelectItem value="MXN">MXN</SelectItem>
-                          <SelectItem value="COP">COP</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => {
-                    setIsAddDialogOpen(false);
-                    resetForm();
-                  }} disabled={submitting}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSubmitLineItem} disabled={submitting}>
-                    {submitting ? 'Adding...' : 'Add Line Item'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            </Protected>
-            
-            {/* Edit Line Item Dialog */}
-            <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-              setIsEditDialogOpen(open);
-              if (!open) {
-                setEditingItem(null);
-                resetForm();
-              }
-            }}>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Edit Line Item</DialogTitle>
-                  <DialogDescription>
-                    Update the cost line item details
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label>Category *</label>
-                      <Select 
-                        value={formData.category} 
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Labor">Labor</SelectItem>
-                          <SelectItem value="Infrastructure">Infrastructure</SelectItem>
-                          <SelectItem value="Software">Software</SelectItem>
-                          <SelectItem value="Professional Services">Professional Services</SelectItem>
-                          <SelectItem value="Support">Support</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <label>Subtype</label>
-                      <Input 
-                        value={formData.subtype}
-                        onChange={(e) => setFormData(prev => ({ ...prev, subtype: e.target.value }))}
-                        placeholder="e.g., Development" 
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label>Description *</label>
-                    <Input 
-                      value={formData.description}
-                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Detailed description of the line item" 
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label>Quantity</label>
-                      <Input 
-                        type="number" 
-                        value={formData.qty}
-                        onChange={(e) => setFormData(prev => ({ ...prev, qty: parseInt(e.target.value) || 1 }))}
-                        min="1"
-                        placeholder="1" 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label>Unit Cost *</label>
-                      <Input 
-                        type="number" 
-                        value={formData.unit_cost}
-                        onChange={(e) => setFormData(prev => ({ ...prev, unit_cost: parseFloat(e.target.value) || 0 }))}
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00" 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label>Currency</label>
-                      <Select 
-                        value={formData.currency}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="USD">USD</SelectItem>
-                          <SelectItem value="EUR">EUR</SelectItem>
-                          <SelectItem value="MXN">MXN</SelectItem>
-                          <SelectItem value="COP">COP</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => {
-                    setIsEditDialogOpen(false);
-                    setEditingItem(null);
-                    resetForm();
-                  }} disabled={submitting}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleUpdateLineItem} disabled={submitting}>
-                    {submitting ? 'Updating...' : 'Update Line Item'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold">{lineItems.length}</div>
-            <p className="text-sm text-muted-foreground">Total Line Items</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold">
-              {formatCurrency(lineItems.reduce((sum, item) => sum + calculateTotalCost(item), 0), 'USD')}
-            </div>
-            <p className="text-sm text-muted-foreground">Total Estimated Cost</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold">{categories.length}</div>
-            <p className="text-sm text-muted-foreground">Categories</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold">
-              {lineItems.filter(item => item.recurring).length}
-            </div>
-            <p className="text-sm text-muted-foreground">Recurring Items</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Line Items Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Line Items</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center space-y-3">
-                <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center mx-auto mb-2 animate-pulse">
-                  <span className="text-primary font-bold text-sm">📂</span>
-                </div>
-                <div className="text-muted-foreground">
-                  Loading line items{currentProject ? ` for ${currentProject.name}` : ''}...
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Project Change #{projectChangeCount}
-                </div>
+                <Select
+                  value={categoryFilter}
+                  onValueChange={setCategoryFilter}
+                >
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">No line items found</p>
-              <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
-                <Plus size={16} />
-                Add First Line Item
-              </Button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Unit Cost</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Total Cost</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{item.category}</div>
-                          {item.subtype && (
-                            <div className="text-sm text-muted-foreground">{item.subtype}</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-[300px]">
-                        <div className="truncate">{item.description}</div>
-                        {item.vendor && (
-                          <div className="text-sm text-muted-foreground">Vendor: {item.vendor}</div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Badge variant={item.one_time ? "default" : "secondary"}>
-                            {item.one_time ? "One-time" : "Recurring"}
-                          </Badge>
-                          {item.capex_flag && (
-                            <Badge variant="outline">CapEx</Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{item.qty}</TableCell>
-                      <TableCell>
-                        {formatCurrency(item.unit_cost, item.currency)}
-                      </TableCell>
-                      <TableCell>
-                        M{item.start_month}-{item.end_month}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(calculateTotalCost(item), item.currency)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Protected action="update">
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleEditClick(item)}
-                              title="Edit line item"
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={handleShare}
+                >
+                  <Share size={16} />
+                  Share
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={handleExport}
+                  disabled={exporting !== null}
+                >
+                  {exporting === "excel" ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <Download size={16} />
+                  )}
+                  {exporting === "excel" ? "Exporting..." : "Export"}
+                </Button>
+                <Protected action="create">
+                  <Dialog
+                    open={isAddDialogOpen}
+                    onOpenChange={setIsAddDialogOpen}
+                  >
+                    <DialogTrigger asChild>
+                      <Button className="gap-2">
+                        <Plus size={16} />
+                        Add Line Item
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Add New Line Item</DialogTitle>
+                        <DialogDescription>
+                          Create a new cost line item for the project catalog
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label>Categoría *</label>
+                            <Select
+                              value={formData.categoryCode}
+                              onValueChange={(value) => {
+                                const category = getCategoryByCode(value);
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  categoryCode: value,
+                                  category: category?.nombre || "",
+                                  lineItemCode: "",
+                                  subtype: "",
+                                  description: "",
+                                }));
+                              }}
                             >
-                              <Edit size={16} />
-                            </Button>
-                          </Protected>
-                          <Protected action="delete">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-destructive"
-                              onClick={() => handleDeleteClick(item)}
-                              title="Delete line item"
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccione categoría" />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-[300px]">
+                                {COST_CATEGORIES.map((cat) => (
+                                  <SelectItem key={cat.codigo} value={cat.codigo}>
+                                    {cat.codigo} - {cat.nombre}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <label>Línea de Gasto *</label>
+                            <Select
+                              value={formData.lineItemCode}
+                              onValueChange={(value) => {
+                                const category = getCategoryByCode(formData.categoryCode);
+                                const lineItem = category?.lineas.find(l => l.codigo === value);
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  lineItemCode: value,
+                                  subtype: lineItem?.nombre || "",
+                                  description: lineItem?.descripcion || "",
+                                }));
+                              }}
+                              disabled={!formData.categoryCode}
                             >
-                              <Trash2 size={16} />
-                            </Button>
-                          </Protected>
+                              <SelectTrigger>
+                                <SelectValue placeholder={formData.categoryCode ? "Seleccione línea" : "Primero seleccione categoría"} />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-[300px]">
+                                {formData.categoryCode && getCategoryByCode(formData.categoryCode)?.lineas.map((linea) => (
+                                  <SelectItem key={linea.codigo} value={linea.codigo}>
+                                    {linea.codigo} - {linea.nombre}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      </TabsContent>
+                        <div className="space-y-2">
+                          <label>Description *</label>
+                          <Input
+                            value={formData.description}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                description: e.target.value,
+                              }))
+                            }
+                            placeholder="Detailed description of the line item"
+                          />
+                          {formData.lineItemCode && (() => {
+                            const category = getCategoryByCode(formData.categoryCode);
+                            const lineItem = category?.lineas.find(l => l.codigo === formData.lineItemCode);
+                            return lineItem ? (
+                              <div className="flex gap-2 mt-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {lineItem.tipo_ejecucion}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {lineItem.tipo_costo}
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  {lineItem.fuente_referencia}
+                                </Badge>
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <label>Quantity</label>
+                            <Input
+                              type="number"
+                              value={formData.qty}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  qty: parseInt(e.target.value) || 1,
+                                }))
+                              }
+                              min="1"
+                              placeholder="1"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label>Unit Cost *</label>
+                            <Input
+                              type="number"
+                              value={formData.unit_cost}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  unit_cost: parseFloat(e.target.value) || 0,
+                                }))
+                              }
+                              min="0"
+                              step="0.01"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label>Currency</label>
+                            <Select
+                              value={formData.currency}
+                              onValueChange={(value) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  currency: value,
+                                }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="USD">USD</SelectItem>
+                                <SelectItem value="EUR">EUR</SelectItem>
+                                <SelectItem value="MXN">MXN</SelectItem>
+                                <SelectItem value="COP">COP</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsAddDialogOpen(false);
+                            resetForm();
+                          }}
+                          disabled={submitting}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleSubmitLineItem}
+                          disabled={submitting}
+                        >
+                          {submitting ? "Adding..." : "Add Line Item"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </Protected>
 
-      <TabsContent value="service-tiers" className="space-y-6">
-        <ServiceTierSelector 
-          onTierSelected={(tierId, tierData) => {
-            try {
-              // Import service catalog
-              import('@/mocks/ikusi-service-catalog.json').then(serviceCatalog => {
-                const lineItem = createServiceLineItem(tierId, serviceCatalog.default, {
-                  quantity: 1,
-                  months: 12,
-                  cost_center: 'IT-SERVICES',
-                  gl_code: '6000-001'
-                });
-                
-                const newItem: LineItem = {
-                  ...lineItem as LineItem,
-                  id: `LI-${Date.now()}`,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                  created_by: currentRole
-                };
-                
-                setLineItems(prev => [...prev, newItem]);
-                toast.success(`${tierData.name} service tier added to catalog!`);
-              });
-            } catch (error) {
-              toast.error('Failed to add service tier to catalog');
-              console.error('Service tier selection error:', error);
-            }
-          }}
-        />
-      </TabsContent>
+                {/* Edit Line Item Dialog */}
+                <Dialog
+                  open={isEditDialogOpen}
+                  onOpenChange={(open) => {
+                    setIsEditDialogOpen(open);
+                    if (!open) {
+                      setEditingItem(null);
+                      resetForm();
+                    }
+                  }}
+                >
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Edit Line Item</DialogTitle>
+                      <DialogDescription>
+                        Update the cost line item details
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label>Categoría *</label>
+                          <Select
+                            value={formData.categoryCode}
+                            onValueChange={(value) => {
+                              const category = getCategoryByCode(value);
+                              setFormData((prev) => ({
+                                ...prev,
+                                categoryCode: value,
+                                category: category?.nombre || "",
+                                lineItemCode: "",
+                                subtype: "",
+                                description: "",
+                              }));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccione categoría" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[300px]">
+                              {COST_CATEGORIES.map((cat) => (
+                                <SelectItem key={cat.codigo} value={cat.codigo}>
+                                  {cat.codigo} - {cat.nombre}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <label>Línea de Gasto *</label>
+                          <Select
+                            value={formData.lineItemCode}
+                            onValueChange={(value) => {
+                              const category = getCategoryByCode(formData.categoryCode);
+                              const lineItem = category?.lineas.find(l => l.codigo === value);
+                              setFormData((prev) => ({
+                                ...prev,
+                                lineItemCode: value,
+                                subtype: lineItem?.nombre || "",
+                                description: lineItem?.descripcion || "",
+                              }));
+                            }}
+                            disabled={!formData.categoryCode}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={formData.categoryCode ? "Seleccione línea" : "Primero seleccione categoría"} />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[300px]">
+                              {formData.categoryCode && getCategoryByCode(formData.categoryCode)?.lineas.map((linea) => (
+                                <SelectItem key={linea.codigo} value={linea.codigo}>
+                                  {linea.codigo} - {linea.nombre}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label>Description *</label>
+                        <Input
+                          value={formData.description}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              description: e.target.value,
+                            }))
+                          }
+                          placeholder="Detailed description of the line item"
+                        />
+                        {formData.lineItemCode && (() => {
+                          const category = getCategoryByCode(formData.categoryCode);
+                          const lineItem = category?.lineas.find(l => l.codigo === formData.lineItemCode);
+                          return lineItem ? (
+                            <div className="flex gap-2 mt-2">
+                              <Badge variant="outline" className="text-xs">
+                                {lineItem.tipo_ejecucion}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {lineItem.tipo_costo}
+                              </Badge>
+                              <Badge variant="secondary" className="text-xs">
+                                {lineItem.fuente_referencia}
+                              </Badge>
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <label>Quantity</label>
+                          <Input
+                            type="number"
+                            value={formData.qty}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                qty: parseInt(e.target.value) || 1,
+                              }))
+                            }
+                            min="1"
+                            placeholder="1"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label>Unit Cost *</label>
+                          <Input
+                            type="number"
+                            value={formData.unit_cost}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                unit_cost: parseFloat(e.target.value) || 0,
+                              }))
+                            }
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label>Currency</label>
+                          <Select
+                            value={formData.currency}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                currency: value,
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="USD">USD</SelectItem>
+                              <SelectItem value="EUR">EUR</SelectItem>
+                              <SelectItem value="MXN">MXN</SelectItem>
+                              <SelectItem value="COP">COP</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsEditDialogOpen(false);
+                          setEditingItem(null);
+                          resetForm();
+                        }}
+                        disabled={submitting}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleUpdateLineItem}
+                        disabled={submitting}
+                      >
+                        {submitting ? "Updating..." : "Update Line Item"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold">{lineItems.length}</div>
+                <p className="text-sm text-muted-foreground">
+                  Total Line Items
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold">
+                  {formatCurrency(
+                    lineItems.reduce(
+                      (sum, item) => sum + calculateTotalCost(item),
+                      0
+                    ),
+                    "USD"
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Total Estimated Cost
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold">{categories.length}</div>
+                <p className="text-sm text-muted-foreground">Categories</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold">
+                  {lineItems.filter((item) => item.recurring).length}
+                </div>
+                <p className="text-sm text-muted-foreground">Recurring Items</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Line Items Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Line Items</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="text-center space-y-3">
+                    <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center mx-auto mb-2 animate-pulse">
+                      <span className="text-primary font-bold text-sm">📂</span>
+                    </div>
+                    <div className="text-muted-foreground">
+                      Loading line items
+                      {currentProject ? ` for ${currentProject.name}` : ""}...
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Project Change #{projectChangeCount}
+                    </div>
+                  </div>
+                </div>
+              ) : filteredItems.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground mb-4">
+                    No line items found
+                  </p>
+                  <Button
+                    onClick={() => setIsAddDialogOpen(true)}
+                    className="gap-2"
+                  >
+                    <Plus size={16} />
+                    Add First Line Item
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Unit Cost</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>Total Cost</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredItems.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{item.category}</div>
+                              {item.subtype && (
+                                <div className="text-sm text-muted-foreground">
+                                  {item.subtype}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="max-w-[300px]">
+                            <div className="truncate">{item.description}</div>
+                            {item.vendor && (
+                              <div className="text-sm text-muted-foreground">
+                                Vendor: {item.vendor}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Badge
+                                variant={
+                                  item.one_time ? "default" : "secondary"
+                                }
+                              >
+                                {item.one_time ? "One-time" : "Recurring"}
+                              </Badge>
+                              {item.capex_flag && (
+                                <Badge variant="outline">CapEx</Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{item.qty}</TableCell>
+                          <TableCell>
+                            {formatCurrency(item.unit_cost, item.currency)}
+                          </TableCell>
+                          <TableCell>
+                            M{item.start_month}-{item.end_month}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {formatCurrency(
+                              calculateTotalCost(item),
+                              item.currency
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Protected action="update">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditClick(item)}
+                                  title="Edit line item"
+                                >
+                                  <Edit size={16} />
+                                </Button>
+                              </Protected>
+                              <Protected action="delete">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive"
+                                  onClick={() => handleDeleteClick(item)}
+                                  title="Delete line item"
+                                >
+                                  <Trash2 size={16} />
+                                </Button>
+                              </Protected>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="service-tiers" className="space-y-6">
+          <ServiceTierSelector
+            onTierSelected={(tierId, tierData) => {
+              try {
+                // Import service catalog
+                import("@/mocks/ikusi-service-catalog.json").then(
+                  (serviceCatalog) => {
+                    const lineItem = createServiceLineItem(
+                      tierId,
+                      serviceCatalog.default,
+                      {
+                        quantity: 1,
+                        months: 12,
+                        cost_center: "IT-SERVICES",
+                        gl_code: "6000-001",
+                      }
+                    );
+
+                    const newItem: LineItem = {
+                      ...(lineItem as LineItem),
+                      id: `LI-${Date.now()}`,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                      created_by: currentRole,
+                    };
+
+                    setLineItems((prev) => [...prev, newItem]);
+                    toast.success(
+                      `${tierData.name} service tier added to catalog!`
+                    );
+                  }
+                );
+              } catch (error) {
+                toast.error("Failed to add service tier to catalog");
+                console.error("Service tier selection error:", error);
+              }
+            }}
+          />
+        </TabsContent>
       </Tabs>
     </div>
   );

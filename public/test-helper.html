@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Finanzas Manual Test Helper</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        text-align: center;
+      }
+
+      .header h1 {
+        font-size: 2em;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        opacity: 0.9;
+      }
+
+      .content {
+        padding: 30px;
+      }
+
+      .section {
+        margin-bottom: 40px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+      }
+
+      .section h2 {
+        color: #667eea;
+        margin-bottom: 15px;
+        font-size: 1.5em;
+      }
+
+      .test-item {
+        background: white;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 6px;
+        border: 1px solid #e0e0e0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .test-item label {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        flex: 1;
+      }
+
+      .test-item input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        margin-right: 15px;
+        cursor: pointer;
+      }
+
+      .test-item .test-name {
+        font-weight: 500;
+        flex: 1;
+      }
+
+      .test-item .test-status {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 600;
+      }
+
+      .status-pass {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .status-fail {
+        background: #f8d7da;
+        color: #721c24;
+      }
+
+      .status-skip {
+        background: #fff3cd;
+        color: #856404;
+      }
+
+      .status-pending {
+        background: #e2e3e5;
+        color: #383d41;
+      }
+
+      .button {
+        display: inline-block;
+        padding: 12px 24px;
+        margin: 5px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1em;
+        font-weight: 600;
+        transition: all 0.3s;
+      }
+
+      .button:hover {
+        background: #5568d3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      }
+
+      .button.secondary {
+        background: #6c757d;
+      }
+
+      .button.secondary:hover {
+        background: #5a6268;
+      }
+
+      .button.success {
+        background: #28a745;
+      }
+
+      .button.success:hover {
+        background: #218838;
+      }
+
+      .input-group {
+        margin: 15px 0;
+      }
+
+      .input-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .input-group input {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 1em;
+      }
+
+      .input-group input:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin: 20px 0;
+      }
+
+      .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        border: 2px solid #e0e0e0;
+      }
+
+      .stat-card .stat-value {
+        font-size: 2.5em;
+        font-weight: bold;
+        margin: 10px 0;
+      }
+
+      .stat-card .stat-label {
+        color: #6c757d;
+        font-size: 0.9em;
+      }
+
+      .stat-pass .stat-value {
+        color: #28a745;
+      }
+      .stat-fail .stat-value {
+        color: #dc3545;
+      }
+      .stat-skip .stat-value {
+        color: #ffc107;
+      }
+      .stat-total .stat-value {
+        color: #667eea;
+      }
+
+      .log-output {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        padding: 20px;
+        border-radius: 6px;
+        font-family: "Courier New", monospace;
+        font-size: 0.9em;
+        max-height: 400px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 20px 0;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .alert {
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 6px;
+        border-left: 4px solid;
+      }
+
+      .alert-info {
+        background: #d1ecf1;
+        border-color: #17a2b8;
+        color: #0c5460;
+      }
+
+      .alert-warning {
+        background: #fff3cd;
+        border-color: #ffc107;
+        color: #856404;
+      }
+
+      .alert-success {
+        background: #d4edda;
+        border-color: #28a745;
+        color: #155724;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🧪 Finanzas Manual Test Helper</h1>
+        <p>Interactive testing tool for Finanzas SD Module</p>
+      </div>
+
+      <div class="content">
+        <!-- Configuration Section -->
+        <div class="section">
+          <h2>⚙️ Configuration</h2>
+          <div class="input-group">
+            <label for="apiBaseUrl">API Base URL</label>
+            <input
+              type="text"
+              id="apiBaseUrl"
+              value="https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev"
+            />
+          </div>
+          <div class="input-group">
+            <label for="jwtToken"
+              >JWT Token (from localStorage or manual)</label
+            >
+            <input
+              type="password"
+              id="jwtToken"
+              placeholder="Paste your JWT token here or it will be auto-loaded"
+            />
+          </div>
+          <div class="actions">
+            <button class="button" onclick="loadConfig()">
+              🔄 Load from LocalStorage
+            </button>
+            <button class="button secondary" onclick="saveConfig()">
+              💾 Save Config
+            </button>
+            <button class="button success" onclick="testConnection()">
+              🔌 Test Connection
+            </button>
+          </div>
+          <div id="connectionStatus" class="hidden"></div>
+        </div>
+
+        <!-- Test Statistics -->
+        <div class="section">
+          <h2>📊 Test Statistics</h2>
+          <div class="stats">
+            <div class="stat-card stat-total">
+              <div class="stat-label">Total Tests</div>
+              <div class="stat-value" id="statTotal">0</div>
+            </div>
+            <div class="stat-card stat-pass">
+              <div class="stat-label">Passed</div>
+              <div class="stat-value" id="statPass">0</div>
+            </div>
+            <div class="stat-card stat-fail">
+              <div class="stat-label">Failed</div>
+              <div class="stat-value" id="statFail">0</div>
+            </div>
+            <div class="stat-card stat-skip">
+              <div class="stat-label">Skipped</div>
+              <div class="stat-value" id="statSkip">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- API Tests -->
+        <div class="section">
+          <h2>🔧 API Tests</h2>
+          <div class="actions">
+            <button class="button" onclick="runAllApiTests()">
+              ▶️ Run All API Tests
+            </button>
+            <button class="button secondary" onclick="clearResults()">
+              🗑️ Clear Results
+            </button>
+          </div>
+
+          <div id="apiTests">
+            <div class="test-item">
+              <label>
+                <input type="checkbox" data-test="health" />
+                <span class="test-name">GET /health</span>
+              </label>
+              <button class="button" onclick="runTest('health')">▶️ Run</button>
+              <span class="test-status status-pending" id="status-health"
+                >Pending</span
+              >
+            </div>
+
+            <div class="test-item">
+              <label>
+                <input type="checkbox" data-test="rubros" />
+                <span class="test-name">GET /catalog/rubros</span>
+              </label>
+              <button class="button" onclick="runTest('rubros')">▶️ Run</button>
+              <span class="test-status status-pending" id="status-rubros"
+                >Pending</span
+              >
+            </div>
+
+            <div class="test-item">
+              <label>
+                <input type="checkbox" data-test="rules" />
+                <span class="test-name">GET /allocation-rules (auth)</span>
+              </label>
+              <button class="button" onclick="runTest('rules')">▶️ Run</button>
+              <span class="test-status status-pending" id="status-rules"
+                >Pending</span
+              >
+            </div>
+
+            <div class="test-item">
+              <label>
+                <input type="checkbox" data-test="projects" />
+                <span class="test-name">GET /projects (auth)</span>
+              </label>
+              <button class="button" onclick="runTest('projects')">
+                ▶️ Run
+              </button>
+              <span class="test-status status-pending" id="status-projects"
+                >Pending</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- UI Navigation Tests -->
+        <div class="section">
+          <h2>🎨 UI Navigation Tests</h2>
+          <div class="alert alert-info">
+            Click each link to test navigation. Check DevTools Console and
+            Network tabs for errors.
+          </div>
+          <div class="actions">
+            <a href="/finanzas/" class="button" target="_blank">🏠 Home</a>
+            <a href="/finanzas/catalog/rubros" class="button" target="_blank"
+              >📚 Rubros Catalog</a
+            >
+            <a href="/finanzas/rules" class="button" target="_blank"
+              >⚖️ Allocation Rules</a
+            >
+            <a href="/finanzas/projects" class="button" target="_blank"
+              >📁 Projects</a
+            >
+            <a href="/finanzas/adjustments" class="button" target="_blank"
+              >🔧 Adjustments</a
+            >
+            <a href="/finanzas/providers" class="button" target="_blank"
+              >🏢 Providers</a
+            >
+          </div>
+        </div>
+
+        <!-- Test Log -->
+        <div class="section">
+          <h2>📝 Test Log</h2>
+          <div class="actions">
+            <button class="button secondary" onclick="clearLog()">
+              Clear Log
+            </button>
+            <button class="button success" onclick="exportResults()">
+              📥 Export Results
+            </button>
+          </div>
+          <div class="log-output" id="testLog">Ready to run tests...</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Test state
+      const testResults = {
+        total: 0,
+        pass: 0,
+        fail: 0,
+        skip: 0,
+      };
+
+      // Logger
+      function log(message, level = "info") {
+        const logEl = document.getElementById("testLog");
+        const timestamp = new Date().toLocaleTimeString();
+        const prefix =
+          {
+            info: "[INFO]",
+            pass: "[PASS]",
+            fail: "[FAIL]",
+            warn: "[WARN]",
+            error: "[ERROR]",
+          }[level] || "[INFO]";
+
+        logEl.textContent += `\n${timestamp} ${prefix} ${message}`;
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function clearLog() {
+        document.getElementById("testLog").textContent = "Log cleared...\n";
+      }
+
+      function updateStats() {
+        document.getElementById("statTotal").textContent = testResults.total;
+        document.getElementById("statPass").textContent = testResults.pass;
+        document.getElementById("statFail").textContent = testResults.fail;
+        document.getElementById("statSkip").textContent = testResults.skip;
+      }
+
+      function updateTestStatus(testId, status, message) {
+        const statusEl = document.getElementById(`status-${testId}`);
+        statusEl.className = `test-status status-${status}`;
+        statusEl.textContent = status.toUpperCase();
+
+        const checkbox = document.querySelector(`[data-test="${testId}"]`);
+        checkbox.checked = true;
+
+        testResults.total++;
+        if (status === "pass") testResults.pass++;
+        else if (status === "fail") testResults.fail++;
+        else if (status === "skip") testResults.skip++;
+
+        updateStats();
+      }
+
+      // Configuration functions
+      function loadConfig() {
+        const jwt =
+          localStorage.getItem("cv.jwt") ||
+          localStorage.getItem("finz_jwt") ||
+          "";
+        if (jwt) {
+          document.getElementById("jwtToken").value = jwt;
+          log("JWT token loaded from localStorage", "pass");
+
+          // Decode and show info
+          try {
+            const payload = JSON.parse(atob(jwt.split(".")[1]));
+            const exp = new Date(payload.exp * 1000);
+            const groups = payload["cognito:groups"] || [];
+            log(`Token expires: ${exp.toLocaleString()}`, "info");
+            log(`Groups: ${groups.join(", ")}`, "info");
+          } catch (e) {
+            log("Could not decode JWT", "warn");
+          }
+        } else {
+          log("No JWT found in localStorage", "warn");
+        }
+      }
+
+      function saveConfig() {
+        const jwt = document.getElementById("jwtToken").value;
+        if (jwt) {
+          localStorage.setItem("cv.jwt", jwt);
+          log("JWT token saved to localStorage", "pass");
+        }
+      }
+
+      async function testConnection() {
+        const apiBase = document.getElementById("apiBaseUrl").value;
+        const statusEl = document.getElementById("connectionStatus");
+        statusEl.className = "";
+        statusEl.classList.remove("hidden");
+
+        log(`Testing connection to ${apiBase}/health...`, "info");
+
+        try {
+          const response = await fetch(`${apiBase}/health`);
+          const data = await response.json();
+
+          if (response.ok) {
+            statusEl.className = "alert alert-success";
+            statusEl.textContent = `✅ Connected! API is healthy: ${JSON.stringify(
+              data
+            )}`;
+            log("Connection test PASSED", "pass");
+          } else {
+            statusEl.className = "alert alert-warning";
+            statusEl.textContent = `⚠️ API returned ${response.status}`;
+            log(`Connection test returned ${response.status}`, "warn");
+          }
+        } catch (error) {
+          statusEl.className = "alert alert-warning";
+          statusEl.textContent = `❌ Connection failed: ${error.message}`;
+          log(`Connection test FAILED: ${error.message}`, "error");
+        }
+      }
+
+      // Test functions
+      async function runTest(testName) {
+        const apiBase = document.getElementById("apiBaseUrl").value;
+        const jwt = document.getElementById("jwtToken").value;
+
+        log(`\n--- Running test: ${testName} ---`, "info");
+
+        const tests = {
+          health: async () => {
+            const response = await fetch(`${apiBase}/health`);
+            const data = await response.json();
+            if (response.ok && data.ok) {
+              log(`Health check OK: ${JSON.stringify(data)}`, "pass");
+              updateTestStatus("health", "pass");
+            } else {
+              log(`Health check failed: ${response.status}`, "fail");
+              updateTestStatus("health", "fail");
+            }
+          },
+
+          rubros: async () => {
+            const response = await fetch(`${apiBase}/catalog/rubros`);
+            const data = await response.json();
+            if (response.ok && data.data && Array.isArray(data.data)) {
+              log(`Rubros catalog OK: ${data.data.length} items`, "pass");
+              log(
+                `Sample: ${data.data
+                  .slice(0, 2)
+                  .map((r) => r.nombre)
+                  .join(", ")}`,
+                "info"
+              );
+              updateTestStatus("rubros", "pass");
+            } else {
+              log(`Rubros catalog failed: ${response.status}`, "fail");
+              updateTestStatus("rubros", "fail");
+            }
+          },
+
+          rules: async () => {
+            if (!jwt) {
+              log("No JWT token - skipping auth test", "warn");
+              updateTestStatus("rules", "skip");
+              return;
+            }
+
+            const response = await fetch(`${apiBase}/allocation-rules`, {
+              headers: { Authorization: `Bearer ${jwt}` },
+            });
+            const data = await response.json();
+
+            if (response.ok && data.data) {
+              log(`Allocation rules OK: ${data.data.length} rules`, "pass");
+              updateTestStatus("rules", "pass");
+            } else if (response.status === 401) {
+              log(
+                `Allocation rules returned 401 (invalid/expired token)`,
+                "fail"
+              );
+              updateTestStatus("rules", "fail");
+            } else {
+              log(`Allocation rules failed: ${response.status}`, "fail");
+              updateTestStatus("rules", "fail");
+            }
+          },
+
+          projects: async () => {
+            if (!jwt) {
+              log("No JWT token - skipping auth test", "warn");
+              updateTestStatus("projects", "skip");
+              return;
+            }
+
+            const response = await fetch(`${apiBase}/projects`, {
+              headers: { Authorization: `Bearer ${jwt}` },
+            });
+
+            if (response.status === 501) {
+              log("Projects endpoint returned 501 Not Implemented", "warn");
+              updateTestStatus("projects", "skip");
+            } else if (response.ok) {
+              const data = await response.json();
+              log(`Projects OK: ${JSON.stringify(data)}`, "pass");
+              updateTestStatus("projects", "pass");
+            } else {
+              log(`Projects failed: ${response.status}`, "fail");
+              updateTestStatus("projects", "fail");
+            }
+          },
+        };
+
+        try {
+          await tests[testName]();
+        } catch (error) {
+          log(`Test ${testName} threw error: ${error.message}`, "error");
+          updateTestStatus(testName, "fail");
+        }
+      }
+
+      async function runAllApiTests() {
+        log("\n========================================", "info");
+        log("Running all API tests...", "info");
+        log("========================================", "info");
+
+        for (const test of ["health", "rubros", "rules", "projects"]) {
+          await runTest(test);
+          await new Promise((resolve) => setTimeout(resolve, 500)); // Small delay between tests
+        }
+
+        log("\n========================================", "info");
+        log("All tests completed", "info");
+        log(
+          `Results: ${testResults.pass} passed, ${testResults.fail} failed, ${testResults.skip} skipped`,
+          "info"
+        );
+        log("========================================", "info");
+      }
+
+      function clearResults() {
+        testResults.total = 0;
+        testResults.pass = 0;
+        testResults.fail = 0;
+        testResults.skip = 0;
+        updateStats();
+
+        document.querySelectorAll(".test-status").forEach((el) => {
+          el.className = "test-status status-pending";
+          el.textContent = "Pending";
+        });
+
+        document.querySelectorAll("[data-test]").forEach((el) => {
+          el.checked = false;
+        });
+
+        clearLog();
+        log("Results cleared", "info");
+      }
+
+      function exportResults() {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const log = document.getElementById("testLog").textContent;
+        const results = `# Finanzas Test Results
+Date: ${new Date().toLocaleString()}
+API Base: ${document.getElementById("apiBaseUrl").value}
+
+## Statistics
+Total: ${testResults.total}
+Passed: ${testResults.pass}
+Failed: ${testResults.fail}
+Skipped: ${testResults.skip}
+
+## Detailed Log
+${log}
+`;
+
+        const blob = new Blob([results], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `finanzas-test-results-${timestamp}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        log("Results exported", "pass");
+      }
+
+      // Auto-load config on page load
+      window.addEventListener("DOMContentLoaded", () => {
+        loadConfig();
+        log("Manual Test Helper loaded", "info");
+        log('Click "Test Connection" to verify API access', "info");
+      });
+    </script>
+  </body>
+</html>

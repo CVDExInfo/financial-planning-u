@@ -1,15 +1,22 @@
 // Core domain types for Financial Planning & Management UI
 
 // Currency type - ISO codes for supported currencies
-export type Currency = 'USD' | 'EUR' | 'MXN' | 'COP';
-export type FXPair = 'USD/COP';
-export type AmortizationType = 'none' | 'straight_line' | 'custom';
-export type IndexationPolicy = 'none' | 'CPI' | 'min_wage';
-export type VarianceReason = 'logística' | 'FX' | 'indexation' | 'capex' | 'vendor_delay' | 'scope' | 'other';
-export type UserRole = 'PMO' | 'SDMT' | 'VENDOR' | 'EXEC_RO';
-export type ModuleType = 'PMO' | 'SDMT';
-export type InvoiceStatus = 'Pending' | 'Matched' | 'Disputed';
-export type ApprovalDecision = 'approve' | 'reject';
+export type Currency = "USD" | "EUR" | "MXN" | "COP";
+export type FXPair = "USD/COP";
+export type AmortizationType = "none" | "straight_line" | "custom";
+export type IndexationPolicy = "none" | "CPI" | "min_wage";
+export type VarianceReason =
+  | "logística"
+  | "FX"
+  | "indexation"
+  | "capex"
+  | "vendor_delay"
+  | "scope"
+  | "other";
+export type UserRole = "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
+export type ModuleType = "PMO" | "SDMT";
+export type InvoiceStatus = "Pending" | "Matched" | "Disputed";
+export type ApprovalDecision = "approve" | "reject";
 
 // Line Item represents individual cost components
 export type LineItem = {
@@ -73,7 +80,7 @@ export type BaselineBudget = {
   total_amount: number;
   currency: Currency;
   created_at: string;
-  status: 'draft' | 'signed' | 'accepted' | 'rejected';
+  status: "draft" | "signed" | "accepted" | "rejected";
 };
 
 // FX and Indexation metadata
@@ -87,7 +94,7 @@ export type FXMetadata = {
 export type IndexationMetadata = {
   policy: IndexationPolicy;
   base_rate: number;
-  adjustment_frequency: 'monthly' | 'quarterly' | 'annually';
+  adjustment_frequency: "monthly" | "quarterly" | "annually";
   last_adjustment_date?: string;
 };
 
@@ -138,7 +145,7 @@ export type Scenario = {
 export type ScenarioDelta = {
   line_item_id?: string;
   category?: string;
-  delta_type: 'percentage' | 'absolute' | 'multiplier';
+  delta_type: "percentage" | "absolute" | "multiplier";
   delta_value: number;
   start_month?: number;
   end_month?: number;
@@ -157,7 +164,7 @@ export type ChangeRequest = {
   justification: string;
   requested_by: string;
   requested_at: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: "pending" | "approved" | "rejected";
   approvals: Approval[];
 };
 
@@ -179,7 +186,7 @@ export type Project = {
   baseline_id?: string;
   baseline_accepted_at?: string;
   next_billing_periods: BillingPeriod[];
-  status: 'active' | 'completed' | 'on_hold';
+  status: "active" | "completed" | "on_hold";
   created_at: string;
 };
 
@@ -187,7 +194,7 @@ export type BillingPeriod = {
   month: number;
   amount: number;
   currency: Currency;
-  status: 'planned' | 'invoiced' | 'collected';
+  status: "planned" | "invoiced" | "collected";
 };
 
 // User context
@@ -228,14 +235,14 @@ export type WaterfallDataPoint = {
   category: string;
   value: number;
   cumulative?: number;
-  type: 'positive' | 'negative' | 'total';
+  type: "positive" | "negative" | "total";
 };
 
 // Import/Export types
 export type ImportMapping = {
   source_column: string;
   target_field: string;
-  transformation?: 'date' | 'currency' | 'percentage' | 'boolean';
+  transformation?: "date" | "currency" | "percentage" | "boolean";
   default_value?: any;
 };
 
@@ -277,7 +284,7 @@ export type DealInputs = {
 export type LaborEstimate = {
   role: string;
   country: string;
-  level: 'junior' | 'mid' | 'senior' | 'lead';
+  level: "junior" | "mid" | "senior" | "lead";
   fte_count: number;
   hourly_rate: number;
   hours_per_month: number;
