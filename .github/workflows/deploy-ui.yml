@@ -173,6 +173,12 @@ jobs:
           if grep -R -i 'github\.dev\|codespaces' dist-finanzas/ 2>/dev/null; then
             echo "❌ Build contains github.dev/codespaces references"; exit 1;
           fi
+          # PR #126: Ensure aws-exports.js is NOT in Finanzas (PMO/Amplify only)
+          if find dist-finanzas -name "aws-exports.js" -o -name "aws-exports.ts" | grep -q .; then
+            echo "❌ CRITICAL: aws-exports.js found in Finanzas build!"; 
+            echo "   aws-exports.js is a PMO/Amplify concern and should NOT be in Finanzas";
+            exit 1;
+          fi
           echo "✅ Finanzas build artifacts look good"
 
       # ---- Upload PMO (/root) ----
@@ -199,6 +205,55 @@ jobs:
             echo "❌ CRITICAL: /finanzas/* behavior missing in CloudFront ${CLOUDFRONT_DIST_ID}"; exit 1;
           fi
           echo "✅ /finanzas/* behavior configured"
+
+      # ---- CloudFront Function Association Check (PR #126) ----
+      - name: Guard - Verify CloudFront Function Association (CRITICAL for SPA)
+        run: |
+          set -euo pipefail
+          echo "🔍 Verifying CloudFront Function associations for Finanzas behaviors..."
+          
+          # Get distribution config
+          DIST_CONFIG=$(aws cloudfront get-distribution-config --id "${CLOUDFRONT_DIST_ID}" --output json)
+          
+          # Check for Finanzas function existence
+          FUNCTIONS=$(aws cloudfront list-functions --stage LIVE --output json)
+          FINANZAS_FUNCTION=$(echo "$FUNCTIONS" | jq -r '.FunctionList.Items[] | select(.Name | contains("finanzas") or contains("path-rewrite")) | .Name' | head -1)
+          
+          if [ -z "$FINANZAS_FUNCTION" ]; then
+            echo "⚠️  WARNING: No Finanzas CloudFront Function found"
+            echo "   Expected: finanzas-path-rewrite or similar"
+            echo "   Impact: Deep links (e.g., /finanzas/catalog/rubros) may 404"
+            echo "   This is not a blocker but should be fixed manually in CloudFront console"
+          else
+            echo "✅ Found CloudFront Function: $FINANZAS_FUNCTION"
+            
+            # Verify function associations on key behaviors
+            for PATTERN in "/finanzas" "/finanzas/" "/finanzas/*"; do
+              FUNC_ASSOC=$(echo "$DIST_CONFIG" | jq -r ".DistributionConfig.CacheBehaviors.Items[]? | select(.PathPattern == \"$PATTERN\") | .FunctionAssociations.Items[]? | select(.EventType == \"viewer-request\") | .FunctionARN // \"\"" 2>/dev/null || echo "")
+              
+              if [ -n "$FUNC_ASSOC" ] && echo "$FUNC_ASSOC" | grep -qi "finanzas\|path-rewrite"; then
+                echo "✅ $PATTERN → Function attached at viewer-request"
+              else
+                echo "⚠️  WARNING: $PATTERN → NO function attached or wrong function"
+                echo "   Expected: $FINANZAS_FUNCTION at viewer-request"
+                echo "   This should be fixed manually in CloudFront console to enable SPA deep links"
+              fi
+            done
+          fi
+          
+          # Check OriginPath is empty (critical for correct S3 routing)
+          echo ""
+          echo "🔍 Verifying Finanzas origin OriginPath..."
+          ORIGIN_PATH=$(echo "$DIST_CONFIG" | jq -r '.DistributionConfig.Origins.Items[] | select(.DomainName | contains("finanzas")) | .OriginPath // ""' | head -1)
+          
+          if [ -z "$ORIGIN_PATH" ]; then
+            echo "✅ Finanzas origin OriginPath is empty (correct)"
+          else
+            echo "❌ CRITICAL: Finanzas origin has OriginPath='$ORIGIN_PATH'"
+            echo "   Expected: empty string"
+            echo "   This will cause incorrect S3 path lookups!"
+            exit 1
+          fi
 
       # ---- Invalidate CF caches ----
       - name: Invalidate CloudFront (all + Finanzas SPA)
