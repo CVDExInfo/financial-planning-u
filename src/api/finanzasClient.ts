@@ -11,6 +11,9 @@ if (!BASE) {
   console.warn(
     "VITE_API_BASE_URL is not set. Finanzas API client is disabled."
   );
+} else if (import.meta.env.DEV) {
+  // Debug logging for dev mode only
+  console.log("[Finz] finanzasClient initialized with BASE:", BASE);
 }
 
 // Schemas

@@ -45,6 +45,12 @@ export default function RubrosCatalog() {
 
   React.useEffect(() => {
     let cancelled = false;
+    
+    // Debug logging for dev mode only
+    if (import.meta.env.DEV) {
+      console.log("[Finz] RubrosCatalog - VITE_API_BASE_URL:", import.meta.env.VITE_API_BASE_URL);
+    }
+    
     (async () => {
       try {
         setLoading(true);
