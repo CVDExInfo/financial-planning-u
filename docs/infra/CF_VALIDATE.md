@@ -3,18 +3,39 @@
 ## Overview
 
 This document describes the validation strategy for the dual-SPA deployment architecture where:
-- **PMO Portal** is served at the root `/` with assets under `/assets/*`
-- **Finanzas Portal** is served at `/finanzas/` with assets under `/finanzas/assets/*`
+- **PMO Portal** is deployed from the `acta-ui` repository to `acta-ui-frontend-prod` bucket and served at the root `/` with assets under `/assets/*`
+- **Finanzas Portal** is deployed from the `financial-planning-u` repository to `ukusi-ui-finanzas-prod` bucket and served at `/finanzas/` with assets under `/finanzas/assets/*`
 
 Both portals are served through a single CloudFront distribution with multiple origins and cache behaviors.
+
+## Repository Ownership
+
+⚠️ **CRITICAL: Deployment Separation**
+
+- **acta-ui repository**: 
+  - Owns and deploys PMO Portal exclusively
+  - Deploys to `acta-ui-frontend-prod` S3 bucket (root `/`)
+  - Has its own build and deployment pipeline
+  
+- **financial-planning-u repository** (this repo):
+  - Owns and deploys Finanzas Portal exclusively
+  - Deploys to `ukusi-ui-finanzas-prod` S3 bucket (`/finanzas/` prefix)
+  - **Does NOT build or deploy PMO Portal**
+  - **Does NOT touch `acta-ui-frontend-prod` bucket**
+
+This separation ensures:
+- No risk of one repo overwriting the other's deployments
+- Clear ownership boundaries
+- Independent deployment pipelines
+- PMO and Finanzas can be updated independently
 
 ## Architecture Constraints
 
 ### CloudFront Distribution (Read-Only in this Lane)
 - **Distribution ID**: Managed via repository variables (`CLOUDFRONT_DIST_ID`)
 - **Origins**: 
-  - PMO S3 bucket (root content)
-  - Finanzas S3 bucket (finanzas content)
+  - PMO S3 bucket (`acta-ui-frontend-prod`) - managed by acta-ui repo
+  - Finanzas S3 bucket (`ukusi-ui-finanzas-prod`) - managed by this repo
 - **Cache Behaviors**:
   - Default behavior: Routes to PMO origin
   - `/finanzas/*` behavior: Routes to Finanzas origin with CloudFront function for SPA routing
@@ -22,10 +43,10 @@ Both portals are served through a single CloudFront distribution with multiple o
 ⚠️ **These CloudFront settings are NOT modified by the deployment workflow** - they are pre-configured infrastructure.
 
 ### S3 Buckets (Read-Only Structure)
-- **PMO Bucket**: Content uploaded to root of bucket
-- **Finanzas Bucket**: Content uploaded to `/finanzas/` prefix within bucket
+- **PMO Bucket** (`acta-ui-frontend-prod`): Content uploaded to root of bucket by acta-ui repo
+- **Finanzas Bucket** (`ukusi-ui-finanzas-prod`): Content uploaded to `/finanzas/` prefix within bucket by this repo
 
-⚠️ **Bucket names and structure are NOT modified** - only the workflow uploads content to existing buckets.
+⚠️ **Bucket names and structure are NOT modified** - only the workflow uploads content to the Finanzas bucket.
 
 ## Build Configuration
 
@@ -50,16 +71,16 @@ export default defineConfig(() => {
 ```
 
 **Key Points**:
-- `BUILD_TARGET=pmo` → builds to `dist-pmo/` with `base: "/"`
+- `BUILD_TARGET=pmo` → builds to `dist-pmo/` with `base: "/"` (not used by this repo anymore)
 - `BUILD_TARGET=finanzas` → builds to `dist-finanzas/` with `base: "/finanzas/"`
 - The `base` setting controls how Vite generates asset paths in the HTML
 
 ### Build Commands
 ```bash
-# PMO build
+# PMO build (not used in this repo - acta-ui repo handles PMO)
 BUILD_TARGET=pmo npm run build  # → dist-pmo/ with /assets/* paths
 
-# Finanzas build  
+# Finanzas build (this repo only builds Finanzas)
 BUILD_TARGET=finanzas npm run build  # → dist-finanzas/ with /finanzas/assets/* paths
 ```
 
@@ -67,27 +88,7 @@ BUILD_TARGET=finanzas npm run build  # → dist-finanzas/ with /finanzas/assets/
 
 The deployment workflow (`.github/workflows/deploy-ui.yml`) includes automated guards to prevent misconfigurations:
 
-### 1. PMO Artifact Guard
-**Location**: After PMO build step
-
-```yaml
-- name: Guard - PMO build artifacts
-  run: |
-    set -euo pipefail
-    if grep -R -nE 'src="/finanzas/assets/|href="/finanzas/assets/' dist-pmo/index.html; then
-      echo "❌ dist-pmo/index.html points to /finanzas/assets/* (PMO must use /assets/*)";
-      exit 1;
-    fi
-    echo "✅ PMO build artifacts look good"
-```
-
-**Purpose**: Ensures PMO build doesn't accidentally use Finanzas asset paths.
-
-**What it checks**:
-- Scans `dist-pmo/index.html` for any references to `/finanzas/assets/`
-- Fails the build if found, preventing deployment of misconfigured PMO
-
-### 2. Finanzas Artifact Guard
+### 1. Finanzas Artifact Guard
 **Location**: After Finanzas build step
 
 ```yaml
@@ -111,6 +112,8 @@ The deployment workflow (`.github/workflows/deploy-ui.yml`) includes automated g
 - Checks for development environment references (github.dev, codespaces)
 - Fails the build if issues found
 
+**Note**: PMO artifact guard has been removed from this repo as PMO is built by acta-ui repo.
+
 ## Manual Validation
 
 ### Inspecting Deployed HTML
@@ -118,14 +121,14 @@ The deployment workflow (`.github/workflows/deploy-ui.yml`) includes automated g
 You can verify correct deployment using curl:
 
 ```bash
-# PMO at root
+# PMO at root (deployed by acta-ui repo)
 curl -sS https://d7t9x3j66yd8k.cloudfront.net/ | head -40
 
 # Expected output should include:
 # - <title>...PMO...</title>
 # - <script src="/assets/index-xxx.js">
 
-# Finanzas at /finanzas/
+# Finanzas at /finanzas/ (deployed by this repo)
 curl -sS https://d7t9x3j66yd8k.cloudfront.net/finanzas/ | head -40
 
 # Expected output should include:
@@ -163,24 +166,26 @@ This is a **read-only check** - it verifies the expected CloudFront configuratio
 
 ### PMO Shows White Screen
 
-**Check 1: Asset Paths**
+**Check 1: Repository Ownership**
+Ensure PMO is being deployed by the correct repository (acta-ui), not this one.
+
+**Check 2: Asset Paths**
 ```bash
 curl -sS https://domain.cloudfront.net/ | grep -E 'src=|href='
 # Should show /assets/* NOT /finanzas/assets/*
 ```
 
-**Check 2: Browser Console**
+**Check 3: Browser Console**
 Open DevTools console at `/` and look for:
 - 404 errors loading assets
 - JavaScript errors indicating missing modules
 - Router configuration issues
 
-**Check 3: Build Artifacts**
-Locally verify the build:
+**Check 4: S3 Bucket**
+Verify PMO bucket has the correct content:
 ```bash
-BUILD_TARGET=pmo npm run build
-cat dist-pmo/index.html
-# Should reference /assets/* paths
+aws s3 ls s3://acta-ui-frontend-prod/
+# Should show index.html and assets/ from acta-ui repo
 ```
 
 ### Finanzas Shows PMO Content
@@ -216,26 +221,31 @@ The workflow does this automatically, but you can manually trigger if needed.
 
 ## GREEN Criteria
 
-✅ **PMO at `/` works**:
+✅ **PMO at `/` works** (deployed by acta-ui repo):
 - No white screen
 - Assets load from `/assets/*`
 - Console free of fatal errors
+- Deployed independently from this repo
 
-✅ **Finanzas at `/finanzas/` works**:
+✅ **Finanzas at `/finanzas/` works** (deployed by this repo):
 - Loads correctly
 - Deep links function (via CloudFront function)
 - Assets load from `/finanzas/assets/*`
 - Console free of fatal errors
 
 ✅ **CI Guards Pass**:
-- PMO guard prevents `/finanzas/assets/*` in PMO build
 - Finanzas guard prevents `/assets/*` in Finanzas build
 - CloudFront behavior verification passes
 
 ✅ **No Infrastructure Changes**:
 - CloudFront distribution config unchanged
 - S3 bucket structure unchanged
-- Only workflow and build guards modified
+- Only Finanzas workflow and build guards are active in this repo
+
+✅ **Clear Separation**:
+- This repo only deploys to `ukusi-ui-finanzas-prod`
+- This repo does NOT touch `acta-ui-frontend-prod`
+- PMO and Finanzas deployments are independent
 
 ## References
 
