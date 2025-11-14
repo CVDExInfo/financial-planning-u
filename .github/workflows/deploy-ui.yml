@@ -1,4 +1,4 @@
-name: Deploy UIs (PMO + Finanzas)
+name: Deploy Finanzas UI
 
 on:
   workflow_dispatch: {}
@@ -18,8 +18,7 @@ env:
   # Branch → environment
   DEPLOYMENT_ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
 
-  # S3 buckets (single bucket per app, shared across branches)
-  PMO_BUCKET_NAME: ${{ vars.PMO_BUCKET_NAME || 'acta-ui-frontend-prod' }}
+  # S3 bucket for Finanzas (PMO is deployed by acta-ui repo)
   FINANZAS_BUCKET_NAME: ${{ vars.FINANZAS_BUCKET_NAME || 'ukusi-ui-finanzas-prod' }}
 
   # CloudFront (single distribution)
@@ -50,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "🚀 Deployment Environment: ${DEPLOYMENT_ENV}"
-          for k in AWS_REGION PMO_BUCKET_NAME FINANZAS_BUCKET_NAME CLOUDFRONT_DIST_ID FINZ_API_ID FINZ_API_STAGE; do
+          for k in AWS_REGION FINANZAS_BUCKET_NAME CLOUDFRONT_DIST_ID FINZ_API_ID FINZ_API_STAGE; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing repo var: $k"; exit 1; }
           done
           printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
@@ -88,23 +87,6 @@ jobs:
           fi
           sed -i 's/\r$//' "$GITHUB_ENV"
 
-      # ---- Build PMO (/) ----
-      - name: Build PMO Portal (base /)
-        run: |
-          echo "Building PMO Portal (base: /)..."
-          BUILD_TARGET=pmo npm run build || { echo "❌ PMO build failed"; exit 1; }
-          echo "✅ PMO Portal built → dist-pmo/"
-
-      # ---- Guard: PMO build artifacts ----
-      - name: Guard - PMO build artifacts
-        run: |
-          set -euo pipefail
-          if grep -R -nE 'src="/finanzas/assets/|href="/finanzas/assets/' dist-pmo/index.html; then
-            echo "❌ dist-pmo/index.html points to /finanzas/assets/* (PMO must use /assets/*)";
-            exit 1;
-          fi
-          echo "✅ PMO build artifacts look good"
-
       # ---- Build Finanzas (/finanzas) ----
       - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
@@ -141,7 +123,6 @@ jobs:
       - name: Guard - S3 buckets and CloudFront exist
         run: |
           set -euo pipefail
-          aws s3api head-bucket --bucket "${PMO_BUCKET_NAME}" >/dev/null || { echo "❌ Missing PMO bucket ${PMO_BUCKET_NAME}"; exit 1; }
           aws s3api head-bucket --bucket "${FINANZAS_BUCKET_NAME}" >/dev/null || { echo "❌ Missing Finanzas bucket ${FINANZAS_BUCKET_NAME}"; exit 1; }
           aws cloudfront get-distribution --id "${CLOUDFRONT_DIST_ID}" >/dev/null || { echo "❌ Missing CloudFront distribution ${CLOUDFRONT_DIST_ID}"; exit 1; }
           echo "✅ Buckets & CloudFront found"
@@ -180,12 +161,6 @@ jobs:
             exit 1;
           fi
           echo "✅ Finanzas build artifacts look good"
-
-      # ---- Upload PMO (/root) ----
-      - name: Upload PMO Portal to S3 (root /)
-        run: |
-          aws s3 sync dist-pmo/ "s3://${PMO_BUCKET_NAME}/" --exclude '*.map' --delete
-          echo "✅ PMO uploaded to s3://${PMO_BUCKET_NAME}/"
 
       # ---- Upload Finanzas (/finanzas) ----
       - name: Upload Finanzas Portal to S3 (/finanzas prefix)
@@ -265,18 +240,7 @@ jobs:
             --query 'Invalidation.Id' --output text)
           echo "✅ Invalidation queued: $INVALIDATION_ID"
 
-      # ---- UI smoke: PMO & Finanzas ----
-      - name: UI Smoke (PMO root /)
-        run: |
-          set -euo pipefail
-          DOMAIN="${CF_DOMAIN}"
-          if [ -z "$DOMAIN" ]; then
-            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
-          fi
-          ROOT="https://${DOMAIN}/"
-          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$ROOT")
-          echo "PMO / status: $STATUS"
-
+      # ---- UI smoke: Finanzas ----
       - name: UI Smoke (Finanzas /finanzas/)
         run: |
           set -euo pipefail
@@ -319,8 +283,7 @@ jobs:
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
           # 🚀 Finanzas UI Deployment — ${DEPLOYMENT_ENV}
 
-          ## 📊 Build Targets
-          - PMO → dist-pmo/ (root /)
+          ## 📊 Build Target
           - Finanzas → dist-finanzas/ (/finanzas/)
 
           ## ⚙️ Environment
@@ -330,13 +293,11 @@ jobs:
           - VITE_API_BASE_URL: ${VITE_API_BASE_URL}
 
           ## ☁️ AWS
-          - PMO Bucket: ${PMO_BUCKET_NAME}
           - Finanzas Bucket: ${FINANZAS_BUCKET_NAME}
           - CloudFront ID: ${CLOUDFRONT_DIST_ID}
           - CloudFront Domain: ${DOMAIN}
 
           ## 🌐 Access
-          - PMO: https://${DOMAIN}/
           - Finanzas: https://${DOMAIN}/finanzas/
 
           ## ✅ Checklist
