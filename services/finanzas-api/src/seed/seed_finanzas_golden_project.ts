@@ -15,7 +15,7 @@
  */
 
 import { DynamoDBClient, PutItemCommand, GetItemCommand } from "@aws-sdk/client-dynamodb";
-import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+import { marshall } from "@aws-sdk/util-dynamodb";
 
 const AWS_REGION = process.env.AWS_REGION || "us-east-2";
 const TABLE_PROJECTS = process.env.TABLE_PROJECTS || "finz_projects";
