@@ -32,6 +32,8 @@ servers:
     description: Local Development Server
 
 tags:
+  - name: Health
+    description: Service health and status monitoring
   - name: Projects
     description: Project management and handoff operations
   - name: Catalog
@@ -55,6 +57,27 @@ security:
   - CognitoJWT: []
 
 paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Returns the health status of the Finanzas API service
+      operationId: healthCheck
+      security: []  # No authentication required for health check
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                ok: true
+                status: "ok"
+                env: "dev"
+                version: "1.0.0"
+
   /projects:
     post:
       tags:
@@ -1501,6 +1524,31 @@ components:
         Token must include valid groups claim with 'SDT' group for Service Delivery Team access.
 
   schemas:
+    HealthResponse:
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+          description: Indicates if the service is healthy
+        status:
+          type: string
+          enum: [ok, UP, healthy]
+          description: Optional status indicator
+        env:
+          type: string
+          enum: [dev, stg, prod]
+          description: Current environment
+        version:
+          type: string
+          description: API version
+      example:
+        ok: true
+        status: "ok"
+        env: "dev"
+        version: "1.0.0"
+
     ProjectCreate:
       type: object
       required:
@@ -1710,6 +1758,312 @@ components:
             $ref: "#/components/schemas/Rubro"
         total:
           type: integer
+
+    ProjectRubroAttachment:
+      type: object
+      required:
+        - projectId
+        - rubroId
+        - attachedAt
+      properties:
+        id:
+          type: string
+          pattern: "^proj_rubro_[a-z0-9]{10}$"
+          description: Unique attachment identifier
+        projectId:
+          type: string
+          pattern: "^proj_[a-z0-9]{10}$|^P-[A-Z0-9-]+$"
+          description: Project identifier
+        rubroId:
+          type: string
+          description: Catalog rubro identifier (e.g., RB0001)
+        attachedAt:
+          type: string
+          format: date-time
+          description: Timestamp when rubro was attached to project
+        attachedBy:
+          type: string
+          format: email
+          description: User who attached the rubro
+        notes:
+          type: string
+          maxLength: 500
+          description: Notes about this attachment
+      example:
+        id: "proj_rubro_abc1234567"
+        projectId: "P-GOLDEN-1"
+        rubroId: "RB0001"
+        attachedAt: "2025-01-15T10:00:00Z"
+        attachedBy: "pm@ikusi.com"
+
+    EstimatorItem:
+      type: object
+      required:
+        - id
+        - projectId
+        - rubroId
+        - quantity
+        - unitCost
+        - totalCost
+      properties:
+        id:
+          type: string
+          pattern: "^est_[a-z0-9]{10}$"
+          description: Unique estimator item identifier
+        projectId:
+          type: string
+          pattern: "^proj_[a-z0-9]{10}$|^P-[A-Z0-9-]+$"
+          description: Project identifier
+        baselineId:
+          type: string
+          description: Baseline identifier (e.g., BL-1763192300497)
+        rubroId:
+          type: string
+          description: Catalog rubro identifier (e.g., RB0001)
+        nombre:
+          type: string
+          description: Item name/description
+        tier:
+          type: string
+          enum: [Go, Gold, Premium, Platinum, Star]
+          description: Service tier
+        quantity:
+          type: number
+          minimum: 0
+          description: Quantity (e.g., number of resources, months)
+        unitCost:
+          type: number
+          minimum: 0
+          description: Cost per unit
+        totalCost:
+          type: number
+          minimum: 0
+          description: Total cost (quantity * unitCost)
+        period:
+          type: integer
+          description: Period in months
+        startMonth:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          description: Starting month in YYYY-MM format
+        endMonth:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          description: Ending month in YYYY-MM format
+        committed:
+          type: boolean
+          description: Whether this item has been committed to allocations
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      example:
+        id: "est_xyz1234567"
+        projectId: "P-GOLDEN-1"
+        baselineId: "BL-1763192300497"
+        rubroId: "RB0001"
+        nombre: "Ingenieros Gold - 48 meses"
+        tier: "Gold"
+        quantity: 3
+        unitCost: 85000
+        totalCost: 255000
+        period: 48
+        startMonth: "2025-01"
+        endMonth: "2028-12"
+        committed: true
+        createdAt: "2025-01-10T10:00:00Z"
+
+    Allocation:
+      type: object
+      required:
+        - id
+        - projectId
+        - rubroId
+        - month
+        - amount
+        - source
+      properties:
+        id:
+          type: string
+          pattern: "^alloc_[a-z0-9]{10}$"
+          description: Unique allocation identifier
+        projectId:
+          type: string
+          pattern: "^proj_[a-z0-9]{10}$|^P-[A-Z0-9-]+$"
+          description: Project identifier
+        rubroId:
+          type: string
+          description: Catalog rubro identifier
+        estimatorItemId:
+          type: string
+          pattern: "^est_[a-z0-9]{10}$"
+          description: Related estimator item (if source is estimator)
+        month:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          description: Month in YYYY-MM format
+        amount:
+          type: number
+          minimum: 0
+          description: Allocated amount for this month
+        source:
+          type: string
+          enum: [estimator, manual, adjustment]
+          description: Source of this allocation
+        status:
+          type: string
+          enum: [planned, committed, spent]
+          description: Allocation status
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      example:
+        id: "alloc_abc1234567"
+        projectId: "P-GOLDEN-1"
+        rubroId: "RB0001"
+        estimatorItemId: "est_xyz1234567"
+        month: "2025-01"
+        amount: 85000
+        source: "estimator"
+        status: "committed"
+        createdAt: "2025-01-10T12:00:00Z"
+
+    PayrollActual:
+      type: object
+      required:
+        - id
+        - projectId
+        - month
+        - amount
+      properties:
+        id:
+          type: string
+          pattern: "^payroll_[a-z0-9]{10}$"
+          description: Unique payroll actual identifier
+        projectId:
+          type: string
+          pattern: "^proj_[a-z0-9]{10}$|^P-[A-Z0-9-]+$"
+          description: Project identifier
+        allocationId:
+          type: string
+          pattern: "^alloc_[a-z0-9]{10}$"
+          description: Related allocation record
+        rubroId:
+          type: string
+          description: Catalog rubro identifier
+        month:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          description: Month in YYYY-MM format
+        amount:
+          type: number
+          minimum: 0
+          description: Actual payroll amount spent
+        resourceCount:
+          type: integer
+          minimum: 0
+          description: Number of resources
+        source:
+          type: string
+          description: Source system (e.g., SAP_HR, manual)
+        uploadedBy:
+          type: string
+          format: email
+          description: User who uploaded this data
+        uploadedAt:
+          type: string
+          format: date-time
+          description: Upload timestamp
+        notes:
+          type: string
+          maxLength: 500
+      example:
+        id: "payroll_def1234567"
+        projectId: "P-GOLDEN-1"
+        allocationId: "alloc_abc1234567"
+        rubroId: "RB0001"
+        month: "2025-01"
+        amount: 82500
+        resourceCount: 3
+        source: "SAP_HR"
+        uploadedBy: "finance@ikusi.com"
+        uploadedAt: "2025-02-01T10:00:00Z"
+
+    ReconSummary:
+      type: object
+      required:
+        - projectId
+        - month
+      properties:
+        projectId:
+          type: string
+          pattern: "^proj_[a-z0-9]{10}$|^P-[A-Z0-9-]+$"
+          description: Project identifier
+        month:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          description: Month in YYYY-MM format
+        totalAllocated:
+          type: number
+          description: Total allocated amount for the month
+        totalActual:
+          type: number
+          description: Total actual spent for the month
+        variance:
+          type: number
+          description: Variance (actual - allocated)
+        variancePercent:
+          type: number
+          description: Variance as percentage
+        matched:
+          type: number
+          description: Amount matched between allocations and actuals
+        matchedCount:
+          type: integer
+          description: Number of matched records
+        pending:
+          type: number
+          description: Amount pending reconciliation
+        pendingCount:
+          type: integer
+          description: Number of pending records
+        disputed:
+          type: number
+          description: Amount in dispute
+        disputedCount:
+          type: integer
+          description: Number of disputed records
+        adjustments:
+          type: number
+          description: Total adjustments for the month
+        adjustmentsCount:
+          type: integer
+          description: Number of adjustments
+        lastUpdated:
+          type: string
+          format: date-time
+          description: Last reconciliation update timestamp
+      example:
+        projectId: "P-GOLDEN-1"
+        month: "2025-01"
+        totalAllocated: 255000
+        totalActual: 247500
+        variance: -7500
+        variancePercent: -2.94
+        matched: 240000
+        matchedCount: 3
+        pending: 7500
+        pendingCount: 1
+        disputed: 0
+        disputedCount: 0
+        adjustments: 0
+        adjustmentsCount: 0
+        lastUpdated: "2025-02-05T15:30:00Z"
 
     AllocationBulk:
       type: object

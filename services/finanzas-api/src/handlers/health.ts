@@ -1,8 +1,15 @@
 export const handler = async () => {
-  const stage = process.env.STAGE_NAME || process.env.STAGE || "dev";
+  const env = process.env.STAGE_NAME || process.env.STAGE || "dev";
+  const version = process.env.API_VERSION || "1.0.0";
+  
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, service: 'finanzas-sd-api', stage, time: new Date().toISOString() })
+    body: JSON.stringify({ 
+      ok: true, 
+      status: 'ok',
+      env,
+      version
+    })
   };
 };

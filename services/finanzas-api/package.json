@@ -9,14 +9,16 @@
     "sam:local": "sam local start-api --warm-containers EAGER",
     "sam:deploy": "sam deploy --no-confirm-changeset --stack-name finanzas-sd-api-dev --resolve-s3 --capabilities CAPABILITY_IAM",
     "seed:rubros": "ts-node --project ../../tsconfig.node.json ../../scripts/ts-seeds/seed_rubros.ts",
-    "seed:taxonomy": "ts-node --project ../../tsconfig.node.json ../../scripts/ts-seeds/seed_rubros_taxonomia.ts"
+    "seed:taxonomy": "ts-node --project ../../tsconfig.node.json ../../scripts/ts-seeds/seed_rubros_taxonomia.ts",
+    "seed:finanzas:golden": "ts-node src/seed/seed_finanzas_golden_project.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.931.0",
     "@aws-sdk/client-verifiedpermissions": "^3.637.0",
     "@aws-sdk/lib-dynamodb": "^3.931.0",
     "@types/uuid": "^10.0.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.129",
