@@ -10,6 +10,33 @@ import * as crypto from "crypto";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
+interface LaborEstimate {
+  role?: string;
+  hours?: number;
+  rate?: number;
+  resource_name?: string;
+  hours_per_month?: number;
+  fte_count?: number;
+  hourly_rate?: number;
+  on_cost_percentage?: number;
+  start_month?: number;
+  end_month?: number;
+  [key: string]: unknown;
+}
+
+interface NonLaborEstimate {
+  category?: string;
+  description?: string;
+  amount?: number;
+  [key: string]: unknown;
+}
+
+interface FxIndexation {
+  enabled?: boolean;
+  rate?: number;
+  [key: string]: unknown;
+}
+
 interface BaselineRequest {
   project_name: string;
   project_description?: string;
@@ -18,9 +45,9 @@ interface BaselineRequest {
   start_date?: string;
   duration_months?: number;
   contract_value?: number;
-  labor_estimates: any[];
-  non_labor_estimates: any[];
-  fx_indexation?: any;
+  labor_estimates: LaborEstimate[];
+  non_labor_estimates: NonLaborEstimate[];
+  fx_indexation?: FxIndexation;
   assumptions?: string[];
 }
 
