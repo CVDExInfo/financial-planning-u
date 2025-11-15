@@ -18,17 +18,17 @@ Integrated a comprehensive business cost structure matrix into the SDMT Cost Cat
 
 ```typescript
 interface CostCategory {
-  codigo: string;        // Category code (e.g., "MOD", "TEC")
-  nombre: string;        // Category name (e.g., "Mano de Obra Directa")
+  codigo: string; // Category code (e.g., "MOD", "TEC")
+  nombre: string; // Category name (e.g., "Mano de Obra Directa")
   lineas: CostLineItem[];
 }
 
 interface CostLineItem {
-  codigo: string;           // Line code (e.g., "MOD-ING", "TEC-LIC-MON")
-  nombre: string;           // Line item name
-  descripcion: string;      // Description
-  tipo_ejecucion: string;   // Execution type: "mensual" | "puntual/hito"
-  tipo_costo: string;       // Cost type: "OPEX" | "CAPEX"
+  codigo: string; // Line code (e.g., "MOD-ING", "TEC-LIC-MON")
+  nombre: string; // Line item name
+  descripcion: string; // Description
+  tipo_ejecucion: string; // Execution type: "mensual" | "puntual/hito"
+  tipo_costo: string; // Cost type: "OPEX" | "CAPEX"
   fuente_referencia: string; // Reference source
 }
 ```
@@ -65,6 +65,7 @@ interface CostLineItem {
 ### Cascading Dropdown Behavior
 
 **Step 1: Select Category**
+
 ```
 [Dropdown: Categoría *]
 → Shows: "MOD - Mano de Obra Directa"
@@ -74,6 +75,7 @@ interface CostLineItem {
 ```
 
 **Step 2: Select Line Item** (auto-enabled after category selection)
+
 ```
 [Dropdown: Línea de Gasto *]
 → If "MOD" selected, shows:
@@ -85,6 +87,7 @@ interface CostLineItem {
 
 **Step 3: Auto-populate Fields**
 When line item is selected:
+
 - **Description field** → Auto-filled with business description
 - **Metadata badges** → Display execution type, cost type, reference source
 
@@ -107,6 +110,7 @@ Description: Gestión operativa, relación con cliente, reportes, SLAs.
 **Purpose**: Central data source for business cost matrix
 
 **Content**:
+
 - `COST_CATEGORIES` constant (21 categories × 99 line items)
 - Helper functions:
   - `getCategoryByCode(codigo)` → Returns category object
@@ -121,17 +125,19 @@ Description: Gestión operativa, relación con cliente, reportes, SLAs.
 **Changes**:
 
 #### a) Import Business Matrix
+
 ```typescript
 import { COST_CATEGORIES, getCategoryByCode } from "@/data/cost-categories";
 ```
 
 #### b) Extended Form State
+
 ```typescript
 const [formData, setFormData] = useState({
   category: "",
-  categoryCode: "",      // NEW: Stores selected category code
+  categoryCode: "", // NEW: Stores selected category code
   subtype: "",
-  lineItemCode: "",      // NEW: Stores selected line item code
+  lineItemCode: "", // NEW: Stores selected line item code
   description: "",
   qty: 1,
   unit_cost: 0,
@@ -145,6 +151,7 @@ const [formData, setFormData] = useState({
 #### c) Category Dropdown (Replaced)
 
 **Before** (Hardcoded 5 categories):
+
 ```jsx
 <Select value={formData.category}>
   <SelectItem value="Labor">Labor</SelectItem>
@@ -154,8 +161,9 @@ const [formData, setFormData] = useState({
 ```
 
 **After** (Dynamic 21 categories from business matrix):
+
 ```jsx
-<Select 
+<Select
   value={formData.categoryCode}
   onValueChange={(value) => {
     const category = getCategoryByCode(value);
@@ -163,7 +171,7 @@ const [formData, setFormData] = useState({
       ...prev,
       categoryCode: value,
       category: category?.nombre || "",
-      lineItemCode: "",  // Reset line item
+      lineItemCode: "", // Reset line item
       subtype: "",
       description: "",
     }));
@@ -184,7 +192,7 @@ const [formData, setFormData] = useState({
   value={formData.lineItemCode}
   onValueChange={(value) => {
     const category = getCategoryByCode(formData.categoryCode);
-    const lineItem = category?.lineas.find(l => l.codigo === value);
+    const lineItem = category?.lineas.find((l) => l.codigo === value);
     setFormData((prev) => ({
       ...prev,
       lineItemCode: value,
@@ -192,35 +200,43 @@ const [formData, setFormData] = useState({
       description: lineItem?.descripcion || "",
     }));
   }}
-  disabled={!formData.categoryCode}  // Disabled until category selected
+  disabled={!formData.categoryCode} // Disabled until category selected
 >
-  <SelectValue placeholder={
-    formData.categoryCode 
-      ? "Seleccione línea" 
-      : "Primero seleccione categoría"
-  } />
-  {formData.categoryCode && getCategoryByCode(formData.categoryCode)?.lineas.map((linea) => (
-    <SelectItem key={linea.codigo} value={linea.codigo}>
-      {linea.codigo} - {linea.nombre}
-    </SelectItem>
-  ))}
+  <SelectValue
+    placeholder={
+      formData.categoryCode
+        ? "Seleccione línea"
+        : "Primero seleccione categoría"
+    }
+  />
+  {formData.categoryCode &&
+    getCategoryByCode(formData.categoryCode)?.lineas.map((linea) => (
+      <SelectItem key={linea.codigo} value={linea.codigo}>
+        {linea.codigo} - {linea.nombre}
+      </SelectItem>
+    ))}
 </Select>
 ```
 
 #### e) Metadata Badges Display
 
 ```jsx
-{formData.lineItemCode && (() => {
-  const category = getCategoryByCode(formData.categoryCode);
-  const lineItem = category?.lineas.find(l => l.codigo === formData.lineItemCode);
-  return lineItem ? (
-    <div className="flex gap-2 mt-2">
-      <Badge variant="outline">{lineItem.tipo_ejecucion}</Badge>
-      <Badge variant="outline">{lineItem.tipo_costo}</Badge>
-      <Badge variant="secondary">{lineItem.fuente_referencia}</Badge>
-    </div>
-  ) : null;
-})()}
+{
+  formData.lineItemCode &&
+    (() => {
+      const category = getCategoryByCode(formData.categoryCode);
+      const lineItem = category?.lineas.find(
+        (l) => l.codigo === formData.lineItemCode
+      );
+      return lineItem ? (
+        <div className="flex gap-2 mt-2">
+          <Badge variant="outline">{lineItem.tipo_ejecucion}</Badge>
+          <Badge variant="outline">{lineItem.tipo_costo}</Badge>
+          <Badge variant="secondary">{lineItem.fuente_referencia}</Badge>
+        </div>
+      ) : null;
+    })();
+}
 ```
 
 ---
@@ -253,6 +269,7 @@ const [formData, setFormData] = useState({
 ## Automated Options Implementation
 
 ### Current State
+
 ✅ Categories: Fully automated (21 categories from `COST_CATEGORIES`)  
 ✅ Line Items: Fully automated (99 line items with cascading logic)  
 ✅ Description: Auto-populated from business matrix  
@@ -261,11 +278,13 @@ const [formData, setFormData] = useState({
 ### Future Enhancement: API Integration
 
 **Recommendation**: The `COST_CATEGORIES` constant can be:
+
 1. **Exported to API** → Store in database as master data
 2. **Imported from API** → `ApiService.getCostCategories()`
 3. **Cached in Redux/Context** → Reduce API calls
 
 **Migration Path**:
+
 ```typescript
 // Phase 1: Static import (current)
 import { COST_CATEGORIES } from "@/data/cost-categories";
@@ -280,6 +299,7 @@ setCostCategories(categories);
 ## Testing Checklist
 
 ### Functional Tests
+
 - [x] Category dropdown displays 21 categories
 - [x] Line item dropdown disabled when no category selected
 - [x] Line item dropdown shows correct items for selected category
@@ -290,12 +310,14 @@ setCostCategories(categories);
 - [x] Reset form clears categoryCode and lineItemCode
 
 ### Edge Cases
+
 - [x] Changing category resets line item selection
 - [x] Manually editing description preserves user input
 - [x] Currency selector includes USD, EUR, MXN, COP
 - [x] TypeScript compilation: 0 errors
 
 ### Browser Compatibility
+
 - [ ] Chrome: Dropdown scrolling works with 21+ categories
 - [ ] Firefox: SelectContent max-height respects 300px
 - [ ] Safari: Badge rendering displays correctly
@@ -327,6 +349,7 @@ setCostCategories(categories);
 ### For Existing Data
 
 If existing line items have old category values ("Labor", "Infrastructure"), they can be:
+
 1. **Mapped manually** → Create migration script: "Labor" → "MOD"
 2. **Preserved** → Keep old category in database, show in read-only mode
 3. **Hybrid approach** → New entries use codes, old entries show legacy names
@@ -334,14 +357,14 @@ If existing line items have old category values ("Labor", "Infrastructure"), the
 ### Database Schema Changes (Recommended)
 
 ```sql
-ALTER TABLE line_items 
+ALTER TABLE line_items
   ADD COLUMN category_code VARCHAR(10),
   ADD COLUMN line_item_code VARCHAR(20);
 
 -- Optional: Add foreign key constraints
 ALTER TABLE line_items
-  ADD CONSTRAINT fk_category_code 
-  FOREIGN KEY (category_code) 
+  ADD CONSTRAINT fk_category_code
+  FOREIGN KEY (category_code)
   REFERENCES cost_categories(codigo);
 ```
 
@@ -359,6 +382,7 @@ ALTER TABLE line_items
 ## Contact
 
 For questions about business matrix maintenance:
+
 - **Business Owner**: Finance/Accounting team
 - **Technical Owner**: SDMT Module maintainer
 - **Data Governance**: PMO/Prefactura team
@@ -367,11 +391,11 @@ For questions about business matrix maintenance:
 
 ## Change Log
 
-| Date | Author | Change |
-|------|--------|--------|
+| Date       | Author         | Change                                                                    |
+| ---------- | -------------- | ------------------------------------------------------------------------- |
 | 2025-11-14 | GitHub Copilot | Initial implementation: 21 categories, 99 line items, cascading dropdowns |
-| 2025-11-14 | GitHub Copilot | Added metadata badges for tipo_ejecucion, tipo_costo, fuente_referencia |
-| 2025-11-14 | GitHub Copilot | Extended Currency type to include EUR, MXN, COP |
+| 2025-11-14 | GitHub Copilot | Added metadata badges for tipo_ejecucion, tipo_costo, fuente_referencia   |
+| 2025-11-14 | GitHub Copilot | Extended Currency type to include EUR, MXN, COP                           |
 
 ---
 

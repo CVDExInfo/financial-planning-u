@@ -1,20 +1,22 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { 
+import {
   DynamoDBDocumentClient,
   PutCommand,
   GetCommand,
   QueryCommand,
   ScanCommand,
   UpdateCommand,
-  DeleteCommand
+  DeleteCommand,
 } from "@aws-sdk/lib-dynamodb";
 
-const client = new DynamoDBClient({ region: process.env.AWS_REGION || "us-east-2" });
+const client = new DynamoDBClient({
+  region: process.env.AWS_REGION || "us-east-2",
+});
 export const ddb = DynamoDBDocumentClient.from(client, {
   marshallOptions: {
     removeUndefinedValues: true,
-    convertClassInstanceToMap: true
-  }
+    convertClassInstanceToMap: true,
+  },
 });
 
 const env = process.env;
@@ -40,7 +42,7 @@ const FALLBACKS: Record<TableKey, string> = {
   adjustments: "finz_adjustments",
   alerts: "finz_alerts",
   providers: "finz_providers",
-  audit_log: "finz_audit_log"
+  audit_log: "finz_audit_log",
 };
 
 export const tableName = (key: TableKey): string => {
@@ -53,4 +55,11 @@ export const tableName = (key: TableKey): string => {
 };
 
 // Export commands for convenience
-export { PutCommand, GetCommand, QueryCommand, ScanCommand, UpdateCommand, DeleteCommand };
+export {
+  PutCommand,
+  GetCommand,
+  QueryCommand,
+  ScanCommand,
+  UpdateCommand,
+  DeleteCommand,
+};

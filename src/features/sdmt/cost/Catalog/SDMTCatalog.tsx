@@ -82,8 +82,7 @@ export function SDMTCatalog() {
     useProject();
 
   // Use the new permissions system
-  const { isReadOnly, currentRole } =
-    usePermissions();
+  const { isReadOnly, currentRole } = usePermissions();
 
   const loadLineItems = useCallback(async () => {
     try {
@@ -570,7 +569,10 @@ export function SDMTCatalog() {
                               </SelectTrigger>
                               <SelectContent className="max-h-[300px]">
                                 {COST_CATEGORIES.map((cat) => (
-                                  <SelectItem key={cat.codigo} value={cat.codigo}>
+                                  <SelectItem
+                                    key={cat.codigo}
+                                    value={cat.codigo}
+                                  >
                                     {cat.codigo} - {cat.nombre}
                                   </SelectItem>
                                 ))}
@@ -582,8 +584,12 @@ export function SDMTCatalog() {
                             <Select
                               value={formData.lineItemCode}
                               onValueChange={(value) => {
-                                const category = getCategoryByCode(formData.categoryCode);
-                                const lineItem = category?.lineas.find(l => l.codigo === value);
+                                const category = getCategoryByCode(
+                                  formData.categoryCode
+                                );
+                                const lineItem = category?.lineas.find(
+                                  (l) => l.codigo === value
+                                );
                                 setFormData((prev) => ({
                                   ...prev,
                                   lineItemCode: value,
@@ -594,14 +600,26 @@ export function SDMTCatalog() {
                               disabled={!formData.categoryCode}
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder={formData.categoryCode ? "Seleccione línea" : "Primero seleccione categoría"} />
+                                <SelectValue
+                                  placeholder={
+                                    formData.categoryCode
+                                      ? "Seleccione línea"
+                                      : "Primero seleccione categoría"
+                                  }
+                                />
                               </SelectTrigger>
                               <SelectContent className="max-h-[300px]">
-                                {formData.categoryCode && getCategoryByCode(formData.categoryCode)?.lineas.map((linea) => (
-                                  <SelectItem key={linea.codigo} value={linea.codigo}>
-                                    {linea.codigo} - {linea.nombre}
-                                  </SelectItem>
-                                ))}
+                                {formData.categoryCode &&
+                                  getCategoryByCode(
+                                    formData.categoryCode
+                                  )?.lineas.map((linea) => (
+                                    <SelectItem
+                                      key={linea.codigo}
+                                      value={linea.codigo}
+                                    >
+                                      {linea.codigo} - {linea.nombre}
+                                    </SelectItem>
+                                  ))}
                               </SelectContent>
                             </Select>
                           </div>
@@ -618,23 +636,31 @@ export function SDMTCatalog() {
                             }
                             placeholder="Detailed description of the line item"
                           />
-                          {formData.lineItemCode && (() => {
-                            const category = getCategoryByCode(formData.categoryCode);
-                            const lineItem = category?.lineas.find(l => l.codigo === formData.lineItemCode);
-                            return lineItem ? (
-                              <div className="flex gap-2 mt-2">
-                                <Badge variant="outline" className="text-xs">
-                                  {lineItem.tipo_ejecucion}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  {lineItem.tipo_costo}
-                                </Badge>
-                                <Badge variant="secondary" className="text-xs">
-                                  {lineItem.fuente_referencia}
-                                </Badge>
-                              </div>
-                            ) : null;
-                          })()}
+                          {formData.lineItemCode &&
+                            (() => {
+                              const category = getCategoryByCode(
+                                formData.categoryCode
+                              );
+                              const lineItem = category?.lineas.find(
+                                (l) => l.codigo === formData.lineItemCode
+                              );
+                              return lineItem ? (
+                                <div className="flex gap-2 mt-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {lineItem.tipo_ejecucion}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    {lineItem.tipo_costo}
+                                  </Badge>
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    {lineItem.fuente_referencia}
+                                  </Badge>
+                                </div>
+                              ) : null;
+                            })()}
                         </div>
                         <div className="grid grid-cols-3 gap-4">
                           <div className="space-y-2">
@@ -767,8 +793,12 @@ export function SDMTCatalog() {
                           <Select
                             value={formData.lineItemCode}
                             onValueChange={(value) => {
-                              const category = getCategoryByCode(formData.categoryCode);
-                              const lineItem = category?.lineas.find(l => l.codigo === value);
+                              const category = getCategoryByCode(
+                                formData.categoryCode
+                              );
+                              const lineItem = category?.lineas.find(
+                                (l) => l.codigo === value
+                              );
                               setFormData((prev) => ({
                                 ...prev,
                                 lineItemCode: value,
@@ -779,14 +809,26 @@ export function SDMTCatalog() {
                             disabled={!formData.categoryCode}
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder={formData.categoryCode ? "Seleccione línea" : "Primero seleccione categoría"} />
+                              <SelectValue
+                                placeholder={
+                                  formData.categoryCode
+                                    ? "Seleccione línea"
+                                    : "Primero seleccione categoría"
+                                }
+                              />
                             </SelectTrigger>
                             <SelectContent className="max-h-[300px]">
-                              {formData.categoryCode && getCategoryByCode(formData.categoryCode)?.lineas.map((linea) => (
-                                <SelectItem key={linea.codigo} value={linea.codigo}>
-                                  {linea.codigo} - {linea.nombre}
-                                </SelectItem>
-                              ))}
+                              {formData.categoryCode &&
+                                getCategoryByCode(
+                                  formData.categoryCode
+                                )?.lineas.map((linea) => (
+                                  <SelectItem
+                                    key={linea.codigo}
+                                    value={linea.codigo}
+                                  >
+                                    {linea.codigo} - {linea.nombre}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -803,23 +845,28 @@ export function SDMTCatalog() {
                           }
                           placeholder="Detailed description of the line item"
                         />
-                        {formData.lineItemCode && (() => {
-                          const category = getCategoryByCode(formData.categoryCode);
-                          const lineItem = category?.lineas.find(l => l.codigo === formData.lineItemCode);
-                          return lineItem ? (
-                            <div className="flex gap-2 mt-2">
-                              <Badge variant="outline" className="text-xs">
-                                {lineItem.tipo_ejecucion}
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                {lineItem.tipo_costo}
-                              </Badge>
-                              <Badge variant="secondary" className="text-xs">
-                                {lineItem.fuente_referencia}
-                              </Badge>
-                            </div>
-                          ) : null;
-                        })()}
+                        {formData.lineItemCode &&
+                          (() => {
+                            const category = getCategoryByCode(
+                              formData.categoryCode
+                            );
+                            const lineItem = category?.lineas.find(
+                              (l) => l.codigo === formData.lineItemCode
+                            );
+                            return lineItem ? (
+                              <div className="flex gap-2 mt-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {lineItem.tipo_ejecucion}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {lineItem.tipo_costo}
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  {lineItem.fuente_referencia}
+                                </Badge>
+                              </div>
+                            ) : null;
+                          })()}
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">

@@ -1,4 +1,4 @@
-# DynamoDB Fix - Implementation Summary
+ss DynamoDB Fix - Implementation Summary
 
 **Date**: November 14, 2025  
 **Issue**: Empty DynamoDB tables, AWS SDK version mismatch  
@@ -13,6 +13,7 @@
 **File**: `services/finanzas-api/src/lib/dynamo.ts`
 
 **Changes**:
+
 - Removed AWS SDK v2 (`aws-sdk`) import
 - Added proper AWS SDK v3 imports (`@aws-sdk/lib-dynamodb`)
 - Exported `PutCommand`, `GetCommand`, `ScanCommand`, `QueryCommand`, `UpdateCommand`, `DeleteCommand`
@@ -28,50 +29,67 @@
 ### 2. Updated Lambda Handlers ✅
 
 #### `projects.ts`
+
 **Before**:
+
 ```typescript
-await ddb.put({ TableName: tableName('projects'), Item: item }).promise();
-const items = await ddb.scan({ TableName: tableName('projects'), Limit: 50 }).promise();
+await ddb.put({ TableName: tableName("projects"), Item: item }).promise();
+const items = await ddb
+  .scan({ TableName: tableName("projects"), Limit: 50 })
+  .promise();
 ```
 
 **After**:
-```typescript
-await ddb.send(new PutCommand({
-  TableName: tableName('projects'),
-  Item: item
-}));
 
-const result = await ddb.send(new ScanCommand({
-  TableName: tableName('projects'),
-  Limit: 50
-}));
+```typescript
+await ddb.send(
+  new PutCommand({
+    TableName: tableName("projects"),
+    Item: item,
+  })
+);
+
+const result = await ddb.send(
+  new ScanCommand({
+    TableName: tableName("projects"),
+    Limit: 50,
+  })
+);
 const items = result.Items ?? [];
 ```
 
 **Additional**:
+
 - Added `id` field to project item
 - Added `presupuesto_total`, `estado`, `created_by` fields
 - Added Content-Type headers to responses
 - Extract email from JWT claims for `created_by`
 
 #### `handoff.ts`
+
 **Before**:
+
 ```typescript
-await ddb.put({ TableName: tableName('projects'), Item: handoff }).promise();
-await ddb.put({ TableName: tableName('audit_log'), Item: audit }).promise();
+await ddb.put({ TableName: tableName("projects"), Item: handoff }).promise();
+await ddb.put({ TableName: tableName("audit_log"), Item: audit }).promise();
 ```
 
 **After**:
-```typescript
-await ddb.send(new PutCommand({
-  TableName: tableName('projects'),
-  Item: handoff
-}));
 
-await ddb.send(new PutCommand({
-  TableName: tableName('audit_log'),
-  Item: audit
-}));
+```typescript
+await ddb.send(
+  new PutCommand({
+    TableName: tableName("projects"),
+    Item: handoff,
+  })
+);
+
+await ddb.send(
+  new PutCommand({
+    TableName: tableName("audit_log"),
+    Item: audit,
+  })
+);
 ```
 
 **Note**: `catalog.ts` already uses AWS SDK v3 correctly (ScanCommand)
@@ -83,6 +101,7 @@ await ddb.send(new PutCommand({
 **File**: `services/finanzas-api/scripts/seed-dynamodb.ts`
 
 **Features**:
+
 - Diagnoses all 9 tables (checks existence, status, item count)
 - Seeds initial data:
   - 2 demo projects (P-001: IKUSI, P-002: VELATIA)
@@ -94,6 +113,7 @@ await ddb.send(new PutCommand({
 - Provides actionable next steps
 
 **Run**:
+
 ```bash
 cd services/finanzas-api
 npx ts-node scripts/seed-dynamodb.ts
@@ -104,6 +124,7 @@ npx ts-node scripts/seed-dynamodb.ts
 ### 4. Created Documentation ✅
 
 **Files Created**:
+
 1. `DYNAMODB_FIX_PLAN.md` - Root cause analysis, fixes, implementation plan
 2. `DYNAMODB_FIX_SUMMARY.md` - This file (implementation summary)
 3. `scripts/seed-dynamodb.ts` - Seeding script
@@ -128,6 +149,7 @@ sam deploy --no-confirm-changeset
 ```
 
 **Expected Output**:
+
 ```
 CloudFormation stack changeset
 ---------------------------------------------
@@ -150,6 +172,7 @@ npx ts-node scripts/seed-dynamodb.ts
 ```
 
 **Expected Output**:
+
 ```
 🔍 DynamoDB Table Diagnostic & Seeding Tool
 
@@ -226,6 +249,7 @@ services/finanzas-api/
 ## Testing Checklist
 
 ### Backend
+
 - [x] dynamo.ts uses AWS SDK v3 only
 - [x] projects.ts updated to PutCommand/ScanCommand
 - [x] handoff.ts updated to PutCommand
@@ -238,6 +262,7 @@ services/finanzas-api/
 - [ ] CloudWatch logs show successful operations
 
 ### Frontend
+
 - [ ] Login works (Cognito JWT)
 - [ ] SDMT → Cost Catalog loads
 - [ ] Category dropdown shows 5 items
@@ -249,26 +274,30 @@ services/finanzas-api/
 ## Next Steps
 
 1. **Deploy Lambda Updates**
+
    ```bash
    cd services/finanzas-api
    sam build && sam deploy --no-confirm-changeset
    ```
 
 2. **Run Seeding Script**
+
    ```bash
    npx ts-node scripts/seed-dynamodb.ts
    ```
 
 3. **Verify Data in AWS Console**
+
    - Go to DynamoDB → Tables
    - Click `finz_projects` → Explore items
    - Should see 2 projects
 
 4. **Test API Endpoint**
+
    ```bash
    # Get token from browser localStorage
    TOKEN=$(node -e "console.log(localStorage.getItem('cognito_id_token'))")
-   
+
    curl -H "Authorization: Bearer $TOKEN" \
      https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/projects
    ```
@@ -285,6 +314,7 @@ services/finanzas-api/
 If issues occur:
 
 **Lambda Functions**:
+
 ```bash
 # Revert to previous deployment
 git checkout HEAD~1 services/finanzas-api/src/lib/dynamo.ts
@@ -294,6 +324,7 @@ sam build && sam deploy
 ```
 
 **DynamoDB Tables**:
+
 - Data can be deleted via AWS Console
 - Tables remain unchanged (no schema modifications)
 - Re-run seeding script to restore data
@@ -303,6 +334,7 @@ sam build && sam deploy
 ## Impact Analysis
 
 ### Benefits
+
 ✅ Consistent AWS SDK v3 usage across all handlers  
 ✅ Proper error handling and response headers  
 ✅ Initial data seeded for testing  
@@ -310,6 +342,7 @@ sam build && sam deploy
 ✅ Better debuggability with proper item structure
 
 ### Risks (Mitigated)
+
 - ✅ Breaking changes: Tested locally, backward compatible
 - ✅ Data loss: No schema changes, only additions
 - ✅ Deployment failure: Can rollback via git + sam deploy

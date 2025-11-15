@@ -20,6 +20,7 @@
 1. **Click "Add Line Item"** button (top right of Cost Catalog page)
 
 2. **Select Categoría** (Category) - Required
+
    ```
    Dropdown shows 21 business categories:
    ├─ MOD - Mano de Obra Directa
@@ -45,6 +46,7 @@
    ```
 
 3. **Select Línea de Gasto** (Line Item) - Auto-enabled after category
+
    ```
    Example: If you selected "MOD - Mano de Obra Directa", you'll see:
    ├─ MOD-ING - Ingenieros de soporte (mensual)
@@ -56,6 +58,7 @@
    ```
 
 4. **Description Auto-Fills**
+
    ```
    Example: Selected "MOD-SDM"
    → Description: "Gestión operativa, relación con cliente, reportes, SLAs."
@@ -63,6 +66,7 @@
    ```
 
 5. **Metadata Badges Appear**
+
    ```
    [mensual] - Execution frequency
    [OPEX]    - Cost type (OPEX or CAPEX)
@@ -70,6 +74,7 @@
    ```
 
 6. **Enter Cost Details**
+
    - **Quantity**: Number of units (e.g., 1 for one person)
    - **Unit Cost**: Cost per unit (e.g., 8000.00)
    - **Currency**: Select USD, EUR, MXN, or COP
@@ -82,57 +87,57 @@
 
 ### Labor & Human Resources
 
-| Code | Category | Line Items |
-|------|----------|------------|
-| **MOD** | Mano de Obra Directa | 6 items (Engineers, Leads, SDM, Overtime, Contractors) |
-| **GSV** | Gestión del Servicio | 4 items (Meetings, Reports, Audits, Training) |
+| Code    | Category                  | Line Items                                                    |
+| ------- | ------------------------- | ------------------------------------------------------------- |
+| **MOD** | Mano de Obra Directa      | 6 items (Engineers, Leads, SDM, Overtime, Contractors)        |
+| **GSV** | Gestión del Servicio      | 4 items (Meetings, Reports, Audits, Training)                 |
 | **REM** | Servicios Remotos / Campo | 6 items (Preventive/Corrective Maintenance, Travel, Expenses) |
 
 ### Technology & Equipment
 
-| Code | Category | Line Items |
-|------|----------|------------|
-| **TEC** | Equipos y Tecnología | 6 items (Monitoring licenses, ITSM, Lab equipment, Hardware) |
-| **INF** | Infraestructura / Nube / Data Center | 4 items (Cloud, Energy, Racks, Backup) |
-| **TEL** | Telecomunicaciones | 4 items (Circuits, UCaaS, Mobile plans, DIDs) |
-| **LIC** | Licencias de Red y Seguridad | 3 items (Firewall, Network subscriptions, EDR) |
+| Code    | Category                             | Line Items                                                   |
+| ------- | ------------------------------------ | ------------------------------------------------------------ |
+| **TEC** | Equipos y Tecnología                 | 6 items (Monitoring licenses, ITSM, Lab equipment, Hardware) |
+| **INF** | Infraestructura / Nube / Data Center | 4 items (Cloud, Energy, Racks, Backup)                       |
+| **TEL** | Telecomunicaciones                   | 4 items (Circuits, UCaaS, Mobile plans, DIDs)                |
+| **LIC** | Licencias de Red y Seguridad         | 3 items (Firewall, Network subscriptions, EDR)               |
 
 ### Security & Compliance
 
-| Code | Category | Line Items |
-|------|----------|------------|
+| Code    | Category                 | Line Items                                                  |
+| ------- | ------------------------ | ----------------------------------------------------------- |
 | **SEC** | Seguridad y Cumplimiento | 3 items (SOC monitoring, Vulnerability assessments, Audits) |
-| **CTR** | Cumplimiento Contractual | 2 items (SLA management, OLA agreements) |
+| **CTR** | Cumplimiento Contractual | 2 items (SLA management, OLA agreements)                    |
 
 ### Operations & Support
 
-| Code | Category | Line Items |
-|------|----------|------------|
-| **LOG** | Logística y Repuestos | 3 items (Spare pool, RMA, Shipping) |
-| **RIE** | Riesgos y Penalizaciones | 3 items (SLA penalties, Contingencies, Insurance) |
-| **NOC** | NOC / Operación 24x7 | 3 items (24x7 monitoring, Alert management, Capacity planning) |
+| Code    | Category                 | Line Items                                                     |
+| ------- | ------------------------ | -------------------------------------------------------------- |
+| **LOG** | Logística y Repuestos    | 3 items (Spare pool, RMA, Shipping)                            |
+| **RIE** | Riesgos y Penalizaciones | 3 items (SLA penalties, Contingencies, Insurance)              |
+| **NOC** | NOC / Operación 24x7     | 3 items (24x7 monitoring, Alert management, Capacity planning) |
 
 ### Administration & Management
 
-| Code | Category | Line Items |
-|------|----------|------------|
+| Code    | Category                          | Line Items                                                |
+| ------- | --------------------------------- | --------------------------------------------------------- |
 | **ADM** | Administración / PMO / Prefactura | 5 items (PMO, Billing, Accounting, Admin licenses, Legal) |
-| **QLT** | Calidad y Mejora Continua | 3 items (ISO certifications, Kaizen, CSAT surveys) |
-| **PLT** | Plataformas de Gestión | 4 items (Planview, Salesforce, SAP, Data Lake) |
-| **DEP** | Depreciación y Amortización | 2 items (Hardware depreciation, Software amortization) |
+| **QLT** | Calidad y Mejora Continua         | 3 items (ISO certifications, Kaizen, CSAT surveys)        |
+| **PLT** | Plataformas de Gestión            | 4 items (Planview, Salesforce, SAP, Data Lake)            |
+| **DEP** | Depreciación y Amortización       | 2 items (Hardware depreciation, Software amortization)    |
 
 ### Collaboration & Travel
 
-| Code | Category | Line Items |
-|------|----------|------------|
-| **COL** | Colaboración / Productividad | 3 items (UCC licenses, Storage, Email) |
-| **VIA** | Viajes Corporativos | 2 items (Internal travel, Client visits) |
-| **INV** | Inventarios / Almacén | 3 items (Warehouse, WMS software, Inventory insurance) |
+| Code    | Category                     | Line Items                                             |
+| ------- | ---------------------------- | ------------------------------------------------------ |
+| **COL** | Colaboración / Productividad | 3 items (UCC licenses, Storage, Email)                 |
+| **VIA** | Viajes Corporativos          | 2 items (Internal travel, Client visits)               |
+| **INV** | Inventarios / Almacén        | 3 items (Warehouse, WMS software, Inventory insurance) |
 
 ### Innovation
 
-| Code | Category | Line Items |
-|------|----------|------------|
+| Code    | Category             | Line Items                          |
+| ------- | -------------------- | ----------------------------------- |
 | **INN** | Innovación y Roadmap | 2 items (POC pilots, Automation/AI) |
 
 ---
@@ -196,15 +201,19 @@ Result:       $45,000 USD one-time CAPEX investment
 ## Metadata Badge Meanings
 
 ### Execution Type (tipo_ejecucion)
+
 - **`[mensual]`** - Recurring monthly cost
 - **`[puntual/hito]`** - One-time or milestone-based cost
 
 ### Cost Type (tipo_costo)
+
 - **`[OPEX]`** - Operating Expense (recurring operational costs)
 - **`[CAPEX]`** - Capital Expenditure (asset investments)
 
 ### Business Reference (fuente_referencia)
+
 Examples:
+
 - `[Modelo Service Delivery]` - Based on Service Delivery methodology
 - `[ITIL / SLA]` - ITIL framework and SLA requirements
 - `[Ciberseguridad Ikusi]` - Ikusi cybersecurity standards
@@ -216,12 +225,14 @@ Examples:
 ## Tips & Best Practices
 
 ### ✅ DO
+
 - **Select the most specific line item** that matches your cost
 - **Review the auto-filled description** - it provides business context
 - **Check metadata badges** to confirm OPEX/CAPEX classification
 - **Use consistent currencies** within the same project when possible
 
 ### ❌ DON'T
+
 - **Don't manually type categories** - always use the dropdowns
 - **Don't skip the line item selection** - it ensures standardization
 - **Don't ignore the metadata** - it's used for financial reporting
@@ -232,15 +243,19 @@ Examples:
 ## Troubleshooting
 
 ### "Línea de Gasto dropdown is disabled"
+
 **Solution**: You must first select a Categoría. The line item dropdown cascades from the category selection.
 
 ### "I can't find my cost type"
+
 **Solution**: Check all 21 categories. Many have 4-6 line items each. If truly missing, contact the Finance team to add it to the master matrix.
 
 ### "Description doesn't match my exact need"
+
 **Solution**: The description is pre-filled from the business matrix but **can be edited**. Modify it to be more specific while keeping the business context.
 
 ### "Wrong metadata badges showing"
+
 **Solution**: The badges are determined by the selected line item. If incorrect, select a different line item code that better matches your cost type.
 
 ---
@@ -248,7 +263,7 @@ Examples:
 ## Getting Help
 
 - **Technical Issues**: SDMT module maintainer
-- **Business Matrix Updates**: Finance/Accounting team  
+- **Business Matrix Updates**: Finance/Accounting team
 - **Missing Categories**: PMO/Prefactura team
 - **Documentation**: `docs/SDMT_BUSINESS_MATRIX_INTEGRATION.md`
 
