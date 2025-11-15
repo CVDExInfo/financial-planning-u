@@ -121,38 +121,42 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[280px] p-0">
+              <PopoverContent className="w-[400px] p-0">
                 <Command>
                   <CommandInput placeholder="Search projects..." />
-                  <CommandList>
+                  <CommandList className="max-h-[400px]">
                     <CommandEmpty>No projects found.</CommandEmpty>
                     <CommandGroup>
                       {projects.map((project) => (
                         <CommandItem
                           key={project.id}
-                          value={project.id}
-                          onSelect={(currentValue) => {
-                            setSelectedProjectId(
-                              currentValue === selectedProjectId
-                                ? ""
-                                : currentValue
-                            );
+                          value={`${project.name} ${project.id} ${project.description || ""}`}
+                          onSelect={() => {
+                            setSelectedProjectId(project.id);
                             setOpen(false);
                           }}
+                          className="cursor-pointer"
                         >
                           <Check
                             className={cn(
-                              "mr-2 h-4 w-4",
+                              "mr-2 h-4 w-4 shrink-0",
                               selectedProjectId === project.id
                                 ? "opacity-100"
                                 : "opacity-0"
                             )}
                           />
-                          <div className="flex flex-col">
-                            <span className="font-medium">{project.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {project.description}
-                            </span>
+                          <div className="flex flex-col flex-1 min-w-0">
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="font-medium truncate">{project.name}</span>
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">
+                                {project.id}
+                              </Badge>
+                            </div>
+                            {project.description && (
+                              <span className="text-xs text-muted-foreground line-clamp-1">
+                                {project.description}
+                              </span>
+                            )}
                           </div>
                         </CommandItem>
                       ))}

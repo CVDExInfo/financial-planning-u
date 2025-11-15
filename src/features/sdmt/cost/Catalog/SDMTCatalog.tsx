@@ -45,6 +45,7 @@ import Protected from "@/components/Protected";
 import ModuleBadge from "@/components/ModuleBadge";
 import { ServiceTierSelector } from "@/components/ServiceTierSelector";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { SaveBar, type SaveBarState } from "@/components/SaveBar";
 import { toast } from "sonner";
 import type { LineItem, BaselineBudget, Currency } from "@/types/domain";
 import ApiService from "@/lib/api";
@@ -52,9 +53,21 @@ import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import { createServiceLineItem } from "@/lib/pricing-calculator";
 import { logger } from "@/utils/logger";
+import { cn } from "@/lib/utils";
+
+// Pending change types
+type PendingChangeType = 'add' | 'edit' | 'delete';
+
+interface PendingChange {
+  type: PendingChangeType;
+  item: LineItem;
+  originalItem?: LineItem; // For edits, keep original for rollback
+}
 
 export function SDMTCatalog() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
+  const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map());
+  const [saveBarState, setSaveBarState] = useState<SaveBarState>('idle');
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -62,7 +75,6 @@ export function SDMTCatalog() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<LineItem | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   // Form state for Add/Edit Line Item dialog
   const [formData, setFormData] = useState({
@@ -85,6 +97,9 @@ export function SDMTCatalog() {
   // Use the new permissions system
   const { isReadOnly, currentRole } = usePermissions();
 
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = pendingChanges.size > 0;
+
   const loadLineItems = useCallback(async () => {
     try {
       setLoading(true);
@@ -96,6 +111,9 @@ export function SDMTCatalog() {
       logger.debug("Raw line items received:", items.length, "items");
 
       setLineItems(items);
+      // Clear pending changes when loading fresh data
+      setPendingChanges(new Map());
+      setSaveBarState('idle');
       logger.info("Catalog data updated for project:", selectedProjectId);
     } catch (error) {
       toast.error("Failed to load line items");
@@ -252,40 +270,43 @@ export function SDMTCatalog() {
       return;
     }
 
-    try {
-      setSubmitting(true);
+    // Generate temporary ID for new item
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-      const newItem: Partial<LineItem> = {
-        category: formData.category,
-        subtype: formData.subtype,
-        description: formData.description,
-        qty: formData.qty,
-        unit_cost: formData.unit_cost,
-        currency: formData.currency as Currency,
-        recurring: formData.recurring,
-        one_time: !formData.recurring,
-        start_month: formData.start_month,
-        end_month: formData.end_month,
-        capex_flag: false,
-        vendor: "",
-        created_by: currentRole,
-      };
+    const newItem: LineItem = {
+      id: tempId,
+      category: formData.category,
+      subtype: formData.subtype,
+      description: formData.description,
+      qty: formData.qty,
+      unit_cost: formData.unit_cost,
+      currency: formData.currency as Currency,
+      recurring: formData.recurring,
+      one_time: !formData.recurring,
+      start_month: formData.start_month,
+      end_month: formData.end_month,
+      amortization: 'none',
+      capex_flag: false,
+      vendor: "",
+      indexation_policy: 'none',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: currentRole,
+    };
 
-      const created = await ApiService.createLineItem(
-        selectedProjectId,
-        newItem
-      );
+    // Add to pending changes
+    setPendingChanges(prev => {
+      const updated = new Map(prev);
+      updated.set(tempId, { type: 'add', item: newItem });
+      return updated;
+    });
 
-      setLineItems((prev) => [...prev, created]);
-      toast.success("Line item added successfully");
-      setIsAddDialogOpen(false);
-      resetForm();
-    } catch (error) {
-      toast.error("Failed to add line item");
-      console.error("Add line item error:", error);
-    } finally {
-      setSubmitting(false);
-    }
+    // Add to local state for immediate UI update
+    setLineItems((prev) => [...prev, newItem]);
+    setSaveBarState('dirty');
+    toast.success("Line item staged for addition (unsaved)");
+    setIsAddDialogOpen(false);
+    resetForm();
   };
 
   const handleEditClick = (item: LineItem) => {
@@ -318,57 +339,146 @@ export function SDMTCatalog() {
       return;
     }
 
-    try {
-      setSubmitting(true);
+    // Merge form data with existing item to preserve all properties
+    const updatedItem: LineItem = {
+      ...editingItem,
+      category: formData.category,
+      subtype: formData.subtype,
+      description: formData.description,
+      qty: formData.qty,
+      unit_cost: formData.unit_cost,
+      currency: formData.currency as Currency,
+      start_month: formData.start_month,
+      end_month: formData.end_month,
+      recurring: formData.recurring,
+      one_time: !formData.recurring,
+      updated_at: new Date().toISOString(),
+    };
 
-      // Merge form data with existing item to preserve all properties
-      const updatedData: Partial<LineItem> = {
-        ...editingItem,
-        category: formData.category,
-        subtype: formData.subtype,
-        description: formData.description,
-        qty: formData.qty,
-        unit_cost: formData.unit_cost,
-        currency: formData.currency as Currency,
-        start_month: formData.start_month,
-        end_month: formData.end_month,
-        recurring: formData.recurring,
-        one_time: !formData.recurring,
-      };
+    // Add to pending changes, preserving original for rollback
+    setPendingChanges(prev => {
+      const updated = new Map(prev);
+      const existing = updated.get(editingItem.id);
+      updated.set(editingItem.id, {
+        type: 'edit',
+        item: updatedItem,
+        originalItem: existing?.originalItem || editingItem // Preserve original if already pending
+      });
+      return updated;
+    });
 
-      const updated = await ApiService.updateLineItem(
-        editingItem.id,
-        updatedData
-      );
-      setLineItems((prev) =>
-        prev.map((item) => (item.id === editingItem.id ? updated : item))
-      );
-      toast.success("Line item updated successfully");
-      setIsEditDialogOpen(false);
-      setEditingItem(null);
-      resetForm();
-    } catch (error) {
-      toast.error("Failed to update line item");
-      console.error("Update error:", error);
-      console.error("Update line item error:", error);
-    } finally {
-      setSubmitting(false);
-    }
+    // Update local state for immediate UI feedback
+    setLineItems((prev) =>
+      prev.map((item) => (item.id === editingItem.id ? updatedItem : item))
+    );
+    setSaveBarState('dirty');
+    toast.success("Line item modified (unsaved)");
+    setIsEditDialogOpen(false);
+    setEditingItem(null);
+    resetForm();
   };
 
   const handleDeleteClick = async (item: LineItem) => {
-    if (!confirm(`Are you sure you want to delete "${item.description}"?`)) {
+    if (!confirm(`Are you sure you want to delete "${item.description}"? This change will not be saved until you click Save.`)) {
+      return;
+    }
+
+    // Add to pending changes
+    setPendingChanges(prev => {
+      const updated = new Map(prev);
+      updated.set(item.id, { type: 'delete', item });
+      return updated;
+    });
+
+    // Remove from local state for immediate UI feedback
+    setLineItems((prev) => prev.filter((i) => i.id !== item.id));
+    setSaveBarState('dirty');
+    toast.success("Line item marked for deletion (unsaved)");
+  };
+
+  // Save all pending changes to the backend
+  const handleSaveChanges = async () => {
+    if (pendingChanges.size === 0) {
+      toast.info("No changes to save");
       return;
     }
 
     try {
-      await ApiService.deleteLineItem(item.id);
-      setLineItems((prev) => prev.filter((i) => i.id !== item.id));
-      toast.success("Line item deleted successfully");
+      setSaveBarState('saving');
+      logger.info(`Saving ${pendingChanges.size} pending changes...`);
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const [id, change] of pendingChanges.entries()) {
+        try {
+          if (change.type === 'add') {
+            // Create the item (API will assign real ID)
+            const created = await ApiService.createLineItem(selectedProjectId, change.item);
+            // Update local state with real ID
+            setLineItems(prev => prev.map(item => 
+              item.id === id ? created : item
+            ));
+            successCount++;
+          } else if (change.type === 'edit') {
+            // Update the item
+            if (change.item.id.startsWith('temp-')) {
+              logger.warn(`Skipping edit of temporary item ${change.item.id}`);
+              continue;
+            }
+            await ApiService.updateLineItem(change.item.id, change.item);
+            successCount++;
+          } else if (change.type === 'delete') {
+            // Delete the item (skip if it was a temp item that was never saved)
+            if (!change.item.id.startsWith('temp-')) {
+              await ApiService.deleteLineItem(change.item.id);
+              successCount++;
+            } else {
+              successCount++; // Count temp deletions as successful
+            }
+          }
+        } catch (error) {
+          logger.error(`Failed to save change for item ${id}:`, error);
+          errorCount++;
+        }
+      }
+
+      // Clear pending changes
+      setPendingChanges(new Map());
+
+      if (errorCount === 0) {
+        setSaveBarState('success');
+        toast.success(`Successfully saved ${successCount} change(s)`);
+        // Reload from server to ensure consistency
+        await loadLineItems();
+      } else {
+        setSaveBarState('error');
+        toast.error(`Saved ${successCount} changes, but ${errorCount} failed`);
+      }
+
+      // Reset to idle after showing success
+      setTimeout(() => {
+        setSaveBarState('idle');
+      }, 3000);
+
     } catch (error) {
-      toast.error("Failed to delete line item");
-      console.error("Delete line item error:", error);
+      setSaveBarState('error');
+      logger.error("Failed to save changes:", error);
+      toast.error("Failed to save changes");
     }
+  };
+
+  // Cancel all pending changes and reload
+  const handleCancelChanges = async () => {
+    if (!confirm(`Are you sure you want to discard ${pendingChanges.size} unsaved change(s)?`)) {
+      return;
+    }
+
+    setPendingChanges(new Map());
+    setSaveBarState('idle');
+    toast.info("Changes discarded");
+    // Reload fresh data from server
+    await loadLineItems();
   };
 
   const handleExport = async () => {
@@ -717,15 +827,11 @@ export function SDMTCatalog() {
                             setIsAddDialogOpen(false);
                             resetForm();
                           }}
-                          disabled={submitting}
                         >
                           Cancel
                         </Button>
-                        <Button
-                          onClick={handleSubmitLineItem}
-                          disabled={submitting}
-                        >
-                          {submitting ? "Adding..." : "Add Line Item"}
+                        <Button onClick={handleSubmitLineItem}>
+                          Add Line Item
                         </Button>
                       </DialogFooter>
                     </DialogContent>
@@ -924,15 +1030,13 @@ export function SDMTCatalog() {
                           setEditingItem(null);
                           resetForm();
                         }}
-                        disabled={submitting}
                       >
                         Cancel
                       </Button>
                       <Button
                         onClick={handleUpdateLineItem}
-                        disabled={submitting}
                       >
-                        {submitting ? "Updating..." : "Update Line Item"}
+                        Update Line Item
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -1033,18 +1137,41 @@ export function SDMTCatalog() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredItems.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{item.category}</div>
-                              {item.subtype && (
-                                <div className="text-sm text-muted-foreground">
-                                  {item.subtype}
+                      {filteredItems.map((item) => {
+                        const pendingChange = pendingChanges.get(item.id);
+                        const isNew = pendingChange?.type === 'add';
+                        const isEdited = pendingChange?.type === 'edit';
+                        
+                        return (
+                          <TableRow 
+                            key={item.id}
+                            className={cn(
+                              isNew && "bg-green-50 dark:bg-green-950/20",
+                              isEdited && "bg-amber-50 dark:bg-amber-950/20"
+                            )}
+                          >
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div>
+                                  <div className="font-medium">{item.category}</div>
+                                  {item.subtype && (
+                                    <div className="text-sm text-muted-foreground">
+                                      {item.subtype}
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </TableCell>
+                                {isNew && (
+                                  <Badge variant="default" className="text-[10px] bg-green-600">
+                                    NEW
+                                  </Badge>
+                                )}
+                                {isEdited && (
+                                  <Badge variant="default" className="text-[10px] bg-amber-600">
+                                    MODIFIED
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
                           <TableCell className="max-w-[300px]">
                             <div className="truncate">{item.description}</div>
                             {item.vendor && (
@@ -1106,7 +1233,8 @@ export function SDMTCatalog() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -1155,6 +1283,16 @@ export function SDMTCatalog() {
           />
         </TabsContent>
       </Tabs>
+
+      {/* SaveBar for unsaved changes */}
+      <SaveBar
+        state={saveBarState}
+        isDirty={hasUnsavedChanges}
+        onSave={handleSaveChanges}
+        onCancel={handleCancelChanges}
+        showSaveAndClose={false}
+        successMessage={`Successfully saved ${pendingChanges.size} change(s)`}
+      />
     </div>
   );
 }
