@@ -17,6 +17,7 @@ import {
   handleApiError,
   API_ENDPOINTS,
 } from "@/config/api";
+import { logger } from "@/utils/logger";
 
 import baselineData from "@/mocks/baseline.json";
 import baselineFintechData from "@/mocks/baseline-fintech.json";
@@ -30,6 +31,11 @@ import invoicesRetailData from "@/mocks/invoices-retail.json";
 import billingPlanData from "@/mocks/billing-plan.json";
 import billingPlanFintechData from "@/mocks/billing-plan-fintech.json";
 import billingPlanRetailData from "@/mocks/billing-plan-retail.json";
+
+// Mock data helper - only use in development with explicit flag
+const shouldUseMockData = () => {
+  return import.meta.env.DEV && import.meta.env.VITE_USE_MOCKS === 'true';
+};
 
 // Mock API service with simulated async operations and proper types
 export class ApiService {
@@ -45,56 +51,62 @@ export class ApiService {
       });
 
       if (!response.ok) {
-        console.warn("API call failed, falling back to mock data");
-        // Fallback to mock data if API fails
-        return [
-          {
-            id: "PRJ-HEALTHCARE-MODERNIZATION",
-            name: "Healthcare System Modernization",
-            description:
-              "Digital transformation for national healthcare provider",
-            baseline_id: "BL-2024-001",
-            baseline_accepted_at: "2024-01-15T10:30:00Z",
-            next_billing_periods: billingPlanData.slice(
-              0,
-              3
-            ) as BillingPeriod[],
-            status: "active",
-            created_at: "2024-01-10T09:00:00Z",
-          },
-          {
-            id: "PRJ-FINTECH-PLATFORM",
-            name: "Banking Core Platform Upgrade",
-            description:
-              "Next-generation banking platform with real-time processing",
-            baseline_id: "BL-2024-002",
-            baseline_accepted_at: "2024-01-20T14:15:00Z",
-            next_billing_periods: billingPlanFintechData.slice(
-              0,
-              3
-            ) as BillingPeriod[],
-            status: "active",
-            created_at: "2024-01-12T10:00:00Z",
-          },
-          {
-            id: "PRJ-RETAIL-ANALYTICS",
-            name: "Retail Intelligence & Analytics Suite",
-            description:
-              "AI-powered analytics platform for retail optimization",
-            baseline_id: "BL-2024-003",
-            baseline_accepted_at: "2024-02-05T09:45:00Z",
-            next_billing_periods: billingPlanRetailData.slice(
-              0,
-              3
-            ) as BillingPeriod[],
-            status: "active",
-            created_at: "2024-01-25T11:30:00Z",
-          },
-        ];
+        // Only use mock data in development with explicit flag
+        if (shouldUseMockData()) {
+          logger.warn("API call failed, falling back to mock data (DEV mode)");
+          return [
+            {
+              id: "PRJ-HEALTHCARE-MODERNIZATION",
+              name: "Healthcare System Modernization",
+              description:
+                "Digital transformation for national healthcare provider",
+              baseline_id: "BL-2024-001",
+              baseline_accepted_at: "2024-01-15T10:30:00Z",
+              next_billing_periods: billingPlanData.slice(
+                0,
+                3
+              ) as BillingPeriod[],
+              status: "active",
+              created_at: "2024-01-10T09:00:00Z",
+            },
+            {
+              id: "PRJ-FINTECH-PLATFORM",
+              name: "Banking Core Platform Upgrade",
+              description:
+                "Next-generation banking platform with real-time processing",
+              baseline_id: "BL-2024-002",
+              baseline_accepted_at: "2024-01-20T14:15:00Z",
+              next_billing_periods: billingPlanFintechData.slice(
+                0,
+                3
+              ) as BillingPeriod[],
+              status: "active",
+              created_at: "2024-01-12T10:00:00Z",
+            },
+            {
+              id: "PRJ-RETAIL-ANALYTICS",
+              name: "Retail Intelligence & Analytics Suite",
+              description:
+                "AI-powered analytics platform for retail optimization",
+              baseline_id: "BL-2024-003",
+              baseline_accepted_at: "2024-02-05T09:45:00Z",
+              next_billing_periods: billingPlanRetailData.slice(
+                0,
+                3
+              ) as BillingPeriod[],
+              status: "active",
+              created_at: "2024-01-25T11:30:00Z",
+            },
+          ];
+        }
+        
+        // In production, return empty array
+        logger.warn("Failed to fetch projects from API, returning empty array");
+        return [];
       }
 
       const data = await response.json();
-      console.log("✅ Projects loaded from API:", data);
+      logger.info("Projects loaded from API:", data);
 
       // Transform API response to match Project type
       return data.map((project: any) => ({
@@ -109,8 +121,8 @@ export class ApiService {
         created_at: project.created_at || new Date().toISOString(),
       }));
     } catch (error) {
-      console.error("Failed to fetch projects from API:", error);
-      // Return empty array on error
+      logger.error("Failed to fetch projects from API:", error);
+      // Return empty array on error in production
       return [];
     }
   }
@@ -127,26 +139,30 @@ export class ApiService {
       });
 
       if (!response.ok) {
-        console.warn("API call failed, returning mock baseline");
-        // Fallback to mock data
+        if (shouldUseMockData()) {
+          logger.warn("API call failed, returning mock baseline (DEV mode)");
+          await this.delay(500);
+          return {
+            baseline_id: `BL-${Date.now()}`,
+            signature_hash: `SHA256-${Math.random().toString(36).substring(2)}`,
+          };
+        }
+        throw new Error(`Failed to create baseline: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      logger.info("Baseline created via API:", result);
+      return result;
+    } catch (error) {
+      logger.error("Failed to create baseline via API:", error);
+      if (shouldUseMockData()) {
         await this.delay(500);
         return {
           baseline_id: `BL-${Date.now()}`,
           signature_hash: `SHA256-${Math.random().toString(36).substring(2)}`,
         };
       }
-
-      const result = await response.json();
-      console.log("✅ Baseline created via API:", result);
-      return result;
-    } catch (error) {
-      console.error("Failed to create baseline via API:", error);
-      // Fallback to mock
-      await this.delay(500);
-      return {
-        baseline_id: `BL-${Date.now()}`,
-        signature_hash: `SHA256-${Math.random().toString(36).substring(2)}`,
-      };
+      throw error;
     }
   }
 
@@ -162,7 +178,7 @@ export class ApiService {
     }
   ): Promise<{ ok: boolean }> {
     try {
-      console.log("🚀 Handing off baseline to SDMT:", {
+      logger.info("Handing off baseline to SDMT:", {
         projectId,
         baselineId: data.baseline_id,
         modTotal: data.mod_total,
@@ -185,10 +201,10 @@ export class ApiService {
       }
 
       const result = await response.json();
-      console.log("✅ Handoff successful:", result);
+      logger.info("Handoff successful:", result);
       return result;
     } catch (error) {
-      console.error("❌ Failed to handoff baseline:", error);
+      logger.error("Failed to handoff baseline:", error);
       throw error;
     }
   }
@@ -238,42 +254,38 @@ export class ApiService {
   // SDMT Cost Management
   static async getLineItems(project_id: string): Promise<LineItem[]> {
     await this.delay(200);
-    console.log("🔄 API: Getting line items for project_id:", project_id);
+    logger.debug("Getting line items for project_id:", project_id);
 
-    // Return appropriate line items based on project
-    let baseline;
-    switch (project_id) {
-      case "PRJ-HEALTHCARE-MODERNIZATION":
-        baseline = baselineData as BaselineBudget;
-        console.log("📊 API: Returning HEALTHCARE data");
-        break;
-      case "PRJ-FINTECH-PLATFORM":
-        baseline = baselineFintechData as BaselineBudget;
-        console.log("📊 API: Returning FINTECH data");
-        break;
-      case "PRJ-RETAIL-ANALYTICS":
-        baseline = baselineRetailData as BaselineBudget;
-        console.log("📊 API: Returning RETAIL data");
-        break;
-      default:
-        baseline = baselineData as BaselineBudget;
-        console.log(
-          "📊 API: Returning DEFAULT (healthcare) data for unknown project:",
-          project_id
-        );
+    // Only use mock data in DEV mode with explicit flag
+    if (shouldUseMockData()) {
+      // Return appropriate line items based on project
+      let baseline;
+      switch (project_id) {
+        case "PRJ-HEALTHCARE-MODERNIZATION":
+          baseline = baselineData as BaselineBudget;
+          logger.debug("Returning HEALTHCARE mock data (DEV mode)");
+          break;
+        case "PRJ-FINTECH-PLATFORM":
+          baseline = baselineFintechData as BaselineBudget;
+          logger.debug("Returning FINTECH mock data (DEV mode)");
+          break;
+        case "PRJ-RETAIL-ANALYTICS":
+          baseline = baselineRetailData as BaselineBudget;
+          logger.debug("Returning RETAIL mock data (DEV mode)");
+          break;
+        default:
+          logger.warn("Unknown project_id in DEV mode, returning empty array");
+          return [];
+      }
+
+      logger.debug("Returning", baseline.line_items.length, "line items");
+      return baseline.line_items;
     }
 
-    console.log("📊 API: Returning", baseline.line_items.length, "line items");
-    console.log(
-      "📊 API: Sample items:",
-      baseline.line_items.slice(0, 2).map((item) => ({
-        id: item.id,
-        description: item.description,
-        unit_cost: item.unit_cost,
-      }))
-    );
-
-    return baseline.line_items;
+    // In production, this would call the actual API
+    // For now, return empty array if API integration is not complete
+    logger.warn("getLineItems called in production mode without API integration");
+    return [];
   }
 
   // Line Items
@@ -342,7 +354,7 @@ export class ApiService {
   static async deleteLineItem(itemId: string): Promise<void> {
     await this.delay(200);
     // In a real implementation, this would delete from backend
-    console.log(`Deleted line item: ${itemId}`);
+    logger.debug(`Deleted line item: ${itemId}`);
   }
 
   // Forecast Management
@@ -351,48 +363,43 @@ export class ApiService {
     months: number
   ): Promise<ForecastCell[]> {
     await this.delay(300);
-    console.log(
-      "🔄 API: Getting forecast data for project_id:",
+    logger.debug(
+      "Getting forecast data for project_id:",
       project_id,
       "months:",
       months
     );
 
-    // Return appropriate forecast data based on project
-    let data;
-    switch (project_id) {
-      case "PRJ-HEALTHCARE-MODERNIZATION":
-        data = forecastData;
-        console.log("📊 API: Returning HEALTHCARE forecast data");
-        break;
-      case "PRJ-FINTECH-PLATFORM":
-        data = forecastFintechData;
-        console.log("📊 API: Returning FINTECH forecast data");
-        break;
-      case "PRJ-RETAIL-ANALYTICS":
-        data = forecastRetailData;
-        console.log("📊 API: Returning RETAIL forecast data");
-        break;
-      default:
-        data = forecastData;
-        console.log(
-          "📊 API: Returning DEFAULT (healthcare) forecast data for unknown project:",
-          project_id
-        );
+    // Only use mock data in DEV mode with explicit flag
+    if (shouldUseMockData()) {
+      // Return appropriate forecast data based on project
+      let data;
+      switch (project_id) {
+        case "PRJ-HEALTHCARE-MODERNIZATION":
+          data = forecastData;
+          logger.debug("Returning HEALTHCARE forecast mock data (DEV mode)");
+          break;
+        case "PRJ-FINTECH-PLATFORM":
+          data = forecastFintechData;
+          logger.debug("Returning FINTECH forecast mock data (DEV mode)");
+          break;
+        case "PRJ-RETAIL-ANALYTICS":
+          data = forecastRetailData;
+          logger.debug("Returning RETAIL forecast mock data (DEV mode)");
+          break;
+        default:
+          logger.warn("Unknown project_id in DEV mode, returning empty array");
+          return [];
+      }
+
+      const result = data as ForecastCell[];
+      logger.debug("Returning", result.length, "forecast cells");
+      return result;
     }
 
-    const result = data as ForecastCell[];
-    console.log("📊 API: Returning", result.length, "forecast cells");
-    console.log(
-      "📊 API: Total planned amount:",
-      result.reduce((sum, cell) => sum + cell.planned, 0)
-    );
-    console.log(
-      "📊 API: Total forecast amount:",
-      result.reduce((sum, cell) => sum + cell.forecast, 0)
-    );
-
-    return result;
+    // In production, this would call the actual API
+    logger.warn("getForecastData called in production mode without API integration");
+    return [];
   }
 
   static async updateForecast(
@@ -423,35 +430,38 @@ export class ApiService {
   // Reconciliation
   static async getInvoices(project_id: string): Promise<InvoiceDoc[]> {
     await this.delay(250);
-    console.log("🔄 API: Getting invoices for project_id:", project_id);
+    logger.debug("Getting invoices for project_id:", project_id);
 
-    // Return appropriate invoice data based on project
-    let data;
-    switch (project_id) {
-      case "PRJ-HEALTHCARE-MODERNIZATION":
-        data = invoicesData;
-        console.log("🧾 API: Returning HEALTHCARE invoice data");
-        break;
-      case "PRJ-FINTECH-PLATFORM":
-        data = invoicesFintechData;
-        console.log("🧾 API: Returning FINTECH invoice data");
-        break;
-      case "PRJ-RETAIL-ANALYTICS":
-        data = invoicesRetailData;
-        console.log("🧾 API: Returning RETAIL invoice data");
-        break;
-      default:
-        data = invoicesData;
-        console.log(
-          "🧾 API: Returning DEFAULT (healthcare) invoice data for unknown project:",
-          project_id
-        );
+    // Only use mock data in DEV mode with explicit flag
+    if (shouldUseMockData()) {
+      // Return appropriate invoice data based on project
+      let data;
+      switch (project_id) {
+        case "PRJ-HEALTHCARE-MODERNIZATION":
+          data = invoicesData;
+          logger.debug("Returning HEALTHCARE invoice mock data (DEV mode)");
+          break;
+        case "PRJ-FINTECH-PLATFORM":
+          data = invoicesFintechData;
+          logger.debug("Returning FINTECH invoice mock data (DEV mode)");
+          break;
+        case "PRJ-RETAIL-ANALYTICS":
+          data = invoicesRetailData;
+          logger.debug("Returning RETAIL invoice mock data (DEV mode)");
+          break;
+        default:
+          logger.warn("Unknown project_id in DEV mode, returning empty array");
+          return [];
+      }
+
+      const result = data as InvoiceDoc[];
+      logger.debug("Returning", result.length, "invoices");
+      return result;
     }
 
-    const result = data as InvoiceDoc[];
-    console.log("🧾 API: Returning", result.length, "invoices");
-
-    return result;
+    // In production, this would call the actual API
+    logger.warn("getInvoices called in production mode without API integration");
+    return [];
   }
 
   static async uploadInvoice(

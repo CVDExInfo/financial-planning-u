@@ -40,6 +40,7 @@ import type { InvoiceDoc, LineItem, ForecastCell } from '@/types/domain';
 import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
+import { logger } from '@/utils/logger';
 
 export function SDMTReconciliation() {
   const [invoices, setInvoices] = useState<InvoiceDoc[]>([]);
@@ -77,7 +78,7 @@ export function SDMTReconciliation() {
   // Load data when project changes
   useEffect(() => {
     if (selectedProjectId) {
-      console.log('🧾 Reconciliation: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
+      logger.debug('Reconciliation: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
       loadInvoices();
       loadLineItems();
     }
@@ -111,7 +112,7 @@ export function SDMTReconciliation() {
       const items = await ApiService.getLineItems(selectedProjectId);
       setLineItems(items);
     } catch (error) {
-      console.error('Failed to load line items:', error);
+      logger.error('Failed to load line items:', error);
     }
   };
 

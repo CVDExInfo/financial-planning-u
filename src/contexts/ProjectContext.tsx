@@ -8,6 +8,7 @@ import {
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import ApiService from "@/lib/api";
 import type { Project } from "@/types/domain";
+import { logger } from "@/utils/logger";
 
 interface ProjectContextType {
   selectedProjectId: string;
@@ -20,6 +21,8 @@ interface ProjectContextType {
   refreshProject: () => Promise<void>;
   projectChangeCount: number; // Track how many times project has changed for debugging
   periodChangeCount: number; // Track period changes to trigger re-renders
+  baselineId: string; // Current project's baseline ID
+  invalidateProjectData: () => void; // Force invalidation of project-dependent data
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -42,7 +45,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const setSelectedPeriod = useCallback(
     (period: string) => {
       if (period !== selectedPeriod) {
-        console.log("📅 Period changing from:", selectedPeriod, "to:", period);
+        logger.debug("Period changing from:", selectedPeriod, "to:", period);
         setSelectedPeriodStorage(period);
         setPeriodChangeCount((prev) => prev + 1);
       }
@@ -54,8 +57,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const setSelectedProjectId = useCallback(
     (projectId: string) => {
       if (projectId !== selectedProjectId) {
-        console.log(
-          "🔄 Project changing from:",
+        logger.info(
+          "Project changing from:",
           selectedProjectId,
           "to:",
           projectId
@@ -78,6 +81,12 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     [selectedProjectId, setSelectedProjectIdStorage]
   );
 
+  // Force invalidation of project-dependent data
+  const invalidateProjectData = useCallback(() => {
+    logger.info("Manually invalidating project data");
+    setProjectChangeCount((prev) => prev + 1);
+  }, []);
+
   const loadProjects = async () => {
     try {
       setLoading(true);
@@ -86,11 +95,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
       // Auto-select first project if none selected
       if (!selectedProjectId && projectData.length > 0) {
-        console.log("🎯 Auto-selecting first project:", projectData[0].id);
+        logger.info("Auto-selecting first project:", projectData[0].id);
         setSelectedProjectId(projectData[0].id);
       }
     } catch (error) {
-      console.error("Failed to load projects:", error);
+      logger.error("Failed to load projects:", error);
     } finally {
       setLoading(false);
     }
@@ -103,13 +112,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   // Log project changes for debugging
   useEffect(() => {
     if (selectedProjectId) {
-      console.log("📊 Project context changed:", {
+      logger.debug("Project context changed:", {
         projectId: selectedProjectId,
         projectName: currentProject?.name,
+        baselineId: currentProject?.baseline_id,
         changeCount: projectChangeCount,
       });
     }
-  }, [selectedProjectId, currentProject?.name, projectChangeCount]);
+  }, [selectedProjectId, currentProject?.name, currentProject?.baseline_id, projectChangeCount]);
 
   const refreshProject = async () => {
     await loadProjects();
@@ -126,6 +136,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     refreshProject,
     projectChangeCount,
     periodChangeCount,
+    baselineId: currentProject?.baseline_id || "",
+    invalidateProjectData,
   };
 
   return (

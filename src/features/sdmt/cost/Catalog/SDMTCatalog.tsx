@@ -51,6 +51,7 @@ import ApiService from "@/lib/api";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import { createServiceLineItem } from "@/lib/pricing-calculator";
+import { logger } from "@/utils/logger";
 
 export function SDMTCatalog() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
@@ -87,27 +88,18 @@ export function SDMTCatalog() {
   const loadLineItems = useCallback(async () => {
     try {
       setLoading(true);
-      console.log(
-        "📂 Catalog: Loading line items for project:",
+      logger.debug(
+        "Catalog: Loading line items for project:",
         selectedProjectId
       );
       const items = await ApiService.getLineItems(selectedProjectId);
-      console.log("📂 Raw line items received:", items.length, "items");
-      console.log(
-        "📂 Sample catalog items:",
-        items.slice(0, 3).map((item) => ({
-          id: item.id,
-          description: item.description,
-          category: item.category,
-          unit_cost: item.unit_cost,
-        }))
-      );
+      logger.debug("Raw line items received:", items.length, "items");
 
       setLineItems(items);
-      console.log("✅ Catalog data updated for project:", selectedProjectId);
+      logger.info("Catalog data updated for project:", selectedProjectId);
     } catch (error) {
       toast.error("Failed to load line items");
-      console.error(error);
+      logger.error("Failed to load line items:", error);
     } finally {
       setLoading(false);
     }
@@ -117,8 +109,8 @@ export function SDMTCatalog() {
   useEffect(() => {
     const loadData = async () => {
       if (selectedProjectId) {
-        console.log(
-          "📂 Catalog: Loading data for project:",
+        logger.debug(
+          "Catalog: Loading data for project:",
           selectedProjectId,
           "change count:",
           projectChangeCount
