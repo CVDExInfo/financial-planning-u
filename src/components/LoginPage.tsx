@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, LogIn, AlertCircle } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { loginWithHostedUI } from "@/config/aws";
+import { Logo } from "@/components/Logo";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -47,12 +48,8 @@ export function LoginPage() {
       <div className="max-w-md w-full">
         <Card className="glass-card">
           <CardHeader className="text-center space-y-4">
-            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">
-                  I
-                </span>
-              </div>
+            <div className="mb-6 flex justify-center">
+              <Logo />
             </div>
             <div>
               <CardTitle className="text-2xl">
