@@ -309,13 +309,6 @@ async function updateHandoff(event: APIGatewayProxyEventV2) {
         "#updatedBy": "updatedBy",
         "#owner": "owner",
       },
-      ExpressionAttributeValues: {
-        ":fields": body.fields || body,
-        ":version": newVersion,
-        ":updatedAt": now,
-        ":updatedBy": userEmail,
-        ":owner": body.owner || userEmail,
-      },
       ConditionExpression: "#version = :currentVersion",
       ExpressionAttributeValues: {
         ...{
