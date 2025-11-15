@@ -268,6 +268,45 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
+  BaselineFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: node18
+        Sourcemap: true
+        External:
+          - aws-sdk
+        EntryPoints:
+          - src/handlers/baseline.ts
+    Properties:
+      CodeUri: .
+      Handler: baseline.createBaseline
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditTable
+      Events:
+        CreateBaseline:
+          Type: HttpApi
+          Properties:
+            Path: /baseline
+            Method: POST
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+        GetBaseline:
+          Type: HttpApi
+          Properties:
+            Path: /baseline/{baseline_id}
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+
   CatalogFn:
     Type: AWS::Serverless::Function
     Metadata:
