@@ -15,7 +15,6 @@
  */
 
 import * as fs from "fs";
-import * as path from "path";
 
 // Test results tracking
 interface UITestResult {

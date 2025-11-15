@@ -56,7 +56,7 @@ import { logger } from "@/utils/logger";
 import { cn } from "@/lib/utils";
 
 // Pending change types
-type PendingChangeType = 'add' | 'edit' | 'delete';
+type PendingChangeType = "add" | "edit" | "delete";
 
 interface PendingChange {
   type: PendingChangeType;
@@ -66,8 +66,10 @@ interface PendingChange {
 
 export function SDMTCatalog() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
-  const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map());
-  const [saveBarState, setSaveBarState] = useState<SaveBarState>('idle');
+  const [pendingChanges, setPendingChanges] = useState<
+    Map<string, PendingChange>
+  >(new Map());
+  const [saveBarState, setSaveBarState] = useState<SaveBarState>("idle");
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -113,7 +115,7 @@ export function SDMTCatalog() {
       setLineItems(items);
       // Clear pending changes when loading fresh data
       setPendingChanges(new Map());
-      setSaveBarState('idle');
+      setSaveBarState("idle");
       logger.info("Catalog data updated for project:", selectedProjectId);
     } catch (error) {
       toast.error("Failed to load line items");
@@ -271,7 +273,9 @@ export function SDMTCatalog() {
     }
 
     // Generate temporary ID for new item
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const tempId = `temp-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
 
     const newItem: LineItem = {
       id: tempId,
@@ -285,25 +289,25 @@ export function SDMTCatalog() {
       one_time: !formData.recurring,
       start_month: formData.start_month,
       end_month: formData.end_month,
-      amortization: 'none',
+      amortization: "none",
       capex_flag: false,
       vendor: "",
-      indexation_policy: 'none',
+      indexation_policy: "none",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       created_by: currentRole,
     };
 
     // Add to pending changes
-    setPendingChanges(prev => {
+    setPendingChanges((prev) => {
       const updated = new Map(prev);
-      updated.set(tempId, { type: 'add', item: newItem });
+      updated.set(tempId, { type: "add", item: newItem });
       return updated;
     });
 
     // Add to local state for immediate UI update
     setLineItems((prev) => [...prev, newItem]);
-    setSaveBarState('dirty');
+    setSaveBarState("dirty");
     toast.success("Line item staged for addition (unsaved)");
     setIsAddDialogOpen(false);
     resetForm();
@@ -356,13 +360,13 @@ export function SDMTCatalog() {
     };
 
     // Add to pending changes, preserving original for rollback
-    setPendingChanges(prev => {
+    setPendingChanges((prev) => {
       const updated = new Map(prev);
       const existing = updated.get(editingItem.id);
       updated.set(editingItem.id, {
-        type: 'edit',
+        type: "edit",
         item: updatedItem,
-        originalItem: existing?.originalItem || editingItem // Preserve original if already pending
+        originalItem: existing?.originalItem || editingItem, // Preserve original if already pending
       });
       return updated;
     });
@@ -371,7 +375,7 @@ export function SDMTCatalog() {
     setLineItems((prev) =>
       prev.map((item) => (item.id === editingItem.id ? updatedItem : item))
     );
-    setSaveBarState('dirty');
+    setSaveBarState("dirty");
     toast.success("Line item modified (unsaved)");
     setIsEditDialogOpen(false);
     setEditingItem(null);
@@ -379,20 +383,24 @@ export function SDMTCatalog() {
   };
 
   const handleDeleteClick = async (item: LineItem) => {
-    if (!confirm(`Are you sure you want to delete "${item.description}"? This change will not be saved until you click Save.`)) {
+    if (
+      !confirm(
+        `Are you sure you want to delete "${item.description}"? This change will not be saved until you click Save.`
+      )
+    ) {
       return;
     }
 
     // Add to pending changes
-    setPendingChanges(prev => {
+    setPendingChanges((prev) => {
       const updated = new Map(prev);
-      updated.set(item.id, { type: 'delete', item });
+      updated.set(item.id, { type: "delete", item });
       return updated;
     });
 
     // Remove from local state for immediate UI feedback
     setLineItems((prev) => prev.filter((i) => i.id !== item.id));
-    setSaveBarState('dirty');
+    setSaveBarState("dirty");
     toast.success("Line item marked for deletion (unsaved)");
   };
 
@@ -404,7 +412,7 @@ export function SDMTCatalog() {
     }
 
     try {
-      setSaveBarState('saving');
+      setSaveBarState("saving");
       logger.info(`Saving ${pendingChanges.size} pending changes...`);
 
       let successCount = 0;
@@ -412,25 +420,28 @@ export function SDMTCatalog() {
 
       for (const [id, change] of pendingChanges.entries()) {
         try {
-          if (change.type === 'add') {
+          if (change.type === "add") {
             // Create the item (API will assign real ID)
-            const created = await ApiService.createLineItem(selectedProjectId, change.item);
+            const created = await ApiService.createLineItem(
+              selectedProjectId,
+              change.item
+            );
             // Update local state with real ID
-            setLineItems(prev => prev.map(item => 
-              item.id === id ? created : item
-            ));
+            setLineItems((prev) =>
+              prev.map((item) => (item.id === id ? created : item))
+            );
             successCount++;
-          } else if (change.type === 'edit') {
+          } else if (change.type === "edit") {
             // Update the item
-            if (change.item.id.startsWith('temp-')) {
+            if (change.item.id.startsWith("temp-")) {
               logger.warn(`Skipping edit of temporary item ${change.item.id}`);
               continue;
             }
             await ApiService.updateLineItem(change.item.id, change.item);
             successCount++;
-          } else if (change.type === 'delete') {
+          } else if (change.type === "delete") {
             // Delete the item (skip if it was a temp item that was never saved)
-            if (!change.item.id.startsWith('temp-')) {
+            if (!change.item.id.startsWith("temp-")) {
               await ApiService.deleteLineItem(change.item.id);
               successCount++;
             } else {
@@ -447,22 +458,21 @@ export function SDMTCatalog() {
       setPendingChanges(new Map());
 
       if (errorCount === 0) {
-        setSaveBarState('success');
+        setSaveBarState("success");
         toast.success(`Successfully saved ${successCount} change(s)`);
         // Reload from server to ensure consistency
         await loadLineItems();
       } else {
-        setSaveBarState('error');
+        setSaveBarState("error");
         toast.error(`Saved ${successCount} changes, but ${errorCount} failed`);
       }
 
       // Reset to idle after showing success
       setTimeout(() => {
-        setSaveBarState('idle');
+        setSaveBarState("idle");
       }, 3000);
-
     } catch (error) {
-      setSaveBarState('error');
+      setSaveBarState("error");
       logger.error("Failed to save changes:", error);
       toast.error("Failed to save changes");
     }
@@ -470,12 +480,16 @@ export function SDMTCatalog() {
 
   // Cancel all pending changes and reload
   const handleCancelChanges = async () => {
-    if (!confirm(`Are you sure you want to discard ${pendingChanges.size} unsaved change(s)?`)) {
+    if (
+      !confirm(
+        `Are you sure you want to discard ${pendingChanges.size} unsaved change(s)?`
+      )
+    ) {
       return;
     }
 
     setPendingChanges(new Map());
-    setSaveBarState('idle');
+    setSaveBarState("idle");
     toast.info("Changes discarded");
     // Reload fresh data from server
     await loadLineItems();
@@ -1033,9 +1047,7 @@ export function SDMTCatalog() {
                       >
                         Cancel
                       </Button>
-                      <Button
-                        onClick={handleUpdateLineItem}
-                      >
+                      <Button onClick={handleUpdateLineItem}>
                         Update Line Item
                       </Button>
                     </DialogFooter>
@@ -1139,11 +1151,11 @@ export function SDMTCatalog() {
                     <TableBody>
                       {filteredItems.map((item) => {
                         const pendingChange = pendingChanges.get(item.id);
-                        const isNew = pendingChange?.type === 'add';
-                        const isEdited = pendingChange?.type === 'edit';
-                        
+                        const isNew = pendingChange?.type === "add";
+                        const isEdited = pendingChange?.type === "edit";
+
                         return (
-                          <TableRow 
+                          <TableRow
                             key={item.id}
                             className={cn(
                               isNew && "bg-green-50 dark:bg-green-950/20",
@@ -1153,7 +1165,9 @@ export function SDMTCatalog() {
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <div>
-                                  <div className="font-medium">{item.category}</div>
+                                  <div className="font-medium">
+                                    {item.category}
+                                  </div>
                                   {item.subtype && (
                                     <div className="text-sm text-muted-foreground">
                                       {item.subtype}
@@ -1161,78 +1175,84 @@ export function SDMTCatalog() {
                                   )}
                                 </div>
                                 {isNew && (
-                                  <Badge variant="default" className="text-[10px] bg-green-600">
+                                  <Badge
+                                    variant="default"
+                                    className="text-[10px] bg-green-600"
+                                  >
                                     NEW
                                   </Badge>
                                 )}
                                 {isEdited && (
-                                  <Badge variant="default" className="text-[10px] bg-amber-600">
+                                  <Badge
+                                    variant="default"
+                                    className="text-[10px] bg-amber-600"
+                                  >
                                     MODIFIED
                                   </Badge>
                                 )}
                               </div>
                             </TableCell>
-                          <TableCell className="max-w-[300px]">
-                            <div className="truncate">{item.description}</div>
-                            {item.vendor && (
-                              <div className="text-sm text-muted-foreground">
-                                Vendor: {item.vendor}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Badge
-                                variant={
-                                  item.one_time ? "default" : "secondary"
-                                }
-                              >
-                                {item.one_time ? "One-time" : "Recurring"}
-                              </Badge>
-                              {item.capex_flag && (
-                                <Badge variant="outline">CapEx</Badge>
+                            <TableCell className="max-w-[300px]">
+                              <div className="truncate">{item.description}</div>
+                              {item.vendor && (
+                                <div className="text-sm text-muted-foreground">
+                                  Vendor: {item.vendor}
+                                </div>
                               )}
-                            </div>
-                          </TableCell>
-                          <TableCell>{item.qty}</TableCell>
-                          <TableCell>
-                            {formatCurrency(item.unit_cost, item.currency)}
-                          </TableCell>
-                          <TableCell>
-                            M{item.start_month}-{item.end_month}
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {formatCurrency(
-                              calculateTotalCost(item),
-                              item.currency
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Protected action="update">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditClick(item)}
-                                  title="Edit line item"
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Badge
+                                  variant={
+                                    item.one_time ? "default" : "secondary"
+                                  }
                                 >
-                                  <Edit size={16} />
-                                </Button>
-                              </Protected>
-                              <Protected action="delete">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-destructive"
-                                  onClick={() => handleDeleteClick(item)}
-                                  title="Delete line item"
-                                >
-                                  <Trash2 size={16} />
-                                </Button>
-                              </Protected>
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                                  {item.one_time ? "One-time" : "Recurring"}
+                                </Badge>
+                                {item.capex_flag && (
+                                  <Badge variant="outline">CapEx</Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>{item.qty}</TableCell>
+                            <TableCell>
+                              {formatCurrency(item.unit_cost, item.currency)}
+                            </TableCell>
+                            <TableCell>
+                              M{item.start_month}-{item.end_month}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {formatCurrency(
+                                calculateTotalCost(item),
+                                item.currency
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Protected action="update">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleEditClick(item)}
+                                    title="Edit line item"
+                                  >
+                                    <Edit size={16} />
+                                  </Button>
+                                </Protected>
+                                <Protected action="delete">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-destructive"
+                                    onClick={() => handleDeleteClick(item)}
+                                    title="Delete line item"
+                                  >
+                                    <Trash2 size={16} />
+                                  </Button>
+                                </Protected>
+                              </div>
+                            </TableCell>
+                          </TableRow>
                         );
                       })}
                     </TableBody>

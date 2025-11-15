@@ -155,7 +155,7 @@ const ServiceTierCard: React.FC<ServiceTierCardProps> = ({
                 .slice(0, 4)
                 .map((feature: string, idx: number) => (
                   <li key={idx} className="flex items-start space-x-1">
-                    <CheckCircle className="w-3 h-3 text-green-500 mt-0.5 flex-shrink-0" />
+                    <CheckCircle className="w-3 h-3 text-green-500 mt-0.5 shrink-0" />
                     <span>{feature}</span>
                   </li>
                 ))}

@@ -130,7 +130,9 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                       {projects.map((project) => (
                         <CommandItem
                           key={project.id}
-                          value={`${project.name} ${project.id} ${project.description || ""}`}
+                          value={`${project.name} ${project.id} ${
+                            project.description || ""
+                          }`}
                           onSelect={() => {
                             setSelectedProjectId(project.id);
                             setOpen(false);
@@ -147,8 +149,13 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                           />
                           <div className="flex flex-col flex-1 min-w-0">
                             <div className="flex items-baseline justify-between gap-2">
-                              <span className="font-medium truncate">{project.name}</span>
-                              <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">
+                              <span className="font-medium truncate">
+                                {project.name}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] px-1 py-0 shrink-0"
+                              >
                                 {project.id}
                               </Badge>
                             </div>

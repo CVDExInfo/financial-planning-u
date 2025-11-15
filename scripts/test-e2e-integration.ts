@@ -7,12 +7,7 @@
  */
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import {
-  DynamoDBDocumentClient,
-  ScanCommand,
-  GetCommand,
-  QueryCommand,
-} from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import * as https from "https";
 
 const ddb = DynamoDBDocumentClient.from(
@@ -36,7 +31,7 @@ interface TestResult {
   status: "PASS" | "FAIL" | "SKIP";
   message: string;
   duration: number;
-  details?: any;
+  details?: unknown;
 }
 
 const results: TestResult[] = [];
@@ -54,7 +49,7 @@ function logPass(
   name: string,
   message: string,
   duration: number,
-  details?: any
+  details?: unknown
 ) {
   console.log(`   ✅ PASS: ${message} (${duration}ms)`);
   results.push({ name, status: "PASS", message, duration, details });
@@ -65,7 +60,7 @@ function logFail(
   name: string,
   message: string,
   duration: number,
-  details?: any
+  details?: unknown
 ) {
   console.log(`   ❌ FAIL: ${message} (${duration}ms)`);
   results.push({ name, status: "FAIL", message, duration, details });
@@ -78,9 +73,13 @@ function logSkip(name: string, message: string) {
 }
 
 async function makeHttpRequest(
-  options: any,
+  options: https.RequestOptions,
   body?: string
-): Promise<{ statusCode: number; body: string; headers: any }> {
+): Promise<{
+  statusCode: number;
+  body: string;
+  headers: Record<string, string | string[] | undefined>;
+}> {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
       let data = "";
@@ -248,11 +247,7 @@ async function testBaselineEndpoint() {
         data || { statusCode: response.statusCode, note: "Auth required" }
       );
 
-      // Store baseline_id for later tests
-      if (data?.baseline_id) {
-        (global as any).testBaselineId = data.baseline_id;
-        (global as any).testProjectId = data.project_id;
-      }
+      // Store baseline_id for later tests\n      if (data?.baseline_id) {\n        (global as unknown as Record<string, string>).testBaselineId = data.baseline_id;\n        (global as unknown as Record<string, string>).testProjectId = data.project_id;\n      }
     } else {
       logFail(
         testName,

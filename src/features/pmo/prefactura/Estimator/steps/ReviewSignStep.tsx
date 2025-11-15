@@ -42,8 +42,9 @@ import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import {
   PDFExporter,
   formatReportCurrency,
-  formatReportPercentage,
-} from "@/lib/pdf-export";
+  formatCurrency,
+  formatDateDisplay,
+} from "@/lib/formatting";
 
 // Helper function to extract email from JWT token
 function extractEmailFromJWT(token: string): string {
@@ -654,7 +655,7 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
                     <li key={index} className="flex items-start gap-2">
                       <CheckCircle2
                         size={16}
-                        className="text-green-600 mt-0.5 flex-shrink-0"
+                        className="text-green-600 mt-0.5 shrink-0"
                       />
                       <span className="text-sm">{assumption}</span>
                     </li>
