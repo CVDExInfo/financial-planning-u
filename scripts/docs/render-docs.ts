@@ -34,7 +34,7 @@ const CONFIG = {
   // Directories
   DOCS_DIR: path.join(__dirname, '../../docs'),
   DIAGRAMS_DIR: path.join(__dirname, '../../diagrams'),
-  ASSETS_DIR: path.join(__dirname, '../../assets'),
+  ASSETS_DIR: path.join(__dirname, '../../docs/corporate'),
   OUTPUT_DIR: path.join(__dirname, '../../public/docs/latest'),
   TEMP_DIR: path.join(__dirname, '../../public/docs/temp'),
   

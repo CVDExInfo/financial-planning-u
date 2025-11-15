@@ -2,9 +2,11 @@ function handler(event) {
   var request = event.request;
   var uri = request.uri;
 
-  // IMPORTANT: With Origin Path=/finanzas, CloudFront passes the FULL request path to the function
-  // Request /finanzas/ comes to function as /finanzas/
-  // Request /finanzas/assets/index.js comes as /finanzas/assets/index.js
+  // NOTE: Origin Path for the Finanzas origin is empty.
+  // CloudFront passes the full request path as `request.uri`, e.g.:
+  // - /finanzas/
+  // - /finanzas/assets/index.js
+  // - /finanzas/projects/123/handoff
 
   // Rewrite /finanzas/ to /finanzas/index.html for SPA root
   if (uri === "/finanzas/" || uri === "/finanzas") {
@@ -18,7 +20,7 @@ function handler(event) {
     if (!uri.startsWith("/finanzas/assets/") &&
         !uri.startsWith("/finanzas/docs/") &&
         !uri.startsWith("/finanzas/auth/")) {
-      // This is a SPA route like /finanzas/catalog/rubros
+      // This is a SPA route like /finanzas/projects/123/handoff
       request.uri = "/finanzas/index.html";
       return request;
     }
