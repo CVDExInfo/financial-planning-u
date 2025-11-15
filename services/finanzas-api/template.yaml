@@ -25,7 +25,7 @@ Parameters:
     Default: "false"
   AllowedCorsOrigin:
     Type: String
-    Default: 'https://d7t9x3j66yd8k.cloudfront.net'
+    Default: "https://d7t9x3j66yd8k.cloudfront.net"
     Description: CloudFront domain for CORS (e.g., https://d7t9x3j66yd8k.cloudfront.net)
   PolicyStoreId:
     Type: String

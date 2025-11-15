@@ -96,8 +96,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   ): Promise<void> => {
     setError(null);
     // Use environment variable if available, otherwise fall back to aws config
-    const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID || awsConfig.aws_user_pools_web_client_id;
-    const region = import.meta.env.VITE_COGNITO_REGION || awsConfig.aws_cognito_region;
+    const clientId =
+      import.meta.env.VITE_COGNITO_CLIENT_ID ||
+      awsConfig.aws_user_pools_web_client_id;
+    const region =
+      import.meta.env.VITE_COGNITO_REGION || awsConfig.aws_cognito_region;
 
     if (!clientId) {
       throw new Error("Cognito client ID not configured");
@@ -173,12 +176,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Decode the token to get groups and determine redirect
       const decoded = decodeJWT(AuthenticationResult.IdToken);
       const groups = getGroupsFromClaims(decoded);
-      
+
       const canSDT = groups.some((g) =>
         ["SDT", "FIN", "AUD", "sdmt", "fin", "aud"].includes(g.toUpperCase())
       );
       const canPMO = groups.some((g) =>
-        ["PM", "PMO", "EXEC_RO", "VENDOR", "admin", "pmo"].includes(g.toUpperCase())
+        ["PM", "PMO", "EXEC_RO", "VENDOR", "admin", "pmo"].includes(
+          g.toUpperCase()
+        )
       );
 
       // Preference resolution for dual-role users
@@ -238,8 +243,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       // 1. Check for valid JWT in localStorage (existing session)
       const jwt =
-        localStorage.getItem("cv.jwt") ||
-        localStorage.getItem("finz_jwt");
+        localStorage.getItem("cv.jwt") || localStorage.getItem("finz_jwt");
       if (jwt) {
         try {
           if (isTokenValid(jwt)) {
@@ -254,7 +258,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
             const authenticatedUser: UserInfo = {
               id: decoded.sub,
-              login: decoded.email || decoded["cognito:username"] || decoded["preferred_username"] || "user",
+              login:
+                decoded.email ||
+                decoded["cognito:username"] ||
+                decoded["preferred_username"] ||
+                "user",
               email: decoded.email || "unknown",
               avatarUrl: "",
               isOwner: groups.includes("admin"),

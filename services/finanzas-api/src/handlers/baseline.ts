@@ -1,8 +1,12 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
-import { v4 as uuidv4 } from 'uuid';
-import * as crypto from 'crypto';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import {
+  DynamoDBDocumentClient,
+  PutCommand,
+  GetCommand,
+} from "@aws-sdk/lib-dynamodb";
+import { v4 as uuidv4 } from "uuid";
+import * as crypto from "crypto";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -26,42 +30,44 @@ interface BaselineRequest {
 export const createBaseline = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  console.log('Creating baseline from event:', JSON.stringify(event, null, 2));
+  console.log("Creating baseline from event:", JSON.stringify(event, null, 2));
 
   try {
-    const body: BaselineRequest = JSON.parse(event.body || '{}');
-    
+    const body: BaselineRequest = JSON.parse(event.body || "{}");
+
     // Validate required fields
     if (!body.project_name) {
       return {
         statusCode: 400,
         headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
         },
-        body: JSON.stringify({ 
-          error: 'Missing required field: project_name' 
+        body: JSON.stringify({
+          error: "Missing required field: project_name",
         }),
       };
     }
 
     // Generate IDs
-    const project_id = `P-${uuidv4().split('-')[0]}`;
+    const project_id = `P-${uuidv4().split("-")[0]}`;
     const baseline_id = `BL-${Date.now()}`;
-    
-    // Calculate totals
-    const laborTotal = body.labor_estimates?.reduce((sum, item) => {
-      const baseHours = (item.hours_per_month || 0) * (item.fte_count || 1);
-      const baseCost = baseHours * (item.hourly_rate || 0);
-      const onCost = baseCost * ((item.on_cost_percentage || 0) / 100);
-      const monthlyTotal = baseCost + onCost;
-      const duration = (item.end_month || 1) - (item.start_month || 1) + 1;
-      return sum + (monthlyTotal * duration);
-    }, 0) || 0;
 
-    const nonLaborTotal = body.non_labor_estimates?.reduce((sum, item) => {
-      return sum + (item.amount || 0);
-    }, 0) || 0;
+    // Calculate totals
+    const laborTotal =
+      body.labor_estimates?.reduce((sum, item) => {
+        const baseHours = (item.hours_per_month || 0) * (item.fte_count || 1);
+        const baseCost = baseHours * (item.hourly_rate || 0);
+        const onCost = baseCost * ((item.on_cost_percentage || 0) / 100);
+        const monthlyTotal = baseCost + onCost;
+        const duration = (item.end_month || 1) - (item.start_month || 1) + 1;
+        return sum + monthlyTotal * duration;
+      }, 0) || 0;
+
+    const nonLaborTotal =
+      body.non_labor_estimates?.reduce((sum, item) => {
+        return sum + (item.amount || 0);
+      }, 0) || 0;
 
     const total_amount = laborTotal + nonLaborTotal;
 
@@ -74,20 +80,20 @@ export const createBaseline = async (
       timestamp: new Date().toISOString(),
     });
     const signature_hash = crypto
-      .createHash('sha256')
+      .createHash("sha256")
       .update(signatureData)
-      .digest('hex');
+      .digest("hex");
 
     // Create project record
     const projectItem = {
       project_id,
       project_name: body.project_name,
-      description: body.project_description || '',
-      client_name: body.client_name || '',
+      description: body.project_description || "",
+      client_name: body.client_name || "",
       baseline_id,
       baseline_accepted_at: new Date().toISOString(),
-      status: 'active',
-      currency: body.currency || 'USD',
+      status: "active",
+      currency: body.currency || "USD",
       duration_months: body.duration_months || 12,
       contract_value: body.contract_value || total_amount,
       labor_total: laborTotal,
@@ -105,12 +111,12 @@ export const createBaseline = async (
     // Save to DynamoDB
     await ddb.send(
       new PutCommand({
-        TableName: 'finz_projects',
+        TableName: "finz_projects",
         Item: projectItem,
       })
     );
 
-    console.log('✅ Baseline created successfully:', {
+    console.log("✅ Baseline created successfully:", {
       project_id,
       baseline_id,
       signature_hash,
@@ -119,12 +125,12 @@ export const createBaseline = async (
     // Log to audit trail
     await ddb.send(
       new PutCommand({
-        TableName: 'finz_audit_log',
+        TableName: "finz_audit_log",
         Item: {
           audit_id: `AUD-${uuidv4()}`,
           project_id,
-          action: 'baseline_created',
-          actor: event.requestContext?.authorizer?.claims?.email || 'system',
+          action: "baseline_created",
+          actor: event.requestContext?.authorizer?.claims?.email || "system",
           timestamp: new Date().toISOString(),
           details: {
             baseline_id,
@@ -139,8 +145,8 @@ export const createBaseline = async (
     return {
       statusCode: 201,
       headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({
         baseline_id,
@@ -151,16 +157,16 @@ export const createBaseline = async (
       }),
     };
   } catch (error) {
-    console.error('Error creating baseline:', error);
+    console.error("Error creating baseline:", error);
     return {
       statusCode: 500,
       headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({
-        error: 'Failed to create baseline',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        error: "Failed to create baseline",
+        message: error instanceof Error ? error.message : "Unknown error",
       }),
     };
   }
@@ -173,7 +179,7 @@ export const createBaseline = async (
 export const getBaseline = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  console.log('Getting baseline from event:', JSON.stringify(event, null, 2));
+  console.log("Getting baseline from event:", JSON.stringify(event, null, 2));
 
   try {
     const baseline_id = event.pathParameters?.baseline_id;
@@ -182,17 +188,17 @@ export const getBaseline = async (
       return {
         statusCode: 400,
         headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
         },
-        body: JSON.stringify({ error: 'Missing baseline_id' }),
+        body: JSON.stringify({ error: "Missing baseline_id" }),
       };
     }
 
     // Query projects table for baseline
     const result = await ddb.send(
       new GetCommand({
-        TableName: 'finz_projects',
+        TableName: "finz_projects",
         Key: {
           baseline_id,
         },
@@ -203,32 +209,32 @@ export const getBaseline = async (
       return {
         statusCode: 404,
         headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
         },
-        body: JSON.stringify({ error: 'Baseline not found' }),
+        body: JSON.stringify({ error: "Baseline not found" }),
       };
     }
 
     return {
       statusCode: 200,
       headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify(result.Item),
     };
   } catch (error) {
-    console.error('Error getting baseline:', error);
+    console.error("Error getting baseline:", error);
     return {
       statusCode: 500,
       headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({
-        error: 'Failed to get baseline',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        error: "Failed to get baseline",
+        message: error instanceof Error ? error.message : "Unknown error",
       }),
     };
   }

@@ -11,7 +11,12 @@ import type {
   APIResponse,
   PaginatedResponse,
 } from "@/types/domain";
-import { buildApiUrl, buildHeaders, handleApiError, API_ENDPOINTS } from "@/config/api";
+import {
+  buildApiUrl,
+  buildHeaders,
+  handleApiError,
+  API_ENDPOINTS,
+} from "@/config/api";
 
 import baselineData from "@/mocks/baseline.json";
 import baselineFintechData from "@/mocks/baseline-fintech.json";
@@ -35,41 +40,53 @@ export class ApiService {
   static async getProjects(): Promise<Project[]> {
     try {
       const response = await fetch(buildApiUrl(API_ENDPOINTS.projects), {
-        method: 'GET',
+        method: "GET",
         headers: buildHeaders(),
       });
 
       if (!response.ok) {
-        console.warn('API call failed, falling back to mock data');
+        console.warn("API call failed, falling back to mock data");
         // Fallback to mock data if API fails
         return [
           {
             id: "PRJ-HEALTHCARE-MODERNIZATION",
             name: "Healthcare System Modernization",
-            description: "Digital transformation for national healthcare provider",
+            description:
+              "Digital transformation for national healthcare provider",
             baseline_id: "BL-2024-001",
             baseline_accepted_at: "2024-01-15T10:30:00Z",
-            next_billing_periods: billingPlanData.slice(0, 3) as BillingPeriod[],
+            next_billing_periods: billingPlanData.slice(
+              0,
+              3
+            ) as BillingPeriod[],
             status: "active",
             created_at: "2024-01-10T09:00:00Z",
           },
           {
             id: "PRJ-FINTECH-PLATFORM",
             name: "Banking Core Platform Upgrade",
-            description: "Next-generation banking platform with real-time processing",
+            description:
+              "Next-generation banking platform with real-time processing",
             baseline_id: "BL-2024-002",
             baseline_accepted_at: "2024-01-20T14:15:00Z",
-            next_billing_periods: billingPlanFintechData.slice(0, 3) as BillingPeriod[],
+            next_billing_periods: billingPlanFintechData.slice(
+              0,
+              3
+            ) as BillingPeriod[],
             status: "active",
             created_at: "2024-01-12T10:00:00Z",
           },
           {
             id: "PRJ-RETAIL-ANALYTICS",
             name: "Retail Intelligence & Analytics Suite",
-            description: "AI-powered analytics platform for retail optimization",
+            description:
+              "AI-powered analytics platform for retail optimization",
             baseline_id: "BL-2024-003",
             baseline_accepted_at: "2024-02-05T09:45:00Z",
-            next_billing_periods: billingPlanRetailData.slice(0, 3) as BillingPeriod[],
+            next_billing_periods: billingPlanRetailData.slice(
+              0,
+              3
+            ) as BillingPeriod[],
             status: "active",
             created_at: "2024-01-25T11:30:00Z",
           },
@@ -77,21 +94,22 @@ export class ApiService {
       }
 
       const data = await response.json();
-      console.log('✅ Projects loaded from API:', data);
-      
+      console.log("✅ Projects loaded from API:", data);
+
       // Transform API response to match Project type
       return data.map((project: any) => ({
         id: project.project_id,
         name: project.project_name || project.name,
-        description: project.description || '',
-        baseline_id: project.baseline_id || '',
-        baseline_accepted_at: project.baseline_accepted_at || project.created_at,
+        description: project.description || "",
+        baseline_id: project.baseline_id || "",
+        baseline_accepted_at:
+          project.baseline_accepted_at || project.created_at,
         next_billing_periods: [],
-        status: project.status || 'active',
+        status: project.status || "active",
         created_at: project.created_at || new Date().toISOString(),
       }));
     } catch (error) {
-      console.error('Failed to fetch projects from API:', error);
+      console.error("Failed to fetch projects from API:", error);
       // Return empty array on error
       return [];
     }
@@ -103,13 +121,13 @@ export class ApiService {
   ): Promise<{ baseline_id: string; signature_hash: string }> {
     try {
       const response = await fetch(buildApiUrl(API_ENDPOINTS.baseline), {
-        method: 'POST',
+        method: "POST",
         headers: buildHeaders(),
         body: JSON.stringify(data),
       });
 
       if (!response.ok) {
-        console.warn('API call failed, returning mock baseline');
+        console.warn("API call failed, returning mock baseline");
         // Fallback to mock data
         await this.delay(500);
         return {
@@ -119,10 +137,10 @@ export class ApiService {
       }
 
       const result = await response.json();
-      console.log('✅ Baseline created via API:', result);
+      console.log("✅ Baseline created via API:", result);
       return result;
     } catch (error) {
-      console.error('Failed to create baseline via API:', error);
+      console.error("Failed to create baseline via API:", error);
       // Fallback to mock
       await this.delay(500);
       return {

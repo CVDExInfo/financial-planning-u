@@ -1,0 +1,139 @@
+{
+  "timestamp": "2025-11-15T06:56:41.566Z",
+  "summary": {
+    "total": 12,
+    "passed": 9,
+    "failed": 2,
+    "skipped": 1,
+    "successRate": 75
+  },
+  "results": [
+    {
+      "name": "API Gateway Connectivity",
+      "status": "PASS",
+      "message": "API Gateway accessible at https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev",
+      "duration": 249,
+      "details": {
+        "ok": true,
+        "service": "finanzas-sd-api",
+        "stage": "dev",
+        "time": "2025-11-15T06:56:40.819Z"
+      }
+    },
+    {
+      "name": "GET /projects Endpoint",
+      "status": "PASS",
+      "message": "Projects endpoint responding (status: 401, count: N/A - Auth required)",
+      "duration": 59,
+      "details": {
+        "statusCode": 401,
+        "projectCount": 0
+      }
+    },
+    {
+      "name": "POST /baseline Endpoint",
+      "status": "PASS",
+      "message": "Baseline endpoint responding (status: 401)",
+      "duration": 58,
+      "details": {
+        "statusCode": 401,
+        "note": "Auth required"
+      }
+    },
+    {
+      "name": "DynamoDB Projects Table",
+      "status": "PASS",
+      "message": "Found 8 projects in DynamoDB",
+      "duration": 227,
+      "details": {
+        "count": 8,
+        "projects": [
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {}
+        ]
+      }
+    },
+    {
+      "name": "DynamoDB Rubros Table",
+      "status": "PASS",
+      "message": "Found 10 rubros in DynamoDB",
+      "duration": 65,
+      "details": {
+        "count": 10,
+        "sample": [
+          {
+            "id": "RB0052"
+          },
+          {
+            "id": "RB0015"
+          },
+          {
+            "id": "RB0029"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DynamoDB Allocations Table",
+      "status": "PASS",
+      "message": "Found 2 allocations in DynamoDB",
+      "duration": 62,
+      "details": {
+        "count": 2
+      }
+    },
+    {
+      "name": "Audit Trail Logging",
+      "status": "FAIL",
+      "message": "No audit logs found in DynamoDB",
+      "duration": 62
+    },
+    {
+      "name": "User Traceability in Audit Logs",
+      "status": "FAIL",
+      "message": "No audit entries with actor information found",
+      "duration": 60
+    },
+    {
+      "name": "Project Data Integrity",
+      "status": "PASS",
+      "message": "All 5 projects have required fields",
+      "duration": 62,
+      "details": {
+        "validProjects": 5,
+        "totalProjects": 5
+      }
+    },
+    {
+      "name": "Baseline to Project Handoff",
+      "status": "PASS",
+      "message": "Found 8 projects (baseline handoff pending Phase 3 implementation)",
+      "duration": 63,
+      "details": {
+        "note": "Projects exist but baseline_id field not yet populated"
+      }
+    },
+    {
+      "name": "CORS Headers Configuration",
+      "status": "PASS",
+      "message": "CORS headers present in API response",
+      "duration": 62,
+      "details": {
+        "allowOrigin": "https://d7t9x3j66yd8k.cloudfront.net",
+        "allowMethods": "DELETE,GET,OPTIONS,PATCH,POST,PUT"
+      }
+    },
+    {
+      "name": "Lambda Function Execution",
+      "status": "SKIP",
+      "message": "CloudWatch Logs API check not implemented in this version",
+      "duration": 0
+    }
+  ]
+}

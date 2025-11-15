@@ -1,24 +1,33 @@
-import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Star, 
-  Clock, 
-  Users, 
-  Shield, 
-  Zap, 
+import React, { useState, useMemo } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Star,
+  Clock,
+  Users,
+  Shield,
+  Zap,
   TrendingUp,
   Calculator,
   CheckCircle,
   XCircle,
-  AlertCircle
-} from 'lucide-react';
-import { IkusiPricingCalculator, type PricingRecommendation } from '@/lib/pricing-calculator';
+  AlertCircle,
+} from "lucide-react";
+import {
+  IkusiPricingCalculator,
+  type PricingRecommendation,
+} from "@/lib/pricing-calculator";
 
 // Import the service catalog
-import serviceCatalog from '@/mocks/ikusi-service-catalog.json';
+import serviceCatalog from "@/mocks/ikusi-service-catalog.json";
 
 interface ServiceTierCardProps {
   tier: any;
@@ -26,35 +35,46 @@ interface ServiceTierCardProps {
   onSelect?: (tierId: string) => void;
 }
 
-const ServiceTierCard: React.FC<ServiceTierCardProps> = ({ tier, isRecommended, onSelect }) => {
+const ServiceTierCard: React.FC<ServiceTierCardProps> = ({
+  tier,
+  isRecommended,
+  onSelect,
+}) => {
   const getTierColor = (tierLevel: string) => {
     const colors = {
-      'Essential': 'bg-blue-50 border-blue-200 text-blue-800',
-      'Professional': 'bg-green-50 border-green-200 text-green-800',
-      'Enterprise': 'bg-purple-50 border-purple-200 text-purple-800',
-      'Premium Enterprise': 'bg-orange-50 border-orange-200 text-orange-800',
-      'Strategic Partnership': 'bg-red-50 border-red-200 text-red-800'
+      Essential: "bg-blue-50 border-blue-200 text-blue-800",
+      Professional: "bg-green-50 border-green-200 text-green-800",
+      Enterprise: "bg-purple-50 border-purple-200 text-purple-800",
+      "Premium Enterprise": "bg-orange-50 border-orange-200 text-orange-800",
+      "Strategic Partnership": "bg-red-50 border-red-200 text-red-800",
     };
-    return colors[tierLevel as keyof typeof colors] || 'bg-gray-50 border-gray-200 text-gray-800';
+    return (
+      colors[tierLevel as keyof typeof colors] ||
+      "bg-gray-50 border-gray-200 text-gray-800"
+    );
   };
 
   const getTierIcon = (tierLevel: string) => {
     const icons = {
-      'Essential': <Zap className="w-4 h-4" />,
-      'Professional': <TrendingUp className="w-4 h-4" />,
-      'Enterprise': <Shield className="w-4 h-4" />,
-      'Premium Enterprise': <Star className="w-4 h-4" />,
-      'Strategic Partnership': <Users className="w-4 h-4" />
+      Essential: <Zap className="w-4 h-4" />,
+      Professional: <TrendingUp className="w-4 h-4" />,
+      Enterprise: <Shield className="w-4 h-4" />,
+      "Premium Enterprise": <Star className="w-4 h-4" />,
+      "Strategic Partnership": <Users className="w-4 h-4" />,
     };
-    return icons[tierLevel as keyof typeof icons] || <CheckCircle className="w-4 h-4" />;
+    return (
+      icons[tierLevel as keyof typeof icons] || (
+        <CheckCircle className="w-4 h-4" />
+      )
+    );
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -62,15 +82,17 @@ const ServiceTierCard: React.FC<ServiceTierCardProps> = ({ tier, isRecommended, 
     if (pricingTiers.length === 1) {
       return formatCurrency(pricingTiers[0].unit_price);
     }
-    const minPrice = Math.min(...pricingTiers.map(pt => pt.unit_price));
-    const maxPrice = Math.max(...pricingTiers.map(pt => pt.unit_price));
+    const minPrice = Math.min(...pricingTiers.map((pt) => pt.unit_price));
+    const maxPrice = Math.max(...pricingTiers.map((pt) => pt.unit_price));
     return `${formatCurrency(minPrice)} - ${formatCurrency(maxPrice)}`;
   };
 
   return (
-    <Card className={`relative transition-all duration-200 hover:shadow-lg ${
-      isRecommended ? 'ring-2 ring-primary shadow-lg' : ''
-    }`}>
+    <Card
+      className={`relative transition-all duration-200 hover:shadow-lg ${
+        isRecommended ? "ring-2 ring-primary shadow-lg" : ""
+      }`}
+    >
       {isRecommended && (
         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
           <Badge className="bg-primary text-primary-foreground font-semibold">
@@ -78,21 +100,19 @@ const ServiceTierCard: React.FC<ServiceTierCardProps> = ({ tier, isRecommended, 
           </Badge>
         </div>
       )}
-      
+
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             {getTierIcon(tier.tier)}
             <CardTitle className="text-xl">{tier.name}</CardTitle>
           </div>
-          <Badge className={getTierColor(tier.tier)}>
-            {tier.tier}
-          </Badge>
+          <Badge className={getTierColor(tier.tier)}>{tier.tier}</Badge>
         </div>
         <CardDescription className="text-sm">
           {tier.description}
         </CardDescription>
-        
+
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-2xl font-bold text-primary">
@@ -121,7 +141,9 @@ const ServiceTierCard: React.FC<ServiceTierCardProps> = ({ tier, isRecommended, 
             </div>
             <div className="flex items-center space-x-1">
               <Clock className="w-3 h-3 text-blue-600" />
-              <span>{tier.features.technical_specs.response_time} response</span>
+              <span>
+                {tier.features.technical_specs.response_time} response
+              </span>
             </div>
           </div>
 
@@ -129,12 +151,14 @@ const ServiceTierCard: React.FC<ServiceTierCardProps> = ({ tier, isRecommended, 
           <div>
             <h4 className="font-medium text-sm mb-2">Key Features:</h4>
             <ul className="text-xs space-y-1">
-              {tier.features.core_services.slice(0, 4).map((feature: string, idx: number) => (
-                <li key={idx} className="flex items-start space-x-1">
-                  <CheckCircle className="w-3 h-3 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span>{feature}</span>
-                </li>
-              ))}
+              {tier.features.core_services
+                .slice(0, 4)
+                .map((feature: string, idx: number) => (
+                  <li key={idx} className="flex items-start space-x-1">
+                    <CheckCircle className="w-3 h-3 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
               {tier.features.core_services.length > 4 && (
                 <li className="text-muted-foreground italic">
                   +{tier.features.core_services.length - 4} more features
@@ -151,8 +175,8 @@ const ServiceTierCard: React.FC<ServiceTierCardProps> = ({ tier, isRecommended, 
           </div>
 
           {/* Action Button */}
-          <Button 
-            className="w-full" 
+          <Button
+            className="w-full"
             variant={isRecommended ? "default" : "outline"}
             onClick={() => onSelect?.(tier.id)}
           >
@@ -169,16 +193,16 @@ interface ServiceTierRecommendationProps {
   onApplyRecommendation?: () => void;
 }
 
-const ServiceTierRecommendation: React.FC<ServiceTierRecommendationProps> = ({ 
-  recommendation, 
-  onApplyRecommendation 
+const ServiceTierRecommendation: React.FC<ServiceTierRecommendationProps> = ({
+  recommendation,
+  onApplyRecommendation,
 }) => {
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -187,13 +211,16 @@ const ServiceTierRecommendation: React.FC<ServiceTierRecommendationProps> = ({
       <CardHeader>
         <div className="flex items-center space-x-2">
           <Calculator className="w-5 h-5 text-green-600" />
-          <CardTitle className="text-green-800">Recommended Service Tier</CardTitle>
+          <CardTitle className="text-green-800">
+            Recommended Service Tier
+          </CardTitle>
         </div>
         <CardDescription>
-          Based on your requirements, we recommend <strong>{recommendation.recommended_tier}</strong>
+          Based on your requirements, we recommend{" "}
+          <strong>{recommendation.recommended_tier}</strong>
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent>
         <div className="space-y-4">
           {/* Cost Summary */}
@@ -232,7 +259,8 @@ const ServiceTierRecommendation: React.FC<ServiceTierRecommendationProps> = ({
           {recommendation.volume_discount_applied > 0 && (
             <div className="flex items-center space-x-2 text-sm">
               <Badge variant="secondary">
-                {recommendation.volume_discount_applied}% Volume Discount Applied
+                {recommendation.volume_discount_applied}% Volume Discount
+                Applied
               </Badge>
             </div>
           )}
@@ -253,36 +281,42 @@ const ServiceTierRecommendation: React.FC<ServiceTierRecommendationProps> = ({
           {/* Alternative Options */}
           {recommendation.alternative_options.length > 0 && (
             <div>
-              <h4 className="font-medium text-sm mb-2">Alternative considerations:</h4>
+              <h4 className="font-medium text-sm mb-2">
+                Alternative considerations:
+              </h4>
               <div className="space-y-2">
-                {recommendation.alternative_options.slice(0, 2).map((alt, idx) => (
-                  <div key={idx} className="p-2 bg-white rounded border border-gray-200">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-xs">{alt.tier}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatCurrency(alt.monthly_cost)}/month
-                      </span>
+                {recommendation.alternative_options
+                  .slice(0, 2)
+                  .map((alt, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2 bg-white rounded border border-gray-200"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-xs">{alt.tier}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatCurrency(alt.monthly_cost)}/month
+                        </span>
+                      </div>
+                      {alt.pros.length > 0 && (
+                        <div className="text-xs">
+                          <span className="text-green-600">Pros:</span>{" "}
+                          {alt.pros.slice(0, 1).join(", ")}
+                        </div>
+                      )}
+                      {alt.cons.length > 0 && (
+                        <div className="text-xs">
+                          <span className="text-red-600">Cons:</span>{" "}
+                          {alt.cons.slice(0, 1).join(", ")}
+                        </div>
+                      )}
                     </div>
-                    {alt.pros.length > 0 && (
-                      <div className="text-xs">
-                        <span className="text-green-600">Pros:</span> {alt.pros.slice(0, 1).join(', ')}
-                      </div>
-                    )}
-                    {alt.cons.length > 0 && (
-                      <div className="text-xs">
-                        <span className="text-red-600">Cons:</span> {alt.cons.slice(0, 1).join(', ')}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           )}
 
-          <Button 
-            className="w-full" 
-            onClick={onApplyRecommendation}
-          >
+          <Button className="w-full" onClick={onApplyRecommendation}>
             Apply Recommendation
           </Button>
         </div>
@@ -295,13 +329,15 @@ interface ServiceTierSelectorProps {
   onTierSelected?: (tierId: string, tierData: any) => void;
 }
 
-export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({ onTierSelected }) => {
+export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
+  onTierSelected,
+}) => {
   const [selectedRequirements, setSelectedRequirements] = useState({
     budget_monthly: 10000,
     commitment_months: 12,
-    required_sla: '99%',
-    support_hours: 'business' as const,
-    complexity: 'medium' as const
+    required_sla: "99%",
+    support_hours: "business" as const,
+    complexity: "medium" as const,
   });
 
   // Memoize calculator instance
@@ -309,26 +345,26 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({ onTier
     () => new IkusiPricingCalculator(serviceCatalog),
     []
   );
-  
+
   // Recalculate recommendation whenever requirements change
   const recommendation = useMemo(
     () => calculator.recommendServiceTier(selectedRequirements),
     [calculator, selectedRequirements]
   );
-  
+
   const comparisonMatrix = useMemo(
     () => calculator.generateComparisonMatrix(),
     [calculator]
   );
 
   const handleTierSelect = (tierId: string) => {
-    const tierData = serviceCatalog.service_tiers.find(t => t.id === tierId);
+    const tierData = serviceCatalog.service_tiers.find((t) => t.id === tierId);
     onTierSelected?.(tierId, tierData);
   };
 
   const handleApplyRecommendation = () => {
     const recommendedTier = serviceCatalog.service_tiers.find(
-      t => t.name === recommendation.recommended_tier
+      (t) => t.name === recommendation.recommended_tier
     );
     if (recommendedTier) {
       handleTierSelect(recommendedTier.id);
@@ -378,27 +414,35 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({ onTier
               <CardContent>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium">Monthly Budget</label>
+                    <label className="text-sm font-medium">
+                      Monthly Budget
+                    </label>
                     <input
                       type="number"
                       value={selectedRequirements.budget_monthly}
-                      onChange={(e) => setSelectedRequirements(prev => ({
-                        ...prev,
-                        budget_monthly: parseInt(e.target.value) || 0
-                      }))}
+                      onChange={(e) =>
+                        setSelectedRequirements((prev) => ({
+                          ...prev,
+                          budget_monthly: parseInt(e.target.value) || 0,
+                        }))
+                      }
                       className="w-full mt-1 px-3 py-2 border border-border rounded-md"
                       placeholder="10000"
                     />
                   </div>
-                  
+
                   <div>
-                    <label className="text-sm font-medium">Contract Length</label>
+                    <label className="text-sm font-medium">
+                      Contract Length
+                    </label>
                     <select
                       value={selectedRequirements.commitment_months}
-                      onChange={(e) => setSelectedRequirements(prev => ({
-                        ...prev,
-                        commitment_months: parseInt(e.target.value)
-                      }))}
+                      onChange={(e) =>
+                        setSelectedRequirements((prev) => ({
+                          ...prev,
+                          commitment_months: parseInt(e.target.value),
+                        }))
+                      }
                       className="w-full mt-1 px-3 py-2 border border-border rounded-md"
                     >
                       <option value={3}>3 months</option>
@@ -415,10 +459,12 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({ onTier
                     <label className="text-sm font-medium">Required SLA</label>
                     <select
                       value={selectedRequirements.required_sla}
-                      onChange={(e) => setSelectedRequirements(prev => ({
-                        ...prev,
-                        required_sla: e.target.value
-                      }))}
+                      onChange={(e) =>
+                        setSelectedRequirements((prev) => ({
+                          ...prev,
+                          required_sla: e.target.value,
+                        }))
+                      }
                       className="w-full mt-1 px-3 py-2 border border-border rounded-md"
                     >
                       <option value="95%">95% uptime</option>
@@ -433,10 +479,12 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({ onTier
                     <label className="text-sm font-medium">Support Hours</label>
                     <select
                       value={selectedRequirements.support_hours}
-                      onChange={(e) => setSelectedRequirements(prev => ({
-                        ...prev,
-                        support_hours: e.target.value as any
-                      }))}
+                      onChange={(e) =>
+                        setSelectedRequirements((prev) => ({
+                          ...prev,
+                          support_hours: e.target.value as any,
+                        }))
+                      }
                       className="w-full mt-1 px-3 py-2 border border-border rounded-md"
                     >
                       <option value="business">Business Hours</option>
@@ -446,13 +494,17 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({ onTier
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Project Complexity</label>
+                    <label className="text-sm font-medium">
+                      Project Complexity
+                    </label>
                     <select
                       value={selectedRequirements.complexity}
-                      onChange={(e) => setSelectedRequirements(prev => ({
-                        ...prev,
-                        complexity: e.target.value as any
-                      }))}
+                      onChange={(e) =>
+                        setSelectedRequirements((prev) => ({
+                          ...prev,
+                          complexity: e.target.value as any,
+                        }))
+                      }
                       className="w-full mt-1 px-3 py-2 border border-border rounded-md"
                     >
                       <option value="low">Low Complexity</option>
@@ -465,7 +517,7 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({ onTier
               </CardContent>
             </Card>
 
-            <ServiceTierRecommendation 
+            <ServiceTierRecommendation
               recommendation={recommendation}
               onApplyRecommendation={handleApplyRecommendation}
             />
@@ -494,7 +546,10 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({ onTier
                   </thead>
                   <tbody>
                     {comparisonMatrix.map((tier, idx) => (
-                      <tr key={idx} className="border-b border-border hover:bg-muted/50">
+                      <tr
+                        key={idx}
+                        className="border-b border-border hover:bg-muted/50"
+                      >
                         <td className="p-2">
                           <div className="font-medium">{tier.tier}</div>
                         </td>
