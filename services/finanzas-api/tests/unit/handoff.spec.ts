@@ -2,14 +2,6 @@ describe("Handoff Handler", () => {
   describe("Auth and RBAC", () => {
     it("should require authentication", () => {
       // Mock event without auth
-      const event = {
-        requestContext: {
-          http: { method: "GET", path: "/projects/P-1/handoff", sourceIp: "127.0.0.1", userAgent: "test" },
-        },
-        pathParameters: { projectId: "P-1" },
-        headers: {},
-      };
-
       // Would be tested with actual handler but requires DDB mocking
       expect(true).toBe(true); // Placeholder
     });
