@@ -88,7 +88,7 @@ export const createBaseline = async (
     // Create project record with pk/sk structure
     const timestamp = new Date().toISOString();
     const actor = event.requestContext?.authorizer?.claims?.email || "system";
-    
+
     const projectItem = {
       pk: `PROJECT#${project_id}`,
       sk: "METADATA",
@@ -117,12 +117,12 @@ export const createBaseline = async (
       created_at: timestamp,
       created_by: actor,
       updated_at: timestamp,
-      fecha_inicio: body.start_date || timestamp.split('T')[0],
+      fecha_inicio: body.start_date || timestamp.split("T")[0],
       fecha_fin: (() => {
         const startDate = new Date(body.start_date || timestamp);
         const endDate = new Date(startDate);
         endDate.setMonth(endDate.getMonth() + (body.duration_months || 12));
-        return endDate.toISOString().split('T')[0];
+        return endDate.toISOString().split("T")[0];
       })(),
     };
 
@@ -142,7 +142,7 @@ export const createBaseline = async (
 
     // Log to audit trail with pk/sk structure
     const auditTimestamp = new Date().toISOString();
-    const auditDate = auditTimestamp.split('T')[0];
+    const auditDate = auditTimestamp.split("T")[0];
     await ddb.send(
       new PutCommand({
         TableName: "finz_audit_log",
