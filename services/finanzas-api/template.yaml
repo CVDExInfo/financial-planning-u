@@ -183,7 +183,7 @@ Resources:
         AllowOrigins:
           - !Ref AllowedCorsOrigin
         AllowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-        AllowHeaders: ["Authorization", "Content-Type"]
+        AllowHeaders: ["Authorization", "Content-Type", "X-Idempotency-Key"]
         MaxAge: 600
       Auth:
         Authorizers:
@@ -388,11 +388,27 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref AuditTable
       Events:
-        Handoff:
+        CreateHandoff:
           Type: HttpApi
           Properties:
-            Path: "/projects/{id}/handoff"
+            Path: "/projects/{projectId}/handoff"
             Method: POST
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+        GetHandoff:
+          Type: HttpApi
+          Properties:
+            Path: "/projects/{projectId}/handoff"
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+        UpdateHandoff:
+          Type: HttpApi
+          Properties:
+            Path: "/handoff/{handoffId}"
+            Method: PUT
             ApiId: !Ref Api
             Auth:
               Authorizer: CognitoJwt
@@ -437,11 +453,13 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:
             TableName: !Ref RubrosTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditTable
       Events:
-        CreateRubro:
+        AttachRubro:
           Type: HttpApi
           Properties:
-            Path: "/projects/{id}/rubros"
+            Path: "/projects/{projectId}/rubros"
             Method: POST
             ApiId: !Ref Api
             Auth:
@@ -449,8 +467,16 @@ Resources:
         ListRubros:
           Type: HttpApi
           Properties:
-            Path: "/projects/{id}/rubros"
+            Path: "/projects/{projectId}/rubros"
             Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+        DetachRubro:
+          Type: HttpApi
+          Properties:
+            Path: "/projects/{projectId}/rubros/{rubroId}"
+            Method: DELETE
             ApiId: !Ref Api
             Auth:
               Authorizer: CognitoJwt
