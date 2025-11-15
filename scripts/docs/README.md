@@ -36,7 +36,7 @@ diagrams/                  # Diagram source files
 ├── *.mmd                         # Other Mermaid diagrams
 └── *.svg                         # SVG images (static or pre-rendered)
 
-assets/
+docs/corporate/            # Corporate branding assets
 ├── logo/                  # Brand logos
 │   ├── cvdex-logo.svg
 │   └── ikusi-logo.svg
@@ -121,7 +121,7 @@ To configure in GitHub Actions:
 ### Branding Customization
 
 #### Logos
-Replace logo files in `assets/logo/`:
+Replace logo files in `docs/corporate/logo/`:
 - `cvdex-logo.svg` - CVDex brand logo
 - `ikusi-logo.svg` - Ikusi brand logo
 
@@ -129,14 +129,14 @@ Recommended format: SVG (scalable) or PNG (high resolution)
 Recommended size: 400x100px or similar aspect ratio
 
 #### PDF Template
-Edit `assets/branding/template.tex` to customize:
+Edit `docs/corporate/branding/template.tex` to customize:
 - Cover page layout
 - Header/footer content and styling
 - Fonts and colors
 - Page geometry
 
 #### DOCX Template
-Create/edit `assets/branding/reference.docx`:
+Create/edit `docs/corporate/branding/reference.docx`:
 1. Create a Word document with desired styles
 2. Define header with logo
 3. Define footer with page numbers
