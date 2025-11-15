@@ -85,6 +85,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
       end_month: 12
     };
     setLaborEstimates([...laborEstimates, newItem]);
+    console.log('➕ Labor item added, total count:', laborEstimates.length + 1);
   };
 
   const updateLaborItem = (index: number, field: keyof LaborEstimate, value: any) => {
@@ -103,10 +104,25 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
     }
     
     setLaborEstimates(updated);
+    console.log('✏️  Labor item updated:', {
+      index,
+      role: updated[index].role,
+      country: updated[index].country,
+      level: updated[index].level,
+      fteCount: updated[index].fte_count,
+      hourlyRate: updated[index].hourly_rate,
+      fieldChanged: field
+    });
   };
 
   const removeLaborItem = (index: number) => {
+    const removed = laborEstimates[index];
     setLaborEstimates(laborEstimates.filter((_, i) => i !== index));
+    console.log('🗑️  Labor item removed:', {
+      index,
+      role: removed.role,
+      remainingCount: laborEstimates.length - 1
+    });
   };
 
   const calculateItemTotal = (item: LaborEstimate) => {
@@ -123,6 +139,18 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
   };
 
   const handleNext = () => {
+    const totalCost = getTotalCost();
+    console.log('💼 Labor estimates submitted:', {
+      itemCount: laborEstimates.length,
+      totalCost,
+      averageCostPerRole: totalCost / (laborEstimates.length || 1),
+      roles: laborEstimates.map(l => ({
+        role: l.role,
+        fteCount: l.fte_count,
+        monthlyRate: l.hourly_rate * l.hours_per_month
+      })),
+      timestamp: new Date().toISOString()
+    });
     setData(laborEstimates);
     onNext();
   };
