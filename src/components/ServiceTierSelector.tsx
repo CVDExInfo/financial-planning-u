@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -304,13 +304,19 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({ onTier
     complexity: 'medium' as const
   });
 
-  const calculator = new IkusiPricingCalculator(serviceCatalog);
-  // Recalculate recommendation whenever requirements change
-  const recommendation = React.useMemo(
-    () => calculator.recommendServiceTier(selectedRequirements),
-    [selectedRequirements, calculator]
+  // Memoize calculator instance
+  const calculator = useMemo(
+    () => new IkusiPricingCalculator(serviceCatalog),
+    []
   );
-  const comparisonMatrix = React.useMemo(
+  
+  // Recalculate recommendation whenever requirements change
+  const recommendation = useMemo(
+    () => calculator.recommendServiceTier(selectedRequirements),
+    [calculator, selectedRequirements]
+  );
+  
+  const comparisonMatrix = useMemo(
     () => calculator.generateComparisonMatrix(),
     [calculator]
   );
