@@ -218,8 +218,8 @@ export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 For detailed information, see:
 
 - **Full Documentation**: `scripts/docs/README.md`
-- **LaTeX Template**: `assets/branding/template.tex`
-- **DOCX Template**: `assets/branding/reference-docx-instructions.md`
+- **LaTeX Template**: `docs/corporate/branding/template.tex`
+- **DOCX Template**: `docs/corporate/branding/reference-docx-instructions.md`
 - **Workflow Configuration**: `.github/workflows/docs-generator.yml`
 - **Rendering Script**: `scripts/docs/render-docs.ts`
 
