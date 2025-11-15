@@ -202,6 +202,61 @@ Reconciliation summary for a project and month.
 
 ---
 
+## Rubros Seed – Finanzas SD
+
+### Overview
+
+Canonical script for seeding the **rubros** (budget line items catalog) DynamoDB table.
+
+**Script location:** `src/modules/finanzas/data/seed_rubros.ts`
+
+### Required Environment Variables
+
+- `AWS_REGION` (e.g., `us-east-2`) - AWS region for DynamoDB
+- `TABLE_RUBROS` - DynamoDB table name for rubros
+
+### Usage
+
+#### From Repository Root
+
+```bash
+npm run seed:finanzas:rubros
+```
+
+#### From services/finanzas-api/
+
+```bash
+npm run seed:rubros
+```
+
+#### Direct Execution
+
+```bash
+# With ts-node ESM loader
+TS_NODE_PROJECT=tsconfig.node.json node --loader ts-node/esm/transpile-only src/modules/finanzas/data/seed_rubros.ts
+
+# Or with shebang (if configured)
+./src/modules/finanzas/data/seed_rubros.ts
+```
+
+### What Gets Seeded
+
+The script seeds the rubros catalog from `RUBROS_CATALOG` defined in `src/modules/finanzas/data/rubros.catalog.ts`. Each rubro includes:
+
+- `rubro_id` - Unique identifier (e.g., "RB0001")
+- `nombre` - Name/description of the budget line item
+- `descripcion` - Additional description (optional)
+
+The script is idempotent and uses `PutItem` to upsert records by `rubro_id`.
+
+### Authentication
+
+Requires AWS credentials via:
+- OIDC in CI/CD pipelines
+- Local AWS profile/credentials for development
+
+---
+
 ## Golden Project: P-GOLDEN-1
 
 ### Overview
