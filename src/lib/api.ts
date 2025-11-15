@@ -150,6 +150,49 @@ export class ApiService {
     }
   }
 
+  // Handoff baseline to SDMT
+  static async handoffBaseline(
+    projectId: string,
+    data: {
+      baseline_id: string;
+      mod_total: number;
+      pct_ingenieros: number;
+      pct_sdm: number;
+      aceptado_por: string;
+    }
+  ): Promise<{ ok: boolean }> {
+    try {
+      console.log("🚀 Handing off baseline to SDMT:", {
+        projectId,
+        baselineId: data.baseline_id,
+        modTotal: data.mod_total,
+      });
+
+      const response = await fetch(
+        buildApiUrl(`/projects/${projectId}/handoff`),
+        {
+          method: "POST",
+          headers: buildHeaders(),
+          body: JSON.stringify(data),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Handoff failed: ${response.status} ${errorText || response.statusText}`
+        );
+      }
+
+      const result = await response.json();
+      console.log("✅ Handoff successful:", result);
+      return result;
+    } catch (error) {
+      console.error("❌ Failed to handoff baseline:", error);
+      throw error;
+    }
+  }
+
   static async getBillingPlan(
     project_id: string
   ): Promise<{ monthly_inflows: BillingPeriod[] }> {

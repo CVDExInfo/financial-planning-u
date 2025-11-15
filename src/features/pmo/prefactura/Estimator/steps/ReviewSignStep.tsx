@@ -1,9 +1,19 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Separator } from '@/components/ui/separator';
 import { 
   FileText, 
@@ -26,6 +36,20 @@ import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage } from '@/lib/pdf-export';
 
+// Helper function to extract email from JWT token
+function extractEmailFromJWT(token: string): string {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return 'unknown@user.com';
+    
+    const payload = JSON.parse(atob(parts[1]));
+    return payload.email || payload['cognito:username'] || 'unknown@user.com';
+  } catch (error) {
+    console.warn('Failed to extract email from JWT:', error);
+    return 'unknown@user.com';
+  }
+}
+
 interface ReviewSignStepProps {
   data: {
     dealInputs: DealInputs | null;
@@ -41,10 +65,13 @@ interface ReviewSignStepProps {
 }
 
 export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
+  const navigate = useNavigate();
   const [isReviewed, setIsReviewed] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
   const [signatureComplete, setSignatureComplete] = useState(false);
   const [baselineId, setBaselineId] = useState<string>('');
+  const [isHandingOff, setIsHandingOff] = useState(false);
+  const [showHandoffConfirm, setShowHandoffConfirm] = useState(false);
 
   const { dealInputs, laborEstimates, nonLaborEstimates, fxIndexationData } = data;
 
@@ -108,9 +135,37 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
 
     setIsSigning(true);
     try {
-      // Simulate API call to create baseline
+      // Generate signature hash (simplified - in production would use cryptographic signing)
+      const signatureHash = `SHA256-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      
+      // Extract user email from localStorage (set during authentication)
+      const authData = localStorage.getItem("cv.jwt") || localStorage.getItem("finz_jwt");
+      const userEmail = authData 
+        ? extractEmailFromJWT(authData)
+        : "unknown@user.com";
+
+      console.log("✍️  Digitally signing baseline with:", {
+        projectName: dealInputs?.project_name,
+        client: dealInputs?.client_name,
+        currency: dealInputs?.currency,
+        startDate: dealInputs?.start_date,
+        duration: dealInputs?.duration_months,
+        signatureHash,
+        createdBy: userEmail,
+      });
+
+      // Create baseline with ALL required fields
       const baseline = await ApiService.createBaseline({
         project_name: dealInputs?.project_name,
+        project_description: dealInputs?.project_description,
+        client_name: dealInputs?.client_name,
+        currency: dealInputs?.currency,
+        start_date: dealInputs?.start_date,
+        duration_months: dealInputs?.duration_months,
+        contract_value: dealInputs?.contract_value,
+        assumptions: dealInputs?.assumptions || [],
+        signature_hash: signatureHash,
+        created_by: userEmail,
         labor_estimates: laborEstimates,
         non_labor_estimates: nonLaborEstimates,
         fx_indexation: fxIndexationData
@@ -118,15 +173,87 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
 
       setBaselineId(baseline.baseline_id);
       setSignatureComplete(true);
+      toast.success("✓ Baseline successfully signed and created");
     } catch (error) {
-      console.error('Failed to create baseline:', error);
+      console.error('❌ Failed to create baseline:', error);
+      toast.error(`Failed to create baseline: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsSigning(false);
     }
   };
 
-  const handleComplete = () => {
-    onNext(); // This will navigate to SDMT
+  const handleComplete = async () => {
+    if (!baselineId) {
+      toast.error('Baseline ID not found. Please sign first.');
+      return;
+    }
+
+    setShowHandoffConfirm(true);
+  };
+
+  const confirmHandoff = async () => {
+    setShowHandoffConfirm(false);
+    setIsHandingOff(true);
+    
+    try {
+      // Get project ID from deal inputs or generate one
+      const projectId = dealInputs?.project_name 
+        ? `PRJ-${dealInputs.project_name.toUpperCase().replace(/\s+/g, '-').substring(0, 20)}`
+        : `PRJ-${Date.now()}`;
+
+      // Calculate labor percentage
+      const laborTotal = laborEstimates.reduce((sum, item) => {
+        const baseHours = item.hours_per_month * item.fte_count;
+        const baseCost = baseHours * item.hourly_rate;
+        const onCost = baseCost * (item.on_cost_percentage / 100);
+        const duration = item.end_month - item.start_month + 1;
+        return sum + (baseCost + onCost) * duration;
+      }, 0);
+
+      const nonLaborTotal = nonLaborEstimates.reduce((sum, item) => {
+        if (item.one_time) return sum + item.amount;
+        const duration = (item.end_month || 1) - (item.start_month || 1) + 1;
+        return sum + item.amount * duration;
+      }, 0);
+
+      const grandTotal = laborTotal + nonLaborTotal;
+      const laborPercentage = grandTotal > 0 ? (laborTotal / grandTotal) * 100 : 0;
+
+      // Get user email
+      const authData = localStorage.getItem("cv.jwt") || localStorage.getItem("finz_jwt");
+      const userEmail = authData 
+        ? extractEmailFromJWT(authData)
+        : "unknown@user.com";
+
+      console.log("🚀 Initiating handoff to SDMT:", {
+        projectId,
+        baselineId,
+        modTotal: grandTotal,
+        laborPercentage,
+        aceptadoPor: userEmail,
+      });
+
+      // Call handoff API
+      await ApiService.handoffBaseline(projectId, {
+        baseline_id: baselineId,
+        mod_total: grandTotal,
+        pct_ingenieros: laborPercentage,
+        pct_sdm: 100 - laborPercentage,
+        aceptado_por: userEmail
+      });
+
+      toast.success("✓ Project successfully handed off to SDMT team!");
+      
+      // Navigate to SDMT cost catalog
+      setTimeout(() => {
+        navigate("/sdmt/cost/catalog");
+      }, 1000);
+    } catch (error) {
+      console.error('❌ Handoff failed:', error);
+      toast.error(`Handoff failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsHandingOff(false);
+    }
   };
 
   const handleExportBaseline = async () => {
@@ -591,14 +718,61 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
                   Share Report
                 </Button>
               </div>
-              <Button onClick={handleComplete} className="gap-2" size="lg">
-                Complete & Handoff to SDMT
-                <CheckCircle2 size={16} />
+              <Button onClick={handleComplete} className="gap-2" size="lg" disabled={isHandingOff}>
+                {isHandingOff ? (
+                  <>
+                    <Clock size={16} className="animate-spin" />
+                    Handing Off...
+                  </>
+                ) : (
+                  <>
+                    Complete & Handoff to SDMT
+                    <CheckCircle2 size={16} />
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Handoff Confirmation Dialog */}
+      <AlertDialog open={showHandoffConfirm} onOpenChange={setShowHandoffConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Handoff to SDMT</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4">
+              <div>
+                <p className="font-medium text-foreground mb-3">Review handoff details:</p>
+                <ul className="space-y-2 text-sm">
+                  <li><span className="font-medium">Project:</span> {dealInputs?.project_name}</li>
+                  <li><span className="font-medium">Baseline ID:</span> <code className="bg-muted px-2 py-1 rounded">{baselineId}</code></li>
+                  <li><span className="font-medium">Total Budget:</span> ${(laborEstimates.reduce((sum, item) => {
+                    const baseHours = item.hours_per_month * item.fte_count;
+                    const baseCost = baseHours * item.hourly_rate;
+                    const onCost = baseCost * (item.on_cost_percentage / 100);
+                    const duration = item.end_month - item.start_month + 1;
+                    return sum + (baseCost + onCost) * duration;
+                  }, 0) + nonLaborEstimates.reduce((sum, item) => {
+                    if (item.one_time) return sum + item.amount;
+                    const duration = (item.end_month || 1) - (item.start_month || 1) + 1;
+                    return sum + item.amount * duration;
+                  }, 0)).toLocaleString()}</li>
+                </ul>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Once handed off, the project data will be transferred to the SDMT team for cost management and monitoring.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex justify-end gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmHandoff} disabled={isHandingOff}>
+              {isHandingOff ? "Handing Off..." : "Confirm Handoff"}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -48,7 +48,8 @@ export function buildApiUrl(endpoint: string): string {
 export function getAuthToken(): string | null {
   try {
     // Try unified key first (used by AuthProvider)
-    const token = localStorage.getItem("cv.jwt") || localStorage.getItem("finz_jwt");
+    const token =
+      localStorage.getItem("cv.jwt") || localStorage.getItem("finz_jwt");
     if (token) return token;
 
     // Fallback to old "auth" key structure for backward compatibility
