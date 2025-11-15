@@ -14,6 +14,16 @@ The collection includes contract tests for all critical Finanzas SD endpoints:
 
 #### Health & Monitoring
 - `GET /health` - Health check endpoint (no auth required)
+  - **Contract**: Returns JSON with `ok: true` (canonical requirement)
+  - **Optional fields**: `status` (if present, must be "ok", "UP", or "healthy"), `env`, `version`
+  - **Example response**:
+    ```json
+    {
+      "ok": true,
+      "env": "dev",
+      "version": "1.0.0"
+    }
+    ```
 
 #### Catalog
 - `GET /catalog/rubros` - Service tiers catalog (no auth required)
