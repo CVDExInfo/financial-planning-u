@@ -175,8 +175,8 @@ paths:
     post:
       tags:
         - Projects
-      summary: Process project handoff
-      description: Registers the handoff of a project from sales to service delivery with budget distribution
+      summary: Process project handoff (idempotent)
+      description: Creates or replaces the handoff record for a project. Requires X-Idempotency-Key header for idempotent operation.
       operationId: createHandoff
       parameters:
         - name: id
@@ -185,23 +185,36 @@ paths:
           description: Project ID
           schema:
             type: string
-            pattern: "^proj_[a-z0-9]{10}$"
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          description: Idempotency key to prevent duplicate operations
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Handoff"
+              type: object
+              properties:
+                owner:
+                  type: string
+                  description: Owner email
+                fields:
+                  type: object
+                  description: Handoff data fields
             example:
-              mod_total: 1500000
-              pct_ingenieros: 65
-              pct_sdm: 35
-              aceptado_por: "juan.perez@company.com"
-              fecha_handoff: "2025-11-01"
-              notas: "Budget approved by PMO, team allocation confirmed"
+              owner: "juan.perez@company.com"
+              fields:
+                mod_total: 1500000
+                pct_ingenieros: 65
+                pct_sdm: 35
+                fecha_handoff: "2025-11-01"
+                notas: "Budget approved by PMO, team allocation confirmed"
       responses:
-        "200":
-          description: Handoff processed successfully
+        "201":
+          description: Handoff created successfully
           content:
             application/json:
               schema:
@@ -242,6 +255,140 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: Conflict - idempotency key used with different payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+    get:
+      tags:
+        - Projects
+      summary: Get project handoff
+      description: Retrieves the current handoff record for a project
+      operationId: getHandoff
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Handoff retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  handoffId:
+                    type: string
+                  projectId:
+                    type: string
+                  owner:
+                    type: string
+                  fields:
+                    type: object
+                  version:
+                    type: integer
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /handoff/{handoffId}:
+    put:
+      tags:
+        - Projects
+      summary: Update handoff by ID
+      description: Updates an existing handoff record with optimistic concurrency control
+      operationId: updateHandoff
+      parameters:
+        - name: handoffId
+          in: path
+          required: true
+          description: Handoff ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectId
+                - fields
+              properties:
+                projectId:
+                  type: string
+                  description: Project ID (required for update)
+                owner:
+                  type: string
+                fields:
+                  type: object
+                  description: Handoff data fields
+                version:
+                  type: integer
+                  description: Expected current version for optimistic locking
+      responses:
+        "200":
+          description: Handoff updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  handoffId:
+                    type: string
+                  projectId:
+                    type: string
+                  owner:
+                    type: string
+                  fields:
+                    type: object
+                  version:
+                    type: integer
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "412":
+          description: Precondition Failed - version mismatch
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  expected:
+                    type: integer
+                  current:
+                    type: integer
 
   /catalog/rubros:
     get:
@@ -346,9 +493,9 @@ paths:
     post:
       tags:
         - Catalog
-      summary: Add rubro to project
-      description: Associates a budget rubro with a specific project and defines execution parameters
-      operationId: createProjectRubro
+      summary: Attach rubros to project
+      description: Associates one or more budget rubros (service tiers) with a specific project
+      operationId: attachProjectRubros
       parameters:
         - name: id
           in: path
@@ -356,37 +503,39 @@ paths:
           description: Project ID
           schema:
             type: string
-            pattern: "^proj_[a-z0-9]{10}$"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RubroCreate"
+              type: object
+              required:
+                - rubroIds
+              properties:
+                rubroIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of rubro IDs to attach to the project
             example:
-              rubro_id: "rubro_1a2b3c4d5e"
-              monto_total: 120000
-              tipo_ejecucion: "mensual"
-              meses_programados: ["2025-11", "2025-12", "2026-01", "2026-02"]
-              notas: "Equipo de 2 desarrolladores backend senior"
+              rubroIds: ["R-IKUSI-GO", "R-IKUSI-GOLD"]
       responses:
-        "201":
-          description: Rubro added to project successfully
+        "200":
+          description: Rubros attached to project successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Rubro"
+                type: object
+                properties:
+                  message:
+                    type: string
+                  attached:
+                    type: array
+                    items:
+                      type: string
               example:
-                id: "proj_rubro_7m8n9p0q1r"
-                project_id: "proj_7x9k2m4n8p"
-                rubro_id: "rubro_1a2b3c4d5e"
-                code: "RUBRO-001"
-                nombre: "Desarrollo Backend"
-                monto_total: 120000
-                tipo_ejecucion: "mensual"
-                meses_programados: ["2025-11", "2025-12", "2026-01", "2026-02"]
-                monto_mensual: 30000
-                created_at: "2025-10-31T03:20:00Z"
+                message: "Attached 2 rubros to project P-TEST-1"
+                attached: ["R-IKUSI-GO", "R-IKUSI-GOLD"]
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -427,6 +576,43 @@ paths:
                     tipo_ejecucion: "mensual"
                     meses_programados: ["2025-11", "2025-12"]
                 total: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /projects/{id}/rubros/{rubroId}:
+    delete:
+      tags:
+        - Catalog
+      summary: Detach rubro from project
+      description: Removes a budget rubro association from a specific project
+      operationId: detachProjectRubro
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: string
+        - name: rubroId
+          in: path
+          required: true
+          description: Rubro ID to detach
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rubro detached successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
