@@ -18,8 +18,6 @@ import {
   TrendingUp,
   Calculator,
   CheckCircle,
-  XCircle,
-  AlertCircle,
 } from "lucide-react";
 import {
   IkusiPricingCalculator,

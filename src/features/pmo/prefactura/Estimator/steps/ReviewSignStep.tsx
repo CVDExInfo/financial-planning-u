@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,13 +18,11 @@ import {
 import { Separator } from "@/components/ui/separator";
 import {
   FileText,
-  Download,
   CheckCircle2,
   Clock,
   DollarSign,
   Users,
   Server,
-  TrendingUp,
   PenTool,
   FileSpreadsheet,
 } from "lucide-react";
@@ -42,9 +40,7 @@ import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import {
   PDFExporter,
   formatReportCurrency,
-  formatCurrency,
-  formatDateDisplay,
-} from "@/lib/formatting";
+} from "@/lib/pdf-export";
 
 // Helper function to extract email from JWT token
 function extractEmailFromJWT(token: string): string {
