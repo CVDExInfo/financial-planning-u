@@ -15,6 +15,7 @@ interface BaselineRequest {
   project_description?: string;
   client_name?: string;
   currency?: string;
+  start_date?: string;
   duration_months?: number;
   contract_value?: number;
   labor_estimates: any[];
@@ -84,18 +85,27 @@ export const createBaseline = async (
       .update(signatureData)
       .digest("hex");
 
-    // Create project record
+    // Create project record with pk/sk structure
+    const timestamp = new Date().toISOString();
+    const actor = event.requestContext?.authorizer?.claims?.email || "system";
+    
     const projectItem = {
+      pk: `PROJECT#${project_id}`,
+      sk: "METADATA",
       project_id,
+      nombre: body.project_name, // Spanish field name for consistency
       project_name: body.project_name,
       description: body.project_description || "",
+      cliente: body.client_name || "", // Spanish field name
       client_name: body.client_name || "",
       baseline_id,
-      baseline_accepted_at: new Date().toISOString(),
+      baseline_accepted_at: timestamp,
       status: "active",
+      moneda: body.currency || "USD", // Spanish field name
       currency: body.currency || "USD",
       duration_months: body.duration_months || 12,
       contract_value: body.contract_value || total_amount,
+      presupuesto_total: total_amount, // Spanish field name
       labor_total: laborTotal,
       non_labor_total: nonLaborTotal,
       total_amount,
@@ -104,8 +114,16 @@ export const createBaseline = async (
       non_labor_estimates: body.non_labor_estimates || [],
       fx_indexation: body.fx_indexation || {},
       assumptions: body.assumptions || [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: timestamp,
+      created_by: actor,
+      updated_at: timestamp,
+      fecha_inicio: body.start_date || timestamp.split('T')[0],
+      fecha_fin: (() => {
+        const startDate = new Date(body.start_date || timestamp);
+        const endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + (body.duration_months || 12));
+        return endDate.toISOString().split('T')[0];
+      })(),
     };
 
     // Save to DynamoDB
@@ -122,16 +140,20 @@ export const createBaseline = async (
       signature_hash,
     });
 
-    // Log to audit trail
+    // Log to audit trail with pk/sk structure
+    const auditTimestamp = new Date().toISOString();
+    const auditDate = auditTimestamp.split('T')[0];
     await ddb.send(
       new PutCommand({
         TableName: "finz_audit_log",
         Item: {
+          pk: `AUDIT#${auditDate}`,
+          sk: `${auditTimestamp}#${project_id}`,
           audit_id: `AUD-${uuidv4()}`,
           project_id,
           action: "baseline_created",
           actor: event.requestContext?.authorizer?.claims?.email || "system",
-          timestamp: new Date().toISOString(),
+          timestamp: auditTimestamp,
           details: {
             baseline_id,
             project_name: body.project_name,

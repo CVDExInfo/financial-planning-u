@@ -1,0 +1,158 @@
+{
+  "timestamp": "2025-11-15T07:07:18.823Z",
+  "summary": {
+    "total": 12,
+    "passed": 11,
+    "failed": 0,
+    "skipped": 1,
+    "successRate": 91.66666666666666
+  },
+  "results": [
+    {
+      "name": "API Gateway Connectivity",
+      "status": "PASS",
+      "message": "API Gateway accessible at https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev",
+      "duration": 250,
+      "details": {
+        "ok": true,
+        "service": "finanzas-sd-api",
+        "stage": "dev",
+        "time": "2025-11-15T07:07:18.071Z"
+      }
+    },
+    {
+      "name": "GET /projects Endpoint",
+      "status": "PASS",
+      "message": "Projects endpoint responding (status: 401, count: N/A - Auth required)",
+      "duration": 58,
+      "details": {
+        "statusCode": 401,
+        "projectCount": 0
+      }
+    },
+    {
+      "name": "POST /baseline Endpoint",
+      "status": "PASS",
+      "message": "Baseline endpoint responding (status: 401)",
+      "duration": 56,
+      "details": {
+        "statusCode": 401,
+        "note": "Auth required"
+      }
+    },
+    {
+      "name": "DynamoDB Projects Table",
+      "status": "PASS",
+      "message": "Found 9 projects in DynamoDB",
+      "duration": 234,
+      "details": {
+        "count": 9,
+        "projects": [
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {}
+        ]
+      }
+    },
+    {
+      "name": "DynamoDB Rubros Table",
+      "status": "PASS",
+      "message": "Found 10 rubros in DynamoDB",
+      "duration": 65,
+      "details": {
+        "count": 10,
+        "sample": [
+          {
+            "id": "RB0052"
+          },
+          {
+            "id": "RB0015"
+          },
+          {
+            "id": "RB0029"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DynamoDB Allocations Table",
+      "status": "PASS",
+      "message": "Found 2 allocations in DynamoDB",
+      "duration": 62,
+      "details": {
+        "count": 2
+      }
+    },
+    {
+      "name": "Audit Trail Logging",
+      "status": "PASS",
+      "message": "Found 1 audit log entries",
+      "duration": 65,
+      "details": {
+        "count": 1,
+        "sample": [
+          {
+            "audit_id": "AUD-test-001",
+            "action": "test_validation",
+            "actor": "christian.valencia@ikusi.com",
+            "timestamp": "2025-11-15T07:03:10Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "User Traceability in Audit Logs",
+      "status": "PASS",
+      "message": "Found 1 audit entries with 1 unique actors",
+      "duration": 59,
+      "details": {
+        "auditCount": 1,
+        "uniqueActors": 1,
+        "actors": [
+          "christian.valencia@ikusi.com"
+        ]
+      }
+    },
+    {
+      "name": "Project Data Integrity",
+      "status": "PASS",
+      "message": "All 5 projects have required fields",
+      "duration": 59,
+      "details": {
+        "validProjects": 5,
+        "totalProjects": 5
+      }
+    },
+    {
+      "name": "Baseline to Project Handoff",
+      "status": "PASS",
+      "message": "Found 9 projects (baseline handoff pending Phase 3 implementation)",
+      "duration": 63,
+      "details": {
+        "note": "Projects exist but baseline_id field not yet populated"
+      }
+    },
+    {
+      "name": "CORS Headers Configuration",
+      "status": "PASS",
+      "message": "CORS headers present in API response",
+      "duration": 62,
+      "details": {
+        "allowOrigin": "https://d7t9x3j66yd8k.cloudfront.net",
+        "allowMethods": "DELETE,GET,OPTIONS,PATCH,POST,PUT"
+      }
+    },
+    {
+      "name": "Lambda Function Execution",
+      "status": "SKIP",
+      "message": "CloudWatch Logs API check not implemented in this version",
+      "duration": 0
+    }
+  ]
+}
