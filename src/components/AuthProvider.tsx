@@ -254,7 +254,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
             const authenticatedUser: UserInfo = {
               id: decoded.sub,
-              login: decoded["cognito:username"] || decoded.email || "user",
+              login: decoded.email || decoded["cognito:username"] || decoded["preferred_username"] || "user",
               email: decoded.email || "unknown",
               avatarUrl: "",
               isOwner: groups.includes("admin"),

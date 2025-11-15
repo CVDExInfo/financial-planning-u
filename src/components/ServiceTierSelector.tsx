@@ -305,8 +305,15 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({ onTier
   });
 
   const calculator = new IkusiPricingCalculator(serviceCatalog);
-  const recommendation = calculator.recommendServiceTier(selectedRequirements);
-  const comparisonMatrix = calculator.generateComparisonMatrix();
+  // Recalculate recommendation whenever requirements change
+  const recommendation = React.useMemo(
+    () => calculator.recommendServiceTier(selectedRequirements),
+    [selectedRequirements, calculator]
+  );
+  const comparisonMatrix = React.useMemo(
+    () => calculator.generateComparisonMatrix(),
+    [calculator]
+  );
 
   const handleTierSelect = (tierId: string) => {
     const tierData = serviceCatalog.service_tiers.find(t => t.id === tierId);
@@ -393,6 +400,8 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({ onTier
                       <option value={12}>12 months</option>
                       <option value={24}>24 months</option>
                       <option value={36}>36 months</option>
+                      <option value={48}>48 months</option>
+                      <option value={60}>60 months</option>
                     </select>
                   </div>
 

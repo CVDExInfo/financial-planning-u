@@ -13,18 +13,29 @@ interface ProjectContextType {
   loading: boolean;
   refreshProject: () => Promise<void>;
   projectChangeCount: number; // Track how many times project has changed for debugging
+  periodChangeCount: number; // Track period changes to trigger re-renders
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [selectedProjectId, setSelectedProjectIdStorage] = useLocalStorage<string>('selected-project-id', '');
-  const [selectedPeriod, setSelectedPeriod] = useLocalStorage<string>('selected-period', '12');
+  const [selectedPeriod, setSelectedPeriodStorage] = useLocalStorage<string>('selected-period', '12');
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectChangeCount, setProjectChangeCount] = useState(0);
+  const [periodChangeCount, setPeriodChangeCount] = useState(0);
 
   const currentProject = projects.find(p => p.id === selectedProjectId);
+
+  // Enhanced period setter that triggers change counter
+  const setSelectedPeriod = useCallback((period: string) => {
+    if (period !== selectedPeriod) {
+      console.log('📅 Period changing from:', selectedPeriod, 'to:', period);
+      setSelectedPeriodStorage(period);
+      setPeriodChangeCount(prev => prev + 1);
+    }
+  }, [selectedPeriod, setSelectedPeriodStorage]);
 
   // Enhanced project setter that triggers change counter and forces updates
   const setSelectedProjectId = useCallback((projectId: string) => {
@@ -92,7 +103,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     projects,
     loading,
     refreshProject,
-    projectChangeCount
+    projectChangeCount,
+    periodChangeCount
   };
 
   return (

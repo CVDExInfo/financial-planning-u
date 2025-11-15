@@ -317,11 +317,16 @@ export function Navigation() {
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile" className="flex items-center">
+                  <DropdownMenuItem>
+                    <div className="flex items-center w-full">
                       <User className="mr-2 h-4 w-4" />
-                      <span>Profile & Roles</span>
-                    </Link>
+                      <div className="flex-1">
+                        <div className="font-medium">Profile & Roles</div>
+                        <div className="text-xs text-muted-foreground">
+                          {availableRoles.length} role{availableRoles.length !== 1 ? 's' : ''} available
+                        </div>
+                      </div>
+                    </div>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem

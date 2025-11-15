@@ -66,6 +66,9 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
     { value: '3', label: '3 months' },
     { value: '6', label: '6 months' },
     { value: '12', label: '12 months' },
+    { value: '24', label: '24 months' },
+    { value: '36', label: '36 months' },
+    { value: '48', label: '48 months' },
     { value: '60', label: '60 months' },
   ];
 
