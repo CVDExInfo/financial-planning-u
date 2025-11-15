@@ -59,7 +59,7 @@ This file should be replaced with an actual Microsoft Word (.docx) reference doc
 7. **Save the File:**
    - File → Save As
    - Format: Word Document (*.docx)
-   - Location: `assets/branding/reference.docx`
+   - Location: `docs/corporate/branding/reference.docx`
 
 ## Notes
 
@@ -80,7 +80,7 @@ If you don't have Microsoft Word, you can:
 After creating reference.docx, test it:
 
 ```bash
-pandoc test.md -o test.docx --reference-doc=assets/branding/reference.docx
+pandoc test.md -o test.docx --reference-doc=docs/corporate/branding/reference.docx
 ```
 
 Open test.docx and verify:
