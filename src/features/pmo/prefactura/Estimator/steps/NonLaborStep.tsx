@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -16,74 +16,74 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Server, CreditCard } from 'lucide-react';
-import type { NonLaborEstimate, Currency } from '@/types/domain';
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Trash2, Server, CreditCard } from "lucide-react";
+import type { NonLaborEstimate, Currency } from "@/types/domain";
 
 const CATEGORIES = [
-  'Support',
-  'Infrastructure Services',
-  'Premium Services',
-  'Standard Services',
-  'Basic Services',
-  'Operation Services',
-  'Admin Services',
-  'Training Services'
+  "Support",
+  "Infrastructure Services",
+  "Premium Services",
+  "Standard Services",
+  "Basic Services",
+  "Operation Services",
+  "Admin Services",
+  "Training Services",
 ];
 
 const COMMON_ITEMS = {
-  'Support': [
-    'Ikusi Platinum',
-    'Ikusi Gold',
-    'Ikusi Premium',
-    'Ikusi Star',
-    'Ikusi Go'
+  Support: [
+    "Ikusi Platinum",
+    "Ikusi Gold",
+    "Ikusi Premium",
+    "Ikusi Star",
+    "Ikusi Go",
   ],
-  'Infrastructure Services': [
-    'Cloud Infrastructure Management',
-    'Database Administration',
-    'Network Operations',
-    'Security Management'
+  "Infrastructure Services": [
+    "Cloud Infrastructure Management",
+    "Database Administration",
+    "Network Operations",
+    "Security Management",
   ],
-  'Premium Services': [
-    'Ikusi Platinum Advanced Support',
-    'System Architecture Consulting',
-    'Performance Optimization',
-    'Security Audits'
+  "Premium Services": [
+    "Ikusi Platinum Advanced Support",
+    "System Architecture Consulting",
+    "Performance Optimization",
+    "Security Audits",
   ],
-  'Standard Services': [
-    'Ikusi Gold Standard Support',
-    'Regular Maintenance',
-    'Basic Monitoring',
-    'Standard Updates'
+  "Standard Services": [
+    "Ikusi Gold Standard Support",
+    "Regular Maintenance",
+    "Basic Monitoring",
+    "Standard Updates",
   ],
-  'Basic Services': [
-    'Ikusi Go Entry Support',
-    'Basic Setup',
-    'Documentation',
-    'Initial Configuration'
+  "Basic Services": [
+    "Ikusi Go Entry Support",
+    "Basic Setup",
+    "Documentation",
+    "Initial Configuration",
   ],
-  'Operation Services': [
-    'System Operations',
-    '24/7 Monitoring',
-    'Incident Response',
-    'Performance Management'
+  "Operation Services": [
+    "System Operations",
+    "24/7 Monitoring",
+    "Incident Response",
+    "Performance Management",
   ],
-  'Admin Services': [
-    'System Administration',
-    'User Management',
-    'Configuration Management',
-    'Backup Services'
+  "Admin Services": [
+    "System Administration",
+    "User Management",
+    "Configuration Management",
+    "Backup Services",
   ],
-  'Training Services': [
-    'User Training',
-    'Admin Training',
-    'Technical Documentation',
-    'Knowledge Transfer'
-  ]
+  "Training Services": [
+    "User Training",
+    "Admin Training",
+    "Technical Documentation",
+    "Knowledge Transfer",
+  ],
 };
 
 interface NonLaborStepProps {
@@ -96,49 +96,56 @@ interface NonLaborStepProps {
 }
 
 export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
-  const [nonLaborEstimates, setNonLaborEstimates] = useState<NonLaborEstimate[]>(
-    data.length > 0 ? data : []
-  );
+  const [nonLaborEstimates, setNonLaborEstimates] = useState<
+    NonLaborEstimate[]
+  >(data.length > 0 ? data : []);
 
   const addNonLaborItem = () => {
     const newItem: NonLaborEstimate = {
-      category: '',
-      description: '',
+      category: "",
+      description: "",
       amount: 0,
-      currency: 'USD',
+      currency: "USD",
       one_time: true,
       start_month: 1,
       end_month: 1,
-      vendor: '',
-      capex_flag: false
+      vendor: "",
+      capex_flag: false,
     };
     setNonLaborEstimates([...nonLaborEstimates, newItem]);
-    console.log('➕ Non-labor item added, total count:', nonLaborEstimates.length + 1);
+    console.log(
+      "➕ Non-labor item added, total count:",
+      nonLaborEstimates.length + 1
+    );
   };
 
-  const updateNonLaborItem = (index: number, field: keyof NonLaborEstimate, value: any) => {
+  const updateNonLaborItem = (
+    index: number,
+    field: keyof NonLaborEstimate,
+    value: any
+  ) => {
     const updated = [...nonLaborEstimates];
     updated[index] = { ...updated[index], [field]: value };
     setNonLaborEstimates(updated);
-    console.log('✏️  Non-labor item updated:', {
+    console.log("✏️  Non-labor item updated:", {
       index,
       category: updated[index].category,
       description: updated[index].description,
       amount: updated[index].amount,
       isOneTime: updated[index].one_time,
       isCapex: updated[index].capex_flag,
-      fieldChanged: field
+      fieldChanged: field,
     });
   };
 
   const removeNonLaborItem = (index: number) => {
     const removed = nonLaborEstimates[index];
     setNonLaborEstimates(nonLaborEstimates.filter((_, i) => i !== index));
-    console.log('🗑️  Non-labor item removed:', {
+    console.log("🗑️  Non-labor item removed:", {
       index,
       category: removed.category,
       description: removed.description,
-      remainingCount: nonLaborEstimates.length - 1
+      remainingCount: nonLaborEstimates.length - 1,
     });
   };
 
@@ -151,31 +158,34 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
   };
 
   const getTotalCost = () => {
-    return nonLaborEstimates.reduce((sum, item) => sum + calculateItemTotal(item), 0);
+    return nonLaborEstimates.reduce(
+      (sum, item) => sum + calculateItemTotal(item),
+      0
+    );
   };
 
   const getCapexTotal = () => {
     return nonLaborEstimates
-      .filter(item => item.capex_flag)
+      .filter((item) => item.capex_flag)
       .reduce((sum, item) => sum + calculateItemTotal(item), 0);
   };
 
   const handleNext = () => {
     const totalCost = getTotalCost();
     const capexTotal = getCapexTotal();
-    console.log('🏗️  Non-labor estimates submitted:', {
+    console.log("🏗️  Non-labor estimates submitted:", {
       itemCount: nonLaborEstimates.length,
       totalCost,
       capexTotal,
       opexTotal: totalCost - capexTotal,
-      items: nonLaborEstimates.map(item => ({
+      items: nonLaborEstimates.map((item) => ({
         category: item.category,
         description: item.description,
         amount: item.amount,
         isOneTime: item.one_time,
-        isCapex: item.capex_flag
+        isCapex: item.capex_flag,
       })),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
     setData(nonLaborEstimates);
     onNext();
@@ -194,7 +204,9 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-medium">Cost Items</h3>
-          <p className="text-sm text-muted-foreground">Include all non-labor expenses for the project</p>
+          <p className="text-sm text-muted-foreground">
+            Include all non-labor expenses for the project
+          </p>
         </div>
         <Button onClick={addNonLaborItem} className="gap-2">
           <Plus size={16} />
@@ -228,14 +240,18 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                       <TableCell>
                         <Select
                           value={item.category}
-                          onValueChange={(value) => updateNonLaborItem(index, 'category', value)}
+                          onValueChange={(value) =>
+                            updateNonLaborItem(index, "category", value)
+                          }
                         >
                           <SelectTrigger className="w-[140px]">
                             <SelectValue placeholder="Select category" />
                           </SelectTrigger>
                           <SelectContent>
-                            {CATEGORIES.map(category => (
-                              <SelectItem key={category} value={category}>{category}</SelectItem>
+                            {CATEGORIES.map((category) => (
+                              <SelectItem key={category} value={category}>
+                                {category}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -243,7 +259,13 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                       <TableCell>
                         <Input
                           value={item.description}
-                          onChange={(e) => updateNonLaborItem(index, 'description', e.target.value)}
+                          onChange={(e) =>
+                            updateNonLaborItem(
+                              index,
+                              "description",
+                              e.target.value
+                            )
+                          }
                           placeholder="e.g., AWS EC2 instances"
                           className="w-[200px]"
                         />
@@ -252,21 +274,35 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                         <Input
                           type="number"
                           value={item.amount}
-                          onChange={(e) => updateNonLaborItem(index, 'amount', parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            updateNonLaborItem(
+                              index,
+                              "amount",
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
                           className="w-24"
                         />
                       </TableCell>
                       <TableCell>
                         <Checkbox
                           checked={item.one_time}
-                          onCheckedChange={(checked) => updateNonLaborItem(index, 'one_time', checked)}
+                          onCheckedChange={(checked) =>
+                            updateNonLaborItem(index, "one_time", checked)
+                          }
                         />
                       </TableCell>
                       <TableCell>
                         <Input
                           type="number"
                           value={item.start_month || 1}
-                          onChange={(e) => updateNonLaborItem(index, 'start_month', parseInt(e.target.value) || 1)}
+                          onChange={(e) =>
+                            updateNonLaborItem(
+                              index,
+                              "start_month",
+                              parseInt(e.target.value) || 1
+                            )
+                          }
                           className="w-16"
                           min="1"
                           disabled={item.one_time}
@@ -276,7 +312,13 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                         <Input
                           type="number"
                           value={item.end_month || 1}
-                          onChange={(e) => updateNonLaborItem(index, 'end_month', parseInt(e.target.value) || 1)}
+                          onChange={(e) =>
+                            updateNonLaborItem(
+                              index,
+                              "end_month",
+                              parseInt(e.target.value) || 1
+                            )
+                          }
                           className="w-16"
                           min="1"
                           disabled={item.one_time}
@@ -284,8 +326,10 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                       </TableCell>
                       <TableCell>
                         <Input
-                          value={item.vendor || ''}
-                          onChange={(e) => updateNonLaborItem(index, 'vendor', e.target.value)}
+                          value={item.vendor || ""}
+                          onChange={(e) =>
+                            updateNonLaborItem(index, "vendor", e.target.value)
+                          }
                           placeholder="Vendor name"
                           className="w-[120px]"
                         />
@@ -293,7 +337,9 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                       <TableCell>
                         <Checkbox
                           checked={item.capex_flag}
-                          onCheckedChange={(checked) => updateNonLaborItem(index, 'capex_flag', checked)}
+                          onCheckedChange={(checked) =>
+                            updateNonLaborItem(index, "capex_flag", checked)
+                          }
                         />
                       </TableCell>
                       <TableCell>
@@ -357,9 +403,9 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                             category,
                             description: item,
                             amount: 1000,
-                            currency: 'USD',
+                            currency: "USD",
                             one_time: true,
-                            capex_flag: false
+                            capex_flag: false,
                           };
                           setNonLaborEstimates([newItem]);
                         }}
@@ -389,15 +435,14 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <Label className="text-muted-foreground">Total Items</Label>
-                <p className="text-2xl font-bold">
-                  {nonLaborEstimates.length}
-                </p>
+                <p className="text-2xl font-bold">{nonLaborEstimates.length}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">One-time Costs</Label>
                 <p className="text-2xl font-bold">
-                  ${nonLaborEstimates
-                    .filter(item => item.one_time)
+                  $
+                  {nonLaborEstimates
+                    .filter((item) => item.one_time)
                     .reduce((sum, item) => sum + item.amount, 0)
                     .toLocaleString()}
                 </p>
@@ -420,17 +465,23 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
             <div className="mt-4">
               <Label className="text-muted-foreground">By Category</Label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                {CATEGORIES.map(category => {
+                {CATEGORIES.map((category) => {
                   const categoryTotal = nonLaborEstimates
-                    .filter(item => item.category === category)
+                    .filter((item) => item.category === category)
                     .reduce((sum, item) => sum + calculateItemTotal(item), 0);
-                  
+
                   if (categoryTotal === 0) return null;
-                  
+
                   return (
-                    <Badge key={category} variant="outline" className="justify-between">
+                    <Badge
+                      key={category}
+                      variant="outline"
+                      className="justify-between"
+                    >
                       <span className="text-xs">{category}:</span>
-                      <span className="font-medium">${categoryTotal.toLocaleString()}</span>
+                      <span className="font-medium">
+                        ${categoryTotal.toLocaleString()}
+                      </span>
                     </Badge>
                   );
                 })}

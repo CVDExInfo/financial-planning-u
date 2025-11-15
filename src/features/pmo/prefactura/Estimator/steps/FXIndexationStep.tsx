@@ -1,31 +1,31 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { TrendingUp, AlertCircle, DollarSign } from 'lucide-react';
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { TrendingUp, AlertCircle, DollarSign } from "lucide-react";
 
 interface FXData {
   usd_cop_rate: number;
   rate_source: string;
-  hedging_strategy: 'none' | 'forward_80' | 'forward_100' | 'options';
+  hedging_strategy: "none" | "forward_80" | "forward_100" | "options";
 }
 
 interface IndexationData {
   cpi_annual_rate: number;
   min_wage_annual_rate: number;
-  adjustment_frequency: 'monthly' | 'quarterly' | 'annually';
-  labor_indexation: 'CPI' | 'min_wage' | 'none';
-  non_labor_indexation: 'CPI' | 'none';
+  adjustment_frequency: "monthly" | "quarterly" | "annually";
+  labor_indexation: "CPI" | "min_wage" | "none";
+  non_labor_indexation: "CPI" | "none";
 }
 
 interface FXIndexationStepProps {
@@ -37,12 +37,16 @@ interface FXIndexationStepProps {
   isLastStep: boolean;
 }
 
-export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProps) {
+export function FXIndexationStep({
+  data,
+  setData,
+  onNext,
+}: FXIndexationStepProps) {
   const [fxData, setFxData] = useState<FXData>(
     data?.fx || {
       usd_cop_rate: 4000,
-      rate_source: 'Banco de la República',
-      hedging_strategy: 'forward_80'
+      rate_source: "Banco de la República",
+      hedging_strategy: "forward_80",
     }
   );
 
@@ -50,38 +54,38 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
     data?.indexation || {
       cpi_annual_rate: 3.0,
       min_wage_annual_rate: 12.0,
-      adjustment_frequency: 'quarterly',
-      labor_indexation: 'CPI',
-      non_labor_indexation: 'CPI'
+      adjustment_frequency: "quarterly",
+      labor_indexation: "CPI",
+      non_labor_indexation: "CPI",
     }
   );
 
   const updateFxData = (field: keyof FXData, value: any) => {
-    setFxData(prev => ({ ...prev, [field]: value }));
-    console.log('💱 FX Data updated:', field, '=', value);
+    setFxData((prev) => ({ ...prev, [field]: value }));
+    console.log("💱 FX Data updated:", field, "=", value);
   };
 
   const updateIndexationData = (field: keyof IndexationData, value: any) => {
-    setIndexationData(prev => ({ ...prev, [field]: value }));
-    console.log('📈 Indexation Data updated:', field, '=', value);
+    setIndexationData((prev) => ({ ...prev, [field]: value }));
+    console.log("📈 Indexation Data updated:", field, "=", value);
   };
 
   const handleNext = () => {
-    console.log('💱📈 FX & Indexation configuration submitted:', {
+    console.log("💱📈 FX & Indexation configuration submitted:", {
       fx: {
         usdCopRate: fxData.usd_cop_rate,
         rateSource: fxData.rate_source,
         hedgingStrategy: fxData.hedging_strategy,
-        strategyDescription: getHedgingDescription(fxData.hedging_strategy)
+        strategyDescription: getHedgingDescription(fxData.hedging_strategy),
       },
       indexation: {
         cpiAnnualRate: indexationData.cpi_annual_rate,
         minWageAnnualRate: indexationData.min_wage_annual_rate,
         adjustmentFrequency: indexationData.adjustment_frequency,
         laborIndexation: indexationData.labor_indexation,
-        nonLaborIndexation: indexationData.non_labor_indexation
+        nonLaborIndexation: indexationData.non_labor_indexation,
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
     setData({ fx: fxData, indexation: indexationData });
     onNext();
@@ -89,24 +93,31 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
 
   const getHedgingDescription = (strategy: string) => {
     switch (strategy) {
-      case 'none': return 'No hedging - full FX exposure';
-      case 'forward_80': return '80% hedged with forward contracts';
-      case 'forward_100': return '100% hedged with forward contracts';
-      case 'options': return 'Options strategy for downside protection';
-      default: return '';
+      case "none":
+        return "No hedging - full FX exposure";
+      case "forward_80":
+        return "80% hedged with forward contracts";
+      case "forward_100":
+        return "100% hedged with forward contracts";
+      case "options":
+        return "Options strategy for downside protection";
+      default:
+        return "";
     }
   };
 
   const calculateIndexationImpact = () => {
-    const laborRate = indexationData.labor_indexation === 'CPI' 
-      ? indexationData.cpi_annual_rate 
-      : indexationData.labor_indexation === 'min_wage'
-      ? indexationData.min_wage_annual_rate
-      : 0;
+    const laborRate =
+      indexationData.labor_indexation === "CPI"
+        ? indexationData.cpi_annual_rate
+        : indexationData.labor_indexation === "min_wage"
+        ? indexationData.min_wage_annual_rate
+        : 0;
 
-    const nonLaborRate = indexationData.non_labor_indexation === 'CPI'
-      ? indexationData.cpi_annual_rate
-      : 0;
+    const nonLaborRate =
+      indexationData.non_labor_indexation === "CPI"
+        ? indexationData.cpi_annual_rate
+        : 0;
 
     return { laborRate, nonLaborRate };
   };
@@ -116,9 +127,12 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-2xl font-semibold mb-2">FX & Indexation Parameters</h2>
+        <h2 className="text-2xl font-semibold mb-2">
+          FX & Indexation Parameters
+        </h2>
         <p className="text-muted-foreground">
-          Define currency exchange rates and inflation adjustments for accurate cost projections
+          Define currency exchange rates and inflation adjustments for accurate
+          cost projections
         </p>
       </div>
 
@@ -137,7 +151,9 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
               <Input
                 type="number"
                 value={fxData.usd_cop_rate}
-                onChange={(e) => updateFxData('usd_cop_rate', parseFloat(e.target.value) || 0)}
+                onChange={(e) =>
+                  updateFxData("usd_cop_rate", parseFloat(e.target.value) || 0)
+                }
                 placeholder="e.g., 4000"
               />
               <p className="text-xs text-muted-foreground">
@@ -149,16 +165,20 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
               <Label>Rate Source</Label>
               <Select
                 value={fxData.rate_source}
-                onValueChange={(value) => updateFxData('rate_source', value)}
+                onValueChange={(value) => updateFxData("rate_source", value)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Banco de la República">Banco de la República</SelectItem>
+                  <SelectItem value="Banco de la República">
+                    Banco de la República
+                  </SelectItem>
                   <SelectItem value="Bloomberg">Bloomberg</SelectItem>
                   <SelectItem value="Reuters">Reuters</SelectItem>
-                  <SelectItem value="Internal Treasury">Internal Treasury</SelectItem>
+                  <SelectItem value="Internal Treasury">
+                    Internal Treasury
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -167,7 +187,9 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
               <Label>Hedging Strategy</Label>
               <Select
                 value={fxData.hedging_strategy}
-                onValueChange={(value) => updateFxData('hedging_strategy', value as any)}
+                onValueChange={(value) =>
+                  updateFxData("hedging_strategy", value as any)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -175,7 +197,9 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
                 <SelectContent>
                   <SelectItem value="none">No Hedging</SelectItem>
                   <SelectItem value="forward_80">80% Forward Hedge</SelectItem>
-                  <SelectItem value="forward_100">100% Forward Hedge</SelectItem>
+                  <SelectItem value="forward_100">
+                    100% Forward Hedge
+                  </SelectItem>
                   <SelectItem value="options">Options Strategy</SelectItem>
                 </SelectContent>
               </Select>
@@ -187,7 +211,8 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                FX rates will be applied to all USD-denominated costs when converting to local reporting currency.
+                FX rates will be applied to all USD-denominated costs when
+                converting to local reporting currency.
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -208,7 +233,12 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
                 <Input
                   type="number"
                   value={indexationData.cpi_annual_rate}
-                  onChange={(e) => updateIndexationData('cpi_annual_rate', parseFloat(e.target.value) || 0)}
+                  onChange={(e) =>
+                    updateIndexationData(
+                      "cpi_annual_rate",
+                      parseFloat(e.target.value) || 0
+                    )
+                  }
                   placeholder="e.g., 3.0"
                   step="0.1"
                 />
@@ -218,7 +248,12 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
                 <Input
                   type="number"
                   value={indexationData.min_wage_annual_rate}
-                  onChange={(e) => updateIndexationData('min_wage_annual_rate', parseFloat(e.target.value) || 0)}
+                  onChange={(e) =>
+                    updateIndexationData(
+                      "min_wage_annual_rate",
+                      parseFloat(e.target.value) || 0
+                    )
+                  }
                   placeholder="e.g., 12.0"
                   step="0.1"
                 />
@@ -229,7 +264,9 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
               <Label>Adjustment Frequency</Label>
               <Select
                 value={indexationData.adjustment_frequency}
-                onValueChange={(value) => updateIndexationData('adjustment_frequency', value as any)}
+                onValueChange={(value) =>
+                  updateIndexationData("adjustment_frequency", value as any)
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -247,15 +284,21 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
                 <Label>Labor Cost Indexation</Label>
                 <Select
                   value={indexationData.labor_indexation}
-                  onValueChange={(value) => updateIndexationData('labor_indexation', value as any)}
+                  onValueChange={(value) =>
+                    updateIndexationData("labor_indexation", value as any)
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No Indexation</SelectItem>
-                    <SelectItem value="CPI">Consumer Price Index (CPI)</SelectItem>
-                    <SelectItem value="min_wage">Minimum Wage Increases</SelectItem>
+                    <SelectItem value="CPI">
+                      Consumer Price Index (CPI)
+                    </SelectItem>
+                    <SelectItem value="min_wage">
+                      Minimum Wage Increases
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -264,14 +307,18 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
                 <Label>Non-Labor Cost Indexation</Label>
                 <Select
                   value={indexationData.non_labor_indexation}
-                  onValueChange={(value) => updateIndexationData('non_labor_indexation', value as any)}
+                  onValueChange={(value) =>
+                    updateIndexationData("non_labor_indexation", value as any)
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No Indexation</SelectItem>
-                    <SelectItem value="CPI">Consumer Price Index (CPI)</SelectItem>
+                    <SelectItem value="CPI">
+                      Consumer Price Index (CPI)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -280,7 +327,8 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
             <Alert>
               <TrendingUp className="h-4 w-4" />
               <AlertDescription>
-                Indexation will be applied {indexationData.adjustment_frequency} starting from month 4 of the project.
+                Indexation will be applied {indexationData.adjustment_frequency}{" "}
+                starting from month 4 of the project.
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -301,13 +349,17 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
               </p>
               <p className="text-sm text-muted-foreground">USD/COP</p>
             </div>
-            
+
             <div className="text-center">
               <Label className="text-muted-foreground">Hedging Coverage</Label>
               <p className="text-2xl font-bold">
-                {fxData.hedging_strategy === 'forward_80' ? '80%' :
-                 fxData.hedging_strategy === 'forward_100' ? '100%' :
-                 fxData.hedging_strategy === 'options' ? 'Protected' : '0%'}
+                {fxData.hedging_strategy === "forward_80"
+                  ? "80%"
+                  : fxData.hedging_strategy === "forward_100"
+                  ? "100%"
+                  : fxData.hedging_strategy === "options"
+                  ? "Protected"
+                  : "0%"}
               </p>
               <p className="text-sm text-muted-foreground">FX Risk Coverage</p>
             </div>
@@ -321,7 +373,9 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
             </div>
 
             <div className="text-center">
-              <Label className="text-muted-foreground">Non-Labor Indexation</Label>
+              <Label className="text-muted-foreground">
+                Non-Labor Indexation
+              </Label>
               <p className="text-2xl font-bold text-amber-600">
                 {indexationImpact.nonLaborRate.toFixed(1)}%
               </p>
@@ -334,9 +388,22 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
             <ul className="text-sm text-muted-foreground space-y-1">
               <li>• FX rate sourced from {fxData.rate_source}</li>
               <li>• {getHedgingDescription(fxData.hedging_strategy)}</li>
-              <li>• Indexation adjustments applied {indexationData.adjustment_frequency}</li>
-              <li>• Labor costs indexed to {indexationData.labor_indexation === 'none' ? 'no indexation' : indexationData.labor_indexation}</li>
-              <li>• Non-labor costs indexed to {indexationData.non_labor_indexation === 'none' ? 'no indexation' : indexationData.non_labor_indexation}</li>
+              <li>
+                • Indexation adjustments applied{" "}
+                {indexationData.adjustment_frequency}
+              </li>
+              <li>
+                • Labor costs indexed to{" "}
+                {indexationData.labor_indexation === "none"
+                  ? "no indexation"
+                  : indexationData.labor_indexation}
+              </li>
+              <li>
+                • Non-labor costs indexed to{" "}
+                {indexationData.non_labor_indexation === "none"
+                  ? "no indexation"
+                  : indexationData.non_labor_indexation}
+              </li>
             </ul>
           </div>
         </CardContent>

@@ -196,7 +196,9 @@ export class ApiService {
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
-          `Handoff failed: ${response.status} ${errorText || response.statusText}`
+          `Handoff failed: ${response.status} ${
+            errorText || response.statusText
+          }`
         );
       }
 

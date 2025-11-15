@@ -1,17 +1,17 @@
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Form,
   FormControl,
@@ -19,20 +19,23 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Badge } from '@/components/ui/badge';
-import { Plus, X } from 'lucide-react';
-import type { DealInputs, Currency } from '@/types/domain';
+} from "@/components/ui/form";
+import { Badge } from "@/components/ui/badge";
+import { Plus, X } from "lucide-react";
+import type { DealInputs, Currency } from "@/types/domain";
 
 const dealInputsSchema: z.ZodType<DealInputs> = z.object({
-  project_name: z.string().min(1, 'Project name is required'),
+  project_name: z.string().min(1, "Project name is required"),
   project_description: z.string().optional(),
-  currency: z.enum(['USD', 'COP']),
-  start_date: z.string().min(1, 'Start date is required'),
-  duration_months: z.number().min(1, 'Duration must be at least 1 month').max(60, 'Duration cannot exceed 60 months'),
+  currency: z.enum(["USD", "COP"]),
+  start_date: z.string().min(1, "Start date is required"),
+  duration_months: z
+    .number()
+    .min(1, "Duration must be at least 1 month")
+    .max(60, "Duration cannot exceed 60 months"),
   contract_value: z.number().optional(),
   client_name: z.string().optional(),
-  assumptions: z.array(z.string()).default([])
+  assumptions: z.array(z.string()).default([]),
 }) as z.ZodType<DealInputs>;
 
 interface DealInputsStepProps {
@@ -48,21 +51,21 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
   const form = useForm<DealInputs>({
     resolver: zodResolver(dealInputsSchema),
     defaultValues: data || {
-      project_name: '',
-      project_description: '',
-      currency: 'USD',
-      start_date: '',
+      project_name: "",
+      project_description: "",
+      currency: "USD",
+      start_date: "",
       duration_months: 12,
       contract_value: undefined,
-      client_name: '',
-      assumptions: []
-    }
+      client_name: "",
+      assumptions: [],
+    },
   });
 
-  const assumptions = form.watch('assumptions') || [];
+  const assumptions = form.watch("assumptions") || [];
 
   const onSubmit = (formData: DealInputs) => {
-    console.log('📋 Deal Inputs submitted:', {
+    console.log("📋 Deal Inputs submitted:", {
       projectName: formData.project_name,
       client: formData.client_name,
       currency: formData.currency,
@@ -70,32 +73,40 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
       durationMonths: formData.duration_months,
       contractValue: formData.contract_value,
       assumptionsCount: formData.assumptions?.length || 0,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     setData(formData);
     onNext();
   };
 
   const addAssumption = () => {
-    const currentAssumptions = form.getValues('assumptions') || [];
-    form.setValue('assumptions', [...currentAssumptions, '']);
-    console.log('➕ Assumption added, total count:', currentAssumptions.length + 1);
+    const currentAssumptions = form.getValues("assumptions") || [];
+    form.setValue("assumptions", [...currentAssumptions, ""]);
+    console.log(
+      "➕ Assumption added, total count:",
+      currentAssumptions.length + 1
+    );
   };
 
   const updateAssumption = (index: number, value: string) => {
-    const currentAssumptions = form.getValues('assumptions') || [];
+    const currentAssumptions = form.getValues("assumptions") || [];
     const newAssumptions = [...currentAssumptions];
     newAssumptions[index] = value;
-    form.setValue('assumptions', newAssumptions);
-    console.log('✏️  Assumption updated at index', index, ':', value);
+    form.setValue("assumptions", newAssumptions);
+    console.log("✏️  Assumption updated at index", index, ":", value);
   };
 
   const removeAssumption = (index: number) => {
-    const currentAssumptions = form.getValues('assumptions') || [];
+    const currentAssumptions = form.getValues("assumptions") || [];
     const newAssumptions = currentAssumptions.filter((_, i) => i !== index);
-    form.setValue('assumptions', newAssumptions);
-    console.log('🗑️  Assumption removed at index', index, ', remaining:', newAssumptions.length);
+    form.setValue("assumptions", newAssumptions);
+    console.log(
+      "🗑️  Assumption removed at index",
+      index,
+      ", remaining:",
+      newAssumptions.length
+    );
   };
 
   return (
@@ -103,7 +114,8 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
       <div className="text-center">
         <h2 className="text-2xl font-semibold mb-2">Project Information</h2>
         <p className="text-muted-foreground">
-          Enter the basic project details to establish the foundation for your estimate
+          Enter the basic project details to establish the foundation for your
+          estimate
         </p>
       </div>
 
@@ -117,7 +129,10 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
                 <FormItem>
                   <FormLabel>Project Name *</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Digital Platform Modernization" {...field} />
+                    <Input
+                      placeholder="e.g., Digital Platform Modernization"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -144,7 +159,10 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Project Currency *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select currency" />
@@ -167,11 +185,17 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
                 <FormItem>
                   <FormLabel>Contract Value</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="number" 
-                      placeholder="e.g., 500000" 
+                    <Input
+                      type="number"
+                      placeholder="e.g., 500000"
                       {...field}
-                      onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value
+                            ? parseFloat(e.target.value)
+                            : undefined
+                        )
+                      }
                     />
                   </FormControl>
                   <FormMessage />
@@ -200,12 +224,14 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
                 <FormItem>
                   <FormLabel>Duration (Months) *</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="number" 
-                      min="1" 
-                      max="60" 
+                    <Input
+                      type="number"
+                      min="1"
+                      max="60"
                       {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                      onChange={(e) =>
+                        field.onChange(parseInt(e.target.value) || 1)
+                      }
                     />
                   </FormControl>
                   <FormMessage />
@@ -221,7 +247,7 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
               <FormItem>
                 <FormLabel>Project Description</FormLabel>
                 <FormControl>
-                  <Textarea 
+                  <Textarea
                     placeholder="Describe the project scope, objectives, and key deliverables..."
                     rows={4}
                     {...field}
@@ -235,7 +261,9 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
           {/* Assumptions Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label className="text-base font-medium">Project Assumptions</Label>
+              <Label className="text-base font-medium">
+                Project Assumptions
+              </Label>
               <Button
                 type="button"
                 variant="outline"
@@ -267,11 +295,13 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
                   </Button>
                 </div>
               ))}
-              
+
               {assumptions.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>No assumptions added yet</p>
-                  <p className="text-sm">Click "Add Assumption" to include project assumptions</p>
+                  <p className="text-sm">
+                    Click "Add Assumption" to include project assumptions
+                  </p>
                 </div>
               )}
             </div>
@@ -283,30 +313,30 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Currency:</span>
-                <Badge className="ml-2">{form.watch('currency')}</Badge>
+                <Badge className="ml-2">{form.watch("currency")}</Badge>
               </div>
               <div>
                 <span className="text-muted-foreground">Duration:</span>
                 <Badge variant="outline" className="ml-2">
-                  {form.watch('duration_months')} months
+                  {form.watch("duration_months")} months
                 </Badge>
               </div>
-              {form.watch('contract_value') && (
+              {form.watch("contract_value") && (
                 <div>
                   <span className="text-muted-foreground">Value:</span>
                   <Badge variant="outline" className="ml-2">
-                    {new Intl.NumberFormat('en-US', {
-                      style: 'currency',
-                      currency: form.watch('currency'),
+                    {new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: form.watch("currency"),
                       minimumFractionDigits: 0,
-                    }).format(form.watch('contract_value') || 0)}
+                    }).format(form.watch("contract_value") || 0)}
                   </Badge>
                 </div>
               )}
               <div>
                 <span className="text-muted-foreground">Assumptions:</span>
                 <Badge variant="outline" className="ml-2">
-                  {assumptions.filter(a => a.trim()).length}
+                  {assumptions.filter((a) => a.trim()).length}
                 </Badge>
               </div>
             </div>
