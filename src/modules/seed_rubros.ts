@@ -1,3 +1,7 @@
+// LEGACY – do not use.
+// Canonical rubros seed script is src/modules/finanzas/data/seed_rubros.ts
+// Kept temporarily for reference and should not be called by npm scripts or CI.
+
 // Seed script for DynamoDB: rubros table (items)
 // @ts-nocheck
 // Usage (CI or local with creds):
