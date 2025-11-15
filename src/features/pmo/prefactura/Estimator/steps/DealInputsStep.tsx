@@ -62,6 +62,17 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
   const assumptions = form.watch('assumptions') || [];
 
   const onSubmit = (formData: DealInputs) => {
+    console.log('📋 Deal Inputs submitted:', {
+      projectName: formData.project_name,
+      client: formData.client_name,
+      currency: formData.currency,
+      startDate: formData.start_date,
+      durationMonths: formData.duration_months,
+      contractValue: formData.contract_value,
+      assumptionsCount: formData.assumptions?.length || 0,
+      timestamp: new Date().toISOString()
+    });
+    
     setData(formData);
     onNext();
   };
@@ -69,6 +80,7 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
   const addAssumption = () => {
     const currentAssumptions = form.getValues('assumptions') || [];
     form.setValue('assumptions', [...currentAssumptions, '']);
+    console.log('➕ Assumption added, total count:', currentAssumptions.length + 1);
   };
 
   const updateAssumption = (index: number, value: string) => {
@@ -76,12 +88,14 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
     const newAssumptions = [...currentAssumptions];
     newAssumptions[index] = value;
     form.setValue('assumptions', newAssumptions);
+    console.log('✏️  Assumption updated at index', index, ':', value);
   };
 
   const removeAssumption = (index: number) => {
     const currentAssumptions = form.getValues('assumptions') || [];
     const newAssumptions = currentAssumptions.filter((_, i) => i !== index);
     form.setValue('assumptions', newAssumptions);
+    console.log('🗑️  Assumption removed at index', index, ', remaining:', newAssumptions.length);
   };
 
   return (

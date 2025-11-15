@@ -58,13 +58,31 @@ export function FXIndexationStep({ data, setData, onNext }: FXIndexationStepProp
 
   const updateFxData = (field: keyof FXData, value: any) => {
     setFxData(prev => ({ ...prev, [field]: value }));
+    console.log('💱 FX Data updated:', field, '=', value);
   };
 
   const updateIndexationData = (field: keyof IndexationData, value: any) => {
     setIndexationData(prev => ({ ...prev, [field]: value }));
+    console.log('📈 Indexation Data updated:', field, '=', value);
   };
 
   const handleNext = () => {
+    console.log('💱📈 FX & Indexation configuration submitted:', {
+      fx: {
+        usdCopRate: fxData.usd_cop_rate,
+        rateSource: fxData.rate_source,
+        hedgingStrategy: fxData.hedging_strategy,
+        strategyDescription: getHedgingDescription(fxData.hedging_strategy)
+      },
+      indexation: {
+        cpiAnnualRate: indexationData.cpi_annual_rate,
+        minWageAnnualRate: indexationData.min_wage_annual_rate,
+        adjustmentFrequency: indexationData.adjustment_frequency,
+        laborIndexation: indexationData.labor_indexation,
+        nonLaborIndexation: indexationData.non_labor_indexation
+      },
+      timestamp: new Date().toISOString()
+    });
     setData({ fx: fxData, indexation: indexationData });
     onNext();
   };

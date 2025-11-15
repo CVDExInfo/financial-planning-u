@@ -113,16 +113,33 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
       capex_flag: false
     };
     setNonLaborEstimates([...nonLaborEstimates, newItem]);
+    console.log('➕ Non-labor item added, total count:', nonLaborEstimates.length + 1);
   };
 
   const updateNonLaborItem = (index: number, field: keyof NonLaborEstimate, value: any) => {
     const updated = [...nonLaborEstimates];
     updated[index] = { ...updated[index], [field]: value };
     setNonLaborEstimates(updated);
+    console.log('✏️  Non-labor item updated:', {
+      index,
+      category: updated[index].category,
+      description: updated[index].description,
+      amount: updated[index].amount,
+      isOneTime: updated[index].one_time,
+      isCapex: updated[index].capex_flag,
+      fieldChanged: field
+    });
   };
 
   const removeNonLaborItem = (index: number) => {
+    const removed = nonLaborEstimates[index];
     setNonLaborEstimates(nonLaborEstimates.filter((_, i) => i !== index));
+    console.log('🗑️  Non-labor item removed:', {
+      index,
+      category: removed.category,
+      description: removed.description,
+      remainingCount: nonLaborEstimates.length - 1
+    });
   };
 
   const calculateItemTotal = (item: NonLaborEstimate) => {
@@ -144,6 +161,22 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
   };
 
   const handleNext = () => {
+    const totalCost = getTotalCost();
+    const capexTotal = getCapexTotal();
+    console.log('🏗️  Non-labor estimates submitted:', {
+      itemCount: nonLaborEstimates.length,
+      totalCost,
+      capexTotal,
+      opexTotal: totalCost - capexTotal,
+      items: nonLaborEstimates.map(item => ({
+        category: item.category,
+        description: item.description,
+        amount: item.amount,
+        isOneTime: item.one_time,
+        isCapex: item.capex_flag
+      })),
+      timestamp: new Date().toISOString()
+    });
     setData(nonLaborEstimates);
     onNext();
   };
