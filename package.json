@@ -90,7 +90,7 @@
     "@aws-sdk/lib-dynamodb": "^3.932.0",
     "@aws-sdk/util-dynamodb": "^3.925.0",
     "@eslint/js": "^9.21.0",
-    "@mermaid-js/mermaid-cli": "^11.12.0",
+    "@mermaid-js/mermaid-cli": "^11.4.0",
     "@stoplight/spectral-cli": "^6.15.0",
     "@tailwindcss/postcss": "^4.1.8",
     "@types/node": "^22.10.2",
@@ -113,5 +113,8 @@
     "packages": [
       "packages/*"
     ]
+  },
+  "overrides": {
+    "js-yaml": "^4.1.1"
   }
 }
