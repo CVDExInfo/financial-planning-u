@@ -30,6 +30,8 @@ The collection includes contract tests for all critical Finanzas SD endpoints:
 
 #### Projects
 - `GET /projects` - List all projects
+  - **Contract**: Returns either bare array `Project[]` or envelope `{ data: Project[] }`
+  - **Validation**: Each project must have `id` and `name` properties
 - `GET /projects/{projectId}` - Get specific project
 
 #### Handoff Management
