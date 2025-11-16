@@ -34,7 +34,7 @@ import billingPlanRetailData from "@/mocks/billing-plan-retail.json";
 
 // Mock data helper - only use in development with explicit flag
 const shouldUseMockData = () => {
-  return import.meta.env.DEV && import.meta.env.VITE_USE_MOCKS === 'true';
+  return import.meta.env.DEV && import.meta.env.VITE_USE_MOCKS === "true";
 };
 
 // Mock API service with simulated async operations and proper types
@@ -99,7 +99,7 @@ export class ApiService {
             },
           ];
         }
-        
+
         // In production, return empty array
         logger.warn("Failed to fetch projects from API, returning empty array");
         return [];
@@ -185,7 +185,9 @@ export class ApiService {
       });
 
       // Generate idempotency key for safe retries
-      const idempotencyKey = `handoff-${projectId}-${data.baseline_id}-${Date.now()}`;
+      const idempotencyKey = `handoff-${projectId}-${
+        data.baseline_id
+      }-${Date.now()}`;
 
       const response = await fetch(
         buildApiUrl(`/projects/${projectId}/handoff`),
@@ -305,11 +307,20 @@ export class ApiService {
         logger.debug("Using RETAIL mock data for fallback");
         break;
       default:
-        logger.warn("Unknown project_id, returning empty array");
-        return [];
+        // For unknown project IDs (e.g., newly handed off projects), use healthcare as template
+        baseline = baselineData as BaselineBudget;
+        logger.info(
+          "Unknown project_id, using HEALTHCARE mock data as template for project:",
+          project_id
+        );
+        break;
     }
 
-    logger.debug("Returning", baseline.line_items.length, "line items from fallback");
+    logger.debug(
+      "Returning",
+      baseline.line_items.length,
+      "line items from fallback"
+    );
     return baseline.line_items;
   }
 
@@ -432,8 +443,13 @@ export class ApiService {
         logger.debug("Using RETAIL mock data for fallback");
         break;
       default:
-        logger.warn("Unknown project_id, returning empty array");
-        return [];
+        // For unknown project IDs (e.g., newly handed off projects), use healthcare as template
+        data = forecastData;
+        logger.info(
+          "Unknown project_id, using HEALTHCARE mock data as template for project:",
+          project_id
+        );
+        break;
     }
 
     const result = data as ForecastCell[];
@@ -513,8 +529,13 @@ export class ApiService {
         logger.debug("Using RETAIL invoice mock data for fallback");
         break;
       default:
-        logger.warn("Unknown project_id, returning empty array");
-        return [];
+        // For unknown project IDs (e.g., newly handed off projects), use healthcare as template
+        data = invoicesData;
+        logger.info(
+          "Unknown project_id, using HEALTHCARE mock data as template for project:",
+          project_id
+        );
+        break;
     }
 
     const result = data as InvoiceDoc[];

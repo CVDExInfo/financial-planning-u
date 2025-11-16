@@ -121,7 +121,12 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         changeCount: projectChangeCount,
       });
     }
-  }, [selectedProjectId, currentProject?.name, currentProject?.baseline_id, projectChangeCount]);
+  }, [
+    selectedProjectId,
+    currentProject?.name,
+    currentProject?.baseline_id,
+    projectChangeCount,
+  ]);
 
   const refreshProject = async () => {
     await loadProjects();
