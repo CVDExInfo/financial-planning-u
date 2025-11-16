@@ -1,7 +1,7 @@
 // Mock the zod validation functions for testing
 // Since validation is done via zod, we'll test with actual validation logic
 
-const { z } = require('zod');
+import { z } from 'zod';
 
 const HealthResponseSchema = z.object({
   ok: z.boolean({

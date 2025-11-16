@@ -1,6 +1,6 @@
 // Mock the zod validation functions for testing
 
-const { z } = require('zod');
+import { z } from 'zod';
 
 const EstimatorItemSchema = z.object({
   id: z.string().regex(/^est_[a-z0-9]{10}$/),

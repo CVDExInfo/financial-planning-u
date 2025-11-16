@@ -3,7 +3,7 @@
 // Kept temporarily for reference and should not be called by npm scripts or CI.
 
 // Seed script for DynamoDB: rubros table (items)
-// @ts-nocheck
+// Note: Type checking disabled for legacy script
 // Usage (CI or local with creds):
 //   TS_NODE_TRANSPILE_ONLY=1 ts-node seed_rubros.ts
 // Required env:

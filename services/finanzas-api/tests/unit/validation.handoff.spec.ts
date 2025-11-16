@@ -1,6 +1,6 @@
 // Mock the zod validation functions for testing
 
-const { z } = require('zod');
+import { z } from 'zod';
 
 const HandoffSchema = z.object({
   mod_total: z.number().min(0, 'mod_total must be non-negative'),

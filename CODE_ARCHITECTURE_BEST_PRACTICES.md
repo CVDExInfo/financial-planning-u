@@ -1,13 +1,15 @@
 # Code Architecture Best Practices Guide
+
 ## Financial Planning UI Application
 
 **Version:** 1.0  
 **Last Updated:** November 16, 2025  
-**Author:** Architecture Review Team  
+**Author:** Architecture Review Team
 
 ---
 
 ## Table of Contents
+
 1. [Logging Standards](#logging-standards)
 2. [Component Architecture](#component-architecture)
 3. [State Management](#state-management)
@@ -24,44 +26,46 @@
 ### Rule: Use Logger Everywhere, Never Console
 
 **✅ DO THIS:**
+
 ```typescript
-import { logger } from '@/utils/logger';
+import { logger } from "@/utils/logger";
 
 // Descriptive logs with context
-logger.debug('Catalog: Loading line items for project:', selectedProjectId);
-logger.info('Projects loaded from API:', data.length, 'items');
-logger.warn('API call failed, falling back to mock data');
-logger.error('Failed to load forecast:', error);
+logger.debug("Catalog: Loading line items for project:", selectedProjectId);
+logger.info("Projects loaded from API:", data.length, "items");
+logger.warn("API call failed, falling back to mock data");
+logger.error("Failed to load forecast:", error);
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 // Never use console directly
-console.log('Loading...');  // ❌ Bad
-console.error('Error', error);  // ❌ Bad
+console.log("Loading..."); // ❌ Bad
+console.error("Error", error); // ❌ Bad
 
 // Don't mix patterns in same file
-console.log('One thing');  // ❌ Inconsistent
-logger.info('Another');  // ❌ Inconsistent
+console.log("One thing"); // ❌ Inconsistent
+logger.info("Another"); // ❌ Inconsistent
 ```
 
 ### Log Levels
 
-| Level | Use Case | Active In |
-|-------|----------|-----------|
-| **debug** | Detailed variable values, function entry/exit | DEV only |
-| **info** | Important state changes, data loaded | DEV only |
-| **warn** | Fallbacks, deprecated usage, potential issues | DEV + PROD |
-| **error** | Exceptions, failed operations | Always |
+| Level     | Use Case                                      | Active In  |
+| --------- | --------------------------------------------- | ---------- |
+| **debug** | Detailed variable values, function entry/exit | DEV only   |
+| **info**  | Important state changes, data loaded          | DEV only   |
+| **warn**  | Fallbacks, deprecated usage, potential issues | DEV + PROD |
+| **error** | Exceptions, failed operations                 | Always     |
 
 ### Log Format Convention
 
 ```typescript
 // Pattern: [Context]: [Action] - [Details]
-logger.debug('Catalog: Loading line items for project:', projectId);
-logger.info('Catalog: Line items loaded -', items.length, 'items');
-logger.warn('Catalog: API failed, using mock data for project:', projectId);
-logger.error('Catalog: Failed to load:', error);
+logger.debug("Catalog: Loading line items for project:", projectId);
+logger.info("Catalog: Line items loaded -", items.length, "items");
+logger.warn("Catalog: API failed, using mock data for project:", projectId);
+logger.error("Catalog: Failed to load:", error);
 ```
 
 ---
@@ -73,6 +77,7 @@ logger.error('Catalog: Failed to load:', error);
 Every data-loading component must handle:
 
 **✅ DO THIS:**
+
 ```typescript
 export function SDMTCatalog() {
   const [items, setItems] = useState<LineItem[]>([]);
@@ -88,6 +93,7 @@ export function SDMTCatalog() {
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 // Missing loading state
 if (error) return <ErrorState />;
@@ -104,6 +110,7 @@ try {
 ### Rule: Wrap Error-Prone Features with ErrorBoundary
 
 **✅ DO THIS:**
+
 ```typescript
 <ErrorBoundary fallback={<ErrorState />}>
   <SDMTCatalog />
@@ -111,6 +118,7 @@ try {
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 // No protection against runtime errors
 <SDMTCatalog />
@@ -137,35 +145,38 @@ src/features/sdmt/cost/Catalog/
 ### Rule: Use Hooks Properly - Always Add Dependencies
 
 **✅ DO THIS:**
+
 ```typescript
 // Dependency array complete - runs when selectedProjectId changes
 useEffect(() => {
   if (selectedProjectId) {
     loadData();
   }
-}, [selectedProjectId]);  // ✅ Listed all dependencies
+}, [selectedProjectId]); // ✅ Listed all dependencies
 
 // Memoize expensive calculations
 const filteredItems = useMemo(() => {
-  return items.filter(item => item.category === filter);
-}, [items, filter]);  // ✅ All dependencies listed
+  return items.filter((item) => item.category === filter);
+}, [items, filter]); // ✅ All dependencies listed
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 // Missing dependencies - causes stale closures
 useEffect(() => {
   loadData();
-}, []);  // ❌ Should include selectedProjectId
+}, []); // ❌ Should include selectedProjectId
 
 // No memoization - recalculates every render
-const filteredItems = items.filter(item => item.category === filter);
+const filteredItems = items.filter((item) => item.category === filter);
 // ❌ Will recalculate even if items/filter unchanged
 ```
 
 ### Rule: Clean Up Async Operations
 
 **✅ DO THIS:**
+
 ```typescript
 useEffect(() => {
   const controller = new AbortController();
@@ -174,9 +185,9 @@ useEffect(() => {
     try {
       const response = await fetch(url, { signal: controller.signal });
       const data = await response.json();
-      setData(data);  // Only if component still mounted
+      setData(data); // Only if component still mounted
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (error instanceof DOMException && error.name === "AbortError") {
         // Request was cancelled, don't update state
         return;
       }
@@ -186,22 +197,26 @@ useEffect(() => {
 
   loadData();
 
-  return () => controller.abort();  // ✅ Cleanup: abort pending requests
+  return () => controller.abort(); // ✅ Cleanup: abort pending requests
 }, []);
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 useEffect(() => {
-  fetch(url).then(r => r.json()).then(data => {
-    setData(data);  // ❌ Updates state even if unmounted = memory leak warning
-  });
-}, []);  // ❌ No cleanup
+  fetch(url)
+    .then((r) => r.json())
+    .then((data) => {
+      setData(data); // ❌ Updates state even if unmounted = memory leak warning
+    });
+}, []); // ❌ No cleanup
 ```
 
 ### Rule: Don't Use State for Derived Data
 
 **✅ DO THIS:**
+
 ```typescript
 const lineItems = [...];
 const totalCost = useMemo(() => {
@@ -210,9 +225,10 @@ const totalCost = useMemo(() => {
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 const [lineItems, setLineItems] = useState([]);
-const [totalCost, setTotalCost] = useState(0);  // ❌ Duplicate data
+const [totalCost, setTotalCost] = useState(0); // ❌ Duplicate data
 
 // Now totalCost and lineItems can get out of sync
 ```
@@ -224,29 +240,31 @@ const [totalCost, setTotalCost] = useState(0);  // ❌ Duplicate data
 ### Rule: Always Use New Unified HTTP Client
 
 **✅ DO THIS:**
+
 ```typescript
 // Use httpClient from new unified layer
-import { httpClient } from '@/lib/http-client';
-import { ApiSchemas } from '@/lib/api.schema';
+import { httpClient } from "@/lib/http-client";
+import { ApiSchemas } from "@/lib/api.schema";
 
 async function loadProjects() {
   try {
-    const response = await httpClient.get<Project[]>('/projects', {
+    const response = await httpClient.get<Project[]>("/projects", {
       timeout: 10000,
       retries: 3,
     });
-    
+
     // Validate response structure
     const projects = ApiSchemas.ProjectList.parse(response.data);
     setProjects(projects);
   } catch (error) {
-    logger.error('Failed to load projects:', error);
+    logger.error("Failed to load projects:", error);
     setError(error);
   }
 }
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 // Old fragmented patterns - will be deprecated
 ApiService.getProjects();  // ❌ Old pattern
@@ -261,6 +279,7 @@ setProjects(data);  // ❌ No runtime validation
 ### Rule: Create Custom Hooks for Data Loading
 
 **✅ DO THIS:**
+
 ```typescript
 // src/features/sdmt/cost/Catalog/hooks/useCatalogData.ts
 export function useCatalogData(projectId: string) {
@@ -274,14 +293,14 @@ export function useCatalogData(projectId: string) {
     const loadData = async () => {
       try {
         setLoading(true);
-        const response = await httpClient.get(
-          `/projects/${projectId}/rubros`,
-          { signal: controller.signal }
-        );
+        const response = await httpClient.get(`/projects/${projectId}/rubros`, {
+          signal: controller.signal,
+        });
         const data = ApiSchemas.LineItemList.parse(response.data);
         setItems(data);
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setError(error as Error);
       } finally {
         setLoading(false);
@@ -300,6 +319,7 @@ export function useCatalogData(projectId: string) {
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 // Inline all logic in component
 export function SDMTCatalog() {
@@ -317,21 +337,22 @@ export function SDMTCatalog() {
 ### Rule: All Error Cases Must Be Caught and Shown
 
 **✅ DO THIS:**
+
 ```typescript
 async function handleSave() {
   try {
     setLoading(true);
-    await httpClient.post('/items', data);
-    toast.success('Item saved successfully');
+    await httpClient.post("/items", data);
+    toast.success("Item saved successfully");
   } catch (error) {
-    logger.error('Failed to save item:', error);
-    
+    logger.error("Failed to save item:", error);
+
     if (error instanceof HttpTimeoutError) {
-      toast.error('Request timed out. Please try again.');
+      toast.error("Request timed out. Please try again.");
     } else if (error instanceof HttpError) {
       toast.error(`Error: ${error.status} ${error.statusText}`);
     } else {
-      toast.error('An unexpected error occurred');
+      toast.error("An unexpected error occurred");
     }
   } finally {
     setLoading(false);
@@ -340,25 +361,27 @@ async function handleSave() {
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 async function handleSave() {
-  const result = await httpClient.post('/items', data);  // ❌ No error handling
-  toast.success('Saved!');
+  const result = await httpClient.post("/items", data); // ❌ No error handling
+  toast.success("Saved!");
 }
 
 // Or silent failures
 try {
-  await httpClient.post('/items', data);
+  await httpClient.post("/items", data);
 } catch (error) {
-  logger.error('Failed:', error);  // ❌ No user feedback
+  logger.error("Failed:", error); // ❌ No user feedback
 }
 ```
 
 ### Rule: Use Specific Error Types
 
 **✅ DO THIS:**
+
 ```typescript
-import { HttpError, HttpTimeoutError } from '@/lib/http-client';
+import { HttpError, HttpTimeoutError } from "@/lib/http-client";
 
 try {
   await operation();
@@ -376,6 +399,7 @@ try {
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 catch (error: any) {  // ❌ Loses type information
   // Can't distinguish error types
@@ -389,6 +413,7 @@ catch (error: any) {  // ❌ Loses type information
 ### Rule: No `any` Types Allowed
 
 **✅ DO THIS:**
+
 ```typescript
 interface ApiResponse<T> {
   status: number;
@@ -403,31 +428,36 @@ async function fetchData<T>(endpoint: string): Promise<T> {
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
-async function fetchData(endpoint: string): Promise<any> {  // ❌ any
-  return await fetch(endpoint).then(r => r.json());
+async function fetchData(endpoint: string): Promise<any> {
+  // ❌ any
+  return await fetch(endpoint).then((r) => r.json());
 }
 ```
 
 ### Rule: All Functions Need Return Types
 
 **✅ DO THIS:**
+
 ```typescript
 function calculateCost(item: LineItem): number {
   return item.qty * item.unit_cost;
 }
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
   }).format(amount);
 }
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
-function calculateCost(item: LineItem) {  // ❌ Missing return type
+function calculateCost(item: LineItem) {
+  // ❌ Missing return type
   return item.qty * item.unit_cost;
 }
 ```
@@ -435,6 +465,7 @@ function calculateCost(item: LineItem) {  // ❌ Missing return type
 ### Rule: All Props Must Be Typed
 
 **✅ DO THIS:**
+
 ```typescript
 interface CatalogProps {
   items: LineItem[];
@@ -456,6 +487,7 @@ export function Catalog({
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 export function Catalog(props: any) {  // ❌ any
   return ...
@@ -476,7 +508,7 @@ export function Catalog({ items, loading }) {  // ❌ No types
 ```typescript
 // ✅ Memoize calculations
 const totalCost = useMemo(() => {
-  logger.debug('Recalculating total cost');
+  logger.debug("Recalculating total cost");
   return items.reduce((sum, item) => sum + calculateCost(item), 0);
 }, [items]);
 
@@ -487,7 +519,7 @@ const handleAdd = useCallback(() => {
 
 // ✅ Memoize expensive filtering
 const filteredItems = useMemo(() => {
-  return items.filter(item =>
+  return items.filter((item) =>
     item.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 }, [items, searchTerm]);
@@ -496,9 +528,10 @@ const filteredItems = useMemo(() => {
 ### Rule: Avoid Inline Object/Function Definitions
 
 **✅ DO THIS:**
+
 ```typescript
 // Define outside component
-const defaultFilter = { category: 'Labor' };
+const defaultFilter = { category: "Labor" };
 
 export function Catalog() {
   // Uses same object on every render
@@ -507,10 +540,11 @@ export function Catalog() {
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 export function Catalog() {
   // New object every render - child re-renders unnecessarily
-  return <Filter defaultValue={{ category: 'Labor' }} />;
+  return <Filter defaultValue={{ category: "Labor" }} />;
 }
 ```
 
@@ -521,12 +555,13 @@ export function Catalog() {
 ### Rule: All Interactive Elements Must Be Keyboard Accessible
 
 **✅ DO THIS:**
+
 ```typescript
 <Table>
   <TableRow
     onClick={() => handleEdit(item)}
     onKeyDown={(e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
+      if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         handleEdit(item);
       }
@@ -541,8 +576,11 @@ export function Catalog() {
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
-<div onClick={() => handleEdit(item)}>  {/* ❌ Not keyboard accessible */}
+<div onClick={() => handleEdit(item)}>
+  {" "}
+  {/* ❌ Not keyboard accessible */}
   {item.name}
 </div>
 ```
@@ -550,6 +588,7 @@ export function Catalog() {
 ### Rule: Use ARIA Labels for Complex Components
 
 **✅ DO THIS:**
+
 ```typescript
 <button
   aria-label="Edit item: Healthcare System Modernization"
@@ -568,21 +607,24 @@ export function Catalog() {
 ```
 
 **❌ DON'T DO THIS:**
+
 ```typescript
 <button onClick={() => handleEdit(item)}>
-  <Edit size={16} />  // ❌ No label for screen readers
+  <Edit size={16} /> // ❌ No label for screen readers
 </button>
 ```
 
 ### Rule: Images and Icons Need Alt Text
 
 **✅ DO THIS:**
+
 ```tsx
 <img src="logo.png" alt="Company logo" />
 <Icon role="img" aria-label="Warning icon" />
 ```
 
 **❌ DON'T DO THIS:**
+
 ```tsx
 <img src="logo.png" />  // ❌ Missing alt text
 <Icon />  // ❌ No aria-label
@@ -621,4 +663,3 @@ Use this before submitting a PR:
 
 **Last Updated:** November 16, 2025  
 **Status:** Active - Use as reference for all new code
-
