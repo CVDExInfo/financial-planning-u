@@ -94,6 +94,31 @@ jobs:
             echo "avp_enabled=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Preflight - Check CloudFormation Stack Status
+        run: |
+          set -euo pipefail
+          
+          STACK_NAME="${FINZ_API_STACK}"
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query 'Stacks[0].StackStatus' \
+            --output text 2>/dev/null || echo "MISSING")
+          
+          echo "Current stack status: $STATUS"
+          
+          case "$STATUS" in
+            CREATE_IN_PROGRESS|UPDATE_IN_PROGRESS|UPDATE_COMPLETE_CLEANUP_IN_PROGRESS|ROLLBACK_IN_PROGRESS|UPDATE_ROLLBACK_IN_PROGRESS)
+              echo "❌ Stack $STACK_NAME is currently in progress ($STATUS). Try again once it reaches a COMPLETE state."
+              exit 1
+              ;;
+            MISSING)
+              echo "ℹ️  Stack $STACK_NAME does not exist yet. It will be created during deployment."
+              ;;
+            *)
+              echo "✅ Stack $STACK_NAME is in a stable state ($STATUS). Proceeding with deployment."
+              ;;
+          esac
+
       - name: Install SAM CLI
         run: |
           pipx install aws-sam-cli
