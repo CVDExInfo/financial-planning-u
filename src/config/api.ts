@@ -5,7 +5,7 @@
 
 // API Base URL - use environment variable in production
 export const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_API_BASE_URL ||
   "https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev";
 
 // API Endpoints
@@ -65,9 +65,13 @@ export function getAuthToken(): string | null {
 }
 
 // Helper function to build request headers
-export function buildHeaders(includeAuth: boolean = true): HeadersInit {
+export function buildHeaders(
+  includeAuth: boolean = true,
+  customHeaders: HeadersInit = {}
+): HeadersInit {
   const headers: HeadersInit = {
     "Content-Type": "application/json",
+    ...customHeaders,
   };
 
   if (includeAuth) {

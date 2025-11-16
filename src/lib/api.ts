@@ -184,11 +184,16 @@ export class ApiService {
         modTotal: data.mod_total,
       });
 
+      // Generate idempotency key for safe retries
+      const idempotencyKey = `handoff-${projectId}-${data.baseline_id}-${Date.now()}`;
+
       const response = await fetch(
         buildApiUrl(`/projects/${projectId}/handoff`),
         {
           method: "POST",
-          headers: buildHeaders(),
+          headers: buildHeaders(true, {
+            "X-Idempotency-Key": idempotencyKey,
+          }),
           body: JSON.stringify(data),
         }
       );
