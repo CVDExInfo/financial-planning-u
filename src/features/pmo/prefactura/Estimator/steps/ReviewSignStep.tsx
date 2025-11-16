@@ -37,10 +37,7 @@ import type {
 } from "@/types/domain";
 import ApiService from "@/lib/api";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
-import {
-  PDFExporter,
-  formatReportCurrency,
-} from "@/lib/pdf-export";
+import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 
 // Helper function to extract email from JWT token
 function extractEmailFromJWT(token: string): string {
