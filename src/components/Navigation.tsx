@@ -37,6 +37,7 @@ import {
   canAccessPMOModule,
 } from "@/lib/auth";
 import { toast } from "sonner";
+import { Logo } from "@/components/Logo";
 
 // (No props currently)
 
@@ -180,11 +181,7 @@ export function Navigation() {
           {/* Brand */}
           <div className="flex items-center space-x-4">
             <Link to="/" className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">
-                  E
-                </span>
-              </div>
+              <Logo className="h-8" />
               <div>
                 <h1 className="font-semibold text-foreground">
                   Financial Planning
