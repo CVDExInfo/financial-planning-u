@@ -96,7 +96,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       // Auto-select first project if none selected
       if (!selectedProjectId && projectData.length > 0) {
         logger.info("Auto-selecting first project:", projectData[0].id);
-        setSelectedProjectId(projectData[0].id);
+        // Directly set the project without the delay logic
+        setSelectedProjectIdStorage(projectData[0].id);
+        setProjectChangeCount((prev) => prev + 1);
       }
     } catch (error) {
       logger.error("Failed to load projects:", error);
