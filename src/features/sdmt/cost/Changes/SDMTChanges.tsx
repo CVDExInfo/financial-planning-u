@@ -187,7 +187,7 @@ export function SDMTChanges() {
 
   const handleApprovalAction = (requestId: string, action: 'approve' | 'reject', comments: string) => {
     // In a real app, this would make an API call
-    console.log(`${action} request ${requestId} with comments: ${comments}`);
+    console.log(`✅ Change Management: ${action} request ${requestId} with comments: ${comments}`);
     
     // Update local state to reflect the change (in real app, refetch data)
     setSelectedChange(prevChange => {
@@ -211,6 +211,10 @@ export function SDMTChanges() {
                 prevChange.currentStep >= prevChange.approvalSteps.length - 1 ? 'approved' : 'pending'
       };
     });
+    
+    // Force dialog refresh by toggling
+    setIsWorkflowDialogOpen(false);
+    setTimeout(() => setIsWorkflowDialogOpen(true), 100);
   };
 
   const getStatusIcon = (status: string) => {
@@ -349,7 +353,11 @@ export function SDMTChanges() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => setSelectedChange(change)}
+                          onClick={() => {
+                            console.log("👁️ Viewing workflow for change:", change.id);
+                            setSelectedChange(change as ChangeRequest);
+                            setIsWorkflowDialogOpen(true);
+                          }}
                         >
                           <Eye size={14} className="mr-1" />
                           View Workflow

@@ -105,7 +105,7 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                   variant="outline"
                   role="combobox"
                   aria-expanded={open}
-                  className="w-[280px] justify-between"
+                  className="w-[320px] justify-between"
                   disabled={loading}
                 >
                   {loading ? (
@@ -114,17 +114,17 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                       <span>Loading projects...</span>
                     </div>
                   ) : currentProject ? (
-                    <span className="truncate">{currentProject.name}</span>
+                    <span className="truncate font-medium">{currentProject.name}</span>
                   ) : (
                     "Select project..."
                   )}
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0">
+              <PopoverContent className="w-[500px] p-0" align="start">
                 <Command>
-                  <CommandInput placeholder="Search projects..." />
-                  <CommandList className="max-h-[400px]">
+                  <CommandInput placeholder="Search projects... (type to filter)" />
+                  <CommandList className="max-h-[500px]">
                     <CommandEmpty>No projects found.</CommandEmpty>
                     <CommandGroup>
                       {projects.map((project) => (
@@ -134,33 +134,34 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                             project.description || ""
                           }`}
                           onSelect={() => {
+                            console.log("📂 Project selected:", project.name, project.id);
                             setSelectedProjectId(project.id);
                             setOpen(false);
                           }}
-                          className="cursor-pointer"
+                          className="cursor-pointer py-3 px-4 hover:bg-accent aria-selected:bg-accent"
                         >
                           <Check
                             className={cn(
-                              "mr-2 h-4 w-4 shrink-0",
+                              "mr-3 h-4 w-4 shrink-0",
                               selectedProjectId === project.id
                                 ? "opacity-100"
                                 : "opacity-0"
                             )}
                           />
-                          <div className="flex flex-col flex-1 min-w-0">
-                            <div className="flex items-baseline justify-between gap-2">
-                              <span className="font-medium truncate">
+                          <div className="flex flex-col flex-1 min-w-0 gap-1">
+                            <div className="flex items-baseline justify-between gap-3">
+                              <span className="font-semibold text-base truncate">
                                 {project.name}
                               </span>
                               <Badge
                                 variant="outline"
-                                className="text-[10px] px-1 py-0 shrink-0"
+                                className="text-[11px] px-2 py-0.5 shrink-0"
                               >
                                 {project.id}
                               </Badge>
                             </div>
                             {project.description && (
-                              <span className="text-xs text-muted-foreground line-clamp-1">
+                              <span className="text-sm text-muted-foreground line-clamp-2">
                                 {project.description}
                               </span>
                             )}

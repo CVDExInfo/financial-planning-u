@@ -220,20 +220,14 @@ export function ApprovalWorkflow({ changeRequest, onApprovalAction }: ApprovalWo
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
                     <Button 
-                      onClick={() => setActionType('approve')}
+                      onClick={(e) => {
+                        console.log("✅ Approving change request:", changeRequest.id);
+                        setActionType('approve');
+                      }}
                       className="bg-green-600 hover:bg-green-700"
                     >
                       <CheckCircle2 size={16} className="mr-2" />
                       Approve
-                    </Button>
-                  </DialogTrigger>
-                  <DialogTrigger asChild>
-                    <Button 
-                      variant="destructive"
-                      onClick={() => setActionType('reject')}
-                    >
-                      <XCircle size={16} className="mr-2" />
-                      Reject
                     </Button>
                   </DialogTrigger>
                   
@@ -284,6 +278,18 @@ export function ApprovalWorkflow({ changeRequest, onApprovalAction }: ApprovalWo
                     </div>
                   </DialogContent>
                 </Dialog>
+
+                <Button 
+                  variant="destructive"
+                  onClick={() => {
+                    console.log("❌ Rejecting change request:", changeRequest.id);
+                    setActionType('reject');
+                    setIsDialogOpen(true);
+                  }}
+                >
+                  <XCircle size={16} className="mr-2" />
+                  Reject
+                </Button>
 
                 <Button variant="outline">
                   <Eye size={16} className="mr-2" />

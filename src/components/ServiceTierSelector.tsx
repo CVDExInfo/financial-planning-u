@@ -176,7 +176,12 @@ const ServiceTierCard: React.FC<ServiceTierCardProps> = ({
           <Button
             className="w-full"
             variant={isRecommended ? "default" : "outline"}
-            onClick={() => onSelect?.(tier.id)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log("🎯 ServiceTierCard: Tier selected -", tier.name);
+              onSelect?.(tier.id);
+            }}
           >
             Select {tier.name}
           </Button>
@@ -324,7 +329,7 @@ const ServiceTierRecommendation: React.FC<ServiceTierRecommendationProps> = ({
 };
 
 interface ServiceTierSelectorProps {
-  onTierSelected?: (tierId: string, tierData: any) => void;
+  onTierSelected?: (tierId: string, tierData: any) => void; // TODO: Replace 'any' with ServiceTier type from catalog
 }
 
 export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
