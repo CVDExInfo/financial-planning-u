@@ -114,7 +114,9 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                       <span>Loading projects...</span>
                     </div>
                   ) : currentProject ? (
-                    <span className="truncate font-medium">{currentProject.name}</span>
+                    <span className="truncate font-medium">
+                      {currentProject.name}
+                    </span>
                   ) : (
                     "Select project..."
                   )}
@@ -134,7 +136,11 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                             project.description || ""
                           }`}
                           onSelect={() => {
-                            console.log("📂 Project selected:", project.name, project.id);
+                            console.log(
+                              "📂 Project selected:",
+                              project.name,
+                              project.id
+                            );
                             setSelectedProjectId(project.id);
                             setOpen(false);
                           }}
