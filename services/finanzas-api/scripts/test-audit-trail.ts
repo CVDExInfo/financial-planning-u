@@ -20,7 +20,7 @@ interface AuditTrailReport {
   withCreatedBy: number;
   withCreatedAt: number;
   withBoth: number;
-  samples: any[];
+  samples: Record<string, unknown>[];
 }
 
 async function scanTableWithAudit(
@@ -154,8 +154,8 @@ async function main() {
         }
       }
       console.log();
-    } catch (error: any) {
-      console.log(`❌ ERROR: ${error.message}`);
+    } catch (error) {
+      console.log(`❌ ERROR: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

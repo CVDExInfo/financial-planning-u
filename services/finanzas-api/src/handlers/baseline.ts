@@ -5,8 +5,7 @@ import {
   PutCommand,
   GetCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { v4 as uuidv4 } from "uuid";
-import * as crypto from "crypto";
+import { randomUUID } from "crypto";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -78,7 +77,7 @@ export const createBaseline = async (
     }
 
     // Generate IDs
-    const project_id = `P-${uuidv4().split("-")[0]}`;
+    const project_id = `P-${randomUUID().split("-")[0]}`;
     const baseline_id = `BL-${Date.now()}`;
 
     // Calculate totals
@@ -176,7 +175,7 @@ export const createBaseline = async (
         Item: {
           pk: `AUDIT#${auditDate}`,
           sk: `${auditTimestamp}#${project_id}`,
-          audit_id: `AUD-${uuidv4()}`,
+          audit_id: `AUD-${randomUUID()}`,
           project_id,
           action: "baseline_created",
           actor: event.requestContext?.authorizer?.claims?.email || "system",

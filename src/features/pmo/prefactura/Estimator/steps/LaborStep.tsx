@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,7 +90,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
   const updateLaborItem = (
     index: number,
     field: keyof LaborEstimate,
-    value: any
+    value: string | number
   ) => {
     const updated = [...laborEstimates];
     updated[index] = { ...updated[index], [field]: value };
@@ -220,7 +219,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                             updateLaborItem(index, "role", value)
                           }
                         >
-                          <SelectTrigger className="w-[160px]">
+                          <SelectTrigger className="w-40">
                             <SelectValue placeholder="Select role" />
                           </SelectTrigger>
                           <SelectContent>
@@ -255,7 +254,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                         <Select
                           value={item.level}
                           onValueChange={(value) =>
-                            updateLaborItem(index, "level", value as any)
+                            updateLaborItem(index, "level", value)
                           }
                         >
                           <SelectTrigger className="w-[100px]">

@@ -58,12 +58,12 @@ async function describeTable(tableName: string): Promise<TableDiagnostic> {
       itemCount: scanResponse.Count || 0,
       status: response.Table?.TableStatus,
     };
-  } catch (error: any) {
+  } catch (error) {
     return {
       tableName,
       exists: false,
       itemCount: 0,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -412,8 +412,8 @@ async function main() {
     await seedProviders();
 
     console.log("\n✅ Seeding complete!");
-  } catch (error: any) {
-    console.error("\n❌ Seeding failed:", error.message);
+  } catch (error) {
+    console.error("\n❌ Seeding failed:", error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 
