@@ -124,6 +124,25 @@ jobs:
           export PATH="$PWD/node_modules/.bin:$PATH"
           sam build
 
+      - name: Preflight - Check stack status (non-blocking deployment)
+        run: |
+          set -euo pipefail
+          echo "Checking stack status for: ${FINZ_API_STACK}"
+
+          STACK_STATUS=$(aws cloudformation describe-stacks \
+            --stack-name "${FINZ_API_STACK}" \
+            --region "${AWS_REGION}" \
+            --query 'Stacks[0].StackStatus' \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+
+          if [[ "$STACK_STATUS" == *"_IN_PROGRESS" ]]; then
+            echo "❌ Stack is already in progress (Status: $STACK_STATUS)"
+            echo "⏳ Please wait for the current deployment to complete before retrying"
+            exit 1
+          fi
+
+          echo "✅ Stack status check passed: $STACK_STATUS"
+
       - name: Deploy
         working-directory: services/finanzas-api
         run: |
@@ -156,7 +175,7 @@ jobs:
 
           # Single environment: always enforce dev API ID
           EXPECTED="${FINZ_API_ID_DEV}"
-          
+
           if [ -n "${EXPECTED:-}" ] && [ "$HOST_ID" != "$EXPECTED" ]; then
             echo "❌ Expected API id ${EXPECTED}, got ${HOST_ID} from ${{ steps.out.outputs.api_url }}"; exit 1;
           fi

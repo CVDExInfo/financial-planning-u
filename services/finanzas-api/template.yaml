@@ -726,13 +726,40 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
+  ForecastFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: node20
+        Sourcemap: true
+        External:
+          - aws-sdk
+        EntryPoints:
+          - src/handlers/forecast.ts
+    Properties:
+      CodeUri: .
+      Handler: forecast.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        GetForecast:
+          Type: HttpApi
+          Properties:
+            Path: /plan/forecast
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: NONE
+
   PrefacturasFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         Minify: true
-        Target: node18
+        Target: node20
         Sourcemap: true
         External:
           - aws-sdk
@@ -743,25 +770,23 @@ Resources:
       Handler: prefacturas.handler
       Policies:
         - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AuditTable
       Events:
-        WebhookPost:
+        GetPrefacturas:
           Type: HttpApi
           Properties:
-            Path: /prefacturas/webhook
-            Method: POST
-            ApiId: !Ref Api
-            Auth:
-              Authorizer: CognitoJwt
-        WebhookGet:
-          Type: HttpApi
-          Properties:
-            Path: /prefacturas/webhook
+            Path: /prefacturas
             Method: GET
             ApiId: !Ref Api
             Auth:
-              Authorizer: CognitoJwt
+              Authorizer: NONE
+        PostPrefacturas:
+          Type: HttpApi
+          Properties:
+            Path: /prefacturas
+            Method: POST
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: NONE
 
   Pep3Rule:
     Type: AWS::Events::Rule
