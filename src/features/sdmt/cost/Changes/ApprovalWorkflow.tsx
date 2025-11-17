@@ -255,77 +255,20 @@ export function ApprovalWorkflow({
           {canCurrentUserApprove() && (
             <div className="mt-6 pt-6 border-t">
               <div className="flex gap-3">
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      onClick={(e) => {
-                        console.log(
-                          "✅ Approving change request:",
-                          changeRequest.id
-                        );
-                        setActionType("approve");
-                      }}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <CheckCircle2 size={16} className="mr-2" />
-                      Approve
-                    </Button>
-                  </DialogTrigger>
-
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>
-                        {actionType === "approve" ? "Approve" : "Reject"} Change
-                        Request
-                      </DialogTitle>
-                    </DialogHeader>
-
-                    <div className="space-y-4">
-                      <div>
-                        <Label
-                          htmlFor="comments"
-                          className="text-sm font-medium"
-                        >
-                          Comments <span className="text-red-500">*</span>
-                        </Label>
-                        <Textarea
-                          id="comments"
-                          value={comments}
-                          onChange={(e) => setComments(e.target.value)}
-                          placeholder={
-                            actionType === "approve"
-                              ? "Provide any additional notes or conditions for approval..."
-                              : "Please explain the reason for rejection..."
-                          }
-                          className="mt-1"
-                          rows={4}
-                        />
-                      </div>
-
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setIsDialogOpen(false);
-                            setComments("");
-                            setActionType(null);
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleApprovalSubmit}
-                          variant={
-                            actionType === "approve" ? "default" : "destructive"
-                          }
-                        >
-                          Confirm{" "}
-                          {actionType === "approve" ? "Approval" : "Rejection"}
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <Button
+                  onClick={() => {
+                    console.log(
+                      "✅ Approving change request:",
+                      changeRequest.id
+                    );
+                    setActionType("approve");
+                    setIsDialogOpen(true);
+                  }}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle2 size={16} className="mr-2" />
+                  Approve
+                </Button>
 
                 <Button
                   variant="destructive"
@@ -349,6 +292,60 @@ export function ApprovalWorkflow({
               </div>
             </div>
           )}
+
+          {/* Confirmation Dialog - Used by both Approve and Reject */}
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>
+                  {actionType === "approve" ? "Approve" : "Reject"} Change
+                  Request
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="comments" className="text-sm font-medium">
+                    Comments <span className="text-red-500">*</span>
+                  </Label>
+                  <Textarea
+                    id="comments"
+                    value={comments}
+                    onChange={(e) => setComments(e.target.value)}
+                    placeholder={
+                      actionType === "approve"
+                        ? "Provide any additional notes or conditions for approval..."
+                        : "Please explain the reason for rejection..."
+                    }
+                    className="mt-1"
+                    rows={4}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsDialogOpen(false);
+                      setComments("");
+                      setActionType(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleApprovalSubmit}
+                    variant={
+                      actionType === "approve" ? "default" : "destructive"
+                    }
+                  >
+                    Confirm{" "}
+                    {actionType === "approve" ? "Approval" : "Rejection"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
     </div>

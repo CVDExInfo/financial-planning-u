@@ -16,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Logo } from "@/components/Logo";
 import {
   ChevronDown,
   Calculator,
@@ -290,7 +290,7 @@ export function Navigation() {
               </DropdownMenu>
             )}
 
-            {/* User Avatar */}
+            {/* User Avatar - Now showing Ikusi Logo */}
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -298,23 +298,17 @@ export function Navigation() {
                     variant="ghost"
                     className="relative h-8 w-8 rounded-full"
                   >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage
-                        src={user.avatarUrl || ""}
-                        alt={user.login || "User"}
-                      />
-                      <AvatarFallback>
-                        {(user.login || "U").charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <Logo size="sm" className="rounded-full" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end">
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{user.login || "Demo User"}</p>
+                      <p className="font-medium">{user.login || "User"}</p>
                       <p className="w-[200px] truncate text-sm text-muted-foreground">
-                        {user.email || "demo@ikusi.com"}
+                        {import.meta.env.VITE_SHOW_DEMO_CREDS
+                          ? user.email || "demo@ikusi.com"
+                          : user.email || "user@ikusi.com"}
                       </p>
                     </div>
                   </div>

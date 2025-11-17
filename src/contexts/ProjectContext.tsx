@@ -13,6 +13,7 @@ import { logger } from "@/utils/logger";
 interface ProjectContextType {
   selectedProjectId: string;
   setSelectedProjectId: (projectId: string) => void;
+  selectProject: (projectId: string) => void; // Guarded setter (same as setSelectedProjectId)
   selectedPeriod: string;
   setSelectedPeriod: (period: string) => void;
   currentProject: Project | undefined;
@@ -54,8 +55,18 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Enhanced project setter that triggers change counter and forces updates
+  // NEVER allows blank projectId to be set
   const setSelectedProjectId = useCallback(
     (projectId: string) => {
+      // Guard: never set blank/empty projectId
+      if (!projectId || projectId.trim() === "") {
+        logger.warn(
+          "Attempted to set blank projectId - ignoring",
+          new Error().stack
+        );
+        return;
+      }
+
       if (projectId !== selectedProjectId) {
         logger.info(
           "Project changing from:",
@@ -64,18 +75,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
           projectId
         );
 
-        // Clear current project to force re-renders
-        setSelectedProjectIdStorage("");
+        // Directly set the new project (no clearing intermediate state)
+        setSelectedProjectIdStorage(projectId);
         setProjectChangeCount((prev) => prev + 1);
-
-        // Set loading state briefly to show project switching
-        setLoading(true);
-
-        // Short delay to ensure UI sees the change
-        setTimeout(() => {
-          setSelectedProjectIdStorage(projectId);
-          setLoading(false);
-        }, 150);
       }
     },
     [selectedProjectId, setSelectedProjectIdStorage]
@@ -135,6 +137,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const value: ProjectContextType = {
     selectedProjectId: selectedProjectId || "",
     setSelectedProjectId,
+    selectProject: setSelectedProjectId, // Alias for clarity
     selectedPeriod: selectedPeriod || "12",
     setSelectedPeriod,
     currentProject,

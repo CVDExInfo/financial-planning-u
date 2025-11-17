@@ -414,41 +414,21 @@ export function SDMTChanges() {
                     {new Date(change.requestedAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    <Dialog
-                      open={isWorkflowDialogOpen}
-                      onOpenChange={setIsWorkflowDialogOpen}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        console.log(
+                          "👁️ Viewing workflow for change:",
+                          change.id
+                        );
+                        setSelectedChange(change as ChangeRequest);
+                        setIsWorkflowDialogOpen(true);
+                      }}
                     >
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            console.log(
-                              "👁️ Viewing workflow for change:",
-                              change.id
-                            );
-                            setSelectedChange(change as ChangeRequest);
-                            setIsWorkflowDialogOpen(true);
-                          }}
-                        >
-                          <Eye size={14} className="mr-1" />
-                          View Workflow
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>
-                            Change Request Approval Workflow
-                          </DialogTitle>
-                        </DialogHeader>
-                        {selectedChange && (
-                          <ApprovalWorkflow
-                            changeRequest={selectedChange}
-                            onApprovalAction={handleApprovalAction}
-                          />
-                        )}
-                      </DialogContent>
-                    </Dialog>
+                      <Eye size={14} className="mr-1" />
+                      View Workflow
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -456,6 +436,24 @@ export function SDMTChanges() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Workflow Dialog - Moved outside map loop */}
+      <Dialog
+        open={isWorkflowDialogOpen}
+        onOpenChange={setIsWorkflowDialogOpen}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Change Request Approval Workflow</DialogTitle>
+          </DialogHeader>
+          {selectedChange && (
+            <ApprovalWorkflow
+              changeRequest={selectedChange}
+              onApprovalAction={handleApprovalAction}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

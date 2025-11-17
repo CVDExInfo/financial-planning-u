@@ -23,6 +23,9 @@ import {
   IkusiPricingCalculator,
   type PricingRecommendation,
 } from "@/lib/pricing-calculator";
+import { useProject } from "@/contexts/ProjectContext";
+import { createProjectRubro } from "@/api/finanzas";
+import { toast } from "sonner";
 
 // Import the service catalog
 import serviceCatalog from "@/mocks/ikusi-service-catalog.json";
@@ -335,6 +338,7 @@ interface ServiceTierSelectorProps {
 export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
   onTierSelected,
 }) => {
+  const { selectedProjectId, invalidateProjectData } = useProject();
   const [selectedRequirements, setSelectedRequirements] = useState({
     budget_monthly: 10000,
     commitment_months: 12,
@@ -360,9 +364,47 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
     [calculator]
   );
 
-  const handleTierSelect = (tierId: string) => {
+  const handleTierSelect = async (tierId: string) => {
+    console.log("🎯 ServiceTierSelector: Tier selected -", tierId);
     const tierData = serviceCatalog.service_tiers.find((t) => t.id === tierId);
-    onTierSelected?.(tierId, tierData);
+    console.log("📊 Tier data:", tierData);
+
+    // Guard: need project ID to create line item
+    if (!selectedProjectId) {
+      toast.error("Please select a project first");
+      return;
+    }
+
+    if (!tierData) {
+      toast.error("Tier data not found");
+      return;
+    }
+
+    try {
+      // Calculate unit cost (use first pricing tier)
+      const unitCost = tierData.pricing_tiers[0]?.unit_price || 0;
+
+      // POST to API to create line item
+      await createProjectRubro(selectedProjectId, {
+        rubroId: tierId,
+        qty: 1,
+        unitCost,
+        type: "Recurring",
+        duration: `M1-${tierData.minimum_commitment_months || 12}`,
+      });
+
+      // Invalidate queries to refresh line items
+      invalidateProjectData();
+
+      toast.success(`Added ${tierData.name} to project`);
+
+      // Call parent callback if provided
+      onTierSelected?.(tierId, tierData);
+      console.log("✅ onTierSelected callback executed with:", tierId);
+    } catch (error) {
+      console.error("Failed to create line item:", error);
+      toast.error("Failed to add tier to project. Please try again.");
+    }
   };
 
   const handleApplyRecommendation = () => {

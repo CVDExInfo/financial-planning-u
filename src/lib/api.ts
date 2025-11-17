@@ -19,23 +19,8 @@ import {
 } from "@/config/api";
 import { logger } from "@/utils/logger";
 
-import baselineData from "@/mocks/baseline.json";
-import baselineFintechData from "@/mocks/baseline-fintech.json";
-import baselineRetailData from "@/mocks/baseline-retail.json";
-import forecastData from "@/mocks/forecast.json";
-import forecastFintechData from "@/mocks/forecast-fintech.json";
-import forecastRetailData from "@/mocks/forecast-retail.json";
-import invoicesData from "@/mocks/invoices.json";
-import invoicesFintechData from "@/mocks/invoices-fintech.json";
-import invoicesRetailData from "@/mocks/invoices-retail.json";
-import billingPlanData from "@/mocks/billing-plan.json";
-import billingPlanFintechData from "@/mocks/billing-plan-fintech.json";
-import billingPlanRetailData from "@/mocks/billing-plan-retail.json";
-
-// Mock data helper - only use in development with explicit flag
-const shouldUseMockData = () => {
-  return import.meta.env.DEV && import.meta.env.VITE_USE_MOCKS === "true";
-};
+// PRODUCTION MODE: All mock data imports and fallbacks removed
+// All API calls go directly to Lambda handlers with no fallbacks
 
 // Mock API service with simulated async operations and proper types
 export class ApiService {
@@ -51,58 +36,9 @@ export class ApiService {
       });
 
       if (!response.ok) {
-        // Only use mock data in development with explicit flag
-        if (shouldUseMockData()) {
-          logger.warn("API call failed, falling back to mock data (DEV mode)");
-          return [
-            {
-              id: "PRJ-HEALTHCARE-MODERNIZATION",
-              name: "Healthcare System Modernization",
-              description:
-                "Digital transformation for national healthcare provider",
-              baseline_id: "BL-2024-001",
-              baseline_accepted_at: "2024-01-15T10:30:00Z",
-              next_billing_periods: billingPlanData.slice(
-                0,
-                3
-              ) as BillingPeriod[],
-              status: "active",
-              created_at: "2024-01-10T09:00:00Z",
-            },
-            {
-              id: "PRJ-FINTECH-PLATFORM",
-              name: "Banking Core Platform Upgrade",
-              description:
-                "Next-generation banking platform with real-time processing",
-              baseline_id: "BL-2024-002",
-              baseline_accepted_at: "2024-01-20T14:15:00Z",
-              next_billing_periods: billingPlanFintechData.slice(
-                0,
-                3
-              ) as BillingPeriod[],
-              status: "active",
-              created_at: "2024-01-12T10:00:00Z",
-            },
-            {
-              id: "PRJ-RETAIL-ANALYTICS",
-              name: "Retail Intelligence & Analytics Suite",
-              description:
-                "AI-powered analytics platform for retail optimization",
-              baseline_id: "BL-2024-003",
-              baseline_accepted_at: "2024-02-05T09:45:00Z",
-              next_billing_periods: billingPlanRetailData.slice(
-                0,
-                3
-              ) as BillingPeriod[],
-              status: "active",
-              created_at: "2024-01-25T11:30:00Z",
-            },
-          ];
-        }
-
-        // In production, return empty array
-        logger.warn("Failed to fetch projects from API, returning empty array");
-        return [];
+        const errorText = await response.text();
+        logger.error("Failed to fetch projects from API:", errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -122,8 +58,7 @@ export class ApiService {
       }));
     } catch (error) {
       logger.error("Failed to fetch projects from API:", error);
-      // Return empty array on error in production
-      return [];
+      throw error;
     }
   }
 
@@ -139,15 +74,11 @@ export class ApiService {
       });
 
       if (!response.ok) {
-        if (shouldUseMockData()) {
-          logger.warn("API call failed, returning mock baseline (DEV mode)");
-          await this.delay(500);
-          return {
-            baseline_id: `BL-${Date.now()}`,
-            signature_hash: `SHA256-${Math.random().toString(36).substring(2)}`,
-          };
-        }
-        throw new Error(`Failed to create baseline: ${response.statusText}`);
+        const errorText = await response.text();
+        logger.error("Failed to create baseline:", errorText);
+        throw new Error(
+          `Failed to create baseline: ${response.status} - ${errorText}`
+        );
       }
 
       const result = await response.json();
@@ -155,13 +86,6 @@ export class ApiService {
       return result;
     } catch (error) {
       logger.error("Failed to create baseline via API:", error);
-      if (shouldUseMockData()) {
-        await this.delay(500);
-        return {
-          baseline_id: `BL-${Date.now()}`,
-          signature_hash: `SHA256-${Math.random().toString(36).substring(2)}`,
-        };
-      }
       throw error;
     }
   }
