@@ -15,8 +15,11 @@ require_var FINZ_API_BASE
 
 # Dynamically discover project IDs
 echo "Discovering projects from ${FINZ_API_BASE}/projects..." >&2
-PROJECTS_JSON=$(curl -sS "$FINZ_API_BASE/projects?limit=50")
-PROJECTS_BODY=$(echo "$PROJECTS_JSON" | sed '$d')
+PROJECTS_URL="${FINZ_API_BASE}/projects?limit=50"
+TEMP_PROJECTS_LOG="${FINZ_LOG_DIR}/finz_projects_discovery.log"
+finz_curl GET "${PROJECTS_URL}" "" "${TEMP_PROJECTS_LOG}"
+
+PROJECTS_BODY=$(sed '$d' "${TEMP_PROJECTS_LOG}")
 PROJECT_IDS=$(echo "$PROJECTS_BODY" | jq -r '.[] | (.id // .projectId // .pk)')
 
 if [[ -z "$PROJECT_IDS" ]]; then
@@ -31,8 +34,11 @@ for PROJECT_ID in $PROJECT_IDS; do
   
   # Try to get a line item for this project
   RUBROS_URL="${FINZ_API_BASE}/projects/${PROJECT_ID}/rubros"
-  RUBROS_JSON=$(curl -sS -H "$(finz_auth_header)" "${RUBROS_URL}" 2>/dev/null || echo "[]")
-  LINE_ITEM_ID=$(echo "$RUBROS_JSON" | jq -r '.[0].rubroId // .[0].id // empty' 2>/dev/null || echo "")
+  TEMP_RUBROS_LOG="${FINZ_LOG_DIR}/finz_rubros_${PROJECT_ID}_temp.log"
+  finz_curl GET "${RUBROS_URL}" "" "${TEMP_RUBROS_LOG}"
+  
+  RUBROS_BODY=$(sed '$d' "${TEMP_RUBROS_LOG}")
+  LINE_ITEM_ID=$(echo "$RUBROS_BODY" | jq -r '.[0].rubroId // .[0].id // empty' 2>/dev/null || echo "")
   
   if [[ -z "$LINE_ITEM_ID" ]]; then
     echo "⚠️  No line items found for project ${PROJECT_ID}. Skipping reconciliation for this project." >&2

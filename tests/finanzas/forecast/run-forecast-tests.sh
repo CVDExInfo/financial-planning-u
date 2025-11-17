@@ -15,8 +15,11 @@ require_var FINZ_API_BASE
 
 # Dynamically discover project IDs
 echo "Discovering projects from ${FINZ_API_BASE}/projects..." >&2
-PROJECTS_JSON=$(curl -sS "$FINZ_API_BASE/projects?limit=50")
-PROJECTS_BODY=$(echo "$PROJECTS_JSON" | sed '$d')
+PROJECTS_URL="${FINZ_API_BASE}/projects?limit=50"
+TEMP_PROJECTS_LOG="${FINZ_LOG_DIR}/finz_projects_discovery.log"
+finz_curl GET "${PROJECTS_URL}" "" "${TEMP_PROJECTS_LOG}"
+
+PROJECTS_BODY=$(sed '$d' "${TEMP_PROJECTS_LOG}")
 PROJECT_IDS=$(echo "$PROJECTS_BODY" | jq -r '.[] | (.id // .projectId // .pk)')
 
 if [[ -z "$PROJECT_IDS" ]]; then
