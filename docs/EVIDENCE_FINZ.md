@@ -1,77 +1,151 @@
 # Finanzas Evidence Pack
 
+**NOTE (2025-11-17)**: The test scripts have been refactored to work with GitHub Actions CI. 
+For local testing, you must manually `source tests/finanzas/shared/env.sh` before running scripts.
+In CI, environment variables are provided by the workflow and no sourcing is needed.
+
 Each section documents the CLI commands required to exercise the designated module. Results below describe the _expected outcome_. Replace the HTML comments with actual terminal output after executing the scripts, and update wording to "observed" once evidence is captured.
+
+## Test Architecture Changes
+
+### How the New Test System Works
+
+1. **Cognito Login Test (Separate)**
+   - `run-login-test.sh` validates Cognito credentials work
+   - Runs as the FIRST step in the workflow
+   - If login fails → entire workflow fails (red build)
+   - This catches authentication issues early
+
+2. **Smoke Tests (Unauthenticated)**
+   - All other test scripts (`run-*-tests.sh`) now use unauthenticated curl
+   - They test API endpoint availability without requiring authentication
+   - This ensures we can detect API issues independent of auth problems
+
+3. **Prod URL Guard**
+   - All scripts check `FINZ_API_BASE` and fail if it contains `/prod`
+   - Ensures tests always run against dev environment
+   - Prevents accidental prod API calls
+
+4. **HTTP Status Validation**
+   - Every curl call validates HTTP status codes (200/201 expected)
+   - Non-200/201 responses cause script to exit with non-zero status
+   - This makes the workflow fail → no more silent failures
+
+5. **Dynamic Project Discovery**
+   - Scripts call `/projects` to discover available project IDs
+   - No more hard-coded project variables
+   - Tests adapt to whatever projects exist in the environment
+
+6. **No Auto-Sourcing in CI**
+   - `lib.sh` no longer auto-sources `env-example.sh`
+   - CI gets variables from GitHub workflow env block
+   - Local testing requires manual `source tests/finanzas/shared/env.sh`
+
+### Why These Changes Ensure Quality
+
+- **Only Hit Dev**: Prod guard prevents `/prod` URLs from being used
+- **Login Issues Break Workflow**: Separate login test fails fast on auth problems
+- **Failing Tests = Red Build**: HTTP validation ensures unexpected codes cause failure
+- **No False Positives**: Scripts exit non-zero on errors instead of continuing
 
 ## Projects
 
 ```bash
+# Local testing (manual):
 source tests/finanzas/shared/env.sh
 bash tests/finanzas/projects/run-projects-tests.sh
+
+# CI testing (automatic via workflow):
+# Environment variables provided by .github/workflows/finanzas-tests.yml
 ```
 
-Expected outcome: HTTP 200 from `/projects?limit=20` with a non-empty array of `{id,name}` entries.
+Expected outcome: HTTP 200 from `/projects?limit=50` with a non-empty array of `{id,name}` entries.
 
-<!-- paste from /tmp/finz_projects_list.log -->
+<!-- paste from /tmp/finanzas-tests/finz_projects_list.log -->
 
 ## Catalog
 
 ```bash
+# Local testing (manual):
 source tests/finanzas/shared/env.sh
-bash tests/finanzas/catalog/run-catalog-tests.sh "$FINZ_PROJECT_ALMOJABANAS"
+bash tests/finanzas/catalog/run-catalog-tests.sh
+
+# CI testing (automatic via workflow):
+# Projects are discovered dynamically from /projects endpoint
 ```
 
-Expected outcome: initial GET shows existing rubros, POST returns 200/201 for `CLI-RUBRO-*`, follow-up GET includes the new rubro.
+Expected outcome: Script discovers projects, then for each project:
+- Initial GET shows existing rubros (HTTP 200)
+- POST returns 200/201 for `CLI-RUBRO-*`
+- Follow-up GET includes the new rubro (HTTP 200)
 
-<!-- paste from /tmp/finz_catalog_before.log -->
-<!-- paste from /tmp/finz_catalog_create.log -->
-<!-- paste from /tmp/finz_catalog_after.log -->
+<!-- paste from /tmp/finanzas-tests/finz_catalog_*.log -->
 
 ## Forecast
 
 ```bash
+# Local testing (manual):
 source tests/finanzas/shared/env.sh
-bash tests/finanzas/forecast/run-forecast-tests.sh "$FINZ_PROJECT_ALMOJABANAS"
+bash tests/finanzas/forecast/run-forecast-tests.sh
+
+# CI testing (automatic via workflow):
+# Projects are discovered dynamically from /projects endpoint
 ```
 
-Expected outcome: both `/plan/forecast` calls (6 and 12 months) return HTTP 200 with forecast cells sized to the requested window.
+Expected outcome: For each project, both `/plan/forecast` calls (6 and 12 months) return HTTP 200 with forecast cells sized to the requested window.
 
-<!-- paste from /tmp/finz_forecast_6.log -->
-<!-- paste from /tmp/finz_forecast_12.log -->
+<!-- paste from /tmp/finanzas-tests/finz_forecast_*.log -->
 
 ## Reconciliation
 
 ```bash
+# Local testing (manual):
 source tests/finanzas/shared/env.sh
-bash tests/finanzas/reconciliation/run-reconciliation-tests.sh "$FINZ_PROJECT_RECONCILIATION"
+bash tests/finanzas/reconciliation/run-reconciliation-tests.sh
+
+# CI testing (automatic via workflow):
+# Projects are discovered dynamically from /projects endpoint
 ```
 
-Expected outcome: first GET returns current prefacturas, multipart POST uploads a text invoice (HTTP 200/201), second GET reflects the uploaded entry tied to `FINZ_SAMPLE_LINE_ITEM`.
+Expected outcome: For each project with line items:
+- First GET returns current prefacturas (HTTP 200)
+- Multipart POST uploads a text invoice (HTTP 200/201)
+- Second GET reflects the uploaded entry (HTTP 200)
 
-<!-- paste from /tmp/finz_prefacturas_before.log -->
-<!-- paste from /tmp/finz_prefacturas_upload.log -->
-<!-- paste from /tmp/finz_prefacturas_after.log -->
+<!-- paste from /tmp/finanzas-tests/finz_prefacturas_*.log -->
 
 ## Changes
 
 ```bash
+# Local testing (manual):
 source tests/finanzas/shared/env.sh
-bash tests/finanzas/changes/run-changes-tests.sh "$FINZ_PROJECT_ALMOJABANAS"
+bash tests/finanzas/changes/run-changes-tests.sh
+
+# CI testing (automatic via workflow):
+# Projects are discovered dynamically from /projects endpoint
 ```
 
-Expected outcome: `/adjustments` GET calls return HTTP 200 payloads, POST returns 201 with justification `CLI evidence payload *`, and final GET includes the new adjustment.
+Expected outcome: For each project:
+- `/adjustments` GET calls return HTTP 200 payloads
+- POST returns 201 with justification `CLI evidence payload *`
+- Final GET includes the new adjustment (HTTP 200)
 
-<!-- paste from /tmp/finz_adjustments_before.log -->
-<!-- paste from /tmp/finz_adjustments_create.log -->
-<!-- paste from /tmp/finz_adjustments_after.log -->
+<!-- paste from /tmp/finanzas-tests/finz_adjustments_*.log -->
 
 ## Handoff
 
 ```bash
+# Local testing (manual):
 source tests/finanzas/shared/env.sh
-bash tests/finanzas/handoff/run-handoff-tests.sh "$FINZ_PROJECT_ALMOJABANAS"
+bash tests/finanzas/handoff/run-handoff-tests.sh
+
+# CI testing (automatic via workflow):
+# Projects are discovered dynamically from /projects endpoint
 ```
 
-Expected outcome: POST `/projects/{id}/handoff` returns HTTP 201 (or 200 for idempotent replay) with new `handoffId`, GET returns the latest handoff record containing the submitted notes.
+Expected outcome: For each project:
+- POST `/projects/{id}/handoff` returns HTTP 201 (or 200 for idempotent replay) with new `handoffId`
+- GET returns the latest handoff record containing the submitted notes (HTTP 200)
 
 <!-- paste from /tmp/finz_handoff_post.log -->
 <!-- paste from /tmp/finz_handoff_get.log -->
