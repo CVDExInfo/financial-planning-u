@@ -35,7 +35,7 @@ interface ProjectContextBarProps {
 export function ProjectContextBar({ className }: ProjectContextBarProps) {
   const {
     selectedProjectId,
-    setSelectedProjectId,
+    selectProject,
     selectedPeriod,
     setSelectedPeriod,
     currentProject,
@@ -105,7 +105,7 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                   variant="outline"
                   role="combobox"
                   aria-expanded={open}
-                  className="w-[320px] justify-between"
+                  className="w-[320px] justify-between border-emerald-200 text-emerald-900 hover:bg-emerald-50 hover:text-emerald-950 bg-white"
                   disabled={loading}
                 >
                   {loading ? (
@@ -139,22 +139,15 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                         return (
                           <CommandItem
                             key={project.id}
-                            value={`${project.name} ${project.id} ${
-                              project.description || ""
-                            }`}
+                            value={project.id}
                             onSelect={() => {
-                              console.log(
-                                "📂 Project selected:",
-                                project.name,
-                                project.id
-                              );
-                              setSelectedProjectId(project.id);
+                              selectProject(project);
                               setOpen(false);
                             }}
                             className={cn(
                               "cursor-pointer px-3 py-3.5 mx-1 my-0.5 rounded-md transition-colors flex items-start gap-3",
                               isSelected
-                                ? "bg-primary/10 border border-primary/30"
+                                ? "bg-emerald-50 border border-emerald-200"
                                 : "hover:bg-muted/60 border border-transparent"
                             )}
                           >
@@ -163,7 +156,7 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                                 className={cn(
                                   "h-5 w-5 rounded border border-input transition-colors",
                                   isSelected
-                                    ? "bg-primary text-primary-foreground border-primary"
+                                    ? "bg-emerald-500 text-white border-emerald-500"
                                     : "text-muted-foreground"
                                 )}
                               />
@@ -175,7 +168,12 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                                 </span>
                                 <Badge
                                   variant={isSelected ? "default" : "secondary"}
-                                  className="text-xs px-2 py-0.5 shrink-0 whitespace-nowrap"
+                                  className={cn(
+                                    "text-xs px-2 py-0.5 shrink-0 whitespace-nowrap border",
+                                    isSelected
+                                      ? "bg-emerald-500/90 text-white border-emerald-500"
+                                      : "bg-slate-100 text-slate-700 border-transparent"
+                                  )}
                                 >
                                   {project.id}
                                 </Badge>
@@ -186,26 +184,21 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                                 </span>
                               )}
                               <div className="flex items-center gap-2 pt-1">
-                                {project.baseline_id && (
+                                {project.baselineId && (
                                   <Badge
                                     variant="outline"
-                                    className="text-xs py-0 px-1.5"
+                                    className="text-xs py-0 px-1.5 border-emerald-200 text-emerald-800"
                                   >
                                     <span className="text-[10px]">
                                       Baseline:{" "}
-                                      {project.baseline_id.substring(0, 8)}
+                                      {project.baselineId.substring(0, 8)}
                                     </span>
                                   </Badge>
                                 )}
                                 {project.status && (
                                   <Badge
                                     variant="outline"
-                                    className={cn(
-                                      "text-xs py-0 px-1.5",
-                                      project.status === "active"
-                                        ? "border-green-200 bg-green-50 text-green-700"
-                                        : "border-amber-200 bg-amber-50 text-amber-700"
-                                    )}
+                                    className="text-xs py-0 px-1.5 border-slate-200 text-slate-600"
                                   >
                                     <span className="text-[10px] font-medium">
                                       {project.status}
@@ -234,18 +227,18 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
               </span>
               <Skeleton className="h-6 w-24" />
             </div>
-          ) : currentProject?.baseline_id ? (
+          ) : currentProject?.baselineId ? (
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium text-foreground">
                 Baseline:
               </span>
               <Badge variant="default" className="gap-1">
-                {currentProject.baseline_id}
+                {currentProject.baselineId}
                 <ExternalLink size={12} />
               </Badge>
-              {currentProject.baseline_accepted_at && (
+              {currentProject.baselineAcceptedAt && (
                 <span className="text-xs text-muted-foreground">
-                  Accepted {formatDate(currentProject.baseline_accepted_at)}
+                  Accepted {formatDate(currentProject.baselineAcceptedAt)}
                 </span>
               )}
             </div>
