@@ -1,4 +1,82 @@
-# Evidence Pack – Finanzas SD
+# Finanzas Evidence Pack
+
+Each section documents the CLI commands required to exercise the designated module. Results below describe the _expected outcome_. Replace the HTML comments with actual terminal output after executing the scripts, and update wording to "observed" once evidence is captured.
+
+## Projects
+
+```bash
+source tests/finanzas/shared/env.sh
+bash tests/finanzas/projects/run-projects-tests.sh
+```
+
+Expected outcome: HTTP 200 from `/projects?limit=20` with a non-empty array of `{id,name}` entries.
+
+<!-- paste from /tmp/finz_projects_list.log -->
+
+## Catalog
+
+```bash
+source tests/finanzas/shared/env.sh
+bash tests/finanzas/catalog/run-catalog-tests.sh "$FINZ_PROJECT_ALMOJABANAS"
+```
+
+Expected outcome: initial GET shows existing rubros, POST returns 200/201 for `CLI-RUBRO-*`, follow-up GET includes the new rubro.
+
+<!-- paste from /tmp/finz_catalog_before.log -->
+<!-- paste from /tmp/finz_catalog_create.log -->
+<!-- paste from /tmp/finz_catalog_after.log -->
+
+## Forecast
+
+```bash
+source tests/finanzas/shared/env.sh
+bash tests/finanzas/forecast/run-forecast-tests.sh "$FINZ_PROJECT_ALMOJABANAS"
+```
+
+Expected outcome: both `/plan/forecast` calls (6 and 12 months) return HTTP 200 with forecast cells sized to the requested window.
+
+<!-- paste from /tmp/finz_forecast_6.log -->
+<!-- paste from /tmp/finz_forecast_12.log -->
+
+## Reconciliation
+
+```bash
+source tests/finanzas/shared/env.sh
+bash tests/finanzas/reconciliation/run-reconciliation-tests.sh "$FINZ_PROJECT_RECONCILIATION"
+```
+
+Expected outcome: first GET returns current prefacturas, multipart POST uploads a text invoice (HTTP 200/201), second GET reflects the uploaded entry tied to `FINZ_SAMPLE_LINE_ITEM`.
+
+<!-- paste from /tmp/finz_prefacturas_before.log -->
+<!-- paste from /tmp/finz_prefacturas_upload.log -->
+<!-- paste from /tmp/finz_prefacturas_after.log -->
+
+## Changes
+
+```bash
+source tests/finanzas/shared/env.sh
+bash tests/finanzas/changes/run-changes-tests.sh "$FINZ_PROJECT_ALMOJABANAS"
+```
+
+Expected outcome: `/adjustments` GET calls return HTTP 200 payloads, POST returns 201 with justification `CLI evidence payload *`, and final GET includes the new adjustment.
+
+<!-- paste from /tmp/finz_adjustments_before.log -->
+<!-- paste from /tmp/finz_adjustments_create.log -->
+<!-- paste from /tmp/finz_adjustments_after.log -->
+
+## Handoff
+
+```bash
+source tests/finanzas/shared/env.sh
+bash tests/finanzas/handoff/run-handoff-tests.sh "$FINZ_PROJECT_ALMOJABANAS"
+```
+
+Expected outcome: POST `/projects/{id}/handoff` returns HTTP 201 (or 200 for idempotent replay) with new `handoffId`, GET returns the latest handoff record containing the submitted notes.
+
+<!-- paste from /tmp/finz_handoff_post.log -->
+<!-- paste from /tmp/finz_handoff_get.log -->
+
+## Evidence Pack – Finanzas SD
 
 ## Backend API Lane Implementation
 
@@ -122,7 +200,7 @@ curl -i "$BASE/prefacturas?projectId=P-5ae50ace"
 
 **Expected Response Headers (all three requests):**
 
-```
+```text
 HTTP/2 200
 access-control-allow-origin: https://d7t9x3j66yd8k.cloudfront.net
 access-control-allow-credentials: true
@@ -184,12 +262,14 @@ content-type: application/json
 ### Added Test Sections
 
 **1. Forecast Tests** - `GET /plan/forecast`
+
 - ✅ Status code validation (200)
 - ✅ Response structure validation (data array, projectId, months)
 - ✅ No fallback markers check
 - ✅ Empty array acceptance (0+ items valid)
 
 **2. Prefacturas Tests** - `GET /prefacturas`
+
 - ✅ Status code validation (200)
 - ✅ Response structure validation (data array, projectId, total)
 - ✅ No fallback markers check
@@ -205,6 +285,7 @@ newman run postman/finanzas-sd-api-collection.json \
 ```
 
 **Results:**
+
 - ✅ Forecast endpoint: 7/7 assertions passed
 - ✅ Prefacturas endpoint: Ready for deployment (auth check removed)
 - ✅ No DEFAULT/MOCK_DATA markers detected
@@ -214,11 +295,13 @@ newman run postman/finanzas-sd-api-collection.json \
 ### Test Files Updated
 
 1. **`postman/finanzas-sd-api-collection.json`**
+
    - Added "Forecast" test section with GET /plan/forecast
    - Added "Prefacturas" test section with GET /prefacturas
    - Both tests validate response structure and check for fallback markers
 
 2. **`postman/finanzas-sd-dev.postman_environment.json`**
+
    - Updated baseUrl: `https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev`
    - Updated projectId_seed: `P-5ae50ace` (one of the seeded projects)
 

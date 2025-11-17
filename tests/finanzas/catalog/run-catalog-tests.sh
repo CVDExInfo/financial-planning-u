@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/lib.sh
+source "${SCRIPT_DIR}/../shared/lib.sh"
+
+require_var FINZ_API_BASE
+PROJECT_ID="${1:-${FINZ_PROJECT_ALMOJABANAS}}"
+require_var PROJECT_ID
+
+RUBROS_URL="${FINZ_API_BASE}/projects/${PROJECT_ID}/rubros"
+LOG_BEFORE="${FINZ_LOG_DIR}/finz_catalog_before.log"
+LOG_CREATE="${FINZ_LOG_DIR}/finz_catalog_create.log"
+LOG_AFTER="${FINZ_LOG_DIR}/finz_catalog_after.log"
+
+echo "Testing catalog APIs for project ${PROJECT_ID}" >&2
+finz_curl GET "${RUBROS_URL}" "" "${LOG_BEFORE}"
+
+timestamp="$(date +%s)"
+read -r -d '' payload <<JSON
+{
+  "rubroId": "CLI-RUBRO-${timestamp}",
+  "qty": 1,
+  "unitCost": 123.45,
+  "type": "service",
+  "duration": "one-time"
+}
+JSON
+
+finz_curl POST "${RUBROS_URL}" "${payload}" "${LOG_CREATE}"
+finz_curl GET "${RUBROS_URL}" "" "${LOG_AFTER}"
+
+echo "Expected outcome: initial GET returns existing rubros, POST responds 200/201 with created entry, second GET includes CLI-RUBRO-${timestamp}." >&2
