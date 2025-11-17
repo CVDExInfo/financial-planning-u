@@ -8,6 +8,50 @@
 # The library does NOT auto-source env files to avoid confusion in CI.
 # All authentication is handled separately by run-login-test.sh.
 
+set -euo pipefail
+
+# Require an environment variable to be set and non-empty
+require_env() {
+  local v="$1"
+  : "${!v:?Missing required env: $v}"
+}
+
+# Get the base URL with trailing slash removed and any stray CR/LF stripped
+finz_base() {
+  require_env FINZ_API_BASE
+  # Trim trailing slash and any stray CR/LF
+  local base="${FINZ_API_BASE%/}"
+  base="$(printf '%s' "$base" | tr -d '\r\n')"
+  printf '%s' "$base"
+}
+
+# Join base URL and path, ensuring single slash join and no newlines
+join_url() {
+  local base="$1"; shift
+  local path="$1"; shift || true
+  # Ensure single slash join and no newlines
+  path="$(printf '%s' "$path" | sed 's#^/*#/#' | tr -d '\r\n')"
+  printf '%s%s' "$base" "$path"
+}
+
+# Execute curl with JSON content type and strict HTTP code validation
+curl_json() {
+  local url="$1"
+  local resp code body
+  resp="$(curl -sS -w '\nHTTP %{http_code}\n' "$url" || true)"
+  code="$(printf '%s' "$resp" | tail -n1 | awk '{print $2}')"
+  body="$(printf '%s' "$resp" | sed '$d')"
+  echo "➡️  GET $url"
+  echo "HTTP $code"
+  if [[ "$code" != "200" && "$code" != "201" ]]; then
+    echo "::error::HTTP $code for $url"
+    echo "$body"
+    return 1
+  fi
+  printf '%s' "$body"
+}
+
+# Legacy function for backward compatibility - wraps existing finz_curl behavior
 require_var() {
   local var_name="$1"
   if [[ -z "${!var_name:-}" ]]; then
