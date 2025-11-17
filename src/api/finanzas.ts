@@ -74,33 +74,97 @@ export type UploadInvoicePayload = {
   invoice_date?: string;
 };
 
-export function uploadInvoice(
+export type UploadModule = "prefactura" | "catalog" | "reconciliation";
+
+export type UploadSessionResponse = {
+  uploadUrl: string;
+  objectKey: string;
+};
+
+export type CreateUploadSessionParams = {
+  projectId: string;
+  module: UploadModule;
+  file: File;
+  lineItemId?: string;
+  invoiceNumber?: string;
+};
+
+const FALLBACK_CONTENT_TYPE = "application/octet-stream";
+
+async function createUploadSession(
+  params: CreateUploadSessionParams
+): Promise<UploadSessionResponse> {
+  const { file, module, projectId, lineItemId, invoiceNumber } = params;
+
+  return safeFetch<UploadSessionResponse>("/uploads/docs", {
+    method: "POST",
+    body: {
+      projectId,
+      module,
+      lineItemId,
+      invoiceNumber,
+      originalName: file.name,
+      contentType: file.type || FALLBACK_CONTENT_TYPE,
+    },
+  });
+}
+
+async function putFileToS3(uploadUrl: string, file: File) {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": file.type || FALLBACK_CONTENT_TYPE,
+    },
+    body: file,
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `Failed to upload document to S3 (HTTP ${response.status}) ${body || ""}`
+    );
+  }
+}
+
+export async function uploadSupportingDocument(
+  params: CreateUploadSessionParams
+) {
+  const session = await createUploadSession(params);
+  await putFileToS3(session.uploadUrl, params.file);
+  return session.objectKey;
+}
+
+export async function uploadInvoice(
   projectId: string,
   payload: UploadInvoicePayload
 ) {
-  const formData = new FormData();
-  formData.append("projectId", projectId);
-  formData.append("line_item_id", payload.line_item_id);
-  formData.append("month", String(payload.month));
-  formData.append("amount", String(payload.amount));
-  formData.append("file", payload.file);
+  if (!payload.file) {
+    throw new Error("Invoice file is required");
+  }
 
-  if (payload.description) {
-    formData.append("description", payload.description);
-  }
-  if (payload.vendor) {
-    formData.append("vendor", payload.vendor);
-  }
-  if (payload.invoice_number) {
-    formData.append("invoice_number", payload.invoice_number);
-  }
-  if (payload.invoice_date) {
-    formData.append("invoice_date", payload.invoice_date);
-  }
+  const invoiceNumber =
+    payload.invoice_number?.trim() || `INV-${Date.now().toString(36)}`;
+
+  const documentKey = await uploadSupportingDocument({
+    projectId,
+    module: "prefactura",
+    lineItemId: payload.line_item_id,
+    invoiceNumber,
+    file: payload.file,
+  });
 
   return safeFetch<InvoiceDoc>("/prefacturas", {
     method: "POST",
-    body: formData,
+    body: {
+      projectId,
+      lineItemId: payload.line_item_id,
+      invoiceNumber,
+      amount: payload.amount,
+      month: payload.month,
+      vendor: payload.vendor,
+      description: payload.description,
+      documentKey,
+    },
   });
 }
 

@@ -119,8 +119,11 @@ export type InvoiceDoc = {
   month: number;
   amount: number;
   currency: Currency;
-  file_url: string;
-  file_name: string;
+  file_url?: string;
+  file_name?: string;
+  documentKey?: string;
+  originalName?: string;
+  contentType?: string;
   status: InvoiceStatus;
   comments?: string[];
   uploaded_by: string;

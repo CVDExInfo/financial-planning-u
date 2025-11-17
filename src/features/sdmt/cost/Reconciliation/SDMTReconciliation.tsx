@@ -43,7 +43,7 @@ import {
 import { toast } from "sonner";
 import { useProject } from "@/contexts/ProjectContext";
 import ModuleBadge from "@/components/ModuleBadge";
-import type { ForecastCell, InvoiceStatus } from "@/types/domain";
+import type { ForecastCell, InvoiceStatus, LineItem } from "@/types/domain";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import {
   PDFExporter,
@@ -81,6 +81,22 @@ const createInitialUploadForm = (): UploadFormState => ({
   invoice_number: "",
   invoice_date: "",
 });
+
+const formatMatrixLabel = (
+  item?: LineItem,
+  month?: number,
+  fallbackId?: string
+) => {
+  const category = item?.category?.trim() || "General";
+  const description = item?.description?.trim() || fallbackId || "Line item";
+  const baseLabel = `${category} - ${description}`;
+
+  if (typeof month === "number" && Number.isFinite(month)) {
+    return `${baseLabel} (Month ${month})`;
+  }
+
+  return baseLabel;
+};
 
 export function SDMTReconciliation() {
   const [showUploadForm, setShowUploadForm] = useState(false);
@@ -269,9 +285,9 @@ export function SDMTReconciliation() {
     }).format(amount);
   };
 
-  const getLineItemName = (lineItemId: string) => {
+  const getLineItemName = (lineItemId: string, month?: number) => {
     const item = lineItems.find((li) => li.id === lineItemId);
-    return item ? `${item.description} (${item.category})` : lineItemId;
+    return formatMatrixLabel(item, month, lineItemId);
   };
 
   // Export functions
@@ -433,8 +449,16 @@ export function SDMTReconciliation() {
           {(filterLineItem || filterMonth) && (
             <div className="flex items-center gap-2 mt-2">
               <Badge variant="outline">
-                Filtered: {filterLineItem && getLineItemName(filterLineItem)}
-                {filterMonth && ` - Month ${filterMonth}`}
+                Filtered:{" "}
+                {filterLineItem
+                  ? formatMatrixLabel(
+                      lineItems.find((li) => li.id === filterLineItem),
+                      filterMonth ? parseInt(filterMonth, 10) : undefined,
+                      filterLineItem ?? undefined
+                    )
+                  : filterMonth
+                  ? `Month ${filterMonth}`
+                  : null}
               </Badge>
               <Button
                 variant="ghost"
@@ -535,7 +559,7 @@ export function SDMTReconciliation() {
                   <SelectContent>
                     {lineItems.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
-                        {item.description} ({item.category})
+                        {formatMatrixLabel(item, uploadFormData.month)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -733,7 +757,10 @@ export function SDMTReconciliation() {
                         <div className="flex items-center gap-2">
                           <div>
                             <div className="font-medium">
-                              {getLineItemName(invoice.line_item_id)}
+                              {getLineItemName(
+                                invoice.line_item_id,
+                                invoice.month
+                              )}
                             </div>
                           </div>
                           <Button
@@ -767,11 +794,31 @@ export function SDMTReconciliation() {
                           {invoice.status}
                         </Badge>
                       </TableCell>
-                      <TableCell
-                        className="max-w-[200px] truncate"
-                        title={invoice.file_name}
-                      >
-                        {invoice.file_name}
+                      <TableCell className="max-w-[260px]">
+                        <div className="flex flex-col text-sm">
+                          <span
+                            className="truncate"
+                            title={
+                              invoice.originalName ||
+                              invoice.file_name ||
+                              invoice.documentKey ||
+                              ""
+                            }
+                          >
+                            {invoice.originalName ||
+                              invoice.file_name ||
+                              invoice.documentKey ||
+                              "Pending document"}
+                          </span>
+                          {invoice.documentKey && (
+                            <span
+                              className="text-xs text-muted-foreground truncate"
+                              title={invoice.documentKey}
+                            >
+                              {invoice.documentKey}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">

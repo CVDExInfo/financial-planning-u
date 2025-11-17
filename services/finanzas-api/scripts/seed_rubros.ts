@@ -2,12 +2,14 @@
   Seed script for rubros table.
   Reads /mnt/data/catalogo_rubros_ikusi.xlsx and upserts rows into DynamoDB table specified by env TABLE_RUBROS.
 */
-import AWS from "aws-sdk";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 import * as XLSX from "xlsx";
 
-const ddb = new AWS.DynamoDB.DocumentClient({
+const baseClient = new DynamoDBClient({
   region: process.env.AWS_REGION || "us-east-2",
 });
+const ddb = DynamoDBDocumentClient.from(baseClient);
 const TABLE =
   process.env.TABLE_RUBROS ||
   process.env.npm_package_config_TABLE_RUBROS ||
@@ -49,8 +51,8 @@ async function upsert(item: {
 }) {
   const pk = `RUBRO#${item.rubro_id}`;
   const sk = `DEF#${item.rubro_id}`;
-  await ddb
-    .put({
+  await ddb.send(
+    new PutCommand({
       TableName: TABLE,
       Item: {
         pk,
@@ -63,7 +65,7 @@ async function upsert(item: {
         updated_at: new Date().toISOString(),
       },
     })
-    .promise();
+  );
 }
 
 async function main() {

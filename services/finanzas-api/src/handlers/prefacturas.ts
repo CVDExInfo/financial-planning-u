@@ -1,68 +1,145 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
-import { ok, bad } from "../lib/http";
+import crypto from "node:crypto";
+import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth";
+import { ok, bad, serverError } from "../lib/http";
+import { ddb, PutCommand, QueryCommand, tableName } from "../lib/dynamo";
 
-/**
- * Prefacturas (Pre-invoices) handler
- * GET /prefacturas?projectId={id} - Get pre-invoices for a project
- * POST /prefacturas/webhook - Webhook for external integrations
- */
+type InvoicePayload = {
+  projectId: string;
+  lineItemId: string;
+  invoiceNumber: string;
+  amount: number;
+  month: number;
+  vendor?: string;
+  description?: string;
+  documentKey: string;
+};
+
+const parseBody = (raw: string | null | undefined): InvoicePayload | null => {
+  if (!raw) return null;
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  const base: InvoicePayload = {
+    projectId: String(data.projectId || "").trim(),
+    lineItemId: String(data.lineItemId || "").trim(),
+    invoiceNumber: String(data.invoiceNumber || "").trim(),
+    amount: Number(data.amount),
+    month: Number(data.month),
+    vendor: data.vendor ? String(data.vendor) : undefined,
+    description: data.description ? String(data.description) : undefined,
+    documentKey: String(data.documentKey || "").trim(),
+  };
+
+  return base;
+};
+
 export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    // Note: Auth check removed to match forecast endpoint (public access)
     const method = event.requestContext.http.method;
 
     if (method === "GET") {
-      // GET - retrieve pre-invoices for a project
-      const projectId = event.queryStringParameters?.projectId;
-
+      ensureCanRead(event as unknown as Parameters<typeof ensureCanRead>[0]);
+      const projectId = event.queryStringParameters?.projectId?.trim();
       if (!projectId) {
         return bad("Missing required parameter: projectId");
       }
 
-      // TODO: Query prefacturas from DynamoDB
-      // For now, return empty array with proper structure
-      const prefacturas = [];
+      const result = await ddb.send(
+        new QueryCommand({
+          TableName: tableName("prefacturas"),
+          KeyConditionExpression: "pk = :pk",
+          ExpressionAttributeValues: {
+            ":pk": `PROJECT#${projectId}`,
+          },
+        })
+      );
 
       return ok({
-        data: prefacturas,
+        data: result.Items ?? [],
         projectId,
-        total: prefacturas.length,
+        total: result.Count ?? 0,
       });
     }
 
     if (method === "POST") {
-      // POST - Process incoming webhook for pre-invoice
-      // TODO: Implement webhook processing
-      return {
-        statusCode: 501,
-        headers: {
-          "Access-Control-Allow-Origin":
-            process.env.ALLOWED_ORIGIN ||
-            "https://d7t9x3j66yd8k.cloudfront.net",
-          "Access-Control-Allow-Credentials": "true",
-        },
-        body: JSON.stringify({
-          message: "POST /prefacturas/webhook - not implemented yet",
-        }),
+      ensureCanWrite(event as unknown as Parameters<typeof ensureCanWrite>[0]);
+
+      const payload = parseBody(event.body);
+      if (!payload) {
+        return bad("Invalid JSON body");
+      }
+
+      const {
+        projectId,
+        lineItemId,
+        invoiceNumber,
+        amount,
+        month,
+        vendor,
+        description,
+        documentKey,
+      } = payload;
+
+      if (!projectId) return bad("projectId is required");
+      if (!lineItemId) return bad("lineItemId is required");
+      if (!invoiceNumber) return bad("invoiceNumber is required");
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return bad("amount must be a positive number");
+      }
+      if (!Number.isInteger(month) || month < 1 || month > 12) {
+        return bad("month must be between 1 and 12");
+      }
+      if (!documentKey) return bad("documentKey is required");
+
+      const now = new Date().toISOString();
+      const invoiceId = `INV-${crypto
+        .randomUUID()
+        .split("-")
+        .slice(0, 2)
+        .join("")}`;
+
+      const item = {
+        pk: `PROJECT#${projectId}`,
+        sk: `INVOICE#${invoiceId}`,
+        invoiceId,
+        id: invoiceId,
+        projectId,
+        lineItemId,
+        invoiceNumber,
+        amount,
+        month,
+        vendor,
+        description,
+        documentKey,
+        uploaded_by: getUserEmail(
+          event as unknown as Parameters<typeof getUserEmail>[0]
+        ),
+        created_at: now,
+        updated_at: now,
       };
+
+      await ddb.send(
+        new PutCommand({
+          TableName: tableName("prefacturas"),
+          Item: item,
+        })
+      );
+
+      return ok(item, 201);
     }
 
     return bad(`Method ${method} not allowed`, 405);
   } catch (error) {
     console.error("Error in prefacturas handler:", error);
-    return {
-      statusCode: 500,
-      headers: {
-        "Access-Control-Allow-Origin":
-          process.env.ALLOWED_ORIGIN || "https://d7t9x3j66yd8k.cloudfront.net",
-        "Access-Control-Allow-Credentials": "true",
-      },
-      body: JSON.stringify({
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : String(error),
-      }),
-    };
+    return serverError(
+      error instanceof Error ? error.message : "Internal server error"
+    );
   }
 };

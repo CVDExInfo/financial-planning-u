@@ -17,6 +17,10 @@ Parameters:
   StageName:
     Type: String
     Default: dev
+  DocsBucketName:
+    Type: String
+    Description: S3 bucket for Finanzas document uploads
+    Default: ukusi-ui-finanzas-prod
   TablePrefix:
     Type: String
     Default: finz_
@@ -51,8 +55,11 @@ Globals:
         TABLE_ALERTS: !Sub "${TablePrefix}alerts"
         TABLE_PROVIDERS: !Sub "${TablePrefix}providers"
         TABLE_AUDIT: !Sub "${TablePrefix}audit_log"
+        TABLE_DOCS: !Sub "${TablePrefix}docs"
+        TABLE_PREFACTURAS: !Sub "${TablePrefix}prefacturas"
         STAGE_NAME: !Ref StageName
         POLICY_STORE_ID: !Ref PolicyStoreId
+        DOCS_BUCKET: !Ref DocsBucketName
 
 Resources:
   # ========== DynamoDB tables ==========
@@ -162,6 +169,30 @@ Resources:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: !Sub "${TablePrefix}audit_log"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  DocsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${TablePrefix}docs"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  PrefacturasTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${TablePrefix}prefacturas"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: pk, AttributeType: S }
@@ -409,6 +440,42 @@ Resources:
           Properties:
             Path: "/handoff/{handoffId}"
             Method: PUT
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+
+  UploadDocumentFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: node20
+        Sourcemap: true
+        External:
+          - aws-sdk
+        EntryPoints:
+          - src/handlers/upload-docs.ts
+    Properties:
+      CodeUri: .
+      Handler: uploadDocs.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DocsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:PutObjectAcl
+                - s3:GetObject
+              Resource: !Sub "arn:aws:s3:::${DocsBucketName}/*"
+      Events:
+        RequestUploadUrl:
+          Type: HttpApi
+          Properties:
+            Path: /uploads/docs
+            Method: POST
             ApiId: !Ref Api
             Auth:
               Authorizer: CognitoJwt
