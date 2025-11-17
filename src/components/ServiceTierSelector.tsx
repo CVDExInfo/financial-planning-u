@@ -26,6 +26,7 @@ import {
 import { useProject } from "@/contexts/ProjectContext";
 import { addProjectRubro } from "@/api/finanzas";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Import the service catalog
 import serviceCatalog from "@/mocks/ikusi-service-catalog.json";
@@ -339,6 +340,7 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
   onTierSelected,
 }) => {
   const { selectedProjectId, invalidateProjectData } = useProject();
+  const queryClient = useQueryClient();
   const [selectedRequirements, setSelectedRequirements] = useState({
     budget_monthly: 10000,
     commitment_months: 12,
@@ -395,6 +397,9 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
 
       // Invalidate queries to refresh line items
       invalidateProjectData();
+      await queryClient.invalidateQueries({
+        queryKey: ["lineItems", selectedProjectId],
+      });
 
       toast.success(`Added ${tierData.name} to project`);
 

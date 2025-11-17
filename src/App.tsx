@@ -36,6 +36,17 @@ import SDMTChanges from "@/features/sdmt/cost/Changes/SDMTChanges";
 // Home page
 import HomePage from "@/features/HomePage";
 import UserProfile from "@/components/UserProfile";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 2 * 60 * 1000,
+    },
+  },
+});
 
 // Hook to determine current module
 // NOTE: Module context detection reserved for future enhancements
@@ -123,6 +134,8 @@ function AppContent() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </AccessControl>
+          import {(QueryClient, QueryClientProvider)} from
+          "@tanstack/react-query";
         </main>
       </ProjectProvider>
 
@@ -139,11 +152,13 @@ function App() {
     "/finanzas";
 
   return (
-    <BrowserRouter basename={basename.replace(/\/$/, "")}>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter basename={basename.replace(/\/$/, "")}>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 

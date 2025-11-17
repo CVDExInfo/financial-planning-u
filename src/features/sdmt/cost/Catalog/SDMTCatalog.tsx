@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,9 +51,10 @@ import type { LineItem, BaselineBudget, Currency } from "@/types/domain";
 import ApiService from "@/lib/api";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
-import { createServiceLineItem } from "@/lib/pricing-calculator";
 import { logger } from "@/utils/logger";
 import { cn } from "@/lib/utils";
+import { useProjectLineItems } from "@/hooks/useProjectLineItems";
+import { addProjectRubro } from "@/api/finanzas";
 
 // Pending change types
 type PendingChangeType = "add" | "edit" | "delete";
@@ -70,13 +71,13 @@ export function SDMTCatalog() {
     Map<string, PendingChange>
   >(new Map());
   const [saveBarState, setSaveBarState] = useState<SaveBarState>("idle");
-  const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<LineItem | null>(null);
+  const [isCreatingLineItem, setIsCreatingLineItem] = useState(false);
 
   // Form state for Add/Edit Line Item dialog
   const [formData, setFormData] = useState({
@@ -93,8 +94,22 @@ export function SDMTCatalog() {
     recurring: false,
   });
 
-  const { selectedProjectId, currentProject, projectChangeCount } =
-    useProject();
+  const {
+    selectedProjectId,
+    currentProject,
+    projectChangeCount,
+    invalidateProjectData,
+  } = useProject();
+  const {
+    lineItems: queryLineItems,
+    isLoading: isLineItemsLoading,
+    isFetching: isLineItemsFetching,
+    error: lineItemsError,
+    invalidate: invalidateLineItems,
+  } = useProjectLineItems();
+
+  const loading = isLineItemsLoading && queryLineItems.length === 0;
+  const refreshing = isLineItemsFetching && !isLineItemsLoading;
 
   // Use the new permissions system
   const { isReadOnly, currentRole } = usePermissions();
@@ -102,44 +117,26 @@ export function SDMTCatalog() {
   // Check if there are unsaved changes
   const hasUnsavedChanges = pendingChanges.size > 0;
 
-  const loadLineItems = useCallback(async () => {
-    try {
-      setLoading(true);
+  useEffect(() => {
+    setLineItems(queryLineItems);
+    setPendingChanges(new Map());
+    setSaveBarState("idle");
+    if (selectedProjectId) {
       logger.debug(
-        "Catalog: Loading line items for project:",
+        "Catalog: received",
+        queryLineItems.length,
+        "items for",
         selectedProjectId
       );
-      const items = await ApiService.getLineItems(selectedProjectId);
-      logger.debug("Raw line items received:", items.length, "items");
-
-      setLineItems(items);
-      // Clear pending changes when loading fresh data
-      setPendingChanges(new Map());
-      setSaveBarState("idle");
-      logger.info("Catalog data updated for project:", selectedProjectId);
-    } catch (error) {
-      toast.error("Failed to load line items");
-      logger.error("Failed to load line items:", error);
-    } finally {
-      setLoading(false);
     }
-  }, [selectedProjectId]);
+  }, [queryLineItems, selectedProjectId]);
 
-  // Load data when project changes
   useEffect(() => {
-    const loadData = async () => {
-      if (selectedProjectId) {
-        logger.debug(
-          "Catalog: Loading data for project:",
-          selectedProjectId,
-          "change count:",
-          projectChangeCount
-        );
-        await loadLineItems();
-      }
-    };
-    loadData();
-  }, [selectedProjectId, projectChangeCount, loadLineItems]);
+    if (lineItemsError) {
+      toast.error("Failed to load line items");
+      logger.error("Failed to load line items:", lineItemsError);
+    }
+  }, [lineItemsError]);
 
   const filteredItems = lineItems.filter((item) => {
     const matchesSearch =
@@ -260,7 +257,6 @@ export function SDMTCatalog() {
   };
 
   const handleSubmitLineItem = async () => {
-    // Validation
     if (
       !formData.category ||
       !formData.description ||
@@ -272,45 +268,37 @@ export function SDMTCatalog() {
       return;
     }
 
-    // Generate temporary ID for new item
-    const tempId = `temp-${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2, 9)}`;
+    if (!selectedProjectId) {
+      toast.error("Please select a project before adding items");
+      return;
+    }
 
-    const newItem: LineItem = {
-      id: tempId,
-      category: formData.category,
-      subtype: formData.subtype,
-      description: formData.description,
-      qty: formData.qty,
-      unit_cost: formData.unit_cost,
-      currency: formData.currency as Currency,
-      recurring: formData.recurring,
-      one_time: !formData.recurring,
-      start_month: formData.start_month,
-      end_month: formData.end_month,
-      amortization: "none",
-      capex_flag: false,
-      vendor: "",
-      indexation_policy: "none",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      created_by: currentRole,
-    };
+    const rubroId =
+      formData.lineItemCode || formData.categoryCode || `custom-${Date.now()}`;
 
-    // Add to pending changes
-    setPendingChanges((prev) => {
-      const updated = new Map(prev);
-      updated.set(tempId, { type: "add", item: newItem });
-      return updated;
-    });
+    try {
+      setIsCreatingLineItem(true);
+      await addProjectRubro(selectedProjectId, {
+        rubroId,
+        qty: formData.qty,
+        unitCost: formData.unit_cost,
+        type: formData.recurring ? "Recurring" : "One-time",
+        duration: formData.recurring
+          ? `M${formData.start_month}-M${formData.end_month}`
+          : `M${formData.start_month}`,
+      });
 
-    // Add to local state for immediate UI update
-    setLineItems((prev) => [...prev, newItem]);
-    setSaveBarState("dirty");
-    toast.success("Line item staged for addition (unsaved)");
-    setIsAddDialogOpen(false);
-    resetForm();
+      toast.success("Line item created");
+      setIsAddDialogOpen(false);
+      resetForm();
+      await invalidateLineItems();
+      invalidateProjectData();
+    } catch (error) {
+      logger.error("Failed to create line item:", error);
+      toast.error("Failed to create line item. Please try again.");
+    } finally {
+      setIsCreatingLineItem(false);
+    }
   };
 
   const handleEditClick = (item: LineItem) => {
@@ -461,7 +449,7 @@ export function SDMTCatalog() {
         setSaveBarState("success");
         toast.success(`Successfully saved ${successCount} change(s)`);
         // Reload from server to ensure consistency
-        await loadLineItems();
+        await invalidateLineItems();
       } else {
         setSaveBarState("error");
         toast.error(`Saved ${successCount} changes, but ${errorCount} failed`);
@@ -492,7 +480,7 @@ export function SDMTCatalog() {
     setSaveBarState("idle");
     toast.info("Changes discarded");
     // Reload fresh data from server
-    await loadLineItems();
+    await invalidateLineItems();
   };
 
   const handleExport = async () => {
@@ -644,6 +632,12 @@ export function SDMTCatalog() {
                   )}
                   {exporting === "excel" ? "Exporting..." : "Export"}
                 </Button>
+                {refreshing && (
+                  <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <LoadingSpinner size="sm" />
+                    Refreshing…
+                  </span>
+                )}
                 <Protected action="create">
                   <Dialog
                     open={isAddDialogOpen}
@@ -844,8 +838,19 @@ export function SDMTCatalog() {
                         >
                           Cancel
                         </Button>
-                        <Button onClick={handleSubmitLineItem}>
-                          Add Line Item
+                        <Button
+                          onClick={handleSubmitLineItem}
+                          disabled={isCreatingLineItem}
+                          className="min-w-[140px]"
+                        >
+                          {isCreatingLineItem ? (
+                            <span className="flex items-center gap-2">
+                              <LoadingSpinner size="sm" />
+                              Saving...
+                            </span>
+                          ) : (
+                            "Add Line Item"
+                          )}
                         </Button>
                       </DialogFooter>
                     </DialogContent>
@@ -1265,40 +1270,8 @@ export function SDMTCatalog() {
 
         <TabsContent value="service-tiers" className="space-y-6">
           <ServiceTierSelector
-            onTierSelected={(tierId, tierData) => {
-              try {
-                // Import service catalog
-                import("@/mocks/ikusi-service-catalog.json").then(
-                  (serviceCatalog) => {
-                    const lineItem = createServiceLineItem(
-                      tierId,
-                      serviceCatalog.default,
-                      {
-                        quantity: 1,
-                        months: 12,
-                        cost_center: "IT-SERVICES",
-                        gl_code: "6000-001",
-                      }
-                    );
-
-                    const newItem: LineItem = {
-                      ...(lineItem as LineItem),
-                      id: `LI-${Date.now()}`,
-                      created_at: new Date().toISOString(),
-                      updated_at: new Date().toISOString(),
-                      created_by: currentRole,
-                    };
-
-                    setLineItems((prev) => [...prev, newItem]);
-                    toast.success(
-                      `${tierData.name} service tier added to catalog!`
-                    );
-                  }
-                );
-              } catch (error) {
-                toast.error("Failed to add service tier to catalog");
-                console.error("Service tier selection error:", error);
-              }
+            onTierSelected={async () => {
+              await invalidateLineItems();
             }}
           />
         </TabsContent>

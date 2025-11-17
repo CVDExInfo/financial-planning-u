@@ -18,6 +18,9 @@ type SafeFetchOptions<T> = {
   allowMock?: boolean;
 };
 
+const isFormDataBody = (value: unknown): value is FormData =>
+  typeof FormData !== "undefined" && value instanceof FormData;
+
 function getAuthHeader(): Record<string, string> {
   // Priority: 1) Unified cv.jwt, 2) Legacy finz_jwt, 3) Static test token
   const token =
@@ -47,8 +50,9 @@ export async function safeFetch<T = unknown>(
 ): Promise<T> {
   const url = buildUrl(path);
   const method = options.method || "GET";
+  const formDataBody = isFormDataBody(options.body);
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(formDataBody ? {} : { "Content-Type": "application/json" }),
     ...getAuthHeader(),
     ...(options.headers || {}),
   };
@@ -59,7 +63,11 @@ export async function safeFetch<T = unknown>(
       headers,
       credentials: "omit",
       mode: "cors",
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      body: options.body
+        ? formDataBody
+          ? (options.body as FormData)
+          : JSON.stringify(options.body)
+        : undefined,
     });
 
     if (!response.ok) {

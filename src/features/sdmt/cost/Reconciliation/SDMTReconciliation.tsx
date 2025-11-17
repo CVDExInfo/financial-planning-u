@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -13,7 +14,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -21,288 +22,380 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Upload, FileCheck, AlertTriangle, ExternalLink, Plus, X, Download, Share2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { useProject } from '@/contexts/ProjectContext';
-import ModuleBadge from '@/components/ModuleBadge';
-import DataContainer from '@/components/DataContainer';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import { useAsyncOperation } from '@/hooks/useAsyncOperation';
-import type { InvoiceDoc, LineItem, ForecastCell } from '@/types/domain';
-import ApiService from '@/lib/api';
-import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
-import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
-import { logger } from '@/utils/logger';
+} from "@/components/ui/select";
+import {
+  Upload,
+  FileCheck,
+  AlertTriangle,
+  ExternalLink,
+  Plus,
+  X,
+  Download,
+  Share2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useProject } from "@/contexts/ProjectContext";
+import ModuleBadge from "@/components/ModuleBadge";
+import type { ForecastCell, InvoiceStatus } from "@/types/domain";
+import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
+import {
+  PDFExporter,
+  formatReportCurrency,
+  formatReportPercentage,
+  getChangeType,
+} from "@/lib/pdf-export";
+import { useProjectLineItems } from "@/hooks/useProjectLineItems";
+import { useProjectInvoices } from "@/hooks/useProjectInvoices";
+import {
+  uploadInvoice,
+  updateInvoiceStatus,
+  type UploadInvoicePayload,
+} from "@/api/finanzas";
+
+type UploadFormState = {
+  line_item_id: string;
+  month: number;
+  amount: string;
+  description: string;
+  file: File | null;
+  vendor: string;
+  invoice_number: string;
+  invoice_date: string;
+};
+
+const createInitialUploadForm = (): UploadFormState => ({
+  line_item_id: "",
+  month: 1,
+  amount: "",
+  description: "",
+  file: null,
+  vendor: "",
+  invoice_number: "",
+  invoice_date: "",
+});
 
 export function SDMTReconciliation() {
-  const [invoices, setInvoices] = useState<InvoiceDoc[]>([]);
-  const [lineItems, setLineItems] = useState<LineItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showUploadForm, setShowUploadForm] = useState(false);
-  const [uploadFormData, setUploadFormData] = useState({
-    line_item_id: '',
-    month: 1,
-    amount: '',
-    description: '',
-    file: null as File | null,
-    vendor: '',
-    invoice_number: '',
-    invoice_date: ''
-  });
-  
+  const [uploadFormData, setUploadFormData] = useState<UploadFormState>(
+    createInitialUploadForm
+  );
+
   const location = useLocation();
   const navigate = useNavigate();
-  const { selectedProjectId, currentProject, projectChangeCount } = useProject();
-  
-  // Use async operation hook for uploads
-  const uploadOperation = useAsyncOperation({
-    onSuccess: () => {
-      setShowUploadForm(false);
-      loadInvoices(); // Refresh data
-    }
-  });
-  
+  const { currentProject, projectChangeCount } = useProject();
+  const {
+    invoices,
+    projectId,
+    isLoading: invoicesLoading,
+    error: invoicesError,
+    invalidate: invalidateInvoices,
+  } = useProjectInvoices();
+  const { lineItems, isLoading: lineItemsLoading } = useProjectLineItems();
+
   // Parse URL params for filtering (when coming from forecast)
   const urlParams = new URLSearchParams(location.search);
-  const filterLineItem = urlParams.get('line_item');
-  const filterMonth = urlParams.get('month');
+  const filterLineItem = urlParams.get("line_item");
+  const filterMonth = urlParams.get("month");
 
-  // Load data when project changes
   useEffect(() => {
-    if (selectedProjectId) {
-      logger.debug('Reconciliation: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
-      loadInvoices();
-      loadLineItems();
-    }
-    
-    // Pre-populate form if coming from forecast
     if (filterLineItem) {
-      setUploadFormData(prev => ({
+      setUploadFormData((prev) => ({
         ...prev,
         line_item_id: filterLineItem,
-        month: filterMonth ? parseInt(filterMonth) : 1
+        month: filterMonth ? parseInt(filterMonth, 10) : 1,
       }));
       setShowUploadForm(true);
     }
-  }, [selectedProjectId, filterLineItem, filterMonth, projectChangeCount]);
+  }, [filterLineItem, filterMonth]);
 
-  const loadInvoices = async () => {
-    try {
-      setLoading(true);
-      const data = await ApiService.getInvoices(selectedProjectId);
-      setInvoices(data);
-    } catch (error) {
-      toast.error('Failed to load invoices');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const uploadMutation = useMutation({
+    mutationFn: (payload: UploadInvoicePayload & { projectId: string }) =>
+      uploadInvoice(payload.projectId, payload),
+    onSuccess: async () => {
+      toast.success("Invoice uploaded successfully");
+      setShowUploadForm(false);
+      setUploadFormData(createInitialUploadForm());
+      await invalidateInvoices();
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error ? error.message : "Failed to upload invoice";
+      toast.error(message);
+    },
+  });
 
-  const loadLineItems = async () => {
-    try {
-      const items = await ApiService.getLineItems(selectedProjectId);
-      setLineItems(items);
-    } catch (error) {
-      logger.error('Failed to load line items:', error);
-    }
-  };
+  const statusMutation = useMutation({
+    mutationFn: ({
+      invoiceId,
+      status,
+      comment,
+    }: {
+      invoiceId: string;
+      status: InvoiceStatus;
+      comment?: string;
+    }) => {
+      if (!projectId) {
+        throw new Error("Select a project before updating invoice status");
+      }
+      return updateInvoiceStatus(projectId, invoiceId, { status, comment });
+    },
+    onSuccess: async (_data, variables) => {
+      toast.success(`Invoice status updated to ${variables.status}`);
+      await invalidateInvoices();
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to update invoice status";
+      toast.error(message);
+    },
+  });
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setUploadFormData(prev => ({ ...prev, file }));
+      setUploadFormData((prev) => ({ ...prev, file }));
     }
   };
 
   const handleInvoiceSubmit = async () => {
-    if (!uploadFormData.file || !uploadFormData.line_item_id || !uploadFormData.amount) {
-      toast.error('Please fill in all required fields');
+    if (
+      !uploadFormData.file ||
+      !uploadFormData.line_item_id ||
+      !uploadFormData.amount
+    ) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (!projectId) {
+      toast.error("Select a project before uploading invoices");
+      return;
+    }
+
+    const amountValue = parseFloat(uploadFormData.amount);
+    if (Number.isNaN(amountValue)) {
+      toast.error("Enter a valid invoice amount");
       return;
     }
 
     try {
-      const invoice = await ApiService.uploadInvoice(
-        'current-project',
-        uploadFormData.file,
-        uploadFormData.line_item_id,
-        uploadFormData.month
-      );
-      
-      setInvoices(prev => [...prev, {
-        ...invoice,
-        amount: parseFloat(uploadFormData.amount),
-        file_name: uploadFormData.file?.name || ''
-      }]);
-      
-      toast.success('Invoice uploaded successfully');
-      setShowUploadForm(false);
-      setUploadFormData({
-        line_item_id: '',
-        month: 1,
-        amount: '',
-        description: '',
-        file: null,
-        vendor: '',
-        invoice_number: '',
-        invoice_date: ''
+      await uploadMutation.mutateAsync({
+        projectId,
+        file: uploadFormData.file,
+        line_item_id: uploadFormData.line_item_id,
+        month: uploadFormData.month,
+        amount: amountValue,
+        description: uploadFormData.description.trim() || undefined,
+        vendor: uploadFormData.vendor.trim() || undefined,
+        invoice_number: uploadFormData.invoice_number.trim() || undefined,
+        invoice_date: uploadFormData.invoice_date || undefined,
       });
     } catch (error) {
-      toast.error('Failed to upload invoice');
-      console.error(error);
+      const message =
+        error instanceof Error ? error.message : "Failed to upload invoice";
+      toast.error(message);
     }
   };
 
-  const handleStatusUpdate = async (invoiceId: string, status: 'Pending' | 'Matched' | 'Disputed', comment?: string) => {
+  const handleStatusUpdate = async (
+    invoiceId: string,
+    status: InvoiceStatus,
+    comment?: string
+  ) => {
     try {
-      const updatedInvoice = await ApiService.updateInvoiceStatus(invoiceId, status, comment);
-      setInvoices(prev => prev.map(inv => inv.id === invoiceId ? updatedInvoice : inv));
-      toast.success(`Invoice status updated to ${status}`);
-    } catch (error) {
-      toast.error('Failed to update invoice status');
-      console.error(error);
+      await statusMutation.mutateAsync({ invoiceId, status, comment });
+    } catch {
+      // Error surface handled in mutation onError
     }
   };
 
   const navigateToForecast = (line_item_id: string, month?: number) => {
     const params = new URLSearchParams();
-    if (month) params.set('month', month.toString());
-    params.set('line_item', line_item_id);
+    if (month) params.set("month", month.toString());
+    params.set("line_item", line_item_id);
     navigate(`/sdmt/cost/forecast?${params.toString()}`);
   };
 
   // Filter invoices based on URL params
-  const filteredInvoices = invoices.filter(invoice => {
+  const filteredInvoices = invoices.filter((invoice) => {
     if (filterLineItem && invoice.line_item_id !== filterLineItem) return false;
     if (filterMonth && invoice.month !== parseInt(filterMonth)) return false;
     return true;
   });
 
-  const matchedCount = filteredInvoices.filter(inv => inv.status === 'Matched').length;
-  const pendingCount = filteredInvoices.filter(inv => inv.status === 'Pending').length;
-  const disputedCount = filteredInvoices.filter(inv => inv.status === 'Disputed').length;
+  const matchedCount = filteredInvoices.filter(
+    (inv) => inv.status === "Matched"
+  ).length;
+  const pendingCount = filteredInvoices.filter(
+    (inv) => inv.status === "Pending"
+  ).length;
+  const disputedCount = filteredInvoices.filter(
+    (inv) => inv.status === "Disputed"
+  ).length;
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
     }).format(amount);
   };
 
   const getLineItemName = (lineItemId: string) => {
-    const item = lineItems.find(li => li.id === lineItemId);
+    const item = lineItems.find((li) => li.id === lineItemId);
     return item ? `${item.description} (${item.category})` : lineItemId;
   };
 
   // Export functions
   const handleExportVarianceReport = async () => {
     try {
-      toast.loading('Generating variance report...');
-      
-      // Convert invoice data to forecast format for variance analysis
-      const mockForecastData: ForecastCell[] = filteredInvoices.map(invoice => {
-        const lineItem = lineItems.find(li => li.id === invoice.line_item_id);
-        // Mock planned amount based on line item
-        const plannedAmount = lineItem ? (lineItem.qty * lineItem.unit_cost) : invoice.amount;
-        
-        return {
-          line_item_id: invoice.line_item_id,
-          month: invoice.month,
-          planned: plannedAmount,
-          forecast: plannedAmount,
-          actual: invoice.amount,
-          variance: invoice.amount - plannedAmount,
-          variance_reason: invoice.status === 'Disputed' ? 'scope' : undefined,
-          notes: invoice.comments?.[0],
-          last_updated: invoice.uploaded_at,
-          updated_by: invoice.uploaded_by
-        } as ForecastCell;
-      });
+      toast.loading("Generating variance report...");
 
-      const buffer = await excelExporter.exportVarianceReport(mockForecastData, lineItems);
-      const filename = `invoice-variance-report-${new Date().toISOString().split('T')[0]}.xlsx`;
-      
+      // Convert invoice data to forecast format for variance analysis
+      const mockForecastData: ForecastCell[] = filteredInvoices.map(
+        (invoice) => {
+          const lineItem = lineItems.find(
+            (li) => li.id === invoice.line_item_id
+          );
+          // Mock planned amount based on line item
+          const plannedAmount = lineItem
+            ? lineItem.qty * lineItem.unit_cost
+            : invoice.amount;
+
+          return {
+            line_item_id: invoice.line_item_id,
+            month: invoice.month,
+            planned: plannedAmount,
+            forecast: plannedAmount,
+            actual: invoice.amount,
+            variance: invoice.amount - plannedAmount,
+            variance_reason:
+              invoice.status === "Disputed" ? "scope" : undefined,
+            notes: invoice.comments?.[0],
+            last_updated: invoice.uploaded_at,
+            updated_by: invoice.uploaded_by,
+          } as ForecastCell;
+        }
+      );
+
+      const buffer = await excelExporter.exportVarianceReport(
+        mockForecastData,
+        lineItems
+      );
+      const filename = `invoice-variance-report-${
+        new Date().toISOString().split("T")[0]
+      }.xlsx`;
+
       downloadExcelFile(buffer, filename);
-      
+
       toast.dismiss();
-      toast.success('Variance report exported successfully');
+      toast.success("Variance report exported successfully");
     } catch (error) {
       toast.dismiss();
-      toast.error('Failed to export variance report');
-      console.error('Export error:', error);
+      toast.error("Failed to export variance report");
+      console.error("Export error:", error);
     }
   };
 
   const handleShareReconciliationSummary = async () => {
     try {
-      toast.loading('Generating professional reconciliation report...');
-      
-      const totalAmount = filteredInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-      const matchRate = filteredInvoices.length ? ((matchedCount / filteredInvoices.length) * 100) : 0;
-      const averageInvoiceAmount = filteredInvoices.length ? totalAmount / filteredInvoices.length : 0;
-      
+      toast.loading("Generating professional reconciliation report...");
+
+      const totalAmount = filteredInvoices.reduce(
+        (sum, inv) => sum + inv.amount,
+        0
+      );
+      const matchRate = filteredInvoices.length
+        ? (matchedCount / filteredInvoices.length) * 100
+        : 0;
+      const averageInvoiceAmount = filteredInvoices.length
+        ? totalAmount / filteredInvoices.length
+        : 0;
+
       const reportData = {
-        title: 'Invoice Reconciliation Report',
-        subtitle: 'Financial Control & Compliance Summary',
+        title: "Invoice Reconciliation Report",
+        subtitle: "Financial Control & Compliance Summary",
         generated: new Date().toLocaleDateString(),
         metrics: [
           {
-            label: 'Total Invoices Processed',
+            label: "Total Invoices Processed",
             value: filteredInvoices.length.toString(),
-            color: '#64748b'
+            color: "#64748b",
           },
           {
-            label: 'Successfully Matched',
+            label: "Successfully Matched",
             value: matchedCount.toString(),
             change: `${matchRate.toFixed(1)}% match rate`,
-            changeType: (matchRate >= 80 ? 'positive' : matchRate >= 60 ? 'neutral' : 'negative') as 'positive' | 'negative' | 'neutral',
-            color: '#22c55e'
+            changeType: (matchRate >= 80
+              ? "positive"
+              : matchRate >= 60
+              ? "neutral"
+              : "negative") as "positive" | "negative" | "neutral",
+            color: "#22c55e",
           },
           {
-            label: 'Pending Review',
+            label: "Pending Review",
             value: pendingCount.toString(),
-            change: pendingCount > 0 ? 'Requires attention' : 'All current',
-            changeType: (pendingCount > 0 ? 'neutral' : 'positive') as 'positive' | 'negative' | 'neutral',
-            color: '#f59e0b'
+            change: pendingCount > 0 ? "Requires attention" : "All current",
+            changeType: (pendingCount > 0 ? "neutral" : "positive") as
+              | "positive"
+              | "negative"
+              | "neutral",
+            color: "#f59e0b",
           },
           {
-            label: 'Disputed Items',
+            label: "Disputed Items",
             value: disputedCount.toString(),
-            change: disputedCount > 0 ? 'Need resolution' : 'None',
-            changeType: (disputedCount > 0 ? 'negative' : 'positive') as 'positive' | 'negative' | 'neutral',
-            color: disputedCount > 0 ? '#ef4444' : '#22c55e'
-          }
+            change: disputedCount > 0 ? "Need resolution" : "None",
+            changeType: (disputedCount > 0 ? "negative" : "positive") as
+              | "positive"
+              | "negative"
+              | "neutral",
+            color: disputedCount > 0 ? "#ef4444" : "#22c55e",
+          },
         ],
         summary: [
-          `Processed ${filteredInvoices.length} invoices worth ${formatReportCurrency(totalAmount)}`,
-          `Invoice match rate: ${matchRate.toFixed(1)}% (${matchedCount}/${filteredInvoices.length})`,
-          `Average invoice amount: ${formatReportCurrency(averageInvoiceAmount)}`,
-          `${disputedCount} disputes require immediate attention`
+          `Processed ${
+            filteredInvoices.length
+          } invoices worth ${formatReportCurrency(totalAmount)}`,
+          `Invoice match rate: ${matchRate.toFixed(1)}% (${matchedCount}/${
+            filteredInvoices.length
+          })`,
+          `Average invoice amount: ${formatReportCurrency(
+            averageInvoiceAmount
+          )}`,
+          `${disputedCount} disputes require immediate attention`,
         ],
         recommendations: [
-          matchRate < 80 ? 'Improve invoice matching process - current rate below target' : 'Maintain excellent matching performance',
-          pendingCount > 0 ? `Process ${pendingCount} pending invoices to improve cycle time` : 'No pending items - excellent processing speed',
-          disputedCount > 0 ? `Resolve ${disputedCount} disputed invoices to reduce financial risk` : 'No disputes - strong vendor relationship management',
-          'Implement automated matching rules to improve efficiency'
-        ]
+          matchRate < 80
+            ? "Improve invoice matching process - current rate below target"
+            : "Maintain excellent matching performance",
+          pendingCount > 0
+            ? `Process ${pendingCount} pending invoices to improve cycle time`
+            : "No pending items - excellent processing speed",
+          disputedCount > 0
+            ? `Resolve ${disputedCount} disputed invoices to reduce financial risk`
+            : "No disputes - strong vendor relationship management",
+          "Implement automated matching rules to improve efficiency",
+        ],
       };
 
       await PDFExporter.exportToPDF(reportData);
       toast.dismiss();
-      toast.success('Professional reconciliation report generated!');
+      toast.success("Professional reconciliation report generated!");
     } catch (error) {
       toast.dismiss();
-      toast.error('Failed to generate professional report');
-      console.error('Share error:', error);
+      toast.error("Failed to generate professional report");
+      console.error("Share error:", error);
     }
   };
   return (
@@ -321,13 +414,13 @@ export function SDMTReconciliation() {
           {(filterLineItem || filterMonth) && (
             <div className="flex items-center gap-2 mt-2">
               <Badge variant="outline">
-                Filtered: {filterLineItem && getLineItemName(filterLineItem)} 
+                Filtered: {filterLineItem && getLineItemName(filterLineItem)}
                 {filterMonth && ` - Month ${filterMonth}`}
               </Badge>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
-                onClick={() => navigate('/sdmt/cost/reconciliation')}
+                onClick={() => navigate("/sdmt/cost/reconciliation")}
               >
                 <X size={14} className="mr-1" /> Clear Filter
               </Button>
@@ -335,8 +428,8 @@ export function SDMTReconciliation() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={handleShareReconciliationSummary}
             className="gap-2"
@@ -344,8 +437,8 @@ export function SDMTReconciliation() {
             <Share2 size={16} />
             Share
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={handleExportVarianceReport}
             className="gap-2"
@@ -366,21 +459,27 @@ export function SDMTReconciliation() {
         <Card>
           <CardContent className="p-4 text-center">
             <FileCheck className="mx-auto mb-2 text-green-600" size={32} />
-            <div className="text-2xl font-bold text-green-600">{matchedCount}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {matchedCount}
+            </div>
             <p className="text-sm text-muted-foreground">Matched Invoices</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Upload className="mx-auto mb-2 text-blue-600" size={32} />
-            <div className="text-2xl font-bold text-blue-600">{pendingCount}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {pendingCount}
+            </div>
             <p className="text-sm text-muted-foreground">Pending Review</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <AlertTriangle className="mx-auto mb-2 text-red-600" size={32} />
-            <div className="text-2xl font-bold text-red-600">{disputedCount}</div>
+            <div className="text-2xl font-bold text-red-600">
+              {disputedCount}
+            </div>
             <p className="text-sm text-muted-foreground">Disputed Items</p>
           </CardContent>
         </Card>
@@ -392,34 +491,50 @@ export function SDMTReconciliation() {
           <DialogHeader>
             <DialogTitle>Upload Invoice</DialogTitle>
             <DialogDescription>
-              Upload invoice documents and link them to specific cost line items and time periods.
+              Upload invoice documents and link them to specific cost line items
+              and time periods.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="line_item">Line Item *</Label>
-                <Select 
-                  value={uploadFormData.line_item_id} 
-                  onValueChange={(value) => setUploadFormData(prev => ({ ...prev, line_item_id: value }))}
+                <Select
+                  value={uploadFormData.line_item_id}
+                  onValueChange={(value) =>
+                    setUploadFormData((prev) => ({
+                      ...prev,
+                      line_item_id: value,
+                    }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select line item" />
                   </SelectTrigger>
                   <SelectContent>
-                    {lineItems.map(item => (
+                    {lineItems.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
                         {item.description} ({item.category})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {lineItemsLoading && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Loading line items...
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="month">Month *</Label>
-                <Select 
-                  value={uploadFormData.month.toString()} 
-                  onValueChange={(value) => setUploadFormData(prev => ({ ...prev, month: parseInt(value) }))}
+                <Select
+                  value={uploadFormData.month.toString()}
+                  onValueChange={(value) =>
+                    setUploadFormData((prev) => ({
+                      ...prev,
+                      month: parseInt(value),
+                    }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -434,7 +549,7 @@ export function SDMTReconciliation() {
                 </Select>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="amount">Invoice Amount *</Label>
@@ -443,7 +558,12 @@ export function SDMTReconciliation() {
                   type="number"
                   placeholder="0.00"
                   value={uploadFormData.amount}
-                  onChange={(e) => setUploadFormData(prev => ({ ...prev, amount: e.target.value }))}
+                  onChange={(e) =>
+                    setUploadFormData((prev) => ({
+                      ...prev,
+                      amount: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div>
@@ -452,7 +572,12 @@ export function SDMTReconciliation() {
                   id="vendor"
                   placeholder="Vendor name"
                   value={uploadFormData.vendor}
-                  onChange={(e) => setUploadFormData(prev => ({ ...prev, vendor: e.target.value }))}
+                  onChange={(e) =>
+                    setUploadFormData((prev) => ({
+                      ...prev,
+                      vendor: e.target.value,
+                    }))
+                  }
                 />
               </div>
             </div>
@@ -464,7 +589,12 @@ export function SDMTReconciliation() {
                   id="invoice_number"
                   placeholder="INV-001"
                   value={uploadFormData.invoice_number}
-                  onChange={(e) => setUploadFormData(prev => ({ ...prev, invoice_number: e.target.value }))}
+                  onChange={(e) =>
+                    setUploadFormData((prev) => ({
+                      ...prev,
+                      invoice_number: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div>
@@ -473,7 +603,12 @@ export function SDMTReconciliation() {
                   id="invoice_date"
                   type="date"
                   value={uploadFormData.invoice_date}
-                  onChange={(e) => setUploadFormData(prev => ({ ...prev, invoice_date: e.target.value }))}
+                  onChange={(e) =>
+                    setUploadFormData((prev) => ({
+                      ...prev,
+                      invoice_date: e.target.value,
+                    }))
+                  }
                 />
               </div>
             </div>
@@ -484,7 +619,12 @@ export function SDMTReconciliation() {
                 id="description"
                 placeholder="Additional notes or description"
                 value={uploadFormData.description}
-                onChange={(e) => setUploadFormData(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) =>
+                  setUploadFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
               />
             </div>
 
@@ -513,8 +653,11 @@ export function SDMTReconciliation() {
             <Button variant="outline" onClick={() => setShowUploadForm(false)}>
               Cancel
             </Button>
-            <Button onClick={handleInvoiceSubmit}>
-              Upload Invoice
+            <Button
+              onClick={handleInvoiceSubmit}
+              disabled={uploadMutation.isPending}
+            >
+              {uploadMutation.isPending ? "Uploading..." : "Upload Invoice"}
             </Button>
           </div>
         </DialogContent>
@@ -526,14 +669,23 @@ export function SDMTReconciliation() {
           <CardTitle>Invoices & Documentation</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {invoicesError ? (
+            <div className="text-center py-12 text-destructive">
+              Failed to load invoices.{" "}
+              {invoicesError instanceof Error
+                ? invoicesError.message
+                : "Unknown error"}
+            </div>
+          ) : invoicesLoading ? (
             <div className="flex items-center justify-center h-32">
               <div className="text-muted-foreground">Loading invoices...</div>
             </div>
           ) : filteredInvoices.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">
-                {filterLineItem || filterMonth ? 'No invoices found matching filter' : 'No invoices uploaded yet'}
+                {filterLineItem || filterMonth
+                  ? "No invoices found matching filter"
+                  : "No invoices uploaded yet"}
               </p>
               <p className="text-sm text-muted-foreground">
                 Upload invoices to track and match against forecast amounts
@@ -554,18 +706,25 @@ export function SDMTReconciliation() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredInvoices.map(invoice => (
+                  {filteredInvoices.map((invoice) => (
                     <TableRow key={invoice.id}>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div>
-                            <div className="font-medium">{getLineItemName(invoice.line_item_id)}</div>
+                            <div className="font-medium">
+                              {getLineItemName(invoice.line_item_id)}
+                            </div>
                           </div>
                           <Button
                             size="sm"
                             variant="ghost"
                             className="h-4 w-4 p-0"
-                            onClick={() => navigateToForecast(invoice.line_item_id, invoice.month)}
+                            onClick={() =>
+                              navigateToForecast(
+                                invoice.line_item_id,
+                                invoice.month
+                              )
+                            }
                             title="View in forecast"
                           >
                             <ExternalLink size={12} />
@@ -575,49 +734,72 @@ export function SDMTReconciliation() {
                       <TableCell>Month {invoice.month}</TableCell>
                       <TableCell>{formatCurrency(invoice.amount)}</TableCell>
                       <TableCell>
-                        <Badge 
+                        <Badge
                           variant={
-                            invoice.status === 'Matched' ? 'default' :
-                            invoice.status === 'Disputed' ? 'destructive' : 'secondary'
+                            invoice.status === "Matched"
+                              ? "default"
+                              : invoice.status === "Disputed"
+                              ? "destructive"
+                              : "secondary"
                           }
                         >
                           {invoice.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-[200px] truncate" title={invoice.file_name}>
+                      <TableCell
+                        className="max-w-[200px] truncate"
+                        title={invoice.file_name}
+                      >
                         {invoice.file_name}
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div>{new Date(invoice.uploaded_at).toLocaleDateString()}</div>
-                          <div className="text-muted-foreground">{invoice.uploaded_by}</div>
+                          <div>
+                            {new Date(invoice.uploaded_at).toLocaleDateString()}
+                          </div>
+                          <div className="text-muted-foreground">
+                            {invoice.uploaded_by}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {invoice.status === 'Pending' && (
+                          {invoice.status === "Pending" && (
                             <>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleStatusUpdate(invoice.id, 'Matched')}
+                                onClick={() =>
+                                  handleStatusUpdate(invoice.id, "Matched")
+                                }
+                                disabled={statusMutation.isPending}
                               >
                                 Match
                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleStatusUpdate(invoice.id, 'Disputed', 'Requires review')}
+                                onClick={() =>
+                                  handleStatusUpdate(
+                                    invoice.id,
+                                    "Disputed",
+                                    "Requires review"
+                                  )
+                                }
+                                disabled={statusMutation.isPending}
                               >
                                 Dispute
                               </Button>
                             </>
                           )}
-                          {invoice.status === 'Disputed' && (
+                          {invoice.status === "Disputed" && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleStatusUpdate(invoice.id, 'Matched')}
+                              onClick={() =>
+                                handleStatusUpdate(invoice.id, "Matched")
+                              }
+                              disabled={statusMutation.isPending}
                             >
                               Resolve
                             </Button>
