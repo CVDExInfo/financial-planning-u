@@ -80,11 +80,6 @@ export function SDMTCatalog() {
   const [editingItem, setEditingItem] = useState<LineItem | null>(null);
   const [isCreatingLineItem, setIsCreatingLineItem] = useState(false);
   const allowMockData = import.meta.env.VITE_USE_MOCKS === "true";
-  const lineItemsErrorMessage = lineItemsError
-    ? lineItemsError instanceof Error
-      ? lineItemsError.message
-      : String(lineItemsError)
-    : "";
 
   // Form state for Add/Edit Line Item dialog
   const [formData, setFormData] = useState({
@@ -114,6 +109,13 @@ export function SDMTCatalog() {
     error: lineItemsError,
     invalidate: invalidateLineItems,
   } = useProjectLineItems();
+
+  // Compute error message after lineItemsError is available
+  const lineItemsErrorMessage = lineItemsError
+    ? lineItemsError instanceof Error
+      ? lineItemsError.message
+      : String(lineItemsError)
+    : "";
 
   const loading = isLineItemsLoading && queryLineItems.length === 0;
   const refreshing = isLineItemsFetching && !isLineItemsLoading;
