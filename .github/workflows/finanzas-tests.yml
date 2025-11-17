@@ -37,11 +37,11 @@ jobs:
       # Derive UI base from CF_DOMAIN
       FINZ_UI_BASE: https://${{ vars.CF_DOMAIN }}/finanzas
     
-      # Cognito tester credentials (for Newman / UI instructions; shell tests will not use them)
+      # Cognito tester credentials
       COGNITO_TESTER_USERNAME: ${{ vars.COGNITO_TESTER_USERNAME }}
       COGNITO_TESTER_PASSWORD: ${{ vars.COGNITO_TESTER_PASSWORD }}
     
-      # Cognito config if needed elsewhere
+      # Cognito config
       COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
       COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
     
@@ -61,8 +61,15 @@ jobs:
           echo "FINZ_UI_BASE=$FINZ_UI_BASE" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Cognito login smoke test
+        run: |
+          echo "## Cognito Login Test" >> "$GITHUB_STEP_SUMMARY"
+          chmod +x tests/finanzas/shared/run-login-test.sh
+          bash tests/finanzas/shared/run-login-test.sh | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Projects – /projects list
         run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Projects – run-projects-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/projects/run-projects-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
 
