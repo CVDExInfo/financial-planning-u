@@ -123,57 +123,100 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[500px] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search projects... (type to filter)" />
-                  <CommandList className="max-h-[500px]">
-                    <CommandEmpty>No projects found.</CommandEmpty>
-                    <CommandGroup>
-                      {projects.map((project) => (
-                        <CommandItem
-                          key={project.id}
-                          value={`${project.name} ${project.id} ${
-                            project.description || ""
-                          }`}
-                          onSelect={() => {
-                            console.log(
-                              "📂 Project selected:",
-                              project.name,
-                              project.id
-                            );
-                            setSelectedProjectId(project.id);
-                            setOpen(false);
-                          }}
-                          className="cursor-pointer py-3 px-4 hover:bg-accent aria-selected:bg-accent"
-                        >
-                          <Check
+              <PopoverContent className="w-[550px] p-0" align="start">
+                <Command shouldFilter={true}>
+                  <CommandInput
+                    placeholder="Search projects by name, ID, or description..."
+                    className="border-b"
+                  />
+                  <CommandList className="max-h-[450px]">
+                    <CommandEmpty className="py-8 text-center text-muted-foreground">
+                      <div className="text-sm">No projects found</div>
+                    </CommandEmpty>
+                    <CommandGroup className="overflow-visible">
+                      {projects.map((project) => {
+                        const isSelected = selectedProjectId === project.id;
+                        return (
+                          <CommandItem
+                            key={project.id}
+                            value={`${project.name} ${project.id} ${
+                              project.description || ""
+                            }`}
+                            onSelect={() => {
+                              console.log(
+                                "📂 Project selected:",
+                                project.name,
+                                project.id
+                              );
+                              setSelectedProjectId(project.id);
+                              setOpen(false);
+                            }}
                             className={cn(
-                              "mr-3 h-4 w-4 shrink-0",
-                              selectedProjectId === project.id
-                                ? "opacity-100"
-                                : "opacity-0"
+                              "cursor-pointer px-3 py-3.5 mx-1 my-0.5 rounded-md transition-colors flex items-start gap-3",
+                              isSelected
+                                ? "bg-primary/10 border border-primary/30"
+                                : "hover:bg-muted/60 border border-transparent"
                             )}
-                          />
-                          <div className="flex flex-col flex-1 min-w-0 gap-1">
-                            <div className="flex items-baseline justify-between gap-3">
-                              <span className="font-semibold text-base truncate">
-                                {project.name}
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className="text-[11px] px-2 py-0.5 shrink-0"
-                              >
-                                {project.id}
-                              </Badge>
+                          >
+                            <div className="mt-0.5 shrink-0">
+                              <Check
+                                className={cn(
+                                  "h-5 w-5 rounded border border-input transition-colors",
+                                  isSelected
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "text-muted-foreground"
+                                )}
+                              />
                             </div>
-                            {project.description && (
-                              <span className="text-sm text-muted-foreground line-clamp-2">
-                                {project.description}
-                              </span>
-                            )}
-                          </div>
-                        </CommandItem>
-                      ))}
+                            <div className="flex flex-col flex-1 min-w-0 gap-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-semibold text-sm leading-tight">
+                                  {project.name}
+                                </span>
+                                <Badge
+                                  variant={isSelected ? "default" : "secondary"}
+                                  className="text-xs px-2 py-0.5 shrink-0 whitespace-nowrap"
+                                >
+                                  {project.id}
+                                </Badge>
+                              </div>
+                              {project.description && (
+                                <span className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                  {project.description}
+                                </span>
+                              )}
+                              <div className="flex items-center gap-2 pt-1">
+                                {project.baseline_id && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs py-0 px-1.5"
+                                  >
+                                    <span className="text-[10px]">
+                                      Baseline:{" "}
+                                      {project.baseline_id.substring(0, 8)}
+                                    </span>
+                                  </Badge>
+                                )}
+                                {project.status && (
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "text-xs py-0 px-1.5",
+                                      project.status === "active"
+                                        ? "border-green-200 bg-green-50 text-green-700"
+                                        : "border-amber-200 bg-amber-50 text-amber-700"
+                                    )}
+                                  >
+                                    <span className="text-[10px] font-medium">
+                                      {project.status}
+                                    </span>
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </CommandItem>
+                        );
+                      })}
                     </CommandGroup>
                   </CommandList>
                 </Command>
