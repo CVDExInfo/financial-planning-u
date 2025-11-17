@@ -11,7 +11,7 @@
 - [x] API: Implement/align forecast + prefacturas handlers ✅
 - [x] API: Seeds for `P-c1d76e28`, `P-5ae50ace`, `P-75596c6c`, `P-546370be` ✅
 - [x] Infra: API deploy preflight (stack status) ✅
-- [ ] QA: Update Postman – projects flexible shape; add forecast & prefacturas tests
+- [x] QA: Update Postman – projects flexible shape; add forecast & prefacturas tests ✅
 
 ## P1 (should fix)
 

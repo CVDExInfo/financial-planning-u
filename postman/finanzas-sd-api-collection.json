@@ -371,6 +371,143 @@
       ]
     },
     {
+      "name": "Forecast",
+      "item": [
+        {
+          "name": "GET /plan/forecast",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Forecast response structure', function () {",
+                  "        const json = pm.response.json();",
+                  "        ",
+                  "        // Response should have data array",
+                  "        pm.expect(json).to.have.property('data');",
+                  "        pm.expect(json.data).to.be.an('array');",
+                  "        ",
+                  "        // Should have metadata",
+                  "        pm.expect(json).to.have.property('projectId');",
+                  "        pm.expect(json).to.have.property('months');",
+                  "        ",
+                  "        // Array length can be 0 (no data yet) or more",
+                  "        pm.expect(json.data.length).to.be.at.least(0);",
+                  "    });",
+                  "    ",
+                  "    pm.test('No fallback markers in forecast response', function () {",
+                  "        const body = pm.response.text();",
+                  "        pm.expect(body).to.not.include('DEFAULT (healthcare)');",
+                  "        pm.expect(body).to.not.include('DEFAULT_FALLBACK');",
+                  "        pm.expect(body).to.not.include('MOCK_DATA');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/plan/forecast?projectId={{projectId_seed}}&months=6",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plan",
+                "forecast"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId_seed}}"
+                },
+                {
+                  "key": "months",
+                  "value": "6"
+                }
+              ]
+            },
+            "description": "Get forecast data for a project over a specified number of months"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Prefacturas",
+      "item": [
+        {
+          "name": "GET /prefacturas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Prefacturas response structure', function () {",
+                  "        const json = pm.response.json();",
+                  "        ",
+                  "        // Response should have data array",
+                  "        pm.expect(json).to.have.property('data');",
+                  "        pm.expect(json.data).to.be.an('array');",
+                  "        ",
+                  "        // Should have metadata",
+                  "        pm.expect(json).to.have.property('projectId');",
+                  "        pm.expect(json).to.have.property('total');",
+                  "        ",
+                  "        // Array length can be 0 (no data yet) or more",
+                  "        pm.expect(json.data.length).to.be.at.least(0);",
+                  "    });",
+                  "    ",
+                  "    pm.test('No fallback markers in prefacturas response', function () {",
+                  "        const body = pm.response.text();",
+                  "        pm.expect(body).to.not.include('DEFAULT (healthcare)');",
+                  "        pm.expect(body).to.not.include('DEFAULT_FALLBACK');",
+                  "        pm.expect(body).to.not.include('MOCK_DATA');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/prefacturas?projectId={{projectId_seed}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prefacturas"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId_seed}}"
+                }
+              ]
+            },
+            "description": "Get pre-invoices (prefacturas) for a project"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Handoff",
       "item": [
         {

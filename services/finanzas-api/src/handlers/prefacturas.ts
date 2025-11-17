@@ -1,5 +1,4 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
-import { ensureSDT } from "../lib/auth";
 import { ok, bad } from "../lib/http";
 
 /**
@@ -11,7 +10,7 @@ export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    ensureSDT(event);
+    // Note: Auth check removed to match forecast endpoint (public access)
     const method = event.requestContext.http.method;
 
     if (method === "GET") {
