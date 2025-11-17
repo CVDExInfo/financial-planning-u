@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,6 +26,7 @@ import {
   Server,
   PenTool,
   FileSpreadsheet,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ChartInsightsPanel } from "@/components/ChartInsightsPanel";
@@ -38,6 +40,7 @@ import type {
 import ApiService from "@/lib/api";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
+import { uploadSupportingDocument } from "@/api/finanzas";
 
 // Helper function to extract email from JWT token
 function extractEmailFromJWT(token: string): string {
@@ -53,21 +56,30 @@ function extractEmailFromJWT(token: string): string {
   }
 }
 
+type ReviewSignFormData = {
+  dealInputs: DealInputs | null;
+  laborEstimates: LaborEstimate[];
+  nonLaborEstimates: NonLaborEstimate[];
+  fxIndexationData: Record<string, unknown> | null;
+};
+
 interface ReviewSignStepProps {
-  data: {
-    dealInputs: DealInputs | null;
-    laborEstimates: LaborEstimate[];
-    nonLaborEstimates: NonLaborEstimate[];
-    fxIndexationData: any;
-  };
-  setData: (data: any) => void;
+  data: ReviewSignFormData;
+  setData: (data: ReviewSignFormData) => void;
   onNext: () => void;
   onPrevious: () => void;
   isFirstStep: boolean;
   isLastStep: boolean;
 }
 
-export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
+type SupportingDocumentMeta = {
+  documentKey: string;
+  originalName: string;
+  contentType: string;
+  uploadedAt: string;
+};
+
+export function ReviewSignStep({ data }: ReviewSignStepProps) {
   const navigate = useNavigate();
   const { refreshProject, setSelectedProjectId } = useProject();
   const [isReviewed, setIsReviewed] = useState(false);
@@ -76,9 +88,24 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
   const [baselineId, setBaselineId] = useState<string>("");
   const [isHandingOff, setIsHandingOff] = useState(false);
   const [showHandoffConfirm, setShowHandoffConfirm] = useState(false);
+  const [supportingDocs, setSupportingDocs] = useState<
+    SupportingDocumentMeta[]
+  >([]);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const fallbackProjectIdRef = useRef(`PRJ-${Date.now().toString(36)}`);
 
   const { dealInputs, laborEstimates, nonLaborEstimates, fxIndexationData } =
     data;
+
+  const derivedProjectId = useMemo(() => {
+    if (dealInputs?.project_name) {
+      return `PRJ-${dealInputs.project_name
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "-")
+        .substring(0, 20)}`;
+    }
+    return fallbackProjectIdRef.current;
+  }, [dealInputs?.project_name]);
 
   // Calculate totals
   const laborTotal = laborEstimates.reduce((sum, item) => {
@@ -216,12 +243,7 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
 
     try {
       // Get project ID from deal inputs or generate one
-      const projectId = dealInputs?.project_name
-        ? `PRJ-${dealInputs.project_name
-            .toUpperCase()
-            .replace(/\s+/g, "-")
-            .substring(0, 20)}`
-        : `PRJ-${Date.now()}`;
+      const projectId = derivedProjectId;
 
       // Calculate labor percentage
       const laborTotal = laborEstimates.reduce((sum, item) => {
@@ -474,6 +496,50 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
     }
   };
 
+  const handleSupportingDocsSelected = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    if (!files.length) {
+      return;
+    }
+
+    try {
+      setIsUploadingDoc(true);
+      for (const file of files) {
+        const documentKey = await uploadSupportingDocument({
+          projectId: derivedProjectId,
+          module: "prefactura",
+          file,
+        });
+
+        const nextDoc: SupportingDocumentMeta = {
+          documentKey,
+          originalName: file.name,
+          contentType: file.type || "application/octet-stream",
+          uploadedAt: new Date().toISOString(),
+        };
+
+        setSupportingDocs((prev) => [nextDoc, ...prev]);
+      }
+
+      toast.success(
+        files.length > 1
+          ? `${files.length} supporting documents uploaded`
+          : "Supporting document uploaded"
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to upload supporting document";
+      toast.error(message);
+    } finally {
+      setIsUploadingDoc(false);
+      event.target.value = "";
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="text-center">
@@ -487,7 +553,7 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
       </div>
 
       {/* Executive Summary */}
-      <Card className="bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
+      <Card className="bg-linear-to-r from-primary/5 to-accent/5 border-primary/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText size={24} />
@@ -712,6 +778,61 @@ export function ReviewSignStep({ data, onNext }: ReviewSignStepProps) {
           },
         ]}
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Upload size={18} /> Supporting Documents
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-4">
+            <Input
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg"
+              onChange={handleSupportingDocsSelected}
+              disabled={isUploadingDoc}
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Files upload via the shared `/uploads/docs` endpoint using the
+              Prefactura module tag so SDMT can reference them later.
+            </p>
+          </div>
+          {isUploadingDoc && (
+            <p className="text-sm text-primary">Uploading documents...</p>
+          )}
+          {supportingDocs.length ? (
+            <div className="space-y-2">
+              {supportingDocs.map((doc) => (
+                <div
+                  key={doc.documentKey}
+                  className="flex items-center justify-between gap-4 rounded border border-border p-3 text-sm"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">
+                      {doc.originalName}
+                    </div>
+                    <div
+                      className="text-xs text-muted-foreground font-mono truncate"
+                      title={doc.documentKey}
+                    >
+                      {doc.documentKey}
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {new Date(doc.uploadedAt).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No supporting documents uploaded yet.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Review & Sign Section */}
       {!signatureComplete ? (
