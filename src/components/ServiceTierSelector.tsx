@@ -24,7 +24,7 @@ import {
   type PricingRecommendation,
 } from "@/lib/pricing-calculator";
 import { useProject } from "@/contexts/ProjectContext";
-import { createProjectRubro } from "@/api/finanzas";
+import { addProjectRubro } from "@/api/finanzas";
 import { toast } from "sonner";
 
 // Import the service catalog
@@ -277,7 +277,7 @@ const ServiceTierRecommendation: React.FC<ServiceTierRecommendationProps> = ({
             <ul className="text-xs space-y-1">
               {recommendation.reasoning.map((reason, idx) => (
                 <li key={idx} className="flex items-start space-x-1">
-                  <CheckCircle className="w-3 h-3 text-green-500 mt-0.5 flex-shrink-0" />
+                  <CheckCircle className="w-3 h-3 text-green-500 mt-0.5 shrink-0" />
                   <span>{reason}</span>
                 </li>
               ))}
@@ -385,7 +385,7 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
       const unitCost = tierData.pricing_tiers[0]?.unit_price || 0;
 
       // POST to API to create line item
-      await createProjectRubro(selectedProjectId, {
+      await addProjectRubro(selectedProjectId, {
         rubroId: tierId,
         qty: 1,
         unitCost,

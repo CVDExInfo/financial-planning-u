@@ -1,53 +1,59 @@
-/**
- * Finanzas API endpoints - PRODUCTION ONLY
- * Direct calls to Lambda handlers with no mock fallbacks
- */
+import type { ForecastCell, InvoiceDoc, LineItem } from "@/types/domain";
+import { safeFetch } from "./client";
 
-import { httpGet, httpPost } from "./client";
+type ApiArray<T> = T | { data: T; total?: number };
 
-/**
- * Get forecast data for a project
- * GET /plan/forecast?projectId={id}&months={n}
- */
-export function getForecast(projectId: string, months: number) {
-  return httpGet<{ data: unknown[] }>(
-    `/plan/forecast?projectId=${encodeURIComponent(projectId)}&months=${months}`
-  );
+const unwrap = <T>(payload: ApiArray<T>): T => {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (typeof payload === "object" && payload && "data" in payload) {
+    return payload.data;
+  }
+  return payload;
+};
+
+export async function getForecast(projectId: string, months: number) {
+  const params = new URLSearchParams({
+    projectId,
+    months: String(months),
+  });
+
+  return safeFetch<ForecastCell[]>(`/plan/forecast?${params.toString()}`);
 }
 
-/**
- * Get invoices (prefacturas) for a project
- * GET /prefacturas?projectId={id}
- */
-export function getInvoices(projectId: string) {
-  return httpGet<{ data: unknown[] }>(
-    `/prefacturas?projectId=${encodeURIComponent(projectId)}`
+export async function getInvoices(projectId: string) {
+  const params = new URLSearchParams({ projectId });
+  const response = await safeFetch<ApiArray<InvoiceDoc[]>>(
+    `/prefacturas?${params.toString()}`
   );
+  return unwrap(response);
 }
 
-/**
- * Get project rubros (line items)
- * GET /projects/{id}/rubros
- */
-export function getProjectRubros(projectId: string) {
-  return httpGet<{ data: unknown[]; total?: number }>(
+export async function getProjectRubros(projectId: string) {
+  const response = await safeFetch<ApiArray<LineItem[]>>(
     `/projects/${encodeURIComponent(projectId)}/rubros`
   );
+  return unwrap(response);
 }
 
-/**
- * Add a line item to a project
- * POST /projects/{id}/rubros
- */
-export function createProjectRubro(
+export type AddProjectRubroPayload = {
+  rubroId: string;
+  qty: number;
+  unitCost: number;
+  type: string;
+  duration: string;
+};
+
+export function addProjectRubro(
   projectId: string,
-  data: {
-    rubroId: string;
-    qty: number;
-    unitCost: number;
-    type: string;
-    duration: string;
-  }
+  payload: AddProjectRubroPayload
 ) {
-  return httpPost(`/projects/${encodeURIComponent(projectId)}/rubros`, data);
+  return safeFetch<LineItem>(
+    `/projects/${encodeURIComponent(projectId)}/rubros`,
+    {
+      method: "POST",
+      body: payload,
+    }
+  );
 }

@@ -1,10 +1,22 @@
 /**
  * Core HTTP client for Finanzas API
- * CORS-friendly GET requests with proper error handling
+ * Provides a single safeFetch helper with optional mock support.
  */
 
-const BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 const STATIC_TEST_TOKEN = import.meta.env.VITE_API_JWT_TOKEN || "";
+const USE_MOCKS =
+  (import.meta.env.VITE_USE_MOCKS || "false").toLowerCase() === "true";
+
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+type SafeFetchOptions<T> = {
+  method?: HttpMethod;
+  body?: unknown;
+  headers?: Record<string, string>;
+  mockResponse?: () => Promise<T> | T;
+  allowMock?: boolean;
+};
 
 function getAuthHeader(): Record<string, string> {
   // Priority: 1) Unified cv.jwt, 2) Legacy finz_jwt, 3) Static test token
@@ -15,70 +27,78 @@ function getAuthHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/**
- * Execute a GET request to the Finanzas API
- * Throws on non-OK responses
- */
-export async function httpGet<T = unknown>(path: string): Promise<T> {
-  if (!BASE) {
-    throw new Error("VITE_API_BASE_URL is not configured");
-  }
-
-  const url = `${BASE}${path}`;
-  console.log(`[httpGet] ${url}`);
-
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeader(),
-    },
-    credentials: "omit",
-    mode: "cors",
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => "");
-    throw new Error(
-      `HTTP ${res.status} ${res.statusText}: ${errorText || "No response body"}`
-    );
-  }
-
-  return res.json();
+export function allowMock(): boolean {
+  return USE_MOCKS;
 }
 
-/**
- * Execute a POST request to the Finanzas API
- * Throws on non-OK responses
- */
-export async function httpPost<T = unknown>(
-  path: string,
-  body: unknown
-): Promise<T> {
-  if (!BASE) {
+function buildUrl(path: string): string {
+  if (!BASE_URL) {
     throw new Error("VITE_API_BASE_URL is not configured");
   }
-
-  const url = `${BASE}${path}`;
-  console.log(`[httpPost] ${url}`, body);
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeader(),
-    },
-    credentials: "omit",
-    mode: "cors",
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => "");
-    throw new Error(
-      `HTTP ${res.status} ${res.statusText}: ${errorText || "No response body"}`
-    );
+  if (!path.startsWith("/")) {
+    return `${BASE_URL}/${path}`;
   }
+  return `${BASE_URL}${path}`;
+}
 
-  return res.json();
+export async function safeFetch<T = unknown>(
+  path: string,
+  options: SafeFetchOptions<T> = {}
+): Promise<T> {
+  const url = buildUrl(path);
+  const method = options.method || "GET";
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...getAuthHeader(),
+    ...(options.headers || {}),
+  };
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      credentials: "omit",
+      mode: "cors",
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      throw new Error(
+        `HTTP ${response.status} ${response.statusText}: ${
+          errorText || "No response body"
+        }`
+      );
+    }
+
+    // Many endpoints return JSON but guard against no-content responses
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType || !contentType.includes("application/json")) {
+      // Attempt to parse text for debugging, but don't blow up on empty 204s
+      const text = await response.text().catch(() => "");
+      if (!text) {
+        return undefined as T;
+      }
+      try {
+        return JSON.parse(text) as T;
+      } catch (error) {
+        throw new Error(
+          `Unexpected response type (${
+            contentType || "unknown"
+          }). First bytes: ${text.slice(0, 120)}`
+        );
+      }
+    }
+
+    return (await response.json()) as T;
+  } catch (error) {
+    if (options.allowMock && allowMock() && options.mockResponse) {
+      console.warn("safeFetch falling back to mock for", path, error);
+      return await options.mockResponse();
+    }
+
+    throw error instanceof Error
+      ? error
+      : new Error("Unknown network error while calling API");
+  }
 }
