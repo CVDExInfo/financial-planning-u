@@ -30,22 +30,21 @@ jobs:
 
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
-
-      # Use existing API URL variable
+    
+      # Use existing DEV API URL (dev stage only)
       FINZ_API_BASE: ${{ vars.DEV_API_URL }}
-
+    
       # Derive UI base from CF_DOMAIN
       FINZ_UI_BASE: https://${{ vars.CF_DOMAIN }}/finanzas
-
-      # Map tester credential from existing Cognito tester variables
+    
+      # Cognito tester credentials (for Newman / UI instructions; shell tests will not use them)
       COGNITO_TESTER_USERNAME: ${{ vars.COGNITO_TESTER_USERNAME }}
       COGNITO_TESTER_PASSWORD: ${{ vars.COGNITO_TESTER_PASSWORD }}
-
-      # Cognito configuration for authentication
+    
+      # Cognito config if needed elsewhere
       COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
       COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
-
-      # Log directory for test outputs
+    
       FINZ_LOG_DIR: /tmp/finanzas-tests
 
     steps:
