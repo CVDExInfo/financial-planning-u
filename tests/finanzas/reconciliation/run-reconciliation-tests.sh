@@ -13,11 +13,27 @@ fi
 
 require_var FINZ_API_BASE
 
-# Dynamically discover project IDs
-echo "Discovering projects from ${FINZ_API_BASE}/projects..." >&2
+# Safety: don't hit prod from this workflow
+if [[ "$FINZ_API_BASE" == *"/prod"* ]]; then
+  echo "❌ FINZ_API_BASE points to a prod stage: $FINZ_API_BASE"
+  echo "   Tests must run against dev (https://<id>.execute-api.us-east-2.amazonaws.com/dev)."
+  exit 1
+fi
+
+echo "Discovering projects from ${FINZ_API_BASE}/projects..."
+
 PROJECTS_URL="${FINZ_API_BASE}/projects?limit=50"
 TEMP_PROJECTS_LOG="${FINZ_LOG_DIR}/finz_projects_discovery.log"
+
 finz_curl GET "${PROJECTS_URL}" "" "${TEMP_PROJECTS_LOG}"
+
+# Validate HTTP response
+HTTP_CODE=$(tail -n1 "${TEMP_PROJECTS_LOG}" | awk '{print $2}')
+if [ "$HTTP_CODE" != "200" ]; then
+  echo "❌ /projects call returned HTTP $HTTP_CODE"
+  cat "${TEMP_PROJECTS_LOG}" >&2
+  exit 1
+fi
 
 PROJECTS_BODY=$(sed '$d' "${TEMP_PROJECTS_LOG}")
 PROJECT_IDS=$(echo "$PROJECTS_BODY" | jq -r '.[] | (.id // .projectId // .pk)')
@@ -35,7 +51,13 @@ for PROJECT_ID in $PROJECT_IDS; do
   # Try to get a line item for this project
   RUBROS_URL="${FINZ_API_BASE}/projects/${PROJECT_ID}/rubros"
   TEMP_RUBROS_LOG="${FINZ_LOG_DIR}/finz_rubros_${PROJECT_ID}_temp.log"
+  
   finz_curl GET "${RUBROS_URL}" "" "${TEMP_RUBROS_LOG}"
+  HTTP_CODE=$(tail -n1 "${TEMP_RUBROS_LOG}" | awk '{print $2}')
+  if [ "$HTTP_CODE" != "200" ]; then
+    echo "⚠️  GET /rubros for project $PROJECT_ID returned HTTP $HTTP_CODE, skipping"
+    continue
+  fi
   
   RUBROS_BODY=$(sed '$d' "${TEMP_RUBROS_LOG}")
   LINE_ITEM_ID=$(echo "$RUBROS_BODY" | jq -r '.[0].rubroId // .[0].id // empty' 2>/dev/null || echo "")
@@ -51,8 +73,15 @@ for PROJECT_ID in $PROJECT_IDS; do
   LOG_UPLOAD="${FINZ_LOG_DIR}/finz_prefacturas_${PROJECT_ID}_upload.log"
   LOG_AFTER="${FINZ_LOG_DIR}/finz_prefacturas_${PROJECT_ID}_after.log"
   
+  # GET prefacturas before
   finz_curl GET "${PREF_URL}" "" "${LOG_BEFORE}"
+  HTTP_CODE=$(tail -n1 "${LOG_BEFORE}" | awk '{print $2}')
+  if [ "$HTTP_CODE" != "200" ]; then
+    echo "❌ GET /prefacturas for project $PROJECT_ID returned HTTP $HTTP_CODE"
+    exit 1
+  fi
   
+  # Upload prefactura
   tmpfile="$(mktemp)"
   trap 'rm -f "${tmpfile}"' EXIT
   printf "Automated evidence upload %s" "$(date --iso-8601=seconds)" > "${tmpfile}"
@@ -64,7 +93,19 @@ for PROJECT_ID in $PROJECT_IDS; do
     -F "amount=100" \
     -F "file=@${tmpfile};type=text/plain"
   
-  finz_curl GET "${PREF_URL}" "" "${LOG_AFTER}"
+  HTTP_CODE=$(tail -n1 "${LOG_UPLOAD}" | awk '{print $2}')
+  if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
+    echo "❌ POST /prefacturas for project $PROJECT_ID returned HTTP $HTTP_CODE"
+    exit 1
+  fi
   
-  echo "Expected outcome: first GET shows current invoices, POST returns HTTP 200/201 with uploaded metadata, second GET includes the new invoice reference." >&2
+  # GET prefacturas after
+  finz_curl GET "${PREF_URL}" "" "${LOG_AFTER}"
+  HTTP_CODE=$(tail -n1 "${LOG_AFTER}" | awk '{print $2}')
+  if [ "$HTTP_CODE" != "200" ]; then
+    echo "❌ GET /prefacturas (after) for project $PROJECT_ID returned HTTP $HTTP_CODE"
+    exit 1
+  fi
+  
+  echo "✅ Reconciliation tests passed for project ${PROJECT_ID}"
 done
