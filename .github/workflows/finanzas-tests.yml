@@ -1,0 +1,94 @@
+name: Finanzas SD – Smoke Tests
+
+on:
+  # Manual trigger from the Actions tab
+  workflow_dispatch:
+
+  # Auto-run when FE/API/tests for Finanzas change
+  push:
+    branches:
+      - main
+      - develop
+      - finz/**
+    paths:
+      - "services/finanzas-api/**"
+      - "src/**"
+      - "tests/finanzas/**"
+      - "docs/EVIDENCE_FINZ.md"
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "services/finanzas-api/**"
+      - "src/**"
+      - "tests/finanzas/**"
+
+jobs:
+  finanzas-smoke:
+    runs-on: ubuntu-latest
+
+    env:
+      # Base URLs (set these as repo-level Variables in GitHub)
+      FINZ_UI_BASE: ${{ vars.FINZ_UI_BASE }}
+      FINZ_API_BASE: ${{ vars.FINZ_API_BASE }}
+
+      # Tester credential (set as repo-level Secrets)
+      FINZ_TEST_EMAIL: ${{ secrets.FINZ_TEST_EMAIL }}
+      FINZ_TEST_PASSWORD: ${{ secrets.FINZ_TEST_PASSWORD }}
+
+      # Seed project IDs (set as Variables)
+      FINZ_PROJECT_ALMOJABANAS: ${{ vars.FINZ_PROJECT_ALMOJABANAS }}
+      FINZ_PROJECT_IA: ${{ vars.FINZ_PROJECT_IA }}
+      FINZ_PROJECT_CX: ${{ vars.FINZ_PROJECT_CX }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Ensure test scripts are executable
+        run: |
+          chmod +x tests/finanzas/**/run-*.sh || true
+
+      - name: Show env summary (no secrets)
+        run: |
+          echo "FINZ_API_BASE=$FINZ_API_BASE" >> "$GITHUB_STEP_SUMMARY"
+          echo "FINZ_UI_BASE=$FINZ_UI_BASE" >> "$GITHUB_STEP_SUMMARY"
+          echo "FINZ_PROJECT_ALMOJABANAS=$FINZ_PROJECT_ALMOJABANAS" >> "$GITHUB_STEP_SUMMARY"
+          echo "FINZ_PROJECT_IA=$FINZ_PROJECT_IA" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Projects – /projects list
+        run: |
+          echo "## Projects – run-projects-tests.sh" >> "$GITHUB_STEP_SUMMARY"
+          bash tests/finanzas/projects/run-projects-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Catalog – line items & POST rubro
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Catalog – run-catalog-tests.sh" >> "$GITHUB_STEP_SUMMARY"
+          bash tests/finanzas/catalog/run-catalog-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Forecast – /plan/forecast checks
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Forecast – run-forecast-tests.sh" >> "$GITHUB_STEP_SUMMARY"
+          bash tests/finanzas/forecast/run-forecast-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Reconciliation – /prefacturas & forecast
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Reconciliation – run-reconciliation-tests.sh" >> "$GITHUB_STEP_SUMMARY"
+          bash tests/finanzas/reconciliation/run-reconciliation-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Changes – adjustments
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Changes – run-changes-tests.sh" >> "$GITHUB_STEP_SUMMARY"
+          bash tests/finanzas/changes/run-changes-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Handoff – create/read
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Handoff – run-handoff-tests.sh" >> "$GITHUB_STEP_SUMMARY"
+          bash tests/finanzas/handoff/run-handoff-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
