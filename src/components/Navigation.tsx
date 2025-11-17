@@ -16,7 +16,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Logo } from "@/components/Logo";
 import {
   ChevronDown,
   Calculator,
@@ -181,7 +180,7 @@ export function Navigation() {
           {/* Brand */}
           <div className="flex items-center space-x-4">
             <Link to="/" className="flex items-center space-x-3">
-              <Logo className="h-8" />
+              <Logo className="h-8 w-auto" />
               <div>
                 <h1 className="font-semibold text-foreground">
                   Financial Planning
@@ -298,7 +297,7 @@ export function Navigation() {
                     variant="ghost"
                     className="relative h-8 w-8 rounded-full"
                   >
-                    <Logo size="sm" className="rounded-full" />
+                    <Logo className="h-6 w-auto rounded-full" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end">

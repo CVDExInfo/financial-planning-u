@@ -55,6 +55,7 @@ import { logger } from "@/utils/logger";
 import { cn } from "@/lib/utils";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import { addProjectRubro } from "@/api/finanzas";
+import { ErrorBanner } from "@/components/ErrorBanner";
 
 // Pending change types
 type PendingChangeType = "add" | "edit" | "delete";
@@ -78,6 +79,8 @@ export function SDMTCatalog() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<LineItem | null>(null);
   const [isCreatingLineItem, setIsCreatingLineItem] = useState(false);
+  const [uiErrorMessage, setUiErrorMessage] = useState<string | null>(null);
+  const allowMockData = import.meta.env.VITE_USE_MOCKS === "true";
 
   // Form state for Add/Edit Line Item dialog
   const [formData, setFormData] = useState({
@@ -132,11 +135,22 @@ export function SDMTCatalog() {
   }, [queryLineItems, selectedProjectId]);
 
   useEffect(() => {
-    if (lineItemsError) {
-      toast.error("Failed to load line items");
-      logger.error("Failed to load line items:", lineItemsError);
+    if (!lineItemsError) {
+      setUiErrorMessage(null);
+      return;
     }
-  }, [lineItemsError]);
+
+    toast.error("Failed to load line items");
+    logger.error("Failed to load line items:", lineItemsError);
+
+    if (!allowMockData) {
+      setUiErrorMessage(
+        "Unable to load catalog data. Please refresh or contact support."
+      );
+    } else {
+      setUiErrorMessage(null);
+    }
+  }, [lineItemsError, allowMockData]);
 
   const filteredItems = lineItems.filter((item) => {
     const matchesSearch =
@@ -559,6 +573,8 @@ export function SDMTCatalog() {
           )}
         </div>
       </div>
+
+      <ErrorBanner message={uiErrorMessage} />
 
       {/* Main Content */}
       <Tabs defaultValue="line-items" className="space-y-6">

@@ -58,6 +58,7 @@ import {
   updateInvoiceStatus,
   type UploadInvoicePayload,
 } from "@/api/finanzas";
+import { ErrorBanner } from "@/components/ErrorBanner";
 
 type UploadFormState = {
   line_item_id: string;
@@ -86,6 +87,8 @@ export function SDMTReconciliation() {
   const [uploadFormData, setUploadFormData] = useState<UploadFormState>(
     createInitialUploadForm
   );
+  const [uiErrorMessage, setUiErrorMessage] = useState<string | null>(null);
+  const allowMockData = import.meta.env.VITE_USE_MOCKS === "true";
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -97,7 +100,11 @@ export function SDMTReconciliation() {
     error: invoicesError,
     invalidate: invalidateInvoices,
   } = useProjectInvoices();
-  const { lineItems, isLoading: lineItemsLoading } = useProjectLineItems();
+  const {
+    lineItems,
+    isLoading: lineItemsLoading,
+    error: lineItemsError,
+  } = useProjectLineItems();
 
   // Parse URL params for filtering (when coming from forecast)
   const urlParams = new URLSearchParams(location.search);
@@ -114,6 +121,29 @@ export function SDMTReconciliation() {
       setShowUploadForm(true);
     }
   }, [filterLineItem, filterMonth]);
+
+  useEffect(() => {
+    if (allowMockData) {
+      setUiErrorMessage(null);
+      return;
+    }
+
+    if (invoicesError) {
+      setUiErrorMessage(
+        "Unable to load invoice data. Please refresh or contact support."
+      );
+      return;
+    }
+
+    if (lineItemsError) {
+      setUiErrorMessage(
+        "Unable to load catalog data. Please refresh or contact support."
+      );
+      return;
+    }
+
+    setUiErrorMessage(null);
+  }, [allowMockData, invoicesError, lineItemsError]);
 
   const uploadMutation = useMutation({
     mutationFn: (payload: UploadInvoicePayload & { projectId: string }) =>
@@ -453,6 +483,8 @@ export function SDMTReconciliation() {
           </Button>
         </div>
       </div>
+
+      <ErrorBanner message={uiErrorMessage} />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

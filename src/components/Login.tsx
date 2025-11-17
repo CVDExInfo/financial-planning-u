@@ -20,6 +20,8 @@ export function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { loginWithCognito } = useAuth();
+  // Keep demo credentials disabled in production builds.
+  const showDemoCredentials = import.meta.env.VITE_SHOW_DEMO_CREDS === "true";
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -125,37 +127,39 @@ export function Login() {
               Sign in with Cognito Hosted UI
             </Button>
 
-            <div className="p-4 rounded-lg bg-muted/50 border border-border/50 space-y-3">
-              <p className="text-xs font-medium text-muted-foreground">
-                Development Test Credentials:
-              </p>
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p>
-                  <strong>Email:</strong>
-                  <br />
-                  <code className="bg-background px-2 py-1 rounded">
-                    christian.valencia@ikusi.com
-                  </code>
+            {showDemoCredentials && (
+              <div className="p-4 rounded-lg bg-muted/50 border border-border/50 space-y-3">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Development Test Credentials (dev use only):
                 </p>
-                <p>
-                  <strong>Password:</strong>
-                  <br />
-                  <code className="bg-background px-2 py-1 rounded">
-                    Velatia@2025
-                  </code>
-                </p>
+                <div className="space-y-2 text-xs text-muted-foreground">
+                  <p>
+                    <strong>Email:</strong>
+                    <br />
+                    <code className="bg-background px-2 py-1 rounded">
+                      christian.valencia@ikusi.com
+                    </code>
+                  </p>
+                  <p>
+                    <strong>Password:</strong>
+                    <br />
+                    <code className="bg-background px-2 py-1 rounded">
+                      Velatia@2025
+                    </code>
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={fillDemoCredentials}
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  Autofill Demo Credentials
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={fillDemoCredentials}
-                disabled={isLoading}
-                className="w-full"
-              >
-                Autofill Demo Credentials
-              </Button>
-            </div>
+            )}
           </CardContent>
         </Card>
         <p className="text-center text-xs text-muted-foreground mt-4">

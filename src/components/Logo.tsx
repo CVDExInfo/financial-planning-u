@@ -5,7 +5,7 @@ export function Logo({ className = "" }: { className?: string }) {
     <img
       src={IkusiLogo}
       alt="Ikusi Digital Platform – Finanzas"
-      className={`h-12 w-auto mx-auto ${className}`}
+      className={`h-12 w-auto ${className}`}
     />
   );
 }
