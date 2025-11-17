@@ -79,8 +79,12 @@ export function SDMTCatalog() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<LineItem | null>(null);
   const [isCreatingLineItem, setIsCreatingLineItem] = useState(false);
-  const [uiErrorMessage, setUiErrorMessage] = useState<string | null>(null);
   const allowMockData = import.meta.env.VITE_USE_MOCKS === "true";
+  const lineItemsErrorMessage = lineItemsError
+    ? lineItemsError instanceof Error
+      ? lineItemsError.message
+      : String(lineItemsError)
+    : "";
 
   // Form state for Add/Edit Line Item dialog
   const [formData, setFormData] = useState({
@@ -135,22 +139,18 @@ export function SDMTCatalog() {
   }, [queryLineItems, selectedProjectId]);
 
   useEffect(() => {
-    if (!lineItemsError) {
-      setUiErrorMessage(null);
+    if (!lineItemsErrorMessage) {
       return;
     }
 
     toast.error("Failed to load line items");
-    logger.error("Failed to load line items:", lineItemsError);
+    logger.error("Failed to load line items:", lineItemsErrorMessage);
+  }, [lineItemsErrorMessage]);
 
-    if (!allowMockData) {
-      setUiErrorMessage(
-        "Unable to load catalog data. Please refresh or contact support."
-      );
-    } else {
-      setUiErrorMessage(null);
-    }
-  }, [lineItemsError, allowMockData]);
+  const uiErrorMessage =
+    !allowMockData && lineItemsError
+      ? "Unable to load catalog data. Please refresh or contact support."
+      : null;
 
   const filteredItems = lineItems.filter((item) => {
     const matchesSearch =

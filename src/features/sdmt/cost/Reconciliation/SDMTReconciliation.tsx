@@ -87,7 +87,6 @@ export function SDMTReconciliation() {
   const [uploadFormData, setUploadFormData] = useState<UploadFormState>(
     createInitialUploadForm
   );
-  const [uiErrorMessage, setUiErrorMessage] = useState<string | null>(null);
   const allowMockData = import.meta.env.VITE_USE_MOCKS === "true";
 
   const location = useLocation();
@@ -122,28 +121,18 @@ export function SDMTReconciliation() {
     }
   }, [filterLineItem, filterMonth]);
 
-  useEffect(() => {
+  const uiErrorMessage = (() => {
     if (allowMockData) {
-      setUiErrorMessage(null);
-      return;
+      return null;
     }
-
     if (invoicesError) {
-      setUiErrorMessage(
-        "Unable to load invoice data. Please refresh or contact support."
-      );
-      return;
+      return "Unable to load invoice data. Please refresh or contact support.";
     }
-
     if (lineItemsError) {
-      setUiErrorMessage(
-        "Unable to load catalog data. Please refresh or contact support."
-      );
-      return;
+      return "Unable to load catalog data. Please refresh or contact support.";
     }
-
-    setUiErrorMessage(null);
-  }, [allowMockData, invoicesError, lineItemsError]);
+    return null;
+  })();
 
   const uploadMutation = useMutation({
     mutationFn: (payload: UploadInvoicePayload & { projectId: string }) =>
