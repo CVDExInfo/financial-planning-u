@@ -413,7 +413,10 @@ async function main() {
 
     console.log("\n✅ Seeding complete!");
   } catch (error) {
-    console.error("\n❌ Seeding failed:", error instanceof Error ? error.message : String(error));
+    console.error(
+      "\n❌ Seeding failed:",
+      error instanceof Error ? error.message : String(error)
+    );
     process.exit(1);
   }
 

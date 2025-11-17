@@ -277,8 +277,10 @@ export class ApiService {
 
       if (response.ok) {
         const data = await response.json();
-        logger.info("Line items loaded from API:", data.length, "items");
-        return data;
+        // API returns { data: [...], total: number }, extract the array
+        const items = Array.isArray(data) ? data : data.data || [];
+        logger.info("Line items loaded from API:", items.length, "items");
+        return items;
       }
 
       // If API fails, log and fall back to mock data

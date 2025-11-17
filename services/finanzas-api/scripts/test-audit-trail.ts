@@ -155,7 +155,9 @@ async function main() {
       }
       console.log();
     } catch (error) {
-      console.log(`❌ ERROR: ${error instanceof Error ? error.message : String(error)}`);
+      console.log(
+        `❌ ERROR: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
