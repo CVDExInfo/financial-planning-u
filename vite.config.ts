@@ -27,6 +27,12 @@ export default defineConfig(() => {
   const outDir = isPmo ? "dist-pmo" : "dist-finanzas";
   const publicBase =
     process.env.VITE_PUBLIC_BASE || (isPmo ? "/" : "/finanzas/");
+  
+  // Normalize API base URL from environment
+  const rawApiBase = process.env.VITE_API_BASE_URL || "";
+  const apiBaseUrl = typeof rawApiBase === "string"
+    ? rawApiBase.trim().replace(/\/+$/, "")
+    : "";
 
   return {
     base: publicBase,
@@ -43,6 +49,8 @@ export default defineConfig(() => {
       "import.meta.env.VITE_FINZ_ENABLED": JSON.stringify(
         !isPmo ? "true" : "false"
       ),
+      // Explicitly inject API base URL from process.env
+      "import.meta.env.VITE_API_BASE_URL": JSON.stringify(apiBaseUrl),
     },
     plugins: [
       react(),
