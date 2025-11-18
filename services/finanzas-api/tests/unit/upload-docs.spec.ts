@@ -6,6 +6,10 @@ import crypto from "node:crypto";
 
 const mockSignedUrl = "https://signed.example/upload";
 
+// Set environment variables before importing handler
+process.env.DOCS_BUCKET = "docs-bucket";
+process.env.AWS_REGION = "us-east-2";
+
 jest.mock("../../src/lib/auth", () => ({
   ensureCanWrite: jest.fn(),
   getUserEmail: jest.fn().mockReturnValue("tester@example.com"),
@@ -21,7 +25,8 @@ jest.mock("@aws-sdk/s3-request-presigner", () => ({
   getSignedUrl: jest.fn().mockResolvedValue(mockSignedUrl),
 }));
 
-type UploadHandler = typeof import("../../src/handlers/upload-docs.js");
+import { handler } from "../../src/handlers/upload-docs";
+
 type ApiResult = APIGatewayProxyStructuredResultV2;
 
 const auth = jest.requireMock("../../src/lib/auth") as jest.Mocked<
@@ -68,11 +73,6 @@ const baseEvent = (
   body: undefined,
   ...overrides,
 });
-
-const loadHandler = async (): Promise<UploadHandler["handler"]> => {
-  const module = await import("../../src/handlers/upload-docs.js");
-  return module.handler;
-};
 let uuidSpy: jest.SpyInstance<string, [crypto.RandomUUIDOptions?]>;
 
 beforeAll(() => {
@@ -113,8 +113,6 @@ describe("upload-docs handler", () => {
   };
 
   it("returns a presigned url and stores metadata", async () => {
-    const handler = await loadHandler();
-
     const response = (await handler(
       baseEvent({ body: JSON.stringify(validBody) })
     )) as ApiResult;
@@ -145,7 +143,6 @@ describe("upload-docs handler", () => {
   });
 
   it("rejects requests with invalid module", async () => {
-    const handler = await loadHandler();
     const badBody = { ...validBody, module: "unknown" };
 
     const response = (await handler(
@@ -158,7 +155,6 @@ describe("upload-docs handler", () => {
   });
 
   it("fails when request body is missing", async () => {
-    const handler = await loadHandler();
     const response = (await handler(
       baseEvent({ body: undefined })
     )) as ApiResult;
@@ -168,7 +164,6 @@ describe("upload-docs handler", () => {
 
   it("returns server error when DynamoDB write fails", async () => {
     dynamo.ddb.send.mockRejectedValue(new Error("ddb failure"));
-    const handler = await loadHandler();
 
     const response = (await handler(
       baseEvent({ body: JSON.stringify(validBody) })

@@ -5,7 +5,6 @@ import { z } from "zod";
 
 const HealthResponseSchema = z.object({
   ok: z.boolean({
-    required_error: "ok field is required",
     invalid_type_error: "ok must be a boolean",
   }),
   status: z.enum(["ok", "UP", "healthy"]).optional(),
