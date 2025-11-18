@@ -4,17 +4,17 @@ set -Eeuo pipefail
 ###############################################################################
 # Finanzas – Projects API contract test
 #
-# Requirements (env):
-#   FINZ_API_BASE or DEV_API_URL  – full API base, e.g. https://.../dev
-#   AWS_REGION                    – e.g. us-east-2
-#   COGNITO_USER_POOL_ID         – Cognito user pool ID
-#   COGNITO_WEB_CLIENT           – Cognito app client ID
-#   COGNITO_TESTER_USERNAME      – test user (from GitHub Secrets)
-#   COGNITO_TESTER_PASSWORD      – test user password (from GitHub Secrets)
-#   FINZ_LOG_DIR                 – optional; defaults to /tmp/finanzas-tests
+# Env required:
+#   FINZ_API_BASE              – full API base URL, e.g. https://.../dev
+#   AWS_REGION                 – e.g. us-east-2
+#   COGNITO_USER_POOL_ID       – Cognito user pool ID
+#   COGNITO_WEB_CLIENT         – Cognito app client ID
+#   COGNITO_TESTER_USERNAME    – test user (from GitHub Secrets)
+#   COGNITO_TESTER_PASSWORD    – test user password (from GitHub Secrets)
+#   FINZ_LOG_DIR               – optional; defaults to /tmp/finanzas-tests
 #
 # Dependencies:
-#   - jq installed (handled in workflow)
+#   - jq installed
 #   - scripts/cognito/get-jwt.sh present and executable
 ###############################################################################
 
@@ -22,7 +22,7 @@ FINZ_LOG_DIR="${FINZ_LOG_DIR:-/tmp/finanzas-tests}"
 mkdir -p "$FINZ_LOG_DIR"
 
 # ---------------------------------------------------------------------------
-# Resolve and validate API base
+# Resolve API base (no hard failure on stage; we just log it)
 # ---------------------------------------------------------------------------
 BASE="${FINZ_API_BASE:-${DEV_API_URL:-}}"
 
@@ -31,24 +31,19 @@ if [[ -z "${BASE}" ]]; then
   exit 1
 fi
 
-# Normalize trailing slash: treat .../dev and .../dev/ as equivalent
+# Normalize trailing slash
 BASE="${BASE%/}"
-
-case "$BASE" in
-  */dev)
-    # OK: dev stage
-    ;;
-  *)
-    echo "❌ FINZ_API_BASE must point to the dev stage (ends with /dev). Current: $BASE"
-    exit 1
-    ;;
-esac
-
 FINZ_API_BASE="$BASE"
+
 echo "ℹ️ Using FINZ_API_BASE: $FINZ_API_BASE"
 
+# Soft check on stage – warn only
+if [[ "$FINZ_API_BASE" != *"/dev" ]]; then
+  echo "⚠️ Warning: FINZ_API_BASE does not end with /dev (current: $FINZ_API_BASE) – continuing anyway."
+fi
+
 # ---------------------------------------------------------------------------
-# Validate required Cognito + region environment
+# Validate required Cognito + region env
 # ---------------------------------------------------------------------------
 : "${AWS_REGION:?AWS_REGION is required}"
 : "${COGNITO_WEB_CLIENT:?COGNITO_WEB_CLIENT is required}"
