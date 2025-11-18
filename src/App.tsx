@@ -11,7 +11,8 @@ import { Toaster } from "sonner";
 import Navigation from "@/components/Navigation";
 import ProjectContextBar from "@/components/ProjectContextBar";
 import AccessControl from "@/components/AccessControl";
-import { AuthProvider, useAuth } from "@/components/AuthProvider";
+import { AuthProvider } from "@/components/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
 import { ProjectProvider } from "@/contexts/ProjectContext";
 import Login from "@/components/Login";
 

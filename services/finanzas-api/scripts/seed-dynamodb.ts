@@ -12,7 +12,6 @@ import {
   DescribeTableCommand,
   ScanCommand,
   PutItemCommand,
-  BatchWriteItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
 

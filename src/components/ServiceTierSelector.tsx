@@ -31,8 +31,25 @@ import { useQueryClient } from "@tanstack/react-query";
 // Import the service catalog
 import serviceCatalog from "@/mocks/ikusi-service-catalog.json";
 
+interface ServiceTier {
+  id: string;
+  name: string;
+  tier: string;
+  description: string;
+  base_price: number;
+  features?: {
+    core_services?: string[];
+    technical_specs?: {
+      support_hours?: string;
+      sla_uptime?: string;
+      [key: string]: string | number | undefined;
+    };
+  };
+  [key: string]: unknown;
+}
+
 interface ServiceTierCardProps {
-  tier: any;
+  tier: ServiceTier;
   isRecommended?: boolean;
   onSelect?: (tierId: string) => void;
 }
@@ -333,7 +350,7 @@ const ServiceTierRecommendation: React.FC<ServiceTierRecommendationProps> = ({
 };
 
 interface ServiceTierSelectorProps {
-  onTierSelected?: (tierId: string, tierData: any) => void; // TODO: Replace 'any' with ServiceTier type from catalog
+  onTierSelected?: (tierId: string, tierData: ServiceTier) => void;
 }
 
 export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({

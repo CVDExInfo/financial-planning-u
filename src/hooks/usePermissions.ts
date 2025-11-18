@@ -1,4 +1,4 @@
-import { useAuth } from '@/components/AuthProvider';
+import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/types/domain';
 import { canAccessRoute, canPerformAction } from '@/lib/auth';
 

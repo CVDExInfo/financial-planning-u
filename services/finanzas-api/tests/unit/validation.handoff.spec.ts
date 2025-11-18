@@ -33,7 +33,7 @@ describe("Handoff Validation", () => {
     });
 
     it("should validate without optional notas field", () => {
-      const { notas, ...minimalHandoff } = validHandoff;
+      const { notas: _notas, ...minimalHandoff } = validHandoff;
       const result = HandoffSchema.parse(minimalHandoff);
       expect(result.notas).toBeUndefined();
     });

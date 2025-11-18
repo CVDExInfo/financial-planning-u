@@ -28,7 +28,7 @@ import ModuleBadge from '@/components/ModuleBadge';
 import DataContainer from '@/components/DataContainer';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import type { ForecastCell, LineItem } from '@/types/domain';
-import { useAuth } from '@/components/AuthProvider';
+import { useAuth } from '@/hooks/useAuth';
 import { useProject } from '@/contexts/ProjectContext';
 import { useNavigate } from 'react-router-dom';
 import ApiService from '@/lib/api';

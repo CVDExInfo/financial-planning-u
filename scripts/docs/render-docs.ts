@@ -92,11 +92,12 @@ function ensureDirectories(): void {
 
 /**
  * Get the appropriate logo path based on branding configuration
+ * Currently unused but kept for future use
  */
-function getLogoPath(): string {
-  const logoName = CONFIG.USE_CVDEX_BRANDING ? 'cvdex-logo.svg' : 'ikusi-logo.svg';
-  return path.join(CONFIG.ASSETS_DIR, 'logo', logoName);
-}
+// function getLogoPath(): string {
+//   const logoName = CONFIG.USE_CVDEX_BRANDING ? 'cvdex-logo.svg' : 'ikusi-logo.svg';
+//   return path.join(CONFIG.ASSETS_DIR, 'logo', logoName);
+// }
 
 /**
  * Find all files with a specific extension in a directory recursively
@@ -219,7 +220,7 @@ function processDiagrams(): Map<string, string> {
       const outputSvgPath = path.join(CONFIG.OUTPUT_DIR, `${basename}.svg`);
       fs.copyFileSync(svgPath, outputSvgPath);
       logger.success(`Copied diagram to output: ${basename}.svg`);
-    } catch (error) {
+    } catch (_error) {
       logger.error(`Failed to process: ${path.basename(mmdFile)}`);
     }
   }

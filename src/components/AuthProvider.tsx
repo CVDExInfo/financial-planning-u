@@ -1,6 +1,5 @@
 import React, {
   createContext,
-  useContext,
   useEffect,
   useState,
   ReactNode,
@@ -47,7 +46,7 @@ interface AuthContextType {
   loginWithCognito: (username: string, password: string) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -395,28 +394,4 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-}
-
-// Convenience hooks for common use cases
-export function useCurrentUser() {
-  const { user } = useAuth();
-  return user;
-}
-
-export function useCurrentRole() {
-  const { currentRole, setRole, availableRoles } = useAuth();
-  return { currentRole, setRole, availableRoles };
-}
-
-export function usePermissions() {
-  const { canAccessRoute, canPerformAction } = useAuth();
-  return { canAccessRoute, canPerformAction };
 }

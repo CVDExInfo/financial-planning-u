@@ -28,7 +28,7 @@ import {
   TrendingUp,
   Layers,
 } from "lucide-react";
-import { useAuth } from "@/components/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
 import {
   getDefaultRouteForRole,
   getRoleInfo,

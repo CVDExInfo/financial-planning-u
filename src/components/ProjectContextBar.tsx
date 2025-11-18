@@ -54,15 +54,6 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
   const hasProjects = sortedProjects.length > 0;
   const showEmptyState = !loading && !projectError && !hasProjects;
 
-  const formatCurrency = (amount: number, currency: string = "USD") => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short",

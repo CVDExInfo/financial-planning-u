@@ -43,7 +43,7 @@ async function itemExists(tableName: string, pk: string, sk: string): Promise<bo
       Key: marshall({ pk, sk }),
     }));
     return !!result.Item;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }
