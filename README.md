@@ -162,6 +162,115 @@ For detailed auth flow and troubleshooting, see [AUTHENTICATION_FLOW.md](./AUTHE
 - Auth & Roles (UI-level): PMO, SDMT, VENDOR, EXEC_RO (read-only)
 - Data: Mock API in `src/lib/api.ts` for local development; real API contract under `openapi/finanzas.yaml`
 
+## ⚠️ Required Configuration: VITE_API_BASE_URL
+
+**The Finanzas frontend REQUIRES `VITE_API_BASE_URL` to be set.** Without this configuration:
+
+- ❌ **Build will FAIL** for Finanzas target (`BUILD_TARGET=finanzas`)
+- ❌ **API calls will fail** with clear error messages
+- ❌ **Application will not function** correctly
+
+### 🚀 Quick Setup
+
+#### For Local Development
+
+1. **Copy the example environment file:**
+   ```bash
+   cp .env.example .env.local
+   ```
+
+2. **The default configuration in `.env.development` points to the dev API:**
+   ```bash
+   VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
+   ```
+
+3. **Override in `.env.local` if needed** (e.g., for local API development):
+   ```bash
+   # .env.local (git-ignored)
+   VITE_API_BASE_URL=http://localhost:3000/api
+   ```
+
+4. **Start the dev server:**
+   ```bash
+   npm ci
+   npm run dev
+   ```
+
+#### For CI/CD and Production
+
+Set `VITE_API_BASE_URL` as an environment variable at build time:
+
+```bash
+# GitHub Actions example (from .github/workflows/deploy-ui.yml)
+env:
+  VITE_API_BASE_URL: ${{ vars.DEV_API_URL }}
+
+# Manual build example
+VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev \
+  BUILD_TARGET=finanzas \
+  npm run build
+```
+
+### 📋 Environment Configuration Files
+
+| File | Purpose | Git Tracked |
+|------|---------|-------------|
+| `.env.example` | Template with all variables documented | ✅ Yes |
+| `.env.development` | Default values for local development | ✅ Yes |
+| `.env.local` | Local overrides (your personal config) | ❌ No (git-ignored) |
+| `.env.production` | Production-specific defaults | ✅ Yes |
+
+### 🔍 Troubleshooting
+
+#### Error: "VITE_API_BASE_URL is not set for Finanzas build"
+
+**Cause:** The `VITE_API_BASE_URL` environment variable is missing or empty during build.
+
+**Fix:**
+```bash
+# Set the variable before building
+export VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
+npm run build:finanzas
+```
+
+#### Console Error: "VITE_API_BASE_URL is not configured"
+
+**Cause:** The frontend bundle was built without the API base URL being injected.
+
+**Fix:** Rebuild with `VITE_API_BASE_URL` set (see above).
+
+#### API calls return HTML instead of JSON
+
+**Symptoms:** Browser console shows errors like:
+```
+API returned HTML (likely login page or wrong endpoint) instead of JSON
+```
+
+**Possible Causes:**
+1. Wrong `VITE_API_BASE_URL` value
+2. API Gateway not deployed or misconfigured
+3. CORS issues
+
+**Fix:**
+```bash
+# Verify the API is accessible
+curl https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/health
+
+# Should return JSON:
+# {"ok":true,"stage":"dev","time":"2024-..."}
+```
+
+### 📖 Additional Configuration
+
+The Finanzas frontend also uses these environment variables:
+
+- `VITE_COGNITO_*` - Cognito authentication (see Authentication section above)
+- `VITE_AWS_REGION` - AWS region for API calls
+- `VITE_FINZ_ENABLED` - Enable Finanzas module (default: true)
+- `BUILD_TARGET` - Build target: `finanzas` or `pmo` (default: `finanzas`)
+
+See `.env.example` for complete documentation of all variables.
+
 ## Prerequisites
 
 - Node.js >= 18.18
