@@ -132,25 +132,47 @@ jobs:
       # ---- Build Finanzas (/finanzas) ----
       - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
-          VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
+          BUILD_TARGET: finanzas
+          VITE_API_BASE_URL: ${{ vars.DEV_API_URL }}
           VITE_FINZ_ENABLED: "true"
-          VITE_USE_MOCKS: ${{ env.VITE_USE_MOCKS }}
+          VITE_USE_MOCKS: "false"
           VITE_PUBLIC_BASE: "/finanzas/"
         run: |
           set -euo pipefail
-          : ${VITE_API_BASE_URL:?VITE_API_BASE_URL missing}
-          printf '%s\n' "VITE_PUBLIC_BASE=/finanzas/" >> "$GITHUB_ENV"
-          printf '%s\n' "VITE_FINZ_ENABLED=true" >> "$GITHUB_ENV"
-          printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
-          printf '%s\n' "VITE_AWS_REGION=${AWS_REGION}" >> "$GITHUB_ENV"
-          sed -i 's/\r$//' "$GITHUB_ENV"
 
-          echo "Building Finanzas SDT Portal (base: /finanzas/)..."
-          echo "  Environment: ${DEPLOYMENT_ENV}"
-          echo "  API Base URL: ${VITE_API_BASE_URL}"
+          # Sanitize: strip CR/LF and trailing slash
+          VITE_API_BASE_URL="$(printf '%s' "$VITE_API_BASE_URL" | tr -d '\r\n')"
+          VITE_API_BASE_URL="${VITE_API_BASE_URL%/}"
+          test -n "$VITE_API_BASE_URL" || { echo "❌ VITE_API_BASE_URL is empty"; exit 1; }
+
+          echo "[Finanzas] BUILD_TARGET=$BUILD_TARGET"
+          echo "[Finanzas] VITE_API_BASE_URL=$VITE_API_BASE_URL"
+          echo "[Finanzas] Building Finanzas SDT Portal (base: /finanzas/)..."
+          echo "[Finanzas] Environment: ${DEPLOYMENT_ENV}"
+
+          # Export sanitized value for the build
+          export VITE_API_BASE_URL
 
           BUILD_TARGET=finanzas npm run build || { echo "❌ Finanzas build failed"; exit 1; }
           echo "✅ Finanzas Portal built → dist-finanzas/"
+
+      # ---- Verify API URL is embedded in the bundle ----
+      - name: Verify API URL embedded in Finanzas bundle
+        env:
+          VITE_API_BASE_URL: ${{ vars.DEV_API_URL }}
+        run: |
+          set -euo pipefail
+
+          # Sanitize value same way as build step
+          VITE_API_BASE_URL="$(printf '%s' "$VITE_API_BASE_URL" | tr -d '\r\n')"
+          VITE_API_BASE_URL="${VITE_API_BASE_URL%/}"
+
+          DIST="dist-finanzas"
+          if ! grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" >/dev/null; then
+            echo "❌ VITE_API_BASE_URL ($VITE_API_BASE_URL) not found in $DIST"
+            exit 1
+          fi
+          echo "✅ VITE_API_BASE_URL embedded in Finanzas bundle"
 
       # ---- Configure AWS via OIDC (must be before any aws CLI) ----
       - name: Configure AWS (OIDC)
