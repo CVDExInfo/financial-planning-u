@@ -4,7 +4,37 @@
 type Json = Record<string, unknown>;
 
 // ---------- Environment ----------
-const API_BASE = String(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
+// Runtime API base override detection
+function readRuntimeApiBase(): string {
+  // Check for runtime override via window global
+  if (typeof window !== "undefined") {
+    const win = window as Window & { __FINZ_API_BASE__?: string };
+    if (win.__FINZ_API_BASE__) {
+      return String(win.__FINZ_API_BASE__);
+    }
+  }
+  
+  // Check for runtime override via meta tag
+  if (typeof document !== "undefined") {
+    const meta = document.querySelector('meta[name="finz-api-base"]');
+    if (meta) {
+      const content = meta.getAttribute("content");
+      if (content) {
+        return content;
+      }
+    }
+  }
+  
+  return "";
+}
+
+// Compute API_BASE with runtime override support
+const runtimeBase = readRuntimeApiBase();
+const API_BASE = (runtimeBase || String(import.meta.env.VITE_API_BASE_URL || ""))
+  .trim()
+  .replace(/\/$/, "");
+
 const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
 
 function requireApiBase(): string {
