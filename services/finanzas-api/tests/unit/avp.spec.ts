@@ -33,7 +33,7 @@ function extractIdToken(event) {
 }
 
 function buildAVPContext(event, groups, projectId?) {
-  const context = {
+  const context: any = {
     jwt_groups: { set: groups },
     http_method: { string: event.requestContext.http.method },
     route: { string: event.requestContext.http.path },
@@ -228,7 +228,7 @@ describe('AVP Helper Library', () => {
         route: { string: '/health' },
         env: { string: 'dev' }
       });
-      expect(context.project_id).toBeUndefined();
+      expect('project_id' in context).toBe(false);
     });
 
     it('should use STAGE_NAME environment variable if available', () => {

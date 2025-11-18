@@ -17,7 +17,7 @@ jest.mock("../../src/lib/dynamo", () => ({
   tableName: jest.fn(() => "prefacturas-table"),
 }));
 
-import { handler as prefacturasHandler } from "../../src/handlers/prefacturas.js";
+import { handler } from "../../src/handlers/prefacturas";
 
 const auth = jest.requireMock("../../src/lib/auth") as jest.Mocked<
   typeof import("../../src/lib/auth")
@@ -116,7 +116,7 @@ describe("prefacturas handler", () => {
       Count: 1,
     });
 
-    const response = (await prefacturasHandler(
+    const response = (await handler(
       baseEvent({
         queryStringParameters: { projectId: "PROJ-1" },
       })
@@ -137,7 +137,7 @@ describe("prefacturas handler", () => {
   });
 
   it("requires projectId on GET", async () => {
-    const response = (await prefacturasHandler(
+    const response = (await handler(
       baseEvent({ queryStringParameters: {} })
     )) as ApiResult;
 
@@ -180,7 +180,7 @@ describe("prefacturas handler", () => {
   });
 
   it("rejects invalid JSON payload", async () => {
-    const response = (await prefacturasHandler(toPostEvent("not-json"))) as ApiResult;
+    const response = (await handler(toPostEvent("not-json"))) as ApiResult;
 
     expect(response.statusCode).toBe(400);
     expect(JSON.parse(response.body).error).toMatch(/Invalid JSON/);
