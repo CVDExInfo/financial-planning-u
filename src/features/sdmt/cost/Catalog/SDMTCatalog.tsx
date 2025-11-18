@@ -38,6 +38,7 @@ import {
   Download,
   Package,
   Star,
+  Paperclip,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useProject } from "@/contexts/ProjectContext";
@@ -54,7 +55,7 @@ import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import { logger } from "@/utils/logger";
 import { cn } from "@/lib/utils";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
-import { addProjectRubro } from "@/api/finanzas";
+import { addProjectRubro, uploadSupportingDocument } from "@/api/finanzas";
 import { ErrorBanner } from "@/components/ErrorBanner";
 
 // Pending change types
@@ -65,6 +66,13 @@ interface PendingChange {
   item: LineItem;
   originalItem?: LineItem; // For edits, keep original for rollback
 }
+
+type CatalogDocumentMeta = {
+  documentKey: string;
+  originalName: string;
+  contentType: string;
+  uploadedAt: string;
+};
 
 export function SDMTCatalog() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
@@ -77,6 +85,13 @@ export function SDMTCatalog() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [docDialogOpen, setDocDialogOpen] = useState(false);
+  const [docTarget, setDocTarget] = useState<LineItem | null>(null);
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [lineItemDocuments, setLineItemDocuments] = useState<
+    Record<string, CatalogDocumentMeta[]>
+  >({});
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [editingItem, setEditingItem] = useState<LineItem | null>(null);
   const [isCreatingLineItem, setIsCreatingLineItem] = useState(false);
   const allowMockData = import.meta.env.VITE_USE_MOCKS === "true";
@@ -111,6 +126,7 @@ export function SDMTCatalog() {
   } = useProjectLineItems();
 
   // Compute error message after lineItemsError is available
+
   const lineItemsErrorMessage = lineItemsError
     ? lineItemsError instanceof Error
       ? lineItemsError.message
@@ -270,6 +286,59 @@ export function SDMTCatalog() {
       end_month: 12,
       recurring: false,
     });
+  };
+
+  const openDocumentDialog = (item: LineItem) => {
+    setDocTarget(item);
+    setDocFile(null);
+    setDocDialogOpen(true);
+  };
+
+  const handleDocumentUpload = async () => {
+    if (!docTarget || !docFile) {
+      toast.error("Select a file to upload");
+      return;
+    }
+
+    if (!selectedProjectId) {
+      toast.error("Select a project before uploading documents");
+      return;
+    }
+
+    try {
+      setIsUploadingDocument(true);
+      const documentKey = await uploadSupportingDocument({
+        projectId: selectedProjectId,
+        module: "catalog",
+        lineItemId: docTarget.id,
+        file: docFile,
+      });
+
+      const nextDoc: CatalogDocumentMeta = {
+        documentKey,
+        originalName: docFile.name,
+        contentType: docFile.type || "application/octet-stream",
+        uploadedAt: new Date().toISOString(),
+      };
+
+      setLineItemDocuments((prev) => {
+        const existing = prev[docTarget.id] ?? [];
+        return {
+          ...prev,
+          [docTarget.id]: [nextDoc, ...existing],
+        };
+      });
+
+      toast.success("Supporting document uploaded");
+      setDocDialogOpen(false);
+      setDocFile(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to upload document";
+      toast.error(message);
+    } finally {
+      setIsUploadingDocument(false);
+    }
   };
 
   const handleSubmitLineItem = async () => {
@@ -1222,6 +1291,29 @@ export function SDMTCatalog() {
                                   Vendor: {item.vendor}
                                 </div>
                               )}
+                              {lineItemDocuments[item.id]?.length ? (
+                                <div className="mt-2 space-y-1">
+                                  {lineItemDocuments[item.id].map((doc) => (
+                                    <div
+                                      key={`${doc.documentKey}-${doc.uploadedAt}`}
+                                      className="text-xs text-muted-foreground"
+                                    >
+                                      <div
+                                        className="truncate"
+                                        title={doc.originalName}
+                                      >
+                                        {doc.originalName}
+                                      </div>
+                                      <div
+                                        className="font-mono truncate"
+                                        title={doc.documentKey}
+                                      >
+                                        {doc.documentKey}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
@@ -1252,6 +1344,16 @@ export function SDMTCatalog() {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
+                                <Protected action="update">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openDocumentDialog(item)}
+                                    title="Upload supporting document"
+                                  >
+                                    <Paperclip size={16} />
+                                  </Button>
+                                </Protected>
                                 <Protected action="update">
                                   <Button
                                     variant="ghost"
@@ -1294,6 +1396,79 @@ export function SDMTCatalog() {
           />
         </TabsContent>
       </Tabs>
+
+      <Dialog
+        open={docDialogOpen}
+        onOpenChange={(open) => {
+          setDocDialogOpen(open);
+          if (!open) {
+            setDocFile(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Upload Supporting Document</DialogTitle>
+            <DialogDescription>
+              Documents are stored in the shared docs bucket with line item
+              metadata so SDMT and PMO can reference the same evidence.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              {docTarget
+                ? `${docTarget.category} - ${docTarget.description}`
+                : "Select a line item"}
+            </div>
+            <Input
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg"
+              onChange={(event) => setDocFile(event.target.files?.[0] ?? null)}
+              disabled={isUploadingDocument}
+            />
+            <p className="text-xs text-muted-foreground">
+              Accepted formats include PDF, Office documents, CSV, and common
+              image types. Files are uploaded via the `/uploads/docs` flow.
+            </p>
+            {docTarget && lineItemDocuments[docTarget.id]?.length ? (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Recent uploads
+                </p>
+                <div className="space-y-1">
+                  {lineItemDocuments[docTarget.id].map((doc) => (
+                    <div key={`${doc.documentKey}-dialog`}>
+                      <div className="text-sm font-medium truncate">
+                        {doc.originalName}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono truncate">
+                        {doc.documentKey}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDocDialogOpen(false)}
+              disabled={isUploadingDocument}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDocumentUpload}
+              disabled={!docFile || isUploadingDocument}
+            >
+              {isUploadingDocument ? "Uploading..." : "Upload Document"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* SaveBar for unsaved changes */}
       <SaveBar

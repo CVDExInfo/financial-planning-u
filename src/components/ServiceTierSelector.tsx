@@ -339,7 +339,8 @@ interface ServiceTierSelectorProps {
 export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
   onTierSelected,
 }) => {
-  const { selectedProjectId, invalidateProjectData } = useProject();
+  const { selectedProject } = useProject();
+  const projectId = selectedProject?.id;
   const queryClient = useQueryClient();
   const [selectedRequirements, setSelectedRequirements] = useState({
     budget_monthly: 10000,
@@ -372,7 +373,7 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
     console.log("📊 Tier data:", tierData);
 
     // Guard: need project ID to create line item
-    if (!selectedProjectId) {
+    if (!projectId) {
       toast.error("Please select a project first");
       return;
     }
@@ -387,7 +388,7 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
       const unitCost = tierData.pricing_tiers[0]?.unit_price || 0;
 
       // POST to API to create line item
-      await addProjectRubro(selectedProjectId, {
+      await addProjectRubro(projectId, {
         rubroId: tierId,
         qty: 1,
         unitCost,
@@ -396,9 +397,8 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
       });
 
       // Invalidate queries to refresh line items
-      invalidateProjectData();
       await queryClient.invalidateQueries({
-        queryKey: ["lineItems", selectedProjectId],
+        queryKey: ["lineItems", projectId],
       });
 
       toast.success(`Added ${tierData.name} to project`);
