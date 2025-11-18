@@ -159,7 +159,7 @@ describe("prefacturas handler", () => {
       })
     );
 
-    const response = (await handler(postEvent)) as ApiResult;
+    const response = (await prefacturasHandler(postEvent)) as ApiResult;
 
     expect(response.statusCode).toBe(201);
     const body = JSON.parse(response.body);
@@ -198,7 +198,7 @@ describe("prefacturas handler", () => {
       })
     );
 
-    const response = (await handler(event)) as ApiResult;
+    const response = (await prefacturasHandler(event)) as ApiResult;
     expect(response.statusCode).toBe(400);
     expect(JSON.parse(response.body).error).toMatch(/amount must be/);
   });
@@ -215,7 +215,7 @@ describe("prefacturas handler", () => {
       })
     );
 
-    const response = (await handler(event)) as ApiResult;
+    const response = (await prefacturasHandler(event)) as ApiResult;
     expect(response.statusCode).toBe(400);
     expect(JSON.parse(response.body).error).toMatch(/documentKey is required/);
   });

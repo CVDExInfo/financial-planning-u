@@ -4,6 +4,10 @@ import {
 } from "aws-lambda";
 import crypto from "node:crypto";
 
+// Set environment variables before imports
+process.env.DOCS_BUCKET = "docs-bucket";
+process.env.AWS_REGION = "us-east-2";
+
 const mockSignedUrl = "https://signed.example/upload";
 
 // Set environment variables before importing handler
@@ -73,6 +77,7 @@ const baseEvent = (
   body: undefined,
   ...overrides,
 });
+
 let uuidSpy: jest.SpyInstance<string, [crypto.RandomUUIDOptions?]>;
 
 beforeAll(() => {
@@ -145,7 +150,7 @@ describe("upload-docs handler", () => {
   it("rejects requests with invalid module", async () => {
     const badBody = { ...validBody, module: "unknown" };
 
-    const response = (await handler(
+    const response = (await uploadDocsHandler(
       baseEvent({ body: JSON.stringify(badBody) })
     )) as ApiResult;
 
@@ -165,7 +170,7 @@ describe("upload-docs handler", () => {
   it("returns server error when DynamoDB write fails", async () => {
     dynamo.ddb.send.mockRejectedValue(new Error("ddb failure"));
 
-    const response = (await handler(
+    const response = (await uploadDocsHandler(
       baseEvent({ body: JSON.stringify(validBody) })
     )) as ApiResult;
 

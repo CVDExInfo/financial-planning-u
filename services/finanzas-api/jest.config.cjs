@@ -7,11 +7,11 @@ module.exports = {
   clearMocks: true,
   extensionsToTreatAsEsm: [".ts"],
   moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
+    "^(\\.{1,2}/.*)\\.js$": "$1",
   },
   globals: {
     'ts-jest': {
       useESM: true,
     },
-  },
+  }
 };
