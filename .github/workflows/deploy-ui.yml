@@ -1,4 +1,4 @@
-Name: Deploy Finanzas UI
+name: Deploy Finanzas UI
 
 on:
   workflow_dispatch: {}
