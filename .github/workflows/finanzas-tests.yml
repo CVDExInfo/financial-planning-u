@@ -1,78 +1,89 @@
-name: Finanzas SD – Smoke Tests
+name: API Contract Tests – Finanzas
 
 on:
-  workflow_dispatch:
-  workflow_call:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    paths:
+      - "services/finanzas-api/**"
+      - "tests/finanzas/**"
+      - "scripts/cognito/**"
+      - ".github/workflows/api-contract-tests.yml"
+  workflow_dispatch: {}
 
 permissions:
   id-token: write
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  finanzas-smoke:
+  finanzas-api-contract-tests:
     runs-on: ubuntu-latest
+
     env:
+      # Core config from GitHub Variables
       AWS_REGION: ${{ vars.AWS_REGION }}
-      FINZ_API_BASE: ${{ vars.DEV_API_URL }} # points to /dev
-      FINZ_UI_BASE: https://${{ vars.CF_DOMAIN }}/finanzas
-      COGNITO_TESTER_USERNAME: ${{ vars.COGNITO_TESTER_USERNAME }}
-      COGNITO_TESTER_PASSWORD: ${{ vars.COGNITO_TESTER_PASSWORD }}
+      DEV_API_URL: ${{ vars.DEV_API_URL }}
       COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
       COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
       FINZ_LOG_DIR: /tmp/finanzas-tests
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS credentials (OIDC, no static keys)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Cognito (fail on error)
-        shell: bash
+      - name: Install jq (for JSON validation in tests)
         run: |
           set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Finanzas – Projects API contract tests
+        env:
+          # Base URL used by the tests script; we also expose it as FINZ_API_BASE
+          DEV_API_URL: ${{ env.DEV_API_URL }}
+          FINZ_API_BASE: ${{ env.DEV_API_URL }}
+
+          # Cognito configuration (from repo variables)
+          AWS_REGION: ${{ env.AWS_REGION }}
+          COGNITO_USER_POOL_ID: ${{ env.COGNITO_USER_POOL_ID }}
+          COGNITO_WEB_CLIENT: ${{ env.COGNITO_WEB_CLIENT }}
+
+          # Test user credentials (from secrets – masked in logs)
+          COGNITO_TESTER_USERNAME: ${{ secrets.USERNAME }}
+          COGNITO_TESTER_PASSWORD: ${{ secrets.PASSWORD }}
+
+          # Log directory for test artifacts
+          FINZ_LOG_DIR: ${{ env.FINZ_LOG_DIR }}
+
+        run: |
+          set -euo pipefail
+
+          # Ensure log directory exists
           mkdir -p "$FINZ_LOG_DIR"
-          resp=$(aws cognito-idp initiate-auth \
-            --auth-flow USER_PASSWORD_AUTH \
-            --client-id "$COGNITO_WEB_CLIENT" \
-            --auth-parameters USERNAME="$COGNITO_TESTER_USERNAME",PASSWORD="$COGNITO_TESTER_PASSWORD" \
-            --query 'AuthenticationResult.IdToken' --output text 2> "$FINZ_LOG_DIR/cognito.err" || true)
 
-          if [[ -z "$resp" || "$resp" == "None" ]]; then
-            echo "::error title=Login failed::$(sed -n '1,200p' "$FINZ_LOG_DIR/cognito.err")"
-            exit 1
-          fi
-          echo "ID_TOKEN=$resp" >> "$GITHUB_ENV"
-          echo "✅ Login successful" >> "$GITHUB_STEP_SUMMARY"
+          # Append section header to GitHub Step Summary
+          {
+            echo ""
+            echo "## Finanzas – Projects API Contract Tests"
+            echo ""
+            echo "_Start time:_ $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: API smokes (health, catalog, projects)
-        shell: bash
-        run: |
-          set -euo pipefail
-          BASE="${FINZ_API_BASE%/}"
-          hcode=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health")
-          [[ "$hcode" == "200" ]] || { echo "::error ::/health -> $hcode"; exit 1; }
+          # Run the projects tests and tee output into the summary
+          bash tests/finanzas/projects/run-projects-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
 
-          ccode=$(curl -sS -o /tmp/rubros.json -w '%{http_code}' "$BASE/catalog/rubros")
-          [[ "$ccode" == "200" ]] || { echo "::error ::/catalog/rubros -> $ccode"; exit 1; }
-          jq '.data | length' /tmp/rubros.json
-
-          pcode=$(curl -sS -H "Authorization: Bearer $ID_TOKEN" \
-            -o /tmp/projects.json -w '%{http_code}' "$BASE/projects?limit=50")
-          [[ "$pcode" == "200" || "$pcode" == "501" ]] || { echo "::error ::/projects -> $pcode"; exit 1; }
-
-      - name: Run module test scripts (fail if any fails)
-        shell: bash
-        run: |
-          set -euo pipefail
-          chmod +x tests/finanzas/**/run-*.sh || true
-          ok=1
-          for mod in projects catalog forecast reconciliation changes handoff; do
-            if [[ -x "tests/finanzas/$mod/run-${mod}-tests.sh" ]]; then
-              echo "▶ $mod"
-              if ! "tests/finanzas/$mod/run-${mod}-tests.sh"; then ok=0; fi
-            fi
-          done
-          [[ $ok -eq 1 ]] || { echo "::error ::one or more module tests failed"; exit 1; }
+          # Preserve exit code from the test script even with tee in the pipe
+          test ${PIPESTATUS[0]} -eq 0
