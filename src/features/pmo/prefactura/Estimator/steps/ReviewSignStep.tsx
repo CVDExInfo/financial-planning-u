@@ -510,14 +510,14 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
     try {
       setIsUploadingDoc(true);
       for (const file of files) {
-        const documentKey = await uploadSupportingDocument({
+        const result = await uploadSupportingDocument({
           projectId: derivedProjectId,
           module: "prefactura",
           file,
         });
 
         const nextDoc: SupportingDocumentMeta = {
-          documentKey,
+          documentKey: result.documentKey || result.id,
           originalName: file.name,
           contentType: file.type || "application/octet-stream",
           uploadedAt: new Date().toISOString(),
