@@ -154,8 +154,22 @@ export async function uploadInvoice(projectId: string, payload: UploadInvoicePay
   });
 }
 
-// Alias used by Prefactura upload flows (same pipeline for now).
-export const uploadSupportingDocument = uploadInvoice;
+// Wrapper for Prefactura upload flows - adapts call site signature
+export async function uploadSupportingDocument(payload: {
+  projectId: string;
+  module?: string;
+  file: File;
+}): Promise<{ documentKey?: string } & InvoiceDTO> {
+  // Map to UploadInvoicePayload format with placeholders
+  const invoicePayload: UploadInvoicePayload = {
+    file: payload.file,
+    line_item_id: "supporting-doc",
+    month: 1,
+    amount: 0,
+    description: `Supporting document for ${payload.module || "project"}`,
+  };
+  return uploadInvoice(payload.projectId, invoicePayload);
+}
 
 export async function updateInvoiceStatus(
   projectId: string,
@@ -210,6 +224,18 @@ export async function getProjectLineItems(projectId: string): Promise<Json> {
   const base = requireApiBase();
   return fetchJson<Json>(
     `${base}/projects/${encodeURIComponent(projectId)}/catalog/line-items`,
+    { method: "GET", headers: authHeader() },
+  );
+}
+
+// Alias for compatibility with hooks
+export const getProjectRubros = getProjectLineItems;
+
+// Get invoices for a project
+export async function getInvoices(projectId: string): Promise<InvoiceDTO[]> {
+  const base = requireApiBase();
+  return fetchJson<InvoiceDTO[]>(
+    `${base}/projects/${encodeURIComponent(projectId)}/invoices`,
     { method: "GET", headers: authHeader() },
   );
 }
