@@ -259,16 +259,34 @@ export const uploadInvoiceDocument = uploadInvoice;
 // If the API later introduces a distinct endpoint or metadata shape for
 // supporting docs, this alias can be changed to call that instead.
 
+export type UploadSupportingDocPayload = {
+  projectId: string;
+  module?: string;
+  file: File;
+};
+
 /**
  * Upload a supporting document for Prefactura using the same pipeline as invoices.
  * This keeps ReviewSignStep and other Prefactura flows working without
  * duplicating upload logic.
+ * 
+ * Returns just the documentKey string for compatibility with existing call sites.
  */
 export async function uploadSupportingDocument(
-  projectId: string,
-  payload: UploadInvoicePayload
-): Promise<UploadedInvoiceDTO> {
-  return uploadInvoice(projectId, payload);
+  payload: UploadSupportingDocPayload
+): Promise<string> {
+  // Map to UploadInvoicePayload format
+  // Supporting docs don't need line_item_id or month, so use placeholders
+  const invoicePayload: UploadInvoicePayload = {
+    file: payload.file,
+    line_item_id: "supporting-doc", // Placeholder
+    month: 1, // Placeholder
+    amount: 0, // Placeholder
+    description: `Supporting document for ${payload.module || "project"}`,
+  };
+
+  const result = await uploadInvoice(payload.projectId, invoicePayload);
+  return result.documentKey || "";
 }
 
 // ---------- Project Rubros/Line Items API ----------
