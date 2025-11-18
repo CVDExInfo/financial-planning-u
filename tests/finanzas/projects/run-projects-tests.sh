@@ -22,7 +22,7 @@ FINZ_LOG_DIR="${FINZ_LOG_DIR:-/tmp/finanzas-tests}"
 mkdir -p "$FINZ_LOG_DIR"
 
 # ---------------------------------------------------------------------------
-# Resolve API base (no hard failure on stage; we just log it)
+# Resolve API base (no hard failure on stage)
 # ---------------------------------------------------------------------------
 BASE="${FINZ_API_BASE:-${DEV_API_URL:-}}"
 
