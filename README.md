@@ -298,6 +298,95 @@ Artifacts are emitted to `dist/` with the correct base URL baked in (`/finanzas/
 npm run preview
 ```
 
+## 🔍 Validation & Verification
+
+The project includes comprehensive validation scripts to ensure proper API connectivity and deployment health.
+
+### Pre-Build Validation
+
+Before building, validate that your API configuration is correct:
+
+```bash
+# Validate API configuration and connectivity
+npm run validate:api-config
+
+# Quick pre-build check (runs automatically during npm run build:finanzas)
+npm run validate:pre-build
+```
+
+The `validate:api-config` script checks:
+- ✅ `VITE_API_BASE_URL` is set and non-empty
+- ✅ URL format is valid
+- ✅ DNS resolution works for the API host
+- ✅ API `/health` endpoint is reachable (HTTP 200)
+- ✅ CORS configuration is present
+- ✅ Critical endpoints like `/catalog/rubros` respond correctly
+
+**Note:** The `build:finanzas` script now automatically runs `pre-build-validate.sh` to catch configuration issues before building.
+
+### Post-Deployment Verification
+
+After deploying to CloudFront + S3, verify the deployment:
+
+```bash
+# Set environment variables for your deployment
+export CLOUDFRONT_DOMAIN=d7t9x3j66yd8k.cloudfront.net
+export VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
+export S3_BUCKET=ukusi-ui-finanzas-prod
+
+# Run verification
+bash scripts/post-deploy-verify.sh
+```
+
+The post-deployment script checks:
+- ✅ CloudFront UI is accessible at `/finanzas/`
+- ✅ Static assets (JS/CSS) load correctly with proper base paths
+- ✅ API endpoints are reachable from the deployed frontend
+- ✅ API URL is embedded in the frontend bundle
+- ✅ S3 bucket contains expected files (optional)
+
+### End-to-End Smoke Tests
+
+Run comprehensive E2E tests against a deployed environment:
+
+```bash
+# Set credentials
+export USERNAME="christian.valencia@ikusi.com"
+export PASSWORD="Velatia@2025"
+
+# Run smoke tests
+npm run smoke:api
+```
+
+The smoke test validates:
+- ✅ Cognito authentication (IdToken generation)
+- ✅ Public endpoints (`/health`, `/catalog/rubros`)
+- ✅ Protected endpoints (`/allocation-rules`) with auth
+- ✅ Lambda → DynamoDB writes (creates test adjustment)
+- ✅ DynamoDB persistence (verifies record exists)
+- ✅ Audit log integration
+
+### Continuous Integration
+
+The GitHub Actions workflow (`.github/workflows/deploy-ui.yml`) automatically runs:
+
+1. **Pre-Build Checks:**
+   - Environment variable validation
+   - API connectivity validation (`scripts/validate-api-config.sh`)
+   - `/health` endpoint preflight check
+
+2. **Build Validation:**
+   - Verifies API URL is embedded in bundle
+   - Checks for configuration bleed (no PMO config in Finanzas build)
+   - Validates base path correctness
+
+3. **Post-Deploy Verification:**
+   - CloudFront accessibility test
+   - API smoke tests (public endpoints)
+   - Comprehensive deployment verification (`scripts/post-deploy-verify.sh`)
+
+**Release Gate:** Deployments will **FAIL** if any validation step fails, preventing broken deployments from reaching production.
+
 ## Deploy (S3 + CloudFront)
 
 This app is designed to be served at the CloudFront path prefix `/finanzas/`. You have two essential requirements:
