@@ -67,38 +67,65 @@ jobs:
           chmod +x tests/finanzas/shared/run-login-test.sh
           bash tests/finanzas/shared/run-login-test.sh | tee -a "$GITHUB_STEP_SUMMARY"
 
-      - name: Projects – /projects list
+      - name: URL sanity check
+        shell: bash
         run: |
+          set -euo pipefail
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## URL Sanity Check" >> "$GITHUB_STEP_SUMMARY"
+          bash tests/finanzas/shared/run-url-sanity.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          test ${PIPESTATUS[0]} -eq 0
+
+      - name: Projects – /projects list
+        shell: bash
+        run: |
+          set -euo pipefail
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Projects – run-projects-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/projects/run-projects-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          test ${PIPESTATUS[0]} -eq 0
 
       - name: Catalog – line items & POST rubro
+        shell: bash
         run: |
+          set -euo pipefail
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Catalog – run-catalog-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/catalog/run-catalog-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          test ${PIPESTATUS[0]} -eq 0
 
       - name: Forecast – /plan/forecast checks
+        shell: bash
         run: |
+          set -euo pipefail
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Forecast – run-forecast-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/forecast/run-forecast-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          test ${PIPESTATUS[0]} -eq 0
 
       - name: Reconciliation – /prefacturas & forecast
+        shell: bash
         run: |
+          set -euo pipefail
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Reconciliation – run-reconciliation-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/reconciliation/run-reconciliation-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          test ${PIPESTATUS[0]} -eq 0
 
       - name: Changes – adjustments
+        shell: bash
         run: |
+          set -euo pipefail
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Changes – run-changes-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/changes/run-changes-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          test ${PIPESTATUS[0]} -eq 0
 
       - name: Handoff – create/read
+        shell: bash
         run: |
+          set -euo pipefail
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Handoff – run-handoff-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/handoff/run-handoff-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          test ${PIPESTATUS[0]} -eq 0
