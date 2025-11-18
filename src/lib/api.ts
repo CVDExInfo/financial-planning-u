@@ -146,41 +146,56 @@ export class ApiService {
     project_id: string
   ): Promise<{ monthly_inflows: BillingPeriod[] }> {
     await this.delay(200);
+    
+    try {
+      const response = await fetch(
+        buildApiUrl(`/projects/${project_id}/billing`),
+        {
+          method: "GET",
+          headers: buildHeaders(),
+        }
+      );
 
-    // Return appropriate billing plan based on project
-    let billingData;
-    switch (project_id) {
-      case "PRJ-HEALTHCARE-MODERNIZATION":
-        billingData = billingPlanData;
-        break;
-      case "PRJ-FINTECH-PLATFORM":
-        billingData = billingPlanFintechData;
-        break;
-      case "PRJ-RETAIL-ANALYTICS":
-        billingData = billingPlanRetailData;
-        break;
-      default:
-        billingData = billingPlanData;
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error("Failed to fetch billing plan:", errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      logger.info("Billing plan loaded from API");
+      return data;
+    } catch (error) {
+      logger.error("Failed to fetch billing plan:", error);
+      // Return empty billing plan structure
+      return { monthly_inflows: [] };
     }
-
-    return {
-      monthly_inflows: billingData as BillingPeriod[],
-    };
   }
 
   static async getBaseline(baseline_id: string): Promise<BaselineBudget> {
     await this.delay(200);
 
-    // Return appropriate baseline based on ID
-    switch (baseline_id) {
-      case "BL-2024-001":
-        return baselineData as BaselineBudget;
-      case "BL-2024-002":
-        return baselineFintechData as BaselineBudget;
-      case "BL-2024-003":
-        return baselineRetailData as BaselineBudget;
-      default:
-        return baselineData as BaselineBudget;
+    try {
+      const response = await fetch(
+        buildApiUrl(`/baseline/${baseline_id}`),
+        {
+          method: "GET",
+          headers: buildHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error("Failed to fetch baseline:", errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      logger.info("Baseline loaded from API");
+      return data;
+    } catch (error) {
+      logger.error("Failed to fetch baseline:", error);
+      throw error;
     }
   }
 
@@ -207,47 +222,17 @@ export class ApiService {
         return items;
       }
 
-      // If API fails, log and fall back to mock data
+      // If API fails, log error and return empty array
       logger.warn(
         "API call failed (status:",
         response.status,
-        "), falling back to mock data"
+        "), returning empty line items"
       );
+      return [];
     } catch (error) {
-      logger.warn("API fetch failed:", error, "falling back to mock data");
+      logger.error("API fetch failed:", error);
+      return [];
     }
-
-    // Fallback: Return mock data based on project to enable UI to work
-    let baseline;
-    switch (project_id) {
-      case "PRJ-HEALTHCARE-MODERNIZATION":
-        baseline = baselineData as BaselineBudget;
-        logger.debug("Using HEALTHCARE mock data for fallback");
-        break;
-      case "PRJ-FINTECH-PLATFORM":
-        baseline = baselineFintechData as BaselineBudget;
-        logger.debug("Using FINTECH mock data for fallback");
-        break;
-      case "PRJ-RETAIL-ANALYTICS":
-        baseline = baselineRetailData as BaselineBudget;
-        logger.debug("Using RETAIL mock data for fallback");
-        break;
-      default:
-        // For unknown project IDs (e.g., newly handed off projects), use healthcare as template
-        baseline = baselineData as BaselineBudget;
-        logger.info(
-          "Unknown project_id, using HEALTHCARE mock data as template for project:",
-          project_id
-        );
-        break;
-    }
-
-    logger.debug(
-      "Returning",
-      baseline.line_items.length,
-      "line items from fallback"
-    );
-    return baseline.line_items;
   }
 
   // Line Items
@@ -343,44 +328,17 @@ export class ApiService {
         return data;
       }
 
-      // If API fails, log and fall back to mock data
+      // If API fails, log error and return empty array
       logger.warn(
         "API call failed (status:",
         response.status,
-        "), falling back to mock data"
+        "), returning empty forecast data"
       );
+      return [];
     } catch (error) {
-      logger.warn("API fetch failed:", error, "falling back to mock data");
+      logger.error("API fetch failed:", error);
+      return [];
     }
-
-    // Fallback: Return mock data based on project to enable UI to work
-    let data;
-    switch (project_id) {
-      case "PRJ-HEALTHCARE-MODERNIZATION":
-        data = forecastData;
-        logger.debug("Using HEALTHCARE mock data for fallback");
-        break;
-      case "PRJ-FINTECH-PLATFORM":
-        data = forecastFintechData;
-        logger.debug("Using FINTECH mock data for fallback");
-        break;
-      case "PRJ-RETAIL-ANALYTICS":
-        data = forecastRetailData;
-        logger.debug("Using RETAIL mock data for fallback");
-        break;
-      default:
-        // For unknown project IDs (e.g., newly handed off projects), use healthcare as template
-        data = forecastData;
-        logger.info(
-          "Unknown project_id, using HEALTHCARE mock data as template for project:",
-          project_id
-        );
-        break;
-    }
-
-    const result = data as ForecastCell[];
-    logger.debug("Returning", result.length, "forecast cells from fallback");
-    return result;
   }
 
   static async updateForecast(
@@ -429,44 +387,17 @@ export class ApiService {
         return data;
       }
 
-      // If API fails, log and fall back to mock data
+      // If API fails, log error and return empty array
       logger.warn(
         "API call failed (status:",
         response.status,
-        "), falling back to mock data"
+        "), returning empty invoices"
       );
+      return [];
     } catch (error) {
-      logger.warn("API fetch failed:", error, "falling back to mock data");
+      logger.error("API fetch failed:", error);
+      return [];
     }
-
-    // Fallback: Return mock data based on project to enable UI to work
-    let data;
-    switch (project_id) {
-      case "PRJ-HEALTHCARE-MODERNIZATION":
-        data = invoicesData;
-        logger.debug("Using HEALTHCARE invoice mock data for fallback");
-        break;
-      case "PRJ-FINTECH-PLATFORM":
-        data = invoicesFintechData;
-        logger.debug("Using FINTECH invoice mock data for fallback");
-        break;
-      case "PRJ-RETAIL-ANALYTICS":
-        data = invoicesRetailData;
-        logger.debug("Using RETAIL invoice mock data for fallback");
-        break;
-      default:
-        // For unknown project IDs (e.g., newly handed off projects), use healthcare as template
-        data = invoicesData;
-        logger.info(
-          "Unknown project_id, using HEALTHCARE mock data as template for project:",
-          project_id
-        );
-        break;
-    }
-
-    const result = data as InvoiceDoc[];
-    logger.debug("Returning", result.length, "invoices from fallback");
-    return result;
   }
 
   static async uploadInvoice(
@@ -497,24 +428,30 @@ export class ApiService {
     comment?: string
   ): Promise<InvoiceDoc> {
     await this.delay(300);
-    const invoices = invoicesData as InvoiceDoc[];
-    const invoice = invoices.find((inv) => inv.id === invoice_id);
+    
+    try {
+      const response = await fetch(
+        buildApiUrl(`/invoices/${invoice_id}/status`),
+        {
+          method: "PUT",
+          headers: buildHeaders(),
+          body: JSON.stringify({ status, comment }),
+        }
+      );
 
-    if (!invoice) {
-      throw new Error(`Invoice with id ${invoice_id} not found`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error("Failed to update invoice status:", errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      logger.info("Invoice status updated via API");
+      return data;
+    } catch (error) {
+      logger.error("Failed to update invoice status:", error);
+      throw error;
     }
-
-    return {
-      ...invoice,
-      status,
-      comments: comment
-        ? [...(invoice.comments || []), comment]
-        : invoice.comments,
-      matched_at:
-        status === "Matched" ? new Date().toISOString() : invoice.matched_at,
-      matched_by:
-        status === "Matched" ? "sdmt-analyst@ikusi.com" : invoice.matched_by,
-    };
   }
 
   // Cash Flow Analysis
@@ -527,38 +464,55 @@ export class ApiService {
     margin: Array<{ month: number; percentage: number }>;
   }> {
     await this.delay(300);
-    const billingPlan = billingPlanData as BillingPeriod[];
-    const forecast = forecastData as ForecastCell[];
+    
+    try {
+      // Fetch billing plan and forecast data from API
+      const [billingResult, forecastResult] = await Promise.all([
+        this.getBillingPlan(project_id),
+        this.getForecastData(project_id, months)
+      ]);
 
-    // Calculate outflows by summing forecast data by month
-    const outflowsByMonth = new Map<number, number>();
-    forecast.forEach((cell) => {
-      const current = outflowsByMonth.get(cell.month) || 0;
-      outflowsByMonth.set(cell.month, current + cell.forecast);
-    });
+      const billingPlan = billingResult.monthly_inflows;
+      const forecast = forecastResult;
 
-    const inflows = billingPlan.map((period) => ({
-      month: period.month,
-      amount: period.amount,
-    }));
+      // Calculate outflows by summing forecast data by month
+      const outflowsByMonth = new Map<number, number>();
+      forecast.forEach((cell) => {
+        const current = outflowsByMonth.get(cell.month) || 0;
+        outflowsByMonth.set(cell.month, current + cell.forecast);
+      });
 
-    const outflows = Array.from(outflowsByMonth.entries()).map(
-      ([month, amount]) => ({
-        month,
-        amount,
-      })
-    );
+      const inflows = billingPlan.map((period) => ({
+        month: period.month,
+        amount: period.amount,
+      }));
 
-    const margin = inflows.map((inflow) => {
-      const outflow = outflows.find((o) => o.month === inflow.month);
-      const marginAmount = inflow.amount - (outflow?.amount || 0);
+      const outflows = Array.from(outflowsByMonth.entries()).map(
+        ([month, amount]) => ({
+          month,
+          amount,
+        })
+      );
+
+      const margin = inflows.map((inflow) => {
+        const outflow = outflows.find((o) => o.month === inflow.month);
+        const marginAmount = inflow.amount - (outflow?.amount || 0);
+        return {
+          month: inflow.month,
+          percentage: inflow.amount > 0 ? (marginAmount / inflow.amount) * 100 : 0,
+        };
+      });
+
+      return { inflows, outflows, margin };
+    } catch (error) {
+      logger.error("Failed to get cash flow data:", error);
+      // Return empty data structure
       return {
-        month: inflow.month,
-        percentage: (marginAmount / inflow.amount) * 100,
+        inflows: [],
+        outflows: [],
+        margin: []
       };
-    });
-
-    return { inflows, outflows, margin };
+    }
   }
 
   // Scenarios
