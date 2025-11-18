@@ -1,49 +1,16 @@
-// ---- Invoice upload pipeline (presign ➜ S3 ➜ create record) ----
+/* src/api/finanzas.ts
+ * Finanzas API client (browser-side) — minimal, dependency-free.
+ * Endpoints assumed from R1 contracts and current UI usage.
+ */
 
-export type UploadInvoicePayload = {
-  file: File;
-  line_item_id: string;
-  month: number;              // 1–12
-  amount: number;             // already parsed to number in UI
-  description?: string;
-  vendor?: string;
-  invoice_number?: string;
-  invoice_date?: string;      // yyyy-mm-dd
-};
+type Json = Record<string, unknown>;
 
-type PresignPOST = {
-  url: string;
-  key: string;
-  fields: Record<string, string>;
-};
-
-type PresignPUT = {
-  url: string;
-  key: string;
-  method: "PUT";
-  headers?: Record<string, string>;
-};
-
-type PresignResponse = PresignPOST | PresignPUT;
-
-export type UploadedInvoiceDTO = {
-  id: string;
-  line_item_id: string;
-  month: number;
-  amount: number;
-  status: "Pending" | "Matched" | "Disputed";
-  documentKey?: string;
-  file_name?: string;
-  originalName?: string;
-  uploaded_at: string;
-  uploaded_by: string;
-};
-
+/* ──────────────────────────────────────────────────────────
+   Environment & helpers
+   ────────────────────────────────────────────────────────── */
 const API_BASE = String(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
+const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS ?? "false") === "true";
 const MAX_MB = 50;
-
-// ---------- shared helpers ----------
 
 function requireApiBase(): string {
   if (!API_BASE) {
@@ -53,12 +20,11 @@ function requireApiBase(): string {
 }
 
 function authHeader(): Record<string, string> {
-  // Minimal, resilient token lookup; align with rest of app
-  if (typeof window === "undefined") return {};
+  // Keep it simple: Cognito IdToken usually stored client-side by your AuthProvider
   const token =
-    window.localStorage.getItem("idToken") ||
-    window.localStorage.getItem("cognitoIdToken") ||
-    window.sessionStorage.getItem("idToken") ||
+    localStorage.getItem("idToken") ||
+    localStorage.getItem("cognitoIdToken") ||
+    sessionStorage.getItem("idToken") ||
     "";
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
@@ -76,16 +42,155 @@ function fileExt(name: string): string {
   return idx >= 0 ? name.slice(idx + 1).toLowerCase() : "";
 }
 
-/**
- * 1) Ask API for a presigned S3 upload (no file bytes here)
- *    POST {API_BASE}/uploads/docs → { url, key, fields? | headers?, method? }
- */
-async function presignInvoiceUpload(
+async function jsonOrText(res: Response): Promise<unknown> {
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    return res.json();
+  }
+  return res.text();
+}
+
+/* ──────────────────────────────────────────────────────────
+   Types
+   ────────────────────────────────────────────────────────── */
+export type InvoiceStatus = "Pending" | "Matched" | "Disputed";
+
+export type UploadInvoicePayload = {
+  file: File;
+  line_item_id: string;
+  month: number;              // 1–12
+  amount: number;             // numeric, already parsed in the UI
+  description?: string;
+  vendor?: string;
+  invoice_number?: string;
+  invoice_date?: string;      // yyyy-mm-dd
+};
+
+export type InvoiceDTO = {
+  id: string;
+  line_item_id: string;
+  month: number;
+  amount: number;
+  status: InvoiceStatus;
+  documentKey?: string;
+  file_name?: string;
+  originalName?: string;
+  uploaded_at: string;
+  uploaded_by: string;
+};
+
+export type LineItemDTO = {
+  id: string;
+  category?: string;
+  description?: string;
+  qty?: number;
+  unit_cost?: number;
+  uom?: string;
+  service_tier?: string;
+  // any server-provided computed fields:
+  total_cost?: number;
+} & Json;
+
+export type AddProjectRubroInput = {
+  // Accepts either a tier code/name or full line item fields.
+  tier?: string;
+  category?: string;
+  description?: string;
+  qty?: number;
+  unit_cost?: number;
+  uom?: string;
+  // permit future/unknown fields to avoid runtime compile churn
+  [k: string]: unknown;
+};
+
+/* ──────────────────────────────────────────────────────────
+   Catalog: addProjectRubro (Service Tier → POST rubro)
+   Used by: src/components/ServiceTierSelector.tsx
+   ────────────────────────────────────────────────────────── */
+export async function addProjectRubro(
   projectId: string,
-  file: File
-): Promise<PresignResponse> {
+  inputOrTier: AddProjectRubroInput | string
+): Promise<LineItemDTO> {
+  if (USE_MOCKS) {
+    throw new Error("addProjectRubro is disabled when VITE_USE_MOCKS=true");
+  }
+  if (!projectId) throw new Error("projectId is required");
+
   const base = requireApiBase();
 
+  // Normalize payload: if a string is passed, treat it as the tier
+  const payload: AddProjectRubroInput =
+    typeof inputOrTier === "string" ? { tier: inputOrTier } : { ...inputOrTier };
+
+  // Map to server’s expected fields (keep tier as service_tier too)
+  const body: Json = {
+    ...payload,
+    service_tier: payload.tier ?? payload.service_tier,
+  };
+
+  const res = await fetch(
+    `${base}/projects/${encodeURIComponent(projectId)}/line-items`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader(),
+      },
+      body: JSON.stringify(body),
+    }
+  );
+
+  if (!res.ok) {
+    const t = (await jsonOrText(res)) as string;
+    throw new Error(`Failed to add project rubro (${res.status}): ${t}`);
+  }
+  return (await res.json()) as LineItemDTO;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Reconciliation: updateInvoiceStatus
+   Used by: SDMTReconciliation.tsx
+   ────────────────────────────────────────────────────────── */
+export async function updateInvoiceStatus(
+  projectId: string,
+  invoiceId: string,
+  body: { status: InvoiceStatus; comment?: string }
+): Promise<InvoiceDTO> {
+  if (USE_MOCKS) throw new Error("updateInvoiceStatus disabled with mocks");
+  if (!projectId) throw new Error("projectId is required");
+  if (!invoiceId) throw new Error("invoiceId is required");
+  if (!body?.status) throw new Error("status is required");
+
+  const base = requireApiBase();
+  const res = await fetch(
+    `${base}/projects/${encodeURIComponent(projectId)}/invoices/${encodeURIComponent(invoiceId)}/status`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader(),
+      },
+      body: JSON.stringify(body),
+    }
+  );
+
+  if (!res.ok) {
+    const t = (await jsonOrText(res)) as string;
+    throw new Error(`Failed to update invoice status (${res.status}): ${t}`);
+  }
+  return (await res.json()) as InvoiceDTO;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Uploads: presign → S3 → create invoice record
+   Used by: SDMTReconciliation.tsx
+   ────────────────────────────────────────────────────────── */
+type PresignPOST = { url: string; key: string; fields: Record<string, string> };
+type PresignPUT = { url: string; key: string; method: "PUT"; headers?: Record<string, string> };
+type PresignResponse = PresignPOST | PresignPUT;
+
+async function presignInvoiceUpload(projectId: string, file: File): Promise<PresignResponse> {
+  const base = requireApiBase();
   const body = {
     project_id: projectId,
     filename: file.name,
@@ -96,40 +201,23 @@ async function presignInvoiceUpload(
 
   const res = await fetch(`${base}/uploads/docs`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeader(),
-    },
+    headers: { "Content-Type": "application/json", ...authHeader() },
     body: JSON.stringify(body),
   });
-
   if (!res.ok) {
-    const t = await res.text().catch(() => "");
+    const t = (await jsonOrText(res)) as string;
     throw new Error(`Failed to presign upload (${res.status}): ${t}`);
   }
-
   return (await res.json()) as PresignResponse;
 }
 
-/**
- * 2) Upload file to S3 using the presigned info.
- *    Supports both POST (fields) and PUT presign styles.
- */
-async function uploadInvoiceFileToS3(
-  file: File,
-  presign: PresignResponse
-): Promise<void> {
+async function uploadInvoiceFileToS3(file: File, presign: PresignResponse): Promise<void> {
   if ("fields" in presign) {
-    // POST policy (browser form)
     const form = new FormData();
     Object.entries(presign.fields).forEach(([k, v]) => form.set(k, v));
     form.set("file", file);
 
-    const resp = await fetch(presign.url, {
-      method: "POST",
-      body: form,
-    });
-
+    const resp = await fetch(presign.url, { method: "POST", body: form });
     if (!resp.ok) {
       const t = await resp.text().catch(() => "");
       throw new Error(`S3 POST failed (${resp.status}): ${t}`);
@@ -137,31 +225,22 @@ async function uploadInvoiceFileToS3(
     return;
   }
 
-  // PUT presign
-  const headers: Record<string, string> = {
-    "Content-Type": file.type || "application/octet-stream",
-  };
-
   const resp = await fetch(presign.url, {
     method: "PUT",
-    headers,
+    headers: { "Content-Type": file.type || "application/octet-stream", ...(presign.headers || {}) },
     body: file,
   });
-
   if (!resp.ok) {
     const t = await resp.text().catch(() => "");
     throw new Error(`S3 PUT failed (${resp.status}): ${t}`);
   }
 }
 
-/**
- * 3) Create invoice record in API, referencing the uploaded documentKey.
- */
 async function createInvoiceRecord(
   projectId: string,
   payload: UploadInvoicePayload,
   documentKey: string
-): Promise<UploadedInvoiceDTO> {
+): Promise<InvoiceDTO> {
   const base = requireApiBase();
   const {
     file,
@@ -178,10 +257,7 @@ async function createInvoiceRecord(
     `${base}/projects/${encodeURIComponent(projectId)}/invoices`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader(),
-      },
+      headers: { "Content-Type": "application/json", ...authHeader() },
       body: JSON.stringify({
         line_item_id,
         month,
@@ -200,73 +276,36 @@ async function createInvoiceRecord(
   );
 
   if (!res.ok) {
-    const t = await res.text().catch(() => "");
+    const t = (await jsonOrText(res)) as string;
     throw new Error(`Failed to create invoice (${res.status}): ${t}`);
   }
-
-  return (await res.json().catch(() => ({}))) as UploadedInvoiceDTO;
+  return (await res.json()) as InvoiceDTO;
 }
 
-/**
- * Public orchestrator used by SDMTReconciliation and other modules.
- * Validates, presigns, uploads to S3, then creates the invoice record.
- */
+/** Public orchestrator */
 export async function uploadInvoice(
   projectId: string,
   payload: UploadInvoicePayload
-): Promise<UploadedInvoiceDTO> {
-  if (USE_MOCKS) {
-    throw new Error("Invoice upload is disabled when VITE_USE_MOCKS=true");
-  }
-
+): Promise<InvoiceDTO> {
+  if (USE_MOCKS) throw new Error("Invoice upload is disabled when VITE_USE_MOCKS=true");
   if (!projectId) throw new Error("Missing projectId");
   if (!payload?.file) throw new Error("No file selected");
   if (!payload.line_item_id) throw new Error("Line item is required");
-
-  if (!(payload.month >= 1 && payload.month <= 12)) {
-    throw new Error("Month must be between 1 and 12");
-  }
-
-  if (!Number.isFinite(payload.amount)) {
-    throw new Error("Amount must be a finite number");
-  }
-
+  if (!(payload.month >= 1 && payload.month <= 12)) throw new Error("Month must be between 1 and 12");
+  if (!Number.isFinite(payload.amount)) throw new Error("Amount must be a finite number");
   const sizeMb = payload.file.size / (1024 * 1024);
-  if (sizeMb > MAX_MB) {
-    throw new Error(
-      `File too large: ${sizeMb.toFixed(1)} MB (max ${MAX_MB.toFixed(1)} MB)`
-    );
-  }
+  if (sizeMb > MAX_MB) throw new Error(`File too large: ${sizeMb.toFixed(1)} MB (max ${MAX_MB} MB)`);
 
-  // 1) Presign
   const presign = await presignInvoiceUpload(projectId, payload.file);
-
-  // 2) Upload to S3
   await uploadInvoiceFileToS3(payload.file, presign);
-
-  // 3) Create invoice record referencing the uploaded documentKey
-  const documentKey = presign.key;
-  return createInvoiceRecord(projectId, payload, documentKey);
+  return createInvoiceRecord(projectId, payload, presign.key);
 }
 
-// Optional alias for new code that wants a more explicit name
+// Aliases used by Prefactura's Review/Sign step, etc.
 export const uploadInvoiceDocument = uploadInvoice;
-
-// --- Supporting documents (Prefactura) ---
-//
-// For now, supporting documents use the same upload pipeline and storage model
-// as invoices (presigned S3 upload + documentKey + metadata).
-// If the API later introduces a distinct endpoint or metadata shape for
-// supporting docs, this alias can be changed to call that instead.
-
-/**
- * Upload a supporting document for Prefactura using the same pipeline as invoices.
- * This keeps ReviewSignStep and other Prefactura flows working without
- * duplicating upload logic.
- */
 export async function uploadSupportingDocument(
   projectId: string,
   payload: UploadInvoicePayload
-): Promise<UploadedInvoiceDTO> {
+): Promise<InvoiceDTO> {
   return uploadInvoice(projectId, payload);
 }
