@@ -125,6 +125,8 @@ export function SDMTCatalog() {
     invalidate: invalidateLineItems,
   } = useProjectLineItems();
 
+  // Compute error message after lineItemsError is available
+
   const lineItemsErrorMessage = lineItemsError
     ? lineItemsError instanceof Error
       ? lineItemsError.message
