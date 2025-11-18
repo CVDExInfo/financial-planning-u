@@ -154,8 +154,22 @@ export async function uploadInvoice(projectId: string, payload: UploadInvoicePay
   });
 }
 
-// Alias used by Prefactura upload flows (same pipeline for now).
-export const uploadSupportingDocument = uploadInvoice;
+// Wrapper for Prefactura upload flows - adapts call site signature
+export async function uploadSupportingDocument(payload: {
+  projectId: string;
+  module?: string;
+  file: File;
+}): Promise<{ documentKey?: string } & InvoiceDTO> {
+  // Map to UploadInvoicePayload format with placeholders
+  const invoicePayload: UploadInvoicePayload = {
+    file: payload.file,
+    line_item_id: "supporting-doc",
+    month: 1,
+    amount: 0,
+    description: `Supporting document for ${payload.module || "project"}`,
+  };
+  return uploadInvoice(payload.projectId, invoicePayload);
+}
 
 export async function updateInvoiceStatus(
   projectId: string,
@@ -206,219 +220,22 @@ export async function getProjects(): Promise<Json> {
   return fetchJson<Json>(`${base}/projects?limit=50`, { method: "GET", headers: authHeader() });
 }
 
-export type UploadSupportingDocPayload = {
-  projectId: string;
-  module?: string;
-  file: File;
-};
-
-/**
- * Upload a supporting document for Prefactura using the same pipeline as invoices.
- * This keeps ReviewSignStep and other Prefactura flows working without
- * duplicating upload logic.
- * 
- * Returns just the documentKey string for compatibility with existing call sites.
- */
-export async function uploadSupportingDocument(
-  payload: UploadSupportingDocPayload
-): Promise<string> {
-  // Map to UploadInvoicePayload format
-  // Supporting docs don't need line_item_id or month, so use placeholders
-  const invoicePayload: UploadInvoicePayload = {
-    file: payload.file,
-    line_item_id: "supporting-doc", // Placeholder
-    month: 1, // Placeholder
-    amount: 0, // Placeholder
-    description: `Supporting document for ${payload.module || "project"}`,
-  };
-
-  const result = await uploadInvoice(payload.projectId, invoicePayload);
-  return result.documentKey || "";
-}
-
-// ---------- Project Rubros/Line Items API ----------
-
-export type ProjectRubroPayload = {
-  rubroId: string;
-  qty: number;
-  unitCost: number;
-  type: string;
-  duration: string;
-};
-
-export type ProjectRubroDTO = {
-  id: string;
-  rubro_id: string;
-  qty: number;
-  unit_cost: number;
-  type: string;
-  duration: string;
-};
-
-/**
- * Add a rubro (line item) to a project.
- * Used by ServiceTierSelector and SDMTCatalog to create project line items.
- */
-export async function addProjectRubro(
-  projectId: string,
-  payload: ProjectRubroPayload
-): Promise<ProjectRubroDTO> {
-  const base = requireApiBase();
-  
-  if (USE_MOCKS) {
-    // Return mock response for development
-    return {
-      id: `li-${Date.now()}`,
-      rubro_id: payload.rubroId,
-      qty: payload.qty,
-      unit_cost: payload.unitCost,
-      type: payload.type,
-      duration: payload.duration,
-    };
-  }
-
-  const res = await fetch(
-    `${base}/projects/${encodeURIComponent(projectId)}/rubros`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader(),
-      },
-      body: JSON.stringify({
-        rubro_id: payload.rubroId,
-        qty: payload.qty,
-        unit_cost: payload.unitCost,
-        type: payload.type,
-        duration: payload.duration,
-      }),
-    }
-  );
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Failed to add project rubro (${res.status}): ${text}`);
-  }
-
-  return res.json();
-}
-
-/**
- * Get all rubros (line items) for a project.
- * Used by useProjectLineItems hook to fetch project line items.
- */
-export async function getProjectRubros(projectId: string): Promise<ProjectRubroDTO[]> {
-  const base = requireApiBase();
-  
-  if (USE_MOCKS) {
-    // Return mock line items for development
-    return [];
-  }
-
-  const res = await fetch(
-    `${base}/projects/${encodeURIComponent(projectId)}/rubros`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader(),
-      },
-    }
-  );
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Failed to get project rubros (${res.status}): ${text}`);
-  }
-
-  const data = await res.json();
-  // Handle both { data: [...] } and [...] response formats
-  return Array.isArray(data) ? data : data.data || [];
-}
-
-/**
- * Get all invoices for a project.
- * Used by useProjectInvoices hook to fetch project invoices for reconciliation.
- */
-export async function getInvoices(projectId: string): Promise<UploadedInvoiceDTO[]> {
-  const base = requireApiBase();
-  
-  if (USE_MOCKS) {
-    // Return mock invoices for development
-    return [];
-  }
-
-  const res = await fetch(
-    `${base}/projects/${encodeURIComponent(projectId)}/invoices`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader(),
-      },
-    }
-  );
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Failed to get invoices (${res.status}): ${text}`);
-  }
-
-  const data = await res.json();
-  // Handle both { data: [...] } and [...] response formats
-  return Array.isArray(data) ? data : data.data || [];
-}
-
-/**
- * Update the status of an invoice.
- * Used by SDMTReconciliation to mark invoices as Matched, Pending, or Disputed.
- */
-export async function updateInvoiceStatus(
-  projectId: string,
-  invoiceId: string,
-  payload: {
-    status: "Pending" | "Matched" | "Disputed";
-    comment?: string;
-  }
-): Promise<UploadedInvoiceDTO> {
-  const base = requireApiBase();
-  
-  if (USE_MOCKS) {
-    // Return mock updated invoice for development
-    return {
-      id: invoiceId,
-      line_item_id: "mock-li",
-      month: 1,
-      amount: 0,
-      status: payload.status,
-      uploaded_at: new Date().toISOString(),
-      uploaded_by: "mock-user",
-    };
-  }
-
-  const res = await fetch(
-    `${base}/projects/${encodeURIComponent(projectId)}/invoices/${encodeURIComponent(invoiceId)}`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader(),
-      },
-      body: JSON.stringify(payload),
-    }
-  );
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Failed to update invoice status (${res.status}): ${text}`);
-  }
-
-  return res.json();
-
 export async function getProjectLineItems(projectId: string): Promise<Json> {
   const base = requireApiBase();
   return fetchJson<Json>(
     `${base}/projects/${encodeURIComponent(projectId)}/catalog/line-items`,
+    { method: "GET", headers: authHeader() },
+  );
+}
+
+// Alias for compatibility with hooks
+export const getProjectRubros = getProjectLineItems;
+
+// Get invoices for a project
+export async function getInvoices(projectId: string): Promise<InvoiceDTO[]> {
+  const base = requireApiBase();
+  return fetchJson<InvoiceDTO[]>(
+    `${base}/projects/${encodeURIComponent(projectId)}/invoices`,
     { method: "GET", headers: authHeader() },
   );
 }
