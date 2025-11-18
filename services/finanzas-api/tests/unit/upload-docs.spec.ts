@@ -29,7 +29,7 @@ jest.mock("@aws-sdk/s3-request-presigner", () => ({
   getSignedUrl: jest.fn().mockResolvedValue(mockSignedUrl),
 }));
 
-import { handler } from "../../src/handlers/upload-docs";
+import { handler as uploadDocsHandler } from "../../src/handlers/upload-docs.js";
 
 type ApiResult = APIGatewayProxyStructuredResultV2;
 
@@ -118,7 +118,7 @@ describe("upload-docs handler", () => {
   };
 
   it("returns a presigned url and stores metadata", async () => {
-    const response = (await handler(
+    const response = (await uploadDocsHandler(
       baseEvent({ body: JSON.stringify(validBody) })
     )) as ApiResult;
 
@@ -160,7 +160,7 @@ describe("upload-docs handler", () => {
   });
 
   it("fails when request body is missing", async () => {
-    const response = (await handler(
+    const response = (await uploadDocsHandler(
       baseEvent({ body: undefined })
     )) as ApiResult;
     expect(response.statusCode).toBe(400);
