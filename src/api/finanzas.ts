@@ -4,7 +4,7 @@ export type UploadInvoicePayload = {
   file: File;
   line_item_id: string;
   month: number;              // 1–12
-  amount: number;             // numeric, already parsed in the UI
+  amount: number;             // already parsed to number in UI
   description?: string;
   vendor?: string;
   invoice_number?: string;
@@ -26,7 +26,7 @@ type PresignPUT = {
 
 type PresignResponse = PresignPOST | PresignPUT;
 
-type InvoiceDTO = {
+export type UploadedInvoiceDTO = {
   id: string;
   line_item_id: string;
   month: number;
@@ -43,6 +43,8 @@ const API_BASE = String(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, 
 const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
 const MAX_MB = 50;
 
+// ---------- shared helpers ----------
+
 function requireApiBase(): string {
   if (!API_BASE) {
     throw new Error("VITE_API_BASE_URL is not set. Finanzas API client is disabled.");
@@ -51,11 +53,12 @@ function requireApiBase(): string {
 }
 
 function authHeader(): Record<string, string> {
-  // Minimal token lookup; adapt if you have a central auth helper
+  // Minimal, resilient token lookup; align with rest of app
+  if (typeof window === "undefined") return {};
   const token =
-    localStorage.getItem("idToken") ||
-    localStorage.getItem("cognitoIdToken") ||
-    sessionStorage.getItem("idToken") ||
+    window.localStorage.getItem("idToken") ||
+    window.localStorage.getItem("cognitoIdToken") ||
+    window.sessionStorage.getItem("idToken") ||
     "";
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
@@ -75,7 +78,7 @@ function fileExt(name: string): string {
 
 /**
  * 1) Ask API for a presigned S3 upload (no file bytes here)
- *    POST /uploads/docs → { url, key, fields? | headers?, method? }
+ *    POST {API_BASE}/uploads/docs → { url, key, fields? | headers?, method? }
  */
 async function presignInvoiceUpload(
   projectId: string,
@@ -117,7 +120,7 @@ async function uploadInvoiceFileToS3(
   presign: PresignResponse
 ): Promise<void> {
   if ("fields" in presign) {
-    // POST policy
+    // POST policy (browser form)
     const form = new FormData();
     Object.entries(presign.fields).forEach(([k, v]) => form.set(k, v));
     form.set("file", file);
@@ -158,7 +161,7 @@ async function createInvoiceRecord(
   projectId: string,
   payload: UploadInvoicePayload,
   documentKey: string
-): Promise<InvoiceDTO> {
+): Promise<UploadedInvoiceDTO> {
   const base = requireApiBase();
   const {
     file,
@@ -201,7 +204,7 @@ async function createInvoiceRecord(
     throw new Error(`Failed to create invoice (${res.status}): ${t}`);
   }
 
-  return (await res.json().catch(() => ({}))) as InvoiceDTO;
+  return (await res.json().catch(() => ({}))) as UploadedInvoiceDTO;
 }
 
 /**
@@ -211,7 +214,7 @@ async function createInvoiceRecord(
 export async function uploadInvoice(
   projectId: string,
   payload: UploadInvoicePayload
-): Promise<InvoiceDTO> {
+): Promise<UploadedInvoiceDTO> {
   if (USE_MOCKS) {
     throw new Error("Invoice upload is disabled when VITE_USE_MOCKS=true");
   }
@@ -248,3 +251,22 @@ export async function uploadInvoice(
 
 // Optional alias for new code that wants a more explicit name
 export const uploadInvoiceDocument = uploadInvoice;
+
+// --- Supporting documents (Prefactura) ---
+//
+// For now, supporting documents use the same upload pipeline and storage model
+// as invoices (presigned S3 upload + documentKey + metadata).
+// If the API later introduces a distinct endpoint or metadata shape for
+// supporting docs, this alias can be changed to call that instead.
+
+/**
+ * Upload a supporting document for Prefactura using the same pipeline as invoices.
+ * This keeps ReviewSignStep and other Prefactura flows working without
+ * duplicating upload logic.
+ */
+export async function uploadSupportingDocument(
+  projectId: string,
+  payload: UploadInvoicePayload
+): Promise<UploadedInvoiceDTO> {
+  return uploadInvoice(projectId, payload);
+}
