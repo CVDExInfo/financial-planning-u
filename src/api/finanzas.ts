@@ -154,13 +154,16 @@ export async function uploadInvoice(projectId: string, payload: UploadInvoicePay
   });
 }
 
-// Wrapper for Prefactura upload flows - adapts call site signature
-export async function uploadSupportingDocument(payload: {
+// Canonical uploadSupportingDocument - single, future-proof signature
+export type UploadSupportingDocPayload = {
   projectId: string;
   module?: string;
   file: File;
-}): Promise<{ documentKey?: string } & InvoiceDTO> {
-  // Map to UploadInvoicePayload format with placeholders
+};
+
+export async function uploadSupportingDocument(
+  payload: UploadSupportingDocPayload
+): Promise<InvoiceDTO> {
   const invoicePayload: UploadInvoicePayload = {
     file: payload.file,
     line_item_id: "supporting-doc",
@@ -168,6 +171,7 @@ export async function uploadSupportingDocument(payload: {
     amount: 0,
     description: `Supporting document for ${payload.module || "project"}`,
   };
+
   return uploadInvoice(payload.projectId, invoicePayload);
 }
 

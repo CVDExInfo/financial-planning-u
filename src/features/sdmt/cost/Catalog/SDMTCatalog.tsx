@@ -313,15 +313,14 @@ export function SDMTCatalog() {
 
     try {
       setIsUploadingDocument(true);
-      const documentKey = await uploadSupportingDocument({
+      const result = await uploadSupportingDocument({
         projectId: selectedProjectId,
         module: "catalog",
-        lineItemId: docTarget.id,
         file: docFile,
       });
 
       const nextDoc: CatalogDocumentMeta = {
-        documentKey,
+        documentKey: result.documentKey || result.id,
         originalName: docFile.name,
         contentType: docFile.type || "application/octet-stream",
         uploadedAt: new Date().toISOString(),
