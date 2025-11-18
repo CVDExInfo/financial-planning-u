@@ -4,7 +4,30 @@
 type Json = Record<string, unknown>;
 
 // ---------- Environment ----------
-const API_BASE = String(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
+// Runtime API base reading: check window.__FINZ_API_BASE__ or <meta name="finz-api-base">
+function readRuntimeApiBase(): string {
+  // Check global variable first
+  if (typeof window !== "undefined" && (window as any).__FINZ_API_BASE__) {
+    return String((window as any).__FINZ_API_BASE__);
+  }
+  
+  // Check meta tag
+  if (typeof document !== "undefined") {
+    const metaTag = document.querySelector('meta[name="finz-api-base"]');
+    if (metaTag && metaTag.getAttribute("content")) {
+      return metaTag.getAttribute("content") || "";
+    }
+  }
+  
+  return "";
+}
+
+// Compute API_BASE: prefer runtime override, fallback to build-time env var
+const runtimeBase = readRuntimeApiBase();
+const buildTimeBase = String(import.meta.env.VITE_API_BASE_URL || "");
+const API_BASE = (runtimeBase || buildTimeBase).trim().replace(/\/+$/, "");
+
 const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
 
 function requireApiBase(): string {

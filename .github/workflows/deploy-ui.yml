@@ -90,15 +90,20 @@ jobs:
           echo "ℹ️  Running npm run lint (gating)"
           npm run lint
 
-      # ---- Compute the API base URL for the build (DEV_API_URL wins, otherwise derive) ----
-      - name: Compute API base URL
+      # ---- Sanitize and compute the API base URL for the build (DEV_API_URL wins, otherwise derive) ----
+      - name: Sanitize and export API base for Vite
         id: apibase
         run: |
           set -euo pipefail
 
           if [ -n "${DEV_API_URL}" ]; then
-            BASE="${DEV_API_URL%/}"
-            echo "Using DEV_API_URL override: $BASE"
+            # Sanitize DEV_API_URL: remove CR/LF, strip trailing slash
+            RAW_URL="${DEV_API_URL}"
+            # Remove carriage returns and newlines
+            CLEAN_URL=$(echo "$RAW_URL" | tr -d '\r\n')
+            # Strip trailing slash
+            BASE="${CLEAN_URL%/}"
+            echo "Using DEV_API_URL override (sanitized): $BASE"
           else
             BASE="https://${FINZ_API_ID}.execute-api.${AWS_REGION}.amazonaws.com/${FINZ_API_STAGE}"
             echo "Using constructed API endpoint: $BASE"
@@ -112,8 +117,12 @@ jobs:
             echo "⚠️  WARNING: API host ($HOST) does not match EXPECTED_API_ID ($EXPECTED_HOST)" >&2
           fi
 
+          # Export sanitized values to environment
           printf '%s\n' "VITE_API_BASE_URL=$BASE" >> "$GITHUB_ENV"
+          printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
+          
+          echo "✅ Sanitized API base: $BASE"
 
       # ---- Preflight API health against the same URL we inject in UI ----
       - name: Preflight API health
@@ -151,6 +160,41 @@ jobs:
 
           BUILD_TARGET=finanzas npm run build || { echo "❌ Finanzas build failed"; exit 1; }
           echo "✅ Finanzas Portal built → dist-finanzas/"
+
+      # ---- Verify API base embedded in bundle ----
+      - name: Verify API base embedded in bundle
+        run: |
+          set -euo pipefail
+          : ${VITE_API_BASE_URL:?VITE_API_BASE_URL missing}
+          
+          echo "Verifying that API base URL is embedded in the bundle..."
+          echo "Looking for: ${VITE_API_BASE_URL}"
+          
+          # Search for the API URL in the built JavaScript files
+          if grep -r -F "${VITE_API_BASE_URL}" dist-finanzas/assets/*.js 2>/dev/null | head -n 1; then
+            echo "✅ Verified API base embedded in bundle: ${VITE_API_BASE_URL}"
+          else
+            echo "❌ CRITICAL: API base URL not found in bundle!"
+            echo "   Expected to find: ${VITE_API_BASE_URL}"
+            echo "   This means VITE_API_BASE_URL was not compiled into the bundle."
+            echo "   The deployed app will fail at runtime."
+            exit 1
+          fi
+
+      # ---- Optional: Inject meta tag for runtime override ----
+      - name: Inject runtime API base meta tag
+        run: |
+          set -euo pipefail
+          : ${VITE_API_BASE_URL:?VITE_API_BASE_URL missing}
+          
+          INDEX_FILE="dist-finanzas/index.html"
+          if [ -f "$INDEX_FILE" ]; then
+            # Inject meta tag right after <head>
+            sed -i "s|<head>|<head>\n    <meta name=\"finz-api-base\" content=\"${VITE_API_BASE_URL}\">|" "$INDEX_FILE"
+            echo "✅ Injected <meta name=\"finz-api-base\" content=\"${VITE_API_BASE_URL}\"> into index.html"
+          else
+            echo "⚠️  index.html not found at $INDEX_FILE"
+          fi
 
       # ---- Configure AWS via OIDC (must be before any aws CLI) ----
       - name: Configure AWS (OIDC)
@@ -300,4 +344,5 @@ jobs:
           - /finanzas/* behavior exists
           - /health returns 200
           - catalog/rubros returns JSON (length shown above)
+          - API base URL embedded in bundle (verified)
           EOF
