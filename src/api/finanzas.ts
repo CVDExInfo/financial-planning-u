@@ -39,6 +39,16 @@ async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
   return text ? (JSON.parse(text) as T) : ({} as T);
 }
 
+async function jsonOrText(res: Response): Promise<unknown> {
+  const text = await res.text().catch(() => "");
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
 // ---------- Common DTOs ----------
 export type InvoiceStatus = "Pending" | "Matched" | "Disputed";
 
@@ -65,6 +75,11 @@ export type InvoiceDTO = {
   originalName?: string;
   uploaded_at: string;
   uploaded_by: string;
+};
+
+export type LineItemDTO = {
+  id: string;
+  [key: string]: unknown;
 };
 
 // ---------- Utility for upload pipeline ----------
@@ -218,22 +233,45 @@ export async function addProjectRubro<T = Json>(projectId: string, payload: AddP
   return (text ? JSON.parse(text) : {}) as T;
 }
 
+/* ──────────────────────────────────────────────────────────
+   Catalog: fetch project rubros / line items
+   Used by: src/hooks/useProjectLineItems.ts
+   ────────────────────────────────────────────────────────── */
+export async function getProjectRubros(projectId: string): Promise<LineItemDTO[]> {
+  if (USE_MOCKS) {
+    throw new Error("getProjectRubros is disabled when VITE_USE_MOCKS=true");
+  }
+  if (!projectId) throw new Error("projectId is required");
+
+  const base = requireApiBase();
+  const headers = { ...authHeader() };
+
+  // Prefer the newer /line-items endpoint; fall back to /rubros if needed
+  const primaryUrl = `${base}/projects/${encodeURIComponent(projectId)}/line-items`;
+  let res = await fetch(primaryUrl, { method: "GET", headers });
+
+  if (res.status === 404 || res.status === 405) {
+    const fallbackUrl = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
+    res = await fetch(fallbackUrl, { method: "GET", headers });
+  }
+
+  if (!res.ok) {
+    const body = (await jsonOrText(res)) as string;
+    throw new Error(`getProjectRubros failed (${res.status}): ${body}`);
+  }
+
+  const text = await res.text();
+  return (text ? (JSON.parse(text) as LineItemDTO[]) : []) as LineItemDTO[];
+}
+
 // Optional helpers used by tests/smokes
 export async function getProjects(): Promise<Json> {
   const base = requireApiBase();
   return fetchJson<Json>(`${base}/projects?limit=50`, { method: "GET", headers: authHeader() });
 }
 
-export async function getProjectLineItems(projectId: string): Promise<Json> {
-  const base = requireApiBase();
-  return fetchJson<Json>(
-    `${base}/projects/${encodeURIComponent(projectId)}/catalog/line-items`,
-    { method: "GET", headers: authHeader() },
-  );
-}
-
-// Alias for compatibility with hooks
-export const getProjectRubros = getProjectLineItems;
+// Alias for compatibility with tests/hooks referencing older helper name
+export const getProjectLineItems = getProjectRubros;
 
 // Get invoices for a project
 export async function getInvoices(projectId: string): Promise<InvoiceDTO[]> {
