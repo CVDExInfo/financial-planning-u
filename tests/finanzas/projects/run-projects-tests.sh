@@ -5,13 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../shared/lib.sh
 source "${SCRIPT_DIR}/../shared/lib.sh"
 
+guard_dev_api_target
 BASE="$(finz_base)"
-
-# Safety: don't hit prod from this workflow
-if [[ "$BASE" == *"/prod" ]]; then
-  echo "::error::FINZ_API_BASE points to prod: $BASE"
-  exit 1
-fi
 
 # Health pre-flight
 curl_json "$(join_url "$BASE" '/health')" >/dev/null || echo "⚠️  Health check not available, continuing..."

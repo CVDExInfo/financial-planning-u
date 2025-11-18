@@ -72,7 +72,7 @@ jobs:
           fi
 
       # ---- Compute the API base URL for the build (from ID + stage unless DEV_API_URL override) ----
-      - name: Compute API base URL
+      - name: Validate & compute API base URL
         id: apibase
         run: |
           set -euo pipefail
@@ -81,13 +81,64 @@ jobs:
             printf '%s\n' "VITE_API_BASE_URL=$DEFAULT_URL" >> "$GITHUB_ENV"
             echo "Using constructed API endpoint: $DEFAULT_URL"
           else
-            CLEAN_URL="${DEV_API_URL%/}"
-            printf '%s\n' "VITE_API_BASE_URL=$CLEAN_URL" >> "$GITHUB_ENV"
-            echo "Using explicit API endpoint override: $CLEAN_URL"
+            if [ "${DEPLOYMENT_ENV}" = "prod" ]; then
+              echo "❌ DEV_API_URL override is not allowed for prod deployments" >&2
+              exit 1
+            fi
+            CLEAN_URL="${DEV_API_URL%%\?*}"
+            CLEAN_URL="${CLEAN_URL%%#*}"
+            CLEAN_URL="${CLEAN_URL%/}"
+            if [[ -z "$CLEAN_URL" ]]; then
+              echo "❌ DEV_API_URL is unexpectedly empty after trimming" >&2
+              exit 1
+            fi
+            if [[ "$CLEAN_URL" != https://* ]]; then
+              echo "❌ DEV_API_URL must start with https://" >&2
+              exit 1
+            fi
+
+            HOST_WITH_PATH="${CLEAN_URL#https://}"
+            HOST="${HOST_WITH_PATH%%/*}"
+            STAGE_PATH="${HOST_WITH_PATH#*/}"
+            if [[ "$HOST_WITH_PATH" == "$HOST" ]]; then
+              echo "❌ DEV_API_URL must include the stage path (e.g., /dev)" >&2
+              exit 1
+            fi
+            if [[ "$STAGE_PATH" == *"/"* ]]; then
+              echo "❌ DEV_API_URL must point to the stage root only (no resource suffix)" >&2
+              exit 1
+            fi
+
+            EXPECTED_HOST="${EXPECTED_API_ID}.execute-api.${AWS_REGION}.amazonaws.com"
+            if [[ -z "$EXPECTED_API_ID" || "$HOST" != "$EXPECTED_HOST" ]]; then
+              echo "❌ DEV_API_URL host must match ${EXPECTED_HOST}, got ${HOST:-<empty>}" >&2
+              exit 1
+            fi
+
+            if [[ "$STAGE_PATH" != "$FINZ_API_STAGE" ]]; then
+              echo "❌ DEV_API_URL stage '$STAGE_PATH' does not match FINZ_API_STAGE '$FINZ_API_STAGE'" >&2
+              exit 1
+            fi
+
+            printf '%s\n' "VITE_API_BASE_URL=https://${HOST}/${STAGE_PATH}" >> "$GITHUB_ENV"
+            echo "Using explicit API endpoint override: https://${HOST}/${STAGE_PATH}"
           fi
           sed -i 's/\r$//' "$GITHUB_ENV"
 
       # ---- Build Finanzas (/finanzas) ----
+      - name: Preflight API health (build input)
+        run: |
+          set -euo pipefail
+          : ${VITE_API_BASE_URL:?VITE_API_BASE_URL missing after compute step}
+          BASE="${VITE_API_BASE_URL%/}"
+          echo "Checking ${BASE}/health before build..."
+          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "${BASE}/health" || true)
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ API /health preflight failed with HTTP $STATUS" >&2
+            exit 1
+          fi
+          echo "✅ API /health preflight ok"
+
       - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
@@ -96,6 +147,7 @@ jobs:
           VITE_PUBLIC_BASE: "/finanzas/"
         run: |
           set -euo pipefail
+          : ${VITE_API_BASE_URL:?VITE_API_BASE_URL missing}
           printf '%s\n' "VITE_PUBLIC_BASE=/finanzas/" >> "$GITHUB_ENV"
           printf '%s\n' "VITE_FINZ_ENABLED=true" >> "$GITHUB_ENV"
           printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"

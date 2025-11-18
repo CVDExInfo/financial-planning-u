@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib.sh
+source "${SCRIPT_DIR}/lib.sh"
+
+if [[ -n "${FINZ_API_BASE:-}" ]]; then
+  guard_dev_api_target
+fi
+
 # Cognito login smoke test
 # This script validates that the tester credentials work with Cognito.
 # If login fails, this script will exit with non-zero status and fail the workflow.

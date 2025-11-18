@@ -143,7 +143,7 @@ export function SDMTCatalog() {
   const hasUnsavedChanges = pendingChanges.size > 0;
 
   useEffect(() => {
-    setLineItems(queryLineItems);
+    setLineItems(Array.isArray(queryLineItems) ? queryLineItems : []);
     setPendingChanges(new Map());
     setSaveBarState("idle");
     if (selectedProjectId) {
@@ -170,7 +170,8 @@ export function SDMTCatalog() {
       ? "Unable to load catalog data. Please refresh or contact support."
       : null;
 
-  const filteredItems = lineItems.filter((item) => {
+  const safeLineItems = Array.isArray(lineItems) ? lineItems : [];
+  const filteredItems = safeLineItems.filter((item) => {
     const matchesSearch =
       item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.category.toLowerCase().includes(searchTerm.toLowerCase());
@@ -180,8 +181,13 @@ export function SDMTCatalog() {
   });
 
   const categories = Array.from(
-    new Set(lineItems.map((item) => item.category))
+    new Set(safeLineItems.map((item) => item.category))
   );
+
+  const showInitialLoading = loading;
+  const showErrorState = Boolean(uiErrorMessage);
+  const showEmptyState =
+    !showInitialLoading && !showErrorState && safeLineItems.length === 0;
 
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat("en-US", {
@@ -620,6 +626,35 @@ export function SDMTCatalog() {
     }
   };
 
+  const handleRetryLoad = async () => {
+    await invalidateLineItems();
+    invalidateProjectData();
+  };
+
+  if (showInitialLoading) {
+    return (
+      <div className="max-w-7xl mx-auto p-6">
+        <Card className="p-6">
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <LoadingSpinner />
+            <span>Loading catalog data…</span>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (showErrorState) {
+    return (
+      <div className="max-w-7xl mx-auto p-6 space-y-4">
+        <ErrorBanner message={uiErrorMessage} />
+        <Button variant="outline" className="w-fit" onClick={handleRetryLoad}>
+          Retry loading catalog
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -645,7 +680,12 @@ export function SDMTCatalog() {
         </div>
       </div>
 
-      <ErrorBanner message={uiErrorMessage} />
+      {showEmptyState && (
+        <div className="rounded-md border border-dashed border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+          No catalog data is available for this project yet. Add a line item to
+          see totals and charts.
+        </div>
+      )}
 
       {/* Main Content */}
       <Tabs defaultValue="line-items" className="space-y-6">
@@ -1153,7 +1193,7 @@ export function SDMTCatalog() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="p-4">
-                <div className="text-2xl font-bold">{lineItems.length}</div>
+                <div className="text-2xl font-bold">{safeLineItems.length}</div>
                 <p className="text-sm text-muted-foreground">
                   Total Line Items
                 </p>
@@ -1163,7 +1203,7 @@ export function SDMTCatalog() {
               <CardContent className="p-4">
                 <div className="text-2xl font-bold">
                   {formatCurrency(
-                    lineItems.reduce(
+                    safeLineItems.reduce(
                       (sum, item) => sum + calculateTotalCost(item),
                       0
                     ),
@@ -1184,7 +1224,7 @@ export function SDMTCatalog() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-2xl font-bold">
-                  {lineItems.filter((item) => item.recurring).length}
+                  {safeLineItems.filter((item) => item.recurring).length}
                 </div>
                 <p className="text-sm text-muted-foreground">Recurring Items</p>
               </CardContent>

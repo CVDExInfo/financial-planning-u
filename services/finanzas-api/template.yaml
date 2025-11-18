@@ -27,10 +27,10 @@ Parameters:
   SkipAuth:
     Type: String
     Default: "false"
-  AllowedCorsOrigin:
+  CloudFrontDomain:
     Type: String
-    Default: "https://d7t9x3j66yd8k.cloudfront.net"
-    Description: CloudFront domain for CORS (e.g., https://d7t9x3j66yd8k.cloudfront.net)
+    Default: d7t9x3j66yd8k.cloudfront.net
+    Description: CloudFront domain used for Finanzas UI (no protocol)
   PolicyStoreId:
     Type: String
     Default: ""
@@ -60,6 +60,26 @@ Globals:
         STAGE_NAME: !Ref StageName
         POLICY_STORE_ID: !Ref PolicyStoreId
         DOCS_BUCKET: !Ref DocsBucketName
+        ALLOWED_ORIGIN: !Sub "https://${CloudFrontDomain}"
+  HttpApi:
+    CorsConfiguration:
+      AllowOrigins:
+        - !Sub "https://${CloudFrontDomain}"
+      AllowHeaders:
+        - authorization
+        - content-type
+        - x-requested-with
+        - x-amz-date
+        - x-api-key
+        - x-amz-security-token
+      AllowMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      AllowCredentials: true
+      MaxAge: 86400
 
 Resources:
   # ========== DynamoDB tables ==========
@@ -210,12 +230,6 @@ Resources:
         DestinationArn: !GetAtt ApiAccessLogs.Arn
         # Simplified format per operational spec (master prompt)
         Format: "$context.requestId $context.identity.sourceIp $context.status $context.authorizer.error"
-      CorsConfiguration:
-        AllowOrigins:
-          - !Ref AllowedCorsOrigin
-        AllowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-        AllowHeaders: ["Authorization", "Content-Type", "X-Idempotency-Key"]
-        MaxAge: 600
       Auth:
         Authorizers:
           CognitoJwt:

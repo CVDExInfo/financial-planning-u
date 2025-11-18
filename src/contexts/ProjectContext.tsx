@@ -145,7 +145,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       const normalized = projectData
         .map(mapProject)
         .filter((project) => project.id)
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+        );
 
       setProjects(normalized);
 

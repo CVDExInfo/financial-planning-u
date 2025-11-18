@@ -4,7 +4,16 @@ import type {
   InvoiceStatus,
   LineItem,
 } from "@/types/domain";
+import { API_BASE, HAS_API_BASE } from "@/config/env";
 import { safeFetch } from "./client";
+
+if (!HAS_API_BASE) {
+  console.error(
+    "VITE_API_BASE_URL is missing. Finanzas API helpers cannot reach the backend until it is configured."
+  );
+} else if (import.meta.env.DEV) {
+  console.debug("[Finz] API base configured:", API_BASE);
+}
 
 type ApiArray<T> = T | { data: T; total?: number };
 

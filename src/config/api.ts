@@ -3,10 +3,10 @@
  * Centralized configuration for backend API endpoints
  */
 
+import { API_BASE, HAS_API_BASE } from "./env";
+
 // API Base URL - use environment variable in production
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  "https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev";
+export const API_BASE_URL = API_BASE;
 
 // API Endpoints
 export const API_ENDPOINTS = {
@@ -41,6 +41,9 @@ export const API_ENDPOINTS = {
 
 // Helper function to build full URL
 export function buildApiUrl(endpoint: string): string {
+  if (!HAS_API_BASE) {
+    throw new Error("VITE_API_BASE_URL is not configured");
+  }
   return `${API_BASE_URL}${endpoint}`;
 }
 

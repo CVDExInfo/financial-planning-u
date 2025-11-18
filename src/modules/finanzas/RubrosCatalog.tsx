@@ -1,5 +1,6 @@
 import React from "react";
 import finanzasClient, { Rubro, type RubroCreate } from "@/api/finanzasClient";
+import { API_BASE } from "@/config/env";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,7 +49,7 @@ export default function RubrosCatalog() {
     
     // Debug logging for dev mode only
     if (import.meta.env.DEV) {
-      console.log("[Finz] RubrosCatalog - VITE_API_BASE_URL:", import.meta.env.VITE_API_BASE_URL);
+      console.log("[Finz] RubrosCatalog - API_BASE:", API_BASE || "(missing)");
     }
     
     (async () => {

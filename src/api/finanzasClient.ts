@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { API_BASE, HAS_API_BASE } from "@/config/env";
 
 // Env config
-const BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+const BASE = API_BASE;
 // Optional: Dev/test mode token (set at build time via VITE_API_JWT_TOKEN)
 // For production, tokens are obtained via OAuth
 const STATIC_TEST_TOKEN = import.meta.env.VITE_API_JWT_TOKEN || "";
 
-if (!BASE) {
+if (!HAS_API_BASE) {
   // Non-fatal in dev; API client will throw on call
   console.warn(
     "VITE_API_BASE_URL is not set. Finanzas API client is disabled."
@@ -72,7 +73,9 @@ function getAuthHeader(): Record<string, string> {
 }
 
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!BASE) throw new Error("Finanzas API base URL is not configured");
+  if (!HAS_API_BASE) {
+    throw new Error("Finanzas API base URL is not configured");
+  }
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
 import { useProject } from "@/contexts/ProjectContext";
 import {
   AlertDialog,
@@ -93,6 +94,8 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
   >([]);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const fallbackProjectIdRef = useRef(`PRJ-${Date.now().toString(36)}`);
+  const supportingDocsInputId = "prefactura-supporting-docs";
+  const supportingDocsHelpId = `${supportingDocsInputId}-help`;
 
   const { dealInputs, laborEstimates, nonLaborEstimates, fxIndexationData } =
     data;
@@ -786,15 +789,27 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <Label
+            htmlFor={supportingDocsInputId}
+            className="text-sm font-medium text-foreground"
+          >
+            Attach supporting documents
+          </Label>
           <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-4">
             <Input
+              id={supportingDocsInputId}
+              name="supportingDocuments"
               type="file"
               multiple
               accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg"
               onChange={handleSupportingDocsSelected}
               disabled={isUploadingDoc}
+              aria-describedby={supportingDocsHelpId}
             />
-            <p className="text-xs text-muted-foreground mt-2">
+            <p
+              id={supportingDocsHelpId}
+              className="text-xs text-muted-foreground mt-2"
+            >
               Files upload via the shared `/uploads/docs` endpoint using the
               Prefactura module tag so SDMT can reference them later.
             </p>

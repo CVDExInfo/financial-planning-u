@@ -5,22 +5,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../shared/lib.sh
 source "${SCRIPT_DIR}/../shared/lib.sh"
 
+guard_dev_api_target
 BASE="$(finz_base)"
 
-# Safety: don't hit prod from this workflow
-if [[ "$BASE" == *"/prod" ]]; then
-  echo "::error::FINZ_API_BASE points to prod: $BASE"
+# Check for jq availability
+if ! command -v jq >/dev/null 2>&1; then
+  echo "❌ Error: jq is not installed. Please install jq to run this script." >&2
   exit 1
 fi
 
 # Health pre-flight
 curl_json "$(join_url "$BASE" '/health')" >/dev/null || echo "⚠️  Health check not available, continuing..."
-
-# Check for jq availability
-if ! command -v jq >/dev/null 2>&1; then
-  echo "jq is required"
-  exit 1
-fi
 
 echo "Discovering projects from $(join_url "$BASE" '/projects')..."
 

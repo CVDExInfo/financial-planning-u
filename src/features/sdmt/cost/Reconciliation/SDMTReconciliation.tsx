@@ -43,6 +43,7 @@ import {
 import { toast } from "sonner";
 import { useProject } from "@/contexts/ProjectContext";
 import ModuleBadge from "@/components/ModuleBadge";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import type { ForecastCell, InvoiceStatus, LineItem } from "@/types/domain";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import {
@@ -119,13 +120,14 @@ export function SDMTReconciliation() {
     lineItems,
     isLoading: lineItemsLoading,
     error: lineItemsError,
+    invalidate: invalidateLineItems,
   } = useProjectLineItems();
 
   // Parse URL params for filtering (when coming from forecast)
   const urlParams = new URLSearchParams(location.search);
   const filterLineItem = urlParams.get("line_item");
-  const filterMonth = urlParams.get("month");
-
+              <div>
+                <Label htmlFor={lineItemSelectId}>Line Item *</Label>
   useEffect(() => {
     if (filterLineItem) {
       setUploadFormData((prev) => ({
@@ -135,27 +137,40 @@ export function SDMTReconciliation() {
       }));
       setShowUploadForm(true);
     }
-  }, [filterLineItem, filterMonth]);
+                  <SelectTrigger id={lineItemSelectId} aria-label="Line item">
 
   const uiErrorMessage = (() => {
     if (allowMockData) {
-      return null;
+                    {safeLineItemsList.map((item) => (
     }
     if (invoicesError) {
       return "Unable to load invoice data. Please refresh or contact support.";
     }
     if (lineItemsError) {
       return "Unable to load catalog data. Please refresh or contact support.";
+                <input
+                  type="hidden"
+                  name="line_item_id"
+                  value={uploadFormData.line_item_id}
+                />
     }
     return null;
   })();
+
+  const safeInvoices = Array.isArray(invoices) ? invoices : [];
+  const safeLineItemsList = Array.isArray(lineItems) ? lineItems : [];
+  const showInitialLoading =
+                <Label htmlFor={monthSelectId}>Month *</Label>
+    safeInvoices.length === 0 &&
+    safeLineItemsList.length === 0;
+  const showErrorState = Boolean(uiErrorMessage);
 
   const uploadMutation = useMutation({
     mutationFn: (payload: UploadInvoicePayload & { projectId: string }) =>
       uploadInvoice(payload.projectId, payload),
     onSuccess: async () => {
       toast.success("Invoice uploaded successfully");
-      setShowUploadForm(false);
+                  <SelectTrigger id={monthSelectId} aria-label="Invoice month">
       setUploadFormData(createInitialUploadForm());
       await invalidateInvoices();
     },
@@ -166,6 +181,11 @@ export function SDMTReconciliation() {
     },
   });
 
+                <input
+                  type="hidden"
+                  name="month"
+                  value={uploadFormData.month}
+                />
   const statusMutation = useMutation({
     mutationFn: ({
       invoiceId,
@@ -174,6 +194,7 @@ export function SDMTReconciliation() {
     }: {
       invoiceId: string;
       status: InvoiceStatus;
+                  name="amount"
       comment?: string;
     }) => {
       if (!projectId) {
@@ -189,16 +210,30 @@ export function SDMTReconciliation() {
       const message =
         error instanceof Error
           ? error.message
+                  name="vendor"
           : "Failed to update invoice status";
       toast.error(message);
     },
   });
+
+  const lineItemSelectId = "reconciliation-line-item";
+  const monthSelectId = "reconciliation-month";
+  const fileInputId = "reconciliation-invoice-file";
+  const fileHelpId = `${fileInputId}-help`;
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setUploadFormData((prev) => ({ ...prev, file }));
     }
+  };
+
+                  name="invoice_number"
+  const handleRetryLoad = async () => {
+    await Promise.all([
+      invalidateInvoices(),
+      invalidateLineItems ? invalidateLineItems() : Promise.resolve(),
+    ]);
   };
 
   const handleInvoiceSubmit = async () => {
@@ -208,6 +243,7 @@ export function SDMTReconciliation() {
       !uploadFormData.amount
     ) {
       toast.error("Please fill in all required fields");
+                  name="invoice_date"
       return;
     }
 
@@ -224,6 +260,7 @@ export function SDMTReconciliation() {
 
     try {
       await uploadMutation.mutateAsync({
+                name="description"
         projectId,
         file: uploadFormData.file,
         line_item_id: uploadFormData.line_item_id,
@@ -261,7 +298,7 @@ export function SDMTReconciliation() {
   };
 
   // Filter invoices based on URL params
-  const filteredInvoices = invoices.filter((invoice) => {
+  const filteredInvoices = safeInvoices.filter((invoice) => {
     if (filterLineItem && invoice.line_item_id !== filterLineItem) return false;
     if (filterMonth && invoice.month !== parseInt(filterMonth)) return false;
     return true;
@@ -286,7 +323,7 @@ export function SDMTReconciliation() {
   };
 
   const getLineItemName = (lineItemId: string, month?: number) => {
-    const item = lineItems.find((li) => li.id === lineItemId);
+    const item = safeLineItemsList.find((li) => li.id === lineItemId);
     return formatMatrixLabel(item, month, lineItemId);
   };
 
@@ -298,7 +335,7 @@ export function SDMTReconciliation() {
       // Convert invoice data to forecast format for variance analysis
       const mockForecastData: ForecastCell[] = filteredInvoices.map(
         (invoice) => {
-          const lineItem = lineItems.find(
+          const lineItem = safeLineItemsList.find(
             (li) => li.id === invoice.line_item_id
           );
           // Mock planned amount based on line item
@@ -324,7 +361,7 @@ export function SDMTReconciliation() {
 
       const buffer = await excelExporter.exportVarianceReport(
         mockForecastData,
-        lineItems
+        safeLineItemsList
       );
       const filename = `invoice-variance-report-${
         new Date().toISOString().split("T")[0]
@@ -433,6 +470,34 @@ export function SDMTReconciliation() {
       console.error("Share error:", error);
     }
   };
+  if (showInitialLoading) {
+    return (
+      <div className="max-w-7xl mx-auto p-6">
+        <Card className="p-6">
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <LoadingSpinner />
+            <span>Loading reconciliation data…</span>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (showErrorState) {
+    return (
+      <div className="max-w-7xl mx-auto p-6 space-y-4">
+        <ErrorBanner message={uiErrorMessage} />
+        <Button
+          variant="outline"
+          className="w-fit"
+          onClick={handleRetryLoad}
+        >
+          Retry loading data
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -452,7 +517,7 @@ export function SDMTReconciliation() {
                 Filtered:{" "}
                 {filterLineItem
                   ? formatMatrixLabel(
-                      lineItems.find((li) => li.id === filterLineItem),
+                      safeLineItemsList.find((li) => li.id === filterLineItem),
                       filterMonth ? parseInt(filterMonth, 10) : undefined,
                       filterLineItem ?? undefined
                     )
@@ -557,7 +622,7 @@ export function SDMTReconciliation() {
                     <SelectValue placeholder="Select line item" />
                   </SelectTrigger>
                   <SelectContent>
-                    {lineItems.map((item) => (
+                    {safeLineItemsList.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
                         {formatMatrixLabel(item, uploadFormData.month)}
                       </SelectItem>
@@ -674,16 +739,21 @@ export function SDMTReconciliation() {
             </div>
 
             <div>
-              <Label htmlFor="file">Upload File *</Label>
+              <Label htmlFor={fileInputId}>Upload File *</Label>
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4">
                 <Input
-                  id="file"
+                  id={fileInputId}
+                  name="invoice_file"
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.xlsx,.csv"
                   onChange={handleFileUpload}
                   className="mb-2"
+                  aria-describedby={fileHelpId}
                 />
-                <p className="text-xs text-muted-foreground text-center">
+                <p
+                  id={fileHelpId}
+                  className="text-xs text-muted-foreground text-center"
+                >
                   Supported formats: PDF, JPG, PNG, Excel, CSV
                 </p>
                 {uploadFormData.file && (

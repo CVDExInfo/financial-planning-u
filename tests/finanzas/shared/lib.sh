@@ -60,6 +60,20 @@ require_var() {
   fi
 }
 
+guard_dev_api_target() {
+  require_var FINZ_API_BASE
+  local api="$FINZ_API_BASE"
+  if [[ "$api" == *"/prod"* ]]; then
+    echo "❌ FINZ_API_BASE points to prod: $api" >&2
+    echo "   Tests must run against https://<id>.execute-api.<region>.amazonaws.com/dev" >&2
+    exit 1
+  fi
+  if [[ "$api" != */dev ]]; then
+    echo "❌ FINZ_API_BASE must point to the dev stage (ends with /dev). Current: $api" >&2
+    exit 1
+  fi
+}
+
 ensure_log_dir() {
   require_var FINZ_LOG_DIR
   mkdir -p "${FINZ_LOG_DIR}"

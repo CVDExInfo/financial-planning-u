@@ -3,7 +3,9 @@
  * Provides a single safeFetch helper with optional mock support.
  */
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+import { API_BASE, HAS_API_BASE } from "@/config/env";
+
+const BASE_URL = API_BASE;
 const STATIC_TEST_TOKEN = import.meta.env.VITE_API_JWT_TOKEN || "";
 const USE_MOCKS =
   (import.meta.env.VITE_USE_MOCKS || "false").toLowerCase() === "true";
@@ -35,7 +37,7 @@ export function allowMock(): boolean {
 }
 
 function buildUrl(path: string): string {
-  if (!BASE_URL) {
+  if (!HAS_API_BASE) {
     throw new Error("VITE_API_BASE_URL is not configured");
   }
   if (!path.startsWith("/")) {

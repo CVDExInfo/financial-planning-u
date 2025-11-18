@@ -4,6 +4,7 @@
  * Replaces fragmented patterns in api.ts and finanzasClient.ts
  */
 
+import { API_BASE, HAS_API_BASE } from "@/config/env";
 import { logger } from "@/utils/logger";
 
 export interface HttpRequestInit extends RequestInit {
@@ -260,10 +261,15 @@ export class HttpClient {
    * Build full URL from base URL and endpoint
    */
   private buildUrl(endpoint: string): string {
-    const url = endpoint.startsWith("http")
-      ? endpoint
-      : `${this.baseUrl}${endpoint}`;
-    return url;
+    if (endpoint.startsWith("http")) {
+      return endpoint;
+    }
+
+    if (!this.baseUrl) {
+      throw new Error("Finanzas API base URL is not configured");
+    }
+
+    return `${this.baseUrl}${endpoint}`;
   }
 
   /**
@@ -326,9 +332,12 @@ export class HttpClient {
 }
 
 // Export singleton instance
-export const httpClient = new HttpClient(
-  import.meta.env.VITE_API_BASE_URL ||
-    "https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev"
-);
+export const httpClient = new HttpClient(API_BASE);
+
+if (!HAS_API_BASE) {
+  logger.error(
+    "VITE_API_BASE_URL is missing. HttpClient requests will fail until the build injects it."
+  );
+}
 
 export default httpClient;

@@ -53,19 +53,95 @@ jobs:
 
       - name: Ensure test scripts are executable
         run: |
+          set -euo pipefail
           chmod +x tests/finanzas/**/run-*.sh || true
+
+      - name: Preflight env validation
+        run: |
+          set -euo pipefail
+          : ${FINZ_API_BASE:?FINZ_API_BASE repo var missing}
+          : ${FINZ_UI_BASE:?FINZ_UI_BASE derived value missing}
+          CLEAN_API="${FINZ_API_BASE%%\?*}"
+          CLEAN_API="${CLEAN_API%%#*}"
+          CLEAN_API="${CLEAN_API%/}"
+          if [[ "$CLEAN_API" != https://* ]]; then
+            echo "❌ FINZ_API_BASE must be an https:// URL" >&2
+            exit 1
+          fi
+          if [[ "$CLEAN_API" == *"/prod" ]]; then
+            echo "❌ FINZ_API_BASE points to prod ($CLEAN_API); tests can only run against dev" >&2
+            exit 1
+          fi
+          if [[ "$CLEAN_API" != */dev ]]; then
+            echo "❌ FINZ_API_BASE must end with /dev (current: $CLEAN_API)" >&2
+            exit 1
+          fi
+          if [[ "$FINZ_UI_BASE" != https://* ]]; then
+            echo "❌ FINZ_UI_BASE must be an https:// URL" >&2
+            exit 1
+          fi
+          UI_ORIGIN="${FINZ_UI_BASE%%/finanzas*}"
+          if [[ -z "$UI_ORIGIN" || "$UI_ORIGIN" == "$FINZ_UI_BASE" ]]; then
+            echo "❌ FINZ_UI_BASE must include the /finanzas path (current: $FINZ_UI_BASE)" >&2
+            exit 1
+          fi
+          printf '%s\n' "FINZ_API_BASE=$CLEAN_API" >> "$GITHUB_ENV"
+          printf '%s\n' "FINZ_API_BASE_SANITIZED=$CLEAN_API" >> "$GITHUB_ENV"
+          printf '%s\n' "FINZ_UI_ORIGIN=$UI_ORIGIN" >> "$GITHUB_ENV"
+          sed -i 's/\r$//' "$GITHUB_ENV"
+          echo "✅ Env validation complete: $CLEAN_API"
+
+      - name: Guard - API CORS preflight
+        run: |
+          set -euo pipefail
+          : ${FINZ_API_BASE_SANITIZED:?missing}
+          : ${FINZ_UI_ORIGIN:?missing}
+          TARGET="${FINZ_API_BASE_SANITIZED}/catalog/rubros"
+          TMP_HEADERS="$(mktemp)"
+          echo "Checking OPTIONS $TARGET (origin ${FINZ_UI_ORIGIN})"
+          curl -sS -o /dev/null -D "$TMP_HEADERS" -X OPTIONS "$TARGET" \
+            -H "Origin: ${FINZ_UI_ORIGIN}" \
+            -H "Access-Control-Request-Method: GET" \
+            -H "Access-Control-Request-Headers: Authorization,Content-Type" || {
+              cat "$TMP_HEADERS" >&2
+              echo "❌ OPTIONS preflight call failed" >&2
+              exit 1
+            }
+          grep -qi "Access-Control-Allow-Origin: ${FINZ_UI_ORIGIN}" "$TMP_HEADERS" || {
+            echo "❌ Access-Control-Allow-Origin mismatch" >&2
+            cat "$TMP_HEADERS" >&2
+            exit 1
+          }
+          grep -qi 'Access-Control-Allow-Methods:.*GET' "$TMP_HEADERS" || {
+            echo "❌ Access-Control-Allow-Methods missing GET" >&2
+            cat "$TMP_HEADERS" >&2
+            exit 1
+          }
+          grep -qi 'Access-Control-Allow-Headers:.*Authorization' "$TMP_HEADERS" || {
+            echo "❌ Access-Control-Allow-Headers missing Authorization" >&2
+            cat "$TMP_HEADERS" >&2
+            exit 1
+          }
+          echo "✅ CORS preflight headers look good"
 
       - name: Show env summary (no secrets)
         run: |
-          echo "FINZ_API_BASE=$FINZ_API_BASE" >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          echo "FINZ_API_BASE=${FINZ_API_BASE_SANITIZED:-$FINZ_API_BASE}" >> "$GITHUB_STEP_SUMMARY"
           echo "FINZ_UI_BASE=$FINZ_UI_BASE" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Cognito login smoke test
         run: |
+          set -euo pipefail
           echo "## Cognito Login Test" >> "$GITHUB_STEP_SUMMARY"
           chmod +x tests/finanzas/shared/run-login-test.sh
           bash tests/finanzas/shared/run-login-test.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          TEST_STATUS=${PIPESTATUS[0]}
+          if [ "$TEST_STATUS" -ne 0 ]; then
+            echo "❌ Cognito login smoke failed" >&2
+            exit "$TEST_STATUS"
+          fi
 
       - name: URL sanity check
         shell: bash
@@ -74,7 +150,11 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## URL Sanity Check" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/shared/run-url-sanity.sh | tee -a "$GITHUB_STEP_SUMMARY"
-          test ${PIPESTATUS[0]} -eq 0
+          TEST_STATUS=${PIPESTATUS[0]}
+          if [ "$TEST_STATUS" -ne 0 ]; then
+            echo "❌ URL sanity check failed" >&2
+            exit "$TEST_STATUS"
+          fi
 
       - name: Projects – /projects list
         shell: bash
@@ -83,7 +163,11 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Projects – run-projects-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/projects/run-projects-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
-          test ${PIPESTATUS[0]} -eq 0
+          TEST_STATUS=${PIPESTATUS[0]}
+          if [ "$TEST_STATUS" -ne 0 ]; then
+            echo "❌ Projects smoke failed" >&2
+            exit "$TEST_STATUS"
+          fi
 
       - name: Catalog – line items & POST rubro
         shell: bash
@@ -92,7 +176,11 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Catalog – run-catalog-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/catalog/run-catalog-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
-          test ${PIPESTATUS[0]} -eq 0
+          TEST_STATUS=${PIPESTATUS[0]}
+          if [ "$TEST_STATUS" -ne 0 ]; then
+            echo "❌ Catalog smoke failed" >&2
+            exit "$TEST_STATUS"
+          fi
 
       - name: Forecast – /plan/forecast checks
         shell: bash
@@ -101,7 +189,11 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Forecast – run-forecast-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/forecast/run-forecast-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
-          test ${PIPESTATUS[0]} -eq 0
+          TEST_STATUS=${PIPESTATUS[0]}
+          if [ "$TEST_STATUS" -ne 0 ]; then
+            echo "❌ Forecast smoke failed" >&2
+            exit "$TEST_STATUS"
+          fi
 
       - name: Reconciliation – /prefacturas & forecast
         shell: bash
@@ -110,7 +202,11 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Reconciliation – run-reconciliation-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/reconciliation/run-reconciliation-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
-          test ${PIPESTATUS[0]} -eq 0
+          TEST_STATUS=${PIPESTATUS[0]}
+          if [ "$TEST_STATUS" -ne 0 ]; then
+            echo "❌ Reconciliation smoke failed" >&2
+            exit "$TEST_STATUS"
+          fi
 
       - name: Changes – adjustments
         shell: bash
@@ -119,7 +215,11 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Changes – run-changes-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/changes/run-changes-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
-          test ${PIPESTATUS[0]} -eq 0
+          TEST_STATUS=${PIPESTATUS[0]}
+          if [ "$TEST_STATUS" -ne 0 ]; then
+            echo "❌ Changes smoke failed" >&2
+            exit "$TEST_STATUS"
+          fi
 
       - name: Handoff – create/read
         shell: bash
@@ -128,4 +228,8 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Handoff – run-handoff-tests.sh" >> "$GITHUB_STEP_SUMMARY"
           bash tests/finanzas/handoff/run-handoff-tests.sh | tee -a "$GITHUB_STEP_SUMMARY"
-          test ${PIPESTATUS[0]} -eq 0
+          TEST_STATUS=${PIPESTATUS[0]}
+          if [ "$TEST_STATUS" -ne 0 ]; then
+            echo "❌ Handoff smoke failed" >&2
+            exit "$TEST_STATUS"
+          fi
