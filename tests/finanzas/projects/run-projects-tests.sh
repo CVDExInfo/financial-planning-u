@@ -1,104 +1,197 @@
-#!/usr/bin/env bash
-set -euo pipefail
+// src/api/finanzas.ts
+// Drop-in replacement for uploadInvoice with S3 presigned upload + invoice registration.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=../shared/lib.sh
-source "${SCRIPT_DIR}/../shared/lib.sh"
+export type UploadInvoicePayload = {
+  file: File;
+  line_item_id: string;
+  month: number;
+  amount: number;
+  description?: string;
+  vendor?: string;
+  invoice_number?: string;
+  invoice_date?: string; // ISO yyyy-mm-dd
+};
 
-guard_dev_api_target
-BASE="$(finz_base)"
+// If you already have a shared HTTP wrapper (e.g., apiFetch or httpFetch), import it here.
+// Adjust the import to match your repo (client.ts or http-client.ts).
+import { apiFetch } from "@/api/client"; // ← adjust if your wrapper lives elsewhere
 
-# Ensure log directory exists
-ensure_log_dir
+const API_BASE =
+  (import.meta as any).env?.VITE_API_BASE_URL?.replace(/\/+$/, "") ||
+  "/finanzas/api"; // fallback only if CF path-rewrite is configured
 
-# Get JWT token for authentication
-echo "🔐 Obtaining JWT token from Cognito..." >&2
-JWT_SCRIPT="${SCRIPT_DIR}/../../../scripts/cognito/get-jwt.sh"
-if [[ ! -f "$JWT_SCRIPT" ]]; then
-  echo "❌ JWT helper script not found at: $JWT_SCRIPT" >&2
-  exit 1
-fi
+type PresignResponse =
+  | {
+      method?: "POST";
+      url: string;
+      key: string; // S3 object key (documentKey)
+      fields: Record<string, string>;
+    }
+  | {
+      method: "PUT";
+      url: string; // direct PUT URL
+      key: string;
+      headers?: Record<string, string>;
+    };
 
-JWT_TOKEN=$(bash "$JWT_SCRIPT") || {
-  echo "❌ Failed to obtain JWT token" >&2
-  exit 1
+function assertApiBase(): string {
+  if (!API_BASE || API_BASE === "/finanzas/api") {
+    // Keep the error explicit so the UI can surface a useful banner.
+    // (Your ErrorBanner already handles this message.)
+    throw new Error(
+      "VITE_API_BASE_URL is not set. Finanzas API client is disabled."
+    );
+  }
+  return API_BASE;
 }
 
-echo "✅ JWT token obtained successfully" >&2
-
-# Health pre-flight (unauthenticated)
-curl_json "$(join_url "$BASE" '/health')" >/dev/null || echo "⚠️  Health check not available, continuing..."
-
-echo "📋 Discovering projects from $(join_url "$BASE" '/projects')..."
-
-if ! command -v jq >/dev/null 2>&1; then
-  echo "❌ jq is required but not found" >&2
-  exit 1
-fi
-
-# Build URL and fetch projects with authentication
-PROJECTS_URL="$(join_url "$BASE" '/projects')"
-LOG_FILE="${FINZ_LOG_DIR}/projects-list.json"
-
-echo "➡️  GET $PROJECTS_URL" >&2
-
-# Make authenticated request
-HTTP_RESPONSE=$(curl -sS -w '\nHTTP_STATUS:%{http_code}\n' \
-  -H "Authorization: Bearer ${JWT_TOKEN}" \
-  -H "Accept: application/json" \
-  "$PROJECTS_URL" 2>&1) || {
-    echo "❌ curl command failed" >&2
-    exit 1
+/**
+ * Uploads an invoice document to S3 via a presigned URL and registers the record in Finanzas.
+ * 1) POST /uploads/presign  -> { url, key, fields? | headers?, method }
+ * 2) Upload to S3           -> 204/201 OK
+ * 3) POST /projects/{id}/invoices with documentKey + metadata
+ */
+export async function uploadInvoice(
+  projectId: string,
+  payload: UploadInvoicePayload
+) {
+  if (!projectId) throw new Error("Missing projectId.");
+  if (!payload?.file) throw new Error("No file selected for upload.");
+  if (!payload.line_item_id) throw new Error("Line item is required.");
+  if (payload.month == null || Number.isNaN(Number(payload.month))) {
+    throw new Error("Month is required.");
+  }
+  if (payload.amount == null || Number.isNaN(Number(payload.amount))) {
+    throw new Error("Amount is required.");
   }
 
-# Extract status code and body
-HTTP_CODE=$(echo "$HTTP_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
-PROJECTS_BODY=$(echo "$HTTP_RESPONSE" | sed '/HTTP_STATUS:/d')
+  const base = assertApiBase();
+  const file = payload.file;
+  const contentType = file.type || "application/octet-stream";
 
-# Save response body to log file
-echo "$PROJECTS_BODY" > "$LOG_FILE"
+  // 1) Presign request (module/entity naming is for server-side routing/auditing)
+  const presignRes = await apiFetch(`${base}/uploads/presign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      module: "finanzas",
+      entity: "invoice",
+      projectId,
+      contentType,
+      originalName: file.name,
+    }),
+  });
 
-echo "HTTP $HTTP_CODE" >&2
+  if (!presignRes.ok) {
+    const text = await presignRes.text().catch(() => "");
+    throw new Error(
+      `Failed to presign upload (HTTP ${presignRes.status}): ${text}`
+    );
+  }
 
-# Append to GitHub Step Summary if available
-if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-  {
-    echo "### GET /projects"
-    echo ""
-    echo "- **URL**: \`$PROJECTS_URL\`"
-    echo "- **Status**: HTTP $HTTP_CODE"
-    echo ""
-    echo "#### Response Preview"
-    echo '```json'
-    # Safely truncate and escape JSON for display (first 2000 chars)
-    echo "$PROJECTS_BODY" | head -c 2000 || true
-    echo ""
-    echo '```'
-    echo ""
-  } >> "$GITHUB_STEP_SUMMARY"
-fi
+  const presign: PresignResponse = await presignRes.json();
 
-# Validate HTTP status
-if [[ "$HTTP_CODE" != "200" && "$HTTP_CODE" != "201" ]]; then
-  echo "❌ HTTP $HTTP_CODE for $PROJECTS_URL" >&2
-  echo "Response: $PROJECTS_BODY" >&2
-  exit 1
-fi
+  // 2) Upload to S3 (supports POST or PUT contracts)
+  if ((presign as any).fields) {
+    // S3 POST policy
+    const { url, fields, key } = presign as Extract<PresignResponse, { fields: Record<string, string> }>;
+    const form = new FormData();
+    Object.entries(fields).forEach(([k, v]) => form.append(k, v));
+    form.append("file", file);
 
-# Validate JSON
-if ! echo "$PROJECTS_BODY" | jq empty 2>/dev/null; then
-  echo "❌ Invalid JSON response from /projects" >&2
-  exit 1
-fi
+    const s3Post = await fetch(url, { method: "POST", body: form });
+    if (!(s3Post.status === 204 || s3Post.status === 201 || s3Post.ok)) {
+      const body = await s3Post.text().catch(() => "");
+      throw new Error(`S3 POST upload failed (HTTP ${s3Post.status}): ${body}`);
+    }
 
-# Extract project IDs
-PROJECT_COUNT=$(echo "$PROJECTS_BODY" | jq 'length' 2>/dev/null || echo "0")
+    // 3) Register invoice
+    return await registerInvoice(base, projectId, {
+      ...payload,
+      documentKey: key,
+      originalName: file.name,
+      contentType,
+      size: file.size,
+    });
+  } else {
+    // Direct PUT URL
+    const { url, key, headers } = presign as Extract<PresignResponse, { method: "PUT" }>;
+    const s3Put = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": contentType, ...(headers || {}) },
+      body: file,
+    });
+    if (!s3Put.ok) {
+      const body = await s3Put.text().catch(() => "");
+      throw new Error(`S3 PUT upload failed (HTTP ${s3Put.status}): ${body}`);
+    }
 
-echo "✅ /projects returned valid JSON with $PROJECT_COUNT items" >&2
+    // 3) Register invoice
+    return await registerInvoice(base, projectId, {
+      ...payload,
+      documentKey: key,
+      originalName: file.name,
+      contentType,
+      size: file.size,
+    });
+  }
+}
 
-if [[ "$PROJECT_COUNT" -gt 0 ]]; then
-  echo "Sample listing (up to five projects):" >&2
-  echo "$PROJECTS_BODY" | jq -r '.[] | "- \(.id) :: \(.nombre // .name // "unnamed")"' 2>/dev/null | head -5 || true
-else
-  echo "ℹ️  No projects found (empty list is valid)" >&2
-fi
+type RegisterBody = UploadInvoicePayload & {
+  documentKey: string;
+  originalName?: string;
+  contentType?: string;
+  size?: number;
+};
+
+async function registerInvoice(
+  base: string,
+  projectId: string,
+  body: RegisterBody
+) {
+  // Only send serializable invoice metadata to the API (no File objects)
+  const {
+    file: _omitFile,
+    line_item_id,
+    month,
+    amount,
+    description,
+    vendor,
+    invoice_number,
+    invoice_date,
+    documentKey,
+    originalName,
+    contentType,
+    size,
+  } = body;
+
+  const registerRes = await apiFetch(
+    `${base}/projects/${encodeURIComponent(projectId)}/invoices`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        line_item_id,
+        month,
+        amount,
+        description,
+        vendor,
+        invoice_number,
+        invoice_date,
+        documentKey,
+        originalName,
+        contentType,
+        size,
+      }),
+    }
+  );
+
+  if (!registerRes.ok) {
+    const text = await registerRes.text().catch(() => "");
+    throw new Error(
+      `Failed to register invoice (HTTP ${registerRes.status}): ${text}`
+    );
+  }
+
+  return registerRes.json().catch(() => ({}));
+}
