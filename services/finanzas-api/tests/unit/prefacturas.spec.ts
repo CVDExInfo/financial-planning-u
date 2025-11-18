@@ -17,7 +17,7 @@ jest.mock("../../src/lib/dynamo", () => ({
   tableName: jest.fn(() => "prefacturas-table"),
 }));
 
-type PrefacturasHandler = typeof import("../../src/handlers/prefacturas.js");
+import { handler as prefacturasHandler } from "../../src/handlers/prefacturas.js";
 
 const auth = jest.requireMock("../../src/lib/auth") as jest.Mocked<
   typeof import("../../src/lib/auth")
@@ -75,11 +75,6 @@ const toPostEvent = (body: string): APIGatewayProxyEventV2 => {
   };
 };
 
-const loadHandler = async (): Promise<PrefacturasHandler["handler"]> => {
-  const module = await import("../../src/handlers/prefacturas.js");
-  return module.handler;
-};
-
 type ApiResult = APIGatewayProxyStructuredResultV2;
 
 let uuidSpy: jest.SpyInstance<string, [crypto.RandomUUIDOptions?]>;
@@ -121,8 +116,7 @@ describe("prefacturas handler", () => {
       Count: 1,
     });
 
-    const handler = await loadHandler();
-    const response = (await handler(
+    const response = (await prefacturasHandler(
       baseEvent({
         queryStringParameters: { projectId: "PROJ-1" },
       })
@@ -143,8 +137,7 @@ describe("prefacturas handler", () => {
   });
 
   it("requires projectId on GET", async () => {
-    const handler = await loadHandler();
-    const response = (await handler(
+    const response = (await prefacturasHandler(
       baseEvent({ queryStringParameters: {} })
     )) as ApiResult;
 
@@ -155,7 +148,6 @@ describe("prefacturas handler", () => {
   });
 
   it("creates a prefactura when payload is valid", async () => {
-    const handler = await loadHandler();
     const postEvent = toPostEvent(
       JSON.stringify({
         projectId: "PROJ-10",
@@ -167,7 +159,7 @@ describe("prefacturas handler", () => {
       })
     );
 
-    const response = (await handler(postEvent)) as ApiResult;
+    const response = (await prefacturasHandler(postEvent)) as ApiResult;
 
     expect(response.statusCode).toBe(201);
     const body = JSON.parse(response.body);
@@ -188,15 +180,13 @@ describe("prefacturas handler", () => {
   });
 
   it("rejects invalid JSON payload", async () => {
-    const handler = await loadHandler();
-    const response = (await handler(toPostEvent("not-json"))) as ApiResult;
+    const response = (await prefacturasHandler(toPostEvent("not-json"))) as ApiResult;
 
     expect(response.statusCode).toBe(400);
     expect(JSON.parse(response.body).error).toMatch(/Invalid JSON/);
   });
 
   it("validates positive amount", async () => {
-    const handler = await loadHandler();
     const event = toPostEvent(
       JSON.stringify({
         projectId: "PROJ-10",
@@ -208,13 +198,12 @@ describe("prefacturas handler", () => {
       })
     );
 
-    const response = (await handler(event)) as ApiResult;
+    const response = (await prefacturasHandler(event)) as ApiResult;
     expect(response.statusCode).toBe(400);
     expect(JSON.parse(response.body).error).toMatch(/amount must be/);
   });
 
   it("requires documentKey", async () => {
-    const handler = await loadHandler();
     const event = toPostEvent(
       JSON.stringify({
         projectId: "PROJ-10",
@@ -226,7 +215,7 @@ describe("prefacturas handler", () => {
       })
     );
 
-    const response = (await handler(event)) as ApiResult;
+    const response = (await prefacturasHandler(event)) as ApiResult;
     expect(response.statusCode).toBe(400);
     expect(JSON.parse(response.body).error).toMatch(/documentKey is required/);
   });

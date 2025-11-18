@@ -4,6 +4,10 @@ import {
 } from "aws-lambda";
 import crypto from "node:crypto";
 
+// Set environment variables before imports
+process.env.DOCS_BUCKET = "docs-bucket";
+process.env.AWS_REGION = "us-east-2";
+
 const mockSignedUrl = "https://signed.example/upload";
 
 jest.mock("../../src/lib/auth", () => ({
@@ -21,7 +25,8 @@ jest.mock("@aws-sdk/s3-request-presigner", () => ({
   getSignedUrl: jest.fn().mockResolvedValue(mockSignedUrl),
 }));
 
-type UploadHandler = typeof import("../../src/handlers/upload-docs.js");
+import { handler as uploadDocsHandler } from "../../src/handlers/upload-docs.js";
+
 type ApiResult = APIGatewayProxyStructuredResultV2;
 
 const auth = jest.requireMock("../../src/lib/auth") as jest.Mocked<
@@ -69,10 +74,6 @@ const baseEvent = (
   ...overrides,
 });
 
-const loadHandler = async (): Promise<UploadHandler["handler"]> => {
-  const module = await import("../../src/handlers/upload-docs.js");
-  return module.handler;
-};
 let uuidSpy: jest.SpyInstance<string, [crypto.RandomUUIDOptions?]>;
 
 beforeAll(() => {
@@ -113,9 +114,7 @@ describe("upload-docs handler", () => {
   };
 
   it("returns a presigned url and stores metadata", async () => {
-    const handler = await loadHandler();
-
-    const response = (await handler(
+    const response = (await uploadDocsHandler(
       baseEvent({ body: JSON.stringify(validBody) })
     )) as ApiResult;
 
@@ -145,10 +144,9 @@ describe("upload-docs handler", () => {
   });
 
   it("rejects requests with invalid module", async () => {
-    const handler = await loadHandler();
     const badBody = { ...validBody, module: "unknown" };
 
-    const response = (await handler(
+    const response = (await uploadDocsHandler(
       baseEvent({ body: JSON.stringify(badBody) })
     )) as ApiResult;
 
@@ -158,8 +156,7 @@ describe("upload-docs handler", () => {
   });
 
   it("fails when request body is missing", async () => {
-    const handler = await loadHandler();
-    const response = (await handler(
+    const response = (await uploadDocsHandler(
       baseEvent({ body: undefined })
     )) as ApiResult;
     expect(response.statusCode).toBe(400);
@@ -168,9 +165,8 @@ describe("upload-docs handler", () => {
 
   it("returns server error when DynamoDB write fails", async () => {
     dynamo.ddb.send.mockRejectedValue(new Error("ddb failure"));
-    const handler = await loadHandler();
 
-    const response = (await handler(
+    const response = (await uploadDocsHandler(
       baseEvent({ body: JSON.stringify(validBody) })
     )) as ApiResult;
 

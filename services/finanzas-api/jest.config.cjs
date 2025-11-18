@@ -5,4 +5,7 @@ module.exports = {
   verbose: true,
   testMatch: ["**/*.spec.ts"],
   clearMocks: true,
+  moduleNameMapper: {
+    "^(\\.{1,2}/.*)\\.js$": "$1",
+  },
 };

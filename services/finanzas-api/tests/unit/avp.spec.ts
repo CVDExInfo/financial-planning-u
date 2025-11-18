@@ -32,7 +32,7 @@ function extractIdToken(event) {
   return token || null;
 }
 
-function buildAVPContext(event, groups, projectId) {
+function buildAVPContext(event, groups, projectId?) {
   const context = {
     jwt_groups: { set: groups },
     http_method: { string: event.requestContext.http.method },
