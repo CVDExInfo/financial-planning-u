@@ -141,6 +141,24 @@ jobs:
           fi
           echo "✅ API /health preflight ok"
 
+      # ---- Comprehensive API Configuration Validation ----
+      # This step runs our comprehensive validation script to ensure:
+      # - VITE_API_BASE_URL is set and valid
+      # - API endpoint is reachable via DNS/HTTP
+      # - CORS configuration is correct
+      # - Critical endpoints respond correctly
+      - name: Comprehensive API Configuration Validation
+        run: |
+          set -euo pipefail
+          export VITE_API_BASE_URL="${VITE_API_BASE_URL}"
+          
+          echo "🔍 Running comprehensive API configuration validation..."
+          bash scripts/validate-api-config.sh || {
+            echo "❌ API configuration validation failed"
+            echo "   Cannot proceed with build - API is not properly configured or unreachable"
+            exit 1
+          }
+
       # ---- Build Finanzas (/finanzas) ----
       # ⚠️ CRITICAL: VITE_API_BASE_URL is REQUIRED for Finanzas build
       # The build will FAIL if this variable is not set (enforced in vite.config.ts)
@@ -328,6 +346,27 @@ jobs:
           LEN=$(curl -sS "$BASE/catalog/rubros" | jq '.data | length' || echo "0")
           echo "Catalog items: $LEN"
           [ "$LEN" != "0" ] || echo "⚠️ catalog/rubros length is 0 (seed missing?)"
+
+      # ---- Post-Deployment Comprehensive Verification ----
+      # This step runs our comprehensive verification script to ensure:
+      # - UI is accessible via CloudFront
+      # - Static assets load correctly
+      # - API endpoints are reachable
+      # - API URL is embedded in the frontend bundle
+      - name: Post-Deployment Comprehensive Verification
+        run: |
+          set -euo pipefail
+          export CLOUDFRONT_DOMAIN="${CF_DOMAIN}"
+          export VITE_API_BASE_URL="${VITE_API_BASE_URL}"
+          export S3_BUCKET="${FINANZAS_BUCKET_NAME}"
+          
+          echo "🔍 Running comprehensive post-deployment verification..."
+          bash scripts/post-deploy-verify.sh || {
+            echo "❌ Post-deployment verification failed"
+            echo "   This indicates the deployment may not be functioning correctly"
+            echo "   Review the errors above before proceeding"
+            exit 1
+          }
 
       # ---- Summary & Evidence Pack (no -u; guards already enforced correctness) ----
       - name: Summary & Evidence Pack
