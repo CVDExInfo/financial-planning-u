@@ -126,8 +126,8 @@ export function SDMTReconciliation() {
   // Parse URL params for filtering (when coming from forecast)
   const urlParams = new URLSearchParams(location.search);
   const filterLineItem = urlParams.get("line_item");
-              <div>
-                <Label htmlFor={lineItemSelectId}>Line Item *</Label>
+  const filterMonth = urlParams.get("month");
+  
   useEffect(() => {
     if (filterLineItem) {
       setUploadFormData((prev) => ({
@@ -137,22 +137,17 @@ export function SDMTReconciliation() {
       }));
       setShowUploadForm(true);
     }
-                  <SelectTrigger id={lineItemSelectId} aria-label="Line item">
+  }, [filterLineItem, filterMonth]);
 
   const uiErrorMessage = (() => {
     if (allowMockData) {
-                    {safeLineItemsList.map((item) => (
+      return null;
     }
     if (invoicesError) {
       return "Unable to load invoice data. Please refresh or contact support.";
     }
     if (lineItemsError) {
       return "Unable to load catalog data. Please refresh or contact support.";
-                <input
-                  type="hidden"
-                  name="line_item_id"
-                  value={uploadFormData.line_item_id}
-                />
     }
     return null;
   })();
@@ -160,7 +155,6 @@ export function SDMTReconciliation() {
   const safeInvoices = Array.isArray(invoices) ? invoices : [];
   const safeLineItemsList = Array.isArray(lineItems) ? lineItems : [];
   const showInitialLoading =
-                <Label htmlFor={monthSelectId}>Month *</Label>
     safeInvoices.length === 0 &&
     safeLineItemsList.length === 0;
   const showErrorState = Boolean(uiErrorMessage);
@@ -170,7 +164,6 @@ export function SDMTReconciliation() {
       uploadInvoice(payload.projectId, payload),
     onSuccess: async () => {
       toast.success("Invoice uploaded successfully");
-                  <SelectTrigger id={monthSelectId} aria-label="Invoice month">
       setUploadFormData(createInitialUploadForm());
       await invalidateInvoices();
     },
@@ -181,11 +174,6 @@ export function SDMTReconciliation() {
     },
   });
 
-                <input
-                  type="hidden"
-                  name="month"
-                  value={uploadFormData.month}
-                />
   const statusMutation = useMutation({
     mutationFn: ({
       invoiceId,
@@ -194,7 +182,6 @@ export function SDMTReconciliation() {
     }: {
       invoiceId: string;
       status: InvoiceStatus;
-                  name="amount"
       comment?: string;
     }) => {
       if (!projectId) {
@@ -210,7 +197,6 @@ export function SDMTReconciliation() {
       const message =
         error instanceof Error
           ? error.message
-                  name="vendor"
           : "Failed to update invoice status";
       toast.error(message);
     },
@@ -228,7 +214,6 @@ export function SDMTReconciliation() {
     }
   };
 
-                  name="invoice_number"
   const handleRetryLoad = async () => {
     await Promise.all([
       invalidateInvoices(),
@@ -243,7 +228,6 @@ export function SDMTReconciliation() {
       !uploadFormData.amount
     ) {
       toast.error("Please fill in all required fields");
-                  name="invoice_date"
       return;
     }
 
@@ -260,7 +244,6 @@ export function SDMTReconciliation() {
 
     try {
       await uploadMutation.mutateAsync({
-                name="description"
         projectId,
         file: uploadFormData.file,
         line_item_id: uploadFormData.line_item_id,
