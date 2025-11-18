@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getProjectRubros } from "@/api/finanzas";
 import { useProject } from "@/contexts/ProjectContext";
@@ -26,6 +26,8 @@ export function useProjectLineItems() {
     refetchOnWindowFocus: false,
   });
 
+  const lineItems = useMemo(() => query.data ?? [], [query.data]);
+
   const invalidate = useCallback(async () => {
     if (!projectId) return;
     await queryClient.invalidateQueries({ queryKey: lineItemsKey(projectId) });
@@ -34,7 +36,7 @@ export function useProjectLineItems() {
   return {
     ...query,
     projectId,
-    lineItems: query.data ?? [],
+    lineItems,
     invalidate,
   };
 }
