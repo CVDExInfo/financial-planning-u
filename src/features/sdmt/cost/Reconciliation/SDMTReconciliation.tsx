@@ -21,7 +21,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -46,12 +45,7 @@ import ModuleBadge from "@/components/ModuleBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import type { ForecastCell, InvoiceStatus, LineItem } from "@/types/domain";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
-import {
-  PDFExporter,
-  formatReportCurrency,
-  formatReportPercentage,
-  getChangeType,
-} from "@/lib/pdf-export";
+import { PDFExporter } from "@/lib/pdf-export";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import { useProjectInvoices } from "@/hooks/useProjectInvoices";
 import {
@@ -126,43 +120,41 @@ export function SDMTReconciliation() {
   // Parse URL params for filtering (when coming from forecast)
   const urlParams = new URLSearchParams(location.search);
   const filterLineItem = urlParams.get("line_item");
-              <div>
-                <Label htmlFor={lineItemSelectId}>Line Item *</Label>
+  const filterMonth = urlParams.get("month");
+
   useEffect(() => {
     if (filterLineItem) {
       setUploadFormData((prev) => ({
         ...prev,
         line_item_id: filterLineItem,
-        month: filterMonth ? parseInt(filterMonth, 10) : 1,
+        month: filterMonth ? parseInt(filterMonth, 10) || 1 : 1,
       }));
       setShowUploadForm(true);
     }
-                  <SelectTrigger id={lineItemSelectId} aria-label="Line item">
+  }, [filterLineItem, filterMonth]);
+
+  const safeInvoices = Array.isArray(invoices) ? invoices : [];
+  const safeLineItemsList = Array.isArray(lineItems) ? lineItems : [];
 
   const uiErrorMessage = (() => {
     if (allowMockData) {
-                    {safeLineItemsList.map((item) => (
+      return null;
     }
     if (invoicesError) {
       return "Unable to load invoice data. Please refresh or contact support.";
     }
     if (lineItemsError) {
       return "Unable to load catalog data. Please refresh or contact support.";
-                <input
-                  type="hidden"
-                  name="line_item_id"
-                  value={uploadFormData.line_item_id}
-                />
     }
     return null;
   })();
 
-  const safeInvoices = Array.isArray(invoices) ? invoices : [];
-  const safeLineItemsList = Array.isArray(lineItems) ? lineItems : [];
   const showInitialLoading =
-                <Label htmlFor={monthSelectId}>Month *</Label>
+    invoicesLoading &&
+    lineItemsLoading &&
     safeInvoices.length === 0 &&
     safeLineItemsList.length === 0;
+
   const showErrorState = Boolean(uiErrorMessage);
 
   const uploadMutation = useMutation({
@@ -170,7 +162,6 @@ export function SDMTReconciliation() {
       uploadInvoice(payload.projectId, payload),
     onSuccess: async () => {
       toast.success("Invoice uploaded successfully");
-                  <SelectTrigger id={monthSelectId} aria-label="Invoice month">
       setUploadFormData(createInitialUploadForm());
       await invalidateInvoices();
     },
@@ -181,11 +172,6 @@ export function SDMTReconciliation() {
     },
   });
 
-                <input
-                  type="hidden"
-                  name="month"
-                  value={uploadFormData.month}
-                />
   const statusMutation = useMutation({
     mutationFn: ({
       invoiceId,
@@ -194,7 +180,6 @@ export function SDMTReconciliation() {
     }: {
       invoiceId: string;
       status: InvoiceStatus;
-                  name="amount"
       comment?: string;
     }) => {
       if (!projectId) {
@@ -210,7 +195,6 @@ export function SDMTReconciliation() {
       const message =
         error instanceof Error
           ? error.message
-                  name="vendor"
           : "Failed to update invoice status";
       toast.error(message);
     },
@@ -228,7 +212,6 @@ export function SDMTReconciliation() {
     }
   };
 
-                  name="invoice_number"
   const handleRetryLoad = async () => {
     await Promise.all([
       invalidateInvoices(),
@@ -243,7 +226,6 @@ export function SDMTReconciliation() {
       !uploadFormData.amount
     ) {
       toast.error("Please fill in all required fields");
-                  name="invoice_date"
       return;
     }
 
@@ -260,7 +242,6 @@ export function SDMTReconciliation() {
 
     try {
       await uploadMutation.mutateAsync({
-                name="description"
         projectId,
         file: uploadFormData.file,
         line_item_id: uploadFormData.line_item_id,
@@ -300,7 +281,7 @@ export function SDMTReconciliation() {
   // Filter invoices based on URL params
   const filteredInvoices = safeInvoices.filter((invoice) => {
     if (filterLineItem && invoice.line_item_id !== filterLineItem) return false;
-    if (filterMonth && invoice.month !== parseInt(filterMonth)) return false;
+    if (filterMonth && invoice.month !== parseInt(filterMonth, 10)) return false;
     return true;
   });
 
@@ -332,13 +313,11 @@ export function SDMTReconciliation() {
     try {
       toast.loading("Generating variance report...");
 
-      // Convert invoice data to forecast format for variance analysis
       const mockForecastData: ForecastCell[] = filteredInvoices.map(
         (invoice) => {
           const lineItem = safeLineItemsList.find(
             (li) => li.id === invoice.line_item_id
           );
-          // Mock planned amount based on line item
           const plannedAmount = lineItem
             ? lineItem.qty * lineItem.unit_cost
             : invoice.amount;
@@ -438,13 +417,11 @@ export function SDMTReconciliation() {
         summary: [
           `Processed ${
             filteredInvoices.length
-          } invoices worth ${formatReportCurrency(totalAmount)}`,
+          } invoices worth ${formatCurrency(totalAmount)}`,
           `Invoice match rate: ${matchRate.toFixed(1)}% (${matchedCount}/${
             filteredInvoices.length
           })`,
-          `Average invoice amount: ${formatReportCurrency(
-            averageInvoiceAmount
-          )}`,
+          `Average invoice amount: ${formatCurrency(averageInvoiceAmount)}`,
           `${disputedCount} disputes require immediate attention`,
         ],
         recommendations: [
@@ -470,6 +447,7 @@ export function SDMTReconciliation() {
       console.error("Share error:", error);
     }
   };
+
   if (showInitialLoading) {
     return (
       <div className="max-w-7xl mx-auto p-6">
@@ -562,8 +540,6 @@ export function SDMTReconciliation() {
         </div>
       </div>
 
-      <ErrorBanner message={uiErrorMessage} />
-
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -608,7 +584,7 @@ export function SDMTReconciliation() {
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="line_item">Line Item *</Label>
+                <Label htmlFor={lineItemSelectId}>Line Item *</Label>
                 <Select
                   value={uploadFormData.line_item_id}
                   onValueChange={(value) =>
@@ -618,7 +594,7 @@ export function SDMTReconciliation() {
                     }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id={lineItemSelectId}>
                     <SelectValue placeholder="Select line item" />
                   </SelectTrigger>
                   <SelectContent>
@@ -636,18 +612,18 @@ export function SDMTReconciliation() {
                 )}
               </div>
               <div>
-                <Label htmlFor="month">Month *</Label>
+                <Label htmlFor={monthSelectId}>Month *</Label>
                 <Select
                   value={uploadFormData.month.toString()}
                   onValueChange={(value) =>
                     setUploadFormData((prev) => ({
                       ...prev,
-                      month: parseInt(value),
+                      month: parseInt(value, 10),
                     }))
                   }
                 >
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger id={monthSelectId}>
+                    <SelectValue placeholder="Select month" />
                   </SelectTrigger>
                   <SelectContent>
                     {Array.from({ length: 12 }, (_, i) => (
