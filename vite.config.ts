@@ -36,11 +36,39 @@ export default defineConfig(() => {
 
   // Fail fast during build instead of shipping a broken bundle
   if (!isPmo && !apiBaseUrl) {
-    console.error(
-      "[Vite][Finanzas] ❌ VITE_API_BASE_URL is empty. " +
-      "Set it in the build environment (e.g., DEV_API_URL → VITE_API_BASE_URL)."
-    );
+    console.error("");
+    console.error("╔════════════════════════════════════════════════════════════════╗");
+    console.error("║  ❌ CRITICAL BUILD ERROR: VITE_API_BASE_URL not set           ║");
+    console.error("╚════════════════════════════════════════════════════════════════╝");
+    console.error("");
+    console.error("The Finanzas frontend REQUIRES VITE_API_BASE_URL to function.");
+    console.error("Without this configuration:");
+    console.error("  ❌ API calls will fail with 'Failed to fetch' errors");
+    console.error("  ❌ Application will not load any data");
+    console.error("  ❌ Users will see empty grids and visualizations");
+    console.error("");
+    console.error("🔧 To fix this:");
+    console.error("");
+    console.error("  1. For local development:");
+    console.error("     export VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev");
+    console.error("     npm run build:finanzas");
+    console.error("");
+    console.error("  2. For CI/CD:");
+    console.error("     Set DEV_API_URL in GitHub repository variables");
+    console.error("");
+    console.error("  3. For production:");
+    console.error("     Set VITE_API_BASE_URL via environment variables");
+    console.error("");
+    console.error("📖 For more details, see:");
+    console.error("   - README.md (section: Required Configuration)");
+    console.error("   - API_CONNECTIVITY_VALIDATION.md");
+    console.error("");
     throw new Error("VITE_API_BASE_URL is not set for Finanzas build.");
+  }
+
+  // Log successful configuration
+  if (!isPmo) {
+    console.log(`[Vite][Finanzas] ✅ VITE_API_BASE_URL: ${apiBaseUrl}`);
   }
 
   return {
