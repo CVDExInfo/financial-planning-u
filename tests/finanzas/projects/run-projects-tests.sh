@@ -22,7 +22,7 @@ FINZ_LOG_DIR="${FINZ_LOG_DIR:-/tmp/finanzas-tests}"
 mkdir -p "$FINZ_LOG_DIR"
 
 # ---------------------------------------------------------------------------
-# Resolve API base (no hard failure on stage)
+# Resolve API base (and sanitize it)
 # ---------------------------------------------------------------------------
 BASE="${FINZ_API_BASE:-${DEV_API_URL:-}}"
 
@@ -31,10 +31,13 @@ if [[ -z "${BASE}" ]]; then
   exit 1
 fi
 
+# Remove any CR/LF characters that may have slipped into the env var
+BASE="$(printf '%s' "$BASE" | tr -d '\r\n')"
+
 # Normalize trailing slash
 BASE="${BASE%/}"
-FINZ_API_BASE="$BASE"
 
+FINZ_API_BASE="$BASE"
 echo "ℹ️ Using FINZ_API_BASE: $FINZ_API_BASE"
 
 # Soft check on stage – warn only
