@@ -91,6 +91,11 @@ jobs:
           npm run lint
 
       # ---- Compute the API base URL for the build (DEV_API_URL wins, otherwise derive) ----
+      # ⚠️ CRITICAL: VITE_API_BASE_URL must be set for Finanzas build to succeed
+      # Without this configuration:
+      #   - vite.config.ts will throw an error and fail the build
+      #   - Frontend will not be able to connect to the API
+      # Source: DEV_API_URL repo variable or constructed from FINZ_API_ID + AWS_REGION + FINZ_API_STAGE
       - name: Compute API base URL
         id: apibase
         run: |
@@ -98,10 +103,16 @@ jobs:
 
           if [ -n "${DEV_API_URL}" ]; then
             BASE="${DEV_API_URL%/}"
-            echo "Using DEV_API_URL override: $BASE"
+            echo "✅ Using DEV_API_URL override: $BASE"
           else
             BASE="https://${FINZ_API_ID}.execute-api.${AWS_REGION}.amazonaws.com/${FINZ_API_STAGE}"
-            echo "Using constructed API endpoint: $BASE"
+            echo "✅ Using constructed API endpoint: $BASE"
+          fi
+
+          # Validate that we have a non-empty URL
+          if [ -z "$BASE" ]; then
+            echo "❌ CRITICAL: API base URL is empty. Set DEV_API_URL repo variable or ensure FINZ_API_ID/AWS_REGION/FINZ_API_STAGE are set."
+            exit 1
           fi
 
           # Optional sanity check: warn if host doesn't match EXPECTED_API_ID (but do not block)
@@ -112,6 +123,7 @@ jobs:
             echo "⚠️  WARNING: API host ($HOST) does not match EXPECTED_API_ID ($EXPECTED_HOST)" >&2
           fi
 
+          echo "📝 Setting VITE_API_BASE_URL=$BASE for Finanzas build"
           printf '%s\n' "VITE_API_BASE_URL=$BASE" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
 
@@ -130,6 +142,9 @@ jobs:
           echo "✅ API /health preflight ok"
 
       # ---- Build Finanzas (/finanzas) ----
+      # ⚠️ CRITICAL: VITE_API_BASE_URL is REQUIRED for Finanzas build
+      # The build will FAIL if this variable is not set (enforced in vite.config.ts)
+      # This ensures we never deploy a broken frontend without API connectivity
       - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
           BUILD_TARGET: finanzas
@@ -143,7 +158,14 @@ jobs:
           # Sanitize: strip CR/LF and trailing slash
           VITE_API_BASE_URL="$(printf '%s' "$VITE_API_BASE_URL" | tr -d '\r\n')"
           VITE_API_BASE_URL="${VITE_API_BASE_URL%/}"
-          test -n "$VITE_API_BASE_URL" || { echo "❌ VITE_API_BASE_URL is empty"; exit 1; }
+          
+          # Validate before build (redundant with vite.config.ts, but provides clear error)
+          if [ -z "$VITE_API_BASE_URL" ]; then
+            echo "❌ CRITICAL: VITE_API_BASE_URL is empty"
+            echo "   This variable is REQUIRED for Finanzas builds"
+            echo "   Set DEV_API_URL in repository variables"
+            exit 1
+          fi
 
           echo "[Finanzas] BUILD_TARGET=$BUILD_TARGET"
           echo "[Finanzas] VITE_API_BASE_URL=$VITE_API_BASE_URL"
@@ -153,10 +175,17 @@ jobs:
           # Export sanitized value for the build
           export VITE_API_BASE_URL
 
-          BUILD_TARGET=finanzas npm run build || { echo "❌ Finanzas build failed"; exit 1; }
+          # Build will fail here if VITE_API_BASE_URL validation fails in vite.config.ts
+          BUILD_TARGET=finanzas npm run build || { 
+            echo "❌ Finanzas build failed"
+            echo "   Most likely cause: VITE_API_BASE_URL not properly configured"
+            exit 1
+          }
           echo "✅ Finanzas Portal built → dist-finanzas/"
 
       # ---- Verify API URL is embedded in the bundle ----
+      # This test ensures VITE_API_BASE_URL was properly injected during build
+      # If this fails, the deployed frontend will not be able to connect to the API
       - name: Verify API URL embedded in Finanzas bundle
         env:
           VITE_API_BASE_URL: ${{ vars.DEV_API_URL }}
@@ -168,11 +197,24 @@ jobs:
           VITE_API_BASE_URL="${VITE_API_BASE_URL%/}"
 
           DIST="dist-finanzas"
+          echo "🔍 Searching for VITE_API_BASE_URL in build artifacts..."
+          
           if ! grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" >/dev/null; then
-            echo "❌ VITE_API_BASE_URL ($VITE_API_BASE_URL) not found in $DIST"
+            echo "❌ CRITICAL: VITE_API_BASE_URL ($VITE_API_BASE_URL) not found in $DIST"
+            echo "   This means the API URL was not injected during build"
+            echo "   Deployed frontend will not be able to connect to the API"
+            echo ""
+            echo "🔧 Troubleshooting:"
+            echo "   1. Check that VITE_API_BASE_URL was set during build"
+            echo "   2. Verify vite.config.ts is properly injecting the value"
+            echo "   3. Review build logs for Vite configuration errors"
             exit 1
           fi
-          echo "✅ VITE_API_BASE_URL embedded in Finanzas bundle"
+          
+          # Show a sample of where it appears
+          echo "✅ VITE_API_BASE_URL found in Finanzas bundle"
+          echo "📋 Sample occurrences:"
+          grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" | head -3 || true
 
       # ---- Configure AWS via OIDC (must be before any aws CLI) ----
       - name: Configure AWS (OIDC)
