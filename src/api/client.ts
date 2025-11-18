@@ -91,7 +91,7 @@ export async function safeFetch<T = unknown>(
       }
       try {
         return JSON.parse(text) as T;
-      } catch (error) {
+      } catch (_error) {
         throw new Error(
           `Unexpected response type (${
             contentType || "unknown"

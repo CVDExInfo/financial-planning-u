@@ -18,7 +18,7 @@ function parseGroupsFromJWT(idToken) {
       return groups.split(',').map(g => g.trim()).filter(Boolean);
     }
     return [];
-  } catch (error) {
+  } catch (_error) {
     return [];
   }
 }

@@ -9,6 +9,8 @@ import {
   UpdateCommand,
 } from "../lib/dynamo";
 import { v4 as uuidv4 } from "uuid";
+import { safeParseHandoff } from "../validation/handoff";
+import { ZodError } from "zod";
 
 // Route: GET /projects/{projectId}/handoff
 async function getHandoff(event: APIGatewayProxyEventV2) {
@@ -238,6 +240,20 @@ async function updateHandoff(event: APIGatewayProxyEventV2) {
     };
   }
 
+  // Validate handoff data if fields are provided
+  const fieldsToValidate = body.fields || body;
+  const validationResult = safeParseHandoff(fieldsToValidate);
+  if (!validationResult.success) {
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        error: "Validation failed",
+        details: validationResult.error.errors,
+      }),
+    };
+  }
+
   const userEmail = getUserEmail(event);
   const now = new Date().toISOString();
   const expectedVersion = body.version ? Number(body.version) : undefined;
@@ -382,6 +398,18 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       };
     }
   } catch (err: unknown) {
+    // Handle Zod validation errors
+    if (err instanceof ZodError) {
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          error: "Validation failed",
+          details: err.errors,
+        }),
+      };
+    }
+
     // Handle auth errors
     if (
       typeof err === "object" &&

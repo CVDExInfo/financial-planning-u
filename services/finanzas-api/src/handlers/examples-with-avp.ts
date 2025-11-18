@@ -89,7 +89,7 @@ export const healthHandler = async (event: APIGatewayProxyEventV2) => {
       'ViewHealth',
       { type: 'Finanzas::Project', id: '*root*' }
     );
-  } catch (error) {
+  } catch (_error) {
     // In dev mode with SKIP_AVP, this will pass
     // In production, unauthorized users will be blocked
   }

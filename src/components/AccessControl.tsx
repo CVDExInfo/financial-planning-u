@@ -4,25 +4,32 @@ import { UserRole } from '@/types/domain';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ShieldAlert } from 'lucide-react';
-import { useAuth } from '@/components/AuthProvider';
+import { useAuth } from '@/hooks/useAuth';
 import { getDefaultRouteForRole } from '@/lib/auth';
 
 interface AccessControlProps {
   children: React.ReactNode;
   requiredRoles?: UserRole[];
-  fallbackPath?: string;
 }
 
 export function AccessControl({ 
   children, 
-  requiredRoles = [], 
-  fallbackPath = '/' 
+  requiredRoles = []
 }: AccessControlProps) {
   const location = useLocation();
   const { currentRole, canAccessRoute } = useAuth();
   const [shouldRedirect, setShouldRedirect] = useState(false);
 
   useEffect(() => {
+    const checkAccess = (route: string, role: UserRole): boolean => {
+      if (requiredRoles.length > 0) {
+        return requiredRoles.includes(role);
+      }
+
+      // Use the auth system's access control
+      return canAccessRoute(route);
+    };
+
     // Check if current role has access
     const hasAccess = checkAccess(location.pathname, currentRole);
     if (!hasAccess) {
@@ -32,23 +39,16 @@ export function AccessControl({
     } else {
       setShouldRedirect(false);
     }
-  }, [location.pathname, currentRole]);
-
-  const checkAccess = (route: string, role: UserRole): boolean => {
-    if (requiredRoles.length > 0) {
-      return requiredRoles.includes(role);
-    }
-
-    // Use the auth system's access control
-    return canAccessRoute(route);
-  };
+  }, [location.pathname, currentRole, requiredRoles, canAccessRoute]);
 
   if (shouldRedirect) {
     const defaultRoute = getDefaultRouteForRole(currentRole);
     return <Navigate to={defaultRoute} replace />;
   }
 
-  const hasAccess = checkAccess(location.pathname, currentRole);
+  const hasAccess = requiredRoles.length > 0 
+    ? requiredRoles.includes(currentRole)
+    : canAccessRoute(location.pathname);
 
   if (!hasAccess) {
     return (

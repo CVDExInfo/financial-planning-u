@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import LoadingSpinner from "./LoadingSpinner";
 import LoadingState from "./LoadingState";
 import ErrorState from "./ErrorState";
 import EmptyState from "./EmptyState";

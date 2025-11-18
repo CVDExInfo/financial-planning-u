@@ -1,13 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { useState, ReactNode } from 'react';
 import type { UserRole } from '@/types/domain';
-
-interface RoleContextType {
-  currentRole: UserRole;
-  setRole: (role: UserRole) => void;
-  hasRole: (role: UserRole) => boolean;
-}
-
-const RoleContext = createContext<RoleContextType | null>(null);
+import { RoleContext } from '@/hooks/useRole';
 
 interface RoleProviderProps {
   children: ReactNode;
@@ -20,7 +13,7 @@ export function RoleProvider({ children }: RoleProviderProps) {
     setCurrentRole(role);
   };
 
-  const hasRole = (role: UserRole) => {
+  const hasRole = () => {
     // For demo purposes, allow role switching
     // In production, this would check against actual user permissions
     return true;
@@ -31,12 +24,4 @@ export function RoleProvider({ children }: RoleProviderProps) {
       {children}
     </RoleContext.Provider>
   );
-}
-
-export function useRole() {
-  const context = useContext(RoleContext);
-  if (!context) {
-    throw new Error('useRole must be used within a RoleProvider');
-  }
-  return context;
 }
