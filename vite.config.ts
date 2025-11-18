@@ -34,6 +34,15 @@ export default defineConfig(() => {
     ? rawApiBase.trim().replace(/\/+$/, "")
     : "";
 
+  // Fail fast during build instead of shipping a broken bundle
+  if (!isPmo && !apiBaseUrl) {
+    console.error(
+      "[Vite][Finanzas] ❌ VITE_API_BASE_URL is empty. " +
+      "Set it in the build environment (e.g., DEV_API_URL → VITE_API_BASE_URL)."
+    );
+    throw new Error("VITE_API_BASE_URL is not set for Finanzas build.");
+  }
+
   return {
     base: publicBase,
     define: {
