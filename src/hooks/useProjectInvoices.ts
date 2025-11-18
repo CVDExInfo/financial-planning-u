@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getInvoices } from "@/api/finanzas";
 import { useProject } from "@/contexts/ProjectContext";
@@ -24,6 +24,8 @@ export function useProjectInvoices() {
     refetchOnWindowFocus: false,
   });
 
+  const invoices = useMemo(() => query.data ?? [], [query.data]);
+
   const invalidate = useCallback(async () => {
     if (!projectId) return;
     await queryClient.invalidateQueries({ queryKey: invoicesKey(projectId) });
@@ -32,7 +34,7 @@ export function useProjectInvoices() {
   return {
     ...query,
     projectId,
-    invoices: query.data ?? [],
+    invoices,
     invalidate,
   };
 }
