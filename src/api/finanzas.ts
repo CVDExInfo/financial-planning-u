@@ -1,157 +1,167 @@
-// src/api/finanzas.ts
-// Drop-in replacement for uploadInvoice with S3 presigned upload + invoice registration.
+// ---- Invoice upload pipeline (presign ➜ S3 ➜ create record) ----
 
 export type UploadInvoicePayload = {
   file: File;
   line_item_id: string;
-  month: number;
-  amount: number;
+  month: number;              // 1–12
+  amount: number;             // numeric, already parsed in the UI
   description?: string;
   vendor?: string;
   invoice_number?: string;
-  invoice_date?: string; // ISO yyyy-mm-dd
+  invoice_date?: string;      // yyyy-mm-dd
 };
 
-// If you already have a shared HTTP wrapper (e.g., apiFetch or httpFetch), import it here.
-// Adjust the import to match your repo (client.ts or http-client.ts).
-import { apiFetch } from "@/api/client"; // ← adjust if your wrapper lives elsewhere
+type PresignPOST = {
+  url: string;
+  key: string;
+  fields: Record<string, string>;
+};
 
-const API_BASE =
-  (import.meta as any).env?.VITE_API_BASE_URL?.replace(/\/+$/, "") ||
-  "/finanzas/api"; // fallback only if CF path-rewrite is configured
+type PresignPUT = {
+  url: string;
+  key: string;
+  method: "PUT";
+  headers?: Record<string, string>;
+};
 
-type PresignResponse =
-  | {
-      method?: "POST";
-      url: string;
-      key: string; // S3 object key (documentKey)
-      fields: Record<string, string>;
-    }
-  | {
-      method: "PUT";
-      url: string; // direct PUT URL
-      key: string;
-      headers?: Record<string, string>;
-    };
+type PresignResponse = PresignPOST | PresignPUT;
 
-function assertApiBase(): string {
-  if (!API_BASE || API_BASE === "/finanzas/api") {
-    // Keep the error explicit so the UI can surface a useful banner.
-    // (Your ErrorBanner already handles this message.)
-    throw new Error(
-      "VITE_API_BASE_URL is not set. Finanzas API client is disabled."
-    );
+type InvoiceDTO = {
+  id: string;
+  line_item_id: string;
+  month: number;
+  amount: number;
+  status: "Pending" | "Matched" | "Disputed";
+  documentKey?: string;
+  file_name?: string;
+  originalName?: string;
+  uploaded_at: string;
+  uploaded_by: string;
+};
+
+const API_BASE = String(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
+const MAX_MB = 50;
+
+function requireApiBase(): string {
+  if (!API_BASE) {
+    throw new Error("VITE_API_BASE_URL is not set. Finanzas API client is disabled.");
   }
   return API_BASE;
 }
 
+function authHeader(): Record<string, string> {
+  // Minimal token lookup; adapt if you have a central auth helper
+  const token =
+    localStorage.getItem("idToken") ||
+    localStorage.getItem("cognitoIdToken") ||
+    sessionStorage.getItem("idToken") ||
+    "";
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function sha256(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const hash = await crypto.subtle.digest("SHA-256", buf);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function fileExt(name: string): string {
+  const idx = name.lastIndexOf(".");
+  return idx >= 0 ? name.slice(idx + 1).toLowerCase() : "";
+}
+
 /**
- * Uploads an invoice document to S3 via a presigned URL and registers the record in Finanzas.
- * 1) POST /uploads/presign  -> { url, key, fields? | headers?, method }
- * 2) Upload to S3           -> 204/201 OK
- * 3) POST /projects/{id}/invoices with documentKey + metadata
+ * 1) Ask API for a presigned S3 upload (no file bytes here)
+ *    POST /uploads/docs → { url, key, fields? | headers?, method? }
  */
-export async function uploadInvoice(
+async function presignInvoiceUpload(
   projectId: string,
-  payload: UploadInvoicePayload
-) {
-  if (!projectId) throw new Error("Missing projectId.");
-  if (!payload?.file) throw new Error("No file selected for upload.");
-  if (!payload.line_item_id) throw new Error("Line item is required.");
-  if (payload.month == null || Number.isNaN(Number(payload.month))) {
-    throw new Error("Month is required.");
-  }
-  if (payload.amount == null || Number.isNaN(Number(payload.amount))) {
-    throw new Error("Amount is required.");
-  }
+  file: File
+): Promise<PresignResponse> {
+  const base = requireApiBase();
 
-  const base = assertApiBase();
-  const file = payload.file;
-  const contentType = file.type || "application/octet-stream";
+  const body = {
+    project_id: projectId,
+    filename: file.name,
+    contentType: file.type || "application/octet-stream",
+    purpose: "invoice",
+    checksum_sha256: await sha256(file),
+  };
 
-  // 1) Presign request (module/entity naming is for server-side routing/auditing)
-  const presignRes = await apiFetch(`${base}/uploads/presign`, {
+  const res = await fetch(`${base}/uploads/docs`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      module: "finanzas",
-      entity: "invoice",
-      projectId,
-      contentType,
-      originalName: file.name,
-    }),
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeader(),
+    },
+    body: JSON.stringify(body),
   });
 
-  if (!presignRes.ok) {
-    const text = await presignRes.text().catch(() => "");
-    throw new Error(
-      `Failed to presign upload (HTTP ${presignRes.status}): ${text}`
-    );
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Failed to presign upload (${res.status}): ${t}`);
   }
 
-  const presign: PresignResponse = await presignRes.json();
+  return (await res.json()) as PresignResponse;
+}
 
-  // 2) Upload to S3 (supports POST or PUT contracts)
-  if ((presign as any).fields) {
-    // S3 POST policy
-    const { url, fields, key } = presign as Extract<PresignResponse, { fields: Record<string, string> }>;
+/**
+ * 2) Upload file to S3 using the presigned info.
+ *    Supports both POST (fields) and PUT presign styles.
+ */
+async function uploadInvoiceFileToS3(
+  file: File,
+  presign: PresignResponse
+): Promise<void> {
+  if ("fields" in presign) {
+    // POST policy
     const form = new FormData();
-    Object.entries(fields).forEach(([k, v]) => form.append(k, v));
-    form.append("file", file);
+    Object.entries(presign.fields).forEach(([k, v]) => form.set(k, v));
+    form.set("file", file);
 
-    const s3Post = await fetch(url, { method: "POST", body: form });
-    if (!(s3Post.status === 204 || s3Post.status === 201 || s3Post.ok)) {
-      const body = await s3Post.text().catch(() => "");
-      throw new Error(`S3 POST upload failed (HTTP ${s3Post.status}): ${body}`);
+    const resp = await fetch(presign.url, {
+      method: "POST",
+      body: form,
+    });
+
+    if (!resp.ok) {
+      const t = await resp.text().catch(() => "");
+      throw new Error(`S3 POST failed (${resp.status}): ${t}`);
     }
+    return;
+  }
 
-    // 3) Register invoice
-    return await registerInvoice(base, projectId, {
-      ...payload,
-      documentKey: key,
-      originalName: file.name,
-      contentType,
-      size: file.size,
-    });
-  } else {
-    // Direct PUT URL
-    const { url, key, headers } = presign as Extract<PresignResponse, { method: "PUT" }>;
-    const s3Put = await fetch(url, {
-      method: "PUT",
-      headers: { "Content-Type": contentType, ...(headers || {}) },
-      body: file,
-    });
-    if (!s3Put.ok) {
-      const body = await s3Put.text().catch(() => "");
-      throw new Error(`S3 PUT upload failed (HTTP ${s3Put.status}): ${body}`);
-    }
+  // PUT presign
+  const headers: Record<string, string> = {
+    "Content-Type": file.type || "application/octet-stream",
+  };
 
-    // 3) Register invoice
-    return await registerInvoice(base, projectId, {
-      ...payload,
-      documentKey: key,
-      originalName: file.name,
-      contentType,
-      size: file.size,
-    });
+  const resp = await fetch(presign.url, {
+    method: "PUT",
+    headers,
+    body: file,
+  });
+
+  if (!resp.ok) {
+    const t = await resp.text().catch(() => "");
+    throw new Error(`S3 PUT failed (${resp.status}): ${t}`);
   }
 }
 
-type RegisterBody = UploadInvoicePayload & {
-  documentKey: string;
-  originalName?: string;
-  contentType?: string;
-  size?: number;
-};
-
-async function registerInvoice(
-  base: string,
+/**
+ * 3) Create invoice record in API, referencing the uploaded documentKey.
+ */
+async function createInvoiceRecord(
   projectId: string,
-  body: RegisterBody
-) {
-  // Only send serializable invoice metadata to the API (no File objects)
+  payload: UploadInvoicePayload,
+  documentKey: string
+): Promise<InvoiceDTO> {
+  const base = requireApiBase();
   const {
-    file: _omitFile,
+    file,
     line_item_id,
     month,
     amount,
@@ -159,17 +169,16 @@ async function registerInvoice(
     vendor,
     invoice_number,
     invoice_date,
-    documentKey,
-    originalName,
-    contentType,
-    size,
-  } = body;
+  } = payload;
 
-  const registerRes = await apiFetch(
+  const res = await fetch(
     `${base}/projects/${encodeURIComponent(projectId)}/invoices`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader(),
+      },
       body: JSON.stringify({
         line_item_id,
         month,
@@ -179,19 +188,63 @@ async function registerInvoice(
         invoice_number,
         invoice_date,
         documentKey,
-        originalName,
-        contentType,
-        size,
+        originalName: file.name,
+        contentType: file.type || "application/octet-stream",
+        extension: fileExt(file.name),
+        size: file.size,
       }),
     }
   );
 
-  if (!registerRes.ok) {
-    const text = await registerRes.text().catch(() => "");
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Failed to create invoice (${res.status}): ${t}`);
+  }
+
+  return (await res.json().catch(() => ({}))) as InvoiceDTO;
+}
+
+/**
+ * Public orchestrator used by SDMTReconciliation and other modules.
+ * Validates, presigns, uploads to S3, then creates the invoice record.
+ */
+export async function uploadInvoice(
+  projectId: string,
+  payload: UploadInvoicePayload
+): Promise<InvoiceDTO> {
+  if (USE_MOCKS) {
+    throw new Error("Invoice upload is disabled when VITE_USE_MOCKS=true");
+  }
+
+  if (!projectId) throw new Error("Missing projectId");
+  if (!payload?.file) throw new Error("No file selected");
+  if (!payload.line_item_id) throw new Error("Line item is required");
+
+  if (!(payload.month >= 1 && payload.month <= 12)) {
+    throw new Error("Month must be between 1 and 12");
+  }
+
+  if (!Number.isFinite(payload.amount)) {
+    throw new Error("Amount must be a finite number");
+  }
+
+  const sizeMb = payload.file.size / (1024 * 1024);
+  if (sizeMb > MAX_MB) {
     throw new Error(
-      `Failed to register invoice (HTTP ${registerRes.status}): ${text}`
+      `File too large: ${sizeMb.toFixed(1)} MB (max ${MAX_MB.toFixed(1)} MB)`
     );
   }
 
-  return registerRes.json().catch(() => ({}));
+  // 1) Presign
+  const presign = await presignInvoiceUpload(projectId, payload.file);
+
+  // 2) Upload to S3
+  await uploadInvoiceFileToS3(payload.file, presign);
+
+  // 3) Create invoice record referencing the uploaded documentKey
+  const documentKey = presign.key;
+  return createInvoiceRecord(projectId, payload, documentKey);
 }
+
+// Optional alias for new code that wants a more explicit name
+export const uploadInvoiceDocument = uploadInvoice;
