@@ -8,17 +8,14 @@ import {
   DeleteCommand,
   GetCommand,
 } from "../lib/dynamo";
+import { ok, bad, notFound, serverError, fromAuthError } from "../lib/http";
 
 // Route: GET /projects/{projectId}/rubros
 async function listProjectRubros(event: APIGatewayProxyEventV2) {
   ensureCanRead(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "missing project id" }),
-    };
+    return bad("missing project id");
   }
 
   // Query all rubros attached to this project
@@ -43,11 +40,7 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
     createdBy: item.createdBy,
   }));
 
-  return {
-    statusCode: 200,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ data: rubros, total: rubros.length }),
-  };
+  return ok({ data: rubros, total: rubros.length });
 }
 
 // Route: POST /projects/{projectId}/rubros
@@ -55,30 +48,18 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
   ensureCanWrite(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "missing project id" }),
-    };
+    return bad("missing project id");
   }
 
   let body: { rubroIds?: string[] };
   try {
     body = JSON.parse(event.body ?? "{}");
   } catch {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Invalid JSON in request body" }),
-    };
+    return bad("Invalid JSON in request body");
   }
 
   if (!body.rubroIds || !Array.isArray(body.rubroIds)) {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "rubroIds array required" }),
-    };
+    return bad("rubroIds array required");
   }
 
   const userEmail = getUserEmail(event);
@@ -132,14 +113,10 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     );
   }
 
-  return {
-    statusCode: 200,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      message: `Attached ${attached.length} rubros to project ${projectId}`,
-      attached,
-    }),
-  };
+  return ok({
+    message: `Attached ${attached.length} rubros to project ${projectId}`,
+    attached,
+  });
 }
 
 // Route: DELETE /projects/{projectId}/rubros/{rubroId}
@@ -149,19 +126,11 @@ async function detachRubro(event: APIGatewayProxyEventV2) {
   const rubroId = event.pathParameters?.rubroId;
 
   if (!projectId) {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "missing project id" }),
-    };
+    return bad("missing project id");
   }
 
   if (!rubroId) {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "missing rubro id" }),
-    };
+    return bad("missing rubro id");
   }
 
   const userEmail = getUserEmail(event);
@@ -179,11 +148,7 @@ async function detachRubro(event: APIGatewayProxyEventV2) {
   );
 
   if (!existing.Item) {
-    return {
-      statusCode: 404,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "rubro attachment not found" }),
-    };
+    return notFound("rubro attachment not found");
   }
 
   // Delete the attachment
@@ -220,13 +185,9 @@ async function detachRubro(event: APIGatewayProxyEventV2) {
     })
   );
 
-  return {
-    statusCode: 200,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      message: `Detached rubro ${rubroId} from project ${projectId}`,
-    }),
-  };
+  return ok({
+    message: `Detached rubro ${rubroId} from project ${projectId}`,
+  });
 }
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
@@ -248,26 +209,12 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
   } catch (err: unknown) {
     // Handle auth errors
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "statusCode" in err &&
-      "body" in err
-    ) {
-      return {
-        statusCode: (err as { statusCode: number }).statusCode,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          error: (err as { body: string }).body,
-        }),
-      };
+    const authError = fromAuthError(err);
+    if (authError) {
+      return authError;
     }
 
     console.error("Rubros handler error:", err);
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Internal server error" }),
-    };
+    return serverError("Internal server error");
   }
 };

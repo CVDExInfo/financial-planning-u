@@ -15,7 +15,8 @@ export const cors = {
   "Access-Control-Allow-Credentials": "true",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Authorization, Content-Type, X-Amz-Date, X-Amz-Security-Token, X-Requested-With",
+    "Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Requested-With,authorization,content-type,x-amz-date,x-amz-security-token,x-requested-with",
+  "Access-Control-Max-Age": "86400",
 };
 
 /**
@@ -66,4 +67,21 @@ export function notImplemented(message = "Not implemented") {
  */
 export function unauthorized(message = "Unauthorized") {
   return bad(message, 401);
+}
+
+/**
+ * Convert auth errors thrown by ensure* helpers into proper HTTP responses
+ */
+export function fromAuthError(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "statusCode" in error &&
+    "body" in error
+  ) {
+    const statusCode = Number((error as { statusCode: number }).statusCode) || 403;
+    const message = String((error as { body: string }).body || "Access denied");
+    return bad(message, statusCode);
+  }
+  return null;
 }
