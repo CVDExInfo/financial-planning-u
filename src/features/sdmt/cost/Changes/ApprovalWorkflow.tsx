@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -301,6 +302,11 @@ export function ApprovalWorkflow({
                   {actionType === "approve" ? "Approve" : "Reject"} Change
                   Request
                 </DialogTitle>
+                <DialogDescription>
+                  {actionType === "approve"
+                    ? "Confirm your approval and outline any conditions or follow-up actions."
+                    : "Provide a clear rationale for the rejection so requestors can adjust the plan."}
+                </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">

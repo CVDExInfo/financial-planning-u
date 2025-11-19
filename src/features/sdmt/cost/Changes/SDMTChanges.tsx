@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -445,6 +446,10 @@ export function SDMTChanges() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Change Request Approval Workflow</DialogTitle>
+            <DialogDescription>
+              Review the approval steps, comments, and status history for the
+              selected change before taking action.
+            </DialogDescription>
           </DialogHeader>
           {selectedChange && (
             <ApprovalWorkflow

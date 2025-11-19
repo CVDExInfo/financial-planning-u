@@ -1,7 +1,7 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import crypto from "node:crypto";
 import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth";
-import { ok, bad, serverError } from "../lib/http";
+import { ok, bad, serverError, fromAuthError } from "../lib/http";
 import { ddb, PutCommand, QueryCommand, tableName } from "../lib/dynamo";
 
 type InvoicePayload = {
@@ -137,6 +137,11 @@ export const handler = async (
 
     return bad(`Method ${method} not allowed`, 405);
   } catch (error) {
+    const authError = fromAuthError(error);
+    if (authError) {
+      return authError;
+    }
+
     console.error("Error in prefacturas handler:", error);
     return serverError(
       error instanceof Error ? error.message : "Internal server error"

@@ -18,6 +18,7 @@ These endpoints are fully implemented in the backend and tested:
 | `/projects/{id}/handoff` | GET | handoff.ts | Get handoff details |
 | `/projects/{projectId}/rubros` | GET | rubros.ts | List rubros for a project |
 | `/projects/{projectId}/rubros` | POST | rubros.ts | Attach rubros to project |
+| `/projects/{id}/billing` | GET | billing.ts | Summarize prefacturas into monthly inflows |
 | `/projects/{id}/plan` | GET | plan.ts | Get financial plan/forecast data |
 | `/plan/forecast` | GET | forecast.ts | Get forecast data with filters |
 | `/catalog/rubros` | GET | catalog.ts | Get rubros catalog |
@@ -30,7 +31,6 @@ These endpoints are referenced in the frontend but don't exist in the backend ye
 
 | Endpoint | Frontend Method | Current Behavior | Recommendation |
 |----------|----------------|------------------|----------------|
-| `/projects/{id}/billing` | `getBillingPlan()` | Returns empty array `{ monthly_inflows: [] }` | Create billing handler or use alternative data source |
 | `/projects/{id}/invoices` | `getInvoices()` | Returns empty array `[]` | Consider using `/prefacturas` endpoint instead |
 | `/invoices/{id}/status` | `updateInvoiceStatus()` | Throws error | Implement invoice status update or use prefacturas |
 

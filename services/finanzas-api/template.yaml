@@ -608,6 +608,35 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
+  BillingFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: node20
+        Sourcemap: true
+        External:
+          - aws-sdk
+        EntryPoints:
+          - src/handlers/billing.ts
+    Properties:
+      CodeUri: .
+      Handler: billing.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBReadPolicy:
+            TableName: !Ref PrefacturasTable
+      Events:
+        GetBilling:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/billing
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+
   AllocationsFn:
     Type: AWS::Serverless::Function
     Metadata:
@@ -897,6 +926,8 @@ Resources:
       Handler: prefacturas.handler
       Policies:
         - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PrefacturasTable
       Events:
         GetPrefacturas:
           Type: HttpApi
@@ -905,7 +936,7 @@ Resources:
             Method: GET
             ApiId: !Ref Api
             Auth:
-              Authorizer: NONE
+              Authorizer: CognitoJwt
         PostPrefacturas:
           Type: HttpApi
           Properties:
@@ -913,7 +944,7 @@ Resources:
             Method: POST
             ApiId: !Ref Api
             Auth:
-              Authorizer: NONE
+              Authorizer: CognitoJwt
 
   Pep3Rule:
     Type: AWS::Events::Rule
