@@ -1,7 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Finanzas SD API (HTTP API + Cognito JWT + DynamoDB + EventBridge)
-
 Parameters:
   CognitoUserPoolArn:
     Type: String
@@ -34,320 +33,361 @@ Parameters:
   PolicyStoreId:
     Type: String
     Default: ''
-    Description: Amazon Verified Permissions Policy Store ID (optional, for
-      fine-grained authorization)
-
+    Description: Amazon Verified Permissions Policy Store ID (optional, for fine-grained
+      authorization)
 Globals:
   Function:
     Runtime: nodejs20.x
     Timeout: 15
     MemorySize: 256
     Architectures:
-      - x86_64
+    - x86_64
     Tracing: Active
     Environment:
       Variables:
-        NODE_OPTIONS: '--enable-source-maps'
-        TABLE_PROJECTS: !Sub ${TablePrefix}projects
-        TABLE_RUBROS: !Sub ${TablePrefix}rubros
-        TABLE_RUBROS_TAXONOMIA: !Sub ${TablePrefix}rubros_taxonomia
-        TABLE_ALLOC: !Sub ${TablePrefix}allocations
-        TABLE_PAYROLL: !Sub ${TablePrefix}payroll_actuals
-        TABLE_ADJ: !Sub ${TablePrefix}adjustments
-        TABLE_ALERTS: !Sub ${TablePrefix}alerts
-        TABLE_PROVIDERS: !Sub ${TablePrefix}providers
-        TABLE_AUDIT: !Sub ${TablePrefix}audit_log
-        TABLE_DOCS: !Sub ${TablePrefix}docs
-        TABLE_PREFACTURAS: !Sub ${TablePrefix}prefacturas
-        STAGE_NAME: !Ref StageName
-        POLICY_STORE_ID: !Ref PolicyStoreId
-        DOCS_BUCKET: !Ref DocsBucketName
-        ALLOWED_ORIGIN: !Sub https://${CloudFrontDomain}
-
+        NODE_OPTIONS: --enable-source-maps
+        TABLE_PROJECTS:
+          Fn::Sub: ${TablePrefix}projects
+        TABLE_RUBROS:
+          Fn::Sub: ${TablePrefix}rubros
+        TABLE_RUBROS_TAXONOMIA:
+          Fn::Sub: ${TablePrefix}rubros_taxonomia
+        TABLE_ALLOC:
+          Fn::Sub: ${TablePrefix}allocations
+        TABLE_PAYROLL:
+          Fn::Sub: ${TablePrefix}payroll_actuals
+        TABLE_ADJ:
+          Fn::Sub: ${TablePrefix}adjustments
+        TABLE_ALERTS:
+          Fn::Sub: ${TablePrefix}alerts
+        TABLE_PROVIDERS:
+          Fn::Sub: ${TablePrefix}providers
+        TABLE_AUDIT:
+          Fn::Sub: ${TablePrefix}audit_log
+        TABLE_DOCS:
+          Fn::Sub: ${TablePrefix}docs
+        TABLE_PREFACTURAS:
+          Fn::Sub: ${TablePrefix}prefacturas
+        STAGE_NAME:
+          Ref: StageName
+        POLICY_STORE_ID:
+          Ref: PolicyStoreId
+        DOCS_BUCKET:
+          Ref: DocsBucketName
+        ALLOWED_ORIGIN:
+          Fn::Sub: https://${CloudFrontDomain}
 Resources:
-  # ========== DynamoDB tables ==========
   ApiAccessLogs:
     Type: AWS::Logs::LogGroup
     Properties:
-      # Dedicated access log group for HTTP API authorizer/integration diagnostics
-      LogGroupName: !Sub /aws/http-api/${StageName}/finz-access
+      LogGroupName:
+        Fn::Sub: /aws/http-api/${StageName}/finz-access
       RetentionInDays: 14
+    Metadata:
+      SamResourceId: ApiAccessLogs
   ProjectsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}projects
+      TableName:
+        Fn::Sub: ${TablePrefix}projects
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: ProjectsTable
   RubrosTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}rubros
+      TableName:
+        Fn::Sub: ${TablePrefix}rubros
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: RubrosTable
   RubrosTaxonomiaTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}rubros_taxonomia
+      TableName:
+        Fn::Sub: ${TablePrefix}rubros_taxonomia
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: RubrosTaxonomiaTable
   AllocationsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}allocations
+      TableName:
+        Fn::Sub: ${TablePrefix}allocations
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: AllocationsTable
   PayrollTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}payroll_actuals
+      TableName:
+        Fn::Sub: ${TablePrefix}payroll_actuals
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: PayrollTable
   AdjustmentsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}adjustments
+      TableName:
+        Fn::Sub: ${TablePrefix}adjustments
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: AdjustmentsTable
   AlertsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}alerts
+      TableName:
+        Fn::Sub: ${TablePrefix}alerts
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: AlertsTable
   ProvidersTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}providers
+      TableName:
+        Fn::Sub: ${TablePrefix}providers
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: ProvidersTable
   AuditTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}audit_log
+      TableName:
+        Fn::Sub: ${TablePrefix}audit_log
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: AuditTable
   DocsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}docs
+      TableName:
+        Fn::Sub: ${TablePrefix}docs
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: DocsTable
   PrefacturasTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${TablePrefix}prefacturas
+      TableName:
+        Fn::Sub: ${TablePrefix}prefacturas
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-
-  # ========== HTTP API with Cognito JWT ==========
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: PrefacturasTable
   Api:
     Type: AWS::Serverless::HttpApi
     Properties:
-      StageName: !Ref StageName
+      StageName:
+        Ref: StageName
       CorsConfiguration:
         AllowOrigins:
-          - !Sub https://${CloudFrontDomain}
+        - Fn::Sub: https://${CloudFrontDomain}
         AllowHeaders:
-          - Authorization
-          - Content-Type
-          - X-Amz-Date
-          - X-Amz-Security-Token
-          - X-Requested-With
+        - Authorization
+        - Content-Type
+        - X-Amz-Date
+        - X-Amz-Security-Token
+        - X-Requested-With
         AllowMethods:
-          - GET
-          - POST
-          - PUT
-          - PATCH
-          - DELETE
-          - OPTIONS
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
         AllowCredentials: true
         MaxAge: 86400
       AccessLogSettings:
-        DestinationArn: !GetAtt ApiAccessLogs.Arn
-        # Simplified format per operational spec (master prompt)
-        Format: $context.requestId $context.identity.sourceIp $context.status
-          $context.authorizer.error
+        DestinationArn:
+          Fn::GetAtt:
+          - ApiAccessLogs
+          - Arn
+        Format: $context.requestId $context.identity.sourceIp $context.status $context.authorizer.error
       Auth:
         Authorizers:
           CognitoJwt:
             JwtConfiguration:
               Audience:
-                - !Ref CognitoUserPoolClientId
-              Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
+              - Ref: CognitoUserPoolClientId
+              Issuer:
+                Fn::Sub: https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
             IdentitySource: $request.header.Authorization
         DefaultAuthorizer: CognitoJwt
-
-  # Note: Serverless::HttpApi with StageName will create and manage the stage automatically.
-
-  # ========== Lambdas ==========
+    Metadata:
+      SamResourceId: Api
   HealthFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node20
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/health.ts
+        - src/handlers/health.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+      SamResourceId: HealthFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/667ecc0bfdff3c58a4d5f0d2a5fac0fd
       Handler: health.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
+      - AWSLambdaBasicExecutionRole
       Events:
         Health:
           Type: HttpApi
           Properties:
             Path: /health
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: NONE
-
   ProjectsFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/projects.ts
+        - src/handlers/projects.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: ProjectsFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/a6439f939f6b4c91d84a4183c482904b
       Handler: projects.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProjectsTable
-        - Statement:
-            - Sid: AVPIsAuthorizedWithToken
-              Effect: Allow
-              Action:
-                - verifiedpermissions:IsAuthorizedWithToken
-              Resource: !Sub arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - Statement:
+        - Sid: AVPIsAuthorizedWithToken
+          Effect: Allow
+          Action:
+          - verifiedpermissions:IsAuthorizedWithToken
+          Resource:
+            Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
       Events:
         CreateProject:
           Type: HttpApi
           Properties:
             Path: /projects
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         ListProjects:
@@ -355,38 +395,42 @@ Resources:
           Properties:
             Path: /projects
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   BaselineFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/baseline.ts
+        - src/handlers/baseline.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: BaselineFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/9c9145863086782be1a80231b516ed01
       Handler: baseline.createBaseline
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProjectsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AuditTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AuditTable
       Events:
         CreateBaseline:
           Type: HttpApi
           Properties:
             Path: /baseline
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         GetBaseline:
@@ -394,97 +438,106 @@ Resources:
           Properties:
             Path: /baseline/{baseline_id}
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   CatalogFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
         EntryPoints:
-          - src/handlers/catalog.ts
+        - src/handlers/catalog.ts
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: CatalogFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/b1bc39a4ec720daafb2ae0ea1baafc2f
       Handler: catalog.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBReadPolicy:
-            TableName: !Ref RubrosTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref RubrosTaxonomiaTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: RubrosTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: RubrosTaxonomiaTable
       Events:
         ListRubros:
           Type: HttpApi
           Properties:
             Path: /catalog/rubros
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: NONE
-
   AllocationRulesGet:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/allocationRules.ts
+        - src/handlers/allocationRules.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: AllocationRulesGet
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/06f4eda31c158266effb371b3b9ee94c
       Handler: allocationRules.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
+      - AWSLambdaBasicExecutionRole
       Environment:
         Variables:
-          SKIP_AUTH: !Ref SkipAuth
+          SKIP_AUTH:
+            Ref: SkipAuth
       Events:
         GetAllocationRules:
           Type: HttpApi
           Properties:
             Path: /allocation-rules
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   HandoffFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/handoff.ts
+        - src/handlers/handoff.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: HandoffFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/509d77a60baf3a37db961280f3fb72a2
       Handler: handoff.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProjectsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AuditTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AuditTable
       Events:
         CreateHandoff:
           Type: HttpApi
           Properties:
             Path: /projects/{projectId}/handoff
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         GetHandoff:
@@ -492,7 +545,8 @@ Resources:
           Properties:
             Path: /projects/{projectId}/handoff
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         UpdateHandoff:
@@ -500,95 +554,99 @@ Resources:
           Properties:
             Path: /handoff/{handoffId}
             Method: PUT
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   UploadDocumentFunction:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node20
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/upload-docs.ts
+        - src/handlers/upload-docs.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+      SamResourceId: UploadDocumentFunction
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/389642a5dad513b49b2c4707ec2c6e06
       Handler: uploadDocs.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref DocsTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - s3:PutObject
-                - s3:PutObjectAcl
-                - s3:GetObject
-              Resource: !Sub arn:aws:s3:::${DocsBucketName}/*
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: DocsTable
+      - Statement:
+        - Effect: Allow
+          Action:
+          - s3:PutObject
+          - s3:PutObjectAcl
+          - s3:GetObject
+          Resource:
+            Fn::Sub: arn:aws:s3:::${DocsBucketName}/*
       Events:
         RequestUploadUrl:
           Type: HttpApi
           Properties:
             Path: /uploads/docs
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
-  # TODO: Implement PEP-3 monthly alert logic for budget variance detection
-  # Currently reuses health handler as placeholder
   AlertsPep3Fn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/health.ts
+        - src/handlers/health.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: AlertsPep3Fn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/d8d9d8c1c0f92eab1268ddb5a5422a4a
       Handler: health.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-
-  # R1 MVP endpoints - stubbed for initial slice
+      - AWSLambdaBasicExecutionRole
   RubrosFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/rubros.ts
+        - src/handlers/rubros.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: RubrosFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/4dc46747168e743b2eab83671ab2fcf0
       Handler: rubros.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref RubrosTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AuditTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: RubrosTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AuditTable
       Events:
         AttachRubro:
           Type: HttpApi
           Properties:
             Path: /projects/{projectId}/rubros
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         ListRubros:
@@ -596,7 +654,8 @@ Resources:
           Properties:
             Path: /projects/{projectId}/rubros
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         DetachRubro:
@@ -604,207 +663,227 @@ Resources:
           Properties:
             Path: /projects/{projectId}/rubros/{rubroId}
             Method: DELETE
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   BillingFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node20
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/billing.ts
+        - src/handlers/billing.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+      SamResourceId: BillingFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/77e40cbdbc5f1a447f08552da3435b7f
       Handler: billing.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBReadPolicy:
-            TableName: !Ref PrefacturasTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: PrefacturasTable
       Events:
         GetBilling:
           Type: HttpApi
           Properties:
             Path: /projects/{projectId}/billing
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   AllocationsFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/allocations.ts
+        - src/handlers/allocations.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: AllocationsFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/10539bff4a4d746feee671810d13b6d0
       Handler: allocations.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AllocationsTable
-        - Statement:
-            - Sid: AVPIsAuthorizedWithToken
-              Effect: Allow
-              Action:
-                - verifiedpermissions:IsAuthorizedWithToken
-              Resource: !Sub arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AllocationsTable
+      - Statement:
+        - Sid: AVPIsAuthorizedWithToken
+          Effect: Allow
+          Action:
+          - verifiedpermissions:IsAuthorizedWithToken
+          Resource:
+            Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
       Events:
         BulkAllocations:
           Type: HttpApi
           Properties:
             Path: /projects/{id}/allocations:bulk
             Method: PUT
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   PlanFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/plan.ts
+        - src/handlers/plan.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: PlanFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/35a6d7f41a350d5be6dbfd9556576fec
       Handler: plan.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBReadPolicy:
-            TableName: !Ref ProjectsTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref AllocationsTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref PayrollTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref AdjustmentsTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: AllocationsTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: PayrollTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: AdjustmentsTable
       Events:
         GetPlan:
           Type: HttpApi
           Properties:
             Path: /projects/{id}/plan
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   PayrollFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/payroll.ts
+        - src/handlers/payroll.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: PayrollFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/c2c39ffe7321ecf72199c8154c77275d
       Handler: payroll.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref PayrollTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: PayrollTable
       Events:
         IngestPayroll:
           Type: HttpApi
           Properties:
             Path: /payroll/ingest
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   CloseMonthFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/close-month.ts
+        - src/handlers/close-month.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: CloseMonthFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/6d3289906fc6ad98857b57f12d8f04e1
       Handler: close-month.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProjectsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AllocationsTable
-        - Statement:
-            - Sid: AVPIsAuthorizedWithToken
-              Effect: Allow
-              Action:
-                - verifiedpermissions:IsAuthorizedWithToken
-              Resource: !Sub arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AllocationsTable
+      - Statement:
+        - Sid: AVPIsAuthorizedWithToken
+          Effect: Allow
+          Action:
+          - verifiedpermissions:IsAuthorizedWithToken
+          Resource:
+            Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
       Events:
         CloseMonth:
           Type: HttpApi
           Properties:
             Path: /close-month
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   AdjustmentsFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/adjustments.ts
+        - src/handlers/adjustments.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: AdjustmentsFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/6f666657ecc3853358ebb1d405562ffc
       Handler: adjustments.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AdjustmentsTable
-        - Statement:
-            - Sid: AVPIsAuthorizedWithToken
-              Effect: Allow
-              Action:
-                - verifiedpermissions:IsAuthorizedWithToken
-              Resource: !Sub arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AdjustmentsTable
+      - Statement:
+        - Sid: AVPIsAuthorizedWithToken
+          Effect: Allow
+          Action:
+          - verifiedpermissions:IsAuthorizedWithToken
+          Resource:
+            Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
       Events:
         CreateAdjustment:
           Type: HttpApi
           Properties:
             Path: /adjustments
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         ListAdjustments:
@@ -812,65 +891,70 @@ Resources:
           Properties:
             Path: /adjustments
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   AlertsFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/alerts.ts
+        - src/handlers/alerts.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: AlertsFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/d08d3e65e3205cb21e7357403f4b7283
       Handler: alerts.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBReadPolicy:
-            TableName: !Ref AlertsTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: AlertsTable
       Events:
         GetAlerts:
           Type: HttpApi
           Properties:
             Path: /alerts
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   ProvidersFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node18
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/providers.ts
+        - src/handlers/providers.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: ProvidersFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/843f00ccf8ff204bb04c5c84b9c285df
       Handler: providers.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProvidersTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProvidersTable
       Events:
         CreateProvider:
           Type: HttpApi
           Properties:
             Path: /providers
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         ListProviders:
@@ -878,63 +962,67 @@ Resources:
           Properties:
             Path: /providers
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   ForecastFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node20
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/forecast.ts
+        - src/handlers/forecast.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+      SamResourceId: ForecastFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/dd15a143b18962af7b179a5470cd6672
       Handler: forecast.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
+      - AWSLambdaBasicExecutionRole
       Events:
         GetForecast:
           Type: HttpApi
           Properties:
             Path: /plan/forecast
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: NONE
-
   PrefacturasFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
-        Minify: true
-        Target: node20
-        Sourcemap: true
-        External:
-          - aws-sdk
         EntryPoints:
-          - src/handlers/prefacturas.ts
+        - src/handlers/prefacturas.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+      SamResourceId: PrefacturasFn
     Properties:
-      CodeUri: .
+      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/db8b6f0862321b53271e953555eafaae
       Handler: prefacturas.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref PrefacturasTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: PrefacturasTable
       Events:
         GetPrefacturas:
           Type: HttpApi
           Properties:
             Path: /prefacturas
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         PostPrefacturas:
@@ -942,34 +1030,48 @@ Resources:
           Properties:
             Path: /prefacturas
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   Pep3Rule:
     Type: AWS::Events::Rule
     Properties:
-      ScheduleExpression: cron(0 8 1 * ? *) # monthly, 8am UTC 1st
+      ScheduleExpression: cron(0 8 1 * ? *)
       State: ENABLED
       Targets:
-        - Arn: !GetAtt AlertsPep3Fn.Arn
-          Id: pep3-target
+      - Arn:
+          Fn::GetAtt:
+          - AlertsPep3Fn
+          - Arn
+        Id: pep3-target
+    Metadata:
+      SamResourceId: Pep3Rule
   Pep3Permission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref AlertsPep3Fn
+      FunctionName:
+        Ref: AlertsPep3Fn
       Principal: events.amazonaws.com
-      SourceArn: !GetAtt Pep3Rule.Arn
-
+      SourceArn:
+        Fn::GetAtt:
+        - Pep3Rule
+        - Arn
+    Metadata:
+      SamResourceId: Pep3Permission
 Outputs:
   FinzApiId:
     Description: HTTP API ID
-    Value: !Ref Api
+    Value:
+      Ref: Api
     Export:
-      Name: !Sub finz-api-id-${StageName}
+      Name:
+        Fn::Sub: finz-api-id-${StageName}
   FinzApiUrl:
     Description: HTTP API URL
-    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
+    Value:
+      Fn::Sub: https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
     Export:
-      Name: !Sub finz-api-url-${StageName}
+      Name:
+        Fn::Sub: finz-api-url-${StageName}
