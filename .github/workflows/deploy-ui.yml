@@ -328,10 +328,16 @@ jobs:
           echo "✅ Finanzas build artifacts look good"
 
       # ---- Upload Finanzas (/finanzas) ----
+            # ---- Upload Finanzas (/finanzas) ----
       - name: Upload Finanzas Portal to S3 (/finanzas prefix)
         run: |
-          aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" --exclude '*.map' --delete
+          aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
+            --exclude '*.map' \
+            --exclude 'docs/*' \
+            --exclude 'test-helper.html' \
+            --delete
           echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
+                                  
 
       # ---- CF behavior check for /finanzas/* ----
       - name: Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)
