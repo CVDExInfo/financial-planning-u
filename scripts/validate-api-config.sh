@@ -88,11 +88,11 @@ echo ""
 # Extract components
 PROTOCOL=$(echo "$VITE_API_BASE_URL" | sed -E 's|^(https?)://.*|\1|')
 HOST=$(echo "$VITE_API_BASE_URL" | sed -E 's|^https?://([^/]+).*|\1|')
-PATH=$(echo "$VITE_API_BASE_URL" | sed -E 's|^https?://[^/]+(/.*)|\1|' | grep '^/' || echo "")
+URL_PATH=$(echo "$VITE_API_BASE_URL" | sed -E 's|^https?://[^/]+(/.*)|\1|' | grep '^/' || echo "")
 
 echo "   Protocol: $PROTOCOL"
 echo "   Host: $HOST"
-echo "   Path: ${PATH:-/}"
+echo "   Path: ${URL_PATH:-/}"
 echo ""
 
 # Validate protocol
@@ -113,8 +113,8 @@ if command -v grep >/dev/null 2>&1; then
     echo "   Region: $REGION"
     
     # Extract stage from path
-    if [ -n "$PATH" ]; then
-      STAGE=$(echo "$PATH" | sed 's|^/||' | cut -d'/' -f1)
+    if [ -n "$URL_PATH" ]; then
+      STAGE=$(echo "$URL_PATH" | sed 's|^/||' | cut -d'/' -f1)
       echo "   Stage: $STAGE"
     fi
   else
@@ -140,22 +140,52 @@ if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "true" ]; then
 else
   # Test 1: DNS Resolution
   echo "Test 1: DNS Resolution"
-  if host "$HOST" >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ DNS resolution successful for $HOST${NC}"
+  DNS_TMP=$(mktemp 2>/dev/null || echo "/tmp/dns_check.$$")
+  DNS_COMMAND=""
+  DNS_SUCCESS=false
+
+  if command -v getent >/dev/null 2>&1; then
+    DNS_COMMAND="getent hosts"
+    if getent hosts "$HOST" >"$DNS_TMP" 2>&1; then
+      DNS_SUCCESS=true
+    fi
+  elif command -v host >/dev/null 2>&1; then
+    DNS_COMMAND="host"
+    if host "$HOST" >"$DNS_TMP" 2>&1; then
+      DNS_SUCCESS=true
+    fi
+  elif command -v nslookup >/dev/null 2>&1; then
+    DNS_COMMAND="nslookup"
+    if nslookup "$HOST" >"$DNS_TMP" 2>&1; then
+      DNS_SUCCESS=true
+    fi
   else
+    echo -e "${YELLOW}⚠️  No DNS utility (getent/host/nslookup) available; skipping test${NC}"
+    WARNINGS=$((WARNINGS + 1))
+  fi
+
+  if [ "$DNS_SUCCESS" = true ]; then
+    echo -e "${GREEN}✅ DNS resolution successful for $HOST${NC}"
+  elif [ -n "$DNS_COMMAND" ]; then
     echo -e "${RED}❌ DNS resolution failed for $HOST${NC}"
-    echo "   This means the hostname cannot be resolved to an IP address"
-    echo "   Check network connectivity and DNS configuration"
+    echo "   Host tested: $HOST"
+    echo "   Command: $DNS_COMMAND $HOST"
+    if [ -s "$DNS_TMP" ]; then
+      sed 's/^/   /' "$DNS_TMP"
+    fi
     ERRORS=$((ERRORS + 1))
   fi
+
+  rm -f "$DNS_TMP" 2>/dev/null || true
   echo ""
 
   # Test 2: HTTP Connectivity to /health endpoint
   echo "Test 2: HTTP Connectivity (/health endpoint)"
   HEALTH_URL="${VITE_API_BASE_URL}/health"
-  
-  if command -v curl >/dev/null 2>&1; then
-    HTTP_CODE=$(curl -sS -o /tmp/health_response.json -w '%{http_code}' \
+
+  CURL_BIN="$(command -v curl 2>/dev/null || true)"
+  if [ -n "$CURL_BIN" ]; then
+    HTTP_CODE=$($CURL_BIN -sS -o /tmp/health_response.json -w '%{http_code}' \
       --connect-timeout 10 \
       --max-time 30 \
       "$HEALTH_URL" 2>/dev/null || echo "000")
@@ -190,15 +220,16 @@ else
     fi
   else
     echo -e "${YELLOW}⚠️  curl not available, skipping HTTP connectivity test${NC}"
+    echo "   command -v curl → ${CURL_BIN:-NONE}"
     WARNINGS=$((WARNINGS + 1))
   fi
   echo ""
 
   # Test 3: CORS Preflight Check
   echo "Test 3: CORS Configuration Check"
-  if command -v curl >/dev/null 2>&1; then
+  if [ -n "$CURL_BIN" ]; then
     # Simulate a CORS preflight request
-    CORS_RESPONSE=$(curl -sS -I \
+    CORS_RESPONSE=$($CURL_BIN -sS -I \
       -X OPTIONS \
       -H "Origin: https://d7t9x3j66yd8k.cloudfront.net" \
       -H "Access-Control-Request-Method: GET" \
@@ -223,8 +254,8 @@ else
   
   # Test /catalog/rubros (public endpoint)
   RUBROS_URL="${VITE_API_BASE_URL}/catalog/rubros"
-  if command -v curl >/dev/null 2>&1; then
-    RUBROS_CODE=$(curl -sS -o /tmp/rubros_response.json -w '%{http_code}' \
+  if [ -n "$CURL_BIN" ]; then
+    RUBROS_CODE=$($CURL_BIN -sS -o /tmp/rubros_response.json -w '%{http_code}' \
       --connect-timeout 10 \
       --max-time 30 \
       "$RUBROS_URL" 2>/dev/null || echo "000")
@@ -286,9 +317,7 @@ for ENV_FILE in "${ENV_FILES[@]}"; do
 done
 
 if [ "$FOUND_IN_FILE" = false ]; then
-  echo -e "${YELLOW}⚠️  VITE_API_BASE_URL not found in any .env file${NC}"
-  echo "   This is OK if the value is set via CI/CD or export"
-  WARNINGS=$((WARNINGS + 1))
+  echo -e "${BLUE}ℹ️  VITE_API_BASE_URL managed via environment variables (no .env overrides detected)${NC}"
 fi
 
 echo ""
