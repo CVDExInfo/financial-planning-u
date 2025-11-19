@@ -1,0 +1,129 @@
+{
+  "policyStoreId": "P3wQ5UBQ9YvLb4NaXmSTMG",
+  "policyId": "hhKNjToeFMfEtGyLuUjg6",
+  "policyType": "STATIC",
+  "principal": {
+    "entityType": "finanzassd::UserGroup",
+    "entityId": "us-east-2_FyHLtOhiY|FIN"
+  },
+  "resource": {
+    "entityType": "finanzassd::Application",
+    "entityId": "finanzas-sd-api-dev"
+  },
+  "actions": [
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "delete /projects/{projectId}/rubros/{rubroId}"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /adjustments"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /alerts"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /allocation-rules"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /baseline/{baseline_id}"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /catalog/rubros"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /health"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /plan/forecast"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /prefacturas"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /projects"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /projects/{id}/plan"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /projects/{projectId}/billing"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /projects/{projectId}/handoff"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /projects/{projectId}/rubros"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "get /providers"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "post /adjustments"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "post /baseline"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "post /close-month"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "post /payroll/ingest"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "post /prefacturas"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "post /projects"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "post /projects/{projectId}/handoff"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "post /projects/{projectId}/rubros"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "post /providers"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "post /uploads/docs"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "put /handoff/{handoffId}"
+    },
+    {
+      "actionType": "finanzassd::Action",
+      "actionId": "put /projects/{id}/allocations:bulk"
+    }
+  ],
+  "definition": {
+    "static": {
+      "description": "Permit FIN group to call any OAS-defined HTTP route",
+      "statement": "permit (\n    principal in finanzassd::UserGroup::\"us-east-2_FyHLtOhiY|FIN\",\n    action in [\n        finanzassd::Action::\"delete /projects/{projectId}/rubros/{rubroId}\",\n        finanzassd::Action::\"get /adjustments\",\n        finanzassd::Action::\"get /alerts\",\n        finanzassd::Action::\"get /allocation-rules\",\n        finanzassd::Action::\"get /baseline/{baseline_id}\",\n        finanzassd::Action::\"get /catalog/rubros\",\n        finanzassd::Action::\"get /health\",\n        finanzassd::Action::\"get /plan/forecast\",\n        finanzassd::Action::\"get /prefacturas\",\n        finanzassd::Action::\"get /projects\",\n        finanzassd::Action::\"get /projects/{id}/plan\",\n        finanzassd::Action::\"get /projects/{projectId}/billing\",\n        finanzassd::Action::\"get /projects/{projectId}/handoff\",\n        finanzassd::Action::\"get /projects/{projectId}/rubros\",\n        finanzassd::Action::\"get /providers\",\n        finanzassd::Action::\"post /adjustments\",\n        finanzassd::Action::\"post /baseline\",\n        finanzassd::Action::\"post /close-month\",\n        finanzassd::Action::\"post /payroll/ingest\",\n        finanzassd::Action::\"post /prefacturas\",\n        finanzassd::Action::\"post /projects\",\n        finanzassd::Action::\"post /projects/{projectId}/handoff\",\n        finanzassd::Action::\"post /projects/{projectId}/rubros\",\n        finanzassd::Action::\"post /providers\",\n        finanzassd::Action::\"post /uploads/docs\",\n        finanzassd::Action::\"put /handoff/{handoffId}\",\n        finanzassd::Action::\"put /projects/{id}/allocations:bulk\"\n    ],\n    resource in finanzassd::Application::\"finanzas-sd-api-dev\"\n);"
+    }
+  }
+}

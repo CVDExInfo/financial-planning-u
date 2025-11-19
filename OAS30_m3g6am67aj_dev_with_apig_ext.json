@@ -1,0 +1,626 @@
+{
+  "openapi" : "3.0.1",
+  "info" : {
+    "title" : "finanzas-sd-api-dev",
+    "version" : "1.0"
+  },
+  "servers" : [ {
+    "url" : "https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/{basePath}",
+    "variables" : {
+      "basePath" : {
+        "default" : "dev"
+      }
+    }
+  } ],
+  "tags" : [ {
+    "name" : "aws:cloudformation:stack-name",
+    "x-amazon-apigateway-tag-value" : "finanzas-sd-api-dev"
+  }, {
+    "name" : "aws:cloudformation:logical-id",
+    "x-amazon-apigateway-tag-value" : "Api"
+  }, {
+    "name" : "aws:cloudformation:stack-id",
+    "x-amazon-apigateway-tag-value" : "arn:aws:cloudformation:us-east-2:703671891952:stack/finanzas-sd-api-dev/60a862c0-b883-11f0-b807-02eb4b8ce953"
+  }, {
+    "name" : "httpapi:createdBy",
+    "x-amazon-apigateway-tag-value" : "SAM"
+  } ],
+  "paths" : {
+    "/projects/{projectId}/rubros/{rubroId}" : {
+      "delete" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for DELETE /projects/{projectId}/rubros/{rubroId}"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-RubrosFn-17CzMCYNd5bX/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "parameters" : [ {
+        "name" : "projectId",
+        "in" : "path",
+        "description" : "Generated path parameter for projectId",
+        "required" : true,
+        "schema" : {
+          "type" : "string"
+        }
+      }, {
+        "name" : "rubroId",
+        "in" : "path",
+        "description" : "Generated path parameter for rubroId",
+        "required" : true,
+        "schema" : {
+          "type" : "string"
+        }
+      } ]
+    },
+    "/adjustments" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /adjustments"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-AdjustmentsFn-gbjpgzr8WSEs/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "post" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for POST /adjustments"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-AdjustmentsFn-gbjpgzr8WSEs/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/alerts" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /alerts"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-AlertsFn-CeoGnMfpbM6R/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/allocation-rules" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /allocation-rules"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-AllocationRulesGet-wwFS2QkQHg1Q/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/baseline/{baseline_id}" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /baseline/{baseline_id}"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-BaselineFn-vmAkCcZuRCbt/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "parameters" : [ {
+        "name" : "baseline_id",
+        "in" : "path",
+        "description" : "Generated path parameter for baseline_id",
+        "required" : true,
+        "schema" : {
+          "type" : "string"
+        }
+      } ]
+    },
+    "/catalog/rubros" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /catalog/rubros"
+          }
+        },
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-CatalogFn-uigAsFMcg0uO/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/health" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /health"
+          }
+        },
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-HealthFn-aZmlh3nlvqNA/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/plan/forecast" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /plan/forecast"
+          }
+        },
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-ForecastFn-uLapRXmhP6PP/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/prefacturas" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /prefacturas"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-PrefacturasFn-gRlRkUNaYe80/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "post" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for POST /prefacturas"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-PrefacturasFn-gRlRkUNaYe80/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/projects" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /projects"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-ProjectsFn-WJzowRSnvW4Y/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "post" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for POST /projects"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-ProjectsFn-WJzowRSnvW4Y/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/projects/{id}/plan" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /projects/{id}/plan"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-PlanFn-3J5NDi5jj2LM/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "parameters" : [ {
+        "name" : "id",
+        "in" : "path",
+        "description" : "Generated path parameter for id",
+        "required" : true,
+        "schema" : {
+          "type" : "string"
+        }
+      } ]
+    },
+    "/projects/{projectId}/billing" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /projects/{projectId}/billing"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-BillingFn-ENYd4jdU0ilX/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "parameters" : [ {
+        "name" : "projectId",
+        "in" : "path",
+        "description" : "Generated path parameter for projectId",
+        "required" : true,
+        "schema" : {
+          "type" : "string"
+        }
+      } ]
+    },
+    "/projects/{projectId}/handoff" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /projects/{projectId}/handoff"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-HandoffFn-d4vq1mjPNpze/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "post" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for POST /projects/{projectId}/handoff"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-HandoffFn-d4vq1mjPNpze/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "parameters" : [ {
+        "name" : "projectId",
+        "in" : "path",
+        "description" : "Generated path parameter for projectId",
+        "required" : true,
+        "schema" : {
+          "type" : "string"
+        }
+      } ]
+    },
+    "/projects/{projectId}/rubros" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /projects/{projectId}/rubros"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-RubrosFn-17CzMCYNd5bX/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "post" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for POST /projects/{projectId}/rubros"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-RubrosFn-17CzMCYNd5bX/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "parameters" : [ {
+        "name" : "projectId",
+        "in" : "path",
+        "description" : "Generated path parameter for projectId",
+        "required" : true,
+        "schema" : {
+          "type" : "string"
+        }
+      } ]
+    },
+    "/providers" : {
+      "get" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for GET /providers"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-ProvidersFn-4bP995P1ZfIu/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "post" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for POST /providers"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-ProvidersFn-4bP995P1ZfIu/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/baseline" : {
+      "post" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for POST /baseline"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-BaselineFn-vmAkCcZuRCbt/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/close-month" : {
+      "post" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for POST /close-month"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-CloseMonthFn-Z7KxJt6kU04V/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/payroll/ingest" : {
+      "post" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for POST /payroll/ingest"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-PayrollFn-jUdxSEgPHceA/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/uploads/docs" : {
+      "post" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for POST /uploads/docs"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-UploadDocumentFunction-4G31Sjd5VION/invocations",
+          "connectionType" : "INTERNET"
+        }
+      }
+    },
+    "/handoff/{handoffId}" : {
+      "put" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for PUT /handoff/{handoffId}"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-HandoffFn-d4vq1mjPNpze/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "parameters" : [ {
+        "name" : "handoffId",
+        "in" : "path",
+        "description" : "Generated path parameter for handoffId",
+        "required" : true,
+        "schema" : {
+          "type" : "string"
+        }
+      } ]
+    },
+    "/projects/{id}/allocations:bulk" : {
+      "put" : {
+        "responses" : {
+          "default" : {
+            "description" : "Default response for PUT /projects/{id}/allocations:bulk"
+          }
+        },
+        "security" : [ {
+          "CognitoJwt" : [ ]
+        } ],
+        "x-amazon-apigateway-integration" : {
+          "payloadFormatVersion" : "2.0",
+          "type" : "aws_proxy",
+          "httpMethod" : "POST",
+          "uri" : "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:703671891952:function:finanzas-sd-api-dev-AllocationsFn-QsTTVsVnmn7o/invocations",
+          "connectionType" : "INTERNET"
+        }
+      },
+      "parameters" : [ {
+        "name" : "id",
+        "in" : "path",
+        "description" : "Generated path parameter for id",
+        "required" : true,
+        "schema" : {
+          "type" : "string"
+        }
+      } ]
+    }
+  },
+  "components" : {
+    "securitySchemes" : {
+      "CognitoJwt" : {
+        "type" : "oauth2",
+        "flows" : { },
+        "x-amazon-apigateway-authorizer" : {
+          "identitySource" : "$request.header.Authorization",
+          "jwtConfiguration" : {
+            "audience" : [ "dshos5iou44tuach7ta3ici5m" ],
+            "issuer" : "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_FyHLtOhiY"
+          },
+          "type" : "jwt"
+        }
+      }
+    }
+  },
+  "x-amazon-apigateway-cors" : {
+    "allowMethods" : [ "DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT" ],
+    "allowHeaders" : [ "authorization", "content-type", "x-amz-date", "x-amz-security-token", "x-requested-with" ],
+    "maxAge" : 86400,
+    "allowCredentials" : true,
+    "allowOrigins" : [ "https://d7t9x3j66yd8k.cloudfront.net" ]
+  },
+  "x-amazon-apigateway-importexport-version" : "1.0"
+}
