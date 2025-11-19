@@ -1,15 +1,18 @@
 // src/api/finanzas.ts
 // Finanzas API client — minimal, typed where stable, resilient where backends are still converging.
 
+import { API_BASE, HAS_API_BASE } from "@/config/env";
+
 type Json = Record<string, unknown>;
 
 // ---------- Environment ----------
-const API_BASE = String(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
 
 function requireApiBase(): string {
-  if (!API_BASE) {
-    throw new Error("VITE_API_BASE_URL is not set. Finanzas API client is disabled.");
+  if (!HAS_API_BASE) {
+    throw new Error(
+      "VITE_API_BASE_URL is not set. Finanzas API client is disabled."
+    );
   }
   return API_BASE;
 }
@@ -55,12 +58,12 @@ export type InvoiceStatus = "Pending" | "Matched" | "Disputed";
 export type UploadInvoicePayload = {
   file: File;
   line_item_id: string;
-  month: number;              // 1–12
-  amount: number;             // numeric (parse in UI)
+  month: number; // 1–12
+  amount: number; // numeric (parse in UI)
   description?: string;
   vendor?: string;
   invoice_number?: string;
-  invoice_date?: string;      // yyyy-mm-dd
+  invoice_date?: string; // yyyy-mm-dd
 };
 
 export type InvoiceDTO = {
@@ -98,10 +101,19 @@ function fileExt(name: string): string {
 
 // ---------- Presign + S3 upload ----------
 type PresignPOST = { url: string; key: string; fields: Record<string, string> };
-type PresignPUT = { url: string; key: string; method: "PUT"; headers?: Record<string, string> };
+type PresignPUT = {
+  url: string;
+  key: string;
+  method: "PUT";
+  headers?: Record<string, string>;
+};
 type PresignResponse = PresignPOST | PresignPUT;
 
-async function presignUpload(projectId: string, file: File, purpose: "invoice" | "supporting") {
+async function presignUpload(
+  projectId: string,
+  file: File,
+  purpose: "invoice" | "supporting"
+) {
   const base = requireApiBase();
   const body = {
     project_id: projectId,
@@ -117,7 +129,10 @@ async function presignUpload(projectId: string, file: File, purpose: "invoice" |
   });
 }
 
-async function uploadFileWithPresign(file: File, presign: PresignResponse): Promise<void> {
+async function uploadFileWithPresign(
+  file: File,
+  presign: PresignResponse
+): Promise<void> {
   if ("fields" in presign) {
     const form = new FormData();
     Object.entries(presign.fields).forEach(([k, v]) => form.set(k, v));
@@ -128,20 +143,29 @@ async function uploadFileWithPresign(file: File, presign: PresignResponse): Prom
   }
   const rsp = await fetch(presign.url, {
     method: "PUT",
-    headers: { "Content-Type": file.type || "application/octet-stream", ...(presign.headers || {}) },
+    headers: {
+      "Content-Type": file.type || "application/octet-stream",
+      ...(presign.headers || {}),
+    },
     body: file,
   });
   if (!rsp.ok) throw new Error(`S3 PUT failed (${rsp.status})`);
 }
 
 // ---------- Invoices ----------
-export async function uploadInvoice(projectId: string, payload: UploadInvoicePayload): Promise<InvoiceDTO> {
-  if (USE_MOCKS) throw new Error("Invoice upload is disabled when VITE_USE_MOCKS=true");
+export async function uploadInvoice(
+  projectId: string,
+  payload: UploadInvoicePayload
+): Promise<InvoiceDTO> {
+  if (USE_MOCKS)
+    throw new Error("Invoice upload is disabled when VITE_USE_MOCKS=true");
   if (!projectId) throw new Error("Missing projectId");
   if (!payload?.file) throw new Error("No file selected");
   if (!payload.line_item_id) throw new Error("Line item is required");
-  if (!(payload.month >= 1 && payload.month <= 12)) throw new Error("Month must be between 1 and 12");
-  if (!Number.isFinite(payload.amount)) throw new Error("Amount must be a finite number");
+  if (!(payload.month >= 1 && payload.month <= 12))
+    throw new Error("Month must be between 1 and 12");
+  if (!Number.isFinite(payload.amount))
+    throw new Error("Amount must be a finite number");
 
   const presign = await presignUpload(projectId, payload.file, "invoice");
   await uploadFileWithPresign(payload.file, presign);
@@ -162,11 +186,14 @@ export async function uploadInvoice(projectId: string, payload: UploadInvoicePay
     size: payload.file.size,
   };
 
-  return fetchJson<InvoiceDTO>(`${base}/projects/${encodeURIComponent(projectId)}/invoices`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader() },
-    body: JSON.stringify(body),
-  });
+  return fetchJson<InvoiceDTO>(
+    `${base}/projects/${encodeURIComponent(projectId)}/invoices`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeader() },
+      body: JSON.stringify(body),
+    }
+  );
 }
 
 // Canonical uploadSupportingDocument - single, future-proof signature
@@ -197,12 +224,14 @@ export async function updateInvoiceStatus(
 ): Promise<InvoiceDTO> {
   const base = requireApiBase();
   return fetchJson<InvoiceDTO>(
-    `${base}/projects/${encodeURIComponent(projectId)}/invoices/${encodeURIComponent(invoiceId)}/status`,
+    `${base}/projects/${encodeURIComponent(
+      projectId
+    )}/invoices/${encodeURIComponent(invoiceId)}/status`,
     {
       method: "PUT",
       headers: { "Content-Type": "application/json", ...authHeader() },
       body: JSON.stringify(body),
-    },
+    }
   );
 }
 
@@ -213,16 +242,29 @@ export type AddProjectRubroInput = Record<string, unknown>;
 
 // Some backends mount under /projects/{id}/catalog/rubros; older ones under /projects/{id}/rubros.
 // Try the modern path first, then fall back once on 404/405.
-export async function addProjectRubro<T = Json>(projectId: string, payload: AddProjectRubroInput): Promise<T> {
+export async function addProjectRubro<T = Json>(
+  projectId: string,
+  payload: AddProjectRubroInput
+): Promise<T> {
   const base = requireApiBase();
   const headers = { "Content-Type": "application/json", ...authHeader() };
 
-  const primary = `${base}/projects/${encodeURIComponent(projectId)}/catalog/rubros`;
-  let res = await fetch(primary, { method: "POST", headers, body: JSON.stringify(payload) });
+  const primary = `${base}/projects/${encodeURIComponent(
+    projectId
+  )}/catalog/rubros`;
+  let res = await fetch(primary, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
 
   if (res.status === 404 || res.status === 405) {
     const fallback = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
-    res = await fetch(fallback, { method: "POST", headers, body: JSON.stringify(payload) });
+    res = await fetch(fallback, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
   }
 
   if (!res.ok) {
@@ -237,7 +279,9 @@ export async function addProjectRubro<T = Json>(projectId: string, payload: AddP
    Catalog: fetch project rubros / line items
    Used by: src/hooks/useProjectLineItems.ts
    ────────────────────────────────────────────────────────── */
-export async function getProjectRubros(projectId: string): Promise<LineItemDTO[]> {
+export async function getProjectRubros(
+  projectId: string
+): Promise<LineItemDTO[]> {
   if (USE_MOCKS) {
     throw new Error("getProjectRubros is disabled when VITE_USE_MOCKS=true");
   }
@@ -247,11 +291,15 @@ export async function getProjectRubros(projectId: string): Promise<LineItemDTO[]
   const headers = { ...authHeader() };
 
   // Prefer the newer /line-items endpoint; fall back to /rubros if needed
-  const primaryUrl = `${base}/projects/${encodeURIComponent(projectId)}/line-items`;
+  const primaryUrl = `${base}/projects/${encodeURIComponent(
+    projectId
+  )}/line-items`;
   let res = await fetch(primaryUrl, { method: "GET", headers });
 
   if (res.status === 404 || res.status === 405) {
-    const fallbackUrl = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
+    const fallbackUrl = `${base}/projects/${encodeURIComponent(
+      projectId
+    )}/rubros`;
     res = await fetch(fallbackUrl, { method: "GET", headers });
   }
 
@@ -267,7 +315,10 @@ export async function getProjectRubros(projectId: string): Promise<LineItemDTO[]
 // Optional helpers used by tests/smokes
 export async function getProjects(): Promise<Json> {
   const base = requireApiBase();
-  return fetchJson<Json>(`${base}/projects?limit=50`, { method: "GET", headers: authHeader() });
+  return fetchJson<Json>(`${base}/projects?limit=50`, {
+    method: "GET",
+    headers: authHeader(),
+  });
 }
 
 // Alias for compatibility with tests/hooks referencing older helper name
@@ -278,6 +329,6 @@ export async function getInvoices(projectId: string): Promise<InvoiceDTO[]> {
   const base = requireApiBase();
   return fetchJson<InvoiceDTO[]>(
     `${base}/projects/${encodeURIComponent(projectId)}/invoices`,
-    { method: "GET", headers: authHeader() },
+    { method: "GET", headers: authHeader() }
   );
 }
