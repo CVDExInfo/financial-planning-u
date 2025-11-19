@@ -55,7 +55,12 @@ import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import { logger } from "@/utils/logger";
 import { cn } from "@/lib/utils";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
-import { addProjectRubro, uploadSupportingDocument } from "@/api/finanzas";
+import { addProjectRubro } from "@/api/finanzas";
+import {
+  uploadDocument,
+  type DocumentUploadMeta,
+  type DocumentUploadStage,
+} from "@/lib/documents/uploadService";
 import { ErrorBanner } from "@/components/ErrorBanner";
 
 // Pending change types
@@ -67,12 +72,7 @@ interface PendingChange {
   originalItem?: LineItem; // For edits, keep original for rollback
 }
 
-type CatalogDocumentMeta = {
-  documentKey: string;
-  originalName: string;
-  contentType: string;
-  uploadedAt: string;
-};
+type CatalogDocumentMeta = DocumentUploadMeta;
 
 export function SDMTCatalog() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
@@ -91,6 +91,8 @@ export function SDMTCatalog() {
   const [lineItemDocuments, setLineItemDocuments] = useState<
     Record<string, CatalogDocumentMeta[]>
   >({});
+  const [documentUploadStage, setDocumentUploadStage] =
+    useState<DocumentUploadStage | null>(null);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [editingItem, setEditingItem] = useState<LineItem | null>(null);
   const [isCreatingLineItem, setIsCreatingLineItem] = useState(false);
@@ -313,24 +315,24 @@ export function SDMTCatalog() {
 
     try {
       setIsUploadingDocument(true);
-      const result = await uploadSupportingDocument({
-        projectId: selectedProjectId,
-        module: "catalog",
-        file: docFile,
-      });
-
-      const nextDoc: CatalogDocumentMeta = {
-        documentKey: result.documentKey || result.id,
-        originalName: docFile.name,
-        contentType: docFile.type || "application/octet-stream",
-        uploadedAt: new Date().toISOString(),
-      };
+      setDocumentUploadStage("presigning");
+      const uploaded = await uploadDocument(
+        {
+          projectId: selectedProjectId,
+          module: "catalog",
+          lineItemId: docTarget.id,
+          file: docFile,
+        },
+        {
+          onStageChange: (stage) => setDocumentUploadStage(stage),
+        }
+      );
 
       setLineItemDocuments((prev) => {
         const existing = prev[docTarget.id] ?? [];
         return {
           ...prev,
-          [docTarget.id]: [nextDoc, ...existing],
+          [docTarget.id]: [uploaded, ...existing],
         };
       });
 
@@ -343,6 +345,7 @@ export function SDMTCatalog() {
       toast.error(message);
     } finally {
       setIsUploadingDocument(false);
+      setDocumentUploadStage(null);
     }
   };
 
@@ -1469,6 +1472,15 @@ export function SDMTCatalog() {
               Accepted formats include PDF, Office documents, CSV, and common
               image types. Files are uploaded via the `/uploads/docs` flow.
             </p>
+            {isUploadingDocument && documentUploadStage && (
+              <p className="text-xs text-primary">
+                {documentUploadStage === "presigning"
+                  ? "Requesting secure upload slot…"
+                  : documentUploadStage === "uploading"
+                  ? "Uploading to S3…"
+                  : "Finalizing upload…"}
+              </p>
+            )}
             {docTarget && lineItemDocuments[docTarget.id]?.length ? (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">

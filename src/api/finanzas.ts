@@ -2,6 +2,7 @@
 // Finanzas API client — minimal, typed where stable, resilient where backends are still converging.
 
 import { API_BASE, HAS_API_BASE } from "@/config/env";
+import type { InvoiceDoc } from "@/types/domain";
 
 type Json = Record<string, unknown>;
 
@@ -94,33 +95,35 @@ async function sha256(file: File): Promise<string> {
     .join("");
 }
 
-function fileExt(name: string): string {
-  const idx = name.lastIndexOf(".");
-  return idx >= 0 ? name.slice(idx + 1).toLowerCase() : "";
-}
-
 // ---------- Presign + S3 upload ----------
-type PresignPOST = { url: string; key: string; fields: Record<string, string> };
-type PresignPUT = {
-  url: string;
-  key: string;
-  method: "PUT";
-  headers?: Record<string, string>;
+export type UploadModule =
+  | "prefactura"
+  | "catalog"
+  | "reconciliation"
+  | "changes";
+export type UploadStage = "presigning" | "uploading" | "complete";
+type PresignResponse = {
+  uploadUrl: string;
+  objectKey: string;
 };
-type PresignResponse = PresignPOST | PresignPUT;
 
-async function presignUpload(
-  projectId: string,
-  file: File,
-  purpose: "invoice" | "supporting"
-) {
+async function presignUpload(_: {
+  projectId: string;
+  file: File;
+  module: UploadModule;
+  lineItemId?: string;
+  invoiceNumber?: string;
+}): Promise<PresignResponse> {
+  const { projectId, file, module, lineItemId, invoiceNumber } = _;
   const base = requireApiBase();
   const body = {
-    project_id: projectId,
-    filename: file.name,
+    projectId,
+    module,
+    lineItemId,
+    invoiceNumber,
     contentType: file.type || "application/octet-stream",
-    purpose,
-    checksum_sha256: await sha256(file),
+    originalName: file.name,
+    checksumSha256: await sha256(file),
   };
   return fetchJson<PresignResponse>(`${base}/uploads/docs`, {
     method: "POST",
@@ -133,19 +136,10 @@ async function uploadFileWithPresign(
   file: File,
   presign: PresignResponse
 ): Promise<void> {
-  if ("fields" in presign) {
-    const form = new FormData();
-    Object.entries(presign.fields).forEach(([k, v]) => form.set(k, v));
-    form.set("file", file);
-    const rsp = await fetch(presign.url, { method: "POST", body: form });
-    if (!rsp.ok) throw new Error(`S3 POST failed (${rsp.status})`);
-    return;
-  }
-  const rsp = await fetch(presign.url, {
+  const rsp = await fetch(presign.uploadUrl, {
     method: "PUT",
     headers: {
       "Content-Type": file.type || "application/octet-stream",
-      ...(presign.headers || {}),
     },
     body: file,
   });
@@ -155,7 +149,8 @@ async function uploadFileWithPresign(
 // ---------- Invoices ----------
 export async function uploadInvoice(
   projectId: string,
-  payload: UploadInvoicePayload
+  payload: UploadInvoicePayload,
+  options?: { module?: UploadModule }
 ): Promise<InvoiceDTO> {
   if (USE_MOCKS)
     throw new Error("Invoice upload is disabled when VITE_USE_MOCKS=true");
@@ -167,54 +162,81 @@ export async function uploadInvoice(
   if (!Number.isFinite(payload.amount))
     throw new Error("Amount must be a finite number");
 
-  const presign = await presignUpload(projectId, payload.file, "invoice");
+  const presign = await presignUpload({
+    projectId,
+    file: payload.file,
+    module: options?.module ?? "reconciliation",
+    lineItemId: payload.line_item_id,
+    invoiceNumber: payload.invoice_number,
+  });
   await uploadFileWithPresign(payload.file, presign);
 
   const base = requireApiBase();
   const body = {
-    line_item_id: payload.line_item_id,
+    projectId,
+    lineItemId: payload.line_item_id,
     month: payload.month,
     amount: payload.amount,
     description: payload.description,
     vendor: payload.vendor,
-    invoice_number: payload.invoice_number,
-    invoice_date: payload.invoice_date,
-    documentKey: presign.key,
-    originalName: payload.file.name,
-    contentType: payload.file.type || "application/octet-stream",
-    extension: fileExt(payload.file.name),
-    size: payload.file.size,
+    invoiceNumber:
+      payload.invoice_number || `INV-${Date.now().toString(36).toUpperCase()}`,
+    invoiceDate: payload.invoice_date,
+    documentKey: presign.objectKey,
   };
 
-  return fetchJson<InvoiceDTO>(
-    `${base}/projects/${encodeURIComponent(projectId)}/invoices`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeader() },
-      body: JSON.stringify(body),
-    }
-  );
+  return fetchJson<InvoiceDTO>(`${base}/prefacturas`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader() },
+    body: JSON.stringify(body),
+  });
 }
 
 // Canonical uploadSupportingDocument - single, future-proof signature
 export type UploadSupportingDocPayload = {
   projectId: string;
-  module?: string;
+  module?: UploadModule;
   file: File;
+  lineItemId?: string;
+  invoiceNumber?: string;
+};
+
+export type UploadSupportingDocResult = {
+  documentKey: string;
+  originalName: string;
+  contentType: string;
+};
+
+export type UploadSupportingDocOptions = {
+  onStageChange?: (stage: UploadStage) => void;
 };
 
 export async function uploadSupportingDocument(
-  payload: UploadSupportingDocPayload
-): Promise<InvoiceDTO> {
-  const invoicePayload: UploadInvoicePayload = {
-    file: payload.file,
-    line_item_id: "supporting-doc",
-    month: 1,
-    amount: 0,
-    description: `Supporting document for ${payload.module || "project"}`,
-  };
+  payload: UploadSupportingDocPayload,
+  options?: UploadSupportingDocOptions
+): Promise<UploadSupportingDocResult> {
+  if (!payload.projectId) throw new Error("projectId is required");
+  if (!payload.file) throw new Error("file is required");
 
-  return uploadInvoice(payload.projectId, invoicePayload);
+  const moduleName = payload.module ?? "prefactura";
+  options?.onStageChange?.("presigning");
+  const presign = await presignUpload({
+    projectId: payload.projectId,
+    file: payload.file,
+    module: moduleName,
+    lineItemId: payload.lineItemId,
+    invoiceNumber: payload.invoiceNumber,
+  });
+
+  options?.onStageChange?.("uploading");
+  await uploadFileWithPresign(payload.file, presign);
+  options?.onStageChange?.("complete");
+
+  return {
+    documentKey: presign.objectKey,
+    originalName: payload.file.name,
+    contentType: payload.file.type || "application/octet-stream",
+  };
 }
 
 export async function updateInvoiceStatus(
@@ -325,10 +347,32 @@ export async function getProjects(): Promise<Json> {
 export const getProjectLineItems = getProjectRubros;
 
 // Get invoices for a project
-export async function getInvoices(projectId: string): Promise<InvoiceDTO[]> {
+export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
   const base = requireApiBase();
-  return fetchJson<InvoiceDTO[]>(
-    `${base}/projects/${encodeURIComponent(projectId)}/invoices`,
+  const params = new URLSearchParams({ projectId });
+  const response = await fetchJson<{ data?: any[] }>(
+    `${base}/prefacturas?${params.toString()}`,
     { method: "GET", headers: authHeader() }
   );
+
+  const rows = Array.isArray(response?.data) ? response.data : [];
+  return rows.map((item) => ({
+    id: item.invoiceId || item.id || item.sk || "",
+    line_item_id: item.lineItemId || item.line_item_id || "",
+    month: Number(item.month) || 1,
+    amount: Number(item.amount) || 0,
+    currency: (item.currency as InvoiceDoc["currency"]) || "USD",
+    file_url: item.file_url,
+    file_name: item.file_name,
+    documentKey: item.documentKey,
+    originalName: item.originalName || item.file_name,
+    contentType: item.contentType,
+    status: (item.status as InvoiceStatus) || "Pending",
+    comments: item.comments,
+    uploaded_by: item.uploaded_by || item.uploader || "unknown",
+    uploaded_at:
+      item.created_at || item.uploaded_at || new Date().toISOString(),
+    matched_at: item.matched_at,
+    matched_by: item.matched_by,
+  }));
 }

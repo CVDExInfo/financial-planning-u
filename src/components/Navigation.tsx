@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ModuleType } from "@/types/domain";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ChevronDown,
   Calculator,
   BarChart3,
@@ -27,6 +34,7 @@ import {
   GitPullRequest,
   TrendingUp,
   Layers,
+  Shield,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -37,6 +45,7 @@ import {
 } from "@/lib/auth";
 import { toast } from "sonner";
 import { Logo } from "@/components/Logo";
+import { logoutWithHostedUI } from "@/config/aws";
 
 // (No props currently)
 
@@ -59,6 +68,7 @@ export function Navigation() {
     canAccessRoute,
     signOut,
   } = useAuth();
+  const [isRolesDialogOpen, setIsRolesDialogOpen] = useState(false);
 
   // Check if current route is accessible when role or location changes
   // Skip redirects when in Finanzas-only mode (VITE_FINZ_ENABLED=true)
@@ -88,7 +98,7 @@ export function Navigation() {
 
   const handleSignOut = () => {
     signOut();
-    navigate("/");
+    logoutWithHostedUI();
   };
 
   const moduleNavItems: Record<string, NavigationItem[]> = {
@@ -174,39 +184,40 @@ export function Navigation() {
   };
 
   return (
-    <nav className="border-b border-border bg-card/50 backdrop-blur">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Brand */}
-          <div className="flex items-center space-x-4">
-            <Link to="/" className="flex items-center space-x-3">
-              <Logo className="h-8 w-auto" />
-              <div>
-                <h1 className="font-semibold text-foreground">
-                  Financial Planning
-                </h1>
-                <p className="text-xs text-muted-foreground">
-                  Enterprise PMO Platform
-                </p>
-              </div>
-            </Link>
-          </div>
+    <>
+      <nav className="border-b border-border bg-card/50 backdrop-blur">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Brand */}
+            <div className="flex items-center space-x-4">
+              <Link to="/" className="flex items-center space-x-3">
+                <Logo className="h-8 w-auto" />
+                <div>
+                  <h1 className="font-semibold text-foreground">
+                    Financial Planning
+                  </h1>
+                  <p className="text-xs text-muted-foreground">
+                    Enterprise PMO Platform
+                  </p>
+                </div>
+              </Link>
+            </div>
 
-          {/* Module Navigation */}
-          <TooltipProvider>
-            <div className="hidden md:flex items-center space-x-1">
-              {getVisibleModuleNavItems()
-                ?.filter((item) => canAccessRoute(item.path))
-                .map((item) => {
-                  const Icon = item.icon;
-                  const isActive = location.pathname === item.path;
-                  const isPremium = item.isPremium;
+            {/* Module Navigation */}
+            <TooltipProvider>
+              <div className="hidden md:flex items-center space-x-1">
+                {getVisibleModuleNavItems()
+                  ?.filter((item) => canAccessRoute(item.path))
+                  .map((item) => {
+                    const Icon = item.icon;
+                    const isActive = location.pathname === item.path;
+                    const isPremium = item.isPremium;
 
-                  const linkElement = (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      className={`
+                    const linkElement = (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        className={`
                         flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors relative
                         ${
                           isActive
@@ -218,127 +229,186 @@ export function Navigation() {
                             : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         }
                       `}
-                    >
-                      <Icon
-                        size={16}
-                        className={isPremium ? "opacity-70" : ""}
-                      />
-                      <span className={isPremium ? "opacity-70" : ""}>
-                        {item.label}
-                      </span>
-                      {isPremium && (
-                        <Badge
-                          variant="outline"
-                          className="ml-1 text-xs px-1 py-0 h-4 text-muted-foreground/60 border-muted-foreground/30"
-                        >
-                          +
-                        </Badge>
-                      )}
-                    </Link>
-                  );
-
-                  if (isPremium) {
-                    return (
-                      <Tooltip key={item.path}>
-                        <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
-                        <TooltipContent>
-                          <p className="font-medium">Premium Add-on Feature</p>
-                          <p className="text-xs text-muted-foreground">
-                            Additional cost applies
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  }
-
-                  return linkElement;
-                })}
-            </div>
-          </TooltipProvider>
-
-          {/* User Menu */}
-          <div className="flex items-center space-x-4">
-            {/* Role Switcher */}
-            {availableRoles.length > 1 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Badge variant="secondary">{currentRole}</Badge>
-                    <ChevronDown size={14} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  {availableRoles.map((role) => {
-                    const roleInfo = getRoleInfo(role);
-                    return (
-                      <DropdownMenuItem
-                        key={role}
-                        onClick={() => handleRoleChange(role)}
-                        className={currentRole === role ? "bg-muted" : ""}
                       >
-                        <div className="flex flex-col">
-                          <div className="font-medium">{roleInfo.label}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {roleInfo.description}
-                          </div>
-                        </div>
-                      </DropdownMenuItem>
+                        <Icon
+                          size={16}
+                          className={isPremium ? "opacity-70" : ""}
+                        />
+                        <span className={isPremium ? "opacity-70" : ""}>
+                          {item.label}
+                        </span>
+                        {isPremium && (
+                          <Badge
+                            variant="outline"
+                            className="ml-1 text-xs px-1 py-0 h-4 text-muted-foreground/60 border-muted-foreground/30"
+                          >
+                            +
+                          </Badge>
+                        )}
+                      </Link>
                     );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
 
-            {/* User Avatar - Now showing Ikusi Logo */}
-            {user && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="relative h-8 w-8 rounded-full"
-                  >
-                    <Logo className="h-6 w-auto rounded-full" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end">
-                  <div className="flex items-center justify-start gap-2 p-2">
-                    <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{user.login || "User"}</p>
-                      <p className="w-[200px] truncate text-sm text-muted-foreground">
-                        {import.meta.env.VITE_SHOW_DEMO_CREDS
-                          ? user.email || "demo@ikusi.com"
-                          : user.email || "user@ikusi.com"}
-                      </p>
-                    </div>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <div className="flex items-center w-full">
-                      <User className="mr-2 h-4 w-4" />
-                      <div className="flex-1">
-                        <div className="font-medium">Profile & Roles</div>
-                        <div className="text-xs text-muted-foreground">
-                          {availableRoles.length} role
-                          {availableRoles.length !== 1 ? "s" : ""} available
-                        </div>
+                    if (isPremium) {
+                      return (
+                        <Tooltip key={item.path}>
+                          <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
+                          <TooltipContent>
+                            <p className="font-medium">
+                              Premium Add-on Feature
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Additional cost applies
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    }
+
+                    return linkElement;
+                  })}
+              </div>
+            </TooltipProvider>
+
+            {/* User Menu */}
+            <div className="flex items-center space-x-4">
+              {/* Role Switcher */}
+              {availableRoles.length > 1 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Badge variant="secondary">{currentRole}</Badge>
+                      <ChevronDown size={14} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    {availableRoles.map((role) => {
+                      const roleInfo = getRoleInfo(role);
+                      return (
+                        <DropdownMenuItem
+                          key={role}
+                          onClick={() => handleRoleChange(role)}
+                          className={currentRole === role ? "bg-muted" : ""}
+                        >
+                          <div className="flex flex-col">
+                            <div className="font-medium">{roleInfo.label}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {roleInfo.description}
+                            </div>
+                          </div>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {/* User Avatar - Now showing Ikusi Logo */}
+              {user && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="relative h-8 w-8 rounded-full"
+                    >
+                      <Logo className="h-6 w-auto rounded-full" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" align="end">
+                    <div className="flex items-center justify-start gap-2 p-2">
+                      <div className="flex flex-col space-y-1 leading-none">
+                        <p className="font-medium">{user.login || "User"}</p>
+                        <p className="w-[200px] truncate text-sm text-muted-foreground">
+                          {import.meta.env.VITE_SHOW_DEMO_CREDS
+                            ? user.email || "demo@ikusi.com"
+                            : user.email || "user@ikusi.com"}
+                        </p>
                       </div>
                     </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleSignOut}
-                    className="text-destructive"
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Sign out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => navigate("/profile")}>
+                      <div className="flex items-center w-full">
+                        <User className="mr-2 h-4 w-4" />
+                        <div className="flex-1">
+                          <div className="font-medium">Profile</div>
+                          <div className="text-xs text-muted-foreground">
+                            View account details
+                          </div>
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => setIsRolesDialogOpen(true)}
+                    >
+                      <div className="flex items-center w-full">
+                        <Shield className="mr-2 h-4 w-4" />
+                        <div className="flex-1">
+                          <div className="font-medium">Roles & Permissions</div>
+                          <div className="text-xs text-muted-foreground">
+                            {availableRoles.length} role
+                            {availableRoles.length !== 1 ? "s" : ""} available
+                          </div>
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleSignOut}
+                      className="text-destructive"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Sign out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+
+      <Dialog open={isRolesDialogOpen} onOpenChange={setIsRolesDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Roles & Permissions</DialogTitle>
+            <DialogDescription>
+              These roles come from your Cognito groups and determine which PMO
+              and Finanzas modules you can access.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {availableRoles.map((role) => {
+              const info = getRoleInfo(role);
+              const isCurrent = currentRole === role;
+              return (
+                <div
+                  key={role}
+                  className={`border rounded-lg p-3 ${
+                    isCurrent
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-border"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{info.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Level {info.level}
+                      </p>
+                    </div>
+                    <Badge variant={isCurrent ? "default" : "secondary"}>
+                      {role}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {info.description}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

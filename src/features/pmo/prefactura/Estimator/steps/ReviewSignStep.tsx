@@ -41,7 +41,11 @@ import type {
 import ApiService from "@/lib/api";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
-import { uploadSupportingDocument } from "@/api/finanzas";
+import {
+  uploadDocumentsBatch,
+  type DocumentUploadMeta,
+  type DocumentUploadStage,
+} from "@/lib/documents/uploadService";
 
 // Helper function to extract email from JWT token
 function extractEmailFromJWT(token: string): string {
@@ -73,11 +77,12 @@ interface ReviewSignStepProps {
   isLastStep: boolean;
 }
 
-type SupportingDocumentMeta = {
-  documentKey: string;
-  originalName: string;
-  contentType: string;
-  uploadedAt: string;
+type SupportingDocumentMeta = DocumentUploadMeta;
+
+const uploadStageText: Record<DocumentUploadStage, string> = {
+  presigning: "Requesting secure upload slot…",
+  uploading: "Uploading to S3…",
+  complete: "Verifying upload…",
 };
 
 export function ReviewSignStep({ data }: ReviewSignStepProps) {
@@ -92,6 +97,9 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
   const [supportingDocs, setSupportingDocs] = useState<
     SupportingDocumentMeta[]
   >([]);
+  const [uploadProgress, setUploadProgress] = useState<
+    Record<string, DocumentUploadStage>
+  >({});
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const fallbackProjectIdRef = useRef(`PRJ-${Date.now().toString(36)}`);
   const supportingDocsInputId = "prefactura-supporting-docs";
@@ -509,28 +517,56 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
 
     try {
       setIsUploadingDoc(true);
-      for (const file of files) {
-        const result = await uploadSupportingDocument({
-          projectId: derivedProjectId,
-          module: "prefactura",
-          file,
-        });
+      setUploadProgress((prev) => {
+        const next = { ...prev };
+        for (const file of files) {
+          next[file.name] = "presigning";
+        }
+        return next;
+      });
 
-        const nextDoc: SupportingDocumentMeta = {
-          documentKey: result.documentKey || result.id,
-          originalName: file.name,
-          contentType: file.type || "application/octet-stream",
-          uploadedAt: new Date().toISOString(),
-        };
+      const { successes, failures } = await uploadDocumentsBatch(
+        files,
+        { projectId: derivedProjectId, module: "prefactura" },
+        {
+          onStageChange: (stage, file) => {
+            setUploadProgress((prev) => ({ ...prev, [file.name]: stage }));
+            if (stage === "complete") {
+              setTimeout(() => {
+                setUploadProgress((current) => {
+                  const next = { ...current };
+                  delete next[file.name];
+                  return next;
+                });
+              }, 1200);
+            }
+          },
+          onError: (file) => {
+            setUploadProgress((current) => {
+              const next = { ...current };
+              delete next[file.name];
+              return next;
+            });
+          },
+        }
+      );
 
-        setSupportingDocs((prev) => [nextDoc, ...prev]);
+      if (successes.length) {
+        setSupportingDocs((prev) => [...successes, ...prev]);
+        toast.success(
+          successes.length > 1
+            ? `${successes.length} supporting documents uploaded`
+            : "Supporting document uploaded"
+        );
       }
 
-      toast.success(
-        files.length > 1
-          ? `${files.length} supporting documents uploaded`
-          : "Supporting document uploaded"
-      );
+      if (failures.length) {
+        const message =
+          failures.length === 1
+            ? `${failures[0].file.name}: ${failures[0].message}`
+            : `${failures.length} uploads failed. Check console for details.`;
+        toast.error(message);
+      }
     } catch (error) {
       const message =
         error instanceof Error
@@ -815,7 +851,20 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
             </p>
           </div>
           {isUploadingDoc && (
-            <p className="text-sm text-primary">Uploading documents...</p>
+            <div className="text-sm text-primary space-y-1">
+              {Object.keys(uploadProgress).length === 0 ? (
+                <p>Preparing uploads…</p>
+              ) : (
+                Object.entries(uploadProgress).map(([name, stage]) => (
+                  <p key={name} className="flex items-center gap-2">
+                    <span className="font-medium">{name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {uploadStageText[stage]}
+                    </span>
+                  </p>
+                ))
+              )}
+            </div>
           )}
           {supportingDocs.length ? (
             <div className="space-y-2">
