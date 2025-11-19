@@ -1,13 +1,17 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import {
-  DynamoDBDocumentClient,
-  PutCommand,
-  GetCommand,
-} from "@aws-sdk/lib-dynamodb";
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "node:crypto";
+import { ddb, tableName, PutCommand, GetCommand } from "../lib/dynamo";
+import { ensureCanWrite, getUserEmail } from "../lib/auth";
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
+  requestContext: {
+    authorizer: {
+      jwt: {
+        claims: event.requestContext?.authorizer?.claims ?? {},
+      },
+    },
+  },
+});
 
 interface LaborEstimate {
   role?: string;
@@ -60,6 +64,9 @@ export const createBaseline = async (
   console.log("Creating baseline from event:", JSON.stringify(event, null, 2));
 
   try {
+    const authContext = adaptAuthContext(event);
+    ensureCanWrite(authContext as never);
+
     const body: BaselineRequest = JSON.parse(event.body || "{}");
 
     // Validate required fields
@@ -80,40 +87,62 @@ export const createBaseline = async (
     const project_id = `P-${randomUUID().split("-")[0]}`;
     const baseline_id = `BL-${Date.now()}`;
 
-    // Calculate totals
-    const laborTotal =
-      body.labor_estimates?.reduce((sum, item) => {
-        const baseHours = (item.hours_per_month || 0) * (item.fte_count || 1);
-        const baseCost = baseHours * (item.hourly_rate || 0);
-        const onCost = baseCost * ((item.on_cost_percentage || 0) / 100);
-        const monthlyTotal = baseCost + onCost;
-        const duration = (item.end_month || 1) - (item.start_month || 1) + 1;
-        return sum + monthlyTotal * duration;
-      }, 0) || 0;
+    const laborEstimates = Array.isArray(body.labor_estimates)
+      ? body.labor_estimates
+      : [];
+    const nonLaborEstimates = Array.isArray(body.non_labor_estimates)
+      ? body.non_labor_estimates
+      : [];
+    const fxIndexation = body.fx_indexation || {};
 
-    const nonLaborTotal =
-      body.non_labor_estimates?.reduce((sum, item) => {
-        return sum + (item.amount || 0);
-      }, 0) || 0;
+    // Calculate totals
+    const laborTotal = laborEstimates.reduce((sum, item) => {
+      const baseHours = (item.hours_per_month || 0) * (item.fte_count || 1);
+      const baseCost = baseHours * (item.hourly_rate || 0);
+      const onCost = baseCost * ((item.on_cost_percentage || 0) / 100);
+      const monthlyTotal = baseCost + onCost;
+      const duration = (item.end_month || 1) - (item.start_month || 1) + 1;
+      return sum + monthlyTotal * duration;
+    }, 0);
+
+    const nonLaborTotal = nonLaborEstimates.reduce((sum, item) => {
+      return sum + (item.amount || 0);
+    }, 0);
 
     const total_amount = laborTotal + nonLaborTotal;
 
-    // Generate signature hash
-    const signatureData = JSON.stringify({
-      project_id,
-      baseline_id,
+    // Canonical payload snapshot & signature hash (server-side only)
+    const canonicalPayload = {
       project_name: body.project_name,
-      total_amount,
-      timestamp: new Date().toISOString(),
-    });
-    const signature_hash = crypto
-      .createHash("sha256")
-      .update(signatureData)
+      project_description: body.project_description || "",
+      client_name: body.client_name || "",
+      currency: body.currency || "USD",
+      start_date: body.start_date || new Date().toISOString(),
+      duration_months: body.duration_months || 12,
+      contract_value: body.contract_value || total_amount,
+      assumptions: body.assumptions || [],
+      labor_estimates: laborEstimates,
+      non_labor_estimates: nonLaborEstimates,
+      fx_indexation: fxIndexation,
+    };
+
+    const signature_hash = createHash("sha256")
+      .update(
+        JSON.stringify({
+          project_id,
+          baseline_id,
+          total_amount,
+          payload: canonicalPayload,
+        })
+      )
       .digest("hex");
 
     // Create project record with pk/sk structure
     const timestamp = new Date().toISOString();
-    const actor = event.requestContext?.authorizer?.claims?.email || "system";
+    const actor = getUserEmail(authContext as never);
+
+    const projectsTable = tableName("projects");
+    const auditTable = tableName("audit_log");
 
     const projectItem = {
       pk: `PROJECT#${project_id}`,
@@ -136,10 +165,11 @@ export const createBaseline = async (
       non_labor_total: nonLaborTotal,
       total_amount,
       signature_hash,
-      labor_estimates: body.labor_estimates || [],
-      non_labor_estimates: body.non_labor_estimates || [],
-      fx_indexation: body.fx_indexation || {},
+      labor_estimates: laborEstimates,
+      non_labor_estimates: nonLaborEstimates,
+      fx_indexation: fxIndexation,
       assumptions: body.assumptions || [],
+      baseline_payload: canonicalPayload,
       created_at: timestamp,
       created_by: actor,
       updated_at: timestamp,
@@ -155,8 +185,29 @@ export const createBaseline = async (
     // Save to DynamoDB
     await ddb.send(
       new PutCommand({
-        TableName: "finz_projects",
+        TableName: projectsTable,
         Item: projectItem,
+      })
+    );
+
+    // Secondary entry to allow baseline_id lookups without a GSI
+    await ddb.send(
+      new PutCommand({
+        TableName: projectsTable,
+        Item: {
+          pk: `BASELINE#${baseline_id}`,
+          sk: "METADATA",
+          project_id,
+          baseline_id,
+          signature_hash,
+          created_at: timestamp,
+          total_amount,
+          project_ref: `PROJECT#${project_id}`,
+          preview: {
+            project_name: body.project_name,
+            client_name: body.client_name || "",
+          },
+        },
       })
     );
 
@@ -171,14 +222,14 @@ export const createBaseline = async (
     const auditDate = auditTimestamp.split("T")[0];
     await ddb.send(
       new PutCommand({
-        TableName: "finz_audit_log",
+        TableName: auditTable,
         Item: {
           pk: `AUDIT#${auditDate}`,
           sk: `${auditTimestamp}#${project_id}`,
           audit_id: `AUD-${randomUUID()}`,
           project_id,
           action: "baseline_created",
-          actor: event.requestContext?.authorizer?.claims?.email || "system",
+          actor,
           timestamp: auditTimestamp,
           details: {
             baseline_id,
@@ -243,17 +294,39 @@ export const getBaseline = async (
       };
     }
 
-    // Query projects table for baseline
-    const result = await ddb.send(
+    // Attempt baseline lookup entry first
+    const baselineLookup = await ddb.send(
       new GetCommand({
-        TableName: "finz_projects",
+        TableName: tableName("projects"),
         Key: {
-          baseline_id,
+          pk: `BASELINE#${baseline_id}`,
+          sk: "METADATA",
         },
       })
     );
 
-    if (!result.Item) {
+    if (!baselineLookup.Item) {
+      return {
+        statusCode: 404,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "Baseline not found" }),
+      };
+    }
+
+    const projectResult = await ddb.send(
+      new GetCommand({
+        TableName: tableName("projects"),
+        Key: {
+          pk: `PROJECT#${baselineLookup.Item.project_id}`,
+          sk: "METADATA",
+        },
+      })
+    );
+
+    if (!projectResult.Item) {
       return {
         statusCode: 404,
         headers: {
@@ -270,7 +343,7 @@ export const getBaseline = async (
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
       },
-      body: JSON.stringify(result.Item),
+      body: JSON.stringify(projectResult.Item),
     };
   } catch (error) {
     console.error("Error getting baseline:", error);

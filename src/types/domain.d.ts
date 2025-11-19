@@ -272,7 +272,7 @@ export type ImportWarning = {
   suggestion?: string;
 };
 
-// Form validation types for PMO Estimator
+// Form validation types for SDM Cost Estimator
 export type DealInputs = {
   project_name: string;
   project_description?: string;
@@ -306,4 +306,27 @@ export type NonLaborEstimate = {
   end_month?: number;
   vendor?: string;
   capex_flag: boolean;
+};
+
+export type BaselineCreateRequest = {
+  project_name: string;
+  project_description?: string;
+  client_name?: string;
+  currency?: Currency;
+  start_date?: string;
+  duration_months?: number;
+  contract_value?: number;
+  assumptions?: string[];
+  created_by: string;
+  labor_estimates: LaborEstimate[];
+  non_labor_estimates: NonLaborEstimate[];
+  fx_indexation?: Record<string, unknown>;
+};
+
+export type BaselineCreateResponse = {
+  baseline_id: string;
+  project_id: string;
+  signature_hash: string;
+  total_amount: number;
+  created_at: string;
 };

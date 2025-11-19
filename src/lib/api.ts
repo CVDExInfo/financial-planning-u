@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type {
   BillingPeriod,
   LineItem,
@@ -10,7 +9,10 @@ import type {
   Project,
   APIResponse,
   PaginatedResponse,
+  BaselineCreateRequest,
+  BaselineCreateResponse,
 } from "@/types/domain";
+import { BaselineCreateResponseSchema } from "@/lib/api.schema";
 import {
   buildApiUrl,
   buildHeaders,
@@ -64,8 +66,8 @@ export class ApiService {
 
   // PMO Estimator
   static async createBaseline(
-    data: any
-  ): Promise<{ baseline_id: string; signature_hash: string }> {
+    data: BaselineCreateRequest
+  ): Promise<BaselineCreateResponse> {
     try {
       const response = await fetch(buildApiUrl(API_ENDPOINTS.baseline), {
         method: "POST",
@@ -82,8 +84,9 @@ export class ApiService {
       }
 
       const result = await response.json();
-      logger.info("Baseline created via API:", result);
-      return result;
+      const parsed = BaselineCreateResponseSchema.parse(result);
+      logger.info("Baseline created via API:", parsed);
+      return parsed;
     } catch (error) {
       logger.error("Failed to create baseline via API:", error);
       throw error;
