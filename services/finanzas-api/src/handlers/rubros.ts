@@ -9,6 +9,7 @@ import {
   DeleteCommand,
   GetCommand,
 } from "../lib/dynamo";
+import { ok, bad, notFound, serverError, fromAuthError } from "../lib/http";
 
 // Route: GET /projects/{projectId}/rubros
 async function listProjectRubros(event: APIGatewayProxyEventV2) {
@@ -148,7 +149,7 @@ async function detachRubro(event: APIGatewayProxyEventV2) {
   );
 
   if (!existing.Item) {
-    return bad("rubro attachment not found", 404);
+    return notFound("rubro attachment not found");
   }
 
   // Delete the attachment
@@ -205,24 +206,12 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
   } catch (err: unknown) {
     // Handle auth errors
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "statusCode" in err &&
-      "body" in err
-    ) {
-      return {
-        statusCode: (err as { statusCode: number }).statusCode,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          error: (err as { body: string }).body,
-        }),
-      };
+    const authError = fromAuthError(err);
+    if (authError) {
+      return authError;
     }
 
     console.error("Rubros handler error:", err);
-    return serverError(
-      err instanceof Error ? err.message : "Internal server error"
-    );
+    return serverError("Internal server error");
   }
 };
