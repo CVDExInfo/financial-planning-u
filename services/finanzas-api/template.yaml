@@ -915,6 +915,64 @@ Resources:
             Auth:
               Authorizer: NONE
 
+  LineItemsFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: node20
+        Sourcemap: true
+        External:
+          - aws-sdk
+        EntryPoints:
+          - src/handlers/line-items.ts
+    Properties:
+      CodeUri: .
+      Handler: line-items.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBReadPolicy:
+            TableName: !Ref RubrosTable
+      Events:
+        GetLineItems:
+          Type: HttpApi
+          Properties:
+            Path: /line-items
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+
+  InvoicesFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: node20
+        Sourcemap: true
+        External:
+          - aws-sdk
+        EntryPoints:
+          - src/handlers/invoices.ts
+    Properties:
+      CodeUri: .
+      Handler: invoices.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBReadPolicy:
+            TableName: !Ref PrefacturasTable
+      Events:
+        GetInvoices:
+          Type: HttpApi
+          Properties:
+            Path: /invoices
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+
   Pep3Rule:
     Type: AWS::Events::Rule
     Properties:
