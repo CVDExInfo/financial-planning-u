@@ -184,6 +184,18 @@ export const BaselineBudgetSchema = z.object({
 
 export type BaselineBudget = z.infer<typeof BaselineBudgetSchema>;
 
+export const BaselineCreateResponseSchema = z.object({
+  baseline_id: z.string().min(1),
+  project_id: z.string().min(1),
+  signature_hash: z.string().min(8),
+  total_amount: z.number().min(0),
+  created_at: z.string().datetime(),
+});
+
+export type BaselineCreateResponse = z.infer<
+  typeof BaselineCreateResponseSchema
+>;
+
 /**
  * Billing Period schema
  */

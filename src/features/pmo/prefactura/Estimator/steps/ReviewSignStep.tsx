@@ -37,6 +37,8 @@ import type {
   DealInputs,
   LaborEstimate,
   NonLaborEstimate,
+  BaselineCreateRequest,
+  BaselineCreateResponse,
 } from "@/types/domain";
 import ApiService from "@/lib/api";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
@@ -92,6 +94,8 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
   const [isSigning, setIsSigning] = useState(false);
   const [signatureComplete, setSignatureComplete] = useState(false);
   const [baselineId, setBaselineId] = useState<string>("");
+  const [baselineMeta, setBaselineMeta] =
+    useState<BaselineCreateResponse | null>(null);
   const [isHandingOff, setIsHandingOff] = useState(false);
   const [showHandoffConfirm, setShowHandoffConfirm] = useState(false);
   const [supportingDocs, setSupportingDocs] = useState<
@@ -182,14 +186,15 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
 
   const handleDigitalSign = async () => {
     if (!isReviewed) return;
+    if (!dealInputs || !dealInputs.project_name) {
+      toast.error(
+        "Missing project information. Please review the estimator inputs."
+      );
+      return;
+    }
 
     setIsSigning(true);
     try {
-      // Generate signature hash (simplified - in production would use cryptographic signing)
-      const signatureHash = `SHA256-${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2, 15)}`;
-
       // Extract user email from localStorage (set during authentication)
       const authData =
         localStorage.getItem("cv.jwt") || localStorage.getItem("finz_jwt");
@@ -197,34 +202,35 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         ? extractEmailFromJWT(authData)
         : "unknown@user.com";
 
-      console.log("✍️  Digitally signing baseline with:", {
+      console.log("✍️  Submitting baseline for server-side signing:", {
         projectName: dealInputs?.project_name,
         client: dealInputs?.client_name,
         currency: dealInputs?.currency,
         startDate: dealInputs?.start_date,
         duration: dealInputs?.duration_months,
-        signatureHash,
         createdBy: userEmail,
       });
 
       // Create baseline with ALL required fields
-      const baseline = await ApiService.createBaseline({
-        project_name: dealInputs?.project_name,
-        project_description: dealInputs?.project_description,
-        client_name: dealInputs?.client_name,
-        currency: dealInputs?.currency,
-        start_date: dealInputs?.start_date,
-        duration_months: dealInputs?.duration_months,
-        contract_value: dealInputs?.contract_value,
-        assumptions: dealInputs?.assumptions || [],
-        signature_hash: signatureHash,
+      const baselineRequest = {
+        project_name: dealInputs.project_name,
+        project_description: dealInputs.project_description,
+        client_name: dealInputs.client_name,
+        currency: dealInputs.currency,
+        start_date: dealInputs.start_date,
+        duration_months: dealInputs.duration_months,
+        contract_value: dealInputs.contract_value,
+        assumptions: dealInputs.assumptions || [],
         created_by: userEmail,
         labor_estimates: laborEstimates,
         non_labor_estimates: nonLaborEstimates,
-        fx_indexation: fxIndexationData,
-      });
+        fx_indexation: fxIndexationData ?? undefined,
+      } satisfies BaselineCreateRequest;
+
+      const baseline = await ApiService.createBaseline(baselineRequest);
 
       setBaselineId(baseline.baseline_id);
+      setBaselineMeta(baseline);
       setSignatureComplete(true);
       toast.success("✓ Baseline successfully signed and created");
     } catch (error) {
@@ -343,6 +349,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         0
       );
       const totalAmount = totalLaborCost + totalNonLaborCost;
+      const signatureHash = baselineMeta?.signature_hash || baselineId;
 
       // Create baseline data structure for export
       const baselineData = {
@@ -352,7 +359,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         created_by: "Current User", // In real app, get from auth
         accepted_by: "Current User",
         accepted_ts: new Date().toISOString(),
-        signature_hash: `signature_${baselineId}`,
+        signature_hash: signatureHash,
         total_amount: totalAmount,
         currency: "USD" as const,
         created_at: new Date().toISOString(),
