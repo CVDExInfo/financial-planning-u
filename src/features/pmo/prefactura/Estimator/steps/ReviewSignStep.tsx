@@ -517,9 +517,9 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         });
 
         const nextDoc: SupportingDocumentMeta = {
-          documentKey: result.documentKey || result.id,
-          originalName: file.name,
-          contentType: file.type || "application/octet-stream",
+          documentKey: result.documentKey,
+          originalName: result.originalName,
+          contentType: result.contentType,
           uploadedAt: new Date().toISOString(),
         };
 

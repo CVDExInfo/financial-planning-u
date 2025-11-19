@@ -146,7 +146,7 @@ export class ApiService {
     project_id: string
   ): Promise<{ monthly_inflows: BillingPeriod[] }> {
     await this.delay(200);
-    
+
     try {
       const response = await fetch(
         buildApiUrl(`/projects/${project_id}/billing`),
@@ -176,13 +176,10 @@ export class ApiService {
     await this.delay(200);
 
     try {
-      const response = await fetch(
-        buildApiUrl(`/baseline/${baseline_id}`),
-        {
-          method: "GET",
-          headers: buildHeaders(),
-        }
-      );
+      const response = await fetch(buildApiUrl(`/baseline/${baseline_id}`), {
+        method: "GET",
+        headers: buildHeaders(),
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -374,7 +371,7 @@ export class ApiService {
     try {
       // Try API first
       const response = await fetch(
-        buildApiUrl(`/projects/${project_id}/invoices`),
+        buildApiUrl(`/prefacturas?projectId=${project_id}`),
         {
           method: "GET",
           headers: buildHeaders(),
@@ -382,9 +379,14 @@ export class ApiService {
       );
 
       if (response.ok) {
-        const data = await response.json();
-        logger.info("Invoices loaded from API:", data.length, "records");
-        return data;
+        const raw = await response.json();
+        const data = Array.isArray(raw?.data) ? raw.data : raw;
+        logger.info(
+          "Invoices loaded from API:",
+          Array.isArray(data) ? data.length : 0,
+          "records"
+        );
+        return Array.isArray(data) ? data : [];
       }
 
       // If API fails, log error and return empty array
@@ -428,7 +430,7 @@ export class ApiService {
     comment?: string
   ): Promise<InvoiceDoc> {
     await this.delay(300);
-    
+
     try {
       const response = await fetch(
         buildApiUrl(`/invoices/${invoice_id}/status`),
@@ -464,12 +466,12 @@ export class ApiService {
     margin: Array<{ month: number; percentage: number }>;
   }> {
     await this.delay(300);
-    
+
     try {
       // Fetch billing plan and forecast data from API
       const [billingResult, forecastResult] = await Promise.all([
         this.getBillingPlan(project_id),
-        this.getForecastData(project_id, months)
+        this.getForecastData(project_id, months),
       ]);
 
       const billingPlan = billingResult.monthly_inflows;
@@ -499,7 +501,8 @@ export class ApiService {
         const marginAmount = inflow.amount - (outflow?.amount || 0);
         return {
           month: inflow.month,
-          percentage: inflow.amount > 0 ? (marginAmount / inflow.amount) * 100 : 0,
+          percentage:
+            inflow.amount > 0 ? (marginAmount / inflow.amount) * 100 : 0,
         };
       });
 
@@ -510,7 +513,7 @@ export class ApiService {
       return {
         inflows: [],
         outflows: [],
-        margin: []
+        margin: [],
       };
     }
   }
