@@ -45,10 +45,12 @@ VITE_FINZ_ENABLED=true
 **Cognito Domain:** `us-east-2-fyhltohiy.auth.us-east-2.amazoncognito.com`
 
 **OAuth Flow:** Implicit flow (`responseType: 'token'`)
+
 - **Redirect Sign In:** `https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html`
 - **Redirect Sign Out:** `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
 
 **Auth Flows Enabled:**
+
 - `ALLOW_USER_PASSWORD_AUTH` - Direct username/password login
 - `ALLOW_REFRESH_TOKEN_AUTH` - Token refresh
 - `ALLOW_USER_SRP_AUTH` - SRP authentication (optional)
@@ -60,6 +62,7 @@ VITE_FINZ_ENABLED=true
 **Symptoms:** Login fails with "NotAuthorizedException" or "Invalid username or password"
 
 **Check:**
+
 ```bash
 # Verify user exists and is confirmed
 aws cognito-idp admin-get-user \
@@ -79,15 +82,17 @@ aws cognito-idp admin-get-user \
 **Cause:** API returns HTML redirect or error page instead of JSON
 
 **Check:**
+
 ```bash
 # Test API directly
 curl -H "Authorization: Bearer <YOUR_TOKEN>" \
   https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/health
 ```
 
-**Fix:** 
+**Fix:**
+
 - Ensure API Gateway authorizer is configured correctly
-- Check CloudFront behavior for `/finanzas/api/*` if using proxy mode
+- Confirm `VITE_API_BASE_URL` points directly to the Finanzas API Gateway stage (no CloudFront proxy paths)
 - Verify token is valid and not expired (check in DevTools → Application → Local Storage)
 
 #### 3. **Hosted UI redirect fails or shows "redirect_uri_mismatch"**
@@ -95,6 +100,7 @@ curl -H "Authorization: Bearer <YOUR_TOKEN>" \
 **Symptoms:** After clicking "Sign in with Cognito Hosted UI", redirect fails or shows error
 
 **Check:**
+
 ```bash
 # Verify Cognito OAuth configuration
 aws cognito-idp describe-user-pool-client \
@@ -175,16 +181,19 @@ For detailed auth flow and troubleshooting, see [AUTHENTICATION_FLOW.md](./AUTHE
 #### For Local Development
 
 1. **Copy the example environment file:**
+
    ```bash
    cp .env.example .env.local
    ```
 
 2. **The default configuration in `.env.development` points to the dev API:**
+
    ```bash
    VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
    ```
 
 3. **Override in `.env.local` if needed** (e.g., for local API development):
+
    ```bash
    # .env.local (git-ignored)
    VITE_API_BASE_URL=http://localhost:3000/api
@@ -213,12 +222,12 @@ VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev \
 
 ### 📋 Environment Configuration Files
 
-| File | Purpose | Git Tracked |
-|------|---------|-------------|
-| `.env.example` | Template with all variables documented | ✅ Yes |
-| `.env.development` | Default values for local development | ✅ Yes |
-| `.env.local` | Local overrides (your personal config) | ❌ No (git-ignored) |
-| `.env.production` | Production-specific defaults | ✅ Yes |
+| File               | Purpose                                | Git Tracked         |
+| ------------------ | -------------------------------------- | ------------------- |
+| `.env.example`     | Template with all variables documented | ✅ Yes              |
+| `.env.development` | Default values for local development   | ✅ Yes              |
+| `.env.local`       | Local overrides (your personal config) | ❌ No (git-ignored) |
+| `.env.production`  | Production-specific defaults           | ✅ Yes              |
 
 ### 🔍 Troubleshooting
 
@@ -227,6 +236,7 @@ VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev \
 **Cause:** The `VITE_API_BASE_URL` environment variable is missing or empty during build.
 
 **Fix:**
+
 ```bash
 # Set the variable before building
 export VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
@@ -242,16 +252,19 @@ npm run build:finanzas
 #### API calls return HTML instead of JSON
 
 **Symptoms:** Browser console shows errors like:
+
 ```
 API returned HTML (likely login page or wrong endpoint) instead of JSON
 ```
 
 **Possible Causes:**
+
 1. Wrong `VITE_API_BASE_URL` value
 2. API Gateway not deployed or misconfigured
 3. CORS issues
 
 **Fix:**
+
 ```bash
 # Verify the API is accessible
 curl https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/health
@@ -315,6 +328,7 @@ npm run validate:pre-build
 ```
 
 The `validate:api-config` script checks:
+
 - ✅ `VITE_API_BASE_URL` is set and non-empty
 - ✅ URL format is valid
 - ✅ DNS resolution works for the API host
@@ -339,6 +353,7 @@ bash scripts/post-deploy-verify.sh
 ```
 
 The post-deployment script checks:
+
 - ✅ CloudFront UI is accessible at `/finanzas/`
 - ✅ Static assets (JS/CSS) load correctly with proper base paths
 - ✅ API endpoints are reachable from the deployed frontend
@@ -359,6 +374,7 @@ npm run smoke:api
 ```
 
 The smoke test validates:
+
 - ✅ Cognito authentication (IdToken generation)
 - ✅ Public endpoints (`/health`, `/catalog/rubros`)
 - ✅ Protected endpoints (`/allocation-rules`) with auth
@@ -371,11 +387,13 @@ The smoke test validates:
 The GitHub Actions workflow (`.github/workflows/deploy-ui.yml`) automatically runs:
 
 1. **Pre-Build Checks:**
+
    - Environment variable validation
    - API connectivity validation (`scripts/validate-api-config.sh`)
    - `/health` endpoint preflight check
 
 2. **Build Validation:**
+
    - Verifies API URL is embedded in bundle
    - Checks for configuration bleed (no PMO config in Finanzas build)
    - Validates base path correctness
@@ -440,6 +458,7 @@ Before merging deployment changes (especially PR #126), run the pre-merge verifi
 ```
 
 This script checks:
+
 - Repository variables are configured correctly
 - CloudFront function (`finanzas-path-rewrite`) is attached to all `/finanzas*` behaviors
 - CloudFront origin has empty `OriginPath` (critical for correct S3 routing)

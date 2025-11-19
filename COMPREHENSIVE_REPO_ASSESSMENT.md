@@ -1,9 +1,10 @@
 # Comprehensive Repository Assessment Report
+
 ## Financial Planning & Management UI Application
 
 **Assessment Date:** November 16, 2025  
 **Scope:** Complete repository analysis - code structure, dependencies, security, performance, documentation  
-**Status:** COMPREHENSIVE ANALYSIS - Issues and Recommendations  
+**Status:** COMPREHENSIVE ANALYSIS - Issues and Recommendations
 
 ---
 
@@ -11,16 +12,16 @@
 
 The repository is in **good operational condition** with solid foundations but has several areas needing attention:
 
-| Category | Status | Priority | Issues Found |
-|----------|--------|----------|---------------|
-| **Code Quality** | ⚠️ Mixed | HIGH | 50+ architectural issues documented, type safety gaps |
-| **Security** | ✅ Good | MEDIUM | 5 low vulnerabilities, credentials properly managed |
-| **Dependencies** | ⚠️ Alert | HIGH | 5 security vulnerabilities in transitive deps (pino/fast-redact) |
-| **Build System** | ✅ Good | LOW | Working but with unused build scripts |
-| **Documentation** | ⚠️ Limited | MEDIUM | 168 markdown linting errors, but core docs present |
-| **Testing** | ❌ Missing | HIGH | 0% coverage, zero test infrastructure |
-| **Performance** | ⚠️ Needs Work | MEDIUM | Bundle 2,464 KB, unoptimized, no code splitting |
-| **Configuration** | ✅ Good | LOW | Environment variables properly structured |
+| Category          | Status        | Priority | Issues Found                                                     |
+| ----------------- | ------------- | -------- | ---------------------------------------------------------------- |
+| **Code Quality**  | ⚠️ Mixed      | HIGH     | 50+ architectural issues documented, type safety gaps            |
+| **Security**      | ✅ Good       | MEDIUM   | 5 low vulnerabilities, credentials properly managed              |
+| **Dependencies**  | ⚠️ Alert      | HIGH     | 5 security vulnerabilities in transitive deps (pino/fast-redact) |
+| **Build System**  | ✅ Good       | LOW      | Working but with unused build scripts                            |
+| **Documentation** | ⚠️ Limited    | MEDIUM   | 168 markdown linting errors, but core docs present               |
+| **Testing**       | ❌ Missing    | HIGH     | 0% coverage, zero test infrastructure                            |
+| **Performance**   | ⚠️ Needs Work | MEDIUM   | Bundle 2,464 KB, unoptimized, no code splitting                  |
+| **Configuration** | ✅ Good       | LOW      | Environment variables properly structured                        |
 
 ---
 
@@ -42,11 +43,13 @@ Vulnerable Dependency Chain:
 **Severity:** LOW  
 **Impact:** These are dev/doc-generation dependencies, not production code  
 **Remediation:**
+
 ```bash
 npm audit fix  # Patches available for all vulnerabilities
 ```
 
 **Recommendation:** Run `npm audit fix` immediately and add to CI/CD:
+
 ```yaml
 - name: Security Audit
   run: npm audit --audit-level=moderate
@@ -57,9 +60,10 @@ npm audit fix  # Patches available for all vulnerabilities
 **Status:** ✅ SECURE - No credentials exposed
 
 **Verification:**
+
 - ✅ No hardcoded API keys in source code
 - ✅ No database credentials in repositories
-- ✅ Environment variables properly used (VITE_* prefix for client-side)
+- ✅ Environment variables properly used (VITE\_\* prefix for client-side)
 - ✅ Cognito credentials are public (client ID only, no secrets)
 - ✅ JWT tokens stored in localStorage (browser standard practice)
 - ✅ API endpoints use HTTPS (CloudFront enforced)
@@ -67,16 +71,18 @@ npm audit fix  # Patches available for all vulnerabilities
 - ✅ Tokens properly validated on backend (API Gateway authorizer)
 
 **Files Reviewed:**
+
 - `src/config/api.ts` - Proper token retrieval with fallbacks
-- `src/config/aws.ts` - AWS configuration using VITE_* variables
+- `src/config/aws.ts` - AWS configuration using VITE\_\* variables
 - `src/api/finanzasClient.ts` - Bearer token injection correct
 - `.env.production` - No secrets exposed
 - `AUTH_TOKEN_FIX.md` - Documents token security properly
 
 **Green Criteria Status:**
+
 ```
 ✅ No PII in logs or errors
-✅ No credentials in console messages  
+✅ No credentials in console messages
 ✅ XSS protection: HTML content properly escaped
 ✅ No SQL injection (stateless, no database)
 ✅ No code injection risk
@@ -106,6 +112,7 @@ Data Access
 ```
 
 **Security Measures:**
+
 - ✅ Bearer token sent via HTTPS
 - ✅ Token validated on every request
 - ✅ 401 responses for missing/invalid tokens
@@ -118,6 +125,7 @@ Data Access
 **Issues Found:**
 
 1. **⚠️ Test Credentials in Documentation** (LOW RISK)
+
    - Files: `test-finanzas-api.cjs`, `scripts/qa-full-review.sh`, `docs/TESTING_GUIDE.md`
    - Issue: Username/password shown in test scripts
    - Risk: Low (test accounts only, publicly visible examples)
@@ -132,17 +140,20 @@ Data Access
 ### 1.5 Security Recommendations
 
 **Immediate (Week 1):**
+
 - [ ] Run `npm audit fix` to patch pino vulnerability
 - [ ] Add `npm audit --audit-level=moderate` to CI/CD
 - [ ] Review GitHub secrets for test credentials
 
 **Short-term (Week 2-3):**
+
 - [ ] Consider httpOnly cookies for token storage (requires backend changes)
 - [ ] Add token encryption for sensitive deployments
 - [ ] Implement token refresh rotation (currently relies on Cognito)
 - [ ] Add request signing for critical API operations
 
 **Long-term (Month 2+):**
+
 - [ ] Implement OWASP Top 10 security review checklist
 - [ ] Add rate limiting on API endpoints
 - [ ] Implement API request encryption for sensitive data
@@ -197,6 +208,7 @@ Dev Dependencies:
 ### 2.2 Dependency Health
 
 **Strengths:**
+
 - ✅ No outdated major versions (all on latest minor/patch)
 - ✅ Well-maintained packages (React 19, Vite, TypeScript 5)
 - ✅ Good separation of concerns (Radix UI + Tailwind + shadcn)
@@ -206,15 +218,18 @@ Dev Dependencies:
 **Issues:**
 
 1. **⚠️ Unused Dependencies** (3 packages)
+
    ```
    - @octokit/core (GitHub integration, not used in UI)
    - @mermaid-js/mermaid-cli (diagram generation, dev only)
    - @zenuml/core (transitive, via mermaid)
    ```
+
    Impact: +450 KB bundle size
    Fix: Remove and use alternative for document generation
 
 2. **⚠️ Transitive Vulnerabilities** (5 packages)
+
    ```
    Chain: pino → fast-redact → prototype pollution
    Status: Dev dependency only, not in production
@@ -233,16 +248,19 @@ Dev Dependencies:
 ### 2.3 Dependency Recommendations
 
 **Immediate:**
+
 - [ ] Run `npm audit fix`
 - [ ] Identify @octokit usage (remove if unused)
 - [ ] Identify mermaid/zenuml usage (replace with lightweight alternative)
 
 **Short-term:**
+
 - [ ] Evaluate d3 alternatives (Recharts is already included)
 - [ ] Consider bundling optimization (lazy load d3 if needed)
 - [ ] Remove unused visualizations
 
 **Analysis Query:**
+
 ```bash
 # Find which modules actually use @octokit
 grep -r "@octokit" src/
@@ -264,6 +282,7 @@ npm run build && npm run analyze  # If build-analyzer installed
 **Status:** ✅ Working, but with optimization opportunities
 
 **Current Build Metrics:**
+
 ```
 Total Size: 2,464 KB (uncompressed)
   - JS: 2,252 KB
@@ -276,30 +295,35 @@ Build Time: ~15-20 seconds
 ```
 
 **Build Scripts:**
+
 ```json
 {
-  "build": "tsc -b --noCheck && vite build",           // Full app
-  "build:pmo": "tsc -b --noCheck && BUILD_TARGET=pmo vite build",       // PMO only
-  "build:finanzas": "tsc -b --noCheck && BUILD_TARGET=finanzas vite build"  // Finanzas only
+  "build": "tsc -b --noCheck && vite build", // Full app
+  "build:pmo": "tsc -b --noCheck && BUILD_TARGET=pmo vite build", // PMO only
+  "build:finanzas": "tsc -b --noCheck && BUILD_TARGET=finanzas vite build" // Finanzas only
 }
 ```
 
 **Issues Found:**
 
 1. **⚠️ TypeScript Skip Check Flag**
+
    ```json
    "build": "tsc -b --noCheck && vite build"
    ```
+
    Problem: `--noCheck` skips type checking in build!
    Impact: Type errors won't fail build
    Fix: Remove `--noCheck` or use `--noEmit` only
-   
+
    Recommended:
+
    ```json
    "build": "tsc --noEmit && vite build"
    ```
 
 2. **⚠️ No Source Maps in Production**
+
    - Problem: Errors can't be traced back to source
    - Impact: Harder to debug production issues
    - Fix: Generate source maps (map to separate file for privacy)
@@ -320,10 +344,10 @@ Build Time: ~15-20 seconds
 ```jsonc
 {
   "compilerOptions": {
-    "strict": false,           // ⚠️ ISSUE: Strict mode disabled!
-    "noUnusedLocals": false,   // ⚠️ Won't catch dead code
-    "noUnusedParameters": false,  // ⚠️ Won't catch unused params
-    "skipLibCheck": true       // OK for performance
+    "strict": false, // ⚠️ ISSUE: Strict mode disabled!
+    "noUnusedLocals": false, // ⚠️ Won't catch dead code
+    "noUnusedParameters": false, // ⚠️ Won't catch unused params
+    "skipLibCheck": true // OK for performance
   }
 }
 ```
@@ -331,6 +355,7 @@ Build Time: ~15-20 seconds
 **Critical Issues:**
 
 1. **🔴 `"strict": false`** - Major Type Safety Issue
+
    ```
    Impact: Defeats entire purpose of TypeScript
    - Allows implicit `any` types
@@ -338,8 +363,9 @@ Build Time: ~15-20 seconds
    - No strict null checks
    - No strict function types
    ```
-   
+
    Fix: Enable strict mode
+
    ```jsonc
    {
      "compilerOptions": {
@@ -358,6 +384,7 @@ Build Time: ~15-20 seconds
    ```
 
 2. **⚠️ `"allowJs": true`**
+
    - Allows JavaScript files to bypass type checking
    - Problem: JavaScript-only imports don't have types
    - Fix: Migrate all .js to .ts or disable `allowJs`
@@ -372,10 +399,10 @@ Build Time: ~15-20 seconds
 **Files:** `.env.production`, `.env.local`
 
 **Production Environment Variables:**
+
 ```bash
 # API Configuration
 VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
-VITE_FINANZAS_API_BASE_URL=/finanzas/api
 
 # Cognito Configuration
 VITE_COGNITO_USER_POOL_ID=us-east-2_FyHLtOhiY
@@ -395,16 +422,19 @@ VITE_SKIP_AUTH=false
 **Issues:**
 
 1. **⚠️ Duplicate Configuration Keys**
+
    ```
    VITE_COGNITO_POOL_ID (appears 3 times)
    VITE_COGNITO_WEB_CLIENT (appears 2 times)
    VITE_COGNITO_WEB_CLIENT_ID (appears 2 times)
    VITE_COGNITO_CLIENT_ID (appears 2 times)
    ```
+
    Problem: Inconsistent naming, confusing maintenance
    Fix: Consolidate to single canonical name
 
 2. **⚠️ Feature Flags Not Validated**
+
    - Problem: No runtime validation of feature flags
    - Impact: Invalid settings silently ignored
    - Fix: Add validation schema in config loader
@@ -415,11 +445,11 @@ VITE_SKIP_AUTH=false
    ```typescript
    function validateConfig() {
      const required = [
-       'VITE_COGNITO_CLIENT_ID',
-       'VITE_COGNITO_USER_POOL_ID',
-       'VITE_API_BASE_URL'
+       "VITE_COGNITO_CLIENT_ID",
+       "VITE_COGNITO_USER_POOL_ID",
+       "VITE_API_BASE_URL",
      ];
-     
+
      for (const key of required) {
        if (!import.meta.env[key]) {
          throw new Error(`Missing required env: ${key}`);
@@ -431,22 +461,26 @@ VITE_SKIP_AUTH=false
 ### 3.4 Build Recommendations
 
 **Immediate (Day 1):**
+
 - [ ] Remove `--noCheck` from build script
 - [ ] Add `--noEmit` to type checking phase
 - [ ] Run full type check before builds
 
 **Short-term (Week 1):**
+
 - [ ] Enable `strict: true` in tsconfig
 - [ ] Fix all type errors that emerge
 - [ ] Add pre-commit hook for type checking
 
 **Medium-term (Week 2-3):**
+
 - [ ] Reduce bundle size from 2,464 KB to < 1,500 KB
 - [ ] Implement code splitting for routes
 - [ ] Lazy load heavy libraries (d3, Excel export)
 - [ ] Remove unused dependencies
 
 **Long-term (Month 2+):**
+
 - [ ] Set up bundle size monitoring
 - [ ] Add performance budgets to CI/CD
 - [ ] Generate source maps for production debugging
@@ -462,29 +496,30 @@ VITE_SKIP_AUTH=false
 
 **Document Inventory:**
 
-| Category | Count | Quality | Issues |
-|----------|-------|---------|--------|
-| Architecture Docs | 5 | ✅ Good | Comprehensive, well-organized |
-| Deployment Guides | 4 | ✅ Good | Step-by-step, clear instructions |
-| Authentication | 3 | ✅ Good | Flow diagrams, implementation details |
-| API Docs | 2 | ✅ Good | Endpoint specifications |
-| Implementation Summaries | 8 | ⚠️ Mixed | Some outdated, needs consolidation |
-| Testing Guides | 2 | ⚠️ Limited | Manual testing only, no automation |
-| Code Comments | 5% | ❌ Poor | Very few JSDoc comments |
+| Category                 | Count | Quality    | Issues                                |
+| ------------------------ | ----- | ---------- | ------------------------------------- |
+| Architecture Docs        | 5     | ✅ Good    | Comprehensive, well-organized         |
+| Deployment Guides        | 4     | ✅ Good    | Step-by-step, clear instructions      |
+| Authentication           | 3     | ✅ Good    | Flow diagrams, implementation details |
+| API Docs                 | 2     | ✅ Good    | Endpoint specifications               |
+| Implementation Summaries | 8     | ⚠️ Mixed   | Some outdated, needs consolidation    |
+| Testing Guides           | 2     | ⚠️ Limited | Manual testing only, no automation    |
+| Code Comments            | 5%    | ❌ Poor    | Very few JSDoc comments               |
 
 **Total Markdown Files:** 50+  
 **Total Words:** ~150,000+  
-**Average File Size:** 3 KB  
+**Average File Size:** 3 KB
 
 ### 4.2 Documentation Issues
 
 **Critical:**
 
 1. **🔴 JSDoc Coverage: 5%** (only 3-5 functions documented)
+
    ```typescript
    // MISSING: JSDoc for ~95% of functions
    export function SDMTCatalog() { ... }  // No documentation
-   
+
    // SHOULD BE:
    /**
     * Displays cost line items catalog with add/edit/delete operations
@@ -495,6 +530,7 @@ VITE_SKIP_AUTH=false
     */
    export function SDMTCatalog() { ... }
    ```
+
    Impact: 8+ hours for new developers to understand codebase
 
 2. **🔴 Markdown Linting Errors: 168 errors** (across 50+ files)
@@ -512,26 +548,34 @@ VITE_SKIP_AUTH=false
 
 **Files with Most Errors:**
 
-| File | Errors | Type |
-|------|--------|------|
-| FINANZAS_REACTIVITY_FIX_SUMMARY.md | 12 | Duplicate headings, list numbering |
-| AUTH_TOKEN_FIX.md | 10 | Code block language, bare URLs |
-| PMO_ESTIMATOR_AUDIT_REPORT.md | 18 | Multiple heading types |
-| PMO_ESTIMATOR_COMPREHENSIVE_AUDIT.md | 22 | Code formatting, trailing punctuation |
+| File                                 | Errors | Type                                  |
+| ------------------------------------ | ------ | ------------------------------------- |
+| FINANZAS_REACTIVITY_FIX_SUMMARY.md   | 12     | Duplicate headings, list numbering    |
+| AUTH_TOKEN_FIX.md                    | 10     | Code block language, bare URLs        |
+| PMO_ESTIMATOR_AUDIT_REPORT.md        | 18     | Multiple heading types                |
+| PMO_ESTIMATOR_COMPREHENSIVE_AUDIT.md | 22     | Code formatting, trailing punctuation |
 
 **Most Common Issues:**
 
 ```markdown
 ❌ WRONG: Multiple headings with same text
+
 ### Problem
+
 ### Root Cause
+
 ### Impact
+
 ### Required Fix
 
 ✅ RIGHT: Unique, descriptive headings
+
 ### Initial Problem Description
+
 ### Root Cause Analysis
+
 ### Business Impact Assessment
+
 ### Recommended Fix Implementation
 
 ---
@@ -546,28 +590,33 @@ This is documented [in the repository](https://github.com/CVDExInfo/financial-pl
 
 ❌ WRONG: No language on code fence
 ```
+
 function test() { }
-```
+
+````
 
 ✅ RIGHT: Language specified
 ```typescript
 function test() { }
-```
+````
 
 ---
 
 ❌ WRONG: Inconsistent list numbering
-1. First item
-2. Second item
-8. Third item
-9. Fourth item
 
-✅ RIGHT: Correct numbering
 1. First item
 2. Second item
 3. Third item
 4. Fourth item
-```
+
+✅ RIGHT: Correct numbering
+
+1. First item
+2. Second item
+3. Third item
+4. Fourth item
+
+````
 
 ### 4.4 Documentation Recommendations
 
@@ -604,7 +653,7 @@ npm install -g markdownlint-cli
 markdownlint --fix src/**/*.md docs/**/*.md
 
 # Or use VS Code extension: "Markdown Linter"
-```
+````
 
 ---
 
@@ -640,8 +689,8 @@ Fix: Remove or archive in separate branch
 // 3. src/modules/finanzas/FinanzasHome.tsx (partial)
 
 // All have similar token handling code
-const token = localStorage.getItem("cv.jwt") || 
-              localStorage.getItem("finz_jwt");
+const token =
+  localStorage.getItem("cv.jwt") || localStorage.getItem("finz_jwt");
 ```
 
 Impact: Maintenance burden, inconsistent updates  
@@ -677,8 +726,8 @@ Fix: Implement unified error handling pattern (per best practices guide)
 
 ```typescript
 // Still present in some files:
-console.error("Invalid response:", data);  // Should be logger.error
-console.log("Loading...");                 // Should be logger.debug
+console.error("Invalid response:", data); // Should be logger.error
+console.log("Loading..."); // Should be logger.debug
 ```
 
 Count: ~15-20 instances remaining  
@@ -695,10 +744,11 @@ const { selectedProjectId } = useProject();
 // What if selectedProjectId is null?
 
 // SDMTForecast.tsx:60
-const items = catalog.items;  // What if catalog is undefined?
+const items = catalog.items; // What if catalog is undefined?
 ```
 
 Fix: Add optional chaining and provide fallback values:
+
 ```typescript
 const { selectedProjectId } = useProject() || {};
 if (!selectedProjectId) {
@@ -723,6 +773,7 @@ src/components/
 
 **Issue:** Mixed responsibility levels in single directory  
 Fix: Reorganize by responsibility:
+
 ```
 src/
 ├── components/          // Only low-level UI components
@@ -740,11 +791,13 @@ src/
 ### 5.3 Performance Issues Beyond Architecture Review
 
 **1. Unnecessary Re-renders** (Already documented)
+
 - Missing `useMemo` on expensive calculations
 - Props drilling causing entire subtrees to re-render
 - No memoization on child components
 
 **2. Bundle Size Not Optimized** (Already documented)
+
 - 2,464 KB vs 1,500 KB target
 - Unused dependencies included
 - No code splitting by route
@@ -755,23 +808,28 @@ src/
 
 ```typescript
 // Current: All routes imported upfront
-import SDMTCatalog from './features/sdmt/cost/Catalog/SDMTCatalog';
-import SDMTForecast from './features/sdmt/cost/Forecast/SDMTForecast';
-import PMOEstimator from './features/pmo/prefactura/Estimator/PMOEstimatorWizard';
+import SDMTCatalog from "./features/sdmt/cost/Catalog/SDMTCatalog";
+import SDMTForecast from "./features/sdmt/cost/Forecast/SDMTForecast";
+import PMOEstimator from "./features/pmo/prefactura/Estimator/PMOEstimatorWizard";
 
 // Every module loads even if user doesn't visit that route
 ```
 
 Fix: Implement route-based code splitting
-```typescript
-import { lazy, Suspense } from 'react';
 
-const SDMTCatalog = lazy(() => import('./features/sdmt/cost/Catalog/SDMTCatalog'));
-const SDMTForecast = lazy(() => import('./features/sdmt/cost/Forecast/SDMTForecast'));
+```typescript
+import { lazy, Suspense } from "react";
+
+const SDMTCatalog = lazy(
+  () => import("./features/sdmt/cost/Catalog/SDMTCatalog")
+);
+const SDMTForecast = lazy(
+  () => import("./features/sdmt/cost/Forecast/SDMTForecast")
+);
 
 <Suspense fallback={<LoadingSpinner />}>
   <Route path="catalog" element={<SDMTCatalog />} />
-</Suspense>
+</Suspense>;
 ```
 
 Benefit: 40-50% reduction in initial bundle
@@ -781,6 +839,7 @@ Benefit: 40-50% reduction in initial bundle
 **Current State:** ❌ Zero test infrastructure
 
 **Status:**
+
 - 0% code coverage
 - 0 unit tests
 - 0 integration tests
@@ -788,6 +847,7 @@ Benefit: 40-50% reduction in initial bundle
 - Manual testing only
 
 **Test Files Found:**
+
 ```
 src/__tests__/
 ├── basePath.test.ts (partial, not running)
@@ -795,6 +855,7 @@ src/__tests__/
 ```
 
 **Impact:**
+
 - No regression detection
 - High risk of introducing bugs
 - Difficult to refactor safely
@@ -811,11 +872,12 @@ src/__tests__/
 **Tools Installed:** None specifically for testing  
 **Framework:** Would need: Jest or Vitest  
 **Library:** Would need: React Testing Library  
-**E2E:** Would need: Cypress or Playwright  
+**E2E:** Would need: Cypress or Playwright
 
 ### 6.2 Testing Recommendations
 
 **Phase 1 (Week 1-2): Setup**
+
 ```bash
 npm install --save-dev vitest @vitest/ui
 npm install --save-dev @testing-library/react @testing-library/jest-dom
@@ -824,29 +886,28 @@ npm install --save-dev jsdom
 ```
 
 Add `vitest.config.ts`:
+
 ```typescript
-import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react';
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/__tests__/setup.ts'],
+    environment: "jsdom",
+    setupFiles: ["./src/__tests__/setup.ts"],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'src/__tests__/',
-      ]
-    }
-  }
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      exclude: ["node_modules/", "src/__tests__/"],
+    },
+  },
 });
 ```
 
 Add `package.json` scripts:
+
 ```json
 {
   "test": "vitest",
@@ -859,6 +920,7 @@ Add `package.json` scripts:
 **Phase 2 (Week 2-3): Critical Path Tests**
 
 Priority order:
+
 1. Authentication flows (3-4 tests)
 2. Project selection context (3-4 tests)
 3. API data loading (3-4 tests)
@@ -868,6 +930,7 @@ Priority order:
 **Phase 3 (Week 4-5): Coverage Growth**
 
 Target: 70% coverage (critical paths)
+
 ```
 Components:     60% coverage
 Contexts:       80% coverage
@@ -882,6 +945,7 @@ npm install --save-dev cypress
 ```
 
 Critical flows to test:
+
 1. User login → Project selection → View catalog
 2. Forecast workflow → Save changes → Verify persistence
 3. Error handling → Recovery flows
@@ -893,6 +957,7 @@ Critical flows to test:
 ### 7.1 Bundle Size Analysis
 
 **Current:**
+
 ```
 Total: 2,464 KB (uncompressed)
   JS:   2,252 KB
@@ -905,16 +970,19 @@ Target: < 1,500 KB (40% reduction)
 **Optimization Strategy:**
 
 1. **Remove Unused Dependencies** (200 KB)
+
    - `@octokit/core` (unused)
    - `@mermaid-js/*` (dev only, not for production)
    - Total: ~200-300 KB
 
 2. **Code Splitting by Route** (300-400 KB)
+
    - Lazy load `/sdmt/` routes
    - Lazy load `/pmo/` routes
    - Lazy load chart libraries
 
 3. **Optimize D3 Library** (150 KB)
+
    - Replace with Recharts (already included)
    - Or lazy load only when needed
 
@@ -923,6 +991,7 @@ Target: < 1,500 KB (40% reduction)
    - Check Radix UI imports
 
 **Expected Result:**
+
 ```
 New Total: ~1,200-1,400 KB (43-49% reduction)
   Initial load: 30-40% faster
@@ -932,11 +1001,13 @@ New Total: ~1,200-1,400 KB (43-49% reduction)
 ### 7.2 Runtime Performance
 
 **Rendering Issues:**
+
 1. No memoization on expensive renders (SDMTCatalog has 70+ items)
 2. Cascading re-renders on context changes
 3. No virtual scrolling for large tables
 
 **Fixes:**
+
 ```typescript
 // 1. Memoize expensive component
 export const LineItemRow = memo(({ item, onEdit }) => (
@@ -952,6 +1023,7 @@ const virtualizer = useVirtualizer({ count: items.length });
 ```
 
 **Expected Impact:**
+
 - 50-70% faster re-renders
 - Better responsiveness with 1000+ items
 - Reduced CPU usage
@@ -959,25 +1031,27 @@ const virtualizer = useVirtualizer({ count: items.length });
 ### 7.3 Network Performance
 
 **Current Issues:**
+
 1. No request batching
 2. Sequential API calls (waterfall pattern)
 3. No caching strategy
 
 **Recommendations:**
+
 ```typescript
 // Use React Query for caching
 const { data: projects } = useQuery({
-  queryKey: ['projects'],
+  queryKey: ["projects"],
   queryFn: () => apiClient.getProjects(),
-  staleTime: 5 * 60 * 1000,  // 5 minutes
-  cacheTime: 10 * 60 * 1000,  // 10 minutes
+  staleTime: 5 * 60 * 1000, // 5 minutes
+  cacheTime: 10 * 60 * 1000, // 10 minutes
 });
 
 // Batch related queries
 const [projects, forecast, invoices] = await Promise.all([
   apiClient.getProjects(),
   apiClient.getForecast(projectId),
-  apiClient.getInvoices(projectId)
+  apiClient.getInvoices(projectId),
 ]);
 ```
 
@@ -990,11 +1064,13 @@ const [projects, forecast, invoices] = await Promise.all([
 **Status:** ✅ Working - Multiple successful deployments
 
 **Deployment Pipeline:**
+
 ```
 GitHub Actions → Build → Deploy to CloudFront → Cache Invalidation
 ```
 
 **Current Deployments:**
+
 1. ✅ Full app (integrated PMO + Finanzas)
 2. ✅ PMO-only build
 3. ✅ Finanzas-only build
@@ -1002,10 +1078,12 @@ GitHub Actions → Build → Deploy to CloudFront → Cache Invalidation
 **Issues Found:**
 
 1. **⚠️ No Rollback Strategy**
+
    - Problem: No easy way to rollback bad deployments
    - Solution: Keep versioned CloudFront distributions
 
 2. **⚠️ Cache Invalidation Always Full**
+
    - Problem: Always invalidates entire distribution (`/*`)
    - Solution: Target specific paths based on what changed
 
@@ -1018,17 +1096,20 @@ GitHub Actions → Build → Deploy to CloudFront → Cache Invalidation
 **Status:** ⚠️ Limited
 
 **What's Tracked:**
+
 - ✅ API logs in CloudWatch
 - ✅ Lambda execution logs
 - ✅ Error logs (basic)
 
 **What's Missing:**
+
 - ❌ User error tracking (need Sentry or similar)
 - ❌ Performance metrics (need APM)
 - ❌ User session tracking
 - ❌ Error rate alerting
 
 **Recommendations:**
+
 ```bash
 # Add Sentry for error tracking
 npm install @sentry/react
@@ -1045,6 +1126,7 @@ Sentry.init({
 ### 8.3 Production Deployment Checklist
 
 **Pre-Deployment:**
+
 - [ ] All tests pass
 - [ ] Build succeeds with 0 errors
 - [ ] No console errors in dev mode
@@ -1053,12 +1135,14 @@ Sentry.init({
 - [ ] Performance budget met
 
 **Deployment:**
+
 - [ ] Deploy to staging first
 - [ ] Run smoke tests
 - [ ] Monitor for 10 minutes
 - [ ] Then deploy to production
 
 **Post-Deployment:**
+
 - [ ] Verify API connectivity
 - [ ] Check CloudWatch logs
 - [ ] Validate UI rendering
@@ -1071,6 +1155,7 @@ Sentry.init({
 ### Priority 1: CRITICAL (Do Immediately)
 
 **Item 1.1:** Enable TypeScript Strict Mode
+
 ```
 Files: tsconfig.json
 Change: "strict": false → "strict": true
@@ -1079,6 +1164,7 @@ Impact: Catch 50+ type errors, force fixes
 ```
 
 **Item 1.2:** Remove --noCheck from Build
+
 ```
 Files: package.json
 Change: "tsc -b --noCheck" → "tsc --noEmit"
@@ -1087,6 +1173,7 @@ Impact: Build fails on type errors instead of silently
 ```
 
 **Item 1.3:** Fix npm Vulnerabilities
+
 ```
 Command: npm audit fix
 Time: 30 minutes
@@ -1094,6 +1181,7 @@ Impact: Patch 5 low-severity vulnerabilities
 ```
 
 **Item 1.4:** Fix Markdown Linting
+
 ```
 Command: markdownlint --fix *.md docs/**/*.md
 Time: 1 hour
@@ -1103,6 +1191,7 @@ Impact: 168 linting errors fixed, professional docs
 ### Priority 2: HIGH (This Week)
 
 **Item 2.1:** Consolidate Configuration Keys
+
 ```
 Files: .env.production, .env.local
 Change: Remove duplicate COGNITO_* variables
@@ -1111,6 +1200,7 @@ Impact: Eliminate confusion, easier maintenance
 ```
 
 **Item 2.2:** Remove Dead Code
+
 ```
 Files: src/components/Login.tsx, LoadingDemoPage.tsx
 Artifact removal: Unused components
@@ -1119,6 +1209,7 @@ Impact: Reduce bundle size, clarify codebase
 ```
 
 **Item 2.3:** Set Up Testing Infrastructure
+
 ```
 Install: vitest, @testing-library/react
 Time: 4-6 hours
@@ -1126,6 +1217,7 @@ Impact: Enable automated testing, CI/CD validation
 ```
 
 **Item 2.4:** Add JSDoc to Top 20 Functions
+
 ```
 Target: Critical paths (Auth, ProjectContext, API)
 Time: 3-4 hours
@@ -1135,6 +1227,7 @@ Impact: 80% of codebase properly documented
 ### Priority 3: MEDIUM (Weeks 2-3)
 
 **Item 3.1:** Reduce Bundle Size
+
 ```
 Target: 2,464 KB → < 1,500 KB
 Methods:
@@ -1146,6 +1239,7 @@ Impact: 40% faster load time
 ```
 
 **Item 3.2:** Implement Error Handling Unification
+
 ```
 Target: Consolidate 3 error patterns → 1 pattern
 Time: 6-8 hours
@@ -1153,6 +1247,7 @@ Impact: Consistent UX, easier debugging
 ```
 
 **Item 3.3:** Add Test Coverage for Critical Paths
+
 ```
 Target: 70% coverage for authentication, context, API
 Tests: 20-30 unit tests
@@ -1161,6 +1256,7 @@ Impact: Catch regressions, safe refactoring
 ```
 
 **Item 3.4:** Component Reorganization
+
 ```
 Reorganize: src/components → src/contexts + src/features
 Time: 4-6 hours
@@ -1181,20 +1277,21 @@ Impact: Clearer architecture, easier navigation
 
 ### 10.1 Overall Assessment
 
-| Area | Current | Target | Gap | Priority |
-|------|---------|--------|-----|----------|
-| Type Safety | 40% | 95% | HIGH | CRITICAL |
-| Test Coverage | 0% | 70% | HIGH | CRITICAL |
-| Bundle Size | 2,464 KB | 1,500 KB | 964 KB | HIGH |
-| Documentation | 5% JSDoc | 80% JSDoc | HIGH | HIGH |
-| Security | ✅ Good | Excellent | Low | MEDIUM |
-| Performance | ⚠️ OK | Fast | Medium | MEDIUM |
-| Build Config | ⚠️ Mixed | Strict | Medium | MEDIUM |
-| Operations | ⚠️ Basic | Mature | Medium | MEDIUM |
+| Area          | Current  | Target    | Gap    | Priority |
+| ------------- | -------- | --------- | ------ | -------- |
+| Type Safety   | 40%      | 95%       | HIGH   | CRITICAL |
+| Test Coverage | 0%       | 70%       | HIGH   | CRITICAL |
+| Bundle Size   | 2,464 KB | 1,500 KB  | 964 KB | HIGH     |
+| Documentation | 5% JSDoc | 80% JSDoc | HIGH   | HIGH     |
+| Security      | ✅ Good  | Excellent | Low    | MEDIUM   |
+| Performance   | ⚠️ OK    | Fast      | Medium | MEDIUM   |
+| Build Config  | ⚠️ Mixed | Strict    | Medium | MEDIUM   |
+| Operations    | ⚠️ Basic | Mature    | Medium | MEDIUM   |
 
 ### 10.2 Recommended Roadmap
 
 **Week 1: Foundations**
+
 - Enable strict TypeScript
 - Fix build configuration
 - Fix npm vulnerabilities
@@ -1202,6 +1299,7 @@ Impact: Clearer architecture, easier navigation
 - Set up testing framework
 
 **Week 2-3: Quality**
+
 - Add 70% test coverage
 - Reduce bundle size
 - Consolidate configuration
@@ -1209,6 +1307,7 @@ Impact: Clearer architecture, easier navigation
 - Unify error handling
 
 **Week 4-5: Optimization**
+
 - Implement code splitting
 - Component memoization
 - Performance profiling
@@ -1216,6 +1315,7 @@ Impact: Clearer architecture, easier navigation
 - Route-based loading
 
 **Month 2+: Maturity**
+
 - E2E test suite
 - Developer onboarding
 - Architecture ADRs
@@ -1225,6 +1325,7 @@ Impact: Clearer architecture, easier navigation
 ### 10.3 Next Steps
 
 **Action 1 (Today):**
+
 ```bash
 # Enable strict TypeScript
 # Fix build config
@@ -1233,6 +1334,7 @@ git commit -m "fix: Enable strict TypeScript and fix build config"
 ```
 
 **Action 2 (Tomorrow):**
+
 ```bash
 # Fix markdown issues
 markdownlint --fix *.md docs/**/*.md
@@ -1240,6 +1342,7 @@ git commit -m "docs: Fix 168 markdown linting errors"
 ```
 
 **Action 3 (This Week):**
+
 ```bash
 # Set up testing
 npm install vitest @testing-library/react
@@ -1248,6 +1351,7 @@ npm install vitest @testing-library/react
 ```
 
 **Action 4 (Next Week):**
+
 ```bash
 # 70% test coverage
 # Bundle optimization
@@ -1259,18 +1363,22 @@ npm install vitest @testing-library/react
 ## Appendix: Reference Documents
 
 **Security:**
+
 - LANE1_SECURITY_REVIEW.md (authentication verified)
 - FINANZAS_AUTH_IMPLEMENTATION_SUMMARY.md (implementation docs)
 
 **Architecture:**
+
 - ARCHITECTURE_REVIEW_COMPREHENSIVE.md (50 issues)
 - CODE_ARCHITECTURE_BEST_PRACTICES.md (team standards)
 
 **Deployment:**
+
 - DEPLOYMENT_GUIDE.md (step-by-step)
 - AVP_DEPLOYMENT_AUTOMATION_GUIDE.md (automation)
 
 **Testing:**
+
 - TESTING_GUIDE.md (manual procedures)
 - tests/unit/avp.spec.ts (example tests)
 

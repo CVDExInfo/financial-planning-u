@@ -100,7 +100,6 @@ VITE_AWS_REGION=us-east-2
 VITE_APP_REGION=us-east-2
 
 # Feature Flags
-VITE_FINANZAS_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
 EOF
 
 pass "Created .env.test configuration file"
