@@ -13,9 +13,9 @@ const ALLOWED_ORIGIN =
 export const cors = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Credentials": "true",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Authorization, X-Requested-With",
+    "Authorization, Content-Type, X-Amz-Date, X-Amz-Security-Token, X-Requested-With",
 };
 
 /**

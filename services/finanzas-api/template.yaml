@@ -61,25 +61,6 @@ Globals:
         POLICY_STORE_ID: !Ref PolicyStoreId
         DOCS_BUCKET: !Ref DocsBucketName
         ALLOWED_ORIGIN: !Sub "https://${CloudFrontDomain}"
-  HttpApi:
-    CorsConfiguration:
-      AllowOrigins:
-        - !Sub "https://${CloudFrontDomain}"
-      AllowHeaders:
-        - authorization
-        - content-type
-        - x-requested-with
-        - x-amz-date
-        - x-api-key
-        - x-amz-security-token
-      AllowMethods:
-        - GET
-        - POST
-        - PUT
-        - DELETE
-        - OPTIONS
-      AllowCredentials: true
-      MaxAge: 86400
 
 Resources:
   # ========== DynamoDB tables ==========
@@ -226,6 +207,24 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: !Ref StageName
+      CorsConfiguration:
+        AllowOrigins:
+          - !Sub "https://${CloudFrontDomain}"
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+          - X-Amz-Date
+          - X-Amz-Security-Token
+          - X-Requested-With
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        AllowCredentials: true
+        MaxAge: 86400
       AccessLogSettings:
         DestinationArn: !GetAtt ApiAccessLogs.Arn
         # Simplified format per operational spec (master prompt)
