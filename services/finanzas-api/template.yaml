@@ -311,7 +311,7 @@ Resources:
           Fn::GetAtt:
           - ApiAccessLogs
           - Arn
-        Format: $context.requestId $context.identity.sourceIp $context.status $context.authorizer.error
+        Format: $context.requestId $context.identity.sourceIp $context.status $context.authorize
       Auth:
         Authorizers:
           CognitoJwt:
@@ -338,7 +338,7 @@ Resources:
         Target: node20
       SamResourceId: HealthFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/667ecc0bfdff3c58a4d5f0d2a5fac0fd
+      CodeUri: .
       Handler: health.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -366,7 +366,7 @@ Resources:
         Target: node18
       SamResourceId: ProjectsFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/a6439f939f6b4c91d84a4183c482904b
+      CodeUri: .
       Handler: projects.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -413,7 +413,7 @@ Resources:
         Target: node18
       SamResourceId: BaselineFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/9c9145863086782be1a80231b516ed01
+      CodeUri: .
       Handler: baseline.createBaseline
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -454,7 +454,7 @@ Resources:
         Target: node18
       SamResourceId: CatalogFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/b1bc39a4ec720daafb2ae0ea1baafc2f
+      CodeUri: .
       Handler: catalog.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -488,7 +488,7 @@ Resources:
         Target: node18
       SamResourceId: AllocationRulesGet
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/06f4eda31c158266effb371b3b9ee94c
+      CodeUri: .
       Handler: allocationRules.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -520,7 +520,7 @@ Resources:
         Target: node18
       SamResourceId: HandoffFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/509d77a60baf3a37db961280f3fb72a2
+      CodeUri: .
       Handler: handoff.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -572,7 +572,7 @@ Resources:
         Target: node20
       SamResourceId: UploadDocumentFunction
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/389642a5dad513b49b2c4707ec2c6e06
+      CodeUri: .
       Handler: uploadDocs.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -611,7 +611,7 @@ Resources:
         Target: node18
       SamResourceId: AlertsPep3Fn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/d8d9d8c1c0f92eab1268ddb5a5422a4a
+      CodeUri: .
       Handler: health.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -629,7 +629,7 @@ Resources:
         Target: node18
       SamResourceId: RubrosFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/4dc46747168e743b2eab83671ab2fcf0
+      CodeUri: .
       Handler: rubros.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -681,7 +681,7 @@ Resources:
         Target: node20
       SamResourceId: BillingFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/77e40cbdbc5f1a447f08552da3435b7f
+      CodeUri: .
       Handler: billing.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -712,7 +712,7 @@ Resources:
         Target: node18
       SamResourceId: AllocationsFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/10539bff4a4d746feee671810d13b6d0
+      CodeUri: .
       Handler: allocations.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -750,7 +750,7 @@ Resources:
         Target: node18
       SamResourceId: PlanFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/35a6d7f41a350d5be6dbfd9556576fec
+      CodeUri: .
       Handler: plan.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -790,7 +790,7 @@ Resources:
         Target: node18
       SamResourceId: PayrollFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/c2c39ffe7321ecf72199c8154c77275d
+      CodeUri: .
       Handler: payroll.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -821,7 +821,7 @@ Resources:
         Target: node18
       SamResourceId: CloseMonthFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/6d3289906fc6ad98857b57f12d8f04e1
+      CodeUri: .
       Handler: close-month.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -862,7 +862,7 @@ Resources:
         Target: node18
       SamResourceId: AdjustmentsFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/6f666657ecc3853358ebb1d405562ffc
+      CodeUri: .
       Handler: adjustments.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -909,7 +909,7 @@ Resources:
         Target: node18
       SamResourceId: AlertsFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/d08d3e65e3205cb21e7357403f4b7283
+      CodeUri: .
       Handler: alerts.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -940,7 +940,7 @@ Resources:
         Target: node18
       SamResourceId: ProvidersFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/843f00ccf8ff204bb04c5c84b9c285df
+      CodeUri: .
       Handler: providers.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -980,7 +980,7 @@ Resources:
         Target: node20
       SamResourceId: ForecastFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/dd15a143b18962af7b179a5470cd6672
+      CodeUri: .
       Handler: forecast.handler
       Policies:
       - AWSLambdaBasicExecutionRole
@@ -1008,7 +1008,7 @@ Resources:
         Target: node20
       SamResourceId: PrefacturasFn
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-camiblsrpaa3/db8b6f0862321b53271e953555eafaae
+      CodeUri: .
       Handler: prefacturas.handler
       Policies:
       - AWSLambdaBasicExecutionRole
