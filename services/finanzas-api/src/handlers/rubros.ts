@@ -1,5 +1,6 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureCanWrite, ensureCanRead, getUserEmail } from "../lib/auth";
+import { ok, bad, serverError } from "../lib/http";
 import {
   ddb,
   tableName,
@@ -201,11 +202,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     } else if (method === "DELETE") {
       return await detachRubro(event);
     } else {
-      return {
-        statusCode: 405,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "Method not allowed" }),
-      };
+      return bad("Method not allowed", 405);
     }
   } catch (err: unknown) {
     // Handle auth errors

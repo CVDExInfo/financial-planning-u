@@ -322,9 +322,10 @@ if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "false" ]; then
         echo "   Access-Control-Allow-Methods: $ALLOW_METHODS"
       fi
     else
-      echo -e "${YELLOW}⚠️  OPTIONS GET preflight did not return 200${NC}"
-      echo "   Some APIs may not respond to OPTIONS requests"
-      WARNINGS=$((WARNINGS + 1))
+      echo -e "${RED}❌ CORS preflight for /line-items GET failed${NC}"
+      echo "   Expected: HTTP 200 with CORS headers"
+      echo "   This is a critical error - browsers will block requests without proper preflight responses"
+      ERRORS=$((ERRORS + 1))
     fi
     echo ""
     
