@@ -285,9 +285,225 @@ else
 fi
 
 # ============================================================================
-# SECTION 4: Build Environment File Validation
+# SECTION 4: CORS Preflight Tests for Protected Endpoints
 # ============================================================================
-echo -e "${BLUE}📍 Section 4: Build Environment File Validation${NC}"
+echo -e "${BLUE}📍 Section 4: CORS Preflight Tests${NC}"
+echo "────────────────────────────────────────────────────────────────"
+echo ""
+
+if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "false" ]; then
+  CURL_BIN="$(command -v curl 2>/dev/null || true)"
+  if [ -n "$CURL_BIN" ]; then
+    TEST_PROJECT_ID="TEST"
+    LINE_ITEMS_URL="${VITE_API_BASE_URL}/line-items?project_id=${TEST_PROJECT_ID}"
+    ORIGIN="${CLOUDFRONT_DOMAIN:-https://d7t9x3j66yd8k.cloudfront.net}"
+    
+    echo "Testing CORS preflight for /line-items endpoint"
+    echo "Origin: $ORIGIN"
+    echo ""
+    
+    # Test OPTIONS for GET
+    echo "Test 1: OPTIONS preflight for GET"
+    OPTIONS_GET_RESPONSE=$($CURL_BIN -sS -i \
+      -X OPTIONS \
+      -H "Origin: $ORIGIN" \
+      -H "Access-Control-Request-Method: GET" \
+      -H "Access-Control-Request-Headers: authorization,content-type" \
+      "$LINE_ITEMS_URL" 2>/dev/null || echo "")
+    
+    if echo "$OPTIONS_GET_RESPONSE" | grep -qi "HTTP/[12].[01] 200"; then
+      echo -e "${GREEN}✅ OPTIONS GET preflight → HTTP 200${NC}"
+      if echo "$OPTIONS_GET_RESPONSE" | grep -qi "Access-Control-Allow-Origin"; then
+        ALLOW_ORIGIN=$(echo "$OPTIONS_GET_RESPONSE" | grep -i "Access-Control-Allow-Origin" | cut -d' ' -f2- | tr -d '\r\n' | head -1)
+        echo "   Access-Control-Allow-Origin: $ALLOW_ORIGIN"
+      fi
+      if echo "$OPTIONS_GET_RESPONSE" | grep -qi "Access-Control-Allow-Methods"; then
+        ALLOW_METHODS=$(echo "$OPTIONS_GET_RESPONSE" | grep -i "Access-Control-Allow-Methods" | cut -d' ' -f2- | tr -d '\r\n' | head -1)
+        echo "   Access-Control-Allow-Methods: $ALLOW_METHODS"
+      fi
+    else
+      echo -e "${YELLOW}⚠️  OPTIONS GET preflight did not return 200${NC}"
+      echo "   Some APIs may not respond to OPTIONS requests"
+      WARNINGS=$((WARNINGS + 1))
+    fi
+    echo ""
+    
+    # Test OPTIONS for POST
+    echo "Test 2: OPTIONS preflight for POST"
+    OPTIONS_POST_RESPONSE=$($CURL_BIN -sS -i \
+      -X OPTIONS \
+      -H "Origin: $ORIGIN" \
+      -H "Access-Control-Request-Method: POST" \
+      -H "Access-Control-Request-Headers: authorization,content-type" \
+      "$LINE_ITEMS_URL" 2>/dev/null || echo "")
+    
+    if echo "$OPTIONS_POST_RESPONSE" | grep -qi "HTTP/[12].[01] 200"; then
+      echo -e "${GREEN}✅ OPTIONS POST preflight → HTTP 200${NC}"
+    else
+      echo -e "${YELLOW}⚠️  OPTIONS POST preflight did not return 200${NC}"
+      WARNINGS=$((WARNINGS + 1))
+    fi
+    echo ""
+    
+    # Test OPTIONS for PUT
+    echo "Test 3: OPTIONS preflight for PUT"
+    OPTIONS_PUT_RESPONSE=$($CURL_BIN -sS -i \
+      -X OPTIONS \
+      -H "Origin: $ORIGIN" \
+      -H "Access-Control-Request-Method: PUT" \
+      -H "Access-Control-Request-Headers: authorization,content-type" \
+      "$LINE_ITEMS_URL" 2>/dev/null || echo "")
+    
+    if echo "$OPTIONS_PUT_RESPONSE" | grep -qi "HTTP/[12].[01] 200"; then
+      echo -e "${GREEN}✅ OPTIONS PUT preflight → HTTP 200${NC}"
+    else
+      echo -e "${YELLOW}⚠️  OPTIONS PUT preflight did not return 200${NC}"
+      WARNINGS=$((WARNINGS + 1))
+    fi
+    echo ""
+    
+    # Test OPTIONS for DELETE
+    echo "Test 4: OPTIONS preflight for DELETE"
+    OPTIONS_DELETE_RESPONSE=$($CURL_BIN -sS -i \
+      -X OPTIONS \
+      -H "Origin: $ORIGIN" \
+      -H "Access-Control-Request-Method: DELETE" \
+      -H "Access-Control-Request-Headers: authorization,content-type" \
+      "$LINE_ITEMS_URL" 2>/dev/null || echo "")
+    
+    if echo "$OPTIONS_DELETE_RESPONSE" | grep -qi "HTTP/[12].[01] 200"; then
+      echo -e "${GREEN}✅ OPTIONS DELETE preflight → HTTP 200${NC}"
+    else
+      echo -e "${YELLOW}⚠️  OPTIONS DELETE preflight did not return 200${NC}"
+      WARNINGS=$((WARNINGS + 1))
+    fi
+  else
+    echo -e "${YELLOW}⚠️  curl not available, skipping CORS preflight tests${NC}"
+    WARNINGS=$((WARNINGS + 1))
+  fi
+else
+  echo -e "${YELLOW}⚠️  Skipping CORS preflight tests (SKIP_CONNECTIVITY_CHECK=true)${NC}"
+fi
+
+echo ""
+
+# ============================================================================
+# SECTION 5: Cognito JWT Authentication Flow
+# ============================================================================
+echo -e "${BLUE}📍 Section 5: Cognito JWT Authentication Flow${NC}"
+echo "────────────────────────────────────────────────────────────────"
+echo ""
+
+if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "false" ]; then
+  # Check if USERNAME and PASSWORD are set
+  if [ -n "${USERNAME:-}" ] && [ -n "${PASSWORD:-}" ]; then
+    echo "Testing protected endpoint with Cognito JWT authentication..."
+    echo ""
+    
+    CURL_BIN="$(command -v curl 2>/dev/null || true)"
+    JQ_BIN="$(command -v jq 2>/dev/null || true)"
+    
+    if [ -n "$CURL_BIN" ] && [ -n "$JQ_BIN" ]; then
+      # Extract region and user pool ID from API base URL or use defaults
+      # This is a simplified approach - in production, these should be passed as env vars
+      AWS_REGION_FOR_COGNITO="${AWS_REGION:-us-east-2}"
+      
+      # Note: For a complete implementation, we would need COGNITO_USER_POOL_ID and COGNITO_CLIENT_ID
+      # Since these aren't specified in the problem statement, we'll attempt a generic approach
+      # that checks if we can at least attempt authentication
+      
+      if [ -n "${COGNITO_USER_POOL_ID:-}" ] && [ -n "${COGNITO_CLIENT_ID:-}" ]; then
+        echo "Attempting Cognito authentication..."
+        
+        # Cognito authentication endpoint
+        COGNITO_AUTH_URL="https://cognito-idp.${AWS_REGION_FOR_COGNITO}.amazonaws.com/"
+        
+        # Create authentication request payload
+        AUTH_PAYLOAD=$(cat <<EOF
+{
+  "AuthParameters": {
+    "USERNAME": "${USERNAME}",
+    "PASSWORD": "${PASSWORD}"
+  },
+  "AuthFlow": "USER_PASSWORD_AUTH",
+  "ClientId": "${COGNITO_CLIENT_ID}"
+}
+EOF
+)
+        
+        # Attempt authentication
+        AUTH_RESPONSE=$($CURL_BIN -sS -X POST \
+          -H "Content-Type: application/x-amz-json-1.1" \
+          -H "X-Amz-Target: AWSCognitoIdentityProviderService.InitiateAuth" \
+          -d "$AUTH_PAYLOAD" \
+          "$COGNITO_AUTH_URL" 2>/dev/null || echo "{}")
+        
+        # Extract ID token
+        ID_TOKEN=$(echo "$AUTH_RESPONSE" | $JQ_BIN -r '.AuthenticationResult.IdToken // empty' 2>/dev/null || echo "")
+        
+        if [ -n "$ID_TOKEN" ]; then
+          echo -e "${GREEN}✅ Cognito authentication successful${NC}"
+          echo "   ID Token obtained (length: ${#ID_TOKEN})"
+          echo ""
+          
+          # Test protected endpoint with JWT
+          echo "Testing protected /line-items endpoint with JWT..."
+          LINE_ITEMS_URL="${VITE_API_BASE_URL}/line-items?project_id=TEST"
+          
+          PROTECTED_RESPONSE=$($CURL_BIN -sS -i \
+            -H "Authorization: Bearer ${ID_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "$LINE_ITEMS_URL" 2>/dev/null || echo "")
+          
+          # Check response code
+          if echo "$PROTECTED_RESPONSE" | grep -q "HTTP/[12].[01] 200"; then
+            echo -e "${GREEN}✅ Protected endpoint accessible with JWT → HTTP 200${NC}"
+            
+            # Verify CORS headers are present
+            if echo "$PROTECTED_RESPONSE" | grep -qi "Access-Control-Allow-Origin"; then
+              CORS_ORIGIN=$(echo "$PROTECTED_RESPONSE" | grep -i "Access-Control-Allow-Origin" | cut -d' ' -f2- | tr -d '\r\n' | head -1)
+              echo -e "${GREEN}✅ CORS headers present in protected endpoint response${NC}"
+              echo "   Access-Control-Allow-Origin: $CORS_ORIGIN"
+            else
+              echo -e "${YELLOW}⚠️  CORS headers not found in protected endpoint response${NC}"
+              WARNINGS=$((WARNINGS + 1))
+            fi
+          else
+            HTTP_STATUS=$(echo "$PROTECTED_RESPONSE" | grep -o "HTTP/[12].[01] [0-9]*" | grep -o "[0-9]*$" | head -1)
+            echo -e "${YELLOW}⚠️  Protected endpoint returned HTTP ${HTTP_STATUS:-unknown}${NC}"
+            WARNINGS=$((WARNINGS + 1))
+          fi
+        else
+          echo -e "${YELLOW}⚠️  Cognito authentication failed or returned no token${NC}"
+          echo "   This is acceptable if authentication is not configured yet"
+          WARNINGS=$((WARNINGS + 1))
+        fi
+      else
+        echo -e "${BLUE}ℹ️  Skipping Cognito JWT test - COGNITO_USER_POOL_ID or COGNITO_CLIENT_ID not set${NC}"
+        echo "   To enable this test, set the following environment variables:"
+        echo "   - COGNITO_USER_POOL_ID"
+        echo "   - COGNITO_CLIENT_ID"
+        echo "   - USERNAME (from secrets)"
+        echo "   - PASSWORD (from secrets)"
+      fi
+    else
+      echo -e "${YELLOW}⚠️  curl or jq not available, skipping JWT authentication test${NC}"
+      WARNINGS=$((WARNINGS + 1))
+    fi
+  else
+    echo -e "${BLUE}ℹ️  Skipping JWT authentication test - USERNAME or PASSWORD not set${NC}"
+    echo "   To enable this test, set USERNAME and PASSWORD in repository secrets"
+  fi
+else
+  echo -e "${YELLOW}⚠️  Skipping JWT authentication test (SKIP_CONNECTIVITY_CHECK=true)${NC}"
+fi
+
+echo ""
+
+# ============================================================================
+# SECTION 6: Build Environment File Validation
+# ============================================================================
+echo -e "${BLUE}📍 Section 6: Build Environment File Validation${NC}"
 echo "────────────────────────────────────────────────────────────────"
 echo ""
 
@@ -323,7 +539,7 @@ fi
 echo ""
 
 # ============================================================================
-# SECTION 5: Summary and Recommendations
+# SECTION 7: Summary and Recommendations
 # ============================================================================
 echo "╔════════════════════════════════════════════════════════════════╗"
 echo "║                    Validation Summary                          ║"

@@ -88,9 +88,92 @@ fi
 echo ""
 
 # ============================================================================
-# SECTION 2: Static Asset Loading
+# SECTION 2: Auth Callback Verification
 # ============================================================================
-echo -e "${BLUE}📍 Section 2: Static Asset Loading${NC}"
+echo -e "${BLUE}📍 Section 2: Auth Callback Verification${NC}"
+echo "────────────────────────────────────────────────────────────────"
+echo ""
+
+AUTH_CALLBACK_URL="https://${CLOUDFRONT_DOMAIN}/finanzas/auth/callback.html"
+echo "Testing: $AUTH_CALLBACK_URL"
+AUTH_CODE=$(curl -sS -o /tmp/auth_callback.html -w '%{http_code}' \
+  --connect-timeout 10 \
+  --max-time 30 \
+  "$AUTH_CALLBACK_URL" 2>/dev/null || echo "000")
+
+if [ "$AUTH_CODE" = "200" ]; then
+  echo -e "${GREEN}✅ Auth callback accessible (HTTP $AUTH_CODE)${NC}"
+else
+  echo -e "${YELLOW}⚠️  Auth callback not accessible (HTTP $AUTH_CODE)${NC}"
+  echo "   This is acceptable if authentication callback is not yet deployed"
+  WARNINGS=$((WARNINGS + 1))
+fi
+
+echo ""
+
+# ============================================================================
+# SECTION 3: Nested SPA Routes Verification
+# ============================================================================
+echo -e "${BLUE}📍 Section 3: Nested SPA Routes Verification${NC}"
+echo "────────────────────────────────────────────────────────────────"
+echo ""
+
+echo "Testing nested SPA routes under /finanzas/..."
+echo ""
+
+# Test multiple nested routes to ensure SPA routing works
+NESTED_ROUTES=(
+  "/finanzas/sdmt"
+  "/finanzas/sdmt/cost"
+  "/finanzas/sdmt/cost/forecast"
+  "/finanzas/budget"
+  "/finanzas/catalog"
+)
+
+NESTED_SUCCESS=0
+NESTED_TESTED=0
+
+for ROUTE in "${NESTED_ROUTES[@]}"; do
+  NESTED_TESTED=$((NESTED_TESTED + 1))
+  ROUTE_URL="https://${CLOUDFRONT_DOMAIN}${ROUTE}"
+  
+  ROUTE_CODE=$(curl -sS -o /tmp/nested_route_${NESTED_TESTED}.html -w '%{http_code}' \
+    --connect-timeout 10 \
+    --max-time 30 \
+    "$ROUTE_URL" 2>/dev/null || echo "000")
+  
+  if [ "$ROUTE_CODE" = "200" ]; then
+    # Verify it's a valid SPA response (contains /finanzas/assets/)
+    if [ -f "/tmp/nested_route_${NESTED_TESTED}.html" ]; then
+      if grep -q "/finanzas/assets/" "/tmp/nested_route_${NESTED_TESTED}.html"; then
+        echo -e "${GREEN}✅ ${ROUTE} → HTTP 200 (valid SPA content)${NC}"
+        NESTED_SUCCESS=$((NESTED_SUCCESS + 1))
+      else
+        echo -e "${YELLOW}⚠️  ${ROUTE} → HTTP 200 (but missing SPA markers)${NC}"
+        WARNINGS=$((WARNINGS + 1))
+      fi
+    fi
+  else
+    echo -e "${YELLOW}⚠️  ${ROUTE} → HTTP ${ROUTE_CODE}${NC}"
+  fi
+done
+
+echo ""
+
+if [ $NESTED_SUCCESS -gt 0 ]; then
+  echo -e "${GREEN}✅ Nested SPA routing verified (${NESTED_SUCCESS}/${NESTED_TESTED} routes working)${NC}"
+else
+  echo -e "${RED}❌ No nested SPA routes working${NC}"
+  echo "   CloudFront may not be configured for SPA routing"
+  ERRORS=$((ERRORS + 1))
+fi
+
+echo ""
+
+# ============================================================================
+# SECTION 4: Static Asset Loading
+# ============================================================================
+echo -e "${BLUE}📍 Section 4: Static Asset Loading${NC}"
 echo "────────────────────────────────────────────────────────────────"
 echo ""
 
@@ -133,9 +216,9 @@ fi
 echo ""
 
 # ============================================================================
-# SECTION 3: API Endpoint Verification
+# SECTION 5: API Endpoint Verification
 # ============================================================================
-echo -e "${BLUE}📍 Section 3: API Endpoint Verification${NC}"
+echo -e "${BLUE}📍 Section 5: API Endpoint Verification${NC}"
 echo "────────────────────────────────────────────────────────────────"
 echo ""
 
@@ -190,9 +273,9 @@ fi
 echo ""
 
 # ============================================================================
-# SECTION 4: End-to-End Connectivity Test
+# SECTION 6: End-to-End Connectivity Test
 # ============================================================================
-echo -e "${BLUE}📍 Section 4: End-to-End Connectivity${NC}"
+echo -e "${BLUE}📍 Section 6: End-to-End Connectivity${NC}"
 echo "────────────────────────────────────────────────────────────────"
 echo ""
 
@@ -237,10 +320,10 @@ fi
 echo ""
 
 # ============================================================================
-# SECTION 5: Optional S3 Bucket Verification
+# SECTION 7: Optional S3 Bucket Verification
 # ============================================================================
 if [ -n "${S3_BUCKET:-}" ]; then
-  echo -e "${BLUE}📍 Section 5: S3 Bucket Verification${NC}"
+  echo -e "${BLUE}📍 Section 7: S3 Bucket Verification${NC}"
   echo "────────────────────────────────────────────────────────────────"
   echo ""
   
@@ -311,7 +394,7 @@ fi
 
 # Cleanup
 if command -v rm >/dev/null 2>&1; then
-  rm -f /tmp/finanzas_ui.html /tmp/api_health.json /tmp/api_rubros.json /tmp/main_bundle.js 2>/dev/null || true
+  rm -f /tmp/finanzas_ui.html /tmp/auth_callback.html /tmp/nested_route_*.html /tmp/api_health.json /tmp/api_rubros.json /tmp/main_bundle.js 2>/dev/null || true
 fi
 
 exit 0
