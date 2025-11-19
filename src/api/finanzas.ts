@@ -96,7 +96,12 @@ async function sha256(file: File): Promise<string> {
 }
 
 // ---------- Presign + S3 upload ----------
-type UploadModule = "prefactura" | "catalog" | "reconciliation";
+export type UploadModule =
+  | "prefactura"
+  | "catalog"
+  | "reconciliation"
+  | "changes";
+export type UploadStage = "presigning" | "uploading" | "complete";
 type PresignResponse = {
   uploadUrl: string;
   objectKey: string;
@@ -193,6 +198,7 @@ export type UploadSupportingDocPayload = {
   module?: UploadModule;
   file: File;
   lineItemId?: string;
+  invoiceNumber?: string;
 };
 
 export type UploadSupportingDocResult = {
@@ -201,21 +207,30 @@ export type UploadSupportingDocResult = {
   contentType: string;
 };
 
+export type UploadSupportingDocOptions = {
+  onStageChange?: (stage: UploadStage) => void;
+};
+
 export async function uploadSupportingDocument(
-  payload: UploadSupportingDocPayload
+  payload: UploadSupportingDocPayload,
+  options?: UploadSupportingDocOptions
 ): Promise<UploadSupportingDocResult> {
   if (!payload.projectId) throw new Error("projectId is required");
   if (!payload.file) throw new Error("file is required");
 
   const moduleName = payload.module ?? "prefactura";
+  options?.onStageChange?.("presigning");
   const presign = await presignUpload({
     projectId: payload.projectId,
     file: payload.file,
     module: moduleName,
     lineItemId: payload.lineItemId,
+    invoiceNumber: payload.invoiceNumber,
   });
 
+  options?.onStageChange?.("uploading");
   await uploadFileWithPresign(payload.file, presign);
+  options?.onStageChange?.("complete");
 
   return {
     documentKey: presign.objectKey,

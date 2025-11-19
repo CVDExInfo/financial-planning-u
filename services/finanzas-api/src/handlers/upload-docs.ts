@@ -8,7 +8,12 @@ import { ddb, PutCommand, tableName } from "../lib/dynamo";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-2" });
 const DOCS_BUCKET = process.env.DOCS_BUCKET;
-const ALLOWED_MODULES = new Set(["prefactura", "catalog", "reconciliation"]);
+const ALLOWED_MODULES = new Set([
+  "prefactura",
+  "catalog",
+  "reconciliation",
+  "changes",
+]);
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
@@ -46,7 +51,9 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return bad("projectId is required");
     }
     if (!moduleName || !ALLOWED_MODULES.has(moduleName)) {
-      return bad("module must be one of prefactura, catalog, reconciliation");
+      return bad(
+        "module must be one of prefactura, catalog, reconciliation, changes"
+      );
     }
     if (!contentType) {
       return bad("contentType is required");

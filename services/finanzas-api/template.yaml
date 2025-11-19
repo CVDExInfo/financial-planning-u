@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: "2010-09-09"
+AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Finanzas SD API (HTTP API + Cognito JWT + DynamoDB + EventBridge)
 
@@ -26,41 +26,43 @@ Parameters:
     Default: finz_
   SkipAuth:
     Type: String
-    Default: "false"
+    Default: 'false'
   CloudFrontDomain:
     Type: String
     Default: d7t9x3j66yd8k.cloudfront.net
     Description: CloudFront domain used for Finanzas UI (no protocol)
   PolicyStoreId:
     Type: String
-    Default: ""
-    Description: Amazon Verified Permissions Policy Store ID (optional, for fine-grained authorization)
+    Default: ''
+    Description: Amazon Verified Permissions Policy Store ID (optional, for
+      fine-grained authorization)
 
 Globals:
   Function:
     Runtime: nodejs20.x
     Timeout: 15
     MemorySize: 256
-    Architectures: [x86_64]
+    Architectures:
+      - x86_64
     Tracing: Active
     Environment:
       Variables:
-        NODE_OPTIONS: --enable-source-maps
-        TABLE_PROJECTS: !Sub "${TablePrefix}projects"
-        TABLE_RUBROS: !Sub "${TablePrefix}rubros"
-        TABLE_RUBROS_TAXONOMIA: !Sub "${TablePrefix}rubros_taxonomia"
-        TABLE_ALLOC: !Sub "${TablePrefix}allocations"
-        TABLE_PAYROLL: !Sub "${TablePrefix}payroll_actuals"
-        TABLE_ADJ: !Sub "${TablePrefix}adjustments"
-        TABLE_ALERTS: !Sub "${TablePrefix}alerts"
-        TABLE_PROVIDERS: !Sub "${TablePrefix}providers"
-        TABLE_AUDIT: !Sub "${TablePrefix}audit_log"
-        TABLE_DOCS: !Sub "${TablePrefix}docs"
-        TABLE_PREFACTURAS: !Sub "${TablePrefix}prefacturas"
+        NODE_OPTIONS: '--enable-source-maps'
+        TABLE_PROJECTS: !Sub ${TablePrefix}projects
+        TABLE_RUBROS: !Sub ${TablePrefix}rubros
+        TABLE_RUBROS_TAXONOMIA: !Sub ${TablePrefix}rubros_taxonomia
+        TABLE_ALLOC: !Sub ${TablePrefix}allocations
+        TABLE_PAYROLL: !Sub ${TablePrefix}payroll_actuals
+        TABLE_ADJ: !Sub ${TablePrefix}adjustments
+        TABLE_ALERTS: !Sub ${TablePrefix}alerts
+        TABLE_PROVIDERS: !Sub ${TablePrefix}providers
+        TABLE_AUDIT: !Sub ${TablePrefix}audit_log
+        TABLE_DOCS: !Sub ${TablePrefix}docs
+        TABLE_PREFACTURAS: !Sub ${TablePrefix}prefacturas
         STAGE_NAME: !Ref StageName
         POLICY_STORE_ID: !Ref PolicyStoreId
         DOCS_BUCKET: !Ref DocsBucketName
-        ALLOWED_ORIGIN: !Sub "https://${CloudFrontDomain}"
+        ALLOWED_ORIGIN: !Sub https://${CloudFrontDomain}
 
 Resources:
   # ========== DynamoDB tables ==========
@@ -68,139 +70,183 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       # Dedicated access log group for HTTP API authorizer/integration diagnostics
-      LogGroupName: !Sub "/aws/http-api/${StageName}/finz-access"
+      LogGroupName: !Sub /aws/http-api/${StageName}/finz-access
       RetentionInDays: 14
   ProjectsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${TablePrefix}projects"
+      TableName: !Sub ${TablePrefix}projects
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - { AttributeName: pk, AttributeType: S }
-        - { AttributeName: sk, AttributeType: S }
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
       KeySchema:
-        - { AttributeName: pk, KeyType: HASH }
-        - { AttributeName: sk, KeyType: RANGE }
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
 
   RubrosTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${TablePrefix}rubros"
+      TableName: !Sub ${TablePrefix}rubros
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - { AttributeName: pk, AttributeType: S }
-        - { AttributeName: sk, AttributeType: S }
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
       KeySchema:
-        - { AttributeName: pk, KeyType: HASH }
-        - { AttributeName: sk, KeyType: RANGE }
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
 
   RubrosTaxonomiaTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${TablePrefix}rubros_taxonomia"
+      TableName: !Sub ${TablePrefix}rubros_taxonomia
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - { AttributeName: pk, AttributeType: S }
-        - { AttributeName: sk, AttributeType: S }
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
       KeySchema:
-        - { AttributeName: pk, KeyType: HASH }
-        - { AttributeName: sk, KeyType: RANGE }
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
 
   AllocationsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${TablePrefix}allocations"
+      TableName: !Sub ${TablePrefix}allocations
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - { AttributeName: pk, AttributeType: S }
-        - { AttributeName: sk, AttributeType: S }
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
       KeySchema:
-        - { AttributeName: pk, KeyType: HASH }
-        - { AttributeName: sk, KeyType: RANGE }
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
 
   PayrollTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${TablePrefix}payroll_actuals"
+      TableName: !Sub ${TablePrefix}payroll_actuals
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - { AttributeName: pk, AttributeType: S }
-        - { AttributeName: sk, AttributeType: S }
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
       KeySchema:
-        - { AttributeName: pk, KeyType: HASH }
-        - { AttributeName: sk, KeyType: RANGE }
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
 
   AdjustmentsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${TablePrefix}adjustments"
+      TableName: !Sub ${TablePrefix}adjustments
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - { AttributeName: pk, AttributeType: S }
-        - { AttributeName: sk, AttributeType: S }
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
       KeySchema:
-        - { AttributeName: pk, KeyType: HASH }
-        - { AttributeName: sk, KeyType: RANGE }
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
 
   AlertsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${TablePrefix}alerts"
+      TableName: !Sub ${TablePrefix}alerts
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - { AttributeName: pk, AttributeType: S }
-        - { AttributeName: sk, AttributeType: S }
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
       KeySchema:
-        - { AttributeName: pk, KeyType: HASH }
-        - { AttributeName: sk, KeyType: RANGE }
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
 
   ProvidersTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${TablePrefix}providers"
+      TableName: !Sub ${TablePrefix}providers
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - { AttributeName: pk, AttributeType: S }
-        - { AttributeName: sk, AttributeType: S }
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
       KeySchema:
-        - { AttributeName: pk, KeyType: HASH }
-        - { AttributeName: sk, KeyType: RANGE }
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
 
   AuditTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${TablePrefix}audit_log"
+      TableName: !Sub ${TablePrefix}audit_log
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - { AttributeName: pk, AttributeType: S }
-        - { AttributeName: sk, AttributeType: S }
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
       KeySchema:
-        - { AttributeName: pk, KeyType: HASH }
-        - { AttributeName: sk, KeyType: RANGE }
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
 
   DocsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${TablePrefix}docs"
+      TableName: !Sub ${TablePrefix}docs
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - { AttributeName: pk, AttributeType: S }
-        - { AttributeName: sk, AttributeType: S }
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
       KeySchema:
-        - { AttributeName: pk, KeyType: HASH }
-        - { AttributeName: sk, KeyType: RANGE }
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
 
   PrefacturasTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${TablePrefix}prefacturas"
+      TableName: !Sub ${TablePrefix}prefacturas
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - { AttributeName: pk, AttributeType: S }
-        - { AttributeName: sk, AttributeType: S }
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
       KeySchema:
-        - { AttributeName: pk, KeyType: HASH }
-        - { AttributeName: sk, KeyType: RANGE }
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
 
   # ========== HTTP API with Cognito JWT ==========
   Api:
@@ -209,7 +255,7 @@ Resources:
       StageName: !Ref StageName
       CorsConfiguration:
         AllowOrigins:
-          - !Sub "https://${CloudFrontDomain}"
+          - !Sub https://${CloudFrontDomain}
         AllowHeaders:
           - Authorization
           - Content-Type
@@ -228,7 +274,8 @@ Resources:
       AccessLogSettings:
         DestinationArn: !GetAtt ApiAccessLogs.Arn
         # Simplified format per operational spec (master prompt)
-        Format: "$context.requestId $context.identity.sourceIp $context.status $context.authorizer.error"
+        Format: $context.requestId $context.identity.sourceIp $context.status
+          $context.authorizer.error
       Auth:
         Authorizers:
           CognitoJwt:
@@ -236,7 +283,7 @@ Resources:
               Audience:
                 - !Ref CognitoUserPoolClientId
               Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
-            IdentitySource: "$request.header.Authorization"
+            IdentitySource: $request.header.Authorization
         DefaultAuthorizer: CognitoJwt
 
   # Note: Serverless::HttpApi with StageName will create and manage the stage automatically.
@@ -293,7 +340,7 @@ Resources:
               Effect: Allow
               Action:
                 - verifiedpermissions:IsAuthorizedWithToken
-              Resource: !Sub "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*"
+              Resource: !Sub arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
       Events:
         CreateProject:
           Type: HttpApi
@@ -435,7 +482,7 @@ Resources:
         CreateHandoff:
           Type: HttpApi
           Properties:
-            Path: "/projects/{projectId}/handoff"
+            Path: /projects/{projectId}/handoff
             Method: POST
             ApiId: !Ref Api
             Auth:
@@ -443,7 +490,7 @@ Resources:
         GetHandoff:
           Type: HttpApi
           Properties:
-            Path: "/projects/{projectId}/handoff"
+            Path: /projects/{projectId}/handoff
             Method: GET
             ApiId: !Ref Api
             Auth:
@@ -451,7 +498,7 @@ Resources:
         UpdateHandoff:
           Type: HttpApi
           Properties:
-            Path: "/handoff/{handoffId}"
+            Path: /handoff/{handoffId}
             Method: PUT
             ApiId: !Ref Api
             Auth:
@@ -482,7 +529,7 @@ Resources:
                 - s3:PutObject
                 - s3:PutObjectAcl
                 - s3:GetObject
-              Resource: !Sub "arn:aws:s3:::${DocsBucketName}/*"
+              Resource: !Sub arn:aws:s3:::${DocsBucketName}/*
       Events:
         RequestUploadUrl:
           Type: HttpApi
@@ -539,7 +586,7 @@ Resources:
         AttachRubro:
           Type: HttpApi
           Properties:
-            Path: "/projects/{projectId}/rubros"
+            Path: /projects/{projectId}/rubros
             Method: POST
             ApiId: !Ref Api
             Auth:
@@ -547,7 +594,7 @@ Resources:
         ListRubros:
           Type: HttpApi
           Properties:
-            Path: "/projects/{projectId}/rubros"
+            Path: /projects/{projectId}/rubros
             Method: GET
             ApiId: !Ref Api
             Auth:
@@ -555,7 +602,7 @@ Resources:
         DetachRubro:
           Type: HttpApi
           Properties:
-            Path: "/projects/{projectId}/rubros/{rubroId}"
+            Path: /projects/{projectId}/rubros/{rubroId}
             Method: DELETE
             ApiId: !Ref Api
             Auth:
@@ -585,12 +632,12 @@ Resources:
               Effect: Allow
               Action:
                 - verifiedpermissions:IsAuthorizedWithToken
-              Resource: !Sub "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*"
+              Resource: !Sub arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
       Events:
         BulkAllocations:
           Type: HttpApi
           Properties:
-            Path: "/projects/{id}/allocations:bulk"
+            Path: /projects/{id}/allocations:bulk
             Method: PUT
             ApiId: !Ref Api
             Auth:
@@ -625,7 +672,7 @@ Resources:
         GetPlan:
           Type: HttpApi
           Properties:
-            Path: "/projects/{id}/plan"
+            Path: /projects/{id}/plan
             Method: GET
             ApiId: !Ref Api
             Auth:
@@ -686,7 +733,7 @@ Resources:
               Effect: Allow
               Action:
                 - verifiedpermissions:IsAuthorizedWithToken
-              Resource: !Sub "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*"
+              Resource: !Sub arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
       Events:
         CloseMonth:
           Type: HttpApi
@@ -721,7 +768,7 @@ Resources:
               Effect: Allow
               Action:
                 - verifiedpermissions:IsAuthorizedWithToken
-              Resource: !Sub "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*"
+              Resource: !Sub arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
       Events:
         CreateAdjustment:
           Type: HttpApi
@@ -889,9 +936,9 @@ Outputs:
     Description: HTTP API ID
     Value: !Ref Api
     Export:
-      Name: !Sub "finz-api-id-${StageName}"
+      Name: !Sub finz-api-id-${StageName}
   FinzApiUrl:
     Description: HTTP API URL
     Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
     Export:
-      Name: !Sub "finz-api-url-${StageName}"
+      Name: !Sub finz-api-url-${StageName}
