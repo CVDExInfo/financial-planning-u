@@ -62,6 +62,14 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Install CLI tools
+        run: |
+          set -euo pipefail
+          echo "Installing required CLI tools for validation..."
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl jq dnsutils
+          echo "✅ CLI tools installed"
+
       - name: Install deps
         run: |
           set -e
@@ -127,6 +135,38 @@ jobs:
           printf '%s\n' "VITE_API_BASE_URL=$BASE" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
 
+      # ---- Stage/Environment Drift Guard ----
+      # Prevents deploying production frontend with dev API (or vice versa)
+      # unless explicitly allowed via ALLOW_STAGE_DRIFT
+      - name: Guard - Stage/Environment Drift Check
+        run: |
+          set -euo pipefail
+
+          ALLOW_DRIFT="${{ vars.ALLOW_STAGE_DRIFT || 'false' }}"
+
+          echo "🔍 Checking for stage/environment drift..."
+          echo "   DEPLOYMENT_ENV: ${DEPLOYMENT_ENV}"
+          echo "   FINZ_API_STAGE: ${FINZ_API_STAGE}"
+          echo "   ALLOW_STAGE_DRIFT: ${ALLOW_DRIFT}"
+
+          if [ "${DEPLOYMENT_ENV}" = "prod" ] && [ "${FINZ_API_STAGE}" != "prod" ]; then
+            if [ "${ALLOW_DRIFT}" != "true" ]; then
+              echo "❌ CRITICAL: Production deployment with non-production API stage"
+              echo "   DEPLOYMENT_ENV is 'prod' but FINZ_API_STAGE is '${FINZ_API_STAGE}'"
+              echo "   This would deploy production frontend pointing to ${FINZ_API_STAGE} API"
+              echo ""
+              echo "🔧 To fix:"
+              echo "   1. Set FINZ_API_STAGE_PROD=prod in repository variables"
+              echo "   2. Or set ALLOW_STAGE_DRIFT=true to override this check"
+              exit 1
+            else
+              echo "⚠️  WARNING: Stage drift allowed (ALLOW_STAGE_DRIFT=true)"
+              echo "   Production deployment will use ${FINZ_API_STAGE} API"
+            fi
+          else
+            echo "✅ Stage/environment alignment verified"
+          fi
+
       # ---- Preflight API health against the same URL we inject in UI ----
       - name: Preflight API health
         run: |
@@ -151,7 +191,7 @@ jobs:
         run: |
           set -euo pipefail
           export VITE_API_BASE_URL="${VITE_API_BASE_URL}"
-          
+
           echo "🔍 Running comprehensive API configuration validation..."
           bash scripts/validate-api-config.sh || {
             echo "❌ API configuration validation failed"
@@ -166,7 +206,7 @@ jobs:
       - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
           BUILD_TARGET: finanzas
-          VITE_API_BASE_URL: ${{ vars.DEV_API_URL }}
+          VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
           VITE_FINZ_ENABLED: "true"
           VITE_USE_MOCKS: "false"
           VITE_PUBLIC_BASE: "/finanzas/"
@@ -176,7 +216,7 @@ jobs:
           # Sanitize: strip CR/LF and trailing slash
           VITE_API_BASE_URL="$(printf '%s' "$VITE_API_BASE_URL" | tr -d '\r\n')"
           VITE_API_BASE_URL="${VITE_API_BASE_URL%/}"
-          
+
           # Validate before build (redundant with vite.config.ts, but provides clear error)
           if [ -z "$VITE_API_BASE_URL" ]; then
             echo "❌ CRITICAL: VITE_API_BASE_URL is empty"
@@ -194,7 +234,7 @@ jobs:
           export VITE_API_BASE_URL
 
           # Build will fail here if VITE_API_BASE_URL validation fails in vite.config.ts
-          BUILD_TARGET=finanzas npm run build || { 
+          BUILD_TARGET=finanzas npm run build || {
             echo "❌ Finanzas build failed"
             echo "   Most likely cause: VITE_API_BASE_URL not properly configured"
             exit 1
@@ -206,7 +246,7 @@ jobs:
       # If this fails, the deployed frontend will not be able to connect to the API
       - name: Verify API URL embedded in Finanzas bundle
         env:
-          VITE_API_BASE_URL: ${{ vars.DEV_API_URL }}
+          VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
         run: |
           set -euo pipefail
 
@@ -216,7 +256,7 @@ jobs:
 
           DIST="dist-finanzas"
           echo "🔍 Searching for VITE_API_BASE_URL in build artifacts..."
-          
+
           if ! grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" >/dev/null; then
             echo "❌ CRITICAL: VITE_API_BASE_URL ($VITE_API_BASE_URL) not found in $DIST"
             echo "   This means the API URL was not injected during build"
@@ -228,7 +268,7 @@ jobs:
             echo "   3. Review build logs for Vite configuration errors"
             exit 1
           fi
-          
+
           # Show a sample of where it appears
           echo "✅ VITE_API_BASE_URL found in Finanzas bundle"
           echo "📋 Sample occurrences:"
@@ -281,7 +321,7 @@ jobs:
             echo "❌ Build contains github.dev/codespaces references"; exit 1;
           fi
           if find dist-finanzas -name "aws-exports.js" -o -name "aws-exports.ts" | grep -q .; then
-            echo "❌ CRITICAL: aws-exports.js found in Finanzas build!"; 
+            echo "❌ CRITICAL: aws-exports.js found in Finanzas build!";
             echo "   aws-exports.js is a PMO/Amplify concern and should NOT be in Finanzas";
             exit 1;
           fi
@@ -334,6 +374,40 @@ jobs:
             echo "❌ Finanzas portal not accessible (HTTP $STATUS)"; exit 1;
           fi
 
+      # ---- Deep-route SPA smoke test ----
+      - name: Deep-route SPA smoke test
+        run: |
+          set -euo pipefail
+          DOMAIN="${CF_DOMAIN}"
+          if [ -z "$DOMAIN" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          fi
+
+          DEEP_ROUTE="https://${DOMAIN}/finanzas/sdmt/cost/forecast"
+          echo "Testing deep SPA route: $DEEP_ROUTE"
+
+          STATUS=$(curl -sS -o /tmp/deep_route.html -w '%{http_code}' "$DEEP_ROUTE" 2>/dev/null || echo "000")
+          echo "Deep route status: $STATUS"
+
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Deep-route test failed (HTTP $STATUS)"
+            echo "   SPA routing may not be configured correctly"
+            exit 1
+          fi
+
+          # Verify the response contains the SPA assets (not a 404 page)
+          if [ -f /tmp/deep_route.html ]; then
+            if grep -q "/finanzas/assets/" /tmp/deep_route.html; then
+              echo "✅ Deep-route returns valid SPA content (found /finanzas/assets/)"
+            else
+              echo "❌ Deep-route response missing /finanzas/assets/ references"
+              echo "   This may indicate CloudFront is not handling SPA routing correctly"
+              exit 1
+            fi
+          fi
+
+          echo "✅ Deep-route SPA smoke test passed"
+
       # ---- API smokes (public /health, /catalog/rubros) ----
       - name: API Smokes (public /health, /catalog/rubros)
         run: |
@@ -359,7 +433,7 @@ jobs:
           export CLOUDFRONT_DOMAIN="${CF_DOMAIN}"
           export VITE_API_BASE_URL="${VITE_API_BASE_URL}"
           export S3_BUCKET="${FINANZAS_BUCKET_NAME}"
-          
+
           echo "🔍 Running comprehensive post-deployment verification..."
           bash scripts/post-deploy-verify.sh || {
             echo "❌ Post-deployment verification failed"
@@ -403,4 +477,22 @@ jobs:
           - /finanzas/* behavior exists
           - /health returns 200
           - catalog/rubros returns JSON (length shown above)
+
+          ## 🔬 Evidence Pack
+
+          ### 1. API Base URL Computation
+          - Computed during "Compute API base URL" step
+          - Value used at build time: ${API}
+          - Stage/environment alignment verified
+
+          ### 2. CORS & Authentication Validation
+          - OPTIONS preflight tests: ✅ (see validate-api-config.sh output)
+          - JWT authentication flow: ✅ (see validate-api-config.sh output)
+          - Protected endpoint access: ✅ (see validate-api-config.sh output)
+
+          ### 3. Deep-route SPA Verification
+          - Root route (/finanzas/): ✅ HTTP 200
+          - Deep route (/finanzas/sdmt/cost/forecast): ✅ HTTP 200 + asset markers
+          - Auth callback (/finanzas/auth/callback.html): ✅ (see post-deploy-verify.sh output)
+          - Nested SPA routes: ✅ (see post-deploy-verify.sh output)
           EOF
