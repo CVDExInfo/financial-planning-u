@@ -311,7 +311,7 @@ Resources:
           Fn::GetAtt:
           - ApiAccessLogs
           - Arn
-        Format: $context.requestId $context.identity.sourceIp $context.status $context.authorize
+        Format: $context.requestId $context.identity.sourceIp $context.status
       Auth:
         Authorizers:
           CognitoJwt:
