@@ -444,7 +444,7 @@ async function main() {
   console.log("✅ All operations complete!\n");
   console.log("Next steps:");
   console.log(
-    "  1. Test API endpoint: GET https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/projects"
+    "  1. Test API endpoint: GET https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev/projects"
   );
   console.log("  2. Check frontend: https://d7t9x3j66yd8k.cloudfront.net/");
   console.log("  3. Navigate to SDMT → Cost Catalog and verify data loads");

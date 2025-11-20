@@ -16,7 +16,7 @@ const ddb = DynamoDBDocumentClient.from(
 
 // Configuration
 const API_BASE_URL =
-  "https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev";
+  "https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev";
 const TABLES = {
   projects: "finz_projects",
   rubros: "finz_rubros",

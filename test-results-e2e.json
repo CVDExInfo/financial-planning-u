@@ -11,7 +11,7 @@
     {
       "name": "API Gateway Connectivity",
       "status": "PASS",
-      "message": "API Gateway accessible at https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev",
+      "message": "API Gateway accessible at https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev",
       "duration": 249,
       "details": {
         "ok": true,
