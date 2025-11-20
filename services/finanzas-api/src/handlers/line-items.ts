@@ -1,6 +1,6 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { ensureCanRead } from "../lib/auth";
-import { ok, bad, serverError } from "../lib/http";
+import { ok, bad, serverError, noContent } from "../lib/http";
 import { ddb, QueryCommand, tableName } from "../lib/dynamo";
 
 /**
@@ -15,7 +15,9 @@ export const handler = async (
     const method = event.requestContext.http.method;
 
     if (method === "OPTIONS") {
-      return ok({ message: "CORS preflight" });
+      // Respond quickly to CORS preflight with the standard headers used across
+      // the API. The validate-api-config script accepts both 200 and 204.
+      return noContent();
     }
 
     if (method === "GET") {

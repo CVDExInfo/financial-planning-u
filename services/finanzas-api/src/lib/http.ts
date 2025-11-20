@@ -31,6 +31,17 @@ export function ok<T>(data: T, statusCode = 200) {
 }
 
 /**
+ * Empty success response for CORS preflight handling
+ */
+export function noContent(statusCode = 204) {
+  return {
+    statusCode,
+    headers: cors,
+    body: "",
+  };
+}
+
+/**
  * Error response with CORS headers
  */
 export function bad(message: string, statusCode = 400) {
