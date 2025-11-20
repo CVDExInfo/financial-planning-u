@@ -306,22 +306,24 @@ Resources:
         - OPTIONS
         AllowCredentials: true
         MaxAge: 86400
-      AccessLogSettings:
-        DestinationArn:
-          Fn::GetAtt:
-          - ApiAccessLogs
-          - Arn
-        # Only include access log variables that are supported by API Gateway HTTP APIs.
-        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","routeKey":"$context.routeKey","status":$context.status,"method":"$context.httpMethod","path":"$context.path","userAgent":"$context.identity.userAgent"}'
+     AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogs.Arn
+        # Simplified format per operational spec (master prompt)
+        Format: "$context.requestId $context.identity.sourceIp $context.status $context.authorizer.error"
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowedCorsOrigin
+        AllowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+        AllowHeaders: ["Authorization", "Content-Type", "X-Idempotency-Key"]
+        MaxAge: 600
       Auth:
         Authorizers:
           CognitoJwt:
             JwtConfiguration:
               Audience:
-              - Ref: CognitoUserPoolClientId
-              Issuer:
-                Fn::Sub: https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
-            IdentitySource: $request.header.Authorization
+                - !Ref CognitoUserPoolClientId
+              Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
+            IdentitySource: "$request.header.Authorization"
         DefaultAuthorizer: CognitoJwt
     Metadata:
       SamResourceId: Api
