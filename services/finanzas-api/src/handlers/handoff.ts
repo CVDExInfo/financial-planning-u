@@ -11,6 +11,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { safeParseHandoff } from "../validation/handoff";
 import { ZodError } from "zod";
+import { bad, fromAuthError, notFound, ok, serverError } from "../lib/http";
 
 // Route: GET /projects/{projectId}/handoff
 async function getHandoff(event: APIGatewayProxyEventV2) {
@@ -222,151 +223,112 @@ async function updateHandoff(event: APIGatewayProxyEventV2) {
   ensureCanWrite(event);
   const handoffId = event.pathParameters?.handoffId;
   if (!handoffId) {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "missing handoff id" }),
-    };
+    return bad("missing handoff id");
   }
 
-  let body: Record<string, unknown>;
   try {
-    body = JSON.parse(event.body ?? "{}");
-  } catch {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Invalid JSON in request body" }),
-    };
-  }
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(event.body ?? "{}");
+    } catch {
+      return bad("Invalid JSON in request body");
+    }
 
-  // Validate handoff data if fields are provided
-  const fieldsToValidate = body.fields || body;
-  const validationResult = safeParseHandoff(fieldsToValidate);
-  if (!validationResult.success) {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        error: "Validation failed",
-        details: validationResult.error.errors,
-      }),
-    };
-  }
+    const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
+    if (!projectId) {
+      return bad("projectId required in request body");
+    }
 
-  const userEmail = getUserEmail(event);
-  const now = new Date().toISOString();
-  const expectedVersion = body.version ? Number(body.version) : undefined;
-
-  // We need to find the handoff by handoffId (which is in sk)
-  // Query all projects' handoffs to find it (not ideal but works for MVP)
-  // Better approach: use a GSI on handoffId or store projectId in the request
-  
-  // For now, require projectId in the request body
-  const projectId = body.projectId as string;
-  if (!projectId) {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "projectId required in request body" }),
-    };
-  }
-
-  // Get existing handoff
-  const existing = await ddb.send(
-    new GetCommand({
-      TableName: tableName("projects"),
-      Key: {
-        pk: `PROJECT#${projectId}`,
-        sk: `HANDOFF#${handoffId}`,
-      },
-    })
-  );
-
-  if (!existing.Item) {
-    return {
-      statusCode: 404,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "handoff not found" }),
-    };
-  }
-
-  const currentVersion = existing.Item.version || 1;
-
-  // Optimistic concurrency check
-  if (expectedVersion !== undefined && expectedVersion !== currentVersion) {
-    return {
-      statusCode: 412,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        error: "Precondition failed: version mismatch",
-        expected: expectedVersion,
-        current: currentVersion,
-      }),
-    };
-  }
-
-  const newVersion = currentVersion + 1;
-
-  // Update handoff
-  const updated = await ddb.send(
-    new UpdateCommand({
-      TableName: tableName("projects"),
-      Key: {
-        pk: `PROJECT#${projectId}`,
-        sk: `HANDOFF#${handoffId}`,
-      },
-      UpdateExpression:
-        "SET #fields = :fields, #version = :version, #updatedAt = :updatedAt, #updatedBy = :updatedBy, #owner = if_not_exists(#owner, :owner)",
-      ExpressionAttributeNames: {
-        "#fields": "fields",
-        "#version": "version",
-        "#updatedAt": "updatedAt",
-        "#updatedBy": "updatedBy",
-        "#owner": "owner",
-      },
-      ConditionExpression: "#version = :currentVersion",
-      ExpressionAttributeValues: {
-        ...{
-          ":fields": body.fields || body,
-          ":version": newVersion,
-          ":updatedAt": now,
-          ":updatedBy": userEmail,
-          ":owner": body.owner || userEmail,
+    // Lookup the handoff first so nonexistent IDs return 404 instead of validation errors
+    const existing = await ddb.send(
+      new GetCommand({
+        TableName: tableName("projects"),
+        Key: {
+          pk: `PROJECT#${projectId}`,
+          sk: `HANDOFF#${handoffId}`,
         },
-        ":currentVersion": currentVersion,
-      },
-      ReturnValues: "ALL_NEW",
-    })
-  );
+      })
+    );
 
-  // Audit log
-  const audit = {
-    pk: `ENTITY#PROJECT#${projectId}`,
-    sk: `TS#${now}`,
-    action: "HANDOFF_UPDATE",
-    resource_type: "handoff",
-    resource_id: handoffId,
-    user: userEmail,
-    timestamp: now,
-    before: existing.Item,
-    after: updated.Attributes,
-    source: "API",
-    ip_address: event.requestContext.http.sourceIp,
-    user_agent: event.requestContext.http.userAgent,
-  };
+    if (!existing.Item) {
+      return notFound("handoff not found");
+    }
 
-  await ddb.send(
-    new PutCommand({
-      TableName: tableName("audit_log"),
-      Item: audit,
-    })
-  );
+    // Validate handoff data if fields are provided
+    const fieldsToValidate = body.fields || body;
+    const validationResult = safeParseHandoff(fieldsToValidate);
+    if (!validationResult.success) {
+      return bad("Validation failed", 400);
+    }
 
-  return {
-    statusCode: 200,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    const userEmail = getUserEmail(event);
+    const now = new Date().toISOString();
+    const expectedVersion = body.version ? Number(body.version) : undefined;
+    const currentVersion = existing.Item.version || 1;
+
+    // Optimistic concurrency check
+    if (expectedVersion !== undefined && expectedVersion !== currentVersion) {
+      return bad("Precondition failed: version mismatch", 412);
+    }
+
+    const newVersion = currentVersion + 1;
+
+    // Update handoff
+    const updated = await ddb.send(
+      new UpdateCommand({
+        TableName: tableName("projects"),
+        Key: {
+          pk: `PROJECT#${projectId}`,
+          sk: `HANDOFF#${handoffId}`,
+        },
+        UpdateExpression:
+          "SET #fields = :fields, #version = :version, #updatedAt = :updatedAt, #updatedBy = :updatedBy, #owner = if_not_exists(#owner, :owner)",
+        ExpressionAttributeNames: {
+          "#fields": "fields",
+          "#version": "version",
+          "#updatedAt": "updatedAt",
+          "#updatedBy": "updatedBy",
+          "#owner": "owner",
+        },
+        ConditionExpression: "#version = :currentVersion",
+        ExpressionAttributeValues: {
+          ...{
+            ":fields": body.fields || body,
+            ":version": newVersion,
+            ":updatedAt": now,
+            ":updatedBy": userEmail,
+            ":owner": body.owner || userEmail,
+          },
+          ":currentVersion": currentVersion,
+        },
+        ReturnValues: "ALL_NEW",
+      })
+    );
+
+    // Audit log
+    const audit = {
+      pk: `ENTITY#PROJECT#${projectId}`,
+      sk: `TS#${now}`,
+      action: "HANDOFF_UPDATE",
+      resource_type: "handoff",
+      resource_id: handoffId,
+      user: userEmail,
+      timestamp: now,
+      before: existing.Item,
+      after: updated.Attributes,
+      source: "API",
+      ip_address: event.requestContext.http.sourceIp,
+      user_agent: event.requestContext.http.userAgent,
+    };
+
+    await ddb.send(
+      new PutCommand({
+        TableName: tableName("audit_log"),
+        Item: audit,
+      })
+    );
+
+    return ok({
       handoffId: updated.Attributes?.handoffId,
       projectId: updated.Attributes?.projectId,
       owner: updated.Attributes?.owner,
@@ -374,8 +336,13 @@ async function updateHandoff(event: APIGatewayProxyEventV2) {
       version: updated.Attributes?.version,
       createdAt: updated.Attributes?.createdAt,
       updatedAt: updated.Attributes?.updatedAt,
-    }),
-  };
+    });
+  } catch (error) {
+    const authError = fromAuthError(error);
+    if (authError) return authError;
+    console.error("Error updating handoff", error);
+    return serverError();
+  }
 }
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
