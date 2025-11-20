@@ -63,7 +63,7 @@ fi
 
 # Display configuration
 echo -e "${GREEN}✓ Credentials loaded${NC}"
-echo -e "${BLUE}ℹ️  API Base: ${API_BASE_URL:-https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev}${NC}"
+echo -e "${BLUE}ℹ️  API Base: ${API_BASE_URL:-https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev}${NC}"
 echo -e "${BLUE}ℹ️  Cognito Pool: ${COGNITO_USER_POOL_ID:-us-east-2_FyHLtOhiY}${NC}"
 echo ""
 
@@ -85,7 +85,7 @@ case $choice in
         ;;
     2)
         echo -e "\n${GREEN}Testing API connection...${NC}\n"
-        API_BASE="${API_BASE_URL:-https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev}"
+        API_BASE="${API_BASE_URL:-https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev}"
         
         echo "Testing: ${API_BASE}/health"
         if curl -sf "${API_BASE}/health" | jq '.' 2>/dev/null; then
