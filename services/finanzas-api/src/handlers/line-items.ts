@@ -14,6 +14,10 @@ export const handler = async (
   try {
     const method = event.requestContext.http.method;
 
+    if (method === "OPTIONS") {
+      return ok({ message: "CORS preflight" });
+    }
+
     if (method === "GET") {
       ensureCanRead(event as unknown as Parameters<typeof ensureCanRead>[0]);
       

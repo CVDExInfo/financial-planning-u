@@ -8,8 +8,11 @@ export const HandoffSchema = z.object({
   mod_total: z.number().min(0, 'mod_total must be non-negative'),
   pct_ingenieros: z.number().min(0).max(100, 'pct_ingenieros must be between 0 and 100'),
   pct_sdm: z.number().min(0).max(100, 'pct_sdm must be between 0 and 100'),
-  aceptado_por: z.string().email('aceptado_por must be a valid email'),
-  fecha_handoff: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'fecha_handoff must be in YYYY-MM-DD format'),
+  aceptado_por: z.string().email('aceptado_por must be a valid email').optional(),
+  fecha_handoff: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'fecha_handoff must be in YYYY-MM-DD format')
+    .optional(),
   notas: z.string().max(2000, 'notas cannot exceed 2000 characters').optional(),
 });
 

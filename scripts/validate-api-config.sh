@@ -303,8 +303,9 @@ if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "false" ]; then
       -H "Access-Control-Request-Headers: authorization,content-type" \
       "$LINE_ITEMS_URL" 2>/dev/null || echo "")
     
-    if echo "$OPTIONS_GET_RESPONSE" | grep -qi "HTTP/[12].[01] 200"; then
-      echo -e "${GREEN}✅ OPTIONS GET preflight → HTTP 200${NC}"
+    OPTIONS_GET_STATUS=$(echo "$OPTIONS_GET_RESPONSE" | grep -o "HTTP/[12]\.[01] [0-9]*" | head -1 | awk '{print $2}')
+    if [ "$OPTIONS_GET_STATUS" = "200" ] || [ "$OPTIONS_GET_STATUS" = "204" ]; then
+      echo -e "${GREEN}✅ OPTIONS GET preflight → HTTP ${OPTIONS_GET_STATUS}${NC}"
       if echo "$OPTIONS_GET_RESPONSE" | grep -qi "Access-Control-Allow-Origin"; then
         ALLOW_ORIGIN=$(echo "$OPTIONS_GET_RESPONSE" | grep -i "Access-Control-Allow-Origin" | cut -d' ' -f2- | tr -d '\r\n' | head -1)
         echo "   Access-Control-Allow-Origin: $ALLOW_ORIGIN"
@@ -330,10 +331,12 @@ if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "false" ]; then
       -H "Access-Control-Request-Headers: authorization,content-type" \
       "$LINE_ITEMS_URL" 2>/dev/null || echo "")
     
-    if echo "$OPTIONS_POST_RESPONSE" | grep -qi "HTTP/[12].[01] 200"; then
-      echo -e "${GREEN}✅ OPTIONS POST preflight → HTTP 200${NC}"
+    OPTIONS_POST_STATUS=$(echo "$OPTIONS_POST_RESPONSE" | grep -o "HTTP/[12]\.[01] [0-9]*" | head -1 | awk '{print $2}')
+
+    if [ "$OPTIONS_POST_STATUS" = "200" ] || [ "$OPTIONS_POST_STATUS" = "204" ]; then
+      echo -e "${GREEN}✅ OPTIONS POST preflight → HTTP ${OPTIONS_POST_STATUS}${NC}"
     else
-      echo -e "${YELLOW}⚠️  OPTIONS POST preflight did not return 200${NC}"
+      echo -e "${YELLOW}⚠️  OPTIONS POST preflight did not return 200/204${NC}"
       WARNINGS=$((WARNINGS + 1))
     fi
     echo ""
@@ -347,10 +350,11 @@ if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "false" ]; then
       -H "Access-Control-Request-Headers: authorization,content-type" \
       "$LINE_ITEMS_URL" 2>/dev/null || echo "")
     
-    if echo "$OPTIONS_PUT_RESPONSE" | grep -qi "HTTP/[12].[01] 200"; then
-      echo -e "${GREEN}✅ OPTIONS PUT preflight → HTTP 200${NC}"
+    OPTIONS_PUT_STATUS=$(echo "$OPTIONS_PUT_RESPONSE" | grep -o "HTTP/[12]\.[01] [0-9]*" | head -1 | awk '{print $2}')
+    if [ "$OPTIONS_PUT_STATUS" = "200" ] || [ "$OPTIONS_PUT_STATUS" = "204" ]; then
+      echo -e "${GREEN}✅ OPTIONS PUT preflight → HTTP ${OPTIONS_PUT_STATUS}${NC}"
     else
-      echo -e "${YELLOW}⚠️  OPTIONS PUT preflight did not return 200${NC}"
+      echo -e "${YELLOW}⚠️  OPTIONS PUT preflight did not return 200/204${NC}"
       WARNINGS=$((WARNINGS + 1))
     fi
     echo ""
@@ -364,10 +368,11 @@ if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "false" ]; then
       -H "Access-Control-Request-Headers: authorization,content-type" \
       "$LINE_ITEMS_URL" 2>/dev/null || echo "")
     
-    if echo "$OPTIONS_DELETE_RESPONSE" | grep -qi "HTTP/[12].[01] 200"; then
-      echo -e "${GREEN}✅ OPTIONS DELETE preflight → HTTP 200${NC}"
+    OPTIONS_DELETE_STATUS=$(echo "$OPTIONS_DELETE_RESPONSE" | grep -o "HTTP/[12]\.[01] [0-9]*" | head -1 | awk '{print $2}')
+    if [ "$OPTIONS_DELETE_STATUS" = "200" ] || [ "$OPTIONS_DELETE_STATUS" = "204" ]; then
+      echo -e "${GREEN}✅ OPTIONS DELETE preflight → HTTP ${OPTIONS_DELETE_STATUS}${NC}"
     else
-      echo -e "${YELLOW}⚠️  OPTIONS DELETE preflight did not return 200${NC}"
+      echo -e "${YELLOW}⚠️  OPTIONS DELETE preflight did not return 200/204${NC}"
       WARNINGS=$((WARNINGS + 1))
     fi
   else
