@@ -520,6 +520,15 @@ Resources:
               Ref: Api
             Auth:
               Authorizer: CognitoJwt
+        LineItemsOptions:
+          Type: HttpApi
+          Properties:
+            Path: /line-items
+            Method: OPTIONS
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: NONE
   AllocationRulesGet:
     Type: AWS::Serverless::Function
     Metadata:
