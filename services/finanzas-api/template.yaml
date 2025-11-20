@@ -52,6 +52,14 @@ Globals:
           Fn::Sub: ${TablePrefix}rubros
         TABLE_RUBROS_TAXONOMIA:
           Fn::Sub: ${TablePrefix}rubros_taxonomia
+        # Primary table environment variables used by shared data access helpers
+        TABLE_ALLOCATIONS:
+          Fn::Sub: ${TablePrefix}allocations
+        TABLE_PAYROLL_ACTUALS:
+          Fn::Sub: ${TablePrefix}payroll_actuals
+        TABLE_ADJUSTMENTS:
+          Fn::Sub: ${TablePrefix}adjustments
+        # Legacy aliases kept for backward compatibility with seeding scripts
         TABLE_ALLOC:
           Fn::Sub: ${TablePrefix}allocations
         TABLE_PAYROLL:
