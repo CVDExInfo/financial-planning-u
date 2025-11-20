@@ -88,7 +88,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           ? item.pk.replace("PROJECT#", "")
           : undefined) ||
         (item as Record<string, unknown>).project_id ||
-        (item as Record<string, unknown>).projectId;
+        (item as Record<string, unknown>).projectId ||
+        (item as Record<string, unknown>).id;
 
       const fecha_fin =
         (item as Record<string, unknown>).fecha_fin ||
@@ -97,9 +98,28 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         null;
 
       return {
-        ...item,
-        id: (item as Record<string, unknown>).id || derivedId,
+        id: derivedId,
+        cliente: (item as Record<string, unknown>).cliente ?? null,
+        nombre: (item as Record<string, unknown>).nombre ?? null,
+        fecha_inicio:
+          (item as Record<string, unknown>).fecha_inicio ||
+          (item as Record<string, unknown>).fechaInicio ||
+          null,
         fecha_fin,
+        moneda: (item as Record<string, unknown>).moneda ?? null,
+        presupuesto_total:
+          (item as Record<string, unknown>).presupuesto_total ||
+          (item as Record<string, unknown>).presupuestoTotal ||
+          0,
+        estado: (item as Record<string, unknown>).estado ?? null,
+        created_at:
+          (item as Record<string, unknown>).created_at ||
+          (item as Record<string, unknown>).createdAt ||
+          null,
+        created_by:
+          (item as Record<string, unknown>).created_by ||
+          (item as Record<string, unknown>).createdBy ||
+          null,
       };
     });
 
