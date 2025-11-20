@@ -1022,6 +1022,18 @@ Resources:
       Handler: forecast.handler
       Policies:
       - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: AllocationsTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: PayrollTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: AdjustmentsTable
       Events:
         GetForecast:
           Type: HttpApi
