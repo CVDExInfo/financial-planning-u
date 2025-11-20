@@ -16,7 +16,7 @@ const getEnv = (key: string, fallback: string) =>
   import.meta.env[key] || fallback;
 
 const DEFAULT_API_BASE =
-  "https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev";
+  "https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev";
 const RESOLVED_API_BASE = HAS_API_BASE ? API_BASE : DEFAULT_API_BASE;
 if (!HAS_API_BASE) {
   console.error(
