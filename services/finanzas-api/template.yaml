@@ -1073,51 +1073,52 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
-    InvoicesFn:
-      Type: AWS::Serverless::Function
-      Metadata:
-        BuildMethod: esbuild
-        BuildProperties:
-          Minify: true
-          Target: node20
-          Sourcemap: true
-          External:
-            - aws-sdk
-          EntryPoints:
-            - src/handlers/invoices/app.ts
-      Properties:
-        CodeUri: .
-        Handler: invoices/app.handler
-        Policies:
-          - AWSLambdaBasicExecutionRole
-        Events:
-          GetProjectInvoices:
-            Type: HttpApi
-            Properties:
-              Path: /projects/{projectId}/invoices
-              Method: GET
-              ApiId:
-                Ref: Api
-              Auth:
-                Authorizer: CognitoJwt
-          GetProjectInvoiceById:
-            Type: HttpApi
-            Properties:
-              Path: /projects/{projectId}/invoices/{invoiceId}
-              Method: GET
-              ApiId:
-                Ref: Api
-              Auth:
-                Authorizer: CognitoJwt
-          UpdateProjectInvoiceStatus:
-            Type: HttpApi
-            Properties:
-              Path: /projects/{projectId}/invoices/{invoiceId}/status
-              Method: PUT
-              ApiId:
-                Ref: Api
-              Auth:
-                Authorizer: CognitoJwt
+  # Indentation corrected so InvoicesFn is a sibling resource, not nested under PrefacturasFn.
+  InvoicesFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: node20
+        Sourcemap: true
+        External:
+        - aws-sdk
+        EntryPoints:
+        - src/handlers/invoices/app.ts
+    Properties:
+      CodeUri: .
+      Handler: invoices/app.handler
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      Events:
+        GetProjectInvoices:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/invoices
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        GetProjectInvoiceById:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/invoices/{invoiceId}
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        UpdateProjectInvoiceStatus:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/invoices/{invoiceId}/status
+            Method: PUT
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
   Pep3Rule:
     Type: AWS::Events::Rule
     Properties:
@@ -1144,6 +1145,7 @@ Resources:
         - Arn
     Metadata:
       SamResourceId: Pep3Permission
+# Outputs restored to the template root to fix prior indentation drift.
 Outputs:
   FinzApiId:
     Description: HTTP API ID
