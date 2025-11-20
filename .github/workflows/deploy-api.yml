@@ -167,12 +167,13 @@ jobs:
         run: |
           sam deploy --no-confirm-changeset \
             --stack-name "${FINZ_API_STACK}" \
-            --resolve-s3 --capabilities CAPABILITY_IAM \
+            --resolve-s3 --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --region "${AWS_REGION}" \
             --parameter-overrides \
               CognitoUserPoolArn=${{ env.COGNITO_USER_POOL_ARN }} \
               CognitoUserPoolId=${{ env.COGNITO_USER_POOL_ID }} \
               CognitoUserPoolClientId=${{ env.COGNITO_WEB_CLIENT }} \
-              StageName=dev \
+              StageName=${FINZ_API_STAGE} \
               TablePrefix=finz_ \
               PolicyStoreId="${POLICY_STORE_ID:-}"
 
