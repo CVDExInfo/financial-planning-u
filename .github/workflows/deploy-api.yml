@@ -143,6 +143,25 @@ jobs:
 
           echo "✅ Stack status check passed: $STACK_STATUS"
 
+      - name: Auto-delete stack in rollback state
+        run: |
+          set -euo pipefail
+          STACK_STATUS=$(aws cloudformation describe-stacks \
+            --stack-name "${FINZ_API_STACK}" \
+            --region "${AWS_REGION}" \
+            --query 'Stacks[0].StackStatus' \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+
+          if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ] || [ "$STACK_STATUS" = "ROLLBACK_FAILED" ]; then
+            echo "♻️  Deleting stuck stack ${FINZ_API_STACK} (status: $STACK_STATUS) before redeploy"
+            aws cloudformation delete-stack --stack-name "${FINZ_API_STACK}" --region "${AWS_REGION}"
+            echo "⏳ Waiting for stack deletion to finish..."
+            aws cloudformation wait stack-delete-complete --stack-name "${FINZ_API_STACK}" --region "${AWS_REGION}"
+            echo "✅ Stack ${FINZ_API_STACK} deleted; proceeding to deploy a fresh stack"
+          else
+            echo "ℹ️  No deletion needed (status: $STACK_STATUS)"
+          fi
+
       - name: Deploy
         working-directory: services/finanzas-api
         run: |
