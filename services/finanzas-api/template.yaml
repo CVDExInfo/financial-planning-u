@@ -288,6 +288,11 @@ Resources:
     Properties:
       StageName:
         Ref: StageName
+      # CORS is handled by API Gateway for all Finanzas SD HTTP routes so that
+      # browser preflight requests from the CloudFront-hosted UI succeed
+      # (specifically for /line-items across GET/POST/PUT/DELETE). Keeping this
+      # configuration here ensures OPTIONS requests are answered directly by
+      # API Gateway with the required Access-Control-* headers.
       CorsConfiguration:
         AllowOrigins:
         - Fn::Sub: https://${CloudFrontDomain}
@@ -297,6 +302,7 @@ Resources:
         - X-Amz-Date
         - X-Amz-Security-Token
         - X-Requested-With
+        - X-Api-Key
         AllowMethods:
         - GET
         - POST
