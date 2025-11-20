@@ -3,7 +3,7 @@
 # Copy this file to env.sh (ignored via .gitignore) and replace placeholder values
 # with the actual endpoints, Cognito tester credentials, and configuration.
 
-export FINZ_API_BASE="https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/prod"
+export FINZ_API_BASE="https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/prod"
 export FINZ_UI_BASE="https://d7t9x3j66yd8k.cloudfront.net/finanzas"
 
 # Cognito tester account (matches COGNITO_TESTER_USERNAME / COGNITO_TESTER_PASSWORD in CI)

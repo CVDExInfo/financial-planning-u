@@ -5,7 +5,7 @@
 
 set -u -o pipefail
 
-API="${API:-https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev}"
+API="${API:-https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev}"
 AWS_REGION="${AWS_REGION:-us-east-2}"
 UPLOAD_BUCKET="${UPLOAD_BUCKET:-finanzas-sd-documents-dev}"
 SAMPLE_PROJECT_ID="${SAMPLE_PROJECT_ID:-sample-project-id}"

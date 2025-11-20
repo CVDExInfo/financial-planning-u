@@ -46,7 +46,7 @@ echo ""
 
 # Check if VITE_API_BASE_URL is set; if not, fall back to known dev URL so CI keeps moving
 if [ -z "${VITE_API_BASE_URL:-}" ]; then
-  DEFAULT_API="https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev"
+  DEFAULT_API="https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev"
   VITE_API_BASE_URL="$DEFAULT_API"
   echo -e "${YELLOW}⚠️  VITE_API_BASE_URL is not set; using default dev endpoint${NC}"
   echo "   Default: $DEFAULT_API"

@@ -5,7 +5,7 @@
 #
 # Ground Truth Values:
 #   CloudFront (UI): https://d7t9x3j66yd8k.cloudfront.net/finanzas/
-#   Finanzas API (dev): https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
+#   Finanzas API (dev): https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev
 #   Region: us-east-2
 #   Cognito App Client ID: dshos5iou44tuach7ta3ici5m
 #   DynamoDB Tables: finz_rubros, finz_projects, finz_adjustments, finz_audit_log
@@ -20,7 +20,7 @@ set -euo pipefail
 
 # ============ CONFIG ============
 REGION="us-east-2"
-API="https://m3g6am67aj.execute-api.${REGION}.amazonaws.com/dev"
+API="https://pyorjw6lbe.execute-api.${REGION}.amazonaws.com/dev"
 APP_CLIENT="dshos5iou44tuach7ta3ici5m"
 
 # Require creds

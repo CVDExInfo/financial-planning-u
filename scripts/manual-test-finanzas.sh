@@ -14,7 +14,7 @@
 #   COGNITO_CLIENT_ID=dshos5iou44tuach7ta3ici5m \
 #   TEST_USERNAME=finanzas-test-user \
 #   TEST_PASSWORD=YourPassword123! \
-#   API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev \
+#   API_BASE_URL=https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev \
 #   ./scripts/manual-test-finanzas.sh
 #
 ###############################################################################
@@ -34,7 +34,7 @@ COGNITO_CLIENT_ID="${COGNITO_CLIENT_ID:-dshos5iou44tuach7ta3ici5m}"
 COGNITO_REGION="${COGNITO_REGION:-us-east-2}"
 TEST_USERNAME="${TEST_USERNAME:-${USERNAME:-}}"
 TEST_PASSWORD="${TEST_PASSWORD:-${PASSWORD:-}}"
-API_BASE_URL="${API_BASE_URL:-https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev}"
+API_BASE_URL="${API_BASE_URL:-https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev}"
 
 # Test results tracking
 TESTS_PASSED=0
