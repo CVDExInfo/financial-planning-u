@@ -87,9 +87,21 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     })
   );
 
+  // Ensure consistent schema by including all expected fields
+  const projects = (result.Items ?? []).map(item => ({
+    ...item,
+    fecha_inicio: item.fecha_inicio ?? null,
+    fecha_fin: item.fecha_fin ?? null,
+    cliente: item.cliente ?? null,
+    nombre: item.nombre ?? null,
+    moneda: item.moneda ?? null,
+    presupuesto_total: item.presupuesto_total ?? 0,
+    estado: item.estado ?? "active",
+  }));
+
   return {
     statusCode: 200,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(result.Items ?? []),
+    body: JSON.stringify(projects),
   };
 };
