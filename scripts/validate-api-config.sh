@@ -316,7 +316,10 @@ if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "false" ]; then
       fi
     else
       echo -e "${RED}❌ CORS preflight for /line-items GET failed${NC}"
-      echo "   Expected: HTTP 200 with CORS headers"
+      echo "   Expected: HTTP 200 or 204 with CORS headers"
+      echo "   Received status: ${OPTIONS_GET_STATUS:-unknown}"
+      echo "   Raw response (first lines):"
+      echo "$OPTIONS_GET_RESPONSE" | head -n 10 | sed 's/^/   /'
       echo "   This is a critical error - browsers will block requests without proper preflight responses"
       ERRORS=$((ERRORS + 1))
     fi

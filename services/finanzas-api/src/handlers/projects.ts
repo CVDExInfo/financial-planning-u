@@ -1,95 +1,111 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureSDT } from "../lib/auth";
+import { ok, bad, serverError } from "../lib/http";
 import { ddb, tableName, PutCommand, ScanCommand } from "../lib/dynamo";
 import crypto from "node:crypto";
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
-  ensureSDT(event);
+  try {
+    ensureSDT(event);
 
-  if (event.requestContext.http.method === "POST") {
-    let body: Record<string, unknown>;
-    try {
-      body = JSON.parse(event.body ?? "{}");
-    } catch {
-      return {
-        statusCode: 400,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "Invalid JSON in request body" }),
+    if (event.requestContext.http.method === "POST") {
+      let body: Record<string, unknown>;
+      try {
+        body = JSON.parse(event.body ?? "{}");
+      } catch {
+        return bad("Invalid JSON in request body");
+      }
+
+      const id = "P-" + crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const item = {
+        pk: `PROJECT#${id}`,
+        sk: "METADATA",
+        id,
+        cliente: body.cliente,
+        nombre: body.nombre,
+        fecha_inicio: body.fecha_inicio,
+        fecha_fin: body.fecha_fin,
+        moneda: body.moneda,
+        presupuesto_total: body.presupuesto_total || 0,
+        estado: "active",
+        created_at: now,
+        created_by:
+          event.requestContext.authorizer?.jwt?.claims?.email || "system",
       };
+
+      await ddb.send(
+        new PutCommand({
+          TableName: tableName("projects"),
+          Item: item,
+        })
+      );
+
+      // Write audit log entry
+      const auditEntry = {
+        pk: `ENTITY#PROJECT#${id}`,
+        sk: `TS#${now}`,
+        action: "CREATE_PROJECT",
+        resource_type: "project",
+        resource_id: id,
+        user: item.created_by,
+        timestamp: now,
+        before: null,
+        after: {
+          id,
+          cliente: item.cliente,
+          nombre: item.nombre,
+          presupuesto_total: item.presupuesto_total,
+        },
+        source: "API",
+        ip_address: event.requestContext.http.sourceIp,
+        user_agent: event.requestContext.http.userAgent,
+      };
+
+      await ddb.send(
+        new PutCommand({
+          TableName: tableName("audit_log"),
+          Item: auditEntry,
+        })
+      );
+
+      return ok({ id, ...item }, 201);
     }
 
-    const id = "P-" + crypto.randomUUID();
-    const now = new Date().toISOString();
-
-    const item = {
-      pk: `PROJECT#${id}`,
-      sk: "METADATA",
-      id,
-      cliente: body.cliente,
-      nombre: body.nombre,
-      fecha_inicio: body.fecha_inicio,
-      fecha_fin: body.fecha_fin,
-      moneda: body.moneda,
-      presupuesto_total: body.presupuesto_total || 0,
-      estado: "active",
-      created_at: now,
-      created_by:
-        event.requestContext.authorizer?.jwt?.claims?.email || "system",
-    };
-
-    await ddb.send(
-      new PutCommand({
+    // GET /projects
+    const result = await ddb.send(
+      new ScanCommand({
         TableName: tableName("projects"),
-        Item: item,
+        Limit: 50,
       })
     );
 
-    // Write audit log entry
-    const auditEntry = {
-      pk: `ENTITY#PROJECT#${id}`,
-      sk: `TS#${now}`,
-      action: "CREATE_PROJECT",
-      resource_type: "project",
-      resource_id: id,
-      user: item.created_by,
-      timestamp: now,
-      before: null,
-      after: {
-        id,
-        cliente: item.cliente,
-        nombre: item.nombre,
-        presupuesto_total: item.presupuesto_total,
-      },
-      source: "API",
-      ip_address: event.requestContext.http.sourceIp,
-      user_agent: event.requestContext.http.userAgent,
-    };
+    const projects = (result.Items ?? []).map((item) => {
+      // Normalize identifiers and ensure fecha_fin exists for contract tests
+      const derivedId =
+        (typeof item.pk === "string" && item.pk.startsWith("PROJECT#")
+          ? item.pk.replace("PROJECT#", "")
+          : undefined) ||
+        (item as Record<string, unknown>).project_id ||
+        (item as Record<string, unknown>).projectId;
 
-    await ddb.send(
-      new PutCommand({
-        TableName: tableName("audit_log"),
-        Item: auditEntry,
-      })
-    );
+      const fecha_fin =
+        (item as Record<string, unknown>).fecha_fin ||
+        (item as Record<string, unknown>).fechaFin ||
+        (item as Record<string, unknown>).end_date ||
+        null;
 
-    return {
-      statusCode: 201,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, ...item }),
-    };
+      return {
+        ...item,
+        id: (item as Record<string, unknown>).id || derivedId,
+        fecha_fin,
+      };
+    });
+
+    return ok({ data: projects, total: projects.length });
+  } catch (error) {
+    console.error("Error in projects handler", error);
+    return serverError();
   }
-
-  // GET /projects
-  const result = await ddb.send(
-    new ScanCommand({
-      TableName: tableName("projects"),
-      Limit: 50,
-    })
-  );
-
-  return {
-    statusCode: 200,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(result.Items ?? []),
-  };
 };
