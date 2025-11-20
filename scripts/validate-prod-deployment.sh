@@ -4,7 +4,7 @@
 set -euo pipefail
 
 REGION=${AWS_REGION:-us-east-2}
-EXPECTED_API_ID=${EXPECTED_API_ID:-m3g6am67aj}
+EXPECTED_API_ID=${EXPECTED_API_ID:-pyorjw6lbe}
 PROD_STACK=${PROD_STACK:-finanzas-sd-api-prod}
 PROD_STAGE=${PROD_STAGE:-prod}
 

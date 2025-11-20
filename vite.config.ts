@@ -50,7 +50,7 @@ export default defineConfig(() => {
     console.error("🔧 To fix this:");
     console.error("");
     console.error("  1. For local development:");
-    console.error("     export VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev");
+    console.error("     export VITE_API_BASE_URL=https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev");
     console.error("     npm run build:finanzas");
     console.error("");
     console.error("  2. For CI/CD:");

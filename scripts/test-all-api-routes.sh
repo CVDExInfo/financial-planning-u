@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-API_BASE="https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev"
+API_BASE="https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev"
 REGION="us-east-2"
 COGNITO_DOMAIN="us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com"
 CLIENT_ID="dshos5iou44tuach7ta3ici5m"

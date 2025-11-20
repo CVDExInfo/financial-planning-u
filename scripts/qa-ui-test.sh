@@ -82,7 +82,7 @@ section "Environment Configuration"
 cat > .env.test << 'EOF'
 # Test Environment Configuration for Finanzas QA
 VITE_PUBLIC_BASE=/finanzas/
-VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
+VITE_API_BASE_URL=https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev
 VITE_FINZ_ENABLED=true
 VITE_USE_MOCKS=false
 VITE_SKIP_AUTH=false

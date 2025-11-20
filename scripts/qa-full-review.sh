@@ -15,7 +15,7 @@ set -euo pipefail
 
 # ============ CONFIGURATION ============
 REGION="us-east-2"
-API_BASE="https://m3g6am67aj.execute-api.${REGION}.amazonaws.com/dev"
+API_BASE="https://pyorjw6lbe.execute-api.${REGION}.amazonaws.com/dev"
 CF_URL="https://d7t9x3j66yd8k.cloudfront.net"
 FINANZAS_URL="${CF_URL}/finanzas"
 APP_CLIENT="dshos5iou44tuach7ta3ici5m"

@@ -2,7 +2,7 @@
 # Comprehensive API test suite for all 20+ Finanzas routes
 # Tests with mock data and JWT authentication
 
-API_BASE="https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev"
+API_BASE="https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev"
 REGION="us-east-2"
 CLIENT_ID="dshos5iou44tuach7ta3ici5m"
 TEST_USER="christian.valencia@ikusi.com"

@@ -86,7 +86,7 @@
         "Review checkbox must be checked first",
         "Loading spinner should appear",
         "API call to POST /baseline should be triggered",
-        "Network tab should show request to m3g6am67aj.execute-api.us-east-2.amazonaws.com",
+        "Network tab should show request to pyorjw6lbe.execute-api.us-east-2.amazonaws.com",
         "Success: baseline_id and signature_hash returned",
         "Toast notification: \"Baseline signed successfully\"",
         "Button changes to \"Complete & Handoff to SDMT\"",

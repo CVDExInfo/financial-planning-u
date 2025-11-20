@@ -24,7 +24,7 @@ set -euo pipefail
 # Configuration
 CLOUDFRONT_DOMAIN="${CLOUDFRONT_DOMAIN:-d7t9x3j66yd8k.cloudfront.net}"
 FINANZAS_URL="https://${CLOUDFRONT_DOMAIN}/finanzas/"
-API_BASE_URL="${VITE_API_BASE_URL:-https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev}"
+API_BASE_URL="${VITE_API_BASE_URL:-https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev}"
 
 # Color codes
 RED='\033[0;31m'

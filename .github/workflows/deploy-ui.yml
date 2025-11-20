@@ -26,9 +26,9 @@ env:
   CF_DOMAIN: ${{ vars.CF_DOMAIN || 'd7t9x3j66yd8k.cloudfront.net' }}
 
   # API ID / Stage (ID from vars, stage by branch)
-  FINZ_API_ID: ${{ vars.FINZ_API_ID || 'm3g6am67aj' }}
+  FINZ_API_ID: ${{ vars.FINZ_API_ID || 'pyorjw6lbe' }}
   FINZ_API_STAGE: ${{ github.ref == 'refs/heads/main' && (vars.FINZ_API_STAGE_PROD || 'prod') || (vars.FINZ_API_STAGE_DEV || 'dev') }}
-  EXPECTED_API_ID: ${{ vars.FINZ_API_ID || 'm3g6am67aj' }}
+  EXPECTED_API_ID: ${{ vars.FINZ_API_ID || 'pyorjw6lbe' }}
 
   # Optional escape hatch: explicit API base (dev-only override, but OK to use as canonical)
   DEV_API_URL: ${{ vars.DEV_API_URL || '' }}

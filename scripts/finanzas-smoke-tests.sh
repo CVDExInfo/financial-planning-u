@@ -22,9 +22,9 @@ FINANZAS_URL="${CF_URL}/finanzas"
 
 # API base URL based on environment
 if [ "$ENVIRONMENT" = "prod" ]; then
-  API_BASE="https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/prod"
+  API_BASE="https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/prod"
 else
-  API_BASE="https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev"
+  API_BASE="https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev"
 fi
 
 COGNITO_CLIENT_ID="dshos5iou44tuach7ta3ici5m"
