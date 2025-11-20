@@ -311,7 +311,7 @@ Resources:
           Fn::GetAtt:
           - ApiAccessLogs
           - Arn
-        Format: '{"requestId":"$context.requestId","ip":"$context.http.sourceIp","routeKey":"$context.routeKey","status":$context.status,"method":"$context.http.method","path":"$context.http.path","userAgent":"$context.http.userAgent"}'
+        Format: '{"requestId":"$context.requestId","ip":"$context.http.sourceIp","routeKey":"$context.routeKey","status":$context.status,"protocol":"$context.protocol","responseLength":$context.responseLength}'
       Auth:
         Authorizers:
           CognitoJwt:
