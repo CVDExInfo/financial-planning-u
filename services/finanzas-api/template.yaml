@@ -311,7 +311,8 @@ Resources:
           Fn::GetAtt:
           - ApiAccessLogs
           - Arn
-        Format: $context.requestId $context.identity.sourceIp $context.status $context.authorize
+        # Only include access log variables that are supported by API Gateway HTTP APIs.
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","routeKey":"$context.routeKey","status":$context.status,"method":"$context.httpMethod","path":"$context.path","userAgent":"$context.identity.userAgent"}'
       Auth:
         Authorizers:
           CognitoJwt:
@@ -474,6 +475,37 @@ Resources:
               Ref: Api
             Auth:
               Authorizer: NONE
+  LineItemsFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+        - src/handlers/line-items.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+      SamResourceId: LineItemsFn
+    Properties:
+      CodeUri: .
+      Handler: line-items.handler
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: RubrosTable
+      Events:
+        ListLineItems:
+          Type: HttpApi
+          Properties:
+            Path: /line-items
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
   AllocationRulesGet:
     Type: AWS::Serverless::Function
     Metadata:
