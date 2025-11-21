@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, collectApiCalls, uiBaseUrl } from './support';
+import { login, collectApiCalls } from './support';
 
 test.describe('Finanzas login & shell', () => {
   test('logs in and lands on Finanzas home', async ({ page }) => {
