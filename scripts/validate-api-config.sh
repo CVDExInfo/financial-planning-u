@@ -303,7 +303,10 @@ if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "false" ]; then
       -H "Access-Control-Request-Headers: authorization,content-type" \
       "$LINE_ITEMS_URL" 2>/dev/null || echo "")
     
-    OPTIONS_GET_STATUS=$(echo "$OPTIONS_GET_RESPONSE" | grep -o "HTTP/[12]\.[01] [0-9]*" | head -1 | awk '{print $2}')
+    OPTIONS_GET_STATUS=$(printf '%s\n' "$OPTIONS_GET_RESPONSE" |
+      grep -o "HTTP/[12]\.[01] [0-9]*" |
+      head -1 |
+      awk '{print $2}' || true)
     if [ "$OPTIONS_GET_STATUS" = "200" ] || [ "$OPTIONS_GET_STATUS" = "204" ]; then
       echo -e "${GREEN}✅ OPTIONS GET preflight → HTTP ${OPTIONS_GET_STATUS}${NC}"
       if echo "$OPTIONS_GET_RESPONSE" | grep -qi "Access-Control-Allow-Origin"; then
@@ -334,7 +337,10 @@ if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "false" ]; then
       -H "Access-Control-Request-Headers: authorization,content-type" \
       "$LINE_ITEMS_URL" 2>/dev/null || echo "")
     
-    OPTIONS_POST_STATUS=$(echo "$OPTIONS_POST_RESPONSE" | grep -o "HTTP/[12]\.[01] [0-9]*" | head -1 | awk '{print $2}')
+    OPTIONS_POST_STATUS=$(printf '%s\n' "$OPTIONS_POST_RESPONSE" |
+      grep -o "HTTP/[12]\.[01] [0-9]*" |
+      head -1 |
+      awk '{print $2}' || true)
 
     if [ "$OPTIONS_POST_STATUS" = "200" ] || [ "$OPTIONS_POST_STATUS" = "204" ]; then
       echo -e "${GREEN}✅ OPTIONS POST preflight → HTTP ${OPTIONS_POST_STATUS}${NC}"
@@ -353,7 +359,10 @@ if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "false" ]; then
       -H "Access-Control-Request-Headers: authorization,content-type" \
       "$LINE_ITEMS_URL" 2>/dev/null || echo "")
     
-    OPTIONS_PUT_STATUS=$(echo "$OPTIONS_PUT_RESPONSE" | grep -o "HTTP/[12]\.[01] [0-9]*" | head -1 | awk '{print $2}')
+    OPTIONS_PUT_STATUS=$(printf '%s\n' "$OPTIONS_PUT_RESPONSE" |
+      grep -o "HTTP/[12]\.[01] [0-9]*" |
+      head -1 |
+      awk '{print $2}' || true)
     if [ "$OPTIONS_PUT_STATUS" = "200" ] || [ "$OPTIONS_PUT_STATUS" = "204" ]; then
       echo -e "${GREEN}✅ OPTIONS PUT preflight → HTTP ${OPTIONS_PUT_STATUS}${NC}"
     else
@@ -371,7 +380,10 @@ if [ "${SKIP_CONNECTIVITY_CHECK:-false}" = "false" ]; then
       -H "Access-Control-Request-Headers: authorization,content-type" \
       "$LINE_ITEMS_URL" 2>/dev/null || echo "")
     
-    OPTIONS_DELETE_STATUS=$(echo "$OPTIONS_DELETE_RESPONSE" | grep -o "HTTP/[12]\.[01] [0-9]*" | head -1 | awk '{print $2}')
+    OPTIONS_DELETE_STATUS=$(printf '%s\n' "$OPTIONS_DELETE_RESPONSE" |
+      grep -o "HTTP/[12]\.[01] [0-9]*" |
+      head -1 |
+      awk '{print $2}' || true)
     if [ "$OPTIONS_DELETE_STATUS" = "200" ] || [ "$OPTIONS_DELETE_STATUS" = "204" ]; then
       echo -e "${GREEN}✅ OPTIONS DELETE preflight → HTTP ${OPTIONS_DELETE_STATUS}${NC}"
     else
