@@ -50,24 +50,37 @@ export function buildApiUrl(endpoint: string): string {
 // Helper function to get auth token from localStorage
 export function getAuthToken(): string | null {
   try {
-    // Try unified key first (used by AuthProvider)
-    const token =
-      localStorage.getItem("cv.jwt") ||
-      localStorage.getItem("finz_jwt") ||
-      import.meta.env.VITE_API_JWT_TOKEN ||
-      "";
-    if (token) return token;
+    // Priority order:
+    // 1) Unified Finanzas tokens
+    // 2) Legacy Cognito keys (idToken/cognitoIdToken) across local & session storage
+    // 3) Static build-time token (used in CI/E2E)
+    // 4) Legacy serialized auth object
+    const storageSources = [localStorage, sessionStorage];
+    for (const store of storageSources) {
+      const token =
+        store.getItem("cv.jwt") ||
+        store.getItem("finz_jwt") ||
+        store.getItem("idToken") ||
+        store.getItem("cognitoIdToken") ||
+        "";
+      if (token) return token;
+    }
+
+    if (import.meta.env.VITE_API_JWT_TOKEN) {
+      return import.meta.env.VITE_API_JWT_TOKEN;
+    }
 
     // Fallback to old "auth" key structure for backward compatibility
     const authData = localStorage.getItem("auth");
-    if (!authData) return null;
-
-    const parsed = JSON.parse(authData);
-    return parsed.idToken || null;
+    if (authData) {
+      const parsed = JSON.parse(authData);
+      if (parsed?.idToken) return parsed.idToken;
+    }
   } catch (error) {
     console.error("Failed to get auth token:", error);
-    return null;
   }
+
+  return null;
 }
 
 // Helper function to build request headers
