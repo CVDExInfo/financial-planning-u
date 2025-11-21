@@ -21,9 +21,12 @@ function requireApiBase(): string {
 function authHeader(): Record<string, string> {
   // Adjust if you keep tokens elsewhere (AuthProvider adds to storage today).
   const token =
+    localStorage.getItem("cv.jwt") ||
+    localStorage.getItem("finz_jwt") ||
     localStorage.getItem("idToken") ||
     localStorage.getItem("cognitoIdToken") ||
     sessionStorage.getItem("idToken") ||
+    sessionStorage.getItem("cognitoIdToken") ||
     "";
   return token ? { Authorization: `Bearer ${token}` } : {};
 }

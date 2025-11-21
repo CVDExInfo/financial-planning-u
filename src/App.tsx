@@ -133,12 +133,10 @@ function AppContent() {
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </AccessControl>
-          import {(QueryClient, QueryClientProvider)} from
-          "@tanstack/react-query";
-        </main>
-      </ProjectProvider>
+              </Routes>
+            </AccessControl>
+          </main>
+        </ProjectProvider>
 
       <Toaster position="top-right" />
     </div>

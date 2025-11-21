@@ -63,6 +63,9 @@
           localStorage.setItem("cv.jwt", idToken);
           // Backward compatibility (Finanzas legacy key)
           localStorage.setItem("finz_jwt", idToken);
+          // Additional fallbacks used by older API clients
+          localStorage.setItem("idToken", idToken);
+          localStorage.setItem("cognitoIdToken", idToken);
           const groupsRaw = claims["cognito:groups"] || claims["groups"] || [];
           const groups = Array.isArray(groupsRaw)
             ? groupsRaw

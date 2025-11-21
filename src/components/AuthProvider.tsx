@@ -157,6 +157,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // ✅ Store JWT (unified + legacy for backward compatibility)
       localStorage.setItem("cv.jwt", AuthenticationResult.IdToken);
       localStorage.setItem("finz_jwt", AuthenticationResult.IdToken);
+      // Additional legacy keys used by older API helpers
+      localStorage.setItem("idToken", AuthenticationResult.IdToken);
+      localStorage.setItem("cognitoIdToken", AuthenticationResult.IdToken);
 
       // Optional: Store refresh token
       if (AuthenticationResult.RefreshToken) {

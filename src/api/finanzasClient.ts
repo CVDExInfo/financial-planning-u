@@ -68,6 +68,10 @@ function getAuthHeader(): Record<string, string> {
   const token =
     localStorage.getItem("cv.jwt") ||
     localStorage.getItem("finz_jwt") ||
+    localStorage.getItem("idToken") ||
+    localStorage.getItem("cognitoIdToken") ||
+    sessionStorage.getItem("idToken") ||
+    sessionStorage.getItem("cognitoIdToken") ||
     STATIC_TEST_TOKEN;
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
