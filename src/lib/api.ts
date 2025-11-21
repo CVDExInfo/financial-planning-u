@@ -43,20 +43,45 @@ export class ApiService {
         throw new Error(`API error: ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json();
-      logger.info("Projects loaded from API:", data);
+      const raw = await response.json();
+      logger.info("Projects loaded from API:", raw);
+
+      // APIs may return either an array or an envelope { data: [...] }.
+      const projects = Array.isArray(raw)
+        ? raw
+        : Array.isArray((raw as any)?.data)
+          ? (raw as any).data
+          : [];
+
+      if (!Array.isArray(projects)) {
+        throw new Error("Invalid projects payload from API");
+      }
 
       // Transform API response to match Project type
-      return data.map((project: any) => ({
-        id: project.project_id,
-        name: project.project_name || project.name,
-        description: project.description || "",
-        baseline_id: project.baseline_id || "",
+      return projects.map((project: any) => ({
+        id:
+          project.id ||
+          project.project_id ||
+          project.projectId ||
+          project.identifier ||
+          "",
+        name:
+          project.project_name ||
+          project.nombre ||
+          project.name ||
+          "",
+        description: project.description || project.descripcion || "",
+        baseline_id: project.baseline_id || project.baselineId || "",
         baseline_accepted_at:
-          project.baseline_accepted_at || project.created_at,
+          project.baseline_accepted_at ||
+          project.created_at ||
+          project.createdAt,
         next_billing_periods: [],
-        status: project.status || "active",
-        created_at: project.created_at || new Date().toISOString(),
+        status: project.status || project.estado || "active",
+        created_at:
+          project.created_at ||
+          project.createdAt ||
+          new Date().toISOString(),
       }));
     } catch (error) {
       logger.error("Failed to fetch projects from API:", error);
