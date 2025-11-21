@@ -83,13 +83,21 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
     const projects = (result.Items ?? []).map((item) => {
       // Normalize identifiers and ensure fecha_fin exists for contract tests
-      const derivedId =
+      let derivedId =
         (typeof item.pk === "string" && item.pk.startsWith("PROJECT#")
           ? item.pk.replace("PROJECT#", "")
           : undefined) ||
         (item as Record<string, unknown>).project_id ||
         (item as Record<string, unknown>).projectId ||
         (item as Record<string, unknown>).id;
+
+      if (!derivedId) {
+        derivedId = String(
+          (item as Record<string, unknown>).pk ??
+            (item as Record<string, unknown>).sk ??
+            "UNKNOWN-PROJECT"
+        );
+      }
 
       const fecha_fin =
         (item as Record<string, unknown>).fecha_fin ||
@@ -99,6 +107,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
       return {
         id: derivedId,
+        identifier: derivedId,
         cliente: (item as Record<string, unknown>).cliente ?? null,
         nombre: (item as Record<string, unknown>).nombre ?? null,
         fecha_inicio:
