@@ -186,6 +186,9 @@ export type Project = {
   id: string;
   name: string;
   description?: string;
+  client?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   baseline_id?: string;
   baseline_accepted_at?: string;
   next_billing_periods: BillingPeriod[];

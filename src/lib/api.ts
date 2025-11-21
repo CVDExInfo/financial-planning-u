@@ -46,43 +46,61 @@ export class ApiService {
       const raw = await response.json();
       logger.info("Projects loaded from API:", raw);
 
-      // APIs may return either an array or an envelope { data: [...] }.
-      const projects = Array.isArray(raw)
-        ? raw
-        : Array.isArray((raw as any)?.data)
-          ? (raw as any).data
+      const payload = raw as any;
+      const projectArray = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
           : [];
 
-      if (!Array.isArray(projects)) {
+      if (!Array.isArray(projectArray)) {
         throw new Error("Invalid projects payload from API");
       }
 
-      // Transform API response to match Project type
-      return projects.map((project: any) => ({
-        id:
-          project.id ||
-          project.project_id ||
-          project.projectId ||
-          project.identifier ||
-          "",
-        name:
-          project.project_name ||
-          project.nombre ||
-          project.name ||
-          "",
-        description: project.description || project.descripcion || "",
-        baseline_id: project.baseline_id || project.baselineId || "",
-        baseline_accepted_at:
-          project.baseline_accepted_at ||
-          project.created_at ||
-          project.createdAt,
-        next_billing_periods: [],
-        status: project.status || project.estado || "active",
-        created_at:
-          project.created_at ||
-          project.createdAt ||
-          new Date().toISOString(),
-      }));
+      // Normalize backend payloads. The Finanzas API now returns
+      // { data: [{ id, nombre, cliente, fecha_inicio, fecha_fin, ... }], total }
+      // but we still keep compatibility with older shapes that used
+      // project_id/project_name fields.
+      const normalizeProject = (project: any): Project => {
+        const id =
+          project?.id ||
+          project?.project_id ||
+          project?.projectId ||
+          project?.identifier ||
+          "";
+
+        const name =
+          project?.nombre ||
+          project?.project_name ||
+          project?.name ||
+          "";
+
+        return {
+          id: String(id).trim(),
+          name: String(name || "").trim() || "Unnamed Project",
+          description: project?.description || project?.descripcion || "",
+          baseline_id: project?.baseline_id || project?.baselineId || "",
+          baseline_accepted_at:
+            project?.baseline_accepted_at ||
+            project?.created_at ||
+            project?.createdAt ||
+            project?.fecha_inicio ||
+            project?.fecha_fin ||
+            "",
+          next_billing_periods: [],
+          status: (project?.status || project?.estado || "active") as Project["status"],
+          created_at:
+            project?.created_at ||
+            project?.createdAt ||
+            project?.fecha_inicio ||
+            new Date().toISOString(),
+          client: project?.cliente || project?.client,
+          start_date: project?.fecha_inicio || project?.start_date,
+          end_date: project?.fecha_fin || project?.end_date,
+        };
+      };
+
+      return projectArray.map(normalizeProject);
     } catch (error) {
       logger.error("Failed to fetch projects from API:", error);
       throw error;
