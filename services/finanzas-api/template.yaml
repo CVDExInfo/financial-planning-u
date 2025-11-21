@@ -520,15 +520,6 @@ Resources:
               Ref: Api
             Auth:
               Authorizer: CognitoJwt
-        LineItemsOptions:
-          Type: HttpApi
-          Properties:
-            Path: /line-items
-            Method: OPTIONS
-            ApiId:
-              Ref: Api
-            Auth:
-              Authorizer: NONE
   AllocationRulesGet:
     Type: AWS::Serverless::Function
     Metadata:
@@ -782,6 +773,15 @@ Resources:
           Resource:
             Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
       Events:
+        ListAllocations:
+          Type: HttpApi
+          Properties:
+            Path: /allocations
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
         BulkAllocations:
           Type: HttpApi
           Properties:
@@ -853,6 +853,15 @@ Resources:
           TableName:
             Ref: PayrollTable
       Events:
+        ListPayrollActuals:
+          Type: HttpApi
+          Properties:
+            Path: /payroll/actuals
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
         IngestPayroll:
           Type: HttpApi
           Properties:
@@ -899,6 +908,34 @@ Resources:
           Properties:
             Path: /close-month
             Method: POST
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+  ReconFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+        - src/handlers/recon.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: ReconFn
+    Properties:
+      CodeUri: .
+      Handler: recon.handler
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      Events:
+        GetRecon:
+          Type: HttpApi
+          Properties:
+            Path: /recon
+            Method: GET
             ApiId:
               Ref: Api
             Auth:
