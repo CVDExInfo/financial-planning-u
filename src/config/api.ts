@@ -52,7 +52,10 @@ export function getAuthToken(): string | null {
   try {
     // Try unified key first (used by AuthProvider)
     const token =
-      localStorage.getItem("cv.jwt") || localStorage.getItem("finz_jwt");
+      localStorage.getItem("cv.jwt") ||
+      localStorage.getItem("finz_jwt") ||
+      import.meta.env.VITE_API_JWT_TOKEN ||
+      "";
     if (token) return token;
 
     // Fallback to old "auth" key structure for backward compatibility

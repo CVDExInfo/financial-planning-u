@@ -43,15 +43,30 @@ export class ApiService {
         throw new Error(`API error: ${response.status} - ${errorText}`);
       }
 
-      const raw = await response.json();
-      logger.info("Projects loaded from API:", raw);
+      const text = await response.text();
+      let payload: any = [];
 
-      const payload = raw as any;
+      try {
+        payload = text ? JSON.parse(text) : [];
+      } catch (parseError) {
+        logger.warn("Failed to parse projects payload as JSON, using empty list", {
+          error: parseError,
+          bodyPreview: text?.slice(0, 200),
+        });
+        payload = [];
+      }
+
+      logger.info("Projects loaded from API:", payload);
+
       const projectArray = Array.isArray(payload)
         ? payload
         : Array.isArray(payload?.data)
           ? payload.data
-          : [];
+          : Array.isArray(payload?.items)
+            ? payload.items
+            : Array.isArray(payload?.data?.items)
+              ? payload.data.items
+              : [];
 
       if (!Array.isArray(projectArray)) {
         throw new Error("Invalid projects payload from API");
