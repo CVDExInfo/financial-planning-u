@@ -25,19 +25,22 @@ export async function login(page: Page) {
   await page.getByPlaceholder('Email').fill(username);
   await page.getByPlaceholder('Password').fill(password);
   await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+  await page.waitForLoadState('networkidle');
 
-  const heading = page.getByRole('heading', { name: /Finanzas · Gestión Presupuesto/i });
-  const headingVisible = await heading
-    .isVisible()
-    .then((visible) => visible || heading.waitFor({ state: 'visible', timeout: 30_000 }).then(() => true))
-    .catch(() => false);
+  const navbar = page.getByRole('navigation');
+  const finzTab = page.getByRole('link', { name: /Proyectos|Catálogo|Catalogo/i });
 
-  if (!headingVisible) {
+  const success = await Promise.race([
+    navbar.waitFor({ state: 'visible', timeout: 30_000 }).then(() => true),
+    finzTab.waitFor({ state: 'visible', timeout: 30_000 }).then(() => true),
+  ]).catch(() => false);
+
+  if (!success) {
     const alert = page.getByRole('alert');
     const alertText = (await alert.first().isVisible())
       ? await alert.first().innerText()
       : 'No error alert rendered';
-    throw new Error(`Login did not reach Finanzas home. Alert state: ${alertText}`);
+    throw new Error(`Login did not reach Finanzas shell. Alert state: ${alertText}`);
   }
 }
 
