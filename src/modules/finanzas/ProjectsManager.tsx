@@ -1,5 +1,6 @@
 import React from "react";
 import finanzasClient, { type ProjectCreate, type Project } from "@/api/finanzasClient";
+import ApiService from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +25,9 @@ import { Plus } from "lucide-react";
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isLoadingProjects, setIsLoadingProjects] = React.useState(true);
+  const [projects, setProjects] = React.useState<Project[]>([]);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   // Form state
   const [name, setName] = React.useState("");
@@ -34,6 +38,28 @@ export default function ProjectsManager() {
   const [currency, setCurrency] = React.useState<"USD" | "EUR" | "MXN">("USD");
   const [modTotal, setModTotal] = React.useState("");
   const [description, setDescription] = React.useState("");
+
+  const formatDate = (value?: string | null) =>
+    value ? new Date(value).toLocaleDateString() : "—";
+
+  const loadProjects = React.useCallback(async () => {
+    try {
+      setIsLoadingProjects(true);
+      setLoadError(null);
+      const data = await ApiService.getProjects();
+      setProjects(data);
+    } catch (e: any) {
+      const message = e?.message || "No se pudieron cargar los proyectos";
+      setLoadError(message);
+      toast.error(message);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +87,8 @@ export default function ProjectsManager() {
 
       toast.success(`Proyecto "${result.name}" creado exitosamente con ID: ${result.id}`);
       setIsCreateDialogOpen(false);
+
+      await loadProjects();
 
       // Reset form
       setName("");
@@ -99,27 +127,94 @@ export default function ProjectsManager() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 gap-4">
         <div>
           <h2 className="text-2xl font-semibold">Gestión de Proyectos</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Crear y administrar proyectos financieros
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-          <Plus size={16} />
-          Crear Proyecto
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={loadProjects}
+            disabled={isLoadingProjects}
+            className="gap-2"
+          >
+            {isLoadingProjects ? "Actualizando" : "Refrescar"}
+          </Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+            <Plus size={16} />
+            Crear Proyecto
+          </Button>
+        </div>
       </div>
 
-      <div className="rounded-lg border border-border p-8 text-center bg-card">
-        <p className="text-muted-foreground mb-4">
-          Haz clic en "Crear Proyecto" para agregar un nuevo proyecto al sistema.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Los proyectos creados se almacenarán en DynamoDB y estarán disponibles para
-          asignación de rubros y presupuestos.
-        </p>
+      <div className="rounded-lg border border-border p-6 bg-card space-y-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              Proyectos disponibles en el backend (API Finanzas)
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Los proyectos se almacenan en DynamoDB y se sincronizan en tiempo real.
+            </p>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {isLoadingProjects
+              ? "Cargando proyectos..."
+              : `Proyectos activos: ${projects.length}`}
+          </div>
+        </div>
+
+        {loadError && (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-destructive text-sm">
+            {loadError}
+          </div>
+        )}
+
+        {isLoadingProjects ? (
+          <div className="py-8 text-center text-muted-foreground">Cargando proyectos...</div>
+        ) : projects.length === 0 ? (
+          <div className="py-8 text-center text-muted-foreground">
+            No se encontraron proyectos. Usa "Crear Proyecto" para agregar uno nuevo.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted-foreground border-b">
+                  <th className="py-2 pr-4 font-medium">Nombre</th>
+                  <th className="py-2 pr-4 font-medium">Cliente</th>
+                  <th className="py-2 pr-4 font-medium">Inicio</th>
+                  <th className="py-2 pr-4 font-medium">Fin</th>
+                  <th className="py-2 pr-4 font-medium">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {projects.map((project) => (
+                  <tr key={project.id} className="border-b last:border-0">
+                    <td className="py-2 pr-4 font-medium text-foreground">
+                      {project.name || "Proyecto sin nombre"}
+                    </td>
+                    <td className="py-2 pr-4 text-muted-foreground">
+                      {project.client || "—"}
+                    </td>
+                    <td className="py-2 pr-4 text-muted-foreground">
+                      {formatDate(project.start_date)}
+                    </td>
+                    <td className="py-2 pr-4 text-muted-foreground">
+                      {formatDate(project.end_date)}
+                    </td>
+                    <td className="py-2 pr-4 text-muted-foreground capitalize">
+                      {project.status || "active"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>

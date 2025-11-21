@@ -30,6 +30,7 @@ import {
   LogOut,
   User,
   BookOpen,
+  FolderKanban,
   FileCheck,
   GitPullRequest,
   TrendingUp,
@@ -69,11 +70,15 @@ export function Navigation() {
     signOut,
   } = useAuth();
   const [isRolesDialogOpen, setIsRolesDialogOpen] = useState(false);
+  const finzEnabled =
+    import.meta.env.VITE_FINZ_ENABLED !== "false" ||
+    (typeof window !== "undefined" &&
+      window.location.pathname.startsWith("/finanzas"));
 
   // Check if current route is accessible when role or location changes
   // Skip redirects when in Finanzas-only mode (VITE_FINZ_ENABLED=true)
   useEffect(() => {
-    const isFinanzasOnly = import.meta.env.VITE_FINZ_ENABLED === "true";
+    const isFinanzasOnly = finzEnabled;
 
     // In Finanzas-only mode, keep all Finanzas routes accessible
     if (isFinanzasOnly) {
@@ -132,9 +137,14 @@ export function Navigation() {
       },
     ],
     FINZ:
-      import.meta.env.VITE_FINZ_ENABLED === "true"
+      finzEnabled
         ? [
-            { path: "/catalog/rubros", label: "Rubros", icon: BookOpen },
+            { path: "/projects", label: "Proyectos", icon: FolderKanban },
+            {
+              path: "/catalog/rubros",
+              label: "Catálogo de Rubros",
+              icon: BookOpen,
+            },
             { path: "/rules", label: "Rules", icon: BookOpen },
           ]
         : [],
@@ -144,8 +154,8 @@ export function Navigation() {
     const path = location.pathname;
     const userRoles = user?.roles || [];
 
-    // Check module access based on Cognito groups
-    const hasFinanzasAccess = canAccessFinanzasModule(userRoles);
+    // Check module access based on Cognito groups or Finanzas-only build
+    const hasFinanzasAccess = finzEnabled || canAccessFinanzasModule(userRoles);
     const hasPMOAccess = canAccessPMOModule(userRoles);
 
     // Direct module path detection

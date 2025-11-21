@@ -61,6 +61,10 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
+  const finzEnabled =
+    import.meta.env.VITE_FINZ_ENABLED !== "false" ||
+    (typeof window !== "undefined" &&
+      window.location.pathname.startsWith("/finanzas"));
   // Determine current module (reserved for future contextual UI; currently unused)
   // const currentModule = useCurrentModule();
   const location = useLocation();
@@ -93,7 +97,7 @@ function AppContent() {
           <AccessControl>
             <Routes>
               {/* Finanzas root (app served under /finanzas) */}
-              {import.meta.env.VITE_FINZ_ENABLED === "true" ? (
+              {finzEnabled ? (
                 <Route path="/" element={<FinanzasHome />} />
               ) : (
                 <Route path="/" element={<HomePage />} />
@@ -120,7 +124,7 @@ function AppContent() {
               <Route path="/sdmt/cost/changes" element={<SDMTChanges />} />
 
               {/* Finanzas R1 Routes (feature-flagged) */}
-              {import.meta.env.VITE_FINZ_ENABLED === "true" && (
+              {finzEnabled && (
                 <>
                   {/* Finanzas routes (relative to basename /finanzas) */}
                   <Route path="/projects" element={<ProjectsManager />} />
