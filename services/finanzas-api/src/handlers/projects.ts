@@ -103,7 +103,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       };
     });
 
-    return ok({ data: projects, total: projects.length });
+    return ok(projects);
   } catch (error) {
     console.error("Error in projects handler", error);
     return serverError();
