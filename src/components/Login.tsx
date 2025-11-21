@@ -1,4 +1,4 @@
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -20,8 +20,20 @@ export function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { loginWithCognito } = useAuth();
+  const allowPasswordLogin =
+    import.meta.env.VITE_ALLOW_PASSWORD_LOGIN === "true" ||
+    !import.meta.env.PROD;
+  const hostedUIOnly = !allowPasswordLogin;
   // Keep demo credentials disabled in production builds.
   const showDemoCredentials = import.meta.env.VITE_SHOW_DEMO_CREDS === "true";
+
+  useEffect(() => {
+    if (hostedUIOnly) {
+      setIsLoading(true);
+      const timer = setTimeout(() => loginWithHostedUI(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [hostedUIOnly]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -71,45 +83,65 @@ export function Login() {
               </Alert>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  autoComplete="username"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+            {hostedUIOnly ? (
+              <div className="space-y-4 text-center">
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Redirecting to the Cognito Hosted UI for secure sign-in…
+                  </AlertDescription>
+                </Alert>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => loginWithHostedUI()}
+                  className="w-full"
                   disabled={isLoading}
-                  required
-                />
-                <Input
-                  type="password"
-                  placeholder="Password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                  required
-                />
+                >
+                  Continue to Hosted UI
+                </Button>
               </div>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading || !email || !password}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="h-4 w-4 mr-2" />
-                    Sign In
-                  </>
-                )}
-              </Button>
-            </form>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    autoComplete="username"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
+                    required
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading || !email || !password}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="h-4 w-4 mr-2" />
+                      Sign In
+                    </>
+                  )}
+                </Button>
+              </form>
+            )}
 
             <div className="flex items-center gap-4">
               <div className="flex-1 h-px bg-border" />
@@ -117,17 +149,19 @@ export function Login() {
               <div className="flex-1 h-px bg-border" />
             </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => loginWithHostedUI()}
-              className="w-full"
-              disabled={isLoading}
-            >
-              Sign in with Cognito Hosted UI
-            </Button>
+            {!hostedUIOnly && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => loginWithHostedUI()}
+                className="w-full"
+                disabled={isLoading}
+              >
+                Sign in with Cognito Hosted UI
+              </Button>
+            )}
 
-            {showDemoCredentials && (
+            {showDemoCredentials && !hostedUIOnly && (
               <div className="p-4 rounded-lg bg-muted/50 border border-border/50 space-y-3">
                 <p className="text-xs font-medium text-muted-foreground">
                   Development Test Credentials (dev use only):
