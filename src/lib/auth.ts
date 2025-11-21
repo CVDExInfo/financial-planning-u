@@ -12,17 +12,38 @@ const ROLE_HIERARCHY: Record<UserRole, number> = {
   EXEC_RO: 4,
 };
 
+const IS_FINZ_BUILD =
+  import.meta.env.VITE_FINZ_ENABLED === "true" ||
+  (typeof window !== "undefined" && window.location.pathname.startsWith("/finanzas"));
+
 // Role permissions mapping
 const ROLE_PERMISSIONS = {
   PMO: {
     // Allow PMO to access PMO and SDMT modules, plus Finanzas (feature) routes
-    routes: ["/pmo/**", "/sdmt/**", "/catalog/**", "/rules"],
+    routes: [
+      "/",
+      "/pmo/**",
+      "/sdmt/**",
+      "/projects/**",
+      "/catalog/**",
+      "/rules",
+      "/adjustments/**",
+      "/providers/**",
+    ],
     actions: ["create", "read", "update", "delete", "approve"],
     description: "Full access to PMO estimator and SDMT cost management",
   },
   SDMT: {
     // SDMT module plus Finanzas (feature) routes
-    routes: ["/sdmt/**", "/catalog/**", "/rules"],
+    routes: [
+      "/",
+      "/sdmt/**",
+      "/projects/**",
+      "/catalog/**",
+      "/rules",
+      "/adjustments/**",
+      "/providers/**",
+    ],
     actions: ["create", "read", "update", "delete"],
     description: "Full access to SDMT cost management modules",
   },
@@ -176,6 +197,11 @@ export function getRoleInfo(role: UserRole) {
  * Generate appropriate redirect path based on role
  */
 export function getDefaultRouteForRole(role: UserRole): string {
+  if (IS_FINZ_BUILD) {
+    // In Finanzas-only deployments, always land on the Finanzas shell
+    return "/";
+  }
+
   switch (role) {
     case "PMO":
       return "/pmo/prefactura/estimator";
