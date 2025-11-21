@@ -21,10 +21,59 @@ export function requireCredentials() {
 export async function login(page: Page) {
   const { username, password } = requireCredentials();
   await page.goto('./');
-  await expect(page.getByPlaceholder('Email')).toBeVisible();
-  await page.getByPlaceholder('Email').fill(username);
-  await page.getByPlaceholder('Password').fill(password);
-  await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+
+  const hostedLoginPattern = /amazoncognito\.com\/.*login/;
+
+  const hostedRedirected = await Promise.race([
+    page.waitForURL(hostedLoginPattern, { timeout: 5_000 }).then(() => true).catch(() => false),
+    page
+      .getByRole('button', { name: /Hosted UI/i })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => false)
+      .catch(() => false),
+  ]);
+
+  if (!hostedRedirected) {
+    // If the Hosted UI isn't triggered automatically (e.g., local dev), fall back to the form.
+    const emailField = page.getByPlaceholder('Email');
+    const formVisible = await emailField
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (formVisible) {
+      await emailField.fill(username);
+      await page.getByPlaceholder('Password').fill(password);
+      await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+    }
+  }
+
+  if (!page.url().match(hostedLoginPattern)) {
+    // Trigger Hosted UI manually if we're still on the SPA shell
+    const hostedButton = page.getByRole('button', { name: /Hosted UI/i });
+    const hostedVisible = await hostedButton
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (hostedVisible) {
+      await hostedButton.click();
+      await page.waitForURL(hostedLoginPattern, { timeout: 15_000 });
+    }
+  }
+
+  if (page.url().match(hostedLoginPattern)) {
+    const usernameField = page.locator('input[name="username"], input#signInFormUsername, input#username').first();
+    const passwordField = page.locator('input[name="password"], input#signInFormPassword, input#password').first();
+    await expect(usernameField).toBeVisible({ timeout: 15_000 });
+    await usernameField.fill(username);
+    await passwordField.fill(password);
+    await page.locator('button[type="submit"], button[name="signIn"], button:has-text("Sign in")').first().click();
+  }
+
+  await page.waitForURL(new RegExp(`^${uiBaseUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), {
+    timeout: 30_000,
+  });
   await page.waitForLoadState('networkidle');
 
   const navbar = page.getByRole('navigation');
