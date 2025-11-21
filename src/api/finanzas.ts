@@ -331,7 +331,17 @@ export async function getProjectRubros(
   }
 
   const text = await res.text();
-  return (text ? (JSON.parse(text) as LineItemDTO[]) : []) as LineItemDTO[];
+  const parsed = text ? (JSON.parse(text) as unknown) : [];
+
+  if (Array.isArray(parsed)) {
+    return parsed as LineItemDTO[];
+  }
+
+  if (parsed && typeof parsed === "object" && Array.isArray((parsed as any).data)) {
+    return (parsed as any).data as LineItemDTO[];
+  }
+
+  throw new Error("Invalid rubros payload from API");
 }
 
 // Optional helpers used by tests/smokes
