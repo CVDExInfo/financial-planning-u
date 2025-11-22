@@ -64,6 +64,9 @@
           const params = new URLSearchParams(hash);
           const idToken = params.get("id_token");
           
+          // Hosted UI must be configured with response_type="token id_token" and scope must
+          // include "openid" so that id_token is present in the URL hash fragment.
+          // See src/config/aws.ts oauth.responseType configuration.
           if (!idToken) {
             fail("No id_token present. Check Cognito OAuth configuration.");
             return;

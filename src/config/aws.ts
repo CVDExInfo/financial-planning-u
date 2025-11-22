@@ -64,10 +64,11 @@ const aws = {
       (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/auth/callback.html",
     redirectSignOut: (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/",
     
-    // CURRENT: Using implicit grant (response_type=token) because token exchange is not yet implemented
-    // Token is delivered directly in URL hash fragment and processed by callback.html
-    // FUTURE: When token exchange is implemented, switch to authorization code grant (response_type=code)
-    responseType: "token",
+    // IMPORTANT: Request both access_token and id_token from Cognito
+    // The callback.html script expects id_token in the URL hash to bootstrap AuthProvider.
+    // Using implicit grant with "token id_token" ensures Cognito returns both tokens.
+    // Scope must include "openid" (already set above) for id_token to be issued.
+    responseType: "token id_token",
   },
 
   API: {
@@ -93,8 +94,8 @@ const aws = {
  * Helper function to initiate Cognito Hosted UI login
  * Redirects user to Cognito login page, which redirects back to callback URL after auth
  * 
- * Uses implicit grant flow (response_type=token) which delivers tokens directly in URL hash.
- * The callback.html page extracts and stores these tokens.
+ * Uses implicit grant flow (response_type=token id_token) which delivers both access_token
+ * and id_token directly in URL hash. The callback.html page extracts and stores these tokens.
  */
 export function loginWithHostedUI(): void {
   const { domain, scope, redirectSignIn, responseType } = aws.oauth;
