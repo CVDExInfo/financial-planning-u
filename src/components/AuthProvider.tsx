@@ -297,7 +297,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       // 1. Check for valid JWT in localStorage (existing session)
       const jwt =
-        localStorage.getItem("cv.jwt") || localStorage.getItem("finz_jwt");
+        localStorage.getItem("cv.jwt") ||
+        localStorage.getItem("finz_jwt") ||
+        localStorage.getItem("idToken") ||
+        localStorage.getItem("cognitoIdToken");
       if (jwt) {
         try {
           if (isTokenValid(jwt)) {

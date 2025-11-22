@@ -12,15 +12,20 @@ interface AccessControlProps {
   requiredRoles?: UserRole[];
 }
 
-export function AccessControl({ 
-  children, 
+export function AccessControl({
+  children,
   requiredRoles = []
 }: AccessControlProps) {
   const location = useLocation();
-  const { currentRole, canAccessRoute } = useAuth();
+  const { currentRole, canAccessRoute, isLoading, isAuthenticated } = useAuth();
   const [shouldRedirect, setShouldRedirect] = useState(false);
 
   useEffect(() => {
+    if (isLoading) {
+      setShouldRedirect(false);
+      return;
+    }
+
     const checkAccess = (route: string, role: UserRole): boolean => {
       if (requiredRoles.length > 0) {
         return requiredRoles.includes(role);
@@ -39,7 +44,15 @@ export function AccessControl({
     } else {
       setShouldRedirect(false);
     }
-  }, [location.pathname, currentRole, requiredRoles, canAccessRoute]);
+  }, [location.pathname, currentRole, requiredRoles, canAccessRoute, isLoading]);
+
+  if (isLoading) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/finanzas/" replace />;
+  }
 
   if (shouldRedirect) {
     const defaultRoute = getDefaultRouteForRole(currentRole);
