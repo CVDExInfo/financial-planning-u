@@ -59,11 +59,13 @@ const aws = {
     scope: ["openid", "email", "profile"], // Order as per R1 requirements
     // Redirects to FINANZAS module callback (not the PMO root)
     // For implicit flow: /finanzas/auth/callback.html
-    // For code flow: /finanzas/ (or /finanzas/auth/callback for React route)
+    // For authorization code grant: /finanzas/auth/callback.html (same URL, different handling)
     redirectSignIn:
       (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/auth/callback.html",
     redirectSignOut: (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/",
-    responseType: "token", // Use implicit flow for simplicity (token in hash fragment)
+    // Authorization code grant (recommended for security)
+    // Note: App client MUST have "Authorization code grant" enabled in Cognito
+    responseType: "code", // Authorization code grant (exchanges code for tokens server-side or via PKCE)
   },
 
   API: {
@@ -86,44 +88,109 @@ const aws = {
 };
 
 /**
- * Helper function to initiate Cognito Hosted UI login
- * Redirects user to Cognito login page, which redirects back to callback URL after auth
+ * Helper function to initiate Cognito Hosted UI login using Authorization Code Grant
+ * 
+ * COGNITO APP CLIENT REQUIREMENTS:
+ * - "Authorization code grant" MUST be enabled in the Cognito app client settings
+ * - The exact `redirect_uri` MUST be present in "Allowed callback URLs" list
+ * - Recommended scopes: openid, email, profile (can be extended per app needs)
+ * 
+ * FLOW:
+ * 1. Redirects user to Cognito Hosted UI at /oauth2/authorize endpoint
+ * 2. User authenticates via Cognito managed login page
+ * 3. Cognito redirects back to callback URL with authorization code in query string
+ * 4. Callback handler exchanges code for tokens (via backend or PKCE)
+ * 
+ * @see https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html
  */
 export function loginWithHostedUI(): void {
   const { domain, scope, redirectSignIn, responseType } = aws.oauth;
   const { userPoolWebClientId } = aws.Auth;
 
+  if (!domain) {
+    console.error("⚠️ VITE_COGNITO_DOMAIN is not configured. Cannot initiate Hosted UI login.");
+    throw new Error("Cognito domain not configured");
+  }
+
+  if (!userPoolWebClientId) {
+    console.error("⚠️ VITE_COGNITO_CLIENT_ID is not configured. Cannot initiate Hosted UI login.");
+    throw new Error("Cognito client ID not configured");
+  }
+
   const params = new URLSearchParams({
     client_id: userPoolWebClientId,
-    response_type: responseType,
+    response_type: responseType, // "code" for Authorization code grant
     scope: scope.join(" "),
     redirect_uri: redirectSignIn,
   });
 
-  const hostedUIUrl = `https://${domain}/login?${params.toString()}`;
+  // Use the OAuth2 authorize endpoint (standard for Authorization code grant)
+  const hostedUIUrl = `https://${domain}/oauth2/authorize?${params.toString()}`;
+  
+  if (import.meta.env.DEV) {
+    console.log("[Cognito Hosted UI] Redirecting to:", hostedUIUrl);
+  }
+  
   window.location.href = hostedUIUrl;
 }
 
 /**
  * Helper function to initiate Cognito Hosted UI logout
- * Clears tokens and redirects to Cognito logout endpoint
+ * 
+ * COGNITO APP CLIENT REQUIREMENTS:
+ * - The `logout_uri` MUST be present in "Allowed sign-out URLs" list in Cognito app client
+ * - Common sign-out URLs for Finanzas:
+ *   - https://d7t9x3j66yd8k.cloudfront.net/finanzas/
+ *   - https://d7t9x3j66yd8k.cloudfront.net/finanzas/login
+ * 
+ * FLOW:
+ * 1. Clears local token storage
+ * 2. Redirects to Cognito /logout endpoint
+ * 3. Cognito invalidates the session and redirects to logout_uri
+ * 
+ * NOTE: If using `redirect_uri` instead of `logout_uri`, it must be in "Allowed callback URLs"
+ * AWS docs recommend `logout_uri` parameter for clarity.
+ * 
+ * @see https://docs.aws.amazon.com/cognito/latest/developerguide/logout-endpoint.html
  */
 export function logoutWithHostedUI(): void {
   const { domain, redirectSignOut } = aws.oauth;
   const { userPoolWebClientId } = aws.Auth;
+
+  if (!domain) {
+    console.error("⚠️ VITE_COGNITO_DOMAIN is not configured. Clearing local tokens only.");
+  }
+
+  if (!userPoolWebClientId) {
+    console.error("⚠️ VITE_COGNITO_CLIENT_ID is not configured. Clearing local tokens only.");
+  }
 
   // Clear local tokens first
   localStorage.removeItem("cv.jwt");
   localStorage.removeItem("finz_jwt");
   localStorage.removeItem("finz_refresh_token");
   localStorage.removeItem("cv.module");
+  localStorage.removeItem("idToken");
+  localStorage.removeItem("cognitoIdToken");
+
+  // If Cognito is not configured, just redirect to local login page
+  if (!domain || !userPoolWebClientId) {
+    window.location.href = "/finanzas/login";
+    return;
+  }
 
   const params = new URLSearchParams({
     client_id: userPoolWebClientId,
-    logout_uri: redirectSignOut,
+    logout_uri: redirectSignOut, // Must be in "Allowed sign-out URLs"
   });
 
+  // Use the Cognito logout endpoint
   const logoutUrl = `https://${domain}/logout?${params.toString()}`;
+  
+  if (import.meta.env.DEV) {
+    console.log("[Cognito Logout] Redirecting to:", logoutUrl);
+  }
+  
   window.location.href = logoutUrl;
 }
 

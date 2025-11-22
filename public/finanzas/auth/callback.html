@@ -39,6 +39,28 @@
           function fail(msg) {
             document.getElementById("status").textContent = msg;
           }
+
+          // ============================================================
+          // AUTHORIZATION CODE GRANT FLOW HANDLING
+          // ============================================================
+          // Check if we received an authorization code (response_type=code)
+          const urlParams = new URLSearchParams(location.search);
+          const authCode = urlParams.get("code");
+          
+          if (authCode) {
+            // TODO: For Authorization code grant, exchange code for tokens
+            // This requires either:
+            // 1. A backend endpoint that exchanges the code for tokens securely
+            // 2. PKCE flow implementation (for public clients without client secret)
+            //
+            // For now, display a message that code flow is detected but not yet implemented
+            fail("Authorization code received. Token exchange not yet implemented. Please use implicit flow (response_type=token) or implement token exchange.");
+            return;
+          }
+
+          // ============================================================
+          // IMPLICIT GRANT FLOW HANDLING (LEGACY/FALLBACK)
+          // ============================================================
           // Extract tokens from implicit flow hash (#id_token=...&access_token=...)
           const hash = location.hash.startsWith("#")
             ? location.hash.slice(1)
@@ -46,7 +68,7 @@
           const params = new URLSearchParams(hash);
           const idToken = params.get("id_token");
           if (!idToken) {
-            fail("No id_token present.");
+            fail("No id_token or authorization code present.");
             return;
           }
           // Lightweight JWT payload decode
