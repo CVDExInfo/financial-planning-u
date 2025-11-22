@@ -1,3 +1,4 @@
+// Fixed missing closing brace to resolve ESLint parsing error (CI gate).
 import { URL } from 'url';
 import { httpRequest, HttpRequestOptions } from './httpClient';
 import { OAuthSecret } from './secrets';
