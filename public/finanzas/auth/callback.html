@@ -74,7 +74,6 @@
                 .split(",")
                 .map((s) => s.trim())
                 .filter(Boolean);
-          const has = (g) => groups.includes(g);
           const canSDT = groups.some((g) =>
             ["SDT", "FIN", "AUD", "sdmt", "fin", "aud"].includes(g.toUpperCase())
           );
