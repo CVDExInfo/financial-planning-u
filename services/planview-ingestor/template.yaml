@@ -24,7 +24,7 @@ Globals:
     Timeout: 60
     MemorySize: 512
     Runtime: nodejs20.x
-    Handler: dist/handlers/planviewQaSmoke.handler
+    Handler: planviewQaSmoke.handler
     Architectures:
       - x86_64
     Environment:
