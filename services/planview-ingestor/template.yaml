@@ -51,7 +51,6 @@ Resources:
       Role: !GetAtt PlanviewQaSmokeRole.Arn
       Policies:
         - AWSLambdaBasicExecutionRole
-
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
