@@ -1,4 +1,4 @@
-import { APIGatewayProxyResult } from 'aws-lambda';
+import { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { buildBasicAuthHeader, fetchEntityAllPages } from '../lib/odataClient';
 import { getSecretJson, ODataSecret } from '../lib/secrets';
 import { writeJsonToS3 } from '../lib/s3Writer';
@@ -23,11 +23,7 @@ const buildRunTimestamp = (): string =>
     .replace(/[-:]/g, '')
     .replace(/\.\d+Z$/, 'Z');
 
-export const handler = async (
-  _event?: unknown,
-  _context?: unknown,
-  _callback?: unknown,
-): Promise<APIGatewayProxyResult> => {
+export const handler: APIGatewayProxyHandlerV2 = async () => {
   const odataSecretId = process.env.ODATA_SECRET_ID || 'planview/qa/odata';
   const rawBucket = ensureEnv('RAW_BUCKET');
   const entities = (process.env.ODATA_ENTITIES || 'Activity')

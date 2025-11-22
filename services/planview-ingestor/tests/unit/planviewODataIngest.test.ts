@@ -49,7 +49,7 @@ describe('planviewODataIngest handler', () => {
   });
 
   it('fetches entities, writes to S3, and returns summary', async () => {
-    const response = (await handler({} as any, {} as any, () => undefined)) as APIGatewayProxyResult;
+    const response = (await handler({} as any, {} as any)) as APIGatewayProxyResult;
 
     expect(mockedGetSecretJson).toHaveBeenCalledWith('planview/qa/odata');
     expect(mockedFetchEntityAllPages).toHaveBeenCalledTimes(2);
