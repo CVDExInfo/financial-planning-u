@@ -367,7 +367,7 @@ export class PDFExporter {
 
   /**
    * Create a shareable URL with report data
-   * Note: baseUrl should be the CloudFront domain (e.g., https://d7t9x3j66yd8k.cloudfront.net)
+   * Note: baseUrl should be the CloudFront domain from VITE_CLOUDFRONT_URL env var
    * NOT window.location.origin or github.dev URLs
    */
   static createShareableURL(data: PDFReportData, baseUrl: string = ""): string {

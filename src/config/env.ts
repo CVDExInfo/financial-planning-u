@@ -39,9 +39,8 @@ The Finanzas frontend requires VITE_API_BASE_URL to be configured.
   For Local Development:
   ----------------------
   1. Copy .env.example to .env.local
-  2. Set VITE_API_BASE_URL to the API endpoint:
-     
-     VITE_API_BASE_URL=https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev
+  2. Set VITE_API_BASE_URL to the API endpoint
+  3. See .env.example for the correct value
 
   For Production/Staging:
   ----------------------
@@ -51,7 +50,7 @@ The Finanzas frontend requires VITE_API_BASE_URL to be configured.
     env:
       VITE_API_BASE_URL: \${{ vars.DEV_API_URL }}
 
-📖 See README.md for complete documentation.
+📖 See README.md and .env.example for complete documentation.
 
 ⚠️  API calls will fail until this is configured.
   `.trim();

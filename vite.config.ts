@@ -50,7 +50,8 @@ export default defineConfig(() => {
     console.error("🔧 To fix this:");
     console.error("");
     console.error("  1. For local development:");
-    console.error("     export VITE_API_BASE_URL=https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev");
+    console.error("     Set VITE_API_BASE_URL in your .env.local file");
+    console.error("     See .env.example for the correct value");
     console.error("     npm run build:finanzas");
     console.error("");
     console.error("  2. For CI/CD:");
@@ -61,6 +62,7 @@ export default defineConfig(() => {
     console.error("");
     console.error("📖 For more details, see:");
     console.error("   - README.md (section: Required Configuration)");
+    console.error("   - .env.example");
     console.error("   - API_CONNECTIVITY_VALIDATION.md");
     console.error("");
     throw new Error("VITE_API_BASE_URL is not set for Finanzas build.");
