@@ -35,8 +35,8 @@ env:
   # Cognito Configuration (required for authentication)
   COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
   COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
+  COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN }}
   COGNITO_IDENTITY_POOL_ID: ${{ vars.COGNITO_IDENTITY_POOL_ID || '' }}
-  COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN || '' }}
 
   # Frontend feature flags
   VITE_FINZ_ENABLED: ${{ vars.VITE_FINZ_ENABLED || 'true' }}
@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "🚀 Deployment Environment: ${DEPLOYMENT_ENV}"
-          for k in AWS_REGION FINANZAS_BUCKET_NAME CLOUDFRONT_DIST_ID FINZ_API_ID FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_WEB_CLIENT; do
+          for k in AWS_REGION FINANZAS_BUCKET_NAME CLOUDFRONT_DIST_ID FINZ_API_ID FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_WEB_CLIENT COGNITO_DOMAIN; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing repo var: $k"; exit 1; }
           done
           printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
