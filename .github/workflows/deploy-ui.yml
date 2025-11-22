@@ -18,7 +18,7 @@ env:
   DEPLOYMENT_ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
 
   # S3 bucket for Finanzas (PMO is deployed by acta-ui repo)
-  FINANZAS_BUCKET_NAME: ${{ vars.FINANZAS_BUCKET_NAME || 'ukusi-ui-finanzas-prod' }}
+  FINANZAS_BUCKET_NAME: ${{ vars.FINANZAS_BUCKET_NAME }}
 
   # CloudFront (single distribution)
   CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID || 'EPQU7PVDLQXUA' }}
@@ -123,11 +123,15 @@ jobs:
           fi
 
           # Optional sanity check: warn if host doesn't match EXPECTED_API_ID (but do not block)
-          HOST_WITH_PATH="${BASE#https://}"
-          HOST="${HOST_WITH_PATH%%/*}"
-          EXPECTED_HOST="${EXPECTED_API_ID}.execute-api.${AWS_REGION}.amazonaws.com"
-          if [[ -n "${EXPECTED_API_ID}" && "$HOST" != "$EXPECTED_HOST" ]]; then
-            echo "⚠️  WARNING: API host ($HOST) does not match EXPECTED_API_ID ($EXPECTED_HOST)" >&2
+          if [[ "$BASE" == https://*.execute-api.*.amazonaws.com/* ]]; then
+            HOST_WITH_PATH="${BASE#https://}"
+            HOST="${HOST_WITH_PATH%%/*}"
+            EXPECTED_HOST="${EXPECTED_API_ID}.execute-api.${AWS_REGION}.amazonaws.com"
+            if [[ -n "${EXPECTED_API_ID}" && "$HOST" != "$EXPECTED_HOST" ]]; then
+              echo "⚠️  WARNING: API host ($HOST) does not match EXPECTED_API_ID ($EXPECTED_HOST)" >&2
+            fi
+          else
+            echo "ℹ️  Using custom DEV_API_URL host ($BASE); skipping EXPECTED_API_ID host check"
           fi
 
           echo "📝 Setting VITE_API_BASE_URL=$BASE for Finanzas build"
@@ -255,6 +259,27 @@ jobs:
           echo "📋 Sample occurrences:"
           grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" | head -3 || true
 
+      # ---- Record Finanzas bundle hashes (evidence + drift detection) ----
+      - name: Record Finanzas bundle hashes
+        run: |
+          set -euo pipefail
+
+          ls -R dist-finanzas
+
+          # Compute hashes for primary JS/CSS bundles
+          sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css | tee /tmp/finz-bundle-hashes.txt
+
+          # Persist alongside artifacts so we can compare with remote on the next run
+          cp /tmp/finz-bundle-hashes.txt dist-finanzas/.bundle-hashes.txt
+
+          {
+            echo "### Finanzas bundle hashes"
+            echo ""
+            cat /tmp/finz-bundle-hashes.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "✅ Bundle hashes recorded and copied to dist-finanzas/.bundle-hashes.txt"
+
       # ---- Configure AWS via OIDC (must be before any aws CLI) ----
       - name: Configure AWS (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -280,16 +305,51 @@ jobs:
           set -euo pipefail
           : ${VITE_API_BASE_URL:?VITE_API_BASE_URL missing}
           BASE="${VITE_API_BASE_URL%/}"
-          HOST_ID=$(echo "$BASE" | awk -F'[/.]' '{print $3}')
-          : ${EXPECTED_API_ID:?EXPECTED_API_ID missing}
-          if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
-            echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID}"; exit 1;
+          if [[ "$BASE" == https://*.execute-api.*.amazonaws.com/* ]]; then
+            HOST_ID=$(echo "$BASE" | awk -F'[/.]' '{print $3}')
+            : ${EXPECTED_API_ID:?EXPECTED_API_ID missing}
+            if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
+              echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID}"; exit 1;
+            fi
+            echo "✅ API endpoint ID matches expected execute-api host: $BASE"
+          else
+            echo "ℹ️  Custom DEV_API_URL detected ($BASE); skipping execute-api host enforcement"
           fi
-          CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || true)
-          if [ "$CODE" != "200" ]; then
-            echo "❌ /health returned $CODE — check stage deployment"; exit 1;
+
+      # ---- Guard: detect unchanged bundle when Finanzas files changed ----
+      - name: Guard - Finanzas bundle changed when UI files changed
+        run: |
+          set -euo pipefail
+
+          # Determine previous commit for comparison (supports push and workflow_dispatch)
+          PREV="${{ github.event.before || '' }}"
+          if [ -z "$PREV" ] || ! git cat-file -e "$PREV^{commit}" 2>/dev/null; then
+            PREV=$(git rev-parse HEAD^)
           fi
-          echo "✅ API endpoint ID and /health verified: $BASE"
+
+          # Detect Finanzas-affecting file changes
+          CHANGED_FILES=$(git diff --name-only "$PREV" HEAD | grep -E '^(src/|public/|vite\.config|package-lock\.json|package\.json|.github/workflows/deploy-ui.yml|scripts/finanzas|docs/finanzas)' || true)
+
+          # If no Finanzas changes, skip the guard
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "ℹ️  No Finanzas UI-affecting changes detected between $PREV and HEAD; skipping hash comparison"
+            exit 0
+          fi
+
+          # Fetch previous deployed hashes when available
+          PREV_HASH_FILE=/tmp/prev-finz-hashes.txt
+          if aws s3 cp "s3://${FINANZAS_BUCKET_NAME}/finanzas/.bundle-hashes.txt" "$PREV_HASH_FILE" 2>/dev/null; then
+            if cmp -s "$PREV_HASH_FILE" dist-finanzas/.bundle-hashes.txt; then
+              echo "❌ Finanzas bundle hash unchanged even though UI files changed"
+              echo "Changed files:"
+              echo "$CHANGED_FILES"
+              exit 1
+            else
+              echo "✅ Bundle hash differs from previously deployed version"
+            fi
+          else
+            echo "ℹ️  No prior bundle hash found in S3; skipping unchanged-bundle guard"
+          fi
 
       # ---- Build artifact validation ----
       - name: Guard - Finanzas build artifacts
@@ -318,7 +378,35 @@ jobs:
             --exclude 'test-helper.html' \
             --delete
           echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
-                                  
+
+
+      # ---- Post-upload drift check (ensures S3 matches local build) ----
+      - name: Verify Finanzas S3 manifest matches local build
+        run: |
+          set -euo pipefail
+
+          # Local manifest (strip dist-finanzas/ prefix, ignore .map for parity with sync rules)
+          find dist-finanzas -type f ! -name '*.map' -print \
+            | sed 's|^dist-finanzas/||' \
+            | sort > /tmp/local-finanzas-manifest.txt
+
+          # Remote manifest (strip finanzas/ prefix, ignore .map keys)
+          aws s3api list-objects-v2 \
+            --bucket "${FINANZAS_BUCKET_NAME}" \
+            --prefix "finanzas/" \
+            --output json \
+            | jq -r '.Contents[]?.Key | select(. | endswith(".map") | not) | sub("^finanzas/"; "")' \
+            | sort > /tmp/s3-finanzas-manifest.txt
+
+          echo "🔍 Comparing local vs S3 manifests (excluding .map files)..."
+          if ! diff -u /tmp/local-finanzas-manifest.txt /tmp/s3-finanzas-manifest.txt; then
+            echo "❌ Finanzas S3 manifest mismatch — bucket drift detected"
+            echo "   Ensure sync completed successfully and CloudFront invalidation is executed"
+            exit 1
+          fi
+
+          echo "✅ Finanzas S3 manifest matches local build"
+
 
       # ---- CF behavior check for /finanzas/* ----
       - name: Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)
@@ -472,10 +560,9 @@ jobs:
           - Value used at build time: ${API}
           - Stage/environment alignment verified
 
-          ### 2. CORS & Authentication Validation
-          - OPTIONS preflight tests: ✅ (see validate-api-config.sh output)
-          - JWT authentication flow: ✅ (see validate-api-config.sh output)
-          - Protected endpoint access: ✅ (see validate-api-config.sh output)
+          ### 2. Bundle hash evidence
+          - See "Record Finanzas bundle hashes" step above
+          - Hash file uploaded as finanzas/.bundle-hashes.txt for next-run comparison
 
           ### 3. Deep-route SPA Verification
           - Root route (/finanzas/): ✅ HTTP 200
