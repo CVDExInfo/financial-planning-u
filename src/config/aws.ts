@@ -12,61 +12,57 @@
 
 import { API_BASE, HAS_API_BASE } from "./env";
 
-const getEnv = (key: string, fallback: string) =>
-  import.meta.env[key] || fallback;
+/**
+ * Get environment variable value without fallback
+ * Returns empty string if not set, allowing calling code to handle missing values
+ */
+const getEnv = (key: string): string => import.meta.env[key] || "";
 
-const DEFAULT_API_BASE =
-  "https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev";
-const RESOLVED_API_BASE = HAS_API_BASE ? API_BASE : DEFAULT_API_BASE;
+/**
+ * Get environment variable with regional fallback (safe for non-sensitive defaults)
+ */
+const getEnvWithRegionFallback = (key: string, defaultRegion: string = "us-east-2"): string =>
+  import.meta.env[key] || defaultRegion;
+
+const RESOLVED_API_BASE = HAS_API_BASE ? API_BASE : "";
 if (!HAS_API_BASE) {
   console.error(
-    "VITE_API_BASE_URL missing while building aws config; falling back to default dev endpoint."
+    "⚠️ VITE_API_BASE_URL is not configured."
   );
 }
 
 const aws = {
-  aws_project_region: "us-east-2",
-  aws_cognito_region: getEnv("VITE_COGNITO_REGION", "us-east-2"),
+  aws_project_region: getEnvWithRegionFallback("VITE_AWS_REGION"),
+  aws_cognito_region: getEnvWithRegionFallback("VITE_COGNITO_REGION"),
 
-  aws_user_pools_id: getEnv("VITE_COGNITO_USER_POOL_ID", "us-east-2_FyHLtOhiY"),
-  aws_user_pools_web_client_id: getEnv(
-    "VITE_COGNITO_CLIENT_ID",
-    "dshos5iou44tuach7ta3ici5m"
-  ),
+  aws_user_pools_id: getEnv("VITE_COGNITO_USER_POOL_ID"),
+  aws_user_pools_web_client_id: getEnv("VITE_COGNITO_CLIENT_ID"),
 
   // Identity Pool is optional; include only if the browser must call AWS services directly
-  aws_cognito_identity_pool_id:
-    "us-east-2:1d50fa9e-c72f-4a3d-acfd-7b36ea065f35",
+  // Set via VITE_COGNITO_IDENTITY_POOL_ID environment variable if needed
+  aws_cognito_identity_pool_id: getEnv("VITE_COGNITO_IDENTITY_POOL_ID"),
 
   Auth: {
-    region: getEnv("VITE_COGNITO_REGION", "us-east-2"),
-    userPoolId: getEnv("VITE_COGNITO_USER_POOL_ID", "us-east-2_FyHLtOhiY"),
-    userPoolWebClientId: getEnv(
-      "VITE_COGNITO_CLIENT_ID",
-      "dshos5iou44tuach7ta3ici5m"
-    ),
-    identityPoolId: "us-east-2:1d50fa9e-c72f-4a3d-acfd-7b36ea065f35",
+    region: getEnvWithRegionFallback("VITE_COGNITO_REGION"),
+    userPoolId: getEnv("VITE_COGNITO_USER_POOL_ID"),
+    userPoolWebClientId: getEnv("VITE_COGNITO_CLIENT_ID"),
+    identityPoolId: getEnv("VITE_COGNITO_IDENTITY_POOL_ID"),
     authenticationFlowType: "USER_SRP_AUTH",
     mandatorySignIn: true,
   },
 
   oauth: {
-    // FIXED: Added missing hyphen in domain (us-east-2-fyhltohiy)
-    domain: getEnv(
-      "VITE_COGNITO_DOMAIN",
-      "us-east-2-fyhltohiy.auth.us-east-2.amazoncognito.com"
-    ),
+    // Cognito domain should be set via VITE_COGNITO_DOMAIN environment variable
+    // Format: <domain-prefix>.auth.<region>.amazoncognito.com
+    domain: getEnv("VITE_COGNITO_DOMAIN"),
 
     scope: ["openid", "email", "profile"], // Order as per R1 requirements
     // Redirects to FINANZAS module callback (not the PMO root)
     // For implicit flow: /finanzas/auth/callback.html
     // For code flow: /finanzas/ (or /finanzas/auth/callback for React route)
     redirectSignIn:
-      getEnv("VITE_CLOUDFRONT_URL", "https://d7t9x3j66yd8k.cloudfront.net") +
-      "/finanzas/auth/callback.html",
-    redirectSignOut:
-      getEnv("VITE_CLOUDFRONT_URL", "https://d7t9x3j66yd8k.cloudfront.net") +
-      "/finanzas/",
+      (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/auth/callback.html",
+    redirectSignOut: (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/",
     responseType: "token", // Use implicit flow for simplicity (token in hash fragment)
   },
 
@@ -74,16 +70,17 @@ const aws = {
     REST: {
       FinanzasAPI: {
         endpoint: RESOLVED_API_BASE,
-        region: "us-east-2",
+        region: getEnvWithRegionFallback("VITE_AWS_REGION"),
       },
     },
   },
 
   // Only needed if the finance UI uploads to S3 directly
+  // Set via VITE_S3_BUCKET environment variable
   Storage: {
     S3: {
-      bucket: "ukusi-ui-finanzas-prod",
-      region: "us-east-2",
+      bucket: getEnv("VITE_S3_BUCKET"),
+      region: getEnvWithRegionFallback("VITE_AWS_REGION"),
     },
   },
 };
@@ -137,31 +134,46 @@ export function logoutWithHostedUI(): void {
 if (import.meta.env.DEV) {
   console.log("[Cognito Config] Pre-flight check:");
   console.log("  Region:", aws.Auth.region);
-  console.log("  User Pool ID:", aws.Auth.userPoolId);
-  console.log("  App Client ID:", aws.Auth.userPoolWebClientId);
-  console.log("  Cognito Domain:", aws.oauth.domain);
+  console.log("  User Pool ID:", aws.Auth.userPoolId || "⚠️ NOT SET");
+  console.log("  App Client ID:", aws.Auth.userPoolWebClientId || "⚠️ NOT SET");
+  console.log("  Cognito Domain:", aws.oauth.domain || "⚠️ NOT SET");
   console.log("  Redirect Sign In:", aws.oauth.redirectSignIn);
   console.log("  Redirect Sign Out:", aws.oauth.redirectSignOut);
   console.log("  Response Type:", aws.oauth.responseType);
   console.log("  Auth Flow:", aws.Auth.authenticationFlowType);
 
   // Validation warnings
-  if (!aws.oauth.domain || aws.oauth.domain.includes("_")) {
+  if (!aws.Auth.userPoolId) {
     console.warn(
-      "⚠️  Cognito domain appears malformed. Should be: <domain-prefix>.auth.<region>.amazoncognito.com"
+      "⚠️  VITE_COGNITO_USER_POOL_ID is not set."
     );
   }
-  if (
-    !aws.Auth.userPoolWebClientId ||
-    aws.Auth.userPoolWebClientId.length < 20
-  ) {
+  if (!aws.Auth.userPoolWebClientId) {
+    console.warn(
+      "⚠️  VITE_COGNITO_CLIENT_ID is not set."
+    );
+  } else if (aws.Auth.userPoolWebClientId.length < 20) {
     console.warn(
       "⚠️  App Client ID appears malformed. Should be 26 characters."
     );
   }
-  if (!aws.oauth.redirectSignIn.includes("/finanzas/auth/callback.html")) {
+  if (!aws.oauth.domain) {
+    console.warn(
+      "⚠️  VITE_COGNITO_DOMAIN is not set. Should be: <domain-prefix>.auth.<region>.amazoncognito.com"
+    );
+  } else if (aws.oauth.domain.includes("_")) {
+    console.warn(
+      "⚠️  Cognito domain appears malformed. Should be: <domain-prefix>.auth.<region>.amazoncognito.com"
+    );
+  }
+  if (aws.oauth.redirectSignIn && !aws.oauth.redirectSignIn.includes("/finanzas/auth/callback.html")) {
     console.warn(
       "⚠️  Redirect Sign In should point to /finanzas/auth/callback.html"
+    );
+  }
+  if (!getEnv("VITE_CLOUDFRONT_URL")) {
+    console.warn(
+      "⚠️  VITE_CLOUDFRONT_URL is not set. OAuth redirects may not work correctly."
     );
   }
 }
