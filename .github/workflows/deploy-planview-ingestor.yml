@@ -47,19 +47,20 @@ jobs:
 
       - name: Install dependencies
         working-directory: services/planview-ingestor
-        run: |
-          npm ci
-
+        run: npm ci
+      
       - name: Run tests
         working-directory: services/planview-ingestor
-        run: |
-          npm test
-
+        run: npm test
+      
+      - name: Build TypeScript
+        working-directory: services/planview-ingestor
+        run: npm run build
+      
       - name: Build Lambda (SAM)
         working-directory: services/planview-ingestor
-        run: |
-          sam build
-
+        run: sam build
+      
       - name: Deploy Planview Ingestor (SAM)
         working-directory: services/planview-ingestor
         run: |
@@ -74,3 +75,4 @@ jobs:
               OAuthSecretId="$OAUTH_SECRET_ID" \
               ODataSecretId="$ODATA_SECRET_ID" \
               TestProjectId="$TEST_PROJECT_ID"
+
