@@ -4,7 +4,7 @@ This AWS SAM service performs a minimal end-to-end connectivity check against Pl
 
 ## What it does
 1. Fetches OAuth client credentials from **planview/qa/oauth**.
-2. Requests an OAuth access token using multipart/form-data (client_credentials grant).
+2. Requests an OAuth access token using application/x-www-form-urlencoded (client_credentials grant).
 3. Calls the Planview Work endpoint for the configured test project.
 4. Writes the raw JSON response to the designated S3 bucket.
 5. Optionally performs a lightweight OData `$metadata` check using **planview/qa/odata**.

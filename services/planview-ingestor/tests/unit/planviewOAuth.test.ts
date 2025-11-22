@@ -9,7 +9,7 @@ describe('getAccessToken', () => {
     base_url: 'https://example.com/myserver/public-api/v1',
   };
 
-  it('builds multipart request with correct fields', async () => {
+  it('builds urlencoded request with correct fields', async () => {
     const mockRequester = jest.fn<Promise<string>, [HttpRequestOptions, string | Buffer | undefined]>();
     mockRequester.mockResolvedValue(JSON.stringify({ access_token: 'token123' }));
 
@@ -22,14 +22,12 @@ describe('getAccessToken', () => {
     expect(options.hostname).toBe('example.com');
     expect(options.path).toBe('/myserver/public-api/v1/oauth/token');
     expect(options.headers).toBeDefined();
-    expect((options.headers as Record<string, unknown>)['Content-Type']).toContain('multipart/form-data');
+    const headers = options.headers as Record<string, string>;
+    expect(headers['Content-Type']).toBe('application/x-www-form-urlencoded');
     const payload = body?.toString() ?? '';
-    expect(payload).toContain('grant_type');
-    expect(payload).toContain('client_credentials');
-    expect(payload).toContain('client_id');
-    expect(payload).toContain('client');
-    expect(payload).toContain('client_secret');
-    expect(payload).toContain('secret');
+    expect(payload).toContain('grant_type=client_credentials');
+    expect(payload).toContain('client_id=client');
+    expect(payload).toContain('client_secret=secret');
   });
 
   it('throws when access_token missing', async () => {
