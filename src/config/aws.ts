@@ -54,16 +54,20 @@ const aws = {
   oauth: {
     // Cognito domain should be set via VITE_COGNITO_DOMAIN environment variable
     // Format: <domain-prefix>.auth.<region>.amazoncognito.com
+    // NOTE: The domain prefix is a free-form string (not auto-generated)
+    // For this User Pool: us-east-2fyhltohiy (NO hyphen after region)
     domain: getEnv("VITE_COGNITO_DOMAIN"),
 
     scope: ["openid", "email", "profile"], // Order as per R1 requirements
     // Redirects to FINANZAS module callback (not the PMO root)
-    // For implicit flow: /finanzas/auth/callback.html
-    // For code flow: /finanzas/ (or /finanzas/auth/callback for React route)
     redirectSignIn:
       (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/auth/callback.html",
     redirectSignOut: (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/",
-    responseType: "token", // Use implicit flow for simplicity (token in hash fragment)
+    
+    // CURRENT: Using implicit grant (response_type=token) because token exchange is not yet implemented
+    // Token is delivered directly in URL hash fragment and processed by callback.html
+    // FUTURE: When token exchange is implemented, switch to authorization code grant (response_type=code)
+    responseType: "token",
   },
 
   API: {
@@ -88,10 +92,23 @@ const aws = {
 /**
  * Helper function to initiate Cognito Hosted UI login
  * Redirects user to Cognito login page, which redirects back to callback URL after auth
+ * 
+ * Uses implicit grant flow (response_type=token) which delivers tokens directly in URL hash.
+ * The callback.html page extracts and stores these tokens.
  */
 export function loginWithHostedUI(): void {
   const { domain, scope, redirectSignIn, responseType } = aws.oauth;
   const { userPoolWebClientId } = aws.Auth;
+
+  if (!domain) {
+    console.error("VITE_COGNITO_DOMAIN not configured. Cannot initiate Hosted UI login.");
+    return;
+  }
+
+  if (!userPoolWebClientId) {
+    console.error("VITE_COGNITO_CLIENT_ID not configured. Cannot initiate Hosted UI login.");
+    return;
+  }
 
   const params = new URLSearchParams({
     client_id: userPoolWebClientId,
@@ -100,29 +117,45 @@ export function loginWithHostedUI(): void {
     redirect_uri: redirectSignIn,
   });
 
-  const hostedUIUrl = `https://${domain}/login?${params.toString()}`;
+  // Use /oauth2/authorize endpoint (standard OAuth 2.0 endpoint)
+  const hostedUIUrl = `https://${domain}/oauth2/authorize?${params.toString()}`;
   window.location.href = hostedUIUrl;
 }
 
 /**
  * Helper function to initiate Cognito Hosted UI logout
- * Clears tokens and redirects to Cognito logout endpoint
+ * Clears local tokens and redirects to Cognito logout endpoint
+ * This also clears the Cognito session server-side
  */
 export function logoutWithHostedUI(): void {
   const { domain, redirectSignOut } = aws.oauth;
   const { userPoolWebClientId } = aws.Auth;
 
-  // Clear local tokens first
+  // Clear local tokens first (always do this even if redirect fails)
   localStorage.removeItem("cv.jwt");
   localStorage.removeItem("finz_jwt");
   localStorage.removeItem("finz_refresh_token");
   localStorage.removeItem("cv.module");
+  localStorage.removeItem("idToken");
+  localStorage.removeItem("cognitoIdToken");
+
+  // If domain or client ID not configured, fall back to local logout only
+  if (!domain || !userPoolWebClientId) {
+    console.warn(
+      "Cognito domain or client ID not configured. " +
+      "Performing local logout only (Cognito session not cleared)."
+    );
+    // Redirect to login page as fallback
+    window.location.href = "/finanzas/login";
+    return;
+  }
 
   const params = new URLSearchParams({
     client_id: userPoolWebClientId,
     logout_uri: redirectSignOut,
   });
 
+  // Use /logout endpoint to clear Cognito session
   const logoutUrl = `https://${domain}/logout?${params.toString()}`;
   window.location.href = logoutUrl;
 }
