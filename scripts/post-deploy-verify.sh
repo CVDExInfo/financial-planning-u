@@ -103,6 +103,19 @@ AUTH_CODE=$(curl -sS -o /tmp/auth_callback.html -w '%{http_code}' \
 
 if [ "$AUTH_CODE" = "200" ]; then
   echo -e "${GREEN}✅ Auth callback accessible (HTTP $AUTH_CODE)${NC}"
+  
+  # Verify it's actually callback.html, not index.html
+  if [ -f /tmp/auth_callback.html ]; then
+    # Check for callback-specific markers
+    if grep -q "Signing you in" /tmp/auth_callback.html && grep -q "\[Callback\]" /tmp/auth_callback.html; then
+      echo -e "${GREEN}✅ Callback.html is being served (verified content markers)${NC}"
+    else
+      echo -e "${RED}❌ CloudFront returned index.html instead of callback.html${NC}"
+      echo "   This means SPA error handling is intercepting the callback route"
+      echo "   Check CloudFront behavior configuration for /finanzas/auth/* path"
+      ERRORS=$((ERRORS + 1))
+    fi
+  fi
 else
   echo -e "${YELLOW}⚠️  Auth callback not accessible (HTTP $AUTH_CODE)${NC}"
   echo "   This is acceptable if authentication callback is not yet deployed"

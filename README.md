@@ -14,7 +14,40 @@ This application uses **AWS Cognito** for authentication with support for:
 - Token persistence across sessions
 - Multi-role user support
 
-**📖 For complete authentication documentation, see [AUTHENTICATION_FLOW.md](./AUTHENTICATION_FLOW.md)**
+**📖 Authentication Documentation:**
+- **[Authentication Flow Overview](./AUTHENTICATION_FLOW.md)** - Comprehensive authentication architecture
+- **[Auth Validation Guide](./docs/auth-validation.md)** - Step-by-step testing and troubleshooting
+
+### Quick Start - Local Development
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Create `.env.local` with required variables:**
+   ```bash
+   # Cognito Configuration
+   VITE_COGNITO_REGION=us-east-2
+   VITE_COGNITO_USER_POOL_ID=us-east-2_FyHLtOhiY
+   VITE_COGNITO_CLIENT_ID=dshos5iou44tuach7ta3ici5m
+   VITE_COGNITO_DOMAIN=us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com
+   
+   # API & CloudFront
+   VITE_CLOUDFRONT_URL=https://d7t9x3j66yd8k.cloudfront.net
+   VITE_API_BASE_URL=https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev
+   VITE_FINZ_ENABLED=true
+   ```
+
+3. **Start development server:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Test Hosted UI login:**
+   - Navigate to `http://localhost:5173/finanzas/`
+   - Click "Sign in with Cognito Hosted UI"
+   - Use test credentials (see below)
 
 ### Development Credentials
 
@@ -30,7 +63,7 @@ For local development and testing:
 VITE_COGNITO_REGION=us-east-2
 VITE_COGNITO_USER_POOL_ID=us-east-2_FyHLtOhiY
 VITE_COGNITO_CLIENT_ID=dshos5iou44tuach7ta3ici5m
-VITE_COGNITO_DOMAIN=us-east-2-fyhltohiy.auth.us-east-2.amazoncognito.com
+VITE_COGNITO_DOMAIN=us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com
 
 # API & CloudFront
 VITE_CLOUDFRONT_URL=https://d7t9x3j66yd8k.cloudfront.net
@@ -42,7 +75,7 @@ VITE_FINZ_ENABLED=true
 
 **User Pool:** `us-east-2_FyHLtOhiY`
 **App Client ID (no secret):** `dshos5iou44tuach7ta3ici5m`
-**Cognito Domain:** `us-east-2-fyhltohiy.auth.us-east-2.amazoncognito.com`
+**Cognito Domain:** `us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com` (⚠️ **Note**: NO hyphen after region)
 
 **OAuth Flow:** Implicit flow (`responseType: 'token'`)
 
