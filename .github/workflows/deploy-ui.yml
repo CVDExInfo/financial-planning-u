@@ -318,7 +318,35 @@ jobs:
             --exclude 'test-helper.html' \
             --delete
           echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
-                                  
+
+
+      # ---- Post-upload drift check (ensures S3 matches local build) ----
+      - name: Verify Finanzas S3 manifest matches local build
+        run: |
+          set -euo pipefail
+
+          # Local manifest (strip dist-finanzas/ prefix, ignore .map for parity with sync rules)
+          find dist-finanzas -type f ! -name '*.map' -print \
+            | sed 's|^dist-finanzas/||' \
+            | sort > /tmp/local-finanzas-manifest.txt
+
+          # Remote manifest (strip finanzas/ prefix, ignore .map keys)
+          aws s3api list-objects-v2 \
+            --bucket "${FINANZAS_BUCKET_NAME}" \
+            --prefix "finanzas/" \
+            --output json \
+            | jq -r '.Contents[]?.Key | select(. | endswith(".map") | not) | sub("^finanzas/"; "")' \
+            | sort > /tmp/s3-finanzas-manifest.txt
+
+          echo "🔍 Comparing local vs S3 manifests (excluding .map files)..."
+          if ! diff -u /tmp/local-finanzas-manifest.txt /tmp/s3-finanzas-manifest.txt; then
+            echo "❌ Finanzas S3 manifest mismatch — bucket drift detected"
+            echo "   Ensure sync completed successfully and CloudFront invalidation is executed"
+            exit 1
+          fi
+
+          echo "✅ Finanzas S3 manifest matches local build"
+
 
       # ---- CF behavior check for /finanzas/* ----
       - name: Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)
