@@ -56,3 +56,4 @@ docs-pdf/
 
 # Documentation pipeline temporary files
 public/docs/temp/
+.env.local
