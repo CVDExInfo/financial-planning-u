@@ -70,6 +70,24 @@ function AppContent() {
   const location = useLocation();
   const showProjectContextBar = location.pathname.startsWith("/sdmt/");
 
+  // ✅ CRITICAL: Prevent React from intercepting OAuth callback route
+  // The callback.html is a static file that must execute independently to:
+  // 1. Parse tokens from URL hash (Cognito implicit flow)
+  // 2. Store tokens in localStorage
+  // 3. Redirect back to the SPA
+  // 
+  // If React renders here, it will:
+  // - Check isAuthenticated (false, since tokens not yet stored)
+  // - Redirect to login page before callback.html can execute
+  // - Create infinite login loop
+  //
+  // Solution: Return null to prevent React rendering on callback routes
+  // This allows the browser to load the static callback.html file from /public
+  if (location.pathname.includes("/auth/callback")) {
+    console.log("[App] Callback route detected - deferring to static callback.html");
+    return null;
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
