@@ -36,7 +36,14 @@
       </p>
       <script>
         (function () {
+          // ✅ Enhanced logging for debugging
+          console.log("[Callback] Starting authentication callback processing");
+          console.log("[Callback] href:", window.location.href);
+          console.log("[Callback] search:", window.location.search);
+          console.log("[Callback] hash:", window.location.hash);
+          
           function fail(msg) {
+            console.error("[Callback] FAILURE:", msg);
             document.getElementById("status").textContent = msg;
           }
           
@@ -60,21 +67,42 @@
           // Extract tokens from implicit flow hash (#id_token=...&access_token=...)
           const rawHash = window.location.hash || "";
           const hash = rawHash.startsWith("#") ? rawHash.slice(1) : rawHash;
+          console.log("[Callback] Parsed hash parameters:", hash.substring(0, 100) + "...");
           const params = new URLSearchParams(hash);
           const idToken = params.get("id_token");
           const accessToken = params.get("access_token");
-
-          // Cognito implicit flow uses response_type=token.
-          // With scope including "openid", Cognito returns both id_token and access_token
-          // in the URL hash (#id_token=...&access_token=...).
-          // If id_token is missing here, check:
-          // - App client has Implicit grant enabled in Cognito.
-          // - Hosted UI URL is using response_type=token && scope includes "openid".
+          
+          console.log("[Callback] id_token present:", !!idToken);
+          console.log("[Callback] access_token present:", !!accessToken);
+          
+          // ✅ AWS Cognito Implicit Flow validation
+          // Per AWS docs (https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html):
+          // - With response_type=token and scope containing "openid", Cognito returns 
+          //   both id_token and access_token in the URL hash fragment.
+          // - Format: #id_token=...&access_token=...&token_type=Bearer&expires_in=...
+          //
+          // If id_token is missing, verify:
+          // 1. Cognito app client has "Implicit grant" enabled
+          // 2. loginWithHostedUI() uses response_type="token" (NOT "token id_token" or "code")
+          // 3. OAuth scope includes "openid" (required for id_token)
+          // 4. Redirect URI matches exactly what's configured in Cognito
           if (!idToken) {
-            console.error("[Callback] Missing id_token. Hash received:", hash);
-            fail("No id_token present. Check Cognito OAuth configuration.");
+            console.error("[Callback] ❌ MISSING id_token in URL hash");
+            console.error("[Callback] Full hash received:", hash);
+            console.error("[Callback] Parsed params:", {
+              id_token: idToken,
+              access_token: accessToken ? "present" : "missing",
+              error: params.get("error"),
+              error_description: params.get("error_description")
+            });
+            fail(
+              "No id_token present. Check Cognito app client's OAuth grant types (Implicit) " +
+              "and response_type=token + scope=openid."
+            );
             return;
           }
+          
+          console.log("[Callback] ✅ id_token successfully extracted from hash");
           
           // Lightweight JWT payload decode
           function decodeJWT(t) {
@@ -87,14 +115,21 @@
           }
           
           const claims = decodeJWT(idToken);
+          console.log("[Callback] Token claims decoded successfully");
+          console.log("[Callback] User:", claims.email || claims["cognito:username"] || "unknown");
           
-          // Persist unified token (multiple keys for compatibility)
+          // ✅ Persist unified token (multiple keys for AuthProvider compatibility)
+          // AuthProvider checks these keys in order: cv.jwt → finz_jwt → idToken → cognitoIdToken
+          console.log("[Callback] Storing tokens in localStorage...");
           localStorage.setItem("cv.jwt", idToken);
           localStorage.setItem("finz_jwt", idToken);
           localStorage.setItem("idToken", idToken);
           localStorage.setItem("cognitoIdToken", idToken);
           if (accessToken) {
             localStorage.setItem("finz_access_token", accessToken);
+            console.log("[Callback] ✅ Stored both id_token and access_token");
+          } else {
+            console.log("[Callback] ✅ Stored id_token (access_token not provided)");
           }
           
           // Extract user groups from token claims
@@ -107,6 +142,8 @@
                 .map((s) => s.trim())
                 .filter(Boolean);
           
+          console.log("[Callback] User groups:", groups);
+          
           // Determine user's module access based on groups
           const canSDT = groups.some((g) =>
             ["SDT", "FIN", "AUD", "sdmt", "fin", "aud"].includes(g.toUpperCase())
@@ -115,31 +152,42 @@
             ["PM", "PMO", "EXEC_RO", "VENDOR", "admin", "pmo"].includes(g.toUpperCase())
           );
           
+          console.log("[Callback] Access rights - canSDT:", canSDT, "canPMO:", canPMO);
+          
           // Preference resolution for dual-role users
           const pref = localStorage.getItem("cv.module");
+          console.log("[Callback] Module preference:", pref || "none set");
           let target;
           
           if (canSDT && !canPMO) {
             target = "/finanzas/";
+            console.log("[Callback] Routing: SDT-only user → /finanzas/");
           } else if (canPMO && !canSDT) {
             target = "/";
+            console.log("[Callback] Routing: PMO-only user → /");
           } else if (canSDT && canPMO) {
             // Both roles - use preference or default to Finanzas
             if (pref === "pmo" && canPMO) {
               target = "/";
+              console.log("[Callback] Routing: Dual-role user with PMO preference → /");
             } else if (pref === "finanzas" && canSDT) {
               target = "/finanzas/";
+              console.log("[Callback] Routing: Dual-role user with Finanzas preference → /finanzas/");
             } else {
               // Default bias to Finanzas for dual-role users
               target = "/finanzas/";
+              console.log("[Callback] Routing: Dual-role user (no preference) → /finanzas/ (default)");
             }
           } else {
             // No recognized groups - default to Finanzas
             target = "/finanzas/";
+            console.log("[Callback] Routing: No recognized groups → /finanzas/ (fallback)");
           }
           
+          console.log("[Callback] Final redirect target:", target);
           document.getElementById("status").textContent = "Redirecting…";
           setTimeout(() => {
+            console.log("[Callback] Executing redirect to:", target);
             location.replace(target);
           }, 50);
         })();

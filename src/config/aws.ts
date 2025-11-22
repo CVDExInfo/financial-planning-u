@@ -58,19 +58,38 @@ const aws = {
     // For this User Pool: us-east-2fyhltohiy (NO hyphen after region)
     domain: getEnv("VITE_COGNITO_DOMAIN"),
 
-    scope: ["openid", "email", "profile"], // Order as per R1 requirements
+    // ✅ Scope configuration for OAuth 2.0 Implicit Grant
+    // MUST include "openid" for Cognito to return id_token in the hash
+    scope: ["openid", "email", "profile"],
+    
     // Redirects to FINANZAS module callback (not the PMO root)
     redirectSignIn:
       (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/auth/callback.html",
     redirectSignOut: (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/",
 
-    // Implicit grant: response_type=token.
-    // With scope including "openid", Cognito returns both id_token and access_token
-    // in the URL hash fragment (AWS docs: authorization endpoint + implicit grant).
+    // ✅ CRITICAL: Implicit grant configuration (response_type=token)
+    // 
+    // Per AWS Cognito OAuth 2.0 docs:
     // https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html
     //
-    // FUTURE: When we implement a secure token exchange, we can move to Authorization
-    // Code flow (response_type=code) and handle the code → token exchange in backend or PKCE client.
+    // When using response_type=token (Implicit Flow) with scope containing "openid":
+    // - Cognito returns BOTH id_token AND access_token in the URL hash fragment
+    // - Format: #id_token=...&access_token=...&token_type=Bearer&expires_in=...
+    // - No backend token exchange needed (tokens delivered directly to browser)
+    //
+    // ⚠️ IMPORTANT: Do NOT use response_type="token id_token" - this is INVALID for Cognito
+    // - Cognito only accepts "token" or "code" as valid response_type values
+    // - Using "token id_token" will result in NO id_token being returned
+    //
+    // Current configuration (VALIDATED):
+    // - response_type: "token" ✅
+    // - scope: includes "openid" ✅
+    // - Result: Both id_token and access_token delivered in hash ✅
+    //
+    // FUTURE: When we implement Authorization Code Flow with PKCE:
+    // - Change to response_type="code"
+    // - Implement token exchange endpoint (backend or client-side PKCE)
+    // - Update callback.html to handle code instead of tokens
     responseType: "token",
   },
 
