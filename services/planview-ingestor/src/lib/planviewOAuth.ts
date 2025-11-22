@@ -18,8 +18,24 @@ const buildMultipartBody = (fields: Record<string, string>): { body: string; con
   return { body, contentType, contentLength };
 };
 
+// planview/qa/oauth secret JSON:
+// {
+//   "client_id": "<access key>",
+//   "client_secret": "<token/secret>",
+//   "base_url": "https://ikusi-sb.pvcloud.com/planview/public-api/v1"
+// }
 export async function getAccessToken(oauthSecret: OAuthSecret, requester: typeof httpRequest = httpRequest): Promise<string> {
-  const tokenUrl = new URL('/public-api/v1/oauth/token', oauthSecret.base_url);
+  const baseUrl = oauthSecret.base_url;
+  if (!baseUrl || !baseUrl.startsWith('http')) {
+    throw new Error(
+      `Invalid or missing base_url in OAuth secret. Got "${baseUrl ?? ''}". ` +
+        'Expected something like "https://ikusi-sb.pvcloud.com/planview/public-api/v1".',
+    );
+  }
+
+  const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  const tokenUrl = new URL('oauth/token', normalizedBaseUrl);
+  console.info('Requesting Planview OAuth token from', tokenUrl.toString());
   const { body, contentLength, contentType } = buildMultipartBody({
     grant_type: 'client_credentials',
     client_id: oauthSecret.client_id,

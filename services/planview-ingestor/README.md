@@ -52,3 +52,25 @@ Planview QA smoke test complete { workItems: <n>, bucket: <bucket>, key: <key>, 
 
 ## Local Testing
 Unit tests mock HTTP calls and Secrets Manager for deterministic validation. The handler itself is intended for cloud execution with real secrets and Planview connectivity.
+
+### Secrets Format
+
+**planview/qa/oauth**
+
+```json
+{
+  "client_id": "<access key>",
+  "client_secret": "<token/secret>",
+  "base_url": "https://ikusi-sb.pvcloud.com/planview/public-api/v1"
+}
+```
+
+**planview/qa/odata**
+
+```json
+{
+  "username": "<access key or OData user>",
+  "password": "<token/secret or \"\">",
+  "odata_url": "https://ikusi-sb.pvcloud.com/planview/odataservice/odataservice.svc"
+}
+```

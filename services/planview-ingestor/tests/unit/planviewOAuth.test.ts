@@ -6,7 +6,7 @@ describe('getAccessToken', () => {
   const secret: OAuthSecret = {
     client_id: 'client',
     client_secret: 'secret',
-    base_url: 'https://example.com',
+    base_url: 'https://example.com/myserver/public-api/v1',
   };
 
   it('builds multipart request with correct fields', async () => {
@@ -20,7 +20,7 @@ describe('getAccessToken', () => {
     const [options, body] = mockRequester.mock.calls[0];
     expect(options.method).toBe('POST');
     expect(options.hostname).toBe('example.com');
-    expect(options.path).toBe('/public-api/v1/oauth/token');
+    expect(options.path).toBe('/myserver/public-api/v1/oauth/token');
     expect(options.headers).toBeDefined();
     expect((options.headers as Record<string, unknown>)['Content-Type']).toContain('multipart/form-data');
     const payload = body?.toString() ?? '';
