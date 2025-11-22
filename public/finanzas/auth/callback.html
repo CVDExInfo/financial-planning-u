@@ -43,31 +43,35 @@
           // Check for authorization code in URL query params (code flow)
           const urlParams = new URLSearchParams(location.search);
           const authCode = urlParams.get("code");
-          
+
           if (authCode) {
             // Authorization code flow detected, but token exchange is not yet implemented
             console.warn(
               "[Callback] Authorization code received, but code → token exchange is not implemented yet. " +
-              "Check VITE_COGNITO_DOMAIN and response_type configuration in src/config/aws.ts"
+                "Check VITE_COGNITO_DOMAIN and response_type configuration in src/config/aws.ts"
             );
             fail(
               "Authorization code flow is not yet supported. " +
-              "Please ensure response_type is set to 'token' in aws.ts configuration."
+                "Please ensure response_type is set to 'token' in aws.ts configuration."
             );
             return;
           }
-          
+
           // Extract tokens from implicit flow hash (#id_token=...&access_token=...)
-          const hash = location.hash.startsWith("#")
-            ? location.hash.slice(1)
-            : "";
+          const rawHash = window.location.hash || "";
+          const hash = rawHash.startsWith("#") ? rawHash.slice(1) : rawHash;
           const params = new URLSearchParams(hash);
           const idToken = params.get("id_token");
-          
-          // Hosted UI must be configured with response_type="token id_token" and scope must
-          // include "openid" so that id_token is present in the URL hash fragment.
-          // See src/config/aws.ts oauth.responseType configuration.
+          const accessToken = params.get("access_token");
+
+          // Cognito implicit flow uses response_type=token.
+          // With scope including "openid", Cognito returns both id_token and access_token
+          // in the URL hash (#id_token=...&access_token=...).
+          // If id_token is missing here, check:
+          // - App client has Implicit grant enabled in Cognito.
+          // - Hosted UI URL is using response_type=token && scope includes "openid".
           if (!idToken) {
+            console.error("[Callback] Missing id_token. Hash received:", hash);
             fail("No id_token present. Check Cognito OAuth configuration.");
             return;
           }
@@ -89,6 +93,9 @@
           localStorage.setItem("finz_jwt", idToken);
           localStorage.setItem("idToken", idToken);
           localStorage.setItem("cognitoIdToken", idToken);
+          if (accessToken) {
+            localStorage.setItem("finz_access_token", accessToken);
+          }
           
           // Extract user groups from token claims
           const groupsRaw = claims["cognito:groups"] || claims["groups"] || [];

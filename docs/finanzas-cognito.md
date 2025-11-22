@@ -45,19 +45,17 @@ The domain prefix must exactly match what is configured in the AWS Cognito conso
 
 ## Current Implementation Status
 
-### Active Flow: Implicit Grant
+### Active Flow: Implicit Grant (Validated)
 The application currently uses **implicit grant flow** (`response_type=token`) for Hosted UI login:
-- Simple to implement (no backend token exchange required)
-- Token delivered directly in URL hash fragment
-- Handled by `public/finanzas/auth/callback.html`
-- **Limitation**: Less secure than authorization code flow
+- Cognito returns both `id_token` and `access_token` in the URL hash when `scope` includes `openid`.
+- Handled by `public/finanzas/auth/callback.html`, which requires `id_token` and stores the same keys as direct login.
+- Simple to operate (no backend token exchange required), and aligned with existing deployment configuration.
 
-### Planned: Authorization Code Grant
-The Cognito app client is configured to support **authorization code grant**, but this is not yet implemented in the frontend:
-- **TODO**: Implement token exchange endpoint (backend or PKCE client)
-- **TODO**: Update `loginWithHostedUI()` to use `response_type=code`
-- **TODO**: Update `callback.html` to exchange code for tokens
-- **Benefit**: More secure (tokens not exposed in URL)
+### Planned: Authorization Code Grant (Future)
+The Cognito app client also supports **authorization code grant**, but this is intentionally deferred:
+- **TODO**: Implement token exchange endpoint (backend or PKCE client).
+- **TODO**: Update `loginWithHostedUI()` to use `response_type=code` and adjust callback.html accordingly.
+- **NOTE**: Cognito does **not** accept `response_type="token id_token"`; using it prevents `id_token` from being returned.
 
 ## Authentication Flows
 
@@ -104,11 +102,11 @@ Redirect to:
          ↓
 User authenticates on Cognito Hosted UI
          ↓
-Cognito redirects back to callback URL with tokens in hash:
+Cognito redirects back to callback URL with tokens in hash when scope contains `openid`:
   /finanzas/auth/callback.html#id_token=...&access_token=...
          ↓
 callback.html script:
-  - Extracts tokens from URL hash
+  - Extracts tokens from URL hash (requires `id_token`, logs hash if missing)
   - Validates token format (lightweight decode)
   - Stores tokens in localStorage (same keys as direct login)
   - Determines redirect based on Cognito groups
