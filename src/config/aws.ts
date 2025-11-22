@@ -63,15 +63,15 @@ const aws = {
     redirectSignIn:
       (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/auth/callback.html",
     redirectSignOut: (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/",
-    
-    // CURRENT: Using implicit grant. We ask Cognito for both access_token and id_token
-    // by setting response_type="token id_token". The callback.html script expects
-    // id_token in the URL hash fragment to bootstrap AuthProvider. Scope must include
-    // "openid" (already set above) for id_token to be issued.
+
+    // Implicit grant: response_type=token.
+    // With scope including "openid", Cognito returns both id_token and access_token
+    // in the URL hash fragment (AWS docs: authorization endpoint + implicit grant).
+    // https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html
     //
     // FUTURE: When we implement a secure token exchange, we can move to Authorization
     // Code flow (response_type=code) and handle the code → token exchange in backend or PKCE client.
-    responseType: "token id_token",
+    responseType: "token",
   },
 
   API: {
@@ -93,9 +93,19 @@ const aws = {
   },
 };
 
+export const COGNITO_INTEGRATION_CHECKLIST = {
+  domain: aws.oauth.domain,
+  redirectSignIn: aws.oauth.redirectSignIn,
+  redirectSignOut: aws.oauth.redirectSignOut,
+  responseType: aws.oauth.responseType,
+  scope: aws.oauth.scope,
+  hasOpenIdScope: aws.oauth.scope.includes("openid"),
+  isImplicitResponseType: aws.oauth.responseType === "token",
+};
+
 /**
  * Helper function to initiate Cognito Hosted UI login.
- * Uses implicit grant flow (response_type=token id_token) which delivers both
+ * Uses implicit grant flow (response_type=token) which delivers both
  * access_token and id_token directly in the URL hash fragment. The callback.html
  * page extracts and stores these tokens.
  */
@@ -210,6 +220,18 @@ if (import.meta.env.DEV) {
   if (!getEnv("VITE_CLOUDFRONT_URL")) {
     console.warn(
       "⚠️  VITE_CLOUDFRONT_URL is not set. OAuth redirects may not work correctly."
+    );
+  }
+  if (aws.oauth.responseType !== "token") {
+    console.error(
+      "❌ oauth.responseType must be 'token' for implicit flow. Current:",
+      aws.oauth.responseType
+    );
+  }
+  if (!aws.oauth.scope.includes("openid")) {
+    console.error(
+      "❌ oauth.scope must include 'openid' for Cognito to return id_token. Current scope:",
+      aws.oauth.scope
     );
   }
 }
