@@ -48,12 +48,14 @@
           const authCode = urlParams.get("code");
           
           if (authCode) {
+            // NOTE: Authorization code grant is configured but token exchange not yet implemented
             // TODO: For Authorization code grant, exchange code for tokens
             // This requires either:
             // 1. A backend endpoint that exchanges the code for tokens securely
             // 2. PKCE flow implementation (for public clients without client secret)
             //
-            // For now, display a message that code flow is detected but not yet implemented
+            // WORKAROUND: For now, use implicit flow (response_type=token) in src/config/aws.ts
+            // or implement token exchange before deploying with response_type=code
             fail("Authorization code received. Token exchange not yet implemented. Please use implicit flow (response_type=token) or implement token exchange.");
             return;
           }

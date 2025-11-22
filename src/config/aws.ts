@@ -63,9 +63,11 @@ const aws = {
     redirectSignIn:
       (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/auth/callback.html",
     redirectSignOut: (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/",
-    // Authorization code grant (recommended for security)
-    // Note: App client MUST have "Authorization code grant" enabled in Cognito
-    responseType: "code", // Authorization code grant (exchanges code for tokens server-side or via PKCE)
+    // NOTE: Configured for Authorization code grant (recommended for security)
+    // However, token exchange is not yet implemented in callback.html
+    // To use code flow, implement token exchange or PKCE first
+    // For immediate use, change to "token" (implicit flow) until token exchange is ready
+    responseType: "code", // Authorization code grant (requires token exchange implementation)
   },
 
   API: {
@@ -166,12 +168,12 @@ export function logoutWithHostedUI(): void {
   }
 
   // Clear local tokens first
-  localStorage.removeItem("cv.jwt");
-  localStorage.removeItem("finz_jwt");
-  localStorage.removeItem("finz_refresh_token");
-  localStorage.removeItem("cv.module");
-  localStorage.removeItem("idToken");
-  localStorage.removeItem("cognitoIdToken");
+  localStorage.removeItem("cv.jwt"); // Primary unified token
+  localStorage.removeItem("finz_jwt"); // Finanzas-specific token (legacy)
+  localStorage.removeItem("finz_refresh_token"); // Refresh token (when available)
+  localStorage.removeItem("cv.module"); // Module preference
+  localStorage.removeItem("idToken"); // Legacy API client token
+  localStorage.removeItem("cognitoIdToken"); // Legacy API client token
 
   // If Cognito is not configured, just redirect to local login page
   if (!domain || !userPoolWebClientId) {
