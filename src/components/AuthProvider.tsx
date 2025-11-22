@@ -1,3 +1,22 @@
+/**
+ * AuthProvider - Single Source of Truth for Authentication & Authorization
+ * 
+ * This component implements the architecture documented in docs/finanzas-auth-notes.md
+ * 
+ * RESPONSIBILITIES:
+ * ✅ Manages user authentication state (logged in/out)
+ * ✅ Stores and validates JWT tokens (cv.jwt, finz_jwt, cognitoIdToken, idToken)
+ * ✅ Provides role management (currentRole, availableRoles, setRole)
+ * ✅ Handles login/logout operations (loginWithCognito, signOut)
+ * ✅ Persists auth state to localStorage
+ * ✅ Provides permission checking (canAccessRoute, canPerformAction)
+ * 
+ * ACCESS PATTERN:
+ * Components should access this via useAuth() hook, NOT by direct context import.
+ * 
+ * @see docs/finanzas-auth-notes.md for complete architecture documentation
+ */
+
 import React, {
   createContext,
   useEffect,
@@ -22,6 +41,10 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { toast } from "sonner";
 import awsConfig from "@/config/aws";
 
+/**
+ * AuthContextType defines the complete API exposed by AuthProvider
+ * This matches the documented interface in docs/finanzas-auth-notes.md
+ */
 interface AuthContextType {
   // Authentication state
   user: UserInfo | null;
