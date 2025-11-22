@@ -1,0 +1,76 @@
+name: Deploy Planview Ingestor (QA)
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+    paths:
+      - "services/planview-ingestor/**"
+      - ".github/workflows/deploy-planview-ingestor.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+  STACK_NAME: planview-ingestor-qa
+  RAW_BUCKET_NAME: planview-ingest-qa-703671891952
+  OAUTH_SECRET_ID: planview/qa/oauth
+  ODATA_SECRET_ID: planview/qa/odata
+  TEST_PROJECT_ID: "1000000064035182"
+
+jobs:
+  deploy-planview-ingestor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Install dependencies
+        working-directory: services/planview-ingestor
+        run: |
+          npm ci
+
+      - name: Run tests
+        working-directory: services/planview-ingestor
+        run: |
+          npm test
+
+      - name: Build Lambda (SAM)
+        working-directory: services/planview-ingestor
+        run: |
+          sam build
+
+      - name: Deploy Planview Ingestor (SAM)
+        working-directory: services/planview-ingestor
+        run: |
+          sam deploy \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
+            --capabilities CAPABILITY_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              RawBucketName="$RAW_BUCKET_NAME" \
+              OAuthSecretId="$OAUTH_SECRET_ID" \
+              ODataSecretId="$ODATA_SECRET_ID" \
+              TestProjectId="$TEST_PROJECT_ID"
