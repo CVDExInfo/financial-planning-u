@@ -33,8 +33,6 @@ Globals:
         ODATA_SECRET_ID: !Ref ODataSecretId
         RAW_BUCKET: !Ref RawBucket
         TEST_PROJECT_ID: !Ref TestProjectId
-    Logging:
-      RetentionInDays: 14
 
 Resources:
   RawBucket:
@@ -75,6 +73,8 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
         - PolicyName: PlanviewQaSmokeAccess
           PolicyDocument:
