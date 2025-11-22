@@ -1,3 +1,49 @@
+/**
+ * AuthProvider - Single Source of Truth for Authentication and Role Management
+ * 
+ * This component is the unified authentication and role management provider for the application.
+ * It consolidates what was previously split between AuthProvider and RoleProvider (now deprecated).
+ * 
+ * As documented in:
+ * - docs/finanzas-auth-notes.md
+ * - FINANZAS_AUTH_REPAIR_SUMMARY.md
+ * - PR #221 Finalization – Architecture Verification Report
+ * 
+ * RESPONSIBILITIES:
+ * 1. Authentication State Management
+ *    - Validates and stores JWT tokens from localStorage
+ *    - Decodes JWT to extract user info and Cognito groups
+ *    - Manages authentication lifecycle (init, login, logout, refresh)
+ * 
+ * 2. Role Management
+ *    - Maps Cognito groups to application roles (SDMT, PMO, VENDOR, EXEC_RO)
+ *    - Maintains current role selection with persistence
+ *    - Enforces role availability based on user's Cognito groups
+ * 
+ * 3. Permission Checking
+ *    - Route-level access control based on current role
+ *    - Action-level permission checking
+ * 
+ * USAGE:
+ *   Wrap your app or module with <AuthProvider>:
+ *   
+ *   <AuthProvider>
+ *     <App />
+ *   </AuthProvider>
+ * 
+ *   Then use useAuth() hook in components:
+ *   
+ *   const { user, isAuthenticated, currentRole, loginWithCognito, signOut } = useAuth();
+ * 
+ * TOKEN STORAGE:
+ *   - cv.jwt: Primary unified token key
+ *   - finz_jwt: Legacy Finanzas token key (backward compatibility)
+ *   - cognitoIdToken, idToken: Additional fallback keys for older API clients
+ *   - finz_refresh_token: Refresh token for token renewal
+ * 
+ * @see useAuth Hook for accessing this context
+ * @see useRole Hook for role-specific convenience methods
+ */
 import React, {
   createContext,
   useEffect,
@@ -22,6 +68,12 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { toast } from "sonner";
 import awsConfig from "@/config/aws";
 
+/**
+ * AuthContext Type Definition
+ * 
+ * This interface defines the complete public API of AuthProvider.
+ * All authentication and role management state and methods are exposed through this context.
+ */
 interface AuthContextType {
   // Authentication state
   user: UserInfo | null;

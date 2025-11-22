@@ -1,27 +1,29 @@
-import { useState, ReactNode } from 'react';
-import type { UserRole } from '@/types/domain';
-import { RoleContext } from '@/hooks/useRole';
+/**
+ * @deprecated RoleProvider is deprecated as of PR-221.
+ * 
+ * AuthProvider now manages both authentication and role state as the single source of truth.
+ * This component is kept only for backward compatibility and will be removed in a future release.
+ * 
+ * DO NOT USE THIS COMPONENT. Use <AuthProvider> instead.
+ * 
+ * Migration:
+ *   Before: <RoleProvider><AuthProvider>...</AuthProvider></RoleProvider>
+ *   After:  <AuthProvider>...</AuthProvider>
+ */
+import { ReactNode, useEffect } from 'react';
 
 interface RoleProviderProps {
   children: ReactNode;
 }
 
 export function RoleProvider({ children }: RoleProviderProps) {
-  const [currentRole, setCurrentRole] = useState<UserRole>('PMO'); // Default for demo
+  useEffect(() => {
+    console.warn(
+      '[RoleProvider] DEPRECATED: RoleProvider is no longer needed. ' +
+      'AuthProvider now manages role state. Please remove RoleProvider from your component tree.'
+    );
+  }, []);
 
-  const setRole = (role: UserRole) => {
-    setCurrentRole(role);
-  };
-
-  const hasRole = () => {
-    // For demo purposes, allow role switching
-    // In production, this would check against actual user permissions
-    return true;
-  };
-
-  return (
-    <RoleContext.Provider value={{ currentRole, setRole, hasRole }}>
-      {children}
-    </RoleContext.Provider>
-  );
+  // Pass-through children without any context
+  return <>{children}</>;
 }

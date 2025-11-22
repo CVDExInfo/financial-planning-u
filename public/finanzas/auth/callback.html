@@ -39,16 +39,36 @@
           function fail(msg) {
             document.getElementById("status").textContent = msg;
           }
+          
+          // Check for authorization code in URL query params (code flow)
+          const urlParams = new URLSearchParams(location.search);
+          const authCode = urlParams.get("code");
+          
+          if (authCode) {
+            // Authorization code flow detected, but token exchange is not yet implemented
+            console.warn(
+              "[Callback] Authorization code received, but code → token exchange is not implemented yet. " +
+              "Check VITE_COGNITO_DOMAIN and response_type configuration in src/config/aws.ts"
+            );
+            fail(
+              "Authorization code flow is not yet supported. " +
+              "Please ensure response_type is set to 'token' in aws.ts configuration."
+            );
+            return;
+          }
+          
           // Extract tokens from implicit flow hash (#id_token=...&access_token=...)
           const hash = location.hash.startsWith("#")
             ? location.hash.slice(1)
             : "";
           const params = new URLSearchParams(hash);
           const idToken = params.get("id_token");
+          
           if (!idToken) {
-            fail("No id_token present.");
+            fail("No id_token present. Check Cognito OAuth configuration.");
             return;
           }
+          
           // Lightweight JWT payload decode
           function decodeJWT(t) {
             try {
@@ -58,14 +78,16 @@
               return {};
             }
           }
+          
           const claims = decodeJWT(idToken);
-          // Persist unified token
+          
+          // Persist unified token (multiple keys for compatibility)
           localStorage.setItem("cv.jwt", idToken);
-          // Backward compatibility (Finanzas legacy key)
           localStorage.setItem("finz_jwt", idToken);
-          // Additional fallbacks used by older API clients
           localStorage.setItem("idToken", idToken);
           localStorage.setItem("cognitoIdToken", idToken);
+          
+          // Extract user groups from token claims
           const groupsRaw = claims["cognito:groups"] || claims["groups"] || [];
           const groups = Array.isArray(groupsRaw)
             ? groupsRaw
@@ -74,24 +96,38 @@
                 .split(",")
                 .map((s) => s.trim())
                 .filter(Boolean);
-          const has = (g) => groups.includes(g);
+          
+          // Determine user's module access based on groups
           const canSDT = groups.some((g) =>
             ["SDT", "FIN", "AUD", "sdmt", "fin", "aud"].includes(g.toUpperCase())
           );
           const canPMO = groups.some((g) =>
             ["PM", "PMO", "EXEC_RO", "VENDOR", "admin", "pmo"].includes(g.toUpperCase())
           );
+          
           // Preference resolution for dual-role users
           const pref = localStorage.getItem("cv.module");
           let target;
-          if (canSDT && !canPMO) target = "/finanzas/";
-          else if (canPMO && !canSDT) target = "/";
-          else {
-            // both
-            if (pref === "pmo" && canPMO) target = "/";
-            else if (pref === "finanzas" && canSDT) target = "/finanzas/";
-            else target = "/finanzas/"; // default bias to Finanzas
+          
+          if (canSDT && !canPMO) {
+            target = "/finanzas/";
+          } else if (canPMO && !canSDT) {
+            target = "/";
+          } else if (canSDT && canPMO) {
+            // Both roles - use preference or default to Finanzas
+            if (pref === "pmo" && canPMO) {
+              target = "/";
+            } else if (pref === "finanzas" && canSDT) {
+              target = "/finanzas/";
+            } else {
+              // Default bias to Finanzas for dual-role users
+              target = "/finanzas/";
+            }
+          } else {
+            // No recognized groups - default to Finanzas
+            target = "/finanzas/";
           }
+          
           document.getElementById("status").textContent = "Redirecting…";
           setTimeout(() => {
             location.replace(target);
