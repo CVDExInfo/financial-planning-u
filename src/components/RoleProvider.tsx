@@ -7,8 +7,7 @@
  * This file is kept for reference only and will be removed in a future cleanup.
  */
 
-import { useState, ReactNode } from 'react';
-import type { UserRole } from '@/types/domain';
+import { ReactNode } from 'react';
 
 interface RoleProviderProps {
   children: ReactNode;
@@ -23,8 +22,6 @@ export function RoleProvider({ children }: RoleProviderProps) {
     'This component should not be used and will be removed in a future update.'
   );
   
-  const [currentRole, setCurrentRole] = useState<UserRole>('PMO');
-
   // This is a no-op component now - just renders children
   return <>{children}</>;
 }
