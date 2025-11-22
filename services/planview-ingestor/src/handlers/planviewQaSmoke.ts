@@ -22,10 +22,16 @@ const ensureEnv = (name: string): string => {
 };
 
 async function fetchWorkItems(oauthSecret: OAuthSecret, testProjectId: string, accessToken: string): Promise<{ body: string; count: number }> {
-  const workUrl = new URL(
-    `/public-api/v1/work?filter=project.Id%20.eq%20${encodeURIComponent(testProjectId)}`,
-    oauthSecret.base_url,
-  );
+  const baseUrl = oauthSecret.base_url;
+  if (!baseUrl || !baseUrl.startsWith('http')) {
+    throw new Error(
+      `Invalid or missing base_url in OAuth secret. Got "${baseUrl ?? ''}".`,
+    );
+  }
+
+  const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  const workUrl = new URL(`work?filter=project.Id%20.eq%20${encodeURIComponent(testProjectId)}`, normalizedBaseUrl);
+  console.info('Requesting Planview work from', workUrl.toString());
   const responseBody = await httpRequest(
     {
       method: 'GET',
@@ -57,7 +63,16 @@ async function fetchWorkItems(oauthSecret: OAuthSecret, testProjectId: string, a
 async function checkOData(secretId: string): Promise<string> {
   try {
     const odataSecret = await getSecretJson<ODataSecret>(secretId);
-    const metadataUrl = `${odataSecret.odata_url}/$metadata`;
+    const baseODataUrl = odataSecret.odata_url;
+    if (!baseODataUrl || !baseODataUrl.startsWith('http')) {
+      throw new Error(
+        `Invalid or missing odata_url in OData secret. Got "${baseODataUrl ?? ''}". ` +
+          'Expected something like "https://ikusi-sb.pvcloud.com/planview/odataservice/odataservice.svc".',
+      );
+    }
+
+    const metadataUrl = `${baseODataUrl.replace(/\/+$/, '')}/$metadata`;
+    console.info('Requesting Planview OData metadata from', metadataUrl);
     const basicAuthHeader = `Basic ${Buffer.from(`${odataSecret.username}:${odataSecret.password || ''}`).toString('base64')}`;
     const url = new URL(metadataUrl);
     await httpRequest({
