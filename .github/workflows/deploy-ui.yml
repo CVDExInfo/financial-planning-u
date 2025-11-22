@@ -32,6 +32,12 @@ env:
   # Optional escape hatch: explicit API base (dev-only override, but OK to use as canonical)
   DEV_API_URL: ${{ vars.DEV_API_URL || '' }}
 
+  # Cognito Configuration (required for authentication)
+  COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
+  COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
+  COGNITO_IDENTITY_POOL_ID: ${{ vars.COGNITO_IDENTITY_POOL_ID || '' }}
+  COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN || '' }}
+
   # Frontend feature flags
   VITE_FINZ_ENABLED: ${{ vars.VITE_FINZ_ENABLED || 'true' }}
   VITE_USE_MOCKS: "false"
@@ -50,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "🚀 Deployment Environment: ${DEPLOYMENT_ENV}"
-          for k in AWS_REGION FINANZAS_BUCKET_NAME CLOUDFRONT_DIST_ID FINZ_API_ID FINZ_API_STAGE; do
+          for k in AWS_REGION FINANZAS_BUCKET_NAME CLOUDFRONT_DIST_ID FINZ_API_ID FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_WEB_CLIENT; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing repo var: $k"; exit 1; }
           done
           printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
@@ -175,9 +181,17 @@ jobs:
         env:
           BUILD_TARGET: finanzas
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
+          VITE_BASE_URL: ${{ env.VITE_API_BASE_URL }}
           VITE_FINZ_ENABLED: "true"
           VITE_USE_MOCKS: "false"
           VITE_PUBLIC_BASE: "/finanzas/"
+          VITE_AWS_REGION: ${{ env.AWS_REGION }}
+          VITE_COGNITO_REGION: ${{ env.AWS_REGION }}
+          VITE_COGNITO_USER_POOL_ID: ${{ env.COGNITO_USER_POOL_ID }}
+          VITE_COGNITO_CLIENT_ID: ${{ env.COGNITO_WEB_CLIENT }}
+          VITE_COGNITO_IDENTITY_POOL_ID: ${{ env.COGNITO_IDENTITY_POOL_ID }}
+          VITE_COGNITO_DOMAIN: ${{ env.COGNITO_DOMAIN }}
+          VITE_CLOUDFRONT_URL: https://${{ env.CF_DOMAIN }}
         run: |
           set -euo pipefail
 
