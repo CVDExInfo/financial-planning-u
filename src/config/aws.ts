@@ -27,7 +27,7 @@ const getEnvWithRegionFallback = (key: string, defaultRegion: string = "us-east-
 const RESOLVED_API_BASE = HAS_API_BASE ? API_BASE : "";
 if (!HAS_API_BASE) {
   console.error(
-    "⚠️ VITE_API_BASE_URL is not configured. Please set it in your .env file. See .env.example for reference."
+    "⚠️ VITE_API_BASE_URL is not configured."
   );
 }
 
@@ -145,12 +145,12 @@ if (import.meta.env.DEV) {
   // Validation warnings
   if (!aws.Auth.userPoolId) {
     console.warn(
-      "⚠️  VITE_COGNITO_USER_POOL_ID is not set. Please configure in .env file. See .env.example for reference."
+      "⚠️  VITE_COGNITO_USER_POOL_ID is not set."
     );
   }
   if (!aws.Auth.userPoolWebClientId) {
     console.warn(
-      "⚠️  VITE_COGNITO_CLIENT_ID is not set. Please configure in .env file. See .env.example for reference."
+      "⚠️  VITE_COGNITO_CLIENT_ID is not set."
     );
   } else if (aws.Auth.userPoolWebClientId.length < 20) {
     console.warn(
@@ -159,7 +159,7 @@ if (import.meta.env.DEV) {
   }
   if (!aws.oauth.domain) {
     console.warn(
-      "⚠️  VITE_COGNITO_DOMAIN is not set. Should be: <domain-prefix>.auth.<region>.amazoncognito.com. See .env.example for reference."
+      "⚠️  VITE_COGNITO_DOMAIN is not set. Should be: <domain-prefix>.auth.<region>.amazoncognito.com"
     );
   } else if (aws.oauth.domain.includes("_")) {
     console.warn(
@@ -173,7 +173,7 @@ if (import.meta.env.DEV) {
   }
   if (!getEnv("VITE_CLOUDFRONT_URL")) {
     console.warn(
-      "⚠️  VITE_CLOUDFRONT_URL is not set. OAuth redirects may not work correctly. See .env.example for reference."
+      "⚠️  VITE_CLOUDFRONT_URL is not set. OAuth redirects may not work correctly."
     );
   }
 }
