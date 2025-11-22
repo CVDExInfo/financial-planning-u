@@ -49,6 +49,8 @@ Resources:
       Description: Fetches Planview QA work items and stores raw payloads to S3
       CodeUri: .
       Role: !GetAtt PlanviewQaSmokeRole.Arn
+    Metadata:
+      BuildMethod: nodejs20.x
 
   PlanviewQaSmokeRole:
     Type: AWS::IAM::Role
