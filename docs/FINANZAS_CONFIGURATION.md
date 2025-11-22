@@ -62,11 +62,98 @@ VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
 
 ### Cognito Domain Format
 
+The Cognito domain is required for OAuth Hosted UI authentication:
+
 ```bash
-VITE_COGNITO_DOMAIN=us-east-2-fyhltohiy.auth.us-east-2.amazoncognito.com
+VITE_COGNITO_DOMAIN=us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com
 ```
 
-**Note:** Must NOT include `https://` prefix.
+**Important notes:**
+- Must NOT include `https://` prefix
+- Domain prefix (`us-east-2fyhltohiy`) must match your Cognito User Pool configuration
+- For this production deployment: `us-east-2fyhltohiy` (no hyphen after region)
+
+### Cognito OAuth Configuration
+
+The Finanzas module uses AWS Cognito Hosted UI for authentication. The following settings must be configured in both your environment variables AND the AWS Cognito console:
+
+#### Environment Variables
+
+```bash
+# Required for Cognito authentication
+VITE_COGNITO_USER_POOL_ID=us-east-2_FyHLtOhiY
+VITE_COGNITO_CLIENT_ID=dshos5iou44tuach7ta3ici5m
+VITE_COGNITO_REGION=us-east-2
+VITE_COGNITO_DOMAIN=us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com
+
+# Required for OAuth redirects
+VITE_CLOUDFRONT_URL=https://d7t9x3j66yd8k.cloudfront.net
+```
+
+#### AWS Cognito App Client Settings
+
+In the AWS Cognito console, your app client (`Ikusi-acta-ui-web`) must have:
+
+**OAuth 2.0 Grant Types:**
+- ✅ Authorization code grant (enabled)
+- ✅ Implicit grant (enabled) - **Required for token delivery in URL hash**
+
+**Allowed callback URLs:**
+```
+https://d7t9x3j66yd8k.cloudfront.net/finanzas/
+https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html
+```
+
+**Allowed sign-out URLs:**
+```
+https://d7t9x3j66yd8k.cloudfront.net/finanzas/
+https://d7t9x3j66yd8k.cloudfront.net/finanzas/login
+```
+
+**OpenID Connect scopes:**
+- ✅ openid (required for id_token)
+- ✅ email
+- ✅ profile
+- ✅ aws.cognito.signin.user.admin
+
+**Response type used by application:**
+- `token id_token` (space-separated, URL-encoded as `token%20id_token`)
+- This delivers both id_token and access_token in the URL hash fragment
+
+#### Authentication Flow
+
+1. User clicks "Sign in with Cognito Hosted UI" on login page
+2. Browser redirects to Cognito Hosted UI at:
+   ```
+   https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/oauth2/authorize?
+     client_id=dshos5iou44tuach7ta3ici5m&
+     response_type=token%20id_token&
+     scope=openid%20email%20profile%20aws.cognito.signin.user.admin&
+     redirect_uri=https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html
+   ```
+3. User authenticates with Cognito
+4. Cognito redirects back to callback.html with tokens in URL hash:
+   ```
+   https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html#
+     id_token=eyJraWQi...&
+     access_token=eyJraWQi...&
+     token_type=Bearer&
+     expires_in=3600
+   ```
+5. `callback.html` extracts tokens, stores in localStorage, and redirects to `/finanzas/`
+6. React app boots, reads tokens from localStorage, and shows authenticated UI
+
+#### Troubleshooting OAuth Errors
+
+If you see `unauthorized_client` or `invalid_request` errors:
+
+1. **Verify Implicit Grant is enabled** in Cognito app client settings
+2. **Check response_type** in `src/config/aws.ts` is `"token id_token"`
+3. **Verify redirect URIs** in Cognito match exactly (including trailing slash)
+4. **Verify scopes** include `openid` (required for id_token)
+5. **Check CloudFront URL** environment variable is set correctly
+
+For detailed authentication troubleshooting, see [AUTHENTICATION_FLOW.md](../AUTHENTICATION_FLOW.md).
 
 ## Local Development Setup
 
