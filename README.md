@@ -67,7 +67,7 @@ VITE_COGNITO_DOMAIN=us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com
 
 # API & CloudFront
 VITE_CLOUDFRONT_URL=https://d7t9x3j66yd8k.cloudfront.net
-VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev
+VITE_API_BASE_URL=https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev
 VITE_FINZ_ENABLED=true
 ```
 
