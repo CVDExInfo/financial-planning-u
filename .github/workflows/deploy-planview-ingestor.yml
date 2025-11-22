@@ -78,7 +78,3 @@ jobs:
               ODataSecretId="$ODATA_SECRET_ID" \
               TestProjectId="$TEST_PROJECT_ID"
 
-              OAuthSecretId="$OAUTH_SECRET_ID" \
-              ODataSecretId="$ODATA_SECRET_ID" \
-              TestProjectId="$TEST_PROJECT_ID"
-
