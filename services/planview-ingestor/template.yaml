@@ -33,8 +33,6 @@ Globals:
         ODATA_SECRET_ID: !Ref ODataSecretId
         RAW_BUCKET: !Ref RawBucket
         TEST_PROJECT_ID: !Ref TestProjectId
-    Logging:
-      RetentionInDays: 14
 
 Resources:
   RawBucket:
@@ -53,16 +51,17 @@ Resources:
       Role: !GetAtt PlanviewQaSmokeRole.Arn
       Policies:
         - AWSLambdaBasicExecutionRole
-      Metadata:
-        BuildMethod: esbuild
-        BuildProperties:
-          EntryPoints:
-            - src/handlers/planviewQaSmoke.ts
-          Minify: false
-          Target: es2020
-          Sourcemap: true
-          External:
-            - '@aws-sdk/*'
+
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/planviewQaSmoke.ts
+        Minify: false
+        Target: es2020
+        Sourcemap: true
+        External:
+          - '@aws-sdk/*'
 
   PlanviewQaSmokeRole:
     Type: AWS::IAM::Role
@@ -75,6 +74,8 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
         - PolicyName: PlanviewQaSmokeAccess
           PolicyDocument:
