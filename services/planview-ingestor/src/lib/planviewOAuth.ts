@@ -6,18 +6,6 @@ export interface AccessTokenResponse {
   access_token: string;
 }
 
-const buildMultipartBody = (fields: Record<string, string>): { body: string; contentType: string; contentLength: number } => {
-  const boundary = `----planview-boundary-${Date.now()}`;
-  const parts = Object.entries(fields)
-    .map(([name, value]) => `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`)
-    .join('');
-  const closing = `--${boundary}--\r\n`;
-  const body = parts + closing;
-  const contentLength = Buffer.byteLength(body);
-  const contentType = `multipart/form-data; boundary=${boundary}`;
-  return { body, contentType, contentLength };
-};
-
 // planview/qa/oauth secret JSON:
 // {
 //   "client_id": "<access key>",
@@ -25,22 +13,24 @@ const buildMultipartBody = (fields: Record<string, string>): { body: string; con
 //   "base_url": "https://ikusi-sb.pvcloud.com/planview/public-api/v1"
 // }
 export async function getAccessToken(oauthSecret: OAuthSecret, requester: typeof httpRequest = httpRequest): Promise<string> {
-  const baseUrl = oauthSecret.base_url;
-  if (!baseUrl || !baseUrl.startsWith('http')) {
+  const rawBase = oauthSecret.base_url;
+  if (!rawBase || !rawBase.startsWith('http')) {
     throw new Error(
-      `Invalid or missing base_url in OAuth secret. Got "${baseUrl ?? ''}". ` +
+      `Invalid or missing base_url in OAuth secret. Got "${rawBase ?? ''}". ` +
         'Expected something like "https://ikusi-sb.pvcloud.com/planview/public-api/v1".',
     );
   }
 
-  const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-  const tokenUrl = new URL('oauth/token', normalizedBaseUrl);
+  const baseUrl = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+  const tokenUrl = new URL('oauth/token', baseUrl);
   console.info('Requesting Planview OAuth token from', tokenUrl.toString());
-  const { body, contentLength, contentType } = buildMultipartBody({
+
+  const params = new URLSearchParams({
     grant_type: 'client_credentials',
     client_id: oauthSecret.client_id,
     client_secret: oauthSecret.client_secret,
   });
+  const body = params.toString();
 
   const requestOptions: HttpRequestOptions = {
     method: 'POST',
@@ -49,8 +39,9 @@ export async function getAccessToken(oauthSecret: OAuthSecret, requester: typeof
     port: tokenUrl.port || undefined,
     path: tokenUrl.pathname + tokenUrl.search,
     headers: {
-      'Content-Type': contentType,
-      'Content-Length': contentLength,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': Buffer.byteLength(body),
+      Accept: 'application/json',
     },
   };
 
