@@ -32,8 +32,33 @@ describe('getAccessToken', () => {
 
   it('throws when access_token missing', async () => {
     const mockRequester = jest.fn<Promise<string>, [HttpRequestOptions, string | Buffer | undefined]>();
-    mockRequester.mockResolvedValue('{}');
+    mockRequester.mockResolvedValue('{"foo":"bar"}');
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-    await expect(getAccessToken(secret, mockRequester as never)).rejects.toThrow('access_token missing');
+    await expect(getAccessToken(secret, mockRequester as never)).rejects.toThrow('access_token missing from OAuth response');
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it('accepts accessToken variant with warning', async () => {
+    const mockRequester = jest.fn<Promise<string>, [HttpRequestOptions, string | Buffer | undefined]>();
+    mockRequester.mockResolvedValue(JSON.stringify({ accessToken: 'token456' }));
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    const token = await getAccessToken(secret, mockRequester as never);
+
+    expect(token).toBe('token456');
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('logs and throws on parse failure', async () => {
+    const mockRequester = jest.fn<Promise<string>, [HttpRequestOptions, string | Buffer | undefined]>();
+    mockRequester.mockResolvedValue('not-json');
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+    await expect(getAccessToken(secret, mockRequester as never)).rejects.toThrow('Unable to parse OAuth token response');
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });

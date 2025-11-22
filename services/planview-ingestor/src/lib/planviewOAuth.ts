@@ -46,9 +46,38 @@ export async function getAccessToken(oauthSecret: OAuthSecret, requester: typeof
   };
 
   const response = await requester(requestOptions, body);
-  const parsed: Partial<AccessTokenResponse> = JSON.parse(response);
-  if (!parsed.access_token) {
-    throw new Error('access_token missing from OAuth response');
+
+  let parsed: Partial<AccessTokenResponse> & { accessToken?: string };
+  try {
+    parsed = JSON.parse(response);
+  } catch (err) {
+    console.error('Failed to parse OAuth token response', {
+      snippet: String(response).slice(0, 500),
+    });
+    throw new Error(
+      `Unable to parse OAuth token response: ${(err as Error).message}`,
+    );
   }
-  return parsed.access_token;
+
+  if (typeof parsed.access_token === 'string' && parsed.access_token.length > 0) {
+    return parsed.access_token;
+  }
+
+  if (typeof parsed.accessToken === 'string' && parsed.accessToken.length > 0) {
+    console.warn(
+      'OAuth response used "accessToken" instead of "access_token"; using it.',
+    );
+    return parsed.accessToken;
+  }
+
+  console.error('OAuth token response missing expected access_token property', {
+    snippet: JSON.stringify(parsed).slice(0, 500),
+  });
+
+  throw new Error(
+    `access_token missing from OAuth response: ${JSON.stringify(parsed).slice(
+      0,
+      500,
+    )}`,
+  );
 }
