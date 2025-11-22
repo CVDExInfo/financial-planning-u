@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Planview QA Ingestor smoke test
+
+Parameters:
+  StackName:
+    Type: String
+    Default: planview-ingestor-qa
+  RawBucketName:
+    Type: String
+    Default: planview-ingest-qa-703671891952
+  OAuthSecretId:
+    Type: String
+    Default: planview/qa/oauth
+  ODataSecretId:
+    Type: String
+    Default: planview/qa/odata
+  TestProjectId:
+    Type: String
+    Default: '12345'
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 512
+    Runtime: nodejs20.x
+    Handler: dist/handlers/planviewQaSmoke.handler
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        OAUTH_SECRET_ID: !Ref OAuthSecretId
+        ODATA_SECRET_ID: !Ref ODataSecretId
+        RAW_BUCKET: !Ref RawBucket
+        TEST_PROJECT_ID: !Ref TestProjectId
+    Logging:
+      RetentionInDays: 14
+
+Resources:
+  RawBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref RawBucketName
+      VersioningConfiguration:
+        Status: Suspended
+
+  PlanviewQaSmokeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${StackName}-qa-smoke"
+      Description: Fetches Planview QA work items and stores raw payloads to S3
+      CodeUri: .
+      Role: !GetAtt PlanviewQaSmokeRole.Arn
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Metadata:
+        BuildMethod: esbuild
+        BuildProperties:
+          EntryPoints:
+            - src/handlers/planviewQaSmoke.ts
+          Minify: false
+          Target: es2020
+          Sourcemap: true
+          External:
+            - '@aws-sdk/*'
+
+  PlanviewQaSmokeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${StackName}-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: PlanviewQaSmokeAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - arn:aws:secretsmanager:us-east-2:703671891952:secret:planview/qa/oauth*
+                  - arn:aws:secretsmanager:us-east-2:703671891952:secret:planview/qa/odata*
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${RawBucketName}/*"
+
+Outputs:
+  PlanviewQaSmokeFunctionArn:
+    Description: ARN of the QA smoke Lambda
+    Value: !GetAtt PlanviewQaSmokeFunction.Arn
+  RawBucketNameOut:
+    Description: Bucket storing Planview QA raw responses
+    Value: !Ref RawBucket
