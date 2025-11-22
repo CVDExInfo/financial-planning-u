@@ -51,16 +51,17 @@ Resources:
       Role: !GetAtt PlanviewQaSmokeRole.Arn
       Policies:
         - AWSLambdaBasicExecutionRole
-      Metadata:
-        BuildMethod: esbuild
-        BuildProperties:
-          EntryPoints:
-            - src/handlers/planviewQaSmoke.ts
-          Minify: false
-          Target: es2020
-          Sourcemap: true
-          External:
-            - '@aws-sdk/*'
+
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/planviewQaSmoke.ts
+        Minify: false
+        Target: es2020
+        Sourcemap: true
+        External:
+          - '@aws-sdk/*'
 
   PlanviewQaSmokeRole:
     Type: AWS::IAM::Role
