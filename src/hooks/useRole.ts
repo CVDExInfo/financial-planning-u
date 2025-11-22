@@ -1,18 +1,28 @@
-import { useContext, createContext } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import type { UserRole } from '@/types/domain';
 
-interface RoleContextType {
-  currentRole: UserRole;
-  setRole: (role: UserRole) => void;
-  hasRole: (role: UserRole) => boolean;
-}
-
-export const RoleContext = createContext<RoleContextType | null>(null);
-
+/**
+ * Hook for accessing role management functionality
+ * 
+ * This hook derives all role state from the AuthProvider context,
+ * ensuring a single source of truth for authentication and authorization.
+ * 
+ * @returns Role management functions and current role state
+ */
 export function useRole() {
-  const context = useContext(RoleContext);
-  if (!context) {
-    throw new Error('useRole must be used within a RoleProvider');
-  }
-  return context;
+  const { currentRole, setRole, availableRoles } = useAuth();
+
+  /**
+   * Check if user has a specific role
+   */
+  const hasRole = (role: UserRole): boolean => {
+    return availableRoles.includes(role);
+  };
+
+  return {
+    currentRole,
+    setRole,
+    hasRole,
+    availableRoles,
+  };
 }

@@ -1,27 +1,30 @@
+/**
+ * @deprecated This component is deprecated and should not be used.
+ * 
+ * Role management is now handled by AuthProvider.
+ * Use `useRole()` hook which derives state from AuthProvider instead.
+ * 
+ * This file is kept for reference only and will be removed in a future cleanup.
+ */
+
 import { useState, ReactNode } from 'react';
 import type { UserRole } from '@/types/domain';
-import { RoleContext } from '@/hooks/useRole';
 
 interface RoleProviderProps {
   children: ReactNode;
 }
 
+/**
+ * @deprecated Use AuthProvider instead. Role state is managed in AuthProvider.
+ */
 export function RoleProvider({ children }: RoleProviderProps) {
-  const [currentRole, setCurrentRole] = useState<UserRole>('PMO'); // Default for demo
-
-  const setRole = (role: UserRole) => {
-    setCurrentRole(role);
-  };
-
-  const hasRole = () => {
-    // For demo purposes, allow role switching
-    // In production, this would check against actual user permissions
-    return true;
-  };
-
-  return (
-    <RoleContext.Provider value={{ currentRole, setRole, hasRole }}>
-      {children}
-    </RoleContext.Provider>
+  console.warn(
+    'RoleProvider is deprecated. Role management is handled by AuthProvider. ' +
+    'This component should not be used and will be removed in a future update.'
   );
+  
+  const [currentRole, setCurrentRole] = useState<UserRole>('PMO');
+
+  // This is a no-op component now - just renders children
+  return <>{children}</>;
 }
