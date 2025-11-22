@@ -74,3 +74,39 @@ Unit tests mock HTTP calls and Secrets Manager for deterministic validation. The
   "odata_url": "https://ikusi-sb.pvcloud.com/planview/odataservice/odataservice.svc"
 }
 ```
+
+## Planview OData Ingestor
+
+The OData ingestor extracts datasets from Planview Portfolios OData and lands them in S3 for downstream Finanzas, Pre-factura, and PMO analytics. It is designed to run on a schedule (nightly/hourly) and is independent from the REST OAuth flows.
+
+### Required secret
+`planview/qa/odata`
+
+```json
+{
+  "username": "PVA_...token...",
+  "password": "",
+  "odata_url": "https://ikusi-sb.pvcloud.com/odataservice/odataservice.svc"
+}
+```
+
+### Environment variables
+- `ODATA_SECRET_ID` – defaults to `planview/qa/odata`.
+- `RAW_BUCKET` – `planview-ingest-qa-703671891952`.
+- `ODATA_ENTITIES` – comma-separated list of OData entity/dataset names.
+
+### Running locally
+```bash
+cd services/planview-ingestor
+npm install
+npm test
+npm run build
+sam build
+sam local invoke PlanviewODataIngestFunction --event events/empty.json
+```
+
+### Expected behavior
+- Each configured entity is fetched via OData with Basic authentication.
+- Pagination via `@odata.nextLink` / `$skiptoken` is handled automatically.
+- Data is written to S3 at `s3://planview-ingest-qa-703671891952/odata/<Entity>/run=<timestamp>.json` with the full JSON payload.
+- CloudWatch logs summarize entities processed, counts, and S3 keys without exposing credentials.

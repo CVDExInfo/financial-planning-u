@@ -52,6 +52,20 @@ Resources:
     Metadata:
       BuildMethod: nodejs20.x
 
+  PlanviewODataIngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${StackName}-odata-ingest"
+      Description: Fetches configured Planview OData entities and stores JSON payloads to S3
+      CodeUri: .
+      Handler: dist/handlers/planviewODataIngest.handler
+      Role: !GetAtt PlanviewQaSmokeRole.Arn
+      Environment:
+        Variables:
+          ODATA_ENTITIES: Activity,FinancialFacts,Project_Dimension,Resource
+    Metadata:
+      BuildMethod: nodejs20.x
+
   PlanviewQaSmokeRole:
     Type: AWS::IAM::Role
     Properties:
