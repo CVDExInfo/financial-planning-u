@@ -225,52 +225,81 @@ jobs:
           echo "✅ Finanzas Portal built → dist-finanzas/"
 
       - name: Record Finanzas bundle hashes
-        id: bundle_hashes
         run: |
           set -euo pipefail
-
-          ls -l dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css
-          sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css | tee dist-finanzas-bundle-hashes.txt
-
+          ls -R dist-finanzas
+          sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css > dist-finanzas-bundle-hashes.txt
           {
             echo "### Finanzas bundle hashes"
             echo ""
-            sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css
+            cat dist-finanzas-bundle-hashes.txt
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload bundle hash artifact
+      - name: Upload Finanzas bundle hash artifact
         uses: actions/upload-artifact@v4
         with:
           name: finanzas-bundle-hashes
           path: dist-finanzas-bundle-hashes.txt
-          retention-days: 14
 
-      - name: Download previous successful bundle hashes
-        id: previous_hashes
+      - name: Find previous successful Finanzas run
+        id: prev_run
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
           BRANCH_NAME="${GITHUB_REF##*/}"
-          PREV_RUN_ID=$(gh run list --workflow "Deploy Finanzas UI" --branch "$BRANCH_NAME" --json databaseId,headSha,conclusion,status -L 20 \
-            | jq -r '[.[] | select(.conclusion=="success" and .headSha!="'"'"${GITHUB_SHA}'"'")][0].databaseId')
+          echo "🔎 Looking for previous successful run on branch: $BRANCH_NAME"
 
-          if [ -z "$PREV_RUN_ID" ] || [ "$PREV_RUN_ID" = "null" ]; then
-            echo "previous_run_found=false" >> "$GITHUB_OUTPUT"
+          # Get the last 20 runs for this workflow/branch
+          RAW_JSON=$(gh run list \
+            --workflow "Deploy Finanzas UI" \
+            --branch "$BRANCH_NAME" \
+            --json databaseId,headSha,conclusion,status \
+            -L 20)
+
+          # Pick the most recent success with a different headSha than the current run
+          PREV_RUN_ID=$(printf '%s\n' "$RAW_JSON" \
+            | jq -r --arg current "$GITHUB_SHA" '
+                [ .[]
+                  | select(.conclusion=="success" and .headSha != $current)
+                ][0].databaseId // ""
+              ')
+
+          if [ -z "$PREV_RUN_ID" ]; then
+            echo "ℹ️  No previous successful run found for this branch (or only current SHA present)."
+            printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
+          echo "✅ Previous successful run id: $PREV_RUN_ID"
+
           mkdir -p /tmp/prev-hashes
+
           if gh run download "$PREV_RUN_ID" --name finanzas-bundle-hashes --dir /tmp/prev-hashes; then
             if [ -f /tmp/prev-hashes/dist-finanzas-bundle-hashes.txt ]; then
-              echo "previous_run_found=true" >> "$GITHUB_OUTPUT"
-              echo "previous_hash_file=/tmp/prev-hashes/dist-finanzas-bundle-hashes.txt" >> "$GITHUB_OUTPUT"
+              printf 'previous_run_found=true\n' >> "$GITHUB_OUTPUT"
+              printf 'previous_hash_file=/tmp/prev-hashes/dist-finanzas-bundle-hashes.txt\n' >> "$GITHUB_OUTPUT"
+              echo "✅ Previous hash file found at /tmp/prev-hashes/dist-finanzas-bundle-hashes.txt"
             else
-              echo "previous_run_found=false" >> "$GITHUB_OUTPUT"
+              echo "ℹ️  Previous run had no dist-finanzas-bundle-hashes.txt artifact."
+              printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
             fi
           else
-            echo "previous_run_found=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  Could not download artifacts from previous run."
+            printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compare bundle hashes with previous run
+        if: steps.prev_run.outputs.previous_run_found == 'true'
+        run: |
+          set -euo pipefail
+          PREV_FILE="${{ steps.prev_run.outputs.previous_hash_file }}"
+          echo "🔍 Comparing current bundle hashes with: $PREV_FILE"
+          if diff -u "$PREV_FILE" dist-finanzas-bundle-hashes.txt; then
+            echo "ℹ️  Bundle hashes match previous successful run."
+          else
+            echo "ℹ️  Bundle hashes differ from previous run (expected when Finanzas UI changed)."
           fi
 
       - name: Detect Finanzas UI changes in this commit
@@ -283,12 +312,6 @@ jobs:
             COMPARE_REF="HEAD~1"
           fi
 
-          # Ensure the comparison commit is available (covers shallow clones)
-          if ! git rev-parse "$COMPARE_REF" >/dev/null 2>&1; then
-            echo "ℹ️  Fetching $COMPARE_REF for diff..."
-            git fetch --depth=2 origin "$COMPARE_REF" || git fetch origin "$COMPARE_REF" || true
-          fi
-
           if ! git rev-parse "$COMPARE_REF" >/dev/null 2>&1; then
             COMPARE_REF="HEAD~1"
           fi
@@ -297,9 +320,9 @@ jobs:
           echo "$CHANGED_FILES" > /tmp/finz-changed-files.txt
 
           if echo "$CHANGED_FILES" | grep -E -q '^(src/|public/|index\.html|vite\.config\.ts|package\.json|tailwind\.config\.js|tsconfig|scripts/finanzas)'; then
-            echo "finz_changed=true" >> "$GITHUB_OUTPUT"
+            printf 'finz_changed=true\n' >> "$GITHUB_OUTPUT"
           else
-            echo "finz_changed=false" >> "$GITHUB_OUTPUT"
+            printf 'finz_changed=false\n' >> "$GITHUB_OUTPUT"
           fi
 
           {
@@ -309,11 +332,11 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if bundle unchanged while Finanzas files changed
-        if: steps.previous_hashes.outputs.previous_run_found == 'true'
+        if: steps.prev_run.outputs.previous_run_found == 'true'
         run: |
           set -euo pipefail
 
-          if cmp -s dist-finanzas-bundle-hashes.txt "${{ steps.previous_hashes.outputs.previous_hash_file }}"; then
+          if cmp -s dist-finanzas-bundle-hashes.txt "${{ steps.prev_run.outputs.previous_hash_file }}"; then
             if [ "${{ steps.finz_changes.outputs.finz_changed }}" = "true" ]; then
               echo "❌ Finanzas bundle hashes match previous successful deploy, but Finanzas files changed."
               exit 1
@@ -411,7 +434,6 @@ jobs:
           echo "✅ Finanzas build artifacts look good"
 
       # ---- Upload Finanzas (/finanzas) ----
-            # ---- Upload Finanzas (/finanzas) ----
       - name: Upload Finanzas Portal to S3 (/finanzas prefix)
         run: |
           aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
@@ -420,7 +442,6 @@ jobs:
             --exclude 'test-helper.html' \
             --delete
           echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
-
 
       # ---- Post-upload drift check (ensures S3 matches local build) ----
       - name: Verify Finanzas S3 manifest matches local build
@@ -448,7 +469,6 @@ jobs:
           fi
 
           echo "✅ Finanzas S3 manifest matches local build"
-
 
       # ---- CF behavior check for /finanzas/* ----
       - name: Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)
