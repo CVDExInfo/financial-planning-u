@@ -60,37 +60,36 @@ const aws = {
 
     // ✅ Scope configuration for OAuth 2.0 Implicit Grant
     // MUST include "openid" for Cognito to return id_token in the hash
-    scope: ["openid", "email", "profile"],
+    // Per AWS Cognito app client configuration, these scopes are enabled:
+    // openid, email, profile, aws.cognito.signin.user.admin
+    scope: ["openid", "email", "profile", "aws.cognito.signin.user.admin"],
     
     // Redirects to FINANZAS module callback (not the PMO root)
     redirectSignIn:
       (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/auth/callback.html",
     redirectSignOut: (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/",
 
-    // ✅ CRITICAL: Implicit grant configuration (response_type=token)
+    // ✅ CRITICAL: Implicit grant configuration (response_type=token id_token)
     // 
     // Per AWS Cognito OAuth 2.0 docs:
     // https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html
     //
-    // When using response_type=token (Implicit Flow) with scope containing "openid":
+    // When using response_type="token id_token" (Implicit Flow):
     // - Cognito returns BOTH id_token AND access_token in the URL hash fragment
     // - Format: #id_token=...&access_token=...&token_type=Bearer&expires_in=...
     // - No backend token exchange needed (tokens delivered directly to browser)
+    // - This requires BOTH "Authorization code grant" AND "Implicit grant" to be enabled
+    //   in the Cognito app client settings (both are now enabled per problem statement)
     //
-    // ⚠️ IMPORTANT: Do NOT use response_type="token id_token" - this is INVALID for Cognito
-    // - Cognito only accepts "token" or "code" as valid response_type values
-    // - Using "token id_token" will result in NO id_token being returned
+    // Note: The response_type value is space-separated and will be URL-encoded when
+    // building the OAuth URL. When encoded, "token id_token" becomes "token%20id_token".
     //
-    // Current configuration (VALIDATED):
-    // - response_type: "token" ✅
+    // Current configuration (UPDATED for production):
+    // - response_type: "token id_token" ✅
     // - scope: includes "openid" ✅
+    // - Cognito app client: Implicit grant enabled ✅
     // - Result: Both id_token and access_token delivered in hash ✅
-    //
-    // FUTURE: When we implement Authorization Code Flow with PKCE:
-    // - Change to response_type="code"
-    // - Implement token exchange endpoint (backend or client-side PKCE)
-    // - Update callback.html to handle code instead of tokens
-    responseType: "token",
+    responseType: "token id_token",
   },
 
   API: {
@@ -124,7 +123,7 @@ export const COGNITO_INTEGRATION_CHECKLIST = {
 
 /**
  * Helper function to initiate Cognito Hosted UI login.
- * Uses implicit grant flow (response_type=token) which delivers both
+ * Uses implicit grant flow (response_type="token id_token") which delivers both
  * access_token and id_token directly in the URL hash fragment. The callback.html
  * page extracts and stores these tokens.
  */
@@ -142,6 +141,9 @@ export function loginWithHostedUI(): void {
     return;
   }
 
+  // Build OAuth parameters
+  // Note: URLSearchParams automatically URL-encodes values, so "token id_token" 
+  // becomes "token%20id_token" in the final URL
   const params = new URLSearchParams({
     client_id: userPoolWebClientId,
     response_type: responseType,
@@ -151,6 +153,18 @@ export function loginWithHostedUI(): void {
 
   // Use /oauth2/authorize endpoint (standard OAuth 2.0 endpoint)
   const hostedUIUrl = `https://${domain}/oauth2/authorize?${params.toString()}`;
+  
+  // Log OAuth request for debugging (dev mode only)
+  if (import.meta.env.DEV) {
+    console.log("[loginWithHostedUI] Redirecting to Cognito Hosted UI:");
+    console.log("  Domain:", domain);
+    console.log("  Client ID:", userPoolWebClientId);
+    console.log("  Response Type:", responseType);
+    console.log("  Scope:", scope.join(" "));
+    console.log("  Redirect URI:", redirectSignIn);
+    console.log("  Full URL:", hostedUIUrl);
+  }
+  
   window.location.href = hostedUIUrl;
 }
 
@@ -241,15 +255,21 @@ if (import.meta.env.DEV) {
       "⚠️  VITE_CLOUDFRONT_URL is not set. OAuth redirects may not work correctly."
     );
   }
-  if (aws.oauth.responseType !== "token") {
+  if (aws.oauth.responseType !== "token id_token") {
     console.error(
-      "❌ oauth.responseType must be 'token' for implicit flow. Current:",
+      "❌ oauth.responseType must be 'token id_token' for implicit flow. Current:",
       aws.oauth.responseType
     );
   }
   if (!aws.oauth.scope.includes("openid")) {
     console.error(
       "❌ oauth.scope must include 'openid' for Cognito to return id_token. Current scope:",
+      aws.oauth.scope
+    );
+  }
+  if (!aws.oauth.scope.includes("aws.cognito.signin.user.admin")) {
+    console.warn(
+      "⚠️  oauth.scope should include 'aws.cognito.signin.user.admin' for full user management. Current scope:",
       aws.oauth.scope
     );
   }
