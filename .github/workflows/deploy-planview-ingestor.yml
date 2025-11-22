@@ -70,8 +70,14 @@ jobs:
             --capabilities CAPABILITY_IAM \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
+            --resolve-s3 \
+            --s3-prefix "planview-ingestor" \
             --parameter-overrides \
               RawBucketName="$RAW_BUCKET_NAME" \
+              OAuthSecretId="$OAUTH_SECRET_ID" \
+              ODataSecretId="$ODATA_SECRET_ID" \
+              TestProjectId="$TEST_PROJECT_ID"
+
               OAuthSecretId="$OAUTH_SECRET_ID" \
               ODataSecretId="$ODATA_SECRET_ID" \
               TestProjectId="$TEST_PROJECT_ID"
