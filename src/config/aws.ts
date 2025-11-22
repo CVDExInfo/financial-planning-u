@@ -24,7 +24,7 @@ const getEnv = (key: string): string => import.meta.env[key] || "";
 const getEnvWithRegionFallback = (key: string, defaultRegion: string = "us-east-2"): string =>
   import.meta.env[key] || defaultRegion;
 
-const RESOLVED_API_BASE = API_BASE;
+const RESOLVED_API_BASE = HAS_API_BASE ? API_BASE : "";
 if (!HAS_API_BASE) {
   console.error(
     "⚠️ VITE_API_BASE_URL is not configured. Please set it in your .env file. See .env.example for reference."
@@ -61,8 +61,8 @@ const aws = {
     // For implicit flow: /finanzas/auth/callback.html
     // For code flow: /finanzas/ (or /finanzas/auth/callback for React route)
     redirectSignIn:
-      getEnv("VITE_CLOUDFRONT_URL") + "/finanzas/auth/callback.html",
-    redirectSignOut: getEnv("VITE_CLOUDFRONT_URL") + "/finanzas/",
+      (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/auth/callback.html",
+    redirectSignOut: (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/",
     responseType: "token", // Use implicit flow for simplicity (token in hash fragment)
   },
 
@@ -152,6 +152,10 @@ if (import.meta.env.DEV) {
     console.warn(
       "⚠️  VITE_COGNITO_CLIENT_ID is not set. Please configure in .env file. See .env.example for reference."
     );
+  } else if (aws.Auth.userPoolWebClientId.length < 20) {
+    console.warn(
+      "⚠️  App Client ID appears malformed. Should be 26 characters."
+    );
   }
   if (!aws.oauth.domain) {
     console.warn(
@@ -160,14 +164,6 @@ if (import.meta.env.DEV) {
   } else if (aws.oauth.domain.includes("_")) {
     console.warn(
       "⚠️  Cognito domain appears malformed. Should be: <domain-prefix>.auth.<region>.amazoncognito.com"
-    );
-  }
-  if (
-    aws.Auth.userPoolWebClientId &&
-    aws.Auth.userPoolWebClientId.length < 20
-  ) {
-    console.warn(
-      "⚠️  App Client ID appears malformed. Should be 26 characters."
     );
   }
   if (aws.oauth.redirectSignIn && !aws.oauth.redirectSignIn.includes("/finanzas/auth/callback.html")) {
