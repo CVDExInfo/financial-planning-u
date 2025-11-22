@@ -64,12 +64,22 @@ This runbook replays the finance stack audit end-to-end in `us-east-2` using the
      --query 'Distribution.DistributionConfig.{Origins:Origins.Items,Behaviors:CacheBehaviors.Items}'
    ```
    Confirm `/finanzas*` behaviors target origin `ukusi-ui-finanzas-prod`.【f05cd1†L1-L17】【f56339†L1-L31】
-2. Compare deployed vs. local manifests:
+2. Compare deployed vs. local manifests (mirrors CI guard in `Deploy Finanzas UI`):
    ```bash
-   aws s3 ls s3://ukusi-ui-finanzas-prod/ --recursive | sort > /tmp/s3-finanzas-manifest.txt
-   diff -u /tmp/local-finanzas-manifest.txt /tmp/s3-finanzas-manifest.txt | head
+   # Local manifest (matches workflow sync rules that exclude .map)
+   find dist-finanzas -type f ! -name '*.map' -print | sed 's|^dist-finanzas/||' | sort > /tmp/local-finanzas-manifest.txt
+
+   # Remote manifest (strip prefix + ignore .map files)
+   aws s3api list-objects-v2 \
+     --bucket ukusi-ui-finanzas-prod \
+     --prefix finanzas/ \
+     --output json \
+     | jq -r '.Contents[]?.Key | select(. | endswith(".map") | not) | sub("^finanzas/"; "")' \
+     | sort > /tmp/s3-finanzas-manifest.txt
+
+   diff -u /tmp/local-finanzas-manifest.txt /tmp/s3-finanzas-manifest.txt
    ```
-   A healthy deploy should show matching hashes (e.g., JS bundle name). Current drift shows S3 has `finanzas/assets/index-BW0ovU_7.js` while local build emits `index-ppTbD_1B.js`.【225404†L33-L38】【d46f88†L9-L23】
+   If any differences remain, rerun the `Deploy Finanzas UI` workflow (which now fails fast on manifest drift) to resync the bundle and invalidate CloudFront.【F:.github/workflows/deploy-ui.yml†L152-L194】
 3. Spot-check object metadata and CloudFront health:
    ```bash
    aws s3api head-object --bucket ukusi-ui-finanzas-prod --key finanzas/index.html

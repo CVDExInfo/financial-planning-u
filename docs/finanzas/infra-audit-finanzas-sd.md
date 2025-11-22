@@ -4,7 +4,7 @@
 - Verified that Finanzas SD AWS resources exist in account 703671891952 (dev stage) and align with the SAM template defaults for Cognito, DynamoDB tables, and CloudFront origin domain.
 - Confirmed the expected Lambda fleet for the HTTP API is deployed in `us-east-2` with dev-staged function names that match the SAM template naming pattern.
 - DynamoDB tables for the Finanzas domain exist with the expected `pk`/`sk` composite keys and on-demand billing.
-- CloudFront distribution `EPQU7PVDLQXUA` routes `/finanzas/*` to the `ukusi-ui-finanzas-prod` S3 origin, but the deployed bundle is stale versus the current local build (JS hash mismatch), indicating UI drift.
+- CloudFront distribution `EPQU7PVDLQXUA` routes `/finanzas/*` to the `ukusi-ui-finanzas-prod` S3 origin. A manifest mismatch between deployed and local Finanzas builds (JS hash drift) was identified; the deploy workflow now performs a post-upload manifest diff and will fail fast if drift remains.
 - API Gateway HTTP API `finanzas-sd-api-dev` exposes the full route set with JWT authorizer pointing to Cognito pool `us-east-2_FyHLtOhiY` and client `dshos5iou44tuach7ta3ici5m`.
 
 ## AWS Inventory
@@ -36,6 +36,6 @@
 - JWT authorizer uses Cognito pool `us-east-2_FyHLtOhiY` and client `dshos5iou44tuach7ta3ici5m`, matching the SAM defaults referenced by the UI and API.【c4f2b9†L1-L17】【F:services/finanzas-api/template.yaml†L5-L35】
 
 ## Gaps & Recommended Fixes
-- **Stale UI bundle in S3 (Critical):** Deployed JS bundle `finanzas/assets/index-BW0ovU_7.js` does not match the latest local build (`index-ppTbD_1B.js`), indicating the prod bucket is out of sync with source. Refresh the S3 prefix `finanzas/` with the current `dist-finanzas` contents and invalidate CloudFront to ensure users load the up-to-date SPA and assets.【d46f88†L9-L23】【225404†L33-L38】
-- **Build-time env guardrail:** `npm run build:finanzas` requires `VITE_API_BASE_URL`; ensure CI/CD and local instructions set this value (e.g., `https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev`) to avoid failed builds or silent misconfigurations.【d6982f†L3-L19】【c5c5ea†L15-L23】
-- **Ongoing health checks:** Incorporate periodic log/metrics validation for each Lambda (CloudWatch logs + `lambda get-function-configuration`) and S3 object content-type sampling in CI, following the runbook to catch drift before deployment.
+- **S3/UI drift (Critical → Mitigated by CI guard):** Deployed JS bundle `finanzas/assets/index-BW0ovU_7.js` does not match the latest local build (`index-ppTbD_1B.js`). The UI deploy workflow now runs a post-upload manifest comparison (local build vs. `finanzas/` prefix) and fails on mismatch so drift cannot persist; rerun `Deploy Finanzas UI` to sync the current bundle and invalidate CloudFront.【d46f88†L9-L23】【225404†L33-L38】
+- **Build-time env guardrail (Implemented):** CI now computes and exports `VITE_API_BASE_URL` before build and verifies the value is embedded in the bundle, preventing silent misconfiguration. Keep repo variables (`FINZ_API_ID`, `FINZ_API_STAGE_*`, `DEV_API_URL`) aligned with the intended stage before triggering deployments.【F:.github/workflows/deploy-ui.yml†L70-L193】
+- **Ongoing health checks:** Keep periodic log/metrics validation for each Lambda (CloudWatch logs + `lambda get-function-configuration`) and S3 object content-type sampling in CI, following the runbook to catch drift before deployment.
