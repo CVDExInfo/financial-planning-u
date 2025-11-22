@@ -42,6 +42,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # ---- Preflight env (same strategy as before) ----
       - name: Preflight env
@@ -221,6 +223,100 @@ jobs:
             exit 1
           }
           echo "✅ Finanzas Portal built → dist-finanzas/"
+
+      - name: Record Finanzas bundle hashes
+        id: bundle_hashes
+        run: |
+          set -euo pipefail
+
+          ls -l dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css
+          sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css | tee dist-finanzas-bundle-hashes.txt
+
+          {
+            echo "### Finanzas bundle hashes"
+            echo ""
+            sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload bundle hash artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: finanzas-bundle-hashes
+          path: dist-finanzas-bundle-hashes.txt
+          retention-days: 14
+
+      - name: Download previous successful bundle hashes
+        id: previous_hashes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          BRANCH_NAME="${GITHUB_REF##*/}"
+          PREV_RUN_ID=$(gh run list --workflow "Deploy Finanzas UI" --branch "$BRANCH_NAME" --json databaseId,headSha,conclusion,status -L 20 \
+            | jq -r '[.[] | select(.conclusion=="success" and .headSha!="'"'"${GITHUB_SHA}'"'")][0].databaseId')
+
+          if [ -z "$PREV_RUN_ID" ] || [ "$PREV_RUN_ID" = "null" ]; then
+            echo "previous_run_found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mkdir -p /tmp/prev-hashes
+          if gh run download "$PREV_RUN_ID" --name finanzas-bundle-hashes --dir /tmp/prev-hashes; then
+            if [ -f /tmp/prev-hashes/dist-finanzas-bundle-hashes.txt ]; then
+              echo "previous_run_found=true" >> "$GITHUB_OUTPUT"
+              echo "previous_hash_file=/tmp/prev-hashes/dist-finanzas-bundle-hashes.txt" >> "$GITHUB_OUTPUT"
+            else
+              echo "previous_run_found=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "previous_run_found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect Finanzas UI changes in this commit
+        id: finz_changes
+        run: |
+          set -euo pipefail
+
+          COMPARE_REF="${{ github.event.before || '' }}"
+          if [ -z "$COMPARE_REF" ]; then
+            COMPARE_REF="HEAD~1"
+          fi
+
+          if ! git rev-parse "$COMPARE_REF" >/dev/null 2>&1; then
+            COMPARE_REF="HEAD~1"
+          fi
+
+          CHANGED_FILES=$(git diff --name-only "$COMPARE_REF"...HEAD || git diff --name-only "$COMPARE_REF" HEAD || true)
+          echo "$CHANGED_FILES" > /tmp/finz-changed-files.txt
+
+          if echo "$CHANGED_FILES" | grep -E -q '^(src/|public/|index\.html|vite\.config\.ts|package\.json|tailwind\.config\.js|tsconfig|scripts/finanzas)'; then
+            echo "finz_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "finz_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          {
+            echo "### Finanzas file changes (detected vs $COMPARE_REF)"
+            echo "$(wc -l < /tmp/finz-changed-files.txt) files changed"
+            head -50 /tmp/finz-changed-files.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if bundle unchanged while Finanzas files changed
+        if: steps.previous_hashes.outputs.previous_run_found == 'true'
+        run: |
+          set -euo pipefail
+
+          if cmp -s dist-finanzas-bundle-hashes.txt "${{ steps.previous_hashes.outputs.previous_hash_file }}"; then
+            if [ "${{ steps.finz_changes.outputs.finz_changed }}" = "true" ]; then
+              echo "❌ Finanzas bundle hashes match previous successful deploy, but Finanzas files changed."
+              exit 1
+            else
+              echo "ℹ️ Bundle hashes unchanged and no Finanzas-specific files changed; continuing."
+            fi
+          else
+            echo "✅ Bundle hashes differ from previous successful deploy."
+          fi
 
       # ---- Verify API URL is embedded in the bundle ----
       # This test ensures VITE_API_BASE_URL was properly injected during build
