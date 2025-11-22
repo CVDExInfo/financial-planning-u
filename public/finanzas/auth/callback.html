@@ -203,7 +203,7 @@
               : groupsRaw
                   .toString()
                   .split(",")
-                  .map(function(s) { return s.trim(); })
+                  .map(function(group) { return group.trim(); })
                   .filter(Boolean);
             
             console.log("[Callback] User groups:", groups);
