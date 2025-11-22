@@ -320,9 +320,9 @@ jobs:
           echo "$CHANGED_FILES" > /tmp/finz-changed-files.txt
 
           if echo "$CHANGED_FILES" | grep -E -q '^(src/|public/|index\.html|vite\.config\.ts|package\.json|tailwind\.config\.js|tsconfig|scripts/finanzas)'; then
-            echo "finz_changed=true" >> "$GITHUB_OUTPUT"
+            printf 'finz_changed=true\n' >> "$GITHUB_OUTPUT"
           else
-            echo "finz_changed=false" >> "$GITHUB_OUTPUT"
+            printf 'finz_changed=false\n' >> "$GITHUB_OUTPUT"
           fi
 
           {
@@ -434,7 +434,6 @@ jobs:
           echo "✅ Finanzas build artifacts look good"
 
       # ---- Upload Finanzas (/finanzas) ----
-            # ---- Upload Finanzas (/finanzas) ----
       - name: Upload Finanzas Portal to S3 (/finanzas prefix)
         run: |
           aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
@@ -443,7 +442,6 @@ jobs:
             --exclude 'test-helper.html' \
             --delete
           echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
-
 
       # ---- Post-upload drift check (ensures S3 matches local build) ----
       - name: Verify Finanzas S3 manifest matches local build
@@ -471,7 +469,6 @@ jobs:
           fi
 
           echo "✅ Finanzas S3 manifest matches local build"
-
 
       # ---- CF behavior check for /finanzas/* ----
       - name: Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)
