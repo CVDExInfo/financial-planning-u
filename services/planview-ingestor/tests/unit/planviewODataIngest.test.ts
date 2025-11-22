@@ -1,4 +1,4 @@
-import { APIGatewayProxyResult } from 'aws-lambda';
+import { APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { getSecretJson } from '../../src/lib/secrets';
 import { fetchEntityAllPages } from '../../src/lib/odataClient';
 import { writeJsonToS3 } from '../../src/lib/s3Writer';
@@ -49,7 +49,7 @@ describe('planviewODataIngest handler', () => {
   });
 
   it('fetches entities, writes to S3, and returns summary', async () => {
-    const response = (await handler({} as any, {} as any)) as APIGatewayProxyResult;
+    const response = (await handler()) as APIGatewayProxyStructuredResultV2;
 
     expect(mockedGetSecretJson).toHaveBeenCalledWith('planview/qa/odata');
     expect(mockedFetchEntityAllPages).toHaveBeenCalledTimes(2);
@@ -82,7 +82,8 @@ describe('planviewODataIngest handler', () => {
     expect(body2).toMatchObject({ entity: 'FinancialFacts', count: 2, data: [{ id: 2 }, { id: 3 }] });
 
     expect(response.statusCode).toBe(200);
-    const parsed = JSON.parse(response.body);
+    expect(response.body).toBeDefined();
+    const parsed = JSON.parse(response.body as string);
     expect(parsed.entities).toEqual(['Activity', 'FinancialFacts']);
     expect(parsed.results).toEqual([
       { entity: 'Activity', count: 1, key: expectedKey1 },
