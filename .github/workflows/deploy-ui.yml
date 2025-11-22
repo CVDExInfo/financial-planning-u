@@ -100,11 +100,6 @@ jobs:
           npm run lint
 
       # ---- Compute the API base URL for the build (DEV_API_URL wins, otherwise derive) ----
-      # ⚠️ CRITICAL: VITE_API_BASE_URL must be set for Finanzas build to succeed
-      # Without this configuration:
-      #   - vite.config.ts will throw an error and fail the build
-      #   - Frontend will not be able to connect to the API
-      # Source: DEV_API_URL repo variable or constructed from FINZ_API_ID + AWS_REGION + FINZ_API_STAGE
       - name: Compute API base URL
         id: apibase
         run: |
@@ -118,13 +113,11 @@ jobs:
             echo "✅ Using constructed API endpoint: $BASE"
           fi
 
-          # Validate that we have a non-empty URL
           if [ -z "$BASE" ]; then
             echo "❌ CRITICAL: API base URL is empty. Set DEV_API_URL repo variable or ensure FINZ_API_ID/AWS_REGION/FINZ_API_STAGE are set."
             exit 1
           fi
 
-          # Optional sanity check: warn if host doesn't match EXPECTED_API_ID (but do not block)
           HOST_WITH_PATH="${BASE#https://}"
           HOST="${HOST_WITH_PATH%%/*}"
           EXPECTED_HOST="${EXPECTED_API_ID}.execute-api.${AWS_REGION}.amazonaws.com"
@@ -136,9 +129,6 @@ jobs:
           printf '%s\n' "VITE_API_BASE_URL=$BASE" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
 
-      # ---- Stage/Environment Drift Guard ----
-      # Prevents deploying production frontend with dev API (or vice versa)
-      # unless explicitly allowed via ALLOW_STAGE_DRIFT
       - name: Guard - Stage/Environment Drift Check
         run: |
           set -euo pipefail
@@ -168,7 +158,6 @@ jobs:
             echo "✅ Stage/environment alignment verified"
           fi
 
-      # ---- Preflight API health against the same URL we inject in UI ----
       - name: Preflight API health
         run: |
           set -euo pipefail
@@ -182,10 +171,6 @@ jobs:
           fi
           echo "✅ API /health preflight ok"
 
-      # ---- Build Finanzas (/finanzas) ----
-      # ⚠️ CRITICAL: VITE_API_BASE_URL is REQUIRED for Finanzas build
-      # The build will FAIL if this variable is not set (enforced in vite.config.ts)
-      # This ensures we never deploy a broken frontend without API connectivity
       - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
           BUILD_TARGET: finanzas
@@ -196,11 +181,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Sanitize: strip CR/LF and trailing slash
           VITE_API_BASE_URL="$(printf '%s' "$VITE_API_BASE_URL" | tr -d '\r\n')"
           VITE_API_BASE_URL="${VITE_API_BASE_URL%/}"
 
-          # Validate before build (redundant with vite.config.ts, but provides clear error)
           if [ -z "$VITE_API_BASE_URL" ]; then
             echo "❌ CRITICAL: VITE_API_BASE_URL is empty"
             echo "   This variable is REQUIRED for Finanzas builds"
@@ -213,10 +196,8 @@ jobs:
           echo "[Finanzas] Building Finanzas SDT Portal (base: /finanzas/)..."
           echo "[Finanzas] Environment: ${DEPLOYMENT_ENV}"
 
-          # Export sanitized value for the build
           export VITE_API_BASE_URL
 
-          # Build will fail here if VITE_API_BASE_URL validation fails in vite.config.ts
           BUILD_TARGET=finanzas npm run build || {
             echo "❌ Finanzas build failed"
             echo "   Most likely cause: VITE_API_BASE_URL not properly configured"
@@ -251,14 +232,19 @@ jobs:
           BRANCH_NAME="${GITHUB_REF##*/}"
           echo "🔎 Looking for previous successful run on branch: $BRANCH_NAME"
 
-          # Get the last 20 runs for this workflow/branch
-          RAW_JSON=$(gh run list \
-            --workflow "Deploy Finanzas UI" \
-            --branch "$BRANCH_NAME" \
-            --json databaseId,headSha,conclusion,status \
-            -L 20)
+          # Try to fetch last 20 runs; if this fails (e.g. 403), degrade gracefully
+          if ! RAW_JSON=$(gh run list \
+              --workflow "Deploy Finanzas UI" \
+              --branch "$BRANCH_NAME" \
+              --json databaseId,headSha,conclusion,status \
+              -L 20 2>/tmp/gh_run_list_err.log); then
+            echo "ℹ️  gh run list failed (likely permission issue). Skipping previous-run hash comparison."
+            echo "----- gh run list stderr -----"
+            cat /tmp/gh_run_list_err.log || true
+            printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
-          # Pick the most recent success with a different headSha than the current run
           PREV_RUN_ID=$(printf '%s\n' "$RAW_JSON" \
             | jq -r --arg current "$GITHUB_SHA" '
                 [ .[]
@@ -276,7 +262,7 @@ jobs:
 
           mkdir -p /tmp/prev-hashes
 
-          if gh run download "$PREV_RUN_ID" --name finanzas-bundle-hashes --dir /tmp/prev-hashes; then
+          if gh run download "$PREV_RUN_ID" --name finanzas-bundle-hashes --dir /tmp/prev-hashes 2>/tmp/gh_run_download_err.log; then
             if [ -f /tmp/prev-hashes/dist-finanzas-bundle-hashes.txt ]; then
               printf 'previous_run_found=true\n' >> "$GITHUB_OUTPUT"
               printf 'previous_hash_file=/tmp/prev-hashes/dist-finanzas-bundle-hashes.txt\n' >> "$GITHUB_OUTPUT"
@@ -286,7 +272,9 @@ jobs:
               printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
             fi
           else
-            echo "ℹ️  Could not download artifacts from previous run."
+            echo "ℹ️  gh run download failed (likely permission issue). Skipping previous-run hash comparison."
+            echo "----- gh run download stderr -----"
+            cat /tmp/gh_run_download_err.log || true
             printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
           fi
 
@@ -347,16 +335,12 @@ jobs:
             echo "✅ Bundle hashes differ from previous successful deploy."
           fi
 
-      # ---- Verify API URL is embedded in the bundle ----
-      # This test ensures VITE_API_BASE_URL was properly injected during build
-      # If this fails, the deployed frontend will not be able to connect to the API
       - name: Verify API URL embedded in Finanzas bundle
         env:
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
         run: |
           set -euo pipefail
 
-          # Sanitize value same way as build step
           VITE_API_BASE_URL="$(printf '%s' "$VITE_API_BASE_URL" | tr -d '\r\n')"
           VITE_API_BASE_URL="${VITE_API_BASE_URL%/}"
 
@@ -366,7 +350,6 @@ jobs:
           if ! grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" >/dev/null; then
             echo "❌ CRITICAL: VITE_API_BASE_URL ($VITE_API_BASE_URL) not found in $DIST"
             echo "   This means the API URL was not injected during build"
-            echo "   Deployed frontend will not be able to connect to the API"
             echo ""
             echo "🔧 Troubleshooting:"
             echo "   1. Check that VITE_API_BASE_URL was set during build"
@@ -375,12 +358,10 @@ jobs:
             exit 1
           fi
 
-          # Show a sample of where it appears
           echo "✅ VITE_API_BASE_URL found in Finanzas bundle"
           echo "📋 Sample occurrences:"
           grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" | head -3 || true
 
-      # ---- Configure AWS via OIDC (must be before any aws CLI) ----
       - name: Configure AWS (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -391,7 +372,6 @@ jobs:
       - name: Verify identity
         run: aws sts get-caller-identity
 
-      # ---- Guards: S3 & CF exist ----
       - name: Guard - S3 buckets and CloudFront exist
         run: |
           set -euo pipefail
@@ -399,7 +379,6 @@ jobs:
           aws cloudfront get-distribution --id "${CLOUDFRONT_DIST_ID}" >/dev/null || { echo "❌ Missing CloudFront distribution ${CLOUDFRONT_DIST_ID}"; exit 1; }
           echo "✅ Buckets & CloudFront found"
 
-      # ---- Guard: API host ID & /health for the same URL we inject in UI ----
       - name: Guard - API endpoint present (VITE_API_BASE_URL)
         run: |
           set -euo pipefail
@@ -416,7 +395,6 @@ jobs:
           fi
           echo "✅ API endpoint ID and /health verified: $BASE"
 
-      # ---- Build artifact validation ----
       - name: Guard - Finanzas build artifacts
         run: |
           set -euo pipefail
@@ -433,7 +411,6 @@ jobs:
           fi
           echo "✅ Finanzas build artifacts look good"
 
-      # ---- Upload Finanzas (/finanzas) ----
       - name: Upload Finanzas Portal to S3 (/finanzas prefix)
         run: |
           aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
@@ -443,17 +420,14 @@ jobs:
             --delete
           echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
 
-      # ---- Post-upload drift check (ensures S3 matches local build) ----
       - name: Verify Finanzas S3 manifest matches local build
         run: |
           set -euo pipefail
 
-          # Local manifest (strip dist-finanzas/ prefix, ignore .map for parity with sync rules)
           find dist-finanzas -type f ! -name '*.map' -print \
             | sed 's|^dist-finanzas/||' \
             | sort > /tmp/local-finanzas-manifest.txt
 
-          # Remote manifest (strip finanzas/ prefix, ignore .map keys)
           aws s3api list-objects-v2 \
             --bucket "${FINANZAS_BUCKET_NAME}" \
             --prefix "finanzas/" \
@@ -470,7 +444,6 @@ jobs:
 
           echo "✅ Finanzas S3 manifest matches local build"
 
-      # ---- CF behavior check for /finanzas/* ----
       - name: Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)
         run: |
           set -euo pipefail
@@ -483,7 +456,6 @@ jobs:
           fi
           echo "✅ /finanzas/* behavior configured"
 
-      # ---- Invalidate CF caches ----
       - name: Invalidate CloudFront (all + Finanzas SPA)
         run: |
           set -euo pipefail
@@ -493,7 +465,6 @@ jobs:
             --query 'Invalidation.Id' --output text)
           echo "✅ Invalidation queued: $INVALIDATION_ID"
 
-      # ---- UI smoke: Finanzas ----
       - name: UI Smoke (Finanzas /finanzas/)
         run: |
           set -euo pipefail
@@ -511,13 +482,12 @@ jobs:
             echo "❌ Finanzas portal not accessible (HTTP $STATUS)"; exit 1;
           fi
 
-      # ---- Deep-route SPA smoke test ----
       - name: Deep-route SPA smoke test
         run: |
           set -euo pipefail
           DOMAIN="${CF_DOMAIN}"
           if [ -z "$DOMAIN" ]; then
-            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID}" --query 'Distribution.DomainName' --output text)
           fi
 
           DEEP_ROUTE="https://${DOMAIN}/finanzas/sdmt/cost/forecast"
@@ -532,7 +502,6 @@ jobs:
             exit 1
           fi
 
-          # Verify the response contains the SPA assets (not a 404 page)
           if [ -f /tmp/deep_route.html ]; then
             if grep -q "/finanzas/assets/" /tmp/deep_route.html; then
               echo "✅ Deep-route returns valid SPA content (found /finanzas/assets/)"
@@ -545,7 +514,6 @@ jobs:
 
           echo "✅ Deep-route SPA smoke test passed"
 
-      # ---- API smokes (public /health, /catalog/rubros) ----
       - name: API Smokes (public /health, /catalog/rubros)
         run: |
           set -euo pipefail
@@ -558,12 +526,6 @@ jobs:
           echo "Catalog items: $LEN"
           [ "$LEN" != "0" ] || echo "⚠️ catalog/rubros length is 0 (seed missing?)"
 
-      # ---- Post-Deployment Comprehensive Verification ----
-      # This step runs our comprehensive verification script to ensure:
-      # - UI is accessible via CloudFront
-      # - Static assets load correctly
-      # - API endpoints are reachable
-      # - API URL is embedded in the frontend bundle
       - name: Post-Deployment Comprehensive Verification
         run: |
           set -euo pipefail
@@ -579,11 +541,10 @@ jobs:
             exit 1
           }
 
-      # ---- Summary & Evidence Pack (no -u; guards already enforced correctness) ----
       - name: Summary & Evidence Pack
         if: always()
         run: |
-          set -eo pipefail   # no -u: don't crash on unbound env during summary
+          set -eo pipefail
           DOMAIN="${CF_DOMAIN}"
           if [ -z "$DOMAIN" ]; then
             DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
@@ -609,24 +570,20 @@ jobs:
           ## 🌐 Access
           - Finanzas: https://${DOMAIN}/finanzas/
 
-          ## ✅ Checklist
+                    ## ✅ Checklist
           - Base path OK (/finanzas/)
           - /finanzas/* behavior exists
           - /health returns 200
           - catalog/rubros returns JSON (length shown above)
-
           ## 🔬 Evidence Pack
-
           ### 1. API Base URL Computation
           - Computed during "Compute API base URL" step
           - Value used at build time: ${API}
           - Stage/environment alignment verified
-
           ### 2. CORS & Authentication Validation
           - OPTIONS preflight tests: ✅ (see validate-api-config.sh output)
           - JWT authentication flow: ✅ (see validate-api-config.sh output)
           - Protected endpoint access: ✅ (see validate-api-config.sh output)
-
           ### 3. Deep-route SPA Verification
           - Root route (/finanzas/): ✅ HTTP 200
           - Deep route (/finanzas/sdmt/cost/forecast): ✅ HTTP 200 + asset markers
