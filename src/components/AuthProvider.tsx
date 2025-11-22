@@ -277,6 +277,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Clear any partial tokens on error
       localStorage.removeItem("cv.jwt");
       localStorage.removeItem("finz_jwt");
+      localStorage.removeItem("idToken");
+      localStorage.removeItem("cognitoIdToken");
+      localStorage.removeItem("finz_access_token");
       localStorage.removeItem("finz_refresh_token");
 
       const message =
@@ -346,12 +349,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
             console.warn("[Auth] JWT expired or invalid, clearing");
             localStorage.removeItem("cv.jwt");
             localStorage.removeItem("finz_jwt");
+            localStorage.removeItem("idToken");
+            localStorage.removeItem("cognitoIdToken");
+            localStorage.removeItem("finz_access_token");
             localStorage.removeItem("finz_refresh_token");
           }
         } catch (e) {
           console.warn("[Auth] Failed to process JWT:", e);
           localStorage.removeItem("cv.jwt");
           localStorage.removeItem("finz_jwt");
+          localStorage.removeItem("idToken");
+          localStorage.removeItem("cognitoIdToken");
+          localStorage.removeItem("finz_access_token");
           localStorage.removeItem("finz_refresh_token");
         }
       }
@@ -380,7 +389,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Clear JWT and related auth data
     localStorage.removeItem("finz_jwt");
     localStorage.removeItem("finz_refresh_token");
+    localStorage.removeItem("finz_access_token");
     localStorage.removeItem("cv.jwt");
+    localStorage.removeItem("idToken");
+    localStorage.removeItem("cognitoIdToken");
     localStorage.removeItem("cv.module");
 
     setUser(null);

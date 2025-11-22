@@ -6,6 +6,7 @@
 - **idToken / cognitoIdToken**: Historical fallbacks still read by AuthProvider to avoid orphaned sessions.
 - **finz_refresh_token**: Refresh token saved after USER_PASSWORD_AUTH logins when Cognito returns it.
 - **finz_access_token**: Optional access token captured from the Hosted UI implicit flow for debugging/API tooling.
+- **Sign-out behavior**: `signOut()` clears every token key above (including legacy fallbacks) plus the module preference (`cv.module`) to prevent stale sessions from silently re-authenticating after logout.
 
 ## AuthProvider Decisions
 - Auth is considered **authenticated** when a valid, non-expired JWT is found in any of the token keys above.
