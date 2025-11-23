@@ -19,7 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import PageHeader from "@/components/PageHeader";
+import { ShieldCheck, Plus } from "lucide-react";
 
 export default function AdjustmentsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -101,28 +103,36 @@ export default function AdjustmentsManager() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-semibold">Ajustes Presupuestarios</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gestionar ajustes, excesos y reasignaciones de presupuesto
-          </p>
-        </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-          <Plus size={16} />
-          Crear Ajuste
-        </Button>
-      </div>
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <PageHeader
+        title="Ajustes Presupuestarios"
+        description="Gestiona excesos, reducciones o reasignaciones de presupuesto. El encabezado y el estado vacío siguen el estilo de acta-ui."
+        badge="Finanzas"
+        icon={<ShieldCheck className="h-5 w-5 text-white" />}
+        actions={
+          <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+            <Plus size={16} />
+            Crear Ajuste
+          </Button>
+        }
+      />
 
-      <div className="rounded-lg border border-border p-8 text-center bg-card">
-        <p className="text-muted-foreground mb-4">
-          Haz clic en "Crear Ajuste" para registrar un ajuste presupuestario.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Los ajustes pueden ser excesos, reducciones o reasignaciones entre rubros.
-        </p>
-      </div>
+      <Card className="border-border/80 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Ajustes</CardTitle>
+          <CardDescription>
+            Los ajustes pueden ser excesos, reducciones o reasignaciones entre rubros.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center space-y-3">
+          <p className="text-muted-foreground">
+            Haz clic en "Crear Ajuste" para registrar un ajuste presupuestario.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Incluye IDs de proyecto y rubro para mantener un flujo claro de distribución.
+          </p>
+        </CardContent>
+      </Card>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl">

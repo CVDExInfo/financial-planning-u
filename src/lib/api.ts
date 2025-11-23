@@ -118,7 +118,13 @@ export class ApiService {
       return projectArray.map(normalizeProject);
     } catch (error) {
       logger.error("Failed to fetch projects from API:", error);
-      throw error;
+      const friendlyMessage =
+        error instanceof TypeError && error.message.includes("Failed to fetch")
+          ? "No se pudo contactar la API de Finanzas (posible CORS o sesión expirada)."
+          : error instanceof Error
+            ? error.message
+            : "Failed to load projects";
+      throw new Error(friendlyMessage);
     }
   }
 
