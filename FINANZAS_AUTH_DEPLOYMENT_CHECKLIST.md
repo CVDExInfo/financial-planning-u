@@ -14,7 +14,8 @@ Log into AWS Console → Cognito → User Pool `us-east-2_FyHLtOhiY` → App cli
 
 - [ ] **Allowed callback URLs:**
   - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
-  - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html`
+- [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html`
+  - Source file: `public/auth/callback.html` → deployed as `finanzas/auth/callback.html` (no nested `/finanzas/finanzas` copies)
 
 - [ ] **Allowed sign-out URLs:**
   - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
@@ -53,13 +54,13 @@ npm run lint
 # Build
 npm run build:finanzas
 
-# Verify callback.html was copied
-ls -la dist-finanzas/finanzas/auth/callback.html
+# Verify callback.html was copied (single canonical source lives at public/auth/callback.html → dist-finanzas/auth/callback.html)
+ls -la dist-finanzas/auth/callback.html
 ```
 
 - [ ] Lint passes with no new errors
 - [ ] Build completes successfully
-- [ ] `callback.html` exists in `dist-finanzas/finanzas/auth/`
+- [ ] `callback.html` exists in `dist-finanzas/auth/`
 
 ## Deployment Steps
 
