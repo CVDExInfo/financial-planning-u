@@ -152,7 +152,7 @@ In Browser DevTools Console:
 ### If You See "unauthorized_client" Error:
 
 1. **Check:** Cognito app client has "Implicit grant" enabled
-2. **Check:** `response_type` in `src/config/aws.ts` is `"token id_token"`
+2. **Check:** `response_type` in `src/config/aws.ts` is `"token"`
 3. **Check:** CloudFront cache was invalidated after deployment
 
 ### If You See "No id_token present" Error:

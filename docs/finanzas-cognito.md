@@ -55,7 +55,8 @@ The application currently uses **implicit grant flow** (`response_type=token`) f
 The Cognito app client also supports **authorization code grant**, but this is intentionally deferred:
 - **TODO**: Implement token exchange endpoint (backend or PKCE client).
 - **TODO**: Update `loginWithHostedUI()` to use `response_type=code` and adjust callback.html accordingly.
-- **NOTE**: Cognito does **not** accept `response_type="token id_token"`; using it prevents `id_token` from being returned.
+- **NOTE**: AWS Cognito accepts response_type values: "token" (implicit) or "code" (authorization code).
+  The value "token id_token" is NOT valid for AWS Cognito.
 
 ## Authentication Flows
 

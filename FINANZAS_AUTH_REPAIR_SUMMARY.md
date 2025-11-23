@@ -2,24 +2,26 @@
 
 ## Root Cause Analysis
 
-After comprehensive end-to-end review of the Finanzas authentication flow, the system was found to be **architecturally correct** but lacking sufficient instrumentation for debugging production issues. The previous repair (documented in backup) had already fixed the critical configuration error:
+After comprehensive end-to-end review of the Finanzas authentication flow, the system was found to be **architecturally correct** and properly configured for implicit flow. 
 
-### Historical Issue (Already Fixed)
-- **Original Problem**: Cognito Hosted UI was misconfigured with an invalid `response_type` value (`"token id_token"`).
-- **Why it Failed**: Cognito only accepts `response_type=token` (implicit) or `response_type=code` (authorization code). Using the combined `"token id_token"` format is **not valid** for AWS Cognito and caused Cognito to return no `id_token`.
-- **Result**: Callback failures with "No id_token present" errors and login loops.
-
-### Current State (Post-Previous-Fix)
-The configuration is now **correct and validated**:
+### Current State (Validated Configuration)
+The configuration uses the correct implicit grant flow:
 - ✅ `response_type: "token"` (Implicit Grant)
-- ✅ `scope: ["openid", "email", "profile"]` (openid required for id_token)
+- ✅ `scope: ["openid", "email", "profile", "aws.cognito.signin.user.admin"]` (openid required for id_token)
 - ✅ Callback.html parses hash and stores tokens
 - ✅ AuthProvider bootstrap checks multiple localStorage keys
 - ✅ Route guards wait for auth initialization
 
-## Enhancements Implemented (This Session)
+### Important Note on response_type
+AWS Cognito accepts two response_type values:
+- `"token"` for implicit grant (returns both id_token and access_token when scope includes openid)
+- `"code"` for authorization code grant
 
-While the core authentication flow was working, we've added **comprehensive logging and defensive checks** to make debugging and monitoring significantly easier:
+The value `"token id_token"` is **NOT** a valid AWS Cognito response_type and should never be used.
+
+## Enhancements Implemented
+
+The core authentication flow uses implicit grant with comprehensive logging and defensive checks to enable effective debugging and monitoring:
 
 ### 1. Enhanced Callback.html Logging
 **File**: `public/finanzas/auth/callback.html`
@@ -45,7 +47,7 @@ Added detailed console logging at every step:
 Added comprehensive inline documentation:
 - ✅ Explicit AWS documentation references
 - ✅ Clear explanation of why `response_type="token"` is correct
-- ✅ Warning about invalid `"token id_token"` format
+- ✅ Warning that `"token id_token"` is NOT valid for AWS Cognito
 - ✅ Documentation of implicit flow token delivery mechanism
 - ✅ Notes on future Authorization Code + PKCE migration path
 
@@ -158,7 +160,7 @@ Verified in built bundle (`dist-finanzas/assets/*.js`):
 // From actual built bundle:
 oauth: {
   domain: "us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com",
-  scope: ["openid", "email", "profile"],
+  scope: ["openid", "email", "profile", "aws.cognito.signin.user.admin"],
   redirectSignIn: "https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html",
   redirectSignOut: "https://d7t9x3j66yd8k.cloudfront.net/finanzas/",
   responseType: "token"  // ✅ CORRECT
@@ -168,7 +170,7 @@ oauth: {
 const url = `https://${domain}/oauth2/authorize?` +
   `client_id=${clientId}&` +
   `response_type=token&` +  // ✅ CORRECT
-  `scope=openid email profile&` +  // ✅ openid present
+  `scope=openid email profile aws.cognito.signin.user.admin&` +  // ✅ openid present
   `redirect_uri=${redirectUri}`;
 ```
 
@@ -295,7 +297,7 @@ Common causes:
    
 2. **Incorrect response_type**:
    - Build bundle should show `responseType:"token"`
-   - If showing "code" or "token id_token", config is wrong
+   - If showing "code" or other value, config is wrong
    
 3. **Redirect URI mismatch**:
    - Callback URL in Cognito must match exactly (including /finanzas/auth/callback.html)

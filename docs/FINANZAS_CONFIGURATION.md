@@ -117,8 +117,8 @@ https://d7t9x3j66yd8k.cloudfront.net/finanzas/login
 - ✅ aws.cognito.signin.user.admin
 
 **Response type used by application:**
-- `token id_token` (space-separated, URL-encoded as `token%20id_token`)
-- This delivers both id_token and access_token in the URL hash fragment
+- `token` (implicit grant flow)
+- With scope including `openid`, this delivers both id_token and access_token in the URL hash fragment
 
 #### Authentication Flow
 
@@ -127,7 +127,7 @@ https://d7t9x3j66yd8k.cloudfront.net/finanzas/login
    ```
    https://us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com/oauth2/authorize?
      client_id=dshos5iou44tuach7ta3ici5m&
-     response_type=token%20id_token&
+     response_type=token&
      scope=openid%20email%20profile%20aws.cognito.signin.user.admin&
      redirect_uri=https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html
    ```
@@ -148,7 +148,7 @@ https://d7t9x3j66yd8k.cloudfront.net/finanzas/login
 If you see `unauthorized_client` or `invalid_request` errors:
 
 1. **Verify Implicit Grant is enabled** in Cognito app client settings
-2. **Check response_type** in `src/config/aws.ts` is `"token id_token"`
+2. **Check response_type** in `src/config/aws.ts` is `"token"`
 3. **Verify redirect URIs** in Cognito match exactly (including trailing slash)
 4. **Verify scopes** include `openid` (required for id_token)
 5. **Check CloudFront URL** environment variable is set correctly
