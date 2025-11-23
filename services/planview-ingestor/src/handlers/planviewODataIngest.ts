@@ -86,7 +86,27 @@ export const handler = async (): Promise<APIGatewayProxyResultV2> => {
   }
 
   const secret = await getSecretJson<ODataSecret>(odataSecretId);
-  const baseUrl = secret.odata_url;
+  let baseUrl = secret.odata_url;
+
+  try {
+    const url = new URL(baseUrl);
+    const lowerPath = url.pathname.toLowerCase();
+    if (!lowerPath.includes('/odataservice/odataservice.svc')) {
+      console.warn('odata_url does not contain odataservice/odataservice.svc', {
+        odata_url: baseUrl,
+      });
+    }
+    if (lowerPath.startsWith('/planview/')) {
+      url.pathname = url.pathname.replace(/^\/planview/i, '');
+      baseUrl = url.toString();
+      console.info('Normalized OData base URL to', baseUrl);
+    }
+  } catch (e) {
+    console.warn('Could not parse odata_url, using as-is', {
+      odata_url: baseUrl,
+      error: (e as Error).message,
+    });
+  }
   const authHeader = buildBasicAuthHeader(secret.username, secret.password);
 
   const runTimestamp = buildRunTimestamp();
