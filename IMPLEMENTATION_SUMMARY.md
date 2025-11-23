@@ -10,7 +10,7 @@
 
 Successfully implemented comprehensive improvements to the Cognito Hosted UI authentication flow for the Finanzas SPA. All requirements from the problem statement have been met, including:
 
-✅ Updated OAuth configuration to use `response_type="token id_token"`  
+✅ OAuth configuration uses `response_type="token"` (implicit grant)  
 ✅ Hardened callback.html with robust 3-case error handling  
 ✅ Enhanced logging throughout the authentication flow  
 ✅ Comprehensive documentation with deployment checklist  
@@ -28,10 +28,10 @@ Successfully implemented comprehensive improvements to the Cognito Hosted UI aut
 - ❌ Tokens not being delivered from Cognito Hosted UI
 
 ### Root Causes Identified
-1. `response_type` was set to `"token"` instead of `"token id_token"`
-2. callback.html error handling was not robust (only showed generic "No id_token present" message)
-3. Hash parsing was basic and didn't handle all error cases
-4. Missing aws.cognito.signin.user.admin scope
+1. Previous incorrect configuration: `response_type` was temporarily set to `"token id_token"` (not valid for AWS Cognito)
+2. callback.html error handling needed to be robust (handle OAuth error responses)
+3. Hash parsing needed to handle all error cases
+4. Missing aws.cognito.signin.user.admin scope in earlier versions
 
 ---
 
@@ -40,14 +40,14 @@ Successfully implemented comprehensive improvements to the Cognito Hosted UI aut
 ### 1. OAuth Configuration Updates (`src/config/aws.ts`)
 
 **Changes:**
-- Updated `responseType` from `"token"` to `"token id_token"`
+- Configured `responseType` to `"token"` (implicit grant)
 - Added `aws.cognito.signin.user.admin` to scopes array
 - Enhanced `loginWithHostedUI()` with detailed logging (dev mode)
 - Updated validation checks to expect correct response type
 
 **Result:**
-- OAuth request now correctly requests both access_token and id_token
-- URLSearchParams automatically URL-encodes the space → `token%20id_token`
+- OAuth request correctly uses response_type=token with openid scope
+- Both access_token and id_token are returned in hash fragment
 - All required scopes included per AWS Cognito app client configuration
 
 ### 2. Callback Handler Hardening (`public/finanzas/auth/callback.html`)
@@ -260,16 +260,15 @@ VITE_CLOUDFRONT_URL=https://d7t9x3j66yd8k.cloudfront.net
 
 ## Technical Details
 
-### Why "token id_token"?
+### Why response_type="token"?
 
 Per [AWS Cognito OAuth 2.0 documentation](https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html):
 
-- `response_type` must be space-separated list of token types
-- `token` = request access_token (for API calls)
-- `id_token` = request id_token (OpenID Connect, user identity)
+- `response_type=token` is the correct value for implicit grant flow
+- When scope includes `openid`, Cognito returns BOTH id_token and access_token in URL hash
 - Both are delivered in URL hash fragment: `#id_token=...&access_token=...`
-- URLSearchParams automatically encodes space: `token%20id_token`
-- Requires BOTH "Authorization code grant" AND "Implicit grant" enabled
+- Requires "Implicit grant" enabled in Cognito app client settings
+- **NOTE**: AWS Cognito does NOT accept `response_type="token id_token"` - this is not a valid value
 
 ### Authentication Flow
 

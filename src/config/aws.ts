@@ -69,27 +69,31 @@ const aws = {
       (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/auth/callback.html",
     redirectSignOut: (getEnv("VITE_CLOUDFRONT_URL") || "") + "/finanzas/",
 
-    // ✅ CRITICAL: Implicit grant configuration (response_type=token id_token)
+    // ✅ CRITICAL: Implicit grant configuration (response_type=token)
     // 
     // Per AWS Cognito OAuth 2.0 docs:
     // https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html
     //
-    // When using response_type="token id_token" (Implicit Flow):
+    // When using response_type="token" (Implicit Flow):
     // - Cognito returns BOTH id_token AND access_token in the URL hash fragment
     // - Format: #id_token=...&access_token=...&token_type=Bearer&expires_in=...
     // - No backend token exchange needed (tokens delivered directly to browser)
-    // - This requires BOTH "Authorization code grant" AND "Implicit grant" to be enabled
-    //   in the Cognito app client settings (both are now enabled per problem statement)
+    // - Requires "Implicit grant" to be enabled in the Cognito app client settings
+    // - Scope MUST include "openid" for id_token to be issued
     //
-    // Note: The response_type value is space-separated and will be URL-encoded when
-    // building the OAuth URL. When encoded, "token id_token" becomes "token%20id_token".
+    // IMPORTANT: AWS Cognito accepts response_type values:
+    // - "token" (implicit grant - returns access_token and id_token when scope has openid)
+    // - "code" (authorization code grant - returns authorization code for exchange)
+    // - DO NOT use "token id_token" - this is NOT a valid AWS Cognito response_type
     //
-    // Current configuration (UPDATED for production):
-    // - response_type: "token id_token" ✅
+    // Current configuration (Implicit Flow):
+    // - response_type: "token" ✅
     // - scope: includes "openid" ✅
     // - Cognito app client: Implicit grant enabled ✅
     // - Result: Both id_token and access_token delivered in hash ✅
-    responseType: "token id_token",
+    //
+    // Future migration path: Change to "code" + implement PKCE for enhanced security
+    responseType: "token",
   },
 
   API: {
@@ -119,13 +123,14 @@ export const COGNITO_INTEGRATION_CHECKLIST = {
   scope: aws.oauth.scope,
   hasOpenIdScope: aws.oauth.scope.includes("openid"),
   isImplicitResponseType: aws.oauth.responseType === "token",
+  hasAdminScope: aws.oauth.scope.includes("aws.cognito.signin.user.admin"),
 };
 
 /**
  * Helper function to initiate Cognito Hosted UI login.
- * Uses implicit grant flow (response_type="token id_token") which delivers both
- * access_token and id_token directly in the URL hash fragment. The callback.html
- * page extracts and stores these tokens.
+ * Uses implicit grant flow (response_type="token") which delivers both
+ * access_token and id_token directly in the URL hash fragment when scope
+ * includes "openid". The callback.html page extracts and stores these tokens.
  */
 export function loginWithHostedUI(): void {
   const { domain, scope, redirectSignIn, responseType } = aws.oauth;
@@ -142,8 +147,8 @@ export function loginWithHostedUI(): void {
   }
 
   // Build OAuth parameters
-  // Note: URLSearchParams automatically URL-encodes values, so "token id_token" 
-  // becomes "token%20id_token" in the final URL
+  // Note: response_type="token" with scope="openid ..." returns both id_token
+  // and access_token in the hash fragment per AWS Cognito implicit flow spec
   const params = new URLSearchParams({
     client_id: userPoolWebClientId,
     response_type: responseType,
@@ -255,9 +260,9 @@ if (import.meta.env.DEV) {
       "⚠️  VITE_CLOUDFRONT_URL is not set. OAuth redirects may not work correctly."
     );
   }
-  if (aws.oauth.responseType !== "token id_token") {
+  if (aws.oauth.responseType !== "token") {
     console.error(
-      "❌ oauth.responseType must be 'token id_token' for implicit flow. Current:",
+      "❌ oauth.responseType must be 'token' for implicit flow. Current:",
       aws.oauth.responseType
     );
   }

@@ -71,6 +71,40 @@ if [ "$BUILD_TARGET" = "finanzas" ]; then
   echo "✅ VITE_API_BASE_URL is set: $VITE_API_BASE_URL"
   echo ""
   
+  # Validate OAuth configuration in src/config/aws.ts
+  echo "🔐 Validating OAuth configuration..."
+  
+  # Check that responseType is set to "token" (implicit flow)
+  if grep -q 'responseType: "token"' src/config/aws.ts; then
+    echo "✅ OAuth responseType is correctly set to 'token' (implicit flow)"
+  else
+    echo "❌ CRITICAL: OAuth responseType must be 'token' for implicit flow"
+    echo ""
+    echo "Current configuration in src/config/aws.ts does not contain:"
+    echo "  responseType: \"token\""
+    echo ""
+    echo "This is required for the Cognito Hosted UI implicit grant flow."
+    echo "Please update src/config/aws.ts to use:"
+    echo "  oauth: {"
+    echo "    responseType: \"token\","
+    echo "    scope: [\"openid\", \"email\", \"profile\", \"aws.cognito.signin.user.admin\"],"
+    echo "    ..."
+    echo "  }"
+    echo ""
+    echo "DO NOT use 'token id_token' - this is not a valid AWS Cognito response_type."
+    echo ""
+    exit 1
+  fi
+  
+  # Check that scope includes "openid" (required for id_token)
+  if grep -q '"openid"' src/config/aws.ts; then
+    echo "✅ OAuth scope includes 'openid' (required for id_token)"
+  else
+    echo "⚠️  WARNING: OAuth scope should include 'openid' for id_token to be issued"
+  fi
+  
+  echo ""
+  
   # Optional: Run full validation if VALIDATE_API_CONNECTIVITY is set
   if [ "${VALIDATE_API_CONNECTIVITY:-false}" = "true" ]; then
     echo "🌐 Running full API connectivity validation..."

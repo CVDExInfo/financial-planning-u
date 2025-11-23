@@ -95,7 +95,7 @@
             showError(
               "Authorization Code Flow Not Supported",
               "The callback received an authorization code, but the application is configured for implicit flow.",
-              "Please ensure response_type is set to 'token id_token' in aws.ts configuration."
+              "Please ensure response_type is set to 'token' in aws.ts configuration."
             );
             return;
           }
@@ -124,7 +124,7 @@
             if (errorType === "unauthorized_client") {
               userMessage = "Authentication configuration error.";
               technicalDetails = "The Cognito app client is not configured correctly. " +
-                "Please verify that 'Implicit grant' is enabled and 'response_type=token id_token' is used.";
+                "Please verify that 'Implicit grant' is enabled and 'response_type=token' is used.";
             } else if (errorType === "invalid_request") {
               userMessage = "Invalid authentication request.";
               technicalDetails = "The authentication request was malformed. " +
@@ -295,9 +295,9 @@
          *   8. Check browser console for "[Callback]" logs showing successful flow
          * 
          * If you see errors like "unauthorized_client" or "invalid_request":
-         *   - Verify Cognito app client has BOTH "Authorization code grant" AND "Implicit grant" enabled
+         *   - Verify Cognito app client has "Implicit grant" enabled
          *   - Verify redirect URIs match exactly (including trailing slash)
-         *   - Check that response_type in src/config/aws.ts is "token id_token"
+         *   - Check that response_type in src/config/aws.ts is "token"
          *   - Verify scopes include: openid, email, profile, aws.cognito.signin.user.admin
          * 
          * Environment variables required (see .env.example):
