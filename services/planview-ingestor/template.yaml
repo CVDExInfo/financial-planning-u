@@ -62,9 +62,39 @@ Resources:
       Role: !GetAtt PlanviewQaSmokeRole.Arn
       Environment:
         Variables:
-          ODATA_ENTITIES: Activity,FinancialFacts,Project_Dimension,Resource
+          ODATA_ENTITIES: Project_Dimension,FinancialFacts
+          PROJECTS_TABLE: !Ref PlanviewProjectsTable
+          FINANCIAL_FACTS_TABLE: !Ref PlanviewFinancialFactsTable
     Metadata:
       BuildMethod: nodejs20.x
+
+  PlanviewProjectsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: PlanviewProjects
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: ppl_code
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ppl_code
+          KeyType: HASH
+
+  PlanviewFinancialFactsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: PlanviewFinancialFacts
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: ppl_code
+          AttributeType: S
+        - AttributeName: period_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ppl_code
+          KeyType: HASH
+        - AttributeName: period_id
+          KeyType: RANGE
 
   PlanviewQaSmokeRole:
     Type: AWS::IAM::Role
@@ -95,6 +125,14 @@ Resources:
                   - s3:PutObject
                   - s3:GetObject
                 Resource: !Sub "arn:aws:s3:::${RawBucketName}/*"
+              - Effect: Allow
+                Action:
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:PutItem
+                  - dynamodb:DescribeTable
+                Resource:
+                  - arn:aws:dynamodb:us-east-2:703671891952:table/PlanviewProjects
+                  - arn:aws:dynamodb:us-east-2:703671891952:table/PlanviewFinancialFacts
 
 Outputs:
   PlanviewQaSmokeFunctionArn:
