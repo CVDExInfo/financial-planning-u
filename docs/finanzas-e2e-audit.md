@@ -58,9 +58,9 @@
 - Commands issued:
   - `npx playwright install --with-deps`
   - `FINZ_TEST_USERNAME="christian.valencia@ikusi.com" FINZ_TEST_PASSWORD="Velatia@2025" npm run test:e2e:finanzas`
-- Result: Patched `tests/e2e/finanzas/support.ts` so the login helper falls back to Cognito `USER_PASSWORD_AUTH` (via `InitiateAuth`) when the Hosted UI displays “Login pages unavailable.” Tokens are now seeded directly into `localStorage` before navigation. Playwright run completes with `2 passed / 1 skipped`—the upload spec skips when the build lacks a file input, but login and projects flows pass against the production API host.
+- Result: Patched `tests/e2e/finanzas/support.ts` so the login helper can fall back to Cognito `USER_PASSWORD_AUTH` (via `InitiateAuth`) when the Hosted UI displays “Login pages unavailable.” The fallback is now gated behind `FINZ_E2E_ALLOW_COGNITO_FALLBACK=true`; by default the suite fails if Hosted UI is down, preserving parity. When enabled, tokens are seeded directly into `localStorage` before navigation. Playwright run completes with `2 passed / 1 skipped`—the upload spec skips when the build lacks a file input, but login and projects flows pass against the production API host.
 - Evidence: Playwright run output (see CLI logs) confirms successful navigation through the Finanzas shell and REST calls against `https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com`.
-- Residual risk: Automated coverage currently bypasses the Hosted UI (tests rely on direct Cognito password auth). When the Hosted UI banner issue is resolved, re-enable the standard redirect path to ensure parity with real users.
+- Residual risk: Automated coverage currently depends on the feature flag. Once the Hosted UI banner issue is resolved, unset `FINZ_E2E_ALLOW_COGNITO_FALLBACK` so the tests use the standard redirect path.
 - Next actions:
   1. Restore Hosted UI availability and remove the fallback if parity is required, then rerun `npm run test:e2e:finanzas`.
   2. Populate a stable upload control (if omitted in current build) so the upload spec can run instead of skipping.

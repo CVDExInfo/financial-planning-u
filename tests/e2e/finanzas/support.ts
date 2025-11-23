@@ -15,6 +15,8 @@ const cognitoRegion =
   process.env.VITE_COGNITO_REGION ||
   "us-east-2";
 const cognitoAuthEndpoint = `https://cognito-idp.${cognitoRegion}.amazonaws.com/`;
+const allowPasswordFallback =
+  process.env.FINZ_E2E_ALLOW_COGNITO_FALLBACK === "true";
 
 export interface CapturedCall {
   url: string;
@@ -44,6 +46,12 @@ export async function login(page: Page) {
   const hostedSuccess = await tryHostedLogin(page, username, password);
 
   if (!hostedSuccess) {
+    if (!allowPasswordFallback) {
+      throw new Error(
+        "Hosted UI login failed and FINZ_E2E_ALLOW_COGNITO_FALLBACK is not 'true'. Enable the flag to use direct Cognito auth or restore the Hosted UI."
+      );
+    }
+
     await fallbackLoginWithUserPassword(page, username, password);
   }
 
@@ -201,6 +209,11 @@ async function tryHostedLogin(page: Page, username: string, password: string) {
       .catch(() => false);
 
     if (loginUnavailable) {
+      if (!allowPasswordFallback) {
+        throw new Error(
+          "Hosted UI rendered 'Login pages unavailable'. Set FINZ_E2E_ALLOW_COGNITO_FALLBACK=true to bypass while investigating."
+        );
+      }
       return false;
     }
 
@@ -233,7 +246,8 @@ async function tryHostedLogin(page: Page, username: string, password: string) {
     return true;
   } catch (error) {
     console.warn(
-      "[E2E] Hosted UI login attempt failed; falling back to password auth.",
+      "[E2E] Hosted UI login attempt failed; password fallback permitted?",
+      allowPasswordFallback,
       error
     );
     return false;
