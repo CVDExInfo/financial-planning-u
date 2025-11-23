@@ -1,4 +1,4 @@
-import { useState, FormEvent } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -6,185 +6,55 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, LogIn, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { loginWithHostedUI } from "@/config/aws";
+import { LogIn } from "lucide-react";
 import { Logo } from "@/components/Logo";
 
 export function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const { loginWithCognito } = useAuth();
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setIsLoading(true);
-
-    try {
-      await loginWithCognito(email, password);
-      // On success, AuthProvider redirects to home automatically
-    } catch (err: any) {
-      setError(err.message || "Login failed. Please try again.");
-      setPassword(""); // Clear password on error
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Demo credentials for development
-  const fillDemoCredentials = () => {
-    setEmail("christian.valencia@ikusi.com");
-    setPassword("Velatia@2025");
-  };
+  const { login, isLoading } = useAuth();
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <Card className="glass-card">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center p-4">
+      <div className="max-w-lg w-full">
+        <Card className="border-white/10 bg-white/5 shadow-2xl backdrop-blur">
           <CardHeader className="text-center space-y-4">
-            <div className="mb-6 flex justify-center">
+            <div className="flex justify-center">
               <Logo />
             </div>
-            <div>
-              <CardTitle className="text-2xl">
-                Financial Planning & Management
-              </CardTitle>
-              <CardDescription className="text-base mt-2">
-                Ikusi Digital Platform - Finanzas
+            <div className="space-y-1">
+              <CardTitle className="text-2xl text-white">Finanzas Access</CardTitle>
+              <CardDescription className="text-slate-200/80">
+                Ikusi / CVDEx Secure Sign-in
               </CardDescription>
+              <p className="text-sm text-slate-200/70">
+                Autentícate con el portal corporativo para continuar.
+              </p>
             </div>
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email Input */}
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium">
-                  Email
-                </label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your.email@ikusi.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
-                  required
-                  autoComplete="email"
-                />
-              </div>
-
-              {/* Password Input */}
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium">
-                  Password
-                </label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
-
-              {/* Sign In Button */}
-              <Button
-                type="submit"
-                disabled={isLoading || !email || !password}
-                className="w-full h-11"
-                size="lg"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Sign In
-                  </>
-                )}
-              </Button>
-            </form>
-
-            {/* Divider */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with
-                </span>
-              </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-100/90">
+              <p className="font-medium">Acceso seguro</p>
+              <p className="text-slate-200/70 mt-1">
+                Serás redirigido al portal de autenticación de Cognito. Después del
+                ingreso, volverás automáticamente a Finanzas.
+              </p>
             </div>
 
-            {/* Hosted UI Login Button */}
             <Button
               type="button"
-              variant="outline"
-              onClick={loginWithHostedUI}
+              size="lg"
+              className="w-full h-11"
+              onClick={login}
               disabled={isLoading}
-              className="w-full"
             >
-              Sign in with Cognito Hosted UI
+              <LogIn className="mr-2 h-4 w-4" />
+              Ir a la pantalla de inicio de sesión
             </Button>
 
-            {/* Demo Credentials (Development) */}
-            <div className="p-4 rounded-lg bg-muted/50 border border-border/50 space-y-3">
-              <p className="text-xs font-medium text-muted-foreground">
-                Development Test Credentials:
-              </p>
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p>
-                  <strong>Email:</strong>
-                  <br />
-                  <code className="bg-background px-2 py-1 rounded">
-                    christian.valencia@ikusi.com
-                  </code>
-                </p>
-                <p>
-                  <strong>Password:</strong>
-                  <br />
-                  <code className="bg-background px-2 py-1 rounded">
-                    Velatia@2025
-                  </code>
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={fillDemoCredentials}
-                disabled={isLoading}
-                className="w-full text-xs"
-              >
-                Fill Demo Credentials
-              </Button>
-            </div>
-
-            {/* Additional Info */}
-            <div className="text-center text-xs text-muted-foreground">
-              <p>Credentials securely authenticated via Cognito IdP</p>
-            </div>
+            <p className="text-center text-xs text-slate-200/70">
+              Usa tu cuenta corporativa Ikusi / CVDEx. No compartas tus credenciales.
+            </p>
           </CardContent>
         </Card>
       </div>

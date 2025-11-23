@@ -1,10 +1,4 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 
 // Components
@@ -14,7 +8,7 @@ import AccessControl from "@/components/AccessControl";
 import { AuthProvider } from "@/components/AuthProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { ProjectProvider } from "@/contexts/ProjectContext";
-import Login from "@/components/Login";
+import LoginPage from "@/components/LoginPage";
 
 // PMO Features
 import PMOEstimatorWizard from "@/features/pmo/prefactura/Estimator/PMOEstimatorWizard";
@@ -65,26 +59,11 @@ function AppContent() {
     import.meta.env.VITE_FINZ_ENABLED !== "false" ||
     (typeof window !== "undefined" &&
       window.location.pathname.startsWith("/finanzas"));
-  // Determine current module (reserved for future contextual UI; currently unused)
-  // const currentModule = useCurrentModule();
   const location = useLocation();
   const showProjectContextBar = location.pathname.startsWith("/sdmt/");
 
-  // ✅ CRITICAL: Prevent React from intercepting OAuth callback route
-  // The callback.html is a static file that must execute independently to:
-  // 1. Parse tokens from URL hash (Cognito implicit flow)
-  // 2. Store tokens in localStorage
-  // 3. Redirect back to the SPA
-  // 
-  // If React renders here, it will:
-  // - Check isAuthenticated (false, since tokens not yet stored)
-  // - Redirect to login page before callback.html can execute
-  // - Create infinite login loop
-  //
-  // Solution: Return null to prevent React rendering on callback routes
-  // This allows the browser to load the static callback.html file from /public
+  // Prevent React from intercepting the static callback page that writes tokens
   if (location.pathname.includes("/auth/callback")) {
-    console.log("[App] Callback route detected - deferring to static callback.html");
     return null;
   }
 
@@ -92,17 +71,29 @@ function AppContent() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-primary-foreground font-bold text-sm">I</span>
+          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-primary font-semibold">Ikusi</span>
           </div>
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">Loading your session…</p>
         </div>
       </div>
     );
   }
 
   if (!isAuthenticated) {
-    return <Login />;
+    return (
+      <>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+        <Toaster position="top-right" />
+      </>
+    );
+  }
+
+  if (location.pathname === "/login") {
+    return <Navigate to="/" replace />;
   }
 
   return (
@@ -155,10 +146,10 @@ function AppContent() {
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </AccessControl>
-          </main>
-        </ProjectProvider>
+            </Routes>
+          </AccessControl>
+        </main>
+      </ProjectProvider>
 
       <Toaster position="top-right" />
     </div>
