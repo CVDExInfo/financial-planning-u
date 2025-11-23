@@ -9,8 +9,10 @@
     "sam:validate": "sam validate"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.932.0",
     "@aws-sdk/client-s3": "^3.932.0",
-    "@aws-sdk/client-secrets-manager": "^3.932.0"
+    "@aws-sdk/client-secrets-manager": "^3.932.0",
+    "@aws-sdk/util-dynamodb": "^3.932.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.138",

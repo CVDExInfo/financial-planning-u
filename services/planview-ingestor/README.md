@@ -94,6 +94,8 @@ The OData ingestor extracts datasets from Planview Portfolios OData and lands th
 - `ODATA_SECRET_ID` – defaults to `planview/qa/odata`.
 - `RAW_BUCKET` – `planview-ingest-qa-703671891952`.
 - `ODATA_ENTITIES` – comma-separated list of OData entity/dataset names.
+- `PROJECTS_TABLE` – DynamoDB table name for project dimension rows (default `PlanviewProjects`).
+- `FINANCIAL_FACTS_TABLE` – DynamoDB table name for financial fact rows (default `PlanviewFinancialFacts`).
 
 ### Running locally
 ```bash
@@ -110,3 +112,18 @@ sam local invoke PlanviewODataIngestFunction --event events/empty.json
 - Pagination via `@odata.nextLink` / `$skiptoken` is handled automatically.
 - Data is written to S3 at `s3://planview-ingest-qa-703671891952/odata/<Entity>/run=<timestamp>.json` with the full JSON payload.
 - CloudWatch logs summarize entities processed, counts, and S3 keys without exposing credentials.
+
+### DynamoDB Schemas for Planview OData
+
+#### PlanviewProjects (DynamoDB)
+
+- Partition key: `ppl_code` (string)
+- Attributes: `project_name`, `project_status`, `work_type`, `work_id`, `lifecycle_stage`, `overall_status_assessment`, optional `work_description`, and `raw`.
+
+#### PlanviewFinancialFacts (DynamoDB)
+
+- Partition key: `ppl_code` (string)
+- Sort key: `period_id` (string)
+- Attributes: `account_type`, `cost_amount`, `benefit_amount`, `baseline_cost`, `baseline_benefit`, `currency_code`, `currency_symbol`, `forecast_version_indicator`, `baseline_version_indicator`, and `raw`.
+
+The OData ingest writes full JSON snapshots for each entity to S3 **and** hydrates the DynamoDB tables for cross-project analytics.
