@@ -181,7 +181,7 @@ jobs:
         env:
           BUILD_TARGET: finanzas
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
-          VITE_BASE_URL: ${{ env.VITE_API_BASE_URL }}
+          VITE_BASE_URL: "/finanzas/"
           VITE_FINZ_ENABLED: "true"
           VITE_USE_MOCKS: "false"
           VITE_PUBLIC_BASE: "/finanzas/"
@@ -520,7 +520,7 @@ jobs:
           set -euo pipefail
           DOMAIN="${CF_DOMAIN}"
           if [ -z "$DOMAIN" ]; then
-            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID}" --query 'Distribution.DomainName' --output text)
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
           fi
 
           DEEP_ROUTE="https://${DOMAIN}/finanzas/sdmt/cost/forecast"
