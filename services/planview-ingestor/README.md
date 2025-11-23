@@ -69,11 +69,13 @@ Unit tests mock HTTP calls and Secrets Manager for deterministic validation. The
 
 ```json
 {
-  "username": "<access key or OData user>",
-  "password": "<token/secret or \"\">",
-  "odata_url": "https://ikusi-sb.pvcloud.com/planview/odataservice/odataservice.svc"
+  "username": "<Authentication Token from Planview UI>",
+  "password": "",
+  "odata_url": "https://ikusi-sb.pvcloud.com/odataservice/odataservice.svc"
 }
 ```
+
+For Basic authentication, the ingestor uses the token for both the username and password (i.e., `token:token`), matching the official Planview E1 OData Postman collection.
 
 ## Planview OData Ingestor
 
@@ -89,6 +91,8 @@ The OData ingestor extracts datasets from Planview Portfolios OData and lands th
   "odata_url": "https://ikusi-sb.pvcloud.com/odataservice/odataservice.svc"
 }
 ```
+
+The ingestor normalizes any `/planview` prefix out of `odata_url` so that calls are made against `/odataservice/odataservice.svc`.
 
 ### Environment variables
 - `ODATA_SECRET_ID` – defaults to `planview/qa/odata`.
