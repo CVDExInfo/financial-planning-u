@@ -415,6 +415,15 @@ jobs:
           if grep -R -nE 'src="/assets/|href="/assets/' dist-finanzas/index.html; then
             echo "❌ dist-finanzas/index.html points to /assets/* (missing base '/finanzas/')"; exit 1;
           fi
+          if [ ! -f dist-finanzas/auth/callback.html ]; then
+            echo "❌ Missing auth callback asset at dist-finanzas/auth/callback.html (expected from public/auth/callback.html)"
+            exit 1
+          fi
+          if [ -f dist-finanzas/finanzas/auth/callback.html ]; then
+            echo "❌ Unexpected nested callback found at dist-finanzas/finanzas/auth/callback.html"
+            echo "   This would publish to /finanzas/finanzas/auth/callback.html and break the Hosted UI redirect"
+            exit 1
+          fi
           if grep -R -i 'github\.dev\|codespaces' dist-finanzas/ 2>/dev/null; then
             echo "❌ Build contains github.dev/codespaces references"; exit 1;
           fi
@@ -457,6 +466,16 @@ jobs:
           fi
 
           echo "✅ Finanzas S3 manifest matches local build"
+
+      - name: Verify auth callback in S3
+        run: |
+          set -euo pipefail
+          if ! aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "finanzas/auth/callback.html" >/dev/null 2>&1; then
+            echo "❌ auth/callback.html missing in S3 at finanzas/auth/callback.html"
+            echo "   Ensure public/auth/callback.html exists and dist-finanzas/auth/callback.html is produced by the build"
+            exit 1
+          fi
+          echo "✅ auth/callback.html present in S3 at finanzas/auth/callback.html"
 
       - name: Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)
         run: |
