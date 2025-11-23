@@ -15,7 +15,7 @@ import { bad, fromAuthError, notFound, ok, serverError } from "../lib/http";
 
 // Route: GET /projects/{projectId}/handoff
 async function getHandoff(event: APIGatewayProxyEventV2) {
-  ensureCanRead(event);
+  await ensureCanRead(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
     return {
@@ -65,7 +65,7 @@ async function getHandoff(event: APIGatewayProxyEventV2) {
 
 // Route: POST /projects/{projectId}/handoff (idempotent)
 async function createHandoff(event: APIGatewayProxyEventV2) {
-  ensureCanWrite(event);
+  await ensureCanWrite(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
     return {
@@ -95,7 +95,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     };
   }
 
-  const userEmail = getUserEmail(event);
+  const userEmail = await getUserEmail(event);
   const now = new Date().toISOString();
 
   // Check if this idempotency key has been used before
@@ -220,7 +220,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
 
 // Route: PUT /handoff/{handoffId}
 async function updateHandoff(event: APIGatewayProxyEventV2) {
-  ensureCanWrite(event);
+  await ensureCanWrite(event);
   const handoffId = event.pathParameters?.handoffId;
   if (!handoffId) {
     return bad("missing handoff id");
@@ -261,7 +261,7 @@ async function updateHandoff(event: APIGatewayProxyEventV2) {
       return bad("Validation failed", 400);
     }
 
-    const userEmail = getUserEmail(event);
+    const userEmail = await getUserEmail(event);
     const now = new Date().toISOString();
     const expectedVersion = body.version ? Number(body.version) : undefined;
     const currentVersion = existing.Item.version || 1;

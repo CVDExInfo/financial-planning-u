@@ -4,9 +4,9 @@
  */
 
 import { API_BASE, HAS_API_BASE } from "@/config/env";
+import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 
 const BASE_URL = API_BASE;
-const STATIC_TEST_TOKEN = import.meta.env.VITE_API_JWT_TOKEN || "";
 const USE_MOCKS =
   (import.meta.env.VITE_USE_MOCKS || "false").toLowerCase() === "true";
 
@@ -22,15 +22,6 @@ type SafeFetchOptions<T> = {
 
 const isFormDataBody = (value: unknown): value is FormData =>
   typeof FormData !== "undefined" && value instanceof FormData;
-
-function getAuthHeader(): Record<string, string> {
-  // Priority: 1) Unified cv.jwt, 2) Legacy finz_jwt, 3) Static test token
-  const token =
-    localStorage.getItem("cv.jwt") ||
-    localStorage.getItem("finz_jwt") ||
-    STATIC_TEST_TOKEN;
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 export function allowMock(): boolean {
   return USE_MOCKS;
@@ -55,7 +46,7 @@ export async function safeFetch<T = unknown>(
   const formDataBody = isFormDataBody(options.body);
   const headers: Record<string, string> = {
     ...(formDataBody ? {} : { "Content-Type": "application/json" }),
-    ...getAuthHeader(),
+    ...buildAuthHeader(),
     ...(options.headers || {}),
   };
 
@@ -73,6 +64,8 @@ export async function safeFetch<T = unknown>(
     });
 
     if (!response.ok) {
+      handleAuthErrorStatus(response.status);
+
       const errorText = await response.text().catch(() => "");
       throw new Error(
         `HTTP ${response.status} ${response.statusText}: ${

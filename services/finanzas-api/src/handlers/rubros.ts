@@ -1,6 +1,5 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureCanWrite, ensureCanRead, getUserEmail } from "../lib/auth";
-import { ok, bad, serverError } from "../lib/http";
 import {
   ddb,
   tableName,
@@ -13,7 +12,7 @@ import { ok, bad, notFound, serverError, fromAuthError } from "../lib/http";
 
 // Route: GET /projects/{projectId}/rubros
 async function listProjectRubros(event: APIGatewayProxyEventV2) {
-  ensureCanRead(event);
+  await ensureCanRead(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
     return bad("missing project id");
@@ -46,7 +45,7 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
 
 // Route: POST /projects/{projectId}/rubros
 async function attachRubros(event: APIGatewayProxyEventV2) {
-  ensureCanWrite(event);
+  await ensureCanWrite(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
     return bad("missing project id");
@@ -63,7 +62,7 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     return bad("rubroIds array required");
   }
 
-  const userEmail = getUserEmail(event);
+  const userEmail = await getUserEmail(event);
   const now = new Date().toISOString();
   const attached: string[] = [];
 
@@ -122,7 +121,7 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
 
 // Route: DELETE /projects/{projectId}/rubros/{rubroId}
 async function detachRubro(event: APIGatewayProxyEventV2) {
-  ensureCanWrite(event);
+  await ensureCanWrite(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   const rubroId = event.pathParameters?.rubroId;
 
@@ -134,7 +133,7 @@ async function detachRubro(event: APIGatewayProxyEventV2) {
     return bad("missing rubro id");
   }
 
-  const userEmail = getUserEmail(event);
+  const userEmail = await getUserEmail(event);
   const now = new Date().toISOString();
 
   // Get existing attachment for audit

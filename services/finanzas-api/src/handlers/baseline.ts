@@ -65,7 +65,7 @@ export const createBaseline = async (
 
   try {
     const authContext = adaptAuthContext(event);
-    ensureCanWrite(authContext as never);
+    await ensureCanWrite(authContext as never);
 
     const body: BaselineRequest = JSON.parse(event.body || "{}");
 
@@ -139,7 +139,7 @@ export const createBaseline = async (
 
     // Create project record with pk/sk structure
     const timestamp = new Date().toISOString();
-    const actor = getUserEmail(authContext as never);
+    const actor = await getUserEmail(authContext as never);
 
     const projectsTable = tableName("projects");
     const auditTable = tableName("audit_log");

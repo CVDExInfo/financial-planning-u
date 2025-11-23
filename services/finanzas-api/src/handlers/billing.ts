@@ -29,7 +29,7 @@ function normalizeMonth(value: unknown): number | null {
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
-    ensureCanRead(event as never);
+    await ensureCanRead(event as never);
   } catch (error) {
     const authError = fromAuthError(error);
     if (authError) {

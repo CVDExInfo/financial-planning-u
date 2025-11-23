@@ -21,7 +21,7 @@ export const handler = async (
     }
 
     if (method === "GET") {
-      ensureCanRead(event as unknown as Parameters<typeof ensureCanRead>[0]);
+      await ensureCanRead(event as unknown as Parameters<typeof ensureCanRead>[0]);
       
       const projectId = event.queryStringParameters?.project_id?.trim();
       if (!projectId) {

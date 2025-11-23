@@ -3,6 +3,7 @@
  * Centralized configuration for backend API endpoints
  */
 
+import { logoutWithHostedUI } from "./aws";
 import { API_BASE, HAS_API_BASE } from "./env";
 
 // API Base URL - use environment variable in production
@@ -51,13 +52,15 @@ export function buildApiUrl(endpoint: string): string {
 export function getAuthToken(): string | null {
   try {
     // Priority order:
-    // 1) Unified Finanzas tokens
-    // 2) Legacy Cognito keys (idToken/cognitoIdToken) across local & session storage
-    // 3) Static build-time token (used in CI/E2E)
-    // 4) Legacy serialized auth object
+    // 1) Current access/id tokens written by the auth callback
+    // 2) Unified Finanzas tokens kept for backward compatibility
+    // 3) Legacy Cognito keys (idToken/cognitoIdToken) across local & session storage
+    // 4) Static build-time token (used in CI/E2E)
+    // 5) Legacy serialized auth object
     const storageSources = [localStorage, sessionStorage];
     for (const store of storageSources) {
       const token =
+        store.getItem("finz_access_token") ||
         store.getItem("cv.jwt") ||
         store.getItem("finz_jwt") ||
         store.getItem("idToken") ||
@@ -83,6 +86,22 @@ export function getAuthToken(): string | null {
   return null;
 }
 
+export function buildAuthHeader(): HeadersInit {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export function handleAuthErrorStatus(status: number): never | void {
+  if (status === 401) {
+    logoutWithHostedUI();
+    throw new Error("Your session expired. Please sign in again.");
+  }
+
+  if (status === 403) {
+    throw new Error("You don’t have permission to perform this action.");
+  }
+}
+
 // Helper function to build request headers
 export function buildHeaders(
   includeAuth: boolean = true,
@@ -94,10 +113,7 @@ export function buildHeaders(
   };
 
   if (includeAuth) {
-    const token = getAuthToken();
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
+    Object.assign(headers, buildAuthHeader());
   }
 
   return headers;
