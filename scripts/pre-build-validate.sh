@@ -54,12 +54,12 @@ if [ "$BUILD_TARGET" = "finanzas" ]; then
   
   # Normalize and validate the URL
   VITE_API_BASE_URL="$(echo "$VITE_API_BASE_URL" | sed 's/[[:space:]]*$//' | sed 's:/*$::')"
-  
+
   if [ -z "$VITE_API_BASE_URL" ]; then
     echo "❌ CRITICAL: VITE_API_BASE_URL is empty (after trimming whitespace)"
     exit 1
   fi
-  
+
   # Basic URL format validation
   if ! echo "$VITE_API_BASE_URL" | grep -qE '^https?://[a-zA-Z0-9]'; then
     echo "❌ CRITICAL: VITE_API_BASE_URL has invalid format"
@@ -67,8 +67,37 @@ if [ "$BUILD_TARGET" = "finanzas" ]; then
     echo "   Expected: https://... or http://..."
     exit 1
   fi
-  
+
+  # Ensure API base URL points to expected API/stage unless explicitly overridden
+  EXPECTED_API_BASE_URL="${EXPECTED_API_BASE_URL:-https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev}"
+  if [ -n "$EXPECTED_API_BASE_URL" ] && [ "$VITE_API_BASE_URL" != "$EXPECTED_API_BASE_URL" ]; then
+    echo "❌ CRITICAL: VITE_API_BASE_URL does not match expected target"
+    echo "   Expected: $EXPECTED_API_BASE_URL"
+    echo "   Got:      $VITE_API_BASE_URL"
+    echo ""
+    echo "Set EXPECTED_API_BASE_URL to override this check if a different stage is required."
+    exit 1
+  fi
+
   echo "✅ VITE_API_BASE_URL is set: $VITE_API_BASE_URL"
+  echo "   (expected target: $EXPECTED_API_BASE_URL)"
+  echo ""
+
+  # Ensure Cognito and CloudFront configuration are present
+  if [ -z "${VITE_COGNITO_DOMAIN:-}" ]; then
+    echo "❌ CRITICAL: VITE_COGNITO_DOMAIN is not set"
+    echo "   Expected: us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com"
+    exit 1
+  fi
+
+  if [ -z "${VITE_CLOUDFRONT_URL:-}" ]; then
+    echo "❌ CRITICAL: VITE_CLOUDFRONT_URL is not set"
+    echo "   Expected: https://d7t9x3j66yd8k.cloudfront.net"
+    exit 1
+  fi
+
+  echo "✅ VITE_COGNITO_DOMAIN: $VITE_COGNITO_DOMAIN"
+  echo "✅ VITE_CLOUDFRONT_URL: $VITE_CLOUDFRONT_URL"
   echo ""
   
   # Validate OAuth configuration in src/config/aws.ts
