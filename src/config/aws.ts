@@ -12,6 +12,15 @@
 
 import { API_BASE, HAS_API_BASE } from "./env";
 
+const CANONICAL_COGNITO = {
+  userPoolId: "us-east-2_FyHLtOhiY",
+  clientId: "dshos5iou44tuach7ta3ici5m",
+  domain: "us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com",
+  cloudfrontUrl: "https://d7t9x3j66yd8k.cloudfront.net",
+  callbackPath: "/finanzas/auth/callback.html",
+  signOutPath: "/finanzas/",
+};
+
 /**
  * Default R1 Cognito + region configuration
  * (Also used so QA scripts can assert the correct pool/domain by literal text)
@@ -42,7 +51,18 @@ const getEnvWithRegionFallback = (key: string): string =>
     DEFAULT_REGION) as string;
 
 const RESOLVED_API_BASE = HAS_API_BASE ? API_BASE : "";
-
+const RESOLVED_CLOUDFRONT = getEnv(
+  "VITE_CLOUDFRONT_URL",
+  CANONICAL_COGNITO.cloudfrontUrl
+);
+const RESOLVED_CALLBACK = getEnv(
+  "VITE_COGNITO_REDIRECT_SIGNIN",
+  `${RESOLVED_CLOUDFRONT}${CANONICAL_COGNITO.callbackPath}`
+);
+const RESOLVED_SIGN_OUT = getEnv(
+  "VITE_COGNITO_REDIRECT_SIGNOUT",
+  `${RESOLVED_CLOUDFRONT}${CANONICAL_COGNITO.signOutPath}`
+);
 if (!HAS_API_BASE) {
   console.error("⚠️ VITE_API_BASE_URL is not configured.");
 }
@@ -51,20 +71,26 @@ const aws = {
   aws_project_region: getEnvWithRegionFallback("VITE_AWS_REGION"),
   aws_cognito_region: getEnvWithRegionFallback("VITE_COGNITO_REGION"),
 
-  // ✅ Default to the shared Finanzas pool for R1
-  aws_user_pools_id: getEnv("VITE_COGNITO_USER_POOL_ID", DEFAULT_USER_POOL_ID),
+  aws_user_pools_id: getEnv(
+    "VITE_COGNITO_USER_POOL_ID",
+    CANONICAL_COGNITO.userPoolId
+  ),
   aws_user_pools_web_client_id: getEnv(
     "VITE_COGNITO_CLIENT_ID",
-    DEFAULT_CLIENT_ID,
+    CANONICAL_COGNITO.clientId
   ),
 
   // Identity Pool is optional; include only if the browser must call AWS services directly
   aws_cognito_identity_pool_id: getEnv("VITE_COGNITO_IDENTITY_POOL_ID"),
 
   Auth: {
-    region: getEnv("VITE_COGNITO_REGION", DEFAULT_REGION),
-    userPoolId: getEnv("VITE_COGNITO_USER_POOL_ID", DEFAULT_USER_POOL_ID),
-    userPoolWebClientId: getEnv("VITE_COGNITO_CLIENT_ID", DEFAULT_CLIENT_ID),
+    region:
+      getEnv("VITE_COGNITO_REGION") || getEnvWithRegionFallback("VITE_AWS_REGION"),
+    userPoolId: getEnv("VITE_COGNITO_USER_POOL_ID", CANONICAL_COGNITO.userPoolId),
+    userPoolWebClientId: getEnv(
+      "VITE_COGNITO_CLIENT_ID",
+      CANONICAL_COGNITO.clientId
+    ),
     identityPoolId: getEnv("VITE_COGNITO_IDENTITY_POOL_ID"),
     authenticationFlowType: "USER_SRP_AUTH",
     mandatorySignIn: true,
@@ -73,22 +99,40 @@ const aws = {
   oauth: {
     // Cognito domain should be set via VITE_COGNITO_DOMAIN
     // Format: <domain-prefix>.auth.<region>.amazoncognito.com
-    domain: getEnv("VITE_COGNITO_DOMAIN", DEFAULT_COGNITO_DOMAIN),
+    // NOTE: The domain prefix is a free-form string (not auto-generated)
+    domain: getEnv("VITE_COGNITO_DOMAIN", CANONICAL_COGNITO.domain),
 
     // OAuth scopes; must include "openid" for id_token
     scope: ["openid", "email", "profile", "aws.cognito.signin.user.admin"],
 
     // Redirects to FINANZAS module callback (not the PMO root)
-    redirectSignIn: getEnv(
-      "VITE_COGNITO_REDIRECT_SIGNIN",
-      DEFAULT_REDIRECT_SIGNIN,
-    ),
-    redirectSignOut: getEnv(
-      "VITE_COGNITO_REDIRECT_SIGNOUT",
-      DEFAULT_REDIRECT_SIGNOUT,
-    ),
+    redirectSignIn: RESOLVED_CALLBACK,
+    redirectSignOut: RESOLVED_SIGN_OUT,
 
-    // Implicit flow (id_token + access_token in URL hash)
+    // ✅ CRITICAL: Implicit grant configuration (response_type=token)
+    // 
+    // Per AWS Cognito OAuth 2.0 docs:
+    // https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html
+    //
+    // When using response_type="token" (Implicit Flow):
+    // - Cognito returns BOTH id_token AND access_token in the URL hash fragment
+    // - Format: #id_token=...&access_token=...&token_type=Bearer&expires_in=...
+    // - No backend token exchange needed (tokens delivered directly to browser)
+    // - Requires "Implicit grant" to be enabled in the Cognito app client settings
+    // - Scope MUST include "openid" for id_token to be issued
+    //
+    // IMPORTANT: AWS Cognito accepts response_type values:
+    // - "token" (implicit grant - returns access_token and id_token when scope has openid)
+    // - "code" (authorization code grant - returns authorization code for exchange)
+    // - DO NOT use "token id_token" - this is NOT a valid AWS Cognito response_type
+    //
+    // Current configuration (Implicit Flow):
+    // - response_type: "token" ✅
+    // - scope: includes "openid" ✅
+    // - Cognito app client: Implicit grant enabled ✅
+    // - Result: Both id_token and access_token delivered in hash ✅
+    //
+    // Future migration path: Change to "code" + implement PKCE for enhanced security
     responseType: "token",
   },
 
