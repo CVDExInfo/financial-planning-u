@@ -205,13 +205,14 @@ export type BillingPeriod = {
 
 // User context
 export type UserInfo = {
-  id: string;
-  login: string;
-  email: string;
-  avatarUrl: string;
+  id: string | null;
+  login: string | null;
+  email: string | null;
+  avatarUrl: string | null;
   roles: UserRole[];
-  current_role: UserRole;
+  current_role: UserRole | null;
   isOwner: boolean;
+  name?: string | null;
 };
 
 // API response types

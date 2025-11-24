@@ -9,7 +9,9 @@ import { LogIn } from "lucide-react";
 import { Logo } from "@/components/Logo";
 
 export function LoginPage() {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, isAuthenticated, session } = useAuth();
+  const sessionEmail =
+    isAuthenticated && session.user ? session.user.email ?? session.user.login : null;
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background via-background to-muted/50 text-foreground">
@@ -68,6 +70,12 @@ export function LoginPage() {
                   Te redirigiremos al portal de autenticación de Cognito. Después del
                   ingreso, regresarás automáticamente al módulo Finanzas.
                 </p>
+                {isAuthenticated && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Sesión activa{sessionEmail ? `: ${sessionEmail}` : ""}. Puedes
+                    continuar al módulo sin volver a iniciar sesión.
+                  </p>
+                )}
               </div>
 
               <Button

@@ -95,12 +95,13 @@ export function getActionsForRole(role: UserRole) {
  * Default role assignments based on user attributes
  * In a real system, this would come from a user management API
  */
-export function getDefaultUserRole(user: UserInfo): UserRole {
-  const email = user.email.toLowerCase();
-  const login = user.login.toLowerCase();
+export function getDefaultUserRole(user?: Partial<UserInfo> | null): UserRole {
+  const email = (user?.email ?? "").toLowerCase();
+  const login = (user?.login ?? "").toLowerCase();
+  const isOwner = user?.isOwner ?? false;
 
   // Owner gets PMO access by default
-  if (user.isOwner) {
+  if (isOwner) {
     return "PMO";
   }
 
@@ -141,9 +142,9 @@ export function getDefaultUserRole(user: UserInfo): UserRole {
  * Get all available roles for a user
  * Priority: 1) Use JWT roles if available, 2) Infer from user attributes
  */
-export function getAvailableRoles(user: UserInfo): UserRole[] {
+export function getAvailableRoles(user?: Partial<UserInfo> | null): UserRole[] {
   // If user has JWT-provided roles (from Cognito groups), use them
-  if (user.roles && user.roles.length > 0) {
+  if (user?.roles && user.roles.length > 0) {
     // User has explicit roles from JWT/Cognito groups
     // Add EXEC_RO as option if not already present (for reporting)
     const roles = [...user.roles];
@@ -154,7 +155,7 @@ export function getAvailableRoles(user: UserInfo): UserRole[] {
   }
 
   // Fallback: Owners and PMO users can switch to any role for demonstration
-  if (user.isOwner || user.email.toLowerCase().includes("pmo")) {
+  if (user?.isOwner || (user?.email ?? "").toLowerCase().includes("pmo")) {
     return ["PMO", "SDMT", "VENDOR", "EXEC_RO"];
   }
 
