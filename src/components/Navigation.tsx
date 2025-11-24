@@ -41,7 +41,6 @@ import {
   getRoleInfo,
   canAccessFinanzasModule,
   canAccessPMOModule,
-  canAccessRoute,
 } from "@/lib/auth";
 import { toast } from "sonner";
 import { Logo } from "@/components/Logo";
@@ -60,8 +59,19 @@ interface NavigationItem {
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, roles } = useAuth();
-  const currentRole = useMemo(() => roles[0] ?? "SDMT", [roles]);
+  const {
+    user,
+    logout,
+    roles,
+    currentRole,
+    availableRoles,
+    setRole,
+    canAccessRoute,
+  } = useAuth();
+  const effectiveRole = useMemo(
+    () => currentRole ?? availableRoles[0] ?? roles[0] ?? "SDMT",
+    [availableRoles, currentRole, roles]
+  );
   const [isRolesDialogOpen, setIsRolesDialogOpen] = useState(false);
   const finzEnabled =
     import.meta.env.VITE_FINZ_ENABLED !== "false" ||
@@ -78,9 +88,9 @@ export function Navigation() {
       return; // No redirects in Finanzas mode
     }
 
-    if (!canAccessRoute(location.pathname, currentRole)) {
+    if (!canAccessRoute(location.pathname)) {
       // Redirect to appropriate module based on role
-      const defaultRoute = getDefaultRouteForRole(currentRole);
+      const defaultRoute = getDefaultRouteForRole(effectiveRole);
       navigate(defaultRoute);
 
       toast.info("Redirected to accessible page", {
@@ -88,7 +98,7 @@ export function Navigation() {
           "You were redirected to a page accessible with your current role",
       });
     }
-  }, [currentRole, location.pathname, navigate, canAccessRoute]);
+  }, [effectiveRole, location.pathname, navigate, canAccessRoute]);
 
   const handleSignOut = () => {
     logout();
@@ -141,7 +151,7 @@ export function Navigation() {
 
   const getVisibleModuleNavItems = () => {
     const path = location.pathname;
-    const userRoles = roles;
+    const userRoles = availableRoles.length ? availableRoles : roles;
 
     // Check module access based on Cognito groups or Finanzas-only build
     const hasFinanzasAccess = finzEnabled || canAccessFinanzasModule(userRoles);
@@ -270,7 +280,7 @@ export function Navigation() {
 
             {/* User Menu */}
             <div className="flex items-center space-x-4">
-              <Badge variant="secondary">{currentRole}</Badge>
+              <Badge variant="secondary">{effectiveRole}</Badge>
 
               {/* User Avatar - Now showing Ikusi Logo */}
               {user && (
@@ -288,7 +298,7 @@ export function Navigation() {
                       <div className="flex flex-col space-y-1 leading-none">
                         <p className="font-medium">{user.name || user.email || "User"}</p>
                         <p className="w-[200px] truncate text-sm text-muted-foreground">
-                          {user.email || "user@ikusi.com"}
+                          {user.email ?? "user@ikusi.com"}
                         </p>
                       </div>
                     </div>
@@ -341,9 +351,9 @@ export function Navigation() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            {roles.map((role) => {
+            {(availableRoles.length ? availableRoles : roles).map((role) => {
               const info = getRoleInfo(role);
-              const isCurrent = currentRole === role;
+              const isCurrent = effectiveRole === role;
               return (
                 <div
                   key={role}
@@ -367,6 +377,13 @@ export function Navigation() {
                   <p className="text-sm text-muted-foreground mt-2">
                     {info.description}
                   </p>
+                  {!isCurrent && (
+                    <div className="mt-3 flex justify-end">
+                      <Button size="sm" variant="outline" onClick={() => setRole(role)}>
+                        Switch to {role}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}

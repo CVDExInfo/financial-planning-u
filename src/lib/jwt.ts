@@ -13,6 +13,10 @@ export interface JWTClaims {
   exp: number;
   iat: number;
   email?: string;
+  username?: string;
+  name?: string;
+  picture?: string;
+  preferred_username?: string;
   "cognito:username"?: string;
   "cognito:groups"?: string | string[];
   email_verified?: boolean;
@@ -115,11 +119,12 @@ export function getGroupsFromClaims(claims: JWTClaims): string[] {
  */
 export function extractUserFromClaims(claims: JWTClaims) {
   return {
-    id: claims.sub,
-    username: claims["cognito:username"] || claims.email || "user",
-    email: claims.email || "unknown",
+    id: claims.sub ?? null,
+    username:
+      claims?.["cognito:username"] ?? claims?.email ?? claims?.username ?? null,
+    email: claims?.email ?? claims?.["cognito:username"] ?? claims?.username ?? null,
     groups: getGroupsFromClaims(claims),
-    emailVerified: claims.email_verified || false,
+    emailVerified: claims?.email_verified || false,
   };
 }
 

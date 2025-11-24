@@ -14,8 +14,19 @@ import {
   getGroupsFromClaims,
   isTokenValid,
   mapCognitoGroupsToRoles,
+  type JWTClaims,
 } from "@/lib/jwt";
 import { UserInfo, UserRole } from "@/types/domain";
+
+export type AuthSession = {
+  idToken: string | null;
+  accessToken: string | null;
+  user: UserInfo | null;
+  groups: string[];
+  avpDecisions: string[];
+  availableRoles: UserRole[];
+  currentRole: UserRole;
+};
 
 type AuthContextType = {
   user: UserInfo | null;
@@ -24,6 +35,7 @@ type AuthContextType = {
   idToken: string | null;
   accessToken: string | null;
   avpDecisions: string[];
+  session: AuthSession;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -46,6 +58,17 @@ type AuthContextType = {
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 const TOKEN_KEYS = ["cv.jwt", "finz_jwt", "idToken", "cognitoIdToken"];
+const DEFAULT_ROLE = getDefaultUserRole(null);
+
+const EMPTY_SESSION: AuthSession = {
+  idToken: null,
+  accessToken: null,
+  user: null,
+  groups: [],
+  avpDecisions: [],
+  availableRoles: [],
+  currentRole: DEFAULT_ROLE,
+};
 
 function readTokenFromStorage(keys: string[]): string | null {
   for (const key of keys) {
@@ -67,6 +90,74 @@ function clearLocalTokens() {
   ].forEach((key) => localStorage.removeItem(key));
 }
 
+function buildSessionFromTokens(
+  storedIdToken: string | null,
+  storedAccessToken: string | null
+): AuthSession | null {
+  if (!storedIdToken || !isTokenValid(storedIdToken)) {
+    return null;
+  }
+
+  let claims: JWTClaims;
+  try {
+    claims = decodeJWT(storedIdToken);
+  } catch (error) {
+    console.error("[AuthProvider] Failed to decode JWT", error);
+    return null;
+  }
+
+  const cognitoGroups = getGroupsFromClaims(claims);
+  const decisions = Array.isArray(claims?.["avp:decisions"])
+    ? (claims["avp:decisions"] as string[])
+    : [];
+
+  const email =
+    claims?.email ??
+    claims?.["cognito:username"] ??
+    claims?.username ??
+    null;
+
+  const login =
+    claims?.preferred_username ??
+    email ??
+    claims?.["cognito:username"] ??
+    claims?.username ??
+    null;
+
+  const mappedRoles = mapCognitoGroupsToRoles(cognitoGroups).filter(
+    (role): role is UserRole =>
+      ["PMO", "SDMT", "VENDOR", "EXEC_RO"].includes(role)
+  );
+  const fallbackRole = mappedRoles[0] ?? getDefaultUserRole({
+    email,
+    login,
+    isOwner: cognitoGroups.includes("admin"),
+  });
+  const effectiveRoles = mappedRoles.length ? mappedRoles : [fallbackRole];
+  const defaultRole = effectiveRoles[0] ?? DEFAULT_ROLE;
+
+  const user: UserInfo = {
+    id: claims?.sub ?? null,
+    login,
+    email,
+    avatarUrl: claims?.picture ?? null,
+    isOwner: cognitoGroups.includes("admin"),
+    roles: effectiveRoles,
+    current_role: defaultRole,
+    name: claims?.name ?? null,
+  };
+
+  return {
+    idToken: storedIdToken,
+    accessToken: storedAccessToken,
+    user,
+    groups: cognitoGroups,
+    avpDecisions: decisions,
+    availableRoles: effectiveRoles,
+    currentRole: defaultRole,
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [idToken, setIdToken] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -75,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [avpDecisions, setAvpDecisions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [availableRoles, setAvailableRoles] = useState<UserRole[]>([]);
-  const [currentRole, setCurrentRole] = useState<UserRole>(getDefaultUserRole());
+  const [currentRole, setCurrentRole] = useState<UserRole>(DEFAULT_ROLE);
   const [error, setError] = useState<string | null>(null);
   const [routeConfigMissing, setRouteConfigMissing] = useState(false);
   const [groupClaims, setGroupClaims] = useState<string[]>([]);
@@ -101,7 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const effectiveRole = currentRole || "PMO";
+    const effectiveRole = currentRole || DEFAULT_ROLE;
     const { routes, hasConfig } = getRoutesForRole(effectiveRole);
 
     if (!hasConfig) {
@@ -132,39 +223,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedIdToken = readTokenFromStorage(TOKEN_KEYS);
       const storedAccessToken = localStorage.getItem("finz_access_token") || null;
 
-      if (storedIdToken && isTokenValid(storedIdToken)) {
-        const claims = decodeJWT(storedIdToken);
-        const cognitoGroups = getGroupsFromClaims(claims);
-        const decisions = Array.isArray(claims["avp:decisions"])
-          ? (claims["avp:decisions"] as string[])
-          : [];
+      const sessionFromTokens = buildSessionFromTokens(
+        storedIdToken,
+        storedAccessToken
+      );
 
-        const mappedRoles = mapCognitoGroupsToRoles(cognitoGroups).filter(
-          (role): role is UserRole => ["PMO", "SDMT", "VENDOR", "EXEC_RO"].includes(role)
-        );
-        const effectiveRoles = mappedRoles.length ? mappedRoles : [getDefaultUserRole()];
-        const defaultRole = effectiveRoles[0];
-
-        setIdToken(storedIdToken);
-        setAccessToken(storedAccessToken);
-        setGroups(cognitoGroups);
-        setGroupClaims(cognitoGroups);
-        setAvpDecisions(decisions);
-        setAvailableRoles(effectiveRoles);
-        setCurrentRole(defaultRole);
-        setUser({
-          id: claims.sub || "unknown",
-          login:
-            claims.email ||
-            claims["cognito:username"] ||
-            claims["preferred_username"] ||
-            "user",
-          email: claims.email || "unknown",
-          avatarUrl: "",
-          isOwner: cognitoGroups.includes("admin"),
-          roles: effectiveRoles,
-          current_role: defaultRole,
-        });
+      if (sessionFromTokens) {
+        setIdToken(sessionFromTokens.idToken);
+        setAccessToken(sessionFromTokens.accessToken);
+        setGroups(sessionFromTokens.groups);
+        setGroupClaims(sessionFromTokens.groups);
+        setAvpDecisions(sessionFromTokens.avpDecisions);
+        setAvailableRoles(sessionFromTokens.availableRoles);
+        setCurrentRole(sessionFromTokens.currentRole);
+        setUser(sessionFromTokens.user);
         return;
       }
 
@@ -174,6 +246,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setGroups([]);
       setAvpDecisions([]);
       setAvailableRoles([]);
+      setCurrentRole(DEFAULT_ROLE);
       setUser(null);
     } catch (authError) {
       console.error("[AuthProvider] Failed to initialize auth", authError);
@@ -183,6 +256,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setGroups([]);
       setAvpDecisions([]);
       setAvailableRoles([]);
+      setCurrentRole(DEFAULT_ROLE);
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -253,8 +327,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await initializeAuth();
     toast.success("Signed in successfully");
 
-    const decoded = decodeJWT(AuthenticationResult.IdToken);
-    const cognitoGroups = getGroupsFromClaims(decoded);
+    let decoded: JWTClaims | null = null;
+    try {
+      decoded = decodeJWT(AuthenticationResult.IdToken);
+    } catch (decodeError) {
+      console.error("[AuthProvider] Failed to decode login response", decodeError);
+    }
+
+    const cognitoGroups = decoded ? getGroupsFromClaims(decoded) : [];
 
     const canSDT = cognitoGroups.some((g) =>
       ["SDT", "FIN", "AUD", "sdmt", "fin", "aud"].includes(g.toUpperCase())
@@ -301,7 +381,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessToken(null);
     setAvpDecisions([]);
     setAvailableRoles([]);
-    setCurrentRole(getDefaultUserRole());
+    setCurrentRole(DEFAULT_ROLE);
     setGroupClaims([]);
     setError(null);
 
@@ -344,11 +424,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const checkRouteAccess = (route: string): boolean => {
-    return canAccessRoute(route, currentRole || "PMO");
+    return canAccessRoute(route, currentRole || DEFAULT_ROLE);
   };
 
   const checkActionPermission = (action: string): boolean => {
-    return canPerformAction(action, currentRole || "PMO");
+    return canPerformAction(action, currentRole || DEFAULT_ROLE);
   };
 
   const signIn = async () => {
@@ -359,6 +439,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout();
   };
 
+  const session = useMemo(
+    () => ({
+      ...EMPTY_SESSION,
+      idToken,
+      accessToken,
+      user,
+      groups,
+      avpDecisions,
+      availableRoles,
+      currentRole: currentRole || DEFAULT_ROLE,
+    }),
+    [
+      idToken,
+      accessToken,
+      user,
+      groups,
+      avpDecisions,
+      availableRoles,
+      currentRole,
+    ]
+  );
+
   const value: AuthContextType = {
     user,
     groups,
@@ -366,10 +468,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     idToken,
     accessToken,
     avpDecisions,
+    session,
     isAuthenticated,
     isLoading,
     error,
-    currentRole: currentRole || "PMO",
+    currentRole: currentRole || DEFAULT_ROLE,
     availableRoles,
     setRole,
     routeConfigMissing,
