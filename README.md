@@ -220,6 +220,8 @@ For detailed auth flow and troubleshooting, see [AUTHENTICATION_FLOW.md](./AUTHE
 - ❌ **API calls will fail** with clear error messages
 - ❌ **Application will not function** correctly
 
+Finanzas currently uses the **API dev stage as production**. Keep `VITE_API_BASE_URL` pointed at the dev stage for both dev and prod builds until a dedicated prod stage exists.
+
 ### 🚀 Quick Setup
 
 #### For Local Development
@@ -319,10 +321,11 @@ curl https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/health
 
 ### 📖 Additional Configuration
 
-The Finanzas frontend also uses these environment variables:
+The Finanzas frontend also uses these environment variables (Cognito uses the Hosted UI implicit flow with `response_type=token`):
 
 - `VITE_COGNITO_*` - Cognito authentication (see Authentication section above)
 - `VITE_AWS_REGION` - AWS region for API calls
+- `VITE_CLOUDFRONT_URL` - CloudFront domain used to build default redirect URIs (`<CLOUDFRONT>/finanzas/auth/callback.html` and `<CLOUDFRONT>/finanzas/`)
 - `VITE_FINZ_ENABLED` - Enable Finanzas module (default: true)
 - `BUILD_TARGET` - Build target: `finanzas` or `pmo` (default: `finanzas`)
 
