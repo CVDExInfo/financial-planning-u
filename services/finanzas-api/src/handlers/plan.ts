@@ -9,7 +9,7 @@ import { ok, bad } from '../lib/http';
  * Aggregates data from allocations, payroll, and adjustments tables
  */
 export const handler = async (event: APIGatewayProxyEventV2) => {
-  ensureSDT(event);
+  await ensureSDT(event);
   const projectId = event.pathParameters?.id;
 
   if (!projectId) {

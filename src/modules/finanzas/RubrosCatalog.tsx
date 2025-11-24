@@ -20,7 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, RefreshCcw } from "lucide-react";
+import DataContainer from "@/components/DataContainer";
+import PageHeader from "@/components/PageHeader";
 
 function Cell({ children }: { children: React.ReactNode }) {
   return (
@@ -44,30 +47,31 @@ export default function RubrosCatalog() {
   const [tipoEjecucion, setTipoEjecucion] = React.useState<"mensual" | "puntual" | "por_hito">("mensual");
   const [notas, setNotas] = React.useState("");
 
+  const loadRubros = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await finanzasClient.getRubros();
+      setRows(data);
+    } catch (e: any) {
+      console.error(e);
+      setError(
+        e?.message ||
+          "No se pudo cargar el catálogo de rubros. Verifica la conexión con la API de Finanzas."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   React.useEffect(() => {
-    let cancelled = false;
-    
     // Debug logging for dev mode only
     if (import.meta.env.DEV) {
       console.log("[Finz] RubrosCatalog - API_BASE:", API_BASE || "(missing)");
     }
-    
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await finanzasClient.getRubros();
-        if (!cancelled) setRows(data);
-      } catch (e: any) {
-        console.error(e);
-        if (!cancelled) setError(e?.message || "No se pudo cargar el catálogo");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+
+    loadRubros();
+  }, [loadRubros]);
 
   const handleAddToProject = (rubro: Rubro) => {
     setSelectedRubro(rubro);
@@ -125,70 +129,82 @@ export default function RubrosCatalog() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">
-          Gestión presupuesto — Catálogo de Rubros
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          Haz clic en "Agregar a Proyecto" para asociar un rubro a un proyecto específico
-        </p>
-      </div>
-      
-      {loading && (
-        <div className="text-sm text-muted-foreground mb-3">Cargando…</div>
-      )}
-      {error && (
-        <div className="text-sm text-red-600 mb-3">{error}</div>
-      )}
-      <div className="rounded-lg border border-border overflow-hidden bg-card">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-muted text-muted-foreground text-xs uppercase tracking-wide">
-              <th className="text-left px-3 py-2">rubro_id</th>
-              <th className="text-left px-3 py-2">nombre</th>
-              <th className="text-left px-3 py-2">categoria</th>
-              <th className="text-left px-3 py-2">linea_codigo</th>
-              <th className="text-left px-3 py-2">tipo_costo</th>
-              <th className="text-left px-3 py-2">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.rubro_id || r.nombre} className="hover:bg-muted/50">
-                <Cell>{r.rubro_id || "—"}</Cell>
-                <Cell>{r.nombre}</Cell>
-                <Cell>{r.categoria || ""}</Cell>
-                <Cell>{r.linea_codigo || ""}</Cell>
-                <Cell>{r.tipo_costo || ""}</Cell>
-                <Cell>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleAddToProject(r)}
-                    className="gap-1"
-                  >
-                    <Plus size={14} />
-                    Agregar a Proyecto
-                  </Button>
-                </Cell>
-              </tr>
-            ))}
-            {rows.length === 0 && !loading && !error && (
-              <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
-                  No hay rubros disponibles.
-                </td>
-              </tr>
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <PageHeader
+        title="Catálogo de Rubros"
+        description="Taxonomía, línea contable y tipo de costo alineados al branding Ikusi/CVDEx. Usa este catálogo para asociar rubros a proyectos."
+        badge="Finanzas"
+        actions={
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={loadRubros}
+            disabled={loading}
+          >
+            <RefreshCcw className="h-4 w-4" />
+            {loading ? "Cargando" : "Refrescar"}
+          </Button>
+        }
+      />
+
+      <Card className="border-border/80 shadow-sm">
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-base font-semibold">Rubros disponibles</CardTitle>
+          <CardDescription>
+            Haz clic en "Agregar a Proyecto" para asociar un rubro a un proyecto específico. Los estados de carga, error y vacío usan el mismo diseño que acta-ui.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DataContainer
+            data={rows}
+            isLoading={loading}
+            error={error}
+            onRetry={loadRubros}
+            loadingType="table"
+            emptyTitle="No hay rubros disponibles"
+            emptyMessage="Aún no hay rubros listos. Intenta refrescar o sincroniza el catálogo desde Finanzas."
+          >
+            {(items) => (
+              <div className="rounded-lg border border-border overflow-hidden">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-muted text-muted-foreground text-xs uppercase tracking-wide">
+                      <th className="text-left px-3 py-2">rubro_id</th>
+                      <th className="text-left px-3 py-2">nombre</th>
+                      <th className="text-left px-3 py-2">categoria</th>
+                      <th className="text-left px-3 py-2">linea_codigo</th>
+                      <th className="text-left px-3 py-2">tipo_costo</th>
+                      <th className="text-left px-3 py-2">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(items as Rubro[]).map((r) => (
+                      <tr key={r.rubro_id || r.nombre} className="hover:bg-muted/50">
+                        <Cell>{r.rubro_id || "—"}</Cell>
+                        <Cell>{r.nombre}</Cell>
+                        <Cell>{r.categoria || ""}</Cell>
+                        <Cell>{r.linea_codigo || ""}</Cell>
+                        <Cell>{r.tipo_costo || ""}</Cell>
+                        <Cell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAddToProject(r)}
+                            className="gap-1"
+                          >
+                            <Plus size={14} />
+                            Agregar a Proyecto
+                          </Button>
+                        </Cell>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </tbody>
-        </table>
-      </div>
-      {!loading && (
-        <p className="text-xs text-muted-foreground mt-3">
-          Mostrando {rows.length} rubros.
-        </p>
-      )}
+          </DataContainer>
+        </CardContent>
+      </Card>
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="max-w-md">

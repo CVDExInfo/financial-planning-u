@@ -20,7 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, RefreshCcw } from "lucide-react";
+import DataContainer from "@/components/DataContainer";
+import PageHeader from "@/components/PageHeader";
 
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -126,96 +129,86 @@ export default function ProjectsManager() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-6 gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold">Gestión de Proyectos</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Crear y administrar proyectos financieros
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <PageHeader
+        title="Gestión de Proyectos"
+        description="Consulta los proyectos que llegan desde la API de Finanzas (DynamoDB) y registra nuevos con el branding Ikusi/CVDEx."
+        badge="Finanzas"
+        actions={
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={loadProjects}
+              disabled={isLoadingProjects}
+              className="gap-2"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              {isLoadingProjects ? "Actualizando" : "Refrescar"}
+            </Button>
+            <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+              <Plus size={16} />
+              Crear Proyecto
+            </Button>
+          </div>
+        }
+      />
+
+      <Card className="border-border/80 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Proyectos disponibles</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Los proyectos se almacenan en DynamoDB y se sincronizan en tiempo real. Cada error o vacío se muestra con contexto.
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={loadProjects}
-            disabled={isLoadingProjects}
-            className="gap-2"
+        </CardHeader>
+        <CardContent>
+          <DataContainer
+            data={projects}
+            isLoading={isLoadingProjects}
+            error={loadError}
+            onRetry={loadProjects}
+            loadingType="table"
+            emptyTitle="No se encontraron proyectos"
+            emptyMessage="Crea un proyecto nuevo o verifica los permisos de la API de Finanzas."
           >
-            {isLoadingProjects ? "Actualizando" : "Refrescar"}
-          </Button>
-          <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-            <Plus size={16} />
-            Crear Proyecto
-          </Button>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-border p-6 bg-card space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <p className="text-sm text-muted-foreground">
-              Proyectos disponibles en el backend (API Finanzas)
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Los proyectos se almacenan en DynamoDB y se sincronizan en tiempo real.
-            </p>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {isLoadingProjects
-              ? "Cargando proyectos..."
-              : `Proyectos activos: ${projects.length}`}
-          </div>
-        </div>
-
-        {loadError && (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-destructive text-sm">
-            {loadError}
-          </div>
-        )}
-
-        {isLoadingProjects ? (
-          <div className="py-8 text-center text-muted-foreground">Cargando proyectos...</div>
-        ) : projects.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground">
-            No se encontraron proyectos. Usa "Crear Proyecto" para agregar uno nuevo.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-muted-foreground border-b">
-                  <th className="py-2 pr-4 font-medium">Nombre</th>
-                  <th className="py-2 pr-4 font-medium">Cliente</th>
-                  <th className="py-2 pr-4 font-medium">Inicio</th>
-                  <th className="py-2 pr-4 font-medium">Fin</th>
-                  <th className="py-2 pr-4 font-medium">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {projects.map((project) => (
-                  <tr key={project.id} className="border-b last:border-0">
-                    <td className="py-2 pr-4 font-medium text-foreground">
-                      {project.name || "Proyecto sin nombre"}
-                    </td>
-                    <td className="py-2 pr-4 text-muted-foreground">
-                      {project.client || "—"}
-                    </td>
-                    <td className="py-2 pr-4 text-muted-foreground">
-                      {formatDate(project.start_date)}
-                    </td>
-                    <td className="py-2 pr-4 text-muted-foreground">
-                      {formatDate(project.end_date)}
-                    </td>
-                    <td className="py-2 pr-4 text-muted-foreground capitalize">
-                      {project.status || "active"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+            {(items) => (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b">
+                      <th className="py-2 pr-4 font-medium">Nombre</th>
+                      <th className="py-2 pr-4 font-medium">Cliente</th>
+                      <th className="py-2 pr-4 font-medium">Inicio</th>
+                      <th className="py-2 pr-4 font-medium">Fin</th>
+                      <th className="py-2 pr-4 font-medium">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(items as Project[]).map((project) => (
+                      <tr key={project.id} className="border-b last:border-0">
+                        <td className="py-2 pr-4 font-medium text-foreground">
+                          {project.name || "Proyecto sin nombre"}
+                        </td>
+                        <td className="py-2 pr-4 text-muted-foreground">
+                          {project.client || "—"}
+                        </td>
+                        <td className="py-2 pr-4 text-muted-foreground">
+                          {formatDate(project.start_date)}
+                        </td>
+                        <td className="py-2 pr-4 text-muted-foreground">
+                          {formatDate(project.end_date)}
+                        </td>
+                        <td className="py-2 pr-4 text-muted-foreground capitalize">
+                          {project.status || "active"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </DataContainer>
+        </CardContent>
+      </Card>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl">

@@ -4,7 +4,7 @@ import { ensureSDT } from '../lib/auth';
 // TODO: Implement providers (vendors) management
 // R1 requirement: POST/GET /providers
 export const handler = async (event: APIGatewayProxyEventV2) => {
-  ensureSDT(event);
+  await ensureSDT(event);
   const method = event.requestContext.http.method;
 
   if (method === 'POST') {

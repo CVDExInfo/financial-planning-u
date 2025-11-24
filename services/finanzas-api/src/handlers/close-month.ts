@@ -4,7 +4,7 @@ import { ensureSDT } from '../lib/auth';
 // TODO: Implement month close process
 // R1 requirement: POST /close-month?mes=YYYY-MM
 export const handler = async (event: APIGatewayProxyEventV2) => {
-  ensureSDT(event);
+  await ensureSDT(event);
   const mes = event.queryStringParameters?.mes;
 
   if (!mes) {

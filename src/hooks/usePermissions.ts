@@ -1,63 +1,89 @@
-import { useAuth } from '@/hooks/useAuth';
-import { UserRole } from '@/types/domain';
-import { canAccessRoute, canPerformAction } from '@/lib/auth';
+import { useMemo } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { UserRole } from "@/types/domain";
+import {
+  canAccessRoute as legacyCanAccessRoute,
+  canPerformAction as legacyCanPerformAction,
+  getRoleLevel,
+} from "@/lib/auth";
+
+type PermissionCheck = {
+  anyRoles?: UserRole[];
+  allDecisions?: string[];
+};
 
 /**
- * Hook for checking permissions and access control
+ * Permission resolver that combines Cognito groups with optional
+ * AVP (Policy Store) decisions embedded in the ID token.
  */
 export function usePermissions() {
-  const { currentRole } = useAuth();
+  const { groups, roles, avpDecisions } = useAuth();
+  const currentRole = roles[0] ?? "SDMT";
 
-  const checkRouteAccess = (route: string): boolean => {
-    return canAccessRoute(route, currentRole);
+  const normalizedGroups = useMemo(
+    () => groups.map((group) => group.toLowerCase()),
+    [groups]
+  );
+
+  const roleSet = useMemo(() => new Set<UserRole>(roles), [roles]);
+  const decisionSet = useMemo(
+    () => new Set(avpDecisions?.map((d) => d.toLowerCase()) || []),
+    [avpDecisions]
+  );
+
+  const hasGroup = (group: string) =>
+    normalizedGroups.includes(group.toLowerCase());
+
+  const hasRole = (role: UserRole) => roleSet.has(role);
+
+  const hasAnyRole = (required: UserRole[] = []) => {
+    if (required.length === 0) return true;
+    return required.some((role) => roleSet.has(role));
   };
 
-  const checkActionPermission = (action: string): boolean => {
-    return canPerformAction(action, currentRole);
+  const hasDecision = (decision: string) =>
+    decisionSet.has(decision.toLowerCase());
+
+  const hasAllDecisions = (decisions: string[] = []) => {
+    if (!decisions.length) return true;
+    return decisions.every((decision) => hasDecision(decision));
   };
 
-  const hasAnyRole = (roles: UserRole[]): boolean => {
-    return roles.includes(currentRole);
+  const can = ({ anyRoles, allDecisions }: PermissionCheck) => {
+    return hasAnyRole(anyRoles) && hasAllDecisions(allDecisions);
   };
 
-  const hasMinimumRole = (minimumRole: UserRole): boolean => {
-    const roleHierarchy: Record<UserRole, number> = {
-      'VENDOR': 1,
-      'SDMT': 2, 
-      'PMO': 3,
-      'EXEC_RO': 4,
-    };
-    
-    return (roleHierarchy[currentRole] || 0) >= (roleHierarchy[minimumRole] || 0);
-  };
+  const isReadOnly = () =>
+    hasRole("EXEC_RO") || hasDecision("deny-write") || !hasDecision("allow-write");
 
-  const isReadOnly = (): boolean => {
-    return currentRole === 'EXEC_RO' || !checkActionPermission('update');
-  };
+  const canAccessRoute = (route: string) =>
+    legacyCanAccessRoute(route, currentRole);
 
-  const canCreate = (): boolean => {
-    return checkActionPermission('create');
-  };
+  const canPerformAction = (action: string) =>
+    legacyCanPerformAction(action, currentRole);
 
-  const canUpdate = (): boolean => {
-    return checkActionPermission('update');
-  };
+  const hasMinimumRole = (minimumRole: UserRole) =>
+    getRoleLevel(currentRole) >= getRoleLevel(minimumRole);
 
-  const canDelete = (): boolean => {
-    return checkActionPermission('delete');
-  };
-
-  const canApprove = (): boolean => {
-    return checkActionPermission('approve');
-  };
+  const canCreate = () => canPerformAction("create");
+  const canUpdate = () => canPerformAction("update");
+  const canDelete = () => canPerformAction("delete");
+  const canApprove = () => canPerformAction("approve");
 
   return {
+    roles,
+    groups,
     currentRole,
-    canAccessRoute: checkRouteAccess,
-    canPerformAction: checkActionPermission,
+    hasGroup,
+    hasRole,
     hasAnyRole,
-    hasMinimumRole,
+    hasDecision,
+    hasAllDecisions,
+    can,
     isReadOnly,
+    canAccessRoute,
+    canPerformAction,
+    hasMinimumRole,
     canCreate,
     canUpdate,
     canDelete,
