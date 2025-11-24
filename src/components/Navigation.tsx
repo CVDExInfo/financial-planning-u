@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ModuleType } from "@/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +23,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  ChevronDown,
   Calculator,
   BarChart3,
   LogOut,
@@ -43,6 +41,7 @@ import {
   getRoleInfo,
   canAccessFinanzasModule,
   canAccessPMOModule,
+  canAccessRoute,
 } from "@/lib/auth";
 import { toast } from "sonner";
 import { Logo } from "@/components/Logo";
@@ -61,14 +60,8 @@ interface NavigationItem {
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
-  const {
-    user,
-    currentRole,
-    availableRoles,
-    setRole,
-    canAccessRoute,
-    signOut,
-  } = useAuth();
+  const { user, logout, roles } = useAuth();
+  const currentRole = useMemo(() => roles[0] ?? "SDMT", [roles]);
   const [isRolesDialogOpen, setIsRolesDialogOpen] = useState(false);
   const finzEnabled =
     import.meta.env.VITE_FINZ_ENABLED !== "false" ||
@@ -85,7 +78,7 @@ export function Navigation() {
       return; // No redirects in Finanzas mode
     }
 
-    if (!canAccessRoute(location.pathname)) {
+    if (!canAccessRoute(location.pathname, currentRole)) {
       // Redirect to appropriate module based on role
       const defaultRoute = getDefaultRouteForRole(currentRole);
       navigate(defaultRoute);
@@ -97,12 +90,8 @@ export function Navigation() {
     }
   }, [currentRole, location.pathname, navigate, canAccessRoute]);
 
-  const handleRoleChange = (newRole: string) => {
-    setRole(newRole as ModuleType);
-  };
-
   const handleSignOut = () => {
-    signOut();
+    logout();
     logoutWithHostedUI();
   };
 
@@ -152,7 +141,7 @@ export function Navigation() {
 
   const getVisibleModuleNavItems = () => {
     const path = location.pathname;
-    const userRoles = user?.roles || [];
+    const userRoles = roles;
 
     // Check module access based on Cognito groups or Finanzas-only build
     const hasFinanzasAccess = finzEnabled || canAccessFinanzasModule(userRoles);
@@ -281,36 +270,7 @@ export function Navigation() {
 
             {/* User Menu */}
             <div className="flex items-center space-x-4">
-              {/* Role Switcher */}
-              {availableRoles.length > 1 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <Badge variant="secondary">{currentRole}</Badge>
-                      <ChevronDown size={14} />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    {availableRoles.map((role) => {
-                      const roleInfo = getRoleInfo(role);
-                      return (
-                        <DropdownMenuItem
-                          key={role}
-                          onClick={() => handleRoleChange(role)}
-                          className={currentRole === role ? "bg-muted" : ""}
-                        >
-                          <div className="flex flex-col">
-                            <div className="font-medium">{roleInfo.label}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {roleInfo.description}
-                            </div>
-                          </div>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+              <Badge variant="secondary">{currentRole}</Badge>
 
               {/* User Avatar - Now showing Ikusi Logo */}
               {user && (
@@ -326,11 +286,9 @@ export function Navigation() {
                   <DropdownMenuContent className="w-56" align="end">
                     <div className="flex items-center justify-start gap-2 p-2">
                       <div className="flex flex-col space-y-1 leading-none">
-                        <p className="font-medium">{user.login || "User"}</p>
+                        <p className="font-medium">{user.name || user.email || "User"}</p>
                         <p className="w-[200px] truncate text-sm text-muted-foreground">
-                          {import.meta.env.VITE_SHOW_DEMO_CREDS
-                            ? user.email || "demo@ikusi.com"
-                            : user.email || "user@ikusi.com"}
+                          {user.email || "user@ikusi.com"}
                         </p>
                       </div>
                     </div>
@@ -346,16 +304,13 @@ export function Navigation() {
                         </div>
                       </div>
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => setIsRolesDialogOpen(true)}
-                    >
+                    <DropdownMenuItem onSelect={() => setIsRolesDialogOpen(true)}>
                       <div className="flex items-center w-full">
                         <Shield className="mr-2 h-4 w-4" />
                         <div className="flex-1">
                           <div className="font-medium">Roles & Permissions</div>
                           <div className="text-xs text-muted-foreground">
-                            {availableRoles.length} role
-                            {availableRoles.length !== 1 ? "s" : ""} available
+                            {roles.length} role{roles.length !== 1 ? "s" : ""} available
                           </div>
                         </div>
                       </div>
@@ -386,7 +341,7 @@ export function Navigation() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            {availableRoles.map((role) => {
+            {roles.map((role) => {
               const info = getRoleInfo(role);
               const isCurrent = currentRole === role;
               return (

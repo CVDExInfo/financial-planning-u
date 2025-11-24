@@ -45,7 +45,7 @@ export const handler = async (
     const method = event.requestContext.http.method;
 
     if (method === "GET") {
-      ensureCanRead(event as unknown as Parameters<typeof ensureCanRead>[0]);
+      await ensureCanRead(event as unknown as Parameters<typeof ensureCanRead>[0]);
       const projectId = event.queryStringParameters?.projectId?.trim();
       if (!projectId) {
         return bad("Missing required parameter: projectId");
@@ -69,7 +69,7 @@ export const handler = async (
     }
 
     if (method === "POST") {
-      ensureCanWrite(event as unknown as Parameters<typeof ensureCanWrite>[0]);
+      await ensureCanWrite(event as unknown as Parameters<typeof ensureCanWrite>[0]);
 
       const payload = parseBody(event.body);
       if (!payload) {
@@ -118,7 +118,7 @@ export const handler = async (
         vendor,
         description,
         documentKey,
-        uploaded_by: getUserEmail(
+        uploaded_by: await getUserEmail(
           event as unknown as Parameters<typeof getUserEmail>[0]
         ),
         created_at: now,

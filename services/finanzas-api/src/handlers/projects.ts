@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
-    ensureSDT(event);
+    await ensureSDT(event);
 
     if (event.requestContext.http.method === "POST") {
       let body: Record<string, unknown>;

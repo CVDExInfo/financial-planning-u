@@ -36,7 +36,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
   // Allow local SAM smoke tests to bypass auth if explicitly enabled
   const skipAuth = process.env.SKIP_AUTH === "true";
   if (!skipAuth) {
-    ensureSDT(event);
+    await ensureSDT(event);
   }
   return {
     statusCode: 200,

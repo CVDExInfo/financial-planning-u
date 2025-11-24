@@ -1,55 +1,4 @@
-/**
- * AuthProvider - Single Source of Truth for Authentication and Role Management
- * 
- * This component is the unified authentication and role management provider for the application.
- * It consolidates what was previously split between AuthProvider and RoleProvider (now deprecated).
- * 
- * As documented in:
- * - docs/finanzas-auth-notes.md
- * - FINANZAS_AUTH_REPAIR_SUMMARY.md
- * - PR #221 Finalization – Architecture Verification Report
- * 
- * RESPONSIBILITIES:
- * 1. Authentication State Management
- *    - Validates and stores JWT tokens from localStorage
- *    - Decodes JWT to extract user info and Cognito groups
- *    - Manages authentication lifecycle (init, login, logout, refresh)
- * 
- * 2. Role Management
- *    - Maps Cognito groups to application roles (SDMT, PMO, VENDOR, EXEC_RO)
- *    - Maintains current role selection with persistence
- *    - Enforces role availability based on user's Cognito groups
- * 
- * 3. Permission Checking
- *    - Route-level access control based on current role
- *    - Action-level permission checking
- * 
- * USAGE:
- *   Wrap your app or module with <AuthProvider>:
- *   
- *   <AuthProvider>
- *     <App />
- *   </AuthProvider>
- * 
- *   Then use useAuth() hook in components:
- *   
- *   const { user, isAuthenticated, currentRole, loginWithCognito, signOut } = useAuth();
- * 
- * TOKEN STORAGE:
- *   - cv.jwt: Primary unified token key
- *   - finz_jwt: Legacy Finanzas token key (backward compatibility)
- *   - cognitoIdToken, idToken: Additional fallback keys for older API clients
- *   - finz_refresh_token: Refresh token for token renewal
- * 
- * @see useAuth Hook for accessing this context
- * @see useRole Hook for role-specific convenience methods
- */
-import React, {
-  createContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
+import React, { createContext, useEffect, useMemo, useState } from "react";
 
 import { UserInfo, UserRole } from "@/types/domain";
 import {
@@ -60,25 +9,28 @@ import {
   getRoutesForRole,
   getRolePermissionKeys,
 } from "@/lib/auth";
+import { UserRole } from "@/types/domain";
 import {
   decodeJWT,
-  isTokenValid,
   getGroupsFromClaims,
+  isTokenValid,
   mapCognitoGroupsToRoles,
 } from "@/lib/jwt";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { toast } from "sonner";
-import awsConfig from "@/config/aws";
+import { loginWithHostedUI, logoutWithHostedUI } from "@/config/aws";
 
-/**
- * AuthContext Type Definition
- * 
- * This interface defines the complete public API of AuthProvider.
- * All authentication and role management state and methods are exposed through this context.
- */
-interface AuthContextType {
-  // Authentication state
-  user: UserInfo | null;
+type AuthUser = {
+  sub?: string;
+  email?: string;
+  name?: string;
+};
+
+type AuthContextType = {
+  user: AuthUser | null;
+  groups: string[];
+  roles: UserRole[];
+  idToken: string | null;
+  accessToken: string | null;
+  avpDecisions: string[];
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -100,48 +52,44 @@ interface AuthContextType {
   // Cognito login
   loginWithCognito: (username: string, password: string) => Promise<void>;
 }
+  login: () => void;
+  logout: () => void;
+};
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
+const TOKEN_KEYS = ["cv.jwt", "finz_jwt", "idToken", "cognitoIdToken"];
 
-export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<UserInfo | null>(null);
+const readTokenFromStorage = (keys: string[]): string | null => {
+  for (const key of keys) {
+    const value = localStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [idToken, setIdToken] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [groups, setGroups] = useState<string[]>([]);
+  const [avpDecisions, setAvpDecisions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [availableRoles, setAvailableRoles] = useState<UserRole[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [routeConfigMissing, setRouteConfigMissing] = useState(false);
   const [groupClaims, setGroupClaims] = useState<string[]>([]);
 
-  // Persist current role selection
-  const [currentRole, setCurrentRole] = useLocalStorage<UserRole>(
-    "user-current-role",
-    "SDMT"
+  const roles = useMemo(
+    () => mapCognitoGroupsToRoles(groups) as UserRole[],
+    [groups]
   );
 
-  const isAuthenticated = !!user;
+  const isAuthenticated = !!user && !!idToken;
 
-  // Initialize authentication on mount
   useEffect(() => {
-    initializeAuth();
-  }, []);
-
-  // Update available roles when user changes
-  useEffect(() => {
-    if (user) {
-      const roles = getAvailableRoles(user);
-      setAvailableRoles(roles);
-
-      // Set default role if none is set or current role is not available
-      const effectiveCurrentRole = currentRole || "SDMT";
-      if (!roles.includes(effectiveCurrentRole)) {
-        const defaultRole = getDefaultUserRole(user);
-        setCurrentRole(defaultRole);
-      }
-    }
-  }, [user, currentRole, setCurrentRole]);
+    const initialize = () => {
+      setIsLoading(true);
 
   useEffect(() => {
     const effectiveRole = currentRole || "PMO";
@@ -223,17 +171,61 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         if (message.includes("UserNotFoundException")) {
           throw new Error("User not found");
+      try {
+        const storedIdToken = readTokenFromStorage(TOKEN_KEYS);
+        const storedAccessToken =
+          localStorage.getItem("finz_access_token") || null;
+
+        if (storedIdToken && isTokenValid(storedIdToken)) {
+          const claims = decodeJWT(storedIdToken);
+          const cognitoGroups = getGroupsFromClaims(claims);
+          const decisions = Array.isArray(claims["avp:decisions"])
+            ? (claims["avp:decisions"] as string[])
+            : [];
+
+          setIdToken(storedIdToken);
+          setAccessToken(storedAccessToken);
+          setGroups(cognitoGroups);
+          setAvpDecisions(decisions);
+          setUser({
+            sub: claims.sub,
+            email: claims.email,
+            name:
+              claims.name ||
+              claims["preferred_username"] ||
+              claims["cognito:username"],
+          });
+          return;
         }
 
-        throw new Error(message);
+        // Invalid or missing token; clear everything to avoid loops
+        clearLocalTokens();
+        setIdToken(null);
+        setAccessToken(null);
+        setGroups([]);
+        setAvpDecisions([]);
+        setUser(null);
+      } catch (error) {
+        console.error("[AuthProvider] Failed to initialize auth", error);
+        clearLocalTokens();
+        setIdToken(null);
+        setAccessToken(null);
+        setGroups([]);
+        setAvpDecisions([]);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      const data = await response.json();
-      const { AuthenticationResult } = data;
+    initialize();
 
-      if (!AuthenticationResult?.IdToken) {
-        throw new Error("No ID token received from authentication service");
+    // Re-run initialization when localStorage changes in this tab
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key && TOKEN_KEYS.includes(event.key)) {
+        initialize();
       }
+    };
 
       // ✅ Store JWT (unified + legacy for backward compatibility)
       localStorage.setItem("cv.jwt", AuthenticationResult.IdToken);
@@ -416,24 +408,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setIsLoading(false);
     }
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  const login = () => {
+    loginWithHostedUI();
   };
 
-  const signIn = async (): Promise<void> => {
-    // In the new flow, this is replaced by loginWithCognito
-    // Kept for backward compatibility
-    await initializeAuth();
+  const clearLocalTokens = () => {
+    [
+      "cv.jwt",
+      "finz_jwt",
+      "idToken",
+      "cognitoIdToken",
+      "finz_access_token",
+      "finz_refresh_token",
+      "cv.module",
+    ].forEach((key) => localStorage.removeItem(key));
   };
 
-  const signOut = (): void => {
-    // Clear JWT and related auth data
-    localStorage.removeItem("finz_jwt");
-    localStorage.removeItem("finz_refresh_token");
-    localStorage.removeItem("finz_access_token");
-    localStorage.removeItem("cv.jwt");
-    localStorage.removeItem("idToken");
-    localStorage.removeItem("cognitoIdToken");
-    localStorage.removeItem("cv.module");
-
+  const logout = () => {
+    clearLocalTokens();
     setUser(null);
     setCurrentRole("PMO");
     setAvailableRoles([]);
@@ -486,10 +482,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const checkActionPermission = (action: string): boolean => {
     return canPerformAction(action, currentRole || "PMO");
+    setGroups([]);
+    setIdToken(null);
+    setAccessToken(null);
+    setAvpDecisions([]);
+    logoutWithHostedUI();
   };
 
   const value: AuthContextType = {
     user,
+    groups,
+    roles,
+    idToken,
+    accessToken,
+    avpDecisions,
     isAuthenticated,
     isLoading,
     error,
@@ -502,6 +508,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signIn,
     signOut,
     loginWithCognito,
+    login,
+    logout,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
