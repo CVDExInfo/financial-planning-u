@@ -1,31 +1,24 @@
 import React, { createContext, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
-import { UserInfo, UserRole } from "@/types/domain";
+import awsConfig, { loginWithHostedUI, logoutWithHostedUI } from "@/config/aws";
 import {
-  getDefaultUserRole,
-  getAvailableRoles,
   canAccessRoute,
   canPerformAction,
+  getDefaultUserRole,
   getRoutesForRole,
   getRolePermissionKeys,
 } from "@/lib/auth";
-import { UserRole } from "@/types/domain";
 import {
   decodeJWT,
   getGroupsFromClaims,
   isTokenValid,
   mapCognitoGroupsToRoles,
 } from "@/lib/jwt";
-import { loginWithHostedUI, logoutWithHostedUI } from "@/config/aws";
-
-type AuthUser = {
-  sub?: string;
-  email?: string;
-  name?: string;
-};
+import { UserInfo, UserRole } from "@/types/domain";
 
 type AuthContextType = {
-  user: AuthUser | null;
+  user: UserInfo | null;
   groups: string[];
   roles: UserRole[];
   idToken: string | null;
@@ -35,23 +28,17 @@ type AuthContextType = {
   isLoading: boolean;
   error: string | null;
 
-  // Role management
   currentRole: UserRole;
   availableRoles: UserRole[];
   setRole: (role: UserRole) => void;
   routeConfigMissing: boolean;
 
-  // Permission checking
   canAccessRoute: (route: string) => boolean;
   canPerformAction: (action: string) => boolean;
 
-  // Authentication actions
   signIn: () => Promise<void>;
   signOut: () => void;
-
-  // Cognito login
   loginWithCognito: (username: string, password: string) => Promise<void>;
-}
   login: () => void;
   logout: () => void;
 };
@@ -60,36 +47,58 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 const TOKEN_KEYS = ["cv.jwt", "finz_jwt", "idToken", "cognitoIdToken"];
 
-const readTokenFromStorage = (keys: string[]): string | null => {
+function readTokenFromStorage(keys: string[]): string | null {
   for (const key of keys) {
     const value = localStorage.getItem(key);
     if (value) return value;
   }
   return null;
-};
+}
+
+function clearLocalTokens() {
+  [
+    "cv.jwt",
+    "finz_jwt",
+    "idToken",
+    "cognitoIdToken",
+    "finz_access_token",
+    "finz_refresh_token",
+    "cv.module",
+  ].forEach((key) => localStorage.removeItem(key));
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [idToken, setIdToken] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<UserInfo | null>(null);
   const [groups, setGroups] = useState<string[]>([]);
   const [avpDecisions, setAvpDecisions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [availableRoles, setAvailableRoles] = useState<UserRole[]>([]);
+  const [currentRole, setCurrentRole] = useState<UserRole>(getDefaultUserRole());
   const [error, setError] = useState<string | null>(null);
   const [routeConfigMissing, setRouteConfigMissing] = useState(false);
   const [groupClaims, setGroupClaims] = useState<string[]>([]);
 
   const roles = useMemo(
-    () => mapCognitoGroupsToRoles(groups) as UserRole[],
+    () => mapCognitoGroupsToRoles(groups).filter((r): r is UserRole => !!r),
     [groups]
   );
 
   const isAuthenticated = !!user && !!idToken;
 
   useEffect(() => {
-    const initialize = () => {
-      setIsLoading(true);
+    void initializeAuth();
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key && TOKEN_KEYS.includes(event.key)) {
+        void initializeAuth();
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   useEffect(() => {
     const effectiveRole = currentRole || "PMO";
@@ -115,338 +124,197 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [availableRoles, currentRole, groupClaims, user]);
 
-  /**
-   * Cognito login via USER_PASSWORD_AUTH flow
-   */
-  const loginWithCognito = async (
-    username: string,
-    password: string
-  ): Promise<void> => {
+  async function initializeAuth() {
+    setIsLoading(true);
     setError(null);
-    // Use environment variable if available, otherwise fall back to aws config
+
+    try {
+      const storedIdToken = readTokenFromStorage(TOKEN_KEYS);
+      const storedAccessToken = localStorage.getItem("finz_access_token") || null;
+
+      if (storedIdToken && isTokenValid(storedIdToken)) {
+        const claims = decodeJWT(storedIdToken);
+        const cognitoGroups = getGroupsFromClaims(claims);
+        const decisions = Array.isArray(claims["avp:decisions"])
+          ? (claims["avp:decisions"] as string[])
+          : [];
+
+        const mappedRoles = mapCognitoGroupsToRoles(cognitoGroups).filter(
+          (role): role is UserRole => ["PMO", "SDMT", "VENDOR", "EXEC_RO"].includes(role)
+        );
+        const effectiveRoles = mappedRoles.length ? mappedRoles : [getDefaultUserRole()];
+        const defaultRole = effectiveRoles[0];
+
+        setIdToken(storedIdToken);
+        setAccessToken(storedAccessToken);
+        setGroups(cognitoGroups);
+        setGroupClaims(cognitoGroups);
+        setAvpDecisions(decisions);
+        setAvailableRoles(effectiveRoles);
+        setCurrentRole(defaultRole);
+        setUser({
+          id: claims.sub || "unknown",
+          login:
+            claims.email ||
+            claims["cognito:username"] ||
+            claims["preferred_username"] ||
+            "user",
+          email: claims.email || "unknown",
+          avatarUrl: "",
+          isOwner: cognitoGroups.includes("admin"),
+          roles: effectiveRoles,
+          current_role: defaultRole,
+        });
+        return;
+      }
+
+      clearLocalTokens();
+      setIdToken(null);
+      setAccessToken(null);
+      setGroups([]);
+      setAvpDecisions([]);
+      setAvailableRoles([]);
+      setUser(null);
+    } catch (authError) {
+      console.error("[AuthProvider] Failed to initialize auth", authError);
+      clearLocalTokens();
+      setIdToken(null);
+      setAccessToken(null);
+      setGroups([]);
+      setAvpDecisions([]);
+      setAvailableRoles([]);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function loginWithCognito(username: string, password: string): Promise<void> {
+    setError(null);
+
     const clientId =
-      import.meta.env.VITE_COGNITO_CLIENT_ID ||
-      awsConfig.aws_user_pools_web_client_id;
-    const region =
-      import.meta.env.VITE_COGNITO_REGION || awsConfig.aws_cognito_region;
+      import.meta.env.VITE_COGNITO_CLIENT_ID || awsConfig.aws_user_pools_web_client_id;
+    const region = import.meta.env.VITE_COGNITO_REGION || awsConfig.aws_cognito_region;
 
     if (!clientId) {
       throw new Error("Cognito client ID not configured");
     }
 
-    try {
-      const response = await fetch(
-        `https://cognito-idp.${region}.amazonaws.com/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-amz-json-1.1",
-            "X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth",
-          },
-          body: JSON.stringify({
-            ClientId: clientId,
-            AuthFlow: "USER_PASSWORD_AUTH",
-            AuthParameters: {
-              USERNAME: username,
-              PASSWORD: password,
-            },
-          }),
-        }
-      );
+    const response = await fetch(`https://cognito-idp.${region}.amazonaws.com/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-amz-json-1.1",
+        "X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth",
+      },
+      body: JSON.stringify({
+        ClientId: clientId,
+        AuthFlow: "USER_PASSWORD_AUTH",
+        AuthParameters: {
+          USERNAME: username,
+          PASSWORD: password,
+        },
+      }),
+    });
 
-      if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ message: "Authentication failed" }));
-        const message = errorData.message || "Authentication failed";
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: "Authentication failed" }));
+      const message = errorData.message || "Authentication failed";
 
-        // Handle specific Cognito errors
-        if (message.includes("UserNotConfirmedException")) {
-          throw new Error(
-            "Please confirm your email address before signing in"
-          );
-        }
-        if (message.includes("NotAuthorizedException")) {
-          throw new Error("Invalid username or password");
-        }
-        if (message.includes("UserNotFoundException")) {
-          throw new Error("User not found");
-      try {
-        const storedIdToken = readTokenFromStorage(TOKEN_KEYS);
-        const storedAccessToken =
-          localStorage.getItem("finz_access_token") || null;
-
-        if (storedIdToken && isTokenValid(storedIdToken)) {
-          const claims = decodeJWT(storedIdToken);
-          const cognitoGroups = getGroupsFromClaims(claims);
-          const decisions = Array.isArray(claims["avp:decisions"])
-            ? (claims["avp:decisions"] as string[])
-            : [];
-
-          setIdToken(storedIdToken);
-          setAccessToken(storedAccessToken);
-          setGroups(cognitoGroups);
-          setAvpDecisions(decisions);
-          setUser({
-            sub: claims.sub,
-            email: claims.email,
-            name:
-              claims.name ||
-              claims["preferred_username"] ||
-              claims["cognito:username"],
-          });
-          return;
-        }
-
-        // Invalid or missing token; clear everything to avoid loops
-        clearLocalTokens();
-        setIdToken(null);
-        setAccessToken(null);
-        setGroups([]);
-        setAvpDecisions([]);
-        setUser(null);
-      } catch (error) {
-        console.error("[AuthProvider] Failed to initialize auth", error);
-        clearLocalTokens();
-        setIdToken(null);
-        setAccessToken(null);
-        setGroups([]);
-        setAvpDecisions([]);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
+      if (message.includes("UserNotConfirmedException")) {
+        throw new Error("Please confirm your email address before signing in");
       }
-    };
-
-    initialize();
-
-    // Re-run initialization when localStorage changes in this tab
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key && TOKEN_KEYS.includes(event.key)) {
-        initialize();
+      if (message.includes("NotAuthorizedException")) {
+        throw new Error("Invalid username or password");
       }
-    };
-
-      // ✅ Store JWT (unified + legacy for backward compatibility)
-      localStorage.setItem("cv.jwt", AuthenticationResult.IdToken);
-      localStorage.setItem("finz_jwt", AuthenticationResult.IdToken);
-      // Additional legacy keys used by older API helpers
-      localStorage.setItem("idToken", AuthenticationResult.IdToken);
-      localStorage.setItem("cognitoIdToken", AuthenticationResult.IdToken);
-
-      // Optional: Store refresh token
-      if (AuthenticationResult.RefreshToken) {
-        localStorage.setItem(
-          "finz_refresh_token",
-          AuthenticationResult.RefreshToken
-        );
+      if (message.includes("UserNotFoundException")) {
+        throw new Error("User not found");
       }
+      throw new Error(message);
+    }
 
-      // Re-initialize with JWT claims
-      await initializeAuth();
+    const { AuthenticationResult } = await response.json();
+    if (!AuthenticationResult?.IdToken) {
+      throw new Error("Invalid authentication response");
+    }
 
-      toast.success("Signed in successfully");
+    localStorage.setItem("cv.jwt", AuthenticationResult.IdToken);
+    localStorage.setItem("finz_jwt", AuthenticationResult.IdToken);
+    localStorage.setItem("idToken", AuthenticationResult.IdToken);
+    localStorage.setItem("cognitoIdToken", AuthenticationResult.IdToken);
 
-      // Role-based redirect logic (matches callback.html behavior)
-      // Decode the token to get groups and determine redirect
-      const decoded = decodeJWT(AuthenticationResult.IdToken);
-      const groups = getGroupsFromClaims(decoded);
+    if (AuthenticationResult.AccessToken) {
+      localStorage.setItem("finz_access_token", AuthenticationResult.AccessToken);
+    }
 
-      const canSDT = groups.some((g) =>
-        ["SDT", "FIN", "AUD", "sdmt", "fin", "aud"].includes(g.toUpperCase())
-      );
-      const canPMO = groups.some((g) =>
-        ["PM", "PMO", "EXEC_RO", "VENDOR", "admin", "pmo"].includes(
-          g.toUpperCase()
-        )
-      );
+    if (AuthenticationResult.RefreshToken) {
+      localStorage.setItem("finz_refresh_token", AuthenticationResult.RefreshToken);
+    }
 
-      // Preference resolution for dual-role users
-      const pref = localStorage.getItem("cv.module");
-      let targetPath = "/";
+    await initializeAuth();
+    toast.success("Signed in successfully");
 
-      if (canSDT && !canPMO) {
-        targetPath = "/finanzas/";
-      } else if (canPMO && !canSDT) {
+    const decoded = decodeJWT(AuthenticationResult.IdToken);
+    const cognitoGroups = getGroupsFromClaims(decoded);
+
+    const canSDT = cognitoGroups.some((g) =>
+      ["SDT", "FIN", "AUD", "sdmt", "fin", "aud"].includes(g.toUpperCase())
+    );
+    const canPMO = cognitoGroups.some((g) =>
+      ["PM", "PMO", "EXEC_RO", "VENDOR", "admin", "pmo"].includes(g.toUpperCase())
+    );
+
+    const pref = localStorage.getItem("cv.module");
+    let targetPath = "/";
+
+    if (canSDT && !canPMO) {
+      targetPath = "/finanzas/";
+    } else if (canPMO && !canSDT) {
+      targetPath = "/";
+    } else if (canSDT && canPMO) {
+      if (pref === "pmo" && canPMO) {
         targetPath = "/";
-      } else if (canSDT && canPMO) {
-        // Both roles - use preference or default to Finanzas
-        if (pref === "pmo" && canPMO) {
-          targetPath = "/";
-        } else if (pref === "finanzas" && canSDT) {
-          targetPath = "/finanzas/";
-        } else {
-          // Default bias to Finanzas for dual-role users
-          targetPath = "/finanzas/";
-        }
-      }
-
-      // For Finanzas-only build, always redirect to /finanzas/ regardless
-      if (import.meta.env.VITE_FINZ_ENABLED === "true") {
+      } else if (pref === "finanzas" && canSDT) {
+        targetPath = "/finanzas/";
+      } else {
         targetPath = "/finanzas/";
       }
-
-      // Perform redirect
-      try {
-        setTimeout(() => {
-          window.location.replace(targetPath);
-        }, 100);
-      } catch (e) {
-        console.warn("Redirect failed", e);
-      }
-    } catch (err) {
-      // Clear any partial tokens on error
-      localStorage.removeItem("cv.jwt");
-      localStorage.removeItem("finz_jwt");
-      localStorage.removeItem("idToken");
-      localStorage.removeItem("cognitoIdToken");
-      localStorage.removeItem("finz_access_token");
-      localStorage.removeItem("finz_refresh_token");
-
-      const message =
-        err instanceof Error ? err.message : "Authentication failed";
-      setError(message);
-      throw err;
     }
-  };
 
-  /**
-   * Initialize authentication from JWT
-   * Priority: 1) Valid JWT in localStorage, 2) Not authenticated
-   */
-  const initializeAuth = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // 1. Check for valid JWT in localStorage (existing session)
-      const jwt =
-        localStorage.getItem("cv.jwt") ||
-        localStorage.getItem("finz_jwt") ||
-        localStorage.getItem("idToken") ||
-        localStorage.getItem("cognitoIdToken");
-      if (jwt) {
-        try {
-          if (isTokenValid(jwt)) {
-            // ✅ Valid JWT found
-            const decoded = decodeJWT(jwt);
-            const groups = getGroupsFromClaims(decoded);
-            const roles = mapCognitoGroupsToRoles(groups);
-            const mappedRoles = roles.filter((r): r is UserRole =>
-              ["PMO", "SDMT", "VENDOR", "EXEC_RO"].includes(r)
-            );
-            const defaultRole: UserRole = mappedRoles[0] || "SDMT";
-
-            const authenticatedUser: UserInfo = {
-              id: decoded.sub,
-              login:
-                decoded.email ||
-                decoded["cognito:username"] ||
-                decoded["preferred_username"] ||
-                "user",
-              email: decoded.email || "unknown",
-              avatarUrl: "",
-              isOwner: groups.includes("admin"),
-              roles: mappedRoles.length > 0 ? mappedRoles : ["SDMT"],
-              current_role: defaultRole,
-            };
-
-            // Ensure token is stored in both cv.jwt and finz_jwt for cross-module compatibility
-            // If user logged into PMO first and navigates to Finanzas, this ensures the token is available
-            const cvJwt = localStorage.getItem("cv.jwt");
-            const finzJwt = localStorage.getItem("finz_jwt");
-            if (cvJwt && !finzJwt) {
-              localStorage.setItem("finz_jwt", cvJwt);
-            } else if (finzJwt && !cvJwt) {
-              localStorage.setItem("cv.jwt", finzJwt);
-            }
-
-            setUser(authenticatedUser);
-            setAvailableRoles(authenticatedUser.roles);
-            setGroupClaims(groups);
-            if (import.meta.env.DEV) {
-              console.debug("[Auth] Effective role", {
-                user: authenticatedUser,
-                groups,
-                mappedRoles,
-                defaultRole,
-              });
-            }
-            setIsLoading(false);
-            return; // ← Successfully authenticated with JWT
-          } else {
-            // Expired or invalid: clear and continue
-            console.warn("[Auth] JWT expired or invalid, clearing");
-            localStorage.removeItem("cv.jwt");
-            localStorage.removeItem("finz_jwt");
-            localStorage.removeItem("idToken");
-            localStorage.removeItem("cognitoIdToken");
-            localStorage.removeItem("finz_access_token");
-            localStorage.removeItem("finz_refresh_token");
-          }
-        } catch (e) {
-          console.warn("[Auth] Failed to process JWT:", e);
-          localStorage.removeItem("cv.jwt");
-          localStorage.removeItem("finz_jwt");
-          localStorage.removeItem("idToken");
-          localStorage.removeItem("cognitoIdToken");
-          localStorage.removeItem("finz_access_token");
-          localStorage.removeItem("finz_refresh_token");
-        }
-      }
-
-      // 2. No JWT → not authenticated, show LoginPage
-      setUser(null);
-      setAvailableRoles([]);
-      setGroupClaims([]);
-      console.log("[Auth] Not authenticated; show LoginPage");
-    } catch (error) {
-      console.error("[Auth] Initialization error:", error);
-      setUser(null);
-      setAvailableRoles([]);
-      setError("Authentication initialization failed");
-    } finally {
-      setIsLoading(false);
+    if (import.meta.env.VITE_FINZ_ENABLED === "true") {
+      targetPath = "/finanzas/";
     }
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+
+    setTimeout(() => {
+      window.location.replace(targetPath);
+    }, 100);
+  }
 
   const login = () => {
     loginWithHostedUI();
   };
 
-  const clearLocalTokens = () => {
-    [
-      "cv.jwt",
-      "finz_jwt",
-      "idToken",
-      "cognitoIdToken",
-      "finz_access_token",
-      "finz_refresh_token",
-      "cv.module",
-    ].forEach((key) => localStorage.removeItem(key));
-  };
-
-  const logout = () => {
+  function logout() {
     clearLocalTokens();
     setUser(null);
-    setCurrentRole("PMO");
+    setGroups([]);
+    setIdToken(null);
+    setAccessToken(null);
+    setAvpDecisions([]);
     setAvailableRoles([]);
-    setError(null);
+    setCurrentRole(getDefaultUserRole());
     setGroupClaims([]);
+    setError(null);
 
     toast.success("Signed out successfully");
 
-    // For Finanzas-only build, redirect to login
-    // For PMO build or dual-module, stay on current path (will show login if needed)
     if (import.meta.env.VITE_FINZ_ENABLED === "true") {
-      // Redirect to Finanzas home (which will show login page due to no auth)
       setTimeout(() => {
         window.location.href = "/finanzas/";
       }, 500);
     }
-  };
+
+    logoutWithHostedUI();
+  }
 
   const setRole = (role: UserRole): void => {
     if (!availableRoles.includes(role)) {
@@ -458,15 +326,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const previousRole = currentRole;
     setCurrentRole(role);
-    // Persist preference for dual-role routing (neutral callback)
+
     try {
       if (role === "PMO") localStorage.setItem("cv.module", "pmo");
       else localStorage.setItem("cv.module", "finanzas");
     } catch {
-      // Preference storage is non-critical; ignore errors (e.g., private mode)
+      /* ignore storage errors */
     }
 
-    // Update user object
     if (user) {
       setUser((prev) => (prev ? { ...prev, current_role: role } : prev));
     }
@@ -482,11 +349,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkActionPermission = (action: string): boolean => {
     return canPerformAction(action, currentRole || "PMO");
-    setGroups([]);
-    setIdToken(null);
-    setAccessToken(null);
-    setAvpDecisions([]);
-    logoutWithHostedUI();
+  };
+
+  const signIn = async () => {
+    loginWithHostedUI();
+  };
+
+  const signOut = () => {
+    logout();
   };
 
   const value: AuthContextType = {
