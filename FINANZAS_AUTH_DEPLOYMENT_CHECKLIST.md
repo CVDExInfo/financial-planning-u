@@ -14,8 +14,8 @@ Log into AWS Console → Cognito → User Pool `us-east-2_FyHLtOhiY` → App cli
 
 - [ ] **Allowed callback URLs:**
   - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
-- [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html`
-  - Source file: `public/auth/callback.html` → deployed as `finanzas/auth/callback.html` (no nested `/finanzas/finanzas` copies)
+  - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html`
+  - Source file: `public/auth/callback.html` (canonical, deploys to `/finanzas/auth/callback.html`). If `public/finanzas/auth/callback.html` exists, it must be identical or a redirect stub only.
 
 - [ ] **Allowed sign-out URLs:**
   - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
@@ -54,13 +54,17 @@ npm run lint
 # Build
 npm run build:finanzas
 
-# Verify callback.html was copied (single canonical source lives at public/auth/callback.html → dist-finanzas/auth/callback.html)
+# Verify callback.html was copied (canonical source lives at public/auth/callback.html → dist-finanzas/auth/callback.html)
 ls -la dist-finanzas/auth/callback.html
+
+# Run Finanzas QA guardrail checks
+npm run qa:finanzas:auth
 ```
 
 - [ ] Lint passes with no new errors
 - [ ] Build completes successfully
 - [ ] `callback.html` exists in `dist-finanzas/auth/`
+- [ ] `npm run qa:finanzas:auth` passes locally (see `docs/FINANZAS_QA_GUARDRAILS.md` for invariant list)
 
 ## Deployment Steps
 
