@@ -288,7 +288,7 @@ export function Navigation() {
                       <div className="flex flex-col space-y-1 leading-none">
                         <p className="font-medium">{user.name || user.email || "User"}</p>
                         <p className="w-[200px] truncate text-sm text-muted-foreground">
-                          {user.email || "user@ikusi.com"}
+                          {user.email ?? "user@ikusi.com"}
                         </p>
                       </div>
                     </div>

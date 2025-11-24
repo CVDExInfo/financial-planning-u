@@ -29,7 +29,7 @@ export function UserProfile() {
         <CardHeader>
           <div className="flex items-center space-x-4">
             <Avatar className="w-16 h-16">
-              <AvatarImage src={""} alt={user.email || "Usuario"} />
+              <AvatarImage src={""} alt={user.email ?? "Usuario"} />
               <AvatarFallback className="text-lg">
                 {(user.name || user.email || "U").charAt(0).toUpperCase()}
               </AvatarFallback>
@@ -38,7 +38,7 @@ export function UserProfile() {
               <CardTitle className="flex items-center space-x-2">
                 <span>{user.name || user.email}</span>
               </CardTitle>
-              <CardDescription>{user.email}</CardDescription>
+              <CardDescription>{user.email ?? ""}</CardDescription>
             </div>
           </div>
         </CardHeader>
