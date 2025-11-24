@@ -1,4 +1,4 @@
-name: Finanzas QA Gate
+name: Finanzas QA Guardrails
 
 on:
   pull_request:
@@ -24,10 +24,11 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
   VITE_AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
   VITE_COGNITO_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
-  VITE_API_BASE_URL: ${{ vars.DEV_API_URL || 'https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev' }}
+  VITE_API_BASE_URL: ${{ vars.DEV_API_URL || 'https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev' }}
   VITE_FINZ_ENABLED: "true"
   VITE_USE_MOCKS: "false"
   VITE_PUBLIC_BASE: "/finanzas/"
+  # Cognito (Finanzas)
   VITE_COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN || 'us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com' }}
   VITE_COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID || 'us-east-2_FyHLtOhiY' }}
   VITE_COGNITO_CLIENT_ID: ${{ vars.COGNITO_WEB_CLIENT || 'dshos5iou44tuach7ta3ici5m' }}
@@ -79,9 +80,9 @@ jobs:
           set -euo pipefail
           echo "## Finanzas QA" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ job.status }}" = "success" ]; then
-            echo "- ✅ Callback guardrails satisfied" >> "$GITHUB_STEP_SUMMARY"
+            echo "- ✅ Callback/auth guardrails satisfied" >> "$GITHUB_STEP_SUMMARY"
             echo "- ✅ Finanzas build succeeded with canonical auth env" >> "$GITHUB_STEP_SUMMARY"
             echo "- ✅ Finanzas auth config guardrails passed" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "- ❌ Review logs above for callback/build guardrail failures" >> "$GITHUB_STEP_SUMMARY"
+            echo "- ❌ Review logs above for guardrail failures" >> "$GITHUB_STEP_SUMMARY"
           fi
