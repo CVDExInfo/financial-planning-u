@@ -12,6 +12,15 @@
 
 import { API_BASE, HAS_API_BASE } from "./env";
 
+const CANONICAL_COGNITO = {
+  userPoolId: "us-east-2_FyHLtOhiY",
+  clientId: "dshos5iou44tuach7ta3ici5m",
+  domain: "us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com",
+  cloudfrontUrl: "https://d7t9x3j66yd8k.cloudfront.net",
+  callbackPath: "/finanzas/auth/callback.html",
+  signOutPath: "/finanzas/",
+};
+
 /**
  * Get environment variable value without fallback
  * Returns empty string if not set, allowing calling code to handle missing values
@@ -28,6 +37,18 @@ const getEnvWithRegionFallback = (
 ): string => import.meta.env[key] || defaultRegion;
 
 const RESOLVED_API_BASE = HAS_API_BASE ? API_BASE : "";
+const RESOLVED_CLOUDFRONT = getEnv(
+  "VITE_CLOUDFRONT_URL",
+  CANONICAL_COGNITO.cloudfrontUrl
+);
+const RESOLVED_CALLBACK = getEnv(
+  "VITE_COGNITO_REDIRECT_SIGNIN",
+  `${RESOLVED_CLOUDFRONT}${CANONICAL_COGNITO.callbackPath}`
+);
+const RESOLVED_SIGN_OUT = getEnv(
+  "VITE_COGNITO_REDIRECT_SIGNOUT",
+  `${RESOLVED_CLOUDFRONT}${CANONICAL_COGNITO.signOutPath}`
+);
 if (!HAS_API_BASE) {
   console.error(
     "⚠️ VITE_API_BASE_URL is not configured."
@@ -38,8 +59,14 @@ const aws = {
   aws_project_region: getEnvWithRegionFallback("VITE_AWS_REGION"),
   aws_cognito_region: getEnvWithRegionFallback("VITE_COGNITO_REGION"),
 
-  aws_user_pools_id: getEnv("VITE_COGNITO_USER_POOL_ID"),
-  aws_user_pools_web_client_id: getEnv("VITE_COGNITO_CLIENT_ID"),
+  aws_user_pools_id: getEnv(
+    "VITE_COGNITO_USER_POOL_ID",
+    CANONICAL_COGNITO.userPoolId
+  ),
+  aws_user_pools_web_client_id: getEnv(
+    "VITE_COGNITO_CLIENT_ID",
+    CANONICAL_COGNITO.clientId
+  ),
 
   // Identity Pool is optional; include only if the browser must call AWS services directly
   // Set via VITE_COGNITO_IDENTITY_POOL_ID environment variable if needed
@@ -48,8 +75,11 @@ const aws = {
   Auth: {
     region:
       getEnv("VITE_COGNITO_REGION") || getEnvWithRegionFallback("VITE_AWS_REGION"),
-    userPoolId: getEnv("VITE_COGNITO_USER_POOL_ID"),
-    userPoolWebClientId: getEnv("VITE_COGNITO_CLIENT_ID"),
+    userPoolId: getEnv("VITE_COGNITO_USER_POOL_ID", CANONICAL_COGNITO.userPoolId),
+    userPoolWebClientId: getEnv(
+      "VITE_COGNITO_CLIENT_ID",
+      CANONICAL_COGNITO.clientId
+    ),
     identityPoolId: getEnv("VITE_COGNITO_IDENTITY_POOL_ID"),
     authenticationFlowType: "USER_SRP_AUTH",
     mandatorySignIn: true,
@@ -59,7 +89,7 @@ const aws = {
     // Cognito domain should be set via VITE_COGNITO_DOMAIN environment variable
     // Format: <domain-prefix>.auth.<region>.amazoncognito.com
     // NOTE: The domain prefix is a free-form string (not auto-generated)
-    domain: getEnv("VITE_COGNITO_DOMAIN"),
+    domain: getEnv("VITE_COGNITO_DOMAIN", CANONICAL_COGNITO.domain),
 
     // ✅ Scope configuration for OAuth 2.0 Implicit Grant
     // MUST include "openid" for Cognito to return id_token in the hash
@@ -68,8 +98,8 @@ const aws = {
     scope: ["openid", "email", "profile", "aws.cognito.signin.user.admin"],
     
     // Redirects to FINANZAS module callback (not the PMO root)
-    redirectSignIn: getEnv("VITE_COGNITO_REDIRECT_SIGNIN"),
-    redirectSignOut: getEnv("VITE_COGNITO_REDIRECT_SIGNOUT"),
+    redirectSignIn: RESOLVED_CALLBACK,
+    redirectSignOut: RESOLVED_SIGN_OUT,
 
     // ✅ CRITICAL: Implicit grant configuration (response_type=token)
     // 

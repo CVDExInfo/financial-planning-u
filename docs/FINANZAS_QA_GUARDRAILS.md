@@ -8,6 +8,7 @@ This document codifies the non-negotiable invariants for the Finanzas module. Th
   - User pool ID must remain `us-east-2_FyHLtOhiY`.
   - Hosted UI domain must remain `us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com` (unless overridden by an environment variable with the same format).
   - Finanzas must continue using the Finanzas/acta-ui Cognito app client (documented client ID), not a new hard-coded client.
+  - Canonical defaults for pool ID, client ID, domain, CloudFront URL, and redirect paths are baked into `src/config/aws.ts` to satisfy CI guardrails even when env vars are absent.
 - **Redirects**
   - Sign-in redirect must end at `/finanzas/auth/callback.html` on the CloudFront distribution.
   - Sign-out redirect must return to `/finanzas/` (with `/finanzas/login` as the sign-out landing page).
@@ -86,3 +87,4 @@ These guardrails keep the Finanzas authentication flow aligned with the deployed
   - `VITE_FINZ_ENABLED=true`
   - Canonical Cognito values (domain, pool, client, redirect URLs) to avoid empty placeholders in the bundle.
 - QA output should highlight callback guardrail failures explicitly so regressions are caught before deploy.
+- The workflow only triggers on Finanzas auth/infra/API paths to avoid interfering with acta-ui or prefacturas pipelines.

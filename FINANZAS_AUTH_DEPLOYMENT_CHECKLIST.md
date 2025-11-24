@@ -31,12 +31,14 @@ Log into AWS Console → Cognito → User Pool `us-east-2_FyHLtOhiY` → App cli
 
 Verify these are set in GitHub Actions (Settings → Secrets and variables → Actions → Variables):
 
-- [ ] `VITE_API_BASE_URL` = `https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev`
+- [ ] `VITE_API_BASE_URL` = `https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev` (CI default; override with `DEV_API_URL` if needed)
 - [ ] `VITE_COGNITO_USER_POOL_ID` = `us-east-2_FyHLtOhiY`
 - [ ] `VITE_COGNITO_CLIENT_ID` = `dshos5iou44tuach7ta3ici5m`
 - [ ] `VITE_COGNITO_REGION` = `us-east-2`
 - [ ] `VITE_COGNITO_DOMAIN` = `us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com`
 - [ ] `VITE_CLOUDFRONT_URL` = `https://d7t9x3j66yd8k.cloudfront.net`
+- [ ] `VITE_COGNITO_REDIRECT_SIGNIN` = `https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html`
+- [ ] `VITE_COGNITO_REDIRECT_SIGNOUT` = `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
 
 ### 3. Local Build Test
 
@@ -64,7 +66,7 @@ npm run qa:finanzas:auth
 - [ ] Lint passes with no new errors
 - [ ] Build completes successfully
 - [ ] `callback.html` exists in `dist-finanzas/auth/`
-- [ ] `npm run qa:finanzas:auth` passes locally (see `docs/FINANZAS_QA_GUARDRAILS.md` for invariant list)
+- [ ] `npm run qa:finanzas:auth` passes locally (see `docs/FINANZAS_QA_GUARDRAILS.md` for invariant list and baked-in defaults)
 
 ## Deployment Steps
 

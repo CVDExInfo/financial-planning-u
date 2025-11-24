@@ -2,60 +2,28 @@ name: Finanzas QA Gate
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: ["main"]
     paths:
-      - "src/**"
-      - "public/finanzas/**"
+      - "src/config/aws.ts"
+      - "src/modules/finanzas/**"
       - "public/auth/**"
+      - "public/finanzas/**"
       - "infra/**"
       - "services/finanzas-api/**"
       - "scripts/qa/**"
+      - "scripts/build-guards-finanzas.sh"
       - "docs/FINANZAS_QA_GUARDRAILS.md"
       - "FINANZAS_AUTH_DEPLOYMENT_CHECKLIST.md"
-      - "README.md"
       - ".github/workflows/finanzas-qa.yml"
-  workflow_dispatch: {}
-
-defaults:
-  run:
-    shell: bash
-
-jobs:
-  finanzas-qa:
-    name: Finanzas auth/infra/API guardrails
-    runs-on: ubuntu-latest
-    env:
-      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
-      FINANZAS_BUCKET_NAME: ${{ vars.FINANZAS_BUCKET_NAME || 'ukusi-ui-finanzas-prod' }}
-      FINZ_API_STAGE_DEV: ${{ vars.FINZ_API_STAGE_DEV || 'dev' }}
-      DEV_API_URL: ${{ vars.DEV_API_URL || '' }}
-      VITE_API_BASE_URL: ${{ vars.DEV_API_URL || '' }}
-      VITE_COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
-      VITE_COGNITO_CLIENT_ID: ${{ vars.COGNITO_WEB_CLIENT }}
-      VITE_COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN }}
-      VITE_COGNITO_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
-      VITE_CLOUDFRONT_URL: ${{ vars.CF_DOMAIN && format('https://{0}', vars.CF_DOMAIN) || 'https://d7t9x3j66yd8k.cloudfront.net' }}
-      VITE_PUBLIC_BASE: "/finanzas"
-name: Finanzas QA Guardrails
-
-on:
-  pull_request:
-    branches: ["main"]
-    paths:
-      - "public/auth/callback.html"
-      - "public/finanzas/auth/callback.html"
-      - "scripts/qa/**"
-      - "scripts/build-guards-finanzas.sh"
-      - ".github/workflows/finanzas-qa.yml"
-      - "src/**"
-      - "vite.config.ts"
   workflow_dispatch: {}
 
 permissions:
   contents: read
 
 env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+  VITE_AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+  VITE_COGNITO_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
   VITE_API_BASE_URL: ${{ vars.DEV_API_URL || 'https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev' }}
   VITE_FINZ_ENABLED: "true"
   VITE_USE_MOCKS: "false"
@@ -63,16 +31,14 @@ env:
   VITE_COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN || 'us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com' }}
   VITE_COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID || 'us-east-2_FyHLtOhiY' }}
   VITE_COGNITO_CLIENT_ID: ${{ vars.COGNITO_WEB_CLIENT || 'dshos5iou44tuach7ta3ici5m' }}
-  VITE_COGNITO_REDIRECT_SIGNIN: "https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html"
-  VITE_COGNITO_REDIRECT_SIGNOUT: "https://d7t9x3j66yd8k.cloudfront.net/finanzas/"
-  VITE_COGNITO_REGION: "us-east-2"
-  VITE_AWS_REGION: "us-east-2"
-  VITE_CLOUDFRONT_URL: "https://d7t9x3j66yd8k.cloudfront.net"
+  VITE_COGNITO_REDIRECT_SIGNIN: ${{ vars.CF_DOMAIN && format('https://{0}/finanzas/auth/callback.html', vars.CF_DOMAIN) || 'https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html' }}
+  VITE_COGNITO_REDIRECT_SIGNOUT: ${{ vars.CF_DOMAIN && format('https://{0}/finanzas/', vars.CF_DOMAIN) || 'https://d7t9x3j66yd8k.cloudfront.net/finanzas/' }}
+  VITE_CLOUDFRONT_URL: ${{ vars.CF_DOMAIN && format('https://{0}', vars.CF_DOMAIN) || 'https://d7t9x3j66yd8k.cloudfront.net' }}
 
 jobs:
   finanzas-qa:
+    name: Finanzas auth/infra/API guardrails
     runs-on: ubuntu-latest
-    name: Finanzas QA
 
     steps:
       - name: Checkout repository
@@ -94,44 +60,18 @@ jobs:
         run: npm test --if-present
 
       - name: Build Finanzas bundle
+        env:
+          BUILD_TARGET: finanzas
         run: npm run build:finanzas
 
       - name: Verify Finanzas auth config guardrails
         run: npm run qa:finanzas:auth
-        run: |
-          set -e
-          if ! npm ci; then
-            npm install
-          fi
 
       - name: Guard: Verify callback guardrails
-        run: |
-          set -euo pipefail
-          ./scripts/qa/verify-finanzas-auth-config.sh
-
-      - name: Build Finanzas bundle
-        env:
-          BUILD_TARGET: finanzas
-          VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
-          VITE_FINZ_ENABLED: ${{ env.VITE_FINZ_ENABLED }}
-          VITE_USE_MOCKS: ${{ env.VITE_USE_MOCKS }}
-          VITE_PUBLIC_BASE: ${{ env.VITE_PUBLIC_BASE }}
-          VITE_COGNITO_DOMAIN: ${{ env.VITE_COGNITO_DOMAIN }}
-          VITE_COGNITO_USER_POOL_ID: ${{ env.VITE_COGNITO_USER_POOL_ID }}
-          VITE_COGNITO_CLIENT_ID: ${{ env.VITE_COGNITO_CLIENT_ID }}
-          VITE_COGNITO_REDIRECT_SIGNIN: ${{ env.VITE_COGNITO_REDIRECT_SIGNIN }}
-          VITE_COGNITO_REDIRECT_SIGNOUT: ${{ env.VITE_COGNITO_REDIRECT_SIGNOUT }}
-          VITE_COGNITO_REGION: ${{ env.VITE_COGNITO_REGION }}
-          VITE_AWS_REGION: ${{ env.VITE_AWS_REGION }}
-          VITE_CLOUDFRONT_URL: ${{ env.VITE_CLOUDFRONT_URL }}
-        run: |
-          set -euo pipefail
-          npm run build:finanzas
+        run: ./scripts/qa/verify-finanzas-auth-config.sh
 
       - name: Guard: Build artifacts
-        run: |
-          set -euo pipefail
-          ./scripts/build-guards-finanzas.sh --skip-env-check
+        run: ./scripts/build-guards-finanzas.sh --skip-env-check
 
       - name: Summary
         if: always()
@@ -141,6 +81,7 @@ jobs:
           if [ "${{ job.status }}" = "success" ]; then
             echo "- ✅ Callback guardrails satisfied" >> "$GITHUB_STEP_SUMMARY"
             echo "- ✅ Finanzas build succeeded with canonical auth env" >> "$GITHUB_STEP_SUMMARY"
+            echo "- ✅ Finanzas auth config guardrails passed" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- ❌ Review logs above for callback/build guardrail failures" >> "$GITHUB_STEP_SUMMARY"
           fi
