@@ -18,6 +18,16 @@ This application uses **AWS Cognito** for authentication with support for:
 - **[Authentication Flow Overview](./AUTHENTICATION_FLOW.md)** - Comprehensive authentication architecture
 - **[Auth Validation Guide](./docs/auth-validation.md)** - Step-by-step testing and troubleshooting
 
+## ✅ Finanzas QA gate
+
+Automated guardrails protect Finanzas authentication, CloudFront routing, and API wiring:
+
+- Run locally: `npm run qa:finanzas:auth`
+- CI workflow: `.github/workflows/finanzas-qa.yml` (runs on PRs touching Finanzas auth/infra/API files)
+- Guardrail details: `docs/FINANZAS_QA_GUARDRAILS.md`
+
+Use this gate before merging to ensure Cognito defaults, callback routing, and CloudFront rewrites stay aligned. The guardrails are scoped to Finanzas and should not be used to modify acta-ui or prefacturas.
+
 ### Quick Start - Local Development
 
 1. **Install dependencies:**
