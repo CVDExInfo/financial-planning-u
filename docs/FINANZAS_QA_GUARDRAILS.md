@@ -12,9 +12,9 @@ This document codifies the non-negotiable invariants for the Finanzas module. Th
   - Sign-in redirect must end at `/finanzas/auth/callback.html` on the CloudFront distribution.
   - Sign-out redirect must return to `/finanzas/` (with `/finanzas/login` as the sign-out landing page).
 - **Static callback page**
-  - Canonical file path: `public/finanzas/auth/callback.html`.
+  - Canonical file path: `public/auth/callback.html` (deploys to `/finanzas/auth/callback.html`).
   - The callback HTML must stay outside the React router (no SPA rewrite or router interception).
-  - A legacy alias may exist at `public/auth/callback.html`, but it must remain a mirror or redirect to the canonical file—no divergent logic.
+  - If `public/finanzas/auth/callback.html` exists at all, it must be a mirror or tiny redirect stub—never a second full implementation that would create `/finanzas/finanzas/auth/callback.html` in the build.
 - **CloudFront routing**
   - The CloudFront function responsible for Finanzas SPA rewrites must exempt `/finanzas/auth/callback.html` and continue routing other SPA paths under `/finanzas/` to `/finanzas/index.html`.
 - **Frontend auth wiring**
@@ -32,7 +32,7 @@ Use this checklist before merging PRs that touch Finanzas auth, infra, or API fi
 
 - [ ] Cognito defaults in `src/config/aws.ts` still match the documented pool ID, domain, and client ID.
 - [ ] OAuth redirects remain under `/finanzas/` with sign-in at `/finanzas/auth/callback.html` and sign-out pointing to `/finanzas/` (or `/finanzas/login`).
-- [ ] `public/finanzas/auth/callback.html` exists and matches the legacy alias (if present).
+- [ ] `public/auth/callback.html` exists and is the canonical implementation. Any alias under `public/finanzas/auth/callback.html` is either identical or a redirect stub (or absent entirely).
 - [ ] CloudFront rewrite function keeps `/finanzas/auth/callback.html` exempt from SPA rewrites.
 - [ ] Finanzas build (`npm run build:finanzas`) still succeeds.
 - [ ] Lint and available tests pass.

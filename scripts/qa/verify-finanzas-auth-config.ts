@@ -23,14 +23,14 @@ const files = {
     "infra",
     "cloudfront-function-finanzas-rewrite.js"
   ),
-  canonicalCallback: path.join(
+  canonicalCallback: path.join(repoRoot, "public", "auth", "callback.html"),
+  legacyCallback: path.join(
     repoRoot,
     "public",
     "finanzas",
     "auth",
     "callback.html"
   ),
-  legacyCallback: path.join(repoRoot, "public", "auth", "callback.html"),
 };
 
 function fail(message: string): never {
@@ -92,46 +92,43 @@ function assertCallbackSync(
       `Canonical callback HTML is missing. Expected at ${path.relative(
         repoRoot,
         canonicalPath
-      )}`
+      )}. This file must render to /finanzas/auth/callback.html without introducing /finanzas/finanzas/auth/callback.html in the build output.`
     );
   }
 
-  const canonicalContent = readFileSync(canonicalPath, "utf8");
+  const canonicalContent = readFileSync(canonicalPath, "utf8").trim();
   const extras = callbackFiles.filter(
     (filePath) => path.resolve(filePath) !== path.resolve(canonicalPath)
   );
 
   for (const extra of extras) {
     const relativePath = path.relative(repoRoot, extra);
-    const extraContent = readFileSync(extra, "utf8");
-    const normalizedCanonical = canonicalContent.trim();
-    const normalizedExtra = extraContent.trim();
+    const extraContent = readFileSync(extra, "utf8").trim();
+    const isLegacyAlias = path.resolve(extra) === path.resolve(legacyPath);
+    const redirectsToCanonical =
+      extraContent.includes(EXPECTED.callbackPath) &&
+      extraContent.toLowerCase().includes("meta") &&
+      extraContent.toLowerCase().includes("refresh");
 
-    const redirectsToCanonical = normalizedExtra.includes(
-      EXPECTED.callbackPath
+    if (isLegacyAlias) {
+      const matchesCanonical = extraContent === canonicalContent;
+      if (!(matchesCanonical || redirectsToCanonical)) {
+        fail(
+          `Legacy callback at ${relativePath} must match the canonical ${path.relative(
+            repoRoot,
+            canonicalPath
+          )} or be a minimal redirect stub to ${EXPECTED.callbackPath}. Do not ship a second canonical under public/finanzas/auth/callback.html that would deploy to /finanzas/finanzas/auth/callback.html.`
+        );
+      }
+      continue;
+    }
+
+    fail(
+      `Unexpected callback file at ${relativePath}. Consolidate to ${path.relative(
+        repoRoot,
+        canonicalPath
+      )} to avoid conflicting OAuth entrypoints.`
     );
-
-    if (
-      relativePath !== path.relative(repoRoot, legacyPath) &&
-      !redirectsToCanonical
-    ) {
-      fail(
-        `Unexpected callback file at ${relativePath}. Consolidate to ${path.relative(
-          repoRoot,
-          canonicalPath
-        )} to avoid conflicting OAuth entrypoints.`
-      );
-    }
-
-    if (
-      relativePath === path.relative(repoRoot, legacyPath) &&
-      normalizedExtra !== normalizedCanonical &&
-      !redirectsToCanonical
-    ) {
-      fail(
-        `Legacy callback at ${relativePath} diverges from canonical content. Keep it as a mirror or redirect to ${EXPECTED.callbackPath}.`
-      );
-    }
   }
 }
 

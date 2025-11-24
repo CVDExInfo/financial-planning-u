@@ -25,6 +25,7 @@ Automated guardrails protect Finanzas authentication, CloudFront routing, and AP
 - Run locally: `npm run qa:finanzas:auth`
 - CI workflow: `.github/workflows/finanzas-qa.yml` (runs on PRs touching Finanzas auth/infra/API files)
 - Guardrail details: `docs/FINANZAS_QA_GUARDRAILS.md`
+- Canonical callback source: `public/auth/callback.html` → served at `/finanzas/auth/callback.html` (avoid nested `/finanzas/finanzas/` paths)
 
 Use this gate before merging to ensure Cognito defaults, callback routing, and CloudFront rewrites stay aligned. The guardrails are scoped to Finanzas and should not be used to modify acta-ui or prefacturas.
 

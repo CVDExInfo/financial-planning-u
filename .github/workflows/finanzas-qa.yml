@@ -25,6 +25,18 @@ jobs:
   finanzas-qa:
     name: Finanzas auth/infra/API guardrails
     runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+      FINANZAS_BUCKET_NAME: ${{ vars.FINANZAS_BUCKET_NAME || 'ukusi-ui-finanzas-prod' }}
+      FINZ_API_STAGE_DEV: ${{ vars.FINZ_API_STAGE_DEV || 'dev' }}
+      DEV_API_URL: ${{ vars.DEV_API_URL || '' }}
+      VITE_API_BASE_URL: ${{ vars.DEV_API_URL || '' }}
+      VITE_COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
+      VITE_COGNITO_CLIENT_ID: ${{ vars.COGNITO_WEB_CLIENT }}
+      VITE_COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN }}
+      VITE_COGNITO_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+      VITE_CLOUDFRONT_URL: ${{ vars.CF_DOMAIN && format('https://{0}', vars.CF_DOMAIN) || 'https://d7t9x3j66yd8k.cloudfront.net' }}
+      VITE_PUBLIC_BASE: "/finanzas"
 
     steps:
       - name: Checkout repository

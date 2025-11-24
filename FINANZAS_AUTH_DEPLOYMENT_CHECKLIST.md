@@ -15,7 +15,7 @@ Log into AWS Console → Cognito → User Pool `us-east-2_FyHLtOhiY` → App cli
 - [ ] **Allowed callback URLs:**
   - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
   - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html`
-  - Source file: `public/finanzas/auth/callback.html` (canonical). Legacy alias `public/auth/callback.html` must remain a mirror/redirect only.
+  - Source file: `public/auth/callback.html` (canonical, deploys to `/finanzas/auth/callback.html`). If `public/finanzas/auth/callback.html` exists, it must be identical or a redirect stub only.
 
 - [ ] **Allowed sign-out URLs:**
   - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
@@ -54,7 +54,7 @@ npm run lint
 # Build
 npm run build:finanzas
 
-# Verify callback.html was copied (canonical source lives at public/finanzas/auth/callback.html → dist-finanzas/auth/callback.html)
+# Verify callback.html was copied (canonical source lives at public/auth/callback.html → dist-finanzas/auth/callback.html)
 ls -la dist-finanzas/auth/callback.html
 
 # Run Finanzas QA guardrail checks
