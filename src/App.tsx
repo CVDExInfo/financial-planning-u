@@ -53,6 +53,42 @@ const queryClient = new QueryClient({
 //   return undefined;
 // }
 
+const BASENAME =
+  import.meta.env.VITE_PUBLIC_BASE ||
+  import.meta.env.VITE_APP_BASENAME ||
+  "/finanzas";
+
+const normalizeBase = (base: string) =>
+  base === "/" ? "" : base.replace(/\/$/, "");
+
+function resolveLoginPaths() {
+  const normalizedBase = normalizeBase(BASENAME);
+  const isFinanzasContext =
+    normalizedBase.startsWith("/finanzas") ||
+    (typeof window !== "undefined" &&
+      window.location.pathname.startsWith("/finanzas"));
+
+  const browserLoginPath = isFinanzasContext
+    ? "/finanzas/login"
+    : `${normalizedBase || ""}/login`;
+
+  const appLoginPath = normalizedBase
+    ? browserLoginPath.replace(normalizedBase, "") || "/login"
+    : browserLoginPath;
+
+  const browserHomePath = isFinanzasContext ? "/finanzas/" : "/";
+  const appHomePath = normalizedBase
+    ? browserHomePath.replace(normalizedBase, "") || "/"
+    : browserHomePath;
+
+  return {
+    browserLoginPath,
+    appLoginPath,
+    browserHomePath,
+    appHomePath,
+  };
+}
+
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const finzEnabled =
@@ -61,6 +97,7 @@ function AppContent() {
       window.location.pathname.startsWith("/finanzas"));
   const location = useLocation();
   const showProjectContextBar = location.pathname.startsWith("/sdmt/");
+  const { appLoginPath, browserLoginPath, appHomePath } = resolveLoginPaths();
 
   // Prevent React from intercepting the static callback page that writes tokens
   if (location.pathname.includes("/auth/callback")) {
@@ -81,19 +118,25 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
+    const loginRoutes = Array.from(
+      new Set([appLoginPath, browserLoginPath].filter(Boolean))
+    );
+
     return (
       <>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {loginRoutes.map((path) => (
+            <Route key={path} path={path} element={<LoginPage />} />
+          ))}
+          <Route path="*" element={<Navigate to={browserLoginPath} replace />} />
         </Routes>
         <Toaster position="top-right" />
       </>
     );
   }
 
-  if (location.pathname === "/login") {
-    return <Navigate to="/" replace />;
+  if ([appLoginPath, browserLoginPath].includes(location.pathname)) {
+    return <Navigate to={appHomePath} replace />;
   }
 
   return (
@@ -158,14 +201,11 @@ function AppContent() {
 
 function App() {
   // Use VITE_PUBLIC_BASE as primary source, fallback to /finanzas
-  const basename =
-    import.meta.env.VITE_PUBLIC_BASE ||
-    import.meta.env.VITE_APP_BASENAME ||
-    "/finanzas";
+  const basename = normalizeBase(BASENAME);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename={basename.replace(/\/$/, "")}>
+      <BrowserRouter basename={basename.replace(/\/$/, "")}> 
         <AuthProvider>
           <AppContent />
         </AuthProvider>

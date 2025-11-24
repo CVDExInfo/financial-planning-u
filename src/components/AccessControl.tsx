@@ -25,6 +25,12 @@ export function AccessControl({
   const { isAuthenticated, isLoading } = useAuth();
   const { hasAnyRole } = usePermissions();
 
+  const isFinanzasRoute =
+    location.pathname.startsWith("/finanzas") ||
+    (typeof window !== "undefined" &&
+      window.location.pathname.startsWith("/finanzas"));
+  const loginPath = isFinanzasRoute ? "/finanzas/login" : "/login";
+
   if (isLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -34,7 +40,7 @@ export function AccessControl({
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+    return <Navigate to={loginPath} state={{ from: location.pathname }} replace />;
   }
 
   const allowed = hasAnyRole(requiredRoles);

@@ -1,6 +1,11 @@
 import { useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { UserRole } from "@/types/domain";
+import {
+  canAccessRoute as legacyCanAccessRoute,
+  canPerformAction as legacyCanPerformAction,
+  getRoleLevel,
+} from "@/lib/auth";
 
 type PermissionCheck = {
   anyRoles?: UserRole[];
@@ -13,6 +18,7 @@ type PermissionCheck = {
  */
 export function usePermissions() {
   const { groups, roles, avpDecisions } = useAuth();
+  const currentRole = roles[0] ?? "SDMT";
 
   const normalizedGroups = useMemo(
     () => groups.map((group) => group.toLowerCase()),
@@ -50,9 +56,24 @@ export function usePermissions() {
   const isReadOnly = () =>
     hasRole("EXEC_RO") || hasDecision("deny-write") || !hasDecision("allow-write");
 
+  const canAccessRoute = (route: string) =>
+    legacyCanAccessRoute(route, currentRole);
+
+  const canPerformAction = (action: string) =>
+    legacyCanPerformAction(action, currentRole);
+
+  const hasMinimumRole = (minimumRole: UserRole) =>
+    getRoleLevel(currentRole) >= getRoleLevel(minimumRole);
+
+  const canCreate = () => canPerformAction("create");
+  const canUpdate = () => canPerformAction("update");
+  const canDelete = () => canPerformAction("delete");
+  const canApprove = () => canPerformAction("approve");
+
   return {
     roles,
     groups,
+    currentRole,
     hasGroup,
     hasRole,
     hasAnyRole,
@@ -60,6 +81,13 @@ export function usePermissions() {
     hasAllDecisions,
     can,
     isReadOnly,
+    canAccessRoute,
+    canPerformAction,
+    hasMinimumRole,
+    canCreate,
+    canUpdate,
+    canDelete,
+    canApprove,
   };
 }
 
