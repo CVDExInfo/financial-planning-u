@@ -1,4 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { RefreshCcw, Split } from "lucide-react";
+import DataContainer from "@/components/DataContainer";
+import PageHeader from "@/components/PageHeader";
 import finanzasClient, { AllocationRule } from "@/api/finanzasClient";
 
 export default function AllocationRulesPreview() {
@@ -6,83 +12,102 @@ export default function AllocationRulesPreview() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        setLoading(true);
-        const data = await finanzasClient.getAllocationRules();
-        if (!cancelled) setRules(data);
-      } catch (e: any) {
-        console.error(e);
-        if (!cancelled)
-          setError(e?.message || "Failed loading allocation rules");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+  const loadRules = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await finanzasClient.getAllocationRules();
+      setRules(data);
+    } catch (e: any) {
+      console.error(e);
+      setError(
+        e?.message ||
+          "No se pudieron cargar las reglas de asignación. Verifica la API de Finanzas o tus permisos."
+      );
+    } finally {
+      setLoading(false);
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-  if (loading)
-    return (
-      <div className="p-6 text-sm text-muted-foreground">
-        Loading allocation rules...
-      </div>
-    );
-  if (error)
-    return <div className="p-6 text-sm text-destructive">Error: {error}</div>;
+  useEffect(() => {
+    loadRules();
+  }, [loadRules]);
 
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-xl font-semibold">Allocation Rules Preview</h1>
-      <p className="text-sm text-muted-foreground">
-        MVP sample rules returned by API. Driver-based cost distribution
-        strategies.
-      </p>
-      <div className="space-y-3">
-        {rules.map((r) => (
-          <div key={r.rule_id} className="border rounded-md p-4 bg-card/50">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="font-medium">{r.rule_id}</h2>
-                <p className="text-xs text-muted-foreground">
-                  Linea: {r.linea_codigo} • Driver: {r.driver}
-                </p>
-              </div>
-              <span
-                className={`text-xs px-2 py-1 rounded ${
-                  r.active
-                    ? "bg-green-600 text-white"
-                    : "bg-gray-400 text-white"
-                }`}
-              >
-                {r.active ? "ACTIVE" : "INACTIVE"}
-              </span>
-            </div>
-            {r.split && (
-              <ul className="mt-2 text-xs list-disc ml-4">
-                {r.split.map((s, i) => (
-                  <li key={i}>
-                    → {s.to.project_id || s.to.cost_center} : {s.pct}%
-                  </li>
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <PageHeader
+        title="Reglas de Asignación"
+        description="Vista previa MVP de reglas devueltas por la API. Muestra drivers percentuales, montos fijos y splits, con estados claros de carga y error."
+        badge="Finanzas"
+        icon={<Split className="h-5 w-5 text-white" />}
+        actions={
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={loadRules}
+            disabled={loading}
+          >
+            <RefreshCcw className="h-4 w-4" />
+            {loading ? "Actualizando" : "Refrescar"}
+          </Button>
+        }
+      />
+
+      <Card className="border-border/80 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Vista previa</CardTitle>
+          <CardDescription>
+            Las reglas muestran cómo se distribuyen los costos por driver. Cada tarjeta indica si la regla está activa e incluye los splits configurados.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DataContainer
+            data={rules}
+            isLoading={loading}
+            error={error}
+            onRetry={loadRules}
+            loadingType="grid"
+            emptyTitle="No hay reglas configuradas"
+            emptyMessage="Cuando el backend exponga reglas, aparecerán aquí."
+          >
+            {(items) => (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {(items as AllocationRule[]).map((r) => (
+                  <Card key={r.rule_id} className="border-border/80">
+                    <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+                      <div className="space-y-1">
+                        <CardTitle className="text-base font-semibold">{r.rule_id}</CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                          Línea: {r.linea_codigo} • Driver: {r.driver}
+                        </p>
+                      </div>
+                      <Badge variant={r.active ? "default" : "secondary"}>
+                        {r.active ? "Activa" : "Inactiva"}
+                      </Badge>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                      {r.split && (
+                        <ul className="space-y-1 text-xs text-muted-foreground">
+                          {r.split.map((s, i) => (
+                            <li key={i}>
+                              → {s.to.project_id || s.to.cost_center} : {s.pct}%
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {r.fixed_amount && (
+                        <p className="text-xs text-muted-foreground">
+                          Monto fijo: ${r.fixed_amount.toLocaleString()}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
                 ))}
-              </ul>
+              </div>
             )}
-            {r.fixed_amount && (
-              <p className="mt-2 text-xs">
-                Fixed Amount: ${r.fixed_amount.toLocaleString()}
-              </p>
-            )}
-          </div>
-        ))}
-        {rules.length === 0 && (
-          <div className="text-sm text-muted-foreground">No rules found.</div>
-        )}
-      </div>
+          </DataContainer>
+        </CardContent>
+      </Card>
     </div>
   );
 }
