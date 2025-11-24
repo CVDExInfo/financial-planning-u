@@ -19,7 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import PageHeader from "@/components/PageHeader";
+import { Building2, Plus } from "lucide-react";
 
 export default function ProvidersManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -98,28 +100,36 @@ export default function ProvidersManager() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-semibold">Gestión de Proveedores</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Registrar y administrar proveedores y vendors
-          </p>
-        </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-          <Plus size={16} />
-          Agregar Proveedor
-        </Button>
-      </div>
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <PageHeader
+        title="Gestión de Proveedores"
+        description="Registra y administra proveedores con un layout consistente. Los mensajes de ayuda evitan pantallas en blanco."
+        badge="Finanzas"
+        icon={<Building2 className="h-5 w-5 text-white" />}
+        actions={
+          <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+            <Plus size={16} />
+            Agregar Proveedor
+          </Button>
+        }
+      />
 
-      <div className="rounded-lg border border-border p-8 text-center bg-card">
-        <p className="text-muted-foreground mb-4">
-          Haz clic en "Agregar Proveedor" para registrar un nuevo proveedor en el sistema.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Los proveedores registrados estarán disponibles para asociar con movimientos financieros.
-        </p>
-      </div>
+      <Card className="border-border/80 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Proveedores</CardTitle>
+          <CardDescription>
+            Los proveedores registrados estarán disponibles para asociar con movimientos financieros.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center space-y-3">
+          <p className="text-muted-foreground">
+            Haz clic en "Agregar Proveedor" para registrar un nuevo proveedor en el sistema.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Incluye RFC/Tax ID, tipo de proveedor y datos de contacto opcionales.
+          </p>
+        </CardContent>
+      </Card>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl">

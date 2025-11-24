@@ -57,6 +57,8 @@ import {
   getAvailableRoles,
   canAccessRoute,
   canPerformAction,
+  getRoutesForRole,
+  getRolePermissionKeys,
 } from "@/lib/auth";
 import {
   decodeJWT,
@@ -85,6 +87,7 @@ interface AuthContextType {
   currentRole: UserRole;
   availableRoles: UserRole[];
   setRole: (role: UserRole) => void;
+  routeConfigMissing: boolean;
 
   // Permission checking
   canAccessRoute: (route: string) => boolean;
@@ -109,6 +112,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [availableRoles, setAvailableRoles] = useState<UserRole[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [routeConfigMissing, setRouteConfigMissing] = useState(false);
+  const [groupClaims, setGroupClaims] = useState<string[]>([]);
 
   // Persist current role selection
   const [currentRole, setCurrentRole] = useLocalStorage<UserRole>(
@@ -137,6 +142,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
   }, [user, currentRole, setCurrentRole]);
+
+  useEffect(() => {
+    const effectiveRole = currentRole || "PMO";
+    const { routes, hasConfig } = getRoutesForRole(effectiveRole);
+
+    if (!hasConfig) {
+      setRouteConfigMissing(true);
+      console.error("[Router] No route configuration found for role", {
+        role: effectiveRole,
+        user,
+        availableRoles,
+        groups: groupClaims,
+        availableConfigs: getRolePermissionKeys(),
+      });
+    } else {
+      setRouteConfigMissing(false);
+      if (import.meta.env.DEV) {
+        console.debug("[Router] Active role routes", {
+          role: effectiveRole,
+          routes,
+        });
+      }
+    }
+  }, [availableRoles, currentRole, groupClaims, user]);
 
   /**
    * Cognito login via USER_PASSWORD_AUTH flow
@@ -342,6 +371,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
             setUser(authenticatedUser);
             setAvailableRoles(authenticatedUser.roles);
+            setGroupClaims(groups);
+            if (import.meta.env.DEV) {
+              console.debug("[Auth] Effective role", {
+                user: authenticatedUser,
+                groups,
+                mappedRoles,
+                defaultRole,
+              });
+            }
             setIsLoading(false);
             return; // ← Successfully authenticated with JWT
           } else {
@@ -368,6 +406,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // 2. No JWT → not authenticated, show LoginPage
       setUser(null);
       setAvailableRoles([]);
+      setGroupClaims([]);
       console.log("[Auth] Not authenticated; show LoginPage");
     } catch (error) {
       console.error("[Auth] Initialization error:", error);
@@ -399,6 +438,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setCurrentRole("PMO");
     setAvailableRoles([]);
     setError(null);
+    setGroupClaims([]);
 
     toast.success("Signed out successfully");
 
@@ -456,6 +496,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     currentRole: currentRole || "PMO",
     availableRoles,
     setRole,
+    routeConfigMissing,
     canAccessRoute: checkRouteAccess,
     canPerformAction: checkActionPermission,
     signIn,

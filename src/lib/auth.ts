@@ -61,6 +61,36 @@ const ROLE_PERMISSIONS = {
   },
 };
 
+export function getRolePermissionKeys(): UserRole[] {
+  return Object.keys(ROLE_PERMISSIONS) as UserRole[];
+}
+
+export function getRoutesForRole(role: UserRole) {
+  const config = ROLE_PERMISSIONS[role];
+  if (!config || !Array.isArray(config.routes)) {
+    console.error("[Router] No routes configured for role", {
+      role,
+      availableRoles: getRolePermissionKeys(),
+      config,
+    });
+    return { routes: [], hasConfig: false } as const;
+  }
+  return { routes: config.routes, hasConfig: true } as const;
+}
+
+export function getActionsForRole(role: UserRole) {
+  const config = ROLE_PERMISSIONS[role];
+  if (!config || !Array.isArray(config.actions)) {
+    console.error("[Auth] No actions configured for role", {
+      role,
+      availableRoles: getRolePermissionKeys(),
+      config,
+    });
+    return { actions: [], hasConfig: false } as const;
+  }
+  return { actions: config.actions, hasConfig: true } as const;
+}
+
 /**
  * Default role assignments based on user attributes
  * In a real system, this would come from a user management API
@@ -144,9 +174,9 @@ export function getAvailableRoles(user: UserInfo): UserRole[] {
  * Check if a user can access a specific route with their current role
  */
 export function canAccessRoute(route: string, role: UserRole): boolean {
-  const permissions = ROLE_PERMISSIONS[role];
+  const { routes } = getRoutesForRole(role);
 
-  return permissions.routes.some((pattern) => {
+  return routes.some((pattern) => {
     // Convert glob pattern to regex
     const regex = new RegExp(
       pattern.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*")
@@ -159,8 +189,8 @@ export function canAccessRoute(route: string, role: UserRole): boolean {
  * Check if a user can perform a specific action
  */
 export function canPerformAction(action: string, role: UserRole): boolean {
-  const permissions = ROLE_PERMISSIONS[role];
-  return permissions.actions.includes(action);
+  const { actions } = getActionsForRole(role);
+  return actions.includes(action);
 }
 
 /**
@@ -188,7 +218,7 @@ export function getRoleInfo(role: UserRole) {
   return {
     role,
     label: role.replace("_", " "),
-    description: permissions.description,
+    description: permissions?.description || "",
     level: getRoleLevel(role),
   };
 }

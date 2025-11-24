@@ -17,7 +17,13 @@ export function AccessControl({
   requiredRoles = []
 }: AccessControlProps) {
   const location = useLocation();
-  const { currentRole, canAccessRoute, isLoading, isAuthenticated } = useAuth();
+  const {
+    currentRole,
+    canAccessRoute,
+    isLoading,
+    isAuthenticated,
+    routeConfigMissing,
+  } = useAuth();
   const [shouldRedirect, setShouldRedirect] = useState(false);
 
   useEffect(() => {
@@ -52,6 +58,21 @@ export function AccessControl({
 
   if (!isAuthenticated) {
     return <Navigate to="/finanzas/" replace />;
+  }
+
+  if (routeConfigMissing) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 mt-12 text-center">
+        <Card>
+          <CardHeader>
+            <CardTitle>No route configuration found for your role</CardTitle>
+            <CardDescription>
+              Please contact the administrator so we can provision access for your account.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
   }
 
   if (shouldRedirect) {
