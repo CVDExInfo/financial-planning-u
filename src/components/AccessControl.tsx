@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react';
-import { useLocation, Navigate } from 'react-router-dom';
-import { UserRole } from '@/types/domain';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ShieldAlert } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { getDefaultRouteForRole } from '@/lib/auth';
+import { Navigate, useLocation } from "react-router-dom";
+import { UserRole } from "@/types/domain";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ShieldAlert } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface AccessControlProps {
   children: React.ReactNode;
@@ -14,56 +19,33 @@ interface AccessControlProps {
 
 export function AccessControl({
   children,
-  requiredRoles = []
+  requiredRoles = [],
 }: AccessControlProps) {
   const location = useLocation();
-  const { currentRole, canAccessRoute, isLoading, isAuthenticated } = useAuth();
-  const [shouldRedirect, setShouldRedirect] = useState(false);
+  const { isAuthenticated, isLoading } = useAuth();
+  const { hasAnyRole } = usePermissions();
 
-  useEffect(() => {
-    if (isLoading) {
-      setShouldRedirect(false);
-      return;
-    }
-
-    const checkAccess = (route: string, role: UserRole): boolean => {
-      if (requiredRoles.length > 0) {
-        return requiredRoles.includes(role);
-      }
-
-      // Use the auth system's access control
-      return canAccessRoute(route);
-    };
-
-    // Check if current role has access
-    const hasAccess = checkAccess(location.pathname, currentRole);
-    if (!hasAccess) {
-      // Add a small delay to prevent flash of error message
-      const timer = setTimeout(() => setShouldRedirect(true), 100);
-      return () => clearTimeout(timer);
-    } else {
-      setShouldRedirect(false);
-    }
-  }, [location.pathname, currentRole, requiredRoles, canAccessRoute, isLoading]);
+  const isFinanzasRoute =
+    location.pathname.startsWith("/finanzas") ||
+    (typeof window !== "undefined" &&
+      window.location.pathname.startsWith("/finanzas"));
+  const loginPath = isFinanzasRoute ? "/finanzas/login" : "/login";
 
   if (isLoading) {
-    return null;
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-muted-foreground">Checking access…</div>
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/finanzas/" replace />;
+    return <Navigate to={loginPath} state={{ from: location.pathname }} replace />;
   }
 
-  if (shouldRedirect) {
-    const defaultRoute = getDefaultRouteForRole(currentRole);
-    return <Navigate to={defaultRoute} replace />;
-  }
+  const allowed = hasAnyRole(requiredRoles);
 
-  const hasAccess = requiredRoles.length > 0 
-    ? requiredRoles.includes(currentRole)
-    : canAccessRoute(location.pathname);
-
-  if (!hasAccess) {
+  if (!allowed) {
     return (
       <div className="max-w-2xl mx-auto p-6 mt-12">
         <Card>
@@ -73,15 +55,15 @@ export function AccessControl({
             </div>
             <CardTitle>Access Restricted</CardTitle>
             <CardDescription>
-              You don't have permission to view this page with your current role.
+              You don't have permission to view this page.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Alert>
               <AlertDescription>
-                Current role: <strong>{currentRole}</strong>
+                Required roles: {requiredRoles.join(", ") || "Not specified"}
                 <br />
-                Please contact your administrator or switch to an appropriate role to access this content.
+                Please contact your administrator if you believe this is a mistake.
               </AlertDescription>
             </Alert>
           </CardContent>

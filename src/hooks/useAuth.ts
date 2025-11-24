@@ -8,13 +8,12 @@
  * Using it outside of AuthProvider will throw an error.
  * 
  * Returns the full AuthContext including:
- * - Authentication state (user, isAuthenticated, isLoading, error)
- * - Role management (currentRole, availableRoles, setRole)
- * - Permission checking (canAccessRoute, canPerformAction)
- * - Authentication actions (signIn, signOut, loginWithCognito)
+ * - Authentication state (user, isAuthenticated, isLoading)
+ * - Cognito-derived groups and roles
+ * - Authentication actions (login, logout)
  * 
  * @example
- *   const { user, isAuthenticated, loginWithCognito, signOut } = useAuth();
+ *   const { user, isAuthenticated, login, logout } = useAuth();
  *   
  *   if (!isAuthenticated) {
  *     return <Login />;
@@ -25,8 +24,8 @@
  * @throws {Error} If used outside of AuthProvider
  * @see AuthProvider for the context provider
  */
-import { useContext } from 'react';
-import { AuthContext } from '@/components/AuthProvider';
+import { useContext } from "react";
+import { AuthContext } from "@/components/AuthProvider";
 
 export function useAuth() {
   const context = useContext(AuthContext);
@@ -47,24 +46,4 @@ export function useAuth() {
 export function useCurrentUser() {
   const { user } = useAuth();
   return user;
-}
-
-/**
- * useCurrentRole - Convenience hook for accessing role management
- * 
- * @returns Object with currentRole, setRole, and availableRoles
- */
-export function useCurrentRole() {
-  const { currentRole, setRole, availableRoles } = useAuth();
-  return { currentRole, setRole, availableRoles };
-}
-
-/**
- * usePermissions - Convenience hook for accessing permission checks
- * 
- * @returns Object with canAccessRoute and canPerformAction functions
- */
-export function usePermissions() {
-  const { canAccessRoute, canPerformAction } = useAuth();
-  return { canAccessRoute, canPerformAction };
 }
