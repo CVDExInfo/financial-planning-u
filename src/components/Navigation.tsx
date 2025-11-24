@@ -36,12 +36,12 @@ import {
   Shield,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import usePermissions from "@/hooks/usePermissions";
 import {
   getDefaultRouteForRole,
   getRoleInfo,
   canAccessFinanzasModule,
   canAccessPMOModule,
-  canAccessRoute,
 } from "@/lib/auth";
 import { toast } from "sonner";
 import { Logo } from "@/components/Logo";
@@ -61,7 +61,11 @@ export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, roles } = useAuth();
-  const currentRole = useMemo(() => roles[0] ?? "SDMT", [roles]);
+  const { currentRole, canAccessRoute: roleCanAccessRoute } = usePermissions();
+  const memoizedRole = useMemo(() => currentRole ?? roles[0] ?? "SDMT", [
+    currentRole,
+    roles,
+  ]);
   const [isRolesDialogOpen, setIsRolesDialogOpen] = useState(false);
   const finzEnabled =
     import.meta.env.VITE_FINZ_ENABLED !== "false" ||
@@ -78,9 +82,9 @@ export function Navigation() {
       return; // No redirects in Finanzas mode
     }
 
-    if (!canAccessRoute(location.pathname, currentRole)) {
+    if (!roleCanAccessRoute(location.pathname)) {
       // Redirect to appropriate module based on role
-      const defaultRoute = getDefaultRouteForRole(currentRole);
+      const defaultRoute = getDefaultRouteForRole(memoizedRole);
       navigate(defaultRoute);
 
       toast.info("Redirected to accessible page", {
@@ -88,7 +92,7 @@ export function Navigation() {
           "You were redirected to a page accessible with your current role",
       });
     }
-  }, [currentRole, location.pathname, navigate, canAccessRoute]);
+  }, [memoizedRole, location.pathname, navigate, finzEnabled, roleCanAccessRoute]);
 
   const handleSignOut = () => {
     logout();
@@ -142,16 +146,33 @@ export function Navigation() {
   const getVisibleModuleNavItems = () => {
     const path = location.pathname;
     const userRoles = roles;
+    const effectiveRole = memoizedRole;
+    const isVendor = effectiveRole === "VENDOR";
 
     // Check module access based on Cognito groups or Finanzas-only build
     const hasFinanzasAccess = finzEnabled || canAccessFinanzasModule(userRoles);
     const hasPMOAccess = canAccessPMOModule(userRoles);
+    const hasFinanzasNavAccess = hasFinanzasAccess || isVendor;
+
+    const filteredPMOItems = moduleNavItems.PMO.filter((item) =>
+      roleCanAccessRoute(item.path)
+    );
+    const filteredSDMTItems = moduleNavItems.SDMT.filter((item) =>
+      roleCanAccessRoute(item.path)
+    );
+    const filteredFinzItems = moduleNavItems.FINZ.filter((item) =>
+      roleCanAccessRoute(item.path)
+    );
 
     // Direct module path detection
-    if (path.startsWith("/pmo/") && canAccessRoute(path) && hasPMOAccess)
-      return moduleNavItems.PMO;
-    if (path.startsWith("/sdmt/") && canAccessRoute(path) && hasFinanzasAccess)
-      return moduleNavItems.SDMT;
+    if (path.startsWith("/pmo/") && roleCanAccessRoute(path) && hasPMOAccess)
+      return filteredPMOItems;
+    if (
+      path.startsWith("/sdmt/") &&
+      roleCanAccessRoute(path) &&
+      hasFinanzasNavAccess
+    )
+      return filteredSDMTItems;
     // Finanzas routes live at /catalog/* and /rules inside basename /finanzas
     // Also show FINZ nav on home page (/) when Finanzas is the home module
     if (
@@ -159,24 +180,24 @@ export function Navigation() {
         path.startsWith("/catalog/") ||
         path === "/rules" ||
         path.startsWith("/rules/")) &&
-      moduleNavItems.FINZ.length &&
-      hasFinanzasAccess
+      filteredFinzItems.length &&
+      hasFinanzasNavAccess
     ) {
-      return moduleNavItems.FINZ;
+      return filteredFinzItems;
     }
     // Fallback to role default set + append FINZ if feature enabled for visibility
     // Only show modules the user has access to based on their Cognito groups
     let items: NavigationItem[] = [];
 
-    if (currentRole === "PMO" && hasPMOAccess) {
-      items = [...moduleNavItems.PMO];
-    } else if (hasFinanzasAccess) {
-      items = [...moduleNavItems.SDMT];
+    if (effectiveRole === "PMO" && hasPMOAccess) {
+      items = [...filteredPMOItems];
+    } else if (hasFinanzasNavAccess) {
+      items = [...filteredSDMTItems];
     }
 
     // Add Finanzas routes if user has access
-    if (hasFinanzasAccess) {
-      items = [...items, ...moduleNavItems.FINZ];
+    if (hasFinanzasNavAccess && filteredFinzItems.length) {
+      items = [...items, ...filteredFinzItems];
     }
 
     return items;
@@ -206,7 +227,7 @@ export function Navigation() {
             <TooltipProvider>
               <div className="hidden md:flex items-center space-x-1">
                 {getVisibleModuleNavItems()
-                  ?.filter((item) => canAccessRoute(item.path))
+                  ?.filter((item) => roleCanAccessRoute(item.path))
                   .map((item) => {
                     const Icon = item.icon;
                     const isActive = location.pathname === item.path;
