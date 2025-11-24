@@ -70,6 +70,29 @@ fi
 echo ""
 
 # ============================================================
+# Guard 1b: Auth Callback Placement
+# ============================================================
+echo -e "${BLUE}🔐 Guard 1b: Auth Callback Placement${NC}"
+echo "────────────────────────────────────────────────────────────────"
+
+if [ -f "${BUILD_DIR}/auth/callback.html" ]; then
+  echo -e "${GREEN}✅ PASS: dist-finanzas/auth/callback.html present${NC}"
+else
+  echo -e "${RED}❌ FAILED: dist-finanzas/auth/callback.html missing (source: public/auth/callback.html)${NC}"
+  ((FAILED_CHECKS++))
+fi
+
+if [ -f "${BUILD_DIR}/finanzas/auth/callback.html" ]; then
+  echo -e "${RED}❌ FAILED: Unexpected nested callback at dist-finanzas/finanzas/auth/callback.html${NC}"
+  echo "   This would deploy to /finanzas/finanzas/auth/callback.html and break the Hosted UI redirect"
+  ((FAILED_CHECKS++))
+else
+  echo -e "${GREEN}✅ PASS: No nested dist-finanzas/finanzas/auth/callback.html artifact${NC}"
+fi
+
+echo ""
+
+# ============================================================
 # Guard 2: Base Path Verification (/finanzas/)
 # ============================================================
 echo -e "${BLUE}📍 Guard 2: Base Path Verification${NC}"
