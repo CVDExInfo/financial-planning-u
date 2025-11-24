@@ -5,6 +5,7 @@
  */
 
 import { API_BASE, HAS_API_BASE } from "@/config/env";
+import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import { logger } from "@/utils/logger";
 
 export interface HttpRequestInit extends RequestInit {
@@ -174,6 +175,10 @@ export class HttpClient {
           const isSuccess = validateStatus(response.status);
 
           if (!isSuccess) {
+            if (response.status === 401 || response.status === 403) {
+              handleAuthErrorStatus(response.status);
+            }
+
             logger.warn(
               `HttpClient: ${response.status} ${response.statusText} from ${endpoint}`
             );
@@ -282,34 +287,9 @@ export class HttpClient {
     };
 
     // Add auth token if available
-    const token = this.getAuthToken();
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
+    Object.assign(headers, buildAuthHeader());
 
     return headers;
-  }
-
-  /**
-   * Get auth token from localStorage
-   */
-  private getAuthToken(): string | null {
-    try {
-      // Try unified key first (used by AuthProvider)
-      const token =
-        localStorage.getItem("cv.jwt") || localStorage.getItem("finz_jwt");
-      if (token) return token;
-
-      // Fallback to old "auth" key structure for backward compatibility
-      const authData = localStorage.getItem("auth");
-      if (!authData) return null;
-
-      const parsed = JSON.parse(authData);
-      return parsed.idToken || null;
-    } catch (error) {
-      logger.warn("Failed to get auth token:", error);
-      return null;
-    }
   }
 
   /**

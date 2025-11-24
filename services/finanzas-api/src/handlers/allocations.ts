@@ -5,7 +5,7 @@ import { bad, ok } from "../lib/http";
 // TODO: Implement bulk allocations update
 // R1 requirement: PUT /projects/{id}/allocations:bulk
 export const handler = async (event: APIGatewayProxyEventV2) => {
-  ensureSDT(event);
+  await ensureSDT(event);
 
   const method = event.requestContext.http.method;
 

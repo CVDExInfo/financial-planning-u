@@ -17,7 +17,7 @@ const ALLOWED_MODULES = new Set([
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
-    ensureCanWrite(event as unknown as Parameters<typeof ensureCanWrite>[0]);
+    await ensureCanWrite(event as unknown as Parameters<typeof ensureCanWrite>[0]);
 
     if (!DOCS_BUCKET) {
       throw new Error("DOCS_BUCKET environment variable is not configured");
@@ -87,7 +87,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       invoiceNumber,
       contentType,
       originalName,
-      uploader: getUserEmail(
+      uploader: await getUserEmail(
         event as unknown as Parameters<typeof getUserEmail>[0]
       ),
       created_at: createdAt,

@@ -84,6 +84,12 @@ Globals:
           Ref: DocsBucketName
         ALLOWED_ORIGIN:
           Fn::Sub: https://${CloudFrontDomain}
+        COGNITO_USER_POOL_ID:
+          Ref: CognitoUserPoolId
+        COGNITO_CLIENT_ID:
+          Ref: CognitoUserPoolClientId
+        COGNITO_ISSUER:
+          Fn::Sub: https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
 Resources:
   ApiAccessLogs:
     Type: AWS::Logs::LogGroup

@@ -1,11 +1,9 @@
 import { z } from "zod";
 import { API_BASE, HAS_API_BASE } from "@/config/env";
+import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 
 // Env config
 const BASE = API_BASE;
-// Optional: Dev/test mode token (set at build time via VITE_API_JWT_TOKEN)
-// For production, tokens are obtained via OAuth
-const STATIC_TEST_TOKEN = import.meta.env.VITE_API_JWT_TOKEN || "";
 
 if (!HAS_API_BASE) {
   // Non-fatal in dev; API client will throw on call
@@ -63,19 +61,6 @@ export const AllocationRuleListSchema = z.object({
 
 export type AllocationRule = z.infer<typeof AllocationRuleSchema>;
 
-function getAuthHeader(): Record<string, string> {
-  // Priority: 1) Unified cv.jwt, 2) Legacy finz_jwt, 3) Static test token from env (for dev/CI)
-  const token =
-    localStorage.getItem("cv.jwt") ||
-    localStorage.getItem("finz_jwt") ||
-    localStorage.getItem("idToken") ||
-    localStorage.getItem("cognitoIdToken") ||
-    sessionStorage.getItem("idToken") ||
-    sessionStorage.getItem("cognitoIdToken") ||
-    STATIC_TEST_TOKEN;
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   if (!HAS_API_BASE) {
     throw new Error("Finanzas API base URL is not configured");
@@ -85,7 +70,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers || {}),
-      ...getAuthHeader(),
+      ...buildAuthHeader(),
     },
     credentials: "omit",
     mode: "cors",
@@ -95,13 +80,13 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
     if (res.status === 501) {
       throw new Error("This feature is not yet implemented on the server (501). The backend handler needs to be completed.");
     }
-    
+
     // Special handling for 401/403 authorization errors
     if (res.status === 401) {
-      throw new Error("You must be signed in to perform this action. Please log in with your Finance credentials.");
+      handleAuthErrorStatus(res.status);
     }
     if (res.status === 403) {
-      throw new Error("You must be signed in and have the Finance role to perform this action. Please check your permissions.");
+      handleAuthErrorStatus(res.status);
     }
     
     const text = await res.text().catch(() => "");

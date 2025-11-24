@@ -2,6 +2,7 @@
 // Finanzas API client — minimal, typed where stable, resilient where backends are still converging.
 
 import { API_BASE, HAS_API_BASE } from "@/config/env";
+import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import type { InvoiceDoc } from "@/types/domain";
 
 type Json = Record<string, unknown>;
@@ -18,22 +19,11 @@ function requireApiBase(): string {
   return API_BASE;
 }
 
-function authHeader(): Record<string, string> {
-  // Adjust if you keep tokens elsewhere (AuthProvider adds to storage today).
-  const token =
-    localStorage.getItem("cv.jwt") ||
-    localStorage.getItem("finz_jwt") ||
-    localStorage.getItem("idToken") ||
-    localStorage.getItem("cognitoIdToken") ||
-    sessionStorage.getItem("idToken") ||
-    sessionStorage.getItem("cognitoIdToken") ||
-    "";
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   if (!res.ok) {
+    handleAuthErrorStatus(res.status);
+
     const body = await res.text().catch(() => "");
     // Helpful signal for CORS/preflight troubles
     if (res.status === 0 || /TypeError: Failed to fetch/.test(body)) {
@@ -130,7 +120,7 @@ async function presignUpload(_: {
   };
   return fetchJson<PresignResponse>(`${base}/uploads/docs`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader() },
+    headers: { "Content-Type": "application/json", ...buildAuthHeader() },
     body: JSON.stringify(body),
   });
 }
@@ -190,7 +180,7 @@ export async function uploadInvoice(
 
   return fetchJson<InvoiceDTO>(`${base}/prefacturas`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader() },
+    headers: { "Content-Type": "application/json", ...buildAuthHeader() },
     body: JSON.stringify(body),
   });
 }
@@ -254,7 +244,7 @@ export async function updateInvoiceStatus(
     )}/invoices/${encodeURIComponent(invoiceId)}/status`,
     {
       method: "PUT",
-      headers: { "Content-Type": "application/json", ...authHeader() },
+      headers: { "Content-Type": "application/json", ...buildAuthHeader() },
       body: JSON.stringify(body),
     }
   );
@@ -272,7 +262,7 @@ export async function addProjectRubro<T = Json>(
   payload: AddProjectRubroInput
 ): Promise<T> {
   const base = requireApiBase();
-  const headers = { "Content-Type": "application/json", ...authHeader() };
+  const headers = { "Content-Type": "application/json", ...buildAuthHeader() };
 
   const primary = `${base}/projects/${encodeURIComponent(
     projectId
@@ -313,7 +303,7 @@ export async function getProjectRubros(
   if (!projectId) throw new Error("projectId is required");
 
   const base = requireApiBase();
-  const headers = { ...authHeader() };
+  const headers = { ...buildAuthHeader() };
 
   // Prefer the newer /line-items endpoint; fall back to /rubros if needed
   const primaryUrl = `${base}/projects/${encodeURIComponent(
@@ -352,7 +342,7 @@ export async function getProjects(): Promise<Json> {
   const base = requireApiBase();
   return fetchJson<Json>(`${base}/projects?limit=50`, {
     method: "GET",
-    headers: authHeader(),
+    headers: buildAuthHeader(),
   });
 }
 
@@ -365,7 +355,7 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
   const params = new URLSearchParams({ projectId });
   const response = await fetchJson<{ data?: any[] }>(
     `${base}/prefacturas?${params.toString()}`,
-    { method: "GET", headers: authHeader() }
+    { method: "GET", headers: buildAuthHeader() }
   );
 
   const rows = Array.isArray(response?.data) ? response.data : [];
