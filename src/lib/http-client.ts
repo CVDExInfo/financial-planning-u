@@ -176,7 +176,38 @@ export class HttpClient {
 
           if (!isSuccess) {
             if (response.status === 401 || response.status === 403) {
-              handleAuthErrorStatus(response.status);
+              try {
+                handleAuthErrorStatus(response.status);
+              } catch (authError) {
+                // Preserve status information for downstream error handling
+                const message =
+                  authError instanceof Error
+                    ? authError.message
+                    : `HTTP ${response.status}`;
+                if (attempt === maxRetries) {
+                  throw new HttpError(
+                    response.status,
+                    response.statusText,
+                    responseText,
+                    message
+                  );
+                }
+                lastError =
+                  authError instanceof Error
+                    ? new HttpError(
+                        response.status,
+                        response.statusText,
+                        responseText,
+                        message
+                      )
+                    : new HttpError(
+                        response.status,
+                        response.statusText,
+                        responseText,
+                        message
+                      );
+                continue;
+              }
             }
 
             logger.warn(
