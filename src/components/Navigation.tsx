@@ -28,6 +28,7 @@ import {
   BarChart3,
   LogOut,
   User,
+  UserRound,
   BookOpen,
   FolderKanban,
   FileCheck,
@@ -41,7 +42,6 @@ import usePermissions from "@/hooks/usePermissions";
 import {
   getDefaultRouteForRole,
   getRoleInfo,
-  canAccessRoute,
   normalizeAppPath,
 } from "@/lib/auth";
 import { toast } from "sonner";
@@ -82,7 +82,6 @@ export function Navigation() {
 
   const normalizedPath = normalizeAppPath(location.pathname);
   const userDisplayName = user?.name || user?.email || "User";
-  const userInitial = (userDisplayName?.[0] || "U").toUpperCase();
 
   // Route guard: if current path is not allowed for the active role, redirect
   // Skip this in Finanzas-only mode to avoid fighting the /finanzas/* SPA routing
@@ -150,12 +149,12 @@ export function Navigation() {
       items:
         finzEnabled
           ? [
-              { path: "/projects", label: "Proyectos", icon: FolderKanban },
               {
                 path: "/catalog/rubros",
                 label: "Catálogo de Rubros",
                 icon: BookOpen,
               },
+              { path: "/projects", label: "Proyectos", icon: FolderKanban },
               { path: "/rules", label: "Rules", icon: BookOpen },
               {
                 path: "/adjustments",
@@ -172,7 +171,7 @@ export function Navigation() {
     .map((section) => ({
       ...section,
       items: section.items.filter((item) =>
-        canAccessRoute(item.path, activeRole as typeof activeRole),
+        roleCanAccessRoute(normalizeAppPath(item.path)),
       ),
     }))
     .filter((section) => section.items.length > 0);
@@ -280,103 +279,111 @@ export function Navigation() {
               )}
 
               {user && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="h-10 px-3 flex items-center gap-2 border-border"
-                    >
-                      <div className="h-8 w-8 rounded-full bg-primary/10 text-primary font-semibold flex items-center justify-center">
-                        {userInitial}
+                <TooltipProvider>
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="secondary"
+                            className="h-11 px-3 flex items-center gap-3 border-border shadow-sm"
+                          >
+                            <div className="h-10 w-10 rounded-full bg-primary/10 text-primary font-semibold flex items-center justify-center">
+                              <UserRound className="h-5 w-5" aria-hidden="true" />
+                              <span className="sr-only">Menú de usuario</span>
+                            </div>
+                            <div className="hidden sm:flex flex-col items-start leading-tight">
+                              <span className="text-[11px] text-muted-foreground">Cuenta</span>
+                              <span className="text-sm font-semibold text-foreground line-clamp-1 max-w-[160px]">
+                                {userDisplayName}
+                              </span>
+                            </div>
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>Cuenta / Cerrar sesión</TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent className="w-64" align="end">
+                      <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
+                        Sesión
+                      </DropdownMenuLabel>
+                      <div className="flex items-center justify-start gap-2 px-2 pb-1">
+                        <div className="flex flex-col space-y-1 leading-none">
+                          <p className="font-medium">{userDisplayName}</p>
+                          <p className="w-[220px] truncate text-sm text-muted-foreground">
+                            {user.email ?? "user@ikusi.com"}
+                          </p>
+                        </div>
                       </div>
-                      <div className="hidden sm:flex flex-col items-start leading-tight">
-                        <span className="text-[11px] text-muted-foreground">Cuenta</span>
-                        <span className="text-sm font-semibold text-foreground line-clamp-1 max-w-[140px]">
-                          {userDisplayName}
-                        </span>
-                      </div>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-64" align="end">
-                    <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
-                      Sesión
-                    </DropdownMenuLabel>
-                    <div className="flex items-center justify-start gap-2 px-2 pb-1">
-                      <div className="flex flex-col space-y-1 leading-none">
-                        <p className="font-medium">{userDisplayName}</p>
-                        <p className="w-[220px] truncate text-sm text-muted-foreground">
-                          {user.email ?? "user@ikusi.com"}
-                        </p>
-                      </div>
-                    </div>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => navigate("/profile")}>
-                      <div className="flex items-center w-full">
-                        <User className="mr-2 h-4 w-4" />
-                        <div className="flex-1">
-                          <div className="font-medium">Perfil</div>
-                          <div className="text-xs text-muted-foreground">
-                            Detalles de la cuenta
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => navigate("/profile")}>
+                        <div className="flex items-center w-full">
+                          <User className="mr-2 h-4 w-4" />
+                          <div className="flex-1">
+                            <div className="font-medium">Perfil</div>
+                            <div className="text-xs text-muted-foreground">
+                              Detalles de la cuenta
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
-                      Roles
-                    </DropdownMenuLabel>
-                    {roleList.map((role) => (
-                      <DropdownMenuItem
-                        key={role}
-                        onSelect={(event) => {
-                          event.preventDefault();
-                          if (role === activeRole) return;
-                          setRole(role);
-                          navigate(getDefaultRouteForRole(role));
-                        }}
-                        className="flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Shield className="h-4 w-4" />
-                          <span>{role}</span>
-                        </div>
-                        {role === activeRole ? (
-                          <Badge variant="secondary" className="text-[11px]">
-                            Activo
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[11px]">
-                            Cambiar
-                          </Badge>
-                        )}
                       </DropdownMenuItem>
-                    ))}
-                    <DropdownMenuItem onSelect={() => setIsRolesDialogOpen(true)}>
-                      <div className="flex items-center w-full">
-                        <Shield className="mr-2 h-4 w-4" />
-                        <div className="flex-1">
-                          <div className="font-medium">Ver permisos</div>
-                          <div className="text-xs text-muted-foreground">
-                            {roleList.length} rol{roleList.length !== 1 ? "es" : ""} disponibles
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
+                        Roles
+                      </DropdownMenuLabel>
+                      {roleList.map((role) => (
+                        <DropdownMenuItem
+                          key={role}
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            if (role === activeRole) return;
+                            setRole(role);
+                            navigate(getDefaultRouteForRole(role));
+                          }}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4" />
+                            <span>{role}</span>
+                          </div>
+                          {role === activeRole ? (
+                            <Badge variant="secondary" className="text-[11px]">
+                              Activo
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[11px]">
+                              Cambiar
+                            </Badge>
+                          )}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuItem onSelect={() => setIsRolesDialogOpen(true)}>
+                        <div className="flex items-center w-full">
+                          <Shield className="mr-2 h-4 w-4" />
+                          <div className="flex-1">
+                            <div className="font-medium">Ver permisos</div>
+                            <div className="text-xs text-muted-foreground">
+                              {roleList.length} rol{roleList.length !== 1 ? "es" : ""} disponibles
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={handleSignOut}
-                      className="text-destructive"
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Sign out</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={handleSignOut}
+                        className="text-destructive"
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Sign out</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TooltipProvider>
               )}
+              </div>
             </div>
           </div>
-        </div>
-      </nav>
+        </nav>
 
       {/* Roles Dialog – clickable roles to switch context */}
       <Dialog open={isRolesDialogOpen} onOpenChange={setIsRolesDialogOpen}>
