@@ -331,9 +331,21 @@ export async function getProjectRubros(
   if (!projectId) throw new FinanzasApiError("projectId is required");
 
   try {
-    const res = await httpClient.get<LineItemDTO[] | { data?: LineItemDTO[] }>(
-      `/projects/${encodeURIComponent(projectId)}/rubros`
+    // Primary path used by the consolidated API Gateway deployment
+    const primaryPath = `/projects/${encodeURIComponent(projectId)}/rubros`;
+    let res = await httpClient.get<LineItemDTO[] | { data?: LineItemDTO[] }>(
+      primaryPath,
     );
+
+    // Some environments expose the catalog under /projects/{id}/catalog/rubros
+    if (res.status === 404 || res.status === 405) {
+      const fallbackPath = `/projects/${encodeURIComponent(
+        projectId,
+      )}/catalog/rubros`;
+      res = await httpClient.get<LineItemDTO[] | { data?: LineItemDTO[] }>(
+        fallbackPath,
+      );
+    }
 
     const payload = Array.isArray(res.data)
       ? res.data
@@ -343,7 +355,7 @@ export async function getProjectRubros(
 
     return payload as LineItemDTO[];
   } catch (err) {
-    if (err instanceof HttpError && err.status === 404) {
+    if (err instanceof HttpError && (err.status === 404 || err.status === 405)) {
       return [];
     }
     throw toFinanzasError(err, "Unable to load catalog data");
