@@ -1,3 +1,13 @@
+/**
+ * CloudFront Function for Finanzas SPA routing
+ *
+ * Behavior summary:
+ * - /finanzas          → 301 redirect to /finanzas/ (preserves querystring)
+ * - /finanzas/         → serve /finanzas/index.html (SPA entry)
+ * - /finanzas/* (no ext) → rewrite to /finanzas/index.html for client-side routing
+ * - /finanzas/auth/callback.html is NEVER rewritten (served as static asset)
+ * - All other /finanzas/* asset requests pass through untouched
+ */
 function handler(event) {
   var request = event.request;
   var uri = request.uri;
