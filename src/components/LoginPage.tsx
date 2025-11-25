@@ -158,8 +158,7 @@ export function LoginPage() {
               <div className="rounded-xl border border-white/10 bg-slate-900/70 p-5 shadow-lg shadow-black/30">
                 <p className="text-sm font-semibold text-emerald-200">Entradas rápidas</p>
                 <p className="mt-1 text-xs text-slate-200/80">
-                  Usa tu cuenta corporativa Ikusi. El branding de CVDEx solo aparece en
-                  documentación técnica y pie de página.
+                  Accede con tu cuenta corporativa Ikusi a los módulos que tengas habilitados.
                 </p>
                 {isAuthenticated && (
                   <p className="mt-3 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100 ring-1 ring-emerald-400/30">
@@ -181,7 +180,7 @@ export function LoginPage() {
                 >
                   <span className="flex items-center gap-2 font-semibold">
                     <LogIn className="h-5 w-5" aria-hidden="true" />
-                    Acceso a Finanzas SD
+                    Acceso a Finanzas SDM
                   </span>
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Button>
@@ -199,7 +198,7 @@ export function LoginPage() {
                 >
                   <span className="flex items-center gap-2 font-semibold">
                     <Building2 className="h-5 w-5" aria-hidden="true" />
-                    Entrar a PMO Prefacturas
+                    Entrar a PMO Platform
                   </span>
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Button>
@@ -215,7 +214,7 @@ export function LoginPage() {
                 >
                   <span className="flex items-center gap-2 font-semibold">
                     <FileSpreadsheet className="h-5 w-5" aria-hidden="true" />
-                    Entrar a Prefacturas
+                    Entrar a Prefacturas Portal
                   </span>
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Button>
