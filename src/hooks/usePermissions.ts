@@ -13,7 +13,6 @@ import {
 
 export type FinanzasRole = "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
 
-const ROLE_PRIORITY: FinanzasRole[] = ["SDMT", "PMO", "EXEC_RO", "VENDOR"];
 
 type PermissionCheck = {
   anyRoles?: UserRole[];
