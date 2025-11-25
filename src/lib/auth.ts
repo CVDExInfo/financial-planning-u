@@ -23,6 +23,7 @@ const ROLE_PERMISSIONS = {
     routes: [
       "/",
       "/pmo/**",
+      "/pmo/prefactura/**",
       "/sdmt/**",
       "/projects/**",
       "/catalog/**",
@@ -244,11 +245,6 @@ export function getRoleInfo(role: UserRole) {
  * Generate appropriate redirect path based on role
  */
 export function getDefaultRouteForRole(role: UserRole): string {
-  if (IS_FINZ_BUILD) {
-    // In Finanzas-only deployments, always land on the Finanzas shell
-    return "/";
-  }
-
   switch (role) {
     case "PMO":
       return "/pmo/prefactura/estimator";

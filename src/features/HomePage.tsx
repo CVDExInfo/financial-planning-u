@@ -6,13 +6,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { loginWithHostedUI } from "@/config/aws";
 import { useAuth } from "@/hooks/useAuth";
+import { getDefaultRouteForRole } from "@/lib/auth";
 
 export function HomePage() {
   const navigate = useNavigate();
   const { currentRole, canAccessRoute: userCanAccessRoute } = useAuth();
 
-  const canAccessPMO = userCanAccessRoute("/pmo/prefactura/estimator");
+  const pmoDefaultPath = getDefaultRouteForRole("PMO");
+  const prefacturasEntryPath = "/prefacturas/login";
+
+  const canAccessPMO = userCanAccessRoute(pmoDefaultPath);
   const canAccessSDMT = userCanAccessRoute("/sdmt/cost/catalog");
+
+  const navigateToPMO = () => navigate(pmoDefaultPath);
+  const navigateToPrefacturas = () => window.location.assign(prefacturasEntryPath);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0b1220] via-[#0c1628] to-[#0b1424] text-slate-100">
@@ -82,7 +89,7 @@ export function HomePage() {
                   size="lg"
                   variant="outline"
                   className="w-full border-primary/40 text-primary"
-                  onClick={() => navigate("/pmo/prefactura/estimator")}
+                  onClick={navigateToPMO}
                   disabled={!canAccessPMO}
                 >
                   PMO Portal
@@ -92,7 +99,7 @@ export function HomePage() {
                   size="lg"
                   variant="secondary"
                   className="w-full"
-                  onClick={() => navigate("/prefacturas/login")}
+                  onClick={navigateToPrefacturas}
                 >
                   Prefacturas Portal
                   <ArrowRight className="h-4 w-4" />
