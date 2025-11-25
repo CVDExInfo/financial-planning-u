@@ -39,6 +39,8 @@ export async function login(page: Page) {
   const { username, password } = requireCredentials();
   await page.goto("./");
 
+  await clickFinanzasEntryIfPresent(page);
+
   if (await isFinanzasShellVisible(page, 3_000)) {
     return;
   }
@@ -99,22 +101,32 @@ function escapeRegex(source: string) {
   return source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+async function clickFinanzasEntryIfPresent(page: Page) {
+  const entryButton = page.getByRole("button", { name: /Acceso a Finanzas SDM/i });
+  const visible = await entryButton
+    .waitFor({ state: "visible", timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (visible) {
+    await entryButton.click();
+  }
+}
+
 async function isFinanzasShellVisible(page: Page, timeout: number) {
   const deadline = Date.now() + timeout;
-  const checks = [
-    () => page.getByRole("navigation"),
-    () => page.getByRole("link", { name: /Proyectos|Catálogo|Catalogo/i }),
-    () => page.getByRole("heading", { name: /Finanzas/i }),
-  ];
-
   while (Date.now() < deadline) {
-    for (const getLocator of checks) {
-      const locator = getLocator();
-      // `isVisible` throws if the element is detached; swallow and keep polling.
-      const visible = await locator.isVisible().catch(() => false);
-      if (visible) {
-        return true;
-      }
+    const headingVisible = await page
+      .getByRole("heading", { name: /Finanzas/i })
+      .isVisible()
+      .catch(() => false);
+    const navLinkVisible = await page
+      .getByRole("link", { name: /Proyectos|Catálogo|Catalogo/i })
+      .isVisible()
+      .catch(() => false);
+
+    if (headingVisible && navLinkVisible) {
+      return true;
     }
     await page.waitForTimeout(200);
   }
@@ -123,26 +135,12 @@ async function isFinanzasShellVisible(page: Page, timeout: number) {
 }
 
 async function waitForFinanzasShell(page: Page) {
-  const landingPattern = new RegExp(`^${escapeRegex(uiBaseUrl)}\\/?`);
-  await page
-    .waitForURL(landingPattern, { timeout: 30_000 })
-    .catch(() => undefined);
-  await page.waitForLoadState("networkidle");
+  const heading = page.getByRole("heading", { name: /Finanzas/i });
+  const navLink = page.getByRole("link", { name: "Proyectos", exact: true });
 
-  if (await isFinanzasShellVisible(page, 30_000)) {
-    return;
-  }
-
-  const alert = page.getByRole("alert");
-  const alertText = (await alert
-    .first()
-    .isVisible()
-    .catch(() => false))
-    ? await alert.first().innerText()
-    : "No error alert rendered";
-  throw new Error(
-    `Login did not reach Finanzas shell. Alert state: ${alertText}`
-  );
+  await page.waitForLoadState("domcontentloaded");
+  await expect(heading).toBeVisible({ timeout: 45_000 });
+  await expect(navLink).toBeVisible({ timeout: 45_000 });
 }
 
 async function tryHostedLogin(page: Page, username: string, password: string) {
@@ -219,13 +217,16 @@ async function tryHostedLogin(page: Page, username: string, password: string) {
 
     const usernameField = page
       .locator(
-        'input[name="username"], input#signInFormUsername, input#username'
+        'input[name="username"], input#signInFormUsername, input#username, input[name="email"]'
       )
       .first();
     const passwordField = page
       .locator(
         'input[name="password"], input#signInFormPassword, input#password'
       )
+      .first();
+    const nextButton = page
+      .getByRole("button", { name: /Next|Siguiente/i })
       .first();
 
     try {
@@ -235,6 +236,22 @@ async function tryHostedLogin(page: Page, username: string, password: string) {
     }
 
     await usernameField.fill(username);
+
+    const passwordVisible = await passwordField
+      .isVisible({ timeout: 1_000 })
+      .catch(() => false);
+
+    if (!passwordVisible) {
+      const nextVisible = await nextButton
+        .isVisible({ timeout: 1_000 })
+        .catch(() => false);
+
+      if (nextVisible) {
+        await nextButton.click();
+      }
+    }
+
+    await expect(passwordField).toBeVisible({ timeout: 15_000 });
     await passwordField.fill(password);
     await page
       .locator(
