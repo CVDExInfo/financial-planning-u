@@ -12,14 +12,6 @@ function handler(event) {
   var request = event.request;
   var uri = request.uri;
 
-  // Do not rewrite the Cognito callback page (serve the static HTML as-is)
-  if (
-    uri === "/finanzas/auth/callback.html" ||
-    uri.startsWith("/finanzas/auth/callback.html")
-  ) {
-    return request;
-  }
-
   // Redirect /finanzas to /finanzas/ (preserve querystring if present)
   if (uri === "/finanzas") {
     var query = request.querystring;
@@ -43,6 +35,14 @@ function handler(event) {
         location: { value: "/finanzas/" + queryString },
       },
     };
+  }
+
+  // Do not rewrite the Cognito callback page (serve the static HTML as-is)
+  if (
+    uri === "/finanzas/auth/callback.html" ||
+    uri.startsWith("/finanzas/auth/callback.html")
+  ) {
+    return request;
   }
 
   // SPA root
