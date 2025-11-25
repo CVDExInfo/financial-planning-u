@@ -47,12 +47,9 @@ import { toast } from "sonner";
 import { Logo } from "@/components/Logo";
 import { logoutWithHostedUI } from "@/config/aws";
 
-// (No props currently)
-
 interface NavigationItem {
   path: string;
   label: string;
-  // Icon is a React component (lucide-react exports FC accepting size prop)
   icon: React.ComponentType<{ size?: number; className?: string }>;
   isPremium?: boolean;
 }
@@ -60,31 +57,36 @@ interface NavigationItem {
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, roles } = useAuth();
-  const { currentRole, canAccessRoute: roleCanAccessRoute } = usePermissions();
-  const memoizedRole = useMemo(() => currentRole ?? roles[0] ?? "SDMT", [
-    currentRole,
-    roles,
-  ]);
+
+  const { user, logout, roles, availableRoles, currentRole, setRole } = useAuth();
+  const { canAccessRoute: roleCanAccessRoute } = usePermissions();
+
+  // Prefer availableRoles when present, otherwise fall back to raw roles
+  const roleList = useMemo(
+    () => (availableRoles && availableRoles.length ? availableRoles : roles),
+    [availableRoles, roles],
+  );
+
+  const activeRole = useMemo(
+    () => currentRole ?? roleList[0] ?? "SDMT",
+    [currentRole, roleList],
+  );
+
   const [isRolesDialogOpen, setIsRolesDialogOpen] = useState(false);
+
   const finzEnabled =
     import.meta.env.VITE_FINZ_ENABLED !== "false" ||
     (typeof window !== "undefined" &&
       window.location.pathname.startsWith("/finanzas"));
 
-  // Check if current route is accessible when role or location changes
-  // Skip redirects when in Finanzas-only mode (VITE_FINZ_ENABLED=true)
+  // Route guard: if current path is not allowed for the active role, redirect
+  // Skip this in Finanzas-only mode to avoid fighting the /finanzas/* SPA routing
   useEffect(() => {
     const isFinanzasOnly = finzEnabled;
-
-    // In Finanzas-only mode, keep all Finanzas routes accessible
-    if (isFinanzasOnly) {
-      return; // No redirects in Finanzas mode
-    }
+    if (isFinanzasOnly) return;
 
     if (!roleCanAccessRoute(location.pathname)) {
-      // Redirect to appropriate module based on role
-      const defaultRoute = getDefaultRouteForRole(memoizedRole);
+      const defaultRoute = getDefaultRouteForRole(activeRole);
       navigate(defaultRoute);
 
       toast.info("Redirected to accessible page", {
@@ -92,7 +94,7 @@ export function Navigation() {
           "You were redirected to a page accessible with your current role",
       });
     }
-  }, [memoizedRole, location.pathname, navigate, finzEnabled, roleCanAccessRoute]);
+  }, [activeRole, finzEnabled, location.pathname, navigate, roleCanAccessRoute]);
 
   const handleSignOut = () => {
     logout();
@@ -146,33 +148,40 @@ export function Navigation() {
   const getVisibleModuleNavItems = () => {
     const path = location.pathname;
     const userRoles = roles;
-    const effectiveRole = memoizedRole;
+    const effectiveRole = activeRole;
     const isVendor = effectiveRole === "VENDOR";
 
-    // Check module access based on Cognito groups or Finanzas-only build
+    // Module access driven by Cognito groups (and Finanzas-only builds)
     const hasFinanzasAccess = finzEnabled || canAccessFinanzasModule(userRoles);
     const hasPMOAccess = canAccessPMOModule(userRoles);
+
+    // Vendors are part of the Finanzas experience from a nav perspective,
+    // but route-level permissions still do the final filtering.
     const hasFinanzasNavAccess = hasFinanzasAccess || isVendor;
 
     const filteredPMOItems = moduleNavItems.PMO.filter((item) =>
-      roleCanAccessRoute(item.path)
+      roleCanAccessRoute(item.path),
     );
     const filteredSDMTItems = moduleNavItems.SDMT.filter((item) =>
-      roleCanAccessRoute(item.path)
+      roleCanAccessRoute(item.path),
     );
     const filteredFinzItems = moduleNavItems.FINZ.filter((item) =>
-      roleCanAccessRoute(item.path)
+      roleCanAccessRoute(item.path),
     );
 
     // Direct module path detection
-    if (path.startsWith("/pmo/") && roleCanAccessRoute(path) && hasPMOAccess)
+    if (path.startsWith("/pmo/") && roleCanAccessRoute(path) && hasPMOAccess) {
       return filteredPMOItems;
+    }
+
     if (
       path.startsWith("/sdmt/") &&
       roleCanAccessRoute(path) &&
       hasFinanzasNavAccess
-    )
+    ) {
       return filteredSDMTItems;
+    }
+
     // Finanzas routes live at /catalog/* and /rules inside basename /finanzas
     // Also show FINZ nav on home page (/) when Finanzas is the home module
     if (
@@ -185,8 +194,9 @@ export function Navigation() {
     ) {
       return filteredFinzItems;
     }
-    // Fallback to role default set + append FINZ if feature enabled for visibility
-    // Only show modules the user has access to based on their Cognito groups
+
+    // Fallback to a sensible default set based on role,
+    // then append Finanzas items when allowed.
     let items: NavigationItem[] = [];
 
     if (effectiveRole === "PMO" && hasPMOAccess) {
@@ -195,13 +205,14 @@ export function Navigation() {
       items = [...filteredSDMTItems];
     }
 
-    // Add Finanzas routes if user has access
     if (hasFinanzasNavAccess && filteredFinzItems.length) {
       items = [...items, ...filteredFinzItems];
     }
 
     return items;
   };
+
+  const visibleItems = getVisibleModuleNavItems();
 
   return (
     <>
@@ -217,7 +228,7 @@ export function Navigation() {
                     Financial Planning
                   </h1>
                   <p className="text-xs text-muted-foreground">
-                    Enterprise PMO Platform
+                    Enterprise PMO & Finanzas SD
                   </p>
                 </div>
               </Link>
@@ -226,7 +237,7 @@ export function Navigation() {
             {/* Module Navigation */}
             <TooltipProvider>
               <div className="hidden md:flex items-center space-x-1">
-                {getVisibleModuleNavItems()
+                {visibleItems
                   ?.filter((item) => roleCanAccessRoute(item.path))
                   .map((item) => {
                     const Icon = item.icon;
@@ -238,17 +249,17 @@ export function Navigation() {
                         key={item.path}
                         to={item.path}
                         className={`
-                        flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors relative
-                        ${
-                          isActive
-                            ? isPremium
-                              ? "bg-muted text-muted-foreground border border-border"
-                              : "bg-primary text-primary-foreground"
-                            : isPremium
-                            ? "text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/50 border border-dashed border-border"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                        }
-                      `}
+                          flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors relative
+                          ${
+                            isActive
+                              ? isPremium
+                                ? "bg-muted text-muted-foreground border border-border"
+                                : "bg-primary text-primary-foreground"
+                              : isPremium
+                              ? "text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/50 border border-dashed border-border"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          }
+                        `}
                       >
                         <Icon
                           size={16}
@@ -291,9 +302,10 @@ export function Navigation() {
 
             {/* User Menu */}
             <div className="flex items-center space-x-4">
-              <Badge variant="secondary">{currentRole}</Badge>
+              {activeRole && (
+                <Badge variant="secondary">{activeRole}</Badge>
+              )}
 
-              {/* User Avatar - Now showing Ikusi Logo */}
               {user && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -307,7 +319,9 @@ export function Navigation() {
                   <DropdownMenuContent className="w-56" align="end">
                     <div className="flex items-center justify-start gap-2 p-2">
                       <div className="flex flex-col space-y-1 leading-none">
-                        <p className="font-medium">{user.name || user.email || "User"}</p>
+                        <p className="font-medium">
+                          {user.name || user.email || "User"}
+                        </p>
                         <p className="w-[200px] truncate text-sm text-muted-foreground">
                           {user.email ?? "user@ikusi.com"}
                         </p>
@@ -331,7 +345,8 @@ export function Navigation() {
                         <div className="flex-1">
                           <div className="font-medium">Roles & Permissions</div>
                           <div className="text-xs text-muted-foreground">
-                            {roles.length} role{roles.length !== 1 ? "s" : ""} available
+                            {roleList.length} role
+                            {roleList.length !== 1 ? "s" : ""} available
                           </div>
                         </div>
                       </div>
@@ -352,6 +367,7 @@ export function Navigation() {
         </div>
       </nav>
 
+      {/* Roles Dialog – clickable roles to switch context */}
       <Dialog open={isRolesDialogOpen} onOpenChange={setIsRolesDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -362,13 +378,20 @@ export function Navigation() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            {roles.map((role) => {
+            {roleList.map((role) => {
               const info = getRoleInfo(role);
-              const isCurrent = currentRole === role;
+              const isCurrent = activeRole === role;
               return (
-                <div
+                <button
                   key={role}
-                  className={`border rounded-lg p-3 ${
+                  type="button"
+                  onClick={() => {
+                    if (isCurrent) return;
+                    setRole(role);
+                    navigate(getDefaultRouteForRole(role));
+                    setIsRolesDialogOpen(false);
+                  }}
+                  className={`w-full text-left border rounded-lg p-3 transition-colors hover:border-primary/50 ${
                     isCurrent
                       ? "border-primary/40 bg-primary/5"
                       : "border-border"
@@ -388,7 +411,7 @@ export function Navigation() {
                   <p className="text-sm text-muted-foreground mt-2">
                     {info.description}
                   </p>
-                </div>
+                </button>
               );
             })}
           </div>
