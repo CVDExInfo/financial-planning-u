@@ -36,6 +36,7 @@ import DataContainer from "@/components/DataContainer";
 import PageHeader from "@/components/PageHeader";
 import DonutChart from "@/components/charts/DonutChart";
 import LineChartComponent from "@/components/charts/LineChart";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -43,6 +44,8 @@ export default function ProjectsManager() {
   const [isLoadingProjects, setIsLoadingProjects] = React.useState(true);
   const [projects, setProjects] = React.useState<Project[]>([]);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
+  const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
 
   // Form state
   const [name, setName] = React.useState("");
@@ -197,6 +200,11 @@ export default function ProjectsManager() {
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!canCreateProject) {
+      toast.error("No tienes permiso para crear proyectos en Finanzas.");
+      return;
+    }
+
     if (!name || !code || !client || !startDate || !endDate || !modTotal) {
       toast.error("Por favor completa todos los campos requeridos");
       return;
@@ -278,7 +286,7 @@ export default function ProjectsManager() {
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <PageHeader
         title="Gestión de Proyectos"
-        description="Consulta los proyectos que llegan desde la API de Finanzas (DynamoDB) y registra nuevos con el branding Ikusi/CVDEx."
+        description="Consulta los proyectos que llegan desde la API de Finanzas y registra nuevos según tus permisos."
         badge="Finanzas"
         actions={
           <div className="flex gap-2">
@@ -291,10 +299,12 @@ export default function ProjectsManager() {
               <RefreshCcw className="h-4 w-4" />
               {isLoadingProjects ? "Actualizando" : "Refrescar"}
             </Button>
-            <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-              <Plus size={16} />
-              Crear Proyecto
-            </Button>
+            {canCreateProject && (
+              <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+                <Plus size={16} />
+                Crear Proyecto
+              </Button>
+            )}
           </div>
         }
       />

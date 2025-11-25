@@ -3,16 +3,20 @@ import { Layers, RefreshCcw } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import DonutChart from "@/components/charts/DonutChart";
 import { useProject } from "@/contexts/ProjectContext";
 import ApiService from "@/lib/api";
 import type { Scenario } from "@/types/domain";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function ScenariosDashboard() {
   const { selectedProjectId, currentProject } = useProject();
+  const { isSDMT } = usePermissions();
   const [scenarios, setScenarios] = React.useState<Scenario[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const isReadOnly = !isSDMT;
 
   const currencyFormatter = React.useCallback(
     (value: number) =>
@@ -72,10 +76,16 @@ export default function ScenariosDashboard() {
         badge="Finanzas"
         icon={<Layers className="h-5 w-5 text-white" />}
         actions={
-          <Button variant="outline" onClick={loadScenarios} disabled={loading} className="gap-2">
-            <RefreshCcw className="h-4 w-4" />
-            {loading ? "Actualizando" : "Refrescar"}
-          </Button>
+          isReadOnly ? (
+            <Badge variant="outline" className="text-xs">
+              Vista de solo lectura
+            </Badge>
+          ) : (
+            <Button variant="outline" onClick={loadScenarios} disabled={loading} className="gap-2">
+              <RefreshCcw className="h-4 w-4" />
+              {loading ? "Actualizando" : "Refrescar"}
+            </Button>
+          )
         }
       />
 

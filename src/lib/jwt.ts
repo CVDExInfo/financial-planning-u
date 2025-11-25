@@ -33,7 +33,7 @@ export interface JWTClaims {
  * @returns Decoded claims object
  * @throws Error if JWT format is invalid
  */
-export function decodeJWT(token: string): JWTClaims {
+export function decodeJwt(token: string): JWTClaims {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) {
@@ -60,6 +60,9 @@ export function decodeJWT(token: string): JWTClaims {
     );
   }
 }
+
+// Backwards compatibility for existing imports
+export const decodeJWT = decodeJwt;
 
 /**
  * Check if JWT is expired based on exp claim
@@ -96,20 +99,26 @@ export function isTokenValid(token: string): boolean {
  * @param claims JWT claims object
  * @returns Array of group names
  */
-export function getGroupsFromClaims(claims: JWTClaims): string[] {
+export function extractGroupsFromClaims(claims: JWTClaims): string[] {
   const groups = claims["cognito:groups"];
   if (!groups) return [];
 
   if (Array.isArray(groups)) {
-    return groups;
+    return groups.map((group) => group.trim()).filter(Boolean);
   }
 
   if (typeof groups === "string") {
-    return groups.split(",").map((g) => g.trim());
+    return groups
+      .split(/[\s,]+/)
+      .map((g) => g.trim())
+      .filter(Boolean);
   }
 
   return [];
 }
+
+// Backwards compatibility for existing imports
+export const getGroupsFromClaims = extractGroupsFromClaims;
 
 /**
  * Extract user information from JWT claims
@@ -123,7 +132,7 @@ export function extractUserFromClaims(claims: JWTClaims) {
     username:
       claims?.["cognito:username"] ?? claims?.email ?? claims?.username ?? null,
     email: claims?.email ?? claims?.["cognito:username"] ?? claims?.username ?? null,
-    groups: getGroupsFromClaims(claims),
+    groups: extractGroupsFromClaims(claims),
     emailVerified: claims?.email_verified || false,
   };
 }
@@ -233,42 +242,57 @@ export function formatTokenExpiration(claims: JWTClaims): string {
  * @param cognitoGroups Array of Cognito group names
  * @returns Array of application UserRole values
  */
-export function mapCognitoGroupsToRoles(cognitoGroups: string[]): string[] {
-  const roles: Set<string> = new Set();
+export type FinanzasRole = "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
+
+export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
+  const roles: Set<FinanzasRole> = new Set();
 
   for (const group of cognitoGroups) {
-    const g = group.toLowerCase();
+    const normalized = group.trim().toLowerCase();
+    if (!normalized) continue;
 
-    // PMO access: users in PM, admin, or PMO groups
-    if (g.includes("pm") || g === "admin" || g.includes("pmo")) {
+    // PMO access: PM/PMO/admin groups
+    if (
+      normalized === "admin" ||
+      normalized.includes("pm") ||
+      normalized.includes("pmo")
+    ) {
       roles.add("PMO");
     }
 
-    // SDMT access: users in SDT, FIN, AUD, or SDMT groups
+    // SDMT access: SDT/SDMT/FIN/AUD
     if (
-      g.includes("sdt") ||
-      g.includes("fin") ||
-      g.includes("aud") ||
-      g.includes("sdmt")
+      normalized.includes("sdt") ||
+      normalized.includes("sdmt") ||
+      normalized.includes("fin") ||
+      normalized.includes("aud")
     ) {
       roles.add("SDMT");
     }
 
-    // VENDOR access: users in vendor or acta-ui-* groups (staffing platform)
-    if (g.includes("vendor") || g.includes("acta-ui")) {
+    // VENDOR access: vendor or acta-ui patterns
+    if (normalized.includes("vendor") || normalized.includes("acta-ui")) {
       roles.add("VENDOR");
     }
 
-    // EXEC_RO: add as option for all admin users
-    if (g === "admin") {
+    // EXEC_RO: admin and exec-like groups
+    if (
+      normalized === "admin" ||
+      normalized.includes("exec") ||
+      normalized.includes("director") ||
+      normalized.includes("manager")
+    ) {
       roles.add("EXEC_RO");
     }
   }
 
-  // If no roles mapped, default to SDMT (everyone has at least read access)
+  // Default to EXEC_RO if no roles inferred (read-only safest)
   if (roles.size === 0) {
-    roles.add("SDMT");
+    roles.add("EXEC_RO");
   }
 
   return Array.from(roles);
 }
+
+// Backwards compatibility for legacy imports
+export const mapCognitoGroupsToRoles = mapGroupsToRoles;

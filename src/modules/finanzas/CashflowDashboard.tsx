@@ -3,17 +3,21 @@ import { RefreshCcw, BarChart3 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import StackedColumnsChart from "@/components/charts/StackedColumnsChart";
 import LineChartComponent from "@/components/charts/LineChart";
 import { useProject } from "@/contexts/ProjectContext";
 import ApiService from "@/lib/api";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function CashflowDashboard() {
   const { selectedProjectId, selectedPeriod, currentProject } = useProject();
+  const { isSDMT } = usePermissions();
   const [cashflowData, setCashflowData] = React.useState<Array<{ month: number; Ingresos: number; Egresos: number; Neto: number }>>([]);
   const [marginData, setMarginData] = React.useState<Array<{ month: number; "Margen %": number }>>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const isReadOnly = !isSDMT;
 
   const months = Math.max(parseInt(selectedPeriod || "12", 10), 1);
 
@@ -92,10 +96,16 @@ export default function CashflowDashboard() {
         badge="Finanzas"
         icon={<BarChart3 className="h-5 w-5 text-white" />}
         actions={
-          <Button variant="outline" onClick={loadCashflow} disabled={loading} className="gap-2">
-            <RefreshCcw className="h-4 w-4" />
-            {loading ? "Actualizando" : "Refrescar"}
-          </Button>
+          isReadOnly ? (
+            <Badge variant="outline" className="text-xs">
+              Vista de solo lectura
+            </Badge>
+          ) : (
+            <Button variant="outline" onClick={loadCashflow} disabled={loading} className="gap-2">
+              <RefreshCcw className="h-4 w-4" />
+              {loading ? "Actualizando" : "Refrescar"}
+            </Button>
+          )
         }
       />
 
