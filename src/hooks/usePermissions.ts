@@ -17,8 +17,11 @@ type PermissionCheck = {
  * AVP (Policy Store) decisions embedded in the ID token.
  */
 export function usePermissions() {
-  const { groups, roles, avpDecisions } = useAuth();
-  const currentRole = roles[0] ?? "SDMT";
+  const { groups, roles, avpDecisions, currentRole: activeRole } = useAuth();
+  const currentRole = useMemo(
+    () => activeRole ?? roles[0] ?? "SDMT",
+    [activeRole, roles]
+  );
 
   const normalizedGroups = useMemo(
     () => groups.map((group) => group.toLowerCase()),
