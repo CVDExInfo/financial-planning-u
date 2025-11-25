@@ -76,8 +76,7 @@ export function usePermissions() {
   const hasMinimumRole = (minimumRole: UserRole) =>
     getRoleLevel(currentRole) >= getRoleLevel(minimumRole);
 
-  const canCreate = () => canPerformA
-      ction("create");
+  const canCreate = () => canPerformAction("create");
   const canUpdate = () => canPerformAction("update");
   const canDelete = () => canPerformAction("delete");
   const canApprove = () => canPerformAction("approve");
