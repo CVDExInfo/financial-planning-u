@@ -1,6 +1,8 @@
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { ddb, tableName } from "../lib/dynamo";
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { ensureCanRead } from "../lib/auth";
+import { cors, fromAuthError } from "../lib/http";
 
 type RubroItem = {
   rubro_id?: string;
@@ -29,6 +31,16 @@ function decodeNextToken(token: string | undefined) {
 }
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
+  try {
+    await ensureCanRead(event as never);
+  } catch (err) {
+    const authError = fromAuthError(err);
+    if (authError) {
+      return authError;
+    }
+    throw err;
+  }
+
   // Minimal enriched fallback to avoid 500 while DDB/Tables are not ready
   const FALLBACK: RubroItem[] = [
     {
@@ -87,7 +99,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...cors, "Content-Type": "application/json" },
       // Keep envelope compatible; include optional pagination fields for future use
       body: JSON.stringify({ data, total: data.length, nextToken }),
     };
@@ -95,7 +107,11 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     console.warn("/catalog/rubros fallback due to error:", err);
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json", "X-Fallback": "true" },
+      headers: {
+        ...cors,
+        "Content-Type": "application/json",
+        "X-Fallback": "true",
+      },
       body: JSON.stringify({ data: FALLBACK, total: FALLBACK.length }),
     };
   }

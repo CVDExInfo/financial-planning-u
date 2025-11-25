@@ -5,7 +5,6 @@
  */
 
 import { API_BASE, HAS_API_BASE } from "@/config/env";
-import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import { logger } from "@/utils/logger";
 
 export interface HttpRequestInit extends RequestInit {
@@ -29,7 +28,14 @@ export class HttpError extends Error {
     public responseText: string,
     message?: string
   ) {
-    super(message || `HTTP ${status}: ${statusText}`);
+    const trimmedBody = (responseText || "").trim();
+    const autoMessage = statusText
+      ? `HTTP ${status}: ${statusText}`
+      : trimmedBody
+      ? `HTTP ${status}: ${trimmedBody.slice(0, 200)}`
+      : `HTTP ${status}`;
+
+    super(message || autoMessage);
     this.name = "HttpError";
   }
 }
@@ -175,41 +181,6 @@ export class HttpClient {
           const isSuccess = validateStatus(response.status);
 
           if (!isSuccess) {
-            if (response.status === 401 || response.status === 403) {
-              try {
-                handleAuthErrorStatus(response.status);
-              } catch (authError) {
-                // Preserve status information for downstream error handling
-                const message =
-                  authError instanceof Error
-                    ? authError.message
-                    : `HTTP ${response.status}`;
-                if (attempt === maxRetries) {
-                  throw new HttpError(
-                    response.status,
-                    response.statusText,
-                    responseText,
-                    message
-                  );
-                }
-                lastError =
-                  authError instanceof Error
-                    ? new HttpError(
-                        response.status,
-                        response.statusText,
-                        responseText,
-                        message
-                      )
-                    : new HttpError(
-                        response.status,
-                        response.statusText,
-                        responseText,
-                        message
-                      );
-                continue;
-              }
-            }
-
             logger.warn(
               `HttpClient: ${response.status} ${response.statusText} from ${endpoint}`
             );
@@ -316,9 +287,6 @@ export class HttpClient {
       "Content-Type": "application/json",
       ...customHeaders,
     };
-
-    // Add auth token if available
-    Object.assign(headers, buildAuthHeader());
 
     return headers;
   }
