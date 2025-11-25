@@ -1,3 +1,8 @@
+/*
+ * Finanzas endpoints used here
+ * - GET /catalog/rubros → obtener catálogo de rubros
+ * - POST /projects/:projectId/rubros → asociar rubro a un proyecto
+ */
 import React from "react";
 import finanzasClient, { Rubro, type RubroCreate } from "@/api/finanzasClient";
 import { API_BASE } from "@/config/env";
@@ -55,10 +60,11 @@ export default function RubrosCatalog() {
       setRows(data);
     } catch (e: any) {
       console.error(e);
-      setError(
+      const message =
         e?.message ||
-          "No se pudo cargar el catálogo de rubros. Verifica la conexión con la API de Finanzas."
-      );
+        "No se pudo cargar el catálogo de rubros. Verifica la conexión con la API de Finanzas.";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -164,44 +170,48 @@ export default function RubrosCatalog() {
             emptyTitle="No hay rubros disponibles"
             emptyMessage="Aún no hay rubros listos. Intenta refrescar o sincroniza el catálogo desde Finanzas."
           >
-            {(items) => (
-              <div className="rounded-lg border border-border overflow-hidden">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-muted text-muted-foreground text-xs uppercase tracking-wide">
-                      <th className="text-left px-3 py-2">rubro_id</th>
-                      <th className="text-left px-3 py-2">nombre</th>
-                      <th className="text-left px-3 py-2">categoria</th>
-                      <th className="text-left px-3 py-2">linea_codigo</th>
-                      <th className="text-left px-3 py-2">tipo_costo</th>
-                      <th className="text-left px-3 py-2">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(items as Rubro[]).map((r) => (
-                      <tr key={r.rubro_id || r.nombre} className="hover:bg-muted/50">
-                        <Cell>{r.rubro_id || "—"}</Cell>
-                        <Cell>{r.nombre}</Cell>
-                        <Cell>{r.categoria || ""}</Cell>
-                        <Cell>{r.linea_codigo || ""}</Cell>
-                        <Cell>{r.tipo_costo || ""}</Cell>
-                        <Cell>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAddToProject(r)}
-                            className="gap-1"
-                          >
-                            <Plus size={14} />
-                            Agregar a Proyecto
-                          </Button>
-                        </Cell>
+            {(items) => {
+              const safeItems = Array.isArray(items) ? (items as Rubro[]) : [];
+
+              return (
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-muted text-muted-foreground text-xs uppercase tracking-wide">
+                        <th className="text-left px-3 py-2">rubro_id</th>
+                        <th className="text-left px-3 py-2">nombre</th>
+                        <th className="text-left px-3 py-2">categoria</th>
+                        <th className="text-left px-3 py-2">linea_codigo</th>
+                        <th className="text-left px-3 py-2">tipo_costo</th>
+                        <th className="text-left px-3 py-2">Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody>
+                      {safeItems.map((r) => (
+                        <tr key={r.rubro_id || r.nombre} className="hover:bg-muted/50">
+                          <Cell>{r.rubro_id || "—"}</Cell>
+                          <Cell>{r.nombre}</Cell>
+                          <Cell>{r.categoria || ""}</Cell>
+                          <Cell>{r.linea_codigo || ""}</Cell>
+                          <Cell>{r.tipo_costo || ""}</Cell>
+                          <Cell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAddToProject(r)}
+                              className="gap-1"
+                            >
+                              <Plus size={14} />
+                              Agregar a Proyecto
+                            </Button>
+                          </Cell>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            }}
           </DataContainer>
         </CardContent>
       </Card>

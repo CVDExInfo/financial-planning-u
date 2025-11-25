@@ -1,3 +1,7 @@
+/*
+ * Finanzas endpoints used here
+ * - POST /adjustments → crear ajustes presupuestarios
+ */
 import React from "react";
 import finanzasClient, { type AdjustmentCreate } from "@/api/finanzasClient";
 import { toast } from "sonner";
