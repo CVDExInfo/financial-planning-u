@@ -92,7 +92,7 @@ function resolveLoginPaths() {
 
 function AppContent() {
   const { isAuthenticated, isLoading, routeConfigMissing, currentRole } = useAuth();
-  const finzEnabled =
+  const finanzasEnabled =
     import.meta.env.VITE_FINZ_ENABLED !== "false" ||
     (typeof window !== "undefined" &&
       window.location.pathname.startsWith("/finanzas"));
@@ -163,11 +163,10 @@ function AppContent() {
           <AccessControl>
             <Routes>
               {/* Finanzas root (app served under /finanzas) */}
-              {finzEnabled ? (
-                <Route path="/" element={<FinanzasHome />} />
-              ) : (
-                <Route path="/" element={<HomePage />} />
-              )}
+              <Route
+                path="/"
+                element={finanzasEnabled ? <FinanzasHome /> : <HomePage />}
+              />
 
               {/* User Profile */}
               <Route path="/profile" element={<UserProfile />} />
@@ -189,17 +188,45 @@ function AppContent() {
               <Route path="/sdmt/cost/scenarios" element={<SDMTScenarios />} />
               <Route path="/sdmt/cost/changes" element={<SDMTChanges />} />
 
-              {/* Finanzas R1 Routes (feature-flagged) */}
-              {finzEnabled && (
-                <>
-                  {/* Finanzas routes (relative to basename /finanzas) */}
-                  <Route path="/projects" element={<ProjectsManager />} />
-                  <Route path="/catalog/rubros" element={<RubrosCatalog />} />
-                  <Route path="/rules" element={<AllocationRulesPreview />} />
-                  <Route path="/adjustments" element={<AdjustmentsManager />} />
-                  <Route path="/providers" element={<ProvidersManager />} />
-                </>
-              )}
+              {/* Finanzas R1 Routes (Spanish-first; redirect when disabled) */}
+              <Route
+                path="/projects"
+                element={
+                  finanzasEnabled ? <ProjectsManager /> : <Navigate to="/" replace />
+                }
+              />
+              <Route
+                path="/catalog/rubros"
+                element={
+                  finanzasEnabled ? <RubrosCatalog /> : <Navigate to="/" replace />
+                }
+              />
+              <Route
+                path="/rules"
+                element={
+                  finanzasEnabled ? (
+                    <AllocationRulesPreview />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+              <Route
+                path="/adjustments"
+                element={
+                  finanzasEnabled ? (
+                    <AdjustmentsManager />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+              <Route
+                path="/providers"
+                element={
+                  finanzasEnabled ? <ProvidersManager /> : <Navigate to="/" replace />
+                }
+              />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
