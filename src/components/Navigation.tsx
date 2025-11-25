@@ -48,11 +48,21 @@ import { toast } from "sonner";
 import { Logo } from "@/components/Logo";
 import { logoutWithHostedUI } from "@/config/aws";
 
+type NavigationStack = "pmo" | "sdmt" | "finanzas";
+
 interface NavigationItem {
   path: string;
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   isPremium?: boolean;
+  stack: NavigationStack;
+}
+
+interface NavigationSection {
+  label: string;
+  key: string;
+  stack: NavigationStack;
+  items: NavigationItem[];
 }
 
 export function Navigation() {
@@ -106,72 +116,109 @@ export function Navigation() {
     logoutWithHostedUI();
   };
 
-  const navSections: { label: string; key: string; items: NavigationItem[] }[] = [
+  const navSections: NavigationSection[] = [
     {
       label: "PMO",
       key: "PMO",
+      stack: "pmo",
       items: [
         {
           path: "/pmo/prefactura/estimator",
           label: "Estimator",
           icon: Calculator,
+          stack: "pmo",
         },
       ],
     },
     {
       label: "SDMT Costos",
       key: "SDMT",
+      stack: "sdmt",
       items: [
-        { path: "/sdmt/cost/catalog", label: "Catalog", icon: BookOpen },
-        { path: "/sdmt/cost/forecast", label: "Forecast", icon: TrendingUp },
+        {
+          path: "/sdmt/cost/catalog",
+          label: "Catalog",
+          icon: BookOpen,
+          stack: "sdmt",
+        },
+        {
+          path: "/sdmt/cost/forecast",
+          label: "Forecast",
+          icon: TrendingUp,
+          stack: "sdmt",
+        },
         {
           path: "/sdmt/cost/reconciliation",
           label: "Reconciliation",
           icon: FileCheck,
+          stack: "sdmt",
         },
-        { path: "/sdmt/cost/changes", label: "Changes", icon: GitPullRequest },
+        {
+          path: "/sdmt/cost/changes",
+          label: "Changes",
+          icon: GitPullRequest,
+          stack: "sdmt",
+        },
         {
           path: "/sdmt/cost/cashflow",
           label: "Cash Flow",
           icon: BarChart3,
           isPremium: true,
+          stack: "sdmt",
         },
         {
           path: "/sdmt/cost/scenarios",
           label: "Scenarios",
           icon: Layers,
           isPremium: true,
+          stack: "sdmt",
         },
       ],
     },
     {
       label: "Finanzas",
       key: "FINZ",
-      items:
-        finzEnabled
-          ? [
-              {
-                path: "/catalog/rubros",
-                label: "Catálogo de Rubros",
-                icon: BookOpen,
-              },
-              { path: "/projects", label: "Proyectos", icon: FolderKanban },
-              { path: "/rules", label: "Rules", icon: BookOpen },
-              {
-                path: "/adjustments",
-                label: "Ajustes",
-                icon: Shield,
-              },
-              { path: "/providers", label: "Proveedores", icon: Layers },
-            ]
-          : [],
+      stack: "finanzas",
+      items: [
+        {
+          path: "/catalog/rubros",
+          label: "Catálogo de Rubros",
+          icon: BookOpen,
+          stack: "finanzas",
+        },
+        {
+          path: "/projects",
+          label: "Proyectos",
+          icon: FolderKanban,
+          stack: "finanzas",
+        },
+        { path: "/rules", label: "Rules", icon: BookOpen, stack: "finanzas" },
+        {
+          path: "/adjustments",
+          label: "Ajustes",
+          icon: Shield,
+          stack: "finanzas",
+        },
+        {
+          path: "/providers",
+          label: "Proveedores",
+          icon: Layers,
+          stack: "finanzas",
+        },
+      ],
     },
   ];
 
+  const allowedStacks: NavigationStack[] = finzEnabled
+    ? ["finanzas", "pmo"]
+    : ["sdmt", "pmo"];
+
   const filteredSections = navSections
+    .filter((section) => allowedStacks.includes(section.stack))
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => {
+        if (!allowedStacks.includes(item.stack)) return false;
         if (item.isPremium && !hasPremiumFinanzasFeatures) return false;
         return roleCanAccessRoute(normalizeAppPath(item.path));
       }),
