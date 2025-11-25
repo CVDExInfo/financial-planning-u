@@ -95,8 +95,72 @@ export function Navigation() {
     (typeof window !== "undefined" &&
       window.location.pathname.startsWith("/finanzas"));
 
+  const finanzasCombinedNavItems: NavigationItem[] = [
+    {
+      path: "/projects",
+      label: "Proyectos",
+      icon: FolderKanban,
+      stack: "finanzas",
+    },
+    {
+      path: "/catalog/rubros",
+      label: "Catálogo de Rubros",
+      icon: BookOpen,
+      stack: "finanzas",
+    },
+    {
+      path: "/rules",
+      label: "Reglas",
+      icon: BookOpen,
+      stack: "finanzas",
+    },
+    {
+      path: "/adjustments",
+      label: "Ajustes",
+      icon: Shield,
+      stack: "finanzas",
+    },
+    {
+      path: "/finanzas/sdmt/cost/catalog",
+      label: "Catálogo de Costos",
+      icon: BookOpen,
+      stack: "sdmt",
+    },
+    {
+      path: "/cashflow",
+      label: "Flujo de Caja",
+      icon: BarChart3,
+      stack: "finanzas",
+    },
+    {
+      path: "/scenarios",
+      label: "Escenarios",
+      icon: Layers,
+      stack: "finanzas",
+    },
+    {
+      path: "/providers",
+      label: "Proveedores",
+      icon: Layers,
+      stack: "finanzas",
+    },
+  ];
+
   const normalizedPath = normalizeAppPath(location.pathname);
   const userDisplayName = user?.name || user?.email || "User";
+
+  const finanzasNavNormalizedPaths = finanzasCombinedNavItems.map((item) =>
+    normalizeAppPath(item.path),
+  );
+
+  const isFinanzasNavContext =
+    finzEnabled &&
+    !isPmoContext &&
+    (normalizedPath === "/" ||
+      finanzasNavNormalizedPaths.some(
+        (path) =>
+          normalizedPath === path || normalizedPath.startsWith(`${path}/`),
+      ));
 
   const isPmoContext =
     activeRole === "PMO" ||
@@ -234,6 +298,17 @@ export function Navigation() {
     ? ["finanzas", "sdmt", "pmo"]
     : ["sdmt", "pmo"];
 
+  const filterNavItem = (item: NavigationItem) => {
+    const normalizedItemPath = normalizeAppPath(item.path);
+
+    if (!allowedStacks.includes(item.stack)) return false;
+    if (item.stack === "pmo" && !isPmoContext) return false;
+    if (item.isPremium && !hasPremiumFinanzasFeatures) return false;
+    return roleCanAccessRoute(normalizedItemPath);
+  };
+
+  const filteredFinanzasNavItems = finanzasCombinedNavItems.filter(filterNavItem);
+
   const filteredSections = navSections
     .filter((section) => {
       if (!allowedStacks.includes(section.stack)) return false;
@@ -244,14 +319,7 @@ export function Navigation() {
     })
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => {
-        const normalizedItemPath = normalizeAppPath(item.path);
-
-        if (!allowedStacks.includes(item.stack)) return false;
-        if (item.stack === "pmo" && !isPmoContext) return false;
-        if (item.isPremium && !hasPremiumFinanzasFeatures) return false;
-        return roleCanAccessRoute(normalizedItemPath);
-      }),
+      items: section.items.filter(filterNavItem),
     }))
     .filter((section) => section.items.length > 0);
 
@@ -266,10 +334,10 @@ export function Navigation() {
                 <Logo className="h-8 w-auto" />
                 <div>
                   <h1 className="font-semibold text-foreground">
-                    Financial Planning
+                    Planning
                   </h1>
                   <p className="text-xs text-muted-foreground">
-                    Enterprise PMO & Finanzas SD
+                    Finanzas SD
                   </p>
                 </div>
               </Link>
@@ -278,15 +346,8 @@ export function Navigation() {
             {/* Module Navigation */}
             <TooltipProvider>
               <div className="hidden md:flex items-center space-x-1">
-                {filteredSections.map((section) => (
-                  <div
-                    key={section.key}
-                    className="flex items-center space-x-1 pl-2 border-l border-border/50"
-                  >
-                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mr-1">
-                      {section.label}
-                    </span>
-                    {section.items.map((item) => {
+                {isFinanzasNavContext
+                  ? filteredFinanzasNavItems.map((item) => {
                       const Icon = item.icon;
                       const normalizedItemPath = normalizeAppPath(item.path);
                       const isActive = normalizedPath === normalizedItemPath;
@@ -309,10 +370,7 @@ export function Navigation() {
                             }
                           `}
                         >
-                          <Icon
-                            size={16}
-                            className={isPremium ? "opacity-70" : ""}
-                          />
+                          <Icon size={16} className={isPremium ? "opacity-70" : ""} />
                           <span className={isPremium ? "opacity-70" : ""}>
                             {item.label}
                           </span>
@@ -330,13 +388,9 @@ export function Navigation() {
                       if (isPremium) {
                         return (
                           <Tooltip key={item.path}>
-                            <TooltipTrigger asChild>
-                              {linkElement}
-                            </TooltipTrigger>
+                            <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
                             <TooltipContent>
-                              <p className="font-medium">
-                                Premium Add-on Feature
-                              </p>
+                              <p className="font-medium">Premium Add-on Feature</p>
                               <p className="text-xs text-muted-foreground">
                                 Additional cost applies
                               </p>
@@ -346,9 +400,78 @@ export function Navigation() {
                       }
 
                       return linkElement;
-                    })}
-                  </div>
-                ))}
+                    })
+                  : filteredSections.map((section) => (
+                      <div
+                        key={section.key}
+                        className="flex items-center space-x-1 pl-2 border-l border-border/50"
+                      >
+                        <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mr-1">
+                          {section.label}
+                        </span>
+                        {section.items.map((item) => {
+                          const Icon = item.icon;
+                          const normalizedItemPath = normalizeAppPath(item.path);
+                          const isActive = normalizedPath === normalizedItemPath;
+                          const isPremium = item.isPremium;
+
+                          const linkElement = (
+                            <Link
+                              key={item.path}
+                              to={normalizedItemPath}
+                              className={`
+                                flex items-center space-x-2 px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors relative
+                                ${
+                                  isActive
+                                    ? isPremium
+                                      ? "bg-muted text-muted-foreground border border-border"
+                                      : "bg-primary text-primary-foreground"
+                                    : isPremium
+                                    ? "text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/50 border border-dashed border-border"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                                }
+                              `}
+                            >
+                              <Icon
+                                size={16}
+                                className={isPremium ? "opacity-70" : ""}
+                              />
+                              <span className={isPremium ? "opacity-70" : ""}>
+                                {item.label}
+                              </span>
+                              {isPremium && (
+                                <Badge
+                                  variant="outline"
+                                  className="ml-1 text-xs px-1 py-0 h-4 text-muted-foreground/60 border-muted-foreground/30"
+                                >
+                                  +
+                                </Badge>
+                              )}
+                            </Link>
+                          );
+
+                          if (isPremium) {
+                            return (
+                              <Tooltip key={item.path}>
+                                <TooltipTrigger asChild>
+                                  {linkElement}
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="font-medium">
+                                    Premium Add-on Feature
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Additional cost applies
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          }
+
+                          return linkElement;
+                        })}
+                      </div>
+                    ))}
               </div>
             </TooltipProvider>
 
