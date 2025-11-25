@@ -39,7 +39,13 @@ Verify these are set in GitHub Actions (Settings → Secrets and variables → A
 - [ ] `VITE_COGNITO_DOMAIN` = `us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com`
 - [ ] `VITE_CLOUDFRONT_URL` = `https://d7t9x3j66yd8k.cloudfront.net`
 
-### 3. Local Build Test
+### 3. CloudFront routing guardrails
+
+- [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas` issues a **301 redirect** to `/finanzas/` (querystring preserved)
+- [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html` serves the static HTML file (no SPA rewrite)
+- [ ] Deep links without extensions (e.g., `/finanzas/sdmt/cost/catalog`) load via SPA rewrite to `index.html`
+
+### 4. Local Build Test
 
 ```bash
 # Set environment variables
@@ -76,14 +82,14 @@ npm run qa:finanzas:auth
 
 ## Deployment Steps
 
-### 4. Merge and Deploy
+### 5. Merge and Deploy
 
 - [ ] Merge PR to main branch
 - [ ] Wait for GitHub Actions deployment workflow to complete
 - [ ] Verify CloudFront invalidation was triggered for `/finanzas/*`
 - [ ] Wait 2-3 minutes for CloudFront cache to clear
 
-### 5. Production Validation
+### 6. Production Validation
 
 Open incognito/private browser window and test the full flow:
 
