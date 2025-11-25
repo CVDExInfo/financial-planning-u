@@ -11,6 +11,10 @@ import {
   ROLE_PRIORITY,
 } from "./permissions-helpers";
 
+export type FinanzasRole = "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
+
+const ROLE_PRIORITY: FinanzasRole[] = ["SDMT", "PMO", "EXEC_RO", "VENDOR"];
+
 type PermissionCheck = {
   anyRoles?: UserRole[];
   allDecisions?: string[];
@@ -128,6 +132,16 @@ export function usePermissions() {
   const canEdit = isSDMT;
   const canDelete = isSDMT;
   const canApprove = isSDMT;
+
+  const isPMO = effectiveRole === "PMO";
+  const isSDMT = effectiveRole === "SDMT";
+  const isVendor = effectiveRole === "VENDOR";
+  const isExecRO = effectiveRole === "EXEC_RO";
+
+  const canManageCosts = isSDMT;
+  const canCreateBaseline = isSDMT;
+  const canUploadInvoices = isSDMT || isVendor;
+  const canEdit = isSDMT;
 
   return {
     roles,
