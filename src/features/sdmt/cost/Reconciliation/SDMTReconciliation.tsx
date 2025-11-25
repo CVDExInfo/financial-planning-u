@@ -59,6 +59,7 @@ import {
   uploadInvoice,
   updateInvoiceStatus,
   type UploadInvoicePayload,
+  FinanzasApiError,
 } from "@/api/finanzas";
 
 /** --------- Types & helpers --------- */
@@ -136,6 +137,20 @@ export default function SDMTReconciliation() {
     invalidate: invalidateLineItems,
   } = useProjectLineItems();
 
+  const normalizeApiError = (error: unknown) => {
+    if (!error) return null;
+    if (error instanceof FinanzasApiError) {
+      return { status: error.status, message: error.message };
+    }
+    if (error instanceof Error) {
+      return { status: (error as any).status as number | undefined, message: error.message };
+    }
+    return { status: undefined, message: String(error) };
+  };
+
+  const invoicesErrorInfo = normalizeApiError(invoicesError);
+  const lineItemsErrorInfo = normalizeApiError(lineItemsError);
+
   // URL filters (when navigated from Forecast)
   const urlParams = new URLSearchParams(location.search);
   const filterLineItem = urlParams.get("line_item");
@@ -158,10 +173,16 @@ export default function SDMTReconciliation() {
 
   const uiErrorMessage = (() => {
     if (allowMockData) return null;
-    if (invoicesError)
-      return "Unable to load invoice data. Please refresh or contact support.";
-    if (lineItemsError)
-      return "Unable to load catalog data. Please refresh or contact support.";
+    if (invoicesErrorInfo?.status === 403)
+      return "Access to reconciliation data is restricted for this project.";
+    if (lineItemsErrorInfo?.status === 403)
+      return "Access to catalog data is restricted for this project.";
+    if (invoicesErrorInfo?.status && invoicesErrorInfo.status >= 500)
+      return "Reconciliation service is unavailable. Please try again.";
+    if (lineItemsErrorInfo?.status && lineItemsErrorInfo.status >= 500)
+      return "Catalog service is unavailable. Please try again.";
+    if (invoicesErrorInfo?.message) return invoicesErrorInfo.message;
+    if (lineItemsErrorInfo?.message) return lineItemsErrorInfo.message;
     return null;
   })();
 
@@ -681,12 +702,9 @@ export default function SDMTReconciliation() {
           <CardTitle>Invoices & Documentation</CardTitle>
         </CardHeader>
         <CardContent>
-          {invoicesError ? (
+          {invoicesErrorInfo ? (
             <div className="text-center py-12 text-destructive">
-              Failed to load invoices.{" "}
-              {invoicesError instanceof Error
-                ? invoicesError.message
-                : "Unknown error"}
+              {invoicesErrorInfo.message || "Failed to load invoices."}
             </div>
           ) : invoicesLoading ? (
             <div className="flex items-center justify-center h-32">
