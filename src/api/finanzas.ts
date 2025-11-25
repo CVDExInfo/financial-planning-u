@@ -362,15 +362,25 @@ export async function getProjectRubros(
   }
 }
 
+export type ProjectsResponse = Json | Json[] | { data?: Json[]; items?: Json[] };
+
 // Optional helpers used by tests/smokes
-export async function getProjects(): Promise<Json> {
+export async function getProjects(): Promise<ProjectsResponse> {
   ensureApiBase();
 
   try {
-    const response = await httpClient.get<Json>("/projects?limit=50");
-    return response.data;
+    const res = await httpClient.get<ProjectsResponse>("/projects?limit=50");
+    return res.data;
   } catch (err) {
-    throw toFinanzasError(err, "Unable to load projects");
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      const message =
+        err.status === 401
+          ? "Sesión expirada. Vuelve a iniciar sesión para ver proyectos."
+          : "No tienes permiso para ver proyectos en Finanzas.";
+      throw new FinanzasApiError(message, err.status);
+    }
+
+    throw toFinanzasError(err, "No se pudieron obtener los proyectos");
   }
 }
 
