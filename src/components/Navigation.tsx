@@ -149,23 +149,23 @@ export function Navigation() {
   const normalizedPath = normalizeAppPath(location.pathname);
   const userDisplayName = user?.name || user?.email || "User";
 
-  const finanzasNavNormalizedPaths = finanzasCombinedNavItems.map((item) =>
-    normalizeAppPath(item.path),
-  );
+    const isPmoContext =
+      activeRole === "PMO" ||
+      location.pathname.startsWith("/finanzas/pmo/") ||
+      normalizedPath.startsWith("/pmo/");
 
-  const isFinanzasNavContext =
-    finzEnabled &&
-    !isPmoContext &&
-    (normalizedPath === "/" ||
-      finanzasNavNormalizedPaths.some(
-        (path) =>
-          normalizedPath === path || normalizedPath.startsWith(`${path}/`),
-      ));
+    const finanzasNavNormalizedPaths = finanzasCombinedNavItems.map((item) =>
+      normalizeAppPath(item.path),
+    );
 
-  const isPmoContext =
-    activeRole === "PMO" ||
-    location.pathname.startsWith("/finanzas/pmo/") ||
-    normalizedPath.startsWith("/pmo/");
+    const isFinanzasNavContext =
+      finzEnabled &&
+      !isPmoContext &&
+      (normalizedPath === "/" ||
+        finanzasNavNormalizedPaths.some(
+          (path) =>
+            normalizedPath === path || normalizedPath.startsWith(`${path}/`),
+        ));
 
   // Route guard: if current path is not allowed for the active role, redirect
   // Skip this in Finanzas-only mode to avoid fighting the /finanzas/* SPA routing
