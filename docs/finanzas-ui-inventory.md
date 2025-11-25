@@ -46,7 +46,11 @@ The home route is `/` and renders `FinanzasHome` when the Finanzas feature flag 
 
 ## Navigation consolidation decisions
 
-When Finanzas is enabled, the top navigation shows only Spanish Finanzas entries plus the PMO Estimator: Catálogo de Rubros, Proyectos, Rules, Ajustes, Proveedores, and Estimator.
+When Finanzas is enabled and you are in the Finanzas shell, the header collapses to a single Spanish row: Proyectos, Catálogo de Rubros, Reglas, Ajustes, Catálogo de Costos (redirecting to `/sdmt/cost/catalog`), Flujo de Caja, Escenarios y Proveedores. PMO navigation still appears only in the PMO context.
+
+- **Finanzas/SDMT roles:** See the unified Spanish row, including the `Catálogo de Costos` entry for SDMT users. Forecast/Reconciliation/Changes stay out of the main row but remain routable directly.
+- **Vendor:** Sees only Finanzas items they have permission for; SDMT cost tabs stay hidden.
+- **PMO:** PMO nav only renders when the user is in a PMO route or role, preserving the PMO-only visibility rules.
 
 ## E2E validation summary (2025-11-25)
 - **Endpoints validated:** Cognito `InitiateAuth` fallback via Hosted UI flow and Finanzas GET `/projects` on `https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev` during Playwright runs.
