@@ -149,6 +149,15 @@ export function Navigation() {
   const normalizedPath = normalizeAppPath(location.pathname);
   const userDisplayName = user?.name || user?.email || "User";
 
+  // The ordering of these derived flags matters: isFinanzasNavContext depends on
+  // isPmoContext. Keep declarations sequenced to avoid temporal dead zone
+  // issues in production builds (the minifier previously emitted `k` before it
+  // was initialized, causing a ReferenceError).
+  const isPmoContext =
+    activeRole === "PMO" ||
+    location.pathname.startsWith("/finanzas/pmo/") ||
+    normalizedPath.startsWith("/pmo/");
+
   const finanzasNavNormalizedPaths = finanzasCombinedNavItems.map((item) =>
     normalizeAppPath(item.path),
   );
@@ -161,11 +170,6 @@ export function Navigation() {
         (path) =>
           normalizedPath === path || normalizedPath.startsWith(`${path}/`),
       ));
-
-  const isPmoContext =
-    activeRole === "PMO" ||
-    location.pathname.startsWith("/finanzas/pmo/") ||
-    normalizedPath.startsWith("/pmo/");
 
   // Route guard: if current path is not allowed for the active role, redirect
   // Skip this in Finanzas-only mode to avoid fighting the /finanzas/* SPA routing
