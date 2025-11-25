@@ -160,13 +160,28 @@ output "manual_cloudfront_update_instructions" {
     3. ADD CUSTOM ERROR RESPONSES (applies to entire distribution):
        - Error Code: 403 → Response Code: 200, Response Page: /finanzas/index.html
        - Error Code: 404 → Response Code: 200, Response Page: /finanzas/index.html
-    
+
+       Scope the error responses to the Finanzas behavior to keep other modules unaffected.
+
     4. VERIFY:
        - Existing behaviors and origins remain unchanged
        - New behavior is ordered before the default (*) behavior
-    
+
+    5. VALIDATE (from any terminal):
+       - curl -I https://${data.aws_cloudfront_distribution.existing.domain_name}/finanzas
+       - curl -I https://${data.aws_cloudfront_distribution.existing.domain_name}/finanzas/
+       - curl -I https://${data.aws_cloudfront_distribution.existing.domain_name}/finanzas/sdmt/cost/catalog
+       - curl -I https://${data.aws_cloudfront_distribution.existing.domain_name}/finanzas/auth/callback.html
+
     After applying these changes, the CI/CD workflow will be able to deploy to S3 and invalidate CloudFront.
-    
+
     =====================================================
   EOT
 }
+
+#
+# Validation cheatsheet (CloudFront SPA rewrites)
+# curl -I https://${data.aws_cloudfront_distribution.existing.domain_name}/finanzas
+# curl -I https://${data.aws_cloudfront_distribution.existing.domain_name}/finanzas/
+# curl -I https://${data.aws_cloudfront_distribution.existing.domain_name}/finanzas/sdmt/cost/catalog
+# curl -I https://${data.aws_cloudfront_distribution.existing.domain_name}/finanzas/auth/callback.html

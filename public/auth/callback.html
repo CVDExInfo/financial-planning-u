@@ -72,10 +72,19 @@
             hash.substring(0, 100) + "..."
           );
           const params = new URLSearchParams(hash);
-          const idToken = params.get("id_token");
-          const accessToken = params.get("access_token");
+          let idToken = params.get("id_token");
+          let accessToken = params.get("access_token");
           const error = params.get("error");
           const errorDescription = params.get("error_description");
+
+          // CloudFront rewrites can occasionally surface tokens in the query string
+          // (e.g. callback.html?id_token=... when the hash is stripped). Fall back
+          // to the search params so we don't lose the session during rewrites.
+          if (!idToken && urlParams.get("id_token")) {
+            console.warn("[Callback] id_token found in query params. Normalizing...");
+            idToken = urlParams.get("id_token");
+            accessToken = urlParams.get("access_token") || accessToken;
+          }
 
           if (error) {
             const message = errorDescription || error;

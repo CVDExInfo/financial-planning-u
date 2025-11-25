@@ -55,7 +55,7 @@ import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import { logger } from "@/utils/logger";
 import { cn } from "@/lib/utils";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
-import { addProjectRubro } from "@/api/finanzas";
+import { addProjectRubro, FinanzasApiError } from "@/api/finanzas";
 import {
   uploadDocument,
   type DocumentUploadMeta,
@@ -127,13 +127,20 @@ export function SDMTCatalog() {
     invalidate: invalidateLineItems,
   } = useProjectLineItems();
 
-  // Compute error message after lineItemsError is available
+  const normalizeApiError = (error: unknown) => {
+    if (!error) return null;
+    if (error instanceof FinanzasApiError) {
+      return { status: error.status, message: error.message };
+    }
+    if (error instanceof Error) {
+      return { status: (error as any).status as number | undefined, message: error.message };
+    }
+    return { status: undefined, message: String(error) };
+  };
 
-  const lineItemsErrorMessage = lineItemsError
-    ? lineItemsError instanceof Error
-      ? lineItemsError.message
-      : String(lineItemsError)
-    : "";
+  const lineItemsErrorInfo = normalizeApiError(lineItemsError);
+
+  // Compute error message after lineItemsError is available
 
   const loading = isLineItemsLoading && queryLineItems.length === 0;
   const refreshing = isLineItemsFetching && !isLineItemsLoading;
@@ -159,18 +166,22 @@ export function SDMTCatalog() {
   }, [queryLineItems, selectedProjectId]);
 
   useEffect(() => {
-    if (!lineItemsErrorMessage) {
+    if (!lineItemsErrorInfo?.message) {
       return;
     }
 
-    toast.error("Failed to load line items");
-    logger.error("Failed to load line items:", lineItemsErrorMessage);
-  }, [lineItemsErrorMessage]);
+    toast.error(lineItemsErrorInfo.message);
+    logger.error("Failed to load line items:", lineItemsErrorInfo.message);
+  }, [lineItemsErrorInfo?.message]);
 
-  const uiErrorMessage =
-    !allowMockData && lineItemsError
-      ? "Unable to load catalog data. Please refresh or contact support."
-      : null;
+  const uiErrorMessage = (() => {
+    if (allowMockData || !lineItemsErrorInfo) return null;
+    if (lineItemsErrorInfo.status === 403)
+      return "Acceso restringido a este catálogo para tu rol o proyecto.";
+    if (lineItemsErrorInfo.status && lineItemsErrorInfo.status >= 500)
+      return "El servicio de catálogo no está disponible en este momento.";
+    return lineItemsErrorInfo.message;
+  })();
 
   const safeLineItems = Array.isArray(lineItems) ? lineItems : [];
   const filteredItems = safeLineItems.filter((item) => {

@@ -23,6 +23,7 @@ const ROLE_PERMISSIONS = {
     routes: [
       "/",
       "/pmo/**",
+      "/pmo/prefactura/**",
       "/sdmt/**",
       "/projects/**",
       "/catalog/**",
@@ -49,7 +50,11 @@ const ROLE_PERMISSIONS = {
   },
   VENDOR: {
     // Limited SDMT access and read to Finanzas catalog
-    routes: ["/sdmt/cost/catalog", "/sdmt/cost/reconciliation", "/catalog/**"],
+    routes: [
+      "/sdmt/cost/catalog",
+      "/sdmt/cost/reconciliation",
+      "/catalog/rubros",
+    ],
     actions: ["read", "update"],
     description: "Limited access to cost catalog and reconciliation uploads",
   },
@@ -174,7 +179,19 @@ export function getAvailableRoles(user?: Partial<UserInfo> | null): UserRole[] {
 /**
  * Check if a user can access a specific route with their current role
  */
+export function normalizeAppPath(route: string): string {
+  if (!route) return "/";
+
+  if (route.startsWith("/finanzas")) {
+    const normalized = route.replace(/^\/finanzas/, "");
+    return normalized.startsWith("/") ? normalized : `/${normalized}`;
+  }
+
+  return route;
+}
+
 export function canAccessRoute(route: string, role: UserRole): boolean {
+  const normalizedRoute = normalizeAppPath(route);
   const { routes } = getRoutesForRole(role);
 
   return routes.some((pattern) => {
@@ -182,7 +199,7 @@ export function canAccessRoute(route: string, role: UserRole): boolean {
     const regex = new RegExp(
       pattern.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*")
     );
-    return regex.test(route);
+    return regex.test(normalizedRoute);
   });
 }
 
@@ -228,11 +245,6 @@ export function getRoleInfo(role: UserRole) {
  * Generate appropriate redirect path based on role
  */
 export function getDefaultRouteForRole(role: UserRole): string {
-  if (IS_FINZ_BUILD) {
-    // In Finanzas-only deployments, always land on the Finanzas shell
-    return "/";
-  }
-
   switch (role) {
     case "PMO":
       return "/pmo/prefactura/estimator";
@@ -245,6 +257,28 @@ export function getDefaultRouteForRole(role: UserRole): string {
     default:
       return "/";
   }
+}
+
+export function getRoleForPath(
+  currentPath: string,
+  availableRoles: UserRole[],
+  fallback: UserRole
+): UserRole {
+  const normalizedPath = normalizeAppPath(currentPath);
+
+  if (normalizedPath.startsWith("/pmo/") && availableRoles.includes("PMO")) {
+    return "PMO";
+  }
+
+  if (normalizedPath.startsWith("/sdmt/") && availableRoles.includes("SDMT")) {
+    return "SDMT";
+  }
+
+  if (availableRoles.includes(fallback)) {
+    return fallback;
+  }
+
+  return availableRoles[0] ?? fallback;
 }
 
 /**
@@ -315,12 +349,11 @@ export function canAccessFinanzasModule(userRoles: UserRole[]): boolean {
 
 /**
  * Check if user should have access to the PMO module
- * Based on Cognito groups: PMO, EXEC_RO, VENDOR
+ * Based on Cognito groups: PMO, EXEC_RO
  * 
  * @param userRoles User's mapped roles from Cognito groups
  * @returns true if user has access to PMO module
  */
 export function canAccessPMOModule(userRoles: UserRole[]): boolean {
-  // Users with PMO, EXEC_RO, or VENDOR roles have access
-  return userRoles.some(role => ["PMO", "EXEC_RO", "VENDOR"].includes(role));
+  return userRoles.some((role) => ["PMO", "EXEC_RO"].includes(role));
 }
