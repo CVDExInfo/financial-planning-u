@@ -1,6 +1,11 @@
+/*
+ * Finanzas endpoints used here
+ * - GET /projects?limit=50 → listar proyectos existentes
+ * - POST /projects → crear un nuevo proyecto
+ */
 import React from "react";
 import finanzasClient, { type ProjectCreate, type Project } from "@/api/finanzasClient";
-import ApiService from "@/lib/api";
+import { getProjects } from "@/api/finanzas";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,15 +47,59 @@ export default function ProjectsManager() {
   const [modTotal, setModTotal] = React.useState("");
   const [description, setDescription] = React.useState("");
 
-  const formatDate = (value?: string | null) =>
-    value ? new Date(value).toLocaleDateString() : "—";
+  const formatDate = (value?: string | null) => {
+    if (!value) return "—";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString();
+  };
+
+  const normalizeProjects = React.useCallback((payload: unknown): Project[] => {
+    const items = Array.isArray((payload as any)?.data)
+      ? (payload as any).data
+      : Array.isArray(payload)
+        ? (payload as any)
+        : Array.isArray((payload as any)?.items)
+          ? (payload as any).items
+          : [];
+
+    if (!Array.isArray(items) || items.length === 0) return [];
+
+    return items
+      .map((project: any): Project => ({
+        id:
+          String(
+            project?.id || project?.project_id || project?.projectId || ""
+          ).trim() || "",
+        name:
+          String(project?.name || project?.nombre || project?.project_name || "")
+            .trim() || "Proyecto sin nombre",
+        client: project?.client || project?.cliente || "",
+        start_date: project?.start_date || project?.fecha_inicio || "",
+        end_date: project?.end_date || project?.fecha_fin || "",
+        currency: project?.currency || project?.moneda || "USD",
+        mod_total: Number(project?.mod_total ?? project?.presupuesto_total ?? 0),
+        description: project?.description || project?.descripcion || "",
+        code: project?.code || project?.codigo || "",
+        status: (project?.status || project?.estado || "active") as Project["status"],
+        created_at: project?.created_at || project?.fecha_creacion || "",
+        updated_at: project?.updated_at || project?.fecha_actualizacion || "",
+      }))
+      .filter((p) => p.id || p.name);
+  }, []);
 
   const loadProjects = React.useCallback(async () => {
     try {
       setIsLoadingProjects(true);
       setLoadError(null);
-      const data = await ApiService.getProjects();
-      setProjects(data);
+      const data = await getProjects();
+      const parsed = normalizeProjects(data);
+      if (parsed.length === 0) {
+        setProjects([]);
+        setLoadError("No se encontraron proyectos en Finanzas");
+      } else {
+        setProjects(parsed);
+      }
     } catch (e: any) {
       const message = e?.message || "No se pudieron cargar los proyectos";
       setLoadError(message);
@@ -58,7 +107,7 @@ export default function ProjectsManager() {
     } finally {
       setIsLoadingProjects(false);
     }
-  }, []);
+  }, [normalizeProjects]);
 
   React.useEffect(() => {
     loadProjects();

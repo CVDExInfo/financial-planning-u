@@ -1,3 +1,7 @@
+/*
+ * Finanzas endpoints used here
+ * - POST /providers → registrar proveedores
+ */
 import React from "react";
 import finanzasClient, { type ProviderCreate } from "@/api/finanzasClient";
 import { toast } from "sonner";
