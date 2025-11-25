@@ -6,11 +6,27 @@ import { RefreshCcw, Split } from "lucide-react";
 import DataContainer from "@/components/DataContainer";
 import PageHeader from "@/components/PageHeader";
 import finanzasClient, { AllocationRule } from "@/api/finanzasClient";
+import DonutChart from "@/components/charts/DonutChart";
 
 export default function AllocationRulesPreview() {
   const [rules, setRules] = useState<AllocationRule[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const driverChartData = rules.reduce<Record<string, number>>((acc, rule) => {
+    const key = rule.driver || "Otro";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  const activationData = rules.reduce(
+    (acc, rule) => {
+      if (rule.active) acc.activos += 1;
+      else acc.inactivos += 1;
+      return acc;
+    },
+    { activos: 0, inactivos: 0 }
+  );
 
   const loadRules = useCallback(async () => {
     try {
@@ -52,6 +68,22 @@ export default function AllocationRulesPreview() {
           </Button>
         }
       />
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <DonutChart
+          data={Object.entries(driverChartData).map(([name, value]) => ({ name, value }))}
+          title="Drivers más usados"
+          className="h-full"
+        />
+        <DonutChart
+          data={[
+            { name: "Activas", value: activationData.activos },
+            { name: "Inactivas", value: activationData.inactivos },
+          ]}
+          title="Estado de reglas"
+          className="h-full"
+        />
+      </div>
 
       <Card className="border-border/80 shadow-sm">
         <CardHeader>

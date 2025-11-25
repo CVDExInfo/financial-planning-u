@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Building2, FolderKanban, Settings2, ShieldCheck, Waypoints } from "lucide-react";
+import { BarChart3, Building2, FolderKanban, Layers, Settings2, ShieldCheck, Waypoints } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PageHeader from "@/components/PageHeader";
 
@@ -28,6 +28,18 @@ const tiles = [
     description: "Gestionar excesos, reducciones y reasignaciones de presupuesto.",
     href: "/adjustments",
     icon: <ShieldCheck className="h-5 w-5" />,
+  },
+  {
+    title: "Flujo de Caja",
+    description: "Monitorea ingresos, egresos y margen mensual usando datos existentes.",
+    href: "/cashflow",
+    icon: <BarChart3 className="h-5 w-5" />,
+  },
+  {
+    title: "Escenarios",
+    description: "Compara escenarios frente al baseline con gráficos reutilizados.",
+    href: "/scenarios",
+    icon: <Layers className="h-5 w-5" />,
   },
   {
     title: "Proveedores",

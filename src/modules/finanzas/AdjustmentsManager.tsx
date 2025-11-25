@@ -27,6 +27,8 @@ export default function AdjustmentsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+  const SHOW_ADJUSTMENT_CHARTS = false;
+
   // Form state
   const [projectId, setProjectId] = React.useState("");
   const [tipo, setTipo] = React.useState<"exceso" | "reduccion" | "reasignacion">("exceso");
@@ -116,6 +118,24 @@ export default function AdjustmentsManager() {
           </Button>
         }
       />
+
+      <Card className="border-border/80 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Visualizaciones de ajustes</CardTitle>
+          <CardDescription>
+            Tendencias y distribución de ajustes aparecerán aquí con datos de la API de Finanzas.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {SHOW_ADJUSTMENT_CHARTS ? (
+            <p className="text-sm text-muted-foreground">Cargando gráficos…</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Próximamente: panel de gráficos para excesos, reducciones y reasignaciones cuando el endpoint expose datos.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border-border/80 shadow-sm">
         <CardHeader>

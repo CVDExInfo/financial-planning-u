@@ -24,6 +24,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, RefreshCcw } from "lucide-react";
 import DataContainer from "@/components/DataContainer";
 import PageHeader from "@/components/PageHeader";
+import DonutChart from "@/components/charts/DonutChart";
+import LineChartComponent from "@/components/charts/LineChart";
 
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -42,8 +44,57 @@ export default function ProjectsManager() {
   const [modTotal, setModTotal] = React.useState("");
   const [description, setDescription] = React.useState("");
 
-  const formatDate = (value?: string | null) =>
-    value ? new Date(value).toLocaleDateString() : "—";
+  const statusChartData = React.useMemo(() => {
+    const labels: Record<string, string> = {
+      active: "Activos",
+      completed: "Completados",
+      on_hold: "En espera",
+      cancelled: "Cancelados",
+    };
+
+    const counts = projects.reduce<Record<string, number>>((acc, project) => {
+      const key = project.status || "sin_estado";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(counts).map(([key, value]) => ({
+      name: labels[key] || "Sin estado",
+      value,
+    }));
+  }, [projects]);
+
+  const budgetByStartMonth = React.useMemo(() => {
+    const monthTotals = new Map<number, number>();
+
+    projects.forEach((project) => {
+      if (!project.start_date || !project.mod_total) return;
+      const startMonth = new Date(project.start_date).getMonth() + 1;
+      const current = monthTotals.get(startMonth) || 0;
+      monthTotals.set(startMonth, current + project.mod_total);
+    });
+
+    return Array.from(monthTotals.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([month, total]) => ({ month, "MOD total": total }));
+  }, [projects]);
+
+  const formatCurrency = React.useCallback(
+    (value: number) =>
+      new Intl.NumberFormat("es-MX", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 0,
+      }).format(value),
+    []
+  );
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return "—";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString();
+  };
 
   const loadProjects = React.useCallback(async () => {
     try {
@@ -152,6 +203,23 @@ export default function ProjectsManager() {
           </div>
         }
       />
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <DonutChart
+          data={statusChartData}
+          title="Distribución por estado"
+          className="h-full"
+        />
+        <LineChartComponent
+          data={budgetByStartMonth}
+          lines={[{ dataKey: "MOD total", name: "MOD total" }]}
+          title="MOD proyectado por mes de inicio"
+          className="h-full"
+          labelPrefix="Mes"
+          valueFormatter={formatCurrency}
+          xTickFormatter={(value) => `M${value}`}
+        />
+      </div>
 
       <Card className="border-border/80 shadow-sm">
         <CardHeader>
