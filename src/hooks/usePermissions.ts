@@ -11,6 +11,9 @@ import {
   ROLE_PRIORITY,
 } from "./permissions-helpers";
 
+export type FinanzasRole = "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
+
+
 type PermissionCheck = {
   anyRoles?: UserRole[];
   allDecisions?: string[];
