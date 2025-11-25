@@ -15,50 +15,61 @@ type VerifiedClaims = {
   [key: string]: unknown;
 };
 
-const userPoolId =
-  process.env.COGNITO_USER_POOL_ID || process.env.CognitoUserPoolId || "";
-const clientId =
-  process.env.COGNITO_CLIENT_ID || process.env.CognitoUserPoolClientId || "";
-const region = process.env.AWS_REGION || "us-east-2";
-const issuer =
-  process.env.COGNITO_ISSUER ||
-  (userPoolId
-    ? `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`
-    : "");
+const DEFAULT_USER_POOL_ID = "us-east-2_FyHLtOhiY";
+const DEFAULT_REGION = "us-east-2";
+const configuredUserPoolId =
+  process.env.COGNITO_USER_POOL_ID ||
+  process.env.CognitoUserPoolId ||
+  DEFAULT_USER_POOL_ID;
+const configuredClientIds = (process.env.COGNITO_CLIENT_ID ||
+  process.env.CognitoUserPoolClientId ||
+  "")
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean);
+const region = process.env.AWS_REGION || DEFAULT_REGION;
+const expectedIssuer = `https://cognito-idp.${region}.amazonaws.com/${configuredUserPoolId}`;
 
-if (!userPoolId || !clientId) {
-  console.error(
-    "[auth] COGNITO_USER_POOL_ID or COGNITO_CLIENT_ID environment variables are missing. JWT validation will fail."
+if (!process.env.COGNITO_USER_POOL_ID && configuredUserPoolId === DEFAULT_USER_POOL_ID) {
+  console.warn(
+    "[auth] COGNITO_USER_POOL_ID not set; defaulting to production pool",
+    DEFAULT_USER_POOL_ID
   );
 }
 
-const idTokenVerifier =
-  userPoolId && clientId
-    ? CognitoJwtVerifier.create({
-        userPoolId,
-        clientId,
-        tokenUse: "id",
-      })
-    : null;
+if (!configuredClientIds.length) {
+  console.error(
+    "[auth] COGNITO_CLIENT_ID environment variable is missing. JWT audience validation will fail."
+  );
+}
 
-const accessTokenVerifier =
-  userPoolId && clientId
-    ? CognitoJwtVerifier.create({
-        userPoolId,
-        clientId,
-        tokenUse: "access",
-      })
-    : null;
+const idTokenVerifier = CognitoJwtVerifier.create({
+  userPoolId: configuredUserPoolId,
+  clientId: configuredClientIds.length ? configuredClientIds : undefined,
+  tokenUse: "id",
+});
+
+const accessTokenVerifier = CognitoJwtVerifier.create({
+  userPoolId: configuredUserPoolId,
+  clientId: configuredClientIds.length ? configuredClientIds : undefined,
+  tokenUse: "access",
+});
+
+function authError(statusCode: number, message: string) {
+  return { statusCode, body: message };
+}
 
 function extractBearerToken(event: ApiGwEvent): string {
   const header = event.headers?.authorization || event.headers?.Authorization;
   if (!header) {
-    throw { statusCode: 401, body: "unauthorized" };
+    console.warn("[auth] Missing Authorization header");
+    throw authError(401, "unauthorized: missing bearer token");
   }
 
   const token = header.replace(/^Bearer\s+/i, "").trim();
   if (!token) {
-    throw { statusCode: 401, body: "unauthorized" };
+    console.warn("[auth] Empty bearer token provided");
+    throw authError(401, "unauthorized: missing bearer token");
   }
 
   return token;
@@ -67,10 +78,6 @@ function extractBearerToken(event: ApiGwEvent): string {
 async function verifyJwt(event: ApiGwEvent): Promise<VerifiedClaims> {
   if ((event as ApiGwEvent).__verifiedClaims) {
     return (event as ApiGwEvent).__verifiedClaims as VerifiedClaims;
-  }
-
-  if (!idTokenVerifier || !accessTokenVerifier) {
-    throw { statusCode: 401, body: "unauthorized" };
   }
 
   const token = extractBearerToken(event);
@@ -83,27 +90,34 @@ async function verifyJwt(event: ApiGwEvent): Promise<VerifiedClaims> {
       payload = (await accessTokenVerifier.verify(token)) as VerifiedClaims;
     } catch (accessError) {
       console.warn("[auth] JWT verification failed", { idError, accessError });
-      throw { statusCode: 401, body: "unauthorized" };
+      throw authError(401, "unauthorized: invalid token");
     }
   }
 
   if (!payload) {
-    throw { statusCode: 401, body: "unauthorized" };
+    console.warn("[auth] Verification returned empty payload");
+    throw authError(401, "unauthorized: invalid token");
   }
 
   const tokenIssuer = typeof payload.iss === "string" ? payload.iss : "";
-  if (issuer && tokenIssuer !== issuer) {
-    console.warn("[auth] Issuer mismatch", { tokenIssuer, expected: issuer });
-    throw { statusCode: 403, body: "forbidden: invalid issuer" };
+  if (tokenIssuer !== expectedIssuer) {
+    console.warn("[auth] Issuer mismatch", { tokenIssuer, expected: expectedIssuer });
+    throw authError(401, "unauthorized: invalid issuer");
   }
 
   const audience =
     (typeof payload.aud === "string" && payload.aud) ||
     (typeof payload.client_id === "string" && payload.client_id) ||
     "";
-  if (audience && clientId && audience !== clientId) {
-    console.warn("[auth] Audience mismatch", { audience, expected: clientId });
-    throw { statusCode: 403, body: "forbidden: invalid audience" };
+  if (
+    configuredClientIds.length &&
+    (audience ? !configuredClientIds.includes(audience) : true)
+  ) {
+    console.warn("[auth] Audience mismatch", {
+      audience,
+      expected: configuredClientIds,
+    });
+    throw authError(401, "unauthorized: invalid audience");
   }
 
   (event as ApiGwEvent).__verifiedClaims = payload;

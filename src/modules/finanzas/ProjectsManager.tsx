@@ -144,14 +144,45 @@ export default function ProjectsManager() {
   }, []);
 
   const loadProjects = React.useCallback(async () => {
+    console.info("[Projects] Inicio de carga de proyectos");
     try {
       setIsLoadingProjects(true);
       setLoadError(null);
       const data = await getProjects();
+
+      const rawItemsLength = Array.isArray((data as any)?.data)
+        ? (data as any).data.length
+        : Array.isArray((data as any)?.items)
+        ? (data as any).items.length
+        : Array.isArray(data)
+        ? (data as any).length
+        : undefined;
+
+      console.info("[Projects] Respuesta de API", {
+        tipo: Array.isArray(data) ? "array" : typeof data,
+        claves: data && typeof data === "object" ? Object.keys(data as any) : [],
+        longitud: rawItemsLength,
+      });
+
       const parsed = normalizeProjects(data);
-      setProjects(parsed);
+      console.info(`[Projects] Proyectos parseados: ${parsed.length}`);
+
+      if (parsed.length === 0) {
+        setProjects([]);
+        setLoadError("No se encontraron proyectos en Finanzas");
+      } else {
+        setProjects(parsed);
+      }
     } catch (e: any) {
-      const message = e?.message || "No se pudieron cargar los proyectos";
+      console.error("[Projects] Error al cargar proyectos", e);
+      let message = e?.message || "No se pudieron cargar los proyectos";
+
+      if (e instanceof FinanzasApiError && e.status === 401) {
+        message = "Sesión expirada. Por favor inicia sesión nuevamente.";
+      } else if (e instanceof FinanzasApiError && e.status === 403) {
+        message = "No tienes permiso para ver proyectos en Finanzas.";
+      }
+
       setLoadError(message);
       toast.error(message);
     } finally {
