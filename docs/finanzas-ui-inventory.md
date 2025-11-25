@@ -47,3 +47,8 @@ The home route is `/` and renders `FinanzasHome` when the Finanzas feature flag 
 ## Navigation consolidation decisions
 
 When Finanzas is enabled, the top navigation shows only Spanish Finanzas entries plus the PMO Estimator: Catálogo de Rubros, Proyectos, Rules, Ajustes, Proveedores, and Estimator.
+
+## E2E validation summary (2025-11-25)
+- **Endpoints validated:** Cognito `InitiateAuth` fallback via Hosted UI flow and Finanzas GET `/projects` on `https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev` during Playwright runs.
+- **Frontend/test updates:** Hardened `tests/e2e/finanzas/support.ts` to trigger the Finanzas entry CTA, handle two-step Cognito logins, and wait for the Finanzas shell navigation links before assertions.
+- **Backend TODOs:** No 500/501 responses observed in the Finanzas flows exercised; uploads test remains skipped because the current UI does not render a document upload control.
