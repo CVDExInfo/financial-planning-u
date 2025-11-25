@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { UserRole } from "@/types/domain";
 import {
   Card,
@@ -8,9 +8,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { ShieldAlert } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
+import { getDefaultRouteForRole, normalizeAppPath } from "@/lib/auth";
 
 interface AccessControlProps {
   children: React.ReactNode;
@@ -22,8 +24,9 @@ export function AccessControl({
   requiredRoles = [],
 }: AccessControlProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useAuth();
-  const { hasAnyRole } = usePermissions();
+  const { currentRole, canAccessRoute, hasAnyRole } = usePermissions();
 
   const isFinanzasRoute =
     location.pathname.startsWith("/finanzas") ||
@@ -44,8 +47,11 @@ export function AccessControl({
   }
 
   const allowed = hasAnyRole(requiredRoles);
+  const routeAllowed = canAccessRoute(normalizeAppPath(location.pathname));
 
-  if (!allowed) {
+  if (!allowed || !routeAllowed) {
+    const defaultRoute = getDefaultRouteForRole(currentRole);
+
     return (
       <div className="max-w-2xl mx-auto p-6 mt-12">
         <Card>
@@ -66,6 +72,9 @@ export function AccessControl({
                 Please contact your administrator if you believe this is a mistake.
               </AlertDescription>
             </Alert>
+            <div className="mt-4 flex justify-end">
+              <Button onClick={() => navigate(defaultRoute)}>Go to my workspace</Button>
+            </div>
           </CardContent>
         </Card>
       </div>
