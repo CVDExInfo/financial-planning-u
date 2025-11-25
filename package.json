@@ -17,6 +17,7 @@
     "preview": "vite preview",
     "preview:pmo": "BUILD_TARGET=pmo vite preview",
     "preview:finanzas": "BUILD_TARGET=finanzas vite preview",
+    "test": "node scripts/qa/finanzas-smoke.js",
     "test:e2e:finanzas": "playwright test tests/e2e/finanzas",
     "validate:api-config": "bash scripts/validate-api-config.sh",
     "validate:pre-build": "bash scripts/pre-build-validate.sh",
