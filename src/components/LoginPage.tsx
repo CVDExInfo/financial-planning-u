@@ -181,7 +181,7 @@ export function LoginPage() {
                 >
                   <span className="flex items-center gap-2 font-semibold">
                     <LogIn className="h-5 w-5" aria-hidden="true" />
-                    Acceso a Finanzas SD
+                    Acceso a Finanzas SDM
                   </span>
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Button>
@@ -199,7 +199,7 @@ export function LoginPage() {
                 >
                   <span className="flex items-center gap-2 font-semibold">
                     <Building2 className="h-5 w-5" aria-hidden="true" />
-                    Entrar a PMO Prefacturas
+                    Entrar a PMO Platform
                   </span>
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Button>
@@ -215,7 +215,7 @@ export function LoginPage() {
                 >
                   <span className="flex items-center gap-2 font-semibold">
                     <FileSpreadsheet className="h-5 w-5" aria-hidden="true" />
-                    Entrar a Prefacturas
+                    Entrar a Prefacturas Portal
                   </span>
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Button>
