@@ -55,7 +55,7 @@ export default function FinanzasHome() {
       <PageHeader
         title="Finanzas · Gestión Presupuesto"
         badge="R1"
-        description="Módulo inicial para proyectos, catálogos y reglas de asignación. Todo con branding Ikusi/CVDEx y preparado para producción."
+        description="Consolida costos de proyectos, rubros y facturación en un solo lugar, con trazabilidad completa para Finanzas y Service Delivery de Ikusi."
         icon={<FolderKanban className="h-5 w-5 text-white" />}
       />
 
@@ -65,12 +65,14 @@ export default function FinanzasHome() {
             <Card className="h-full border-border/80 hover:border-primary/60 transition-colors shadow-sm">
               <CardHeader className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-primary/10 text-primary p-2">{tile.icon}</div>
-                  <CardTitle className="text-lg group-hover:text-primary transition-colors">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    {tile.icon}
+                  </div>
+                  <CardTitle className="text-sm font-semibold group-hover:text-primary transition-colors">
                     {tile.title}
                   </CardTitle>
                 </div>
-                <CardDescription className="text-sm leading-relaxed">
+                <CardDescription className="text-xs leading-relaxed">
                   {tile.description}
                 </CardDescription>
               </CardHeader>
@@ -86,11 +88,19 @@ export default function FinanzasHome() {
 
       <Card className="border-dashed border-border/80 bg-muted/30">
         <CardHeader>
-          <CardTitle className="text-base">Próximos incrementos</CardTitle>
-          <CardDescription>
-            Persistencia en DynamoDB, edición avanzada de reglas, asignaciones automáticas y panel de costos consolidado.
+          <CardTitle className="text-sm">¿Qué puedes hacer en Finanzas SD?</CardTitle>
+          <CardDescription className="text-xs text-muted-foreground">
+            Accede a lo esencial para gestión financiera y Service Delivery.
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+            <li>Consultar y gestionar proyectos con su MOD autorizado.</li>
+            <li>Revisar el catálogo de rubros y las reglas de asignación de costos.</li>
+            <li>Cargar y conciliar facturas por proyecto y periodo.</li>
+            <li>Visualizar escenarios de flujo de caja y forecast a nivel portafolio.</li>
+          </ul>
+        </CardContent>
       </Card>
     </div>
   );
