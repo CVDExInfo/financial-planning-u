@@ -17,8 +17,11 @@ type PermissionCheck = {
  * AVP (Policy Store) decisions embedded in the ID token.
  */
 export function usePermissions() {
-  const { groups, roles, avpDecisions } = useAuth();
-  const currentRole = roles[0] ?? "SDMT";
+  const { groups, roles, avpDecisions, currentRole: activeRole } = useAuth();
+  const currentRole = useMemo(
+    () => activeRole ?? roles[0] ?? "SDMT",
+    [activeRole, roles]
+  );
 
   const normalizedGroups = useMemo(
     () => groups.map((group) => group.toLowerCase()),
@@ -62,6 +65,14 @@ export function usePermissions() {
   const canPerformAction = (action: string) =>
     legacyCanPerformAction(action, currentRole);
 
+    const hasPremiumFinanzasFeatures = () => {
+  // Premium features are enabled via environment flag or decision token
+  return (
+    (import.meta.env.VITE_FINZ_PREMIUM_ENABLED ?? "false") === "true" ||
+    hasDecision("finz-premium")
+  );
+};
+
   const hasMinimumRole = (minimumRole: UserRole) =>
     getRoleLevel(currentRole) >= getRoleLevel(minimumRole);
 
@@ -86,6 +97,9 @@ export function usePermissions() {
     hasMinimumRole,
     canCreate,
     canUpdate,
+
+      hasPremiumFinanzasFeatures,
+
     canDelete,
     canApprove,
   };

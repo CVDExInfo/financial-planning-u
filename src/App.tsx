@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Components
 import Navigation from "@/components/Navigation";
@@ -90,7 +91,7 @@ function resolveLoginPaths() {
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, routeConfigMissing, currentRole } = useAuth();
   const finzEnabled =
     import.meta.env.VITE_FINZ_ENABLED !== "false" ||
     (typeof window !== "undefined" &&
@@ -142,6 +143,19 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
+
+      {routeConfigMissing && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <Alert>
+            <AlertTitle>Role configuration incomplete</AlertTitle>
+            <AlertDescription>
+              Your role
+              {currentRole ? ` (${currentRole})` : ""} is not fully configured for
+              navigation. Please contact the administrator.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       <ProjectProvider>
         {showProjectContextBar && <ProjectContextBar />}
