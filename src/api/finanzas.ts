@@ -14,7 +14,7 @@ const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
 function requireApiBase(): string {
   if (!HAS_API_BASE) {
     throw new Error(
-      "VITE_API_BASE_URL is not set. Finanzas API client is disabled."
+      "VITE_API_BASE_URL is not set. Finanzas API client is disabled.",
     );
   }
   return API_BASE;
@@ -22,6 +22,7 @@ function requireApiBase(): string {
 
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
   const res = await fetch(url, init);
+
   if (!res.ok) {
     handleAuthErrorStatus(res.status);
 
@@ -30,8 +31,10 @@ async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
     if (res.status === 0 || /TypeError: Failed to fetch/.test(body)) {
       throw new Error(`Network/CORS error calling ${url}`);
     }
+
     throw new Error(`${init.method || "GET"} ${url} → ${res.status} ${body}`);
   }
+
   // Some POSTs legitimately return empty bodies; guard it.
   const text = await res.text();
   return text ? (JSON.parse(text) as T) : ({} as T);
@@ -47,7 +50,7 @@ export class FinanzasApiError extends Error {
 function ensureApiBase(): void {
   if (!HAS_API_BASE) {
     throw new FinanzasApiError(
-      "Finanzas API is not configured. Set VITE_API_BASE_URL to enable data loading."
+      "Finanzas API is not configured. Set VITE_API_BASE_URL to enable data loading.",
     );
   }
 }
@@ -135,6 +138,7 @@ async function presignUpload(_: {
     originalName: file.name,
     checksumSha256: await sha256(file),
   };
+
   return fetchJson<PresignResponse>(`${base}/uploads/docs`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...buildAuthHeader() },
@@ -144,7 +148,7 @@ async function presignUpload(_: {
 
 async function uploadFileWithPresign(
   file: File,
-  presign: PresignResponse
+  presign: PresignResponse,
 ): Promise<void> {
   const rsp = await fetch(presign.uploadUrl, {
     method: "PUT",
@@ -153,6 +157,7 @@ async function uploadFileWithPresign(
     },
     body: file,
   });
+
   if (!rsp.ok) throw new Error(`S3 PUT failed (${rsp.status})`);
 }
 
@@ -160,7 +165,7 @@ async function uploadFileWithPresign(
 export async function uploadInvoice(
   projectId: string,
   payload: UploadInvoicePayload,
-  options?: { module?: UploadModule }
+  options?: { module?: UploadModule },
 ): Promise<InvoiceDTO> {
   if (USE_MOCKS)
     throw new Error("Invoice upload is disabled when VITE_USE_MOCKS=true");
@@ -223,13 +228,14 @@ export type UploadSupportingDocOptions = {
 
 export async function uploadSupportingDocument(
   payload: UploadSupportingDocPayload,
-  options?: UploadSupportingDocOptions
+  options?: UploadSupportingDocOptions,
 ): Promise<UploadSupportingDocResult> {
   if (!payload.projectId) throw new Error("projectId is required");
   if (!payload.file) throw new Error("file is required");
 
   const moduleName = payload.module ?? "prefactura";
   options?.onStageChange?.("presigning");
+
   const presign = await presignUpload({
     projectId: payload.projectId,
     file: payload.file,
@@ -252,7 +258,7 @@ export async function uploadSupportingDocument(
 export async function updateInvoiceStatus(
   projectId: string,
   invoiceId: string,
-  body: { status: InvoiceStatus; comment?: string }
+  body: { status: InvoiceStatus; comment?: string },
 ): Promise<InvoiceDTO> {
   ensureApiBase();
   if (!projectId) throw new FinanzasApiError("projectId is required");
@@ -261,10 +267,10 @@ export async function updateInvoiceStatus(
   try {
     const res = await httpClient.put<InvoiceDTO>(
       `/projects/${encodeURIComponent(
-        projectId
+        projectId,
       )}/invoices/${encodeURIComponent(invoiceId)}/status`,
       body,
-      { headers: buildAuthHeader() }
+      { headers: buildAuthHeader() },
     );
     return res.data;
   } catch (err) {
@@ -274,7 +280,7 @@ export async function updateInvoiceStatus(
     if (err instanceof HttpError && (err.status === 404 || err.status === 405)) {
       throw new FinanzasApiError(
         "Updating invoice status is not available in this environment yet.",
-        err.status
+        err.status,
       );
     }
     throw toFinanzasError(err, "Unable to update invoice status");
@@ -290,13 +296,13 @@ export type AddProjectRubroInput = Record<string, unknown>;
 // Try the modern path first, then fall back once on 404/405.
 export async function addProjectRubro<T = Json>(
   projectId: string,
-  payload: AddProjectRubroInput
+  payload: AddProjectRubroInput,
 ): Promise<T> {
   const base = requireApiBase();
   const headers = { "Content-Type": "application/json", ...buildAuthHeader() };
 
   const primary = `${base}/projects/${encodeURIComponent(
-    projectId
+    projectId,
   )}/catalog/rubros`;
   let res = await fetch(primary, {
     method: "POST",
@@ -317,6 +323,7 @@ export async function addProjectRubro<T = Json>(
     const bodyText = await res.text().catch(() => "");
     throw new Error(`addProjectRubro failed (${res.status}): ${bodyText}`);
   }
+
   const text = await res.text();
   return (text ? JSON.parse(text) : {}) as T;
 }
@@ -326,11 +333,12 @@ export async function addProjectRubro<T = Json>(
    Used by: src/hooks/useProjectLineItems.ts
    ────────────────────────────────────────────────────────── */
 export async function getProjectRubros(
-  projectId: string
+  projectId: string,
 ): Promise<LineItemDTO[]> {
   if (USE_MOCKS) {
     throw new Error("getProjectRubros is disabled when VITE_USE_MOCKS=true");
   }
+
   ensureApiBase();
   if (!projectId) throw new FinanzasApiError("projectId is required");
 
@@ -339,7 +347,7 @@ export async function getProjectRubros(
     const primaryPath = `/projects/${encodeURIComponent(projectId)}/rubros`;
     let res = await httpClient.get<LineItemDTO[] | { data?: LineItemDTO[] }>(
       primaryPath,
-      { headers: buildAuthHeader() }
+      { headers: buildAuthHeader() },
     );
 
     // Some environments expose the catalog under /projects/{id}/catalog/rubros
@@ -349,7 +357,7 @@ export async function getProjectRubros(
       )}/catalog/rubros`;
       res = await httpClient.get<LineItemDTO[] | { data?: LineItemDTO[] }>(
         fallbackPath,
-        { headers: buildAuthHeader() }
+        { headers: buildAuthHeader() },
       );
     }
 
@@ -371,7 +379,12 @@ export async function getProjectRubros(
   }
 }
 
-export type ProjectsResponse = Json | Json[] | { data?: Json[]; items?: Json[] };
+// ---------- Projects ----------
+
+export type ProjectsResponse =
+  | Json
+  | Json[]
+  | { data?: Json[]; items?: Json[] };
 
 // Optional helpers used by tests/smokes
 export async function getProjects(): Promise<ProjectsResponse> {
@@ -385,10 +398,12 @@ export async function getProjects(): Promise<ProjectsResponse> {
   } catch (err) {
     if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
       handleAuthErrorStatus(err.status);
+
       const message =
         err.status === 401
           ? "Sesión expirada. Vuelve a iniciar sesión para ver proyectos."
           : "No tienes permiso para ver proyectos en Finanzas.";
+
       throw new FinanzasApiError(message, err.status);
     }
 
@@ -408,7 +423,7 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
     const params = new URLSearchParams({ projectId });
     const response = await httpClient.get<{ data?: any[] }>(
       `/prefacturas?${params.toString()}`,
-      { headers: buildAuthHeader() }
+      { headers: buildAuthHeader() },
     );
 
     const rows = Array.isArray(response?.data) ? response.data : [];
@@ -435,6 +450,7 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
     if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
       handleAuthErrorStatus(err.status);
     }
+
     if (err instanceof HttpError) {
       if (err.status === 404) {
         return [];
@@ -442,10 +458,11 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
       if (err.status === 403) {
         throw new FinanzasApiError(
           "Access to invoices is restricted for this project.",
-          403
+          403,
         );
       }
     }
+
     throw toFinanzasError(err, "Unable to load invoices");
   }
 }

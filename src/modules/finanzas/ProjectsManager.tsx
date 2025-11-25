@@ -4,7 +4,10 @@
  * - POST /projects → crear un nuevo proyecto
  */
 import React from "react";
-import finanzasClient, { type ProjectCreate, type Project } from "@/api/finanzasClient";
+import finanzasClient, {
+  type ProjectCreate,
+  type Project,
+} from "@/api/finanzasClient";
 import { FinanzasApiError, getProjects } from "@/api/finanzas";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

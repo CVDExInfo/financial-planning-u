@@ -266,22 +266,30 @@ RUBROS_CODE=$(curl -sS -o /tmp/api_rubros.json -w '%{http_code}' \
   --max-time 30 \
   "${API_BASE_URL}/catalog/rubros" 2>/dev/null || echo "000")
 
-if [ "$RUBROS_CODE" = "200" ]; then
-  echo -e "${GREEN}✅ GET /catalog/rubros → HTTP $RUBROS_CODE${NC}"
-  
-  if [ -f /tmp/api_rubros.json ] && command -v jq >/dev/null 2>&1; then
-    ITEM_COUNT=$(jq '.data | length' /tmp/api_rubros.json 2>/dev/null || echo "?")
-    echo "   Items: $ITEM_COUNT"
-    
-    if [ "$ITEM_COUNT" = "0" ]; then
-      echo -e "${YELLOW}   ⚠️  No catalog items - database may need seeding${NC}"
-      WARNINGS=$((WARNINGS + 1))
+case "$RUBROS_CODE" in
+  200)
+    echo -e "${GREEN}✅ GET /catalog/rubros → HTTP $RUBROS_CODE${NC}"
+
+    if [ -f /tmp/api_rubros.json ] && command -v jq >/dev/null 2>&1; then
+      ITEM_COUNT=$(jq '.data | length' /tmp/api_rubros.json 2>/dev/null || echo "?")
+      echo "   Items: $ITEM_COUNT"
+
+      if [ "$ITEM_COUNT" = "0" ]; then
+        echo -e "${YELLOW}   ⚠️  No catalog items - database may need seeding${NC}"
+        WARNINGS=$((WARNINGS + 1))
+      fi
     fi
-  fi
-else
-  echo -e "${RED}❌ GET /catalog/rubros → HTTP $RUBROS_CODE${NC}"
-  ERRORS=$((ERRORS + 1))
-fi
+    ;;
+  401|403)
+    echo -e "${GREEN}✅ GET /catalog/rubros → HTTP $RUBROS_CODE (protected endpoint requires auth)${NC}"
+    echo "   This is expected: /catalog/rubros now enforces authentication/authorization."
+    ;;
+  *)
+    echo -e "${RED}❌ GET /catalog/rubros → HTTP $RUBROS_CODE${NC}"
+    echo "   Expected 200 for public access or 401/403 for protected endpoint."
+    ERRORS=$((ERRORS + 1))
+    ;;
+esac
 
 echo ""
 
