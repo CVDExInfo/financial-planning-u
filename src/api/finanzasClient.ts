@@ -1,9 +1,7 @@
 import { z } from "zod";
-import { API_BASE, HAS_API_BASE } from "@/config/env";
+import { HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
-
-// Env config
-const BASE = API_BASE;
+import httpClient, { HttpError } from "@/lib/http-client";
 
 if (!HAS_API_BASE) {
   // Non-fatal in dev; API client will throw on call
@@ -12,7 +10,7 @@ if (!HAS_API_BASE) {
   );
 } else if (import.meta.env.DEV) {
   // Debug logging for dev mode only
-  console.log("[Finz] finanzasClient initialized with BASE:", BASE);
+  console.log("[Finz] finanzasClient initialized with shared httpClient");
 }
 
 // Schemas
@@ -61,56 +59,70 @@ export const AllocationRuleListSchema = z.object({
 
 export type AllocationRule = z.infer<typeof AllocationRuleSchema>;
 
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   if (!HAS_API_BASE) {
     throw new Error("Finanzas API base URL is not configured");
   }
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {}),
-      ...buildAuthHeader(),
-    },
-    credentials: "omit",
-    mode: "cors",
-  });
-  if (!res.ok) {
-    // Special handling for 501 Not Implemented
-    if (res.status === 501) {
-      throw new Error("This feature is not yet implemented on the server (501). The backend handler needs to be completed.");
+
+  const method = ((init?.method || "GET").toUpperCase() || "GET") as HttpMethod;
+  const parsedBody = (() => {
+    if (!init?.body) return undefined;
+    if (typeof init.body === "string") {
+      try {
+        return JSON.parse(init.body);
+      } catch (error) {
+        console.warn("finanzasClient could not parse request body as JSON", error);
+        return init.body;
+      }
+    }
+    return init.body;
+  })();
+
+  try {
+    const headers = { ...(init?.headers || {}), ...buildAuthHeader() };
+
+    const response = await (async () => {
+      switch (method) {
+        case "POST":
+          return httpClient.post<T>(path, parsedBody, { headers });
+        case "PUT":
+          return httpClient.put<T>(path, parsedBody, { headers });
+        case "PATCH":
+          return httpClient.patch<T>(path, parsedBody, { headers });
+        case "DELETE":
+          return httpClient.delete<T>(path, { headers });
+        default:
+          return httpClient.get<T>(path, { headers });
+      }
+    })();
+
+    return response.data as T;
+  } catch (error) {
+    if (error instanceof HttpError) {
+      if (error.status === 501) {
+        throw new Error(
+          "This feature is not yet implemented on the server (501). The backend handler needs to be completed."
+        );
+      }
+
+      if (error.status === 401 || error.status === 403) {
+        handleAuthErrorStatus(error.status);
+      }
     }
 
-    // Special handling for 401/403 authorization errors
-    if (res.status === 401) {
-      handleAuthErrorStatus(res.status);
-    }
-    if (res.status === 403) {
-      handleAuthErrorStatus(res.status);
-    }
-    
-    const text = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
-  }
-  
-  // Content-Type safety: Guard against HTML responses
-  const ct = res.headers.get("content-type") || "";
-  if (!ct.includes("application/json")) {
-    const text = await res.text().catch(() => "");
-    // Check if response looks like HTML (common when API base URL is wrong or returns login page)
-    const isHTML = text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html");
-    if (isHTML) {
+    // Surface any parsing or connectivity issues explicitly
+    if (error instanceof Error && /HTML|DOCTYPE|<html/i.test(error.message)) {
       throw new Error(
-        `API returned HTML (likely login page or wrong endpoint) instead of JSON. ` +
-        `Check VITE_API_BASE_URL configuration. Content-Type: ${ct || "(none)"}`
+        `${error.message} Check VITE_API_BASE_URL configuration or reverse proxy wiring.`
       );
     }
-    throw new Error(
-      `Expected JSON, got ${ct || "(none)"}. First bytes: ${text.slice(0, 80)}`
-    );
+
+    throw error instanceof Error
+      ? error
+      : new Error("Unknown network error while calling Finanzas API");
   }
-  
-  return res.json();
 }
 
 // Project schemas
@@ -191,8 +203,11 @@ export type ProviderCreate = z.infer<typeof ProviderCreateSchema>;
 
 function isJwtPresent(): boolean {
   return !!(
+    localStorage.getItem("finz_access_token") ||
     localStorage.getItem("cv.jwt") ||
     localStorage.getItem("finz_jwt") ||
+    localStorage.getItem("idToken") ||
+    localStorage.getItem("cognitoIdToken") ||
     STATIC_TEST_TOKEN
   );
 }
