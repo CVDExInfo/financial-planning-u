@@ -1,10 +1,12 @@
 import React, { createContext, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
 import awsConfig, { loginWithHostedUI, logoutWithHostedUI } from "@/config/aws";
 import {
   canAccessRoute,
   canPerformAction,
+  getRoleForPath,
   getDefaultUserRole,
   getRoutesForRole,
   getRolePermissionKeys,
@@ -170,6 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [routeConfigMissing, setRouteConfigMissing] = useState(false);
   const [groupClaims, setGroupClaims] = useState<string[]>([]);
+  const location = useLocation();
 
   const roles = useMemo(
     () => mapCognitoGroupsToRoles(groups).filter((r): r is UserRole => !!r),
@@ -214,6 +217,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [availableRoles, currentRole, groupClaims, user]);
+
+  useEffect(() => {
+    const suggestedRole = getRoleForPath(
+      location.pathname,
+      availableRoles.length ? availableRoles : roles,
+      currentRole || DEFAULT_ROLE,
+    );
+
+    if (suggestedRole !== currentRole) {
+      setCurrentRole(suggestedRole);
+      if (user) {
+        setUser((prev) =>
+          prev ? { ...prev, current_role: suggestedRole } : prev,
+        );
+      }
+    }
+  }, [availableRoles, currentRole, location.pathname, roles, user]);
 
   async function initializeAuth() {
     setIsLoading(true);
