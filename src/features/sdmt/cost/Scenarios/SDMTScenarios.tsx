@@ -9,11 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, TrendingUp, TrendingDown, Plus, Copy, BarChart3, GitCompareIcon, DollarSign, Calendar, Users, Cpu, Zap } from 'lucide-react';
+import { AlertCircle, TrendingUp, TrendingDown, Plus, Copy, BarChart3, GitCompareIcon, DollarSign, Calendar, Users, Cpu, Zap, Lock } from 'lucide-react';
 import ModuleBadge from '@/components/ModuleBadge';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useProject } from '@/contexts/ProjectContext';
 import ApiService from '@/lib/api';
+import usePermissions from '@/hooks/usePermissions';
 
 // Mock data for scenario comparison
 const mockScenarioData = [
@@ -71,6 +72,7 @@ interface ScenarioParameters {
 }
 
 export function SDMTScenarios() {
+  const { hasPremiumFinanzasFeatures } = usePermissions();
   const { selectedProjectId, currentProject, projectChangeCount } = useProject();
   const [scenarios, setScenarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,11 +88,13 @@ export function SDMTScenarios() {
 
   // Load data when project changes
   useEffect(() => {
+    if (!hasPremiumFinanzasFeatures) return;
+
     if (selectedProjectId) {
       console.log('🎯 Scenarios: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
       loadScenarios();
     }
-  }, [selectedProjectId, projectChangeCount]);
+  }, [hasPremiumFinanzasFeatures, projectChangeCount, selectedProjectId]);
 
   const loadScenarios = async () => {
     try {
@@ -154,6 +158,31 @@ export function SDMTScenarios() {
     { name: 'Vendor Disc.', value: -8200, cumulative: 486150 },
     { name: 'Final', value: 0, cumulative: 486150 }
   ];
+
+  if (!hasPremiumFinanzasFeatures) {
+    return (
+      <div className="max-w-3xl mx-auto p-6 space-y-4">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2 text-amber-600">
+              <Lock className="w-5 h-5" />
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                Premium add-on
+              </Badge>
+            </div>
+            <CardTitle className="text-xl">Scenario Analysis</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-muted-foreground">
+            <p>
+              Scenario modeling is available for premium Finanzas plans. Enable the add-on to simulate impacts,
+              compare scenarios, and export reports.
+            </p>
+            <p className="text-sm">Contact your administrator to upgrade.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
