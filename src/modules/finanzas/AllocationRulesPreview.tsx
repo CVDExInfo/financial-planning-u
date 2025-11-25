@@ -1,3 +1,7 @@
+/*
+ * Finanzas endpoints used here
+ * - GET /allocation-rules → cargar reglas de asignación
+ */
 import { useEffect, useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +11,7 @@ import DataContainer from "@/components/DataContainer";
 import PageHeader from "@/components/PageHeader";
 import finanzasClient, { AllocationRule } from "@/api/finanzasClient";
 import DonutChart from "@/components/charts/DonutChart";
+import { toast } from "sonner";
 
 export default function AllocationRulesPreview() {
   const [rules, setRules] = useState<AllocationRule[]>([]);
@@ -33,13 +38,14 @@ export default function AllocationRulesPreview() {
       setLoading(true);
       setError(null);
       const data = await finanzasClient.getAllocationRules();
-      setRules(data);
+      setRules(Array.isArray(data) ? data : []);
     } catch (e: any) {
       console.error(e);
-      setError(
+      const message =
         e?.message ||
-          "No se pudieron cargar las reglas de asignación. Verifica la API de Finanzas o tus permisos."
-      );
+        "No se pudieron cargar las reglas de asignación. Verifica la API de Finanzas o tus permisos.";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -102,41 +108,50 @@ export default function AllocationRulesPreview() {
             emptyTitle="No hay reglas configuradas"
             emptyMessage="Cuando el backend exponga reglas, aparecerán aquí."
           >
-            {(items) => (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {(items as AllocationRule[]).map((r) => (
-                  <Card key={r.rule_id} className="border-border/80">
-                    <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
-                      <div className="space-y-1">
-                        <CardTitle className="text-base font-semibold">{r.rule_id}</CardTitle>
-                        <p className="text-xs text-muted-foreground">
-                          Línea: {r.linea_codigo} • Driver: {r.driver}
-                        </p>
-                      </div>
-                      <Badge variant={r.active ? "default" : "secondary"}>
-                        {r.active ? "Activa" : "Inactiva"}
-                      </Badge>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      {r.split && (
-                        <ul className="space-y-1 text-xs text-muted-foreground">
-                          {r.split.map((s, i) => (
-                            <li key={i}>
-                              → {s.to.project_id || s.to.cost_center} : {s.pct}%
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {r.fixed_amount && (
-                        <p className="text-xs text-muted-foreground">
-                          Monto fijo: ${r.fixed_amount.toLocaleString()}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+            {(items) => {
+              const safeRules = Array.isArray(items) ? (items as AllocationRule[]) : [];
+
+              return (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {safeRules.map((r) => {
+                    const splitRows = Array.isArray(r.split) ? r.split : [];
+                    const fixedAmount = Number(r.fixed_amount ?? 0);
+
+                    return (
+                      <Card key={r.rule_id} className="border-border/80">
+                        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+                          <div className="space-y-1">
+                            <CardTitle className="text-base font-semibold">{r.rule_id}</CardTitle>
+                            <p className="text-xs text-muted-foreground">
+                              Línea: {r.linea_codigo} • Driver: {r.driver}
+                            </p>
+                          </div>
+                          <Badge variant={r.active ? "default" : "secondary"}>
+                            {r.active ? "Activa" : "Inactiva"}
+                          </Badge>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                          {splitRows.length > 0 && (
+                            <ul className="space-y-1 text-xs text-muted-foreground">
+                              {splitRows.map((s, i) => (
+                                <li key={i}>
+                                  → {s.to.project_id || s.to.cost_center || "destino"} : {s.pct}%
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {fixedAmount > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Monto fijo: ${fixedAmount.toLocaleString()}
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              );
+            }}
           </DataContainer>
         </CardContent>
       </Card>
