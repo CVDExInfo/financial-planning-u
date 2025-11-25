@@ -48,6 +48,10 @@ import { toast } from "sonner";
 import { Logo } from "@/components/Logo";
 import { logoutWithHostedUI } from "@/config/aws";
 
+// Navigation visibility summary:
+// - PMO section: only visible when the active role is PMO or when browsing a /finanzas/pmo/* route.
+// - SDMT section: visible when the role has access to SDMT routes; vendor and PMO users are filtered out via route access checks.
+
 type NavigationStack = "pmo" | "sdmt" | "finanzas";
 
 interface NavigationItem {
@@ -94,6 +98,11 @@ export function Navigation() {
   const normalizedPath = normalizeAppPath(location.pathname);
   const userDisplayName = user?.name || user?.email || "User";
 
+  const isPmoContext =
+    activeRole === "PMO" ||
+    location.pathname.startsWith("/finanzas/pmo/") ||
+    normalizedPath.startsWith("/pmo/");
+
   // Route guard: if current path is not allowed for the active role, redirect
   // Skip this in Finanzas-only mode to avoid fighting the /finanzas/* SPA routing
   useEffect(() => {
@@ -136,8 +145,8 @@ export function Navigation() {
       stack: "sdmt",
       items: [
         {
-          path: "/sdmt/cost/catalog",
-          label: "Catalog",
+          path: "/finanzas/sdmt/cost/catalog",
+          label: "Cost Catalog",
           icon: BookOpen,
           stack: "sdmt",
         },
@@ -222,17 +231,26 @@ export function Navigation() {
   ];
 
   const allowedStacks: NavigationStack[] = finzEnabled
-    ? ["finanzas", "pmo"]
+    ? ["finanzas", "sdmt", "pmo"]
     : ["sdmt", "pmo"];
 
   const filteredSections = navSections
-    .filter((section) => allowedStacks.includes(section.stack))
+    .filter((section) => {
+      if (!allowedStacks.includes(section.stack)) return false;
+
+      if (section.stack === "pmo" && !isPmoContext) return false;
+
+      return true;
+    })
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => {
+        const normalizedItemPath = normalizeAppPath(item.path);
+
         if (!allowedStacks.includes(item.stack)) return false;
+        if (item.stack === "pmo" && !isPmoContext) return false;
         if (item.isPremium && !hasPremiumFinanzasFeatures) return false;
-        return roleCanAccessRoute(normalizeAppPath(item.path));
+        return roleCanAccessRoute(normalizedItemPath);
       }),
     }))
     .filter((section) => section.items.length > 0);
@@ -270,15 +288,16 @@ export function Navigation() {
                     </span>
                     {section.items.map((item) => {
                       const Icon = item.icon;
-                      const isActive = normalizedPath === item.path;
+                      const normalizedItemPath = normalizeAppPath(item.path);
+                      const isActive = normalizedPath === normalizedItemPath;
                       const isPremium = item.isPremium;
 
                       const linkElement = (
                         <Link
                           key={item.path}
-                          to={item.path}
+                          to={normalizedItemPath}
                           className={`
-                            flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors relative
+                            flex items-center space-x-2 px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors relative
                             ${
                               isActive
                                 ? isPremium
