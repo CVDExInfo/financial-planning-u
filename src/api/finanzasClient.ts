@@ -125,6 +125,31 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+function toProjectRubroRequest(payload: RubroCreate): ProjectRubroRequest {
+  const normalized: ProjectRubroRequest = {
+    rubroIds: payload.rubro_id ? [payload.rubro_id] : [],
+    monto_total: payload.monto_total,
+    tipo_ejecucion: payload.tipo_ejecucion,
+    meses_programados: payload.meses_programados,
+    notas: payload.notas,
+  };
+
+  const parsed = ProjectRubroRequestSchema.safeParse(normalized);
+
+  if (!parsed.success) {
+    const details = parsed.error.issues
+      .map((issue) => issue.message || issue.path.join("."))
+      .join("; ");
+
+    throw new Error(
+      details ||
+        "Datos del rubro inválidos. Revisa el ID, monto y tipo de ejecución antes de intentar nuevamente."
+    );
+  }
+
+  return parsed.data;
+}
+
 // Project schemas
 export const ProjectCreateSchema = z.object({
   name: z.string().min(3).max(200),
@@ -158,6 +183,16 @@ export const RubroCreateSchema = z.object({
 });
 
 export type RubroCreate = z.infer<typeof RubroCreateSchema>;
+
+const ProjectRubroRequestSchema = z.object({
+  rubroIds: z.array(z.string()).min(1),
+  monto_total: z.number().min(0).optional(),
+  tipo_ejecucion: z.enum(["mensual", "puntual", "por_hito"]).optional(),
+  meses_programados: z.array(z.string()).optional(),
+  notas: z.string().max(1000).optional(),
+});
+
+type ProjectRubroRequest = z.infer<typeof ProjectRubroRequestSchema>;
 
 // Allocation bulk schema
 export const AllocationBulkSchema = z.object({
@@ -279,9 +314,11 @@ export const finanzasClient = {
 
   async createProjectRubro(projectId: string, payload: RubroCreate): Promise<Rubro> {
     checkAuth();
+    const requestBody = toProjectRubroRequest(payload);
+
     const data = await http<Rubro>(`/projects/${projectId}/rubros`, {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(requestBody),
     });
     return data;
   },

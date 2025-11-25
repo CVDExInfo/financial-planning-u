@@ -92,12 +92,19 @@ export default function RubrosCatalog() {
       return;
     }
 
+    const parsedMonto = Number.parseFloat(montoTotal);
+
+    if (!Number.isFinite(parsedMonto) || parsedMonto < 0) {
+      toast.error("El monto debe ser un número válido y mayor o igual a 0");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      
+
       const payload: RubroCreate = {
         rubro_id: selectedRubro.rubro_id,
-        monto_total: parseFloat(montoTotal),
+        monto_total: parsedMonto,
         tipo_ejecucion: tipoEjecucion,
         notas: notas || undefined,
       };
