@@ -65,10 +65,19 @@ export function usePermissions() {
   const canPerformAction = (action: string) =>
     legacyCanPerformAction(action, currentRole);
 
+    const hasPremiumFinanzasFeatures = () => {
+  // Premium features are enabled via environment flag or decision token
+  return (
+    (import.meta.env.VITE_FINZ_PREMIUM_ENABLED ?? "false") === "true" ||
+    hasDecision("finz-premium")
+  );
+};
+
   const hasMinimumRole = (minimumRole: UserRole) =>
     getRoleLevel(currentRole) >= getRoleLevel(minimumRole);
 
-  const canCreate = () => canPerformAction("create");
+  const canCreate = () => canPerformA
+      ction("create");
   const canUpdate = () => canPerformAction("update");
   const canDelete = () => canPerformAction("delete");
   const canApprove = () => canPerformAction("approve");
@@ -89,6 +98,9 @@ export function usePermissions() {
     hasMinimumRole,
     canCreate,
     canUpdate,
+
+      hasPremiumFinanzasFeatures,
+
     canDelete,
     canApprove,
   };
