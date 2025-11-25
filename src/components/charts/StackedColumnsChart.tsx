@@ -13,6 +13,9 @@ interface StackedColumnsChartProps {
   }>;
   title?: string;
   className?: string;
+  labelPrefix?: string;
+  valueFormatter?: (value: number) => string;
+  xTickFormatter?: (value: number) => string;
 }
 
 const DEFAULT_COLORS = [
@@ -23,37 +26,44 @@ const DEFAULT_COLORS = [
   'oklch(0.65 0.2 30)',   // Red
 ];
 
-export function StackedColumnsChart({ 
-  data, 
-  stacks, 
+export function StackedColumnsChart({
+  data,
+  stacks,
   title,
-  className = ""
+  className = "",
+  labelPrefix = "Month",
+  valueFormatter,
+  xTickFormatter,
 }: StackedColumnsChartProps) {
   const stacksWithColors = stacks.map((stack, index) => ({
     ...stack,
     color: stack.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]
   }));
 
+  const formatValue = (value: number) =>
+    valueFormatter?.(value) ||
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+    }).format(value);
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-medium mb-2">Month {label}</p>
+          <p className="font-medium mb-2">{labelPrefix} {label}</p>
           {payload.map((entry: any, index: number) => (
             <div key={index} className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <div 
+                <div
                   className="w-3 h-3 rounded" 
                   style={{ backgroundColor: entry.color }}
                 />
                 <span className="text-sm">{entry.name}:</span>
               </div>
               <span className="text-sm font-medium">
-                {new Intl.NumberFormat('en-US', {
-                  style: 'currency',
-                  currency: 'USD',
-                  minimumFractionDigits: 0,
-                }).format(entry.value)}
+                {formatValue(entry.value)}
               </span>
             </div>
           ))}
@@ -97,16 +107,17 @@ export function StackedColumnsChart({
             }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.90 0.02 160)" />
-            <XAxis 
-              dataKey="month" 
+            <XAxis
+              dataKey="month"
               stroke="oklch(0.45 0 0)"
               fontSize={12}
-              tickFormatter={(value) => `M${value}`}
+              tickFormatter={xTickFormatter || ((value) => `M${value}`)}
             />
-            <YAxis 
+            <YAxis
               stroke="oklch(0.45 0 0)"
               fontSize={12}
-              tickFormatter={(value) => 
+              tickFormatter={(value) =>
+                valueFormatter?.(value) ||
                 new Intl.NumberFormat('en-US', {
                   style: 'currency',
                   currency: 'USD',

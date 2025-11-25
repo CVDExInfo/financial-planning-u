@@ -192,11 +192,23 @@ export function Navigation() {
           icon: FolderKanban,
           stack: "finanzas",
         },
-        { path: "/rules", label: "Rules", icon: BookOpen, stack: "finanzas" },
+        { path: "/rules", label: "Reglas", icon: BookOpen, stack: "finanzas" },
         {
           path: "/adjustments",
           label: "Ajustes",
           icon: Shield,
+          stack: "finanzas",
+        },
+        {
+          path: "/cashflow",
+          label: "Flujo de Caja",
+          icon: BarChart3,
+          stack: "finanzas",
+        },
+        {
+          path: "/scenarios",
+          label: "Escenarios",
+          icon: Layers,
           stack: "finanzas",
         },
         {

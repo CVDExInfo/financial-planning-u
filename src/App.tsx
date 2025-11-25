@@ -23,6 +23,8 @@ import FinanzasHome from "./modules/finanzas/FinanzasHome";
 import ProjectsManager from "@/modules/finanzas/ProjectsManager";
 import AdjustmentsManager from "@/modules/finanzas/AdjustmentsManager";
 import ProvidersManager from "@/modules/finanzas/ProvidersManager";
+import CashflowDashboard from "@/modules/finanzas/CashflowDashboard";
+import ScenariosDashboard from "@/modules/finanzas/ScenariosDashboard";
 import SDMTForecast from "@/features/sdmt/cost/Forecast/SDMTForecast";
 import SDMTReconciliation from "@/features/sdmt/cost/Reconciliation/SDMTReconciliation";
 import SDMTCashflow from "@/features/sdmt/cost/Cashflow/SDMTCashflow";
@@ -216,6 +218,26 @@ function AppContent() {
                 element={
                   finanzasEnabled ? (
                     <AdjustmentsManager />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+              <Route
+                path="/cashflow"
+                element={
+                  finanzasEnabled ? (
+                    <CashflowDashboard />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+              <Route
+                path="/scenarios"
+                element={
+                  finanzasEnabled ? (
+                    <ScenariosDashboard />
                   ) : (
                     <Navigate to="/" replace />
                   )
