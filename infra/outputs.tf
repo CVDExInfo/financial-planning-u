@@ -22,3 +22,8 @@ output "deployment_url" {
   description = "URL where the Financial Planning UI will be accessible"
   value       = "https://${data.aws_cloudfront_distribution.existing.domain_name}/finanzas/"
 }
+
+output "cloudfront_domain_name" {
+  description = "Domain name of the CloudFront distribution for Finanzas (use for VITE_CLOUDFRONT_URL)"
+  value       = "https://${data.aws_cloudfront_distribution.existing.domain_name}"
+}
