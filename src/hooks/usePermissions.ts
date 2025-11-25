@@ -7,7 +7,6 @@ import {
 } from "../lib/auth";
 import { type FinanzasRole } from "../lib/jwt";
 import {
-  normalizeGroups,
   resolveFinanzasRole,
   ROLE_PRIORITY,
 } from "./permissions-helpers";
