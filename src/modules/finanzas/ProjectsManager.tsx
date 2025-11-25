@@ -91,11 +91,9 @@ export default function ProjectsManager() {
         currency: "USD",
         maximumFractionDigits: 0,
       }).format(value),
-    []
+    [],
   );
 
-  const formatDate = (value?: string | null) =>
-    value ? new Date(value).toLocaleDateString() : "—";
   const formatDate = (value?: string | null) => {
     if (!value) return "—";
     const parsed = new Date(value);
@@ -107,10 +105,10 @@ export default function ProjectsManager() {
     const items = Array.isArray((payload as any)?.data)
       ? (payload as any).data
       : Array.isArray(payload)
-        ? (payload as any)
-        : Array.isArray((payload as any)?.items)
-          ? (payload as any).items
-          : [];
+      ? (payload as any)
+      : Array.isArray((payload as any)?.items)
+      ? (payload as any).items
+      : [];
 
     if (!Array.isArray(items) || items.length === 0) return [];
 
@@ -118,16 +116,19 @@ export default function ProjectsManager() {
       .map((project: any): Project => ({
         id:
           String(
-            project?.id || project?.project_id || project?.projectId || ""
+            project?.id || project?.project_id || project?.projectId || "",
           ).trim() || "",
         name:
-          String(project?.name || project?.nombre || project?.project_name || "")
-            .trim() || "Proyecto sin nombre",
+          String(
+            project?.name || project?.nombre || project?.project_name || "",
+          ).trim() || "Proyecto sin nombre",
         client: project?.client || project?.cliente || "",
         start_date: project?.start_date || project?.fecha_inicio || "",
         end_date: project?.end_date || project?.fecha_fin || "",
         currency: project?.currency || project?.moneda || "USD",
-        mod_total: Number(project?.mod_total ?? project?.presupuesto_total ?? 0),
+        mod_total: Number(
+          project?.mod_total ?? project?.presupuesto_total ?? 0,
+        ),
         description: project?.description || project?.descripcion || "",
         code: project?.code || project?.codigo || "",
         status: (project?.status || project?.estado || "active") as Project["status"],
