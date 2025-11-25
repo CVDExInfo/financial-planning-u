@@ -201,6 +201,7 @@ export function loginWithHostedUI(): void {
     response_type: responseType,
     scope: scope.join(" "),
     redirect_uri: redirectSignIn,
+    lang: "es",
   });
 
   const hostedUIUrl = `https://${domain}/oauth2/authorize?${params.toString()}`;
