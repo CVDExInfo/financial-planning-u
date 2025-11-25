@@ -1,14 +1,14 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ensureSDT } from "../lib/auth";
-import { ok, bad, serverError } from "../lib/http";
+import { ensureCanRead, ensureCanWrite } from "../lib/auth";
+import { ok, bad, serverError, fromAuthError } from "../lib/http";
 import { ddb, tableName, PutCommand, ScanCommand } from "../lib/dynamo";
 import crypto from "node:crypto";
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
-    await ensureSDT(event);
-
     if (event.requestContext.http.method === "POST") {
+      await ensureCanWrite(event);
+
       let body: Record<string, unknown>;
       try {
         body = JSON.parse(event.body ?? "{}");
@@ -74,6 +74,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     // GET /projects
+    await ensureCanRead(event);
+
     const result = await ddb.send(
       new ScanCommand({
         TableName: tableName("projects"),
@@ -134,6 +136,9 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
     return ok({ data: projects, total: projects.length });
   } catch (error) {
+    const authError = fromAuthError(error);
+    if (authError) return authError;
+
     console.error("Error in projects handler", error);
     return serverError();
   }
