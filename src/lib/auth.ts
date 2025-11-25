@@ -18,23 +18,17 @@ const IS_FINZ_BUILD =
 
 // Role permissions mapping
 const ROLE_PERMISSIONS = {
-  PMO: {
-    // Allow PMO to access PMO and SDMT modules, plus Finanzas (feature) routes
+  PMO: {    // PMO role has access only to PMO/Prefactura routes
     routes: [
-      "/",
       "/pmo/**",
-      "/pmo/prefactura/**",
-      "/sdmt/**",
-      "/projects/**",
-      "/catalog/**",
-      "/rules",
-      "/adjustments/**",
-      "/providers/**",
     ],
     actions: ["create", "read", "update", "delete", "approve"],
-    description: "Full access to PMO estimator and SDMT cost management",
+    description: "Full access to PMO estimator only",
   },
-  SDMT: {
+
+  },
+
+ SDMT:
     // SDMT module plus Finanzas (feature) routes
     routes: [
       "/",
