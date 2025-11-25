@@ -144,12 +144,7 @@ export default function ProjectsManager() {
       setLoadError(null);
       const data = await getProjects();
       const parsed = normalizeProjects(data);
-      if (parsed.length === 0) {
-        setProjects([]);
-        setLoadError("No se encontraron proyectos en Finanzas");
-      } else {
-        setProjects(parsed);
-      }
+      setProjects(parsed);
     } catch (e: any) {
       const message = e?.message || "No se pudieron cargar los proyectos";
       setLoadError(message);
