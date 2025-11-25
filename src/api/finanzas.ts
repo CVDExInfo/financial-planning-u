@@ -263,10 +263,14 @@ export async function updateInvoiceStatus(
       `/projects/${encodeURIComponent(
         projectId
       )}/invoices/${encodeURIComponent(invoiceId)}/status`,
-      body
+      body,
+      { headers: buildAuthHeader() }
     );
     return res.data;
   } catch (err) {
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      handleAuthErrorStatus(err.status);
+    }
     if (err instanceof HttpError && (err.status === 404 || err.status === 405)) {
       throw new FinanzasApiError(
         "Updating invoice status is not available in this environment yet.",
@@ -335,6 +339,7 @@ export async function getProjectRubros(
     const primaryPath = `/projects/${encodeURIComponent(projectId)}/rubros`;
     let res = await httpClient.get<LineItemDTO[] | { data?: LineItemDTO[] }>(
       primaryPath,
+      { headers: buildAuthHeader() }
     );
 
     // Some environments expose the catalog under /projects/{id}/catalog/rubros
@@ -344,6 +349,7 @@ export async function getProjectRubros(
       )}/catalog/rubros`;
       res = await httpClient.get<LineItemDTO[] | { data?: LineItemDTO[] }>(
         fallbackPath,
+        { headers: buildAuthHeader() }
       );
     }
 
@@ -355,6 +361,9 @@ export async function getProjectRubros(
 
     return payload as LineItemDTO[];
   } catch (err) {
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      handleAuthErrorStatus(err.status);
+    }
     if (err instanceof HttpError && (err.status === 404 || err.status === 405)) {
       return [];
     }
@@ -369,10 +378,13 @@ export async function getProjects(): Promise<ProjectsResponse> {
   ensureApiBase();
 
   try {
-    const res = await httpClient.get<ProjectsResponse>("/projects?limit=50");
+    const res = await httpClient.get<ProjectsResponse>("/projects?limit=50", {
+      headers: buildAuthHeader(),
+    });
     return res.data;
   } catch (err) {
     if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      handleAuthErrorStatus(err.status);
       const message =
         err.status === 401
           ? "Sesión expirada. Vuelve a iniciar sesión para ver proyectos."
@@ -395,7 +407,8 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
   try {
     const params = new URLSearchParams({ projectId });
     const response = await httpClient.get<{ data?: any[] }>(
-      `/prefacturas?${params.toString()}`
+      `/prefacturas?${params.toString()}`,
+      { headers: buildAuthHeader() }
     );
 
     const rows = Array.isArray(response?.data) ? response.data : [];
@@ -419,6 +432,9 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
       matched_by: item.matched_by,
     }));
   } catch (err) {
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      handleAuthErrorStatus(err.status);
+    }
     if (err instanceof HttpError) {
       if (err.status === 404) {
         return [];
