@@ -1,56 +1,27 @@
 import { useMemo } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { UserRole } from "@/types/domain";
+import { useAuth } from "./useAuth";
+import { UserRole } from "../types/domain";
 import {
   canAccessRoute as legacyCanAccessRoute,
   canPerformAction as legacyCanPerformAction,
-  getRoleLevel,
-} from "@/lib/auth";
+} from "../lib/auth";
+import { type FinanzasRole } from "../lib/jwt";
+import {
+  resolveFinanzasRole,
+  ROLE_PRIORITY,
+} from "./permissions-helpers";
 
 export type FinanzasRole = "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
 
-const ROLE_PRIORITY: FinanzasRole[] = ["SDMT", "PMO", "EXEC_RO", "VENDOR"];
 
 type PermissionCheck = {
   anyRoles?: UserRole[];
   allDecisions?: string[];
 };
 
-function normalizeGroups(groups: unknown): string[] {
-  if (!groups) return [];
-  if (Array.isArray(groups)) return groups.map((g) => String(g).toUpperCase());
-  if (typeof groups === "string") {
-    return groups
-      .split(/[\s,]+/)
-      .filter(Boolean)
-      .map((g) => g.toUpperCase());
-  }
-  return [];
-}
-
 export function useFinanzasRole(): FinanzasRole | null {
-  const { groups, currentRole, roles, user } = useAuth();
-  const normalizedGroups = normalizeGroups(
-    groups.length ? groups : user?.claims?.["cognito:groups"],
-  );
-
-  const candidateRoles: FinanzasRole[] = [];
-  const hasGroup = (group: string) => normalizedGroups.includes(group.toUpperCase());
-
-  if (hasGroup("SDMT")) candidateRoles.push("SDMT");
-  if (hasGroup("PMO")) candidateRoles.push("PMO");
-  if (hasGroup("EXEC_RO")) candidateRoles.push("EXEC_RO");
-  if (hasGroup("VENDOR")) candidateRoles.push("VENDOR");
-
-  if (candidateRoles.length === 0) {
-    const fallback =
-      (currentRole as FinanzasRole | undefined) ||
-      (roles[0] as FinanzasRole | undefined);
-    return fallback ?? null;
-  }
-
-  candidateRoles.sort((a, b) => ROLE_PRIORITY.indexOf(a) - ROLE_PRIORITY.indexOf(b));
-  return candidateRoles[0];
+  const { groups, currentRole, roles } = useAuth();
+  return resolveFinanzasRole(groups, currentRole as FinanzasRole, roles as FinanzasRole[]);
 }
 
 /**
@@ -73,9 +44,42 @@ export function usePermissions() {
   );
 
   const effectiveRole: FinanzasRole =
-    finanzasRole || (activeRole as FinanzasRole | undefined) ||
+    finanzasRole ||
+    (activeRole as FinanzasRole | undefined) ||
     (roles[0] as FinanzasRole | undefined) ||
-    "SDMT";
+    null;
+
+  if (!effectiveRole) {
+    return {
+      roles,
+      groups,
+      role: null,
+      currentRole: null,
+      hasGroup: () => false,
+      hasRole: () => false,
+      hasAnyRole: () => false,
+      hasDecision: () => false,
+      hasAllDecisions: () => false,
+      can: () => false,
+      isReadOnly: () => true,
+      canAccessRoute: () => false,
+      canPerformAction: () => false,
+      hasMinimumRole: () => false,
+      canCreate: () => false,
+      canUpdate: () => false,
+      hasPremiumFinanzasFeatures: false,
+      canDelete: () => false,
+      canApprove: () => false,
+      isPMO: false,
+      isSDMT: false,
+      isVendor: false,
+      isExecRO: true,
+      canManageCosts: false,
+      canCreateBaseline: false,
+      canUploadInvoices: false,
+      canEdit: false,
+    };
+  }
 
   const hasGroup = (group: string) => normalizedGroups.includes(group.toUpperCase());
 
@@ -110,12 +114,11 @@ export function usePermissions() {
     hasDecision("finz-premium");
 
   const hasMinimumRole = (minimumRole: UserRole) =>
-    getRoleLevel(effectiveRole) >= getRoleLevel(minimumRole);
+    ROLE_PRIORITY.indexOf(effectiveRole) <=
+    ROLE_PRIORITY.indexOf(minimumRole as FinanzasRole);
 
   const canCreate = () => canPerformAction("create");
   const canUpdate = () => canPerformAction("update");
-  const canDelete = () => canPerformAction("delete");
-  const canApprove = () => canPerformAction("approve");
 
   const isPMO = effectiveRole === "PMO";
   const isSDMT = effectiveRole === "SDMT";
@@ -126,6 +129,9 @@ export function usePermissions() {
   const canCreateBaseline = isSDMT;
   const canUploadInvoices = isSDMT || isVendor;
   const canEdit = isSDMT;
+  const canDelete = isSDMT;
+  const canApprove = isSDMT;
+
 
   return {
     roles,
