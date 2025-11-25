@@ -2,26 +2,29 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown, DollarSign, AlertTriangle, Target, Calendar, Activity, ArrowRight, Download } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, AlertTriangle, Target, Calendar, Activity, ArrowRight, Download, Lock } from 'lucide-react';
 import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import LineChartComponent from '@/components/charts/LineChart';
-import StackedColumnsChart from '@/components/charts/StackedColumnsChart';
 import ModuleBadge from '@/components/ModuleBadge';
 import { useProject } from '@/contexts/ProjectContext';
 import ApiService from '@/lib/api';
+import usePermissions from '@/hooks/usePermissions';
 
 export function SDMTCashflow() {
+  const { hasPremiumFinanzasFeatures } = usePermissions();
   const { selectedProjectId, currentProject, selectedPeriod, projectChangeCount } = useProject();
   const [cashflowData, setCashflowData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Load data when project changes
   useEffect(() => {
+    if (!hasPremiumFinanzasFeatures) return;
+
     if (selectedProjectId) {
       console.log('💰 Cashflow: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
       loadCashflowData();
     }
-  }, [selectedProjectId, selectedPeriod, projectChangeCount]);
+  }, [hasPremiumFinanzasFeatures, selectedProjectId, selectedPeriod, projectChangeCount]);
 
   const loadCashflowData = async () => {
     try {
@@ -120,6 +123,31 @@ export function SDMTCashflow() {
       color: 'text-amber-600'
     }
   ];
+
+  if (!hasPremiumFinanzasFeatures) {
+    return (
+      <div className="max-w-3xl mx-auto p-6 space-y-4">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2 text-amber-600">
+              <Lock className="w-5 h-5" />
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                Premium add-on
+              </Badge>
+            </div>
+            <CardTitle className="text-xl">Cash Flow & Margin Analysis</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-muted-foreground">
+            <p>
+              Cash Flow and Scenarios are available for premium Finanzas plans. Upgrade to access live charts,
+              forecasts, and downloadable reports for your projects.
+            </p>
+            <p className="text-sm">Contact your administrator to enable the premium add-on.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">

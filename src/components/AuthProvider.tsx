@@ -61,6 +61,7 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 const TOKEN_KEYS = ["cv.jwt", "finz_jwt", "idToken", "cognitoIdToken"];
 const DEFAULT_ROLE = getDefaultUserRole(null);
+const ACTIVE_ROLE_KEY = "finz_active_role";
 
 const EMPTY_SESSION: AuthSession = {
   idToken: null,
@@ -225,8 +226,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       currentRole || DEFAULT_ROLE,
     );
 
-    if (suggestedRole !== currentRole) {
+    if (suggestedRole !== currentRole && (availableRoles.length === 0 || availableRoles.includes(suggestedRole))) {
       setCurrentRole(suggestedRole);
+      try {
+        localStorage.setItem(ACTIVE_ROLE_KEY, suggestedRole);
+      } catch {
+        /* ignore storage errors */
+      }
       if (user) {
         setUser((prev) =>
           prev ? { ...prev, current_role: suggestedRole } : prev,
@@ -254,9 +260,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setGroups(sessionFromTokens.groups);
         setGroupClaims(sessionFromTokens.groups);
         setAvpDecisions(sessionFromTokens.avpDecisions);
-        setAvailableRoles(sessionFromTokens.availableRoles);
-        setCurrentRole(sessionFromTokens.currentRole);
-        setUser(sessionFromTokens.user);
+        const availableSessionRoles = sessionFromTokens.availableRoles;
+        setAvailableRoles(availableSessionRoles);
+
+        const storedRole = localStorage.getItem(ACTIVE_ROLE_KEY) as
+          | UserRole
+          | null;
+        const suggestedRole = getRoleForPath(
+          location.pathname,
+          availableSessionRoles,
+          sessionFromTokens.currentRole,
+        );
+        const effectiveRole =
+          (storedRole && availableSessionRoles.includes(storedRole)
+            ? storedRole
+            : suggestedRole) || sessionFromTokens.currentRole;
+
+        setCurrentRole(effectiveRole);
+        try {
+          localStorage.setItem(ACTIVE_ROLE_KEY, effectiveRole);
+        } catch {
+          /* ignore storage errors */
+        }
+
+        setUser({ ...sessionFromTokens.user, current_role: effectiveRole });
         return;
       }
 
@@ -426,6 +453,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const previousRole = currentRole;
     setCurrentRole(role);
+
+    try {
+      localStorage.setItem(ACTIVE_ROLE_KEY, role);
+    } catch {
+      /* ignore storage errors */
+    }
 
     try {
       if (role === "PMO") localStorage.setItem("cv.module", "pmo");

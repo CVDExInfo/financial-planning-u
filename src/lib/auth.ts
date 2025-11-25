@@ -19,25 +19,16 @@ const IS_FINZ_BUILD =
 // Role permissions mapping
 const ROLE_PERMISSIONS = {
   PMO: {
-    // Allow PMO to access PMO and SDMT modules, plus Finanzas (feature) routes
-    routes: [
-      "/",
-      "/pmo/**",
-      "/pmo/prefactura/**",
-      "/sdmt/**",
-      "/projects/**",
-      "/catalog/**",
-      "/rules",
-      "/adjustments/**",
-      "/providers/**",
-    ],
+    // PMO users are isolated to the PMO workspace
+    routes: ["/", "/profile", "/pmo/**", "/pmo/prefactura/**"],
     actions: ["create", "read", "update", "delete", "approve"],
-    description: "Full access to PMO estimator and SDMT cost management",
+    description: "Full access to PMO estimator and reporting",
   },
   SDMT: {
     // SDMT module plus Finanzas (feature) routes
     routes: [
       "/",
+      "/profile",
       "/sdmt/**",
       "/projects/**",
       "/catalog/**",
@@ -51,6 +42,8 @@ const ROLE_PERMISSIONS = {
   VENDOR: {
     // Limited SDMT access and read to Finanzas catalog
     routes: [
+      "/",
+      "/profile",
       "/sdmt/cost/catalog",
       "/sdmt/cost/reconciliation",
       "/catalog/rubros",
@@ -60,7 +53,7 @@ const ROLE_PERMISSIONS = {
   },
   EXEC_RO: {
     // Read-only across PMO/SDMT and Finanzas routes
-    routes: ["/pmo/**", "/sdmt/**", "/catalog/**", "/rules"],
+    routes: ["/", "/profile", "/pmo/**", "/sdmt/**", "/catalog/**", "/rules"],
     actions: ["read"],
     description: "Read-only access to all modules for executive reporting",
   },
@@ -266,7 +259,7 @@ export function getRoleForPath(
 ): UserRole {
   const normalizedPath = normalizeAppPath(currentPath);
 
-  if (normalizedPath.startsWith("/pmo/") && availableRoles.includes("PMO")) {
+  if (normalizedPath.startsWith("/pmo") && availableRoles.includes("PMO")) {
     return "PMO";
   }
 

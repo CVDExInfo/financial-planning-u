@@ -60,7 +60,8 @@ export function Navigation() {
   const navigate = useNavigate();
 
   const { user, logout, roles, availableRoles, currentRole, setRole } = useAuth();
-  const { canAccessRoute: roleCanAccessRoute } = usePermissions();
+  const { canAccessRoute: roleCanAccessRoute, hasPremiumFinanzasFeatures } =
+    usePermissions();
 
   // Prefer availableRoles when present, otherwise fall back to raw roles
   const roleList = useMemo(
@@ -170,9 +171,10 @@ export function Navigation() {
   const filteredSections = navSections
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) =>
-        roleCanAccessRoute(normalizeAppPath(item.path)),
-      ),
+      items: section.items.filter((item) => {
+        if (item.isPremium && !hasPremiumFinanzasFeatures) return false;
+        return roleCanAccessRoute(normalizeAppPath(item.path));
+      }),
     }))
     .filter((section) => section.items.length > 0);
 
