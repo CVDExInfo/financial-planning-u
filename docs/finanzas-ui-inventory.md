@@ -34,3 +34,7 @@ The home route is `/` and renders `FinanzasHome` when the Finanzas feature flag 
 * **AllocationRulesPreview** – pulls allocation rules from `finanzasClient.getAllocationRules()`; read-only preview tied to live API responses.【F:src/modules/finanzas/AllocationRulesPreview.tsx†L15-L110】
 * **AdjustmentsManager** – creates adjustments via `finanzasClient.createAdjustment`; form-only UI with server submission (no local mocks).【F:src/modules/finanzas/AdjustmentsManager.tsx†L41-L103】
 * **ProvidersManager** – posts new providers through `finanzasClient.createProvider`; no mock data source.【F:src/modules/finanzas/ProvidersManager.tsx†L40-L100】
+
+## Navigation consolidation decisions
+
+When Finanzas is enabled, the top navigation shows only Spanish Finanzas entries plus the PMO Estimator: Catálogo de Rubros, Proyectos, Rules, Ajustes, Proveedores, and Estimator.
