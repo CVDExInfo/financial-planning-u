@@ -132,7 +132,6 @@ export function usePermissions() {
   const canDelete = isSDMT;
   const canApprove = isSDMT;
 
-
   return {
     roles,
     groups,

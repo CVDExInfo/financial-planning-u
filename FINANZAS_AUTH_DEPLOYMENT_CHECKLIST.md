@@ -3,6 +3,8 @@
 This document provides a step-by-step checklist for deploying the updated Cognito Hosted UI authentication to production.
 **Note:** Finanzas treats the API **dev** stage as production until a dedicated prod stage is introduced.
 
+For detailed Cognito group → Finanzas role mapping and UI permissions, see `docs/finanzas-roles-and-permissions.md`.
+
 ## Pre-Deployment Verification
 
 ### 1. AWS Cognito Console Verification
