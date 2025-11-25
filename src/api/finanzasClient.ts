@@ -201,6 +201,27 @@ export const ProviderCreateSchema = z.object({
 
 export type ProviderCreate = z.infer<typeof ProviderCreateSchema>;
 
+function validateProjectPayload(payload: ProjectCreate): ProjectCreate {
+  const parsed = ProjectCreateSchema.safeParse(payload);
+
+  if (!parsed.success) {
+    const details = parsed.error.issues
+      .map((issue) =>
+        issue.message
+          ? `${issue.path.join(".") || "campo"}: ${issue.message}`
+          : issue.path.join(".") || "campo"
+      )
+      .join("; ");
+
+    throw new Error(
+      details ||
+        "Datos de proyecto inválidos. Verifica código, fechas, moneda y monto MOD."
+    );
+  }
+
+  return parsed.data;
+}
+
 function isJwtPresent(): boolean {
   return !!(
     localStorage.getItem("finz_access_token") ||
@@ -248,9 +269,10 @@ export const finanzasClient = {
   // Write operations
   async createProject(payload: ProjectCreate): Promise<Project> {
     checkAuth();
+    const validPayload = validateProjectPayload(payload);
     const data = await http<Project>("/projects", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(validPayload),
     });
     return data;
   },

@@ -7,8 +7,10 @@ import React from "react";
 import finanzasClient, {
   type ProjectCreate,
   type Project,
+  ProjectCreateSchema,
 } from "@/api/finanzasClient";
-import { FinanzasApiError, getProjects } from "@/api/finanzas";
+import { HttpError } from "@/lib/http-client";
+import { getProjects } from "@/api/finanzas";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -200,6 +202,12 @@ export default function ProjectsManager() {
       return;
     }
 
+    const parsedModTotal = Number.parseFloat(modTotal);
+    if (!Number.isFinite(parsedModTotal) || parsedModTotal < 0) {
+      toast.error("El monto MOD debe ser un número válido mayor o igual a 0");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -210,11 +218,13 @@ export default function ProjectsManager() {
         start_date: startDate,
         end_date: endDate,
         currency,
-        mod_total: parseFloat(modTotal),
+        mod_total: parsedModTotal,
         description: description || undefined,
       };
 
-      const result = await finanzasClient.createProject(payload);
+      const validatedPayload = ProjectCreateSchema.parse(payload);
+
+      const result = await finanzasClient.createProject(validatedPayload);
 
       toast.success(`Proyecto "${result.name}" creado exitosamente con ID: ${result.id}`);
       setIsCreateDialogOpen(false);
@@ -233,23 +243,31 @@ export default function ProjectsManager() {
     } catch (e: any) {
       console.error("Error creating project:", e);
 
-      const errorMessage = e?.message || "Error al crear el proyecto";
-
-      if (errorMessage.includes("501")) {
-        toast.error(
-          "Esta función aún no está implementada en el servidor (501). El backend necesita completar este handler."
-        );
-      } else if (
-        errorMessage.includes("signed in") ||
-        errorMessage.includes("401") ||
-        errorMessage.includes("403")
-      ) {
-        toast.error(errorMessage);
-      } else if (errorMessage.includes("HTML") || errorMessage.includes("login page")) {
-        toast.error("No se pudo conectar con la API de Finanzas. Por favor contacta a soporte.");
-        console.error("API configuration issue:", errorMessage);
+      if (e instanceof HttpError) {
+        const detail = e.responseText?.trim();
+        const errorText = detail
+          ? `No se pudo crear el proyecto: ${detail}`
+          : `No se pudo crear el proyecto (HTTP ${e.status})`;
+        toast.error(errorText);
       } else {
-        toast.error(errorMessage);
+        const errorMessage = e?.message || "Error al crear el proyecto";
+
+        if (errorMessage.includes("501")) {
+          toast.error(
+            "Esta función aún no está implementada en el servidor (501). El backend necesita completar este handler."
+          );
+        } else if (
+          errorMessage.includes("signed in") ||
+          errorMessage.includes("401") ||
+          errorMessage.includes("403")
+        ) {
+          toast.error(errorMessage);
+        } else if (errorMessage.includes("HTML") || errorMessage.includes("login page")) {
+          toast.error("No se pudo conectar con la API de Finanzas. Por favor contacta a soporte.");
+          console.error("API configuration issue:", errorMessage);
+        } else {
+          toast.error(errorMessage);
+        }
       }
     } finally {
       setIsSubmitting(false);

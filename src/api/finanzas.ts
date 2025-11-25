@@ -387,27 +387,14 @@ export type ProjectsResponse =
   | { data?: Json[]; items?: Json[] };
 
 // Optional helpers used by tests/smokes
-export async function getProjects(): Promise<ProjectsResponse> {
+export async function getProjects(): Promise<Json> {
   ensureApiBase();
 
   try {
-    const res = await httpClient.get<ProjectsResponse>("/projects?limit=50", {
-      headers: buildAuthHeader(),
-    });
-    return res.data;
+    const response = await httpClient.get<Json>("/projects?limit=50");
+    return response.data;
   } catch (err) {
-    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
-      handleAuthErrorStatus(err.status);
-
-      const message =
-        err.status === 401
-          ? "Sesión expirada. Vuelve a iniciar sesión para ver proyectos."
-          : "No tienes permiso para ver proyectos en Finanzas.";
-
-      throw new FinanzasApiError(message, err.status);
-    }
-
-    throw toFinanzasError(err, "No se pudieron obtener los proyectos");
+    throw toFinanzasError(err, "Unable to load projects");
   }
 }
 
