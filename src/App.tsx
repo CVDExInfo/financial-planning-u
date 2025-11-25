@@ -180,6 +180,10 @@ function AppContent() {
               />
 
               {/* SDMT Routes */}
+              <Route
+                path="/finanzas/sdmt/cost/catalog"
+                element={<Navigate to="/sdmt/cost/catalog" replace />}
+              />
               <Route path="/sdmt/cost/catalog" element={<SDMTCatalog />} />
               <Route path="/sdmt/cost/forecast" element={<SDMTForecast />} />
               <Route
