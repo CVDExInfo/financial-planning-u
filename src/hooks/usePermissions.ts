@@ -132,15 +132,6 @@ export function usePermissions() {
   const canDelete = isSDMT;
   const canApprove = isSDMT;
 
-  const isPMO = effectiveRole === "PMO";
-  const isSDMT = effectiveRole === "SDMT";
-  const isVendor = effectiveRole === "VENDOR";
-  const isExecRO = effectiveRole === "EXEC_RO";
-
-  const canManageCosts = isSDMT;
-  const canCreateBaseline = isSDMT;
-  const canUploadInvoices = isSDMT || isVendor;
-  const canEdit = isSDMT;
 
   return {
     roles,
