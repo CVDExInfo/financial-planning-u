@@ -1,6 +1,7 @@
 # Finanzas Authentication Deployment Checklist
 
 This document provides a step-by-step checklist for deploying the updated Cognito Hosted UI authentication to production.
+**Note:** Finanzas treats the API **dev** stage as production until a dedicated prod stage is introduced.
 
 ## Pre-Deployment Verification
 
@@ -15,11 +16,11 @@ Log into AWS Console → Cognito → User Pool `us-east-2_FyHLtOhiY` → App cli
 - [ ] **Allowed callback URLs:**
   - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
   - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html`
+  - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/index.html` (temporary for legacy bookmarks)
   - Source file: `public/auth/callback.html` (canonical, deploys to `/finanzas/auth/callback.html`). If `public/finanzas/auth/callback.html` exists, it must be identical or a redirect stub only.
 
 - [ ] **Allowed sign-out URLs:**
   - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/`
-  - [ ] `https://d7t9x3j66yd8k.cloudfront.net/finanzas/login`
 
 - [ ] **OpenID Connect scopes:**
   - [ ] `openid`
@@ -31,7 +32,7 @@ Log into AWS Console → Cognito → User Pool `us-east-2_FyHLtOhiY` → App cli
 
 Verify these are set in GitHub Actions (Settings → Secrets and variables → Actions → Variables):
 
-- [ ] `VITE_API_BASE_URL` = `https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev`
+- [ ] `VITE_API_BASE_URL` = `https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev` (dev stage is the effective prod stage for Finanzas)
 - [ ] `VITE_COGNITO_USER_POOL_ID` = `us-east-2_FyHLtOhiY`
 - [ ] `VITE_COGNITO_CLIENT_ID` = `dshos5iou44tuach7ta3ici5m`
 - [ ] `VITE_COGNITO_REGION` = `us-east-2`
@@ -65,6 +66,13 @@ npm run qa:finanzas:auth
 - [ ] Build completes successfully
 - [ ] `callback.html` exists in `dist-finanzas/auth/`
 - [ ] `npm run qa:finanzas:auth` passes locally (see `docs/FINANZAS_QA_GUARDRAILS.md` for invariant list)
+
+### Smoke test (post-deploy)
+
+- [ ] Login with a Finanzas role lands on `/sdmt/cost/catalog`
+- [ ] Login with a Vendor role shows only Catalog, Reconciliation, Rubros
+- [ ] Deep link `/finanzas/catalog/rubros` loads correctly
+- [ ] Logout returns to `/finanzas/` login page
 
 ## Deployment Steps
 
