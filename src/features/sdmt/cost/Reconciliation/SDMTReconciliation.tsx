@@ -55,6 +55,7 @@ import { PDFExporter } from "@/lib/pdf-export";
 import { useProject } from "@/contexts/ProjectContext";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import { useProjectInvoices } from "@/hooks/useProjectInvoices";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   uploadInvoice,
   updateInvoiceStatus,
@@ -120,6 +121,7 @@ export default function SDMTReconciliation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentProject, projectChangeCount } = useProject();
+  const { canUploadInvoices } = usePermissions();
 
   // Server data
   const {
@@ -270,6 +272,11 @@ export default function SDMTReconciliation() {
   };
 
   const handleInvoiceSubmit = async () => {
+    if (!canUploadInvoices) {
+      toast.error("No tienes permiso para cargar facturas.");
+      return;
+    }
+
     if (
       !uploadFormData.file ||
       !uploadFormData.line_item_id ||
@@ -489,7 +496,16 @@ export default function SDMTReconciliation() {
             Export
           </Button>
           <ModuleBadge />
-          <Button onClick={() => setShowUploadForm(true)} className="gap-2">
+          <Button
+            onClick={() => canUploadInvoices && setShowUploadForm(true)}
+            className="gap-2"
+            disabled={!canUploadInvoices}
+            title={
+              canUploadInvoices
+                ? undefined
+                : "Este rol no puede cargar facturas"
+            }
+          >
             <Plus size={16} />
             Upload Invoice
           </Button>
@@ -530,7 +546,12 @@ export default function SDMTReconciliation() {
       </div>
 
       {/* Upload dialog */}
-      <Dialog open={showUploadForm} onOpenChange={setShowUploadForm}>
+      <Dialog
+        open={showUploadForm}
+        onOpenChange={(open) =>
+          setShowUploadForm(canUploadInvoices ? open : false)
+        }
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Upload Invoice</DialogTitle>
@@ -689,7 +710,10 @@ export default function SDMTReconciliation() {
             <Button variant="outline" onClick={() => setShowUploadForm(false)}>
               Cancel
             </Button>
-            <Button onClick={handleInvoiceSubmit} disabled={uploadMutation.isPending}>
+            <Button
+              onClick={handleInvoiceSubmit}
+              disabled={uploadMutation.isPending || !canUploadInvoices}
+            >
               {uploadMutation.isPending ? "Uploading..." : "Upload Invoice"}
             </Button>
           </div>

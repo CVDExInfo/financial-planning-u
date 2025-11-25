@@ -12,10 +12,10 @@ import {
   getRolePermissionKeys,
 } from "@/lib/auth";
 import {
-  decodeJWT,
-  getGroupsFromClaims,
+  decodeJwt,
+  extractGroupsFromClaims,
   isTokenValid,
-  mapCognitoGroupsToRoles,
+  mapGroupsToRoles,
   type JWTClaims,
 } from "@/lib/jwt";
 import { UserInfo, UserRole } from "@/types/domain";
@@ -103,13 +103,13 @@ function buildSessionFromTokens(
 
   let claims: JWTClaims;
   try {
-    claims = decodeJWT(storedIdToken);
+    claims = decodeJwt(storedIdToken);
   } catch (error) {
     console.error("[AuthProvider] Failed to decode JWT", error);
     return null;
   }
 
-  const cognitoGroups = getGroupsFromClaims(claims);
+  const cognitoGroups = extractGroupsFromClaims(claims);
   const decisions = Array.isArray(claims?.["avp:decisions"])
     ? (claims["avp:decisions"] as string[])
     : [];
@@ -127,7 +127,7 @@ function buildSessionFromTokens(
     claims?.username ??
     null;
 
-  const mappedRoles = mapCognitoGroupsToRoles(cognitoGroups).filter(
+  const mappedRoles = mapGroupsToRoles(cognitoGroups).filter(
     (role): role is UserRole =>
       ["PMO", "SDMT", "VENDOR", "EXEC_RO"].includes(role)
   );
@@ -176,9 +176,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   const roles = useMemo(
-    () => mapCognitoGroupsToRoles(groups).filter((r): r is UserRole => !!r),
+    () => mapGroupsToRoles(groups).filter((r): r is UserRole => !!r),
     [groups]
   );
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.debug("[AuthProvider] Derived roles", {
+        groups,
+        roles,
+        availableRoles,
+        currentRole,
+      });
+    }
+  }, [availableRoles, currentRole, groups, roles]);
 
   const isAuthenticated = !!user && !!idToken;
 
@@ -376,12 +387,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     let decoded: JWTClaims | null = null;
     try {
-      decoded = decodeJWT(AuthenticationResult.IdToken);
+      decoded = decodeJwt(AuthenticationResult.IdToken);
     } catch (decodeError) {
       console.error("[AuthProvider] Failed to decode login response", decodeError);
     }
 
-    const cognitoGroups = decoded ? getGroupsFromClaims(decoded) : [];
+    const cognitoGroups = decoded ? extractGroupsFromClaims(decoded) : [];
 
     const canSDT = cognitoGroups.some((g) =>
       ["SDT", "FIN", "AUD", "sdmt", "fin", "aud"].includes(g.toUpperCase())

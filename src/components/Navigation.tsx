@@ -38,7 +38,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissions, { type FinanzasRole } from "@/hooks/usePermissions";
 import {
   getDefaultRouteForRole,
   getRoleInfo,
@@ -54,28 +54,51 @@ import { logoutWithHostedUI } from "@/config/aws";
 
 type NavigationStack = "pmo" | "sdmt" | "finanzas";
 
-interface NavigationItem {
+type NavigationItem = {
   path: string;
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   isPremium?: boolean;
   stack: NavigationStack;
-}
+};
 
-interface NavigationSection {
+type FinanzasNavItem = {
+  id:
+    | "forecast"
+    | "reconciliation"
+    | "changes"
+    | "projects"
+    | "catalogoCostos"
+    | "catalogoRubros"
+    | "reglas"
+    | "ajustes"
+    | "proveedores"
+    | "flujoCaja"
+    | "escenarios";
+  label: string;
+  path: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  isPremium?: boolean;
+  visibleFor: FinanzasRole[];
+};
+
+type NavigationSection = {
   label: string;
   key: string;
   stack: NavigationStack;
   items: NavigationItem[];
-}
+};
 
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
 
   const { user, logout, roles, availableRoles, currentRole, setRole } = useAuth();
-  const { canAccessRoute: roleCanAccessRoute, hasPremiumFinanzasFeatures } =
-    usePermissions();
+  const {
+    canAccessRoute: roleCanAccessRoute,
+    hasPremiumFinanzasFeatures,
+    role: finanzasRole,
+  } = usePermissions();
 
   // Prefer availableRoles when present, otherwise fall back to raw roles
   const roleList = useMemo(
@@ -95,54 +118,85 @@ export function Navigation() {
     (typeof window !== "undefined" &&
       window.location.pathname.startsWith("/finanzas"));
 
-  const finanzasCombinedNavItems: NavigationItem[] = [
+  const FINANZAS_NAV_ITEMS: FinanzasNavItem[] = [
     {
-      path: "/projects",
+      id: "forecast",
+      label: "Forecast",
+      path: "/sdmt/cost/forecast",
+      icon: TrendingUp,
+      visibleFor: ["SDMT", "EXEC_RO"],
+    },
+    {
+      id: "reconciliation",
+      label: "Reconciliation",
+      path: "/sdmt/cost/reconciliation",
+      icon: FileCheck,
+      visibleFor: ["SDMT", "VENDOR", "EXEC_RO"],
+    },
+    {
+      id: "changes",
+      label: "Changes",
+      path: "/sdmt/cost/changes",
+      icon: GitPullRequest,
+      visibleFor: ["SDMT", "EXEC_RO"],
+    },
+    {
+      id: "projects",
       label: "Proyectos",
+      path: "/projects",
       icon: FolderKanban,
-      stack: "finanzas",
+      visibleFor: ["SDMT", "PMO", "EXEC_RO"],
     },
     {
-      path: "/catalog/rubros",
-      label: "Catálogo de Rubros",
-      icon: BookOpen,
-      stack: "finanzas",
-    },
-    {
-      path: "/rules",
-      label: "Reglas",
-      icon: BookOpen,
-      stack: "finanzas",
-    },
-    {
-      path: "/adjustments",
-      label: "Ajustes",
-      icon: Shield,
-      stack: "finanzas",
-    },
-    {
-      path: "/finanzas/sdmt/cost/catalog",
+      id: "catalogoCostos",
       label: "Catálogo de Costos",
+      path: "/sdmt/cost/catalog",
       icon: BookOpen,
-      stack: "sdmt",
+      visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
     },
     {
-      path: "/cashflow",
-      label: "Flujo de Caja",
-      icon: BarChart3,
-      stack: "finanzas",
+      id: "catalogoRubros",
+      label: "Catálogo de Rubros",
+      path: "/catalog/rubros",
+      icon: BookOpen,
+      visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
     },
     {
-      path: "/scenarios",
-      label: "Escenarios",
-      icon: Layers,
-      stack: "finanzas",
+      id: "reglas",
+      label: "Reglas",
+      path: "/rules",
+      icon: BookOpen,
+      visibleFor: ["SDMT", "PMO", "EXEC_RO"],
     },
     {
-      path: "/providers",
+      id: "ajustes",
+      label: "Ajustes",
+      path: "/adjustments",
+      icon: Shield,
+      visibleFor: ["SDMT", "EXEC_RO"],
+    },
+    {
+      id: "proveedores",
       label: "Proveedores",
+      path: "/providers",
       icon: Layers,
-      stack: "finanzas",
+      visibleFor: ["SDMT", "EXEC_RO"],
+    },
+    {
+      id: "flujoCaja",
+      label: "Flujo de Caja",
+      path: "/cashflow",
+      icon: BarChart3,
+      visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
+      isPremium: true,
+    },
+    {
+      id: "escenarios",
+      label: "Escenarios",
+      path: "/scenarios",
+      icon: Layers,
+      visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
+      isPremium: true,
     },
   ];
 
@@ -158,7 +212,7 @@ export function Navigation() {
     location.pathname.startsWith("/finanzas/pmo/") ||
     normalizedPath.startsWith("/pmo/");
 
-  const finanzasNavNormalizedPaths = finanzasCombinedNavItems.map((item) =>
+  const finanzasNavNormalizedPaths = FINANZAS_NAV_ITEMS.map((item) =>
     normalizeAppPath(item.path),
   );
 
@@ -213,7 +267,7 @@ export function Navigation() {
       stack: "sdmt",
       items: [
         {
-          path: "/finanzas/sdmt/cost/catalog",
+          path: "/sdmt/cost/catalog",
           label: "Cost Catalog",
           icon: BookOpen,
           stack: "sdmt",
@@ -256,45 +310,13 @@ export function Navigation() {
       label: "Finanzas",
       key: "FINZ",
       stack: "finanzas",
-      items: [
-        {
-          path: "/catalog/rubros",
-          label: "Catálogo de Rubros",
-          icon: BookOpen,
-          stack: "finanzas",
-        },
-        {
-          path: "/projects",
-          label: "Proyectos",
-          icon: FolderKanban,
-          stack: "finanzas",
-        },
-        { path: "/rules", label: "Reglas", icon: BookOpen, stack: "finanzas" },
-        {
-          path: "/adjustments",
-          label: "Ajustes",
-          icon: Shield,
-          stack: "finanzas",
-        },
-        {
-          path: "/cashflow",
-          label: "Flujo de Caja",
-          icon: BarChart3,
-          stack: "finanzas",
-        },
-        {
-          path: "/scenarios",
-          label: "Escenarios",
-          icon: Layers,
-          stack: "finanzas",
-        },
-        {
-          path: "/providers",
-          label: "Proveedores",
-          icon: Layers,
-          stack: "finanzas",
-        },
-      ],
+      items: FINANZAS_NAV_ITEMS.map((item) => ({
+        path: item.path,
+        label: item.label,
+        icon: item.icon,
+        isPremium: item.isPremium,
+        stack: "finanzas" as const,
+      })),
     },
   ];
 
@@ -311,7 +333,16 @@ export function Navigation() {
     return roleCanAccessRoute(normalizedItemPath);
   };
 
-  const filteredFinanzasNavItems = finanzasCombinedNavItems.filter(filterNavItem);
+  const finanzasNavRole = finanzasRole ?? (activeRole as FinanzasRole | undefined);
+
+  const filteredFinanzasNavItems = FINANZAS_NAV_ITEMS.filter((item) => {
+    if (!finanzasNavRole) return false;
+    if (!item.visibleFor.includes(finanzasNavRole)) return false;
+    if (item.isPremium && !hasPremiumFinanzasFeatures) return false;
+
+    const normalizedItemPath = normalizeAppPath(item.path);
+    return roleCanAccessRoute(normalizedItemPath);
+  });
 
   const filteredSections = navSections
     .filter((section) => {
@@ -331,159 +362,143 @@ export function Navigation() {
     <>
       <nav className="border-b border-border bg-card/50 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center gap-3 py-3">
             {/* Brand */}
-            <div className="flex items-center space-x-4">
-              <Link to="/" className="flex items-center space-x-3">
-                <Logo className="h-8 w-auto" />
-                <div>
-                  <h1 className="font-semibold text-foreground">
-                    Planning
-                  </h1>
-                  <p className="text-xs text-muted-foreground">
-                    Finanzas SD
-                  </p>
-                </div>
-              </Link>
-            </div>
+            <Link to="/" className="flex items-center gap-2 lg:gap-3 shrink-0">
+              <Logo className="h-7 w-auto lg:h-8" />
+              <div className="hidden sm:flex flex-col leading-tight">
+                <span className="text-sm font-semibold text-foreground">Planning</span>
+                <span className="text-[11px] font-medium tracking-wide text-emerald-700">
+                  Finanzas SD
+                </span>
+              </div>
+            </Link>
 
             {/* Module Navigation */}
             <TooltipProvider>
-              <div className="hidden md:flex items-center space-x-1">
-                {isFinanzasNavContext
-                  ? filteredFinanzasNavItems.map((item) => {
-                      const Icon = item.icon;
-                      const normalizedItemPath = normalizeAppPath(item.path);
-                      const isActive = normalizedPath === normalizedItemPath;
-                      const isPremium = item.isPremium;
+              <div className="flex-1 overflow-x-auto">
+                <div className="flex items-center gap-2 min-w-fit">
+                  {isFinanzasNavContext
+                    ? filteredFinanzasNavItems.map((item) => {
+                        const normalizedItemPath = normalizeAppPath(item.path);
+                        const isActive = normalizedPath === normalizedItemPath;
+                        const isPremium = item.isPremium;
 
-                      const linkElement = (
-                        <Link
-                          key={item.path}
-                          to={normalizedItemPath}
-                          className={`
-                            flex items-center space-x-2 px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors relative
-                            ${
-                              isActive
-                                ? isPremium
-                                  ? "bg-muted text-muted-foreground border border-border"
-                                  : "bg-primary text-primary-foreground"
-                                : isPremium
-                                ? "text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/50 border border-dashed border-border"
-                                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                            }
-                          `}
-                        >
-                          <Icon size={16} className={isPremium ? "opacity-70" : ""} />
-                          <span className={isPremium ? "opacity-70" : ""}>
-                            {item.label}
-                          </span>
-                          {isPremium && (
-                            <Badge
-                              variant="outline"
-                              className="ml-1 text-xs px-1 py-0 h-4 text-muted-foreground/60 border-muted-foreground/30"
-                            >
-                              +
-                            </Badge>
-                          )}
-                        </Link>
-                      );
-
-                      if (isPremium) {
-                        return (
-                          <Tooltip key={item.path}>
-                            <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
-                            <TooltipContent>
-                              <p className="font-medium">Premium Add-on Feature</p>
-                              <p className="text-xs text-muted-foreground">
-                                Additional cost applies
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
+                        const linkElement = (
+                          <Link
+                            key={item.id}
+                            to={normalizedItemPath}
+                            className={`
+                              inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                              ${
+                                isActive
+                                  ? isPremium
+                                    ? "border-border bg-muted text-muted-foreground"
+                                    : "border-emerald-500 bg-emerald-50 text-emerald-700"
+                                  : isPremium
+                                  ? "border-dashed border-border text-muted-foreground/80 hover:bg-muted/50"
+                                  : "border-transparent text-muted-foreground hover:bg-muted"
+                              }
+                            `}
+                          >
+                            <item.icon size={16} className={isPremium ? "opacity-70" : ""} />
+                            <span className={isPremium ? "opacity-70" : ""}>{item.label}</span>
+                            {isPremium && (
+                              <Badge
+                                variant="outline"
+                                className="ml-0.5 h-4 px-1 text-[10px] text-muted-foreground/80"
+                              >
+                                +
+                              </Badge>
+                            )}
+                          </Link>
                         );
-                      }
 
-                      return linkElement;
-                    })
-                  : filteredSections.map((section) => (
-                      <div
-                        key={section.key}
-                        className="flex items-center space-x-1 pl-2 border-l border-border/50"
-                      >
-                        <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mr-1">
-                          {section.label}
-                        </span>
-                        {section.items.map((item) => {
-                          const Icon = item.icon;
-                          const normalizedItemPath = normalizeAppPath(item.path);
-                          const isActive = normalizedPath === normalizedItemPath;
-                          const isPremium = item.isPremium;
-
-                          const linkElement = (
-                            <Link
-                              key={item.path}
-                              to={normalizedItemPath}
-                              className={`
-                                flex items-center space-x-2 px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors relative
-                                ${
-                                  isActive
-                                    ? isPremium
-                                      ? "bg-muted text-muted-foreground border border-border"
-                                      : "bg-primary text-primary-foreground"
-                                    : isPremium
-                                    ? "text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/50 border border-dashed border-border"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                                }
-                              `}
-                            >
-                              <Icon
-                                size={16}
-                                className={isPremium ? "opacity-70" : ""}
-                              />
-                              <span className={isPremium ? "opacity-70" : ""}>
-                                {item.label}
-                              </span>
-                              {isPremium && (
-                                <Badge
-                                  variant="outline"
-                                  className="ml-1 text-xs px-1 py-0 h-4 text-muted-foreground/60 border-muted-foreground/30"
-                                >
-                                  +
-                                </Badge>
-                              )}
-                            </Link>
+                        if (isPremium) {
+                          return (
+                            <Tooltip key={item.id}>
+                              <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
+                              <TooltipContent>
+                                <p className="font-medium">Módulo premium</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Disponible con permisos extendidos
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
                           );
+                        }
 
-                          if (isPremium) {
-                            return (
-                              <Tooltip key={item.path}>
-                                <TooltipTrigger asChild>
-                                  {linkElement}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p className="font-medium">
-                                    Premium Add-on Feature
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Additional cost applies
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
+                        return linkElement;
+                      })
+                    : filteredSections.map((section) => (
+                        <div
+                          key={section.key}
+                          className="flex items-center gap-1 pl-2 border-l border-border/50"
+                        >
+                          <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mr-1">
+                            {section.label}
+                          </span>
+                          {section.items.map((item) => {
+                            const Icon = item.icon;
+                            const normalizedItemPath = normalizeAppPath(item.path);
+                            const isActive = normalizedPath === normalizedItemPath;
+                            const isPremium = item.isPremium;
+
+                            const linkElement = (
+                              <Link
+                                key={item.path}
+                                to={normalizedItemPath}
+                                className={`
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  ${
+                                    isActive
+                                      ? isPremium
+                                        ? "border-border bg-muted text-muted-foreground"
+                                        : "border-emerald-500 bg-emerald-50 text-emerald-700"
+                                      : isPremium
+                                      ? "border-dashed border-border text-muted-foreground/80 hover:bg-muted/50"
+                                      : "border-transparent text-muted-foreground hover:bg-muted"
+                                  }
+                                `}
+                              >
+                                <Icon size={16} className={isPremium ? "opacity-70" : ""} />
+                                <span className={isPremium ? "opacity-70" : ""}>{item.label}</span>
+                                {isPremium && (
+                                  <Badge
+                                    variant="outline"
+                                    className="ml-0.5 h-4 px-1 text-[10px] text-muted-foreground/80"
+                                  >
+                                    +
+                                  </Badge>
+                                )}
+                              </Link>
                             );
-                          }
 
-                          return linkElement;
-                        })}
-                      </div>
-                    ))}
+                            if (isPremium) {
+                              return (
+                                <Tooltip key={item.path}>
+                                  <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="font-medium">Premium Add-on Feature</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Additional cost applies
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            }
+
+                            return linkElement;
+                          })}
+                        </div>
+                      ))}
+                </div>
               </div>
             </TooltipProvider>
 
             {/* User Menu */}
-            <div className="flex items-center space-x-3">
-              {activeRole && (
-                <Badge variant="secondary">{activeRole}</Badge>
-              )}
+            <div className="flex items-center gap-3 shrink-0">
+              {activeRole && <Badge variant="secondary">{activeRole}</Badge>}
 
               {user && (
                 <TooltipProvider>
@@ -587,10 +602,10 @@ export function Navigation() {
                   </DropdownMenu>
                 </TooltipProvider>
               )}
-              </div>
             </div>
           </div>
-        </nav>
+        </div>
+      </nav>
 
       {/* Roles Dialog – clickable roles to switch context */}
       <Dialog open={isRolesDialogOpen} onOpenChange={setIsRolesDialogOpen}>

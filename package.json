@@ -13,6 +13,7 @@
     "build:pmo": "tsc -b --noCheck && BUILD_TARGET=pmo vite build",
     "build:finanzas": "bash scripts/pre-build-validate.sh && tsc -b --noCheck && BUILD_TARGET=finanzas vite build",
     "lint": "eslint .",
+    "test:unit": "tsx --test src/lib/__tests__/*.test.ts",
     "optimize": "vite optimize",
     "preview": "vite preview",
     "preview:pmo": "BUILD_TARGET=pmo vite preview",
@@ -113,6 +114,7 @@
     "md-to-pdf": "^5.2.5",
     "tailwindcss": "^4.1.11",
     "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^6.3.5"
