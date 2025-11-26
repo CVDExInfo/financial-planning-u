@@ -19,12 +19,31 @@ export function LoginPage() {
   const navigate = useNavigate();
   const { login, isLoading, isAuthenticated, session, canAccessRoute } = useAuth();
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
+
+  // Derive initial appearance from DOM / preferences when available
   const initialAppearance = useMemo<"light" | "dark">(() => {
     if (typeof document !== "undefined") {
-      return (document.documentElement.dataset.appearance as "light" | "dark") ?? "light";
+      const root = document.documentElement;
+
+      if (root.dataset.appearance === "dark" || root.classList.contains("dark")) {
+        return "dark";
+      }
+
+      if (root.dataset.appearance === "light") {
+        return "light";
+      }
+
+      if (
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-color-scheme: dark)").matches
+      ) {
+        return "dark";
+      }
     }
+
     return "light";
   }, []);
+
   const [appearance, setAppearance] = useState<"light" | "dark">(initialAppearance);
   const previousAppearance = useRef<string | undefined>();
 
@@ -105,23 +124,43 @@ export function LoginPage() {
     }
   };
 
+  // Apply current appearance to the root element so Tailwind dark: variants work
   useEffect(() => {
+    if (typeof document === "undefined") return;
+
     const root = document.documentElement;
 
     if (previousAppearance.current === undefined) {
-      previousAppearance.current = root.dataset.appearance;
+      previousAppearance.current =
+        root.dataset.appearance ??
+        (root.classList.contains("dark") ? "dark" : "light");
     }
 
     root.dataset.appearance = appearance;
+
+    if (appearance === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
   }, [appearance]);
 
+  // Cleanup: restore original appearance when this page unmounts
   useEffect(
     () => () => {
+      if (typeof document === "undefined") return;
+
       const root = document.documentElement;
-      if (previousAppearance.current) {
-        root.dataset.appearance = previousAppearance.current;
+
+      if (previousAppearance.current === "dark") {
+        root.dataset.appearance = "dark";
+        root.classList.add("dark");
+      } else if (previousAppearance.current === "light") {
+        root.dataset.appearance = "light";
+        root.classList.remove("dark");
       } else {
         delete root.dataset.appearance;
+        root.classList.remove("dark");
       }
     },
     [],
@@ -137,13 +176,20 @@ export function LoginPage() {
       <div className="relative mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
         {/* Header chip + appearance toggle */}
         <div className="flex flex-wrap items-center justify-between gap-4 text-base font-semibold text-emerald-800 dark:text-emerald-100">
-          <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 ring-1 ring-emerald-200 shadow-inner shadow-emerald-100/70 dark:bg-emerald-500/10 dark:ring-emerald-400/30 dark:shadow-emerald-900/40">
-              <Logo className="h-14" />
+          <div className="flex items-center gap-4">
+            {/* Bigger logo badge */}
+            <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-emerald-200 shadow-inner shadow-emerald-100/80 dark:bg-emerald-500/10 dark:ring-emerald-400/40 dark:shadow-emerald-900/40">
+              <Logo className="h-10 sm:h-12" />
             </div>
+
+            {/* Stronger title hierarchy */}
             <div className="flex flex-col leading-tight">
-              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-200/90">Finanzas SD</span>
-              <span className="text-base font-semibold">Acceso seguro Ikusi</span>
+              <span className="text-sm sm:text-base font-semibold text-emerald-600 dark:text-emerald-200/90">
+                Finanzas SD
+              </span>
+              <span className="text-xl sm:text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                Acceso seguro Ikusi
+              </span>
             </div>
           </div>
 
@@ -175,12 +221,12 @@ export function LoginPage() {
             {/* Left column – headline + feature tiles */}
             <div className="flex flex-col justify-between gap-8 lg:col-span-3">
               <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-100 dark:bg-white/5 dark:text-emerald-200 dark:ring-white/10">
+                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-1.5 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-100 dark:bg-white/10 dark:text-emerald-200 dark:ring-white/15">
                   <ShieldCheck className="h-4 w-4" aria-hidden="true" />
                   Portal corporativo cifrado
                 </div>
                 <div className="space-y-3">
-                  <h1 className="text-4xl font-semibold leading-tight sm:text-5xl">
+                  <h1 className="text-4xl font-semibold leading-tight sm:text-5xl md:text-[3.2rem]">
                     Finanzas Access · Ikusi
                   </h1>
                   <p className="max-w-2xl text-base text-slate-700 dark:text-slate-200/90">
@@ -211,7 +257,9 @@ export function LoginPage() {
             {/* Right column – quick entries */}
             <div className="flex flex-col justify-center gap-5 lg:col-span-2">
               <div className="rounded-xl border border-slate-200/80 bg-white/90 p-5 text-slate-900 shadow-lg shadow-emerald-100/80 backdrop-blur dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-50 dark:shadow-black/30">
-                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-200">Entradas rápidas</p>
+                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-200">
+                  Entradas rápidas
+                </p>
                 <p className="mt-1 text-xs text-slate-600 dark:text-slate-200/80">
                   Accede con tu cuenta corporativa Ikusi a los módulos que tengas habilitados.
                 </p>
