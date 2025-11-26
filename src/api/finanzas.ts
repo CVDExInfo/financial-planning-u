@@ -6,7 +6,6 @@ import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import type { InvoiceDoc } from "@/types/domain";
 import httpClient, { HttpError } from "@/lib/http-client";
 import {
-  normalizeProjectsPayload,
   type ProjectsResponse,
   type Json,
 } from "./finanzas-projects-helpers";
