@@ -353,9 +353,6 @@ export const finanzasClient = {
   },
 
   async getAllocationRules(): Promise<AllocationRule[]> {
-    const payload = await http<unknown>("/allocation-rules");
-    const list = normalizeDataArray(payload);
-    const parsed = z.array(AllocationRuleSchema).safeParse(list);
 
     const payload = await http<{ data: unknown } | AllocationRule[]>(
       "/allocation-rules",
