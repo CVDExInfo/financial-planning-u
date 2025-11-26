@@ -61,6 +61,17 @@ export type AllocationRule = z.infer<typeof AllocationRuleSchema>;
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+function normalizeDataArray<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+
+  if (payload && typeof payload === "object") {
+    const data = (payload as { data?: unknown }).data;
+    if (Array.isArray(data)) return data as T[];
+  }
+
+  return [];
+}
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   if (!HAS_API_BASE) {
     throw new Error("Finanzas API base URL is not configured");
@@ -337,10 +348,12 @@ export const finanzasClient = {
       console.error(parsed.error);
       throw new Error("Invalid rubros response");
     }
-    return parsed.data.data;
+
+    return parsed.data;
   },
 
   async getAllocationRules(): Promise<AllocationRule[]> {
+
     const payload = await http<{ data: unknown } | AllocationRule[]>(
       "/allocation-rules",
     );
@@ -350,7 +363,8 @@ export const finanzasClient = {
       console.error(parsed.error);
       throw new Error("Invalid allocation rules response");
     }
-    return parsed.data.data;
+
+    return parsed.data;
   },
 
   async getAdjustments(params: { projectId?: string; limit?: number } = {}): Promise<Adjustment[]> {
