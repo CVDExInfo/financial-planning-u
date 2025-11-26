@@ -4,6 +4,58 @@ import { ok, bad, serverError, fromAuthError } from "../lib/http";
 import { ddb, tableName, PutCommand, ScanCommand } from "../lib/dynamo";
 import crypto from "node:crypto";
 
+export const normalizeProjectItem = (
+  item: Record<string, unknown>
+): Record<string, unknown> => {
+  let derivedId =
+    (typeof item.pk === "string" && item.pk.startsWith("PROJECT#")
+      ? item.pk.replace("PROJECT#", "")
+      : undefined) ||
+    (item as Record<string, unknown>).project_id ||
+    (item as Record<string, unknown>).projectId ||
+    (item as Record<string, unknown>).id;
+
+  if (!derivedId) {
+    derivedId = String(
+      (item as Record<string, unknown>).pk ??
+        (item as Record<string, unknown>).sk ??
+        "UNKNOWN-PROJECT"
+    );
+  }
+
+  const fecha_fin =
+    (item as Record<string, unknown>).fecha_fin ||
+    (item as Record<string, unknown>).fechaFin ||
+    (item as Record<string, unknown>).end_date ||
+    null;
+
+  return {
+    id: derivedId,
+    identifier: derivedId,
+    cliente: (item as Record<string, unknown>).cliente ?? null,
+    nombre: (item as Record<string, unknown>).nombre ?? null,
+    fecha_inicio:
+      (item as Record<string, unknown>).fecha_inicio ||
+      (item as Record<string, unknown>).fechaInicio ||
+      null,
+    fecha_fin,
+    moneda: (item as Record<string, unknown>).moneda ?? null,
+    presupuesto_total:
+      (item as Record<string, unknown>).presupuesto_total ||
+      (item as Record<string, unknown>).presupuestoTotal ||
+      0,
+    estado: (item as Record<string, unknown>).estado ?? null,
+    created_at:
+      (item as Record<string, unknown>).created_at ||
+      (item as Record<string, unknown>).createdAt ||
+      null,
+    created_by:
+      (item as Record<string, unknown>).created_by ||
+      (item as Record<string, unknown>).createdBy ||
+      null,
+  };
+};
+
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
     if (event.requestContext.http.method === "POST") {
@@ -83,56 +135,9 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       })
     );
 
-    const projects = (result.Items ?? []).map((item) => {
-      // Normalize identifiers and ensure fecha_fin exists for contract tests
-      let derivedId =
-        (typeof item.pk === "string" && item.pk.startsWith("PROJECT#")
-          ? item.pk.replace("PROJECT#", "")
-          : undefined) ||
-        (item as Record<string, unknown>).project_id ||
-        (item as Record<string, unknown>).projectId ||
-        (item as Record<string, unknown>).id;
-
-      if (!derivedId) {
-        derivedId = String(
-          (item as Record<string, unknown>).pk ??
-            (item as Record<string, unknown>).sk ??
-            "UNKNOWN-PROJECT"
-        );
-      }
-
-      const fecha_fin =
-        (item as Record<string, unknown>).fecha_fin ||
-        (item as Record<string, unknown>).fechaFin ||
-        (item as Record<string, unknown>).end_date ||
-        null;
-
-      return {
-        id: derivedId,
-        identifier: derivedId,
-        cliente: (item as Record<string, unknown>).cliente ?? null,
-        nombre: (item as Record<string, unknown>).nombre ?? null,
-        fecha_inicio:
-          (item as Record<string, unknown>).fecha_inicio ||
-          (item as Record<string, unknown>).fechaInicio ||
-          null,
-        fecha_fin,
-        moneda: (item as Record<string, unknown>).moneda ?? null,
-        presupuesto_total:
-          (item as Record<string, unknown>).presupuesto_total ||
-          (item as Record<string, unknown>).presupuestoTotal ||
-          0,
-        estado: (item as Record<string, unknown>).estado ?? null,
-        created_at:
-          (item as Record<string, unknown>).created_at ||
-          (item as Record<string, unknown>).createdAt ||
-          null,
-        created_by:
-          (item as Record<string, unknown>).created_by ||
-          (item as Record<string, unknown>).createdBy ||
-          null,
-      };
-    });
+    const projects = (result.Items ?? []).map((item) =>
+      normalizeProjectItem(item as Record<string, unknown>)
+    );
 
     return ok({ data: projects, total: projects.length });
   } catch (error) {
