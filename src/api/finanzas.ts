@@ -5,8 +5,11 @@ import { API_BASE, HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import type { InvoiceDoc } from "@/types/domain";
 import httpClient, { HttpError } from "@/lib/http-client";
-
-type Json = Record<string, unknown>;
+import {
+  normalizeProjectsPayload,
+  type ProjectsResponse,
+  type Json,
+} from "./finanzas-projects-helpers";
 
 // ---------- Environment ----------
 const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
@@ -380,19 +383,22 @@ export async function getProjectRubros(
 }
 
 // ---------- Projects ----------
-
-export type ProjectsResponse =
-  | Json
-  | Json[]
-  | { data?: Json[]; items?: Json[] };
+export {
+  normalizeProjectsPayload,
+  type ProjectsResponse,
+  type Json,
+} from "./finanzas-projects-helpers";
 
 // Optional helpers used by tests/smokes
-export async function getProjects(): Promise<Json> {
+export async function getProjects(): Promise<{ data: Json[] }> {
   ensureApiBase();
 
   try {
-    const response = await httpClient.get<Json>("/projects?limit=50");
-    return response.data;
+    const response = await httpClient.get<ProjectsResponse>("/projects?limit=50", {
+      headers: buildAuthHeader(),
+    });
+
+    return { data: normalizeProjectsPayload(response.data) };
   } catch (err) {
     throw toFinanzasError(err, "Unable to load projects");
   }
