@@ -61,6 +61,17 @@ export type AllocationRule = z.infer<typeof AllocationRuleSchema>;
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+function normalizeDataArray<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+
+  if (payload && typeof payload === "object") {
+    const data = (payload as { data?: unknown }).data;
+    if (Array.isArray(data)) return data as T[];
+  }
+
+  return [];
+}
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   if (!HAS_API_BASE) {
     throw new Error("Finanzas API base URL is not configured");
@@ -282,23 +293,29 @@ export const finanzasClient = {
   },
 
   async getRubros(): Promise<Rubro[]> {
-    const data = await http<{ data: unknown }>("/catalog/rubros");
-    const parsed = RubroListSchema.safeParse(data);
+    const payload = await http<unknown>("/catalog/rubros");
+    const list = normalizeDataArray(payload);
+    const parsed = z.array(RubroSchema).safeParse(list);
+
     if (!parsed.success) {
       console.error(parsed.error);
       throw new Error("Invalid rubros response");
     }
-    return parsed.data.data;
+
+    return parsed.data;
   },
 
   async getAllocationRules(): Promise<AllocationRule[]> {
-    const data = await http<{ data: unknown }>("/allocation-rules");
-    const parsed = AllocationRuleListSchema.safeParse(data);
+    const payload = await http<unknown>("/allocation-rules");
+    const list = normalizeDataArray(payload);
+    const parsed = z.array(AllocationRuleSchema).safeParse(list);
+
     if (!parsed.success) {
       console.error(parsed.error);
       throw new Error("Invalid allocation rules response");
     }
-    return parsed.data.data;
+
+    return parsed.data;
   },
 
   // Write operations
