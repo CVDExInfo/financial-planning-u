@@ -413,6 +413,9 @@ export async function getProjects(): Promise<ProjectsResponse> {
     // Fallback: return an empty list-shaped object to avoid runtime crashes
     return { data: [] };
   } catch (err) {
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      handleAuthErrorStatus(err.status);
+    }
     throw toFinanzasError(err, "Unable to load projects");
   }
 }
