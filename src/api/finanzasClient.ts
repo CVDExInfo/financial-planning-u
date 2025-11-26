@@ -81,6 +81,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   })();
 
   try {
+    // Always attach auth headers; allow callers to add extras without removing JWT.
     const headers = { ...(init?.headers || {}), ...buildAuthHeader() };
 
     const response = await (async () => {
@@ -123,6 +124,15 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
       ? error
       : new Error("Unknown network error while calling Finanzas API");
   }
+}
+
+function normalizeListResponse<T>(payload: { data?: unknown } | unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (payload && typeof payload === "object") {
+    const data = (payload as { data?: unknown }).data;
+    if (Array.isArray(data)) return data as T[];
+  }
+  return [];
 }
 
 function toProjectRubroRequest(payload: RubroCreate): ProjectRubroRequest {
@@ -282,8 +292,9 @@ export const finanzasClient = {
   },
 
   async getRubros(): Promise<Rubro[]> {
-    const data = await http<{ data: unknown }>("/catalog/rubros");
-    const parsed = RubroListSchema.safeParse(data);
+    const payload = await http<{ data: unknown } | Rubro[]>("/catalog/rubros");
+    const data = normalizeListResponse<Rubro>(payload);
+    const parsed = RubroListSchema.safeParse({ data });
     if (!parsed.success) {
       console.error(parsed.error);
       throw new Error("Invalid rubros response");
@@ -292,8 +303,11 @@ export const finanzasClient = {
   },
 
   async getAllocationRules(): Promise<AllocationRule[]> {
-    const data = await http<{ data: unknown }>("/allocation-rules");
-    const parsed = AllocationRuleListSchema.safeParse(data);
+    const payload = await http<{ data: unknown } | AllocationRule[]>(
+      "/allocation-rules",
+    );
+    const data = normalizeListResponse<AllocationRule>(payload);
+    const parsed = AllocationRuleListSchema.safeParse({ data });
     if (!parsed.success) {
       console.error(parsed.error);
       throw new Error("Invalid allocation rules response");
