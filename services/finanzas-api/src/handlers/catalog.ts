@@ -1,8 +1,7 @@
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { ddb, tableName } from "../lib/dynamo";
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
-import { ensureCanRead } from "../lib/auth";
-import { cors, fromAuthError } from "../lib/http";
+import { cors } from "../lib/http";
 
 type RubroItem = {
   rubro_id?: string;
@@ -30,17 +29,7 @@ function decodeNextToken(token: string | undefined) {
   }
 }
 
-export const handler: APIGatewayProxyHandlerV2 = async (event) => {
-  try {
-    await ensureCanRead(event as never);
-  } catch (err) {
-    const authError = fromAuthError(err);
-    if (authError) {
-      return authError;
-    }
-    throw err;
-  }
-
+export const handler: APIGatewayProxyHandlerV2 = async (_event) => {
   // Minimal enriched fallback to avoid 500 while DDB/Tables are not ready
   const FALLBACK: RubroItem[] = [
     {
