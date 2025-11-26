@@ -61,8 +61,8 @@ jobs:
           COGNITO_WEB_CLIENT: ${{ env.COGNITO_WEB_CLIENT }}
 
           # Test user credentials (from secrets – masked in logs)
-          COGNITO_TESTER_USERNAME: ${{ secrets.USERNAME }}
-          COGNITO_TESTER_PASSWORD: ${{ secrets.PASSWORD }}
+          COGNITO_TESTER_USERNAME: ${{ env.COGNITO_TESTER_USERNAME }}
+          COGNITO_TESTER_PASSWORD: ${{ env.COGNITO_TESTER_PASSWORD }}
 
           # Log directory for test artifacts
           FINZ_LOG_DIR: ${{ env.FINZ_LOG_DIR }}

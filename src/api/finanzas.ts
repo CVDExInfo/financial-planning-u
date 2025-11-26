@@ -5,8 +5,10 @@ import { API_BASE, HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import type { InvoiceDoc } from "@/types/domain";
 import httpClient, { HttpError } from "@/lib/http-client";
-
-type Json = Record<string, unknown>;
+import {
+  type ProjectsResponse,
+  type Json,
+} from "./finanzas-projects-helpers";
 
 // ---------- Environment ----------
 const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
@@ -301,9 +303,9 @@ export async function addProjectRubro<T = Json>(
   const base = requireApiBase();
   const headers = { "Content-Type": "application/json", ...buildAuthHeader() };
 
-  const primary = `${base}/projects/${encodeURIComponent(
-    projectId,
-  )}/catalog/rubros`;
+  // The deployed API exposes /projects/{id}/rubros; keep a single fallback to
+  // /catalog/rubros for legacy stacks that might still use that mount.
+  const primary = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
   let res = await fetch(primary, {
     method: "POST",
     headers,
@@ -311,7 +313,9 @@ export async function addProjectRubro<T = Json>(
   });
 
   if (res.status === 404 || res.status === 405) {
-    const fallback = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
+    const fallback = `${base}/projects/${encodeURIComponent(
+      projectId,
+    )}/catalog/rubros`;
     res = await fetch(fallback, {
       method: "POST",
       headers,
@@ -380,20 +384,43 @@ export async function getProjectRubros(
 }
 
 // ---------- Projects ----------
-
-export type ProjectsResponse =
-  | Json
-  | Json[]
-  | { data?: Json[]; items?: Json[] };
+export {
+  normalizeProjectsPayload,
+  type ProjectsResponse,
+  type Json,
+} from "./finanzas-projects-helpers";
 
 // Optional helpers used by tests/smokes
-export async function getProjects(): Promise<Json> {
+export async function getProjects(): Promise<ProjectsResponse> {
   ensureApiBase();
 
   try {
-    const response = await httpClient.get<Json>("/projects?limit=50");
-    return response.data;
+    const response = await httpClient.get<ProjectsResponse>("/projects?limit=50", {
+      headers: buildAuthHeader(),
+    });
+
+    // Extract the payload from the HttpResponse wrapper
+    const payload = response.data;
+
+    // Normalize a bit but keep it backwards compatible for callers:
+    // - If backend returns an array, just return it.
+    // - If backend returns { data } or { items }, return that object.
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    const anyPayload = payload as { data?: Json[]; items?: Json[] };
+
+    if (Array.isArray(anyPayload.data) || Array.isArray(anyPayload.items)) {
+      return anyPayload;
+    }
+
+    // Fallback: return an empty list-shaped object to avoid runtime crashes
+    return { data: [] };
   } catch (err) {
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      handleAuthErrorStatus(err.status);
+    }
     throw toFinanzasError(err, "Unable to load projects");
   }
 }
@@ -406,48 +433,81 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
   ensureApiBase();
   if (!projectId) throw new FinanzasApiError("projectId is required");
 
+  const normalizeInvoice = (item: any): InvoiceDoc => ({
+    id: item.invoiceId || item.id || item.sk || "",
+    line_item_id: item.lineItemId || item.line_item_id || "",
+    month: Number(item.month) || 1,
+    amount: Number(item.amount) || 0,
+    currency: (item.currency as InvoiceDoc["currency"]) || "USD",
+    file_url: item.file_url,
+    file_name: item.file_name,
+    documentKey: item.documentKey,
+    originalName: item.originalName || item.file_name,
+    contentType: item.contentType,
+    status: (item.status as InvoiceStatus) || "Pending",
+    comments: item.comments,
+    uploaded_by: item.uploaded_by || item.uploader || "unknown",
+    uploaded_at: item.created_at || item.uploaded_at || new Date().toISOString(),
+    matched_at: item.matched_at,
+    matched_by: item.matched_by,
+  });
+
+  const toArray = (payload: unknown): any[] => {
+    if (Array.isArray(payload)) return payload;
+    if (payload && typeof payload === "object") {
+      const data = (payload as any).data;
+      if (Array.isArray(data)) return data;
+    }
+    return [];
+  };
+
   try {
-    const params = new URLSearchParams({ projectId });
-    const response = await httpClient.get<{ data?: any[] }>(
-      `/prefacturas?${params.toString()}`,
+    const primary = await httpClient.get<{ data?: any[] } | any[]>(
+      `/projects/${encodeURIComponent(projectId)}/invoices`,
       { headers: buildAuthHeader() },
     );
 
-    const rows = Array.isArray(response?.data) ? response.data : [];
-    return rows.map((item) => ({
-      id: item.invoiceId || item.id || item.sk || "",
-      line_item_id: item.lineItemId || item.line_item_id || "",
-      month: Number(item.month) || 1,
-      amount: Number(item.amount) || 0,
-      currency: (item.currency as InvoiceDoc["currency"]) || "USD",
-      file_url: item.file_url,
-      file_name: item.file_name,
-      documentKey: item.documentKey,
-      originalName: item.originalName || item.file_name,
-      contentType: item.contentType,
-      status: (item.status as InvoiceStatus) || "Pending",
-      comments: item.comments,
-      uploaded_by: item.uploaded_by || item.uploader || "unknown",
-      uploaded_at:
-        item.created_at || item.uploaded_at || new Date().toISOString(),
-      matched_at: item.matched_at,
-      matched_by: item.matched_by,
-    }));
+    return toArray(primary.data).map(normalizeInvoice);
   } catch (err) {
     if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
       handleAuthErrorStatus(err.status);
     }
 
-    if (err instanceof HttpError) {
-      if (err.status === 404) {
+    const isNotFound = err instanceof HttpError && (err.status === 404 || err.status === 405);
+    if (!isNotFound) {
+      if (err instanceof HttpError) {
+        if (err.status === 403) {
+          throw new FinanzasApiError(
+            "Access to invoices is restricted for this project.",
+            403,
+          );
+        }
+      }
+    }
+
+    try {
+      const params = new URLSearchParams({ projectId });
+      const fallback = await httpClient.get<{ data?: any[] } | any[]>(
+        `/prefacturas?${params.toString()}`,
+        { headers: buildAuthHeader() },
+      );
+
+      return toArray(fallback.data).map(normalizeInvoice);
+    } catch (fallbackErr) {
+      if (
+        fallbackErr instanceof HttpError &&
+        (fallbackErr.status === 401 || fallbackErr.status === 403)
+      ) {
+        handleAuthErrorStatus(fallbackErr.status);
+      }
+      if (
+        fallbackErr instanceof HttpError &&
+        (fallbackErr.status === 404 || fallbackErr.status === 405)
+      ) {
         return [];
       }
-      if (err.status === 403) {
-        throw new FinanzasApiError(
-          "Access to invoices is restricted for this project.",
-          403,
-        );
-      }
+
+      throw toFinanzasError(fallbackErr, "Unable to load invoices");
     }
 
     throw toFinanzasError(err, "Unable to load invoices");
