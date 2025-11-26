@@ -5,8 +5,10 @@ import { API_BASE, HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import type { InvoiceDoc } from "@/types/domain";
 import httpClient, { HttpError } from "@/lib/http-client";
-
-type Json = Record<string, unknown>;
+import {
+  type ProjectsResponse,
+  type Json,
+} from "./finanzas-projects-helpers";
 
 // ---------- Environment ----------
 const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
@@ -301,9 +303,9 @@ export async function addProjectRubro<T = Json>(
   const base = requireApiBase();
   const headers = { "Content-Type": "application/json", ...buildAuthHeader() };
 
-  const primary = `${base}/projects/${encodeURIComponent(
-    projectId,
-  )}/catalog/rubros`;
+  // The deployed API exposes /projects/{id}/rubros; keep a single fallback to
+  // /catalog/rubros for legacy stacks that might still use that mount.
+  const primary = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
   let res = await fetch(primary, {
     method: "POST",
     headers,
@@ -311,7 +313,9 @@ export async function addProjectRubro<T = Json>(
   });
 
   if (res.status === 404 || res.status === 405) {
-    const fallback = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
+    const fallback = `${base}/projects/${encodeURIComponent(
+      projectId,
+    )}/catalog/rubros`;
     res = await fetch(fallback, {
       method: "POST",
       headers,
@@ -380,20 +384,40 @@ export async function getProjectRubros(
 }
 
 // ---------- Projects ----------
-
-export type ProjectsResponse =
-  | Json
-  | Json[]
-  | { data?: Json[]; items?: Json[] };
+export {
+  normalizeProjectsPayload,
+  type ProjectsResponse,
+  type Json,
+} from "./finanzas-projects-helpers";
 
 // Optional helpers used by tests/smokes
-export async function getProjects(): Promise<Json> {
+export async function getProjects(): Promise<ProjectsResponse> {
   ensureApiBase();
 
   try {
-    const response = await httpClient.get<Json>("/projects?limit=50");
-    return response.data;
+    const response = await httpClient.get<ProjectsResponse>("/projects?limit=50", {
+      headers: buildAuthHeader(),
+    });
+
+    // Normalize a bit but keep it backwards compatible for callers:
+    // - If backend returns an array, just return it.
+    // - If backend returns { data } or { items }, return that object.
+    if (Array.isArray(response)) {
+      return response;
+    }
+
+    const anyResponse = response as { data?: Json[]; items?: Json[] };
+
+    if (Array.isArray(anyResponse.data) || Array.isArray(anyResponse.items)) {
+      return anyResponse;
+    }
+
+    // Fallback: return an empty list-shaped object to avoid runtime crashes
+    return { data: [] };
   } catch (err) {
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      handleAuthErrorStatus(err.status);
+    }
     throw toFinanzasError(err, "Unable to load projects");
   }
 }
