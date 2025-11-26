@@ -15,52 +15,9 @@ import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Cartesia
 import { useProject } from '@/contexts/ProjectContext';
 import ApiService from '@/lib/api';
 import usePermissions from '@/hooks/usePermissions';
+import type { Scenario } from '@/types/domain';
 
-// Mock data for scenario comparison
-const mockScenarioData = [
-  {
-    month: 'Jan 24',
-    baseline: 42500,
-    optimistic: 38250,
-    conservative: 46750,
-    riskAdjusted: 47500
-  },
-  {
-    month: 'Feb 24',
-    baseline: 41200,
-    optimistic: 37080,
-    conservative: 45320,
-    riskAdjusted: 45900
-  },
-  {
-    month: 'Mar 24',
-    baseline: 43800,
-    optimistic: 39420,
-    conservative: 48180,
-    riskAdjusted: 48800
-  },
-  {
-    month: 'Apr 24',
-    baseline: 44100,
-    optimistic: 39690,
-    conservative: 48510,
-    riskAdjusted: 49200
-  },
-  {
-    month: 'May 24',
-    baseline: 42800,
-    optimistic: 38520,
-    conservative: 47080,
-    riskAdjusted: 47800
-  },
-  {
-    month: 'Jun 24',
-    baseline: 41500,
-    optimistic: 37350,
-    conservative: 45650,
-    riskAdjusted: 46300
-  }
-];
+const scenarioColorPalette = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#a855f7'];
 
 interface ScenarioParameters {
   laborCostChange: number;
@@ -73,10 +30,12 @@ interface ScenarioParameters {
 
 export function SDMTScenarios() {
   const { hasPremiumFinanzasFeatures } = usePermissions();
-  const { selectedProjectId, currentProject, projectChangeCount } = useProject();
-  const [scenarios, setScenarios] = useState<any[]>([]);
+  const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount } = useProject();
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedScenarios, setSelectedScenarios] = useState<string[]>(['baseline', 'optimistic']);
+  const [selectedScenarios, setSelectedScenarios] = useState<string[]>([]);
+  const [scenarioChartData, setScenarioChartData] = useState<Array<Record<string, number | string>>>([]);
+  const [scenarioTotals, setScenarioTotals] = useState<Record<string, number>>({});
   const [customParameters, setCustomParameters] = useState<ScenarioParameters>({
     laborCostChange: 0,
     fxRateChange: 0,
@@ -94,13 +53,51 @@ export function SDMTScenarios() {
       console.log('🎯 Scenarios: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
       loadScenarios();
     }
-  }, [hasPremiumFinanzasFeatures, projectChangeCount, selectedProjectId]);
+  }, [hasPremiumFinanzasFeatures, projectChangeCount, selectedPeriod, selectedProjectId]);
 
   const loadScenarios = async () => {
     try {
       setLoading(true);
-      const data = await ApiService.getScenarios(selectedProjectId);
+      const months = Math.max(parseInt(selectedPeriod || '12', 10), 1);
+      const [data, forecastCells] = await Promise.all([
+        ApiService.getScenarios(selectedProjectId, months),
+        ApiService.getForecastData(selectedProjectId, months)
+      ]);
       setScenarios(data);
+      setSelectedScenarios(data.map((scenario) => scenario.id));
+
+      const chartRows = Array.from({ length: months }, (_, index) => {
+        const monthNumber = index + 1;
+        const monthLabel = `M${monthNumber.toString().padStart(2, '0')}`;
+        const row: Record<string, number | string> = { month: monthLabel };
+
+        data.forEach((scenario) => {
+          const baseCells = forecastCells.filter((cell) => cell.month === monthNumber);
+          let value = 0;
+
+          if (scenario.id.startsWith('baseline')) {
+            value = baseCells.reduce((sum, cell) => sum + (cell.planned || 0), 0);
+          } else if (scenario.id.includes('forecast')) {
+            value = baseCells.reduce((sum, cell) => sum + (cell.forecast || 0), 0);
+          } else {
+            value = baseCells.reduce((sum, cell) => sum + (cell.actual || 0), 0);
+          }
+
+          row[scenario.id] = value;
+        });
+
+        return row;
+      });
+
+      setScenarioChartData(chartRows);
+      const totals: Record<string, number> = {};
+      data.forEach((scenario) => {
+        totals[scenario.id] = chartRows.reduce(
+          (sum, row) => sum + (Number(row[scenario.id]) || 0),
+          0
+        );
+      });
+      setScenarioTotals(totals);
       console.log('✅ Scenarios loaded for project:', selectedProjectId);
     } catch (error) {
       console.error('Failed to load scenarios:', error);
@@ -109,43 +106,28 @@ export function SDMTScenarios() {
     }
   };
 
-  const scenarioConfigs = [
-    {
-      id: 'baseline',
-      name: 'Baseline',
-      description: 'Original approved baseline budget',
-      color: '#64748b',
-      impact: 0
-    },
-    {
-      id: 'optimistic',
-      name: 'Optimistic',
-      description: '15% efficiency gains, favorable FX',
-      color: '#22c55e',
-      impact: -48500
-    },
-    {
-      id: 'conservative',
-      name: 'Conservative',
-      description: '10% buffer for risks and delays',
-      color: '#f59e0b',
-      impact: 52750
-    },
-    {
-      id: 'riskAdjusted',
-      name: 'Risk Adjusted',
-      description: 'Includes identified risk provisions',
-      color: '#ef4444',
-      impact: 58200
-    }
-  ];
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
     }).format(value);
+  };
+
+  const scenariosWithColors = scenarios.map((scenario, index) => ({
+    ...scenario,
+    color: scenarioColorPalette[index % scenarioColorPalette.length],
+  }));
+
+  const baselineScenario = scenariosWithColors.find((scenario) =>
+    scenario.id.startsWith('baseline')
+  );
+  const baselineTotal = baselineScenario ? scenarioTotals[baselineScenario.id] || 0 : 0;
+
+  const riskLabel = (impact: number) => {
+    if (impact > 0) return 'High';
+    if (impact < 0) return 'Low';
+    return 'Medium';
   };
 
   // Calculate delta waterfall data
@@ -243,7 +225,7 @@ export function SDMTScenarios() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {scenarioConfigs.map((scenario) => (
+                {scenariosWithColors.map((scenario) => (
                   <div
                     key={scenario.id}
                     className={`border rounded-lg p-4 cursor-pointer transition-all ${
@@ -252,10 +234,10 @@ export function SDMTScenarios() {
                         : 'border-border hover:border-primary/50'
                     }`}
                     onClick={() => {
-                      setSelectedScenarios(prev =>
+                      setSelectedScenarios((prev) =>
                         prev.includes(scenario.id)
-                          ? prev.filter(id => id !== scenario.id)
-                          : [...prev, scenario.id].slice(0, 4) // Max 4 scenarios
+                          ? prev.filter((id) => id !== scenario.id)
+                          : [...prev, scenario.id].slice(0, 4)
                       );
                     }}
                   >
@@ -270,44 +252,51 @@ export function SDMTScenarios() {
                     <div className="text-sm text-muted-foreground mb-2">
                       {scenario.description}
                     </div>
-                    <div className={`text-sm font-medium ${
-                      scenario.impact > 0 ? 'text-red-600' : scenario.impact < 0 ? 'text-green-600' : 'text-muted-foreground'
-                    }`}>
-                      {scenario.impact !== 0 && (scenario.impact > 0 ? '+' : '')}{formatCurrency(scenario.impact)}
+                    <div
+                      className={`text-sm font-medium ${
+                        scenario.total_impact > 0
+                          ? 'text-red-600'
+                          : scenario.total_impact < 0
+                            ? 'text-green-600'
+                            : 'text-muted-foreground'
+                      }`}
+                    >
+                      {scenario.total_impact !== 0 &&
+                        (scenario.total_impact > 0 ? '+' : '')}
+                      {formatCurrency(scenario.total_impact || 0)}
                     </div>
                   </div>
                 ))}
               </div>
-
               {/* Comparison Chart */}
               <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={mockScenarioData}>
+                  <LineChart data={scenarioChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
                     <Tooltip
                       formatter={(value: number) => [formatCurrency(value), '']}
-                      labelFormatter={(label) => `Month: ${label}`}
+                      labelFormatter={(label) => `Mes: ${label}`}
                     />
                     <Legend />
                     {selectedScenarios.map((scenarioId) => {
-                      const config = scenarioConfigs.find(s => s.id === scenarioId);
+                      const config = scenariosWithColors.find((s) => s.id === scenarioId);
+                      if (!config) return null;
                       return (
                         <Line
                           key={scenarioId}
                           type="monotone"
                           dataKey={scenarioId}
-                          stroke={config?.color}
+                          stroke={config.color}
                           strokeWidth={2}
-                          name={config?.name}
+                          name={config.name}
                         />
                       );
                     })}
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-
               {/* Summary Table */}
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
@@ -321,31 +310,33 @@ export function SDMTScenarios() {
                   </thead>
                   <tbody>
                     {selectedScenarios.map((scenarioId) => {
-                      const config = scenarioConfigs.find(s => s.id === scenarioId);
-                      const totalCost = 485000 + (config?.impact || 0);
+                      const config = scenariosWithColors.find((s) => s.id === scenarioId);
+                      if (!config) return null;
+                      const totalCost = scenarioTotals[scenarioId] ?? 0;
+                      const deltaVsBaseline = totalCost - baselineTotal;
                       return (
                         <tr key={scenarioId} className="border-b">
                           <td className="p-2">
                             <div className="flex items-center gap-2">
                               <div
                                 className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: config?.color }}
+                                style={{ backgroundColor: config.color }}
                               />
-                              {config?.name}
+                              {config.name}
                             </div>
                           </td>
                           <td className="text-right p-2 font-medium">
                             {formatCurrency(totalCost)}
                           </td>
                           <td className={`text-right p-2 ${
-                            (config?.impact || 0) > 0 ? 'text-red-600' : 
-                            (config?.impact || 0) < 0 ? 'text-green-600' : 'text-muted-foreground'
+                            deltaVsBaseline > 0 ? 'text-red-600' :
+                            deltaVsBaseline < 0 ? 'text-green-600' : 'text-muted-foreground'
                           }`}>
-                            {config?.impact !== 0 && ((config?.impact || 0) > 0 ? '+' : '')}{formatCurrency(config?.impact || 0)}
+                            {deltaVsBaseline !== 0 && (deltaVsBaseline > 0 ? '+' : '')}{formatCurrency(deltaVsBaseline)}
                           </td>
                           <td className="text-right p-2">
-                            <Badge variant={scenarioId === 'baseline' ? 'default' : scenarioId === 'optimistic' ? 'secondary' : 'destructive'}>
-                              {scenarioId === 'baseline' ? 'Medium' : scenarioId === 'optimistic' ? 'Low' : 'High'}
+                            <Badge variant={config.id.startsWith('baseline') ? 'default' : config.total_impact > 0 ? 'destructive' : 'secondary'}>
+                              {riskLabel(config.total_impact)}
                             </Badge>
                           </td>
                         </tr>
