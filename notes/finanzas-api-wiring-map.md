@@ -1,6 +1,6 @@
 # Finanzas SD – Frontend API Usage Map (Phase 1)
 
-| FE function | HTTP | Path | Used by screen/component | Expected shape |
+| FE function | HTTP | Path | Used by screen/component | Expected shape |  
 | --- | --- | --- | --- | --- |
 | `uploadInvoice` (presign + upload) | `POST` to `/uploads/docs`, S3 `PUT`, then `POST` to `/prefacturas` | `/uploads/docs` and `/prefacturas` | SDMT Reconciliation (`SDMTReconciliation.tsx`) | Presign returns `{ uploadUrl, objectKey }`; final create returns `InvoiceDTO` with ids, amounts, document metadata, status. |
 | `uploadSupportingDocument` | `POST` to `/uploads/docs`, S3 `PUT` | `/uploads/docs` | (Not currently referenced by screens) | Returns `{ documentKey, originalName, contentType }` after upload. |
