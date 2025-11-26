@@ -1103,7 +1103,7 @@ Resources:
             ApiId:
               Ref: Api
             Auth:
-              Authorizer: NONE
+              Authorizer: CognitoJwt
   PrefacturasFn:
     Type: AWS::Serverless::Function
     Metadata:

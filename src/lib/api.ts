@@ -378,18 +378,25 @@ export class ApiService {
 
     try {
       // Try API first
-      const response = await fetch(
-        buildApiUrl(`/projects/${project_id}/plan`),
-        {
-          method: "GET",
-          headers: buildHeaders(),
-        }
-      );
+      const params = new URLSearchParams({ projectId: project_id });
+      if (period_months) {
+        params.set("months", String(period_months));
+      }
+
+      const response = await fetch(buildApiUrl(`/plan/forecast?${params}`), {
+        method: "GET",
+        headers: buildHeaders(),
+      });
 
       if (response.ok) {
-        const data = await response.json();
-        logger.info("Forecast data loaded from API:", data.length, "records");
-        return data;
+        const raw = await response.json();
+        const data = Array.isArray(raw?.data) ? raw.data : raw;
+        logger.info(
+          "Forecast data loaded from API:",
+          Array.isArray(data) ? data.length : 0,
+          "records"
+        );
+        return Array.isArray(data) ? data : [];
       }
 
       // If API fails, log error and return empty array

@@ -4,7 +4,8 @@
  */
 
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
-import { ok, bad, serverError } from "../lib/http";
+import { ok, bad, serverError, fromAuthError } from "../lib/http";
+import { ensureCanRead } from "../lib/auth";
 import { ddb, tableName, QueryCommand } from "../lib/dynamo";
 
 type ForecastItem = {
@@ -33,6 +34,16 @@ export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
+    try {
+      await ensureCanRead(event as never);
+    } catch (authError) {
+      const authResponse = fromAuthError(authError);
+      if (authResponse) {
+        return authResponse;
+      }
+      throw authError;
+    }
+
     const projectId = event.queryStringParameters?.projectId;
     const monthsStr = event.queryStringParameters?.months;
 
