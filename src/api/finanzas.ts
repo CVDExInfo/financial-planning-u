@@ -399,17 +399,20 @@ export async function getProjects(): Promise<ProjectsResponse> {
       headers: buildAuthHeader(),
     });
 
+    // Extract the payload from the HttpResponse wrapper
+    const payload = response.data;
+
     // Normalize a bit but keep it backwards compatible for callers:
     // - If backend returns an array, just return it.
     // - If backend returns { data } or { items }, return that object.
-    if (Array.isArray(response)) {
-      return response;
+    if (Array.isArray(payload)) {
+      return payload;
     }
 
-    const anyResponse = response as { data?: Json[]; items?: Json[] };
+    const anyPayload = payload as { data?: Json[]; items?: Json[] };
 
-    if (Array.isArray(anyResponse.data) || Array.isArray(anyResponse.items)) {
-      return anyResponse;
+    if (Array.isArray(anyPayload.data) || Array.isArray(anyPayload.items)) {
+      return anyPayload;
     }
 
     // Fallback: return an empty list-shaped object to avoid runtime crashes
