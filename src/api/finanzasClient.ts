@@ -222,6 +222,29 @@ export const AdjustmentCreateSchema = z.object({
 
 export type AdjustmentCreate = z.infer<typeof AdjustmentCreateSchema>;
 
+export const AdjustmentSchema = AdjustmentCreateSchema.extend({
+  id: z.string(),
+  estado: z.enum(["pending_approval", "approved", "rejected"]).optional(),
+  meses_impactados: z.array(z.string()).optional(),
+  distribucion: z
+    .array(
+      z.object({
+        mes: z.string(),
+        monto: z.number(),
+      })
+    )
+    .optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+
+export const AdjustmentListSchema = z.object({
+  data: z.array(AdjustmentSchema),
+  total: z.number().optional(),
+});
+
+export type Adjustment = z.infer<typeof AdjustmentSchema>;
+
 // Provider create schema
 export const ProviderCreateSchema = z.object({
   nombre: z.string().min(3).max(200),
@@ -235,6 +258,21 @@ export const ProviderCreateSchema = z.object({
 });
 
 export type ProviderCreate = z.infer<typeof ProviderCreateSchema>;
+
+export const ProviderSchema = ProviderCreateSchema.extend({
+  id: z.string(),
+  estado: z.enum(["active", "inactive", "suspended"]).optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+  created_by: z.string().email().optional(),
+});
+
+export const ProviderListSchema = z.object({
+  data: z.array(ProviderSchema),
+  total: z.number().optional(),
+});
+
+export type Provider = z.infer<typeof ProviderSchema>;
 
 function validateProjectPayload(payload: ProjectCreate): ProjectCreate {
   const parsed = ProjectCreateSchema.safeParse(payload);
@@ -297,6 +335,37 @@ export const finanzasClient = {
     if (!parsed.success) {
       console.error(parsed.error);
       throw new Error("Invalid allocation rules response");
+    }
+    return parsed.data.data;
+  },
+
+  async getAdjustments(params: { projectId?: string; limit?: number } = {}): Promise<Adjustment[]> {
+    const search = new URLSearchParams();
+    if (params.projectId) search.set("project_id", params.projectId);
+    if (params.limit) search.set("limit", String(params.limit));
+    const query = search.toString();
+
+    const data = await http<{ data: unknown }>(`/adjustments${query ? `?${query}` : ""}`);
+    const parsed = AdjustmentListSchema.safeParse(data);
+    if (!parsed.success) {
+      console.error(parsed.error);
+      throw new Error("Invalid adjustments response");
+    }
+    return parsed.data.data;
+  },
+
+  async getProviders(params: { tipo?: string; estado?: string; limit?: number } = {}): Promise<Provider[]> {
+    const search = new URLSearchParams();
+    if (params.tipo) search.set("tipo", params.tipo);
+    if (params.estado) search.set("estado", params.estado);
+    if (params.limit) search.set("limit", String(params.limit));
+    const query = search.toString();
+
+    const data = await http<{ data: unknown }>(`/providers${query ? `?${query}` : ""}`);
+    const parsed = ProviderListSchema.safeParse(data);
+    if (!parsed.success) {
+      console.error(parsed.error);
+      throw new Error("Invalid providers response");
     }
     return parsed.data.data;
   },
