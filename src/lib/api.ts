@@ -40,24 +40,7 @@ export class ApiService {
       if (!response.ok) {
         const errorText = await response.text();
         logger.error("Failed to fetch projects from API:", errorText);
-
-        const forbiddenMessage =
-          response.status === 403
-            ? "Access denied: your user is missing the required Finanzas group."
-            : null;
-        const unauthorizedMessage =
-          response.status === 401
-            ? "Tu sesión ha expirado o no tienes permisos para ver proyectos."
-            : null;
-
-        const friendlyMessage =
-          forbiddenMessage ||
-          unauthorizedMessage ||
-          `API error: ${response.status} - ${errorText}`;
-
-        const error = new Error(friendlyMessage);
-        (error as any).status = response.status;
-        throw error;
+        throw new Error(`API error: ${response.status} - ${errorText}`);
       }
 
       const text = await response.text();

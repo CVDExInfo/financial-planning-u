@@ -55,7 +55,7 @@ import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import { logger } from "@/utils/logger";
 import { cn } from "@/lib/utils";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
-import { addProjectRubro } from "@/api/finanzas";
+import { addProjectRubro, FinanzasApiError } from "@/api/finanzas";
 import {
   uploadDocument,
   type DocumentUploadMeta,
@@ -129,17 +129,13 @@ export function SDMTCatalog() {
 
   const normalizeApiError = (error: unknown) => {
     if (!error) return null;
-    const status =
-      typeof (error as any)?.status === "number"
-        ? ((error as any).status as number)
-        : undefined;
-    const message =
-      error instanceof Error
-        ? error.message
-        : typeof error === "string"
-          ? error
-          : undefined;
-    return { status, message: message || "Unexpected error" };
+    if (error instanceof FinanzasApiError) {
+      return { status: error.status, message: error.message };
+    }
+    if (error instanceof Error) {
+      return { status: (error as any).status as number | undefined, message: error.message };
+    }
+    return { status: undefined, message: String(error) };
   };
 
   const lineItemsErrorInfo = normalizeApiError(lineItemsError);
