@@ -341,10 +341,6 @@ export const finanzasClient = {
   },
 
   async getRubros(): Promise<Rubro[]> {
-    const payload = await http<unknown>("/catalog/rubros");
-    const list = normalizeDataArray(payload);
-    const parsed = z.array(RubroSchema).safeParse(list);
-
     const payload = await http<{ data: unknown } | Rubro[]>("/catalog/rubros");
     const data = normalizeListResponse<Rubro>(payload);
     const parsed = RubroListSchema.safeParse({ data });
