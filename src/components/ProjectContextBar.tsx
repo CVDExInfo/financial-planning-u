@@ -98,10 +98,7 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
           <div className="flex flex-wrap items-start gap-3">
             <div className="flex-1 min-w-60">
               <ErrorBanner
-                message={
-                  projectError ||
-                  "Unable to load projects from the Finanzas API. Please try again."
-                }
+                message={projectError}
               />
             </div>
             <Button
