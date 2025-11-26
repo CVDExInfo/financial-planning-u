@@ -304,9 +304,9 @@ export async function addProjectRubro<T = Json>(
   const base = requireApiBase();
   const headers = { "Content-Type": "application/json", ...buildAuthHeader() };
 
-  const primary = `${base}/projects/${encodeURIComponent(
-    projectId,
-  )}/catalog/rubros`;
+  // The deployed API exposes /projects/{id}/rubros; keep a single fallback to
+  // /catalog/rubros for legacy stacks that might still use that mount.
+  const primary = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
   let res = await fetch(primary, {
     method: "POST",
     headers,
@@ -314,7 +314,9 @@ export async function addProjectRubro<T = Json>(
   });
 
   if (res.status === 404 || res.status === 405) {
-    const fallback = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
+    const fallback = `${base}/projects/${encodeURIComponent(
+      projectId,
+    )}/catalog/rubros`;
     res = await fetch(fallback, {
       method: "POST",
       headers,
@@ -390,7 +392,7 @@ export {
 } from "./finanzas-projects-helpers";
 
 // Optional helpers used by tests/smokes
-export async function getProjects(): Promise<{ data: Json[] }> {
+export async function getProjects(): Promise<ProjectsResponse> {
   ensureApiBase();
 
   try {
@@ -398,8 +400,25 @@ export async function getProjects(): Promise<{ data: Json[] }> {
       headers: buildAuthHeader(),
     });
 
-    return { data: normalizeProjectsPayload(response.data) };
+    // Normalize a bit but keep it backwards compatible for callers:
+    // - If backend returns an array, just return it.
+    // - If backend returns { data } or { items }, return that object.
+    if (Array.isArray(response)) {
+      return response;
+    }
+
+    const anyResponse = response as { data?: Json[]; items?: Json[] };
+
+    if (Array.isArray(anyResponse.data) || Array.isArray(anyResponse.items)) {
+      return anyResponse;
+    }
+
+    // Fallback: return an empty list-shaped object to avoid runtime crashes
+    return { data: [] };
   } catch (err) {
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      handleAuthErrorStatus(err.status);
+    }
     throw toFinanzasError(err, "Unable to load projects");
   }
 }
@@ -419,7 +438,12 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
       { headers: buildAuthHeader() },
     );
 
-    const rows = Array.isArray(response?.data) ? response.data : [];
+    const payload = response?.data as any;
+    const rows = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+      ? payload.data
+      : [];
     return rows.map((item) => ({
       id: item.invoiceId || item.id || item.sk || "",
       line_item_id: item.lineItemId || item.line_item_id || "",
