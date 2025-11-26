@@ -139,7 +139,7 @@ export function LoginPage() {
         <div className="flex flex-wrap items-center justify-between gap-4 text-base font-semibold text-emerald-800 dark:text-emerald-100">
           <div className="flex items-center gap-3">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 ring-1 ring-emerald-200 shadow-inner shadow-emerald-100/70 dark:bg-emerald-500/10 dark:ring-emerald-400/30 dark:shadow-emerald-900/40">
-              <Logo className="h-10" />
+              <Logo className="h-14" />
             </div>
             <div className="flex flex-col leading-tight">
               <span className="text-sm font-medium text-emerald-700 dark:text-emerald-200/90">Finanzas SD</span>
