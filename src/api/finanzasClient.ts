@@ -1,9 +1,7 @@
 import { z } from "zod";
-import { API_BASE, HAS_API_BASE } from "@/config/env";
+import { HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
-
-// Env config
-const BASE = API_BASE;
+import httpClient, { HttpError } from "@/lib/http-client";
 
 if (!HAS_API_BASE) {
   // Non-fatal in dev; API client will throw on call
@@ -12,7 +10,7 @@ if (!HAS_API_BASE) {
   );
 } else if (import.meta.env.DEV) {
   // Debug logging for dev mode only
-  console.log("[Finz] finanzasClient initialized with BASE:", BASE);
+  console.log("[Finz] finanzasClient initialized with shared httpClient");
 }
 
 // Schemas
@@ -61,56 +59,95 @@ export const AllocationRuleListSchema = z.object({
 
 export type AllocationRule = z.infer<typeof AllocationRuleSchema>;
 
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   if (!HAS_API_BASE) {
     throw new Error("Finanzas API base URL is not configured");
   }
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {}),
-      ...buildAuthHeader(),
-    },
-    credentials: "omit",
-    mode: "cors",
-  });
-  if (!res.ok) {
-    // Special handling for 501 Not Implemented
-    if (res.status === 501) {
-      throw new Error("This feature is not yet implemented on the server (501). The backend handler needs to be completed.");
+
+  const method = ((init?.method || "GET").toUpperCase() || "GET") as HttpMethod;
+  const parsedBody = (() => {
+    if (!init?.body) return undefined;
+    if (typeof init.body === "string") {
+      try {
+        return JSON.parse(init.body);
+      } catch (error) {
+        console.warn("finanzasClient could not parse request body as JSON", error);
+        return init.body;
+      }
+    }
+    return init.body;
+  })();
+
+  try {
+    const headers = { ...(init?.headers || {}), ...buildAuthHeader() };
+
+    const response = await (async () => {
+      switch (method) {
+        case "POST":
+          return httpClient.post<T>(path, parsedBody, { headers });
+        case "PUT":
+          return httpClient.put<T>(path, parsedBody, { headers });
+        case "PATCH":
+          return httpClient.patch<T>(path, parsedBody, { headers });
+        case "DELETE":
+          return httpClient.delete<T>(path, { headers });
+        default:
+          return httpClient.get<T>(path, { headers });
+      }
+    })();
+
+    return response.data as T;
+  } catch (error) {
+    if (error instanceof HttpError) {
+      if (error.status === 501) {
+        throw new Error(
+          "This feature is not yet implemented on the server (501). The backend handler needs to be completed."
+        );
+      }
+
+      if (error.status === 401 || error.status === 403) {
+        handleAuthErrorStatus(error.status);
+      }
     }
 
-    // Special handling for 401/403 authorization errors
-    if (res.status === 401) {
-      handleAuthErrorStatus(res.status);
-    }
-    if (res.status === 403) {
-      handleAuthErrorStatus(res.status);
-    }
-    
-    const text = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
-  }
-  
-  // Content-Type safety: Guard against HTML responses
-  const ct = res.headers.get("content-type") || "";
-  if (!ct.includes("application/json")) {
-    const text = await res.text().catch(() => "");
-    // Check if response looks like HTML (common when API base URL is wrong or returns login page)
-    const isHTML = text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html");
-    if (isHTML) {
+    // Surface any parsing or connectivity issues explicitly
+    if (error instanceof Error && /HTML|DOCTYPE|<html/i.test(error.message)) {
       throw new Error(
-        `API returned HTML (likely login page or wrong endpoint) instead of JSON. ` +
-        `Check VITE_API_BASE_URL configuration. Content-Type: ${ct || "(none)"}`
+        `${error.message} Check VITE_API_BASE_URL configuration or reverse proxy wiring.`
       );
     }
+
+    throw error instanceof Error
+      ? error
+      : new Error("Unknown network error while calling Finanzas API");
+  }
+}
+
+function toProjectRubroRequest(payload: RubroCreate): ProjectRubroRequest {
+  const normalized: ProjectRubroRequest = {
+    rubroIds: payload.rubro_id ? [payload.rubro_id] : [],
+    monto_total: payload.monto_total,
+    tipo_ejecucion: payload.tipo_ejecucion,
+    meses_programados: payload.meses_programados,
+    notas: payload.notas,
+  };
+
+  const parsed = ProjectRubroRequestSchema.safeParse(normalized);
+
+  if (!parsed.success) {
+    const details = parsed.error.issues
+      .map((issue) => issue.message || issue.path.join("."))
+      .join("; ");
+
     throw new Error(
-      `Expected JSON, got ${ct || "(none)"}. First bytes: ${text.slice(0, 80)}`
+      details ||
+        "Datos del rubro inválidos. Revisa el ID, monto y tipo de ejecución antes de intentar nuevamente."
     );
   }
-  
-  return res.json();
+
+  return parsed.data;
 }
 
 // Project schemas
@@ -146,6 +183,16 @@ export const RubroCreateSchema = z.object({
 });
 
 export type RubroCreate = z.infer<typeof RubroCreateSchema>;
+
+const ProjectRubroRequestSchema = z.object({
+  rubroIds: z.array(z.string()).min(1),
+  monto_total: z.number().min(0).optional(),
+  tipo_ejecucion: z.enum(["mensual", "puntual", "por_hito"]).optional(),
+  meses_programados: z.array(z.string()).optional(),
+  notas: z.string().max(1000).optional(),
+});
+
+type ProjectRubroRequest = z.infer<typeof ProjectRubroRequestSchema>;
 
 // Allocation bulk schema
 export const AllocationBulkSchema = z.object({
@@ -189,10 +236,34 @@ export const ProviderCreateSchema = z.object({
 
 export type ProviderCreate = z.infer<typeof ProviderCreateSchema>;
 
+function validateProjectPayload(payload: ProjectCreate): ProjectCreate {
+  const parsed = ProjectCreateSchema.safeParse(payload);
+
+  if (!parsed.success) {
+    const details = parsed.error.issues
+      .map((issue) =>
+        issue.message
+          ? `${issue.path.join(".") || "campo"}: ${issue.message}`
+          : issue.path.join(".") || "campo"
+      )
+      .join("; ");
+
+    throw new Error(
+      details ||
+        "Datos de proyecto inválidos. Verifica código, fechas, moneda y monto MOD."
+    );
+  }
+
+  return parsed.data;
+}
+
 function isJwtPresent(): boolean {
   return !!(
+    localStorage.getItem("finz_access_token") ||
     localStorage.getItem("cv.jwt") ||
     localStorage.getItem("finz_jwt") ||
+    localStorage.getItem("idToken") ||
+    localStorage.getItem("cognitoIdToken") ||
     STATIC_TEST_TOKEN
   );
 }
@@ -233,18 +304,21 @@ export const finanzasClient = {
   // Write operations
   async createProject(payload: ProjectCreate): Promise<Project> {
     checkAuth();
+    const validPayload = validateProjectPayload(payload);
     const data = await http<Project>("/projects", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(validPayload),
     });
     return data;
   },
 
   async createProjectRubro(projectId: string, payload: RubroCreate): Promise<Rubro> {
     checkAuth();
+    const requestBody = toProjectRubroRequest(payload);
+
     const data = await http<Rubro>(`/projects/${projectId}/rubros`, {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(requestBody),
     });
     return data;
   },

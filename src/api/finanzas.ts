@@ -364,11 +364,14 @@ export async function getProjectRubros(
 
 // Optional helpers used by tests/smokes
 export async function getProjects(): Promise<Json> {
-  const base = requireApiBase();
-  return fetchJson<Json>(`${base}/projects?limit=50`, {
-    method: "GET",
-    headers: buildAuthHeader(),
-  });
+  ensureApiBase();
+
+  try {
+    const response = await httpClient.get<Json>("/projects?limit=50");
+    return response.data;
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to load projects");
+  }
 }
 
 // Alias for compatibility with tests/hooks referencing older helper name

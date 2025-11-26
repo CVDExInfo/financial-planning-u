@@ -29,7 +29,14 @@ export class HttpError extends Error {
     public responseText: string,
     message?: string
   ) {
-    super(message || `HTTP ${status}: ${statusText}`);
+    const trimmedBody = (responseText || "").trim();
+    const autoMessage = statusText
+      ? `HTTP ${status}: ${statusText}`
+      : trimmedBody
+      ? `HTTP ${status}: ${trimmedBody.slice(0, 200)}`
+      : `HTTP ${status}`;
+
+    super(message || autoMessage);
     this.name = "HttpError";
   }
 }
