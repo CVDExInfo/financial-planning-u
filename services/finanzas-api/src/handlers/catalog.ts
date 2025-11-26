@@ -29,7 +29,7 @@ function decodeNextToken(token: string | undefined) {
   }
 }
 
-export const handler: APIGatewayProxyHandlerV2 = async (_event) => {
+export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   // Minimal enriched fallback to avoid 500 while DDB/Tables are not ready
   const FALLBACK: RubroItem[] = [
     {
