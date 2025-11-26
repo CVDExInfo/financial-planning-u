@@ -430,53 +430,81 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
   ensureApiBase();
   if (!projectId) throw new FinanzasApiError("projectId is required");
 
+  const normalizeInvoice = (item: any): InvoiceDoc => ({
+    id: item.invoiceId || item.id || item.sk || "",
+    line_item_id: item.lineItemId || item.line_item_id || "",
+    month: Number(item.month) || 1,
+    amount: Number(item.amount) || 0,
+    currency: (item.currency as InvoiceDoc["currency"]) || "USD",
+    file_url: item.file_url,
+    file_name: item.file_name,
+    documentKey: item.documentKey,
+    originalName: item.originalName || item.file_name,
+    contentType: item.contentType,
+    status: (item.status as InvoiceStatus) || "Pending",
+    comments: item.comments,
+    uploaded_by: item.uploaded_by || item.uploader || "unknown",
+    uploaded_at: item.created_at || item.uploaded_at || new Date().toISOString(),
+    matched_at: item.matched_at,
+    matched_by: item.matched_by,
+  });
+
+  const toArray = (payload: unknown): any[] => {
+    if (Array.isArray(payload)) return payload;
+    if (payload && typeof payload === "object") {
+      const data = (payload as any).data;
+      if (Array.isArray(data)) return data;
+    }
+    return [];
+  };
+
   try {
-    const params = new URLSearchParams({ projectId });
-    const response = await httpClient.get<{ data?: any[] }>(
-      `/prefacturas?${params.toString()}`,
+    const primary = await httpClient.get<{ data?: any[] } | any[]>(
+      `/projects/${encodeURIComponent(projectId)}/invoices`,
       { headers: buildAuthHeader() },
     );
 
-    const payload = response?.data as any;
-    const rows = Array.isArray(payload)
-      ? payload
-      : Array.isArray(payload?.data)
-      ? payload.data
-      : [];
-    return rows.map((item) => ({
-      id: item.invoiceId || item.id || item.sk || "",
-      line_item_id: item.lineItemId || item.line_item_id || "",
-      month: Number(item.month) || 1,
-      amount: Number(item.amount) || 0,
-      currency: (item.currency as InvoiceDoc["currency"]) || "USD",
-      file_url: item.file_url,
-      file_name: item.file_name,
-      documentKey: item.documentKey,
-      originalName: item.originalName || item.file_name,
-      contentType: item.contentType,
-      status: (item.status as InvoiceStatus) || "Pending",
-      comments: item.comments,
-      uploaded_by: item.uploaded_by || item.uploader || "unknown",
-      uploaded_at:
-        item.created_at || item.uploaded_at || new Date().toISOString(),
-      matched_at: item.matched_at,
-      matched_by: item.matched_by,
-    }));
+    return toArray(primary.data).map(normalizeInvoice);
   } catch (err) {
     if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
       handleAuthErrorStatus(err.status);
     }
 
-    if (err instanceof HttpError) {
-      if (err.status === 404) {
+    const isNotFound = err instanceof HttpError && (err.status === 404 || err.status === 405);
+    if (!isNotFound) {
+      if (err instanceof HttpError) {
+        if (err.status === 403) {
+          throw new FinanzasApiError(
+            "Access to invoices is restricted for this project.",
+            403,
+          );
+        }
+      }
+    }
+
+    try {
+      const params = new URLSearchParams({ projectId });
+      const fallback = await httpClient.get<{ data?: any[] } | any[]>(
+        `/prefacturas?${params.toString()}`,
+        { headers: buildAuthHeader() },
+      );
+
+      return toArray(fallback.data).map(normalizeInvoice);
+    } catch (fallbackErr) {
+      if (
+        fallbackErr instanceof HttpError &&
+        (fallbackErr.status === 401 || fallbackErr.status === 403)
+      ) {
+        handleAuthErrorStatus(fallbackErr.status);
+      }
+      if (
+        fallbackErr instanceof HttpError &&
+        (fallbackErr.status === 404 || fallbackErr.status === 405)
+      ) {
         return [];
       }
-      if (err.status === 403) {
-        throw new FinanzasApiError(
-          "Access to invoices is restricted for this project.",
-          403,
-        );
-      }
+
+      throw toFinanzasError(fallbackErr, "Unable to load invoices");
     }
 
     throw toFinanzasError(err, "Unable to load invoices");

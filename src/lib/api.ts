@@ -443,8 +443,41 @@ export class ApiService {
     logger.debug("Getting invoices for project_id:", project_id);
 
     try {
-      // Try API first
-      const response = await fetch(
+      const toArray = (payload: unknown): any[] => {
+        if (Array.isArray(payload)) return payload;
+        if (payload && typeof payload === "object" && Array.isArray((payload as any).data)) {
+          return (payload as any).data as any[];
+        }
+        return [];
+      };
+
+      // Primary: new invoices collection route
+      const primary = await fetch(
+        buildApiUrl(`/projects/${project_id}/invoices`),
+        {
+          method: "GET",
+          headers: buildHeaders(),
+        }
+      );
+
+      if (primary.ok) {
+        const raw = await primary.json();
+        const data = toArray(raw);
+        logger.info("Invoices loaded from API:", data.length, "records");
+        return data as InvoiceDoc[];
+      }
+
+      const shouldFallback = [404, 405].includes(primary.status);
+      if (!shouldFallback) {
+        logger.warn(
+          "API call failed (status:",
+          primary.status,
+          ") on /projects/{id}/invoices",
+        );
+      }
+
+      // Fallback: legacy prefacturas endpoint
+      const fallback = await fetch(
         buildApiUrl(`/prefacturas?projectId=${project_id}`),
         {
           method: "GET",
@@ -452,22 +485,17 @@ export class ApiService {
         }
       );
 
-      if (response.ok) {
-        const raw = await response.json();
-        const data = Array.isArray(raw?.data) ? raw.data : raw;
-        logger.info(
-          "Invoices loaded from API:",
-          Array.isArray(data) ? data.length : 0,
-          "records"
-        );
-        return Array.isArray(data) ? data : [];
+      if (fallback.ok) {
+        const raw = await fallback.json();
+        const data = toArray(raw);
+        logger.info("Invoices loaded from legacy API:", data.length, "records");
+        return data as InvoiceDoc[];
       }
 
-      // If API fails, log error and return empty array
       logger.warn(
         "API call failed (status:",
-        response.status,
-        "), returning empty invoices"
+        fallback.status,
+        ") returning empty invoices"
       );
       return [];
     } catch (error) {
