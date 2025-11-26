@@ -36,6 +36,7 @@ import DataContainer from "@/components/DataContainer";
 import PageHeader from "@/components/PageHeader";
 import DonutChart from "@/components/charts/DonutChart";
 import LineChartComponent from "@/components/charts/LineChart";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -43,6 +44,8 @@ export default function ProjectsManager() {
   const [isLoadingProjects, setIsLoadingProjects] = React.useState(true);
   const [projects, setProjects] = React.useState<Project[]>([]);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
+  const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
 
   // Form state
   const [name, setName] = React.useState("");
@@ -144,14 +147,45 @@ export default function ProjectsManager() {
   }, []);
 
   const loadProjects = React.useCallback(async () => {
+    console.info("[Projects] Inicio de carga de proyectos");
     try {
       setIsLoadingProjects(true);
       setLoadError(null);
       const data = await getProjects();
+
+      const rawItemsLength = Array.isArray((data as any)?.data)
+        ? (data as any).data.length
+        : Array.isArray((data as any)?.items)
+        ? (data as any).items.length
+        : Array.isArray(data)
+        ? (data as any).length
+        : undefined;
+
+      console.info("[Projects] Respuesta de API", {
+        tipo: Array.isArray(data) ? "array" : typeof data,
+        claves: data && typeof data === "object" ? Object.keys(data as any) : [],
+        longitud: rawItemsLength,
+      });
+
       const parsed = normalizeProjects(data);
-      setProjects(parsed);
+      console.info(`[Projects] Proyectos parseados: ${parsed.length}`);
+
+      if (parsed.length === 0) {
+        setProjects([]);
+        setLoadError("No se encontraron proyectos en Finanzas");
+      } else {
+        setProjects(parsed);
+      }
     } catch (e: any) {
-      const message = e?.message || "No se pudieron cargar los proyectos";
+      console.error("[Projects] Error al cargar proyectos", e);
+      let message = e?.message || "No se pudieron cargar los proyectos";
+
+      if (e instanceof FinanzasApiError && e.status === 401) {
+        message = "Sesión expirada. Por favor inicia sesión nuevamente.";
+      } else if (e instanceof FinanzasApiError && e.status === 403) {
+        message = "No tienes permiso para ver proyectos en Finanzas.";
+      }
+
       setLoadError(message);
       toast.error(message);
     } finally {
@@ -165,6 +199,11 @@ export default function ProjectsManager() {
 
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!canCreateProject) {
+      toast.error("No tienes permiso para crear proyectos en Finanzas.");
+      return;
+    }
 
     if (!name || !code || !client || !startDate || !endDate || !modTotal) {
       toast.error("Por favor completa todos los campos requeridos");
@@ -247,7 +286,7 @@ export default function ProjectsManager() {
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <PageHeader
         title="Gestión de Proyectos"
-        description="Consulta los proyectos que llegan desde la API de Finanzas (DynamoDB) y registra nuevos con el branding Ikusi/CVDEx."
+        description="Consulta los proyectos que llegan desde la API de Finanzas y registra nuevos según tus permisos."
         badge="Finanzas"
         actions={
           <div className="flex gap-2">
@@ -260,10 +299,12 @@ export default function ProjectsManager() {
               <RefreshCcw className="h-4 w-4" />
               {isLoadingProjects ? "Actualizando" : "Refrescar"}
             </Button>
-            <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-              <Plus size={16} />
-              Crear Proyecto
-            </Button>
+            {canCreateProject && (
+              <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+                <Plus size={16} />
+                Crear Proyecto
+              </Button>
+            )}
           </div>
         }
       />

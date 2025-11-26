@@ -1,16 +1,28 @@
 import { useMemo } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { UserRole } from "@/types/domain";
+import { useAuth } from "./useAuth";
+import { UserRole } from "../types/domain";
 import {
   canAccessRoute as legacyCanAccessRoute,
   canPerformAction as legacyCanPerformAction,
-  getRoleLevel,
-} from "@/lib/auth";
+} from "../lib/auth";
+import { type FinanzasRole } from "../lib/jwt";
+import {
+  resolveFinanzasRole,
+  ROLE_PRIORITY,
+} from "./permissions-helpers";
+
+export type FinanzasRole = "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
+
 
 type PermissionCheck = {
   anyRoles?: UserRole[];
   allDecisions?: string[];
 };
+
+export function useFinanzasRole(): FinanzasRole | null {
+  const { groups, currentRole, roles } = useAuth();
+  return resolveFinanzasRole(groups, currentRole as FinanzasRole, roles as FinanzasRole[]);
+}
 
 /**
  * Permission resolver that combines Cognito groups with optional
@@ -18,24 +30,58 @@ type PermissionCheck = {
  */
 export function usePermissions() {
   const { groups, roles, avpDecisions, currentRole: activeRole } = useAuth();
-  const currentRole = useMemo(
-    () => activeRole ?? roles[0] ?? "SDMT",
-    [activeRole, roles]
-  );
+  const finanzasRole = useFinanzasRole();
 
   const normalizedGroups = useMemo(
-    () => groups.map((group) => group.toLowerCase()),
-    [groups]
+    () => groups.map((group) => group.toUpperCase()),
+    [groups],
   );
 
   const roleSet = useMemo(() => new Set<UserRole>(roles), [roles]);
   const decisionSet = useMemo(
     () => new Set(avpDecisions?.map((d) => d.toLowerCase()) || []),
-    [avpDecisions]
+    [avpDecisions],
   );
 
-  const hasGroup = (group: string) =>
-    normalizedGroups.includes(group.toLowerCase());
+  const effectiveRole: FinanzasRole =
+    finanzasRole ||
+    (activeRole as FinanzasRole | undefined) ||
+    (roles[0] as FinanzasRole | undefined) ||
+    null;
+
+  if (!effectiveRole) {
+    return {
+      roles,
+      groups,
+      role: null,
+      currentRole: null,
+      hasGroup: () => false,
+      hasRole: () => false,
+      hasAnyRole: () => false,
+      hasDecision: () => false,
+      hasAllDecisions: () => false,
+      can: () => false,
+      isReadOnly: () => true,
+      canAccessRoute: () => false,
+      canPerformAction: () => false,
+      hasMinimumRole: () => false,
+      canCreate: () => false,
+      canUpdate: () => false,
+      hasPremiumFinanzasFeatures: false,
+      canDelete: () => false,
+      canApprove: () => false,
+      isPMO: false,
+      isSDMT: false,
+      isVendor: false,
+      isExecRO: true,
+      canManageCosts: false,
+      canCreateBaseline: false,
+      canUploadInvoices: false,
+      canEdit: false,
+    };
+  }
+
+  const hasGroup = (group: string) => normalizedGroups.includes(group.toUpperCase());
 
   const hasRole = (role: UserRole) => roleSet.has(role);
 
@@ -44,43 +90,53 @@ export function usePermissions() {
     return required.some((role) => roleSet.has(role));
   };
 
-  const hasDecision = (decision: string) =>
-    decisionSet.has(decision.toLowerCase());
+  const hasDecision = (decision: string) => decisionSet.has(decision.toLowerCase());
 
   const hasAllDecisions = (decisions: string[] = []) => {
     if (!decisions.length) return true;
     return decisions.every((decision) => hasDecision(decision));
   };
 
-  const can = ({ anyRoles, allDecisions }: PermissionCheck) => {
-    return hasAnyRole(anyRoles) && hasAllDecisions(allDecisions);
-  };
+  const can = ({ anyRoles, allDecisions }: PermissionCheck) =>
+    hasAnyRole(anyRoles) && hasAllDecisions(allDecisions);
 
   const isReadOnly = () =>
-    hasRole("EXEC_RO") || hasDecision("deny-write") || !hasDecision("allow-write");
+    effectiveRole === "EXEC_RO" ||
+    hasDecision("deny-write") ||
+    (!hasDecision("allow-write") && effectiveRole !== "SDMT");
 
-  const canAccessRoute = (route: string) =>
-    legacyCanAccessRoute(route, currentRole);
+  const canAccessRoute = (route: string) => legacyCanAccessRoute(route, effectiveRole);
 
-  const canPerformAction = (action: string) =>
-    legacyCanPerformAction(action, currentRole);
+  const canPerformAction = (action: string) => legacyCanPerformAction(action, effectiveRole);
 
   const hasPremiumFinanzasFeatures =
     (import.meta.env.VITE_FINZ_PREMIUM_ENABLED ?? "false") === "true" ||
     hasDecision("finz-premium");
 
   const hasMinimumRole = (minimumRole: UserRole) =>
-    getRoleLevel(currentRole) >= getRoleLevel(minimumRole);
+    ROLE_PRIORITY.indexOf(effectiveRole) <=
+    ROLE_PRIORITY.indexOf(minimumRole as FinanzasRole);
 
   const canCreate = () => canPerformAction("create");
   const canUpdate = () => canPerformAction("update");
-  const canDelete = () => canPerformAction("delete");
-  const canApprove = () => canPerformAction("approve");
+
+  const isPMO = effectiveRole === "PMO";
+  const isSDMT = effectiveRole === "SDMT";
+  const isVendor = effectiveRole === "VENDOR";
+  const isExecRO = effectiveRole === "EXEC_RO";
+
+  const canManageCosts = isSDMT;
+  const canCreateBaseline = isSDMT;
+  const canUploadInvoices = isSDMT || isVendor;
+  const canEdit = isSDMT;
+  const canDelete = isSDMT;
+  const canApprove = isSDMT;
 
   return {
     roles,
     groups,
-    currentRole,
+    role: effectiveRole,
+    currentRole: effectiveRole,
     hasGroup,
     hasRole,
     hasAnyRole,
@@ -96,6 +152,14 @@ export function usePermissions() {
     hasPremiumFinanzasFeatures,
     canDelete,
     canApprove,
+    isPMO,
+    isSDMT,
+    isVendor,
+    isExecRO,
+    canManageCosts,
+    canCreateBaseline,
+    canUploadInvoices,
+    canEdit,
   };
 }
 

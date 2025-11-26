@@ -13,6 +13,7 @@
     "build:pmo": "tsc -b --noCheck && BUILD_TARGET=pmo vite build",
     "build:finanzas": "bash scripts/pre-build-validate.sh && tsc -b --noCheck && BUILD_TARGET=finanzas vite build",
     "lint": "eslint .",
+    "test:unit": "tsx --test src/lib/__tests__/*.test.ts",
     "optimize": "vite optimize",
     "preview": "vite preview",
     "preview:pmo": "BUILD_TARGET=pmo vite preview",
@@ -23,6 +24,7 @@
     "validate:pre-build": "bash scripts/pre-build-validate.sh",
     "smoke:api": "bash scripts/finanzas-e2e-smoke.sh",
     "qa:finanzas:auth": "TS_NODE_PROJECT=tsconfig.node.json node --loader ts-node/esm scripts/qa/verify-finanzas-auth-config.ts",
+    "cognito:update-hosted-ui": "bash infra/cognito/update-hosted-ui-css.sh",
     "generate-docs-pdf": "node scripts/generate-docs-pdf.cjs",
     "render-docs": "node --loader ts-node/esm scripts/docs/render-docs.ts",
     "seed:finanzas:rubros": "TS_NODE_PROJECT=tsconfig.node.json node --loader ts-node/esm/transpile-only src/modules/finanzas/data/seed_rubros.ts"
@@ -61,7 +63,7 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "@tailwindcss/container-queries": "^0.1.1",
     "@tailwindcss/vite": "^4.1.11",
-    "@tanstack/react-query": "^5.90.7",
+    "@tanstack/react-query": "^5.90.11",
     "@tanstack/react-virtual": "^3.13.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -83,7 +85,7 @@
     "react-hook-form": "^7.54.2",
     "react-resizable-panels": "^2.1.7",
     "react-router-dom": "^7.9.4",
-    "recharts": "^3.4.1",
+    "recharts": "^3.5.0",
     "sonner": "^2.0.1",
     "tailwind-merge": "^3.0.2",
     "three": "^0.181.1",
@@ -93,12 +95,12 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@aws-sdk/client-dynamodb": "^3.932.0",
+    "@aws-sdk/client-dynamodb": "^3.939.0",
     "@aws-sdk/lib-dynamodb": "^3.936.0",
     "@aws-sdk/util-dynamodb": "^3.925.0",
     "@eslint/js": "^9.21.0",
     "@mermaid-js/mermaid-cli": "^11.4.0",
-    "@playwright/test": "^1.56.1",
+    "@playwright/test": "^1.57.0",
     "@stoplight/spectral-cli": "^6.15.0",
     "@tailwindcss/postcss": "^4.1.8",
     "@types/node": "^24.10.1",
@@ -113,9 +115,10 @@
     "md-to-pdf": "^5.2.5",
     "tailwindcss": "^4.1.11",
     "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^6.3.5"
+    "vite": "^7.2.4"
   },
   "workspaces": {
     "packages": [
