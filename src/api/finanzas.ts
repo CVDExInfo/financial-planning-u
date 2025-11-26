@@ -389,14 +389,29 @@ export type ProjectsResponse =
   | { data?: Json[]; items?: Json[] };
 
 // Optional helpers used by tests/smokes
-export async function getProjects(): Promise<Json> {
+export async function getProjects(): Promise<ProjectsResponse> {
   ensureApiBase();
 
   try {
-    const response = await httpClient.get<Json>("/projects?limit=50", {
+    const response = await httpClient.get<ProjectsResponse>("/projects?limit=50", {
       headers: buildAuthHeader(),
     });
-    return response.data;
+
+    // Normalize a bit but keep it backwards compatible for callers:
+    // - If backend returns an array, just return it.
+    // - If backend returns { data } or { items }, return that object.
+    if (Array.isArray(response)) {
+      return response;
+    }
+
+    const anyResponse = response as { data?: Json[]; items?: Json[] };
+
+    if (Array.isArray(anyResponse.data) || Array.isArray(anyResponse.items)) {
+      return anyResponse;
+    }
+
+    // Fallback: return an empty list-shaped object to avoid runtime crashes
+    return { data: [] };
   } catch (err) {
     if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
       handleAuthErrorStatus(err.status);
