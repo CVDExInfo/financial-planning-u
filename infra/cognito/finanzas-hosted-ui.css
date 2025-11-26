@@ -31,9 +31,9 @@
 /* Logo Ikusi centrado */
 .logo-customizable {
   display: block;
-  margin: 0 auto 12px auto;
-  max-width: 220px;
-  max-height: 70px;
+  margin: 0 auto 16px auto;
+  max-width: 240px;
+  max-height: 82px;
   object-fit: contain;
   background-color: transparent;
 }
@@ -42,8 +42,8 @@
 .heading-customizable {
   display: block;
   text-align: center;
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: 1.6rem;
+  font-weight: 800;
   color: #052e16;
   padding: 4px 0 6px 0;
 }
@@ -51,7 +51,7 @@
 .idpDescription-customizable {
   display: block;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: 1.02rem;
   color: #047857;
   padding-bottom: 14px;
 }
