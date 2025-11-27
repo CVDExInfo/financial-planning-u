@@ -6,6 +6,7 @@ module.exports = {
   testMatch: ["**/*.spec.ts"],
   clearMocks: true,
   extensionsToTreatAsEsm: [".ts"],
+  setupFiles: ["<rootDir>/tests/jest.env.setup.js"],
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
   },
