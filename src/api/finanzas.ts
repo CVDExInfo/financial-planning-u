@@ -24,21 +24,31 @@ function requireApiBase(): string {
 
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
   const res = await fetch(url, init);
+  const text = await res.text().catch(() => "");
 
   if (!res.ok) {
-    handleAuthErrorStatus(res.status);
-
-    const body = await res.text().catch(() => "");
-    // Helpful signal for CORS/preflight troubles
-    if (res.status === 0 || /TypeError: Failed to fetch/.test(body)) {
-      throw new Error(`Network/CORS error calling ${url}`);
+    try {
+      handleAuthErrorStatus(res.status);
+    } catch (err) {
+      throw toFinanzasError(
+        err,
+        text || `${init.method || "GET"} ${url} → ${res.status}`,
+        res.status,
+      );
     }
 
-    throw new Error(`${init.method || "GET"} ${url} → ${res.status} ${body}`);
+    // Helpful signal for CORS/preflight troubles
+    if (res.status === 0 || /TypeError: Failed to fetch/.test(text)) {
+      throw new FinanzasApiError(`Network/CORS error calling ${url}`, res.status);
+    }
+
+    throw new FinanzasApiError(
+      `${init.method || "GET"} ${url} → ${res.status} ${text}`.trim(),
+      res.status,
+    );
   }
 
   // Some POSTs legitimately return empty bodies; guard it.
-  const text = await res.text();
   return text ? (JSON.parse(text) as T) : ({} as T);
 }
 
@@ -57,15 +67,25 @@ function ensureApiBase(): void {
   }
 }
 
-function toFinanzasError(err: unknown, fallback: string): FinanzasApiError {
+function toFinanzasError(
+  err: unknown,
+  fallback: string,
+  statusOverride?: number,
+): FinanzasApiError {
   if (err instanceof FinanzasApiError) return err;
   if (err instanceof HttpError) {
-    return new FinanzasApiError(err.message || fallback, err.status);
+    return new FinanzasApiError(
+      err.message || fallback,
+      err.status ?? statusOverride,
+    );
   }
   if (err instanceof Error) {
-    return new FinanzasApiError(err.message, (err as any).status);
+    return new FinanzasApiError(
+      err.message,
+      (err as any).status ?? statusOverride,
+    );
   }
-  return new FinanzasApiError(fallback);
+  return new FinanzasApiError(fallback, statusOverride);
 }
 
 // ---------- Common DTOs ----------
@@ -390,6 +410,24 @@ export {
   type Json,
 } from "./finanzas-projects-helpers";
 
+export type CreateProjectPayload = {
+  name: string;
+  code: string;
+  client: string;
+  start_date: string;
+  end_date: string;
+  currency: "USD" | "EUR" | "MXN";
+  mod_total: number;
+  description?: string;
+};
+
+export type CreateProjectResponse = {
+  id: string;
+  nombre?: string | null;
+  cliente?: string | null;
+  created_at?: string | null;
+};
+
 // Optional helpers used by tests/smokes
 export async function getProjects(): Promise<ProjectsResponse> {
   ensureApiBase();
@@ -422,6 +460,56 @@ export async function getProjects(): Promise<ProjectsResponse> {
       handleAuthErrorStatus(err.status);
     }
     throw toFinanzasError(err, "Unable to load projects");
+  }
+}
+
+export async function createProject(
+  payload: CreateProjectPayload,
+): Promise<CreateProjectResponse> {
+  ensureApiBase();
+
+  const base = requireApiBase();
+  const body = {
+    nombre: payload.name,
+    codigo: payload.code,
+    cliente: payload.client,
+    fecha_inicio: payload.start_date,
+    fecha_fin: payload.end_date,
+    moneda: payload.currency,
+    presupuesto_total: payload.mod_total,
+    descripcion: payload.description,
+  };
+
+  try {
+    const response = await fetchJson<Record<string, unknown>>(`${base}/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...buildAuthHeader() },
+      body: JSON.stringify(body),
+    });
+
+    const derivedId =
+      String(
+        response.id ||
+          response.project_id ||
+          response.projectId ||
+          response.pk ||
+          "",
+      ).trim() || payload.code;
+
+    return {
+      id: derivedId,
+      nombre:
+        (response.nombre as string | undefined | null) ||
+        (response.name as string | undefined | null) ||
+        payload.name,
+      cliente:
+        (response.cliente as string | undefined | null) ||
+        (response.client as string | undefined | null) ||
+        payload.client,
+      created_at: (response.created_at as string | undefined | null) ?? null,
+    };
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to create project", (err as any)?.status);
   }
 }
 

@@ -1,3 +1,5 @@
+import { ensureCanWrite } from "../../src/lib/auth";
+
 describe("Auth Helper", () => {
   describe("Group Extraction", () => {
     it("should extract groups from array format", () => {
@@ -44,6 +46,21 @@ describe("Auth Helper", () => {
       const groups = ["AUD"];
       const canWrite = groups.some((g) => ["PM", "SDT"].includes(g));
       expect(canWrite).toBe(false);
+    });
+
+    it("should allow PM group to pass ensureCanWrite", async () => {
+      const event: any = { __verifiedClaims: { "cognito:groups": ["PM"] } };
+      await expect(ensureCanWrite(event)).resolves.toBeUndefined();
+    });
+
+    it("should block legacy ikusi-acta-ui from writing", async () => {
+      const event: any = {
+        __verifiedClaims: { "cognito:groups": ["ikusi-acta-ui"] },
+      };
+      await expect(ensureCanWrite(event)).rejects.toEqual({
+        statusCode: 403,
+        body: "forbidden: PM or SDT required",
+      });
     });
   });
 
