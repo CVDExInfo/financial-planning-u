@@ -121,6 +121,9 @@ async function verifyJwt(event: ApiGwEvent): Promise<VerifiedClaims> {
   return payload;
 }
 
+const WRITE_GROUPS = ["SDT", "PM"] as const;
+const READ_GROUPS = ["FIN", "SDT", "PM", "AUD"] as const;
+
 function parseGroupsFromClaims(claims: VerifiedClaims): string[] {
   const raw = claims["cognito:groups"];
   if (!raw) return [];
@@ -154,7 +157,7 @@ export async function ensureSDT(event: ApiGwEvent) {
 export async function ensureCanWrite(event: ApiGwEvent) {
   const claims = await verifyJwt(event);
   const groups = parseGroupsFromClaims(claims);
-  const canWrite = groups.some((g) => ["PM", "SDT"].includes(g));
+  const canWrite = groups.some((g) => WRITE_GROUPS.includes(g as (typeof WRITE_GROUPS)[number]));
   if (!canWrite) {
     throw { statusCode: 403, body: "forbidden: PM or SDT required" };
   }
@@ -163,7 +166,7 @@ export async function ensureCanWrite(event: ApiGwEvent) {
 export async function ensureCanRead(event: ApiGwEvent) {
   const claims = await verifyJwt(event);
   const groups = parseGroupsFromClaims(claims);
-  const canRead = groups.some((g) => ["PM", "SDT", "FIN", "AUD"].includes(g));
+  const canRead = groups.some((g) => READ_GROUPS.includes(g as (typeof READ_GROUPS)[number]));
   if (!canRead) {
     throw { statusCode: 403, body: "forbidden: valid group required" };
   }
