@@ -150,6 +150,9 @@ export default function ProjectsManager() {
       .filter((p) => p.id || p.name);
   }, []);
 
+  // Copilot: update this component to use the normalized ProjectsResponse from getProjects(),
+  // handle both plain arrays and { data } gracefully, and show a clear error message if the API
+  // call fails (e.g., 401/403).
   const loadProjects = React.useCallback(async () => {
     console.info("[Projects] Inicio de carga de proyectos");
     try {
