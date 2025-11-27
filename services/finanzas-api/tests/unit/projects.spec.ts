@@ -19,9 +19,13 @@ describe("Projects handler", () => {
     expect(result.id).toBe("P-123");
     expect(result.identifier).toBe("P-123");
     expect(result.nombre).toBe("Proyecto Demo");
+    expect(result.name).toBe("Proyecto Demo");
     expect(result.cliente).toBe("ACME");
+    expect(result.client).toBe("ACME");
     expect(result.fecha_fin).toBe("2024-12-31");
+    expect(result.end_date).toBe("2024-12-31");
     expect(result.presupuesto_total).toBe(1000);
+    expect(result.mod_total).toBe(1000);
   });
 
   it("falls back to pk when no identifiers exist", () => {

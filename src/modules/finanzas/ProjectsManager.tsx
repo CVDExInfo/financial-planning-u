@@ -260,24 +260,32 @@ export default function ProjectsManager() {
     } catch (e: any) {
       console.error("Error creating project:", e);
 
-      if (e instanceof FinanzasApiError) {
-        if (e.status === 401) {
-          toast.error("Sesión expirada. Por favor inicia sesión nuevamente.");
-          return;
+      const parseApiError = (responseText?: string) => {
+        if (!responseText) return "";
+        const trimmed = responseText.trim();
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed?.error) return String(parsed.error);
+          if (parsed?.message) return String(parsed.message);
+        } catch (err) {
+          // fall through to trimmed text
+          console.debug("Could not parse API error body", err);
         }
+        return trimmed;
+      };
 
-        if (e.status === 403) {
-          toast.error("No tienes permiso para crear proyectos en Finanzas.");
-          return;
+      if (e instanceof HttpError) {
+        const apiMessage = parseApiError(e.responseText);
+        const isClientError = e.status >= 400 && e.status < 500;
+
+        if (isClientError) {
+          toast.error(
+            apiMessage ||
+              "Los datos del proyecto son inválidos o no tienes permisos para crearlo."
+          );
+        } else {
+          toast.error("Error interno en Finanzas. Intenta nuevamente más tarde.");
         }
-
-        toast.error(e.message || "No se pudo crear el proyecto");
-      } else if (e instanceof HttpError) {
-        const detail = e.responseText?.trim();
-        const errorText = detail
-          ? `No se pudo crear el proyecto: ${detail}`
-          : `No se pudo crear el proyecto (HTTP ${e.status})`;
-        toast.error(errorText);
       } else {
         const errorMessage = e?.message || "Error al crear el proyecto";
 
