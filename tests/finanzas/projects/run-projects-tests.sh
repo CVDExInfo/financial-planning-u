@@ -111,4 +111,84 @@ if ! jq -e '.' "$OUT_FILE" >/dev/null 2>&1; then
 fi
 
 echo "✅ /projects reachable and JSON valid"
+
+# ---------------------------------------------------------------------------
+# POST /projects happy path
+# ---------------------------------------------------------------------------
+
+CREATE_PAYLOAD="${FINZ_LOG_DIR}/project-create.json"
+CREATE_CODE="PROJ-$(date +%Y)-$(( (RANDOM % 900) + 100 ))"
+
+cat >"$CREATE_PAYLOAD" <<JSON
+{
+  "name": "QA Proyecto SD",
+  "code": "${CREATE_CODE}",
+  "client": "QA Client",
+  "start_date": "2025-01-15",
+  "end_date": "2025-06-30",
+  "currency": "USD",
+  "mod_total": 12345.67,
+  "description": "Contrato de prueba automatizado"
+}
+JSON
+
+POST_OK_OUT="$FINZ_LOG_DIR/project-create-response.json"
+
+echo "🌐 Calling: POST ${URL}"
+HTTP_CODE=$(curl -sS -o "$POST_OK_OUT" -w '%{http_code}' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d @"$CREATE_PAYLOAD" \
+  "$URL" || echo "000")
+
+echo "➡️  POST $URL → HTTP $HTTP_CODE"
+
+if [[ "$HTTP_CODE" != 2?? ]]; then
+  echo "❌ Expected 2xx from POST /projects, got $HTTP_CODE"
+  head -c 500 "$POST_OK_OUT" || true
+  exit 1
+fi
+
+if ! jq -e '.' "$POST_OK_OUT" >/dev/null 2>&1; then
+  echo "❌ POST /projects body is not valid JSON"
+  head -c 500 "$POST_OK_OUT" || true
+  exit 1
+fi
+
+echo "✅ POST /projects accepted payload and returned JSON"
+
+# ---------------------------------------------------------------------------
+# POST /projects validation failure (expect 4xx)
+# ---------------------------------------------------------------------------
+INVALID_PAYLOAD="${FINZ_LOG_DIR}/project-create-invalid.json"
+
+cat >"$INVALID_PAYLOAD" <<'JSON'
+{
+  "name": "",
+  "code": "INVALID",
+  "client": "",
+  "start_date": "2025-05-10",
+  "end_date": "2025-04-01",
+  "currency": "USD",
+  "mod_total": -1
+}
+JSON
+
+POST_BAD_OUT="$FINZ_LOG_DIR/project-create-invalid-response.json"
+
+HTTP_CODE=$(curl -sS -o "$POST_BAD_OUT" -w '%{http_code}' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d @"$INVALID_PAYLOAD" \
+  "$URL" || echo "000")
+
+echo "➡️  POST (invalid) $URL → HTTP $HTTP_CODE"
+
+if [[ "$HTTP_CODE" != 4?? ]]; then
+  echo "❌ Expected 4xx from invalid POST /projects, got $HTTP_CODE"
+  head -c 500 "$POST_BAD_OUT" || true
+  exit 1
+fi
+
+echo "✅ Validation errors surface as 4xx for POST /projects"
 echo "✅ Finanzas Projects API contract test PASSED"

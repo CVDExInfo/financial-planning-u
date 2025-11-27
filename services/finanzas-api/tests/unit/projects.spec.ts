@@ -1,6 +1,3 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
 import { normalizeProjectItem } from "../../src/handlers/projects";
 
 describe("Projects handler", () => {
@@ -19,12 +16,16 @@ describe("Projects handler", () => {
 
     const result = normalizeProjectItem(item);
 
-    assert.equal(result.id, "P-123");
-    assert.equal(result.identifier, "P-123");
-    assert.equal(result.nombre, "Proyecto Demo");
-    assert.equal(result.cliente, "ACME");
-    assert.equal(result.fecha_fin, "2024-12-31");
-    assert.equal(result.presupuesto_total, 1000);
+    expect(result.id).toBe("P-123");
+    expect(result.identifier).toBe("P-123");
+    expect(result.nombre).toBe("Proyecto Demo");
+    expect(result.name).toBe("Proyecto Demo");
+    expect(result.cliente).toBe("ACME");
+    expect(result.client).toBe("ACME");
+    expect(result.fecha_fin).toBe("2024-12-31");
+    expect(result.end_date).toBe("2024-12-31");
+    expect(result.presupuesto_total).toBe(1000);
+    expect(result.mod_total).toBe(1000);
   });
 
   it("falls back to pk when no identifiers exist", () => {
@@ -32,7 +33,7 @@ describe("Projects handler", () => {
 
     const result = normalizeProjectItem(item);
 
-    assert.equal(result.id, "LEGACY");
-    assert.equal(result.identifier, "LEGACY");
+    expect(result.id).toBe("LEGACY");
+    expect(result.identifier).toBe("LEGACY");
   });
 });
