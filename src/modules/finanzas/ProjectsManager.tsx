@@ -4,13 +4,17 @@
  * - POST /projects → crear un nuevo proyecto
  */
 import React from "react";
-import finanzasClient, {
+import {
   type ProjectCreate,
   type Project,
   ProjectCreateSchema,
 } from "@/api/finanzasClient";
 import { HttpError } from "@/lib/http-client";
-import { FinanzasApiError, getProjects } from "@/api/finanzas";
+import {
+  FinanzasApiError,
+  createProject,
+  getProjects,
+} from "@/api/finanzas";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -232,9 +236,11 @@ export default function ProjectsManager() {
 
       const validatedPayload = ProjectCreateSchema.parse(payload);
 
-      const result = await finanzasClient.createProject(validatedPayload);
+      const result = await createProject(validatedPayload);
 
-      toast.success(`Proyecto "${result.name}" creado exitosamente con ID: ${result.id}`);
+      toast.success(
+        `Proyecto "${result.nombre || validatedPayload.name}" creado exitosamente con ID: ${result.id}`,
+      );
       setIsCreateDialogOpen(false);
 
       await loadProjects();
@@ -251,7 +257,19 @@ export default function ProjectsManager() {
     } catch (e: any) {
       console.error("Error creating project:", e);
 
-      if (e instanceof HttpError) {
+      if (e instanceof FinanzasApiError) {
+        if (e.status === 401) {
+          toast.error("Sesión expirada. Por favor inicia sesión nuevamente.");
+          return;
+        }
+
+        if (e.status === 403) {
+          toast.error("No tienes permiso para crear proyectos en Finanzas.");
+          return;
+        }
+
+        toast.error(e.message || "No se pudo crear el proyecto");
+      } else if (e instanceof HttpError) {
         const detail = e.responseText?.trim();
         const errorText = detail
           ? `No se pudo crear el proyecto: ${detail}`
