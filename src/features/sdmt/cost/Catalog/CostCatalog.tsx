@@ -46,11 +46,16 @@ export function CostCatalog() {
     },
   ];
 
-  const filteredItems = mockLineItems.filter(
-    (item) =>
-      item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filteredItems = mockLineItems.filter((item) => {
+    const description = (item.description || "").toString().toLowerCase();
+    const category = (item.category || "").toString().toLowerCase();
+    const term = searchTerm.toLowerCase();
+
+    return (
+      description.includes(term) ||
+      category.includes(term)
+    );
+  });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">

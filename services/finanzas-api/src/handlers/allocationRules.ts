@@ -45,7 +45,6 @@ export const handler = async (event: ApiGwEvent) => {
     if (!skipAuth) {
       // Soft auth enforcement for R1: if SDT check fails, still return sample data (visibility over strict blocking)
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- temporary cast until full APIGatewayProxyEventV2 typing restored
         await ensureSDT(event as any);
       } catch (authErr) {
         console.warn("[allocation-rules] SDT enforcement skipped:", authErr);
