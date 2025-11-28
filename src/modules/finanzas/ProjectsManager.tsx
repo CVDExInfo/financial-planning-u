@@ -33,6 +33,7 @@ import LineChartComponent from "@/components/charts/LineChart";
 import { usePermissions } from "@/hooks/usePermissions";
 import useProjects, { type ProjectForUI } from "./projects/useProjects";
 import { Badge } from "@/components/ui/badge";
+import ProjectDetailsPanel from "./projects/ProjectDetailsPanel";
 
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -40,6 +41,12 @@ export default function ProjectsManager() {
   const { projects, loading, error, reload, create } = useProjects();
   const pageSize = 10;
   const [page, setPage] = React.useState(0);
+  const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(
+    null,
+  );
+  const [viewMode, setViewMode] = React.useState<"portfolio" | "project">(
+    "portfolio",
+  );
   const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
 
@@ -59,6 +66,19 @@ export default function ProjectsManager() {
     setPage((prev) => Math.min(prev, totalPages - 1));
   }, [projects.length, totalPages]);
 
+  const selectedProject = React.useMemo(
+    () => projects.find((project) => project.id === selectedProjectId) || null,
+    [projects, selectedProjectId],
+  );
+
+  const projectsForView = React.useMemo(() => {
+    if (viewMode === "project" && selectedProject) {
+      return [selectedProject];
+    }
+
+    return projects;
+  }, [projects, selectedProject, viewMode]);
+
   const visibleProjects = React.useMemo(
     () => projects.slice(page * pageSize, page * pageSize + pageSize),
     [projects, page, pageSize],
@@ -67,18 +87,18 @@ export default function ProjectsManager() {
   const statusChartData = React.useMemo(() => {
     const counts: Record<string, number> = {};
 
-    projects.forEach((project) => {
+    projectsForView.forEach((project) => {
       const status = project.status || "Desconocido";
       counts[status] = (counts[status] ?? 0) + 1;
     });
 
     return Object.entries(counts).map(([label, value]) => ({ name: label, value }));
-  }, [projects]);
+  }, [projectsForView]);
 
   const budgetByStartMonth = React.useMemo(() => {
     const map: Record<string, number> = {};
 
-    projects.forEach((project) => {
+    projectsForView.forEach((project) => {
       const date = project.start_date;
       if (!date) return;
       const monthKey = date.slice(0, 7);
@@ -89,7 +109,7 @@ export default function ProjectsManager() {
     return Object.entries(map)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([label, value]) => ({ month: label, "MOD total": value }));
-  }, [projects]);
+  }, [projectsForView]);
 
   const formatCurrency = React.useCallback(
     (value: number, currencyCode: string = "USD") =>
@@ -98,6 +118,25 @@ export default function ProjectsManager() {
         currency: currencyCode || "USD",
         maximumFractionDigits: 0,
       }).format(value || 0),
+    [],
+  );
+
+  const calculateDurationInMonths = React.useCallback(
+    (start?: string, end?: string) => {
+      if (!start || !end) return null;
+
+      const startDateObj = new Date(start);
+      const endDateObj = new Date(end);
+
+      if (Number.isNaN(startDateObj.getTime()) || Number.isNaN(endDateObj.getTime())) {
+        return null;
+      }
+
+      const diffInMs = Math.abs(endDateObj.getTime() - startDateObj.getTime());
+      const approxMonths = diffInMs / (1000 * 60 * 60 * 24 * 30);
+
+      return Math.max(0, Math.round(approxMonths));
+    },
     [],
   );
 
@@ -219,6 +258,46 @@ export default function ProjectsManager() {
         }
       />
 
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex gap-2">
+          <Button
+            variant={viewMode === "portfolio" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("portfolio")}
+          >
+            Portafolio
+          </Button>
+          <Button
+            variant={viewMode === "project" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("project")}
+            disabled={!selectedProject}
+          >
+            Proyecto seleccionado
+          </Button>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>
+            {selectedProject
+              ? `Proyecto seleccionado: ${selectedProject.name || selectedProject.code}`
+              : "Sin proyecto seleccionado"}
+          </span>
+          {selectedProject && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setSelectedProjectId(null);
+                setViewMode("portfolio");
+              }}
+              className="text-primary"
+            >
+              Quitar selección
+            </Button>
+          )}
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <DonutChart
           data={statusChartData}
@@ -235,6 +314,15 @@ export default function ProjectsManager() {
           xTickFormatter={(value) => String(value)}
         />
       </div>
+
+      {selectedProject && (
+        <ProjectDetailsPanel
+          project={selectedProject}
+          formatCurrency={formatCurrency}
+          calculateDurationInMonths={calculateDurationInMonths}
+          formatDate={formatDate}
+        />
+      )}
 
       <Card className="border-border/80 shadow-sm">
         <CardHeader>
@@ -264,19 +352,37 @@ export default function ProjectsManager() {
                         <th className="py-2 pr-4 font-medium">Cliente</th>
                         <th className="py-2 pr-4 font-medium">Fecha de inicio</th>
                         <th className="py-2 pr-4 font-medium">Fecha de fin</th>
+                        <th className="py-2 pr-4 font-medium">Duración (meses)</th>
                         <th className="py-2 pr-4 font-medium">MOD total</th>
+                        <th className="py-2 pr-4 font-medium">MOD mensual</th>
                         <th className="py-2 pr-4 font-medium">Estado</th>
                         <th className="py-2 pr-4 font-medium">Última actualización</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {visibleProjects.map((project: ProjectForUI) => (
-                        <tr key={`${project.id}-${project.code}`} className="border-b last:border-0">
-                          <td className="py-2 pr-4 text-muted-foreground font-medium">
-                            {project.code || "—"}
-                          </td>
-                          <td className="py-2 pr-4 font-semibold text-foreground">
-                            {project.name || "Proyecto sin nombre"}
+                      {visibleProjects.map((project: ProjectForUI) => {
+                        const durationMonths = calculateDurationInMonths(
+                          project.start_date,
+                          project.end_date,
+                        );
+                        const modMensual =
+                          durationMonths && durationMonths > 0
+                            ? project.mod_total / durationMonths
+                            : null;
+
+                        const isSelected = project.id === selectedProjectId;
+
+                        return (
+                          <tr
+                            key={`${project.id}-${project.code}`}
+                            className={`border-b last:border-0 cursor-pointer transition-colors ${isSelected ? "bg-muted/60 border-l-4 border-primary" : "hover:bg-muted/40"}`}
+                            onClick={() => setSelectedProjectId(project.id)}
+                          >
+                            <td className="py-2 pr-4 text-muted-foreground font-medium">
+                              {project.code || "—"}
+                            </td>
+                            <td className="py-2 pr-4 font-semibold text-foreground">
+                              {project.name || "Proyecto sin nombre"}
                           </td>
                           <td className="py-2 pr-4 text-muted-foreground">
                             {project.client || "—"}
@@ -284,20 +390,29 @@ export default function ProjectsManager() {
                           <td className="py-2 pr-4 text-muted-foreground">
                             {formatDate(project.start_date)}
                           </td>
-                          <td className="py-2 pr-4 text-muted-foreground">
-                            {formatDate(project.end_date)}
-                          </td>
-                          <td className="py-2 pr-4 text-muted-foreground">
-                            {formatCurrency(project.mod_total, project.currency)}
-                          </td>
-                          <td className="py-2 pr-4 text-muted-foreground">
-                            {renderStatusBadge(project.status)}
-                          </td>
-                          <td className="py-2 pr-4 text-muted-foreground">
-                            {formatDate(project.updated_at || project.created_at)}
-                          </td>
-                        </tr>
-                      ))}
+                            <td className="py-2 pr-4 text-muted-foreground">
+                              {formatDate(project.end_date)}
+                            </td>
+                            <td className="py-2 pr-4 text-muted-foreground">
+                              {durationMonths ?? "—"}
+                            </td>
+                            <td className="py-2 pr-4 text-muted-foreground">
+                              {formatCurrency(project.mod_total, project.currency)}
+                            </td>
+                            <td className="py-2 pr-4 text-muted-foreground">
+                              {modMensual != null
+                                ? formatCurrency(modMensual, project.currency)
+                                : "—"}
+                            </td>
+                            <td className="py-2 pr-4 text-muted-foreground">
+                              {renderStatusBadge(project.status)}
+                            </td>
+                            <td className="py-2 pr-4 text-muted-foreground">
+                              {formatDate(project.updated_at || project.created_at)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -328,7 +443,6 @@ export default function ProjectsManager() {
           </DataContainer>
         </CardContent>
       </Card>
-
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
