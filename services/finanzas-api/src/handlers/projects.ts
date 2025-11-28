@@ -210,43 +210,53 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         created_by: createdBy,
       };
 
-      await ddb.send(
-        new PutCommand({
-          TableName: tableName("projects"),
-          Item: item,
-        })
-      );
+      try {
+        await ddb.send(
+          new PutCommand({
+            TableName: tableName("projects"),
+            Item: item,
+          })
+        );
 
-      // Write audit log entry
-      const auditEntry = {
-        pk: `ENTITY#PROJECT#${id}`,
-        sk: `TS#${now}`,
-        action: "CREATE_PROJECT",
-        resource_type: "project",
-        resource_id: id,
-        user: item.created_by,
-        timestamp: now,
-        before: null,
-        after: {
-          id,
-          cliente: item.cliente,
-          nombre: item.nombre,
-          presupuesto_total: item.presupuesto_total,
-          code: item.code,
-          fecha_inicio: item.fecha_inicio,
-          fecha_fin: item.fecha_fin,
-        },
-        source: "API",
-        ip_address: event.requestContext.http?.sourceIp,
-        user_agent: event.requestContext.http?.userAgent,
-      };
+        // Write audit log entry
+        const auditEntry = {
+          pk: `ENTITY#PROJECT#${id}`,
+          sk: `TS#${now}`,
+          action: "CREATE_PROJECT",
+          resource_type: "project",
+          resource_id: id,
+          user: item.created_by,
+          timestamp: now,
+          before: null,
+          after: {
+            id,
+            cliente: item.cliente,
+            nombre: item.nombre,
+            presupuesto_total: item.presupuesto_total,
+            code: item.code,
+            fecha_inicio: item.fecha_inicio,
+            fecha_fin: item.fecha_fin,
+          },
+          source: "API",
+          ip_address: event.requestContext.http?.sourceIp,
+          user_agent: event.requestContext.http?.userAgent,
+        };
 
-      await ddb.send(
-        new PutCommand({
-          TableName: tableName("audit_log"),
-          Item: auditEntry,
-        })
-      );
+        await ddb.send(
+          new PutCommand({
+            TableName: tableName("audit_log"),
+            Item: auditEntry,
+          })
+        );
+      } catch (ddbError) {
+        const errorObj = ddbError as Error;
+        console.error("ProjectsFn put failed", {
+          projectId: id,
+          errorName: errorObj?.name,
+          message: errorObj?.message,
+        });
+        throw ddbError;
+      }
 
       return ok(normalizeProjectItem(item), 201);
     }
