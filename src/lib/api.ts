@@ -435,19 +435,27 @@ export class ApiService {
     await this.delay(250);
     logger.debug("Getting invoices for project_id:", project_id);
 
+    const parseInvoices = (payload: any): any[] => {
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray(payload.data)) return payload.data;
+      if (payload && Array.isArray(payload.items)) return payload.items;
+      if (payload?.data && Array.isArray(payload.data.items)) return payload.data.items;
+      if (payload?.data && Array.isArray(payload.data.data)) return payload.data.data;
+      return [];
+    };
+
     try {
-      // Try API first
-      const response = await fetch(
-        buildApiUrl(`/prefacturas?projectId=${project_id}`),
+      const primary = await fetch(
+        buildApiUrl(`/projects/${project_id}/invoices`),
         {
           method: "GET",
           headers: buildHeaders(),
         }
       );
 
-      if (response.ok) {
-        const raw = await response.json();
-        const data = Array.isArray(raw?.data) ? raw.data : raw;
+      if (primary.ok) {
+        const raw = await primary.json();
+        const data = parseInvoices(raw);
         logger.info(
           "Invoices loaded from API:",
           Array.isArray(data) ? data.length : 0,
@@ -456,15 +464,42 @@ export class ApiService {
         return Array.isArray(data) ? data : [];
       }
 
-      // If API fails, log error and return empty array
-      logger.warn(
-        "API call failed (status:",
-        response.status,
-        "), returning empty invoices"
-      );
-      return [];
+      if (primary.status !== 404 && primary.status !== 405) {
+        logger.warn("Invoices API call failed:", primary.status, primary.statusText);
+      }
     } catch (error) {
-      logger.error("API fetch failed:", error);
+      logger.error("Primary invoices API call failed:", error);
+    }
+
+    // Legacy fallback to /prefacturas for environments that haven't deployed the new route
+    try {
+      const legacy = await fetch(
+        buildApiUrl(`/prefacturas?projectId=${project_id}`),
+        {
+          method: "GET",
+          headers: buildHeaders(),
+        }
+      );
+
+      if (!legacy.ok) {
+        logger.warn(
+          "Legacy invoices API call failed (status:",
+          legacy.status,
+          "), returning empty invoices"
+        );
+        return [];
+      }
+
+      const raw = await legacy.json();
+      const data = parseInvoices(raw);
+      logger.info(
+        "Invoices loaded from legacy API:",
+        Array.isArray(data) ? data.length : 0,
+        "records"
+      );
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      logger.error("Legacy invoices API fetch failed:", error);
       return [];
     }
   }
@@ -492,6 +527,7 @@ export class ApiService {
   }
 
   static async updateInvoiceStatus(
+    project_id: string,
     invoice_id: string,
     status: "Pending" | "Matched" | "Disputed",
     comment?: string
@@ -500,7 +536,7 @@ export class ApiService {
 
     try {
       const response = await fetch(
-        buildApiUrl(`/invoices/${invoice_id}/status`),
+        buildApiUrl(`/projects/${project_id}/invoices/${invoice_id}/status`),
         {
           method: "PUT",
           headers: buildHeaders(),
