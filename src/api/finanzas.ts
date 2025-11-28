@@ -312,7 +312,11 @@ export async function updateInvoiceStatus(
 // ---------- Catalog: add rubro to project (Service Tier selection) ----------
 
 // Keep the payload flexible while APIs converge. Prefer a typed shape once the OpenAPI is finalized.
-export type AddProjectRubroInput = Record<string, unknown>;
+export type AddProjectRubroInput = {
+  rubroId?: string;
+  rubroIds?: string[];
+  [key: string]: unknown;
+};
 
 // Some backends mount under /projects/{id}/catalog/rubros; older ones under /projects/{id}/rubros.
 // Try the modern path first, then fall back once on 404/405.
@@ -323,13 +327,25 @@ export async function addProjectRubro<T = Json>(
   const base = requireApiBase();
   const headers = { "Content-Type": "application/json", ...buildAuthHeader() };
 
+  // Normalize payload to backend expectations: prefer rubroIds array, wrap
+  // legacy rubroId when provided.
+  const hasRubroIds = Array.isArray(payload.rubroIds) && payload.rubroIds.length > 0;
+  const hasRubroId = typeof payload.rubroId === "string" && payload.rubroId.length > 0;
+
+  let wirePayload: Record<string, unknown> = { ...payload };
+
+  if (!hasRubroIds && hasRubroId) {
+    const { rubroId, ...rest } = payload;
+    wirePayload = { ...rest, rubroIds: [rubroId] };
+  }
+
   // The deployed API exposes /projects/{id}/rubros; keep a single fallback to
   // /catalog/rubros for legacy stacks that might still use that mount.
   const primary = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
   let res = await fetch(primary, {
     method: "POST",
     headers,
-    body: JSON.stringify(payload),
+    body: JSON.stringify(wirePayload),
   });
 
   if (res.status === 404 || res.status === 405) {
@@ -339,7 +355,7 @@ export async function addProjectRubro<T = Json>(
     res = await fetch(fallback, {
       method: "POST",
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify(wirePayload),
     });
   }
 

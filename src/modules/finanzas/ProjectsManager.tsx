@@ -4,13 +4,7 @@
  * - POST /projects → crear un nuevo proyecto
  */
 import React from "react";
-import {
-  type ProjectCreate,
-  type Project,
-  ProjectCreateSchema,
-} from "@/api/finanzasClient";
-import { HttpError } from "@/lib/http-client";
-import { FinanzasApiError, getProjects } from "@/api/finanzas";
+import { type ProjectCreate, ProjectCreateSchema } from "@/api/finanzasClient";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
