@@ -20,6 +20,7 @@
     "preview:finanzas": "BUILD_TARGET=finanzas vite preview",
     "test": "node scripts/qa/finanzas-smoke.js",
     "test:e2e:finanzas": "playwright test tests/e2e/finanzas",
+    "test:finanzas:changes": "bash tests/finanzas/changes/run-changes-tests.sh",
     "validate:api-config": "bash scripts/validate-api-config.sh",
     "validate:pre-build": "bash scripts/pre-build-validate.sh",
     "smoke:api": "bash scripts/finanzas-e2e-smoke.sh",

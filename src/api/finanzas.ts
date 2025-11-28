@@ -407,14 +407,16 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
   if (!projectId) throw new FinanzasApiError("projectId is required");
 
   try {
-    const params = new URLSearchParams({ projectId });
-    const response = await httpClient.get<{ data?: any[] }>(
-      `/prefacturas?${params.toString()}`,
-      { headers: buildAuthHeader() },
-    );
+    const parseInvoices = (payload: any): any[] => {
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray(payload.data)) return payload.data;
+      if (payload && Array.isArray(payload.items)) return payload.items;
+      if (payload?.data && Array.isArray(payload.data.items)) return payload.data.items;
+      if (payload?.data && Array.isArray(payload.data.data)) return payload.data.data;
+      return [];
+    };
 
-    const rows = Array.isArray(response?.data) ? response.data : [];
-    return rows.map((item) => ({
+    const mapInvoice = (item: any): InvoiceDoc => ({
       id: item.invoiceId || item.id || item.sk || "",
       line_item_id: item.lineItemId || item.line_item_id || "",
       month: Number(item.month) || 1,
@@ -432,7 +434,31 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
         item.created_at || item.uploaded_at || new Date().toISOString(),
       matched_at: item.matched_at,
       matched_by: item.matched_by,
-    }));
+    });
+
+    const primaryPath = `/projects/${encodeURIComponent(projectId)}/invoices`;
+    try {
+      const response = await httpClient.get<{ data?: any[] }>(primaryPath, {
+        headers: buildAuthHeader(),
+      });
+      return parseInvoices(response.data).map(mapInvoice);
+    } catch (err) {
+      if (err instanceof HttpError && [404, 405].includes(err.status)) {
+        // Fall back to legacy /prefacturas route
+      } else if (err instanceof HttpError && err.status >= 500) {
+        // Try legacy route before surfacing server errors
+      } else {
+        throw err;
+      }
+    }
+
+    const params = new URLSearchParams({ projectId });
+    const legacyResponse = await httpClient.get<{ data?: any[] }>(
+      `/prefacturas?${params.toString()}`,
+      { headers: buildAuthHeader() },
+    );
+
+    return parseInvoices(legacyResponse.data).map(mapInvoice);
   } catch (err) {
     if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
       handleAuthErrorStatus(err.status);
