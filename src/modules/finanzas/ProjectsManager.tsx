@@ -4,7 +4,7 @@
  * - POST /projects → crear un nuevo proyecto
  */
 import React from "react";
-import finanzasClient, {
+import {
   type ProjectCreate,
   type Project,
   ProjectCreateSchema,
