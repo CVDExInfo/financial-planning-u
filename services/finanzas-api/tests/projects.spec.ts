@@ -108,4 +108,31 @@ describe("projects handler POST", () => {
     expect(parsed.error).toMatch(/end_date|mod_total|code/i);
     expect(mockDdbSend).not.toHaveBeenCalled();
   });
+
+  it("returns a 500 when DynamoDB rejects the write (e.g., IAM/AccessDenied)", async () => {
+    mockDdbSend.mockRejectedValueOnce(Object.assign(new Error("AccessDenied"), {
+      name: "AccessDeniedException",
+    }));
+
+    const payload = {
+      name: "Proyecto Demo",
+      code: "PROJ-2025-001",
+      client: "Cliente Uno",
+      start_date: "2025-01-15",
+      end_date: "2025-06-30",
+      currency: "USD",
+      mod_total: "125000.50",
+      description: "Proyecto de prueba",
+    };
+
+    const response = await handler({
+      ...baseEvent,
+      body: JSON.stringify(payload),
+    });
+
+    expect(response.statusCode).toBe(500);
+    const parsed = JSON.parse(response.body);
+    expect(parsed.error).toMatch(/internal server error/i);
+    expect(mockDdbSend).toHaveBeenCalledTimes(1);
+  });
 });
