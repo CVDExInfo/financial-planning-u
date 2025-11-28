@@ -1,60 +1,150 @@
-// Minimal event typing to avoid dependency issues with aws-lambda v2 types
-type ApiGwEvent = {
-  requestContext: unknown;
-  pathParameters?: Record<string, string | undefined>;
-  headers?: Record<string, string | undefined>;
-};
-// Node16/nodenext requires explicit extension; authorizer util compiled to auth.js
-import { ensureSDT } from "../lib/auth.js";
+import { APIGatewayProxyEventV2 } from "aws-lambda";
+import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth.js";
 
-// TODO: Implement adjustments management
-// R1 requirement: POST/GET /adjustments
-export const handler = async (event: ApiGwEvent) => {
+type Adjustment = {
+  id: string;
+  project_id: string;
+  tipo: "exceso" | "reduccion" | "reasignacion";
+  monto: number;
+  estado: "pending_approval" | "approved" | "rejected";
+  origen_rubro_id?: string;
+  destino_rubro_id?: string;
+  fecha_inicio: string;
+  metodo_distribucion?: "pro_rata_forward" | "pro_rata_all" | "single_month";
+  justificacion?: string;
+  solicitado_por: string;
+  meses_impactados?: string[];
+  distribucion?: { mes: string; monto: number }[];
+  created_at: string;
+  updated_at: string;
+};
+
+const adjustmentStore: Adjustment[] = [
+  {
+    id: "adj_seed_001",
+    project_id: "proj_demo_001",
+    tipo: "exceso",
+    monto: 25000,
+    estado: "approved",
+    origen_rubro_id: "rubro_demo_01",
+    destino_rubro_id: "rubro_demo_02",
+    fecha_inicio: "2025-01",
+    metodo_distribucion: "pro_rata_forward",
+    justificacion: "Seed adjustment for UI demo",
+    solicitado_por: "demo.pm@example.com",
+    meses_impactados: ["2025-01", "2025-02", "2025-03"],
+    distribucion: [
+      { mes: "2025-01", monto: 8333.33 },
+      { mes: "2025-02", monto: 8333.33 },
+      { mes: "2025-03", monto: 8333.34 },
+    ],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+function parseQueryParam(event: APIGatewayProxyEventV2, key: string): string | undefined {
+  return event.queryStringParameters?.[key] || event.queryStringParameters?.[key.replace("_", "")] || undefined;
+}
+
+function jsonResponse(statusCode: number, payload: unknown) {
+  return {
+    statusCode,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  };
+}
+
+function normalizeLimit(limit?: string | number | null): number {
+  const parsed = typeof limit === "string" ? parseInt(limit, 10) : limit ?? 50;
+  if (!parsed || Number.isNaN(parsed) || parsed <= 0) return 50;
+  return Math.min(parsed, 200);
+}
+
+async function listAdjustments(event: APIGatewayProxyEventV2) {
+  await ensureCanRead(event as any);
+
+  const projectId =
+    parseQueryParam(event, "project_id") || parseQueryParam(event, "projectId") || undefined;
+  const limit = normalizeLimit(parseQueryParam(event, "limit"));
+
+  const filtered = projectId
+    ? adjustmentStore.filter((item) => item.project_id === projectId)
+    : adjustmentStore;
+
+  return jsonResponse(200, {
+    data: filtered.slice(0, limit),
+    total: filtered.length,
+  });
+}
+
+async function createAdjustment(event: APIGatewayProxyEventV2) {
+  await ensureCanWrite(event as any);
+
+  if (!event.body) {
+    return jsonResponse(400, { message: "Missing request body" });
+  }
+
+  let payload: Partial<Adjustment> & { monto?: unknown };
   try {
-    // Soft auth enforcement for R1 (allow visibility even if SDT group mismatch); future harden
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- temporary cast until full APIGatewayProxyEventV2 typing restored
-      await ensureSDT(event as any);
-    } catch (authErr) {
-      console.warn("[adjustments] SDT enforcement skipped:", authErr);
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- requestContext shape provided by API Gateway v2
-    const method = (event.requestContext as any).http.method;
+    payload = typeof event.body === "string" ? JSON.parse(event.body) : (event.body as any);
+  } catch (parseErr) {
+    return jsonResponse(400, { message: "Invalid JSON body", detail: String(parseErr) });
+  }
+
+  const required = ["project_id", "tipo", "monto", "fecha_inicio", "solicitado_por"] as const;
+  const missing = required.filter((field) => !(payload as any)?.[field]);
+  if (missing.length) {
+    return jsonResponse(400, { message: `Missing fields: ${missing.join(", ")}` });
+  }
+
+  const now = new Date().toISOString();
+  const userEmail = (await getUserEmail(event as any)) || payload.solicitado_por || "system";
+
+  const newAdjustment: Adjustment = {
+    id: `adj_${Date.now()}`,
+    project_id: payload.project_id as string,
+    tipo: payload.tipo as Adjustment["tipo"],
+    monto: Number(payload.monto),
+    estado: "pending_approval",
+    origen_rubro_id: payload.origen_rubro_id,
+    destino_rubro_id: payload.destino_rubro_id,
+    fecha_inicio: payload.fecha_inicio as string,
+    metodo_distribucion: payload.metodo_distribucion,
+    justificacion: payload.justificacion,
+    solicitado_por: payload.solicitado_por || userEmail,
+    meses_impactados: payload.meses_impactados || [],
+    distribucion: payload.distribucion || [],
+    created_at: now,
+    updated_at: now,
+  };
+
+  adjustmentStore.unshift(newAdjustment);
+
+  return jsonResponse(201, newAdjustment);
+}
+
+export const handler = async (event: APIGatewayProxyEventV2) => {
+  try {
+    const method = event.requestContext.http.method;
 
     if (method === "POST") {
-      // TODO: Create adjustment entry (persist to DynamoDB Adjustments table)
-      return {
-        statusCode: 501,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: "POST /adjustments - not implemented yet",
-        }),
-      };
+      return await createAdjustment(event);
     }
 
-    // GET - list adjustments
-    // TODO: Query adjustments table (future: pagination, filtering by project, date range)
-    return {
-      statusCode: 501,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: "GET /adjustments - not implemented yet",
-      }),
-    };
+    if (method === "GET") {
+      return await listAdjustments(event);
+    }
+
+    return jsonResponse(405, { message: "Method not allowed" });
   } catch (err: unknown) {
     if (err && typeof err === "object" && "statusCode" in err) {
       const e = err as { statusCode?: number; body?: string };
-      return {
-        statusCode: e.statusCode || 500,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: e.body || "error" }),
-      };
+      return jsonResponse(e.statusCode || 500, {
+        error: e.body || "error",
+      });
     }
     console.error("/adjustments unhandled error", err);
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "internal error" }),
-    };
+    return jsonResponse(500, { error: "internal error" });
   }
 };

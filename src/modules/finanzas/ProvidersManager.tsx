@@ -3,7 +3,7 @@
  * - POST /providers → registrar proveedores
  */
 import React from "react";
-import finanzasClient, { type ProviderCreate } from "@/api/finanzasClient";
+import finanzasClient, { type Provider, type ProviderCreate } from "@/api/finanzasClient";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,11 +25,20 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PageHeader from "@/components/PageHeader";
-import { Building2, Plus } from "lucide-react";
+import { Building2, Plus, RefreshCcw } from "lucide-react";
+import DataContainer from "@/components/DataContainer";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function ProvidersManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [providers, setProviders] = React.useState<Provider[]>([]);
+
+  const { hasGroup, canEdit, isExecRO } = usePermissions();
+  const isFinReadOnly = hasGroup("FIN") && !canEdit;
+  const canCreateProvider = canEdit && !isFinReadOnly && !isExecRO;
 
   // Form state
   const [nombre, setNombre] = React.useState("");
@@ -40,6 +49,24 @@ export default function ProvidersManager() {
   const [contactoTelefono, setContactoTelefono] = React.useState("");
   const [pais, setPais] = React.useState("");
   const [notas, setNotas] = React.useState("");
+
+  const loadProviders = React.useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setLoadError(null);
+      const data = await finanzasClient.getProviders({ limit: 50 });
+      setProviders(data);
+    } catch (error: any) {
+      console.error("Error loading providers", error);
+      setLoadError(error?.message || "No se pudieron cargar los proveedores");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadProviders();
+  }, [loadProviders]);
 
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +94,8 @@ export default function ProvidersManager() {
 
       toast.success(`Proveedor "${nombre}" creado exitosamente`);
       setIsCreateDialogOpen(false);
+
+      loadProviders();
 
       // Reset form
       setNombre("");
@@ -111,10 +140,18 @@ export default function ProvidersManager() {
         badge="Finanzas"
         icon={<Building2 className="h-5 w-5 text-white" />}
         actions={
-          <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-            <Plus size={16} />
-            Agregar Proveedor
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={loadProviders} className="gap-2" disabled={isLoading}>
+              <RefreshCcw className="h-4 w-4" />
+              {isLoading ? "Actualizando" : "Refrescar"}
+            </Button>
+            {canCreateProvider && (
+              <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+                <Plus size={16} />
+                Agregar Proveedor
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -122,16 +159,50 @@ export default function ProvidersManager() {
         <CardHeader>
           <CardTitle className="text-base">Proveedores</CardTitle>
           <CardDescription>
-            Los proveedores registrados estarán disponibles para asociar con movimientos financieros.
+            Los proveedores registrados estarán disponibles para asociar con movimientos financieros. Crear requiere rol con permiso de escritura (SDT/PM).
           </CardDescription>
         </CardHeader>
-        <CardContent className="text-center space-y-3">
-          <p className="text-muted-foreground">
-            Haz clic en "Agregar Proveedor" para registrar un nuevo proveedor en el sistema.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Incluye RFC/Tax ID, tipo de proveedor y datos de contacto opcionales.
-          </p>
+        <CardContent>
+          <DataContainer
+            data={providers}
+            isLoading={isLoading}
+            error={loadError}
+            onRetry={loadProviders}
+            loadingType="table"
+            emptyTitle="No hay proveedores"
+            emptyMessage="Crea un proveedor o revisa que tu rol tenga permisos de escritura. FIN solo consulta."
+          >
+            {(items) => (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b">
+                      <th className="py-2 pr-4 font-medium">Nombre</th>
+                      <th className="py-2 pr-4 font-medium">Tipo</th>
+                      <th className="py-2 pr-4 font-medium">RFC / Tax ID</th>
+                      <th className="py-2 pr-4 font-medium">País</th>
+                      <th className="py-2 pr-4 font-medium">Estado</th>
+                      <th className="py-2 pr-4 font-medium">Contacto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(items as Provider[]).map((provider) => (
+                      <tr key={provider.id} className="border-b last:border-0">
+                        <td className="py-2 pr-4 font-medium">{provider.nombre}</td>
+                        <td className="py-2 pr-4 capitalize">{provider.tipo}</td>
+                        <td className="py-2 pr-4">{provider.tax_id}</td>
+                        <td className="py-2 pr-4">{provider.pais || "—"}</td>
+                        <td className="py-2 pr-4 capitalize text-muted-foreground">{provider.estado || "activo"}</td>
+                        <td className="py-2 pr-4 text-muted-foreground">
+                          {provider.contacto_nombre || provider.contacto_email || "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </DataContainer>
         </CardContent>
       </Card>
 
