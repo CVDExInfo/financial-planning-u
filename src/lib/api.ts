@@ -714,36 +714,107 @@ export class ApiService {
 
   // Changes
   static async getChangeRequests(project_id: string): Promise<ChangeRequest[]> {
-    await this.delay(200);
-    return [
-      {
-        id: "CHG-2024-001",
-        baseline_id: "BL-2024-001",
-        title: "Additional Senior Developer",
-        description:
-          "Add one additional senior developer for Q2 to meet accelerated timeline",
-        impact_amount: 25500,
-        currency: "USD",
-        affected_line_items: ["LI-001"],
-        justification: "Client requested delivery acceleration by 4 weeks",
-        requested_by: "project-manager@ikusi.com",
-        requested_at: "2024-02-15T11:00:00Z",
-        status: "pending",
-        approvals: [],
-      },
-    ];
+    const url = buildApiUrl(`/projects/${project_id}/changes`);
+
+    const parseChanges = (payload: unknown): unknown[] => {
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray((payload as any).data)) return (payload as any).data;
+      if (payload && Array.isArray((payload as any).items)) return (payload as any).items;
+      if (payload && Array.isArray((payload as any).data?.items))
+        return (payload as any).data.items;
+      if (payload && Array.isArray((payload as any).data?.data))
+        return (payload as any).data.data;
+      return [];
+    };
+
+    const normalizeChange = (item: any): ChangeRequest => {
+      const affectedLineItems = Array.isArray(item?.affected_line_items)
+        ? item.affected_line_items
+        : Array.isArray(item?.affectedLineItems)
+          ? item.affectedLineItems
+          : [];
+
+      return {
+        id: item?.id || item?.changeId || (item?.sk || "").replace(/^CHANGE#/, ""),
+        baseline_id: item?.baseline_id || item?.baselineId || "",
+        title: item?.title || "",
+        description: item?.description || "",
+        impact_amount: Number(item?.impact_amount ?? item?.impactAmount ?? 0),
+        currency: item?.currency || "USD",
+        affected_line_items: affectedLineItems,
+        justification:
+          item?.justification || item?.businessJustification || item?.reason || "",
+        requested_by: item?.requested_by || item?.requestedBy || item?.created_by || "",
+        requested_at:
+          item?.requested_at || item?.requestedAt || item?.created_at || new Date().toISOString(),
+        status: (item?.status as ChangeRequest["status"]) || "pending",
+        approvals: Array.isArray(item?.approvals) ? item.approvals : [],
+      };
+    };
+
+    const response = await fetch(url, { method: "GET", headers: buildHeaders() });
+    if (!response.ok) {
+      await handleApiError(response);
+    }
+
+    const rawText = await response.text();
+    let payload: unknown = [];
+    try {
+      payload = rawText ? JSON.parse(rawText) : [];
+    } catch (error) {
+      logger.error("Failed to parse change requests payload", error);
+      return [];
+    }
+
+    return parseChanges(payload).map((item) => normalizeChange(item));
   }
 
   static async createChangeRequest(
-    change: Omit<ChangeRequest, "id" | "requested_at" | "status" | "approvals">
+    project_id: string,
+    change: Omit<ChangeRequest, "id" | "requested_at" | "status" | "approvals">,
   ): Promise<ChangeRequest> {
-    await this.delay(300);
+    const url = buildApiUrl(`/projects/${project_id}/changes`);
+    const body = {
+      baseline_id: change.baseline_id,
+      title: change.title,
+      description: change.description,
+      impact_amount: change.impact_amount,
+      currency: change.currency || "USD",
+      justification: change.justification,
+      affected_line_items: change.affected_line_items,
+    };
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: buildHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      await handleApiError(response);
+    }
+
+    const payload = await response.json();
     return {
-      id: `CHG-${Date.now()}`,
-      requested_at: new Date().toISOString(),
-      status: "pending",
-      approvals: [],
-      ...change,
+      id: payload.id || payload.changeId,
+      baseline_id: payload.baseline_id || payload.baselineId || "",
+      title: payload.title || "",
+      description: payload.description || "",
+      impact_amount: Number(payload.impact_amount ?? payload.impactAmount ?? 0),
+      currency: payload.currency || "USD",
+      affected_line_items: Array.isArray(payload.affected_line_items)
+        ? payload.affected_line_items
+        : Array.isArray(payload.affectedLineItems)
+          ? payload.affectedLineItems
+          : [],
+      justification:
+        payload.justification || payload.businessJustification || payload.reason || "",
+      requested_by:
+        payload.requested_by || payload.requestedBy || payload.created_by || "",
+      requested_at:
+        payload.requested_at || payload.requestedAt || payload.created_at || new Date().toISOString(),
+      status: (payload.status as ChangeRequest["status"]) || "pending",
+      approvals: Array.isArray(payload.approvals) ? payload.approvals : [],
     };
   }
 

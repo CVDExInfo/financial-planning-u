@@ -32,7 +32,8 @@ type TableKey =
   | "providers"
   | "audit_log"
   | "docs"
-  | "prefacturas";
+  | "prefacturas"
+  | "changes";
 
 // Conservative defaults to reduce hard failures if env wiring is missing.
 const FALLBACKS: Record<TableKey, string> = {
@@ -47,6 +48,7 @@ const FALLBACKS: Record<TableKey, string> = {
   audit_log: "finz_audit_log",
   docs: "finz_docs",
   prefacturas: "finz_prefacturas",
+  changes: "finz_changes",
 };
 
 export const tableName = (key: TableKey): string => {
