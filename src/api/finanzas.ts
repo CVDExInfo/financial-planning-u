@@ -5,11 +5,13 @@ import { API_BASE, HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import type { InvoiceDoc } from "@/types/domain";
 import httpClient, { HttpError } from "@/lib/http-client";
+import { postProjectRubros, type AttachRubroInput } from "./helpers/rubros";
 
 type Json = Record<string, unknown>;
 
 // ---------- Environment ----------
-const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
+const metaEnv = (import.meta as any)?.env ?? process.env ?? {};
+const USE_MOCKS = String(metaEnv.VITE_USE_MOCKS || "false") === "true";
 
 function requireApiBase(): string {
   if (!HAS_API_BASE) {
@@ -289,43 +291,26 @@ export async function updateInvoiceStatus(
 
 // ---------- Catalog: add rubro to project (Service Tier selection) ----------
 
-// Keep the payload flexible while APIs converge. Prefer a typed shape once the OpenAPI is finalized.
-export type AddProjectRubroInput = Record<string, unknown>;
+export type AddProjectRubroInput = AttachRubroInput;
+
+type AddProjectRubroOptions = {
+  apiBase?: string;
+};
 
 // Some backends mount under /projects/{id}/catalog/rubros; older ones under /projects/{id}/rubros.
 // Try the modern path first, then fall back once on 404/405.
 export async function addProjectRubro<T = Json>(
   projectId: string,
   payload: AddProjectRubroInput,
+  options?: AddProjectRubroOptions,
 ): Promise<T> {
-  const base = requireApiBase();
+  const base = options?.apiBase ?? requireApiBase();
   const headers = { "Content-Type": "application/json", ...buildAuthHeader() };
 
-  const primary = `${base}/projects/${encodeURIComponent(
-    projectId,
-  )}/catalog/rubros`;
-  let res = await fetch(primary, {
-    method: "POST",
+  return postProjectRubros<T>(projectId, payload, {
+    apiBase: base,
     headers,
-    body: JSON.stringify(payload),
   });
-
-  if (res.status === 404 || res.status === 405) {
-    const fallback = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
-    res = await fetch(fallback, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-    });
-  }
-
-  if (!res.ok) {
-    const bodyText = await res.text().catch(() => "");
-    throw new Error(`addProjectRubro failed (${res.status}): ${bodyText}`);
-  }
-
-  const text = await res.text();
-  return (text ? JSON.parse(text) : {}) as T;
 }
 
 /* ──────────────────────────────────────────────────────────
