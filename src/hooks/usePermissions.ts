@@ -38,10 +38,12 @@ export function usePermissions() {
   );
 
   const roleSet = useMemo(() => new Set<UserRole>(roles), [roles]);
-  const decisionSet = useMemo(
-    () => new Set(avpDecisions?.map((d) => d.toLowerCase()) || []),
-    [avpDecisions],
-  );
+  const decisionSet = useMemo(() => {
+    const normalized = (avpDecisions || [])
+      .filter((d): d is string => typeof d === "string" && d.length > 0)
+      .map((d) => d.toLowerCase());
+    return new Set(normalized);
+  }, [avpDecisions]);
 
   const effectiveRole: FinanzasRole =
     finanzasRole ||
