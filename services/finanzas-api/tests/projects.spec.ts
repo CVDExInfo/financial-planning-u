@@ -83,6 +83,11 @@ describe("projects handler POST", () => {
     expect(body.mod_total).toBeCloseTo(125000.5);
     expect(body.codigo || body.code).toBe(payload.code);
     expect(mockDdbSend).toHaveBeenCalledTimes(2);
+    const firstCall = mockDdbSend.mock.calls[0]?.[0];
+    const secondCall = mockDdbSend.mock.calls[1]?.[0];
+
+    expect(firstCall?.input?.TableName).toBe("test-projects");
+    expect(secondCall?.input?.TableName).toBe("test-audit_log");
   });
 
   it("returns a 422 with validation details for invalid payloads instead of a 500", async () => {
