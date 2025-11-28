@@ -10,7 +10,7 @@ import finanzasClient, {
   ProjectCreateSchema,
 } from "@/api/finanzasClient";
 import { HttpError } from "@/lib/http-client";
-import { FinanzasApiError, getProjects } from "@/api/finanzas";
+// import { FinanzasApiError, getProjects } from "@/api/finanzas";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
