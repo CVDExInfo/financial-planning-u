@@ -25,7 +25,8 @@ It is intended for:
 | `FIN`              | Finanzas / Service Delivery team                 |
 | `AUD`              | Audit / control functions                        |
 | `SDT`              | Service Delivery team (technical / SDMT users)   |
-| `ikusi-acta-ui`    | PMs and vendors using the PMO / Acta UI portal   |
+| `PM`               | Project Managers for Finanzas SD (write-capable) |
+| `ikusi-acta-ui`    | _Legacy_ PMO / Acta UI portal group (not used for Finanzas SD authorization) |
 
 > ⚠️  New Cognito groups can be added in the future. If they represent a new persona for Finanzas SD, update the mapping in `src/lib/jwt.ts`.
 
@@ -89,6 +90,7 @@ For each group `g` (lowercased):
   - `g` contains `"pm"` or `"pmo"`.
 - **SDMT**
   - If `g` contains `"sdt"`, `"sdmt"`, `"fin"`, or `"aud"`.
+  - **Backend note:** the new `PM` group is treated as a write-capable Finanzas SD persona for API access checks (see Section 4.3).
 - **VENDOR**
   - If `g` contains `"vendor"` or `"acta-ui"`.
 - **EXEC_RO**
@@ -107,7 +109,7 @@ If **no roles** match any groups, the default is:
 | `FIN`              | `SDMT`                                | Finanzas SD team (full cost management)        |
 | `AUD`              | `SDMT`                                | Audit/control, but treated as SDMT in Finanzas |
 | `SDT`              | `SDMT`                                | Service Delivery team                          |
-| `ikusi-acta-ui`    | `VENDOR`                              | PM/Vendor persona from Acta UI portal          |
+| `ikusi-acta-ui`    | _Legacy_ (ignored for Finanzas SD RBAC)| Previously Acta UI portal; excluded from backend authorization |
 | _no matching group_| `EXEC_RO`                             | Default read-only                              |
 
 When a user belongs to multiple Cognito groups, all corresponding Finanzas roles are collected. The **effective role** (used in `usePermissions`) is the highest-priority role in this list:
@@ -172,6 +174,17 @@ Actual behaviour is enforced by:
 * UI checks (`usePermissions()`, `canEdit`, `canUploadInvoices`, etc.).
 * Backend checks (Cognito JWT + Verified Permissions).
 
+### 4.3. Backend API RBAC (Finanzas SD)
+
+The backend enforces coarse RBAC in `services/finanzas-api/src/lib/auth.ts` using Cognito groups:
+
+| Capability | Cognito groups allowed | Notes |
+| ---------- | ---------------------- | ----- |
+| **Write**  | `SDT`, `PM`            | Project managers (`PM`) now have the same write path as SDT; no other groups can write. |
+| **Read**   | `FIN`, `SDT`, `PM`, `AUD` | Read is intentionally limited to Finanzas SD personas only. |
+
+> Legacy: `ikusi-acta-ui` does **not** grant read or write privileges for Finanzas SD APIs.
+
 ---
 
 ## 5. Examples
@@ -187,28 +200,39 @@ Actual behaviour is enforced by:
   * Can create/edit projects, upload invoices, adjust rules.
   * Sees SDMT-only controls (bulk actions, approvals, etc.).
 
-### 5.2. PMO user
+### 5.2. Project Manager (PM) user
 
-* Cognito groups: `["ikusi-acta-ui"]` and possibly a PM-oriented group (e.g. `"pmo"`), depending on Ikusi’s setup.
-* Derived roles: `{PMO}` or `{PMO, VENDOR}`.
+* Cognito groups: `["PM"]` (optionally combined with `"FIN"`/`"SDT"` for escalated SDMT behaviour).
+* Backend access: read/write to Finanzas SD APIs (projects, uploads, catalog updates) alongside SDT.
+* UI experience:
+
+  * Similar to SDMT when write capabilities are exposed on the backend.
+  * Can collaborate on project edits without relying on legacy Acta UI groups.
+
+### 5.3. PMO user
+
+* Cognito groups: a PM/PMO group (for example `"pmo"`).
+* Derived roles: `{PMO}` (may also derive `{VENDOR}` if paired with a vendor group).
 * Effective role: `PMO`.
 * Experience:
 
   * Access to PMO estimator / hand-off flows.
   * Read-only view into Finanzas SD project/budget information.
   * Cannot modify core cost data.
+  * Legacy note: membership in `ikusi-acta-ui` alone no longer grants Finanzas SD API permissions.
 
-### 5.3. Vendor / Acta UI user
+### 5.4. Vendor / Acta UI user
 
-* Cognito groups: `["ikusi-acta-ui"]`.
+* Cognito groups: `["ikusi-acta-ui"]` (legacy portal group).
 * Derived roles: `{VENDOR}`.
 * Effective role: `VENDOR`.
 * Experience:
 
   * Access to reconciliation (invoice upload) and the catalog views they need.
   * No access to configuration modules or destructive actions.
+  * Finanzas SD backend authorization ignores this legacy group for read/write gating.
 
-### 5.4. Executive / read-only user
+### 5.5. Executive / read-only user
 
 * Cognito groups: `["admin"]` or a group containing `"exec"`, `"director"`, or `"manager"`.
 * Derived roles: e.g. `{PMO, EXEC_RO}` or `{EXEC_RO}`.
@@ -227,8 +251,9 @@ When onboarding a user to Finanzas SD:
 1. Add them to the appropriate Cognito group(s) in pool `us-east-2_FyHLtOhiY`:
 
    * SDMT: `FIN`, `AUD`, or `SDT`.
-   * PMO: a PM/PMO group (`ikusi-acta-ui` and/or a “pmo” group).
-   * VENDOR: `ikusi-acta-ui` (or a future vendor group).
+   * PM: `PM` (project managers with write permissions alongside SDT).
+   * PMO: a PM/PMO group such as `pmo` (legacy `ikusi-acta-ui` no longer drives Finanzas SD authorization).
+   * VENDOR: `ikusi-acta-ui` (legacy portal group) or a future vendor-specific group.
    * EXEC_RO: `admin` or an exec group containing `exec`, `director`, or `manager`.
 
 2. Confirm their derived roles using the AuthProvider debug log in dev:

@@ -19,15 +19,17 @@ jobs:
       id-token: write
       contents: read
 
-    # Promote repo vars + secret presence flags
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
       DEV_API_URL: ${{ vars.DEV_API_URL }}
       COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
       COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
-      HAS_USERNAME: ${{ secrets.USERNAME != '' }}
-      HAS_PASSWORD: ${{ secrets.PASSWORD != '' }}
-      HAS_OIDC_ROLE: ${{ secrets.OIDC_AWS_ROLE_ARN != '' }}
+      USERNAME: ${{ vars.COGNITO_TESTER_USERNAME }}
+      PASSWORD: ${{ vars.COGNITO_TESTER_PASSWORD }}
+      OIDC_AWS_ROLE_ARN: ${{ vars.OIDC_AWS_ROLE_ARN }}
+      HAS_USERNAME: ${{ vars.COGNITO_TESTER_USERNAME != '' }}
+      HAS_PASSWORD: ${{ vars.COGNITO_TESTER_PASSWORD != '' }}
+      HAS_OIDC_ROLE: ${{ vars.OIDC_AWS_ROLE_ARN != '' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -46,15 +48,15 @@ jobs:
             v="${!k:-}"
             [[ -n "$v" ]] || { echo "❌ Missing env: $k"; exit 1; }
           done
-          [[ "$HAS_USERNAME"  == "true" ]] || { echo "❌ Missing repo secret: USERNAME"; exit 1; }
-          [[ "$HAS_PASSWORD"  == "true" ]] || { echo "❌ Missing repo secret: PASSWORD"; exit 1; }
-          [[ "$HAS_OIDC_ROLE" == "true" ]] || { echo "❌ Missing repo secret: OIDC_AWS_ROLE_ARN"; exit 1; }
+          [[ "$HAS_USERNAME"  == "true" ]] || { echo "❌ Missing env: COGNITO_TESTER_USERNAME"; exit 1; }
+          [[ "$HAS_PASSWORD"  == "true" ]] || { echo "❌ Missing env: COGNITO_TESTER_PASSWORD"; exit 1; }
+          [[ "$HAS_OIDC_ROLE" == "true" ]] || { echo "❌ Missing env: OIDC_AWS_ROLE_ARN"; exit 1; }
           echo "✅ Vars/Secrets OK"
 
       - name: Configure AWS (OIDC)
         uses: ./.github/actions/oidc-configure-aws
         with:
-          role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          role_arn: ${{ env.OIDC_AWS_ROLE_ARN }}
           aws_region: ${{ env.AWS_REGION }}
           session_name: contract-tests-${{ github.run_id }}
 
@@ -74,8 +76,8 @@ jobs:
         with:
           user_pool_id: ${{ env.COGNITO_USER_POOL_ID }}
           client_id: ${{ env.COGNITO_WEB_CLIENT }}
-          username: ${{ secrets.USERNAME }}
-          password: ${{ secrets.PASSWORD }}
+          username: ${{ env.USERNAME }}
+          password: ${{ env.PASSWORD }}
           aws_region: ${{ env.AWS_REGION }}
 
       - name: "Install Node + Newman"
@@ -97,13 +99,12 @@ jobs:
           echo "Running Newman contract tests with collection: $POSTMAN_COLLECTION"
           echo "Base URL: ${{ env.BASE }}"
 
-          # Run Newman with proper environment variables
           newman run "$POSTMAN_COLLECTION" \
             --environment "$POSTMAN_ENV" \
             --env-var "baseUrl=${{ env.BASE }}" \
             --env-var "access_token=${{ steps.jwt.outputs.access_token }}" \
-            --env-var "username=${{ secrets.USERNAME }}" \
-            --env-var "password=${{ secrets.PASSWORD }}" \
+            --env-var "username=${{ env.USERNAME }}" \
+            --env-var "password=${{ env.PASSWORD }}" \
             --env-var "cognito_client_id=${{ env.COGNITO_WEB_CLIENT }}" \
             --reporters cli,junit,json \
             --reporter-junit-export "$OUTPUT_DIR/newman-junit.xml" \
@@ -191,4 +192,3 @@ jobs:
             echo "All API contract tests have been executed with the no-fallback guard enabled."
             echo "Review the detailed results above and check artifacts for full Newman reports."
           } >> "$GITHUB_STEP_SUMMARY"
-

@@ -11,7 +11,7 @@ import type { Scenario } from "@/types/domain";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export default function ScenariosDashboard() {
-  const { selectedProjectId, currentProject } = useProject();
+  const { selectedProjectId, currentProject, selectedPeriod } = useProject();
   const { isSDMT } = usePermissions();
   const [scenarios, setScenarios] = React.useState<Scenario[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -34,7 +34,8 @@ export default function ScenariosDashboard() {
     try {
       setLoading(true);
       setError(null);
-      const data = await ApiService.getScenarios(selectedProjectId);
+      const months = Math.max(parseInt(selectedPeriod || "12", 10), 1);
+      const data = await ApiService.getScenarios(selectedProjectId, months);
       setScenarios(data);
     } catch (e: any) {
       setError(e?.message || "No se pudieron cargar los escenarios");

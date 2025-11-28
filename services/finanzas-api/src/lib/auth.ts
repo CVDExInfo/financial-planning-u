@@ -17,41 +17,47 @@ type VerifiedClaims = {
 
 const DEFAULT_USER_POOL_ID = "us-east-2_FyHLtOhiY";
 const DEFAULT_REGION = "us-east-2";
+
+// Gather environment or default values.
 const configuredUserPoolId =
   process.env.COGNITO_USER_POOL_ID ||
   process.env.CognitoUserPoolId ||
   DEFAULT_USER_POOL_ID;
+const region = process.env.AWS_REGION || DEFAULT_REGION;
+
+// Gather client IDs - must exist!
 const configuredClientIds = (process.env.COGNITO_CLIENT_ID ||
   process.env.CognitoUserPoolClientId ||
   "")
   .split(",")
   .map((id) => id.trim())
   .filter(Boolean);
-const region = process.env.AWS_REGION || DEFAULT_REGION;
+
+// Fail fast if client ID is missing.
+if (!configuredClientIds.length) {
+  throw new Error(
+    "[auth] COGNITO_CLIENT_ID environment variable is required. JWT audience validation cannot proceed."
+  );
+}
+
 const expectedIssuer = `https://cognito-idp.${region}.amazonaws.com/${configuredUserPoolId}`;
 
 if (!process.env.COGNITO_USER_POOL_ID && configuredUserPoolId === DEFAULT_USER_POOL_ID) {
   console.warn(
-    "[auth] COGNITO_USER_POOL_ID not set; defaulting to production pool",
+    "[auth] COGNITO_USER_POOL_ID not set; using default user pool for production.",
     DEFAULT_USER_POOL_ID
-  );
-}
-
-if (!configuredClientIds.length) {
-  console.error(
-    "[auth] COGNITO_CLIENT_ID environment variable is missing. JWT audience validation will fail."
   );
 }
 
 const idTokenVerifier = CognitoJwtVerifier.create({
   userPoolId: configuredUserPoolId,
-  clientId: configuredClientIds.length ? configuredClientIds : undefined,
+  clientId: configuredClientIds,
   tokenUse: "id",
 });
 
 const accessTokenVerifier = CognitoJwtVerifier.create({
   userPoolId: configuredUserPoolId,
-  clientId: configuredClientIds.length ? configuredClientIds : undefined,
+  clientId: configuredClientIds,
   tokenUse: "access",
 });
 
@@ -62,16 +68,12 @@ function authError(statusCode: number, message: string) {
 function extractBearerToken(event: ApiGwEvent): string {
   const header = event.headers?.authorization || event.headers?.Authorization;
   if (!header) {
-    console.warn("[auth] Missing Authorization header");
     throw authError(401, "unauthorized: missing bearer token");
   }
-
   const token = header.replace(/^Bearer\s+/i, "").trim();
   if (!token) {
-    console.warn("[auth] Empty bearer token provided");
     throw authError(401, "unauthorized: missing bearer token");
   }
-
   return token;
 }
 
@@ -89,22 +91,21 @@ async function verifyJwt(event: ApiGwEvent): Promise<VerifiedClaims> {
     try {
       payload = (await accessTokenVerifier.verify(token)) as VerifiedClaims;
     } catch (accessError) {
-      console.warn("[auth] JWT verification failed", { idError, accessError });
       throw authError(401, "unauthorized: invalid token");
     }
   }
 
   if (!payload) {
-    console.warn("[auth] Verification returned empty payload");
-    throw authError(401, "unauthorized: invalid token");
+    throw authError(401, "unauthorized: invalid token (no payload)");
   }
 
+  // Check issuer
   const tokenIssuer = typeof payload.iss === "string" ? payload.iss : "";
   if (tokenIssuer !== expectedIssuer) {
-    console.warn("[auth] Issuer mismatch", { tokenIssuer, expected: expectedIssuer });
     throw authError(401, "unauthorized: invalid issuer");
   }
 
+  // Check audience
   const audience =
     (typeof payload.aud === "string" && payload.aud) ||
     (typeof payload.client_id === "string" && payload.client_id) ||
@@ -113,16 +114,15 @@ async function verifyJwt(event: ApiGwEvent): Promise<VerifiedClaims> {
     configuredClientIds.length &&
     (audience ? !configuredClientIds.includes(audience) : true)
   ) {
-    console.warn("[auth] Audience mismatch", {
-      audience,
-      expected: configuredClientIds,
-    });
     throw authError(401, "unauthorized: invalid audience");
   }
 
   (event as ApiGwEvent).__verifiedClaims = payload;
   return payload;
 }
+
+const WRITE_GROUPS = ["SDT", "PM"] as const;
+const READ_GROUPS = ["FIN", "SDT", "PM", "AUD"] as const;
 
 function parseGroupsFromClaims(claims: VerifiedClaims): string[] {
   const raw = claims["cognito:groups"];
@@ -131,14 +131,12 @@ function parseGroupsFromClaims(claims: VerifiedClaims): string[] {
   if (Array.isArray(raw)) {
     return raw.map((g) => String(g).toUpperCase());
   }
-
   if (typeof raw === "string" && raw.trim().length) {
     return raw
       .split(/[\s,]+/)
       .filter(Boolean)
       .map((g) => g.toUpperCase());
   }
-
   return [];
 }
 
@@ -152,7 +150,6 @@ export async function ensureSDT(event: ApiGwEvent) {
   const groups = parseGroupsFromClaims(claims);
   const hasSDT = groups.includes("SDT");
   if (!hasSDT) {
-    console.warn("[auth] SDT check failed; groups observed:", groups);
     throw { statusCode: 403, body: "forbidden: SDT required" };
   }
 }
@@ -160,9 +157,8 @@ export async function ensureSDT(event: ApiGwEvent) {
 export async function ensureCanWrite(event: ApiGwEvent) {
   const claims = await verifyJwt(event);
   const groups = parseGroupsFromClaims(claims);
-  const canWrite = groups.some((g) => ["PM", "SDT"].includes(g));
+  const canWrite = groups.some((g) => WRITE_GROUPS.includes(g as (typeof WRITE_GROUPS)[number]));
   if (!canWrite) {
-    console.warn("[auth] Write permission denied; groups observed:", groups);
     throw { statusCode: 403, body: "forbidden: PM or SDT required" };
   }
 }
@@ -170,9 +166,8 @@ export async function ensureCanWrite(event: ApiGwEvent) {
 export async function ensureCanRead(event: ApiGwEvent) {
   const claims = await verifyJwt(event);
   const groups = parseGroupsFromClaims(claims);
-  const canRead = groups.some((g) => ["PM", "SDT", "FIN", "AUD"].includes(g));
+  const canRead = groups.some((g) => READ_GROUPS.includes(g as (typeof READ_GROUPS)[number]));
   if (!canRead) {
-    console.warn("[auth] Read permission denied; groups observed:", groups);
     throw { statusCode: 403, body: "forbidden: valid group required" };
   }
 }
