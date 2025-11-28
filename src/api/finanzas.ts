@@ -414,18 +414,11 @@ export type CreateProjectPayload = {
   name: string;
   code: string;
   client: string;
-  start_date: string;
-  end_date: string;
-  currency: "USD" | "EUR" | "MXN";
-  mod_total: number;
+  start_date: string; // yyyy-mm-dd
+  end_date: string; // yyyy-mm-dd
+  currency: string; // e.g. "USD"
+  mod_total: number | string;
   description?: string;
-};
-
-export type CreateProjectResponse = {
-  id: string;
-  nombre?: string | null;
-  cliente?: string | null;
-  created_at?: string | null;
 };
 
 // Optional helpers used by tests/smokes
@@ -465,51 +458,29 @@ export async function getProjects(): Promise<ProjectsResponse> {
 
 export async function createProject(
   payload: CreateProjectPayload,
-): Promise<CreateProjectResponse> {
+): Promise<Json> {
   ensureApiBase();
 
-  const base = requireApiBase();
-  const body = {
-    nombre: payload.name,
-    codigo: payload.code,
-    cliente: payload.client,
-    fecha_inicio: payload.start_date,
-    fecha_fin: payload.end_date,
-    moneda: payload.currency,
-    presupuesto_total: payload.mod_total,
-    descripcion: payload.description,
-  };
-
   try {
-    const response = await fetchJson<Record<string, unknown>>(`${base}/projects`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...buildAuthHeader() },
-      body: JSON.stringify(body),
+    const body = {
+      ...payload,
+      mod_total:
+        typeof payload.mod_total === "string"
+          ? Number(payload.mod_total)
+          : payload.mod_total,
+    };
+
+    const res = await httpClient.post<Json>("/projects", body, {
+      headers: buildAuthHeader(),
     });
 
-    const derivedId =
-      String(
-        response.id ||
-          response.project_id ||
-          response.projectId ||
-          response.pk ||
-          "",
-      ).trim() || payload.code;
-
-    return {
-      id: derivedId,
-      nombre:
-        (response.nombre as string | undefined | null) ||
-        (response.name as string | undefined | null) ||
-        payload.name,
-      cliente:
-        (response.cliente as string | undefined | null) ||
-        (response.client as string | undefined | null) ||
-        payload.client,
-      created_at: (response.created_at as string | undefined | null) ?? null,
-    };
+    return res.data;
   } catch (err) {
-    throw toFinanzasError(err, "Unable to create project", (err as any)?.status);
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      handleAuthErrorStatus(err.status);
+    }
+
+    throw toFinanzasError(err, "Unable to create project");
   }
 }
 
