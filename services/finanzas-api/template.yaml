@@ -72,6 +72,8 @@ Globals:
           Fn::Sub: ${TablePrefix}providers
         TABLE_AUDIT:
           Fn::Sub: ${TablePrefix}audit_log
+        TABLE_AUDIT_LOG:
+          Fn::Sub: ${TablePrefix}audit_log
         TABLE_DOCS:
           Fn::Sub: ${TablePrefix}docs
         TABLE_PREFACTURAS:
@@ -394,6 +396,9 @@ Resources:
       - DynamoDBCrudPolicy:
           TableName:
             Ref: ProjectsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AuditTable
       - Statement:
         - Sid: AVPIsAuthorizedWithToken
           Effect: Allow
@@ -1103,7 +1108,7 @@ Resources:
             ApiId:
               Ref: Api
             Auth:
-              Authorizer: NONE
+              Authorizer: CognitoJwt
   PrefacturasFn:
     Type: AWS::Serverless::Function
     Metadata:

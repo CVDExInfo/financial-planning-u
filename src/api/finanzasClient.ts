@@ -61,6 +61,17 @@ export type AllocationRule = z.infer<typeof AllocationRuleSchema>;
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+function normalizeDataArray<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+
+  if (payload && typeof payload === "object") {
+    const data = (payload as { data?: unknown }).data;
+    if (Array.isArray(data)) return data as T[];
+  }
+
+  return [];
+}
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   if (!HAS_API_BASE) {
     throw new Error("Finanzas API base URL is not configured");
@@ -81,6 +92,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   })();
 
   try {
+    // Always attach auth headers; allow callers to add extras without removing JWT.
     const headers = { ...(init?.headers || {}), ...buildAuthHeader() };
 
     const response = await (async () => {
@@ -123,6 +135,15 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
       ? error
       : new Error("Unknown network error while calling Finanzas API");
   }
+}
+
+function normalizeListResponse<T>(payload: { data?: unknown } | unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (payload && typeof payload === "object") {
+    const data = (payload as { data?: unknown }).data;
+    if (Array.isArray(data)) return data as T[];
+  }
+  return [];
 }
 
 function toProjectRubroRequest(payload: RubroCreate): ProjectRubroRequest {
@@ -222,6 +243,29 @@ export const AdjustmentCreateSchema = z.object({
 
 export type AdjustmentCreate = z.infer<typeof AdjustmentCreateSchema>;
 
+export const AdjustmentSchema = AdjustmentCreateSchema.extend({
+  id: z.string(),
+  estado: z.enum(["pending_approval", "approved", "rejected"]).optional(),
+  meses_impactados: z.array(z.string()).optional(),
+  distribucion: z
+    .array(
+      z.object({
+        mes: z.string(),
+        monto: z.number(),
+      })
+    )
+    .optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+
+export const AdjustmentListSchema = z.object({
+  data: z.array(AdjustmentSchema),
+  total: z.number().optional(),
+});
+
+export type Adjustment = z.infer<typeof AdjustmentSchema>;
+
 // Provider create schema
 export const ProviderCreateSchema = z.object({
   nombre: z.string().min(3).max(200),
@@ -235,6 +279,21 @@ export const ProviderCreateSchema = z.object({
 });
 
 export type ProviderCreate = z.infer<typeof ProviderCreateSchema>;
+
+export const ProviderSchema = ProviderCreateSchema.extend({
+  id: z.string(),
+  estado: z.enum(["active", "inactive", "suspended"]).optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+  created_by: z.string().email().optional(),
+});
+
+export const ProviderListSchema = z.object({
+  data: z.array(ProviderSchema),
+  total: z.number().optional(),
+});
+
+export type Provider = z.infer<typeof ProviderSchema>;
 
 function validateProjectPayload(payload: ProjectCreate): ProjectCreate {
   const parsed = ProjectCreateSchema.safeParse(payload);
@@ -282,21 +341,59 @@ export const finanzasClient = {
   },
 
   async getRubros(): Promise<Rubro[]> {
-    const data = await http<{ data: unknown }>("/catalog/rubros");
-    const parsed = RubroListSchema.safeParse(data);
+    const payload = await http<{ data: unknown } | Rubro[]>("/catalog/rubros");
+    const data = normalizeListResponse<Rubro>(payload);
+    const parsed = RubroListSchema.safeParse({ data });
     if (!parsed.success) {
       console.error(parsed.error);
       throw new Error("Invalid rubros response");
     }
-    return parsed.data.data;
+
+    return parsed.data;
   },
 
   async getAllocationRules(): Promise<AllocationRule[]> {
-    const data = await http<{ data: unknown }>("/allocation-rules");
-    const parsed = AllocationRuleListSchema.safeParse(data);
+
+    const payload = await http<{ data: unknown } | AllocationRule[]>(
+      "/allocation-rules",
+    );
+    const data = normalizeListResponse<AllocationRule>(payload);
+    const parsed = AllocationRuleListSchema.safeParse({ data });
     if (!parsed.success) {
       console.error(parsed.error);
       throw new Error("Invalid allocation rules response");
+    }
+
+    return parsed.data;
+  },
+
+  async getAdjustments(params: { projectId?: string; limit?: number } = {}): Promise<Adjustment[]> {
+    const search = new URLSearchParams();
+    if (params.projectId) search.set("project_id", params.projectId);
+    if (params.limit) search.set("limit", String(params.limit));
+    const query = search.toString();
+
+    const data = await http<{ data: unknown }>(`/adjustments${query ? `?${query}` : ""}`);
+    const parsed = AdjustmentListSchema.safeParse(data);
+    if (!parsed.success) {
+      console.error(parsed.error);
+      throw new Error("Invalid adjustments response");
+    }
+    return parsed.data.data;
+  },
+
+  async getProviders(params: { tipo?: string; estado?: string; limit?: number } = {}): Promise<Provider[]> {
+    const search = new URLSearchParams();
+    if (params.tipo) search.set("tipo", params.tipo);
+    if (params.estado) search.set("estado", params.estado);
+    if (params.limit) search.set("limit", String(params.limit));
+    const query = search.toString();
+
+    const data = await http<{ data: unknown }>(`/providers${query ? `?${query}` : ""}`);
+    const parsed = ProviderListSchema.safeParse(data);
+    if (!parsed.success) {
+      console.error(parsed.error);
+      throw new Error("Invalid providers response");
     }
     return parsed.data.data;
   },

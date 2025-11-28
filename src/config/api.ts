@@ -11,6 +11,7 @@ export const API_BASE_URL = API_BASE;
 
 // API Endpoints
 export const API_ENDPOINTS = {
+  forecast: "/plan/forecast",
   // Projects
   projects: "/projects",
   projectById: (id: string) => `/projects/${id}`,

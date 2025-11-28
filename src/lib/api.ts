@@ -373,36 +373,8 @@ export class ApiService {
     project_id: string,
     period_months?: number
   ): Promise<ForecastCell[]> {
-    await this.delay(300);
-    logger.debug("Getting forecast data for project_id:", project_id);
-
-    try {
-      // Try API first
-      const response = await fetch(
-        buildApiUrl(`/projects/${project_id}/plan`),
-        {
-          method: "GET",
-          headers: buildHeaders(),
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        logger.info("Forecast data loaded from API:", data.length, "records");
-        return data;
-      }
-
-      // If API fails, log error and return empty array
-      logger.warn(
-        "API call failed (status:",
-        response.status,
-        "), returning empty forecast data"
-      );
-      return [];
-    } catch (error) {
-      logger.error("API fetch failed:", error);
-      return [];
-    }
+    const payload = await this.fetchForecastPayload(project_id, period_months);
+    return payload.data;
   }
 
   static async updateForecast(
@@ -568,17 +540,14 @@ export class ApiService {
     outflows: Array<{ month: number; amount: number }>;
     margin: Array<{ month: number; percentage: number }>;
   }> {
-    await this.delay(300);
+    const forecastPayload = await this.fetchForecastPayload(project_id, months);
 
     try {
       // Fetch billing plan and forecast data from API
-      const [billingResult, forecastResult] = await Promise.all([
-        this.getBillingPlan(project_id),
-        this.getForecastData(project_id, months),
-      ]);
+      const billingResult = await this.getBillingPlan(project_id);
 
       const billingPlan = billingResult.monthly_inflows;
-      const forecast = forecastResult;
+      const forecast = forecastPayload.data;
 
       // Calculate outflows by summing forecast data by month
       const outflowsByMonth = new Map<number, number>();
@@ -622,36 +591,56 @@ export class ApiService {
   }
 
   // Scenarios
-  static async getScenarios(project_id: string): Promise<Scenario[]> {
-    await this.delay(200);
+  static async getScenarios(
+    project_id: string,
+    months: number = 12
+  ): Promise<Scenario[]> {
+    const forecastPayload = await this.fetchForecastPayload(project_id, months);
+    const totals = forecastPayload.data.reduce(
+      (acc, cell) => {
+        acc.planned += cell.planned || 0;
+        acc.forecast += cell.forecast || 0;
+        acc.actual += cell.actual || 0;
+        return acc;
+      },
+      { planned: 0, forecast: 0, actual: 0 }
+    );
+
+    const baselineId = forecastPayload.projectId || project_id;
+    const generatedAt = forecastPayload.generated_at;
+
     return [
       {
-        id: "scenario_baseline",
-        name: "Baseline Scenario",
-        description: "Original approved baseline",
-        baseline_id: "BL-2024-001",
+        id: `baseline-${baselineId}`,
+        name: "Baseline",
+        description: `Proyección aprobada a ${forecastPayload.months} meses`,
+        baseline_id: baselineId,
         deltas: [],
-        created_by: "sdmt-analyst@ikusi.com",
-        created_at: "2024-01-15T10:30:00Z",
+        created_by: "forecast-engine",
+        created_at: generatedAt,
         total_impact: 0,
         currency: "USD",
       },
       {
-        id: "scenario_optimistic",
-        name: "Optimistic Scenario",
-        description: "10% cost reduction through efficiency gains",
-        baseline_id: "BL-2024-001",
-        deltas: [
-          {
-            category: "Labor",
-            delta_type: "percentage",
-            delta_value: -10,
-            reason: "Efficiency improvements and automation",
-          },
-        ],
-        created_by: "sdmt-analyst@ikusi.com",
-        created_at: "2024-02-01T14:15:00Z",
-        total_impact: -48500,
+        id: `forecast-${baselineId}`,
+        name: "Escenario forecast",
+        description: "Variación del forecast contra el plan",
+        baseline_id: baselineId,
+        deltas: [],
+        created_by: "forecast-engine",
+        created_at: generatedAt,
+        total_impact: totals.forecast - totals.planned,
+        currency: "USD",
+      },
+      {
+        id: `actuals-${baselineId}`,
+        name: "Escenario actual",
+        description: "Impacto real con datos consolidados",
+        baseline_id: baselineId,
+        deltas: [],
+        created_by: "forecast-engine",
+        created_at: generatedAt,
+        total_impact: totals.actual - totals.planned,
         currency: "USD",
       },
     ];
@@ -666,6 +655,60 @@ export class ApiService {
       created_at: new Date().toISOString(),
       created_by: "sdmt-analyst@ikusi.com",
       ...scenario,
+    };
+  }
+
+  private static async fetchForecastPayload(
+    projectId: string,
+    period_months?: number
+  ): Promise<{
+    data: ForecastCell[];
+    projectId: string;
+    months: number;
+    generated_at: string;
+  }> {
+    await this.delay(150);
+
+    const months = Number.isFinite(period_months)
+      ? Math.max(Number(period_months) || 12, 1)
+      : 12;
+
+    const params = new URLSearchParams({ projectId });
+    params.set("months", months.toString());
+
+    const response = await fetch(
+      buildApiUrl(`${API_ENDPOINTS.forecast}?${params.toString()}`),
+      {
+        method: "GET",
+        headers: buildHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      await handleApiError(response);
+    }
+
+    const payload = await response.json();
+
+    const cells = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+
+    const responseMonths = Number(payload?.months) || months;
+
+    logger.info(
+      "Forecast data loaded from API:",
+      Array.isArray(cells) ? cells.length : 0,
+      "records"
+    );
+
+    return {
+      data: cells as ForecastCell[],
+      projectId,
+      months: responseMonths,
+      generated_at: payload?.generated_at || new Date().toISOString(),
     };
   }
 

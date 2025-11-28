@@ -3,7 +3,7 @@
  * - POST /adjustments → crear ajustes presupuestarios
  */
 import React from "react";
-import finanzasClient, { type AdjustmentCreate } from "@/api/finanzasClient";
+import finanzasClient, { type Adjustment, type AdjustmentCreate } from "@/api/finanzasClient";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,13 +25,22 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PageHeader from "@/components/PageHeader";
-import { ShieldCheck, Plus } from "lucide-react";
+import { ShieldCheck, Plus, RefreshCcw } from "lucide-react";
+import DataContainer from "@/components/DataContainer";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function AdjustmentsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [adjustments, setAdjustments] = React.useState<Adjustment[]>([]);
 
   const SHOW_ADJUSTMENT_CHARTS = false;
+
+  const { hasGroup, canEdit, isExecRO } = usePermissions();
+  const isFinReadOnly = hasGroup("FIN") && !canEdit;
+  const canCreateAdjustment = canEdit && !isFinReadOnly && !isExecRO;
 
   // Form state
   const [projectId, setProjectId] = React.useState("");
@@ -43,6 +52,28 @@ export default function AdjustmentsManager() {
   const [metodoDistribucion, setMetodoDistribucion] = React.useState<"pro_rata_forward" | "pro_rata_all" | "single_month">("pro_rata_forward");
   const [justificacion, setJustificacion] = React.useState("");
   const [solicitadoPor, setSolicitadoPor] = React.useState("");
+  const [projectFilter, setProjectFilter] = React.useState("");
+
+  const loadAdjustments = React.useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setLoadError(null);
+      const data = await finanzasClient.getAdjustments({
+        projectId: projectFilter || undefined,
+        limit: 50,
+      });
+      setAdjustments(data);
+    } catch (error: any) {
+      console.error("Error loading adjustments", error);
+      setLoadError(error?.message || "No se pudieron cargar los ajustes");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [projectFilter]);
+
+  React.useEffect(() => {
+    loadAdjustments();
+  }, [loadAdjustments]);
 
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +102,8 @@ export default function AdjustmentsManager() {
 
       toast.success("Ajuste presupuestario creado exitosamente");
       setIsCreateDialogOpen(false);
+
+      loadAdjustments();
 
       // Reset form
       setProjectId("");
@@ -116,12 +149,41 @@ export default function AdjustmentsManager() {
         badge="Finanzas"
         icon={<ShieldCheck className="h-5 w-5 text-white" />}
         actions={
-          <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-            <Plus size={16} />
-            Crear Ajuste
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={loadAdjustments} className="gap-2" disabled={isLoading}>
+              <RefreshCcw className="h-4 w-4" />
+              {isLoading ? "Actualizando" : "Refrescar"}
+            </Button>
+            {canCreateAdjustment && (
+              <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+                <Plus size={16} />
+                Crear Ajuste
+              </Button>
+            )}
+          </div>
         }
       />
+
+      <Card className="border-border/80 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Filtros</CardTitle>
+          <CardDescription>Aplica un filtro rápido por proyecto para limitar los resultados.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-[1fr_auto] items-end">
+          <div className="grid gap-2">
+            <Label htmlFor="projectFilter">Proyecto</Label>
+            <Input
+              id="projectFilter"
+              placeholder="proj_..."
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+            />
+          </div>
+          <Button onClick={loadAdjustments} disabled={isLoading} className="w-full md:w-auto">
+            {isLoading ? "Cargando" : "Aplicar filtro"}
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card className="border-border/80 shadow-sm">
         <CardHeader>
@@ -148,13 +210,53 @@ export default function AdjustmentsManager() {
             Los ajustes pueden ser excesos, reducciones o reasignaciones entre rubros.
           </CardDescription>
         </CardHeader>
-        <CardContent className="text-center space-y-3">
-          <p className="text-muted-foreground">
-            Haz clic en "Crear Ajuste" para registrar un ajuste presupuestario.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Incluye IDs de proyecto y rubro para mantener un flujo claro de distribución.
-          </p>
+        <CardContent>
+          <DataContainer
+            data={adjustments}
+            isLoading={isLoading}
+            error={loadError}
+            onRetry={loadAdjustments}
+            loadingType="table"
+            emptyTitle="No se encontraron ajustes"
+            emptyMessage="Registra un ajuste o revisa tus permisos. FIN solo puede consultar."
+          >
+            {(items) => (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b">
+                      <th className="py-2 pr-4 font-medium">Proyecto</th>
+                      <th className="py-2 pr-4 font-medium">Tipo</th>
+                      <th className="py-2 pr-4 font-medium">Monto</th>
+                      <th className="py-2 pr-4 font-medium">Estado</th>
+                      <th className="py-2 pr-4 font-medium">Inicio</th>
+                      <th className="py-2 pr-4 font-medium">Solicitado por</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(items as Adjustment[]).map((adjustment) => (
+                      <tr key={adjustment.id} className="border-b last:border-0">
+                        <td className="py-2 pr-4 font-medium">{adjustment.project_id}</td>
+                        <td className="py-2 pr-4 capitalize">{adjustment.tipo}</td>
+                        <td className="py-2 pr-4">
+                          {new Intl.NumberFormat("es-MX", {
+                            style: "currency",
+                            currency: "USD",
+                            maximumFractionDigits: 0,
+                          }).format(adjustment.monto)}
+                        </td>
+                        <td className="py-2 pr-4 capitalize text-muted-foreground">
+                          {adjustment.estado?.replace("_", " ") || "pendiente"}
+                        </td>
+                        <td className="py-2 pr-4">{adjustment.fecha_inicio || "—"}</td>
+                        <td className="py-2 pr-4">{adjustment.solicitado_por}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </DataContainer>
         </CardContent>
       </Card>
 
