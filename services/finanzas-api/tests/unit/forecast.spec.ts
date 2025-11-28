@@ -8,6 +8,10 @@ jest.mock("../../src/lib/dynamo", () => ({
   tableName: jest.fn((name: string) => `${name}-table`),
 }));
 
+jest.mock("../../src/lib/auth", () => ({
+  ensureCanRead: jest.fn(() => Promise.resolve()),
+}));
+
 import { handler as forecastHandler } from "../../src/handlers/forecast.js";
 
 const dynamo = jest.requireMock("../../src/lib/dynamo") as {
