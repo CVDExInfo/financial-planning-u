@@ -5,13 +5,13 @@ import { API_BASE, HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import type { InvoiceDoc } from "@/types/domain";
 import httpClient, { HttpError } from "@/lib/http-client";
-import {
-  type ProjectsResponse,
-  type Json,
-} from "./finanzas-projects-helpers";
+import { postProjectRubros, type AttachRubroInput } from "./helpers/rubros";
+
+type Json = Record<string, unknown>;
 
 // ---------- Environment ----------
-const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
+const metaEnv = (import.meta as any)?.env ?? process.env ?? {};
+const USE_MOCKS = String(metaEnv.VITE_USE_MOCKS || "false") === "true";
 
 function requireApiBase(): string {
   if (!HAS_API_BASE) {
@@ -24,31 +24,21 @@ function requireApiBase(): string {
 
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
   const res = await fetch(url, init);
-  const text = await res.text().catch(() => "");
 
   if (!res.ok) {
-    try {
-      handleAuthErrorStatus(res.status);
-    } catch (err) {
-      throw toFinanzasError(
-        err,
-        text || `${init.method || "GET"} ${url} → ${res.status}`,
-        res.status,
-      );
-    }
+    handleAuthErrorStatus(res.status);
 
+    const body = await res.text().catch(() => "");
     // Helpful signal for CORS/preflight troubles
-    if (res.status === 0 || /TypeError: Failed to fetch/.test(text)) {
-      throw new FinanzasApiError(`Network/CORS error calling ${url}`, res.status);
+    if (res.status === 0 || /TypeError: Failed to fetch/.test(body)) {
+      throw new Error(`Network/CORS error calling ${url}`);
     }
 
-    throw new FinanzasApiError(
-      `${init.method || "GET"} ${url} → ${res.status} ${text}`.trim(),
-      res.status,
-    );
+    throw new Error(`${init.method || "GET"} ${url} → ${res.status} ${body}`);
   }
 
   // Some POSTs legitimately return empty bodies; guard it.
+  const text = await res.text();
   return text ? (JSON.parse(text) as T) : ({} as T);
 }
 
@@ -67,25 +57,15 @@ function ensureApiBase(): void {
   }
 }
 
-function toFinanzasError(
-  err: unknown,
-  fallback: string,
-  statusOverride?: number,
-): FinanzasApiError {
+function toFinanzasError(err: unknown, fallback: string): FinanzasApiError {
   if (err instanceof FinanzasApiError) return err;
   if (err instanceof HttpError) {
-    return new FinanzasApiError(
-      err.message || fallback,
-      err.status ?? statusOverride,
-    );
+    return new FinanzasApiError(err.message || fallback, err.status);
   }
   if (err instanceof Error) {
-    return new FinanzasApiError(
-      err.message,
-      (err as any).status ?? statusOverride,
-    );
+    return new FinanzasApiError(err.message, (err as any).status);
   }
-  return new FinanzasApiError(fallback, statusOverride);
+  return new FinanzasApiError(fallback);
 }
 
 // ---------- Common DTOs ----------
@@ -311,45 +291,26 @@ export async function updateInvoiceStatus(
 
 // ---------- Catalog: add rubro to project (Service Tier selection) ----------
 
-// Keep the payload flexible while APIs converge. Prefer a typed shape once the OpenAPI is finalized.
-export type AddProjectRubroInput = Record<string, unknown>;
+export type AddProjectRubroInput = AttachRubroInput;
+
+type AddProjectRubroOptions = {
+  apiBase?: string;
+};
 
 // Some backends mount under /projects/{id}/catalog/rubros; older ones under /projects/{id}/rubros.
 // Try the modern path first, then fall back once on 404/405.
 export async function addProjectRubro<T = Json>(
   projectId: string,
   payload: AddProjectRubroInput,
+  options?: AddProjectRubroOptions,
 ): Promise<T> {
-  const base = requireApiBase();
+  const base = options?.apiBase ?? requireApiBase();
   const headers = { "Content-Type": "application/json", ...buildAuthHeader() };
 
-  // The deployed API exposes /projects/{id}/rubros; keep a single fallback to
-  // /catalog/rubros for legacy stacks that might still use that mount.
-  const primary = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
-  let res = await fetch(primary, {
-    method: "POST",
+  return postProjectRubros<T>(projectId, payload, {
+    apiBase: base,
     headers,
-    body: JSON.stringify(payload),
   });
-
-  if (res.status === 404 || res.status === 405) {
-    const fallback = `${base}/projects/${encodeURIComponent(
-      projectId,
-    )}/catalog/rubros`;
-    res = await fetch(fallback, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-    });
-  }
-
-  if (!res.ok) {
-    const bodyText = await res.text().catch(() => "");
-    throw new Error(`addProjectRubro failed (${res.status}): ${bodyText}`);
-  }
-
-  const text = await res.text();
-  return (text ? JSON.parse(text) : {}) as T;
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -404,112 +365,21 @@ export async function getProjectRubros(
 }
 
 // ---------- Projects ----------
-export {
-  normalizeProjectsPayload,
-  type ProjectsResponse,
-  type Json,
-} from "./finanzas-projects-helpers";
 
-export type CreateProjectPayload = {
-  name: string;
-  code: string;
-  client: string;
-  start_date: string;
-  end_date: string;
-  currency: "USD" | "EUR" | "MXN";
-  mod_total: number;
-  description?: string;
-};
-
-export type CreateProjectResponse = {
-  id: string;
-  nombre?: string | null;
-  cliente?: string | null;
-  created_at?: string | null;
-};
+export type ProjectsResponse =
+  | Json
+  | Json[]
+  | { data?: Json[]; items?: Json[] };
 
 // Optional helpers used by tests/smokes
-export async function getProjects(): Promise<ProjectsResponse> {
+export async function getProjects(): Promise<Json> {
   ensureApiBase();
 
   try {
-    const response = await httpClient.get<ProjectsResponse>("/projects?limit=50", {
-      headers: buildAuthHeader(),
-    });
-
-    // Extract the payload from the HttpResponse wrapper
-    const payload = response.data;
-
-    // Normalize a bit but keep it backwards compatible for callers:
-    // - If backend returns an array, just return it.
-    // - If backend returns { data } or { items }, return that object.
-    if (Array.isArray(payload)) {
-      return payload;
-    }
-
-    const anyPayload = payload as { data?: Json[]; items?: Json[] };
-
-    if (Array.isArray(anyPayload.data) || Array.isArray(anyPayload.items)) {
-      return anyPayload;
-    }
-
-    // Fallback: return an empty list-shaped object to avoid runtime crashes
-    return { data: [] };
+    const response = await httpClient.get<Json>("/projects?limit=50");
+    return response.data;
   } catch (err) {
-    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
-      handleAuthErrorStatus(err.status);
-    }
     throw toFinanzasError(err, "Unable to load projects");
-  }
-}
-
-export async function createProject(
-  payload: CreateProjectPayload,
-): Promise<CreateProjectResponse> {
-  ensureApiBase();
-
-  const base = requireApiBase();
-  const body = {
-    nombre: payload.name,
-    codigo: payload.code,
-    cliente: payload.client,
-    fecha_inicio: payload.start_date,
-    fecha_fin: payload.end_date,
-    moneda: payload.currency,
-    presupuesto_total: payload.mod_total,
-    descripcion: payload.description,
-  };
-
-  try {
-    const response = await fetchJson<Record<string, unknown>>(`${base}/projects`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...buildAuthHeader() },
-      body: JSON.stringify(body),
-    });
-
-    const derivedId =
-      String(
-        response.id ||
-          response.project_id ||
-          response.projectId ||
-          response.pk ||
-          "",
-      ).trim() || payload.code;
-
-    return {
-      id: derivedId,
-      nombre:
-        (response.nombre as string | undefined | null) ||
-        (response.name as string | undefined | null) ||
-        payload.name,
-      cliente:
-        (response.cliente as string | undefined | null) ||
-        (response.client as string | undefined | null) ||
-        payload.client,
-      created_at: (response.created_at as string | undefined | null) ?? null,
-    };
-  } catch (err) {
-    throw toFinanzasError(err, "Unable to create project", (err as any)?.status);
   }
 }
 
@@ -521,81 +391,48 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
   ensureApiBase();
   if (!projectId) throw new FinanzasApiError("projectId is required");
 
-  const normalizeInvoice = (item: any): InvoiceDoc => ({
-    id: item.invoiceId || item.id || item.sk || "",
-    line_item_id: item.lineItemId || item.line_item_id || "",
-    month: Number(item.month) || 1,
-    amount: Number(item.amount) || 0,
-    currency: (item.currency as InvoiceDoc["currency"]) || "USD",
-    file_url: item.file_url,
-    file_name: item.file_name,
-    documentKey: item.documentKey,
-    originalName: item.originalName || item.file_name,
-    contentType: item.contentType,
-    status: (item.status as InvoiceStatus) || "Pending",
-    comments: item.comments,
-    uploaded_by: item.uploaded_by || item.uploader || "unknown",
-    uploaded_at: item.created_at || item.uploaded_at || new Date().toISOString(),
-    matched_at: item.matched_at,
-    matched_by: item.matched_by,
-  });
-
-  const toArray = (payload: unknown): any[] => {
-    if (Array.isArray(payload)) return payload;
-    if (payload && typeof payload === "object") {
-      const data = (payload as any).data;
-      if (Array.isArray(data)) return data;
-    }
-    return [];
-  };
-
   try {
-    const primary = await httpClient.get<{ data?: any[] } | any[]>(
-      `/projects/${encodeURIComponent(projectId)}/invoices`,
+    const params = new URLSearchParams({ projectId });
+    const response = await httpClient.get<{ data?: any[] }>(
+      `/prefacturas?${params.toString()}`,
       { headers: buildAuthHeader() },
     );
 
-    return toArray(primary.data).map(normalizeInvoice);
+    const rows = Array.isArray(response?.data) ? response.data : [];
+    return rows.map((item) => ({
+      id: item.invoiceId || item.id || item.sk || "",
+      line_item_id: item.lineItemId || item.line_item_id || "",
+      month: Number(item.month) || 1,
+      amount: Number(item.amount) || 0,
+      currency: (item.currency as InvoiceDoc["currency"]) || "USD",
+      file_url: item.file_url,
+      file_name: item.file_name,
+      documentKey: item.documentKey,
+      originalName: item.originalName || item.file_name,
+      contentType: item.contentType,
+      status: (item.status as InvoiceStatus) || "Pending",
+      comments: item.comments,
+      uploaded_by: item.uploaded_by || item.uploader || "unknown",
+      uploaded_at:
+        item.created_at || item.uploaded_at || new Date().toISOString(),
+      matched_at: item.matched_at,
+      matched_by: item.matched_by,
+    }));
   } catch (err) {
     if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
       handleAuthErrorStatus(err.status);
     }
 
-    const isNotFound = err instanceof HttpError && (err.status === 404 || err.status === 405);
-    if (!isNotFound) {
-      if (err instanceof HttpError) {
-        if (err.status === 403) {
-          throw new FinanzasApiError(
-            "Access to invoices is restricted for this project.",
-            403,
-          );
-        }
-      }
-    }
-
-    try {
-      const params = new URLSearchParams({ projectId });
-      const fallback = await httpClient.get<{ data?: any[] } | any[]>(
-        `/prefacturas?${params.toString()}`,
-        { headers: buildAuthHeader() },
-      );
-
-      return toArray(fallback.data).map(normalizeInvoice);
-    } catch (fallbackErr) {
-      if (
-        fallbackErr instanceof HttpError &&
-        (fallbackErr.status === 401 || fallbackErr.status === 403)
-      ) {
-        handleAuthErrorStatus(fallbackErr.status);
-      }
-      if (
-        fallbackErr instanceof HttpError &&
-        (fallbackErr.status === 404 || fallbackErr.status === 405)
-      ) {
+    if (err instanceof HttpError) {
+      if (err.status === 404) {
         return [];
       }
-
-      throw toFinanzasError(fallbackErr, "Unable to load invoices");
+      if (err.status === 403) {
+        throw new FinanzasApiError(
+          "Access to invoices is restricted for this project.",
+          403,
+        );
+      }
     }
 
     throw toFinanzasError(err, "Unable to load invoices");
