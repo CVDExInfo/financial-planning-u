@@ -83,6 +83,11 @@ describe("projects handler POST", () => {
     expect(body.mod_total).toBeCloseTo(125000.5);
     expect(body.codigo || body.code).toBe(payload.code);
     expect(mockDdbSend).toHaveBeenCalledTimes(2);
+    const firstCall = mockDdbSend.mock.calls[0]?.[0];
+    const secondCall = mockDdbSend.mock.calls[1]?.[0];
+
+    expect(firstCall?.input?.TableName).toBe("test-projects");
+    expect(secondCall?.input?.TableName).toBe("test-audit_log");
   });
 
   it("returns a 422 with validation details for invalid payloads instead of a 500", async () => {
@@ -107,5 +112,32 @@ describe("projects handler POST", () => {
     const parsed = JSON.parse(response.body);
     expect(parsed.error).toMatch(/end_date|mod_total|code/i);
     expect(mockDdbSend).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 when DynamoDB rejects the write (e.g., IAM/AccessDenied)", async () => {
+    mockDdbSend.mockRejectedValueOnce(Object.assign(new Error("AccessDenied"), {
+      name: "AccessDeniedException",
+    }));
+
+    const payload = {
+      name: "Proyecto Demo",
+      code: "PROJ-2025-001",
+      client: "Cliente Uno",
+      start_date: "2025-01-15",
+      end_date: "2025-06-30",
+      currency: "USD",
+      mod_total: "125000.50",
+      description: "Proyecto de prueba",
+    };
+
+    const response = await handler({
+      ...baseEvent,
+      body: JSON.stringify(payload),
+    });
+
+    expect(response.statusCode).toBe(500);
+    const parsed = JSON.parse(response.body);
+    expect(parsed.error).toMatch(/internal server error/i);
+    expect(mockDdbSend).toHaveBeenCalledTimes(1);
   });
 });
