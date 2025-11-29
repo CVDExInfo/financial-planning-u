@@ -373,43 +373,8 @@ export class ApiService {
     project_id: string,
     period_months?: number
   ): Promise<ForecastCell[]> {
-    await this.delay(300);
-    logger.debug("Getting forecast data for project_id:", project_id);
-
-    try {
-      // Try API first
-      const params = new URLSearchParams({ projectId: project_id });
-      if (period_months) {
-        params.set("months", String(period_months));
-      }
-
-      const response = await fetch(buildApiUrl(`/plan/forecast?${params}`), {
-        method: "GET",
-        headers: buildHeaders(),
-      });
-
-      if (response.ok) {
-        const raw = await response.json();
-        const data = Array.isArray(raw?.data) ? raw.data : raw;
-        logger.info(
-          "Forecast data loaded from API:",
-          Array.isArray(data) ? data.length : 0,
-          "records"
-        );
-        return Array.isArray(data) ? data : [];
-      }
-
-      // If API fails, log error and return empty array
-      logger.warn(
-        "API call failed (status:",
-        response.status,
-        "), returning empty forecast data"
-      );
-      return [];
-    } catch (error) {
-      logger.error("API fetch failed:", error);
-      return [];
-    }
+    const payload = await this.fetchForecastPayload(project_id, period_months);
+    return payload.data;
   }
 
   static async updateForecast(
@@ -442,16 +407,16 @@ export class ApiService {
     await this.delay(250);
     logger.debug("Getting invoices for project_id:", project_id);
 
-    try {
-      const toArray = (payload: unknown): any[] => {
-        if (Array.isArray(payload)) return payload;
-        if (payload && typeof payload === "object" && Array.isArray((payload as any).data)) {
-          return (payload as any).data as any[];
-        }
-        return [];
-      };
+    const parseInvoices = (payload: any): any[] => {
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray(payload.data)) return payload.data;
+      if (payload && Array.isArray(payload.items)) return payload.items;
+      if (payload?.data && Array.isArray(payload.data.items)) return payload.data.items;
+      if (payload?.data && Array.isArray(payload.data.data)) return payload.data.data;
+      return [];
+    };
 
-      // Primary: new invoices collection route
+    try {
       const primary = await fetch(
         buildApiUrl(`/projects/${project_id}/invoices`),
         {
@@ -462,22 +427,25 @@ export class ApiService {
 
       if (primary.ok) {
         const raw = await primary.json();
-        const data = toArray(raw);
-        logger.info("Invoices loaded from API:", data.length, "records");
-        return data as InvoiceDoc[];
-      }
-
-      const shouldFallback = [404, 405].includes(primary.status);
-      if (!shouldFallback) {
-        logger.warn(
-          "API call failed (status:",
-          primary.status,
-          ") on /projects/{id}/invoices",
+        const data = parseInvoices(raw);
+        logger.info(
+          "Invoices loaded from API:",
+          Array.isArray(data) ? data.length : 0,
+          "records"
         );
+        return Array.isArray(data) ? data : [];
       }
 
-      // Fallback: legacy prefacturas endpoint
-      const fallback = await fetch(
+      if (primary.status !== 404 && primary.status !== 405) {
+        logger.warn("Invoices API call failed:", primary.status, primary.statusText);
+      }
+    } catch (error) {
+      logger.error("Primary invoices API call failed:", error);
+    }
+
+    // Legacy fallback to /prefacturas for environments that haven't deployed the new route
+    try {
+      const legacy = await fetch(
         buildApiUrl(`/prefacturas?projectId=${project_id}`),
         {
           method: "GET",
@@ -485,21 +453,25 @@ export class ApiService {
         }
       );
 
-      if (fallback.ok) {
-        const raw = await fallback.json();
-        const data = toArray(raw);
-        logger.info("Invoices loaded from legacy API:", data.length, "records");
-        return data as InvoiceDoc[];
+      if (!legacy.ok) {
+        logger.warn(
+          "Legacy invoices API call failed (status:",
+          legacy.status,
+          "), returning empty invoices"
+        );
+        return [];
       }
 
-      logger.warn(
-        "API call failed (status:",
-        fallback.status,
-        ") returning empty invoices"
+      const raw = await legacy.json();
+      const data = parseInvoices(raw);
+      logger.info(
+        "Invoices loaded from legacy API:",
+        Array.isArray(data) ? data.length : 0,
+        "records"
       );
-      return [];
+      return Array.isArray(data) ? data : [];
     } catch (error) {
-      logger.error("API fetch failed:", error);
+      logger.error("Legacy invoices API fetch failed:", error);
       return [];
     }
   }
@@ -527,6 +499,7 @@ export class ApiService {
   }
 
   static async updateInvoiceStatus(
+    project_id: string,
     invoice_id: string,
     status: "Pending" | "Matched" | "Disputed",
     comment?: string
@@ -535,7 +508,7 @@ export class ApiService {
 
     try {
       const response = await fetch(
-        buildApiUrl(`/invoices/${invoice_id}/status`),
+        buildApiUrl(`/projects/${project_id}/invoices/${invoice_id}/status`),
         {
           method: "PUT",
           headers: buildHeaders(),
@@ -741,36 +714,107 @@ export class ApiService {
 
   // Changes
   static async getChangeRequests(project_id: string): Promise<ChangeRequest[]> {
-    await this.delay(200);
-    return [
-      {
-        id: "CHG-2024-001",
-        baseline_id: "BL-2024-001",
-        title: "Additional Senior Developer",
-        description:
-          "Add one additional senior developer for Q2 to meet accelerated timeline",
-        impact_amount: 25500,
-        currency: "USD",
-        affected_line_items: ["LI-001"],
-        justification: "Client requested delivery acceleration by 4 weeks",
-        requested_by: "project-manager@ikusi.com",
-        requested_at: "2024-02-15T11:00:00Z",
-        status: "pending",
-        approvals: [],
-      },
-    ];
+    const url = buildApiUrl(`/projects/${project_id}/changes`);
+
+    const parseChanges = (payload: unknown): unknown[] => {
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray((payload as any).data)) return (payload as any).data;
+      if (payload && Array.isArray((payload as any).items)) return (payload as any).items;
+      if (payload && Array.isArray((payload as any).data?.items))
+        return (payload as any).data.items;
+      if (payload && Array.isArray((payload as any).data?.data))
+        return (payload as any).data.data;
+      return [];
+    };
+
+    const normalizeChange = (item: any): ChangeRequest => {
+      const affectedLineItems = Array.isArray(item?.affected_line_items)
+        ? item.affected_line_items
+        : Array.isArray(item?.affectedLineItems)
+          ? item.affectedLineItems
+          : [];
+
+      return {
+        id: item?.id || item?.changeId || (item?.sk || "").replace(/^CHANGE#/, ""),
+        baseline_id: item?.baseline_id || item?.baselineId || "",
+        title: item?.title || "",
+        description: item?.description || "",
+        impact_amount: Number(item?.impact_amount ?? item?.impactAmount ?? 0),
+        currency: item?.currency || "USD",
+        affected_line_items: affectedLineItems,
+        justification:
+          item?.justification || item?.businessJustification || item?.reason || "",
+        requested_by: item?.requested_by || item?.requestedBy || item?.created_by || "",
+        requested_at:
+          item?.requested_at || item?.requestedAt || item?.created_at || new Date().toISOString(),
+        status: (item?.status as ChangeRequest["status"]) || "pending",
+        approvals: Array.isArray(item?.approvals) ? item.approvals : [],
+      };
+    };
+
+    const response = await fetch(url, { method: "GET", headers: buildHeaders() });
+    if (!response.ok) {
+      await handleApiError(response);
+    }
+
+    const rawText = await response.text();
+    let payload: unknown = [];
+    try {
+      payload = rawText ? JSON.parse(rawText) : [];
+    } catch (error) {
+      logger.error("Failed to parse change requests payload", error);
+      return [];
+    }
+
+    return parseChanges(payload).map((item) => normalizeChange(item));
   }
 
   static async createChangeRequest(
-    change: Omit<ChangeRequest, "id" | "requested_at" | "status" | "approvals">
+    project_id: string,
+    change: Omit<ChangeRequest, "id" | "requested_at" | "status" | "approvals">,
   ): Promise<ChangeRequest> {
-    await this.delay(300);
+    const url = buildApiUrl(`/projects/${project_id}/changes`);
+    const body = {
+      baseline_id: change.baseline_id,
+      title: change.title,
+      description: change.description,
+      impact_amount: change.impact_amount,
+      currency: change.currency || "USD",
+      justification: change.justification,
+      affected_line_items: change.affected_line_items,
+    };
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: buildHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      await handleApiError(response);
+    }
+
+    const payload = await response.json();
     return {
-      id: `CHG-${Date.now()}`,
-      requested_at: new Date().toISOString(),
-      status: "pending",
-      approvals: [],
-      ...change,
+      id: payload.id || payload.changeId,
+      baseline_id: payload.baseline_id || payload.baselineId || "",
+      title: payload.title || "",
+      description: payload.description || "",
+      impact_amount: Number(payload.impact_amount ?? payload.impactAmount ?? 0),
+      currency: payload.currency || "USD",
+      affected_line_items: Array.isArray(payload.affected_line_items)
+        ? payload.affected_line_items
+        : Array.isArray(payload.affectedLineItems)
+          ? payload.affectedLineItems
+          : [],
+      justification:
+        payload.justification || payload.businessJustification || payload.reason || "",
+      requested_by:
+        payload.requested_by || payload.requestedBy || payload.created_by || "",
+      requested_at:
+        payload.requested_at || payload.requestedAt || payload.created_at || new Date().toISOString(),
+      status: (payload.status as ChangeRequest["status"]) || "pending",
+      approvals: Array.isArray(payload.approvals) ? payload.approvals : [],
     };
   }
 
