@@ -57,13 +57,19 @@ export class ApiService {
   ): Promise<T> {
     const method = (init.method || "GET").toUpperCase();
     const headers = this.buildRequestHeaders(init.headers);
-    const response = await fetch(buildApiUrl(endpoint), { ...init, headers });
+    const url =
+      endpoint.startsWith("http://") || endpoint.startsWith("https://")
+        ? endpoint
+        : buildApiUrl(endpoint);
+
+    const response = await fetch(url, { ...init, headers });
     const bodyText = await response.text();
 
     if (import.meta.env.DEV) {
       logger.debug("[Finanzas] API response", {
         method,
         endpoint,
+        url,
         status: response.status,
         ok: response.ok,
         hasBody: !!bodyText,
@@ -773,7 +779,7 @@ export class ApiService {
 
   // Changes
   static async getChangeRequests(project_id: string): Promise<ChangeRequest[]> {
-    const url = buildApiUrl(`/projects/${project_id}/changes`);
+    const endpoint = `/projects/${project_id}/changes`;
 
     const parseChanges = (payload: unknown): unknown[] => {
       if (Array.isArray(payload)) return payload;
@@ -811,7 +817,7 @@ export class ApiService {
       };
     };
 
-    const payload = await this.request(url);
+    const payload = await this.request(endpoint);
 
     return parseChanges(payload).map((item) => normalizeChange(item));
   }
@@ -820,7 +826,7 @@ export class ApiService {
     project_id: string,
     change: Omit<ChangeRequest, "id" | "requested_at" | "status" | "approvals">,
   ): Promise<ChangeRequest> {
-    const url = buildApiUrl(`/projects/${project_id}/changes`);
+    const endpoint = `/projects/${project_id}/changes`;
     const body = {
       baseline_id: change.baseline_id,
       title: change.title,
@@ -831,7 +837,7 @@ export class ApiService {
       affected_line_items: change.affected_line_items,
     };
 
-    const payload = await this.request(url, {
+    const payload = await this.request(endpoint, {
       method: "POST",
       headers: this.buildRequestHeaders(),
       body: JSON.stringify(body),
