@@ -57,6 +57,8 @@ const baseEvent = (overrides: Partial<APIGatewayProxyEventV2> = {}) => ({
 describe("rubros handler", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Reset ddb.send to return a default empty response
+    dynamo.ddb.send.mockResolvedValue({});
   });
 
   it("returns attached project rubros with catalog metadata", async () => {
@@ -125,6 +127,67 @@ describe("rubros handler", () => {
     expect(response.statusCode).toBe(200);
     const payload = JSON.parse(response.body as string);
     expect(payload.data).toEqual([]);
+  });
+
+  it("chunks BatchGetCommand when more than 100 rubros attached", async () => {
+    // Reset mocks specifically for this test
+    dynamo.ddb.send.mockReset();
+    dynamo.BatchGetCommand.mockReset();
+    
+    // Create 101 test rubros (just over the 100 limit)
+    const attachments = Array.from({ length: 101 }, (_, i) => ({
+      projectId: "PROJ-1",
+      rubroId: `R-${i}`,
+      sk: `RUBRO#R-${i}`,
+      tier: "gold",
+      category: "Ops",
+    }));
+
+    // Mock responses in order: QueryCommand, then two BatchGetCommands
+    const firstBatch = Array.from({ length: 100 }, (_, i) => ({
+      codigo: `R-${i}`,
+      nombre: `Rubro ${i}`,
+      tipo_costo: "RECURRENT",
+    }));
+    const secondBatch = [{
+      codigo: `R-100`,
+      nombre: `Rubro 100`,
+      tipo_costo: "RECURRENT",
+    }];
+
+    // Set up mock to handle multiple calls
+    dynamo.ddb.send.mockImplementation(async (command) => {
+      const tableKey = dynamo.tableName('rubros');
+      if (command.input && command.input.KeyConditionExpression) {
+        return { Items: attachments };
+      }
+      if (command.input && command.input.RequestItems) {
+        const keys = command.input.RequestItems[tableKey].Keys;
+        if (keys.length === 100) {
+          return { Responses: { [tableKey]: firstBatch } };
+        } else {
+          return { Responses: { [tableKey]: secondBatch } };
+        }
+      }
+      return {};
+    });
+    
+    dynamo.BatchGetCommand.mockImplementation((input) => ({ input }));
+
+    const response = await rubrosHandler(baseEvent());
+    expect(response.statusCode).toBe(200);
+
+    const payload = JSON.parse(response.body as string);
+    expect(payload.data).toHaveLength(101);
+    expect(payload.total).toBe(101);
+
+    // Verify BatchGetCommand was called twice with correct chunk sizes
+    expect(dynamo.BatchGetCommand).toHaveBeenCalledTimes(2);
+    const firstCall = dynamo.BatchGetCommand.mock.calls[0][0];
+    const secondCall = dynamo.BatchGetCommand.mock.calls[1][0];
+
+    expect(firstCall.RequestItems["rubros-table"].Keys).toHaveLength(100);
+    expect(secondCall.RequestItems["rubros-table"].Keys).toHaveLength(1);
   });
 });
 
