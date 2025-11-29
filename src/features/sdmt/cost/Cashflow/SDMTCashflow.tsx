@@ -9,12 +9,15 @@ import ModuleBadge from '@/components/ModuleBadge';
 import { useProject } from '@/contexts/ProjectContext';
 import ApiService from '@/lib/api';
 import usePermissions from '@/hooks/usePermissions';
+import { handleFinanzasApiError } from '@/features/sdmt/cost/utils/errorHandling';
+import { useAuth } from "@/hooks/useAuth";
 
 export function SDMTCashflow() {
   const { hasPremiumFinanzasFeatures } = usePermissions();
   const { selectedProjectId, currentProject, selectedPeriod, projectChangeCount } = useProject();
   const [cashflowData, setCashflowData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { login } = useAuth();
 
   // Load data when project changes
   useEffect(() => {
@@ -50,18 +53,11 @@ export function SDMTCashflow() {
       setCashflowData(transformedData);
       console.log('✅ Cashflow data loaded for project:', selectedProjectId);
     } catch (error) {
-      console.error('Failed to load cashflow data:', error);
-      // Fallback to mock data if API fails
-      const fallbackData = Array.from({ length: 12 }, (_, i) => ({
-        month: i + 1,
-        Inflows: 100000 + Math.random() * 20000,
-        Outflows: 85000 + Math.random() * 15000,
-        'Net Flow': 0
-      })).map(item => ({
-        ...item,
-        'Net Flow': item.Inflows - item.Outflows
-      }));
-      setCashflowData(fallbackData);
+      handleFinanzasApiError(error, {
+        onAuthError: () => login(),
+        fallback: 'No pudimos cargar el flujo de caja.',
+      });
+      setCashflowData([]);
     } finally {
       setLoading(false);
     }
