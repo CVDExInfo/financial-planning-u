@@ -81,23 +81,29 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
       sk: "METADATA",
     }));
 
-    const batch = await ddb.send(
-      new BatchGetCommand({
-        RequestItems: {
-          [tableName("rubros")]: {
-            Keys: keys,
+    // DynamoDB BatchGetItem is limited to 100 keys per call, so chunk the keys
+    const chunkSize = 100;
+    for (let i = 0; i < keys.length; i += chunkSize) {
+      const chunk = keys.slice(i, i + chunkSize);
+
+      const batch = await ddb.send(
+        new BatchGetCommand({
+          RequestItems: {
+            [tableName("rubros")]: {
+              Keys: chunk,
+            },
           },
-        },
-      })
-    );
+        })
+      );
 
-    const responses =
-      (batch.Responses?.[tableName("rubros")] as RubroDefinition[]) || [];
+      const responses =
+        (batch.Responses?.[tableName("rubros")] as RubroDefinition[]) || [];
 
-    for (const def of responses) {
-      const id = def.rubro_id || def.codigo || "";
-      if (!id) continue;
-      rubroDefinitions[id] = { ...def, rubro_id: def.rubro_id ?? def.codigo };
+      for (const def of responses) {
+        const id = def.rubro_id || def.codigo || "";
+        if (!id) continue;
+        rubroDefinitions[id] = { ...def, rubro_id: def.rubro_id ?? def.codigo };
+      }
     }
   }
 
