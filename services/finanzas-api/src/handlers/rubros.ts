@@ -7,8 +7,46 @@ import {
   QueryCommand,
   DeleteCommand,
   GetCommand,
+  BatchGetCommand,
 } from "../lib/dynamo";
 import { ok, bad, notFound, serverError, fromAuthError } from "../lib/http";
+
+type ProjectRubroAttachment = {
+  projectId?: string;
+  rubroId?: string;
+  tier?: string;
+  category?: string;
+  metadata?: unknown;
+  createdAt?: string;
+  createdBy?: string;
+  sk?: string;
+};
+
+type RubroResponse = {
+  id: string;
+  rubro_id: string;
+  nombre: string;
+  linea_codigo?: string;
+  tipo_costo?: string;
+  project_id: string;
+  tier?: string;
+  category?: string;
+  metadata?: unknown;
+};
+
+type RubroDefinition = {
+  rubro_id?: string;
+  codigo?: string;
+  nombre?: string;
+  linea_codigo?: string | null;
+  tipo_costo?: string | null;
+};
+
+const toRubroId = (item: ProjectRubroAttachment): string => {
+  if (item.rubroId) return String(item.rubroId);
+  if (item.sk && item.sk.startsWith("RUBRO#")) return item.sk.replace("RUBRO#", "");
+  return "";
+};
 
 // Route: GET /projects/{projectId}/rubros
 async function listProjectRubros(event: APIGatewayProxyEventV2) {
@@ -30,17 +68,63 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
     })
   );
 
-  const rubros = (result.Items || []).map((item) => ({
-    projectId: item.projectId,
-    rubroId: item.rubroId,
-    tier: item.tier,
-    category: item.category,
-    metadata: item.metadata,
-    createdAt: item.createdAt,
-    createdBy: item.createdBy,
-  }));
+  const attachments = (result.Items || []) as ProjectRubroAttachment[];
+  const rubroIds = Array.from(
+    new Set(attachments.map((item) => toRubroId(item)).filter(Boolean)),
+  );
 
-  return ok({ data: rubros, total: rubros.length });
+  const rubroDefinitions: Record<string, RubroDefinition> = {};
+
+  if (rubroIds.length > 0) {
+    const keys = rubroIds.map((id) => ({
+      pk: `RUBRO#${id}`,
+      sk: "METADATA",
+    }));
+
+    const batch = await ddb.send(
+      new BatchGetCommand({
+        RequestItems: {
+          [tableName("rubros")]: {
+            Keys: keys,
+          },
+        },
+      })
+    );
+
+    const responses =
+      (batch.Responses?.[tableName("rubros")] as RubroDefinition[]) || [];
+
+    for (const def of responses) {
+      const id = def.rubro_id || def.codigo || "";
+      if (!id) continue;
+      rubroDefinitions[id] = { ...def, rubro_id: def.rubro_id ?? def.codigo };
+    }
+  }
+
+  const rubros = attachments
+    .map<RubroResponse | null>((item) => {
+      const rubroId = toRubroId(item);
+      if (!rubroId) return null;
+      const definition = rubroDefinitions[rubroId] || {};
+
+      const normalizedId =
+        definition.rubro_id || definition.codigo || rubroId || item.rubroId;
+      return {
+        id: normalizedId,
+        rubro_id: normalizedId,
+        nombre: definition.nombre || item.category || rubroId,
+        linea_codigo:
+          definition.linea_codigo || definition.codigo || undefined,
+        tipo_costo: definition.tipo_costo || undefined,
+        project_id: projectId,
+        tier: item.tier,
+        category: item.category,
+        metadata: item.metadata,
+      };
+    })
+    .filter((rubro): rubro is RubroResponse => Boolean(rubro));
+
+  return ok({ data: rubros, total: rubros.length, project_id: projectId });
 }
 
 // Route: POST /projects/{projectId}/rubros

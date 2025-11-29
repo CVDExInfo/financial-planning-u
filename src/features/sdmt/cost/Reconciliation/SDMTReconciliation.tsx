@@ -121,7 +121,7 @@ export default function SDMTReconciliation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentProject, projectChangeCount } = useProject();
-  const { canUploadInvoices } = usePermissions();
+  const { canUploadInvoices, canApprove } = usePermissions();
 
   // Server data
   const {
@@ -173,8 +173,21 @@ export default function SDMTReconciliation() {
   const safeInvoices = Array.isArray(invoices) ? invoices : [];
   const safeLineItems = Array.isArray(lineItems) ? lineItems : [];
 
+  const lineItemDropdownMessage = (() => {
+    if (lineItemsErrorInfo?.status === 401)
+      return "Sesión expirada, por favor vuelve a iniciar sesión.";
+    if (lineItemsErrorInfo?.status === 403)
+      return "No tienes permiso para ver rubros de este proyecto.";
+    if (!lineItemsLoading && safeLineItems.length === 0)
+      return "Este proyecto aún no tiene rubros configurados.";
+    return null;
+  })();
+  const canUpdateStatus = canApprove;
+
   const uiErrorMessage = (() => {
     if (allowMockData) return null;
+    if (invoicesErrorInfo?.status === 401 || lineItemsErrorInfo?.status === 401)
+      return "Sesión expirada, por favor vuelve a iniciar sesión.";
     if (invoicesErrorInfo?.status === 403)
       return "Access to reconciliation data is restricted for this project.";
     if (lineItemsErrorInfo?.status === 403)
@@ -573,6 +586,7 @@ export default function SDMTReconciliation() {
                       line_item_id: value,
                     }))
                   }
+                  disabled={!safeLineItems.length}
                 >
                   <SelectTrigger id={lineItemSelectId} aria-label="Line item">
                     <SelectValue placeholder="Select line item" />
@@ -585,6 +599,11 @@ export default function SDMTReconciliation() {
                     ))}
                   </SelectContent>
                 </Select>
+                {lineItemDropdownMessage && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {lineItemDropdownMessage}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -830,40 +849,52 @@ export default function SDMTReconciliation() {
                       </TableCell>
 
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          {inv.status === "Pending" && (
-                            <>
+                        {canUpdateStatus ? (
+                          <div className="flex items-center gap-1">
+                            {inv.status === "Pending" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleStatusUpdate(inv.id, "Matched")
+                                  }
+                                  disabled={statusMutation.isPending}
+                                >
+                                  Match
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleStatusUpdate(
+                                      inv.id,
+                                      "Disputed",
+                                      "Requires review",
+                                    )
+                                  }
+                                  disabled={statusMutation.isPending}
+                                >
+                                  Dispute
+                                </Button>
+                              </>
+                            )}
+                            {inv.status === "Disputed" && (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleStatusUpdate(inv.id, "Matched")}
                                 disabled={statusMutation.isPending}
                               >
-                                Match
+                                Resolve
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  handleStatusUpdate(inv.id, "Disputed", "Requires review")
-                                }
-                                disabled={statusMutation.isPending}
-                              >
-                                Dispute
-                              </Button>
-                            </>
-                          )}
-                          {inv.status === "Disputed" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleStatusUpdate(inv.id, "Matched")}
-                              disabled={statusMutation.isPending}
-                            >
-                              Resolve
-                            </Button>
-                          )}
-                        </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-muted-foreground">
+                            Solo lectura
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -7,6 +7,7 @@ import {
   ScanCommand,
   UpdateCommand,
   DeleteCommand,
+  BatchGetCommand,
 } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({
@@ -68,4 +69,5 @@ export {
   ScanCommand,
   UpdateCommand,
   DeleteCommand,
+  BatchGetCommand,
 };

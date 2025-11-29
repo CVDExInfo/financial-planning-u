@@ -3,7 +3,7 @@
 
 import { API_BASE, HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
-import type { InvoiceDoc } from "@/types/domain";
+import type { Currency, InvoiceDoc, LineItem } from "@/types/domain";
 import httpClient, { HttpError } from "@/lib/http-client";
 import {
   type ProjectsResponse,
@@ -117,7 +117,18 @@ export type InvoiceDTO = {
 };
 
 export type LineItemDTO = {
-  id: string;
+  id?: string;
+  rubro_id?: string;
+  rubroId?: string;
+  sk?: string;
+  nombre?: string;
+  categoria?: string;
+  linea_codigo?: string;
+  tipo_costo?: string;
+  description?: string;
+  descripcion?: string;
+  tier?: string;
+  project_id?: string;
   [key: string]: unknown;
 };
 
@@ -371,10 +382,79 @@ export async function addProjectRubro<T = Json>(
 /* ──────────────────────────────────────────────────────────
    Catalog: fetch project rubros / line items
    Used by: src/hooks/useProjectLineItems.ts
+
+   Invoice dropdown data flow (Prefacturas/Reconciliation):
+   UI → getProjectRubros(projectId)
+      → GET /projects/{projectId}/rubros (primary)
+      → expects { data: [{ rubro_id, nombre, linea_codigo?, tipo_costo? }] }
+   Legacy fallback: GET /projects/{projectId}/catalog/rubros
    ────────────────────────────────────────────────────────── */
+const normalizeLineItem = (dto: LineItemDTO): LineItem => {
+  const rubroId =
+    (dto.id as string) ||
+    (dto.rubro_id as string) ||
+    (dto.rubroId as string) ||
+    (dto.sk as string) ||
+    "";
+
+  const id = rubroId.replace(/^RUBRO#/, "");
+  const name =
+    (dto.nombre as string) ||
+    (dto.descripcion as string) ||
+    (dto.description as string) ||
+    id ||
+    "Rubro";
+  const category =
+    (dto.linea_codigo as string) ||
+    (dto.categoria as string) ||
+    (dto.category as string) ||
+    "Rubro";
+
+  const qty = Number(dto.qty ?? dto.quantity ?? 1) || 1;
+  const unit_cost = Number(dto.unit_cost ?? dto.amount ?? dto.monto ?? 0) || 0;
+
+  return {
+    id,
+    category,
+    subtype: (dto.tipo_costo as string) || undefined,
+    vendor: (dto.vendor as string) || undefined,
+    description: name,
+    one_time: Boolean(dto.one_time ?? false),
+    recurring: dto.recurring !== false,
+    qty,
+    unit_cost,
+    currency: (dto.currency as Currency) || "USD",
+    fx_pair: dto.fx_pair as any,
+    fx_rate_at_booking: dto.fx_rate_at_booking
+      ? Number(dto.fx_rate_at_booking)
+      : undefined,
+    start_month: Number(dto.start_month ?? 1) || 1,
+    end_month: Number(dto.end_month ?? 12) || 12,
+    amortization: (dto.amortization as any) || "none",
+    capex_flag: Boolean(dto.capex_flag),
+    cost_center: dto.cost_center as string | undefined,
+    gl_code: dto.gl_code as string | undefined,
+    tax_pct: dto.tax_pct ? Number(dto.tax_pct) : undefined,
+    indexation_policy: (dto.indexation_policy as any) || "none",
+    attachments: Array.isArray(dto.attachments) ? (dto.attachments as string[]) : [],
+    notes: (dto.notes as string) || undefined,
+    created_at: (dto.created_at as string) || new Date().toISOString(),
+    updated_at: (dto.updated_at as string) || new Date().toISOString(),
+    created_by: (dto.created_by as string) || "finanzas-api",
+    service_tier: dto.tier as string | undefined,
+    service_type: dto.service_type as string | undefined,
+    sla_uptime: dto.sla_uptime as string | undefined,
+    deliverable: dto.deliverable as string | undefined,
+    max_participants: dto.max_participants
+      ? Number(dto.max_participants)
+      : undefined,
+    duration_days: dto.duration_days ? Number(dto.duration_days) : undefined,
+  } satisfies LineItem;
+};
+
 export async function getProjectRubros(
   projectId: string,
-): Promise<LineItemDTO[]> {
+): Promise<LineItem[]> {
   if (USE_MOCKS) {
     throw new Error("getProjectRubros is disabled when VITE_USE_MOCKS=true");
   }
@@ -407,10 +487,26 @@ export async function getProjectRubros(
       ? (res.data as any).data
       : [];
 
-    return payload as LineItemDTO[];
+    return payload.map(normalizeLineItem).filter((item) => !!item.id);
   } catch (err) {
     if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
-      handleAuthErrorStatus(err.status);
+      try {
+        handleAuthErrorStatus(err.status);
+      } catch (authErr) {
+        throw new FinanzasApiError(
+          authErr instanceof Error
+            ? authErr.message
+            : "Sesión expirada, por favor vuelve a iniciar sesión.",
+          err.status,
+        );
+      }
+
+      throw new FinanzasApiError(
+        err.status === 401
+          ? "Sesión expirada, por favor vuelve a iniciar sesión."
+          : "No tienes permiso para ver rubros de este proyecto.",
+        err.status,
+      );
     }
     if (err instanceof HttpError && (err.status === 404 || err.status === 405)) {
       return [];
