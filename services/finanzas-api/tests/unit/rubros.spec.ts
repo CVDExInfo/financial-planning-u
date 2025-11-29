@@ -76,9 +76,8 @@ describe("rubros handler", () => {
         Responses: {
           "rubros-table": [
             {
-              rubro_id: "R-100",
+              codigo: "R-100",
               nombre: "Infraestructura",
-              linea_codigo: "OPS",
               tipo_costo: "RECURRENT",
             },
           ],
@@ -95,7 +94,7 @@ describe("rubros handler", () => {
         id: "R-100",
         rubro_id: "R-100",
         nombre: "Infraestructura",
-        linea_codigo: "OPS",
+        linea_codigo: "R-100",
         tipo_costo: "RECURRENT",
       }),
     ]);
@@ -106,7 +105,7 @@ describe("rubros handler", () => {
     expect(dynamo.BatchGetCommand).toHaveBeenCalledWith(
       expect.objectContaining({
         RequestItems: expect.objectContaining({
-          "rubros-table": expect.objectContaining({ Keys: [{ pk: "RUBRO#R-100", sk: "DEF#R-100" }] }),
+          "rubros-table": expect.objectContaining({ Keys: [{ pk: "RUBRO#R-100", sk: "METADATA" }] }),
         }),
       }),
     );
@@ -115,6 +114,17 @@ describe("rubros handler", () => {
   it("validates project id", async () => {
     const response = await rubrosHandler(baseEvent({ pathParameters: {} }));
     expect(response.statusCode).toBe(400);
+  });
+
+  it("filters attachments without a rubro id", async () => {
+    dynamo.ddb.send
+      .mockResolvedValueOnce({ Items: [{ projectId: "PROJ-1", sk: "RUBRO#" }] })
+      .mockResolvedValueOnce({ Responses: { "rubros-table": [] } });
+
+    const response = await rubrosHandler(baseEvent());
+    expect(response.statusCode).toBe(200);
+    const payload = JSON.parse(response.body as string);
+    expect(payload.data).toEqual([]);
   });
 });
 

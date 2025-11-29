@@ -22,8 +22,21 @@ type ProjectRubroAttachment = {
   sk?: string;
 };
 
+type RubroResponse = {
+  id: string;
+  rubro_id: string;
+  nombre: string;
+  linea_codigo?: string;
+  tipo_costo?: string;
+  project_id: string;
+  tier?: string;
+  category?: string;
+  metadata?: unknown;
+};
+
 type RubroDefinition = {
   rubro_id?: string;
+  codigo?: string;
   nombre?: string;
   linea_codigo?: string | null;
   tipo_costo?: string | null;
@@ -65,7 +78,7 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
   if (rubroIds.length > 0) {
     const keys = rubroIds.map((id) => ({
       pk: `RUBRO#${id}`,
-      sk: `DEF#${id}`,
+      sk: "METADATA",
     }));
 
     const batch = await ddb.send(
@@ -82,28 +95,34 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
       (batch.Responses?.[tableName("rubros")] as RubroDefinition[]) || [];
 
     for (const def of responses) {
-      const id = def.rubro_id || "";
+      const id = def.rubro_id || def.codigo || "";
       if (!id) continue;
-      rubroDefinitions[id] = def;
+      rubroDefinitions[id] = { ...def, rubro_id: def.rubro_id ?? def.codigo };
     }
   }
 
-  const rubros = attachments.map((item) => {
-    const rubroId = toRubroId(item);
-    const definition = rubroDefinitions[rubroId] || {};
+  const rubros = attachments
+    .map<RubroResponse | null>((item) => {
+      const rubroId = toRubroId(item);
+      if (!rubroId) return null;
+      const definition = rubroDefinitions[rubroId] || {};
 
-    return {
-      id: rubroId,
-      rubro_id: rubroId,
-      nombre: definition.nombre || item.category || rubroId,
-      linea_codigo: definition.linea_codigo || undefined,
-      tipo_costo: definition.tipo_costo || undefined,
-      project_id: projectId,
-      tier: item.tier,
-      category: item.category,
-      metadata: item.metadata,
-    };
-  });
+      const normalizedId =
+        definition.rubro_id || definition.codigo || rubroId || item.rubroId;
+      return {
+        id: normalizedId,
+        rubro_id: normalizedId,
+        nombre: definition.nombre || item.category || rubroId,
+        linea_codigo:
+          definition.linea_codigo || definition.codigo || undefined,
+        tipo_costo: definition.tipo_costo || undefined,
+        project_id: projectId,
+        tier: item.tier,
+        category: item.category,
+        metadata: item.metadata,
+      };
+    })
+    .filter((rubro): rubro is RubroResponse => Boolean(rubro));
 
   return ok({ data: rubros, total: rubros.length, project_id: projectId });
 }
