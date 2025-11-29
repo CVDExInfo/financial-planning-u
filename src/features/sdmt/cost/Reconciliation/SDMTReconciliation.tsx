@@ -92,12 +92,21 @@ const formatMatrixLabel = (
   month?: number,
   fallbackId?: string
 ) => {
-  const category = item?.category?.trim() || "General";
-  const description = item?.description?.trim() || fallbackId || "Line item";
-  const base = `${category} — ${description}`;
+  const base = formatRubroLabel(item, fallbackId);
   return typeof month === "number" && Number.isFinite(month)
     ? `${base} (Month ${month})`
     : base;
+};
+
+const formatRubroLabel = (item?: LineItem, fallbackId?: string) => {
+  if (!item) return fallbackId || "Line item";
+  const category = item.category?.trim();
+  const subtype = item.subtype?.trim();
+  const description = item.description?.trim() || fallbackId || "Line item";
+  const categoryLabel = subtype
+    ? `${category ?? "General"} / ${subtype}`
+    : category ?? "General";
+  return `${categoryLabel} — ${description}`;
 };
 
 const formatCurrency = (amount: number) =>
@@ -172,6 +181,15 @@ export default function SDMTReconciliation() {
   // Guards & derived
   const safeInvoices = Array.isArray(invoices) ? invoices : [];
   const safeLineItems = Array.isArray(lineItems) ? lineItems : [];
+
+  const lineItemOptions = useMemo(
+    () =>
+      safeLineItems.map((item) => ({
+        value: item.id,
+        label: formatRubroLabel(item, item.id),
+      })),
+    [safeLineItems]
+  );
 
   const lineItemDropdownMessage = (() => {
     if (lineItemsErrorInfo?.status === 401)
@@ -578,29 +596,46 @@ export default function SDMTReconciliation() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor={lineItemSelectId}>Line Item *</Label>
-                <Select
-                  value={uploadFormData.line_item_id}
-                  onValueChange={(value) =>
-                    setUploadFormData((prev) => ({
-                      ...prev,
-                      line_item_id: value,
-                    }))
-                  }
-                  disabled={!safeLineItems.length}
-                >
-                  <SelectTrigger id={lineItemSelectId} aria-label="Line item">
-                    <SelectValue placeholder="Select line item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {safeLineItems.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {formatMatrixLabel(item, uploadFormData.month)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {lineItemOptions.length ? (
+                  <Select
+                    value={uploadFormData.line_item_id}
+                    onValueChange={(value) =>
+                      setUploadFormData((prev) => ({
+                        ...prev,
+                        line_item_id: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id={lineItemSelectId} aria-label="Line item">
+                      <SelectValue placeholder="Select line item" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {lineItemOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id={lineItemSelectId}
+                    placeholder="Enter line item ID"
+                    value={uploadFormData.line_item_id}
+                    onChange={(e) =>
+                      setUploadFormData((prev) => ({
+                        ...prev,
+                        line_item_id: e.target.value,
+                      }))
+                    }
+                    aria-describedby={`${lineItemSelectId}-help`}
+                  />
+                )}
                 {lineItemDropdownMessage && (
-                  <p className="text-sm text-muted-foreground mt-2">
+                  <p
+                    id={`${lineItemSelectId}-help`}
+                    className="text-sm text-muted-foreground mt-2"
+                  >
                     {lineItemDropdownMessage}
                   </p>
                 )}
