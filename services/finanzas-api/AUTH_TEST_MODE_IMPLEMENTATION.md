@@ -40,7 +40,7 @@ if (!configuredClientIds.length) {
 **Behavior:**
 
 - **In production/non-test environments**: Throws an error immediately at module load time if `COGNITO_CLIENT_ID` is missing
-- **In test environments**: Logs a warning but allows module to load
+- **In test environments**: Logs a warning but allows module to load at module load time
 
 #### 3. Verifier Configuration (Lines 63-65)
 
@@ -110,7 +110,7 @@ Including the specific tests mentioned in the requirements:
 |--------|---------------------------|-----------------|
 | Missing COGNITO_CLIENT_ID | Logs warning, continues | Throws error, stops |
 | Module Import | Always succeeds | Fails without COGNITO_CLIENT_ID |
-| Audience Validation | Relaxed (skipped if no clientIds) | Strict (required) |
+| Audience Validation | Relaxed (JWT verification proceeds without validating the audience claim when no clientIds configured) | Strict (audience claim must match configured client IDs) |
 | Error Messages | Warning logged to console | Exception thrown |
 
 ## Security Considerations
@@ -125,7 +125,7 @@ Including the specific tests mentioned in the requirements:
 | Variable | Purpose | Required In Production | Required In Tests |
 |----------|---------|----------------------|-------------------|
 | `COGNITO_CLIENT_ID` | JWT audience validation | Yes (throws if missing) | No (warns if missing) |
-| `COGNITO_USER_POOL_ID` | JWT issuer validation | Recommended (defaults to hardcoded value) | No (test default provided) |
+| `COGNITO_USER_POOL_ID` | JWT issuer validation | Recommended (defaults to `us-east-2_FyHLtOhiY`) | No (test default provided) |
 | `AWS_REGION` | Cognito region | Recommended (defaults to us-east-2) | No (test default provided) |
 | `NODE_ENV` | Environment detection | - | Set to "test" by Jest |
 | `FINZ_AUTH_ALLOW_MISSING_CLIENT_ID_FOR_TESTS` | Explicit test mode override | No | Optional (NODE_ENV=test is sufficient) |
