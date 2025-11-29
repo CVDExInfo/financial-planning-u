@@ -157,15 +157,16 @@ describe("rubros handler", () => {
 
     // Set up mock to handle multiple calls
     dynamo.ddb.send.mockImplementation(async (command) => {
+      const tableKey = dynamo.tableName('rubros');
       if (command.input && command.input.KeyConditionExpression) {
         return { Items: attachments };
       }
       if (command.input && command.input.RequestItems) {
-        const keys = command.input.RequestItems['rubros-table'].Keys;
+        const keys = command.input.RequestItems[tableKey].Keys;
         if (keys.length === 100) {
-          return { Responses: { "rubros-table": firstBatch } };
+          return { Responses: { [tableKey]: firstBatch } };
         } else {
-          return { Responses: { "rubros-table": secondBatch } };
+          return { Responses: { [tableKey]: secondBatch } };
         }
       }
       return {};
