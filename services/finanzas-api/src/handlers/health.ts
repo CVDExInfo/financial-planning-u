@@ -1,30 +1,30 @@
 import { ok, bad } from "../lib/http";
-import { ddb, tableName } from "../lib/dynamo";
+import { ddb } from "../lib/dynamo";
 import { DescribeTableCommand } from "@aws-sdk/client-dynamodb";
 
 // Deep health check validates that all required infrastructure exists
 // This helps diagnose deployment issues early
 async function deepHealthCheck() {
-  const requiredTables = [
-    "projects",
-    "changes",
-    "rubros",
-    "rubros_taxonomia",
-    "allocations",
-    "payroll_actuals",
-    "adjustments",
-    "alerts",
-    "providers",
-    "audit_log",
-    "docs",
-    "prefacturas",
+  const requiredTables: Array<{ key: string; envVar: string; fallback: string }> = [
+    { key: "projects", envVar: "TABLE_PROJECTS", fallback: "finz_projects" },
+    { key: "changes", envVar: "TABLE_CHANGES", fallback: "finz_changes" },
+    { key: "rubros", envVar: "TABLE_RUBROS", fallback: "finz_rubros" },
+    { key: "rubros_taxonomia", envVar: "TABLE_RUBROS_TAXONOMIA", fallback: "finz_rubros_taxonomia" },
+    { key: "allocations", envVar: "TABLE_ALLOCATIONS", fallback: "finz_allocations" },
+    { key: "payroll_actuals", envVar: "TABLE_PAYROLL_ACTUALS", fallback: "finz_payroll_actuals" },
+    { key: "adjustments", envVar: "TABLE_ADJUSTMENTS", fallback: "finz_adjustments" },
+    { key: "alerts", envVar: "TABLE_ALERTS", fallback: "finz_alerts" },
+    { key: "providers", envVar: "TABLE_PROVIDERS", fallback: "finz_providers" },
+    { key: "audit_log", envVar: "TABLE_AUDIT_LOG", fallback: "finz_audit_log" },
+    { key: "docs", envVar: "TABLE_DOCS", fallback: "finz_docs" },
+    { key: "prefacturas", envVar: "TABLE_PREFACTURAS", fallback: "finz_prefacturas" },
   ];
 
   const missingTables: string[] = [];
   const existingTables: string[] = [];
 
   for (const table of requiredTables) {
-    const fullTableName = tableName(table);
+    const fullTableName = process.env[table.envVar] || table.fallback;
     try {
       await ddb.send(
         new DescribeTableCommand({
