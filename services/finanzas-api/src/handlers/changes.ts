@@ -74,18 +74,29 @@ const normalizeChange = (item: Record<string, unknown>) => {
 };
 
 async function listChanges(projectId: string) {
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: tableName("changes"),
-      KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: { ":pk": `PROJECT#${projectId}` },
-    }),
-  );
+  const changesTable = tableName("changes");
+  console.info("Changes table resolved", { table: changesTable });
 
-  const items = (result.Items as Record<string, unknown>[]) || [];
-  const data = items.map(normalizeChange);
+  try {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: changesTable,
+        KeyConditionExpression: "pk = :pk",
+        ExpressionAttributeValues: { ":pk": `PROJECT#${projectId}` },
+      }),
+    );
 
-  return ok({ data, projectId, total: data.length });
+    const items = (result.Items as Record<string, unknown>[]) || [];
+    const data = items.map(normalizeChange);
+
+    return ok({ data, projectId, total: data.length });
+  } catch (error) {
+    if (error && (error as { name?: string }).name === "ResourceNotFoundException") {
+      console.error("Changes table not found", { table: changesTable, error });
+      return bad("Changes table not found for this environment", 500);
+    }
+    throw error;
+  }
 }
 
 async function createChange(
@@ -155,14 +166,30 @@ async function createChange(
     updated_at: now,
   };
 
-  await ddb.send(
-    new PutCommand({
-      TableName: tableName("changes"),
-      Item: item,
-      ConditionExpression:
-        "attribute_not_exists(pk) AND attribute_not_exists(sk)",
-    }),
-  );
+  const changesTable = tableName("changes");
+  console.info("Changes table resolved", { table: changesTable });
+
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: changesTable,
+        Item: item,
+        ConditionExpression:
+          "attribute_not_exists(pk) AND attribute_not_exists(sk)",
+      }),
+    );
+  } catch (error) {
+    if (error && (error as { name?: string }).name === "ConditionalCheckFailedException") {
+      return bad("Change request already exists for this project/id", 409);
+    }
+
+    if (error && (error as { name?: string }).name === "ResourceNotFoundException") {
+      console.error("Changes table not found", { table: changesTable, error });
+      return bad("Changes table not found for this environment", 500);
+    }
+
+    throw error;
+  }
 
   return ok(normalizeChange(item), 201);
 }
