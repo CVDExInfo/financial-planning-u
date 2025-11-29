@@ -25,7 +25,7 @@ const configuredUserPoolId =
   DEFAULT_USER_POOL_ID;
 const region = process.env.AWS_REGION || DEFAULT_REGION;
 
-// Gather client IDs - must exist!
+// Gather client IDs - must exist unless we're in an explicit test mode.
 const configuredClientIds = (process.env.COGNITO_CLIENT_ID ||
   process.env.CognitoUserPoolClientId ||
   "")
@@ -33,11 +33,22 @@ const configuredClientIds = (process.env.COGNITO_CLIENT_ID ||
   .map((id) => id.trim())
   .filter(Boolean);
 
-// Fail fast if client ID is missing.
+const isTestMode =
+  process.env.FINZ_AUTH_ALLOW_MISSING_CLIENT_ID_FOR_TESTS === "true" ||
+  process.env.NODE_ENV === "test";
+
+// Fail fast if client ID is missing in real environments; warn and relax in tests.
 if (!configuredClientIds.length) {
-  throw new Error(
-    "[auth] COGNITO_CLIENT_ID environment variable is required. JWT audience validation cannot proceed."
-  );
+  const message =
+    "[auth] COGNITO_CLIENT_ID environment variable is required. JWT audience validation cannot proceed.";
+
+  if (isTestMode) {
+    console.warn(
+      "[auth] COGNITO_CLIENT_ID missing in test mode; audience validation is relaxed for unit tests."
+    );
+  } else {
+    throw new Error(message);
+  }
 }
 
 const expectedIssuer = `https://cognito-idp.${region}.amazonaws.com/${configuredUserPoolId}`;
@@ -49,15 +60,19 @@ if (!process.env.COGNITO_USER_POOL_ID && configuredUserPoolId === DEFAULT_USER_P
   );
 }
 
+const verifierClientIds = configuredClientIds.length
+  ? configuredClientIds
+  : undefined;
+
 const idTokenVerifier = CognitoJwtVerifier.create({
   userPoolId: configuredUserPoolId,
-  clientId: configuredClientIds,
+  clientId: verifierClientIds,
   tokenUse: "id",
 });
 
 const accessTokenVerifier = CognitoJwtVerifier.create({
   userPoolId: configuredUserPoolId,
-  clientId: configuredClientIds,
+  clientId: verifierClientIds,
   tokenUse: "access",
 });
 
