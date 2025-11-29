@@ -6,6 +6,8 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
+import { useAuth } from "@/hooks/useAuth";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import ApiService from "@/lib/api";
 import type { Project } from "@/types/domain";
@@ -56,6 +58,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [projectChangeCount, setProjectChangeCount] = useState(0);
   const [periodChangeCount, setPeriodChangeCount] = useState(0);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const { login } = useAuth();
 
   const projectMap = useMemo(() => {
     return new Map(projects.map((project) => [project.id, project]));
@@ -166,14 +169,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         selectProject(normalized[0]);
       }
     } catch (error) {
+      const message = handleFinanzasApiError(error, {
+        onAuthError: () => login(),
+        fallback: "No pudimos cargar los proyectos.",
+      });
       logger.error("Failed to load projects:", error);
-      setProjectError(
-        error instanceof Error ? error.message : "Failed to load projects"
-      );
+      setProjectError(message);
+      setProjects([]);
     } finally {
       setLoading(false);
     }
-  }, [selectedProjectId, selectProject]);
+  }, [login, selectedProjectId, selectProject]);
 
   useEffect(() => {
     loadProjects();
