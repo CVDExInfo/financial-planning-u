@@ -1,46 +1,34 @@
-import {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyStructuredResultV2,
-} from "aws-lambda";
-
-import { sampleProjects } from "../fixtures/sample-projects-with-rubros.js";
-
-type ApiResult = APIGatewayProxyStructuredResultV2;
+import { APIGatewayProxyEventV2 } from "aws-lambda";
 
 jest.mock("../../src/lib/auth", () => ({
-  ensureCanWrite: jest.fn(),
   ensureCanRead: jest.fn(),
-  getUserEmail: jest.fn().mockResolvedValue("qa-tester@ikusi.example"),
+  ensureCanWrite: jest.fn(),
+  getUserEmail: jest.fn(),
 }));
 
 jest.mock("../../src/lib/dynamo", () => ({
   ddb: { send: jest.fn() },
-  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
   QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
-  DeleteCommand: jest.fn().mockImplementation((input) => ({ input })),
-  GetCommand: jest.fn().mockImplementation((input) => ({ input })),
-  tableName: jest.fn((name: string) => `${name}-table`),
+  BatchGetCommand: jest.fn().mockImplementation((input) => ({ input })),
+  PutCommand: jest.fn(),
+  DeleteCommand: jest.fn(),
+  GetCommand: jest.fn(),
+  tableName: jest.fn(() => "rubros-table"),
 }));
 
 import { handler as rubrosHandler } from "../../src/handlers/rubros.js";
 
 const dynamo = jest.requireMock("../../src/lib/dynamo") as {
   ddb: { send: jest.Mock };
-  PutCommand: jest.Mock;
+  QueryCommand: jest.Mock;
+  BatchGetCommand: jest.Mock;
   tableName: jest.Mock;
 };
 
-const auth = jest.requireMock("../../src/lib/auth") as {
-  ensureCanWrite: jest.Mock;
-  getUserEmail: jest.Mock;
-};
-
-const baseEvent = (
-  overrides: Partial<APIGatewayProxyEventV2> = {}
-): APIGatewayProxyEventV2 => ({
+const baseEvent = (overrides: Partial<APIGatewayProxyEventV2> = {}) => ({
   version: "2.0",
-  routeKey: "POST /projects/{projectId}/rubros",
-  rawPath: "/projects/P-OPS-001/rubros",
+  routeKey: "GET /projects/{projectId}/rubros",
+  rawPath: "/projects/PROJ-1/rubros",
   rawQueryString: "",
   headers: {},
   requestContext: {
@@ -49,21 +37,20 @@ const baseEvent = (
     domainName: "example.com",
     domainPrefix: "example",
     http: {
-      method: "POST",
-      path: "/projects/P-OPS-001/rubros",
+      method: "GET",
+      path: "/projects/PROJ-1/rubros",
       protocol: "HTTP/1.1",
       sourceIp: "127.0.0.1",
       userAgent: "jest",
     },
     requestId: "id",
-    routeKey: "POST /projects/{projectId}/rubros",
+    routeKey: "GET /projects/{projectId}/rubros",
     stage: "$default",
     time: "",
     timeEpoch: 0,
   },
+  pathParameters: { projectId: "PROJ-1" },
   isBase64Encoded: false,
-  pathParameters: { projectId: "P-OPS-001" },
-  body: undefined,
   ...overrides,
 });
 
@@ -72,61 +59,62 @@ describe("rubros handler", () => {
     jest.clearAllMocks();
   });
 
-  it("attaches rubros array and writes audit rows", async () => {
-    const project = sampleProjects[0];
-    const rubro = project.rubros[0];
-
-    dynamo.ddb.send.mockResolvedValue({});
-
-    const response = (await rubrosHandler(
-      baseEvent({
-        body: JSON.stringify({
-          rubroIds: [rubro.rubroId],
-          qty: rubro.qty,
-          unitCost: rubro.unitCost,
-          type: rubro.type,
-          duration: rubro.duration,
-        }),
+  it("returns attached project rubros with catalog metadata", async () => {
+    dynamo.ddb.send
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            projectId: "PROJ-1",
+            rubroId: "R-100",
+            sk: "RUBRO#R-100",
+            tier: "gold",
+            category: "Ops",
+          },
+        ],
       })
-    )) as ApiResult;
+      .mockResolvedValueOnce({
+        Responses: {
+          "rubros-table": [
+            {
+              rubro_id: "R-100",
+              nombre: "Infraestructura",
+              linea_codigo: "OPS",
+              tipo_costo: "RECURRENT",
+            },
+          ],
+        },
+      });
 
+    const response = await rubrosHandler(baseEvent());
     expect(response.statusCode).toBe(200);
-    const payload = JSON.parse(response.body || "{}");
-    expect(payload.attached).toEqual([rubro.rubroId]);
 
-    expect(auth.ensureCanWrite).toHaveBeenCalled();
-    expect(auth.getUserEmail).toHaveBeenCalled();
-
-    const putCalls = dynamo.ddb.send.mock.calls.filter((call) =>
-      call[0]?.input?.TableName?.includes("rubros-table")
-    );
-    expect(putCalls.length).toBe(1);
-    expect(putCalls[0][0].input.Item).toEqual(
+    const payload = JSON.parse(response.body as string);
+    expect(payload.project_id).toBe("PROJ-1");
+    expect(payload.data).toEqual([
       expect.objectContaining({
-        pk: `PROJECT#${project.id}`,
-        sk: `RUBRO#${rubro.rubroId}`,
-        rubroId: rubro.rubroId,
-        projectId: project.id,
-      })
-    );
+        id: "R-100",
+        rubro_id: "R-100",
+        nombre: "Infraestructura",
+        linea_codigo: "OPS",
+        tipo_costo: "RECURRENT",
+      }),
+    ]);
 
-    const auditCalls = dynamo.ddb.send.mock.calls.filter((call) =>
-      call[0]?.input?.TableName?.includes("audit_log-table")
+    expect(dynamo.QueryCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ TableName: "rubros-table" }),
     );
-    expect(auditCalls.length).toBe(1);
-    expect(auditCalls[0][0].input.Item).toEqual(
-      expect.objectContaining({ action: "RUBRO_ATTACH", resource_id: rubro.rubroId })
+    expect(dynamo.BatchGetCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        RequestItems: expect.objectContaining({
+          "rubros-table": expect.objectContaining({ Keys: [{ pk: "RUBRO#R-100", sk: "DEF#R-100" }] }),
+        }),
+      }),
     );
   });
 
-  it("requires rubroIds array", async () => {
-    const response = (await rubrosHandler(
-      baseEvent({ body: JSON.stringify({ rubroId: "R-MISSING" }) })
-    )) as ApiResult;
-
+  it("validates project id", async () => {
+    const response = await rubrosHandler(baseEvent({ pathParameters: {} }));
     expect(response.statusCode).toBe(400);
-    expect(JSON.parse(response.body || "{}" ).error).toMatch(/rubroIds/i);
-    expect(dynamo.ddb.send).not.toHaveBeenCalled();
   });
 });
 
