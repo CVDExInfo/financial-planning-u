@@ -59,6 +59,9 @@ type AuthContextType = {
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
+// Canonical JWT sources (kept in sync with src/config/api.ts#getAuthToken)
+// Access token (finz_access_token) is preferred for Authorization headers and
+// will be discovered by the API client alongside these ID token keys.
 const TOKEN_KEYS = ["cv.jwt", "finz_jwt", "idToken", "cognitoIdToken"];
 const DEFAULT_ROLE = getDefaultUserRole(null);
 const ACTIVE_ROLE_KEY = "finz_active_role";

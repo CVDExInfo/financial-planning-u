@@ -18,8 +18,10 @@ import {
   buildHeaders,
   handleApiError,
   API_ENDPOINTS,
+  getAuthToken,
 } from "@/config/api";
 import { logger } from "@/utils/logger";
+import { AuthError, ServerError, ValidationError } from "@/lib/errors";
 
 // PRODUCTION MODE: All mock data imports and fallbacks removed
 // All API calls go directly to Lambda handlers with no fallbacks
@@ -29,32 +31,115 @@ export class ApiService {
   private static delay = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
 
+  private static buildRequestHeaders(
+    headers: HeadersInit = {},
+    includeAuth = true
+  ): HeadersInit {
+    const merged = { "Content-Type": "application/json", ...headers };
+    if (!includeAuth) return merged;
+
+    const token = getAuthToken();
+    if (!token && import.meta.env.VITE_SKIP_AUTH !== "true") {
+      logger.warn("[Finanzas] Missing token; redirecting user to login before API call.");
+      throw new AuthError("AUTH_REQUIRED", "Debes iniciar sesión para continuar", 401);
+    }
+
+    if (token) {
+      return { ...merged, Authorization: `Bearer ${token}` };
+    }
+
+    return merged;
+  }
+
+  private static async request<T>(
+    endpoint: string,
+    init: RequestInit = {},
+  ): Promise<T> {
+    const method = (init.method || "GET").toUpperCase();
+    const headers = this.buildRequestHeaders(init.headers);
+    const url =
+      endpoint.startsWith("http://") || endpoint.startsWith("https://")
+        ? endpoint
+        : buildApiUrl(endpoint);
+
+    const response = await fetch(url, { ...init, headers });
+    const bodyText = await response.text();
+
+    if (import.meta.env.DEV) {
+      logger.debug("[Finanzas] API response", {
+        method,
+        endpoint,
+        url,
+        status: response.status,
+        ok: response.ok,
+        hasBody: !!bodyText,
+      });
+      if (response.status === 401 || response.status === 403) {
+        console.info(
+          `[Finanzas] Auth error from API (${response.status}). Likely missing/expired token – redirecting to login.`,
+        );
+      }
+    }
+
+    if (!response.ok) {
+      const parsed = (() => {
+        try {
+          return bodyText ? JSON.parse(bodyText) : null;
+        } catch {
+          return bodyText || null;
+        }
+      })();
+
+      if (response.status === 401 || response.status === 403) {
+        throw new AuthError(
+          response.status === 401 ? "AUTH_REQUIRED" : "FORBIDDEN",
+          typeof parsed === "string" ? parsed : "Autenticación requerida.",
+          response.status,
+        );
+      }
+
+      if (response.status === 400 || response.status === 422) {
+        throw new ValidationError(
+          "VALIDATION_ERROR",
+          typeof parsed === "string" ? parsed : "Validación fallida",
+          response.status,
+        );
+      }
+
+      if (response.status >= 500) {
+        throw new ServerError(
+          "SERVER_ERROR",
+          typeof parsed === "string" ? parsed : "Error interno en Finanzas",
+          response.status,
+        );
+      }
+
+      throw new ValidationError(
+        "REQUEST_FAILED",
+        typeof parsed === "string" ? parsed : "La solicitud no pudo completarse",
+        response.status,
+      );
+    }
+
+    if (!bodyText) return {} as T;
+
+    try {
+      return JSON.parse(bodyText) as T;
+    } catch (error) {
+      logger.warn("[Finanzas] Failed to parse API response as JSON", {
+        endpoint,
+        method,
+        preview: bodyText.slice(0, 120),
+        error,
+      });
+      return bodyText as unknown as T;
+    }
+  }
+
   // Project management
   static async getProjects(): Promise<Project[]> {
     try {
-      const response = await fetch(buildApiUrl(API_ENDPOINTS.projects), {
-        method: "GET",
-        headers: buildHeaders(),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        logger.error("Failed to fetch projects from API:", errorText);
-        throw new Error(`API error: ${response.status} - ${errorText}`);
-      }
-
-      const text = await response.text();
-      let payload: any = [];
-
-      try {
-        payload = text ? JSON.parse(text) : [];
-      } catch (parseError) {
-        logger.warn("Failed to parse projects payload as JSON, using empty list", {
-          error: parseError,
-          bodyPreview: text?.slice(0, 200),
-        });
-        payload = [];
-      }
+      const payload = await this.request(API_ENDPOINTS.projects);
 
       logger.info("Projects loaded from API:", payload);
 
@@ -118,13 +203,16 @@ export class ApiService {
       return projectArray.map(normalizeProject);
     } catch (error) {
       logger.error("Failed to fetch projects from API:", error);
+      if (error instanceof AuthError || error instanceof ValidationError || error instanceof ServerError) {
+        throw error;
+      }
       const friendlyMessage =
         error instanceof TypeError && error.message.includes("Failed to fetch")
           ? "No se pudo contactar la API de Finanzas (posible CORS o sesión expirada)."
           : error instanceof Error
             ? error.message
             : "Failed to load projects";
-      throw new Error(friendlyMessage);
+      throw new ServerError("PROJECTS_FETCH_FAILED", friendlyMessage, 500);
     }
   }
 
@@ -269,32 +357,15 @@ export class ApiService {
     logger.debug("Getting line items for project_id:", project_id);
 
     try {
-      // Try API first
-      const response = await fetch(
-        buildApiUrl(`/projects/${project_id}/rubros`),
-        {
-          method: "GET",
-          headers: buildHeaders(),
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        // API returns { data: [...], total: number }, extract the array
-        const items = Array.isArray(data) ? data : data.data || [];
-        logger.info("Line items loaded from API:", items.length, "items");
-        return items;
-      }
-
-      // If API fails, log error and return empty array
-      logger.warn(
-        "API call failed (status:",
-        response.status,
-        "), returning empty line items"
-      );
-      return [];
+      const data = await this.request(`/projects/${project_id}/rubros`);
+      const items = Array.isArray(data) ? data : (data as any)?.data || [];
+      logger.info("Line items loaded from API:", items.length, "items");
+      return items;
     } catch (error) {
       logger.error("API fetch failed:", error);
+      if (error instanceof AuthError || error instanceof ValidationError || error instanceof ServerError) {
+        throw error;
+      }
       return [];
     }
   }
@@ -676,19 +747,13 @@ export class ApiService {
     const params = new URLSearchParams({ projectId });
     params.set("months", months.toString());
 
-    const response = await fetch(
-      buildApiUrl(`${API_ENDPOINTS.forecast}?${params.toString()}`),
+    const payload = await this.request(
+      `${API_ENDPOINTS.forecast}?${params.toString()}`,
       {
         method: "GET",
-        headers: buildHeaders(),
+        headers: this.buildRequestHeaders(),
       }
     );
-
-    if (!response.ok) {
-      await handleApiError(response);
-    }
-
-    const payload = await response.json();
 
     const cells = Array.isArray(payload)
       ? payload
@@ -714,7 +779,7 @@ export class ApiService {
 
   // Changes
   static async getChangeRequests(project_id: string): Promise<ChangeRequest[]> {
-    const url = buildApiUrl(`/projects/${project_id}/changes`);
+    const endpoint = `/projects/${project_id}/changes`;
 
     const parseChanges = (payload: unknown): unknown[] => {
       if (Array.isArray(payload)) return payload;
@@ -752,19 +817,7 @@ export class ApiService {
       };
     };
 
-    const response = await fetch(url, { method: "GET", headers: buildHeaders() });
-    if (!response.ok) {
-      await handleApiError(response);
-    }
-
-    const rawText = await response.text();
-    let payload: unknown = [];
-    try {
-      payload = rawText ? JSON.parse(rawText) : [];
-    } catch (error) {
-      logger.error("Failed to parse change requests payload", error);
-      return [];
-    }
+    const payload = await this.request(endpoint);
 
     return parseChanges(payload).map((item) => normalizeChange(item));
   }
@@ -773,7 +826,7 @@ export class ApiService {
     project_id: string,
     change: Omit<ChangeRequest, "id" | "requested_at" | "status" | "approvals">,
   ): Promise<ChangeRequest> {
-    const url = buildApiUrl(`/projects/${project_id}/changes`);
+    const endpoint = `/projects/${project_id}/changes`;
     const body = {
       baseline_id: change.baseline_id,
       title: change.title,
@@ -784,17 +837,11 @@ export class ApiService {
       affected_line_items: change.affected_line_items,
     };
 
-    const response = await fetch(url, {
+    const payload = await this.request(endpoint, {
       method: "POST",
-      headers: buildHeaders(),
+      headers: this.buildRequestHeaders(),
       body: JSON.stringify(body),
     });
-
-    if (!response.ok) {
-      await handleApiError(response);
-    }
-
-    const payload = await response.json();
     return {
       id: payload.id || payload.changeId,
       baseline_id: payload.baseline_id || payload.baselineId || "",
