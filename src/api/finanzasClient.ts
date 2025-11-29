@@ -189,6 +189,57 @@ export const ProviderCreateSchema = z.object({
 
 export type ProviderCreate = z.infer<typeof ProviderCreateSchema>;
 
+const ProviderSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).optional(),
+    provider_id: z.union([z.string(), z.number()]).optional(),
+    nombre: z.string().optional(),
+    name: z.string().optional(),
+    tax_id: z.string().optional(),
+    rfc: z.string().optional(),
+    tipo: z.string().optional(),
+    tipo_proveedor: z.string().optional(),
+    contacto_nombre: z.string().optional(),
+    contacto_email: z.string().optional(),
+    contacto_telefono: z.string().optional(),
+    contacto: z
+      .object({
+        nombre: z.string().optional(),
+        email: z.string().optional(),
+        telefono: z.string().optional(),
+      })
+      .optional(),
+    pais: z.string().optional(),
+    country: z.string().optional(),
+    notas: z.string().optional(),
+    created_by: z.string().optional(),
+    created_at: z.string().optional(),
+  })
+  .transform((raw) => {
+    return {
+      id: String(
+        raw.id || raw.provider_id || raw.tax_id || raw.nombre || raw.name || ""
+      ).trim(),
+      nombre: (raw.nombre || raw.name || "").trim() || "Proveedor sin nombre",
+      tax_id: (raw.tax_id || raw.rfc || "").trim(),
+      tipo: (raw.tipo || raw.tipo_proveedor || "").trim(),
+      contacto_nombre:
+        raw.contacto_nombre || raw.contacto?.nombre || raw.contacto_nombre || "",
+      contacto_email:
+        raw.contacto_email || raw.contacto?.email || raw.contacto_email || "",
+      contacto_telefono:
+        raw.contacto_telefono || raw.contacto?.telefono || "",
+      pais: (raw.pais || raw.country || "").trim(),
+      notas: raw.notas || "",
+      created_by: raw.created_by || "",
+      created_at: raw.created_at || "",
+    };
+  });
+
+const ProviderListSchema = z
+  .object({ data: z.array(ProviderSchema) })
+  .or(z.array(ProviderSchema));
+
 function isJwtPresent(): boolean {
   return !!(
     localStorage.getItem("cv.jwt") ||
@@ -277,6 +328,24 @@ export const finanzasClient = {
       body: JSON.stringify(payload),
     });
     return data;
+  },
+
+  async getProviders(): Promise<
+    Array<z.infer<typeof ProviderSchema>>
+  > {
+    checkAuth();
+    const data = await http<unknown>("/providers");
+    const parsed = ProviderListSchema.safeParse(data);
+    if (!parsed.success) {
+      console.error(parsed.error);
+      throw new Error("Invalid providers response");
+    }
+    const items = Array.isArray(parsed.data) ? parsed.data : parsed.data.data;
+    return items
+      .map((p) => ({
+        ...p,
+      }))
+      .filter((p) => p.id);
   },
 };
 

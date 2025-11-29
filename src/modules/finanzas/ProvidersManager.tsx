@@ -22,6 +22,17 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PageHeader from "@/components/PageHeader";
 import { Building2, Plus } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function ProvidersManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -36,6 +47,18 @@ export default function ProvidersManager() {
   const [contactoTelefono, setContactoTelefono] = React.useState("");
   const [pais, setPais] = React.useState("");
   const [notas, setNotas] = React.useState("");
+
+  const {
+    data: providers,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["finz", "providers"],
+    queryFn: () => finanzasClient.getProviders(),
+    retry: 1,
+  });
 
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +86,9 @@ export default function ProvidersManager() {
 
       toast.success(`Proveedor "${nombre}" creado exitosamente`);
       setIsCreateDialogOpen(false);
+
+      // Refresh list after creating a provider
+      refetch();
 
       // Reset form
       setNombre("");
@@ -121,13 +147,60 @@ export default function ProvidersManager() {
             Los proveedores registrados estarán disponibles para asociar con movimientos financieros.
           </CardDescription>
         </CardHeader>
-        <CardContent className="text-center space-y-3">
-          <p className="text-muted-foreground">
-            Haz clic en "Agregar Proveedor" para registrar un nuevo proveedor en el sistema.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Incluye RFC/Tax ID, tipo de proveedor y datos de contacto opcionales.
-          </p>
+        <CardContent className="space-y-4">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Cargando proveedores...
+            </div>
+          ) : isError ? (
+            <Alert variant="destructive">
+              <AlertTitle>Error al cargar proveedores</AlertTitle>
+              <AlertDescription>
+                {(error as Error)?.message || "No se pudo obtener la lista de proveedores"}
+              </AlertDescription>
+            </Alert>
+          ) : providers && providers.length > 0 ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>RFC / Tax ID</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Contacto</TableHead>
+                    <TableHead>País</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {providers.map((provider) => (
+                    <TableRow key={provider.id}>
+                      <TableCell className="font-medium">{provider.nombre}</TableCell>
+                      <TableCell>{provider.tax_id || "—"}</TableCell>
+                      <TableCell>{provider.tipo || "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span>{provider.contacto_nombre || "—"}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {provider.contacto_email || provider.contacto_telefono || ""}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{provider.pais || "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center space-y-3">
+              <p className="text-muted-foreground">
+                Haz clic en "Agregar Proveedor" para registrar un nuevo proveedor en el sistema.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Incluye RFC/Tax ID, tipo de proveedor y datos de contacto opcionales.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
