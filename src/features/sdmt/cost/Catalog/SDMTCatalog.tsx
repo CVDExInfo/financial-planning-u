@@ -206,9 +206,11 @@ export function SDMTCatalog() {
     !showInitialLoading && !showErrorState && safeLineItems.length === 0;
 
   const formatCurrency = (amount: number, currency: string) => {
+    const safeCurrency = currency || "USD";
+
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency,
+      currency: safeCurrency,
       minimumFractionDigits: 0,
     }).format(amount);
   };
