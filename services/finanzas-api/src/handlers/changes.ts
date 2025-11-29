@@ -1,3 +1,5 @@
+// services/finanzas-api/src/handlers/changes.ts
+
 import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyResultV2,
@@ -8,6 +10,7 @@ import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth.js";
 import { fromAuthError, ok, bad, serverError } from "../lib/http.js";
 import { ddb, PutCommand, QueryCommand, tableName } from "../lib/dynamo.js";
 
+// Normalize "array-ish" inputs (string, string[], comma/newline-separated) into a string[]
 const normalizeArray = (value: unknown): string[] => {
   if (Array.isArray(value)) {
     return value.map((v) => String(v));
@@ -21,10 +24,13 @@ const normalizeArray = (value: unknown): string[] => {
   return [];
 };
 
+// Convert a raw Dynamo item into the public ChangeRequest shape
 const normalizeChange = (item: Record<string, unknown>) => {
   const sk = (item.sk as string) || "";
   const idFromKey = sk.startsWith("CHANGE#") ? sk.replace("CHANGE#", "") : sk;
+
   const projectKey = (item.pk as string) || "";
+
   const primaryAffected = normalizeArray(item.affected_line_items);
   const affectedLineItems =
     primaryAffected.length > 0
@@ -36,14 +42,20 @@ const normalizeChange = (item: Record<string, unknown>) => {
     project_id:
       (item.project_id as string) ||
       (item.projectId as string) ||
-      (projectKey.startsWith("PROJECT#") ? projectKey.replace("PROJECT#", "") : projectKey),
-    baseline_id: (item.baseline_id as string) || (item.baselineId as string) || "",
+      (projectKey.startsWith("PROJECT#")
+        ? projectKey.replace("PROJECT#", "")
+        : projectKey),
+    baseline_id:
+      (item.baseline_id as string) || (item.baselineId as string) || "",
     title: (item.title as string) || "",
     description: (item.description as string) || "",
     impact_amount: Number(item.impact_amount ?? item.impactAmount ?? 0),
     currency: (item.currency as string) || "USD",
     affected_line_items: affectedLineItems,
-    justification: (item.justification as string) || (item.businessJustification as string) || "",
+    justification:
+      (item.justification as string) ||
+      (item.businessJustification as string) ||
+      "",
     requested_by:
       (item.requested_by as string) ||
       (item.requestedBy as string) ||
@@ -55,7 +67,9 @@ const normalizeChange = (item: Record<string, unknown>) => {
       (item.created_at as string) ||
       new Date().toISOString(),
     status: (item.status as string) || "pending",
-    approvals: Array.isArray(item.approvals) ? (item.approvals as unknown[]) : [],
+    approvals: Array.isArray(item.approvals)
+      ? (item.approvals as unknown[])
+      : [],
   };
 };
 
@@ -65,7 +79,7 @@ async function listChanges(projectId: string) {
       TableName: tableName("changes"),
       KeyConditionExpression: "pk = :pk",
       ExpressionAttributeValues: { ":pk": `PROJECT#${projectId}` },
-    })
+    }),
   );
 
   const items = (result.Items as Record<string, unknown>[]) || [];
@@ -85,11 +99,15 @@ async function createChange(
     return bad("Invalid JSON body", 400);
   }
 
-  const title = typeof payload.title === "string" ? payload.title.trim() : "";
+  const title =
+    typeof payload.title === "string" ? payload.title.trim() : "";
   const description =
-    typeof payload.description === "string" ? payload.description.trim() : "";
+    typeof payload.description === "string"
+      ? payload.description.trim()
+      : "";
   const impactValue = Number(payload.impact_amount ?? payload.impactAmount);
-  const currency = typeof payload.currency === "string" ? payload.currency : "USD";
+  const currency =
+    typeof payload.currency === "string" ? payload.currency : "USD";
 
   if (!title || !description || Number.isNaN(impactValue)) {
     return bad("title, description, and impact_amount are required", 422);
@@ -101,6 +119,7 @@ async function createChange(
       : typeof payload.baselineId === "string"
         ? payload.baselineId
         : "";
+
   const justification =
     typeof payload.justification === "string"
       ? payload.justification
@@ -114,7 +133,8 @@ async function createChange(
 
   const requestedBy = await getUserEmail(event as never);
   const now = new Date().toISOString();
-  const changeId = (payload.id as string) || `CHG-${Date.now()}-${randomUUID()}`;
+  const changeId =
+    (payload.id as string) || `CHG-${Date.now()}-${randomUUID()}`;
 
   const item = {
     pk: `PROJECT#${projectId}`,
@@ -139,8 +159,9 @@ async function createChange(
     new PutCommand({
       TableName: tableName("changes"),
       Item: item,
-      ConditionExpression: "attribute_not_exists(pk) AND attribute_not_exists(sk)",
-    })
+      ConditionExpression:
+        "attribute_not_exists(pk) AND attribute_not_exists(sk)",
+    }),
   );
 
   return ok(normalizeChange(item), 201);
@@ -172,7 +193,8 @@ export async function handler(
     const authError = fromAuthError(error);
     if (authError) return authError;
 
-    const message = error instanceof Error ? error.message : "Unexpected error";
+    const message =
+      error instanceof Error ? error.message : "Unexpected error";
     console.error("Changes handler error", error);
     return serverError(message);
   }

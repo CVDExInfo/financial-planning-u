@@ -1,14 +1,20 @@
+// services/finanzas-api/tests/unit/changes.spec.ts
+
 import {
   APIGatewayProxyEventV2,
   APIGatewayProxyStructuredResultV2,
 } from "aws-lambda";
 
+import { handler } from "../../src/handlers/changes"; // ESM import – no require()
+
+// Mock auth layer
 jest.mock("../../src/lib/auth", () => ({
   ensureCanRead: jest.fn(),
   ensureCanWrite: jest.fn(),
-  getUserEmail: jest.fn().mockResolvedValue("changes@tester.com"),
+  getUserEmail: jest.fn().mockResolvedValue("changes@tester@example.com"),
 }));
 
+// Mock Dynamo layer
 jest.mock("../../src/lib/dynamo", () => ({
   ddb: { send: jest.fn() },
   QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
@@ -26,11 +32,7 @@ const dynamo = jest.requireMock("../../src/lib/dynamo") as {
   tableName: jest.Mock;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires -- jest dynamic import
-const { handler } = require("../../src/handlers/changes.js");
-
 describe("changes handler", () => {
-
   const baseEvent = (
     overrides: Partial<APIGatewayProxyEventV2> = {},
   ): APIGatewayProxyEventV2 => ({
@@ -77,7 +79,6 @@ describe("changes handler", () => {
   };
 
   beforeEach(() => {
-    jest.resetModules();
     jest.clearAllMocks();
   });
 
@@ -88,6 +89,7 @@ describe("changes handler", () => {
 
     expect(response.statusCode).toBe(400);
     expect(auth.ensureCanRead).not.toHaveBeenCalled();
+    expect(auth.ensureCanWrite).not.toHaveBeenCalled();
   });
 
   it("lists changes for a project", async () => {
@@ -97,7 +99,9 @@ describe("changes handler", () => {
       ],
     });
 
-    const response = (await handler(baseEvent())) as APIGatewayProxyStructuredResultV2;
+    const response = (await handler(
+      baseEvent(),
+    )) as APIGatewayProxyStructuredResultV2;
 
     expect(response.statusCode).toBe(200);
     const payload = JSON.parse(response.body);
@@ -115,11 +119,14 @@ describe("changes handler", () => {
     )) as APIGatewayProxyStructuredResultV2;
 
     expect(response.statusCode).toBe(400);
+    expect(auth.ensureCanWrite).not.toHaveBeenCalled();
   });
 
   it("validates required fields on create", async () => {
     const response = (await handler(
-      toPostEvent(JSON.stringify({ title: "", description: "", impact_amount: null })),
+      toPostEvent(
+        JSON.stringify({ title: "", description: "", impact_amount: null }),
+      ),
     )) as APIGatewayProxyStructuredResultV2;
 
     expect(response.statusCode).toBe(422);
@@ -127,7 +134,7 @@ describe("changes handler", () => {
   });
 
   it("creates a change request", async () => {
-    dynamo.ddb.send.mockResolvedValue({});
+    dynamo.ddb.send.mockResolvedValue({}); // PutCommand success
 
     const response = (await handler(
       toPostEvent(
