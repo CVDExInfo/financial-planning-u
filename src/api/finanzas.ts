@@ -312,7 +312,11 @@ export async function updateInvoiceStatus(
 // ---------- Catalog: add rubro to project (Service Tier selection) ----------
 
 // Keep the payload flexible while APIs converge. Prefer a typed shape once the OpenAPI is finalized.
-export type AddProjectRubroInput = Record<string, unknown>;
+export type AddProjectRubroInput = {
+  rubroId?: string;
+  rubroIds?: string[];
+  [key: string]: unknown;
+};
 
 // Some backends mount under /projects/{id}/catalog/rubros; older ones under /projects/{id}/rubros.
 // Try the modern path first, then fall back once on 404/405.
@@ -323,13 +327,25 @@ export async function addProjectRubro<T = Json>(
   const base = requireApiBase();
   const headers = { "Content-Type": "application/json", ...buildAuthHeader() };
 
+  // Normalize payload to backend expectations: prefer rubroIds array, wrap
+  // legacy rubroId when provided.
+  const hasRubroIds = Array.isArray(payload.rubroIds) && payload.rubroIds.length > 0;
+  const hasRubroId = typeof payload.rubroId === "string" && payload.rubroId.length > 0;
+
+  let wirePayload: Record<string, unknown> = { ...payload };
+
+  if (!hasRubroIds && hasRubroId) {
+    const { rubroId, ...rest } = payload;
+    wirePayload = { ...rest, rubroIds: [rubroId] };
+  }
+
   // The deployed API exposes /projects/{id}/rubros; keep a single fallback to
   // /catalog/rubros for legacy stacks that might still use that mount.
   const primary = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
   let res = await fetch(primary, {
     method: "POST",
     headers,
-    body: JSON.stringify(payload),
+    body: JSON.stringify(wirePayload),
   });
 
   if (res.status === 404 || res.status === 405) {
@@ -339,7 +355,7 @@ export async function addProjectRubro<T = Json>(
     res = await fetch(fallback, {
       method: "POST",
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify(wirePayload),
     });
   }
 
@@ -414,18 +430,11 @@ export type CreateProjectPayload = {
   name: string;
   code: string;
   client: string;
-  start_date: string;
-  end_date: string;
-  currency: "USD" | "EUR" | "MXN";
-  mod_total: number;
+  start_date: string; // yyyy-mm-dd
+  end_date: string; // yyyy-mm-dd
+  currency: string; // e.g. "USD"
+  mod_total: number | string;
   description?: string;
-};
-
-export type CreateProjectResponse = {
-  id: string;
-  nombre?: string | null;
-  cliente?: string | null;
-  created_at?: string | null;
 };
 
 // Optional helpers used by tests/smokes
@@ -465,51 +474,29 @@ export async function getProjects(): Promise<ProjectsResponse> {
 
 export async function createProject(
   payload: CreateProjectPayload,
-): Promise<CreateProjectResponse> {
+): Promise<Json> {
   ensureApiBase();
 
-  const base = requireApiBase();
-  const body = {
-    nombre: payload.name,
-    codigo: payload.code,
-    cliente: payload.client,
-    fecha_inicio: payload.start_date,
-    fecha_fin: payload.end_date,
-    moneda: payload.currency,
-    presupuesto_total: payload.mod_total,
-    descripcion: payload.description,
-  };
-
   try {
-    const response = await fetchJson<Record<string, unknown>>(`${base}/projects`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...buildAuthHeader() },
-      body: JSON.stringify(body),
+    const body = {
+      ...payload,
+      mod_total:
+        typeof payload.mod_total === "string"
+          ? Number(payload.mod_total)
+          : payload.mod_total,
+    };
+
+    const res = await httpClient.post<Json>("/projects", body, {
+      headers: buildAuthHeader(),
     });
 
-    const derivedId =
-      String(
-        response.id ||
-          response.project_id ||
-          response.projectId ||
-          response.pk ||
-          "",
-      ).trim() || payload.code;
-
-    return {
-      id: derivedId,
-      nombre:
-        (response.nombre as string | undefined | null) ||
-        (response.name as string | undefined | null) ||
-        payload.name,
-      cliente:
-        (response.cliente as string | undefined | null) ||
-        (response.client as string | undefined | null) ||
-        payload.client,
-      created_at: (response.created_at as string | undefined | null) ?? null,
-    };
+    return res.data;
   } catch (err) {
-    throw toFinanzasError(err, "Unable to create project", (err as any)?.status);
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      handleAuthErrorStatus(err.status);
+    }
+
+    throw toFinanzasError(err, "Unable to create project");
   }
 }
 

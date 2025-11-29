@@ -143,8 +143,8 @@ HTTP_CODE=$(curl -sS -o "$POST_OK_OUT" -w '%{http_code}' \
 
 echo "➡️  POST $URL → HTTP $HTTP_CODE"
 
-if [[ "$HTTP_CODE" != 2?? ]]; then
-  echo "❌ Expected 2xx from POST /projects, got $HTTP_CODE"
+if [[ "$HTTP_CODE" != "201" ]]; then
+  echo "❌ Expected 201 from POST /projects, got $HTTP_CODE"
   head -c 500 "$POST_OK_OUT" || true
   exit 1
 fi
@@ -184,11 +184,11 @@ HTTP_CODE=$(curl -sS -o "$POST_BAD_OUT" -w '%{http_code}' \
 
 echo "➡️  POST (invalid) $URL → HTTP $HTTP_CODE"
 
-if [[ "$HTTP_CODE" != 4?? ]]; then
-  echo "❌ Expected 4xx from invalid POST /projects, got $HTTP_CODE"
+if [[ "$HTTP_CODE" != "422" ]]; then
+  echo "❌ Expected 422 from invalid POST /projects, got $HTTP_CODE"
   head -c 500 "$POST_BAD_OUT" || true
   exit 1
 fi
 
-echo "✅ Validation errors surface as 4xx for POST /projects"
+echo "✅ Validation errors surface as 422 for POST /projects"
 echo "✅ Finanzas Projects API contract test PASSED"

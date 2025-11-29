@@ -219,6 +219,35 @@ export function loginWithHostedUI(): void {
   window.location.href = hostedUIUrl;
 }
 
+const COGNITO_STORAGE_PREFIX = "CognitoIdentityServiceProvider";
+
+function clearLocalAuthState(clientId?: string): void {
+  const removePrefixedKeys = (store: Storage) => {
+    for (let i = store.length - 1; i >= 0; i -= 1) {
+      const key = store.key(i);
+      if (!key) continue;
+      if (key.includes(COGNITO_STORAGE_PREFIX)) {
+        if (!clientId || key.includes(clientId)) {
+          store.removeItem(key);
+        }
+      }
+      if (key === "amplify-signin-with-hostedUI") store.removeItem(key);
+      if (key.endsWith("federatedInfo")) store.removeItem(key);
+    }
+  };
+
+  // Clear local tokens first
+  [localStorage, sessionStorage].forEach((store) => {
+    store.removeItem("cv.jwt");
+    store.removeItem("finz_jwt");
+    store.removeItem("finz_refresh_token");
+    store.removeItem("cv.module");
+    store.removeItem("idToken");
+    store.removeItem("cognitoIdToken");
+    removePrefixedKeys(store);
+  });
+}
+
 /**
  * Helper function to initiate Cognito Hosted UI logout
  */
@@ -226,13 +255,7 @@ export function logoutWithHostedUI(): void {
   const { domain, redirectSignOut } = aws.oauth;
   const { userPoolWebClientId } = aws.Auth;
 
-  // Clear local tokens first
-  localStorage.removeItem("cv.jwt");
-  localStorage.removeItem("finz_jwt");
-  localStorage.removeItem("finz_refresh_token");
-  localStorage.removeItem("cv.module");
-  localStorage.removeItem("idToken");
-  localStorage.removeItem("cognitoIdToken");
+  clearLocalAuthState(userPoolWebClientId);
 
   if (!domain || !userPoolWebClientId) {
     console.warn(
