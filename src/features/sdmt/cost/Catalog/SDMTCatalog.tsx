@@ -185,9 +185,12 @@ export function SDMTCatalog() {
 
   const safeLineItems = Array.isArray(lineItems) ? lineItems : [];
   const filteredItems = safeLineItems.filter((item) => {
+    const description = (item.description || "").toString().toLowerCase();
+    const category = (item.category || "").toString().toLowerCase();
+    const term = searchTerm.toLowerCase();
+
     const matchesSearch =
-      item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase());
+      description.includes(term) || category.includes(term);
     const matchesCategory =
       categoryFilter === "all" || item.category === categoryFilter;
     return matchesSearch && matchesCategory;
