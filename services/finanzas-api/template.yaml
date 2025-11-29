@@ -1188,6 +1188,9 @@ Resources:
       Handler: invoices/app.handler
       Policies:
       - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: PrefacturasTable
       Events:
         GetProjectInvoices:
           Type: HttpApi
