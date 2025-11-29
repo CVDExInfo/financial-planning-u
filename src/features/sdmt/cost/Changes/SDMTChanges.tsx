@@ -20,6 +20,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Clock, CheckCircle2, XCircle, AlertCircle, Eye, Loader2 } from "lucide-react";
 import ModuleBadge from "@/components/ModuleBadge";
@@ -41,6 +48,8 @@ const defaultForm = {
 type ChangeRequestForm = typeof defaultForm;
 
 type ChangeStatus = DomainChangeRequest["status"];
+
+const currencyOptions = ["USD", "EUR", "MXN", "COP"] as const;
 
 const statusIcon = (status: ChangeStatus) => {
   switch (status) {
@@ -102,6 +111,12 @@ export function SDMTChanges() {
     }
     void loadChangeRequests(selectedProjectId);
   }, [selectedProjectId, loadChangeRequests]);
+
+  useEffect(() => {
+    if (currentProject?.currency) {
+      setForm((prev) => ({ ...prev, currency: currentProject.currency }));
+    }
+  }, [currentProject?.currency]);
 
   const onSubmit = async () => {
     if (!selectedProjectId) {
@@ -391,11 +406,23 @@ export function SDMTChanges() {
               </div>
               <div>
                 <Label htmlFor="currency">Currency</Label>
-                <Input
-                  id="currency"
+                <Select
                   value={form.currency}
-                  onChange={(e) => setForm((prev) => ({ ...prev, currency: e.target.value }))}
-                />
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, currency: value }))
+                  }
+                >
+                  <SelectTrigger id="currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencyOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="justification">Justification</Label>
