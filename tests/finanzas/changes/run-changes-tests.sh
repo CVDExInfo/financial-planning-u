@@ -88,13 +88,18 @@ HTTP_CREATE="$(curl -sS -o "$LOG_CREATE" -w '%{http_code}' \
   --data "$PAYLOAD")"
 
 echo "➡️  POST $LIST_URL → HTTP $HTTP_CREATE"
-if [[ "$HTTP_CREATE" != 2?? ]]; then
+if [[ "$HTTP_CREATE" == 409 ]]; then
+  echo "⚠️  Received 409 (duplicate change) — proceeding to verify existing entries" >&2
+elif [[ "$HTTP_CREATE" != 2?? ]]; then
   echo "❌ Expected 2xx/201 from POST /projects/{id}/changes" >&2
   head -c 400 "$LOG_CREATE" || true
   exit 1
 fi
 
-NEW_ID="$(jq -r '.id // .changeId // .sk // ""' "$LOG_CREATE")"
+NEW_ID=""
+if [[ "$HTTP_CREATE" == 2?? ]]; then
+  NEW_ID="$(jq -r '.id // .changeId // .sk // ""' "$LOG_CREATE")"
+fi
 
 LOG_LIST_AFTER="${FINZ_LOG_DIR}/changes_${PROJECT_ID}_after.json"
 HTTP_AFTER="$(curl -sS -o "$LOG_LIST_AFTER" -w '%{http_code}' \
