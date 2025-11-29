@@ -28,12 +28,37 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, Clock, CheckCircle2, XCircle, AlertCircle, Eye, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Eye,
+  Loader2,
+  ChevronsUpDown,
+  Check,
+} from "lucide-react";
 import ModuleBadge from "@/components/ModuleBadge";
 import { useProject } from "@/contexts/ProjectContext";
 import ApiService from "@/lib/api";
 import type { ChangeRequest as DomainChangeRequest } from "@/types/domain";
 import { toast } from "sonner";
+import ApprovalWorkflow from "./ApprovalWorkflow";
+import { useProjectLineItems } from "@/hooks/useProjectLineItems";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 const defaultForm = {
   title: "",
@@ -77,6 +102,17 @@ const statusTone = (status: ChangeStatus) => {
   }
 };
 
+const formatRubroLabel = (item?: { category?: string; subtype?: string; description?: string }, fallbackId?: string) => {
+  if (!item) return fallbackId || "Line item";
+  const category = item.category?.trim();
+  const subtype = item.subtype?.trim();
+  const description = item.description?.trim() || fallbackId || "Line item";
+  const categoryLabel = subtype
+    ? `${category ?? "General"} / ${subtype}`
+    : category ?? "General";
+  return `${categoryLabel} — ${description}`;
+};
+
 export function SDMTChanges() {
   const { selectedProjectId, currentProject } = useProject();
   const [changeRequests, setChangeRequests] = useState<DomainChangeRequest[]>([]);
@@ -84,8 +120,41 @@ export function SDMTChanges() {
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedChange, setSelectedChange] = useState<DomainChangeRequest | null>(null);
+  const [workflowChange, setWorkflowChange] = useState<DomainChangeRequest | null>(null);
+  const [isWorkflowDialogOpen, setIsWorkflowDialogOpen] = useState(false);
   const [form, setForm] = useState<ChangeRequestForm>(defaultForm);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedLineItemIds, setSelectedLineItemIds] = useState<string[]>([]);
+  const [lineItemSelectorOpen, setLineItemSelectorOpen] = useState(false);
+
+  const {
+    lineItems,
+    isLoading: lineItemsLoading,
+    error: lineItemsError,
+  } = useProjectLineItems();
+
+  const safeLineItems = useMemo(() => (Array.isArray(lineItems) ? lineItems : []), [lineItems]);
+  const lineItemOptions = useMemo(
+    () =>
+      safeLineItems.map((item) => ({
+        value: item.id,
+        label: formatRubroLabel(item, item.id),
+      })),
+    [safeLineItems],
+  );
+
+  const selectedLineItemLabels = useMemo(() => {
+    const labelMap = new Map(lineItemOptions.map((option) => [option.value, option.label]));
+    return selectedLineItemIds.map((id) => labelMap.get(id) || id);
+  }, [lineItemOptions, selectedLineItemIds]);
+
+  const lineItemSelectorMessage = useMemo(() => {
+    if (lineItemsLoading) return "Cargando rubros...";
+    if (lineItemsError instanceof Error) return lineItemsError.message;
+    if (!lineItemsLoading && safeLineItems.length === 0)
+      return "Este proyecto aún no tiene rubros configurados.";
+    return null;
+  }, [lineItemsError, lineItemsLoading, safeLineItems.length]);
 
   const loadChangeRequests = useCallback(async (projectId: string) => {
     try {
@@ -113,10 +182,20 @@ export function SDMTChanges() {
   }, [selectedProjectId, loadChangeRequests]);
 
   useEffect(() => {
+    setSelectedLineItemIds([]);
+  }, [selectedProjectId]);
+
+  useEffect(() => {
     if (currentProject?.currency) {
       setForm((prev) => ({ ...prev, currency: currentProject.currency }));
     }
   }, [currentProject?.currency]);
+
+  const toggleLineItemSelection = (id: string) => {
+    setSelectedLineItemIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
 
   const onSubmit = async () => {
     if (!selectedProjectId) {
@@ -133,6 +212,10 @@ export function SDMTChanges() {
     try {
       setSubmitting(true);
       setError(null);
+      const affectedLineItemsString = selectedLineItemIds.filter(Boolean).join(",");
+      const affectedLineItemsPayload = affectedLineItemsString
+        ? affectedLineItemsString.split(",")
+        : [];
       await ApiService.createChangeRequest(selectedProjectId, {
         baseline_id: form.baseline_id,
         title: form.title.trim(),
@@ -140,10 +223,7 @@ export function SDMTChanges() {
         impact_amount: impact,
         currency: form.currency || "USD",
         justification: form.justification.trim(),
-        affected_line_items: form.affected_line_items
-          .split(/[,\n]/)
-          .map((entry) => entry.trim())
-          .filter(Boolean),
+        affected_line_items: affectedLineItemsPayload,
         requested_by: "",
         requested_at: "",
         status: "pending",
@@ -151,6 +231,7 @@ export function SDMTChanges() {
       });
 
       setForm(defaultForm);
+      setSelectedLineItemIds([]);
       setCreateOpen(false);
       toast.success("Cambio creado correctamente");
       await loadChangeRequests(selectedProjectId);
@@ -185,6 +266,68 @@ export function SDMTChanges() {
         .reduce((sum, c) => sum + Number(c.impact_amount || 0), 0),
     [changeRequests],
   );
+
+  const handleApprovalAction = (
+    requestId: string,
+    action: "approve" | "reject",
+    comments: string,
+  ) => {
+    setChangeRequests((prev) =>
+      prev.map((change) => {
+        if (change.id !== requestId) return change;
+
+        const decision = action === "approve" ? "approved" : "rejected";
+        const newApproval = {
+          id: `local-${Date.now()}`,
+          change_id: requestId,
+          approver_role: "approver",
+          approver_id: "",
+          decision,
+          comment: comments,
+          approved_at: new Date().toISOString(),
+        };
+
+        return {
+          ...change,
+          status: decision,
+          approvals: Array.isArray(change.approvals)
+            ? [...change.approvals, newApproval]
+            : [newApproval],
+        };
+      }),
+    );
+
+    setIsWorkflowDialogOpen(false);
+    setWorkflowChange(null);
+  };
+
+  const mapChangeToWorkflow = (change: DomainChangeRequest) => {
+    const approvalSteps = (change.approvals || []).map((approval, index) => ({
+      id: approval.id || `${change.id}-approval-${index}`,
+      role: approval.approver_role || "Approver",
+      approverName: approval.approver_id || undefined,
+      status: (approval.decision as ChangeStatus) || "pending",
+      comments: approval.comment,
+      decidedAt: approval.approved_at,
+      required: true,
+    }));
+
+    const pendingIndex = approvalSteps.findIndex((step) => step.status === "pending");
+
+    return {
+      id: change.id,
+      title: change.title,
+      description: change.description,
+      impact: Number(change.impact_amount || 0),
+      status: change.status,
+      requestedBy: change.requested_by || "",
+      requestedAt: change.requested_at,
+      approvalSteps,
+      currentStep: pendingIndex === -1 ? approvalSteps.length : pendingIndex,
+      businessJustification: change.justification,
+      affectedLineItems: change.affected_line_items || [],
+    };
+  };
 
   if (!selectedProjectId) {
     return (
@@ -319,11 +462,11 @@ export function SDMTChanges() {
                         {Number(change.impact_amount || 0).toLocaleString()}
                       </span>
                     </TableCell>
-                    <TableCell>
-                      <div
-                        className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${statusTone(
-                          change.status,
-                        )}`}
+                  <TableCell>
+                    <div
+                      className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${statusTone(
+                        change.status,
+                      )}`}
                       >
                         {statusIcon(change.status)}
                         {change.status.charAt(0).toUpperCase() + change.status.slice(1)}
@@ -338,14 +481,27 @@ export function SDMTChanges() {
                         : "-"}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedChange(change)}
-                      >
-                        <Eye size={14} className="mr-1" />
-                        View
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedChange(change)}
+                        >
+                          <Eye size={14} className="mr-1" />
+                          View
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setWorkflowChange(change);
+                            setIsWorkflowDialogOpen(true);
+                          }}
+                        >
+                          <Clock size={14} className="mr-1" />
+                          View Workflow
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -435,15 +591,80 @@ export function SDMTChanges() {
                 />
               </div>
             </div>
-            <div>
-              <Label htmlFor="line-items">Affected line items (comma separated)</Label>
-              <Input
-                id="line-items"
-                value={form.affected_line_items}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, affected_line_items: e.target.value }))
-                }
-              />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="line-items">Affected line items</Label>
+                {selectedLineItemIds.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {selectedLineItemIds.length} selected
+                  </span>
+                )}
+              </div>
+              <Popover open={lineItemSelectorOpen} onOpenChange={setLineItemSelectorOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={lineItemSelectorOpen}
+                    className="w-full justify-between"
+                    id="line-items"
+                  >
+                    <span className="truncate text-left">
+                      {lineItemsLoading
+                        ? "Loading line items..."
+                        : selectedLineItemLabels[0] || "Select affected line items"}
+                      {selectedLineItemIds.length > 1 && (
+                        <span className="text-muted-foreground ml-1">
+                          +{selectedLineItemIds.length - 1} more
+                        </span>
+                      )}
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[520px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search line items" />
+                    <CommandList>
+                      <CommandEmpty>No line items found.</CommandEmpty>
+                      <CommandGroup>
+                        {lineItemOptions.map((option) => {
+                          const isSelected = selectedLineItemIds.includes(option.value);
+                          return (
+                            <CommandItem
+                              key={option.value}
+                              value={option.label}
+                              onSelect={() => toggleLineItemSelection(option.value)}
+                              className="flex items-center gap-2"
+                            >
+                              <span
+                                className={`flex h-4 w-4 items-center justify-center rounded border ${
+                                  isSelected ? "bg-primary/10 border-primary" : "border-muted"
+                                }`}
+                              >
+                                {isSelected && <Check className="h-3 w-3 text-primary" />}
+                              </span>
+                              <span className="truncate text-sm">{option.label}</span>
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {lineItemSelectorMessage && (
+                <p className="text-sm text-muted-foreground">{lineItemSelectorMessage}</p>
+              )}
+              {selectedLineItemLabels.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {selectedLineItemLabels.map((label, index) => (
+                    <Badge key={`${label}-${index}`} variant="outline">
+                      {label}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting}>
@@ -528,6 +749,23 @@ export function SDMTChanges() {
                 </div>
               )}
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Approval Workflow</DialogTitle>
+            <DialogDescription>
+              {workflowChange?.id || "Revisa el flujo de aprobación de este cambio."}
+            </DialogDescription>
+          </DialogHeader>
+          {workflowChange && (
+            <ApprovalWorkflow
+              changeRequest={mapChangeToWorkflow(workflowChange)}
+              onApprovalAction={handleApprovalAction}
+            />
           )}
         </DialogContent>
       </Dialog>
