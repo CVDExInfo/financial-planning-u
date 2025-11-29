@@ -78,6 +78,8 @@ Globals:
           Fn::Sub: ${TablePrefix}docs
         TABLE_PREFACTURAS:
           Fn::Sub: ${TablePrefix}prefacturas
+        TABLE_CHANGES:
+          Fn::Sub: ${TablePrefix}changes
         STAGE_NAME:
           Ref: StageName
         POLICY_STORE_ID:
@@ -209,6 +211,24 @@ Resources:
         KeyType: RANGE
     Metadata:
       SamResourceId: AdjustmentsTable
+  ChangesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${TablePrefix}changes
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
+      KeySchema:
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: ChangesTable
   AlertsTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -1192,6 +1212,46 @@ Resources:
           Properties:
             Path: /projects/{projectId}/invoices/{invoiceId}/status
             Method: PUT
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+  ChangesFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: node20
+        Sourcemap: true
+        External:
+        - aws-sdk
+        EntryPoints:
+        - src/handlers/changes.ts
+      SamResourceId: ChangesFn
+    Properties:
+      CodeUri: .
+      Handler: changes.handler
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ChangesTable
+      Events:
+        ListProjectChanges:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/changes
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        CreateProjectChange:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/changes
+            Method: POST
             ApiId:
               Ref: Api
             Auth:

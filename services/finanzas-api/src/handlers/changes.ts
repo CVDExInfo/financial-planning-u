@@ -1,124 +1,201 @@
-import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth.js";
+// services/finanzas-api/src/handlers/changes.ts
 
-type ChangeRequest = {
-  id: string;
-  project_id: string;
-  title: string;
-  description?: string;
-  impact: number;
-  status: "pending" | "approved" | "implemented";
-  requested_by: string;
-  requested_date: string;
-  approved_by?: string;
-  approved_date?: string;
-  implemented_date?: string;
+import type {
+  APIGatewayProxyEventV2,
+  APIGatewayProxyResultV2,
+} from "aws-lambda";
+import { randomUUID } from "node:crypto";
+
+import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth.js";
+import { fromAuthError, ok, bad, serverError } from "../lib/http.js";
+import { ddb, PutCommand, QueryCommand, tableName } from "../lib/dynamo.js";
+
+// Normalize "array-ish" inputs (string, string[], comma/newline-separated) into a string[]
+const normalizeArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v));
+  }
+  if (typeof value === "string" && value.trim().length) {
+    return value
+      .split(/[,\n]/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+  return [];
 };
 
-const changeStore: ChangeRequest[] = [
-  {
-    id: "chg_seed_001",
-    project_id: "proj_demo_001",
-    title: "Add security review",
-    description: "Extend scope to include security review for Q2",
-    impact: 12500,
-    status: "approved",
-    requested_by: "demo.pm@example.com",
-    requested_date: "2025-01-05",
-    approved_by: "director@example.com",
-    approved_date: "2025-01-06",
-  },
-  {
-    id: "chg_seed_002",
-    project_id: "proj_demo_002",
-    title: "Scale back infra",
-    description: "Reduce cloud footprint after optimization",
-    impact: -3200,
-    status: "pending",
-    requested_by: "fin@example.com",
-    requested_date: "2025-02-01",
-  },
-];
+// Convert a raw Dynamo item into the public ChangeRequest shape
+const normalizeChange = (item: Record<string, unknown>) => {
+  const sk = (item.sk as string) || "";
+  const idFromKey = sk.startsWith("CHANGE#") ? sk.replace("CHANGE#", "") : sk;
 
-function jsonResponse(statusCode: number, payload: unknown) {
+  const projectKey = (item.pk as string) || "";
+
+  const primaryAffected = normalizeArray(item.affected_line_items);
+  const affectedLineItems =
+    primaryAffected.length > 0
+      ? primaryAffected
+      : normalizeArray(item.affectedLineItems);
+
   return {
-    statusCode,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    id: (item.id as string) || (item.changeId as string) || idFromKey,
+    project_id:
+      (item.project_id as string) ||
+      (item.projectId as string) ||
+      (projectKey.startsWith("PROJECT#")
+        ? projectKey.replace("PROJECT#", "")
+        : projectKey),
+    baseline_id:
+      (item.baseline_id as string) || (item.baselineId as string) || "",
+    title: (item.title as string) || "",
+    description: (item.description as string) || "",
+    impact_amount: Number(item.impact_amount ?? item.impactAmount ?? 0),
+    currency: (item.currency as string) || "USD",
+    affected_line_items: affectedLineItems,
+    justification:
+      (item.justification as string) ||
+      (item.businessJustification as string) ||
+      "",
+    requested_by:
+      (item.requested_by as string) ||
+      (item.requestedBy as string) ||
+      (item.created_by as string) ||
+      "",
+    requested_at:
+      (item.requested_at as string) ||
+      (item.requestedAt as string) ||
+      (item.created_at as string) ||
+      new Date().toISOString(),
+    status: (item.status as string) || "pending",
+    approvals: Array.isArray(item.approvals)
+      ? (item.approvals as unknown[])
+      : [],
   };
+};
+
+async function listChanges(projectId: string) {
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: tableName("changes"),
+      KeyConditionExpression: "pk = :pk",
+      ExpressionAttributeValues: { ":pk": `PROJECT#${projectId}` },
+    }),
+  );
+
+  const items = (result.Items as Record<string, unknown>[]) || [];
+  const data = items.map(normalizeChange);
+
+  return ok({ data, projectId, total: data.length });
 }
 
-async function listChanges(event: APIGatewayProxyEventV2) {
-  await ensureCanRead(event as any);
-
-  const projectId =
-    event.queryStringParameters?.project_id || event.queryStringParameters?.projectId;
-
-  const filtered = projectId
-    ? changeStore.filter((item) => item.project_id === projectId)
-    : changeStore;
-
-  return jsonResponse(200, { data: filtered, total: filtered.length });
-}
-
-async function createChange(event: APIGatewayProxyEventV2) {
-  await ensureCanWrite(event as any);
-
-  if (!event.body) {
-    return jsonResponse(400, { message: "Missing request body" });
-  }
-
-  let payload: Partial<ChangeRequest> & { impact?: unknown };
+async function createChange(
+  projectId: string,
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  let payload: Record<string, unknown>;
   try {
-    payload = typeof event.body === "string" ? JSON.parse(event.body) : (event.body as any);
-  } catch (parseErr) {
-    return jsonResponse(400, { message: "Invalid JSON body", detail: String(parseErr) });
+    payload = event.body ? JSON.parse(event.body) : {};
+  } catch {
+    return bad("Invalid JSON body", 400);
   }
 
-  const required = ["project_id", "title", "impact"] as const;
-  const missing = required.filter((field) => !(payload as any)?.[field]);
-  if (missing.length) {
-    return jsonResponse(400, { message: `Missing fields: ${missing.join(", ")}` });
+  const title =
+    typeof payload.title === "string" ? payload.title.trim() : "";
+  const description =
+    typeof payload.description === "string"
+      ? payload.description.trim()
+      : "";
+  const impactValue = Number(payload.impact_amount ?? payload.impactAmount);
+  const currency =
+    typeof payload.currency === "string" ? payload.currency : "USD";
+
+  if (!title || !description || Number.isNaN(impactValue)) {
+    return bad("title, description, and impact_amount are required", 422);
   }
 
+  const baselineId =
+    typeof payload.baseline_id === "string"
+      ? payload.baseline_id
+      : typeof payload.baselineId === "string"
+        ? payload.baselineId
+        : "";
+
+  const justification =
+    typeof payload.justification === "string"
+      ? payload.justification
+      : typeof payload.businessJustification === "string"
+        ? payload.businessJustification
+        : "";
+
+  const affectedLineItems = normalizeArray(
+    (payload.affected_line_items as unknown) ?? payload.affectedLineItems,
+  );
+
+  const requestedBy = await getUserEmail(event as never);
   const now = new Date().toISOString();
-  const requestedBy =
-    payload.requested_by || (await getUserEmail(event as any)) || "system@example.com";
+  const changeId =
+    (payload.id as string) || `CHG-${Date.now()}-${randomUUID()}`;
 
-  const newChange: ChangeRequest = {
-    id: `chg_${Date.now()}`,
-    project_id: payload.project_id as string,
-    title: payload.title as string,
-    description: payload.description,
-    impact: Number(payload.impact),
-    status: "pending",
+  const item = {
+    pk: `PROJECT#${projectId}`,
+    sk: `CHANGE#${changeId}`,
+    id: changeId,
+    project_id: projectId,
+    baseline_id: baselineId,
+    title,
+    description,
+    impact_amount: impactValue,
+    currency,
+    affected_line_items: affectedLineItems,
+    justification,
     requested_by: requestedBy,
-    requested_date: now,
-    approved_by: payload.approved_by,
-    approved_date: payload.approved_date,
-    implemented_date: payload.implemented_date,
+    requested_at: now,
+    status: "pending",
+    created_at: now,
+    updated_at: now,
   };
 
-  changeStore.unshift(newChange);
+  await ddb.send(
+    new PutCommand({
+      TableName: tableName("changes"),
+      Item: item,
+      ConditionExpression:
+        "attribute_not_exists(pk) AND attribute_not_exists(sk)",
+    }),
+  );
 
-  return jsonResponse(201, newChange);
+  return ok(normalizeChange(item), 201);
 }
 
-export const handler = async (event: APIGatewayProxyEventV2) => {
+export async function handler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
   try {
-    const method = event.requestContext.http.method;
+    const method = event.requestContext?.http?.method ?? "";
+    const projectId = event.pathParameters?.projectId;
+
+    if (!projectId) {
+      return bad("Missing projectId", 400);
+    }
 
     if (method === "GET") {
-      return await listChanges(event);
+      await ensureCanRead(event as never);
+      return listChanges(projectId);
     }
 
     if (method === "POST") {
-      return await createChange(event);
+      await ensureCanWrite(event as never);
+      return createChange(projectId, event);
     }
 
-    return jsonResponse(405, { message: "Method not allowed" });
-  } catch (err: unknown) {
-    console.error("/changes unhandled error", err);
-    return jsonResponse(500, { error: "internal error" });
+    return bad("Route not handled", 404);
+  } catch (error) {
+    const authError = fromAuthError(error);
+    if (authError) return authError;
+
+    const message =
+      error instanceof Error ? error.message : "Unexpected error";
+    console.error("Changes handler error", error);
+    return serverError(message);
   }
-};
+}

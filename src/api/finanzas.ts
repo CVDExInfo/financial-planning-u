@@ -537,12 +537,58 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
   };
 
   try {
-    const primary = await httpClient.get<{ data?: any[] } | any[]>(
-      `/projects/${encodeURIComponent(projectId)}/invoices`,
+    const parseInvoices = (payload: any): any[] => {
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray(payload.data)) return payload.data;
+      if (payload && Array.isArray(payload.items)) return payload.items;
+      if (payload?.data && Array.isArray(payload.data.items)) return payload.data.items;
+      if (payload?.data && Array.isArray(payload.data.data)) return payload.data.data;
+      return [];
+    };
+
+    const mapInvoice = (item: any): InvoiceDoc => ({
+      id: item.invoiceId || item.id || item.sk || "",
+      line_item_id: item.lineItemId || item.line_item_id || "",
+      month: Number(item.month) || 1,
+      amount: Number(item.amount) || 0,
+      currency: (item.currency as InvoiceDoc["currency"]) || "USD",
+      file_url: item.file_url,
+      file_name: item.file_name,
+      documentKey: item.documentKey,
+      originalName: item.originalName || item.file_name,
+      contentType: item.contentType,
+      status: (item.status as InvoiceStatus) || "Pending",
+      comments: item.comments,
+      uploaded_by: item.uploaded_by || item.uploader || "unknown",
+      uploaded_at:
+        item.created_at || item.uploaded_at || new Date().toISOString(),
+      matched_at: item.matched_at,
+      matched_by: item.matched_by,
+    });
+
+    const primaryPath = `/projects/${encodeURIComponent(projectId)}/invoices`;
+    try {
+      const response = await httpClient.get<{ data?: any[] }>(primaryPath, {
+        headers: buildAuthHeader(),
+      });
+      return parseInvoices(response.data).map(mapInvoice);
+    } catch (err) {
+      if (err instanceof HttpError && [404, 405].includes(err.status)) {
+        // Fall back to legacy /prefacturas route
+      } else if (err instanceof HttpError && err.status >= 500) {
+        // Try legacy route before surfacing server errors
+      } else {
+        throw err;
+      }
+    }
+
+    const params = new URLSearchParams({ projectId });
+    const legacyResponse = await httpClient.get<{ data?: any[] }>(
+      `/prefacturas?${params.toString()}`,
       { headers: buildAuthHeader() },
     );
 
-    return toArray(primary.data).map(normalizeInvoice);
+    return parseInvoices(legacyResponse.data).map(mapInvoice);
   } catch (err) {
     if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
       handleAuthErrorStatus(err.status);

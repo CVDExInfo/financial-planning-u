@@ -5,82 +5,119 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../shared/lib.sh
 source "${SCRIPT_DIR}/../shared/lib.sh"
 
+FINZ_LOG_DIR="${FINZ_LOG_DIR:-/tmp/finanzas-tests}"
+ensure_log_dir
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "❌ jq is required to run changes contract tests" >&2
+  exit 1
+fi
+
 guard_dev_api_target
 BASE="$(finz_base)"
 
-# Check for jq availability
-if ! command -v jq >/dev/null 2>&1; then
-  echo "❌ Error: jq is not installed. Please install jq to run this script." >&2
+: "${AWS_REGION:?AWS_REGION is required}"
+: "${COGNITO_WEB_CLIENT:?COGNITO_WEB_CLIENT is required}"
+: "${COGNITO_USER_POOL_ID:?COGNITO_USER_POOL_ID is required}"
+: "${COGNITO_TESTER_USERNAME:?COGNITO_TESTER_USERNAME is required}"
+: "${COGNITO_TESTER_PASSWORD:?COGNITO_TESTER_PASSWORD is required}"
+
+if [[ ! -x "scripts/cognito/get-jwt.sh" ]]; then
+  echo "❌ scripts/cognito/get-jwt.sh not found or not executable" >&2
   exit 1
 fi
 
-# Health pre-flight
-curl_json "$(join_url "$BASE" '/health')" >/dev/null || echo "⚠️  Health check not available, continuing..."
+echo "🔐 Fetching Cognito token for contract tests..."
+TOKEN="$(scripts/cognito/get-jwt.sh || true)"
+if [[ -z "$TOKEN" ]]; then
+  echo "❌ Unable to obtain Cognito token" >&2
+  exit 1
+fi
 
-echo "Discovering projects from $(join_url "$BASE" '/projects')..."
-
+echo "🌐 Using API base: $BASE"
 PROJECTS_URL="$(join_url "$BASE" '/projects?limit=50')"
-PROJECTS_BODY="$(curl_json "$PROJECTS_URL")"
+PROJECTS_RAW="${FINZ_LOG_DIR}/changes-projects.json"
 
-PROJECT_IDS="$(printf '%s' "$PROJECTS_BODY" | jq -r '.[] | (.id // .projectId // .pk)')"
+curl -sS -o "$PROJECTS_RAW" -w '' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: application/json" \
+  "$PROJECTS_URL"
 
-if [[ -z "$PROJECT_IDS" ]]; then
-  echo "::error::No projects returned by /projects"
+PROJECT_ID="$(jq -r 'first((.data // .items // .data.items // .data.data // .)[]? | (.id // .projectId // .pk // .project_id))' "$PROJECTS_RAW")"
+
+if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == "null" ]]; then
+  echo "❌ No project id discovered from /projects" >&2
+  head -c 400 "$PROJECTS_RAW" || true
   exit 1
 fi
 
-# Use a placeholder email if COGNITO_TESTER_USERNAME not set (for unauthenticated tests)
-REQUESTER_EMAIL="${COGNITO_TESTER_USERNAME:-tester@example.com}"
+echo "✅ Using project $PROJECT_ID"
 
-ensure_log_dir
+LIST_URL="$(join_url "$BASE" "/projects/${PROJECT_ID}/changes")"
+LOG_LIST_BEFORE="${FINZ_LOG_DIR}/changes_${PROJECT_ID}_before.json"
+HTTP_CODE="$(curl -sS -o "$LOG_LIST_BEFORE" -w '%{http_code}' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: application/json" \
+  "$LIST_URL")"
 
-# Loop through each project and run changes/adjustments tests
-for PROJECT_ID in $PROJECT_IDS; do
-  echo "" >&2
-  echo "Testing adjustments APIs for project ${PROJECT_ID}" >&2
-  
-  LIST_URL="$(join_url "$BASE" "/adjustments?project_id=${PROJECT_ID}&limit=10")"
-  CREATE_URL="$(join_url "$BASE" "/adjustments")"
-  LOG_BEFORE="${FINZ_LOG_DIR}/finz_adjustments_${PROJECT_ID}_before.log"
-  LOG_CREATE="${FINZ_LOG_DIR}/finz_adjustments_${PROJECT_ID}_create.log"
-  LOG_AFTER="${FINZ_LOG_DIR}/finz_adjustments_${PROJECT_ID}_after.log"
-  
-  # GET adjustments before
-  finz_curl GET "${LIST_URL}" "" "${LOG_BEFORE}"
-  HTTP_CODE=$(tail -n1 "${LOG_BEFORE}" | awk '{print $2}')
-  if [ "$HTTP_CODE" != "200" ]; then
-    echo "❌ GET /adjustments for project $PROJECT_ID returned HTTP $HTTP_CODE"
-    exit 1
-  fi
-  
-  # POST new adjustment
-  timestamp="$(date +%s)"
-  read -r -d '' payload <<JSON || true
+echo "➡️  GET $LIST_URL → HTTP $HTTP_CODE"
+if [[ "$HTTP_CODE" != 2?? ]]; then
+  echo "❌ Expected 2xx from GET /projects/{id}/changes" >&2
+  head -c 400 "$LOG_LIST_BEFORE" || true
+  exit 1
+fi
+
+TIMESTAMP="$(date +%s)"
+read -r -d '' PAYLOAD <<JSON || true
 {
-  "project_id": "${PROJECT_ID}",
-  "tipo": "exceso",
-  "monto": 1000,
-  "fecha_inicio": "2025-01",
-  "metodo_distribucion": "pro_rata_forward",
-  "justificacion": "CLI evidence payload ${timestamp}",
-  "solicitado_por": "${REQUESTER_EMAIL}"
+  "title": "Contract test change ${TIMESTAMP}",
+  "description": "Automated change request from contract script",
+  "impact_amount": 1234,
+  "currency": "USD",
+  "justification": "CI coverage",
+  "affected_line_items": ["line-item-${TIMESTAMP}"]
 }
 JSON
-  
-  finz_curl POST "${CREATE_URL}" "${payload}" "${LOG_CREATE}"
-  HTTP_CODE=$(tail -n1 "${LOG_CREATE}" | awk '{print $2}')
-  if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
-    echo "❌ POST /adjustments for project $PROJECT_ID returned HTTP $HTTP_CODE"
+
+LOG_CREATE="${FINZ_LOG_DIR}/changes_${PROJECT_ID}_create.json"
+HTTP_CREATE="$(curl -sS -o "$LOG_CREATE" -w '%{http_code}' \
+  -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  "$LIST_URL" \
+  --data "$PAYLOAD")"
+
+echo "➡️  POST $LIST_URL → HTTP $HTTP_CREATE"
+if [[ "$HTTP_CREATE" != 2?? ]]; then
+  echo "❌ Expected 2xx/201 from POST /projects/{id}/changes" >&2
+  head -c 400 "$LOG_CREATE" || true
+  exit 1
+fi
+
+NEW_ID="$(jq -r '.id // .changeId // .sk // ""' "$LOG_CREATE")"
+
+LOG_LIST_AFTER="${FINZ_LOG_DIR}/changes_${PROJECT_ID}_after.json"
+HTTP_AFTER="$(curl -sS -o "$LOG_LIST_AFTER" -w '%{http_code}' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: application/json" \
+  "$LIST_URL")"
+
+echo "➡️  GET $LIST_URL (after) → HTTP $HTTP_AFTER"
+if [[ "$HTTP_AFTER" != 2?? ]]; then
+  echo "❌ Expected 2xx after creation" >&2
+  head -c 400 "$LOG_LIST_AFTER" || true
+  exit 1
+fi
+
+if [[ -n "$NEW_ID" ]]; then
+  if ! jq -e --arg id "$NEW_ID" '
+    ((.data // .items // .data.items // .data.data // .) // [])
+    | map((.id // .changeId // (.sk // "") | sub("^CHANGE#"; "")))
+    | any(. == $id)
+  ' "$LOG_LIST_AFTER" >/dev/null; then
+    echo "❌ Created change $NEW_ID not found in follow-up GET" >&2
     exit 1
   fi
-  
-  # GET adjustments after
-  finz_curl GET "${LIST_URL}" "" "${LOG_AFTER}"
-  HTTP_CODE=$(tail -n1 "${LOG_AFTER}" | awk '{print $2}')
-  if [ "$HTTP_CODE" != "200" ]; then
-    echo "❌ GET /adjustments (after) for project $PROJECT_ID returned HTTP $HTTP_CODE"
-    exit 1
-  fi
-  
-  echo "✅ Changes tests passed for project ${PROJECT_ID}"
-done
+fi
+
+echo "✅ Changes contract test passed for project $PROJECT_ID"
