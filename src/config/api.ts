@@ -4,6 +4,7 @@
  */
 
 import { logoutWithHostedUI } from "./aws";
+import { AuthError, ServerError, ValidationError } from "@/lib/errors";
 import { API_BASE, HAS_API_BASE } from "./env";
 
 // API Base URL - use environment variable in production
@@ -52,22 +53,25 @@ export function buildApiUrl(endpoint: string): string {
 // Helper function to get auth token from localStorage
 export function getAuthToken(): string | null {
   try {
-    // Priority order:
-    // 1) Current access/id tokens written by the auth callback
-    // 2) Unified Finanzas tokens kept for backward compatibility
-    // 3) Legacy Cognito keys (idToken/cognitoIdToken) across local & session storage
-    // 4) Static build-time token (used in CI/E2E)
-    // 5) Legacy serialized auth object
+    // Canonical JWT lookup order for Finanzas (access token preferred):
+    // 1) finz_access_token (Cognito access token written by auth callback/login)
+    // 2) cv.jwt / finz_jwt (ID token written by auth callback/login)
+    // 3) idToken / cognitoIdToken (legacy Cognito keys)
+    // 4) build-time token (used by CI/E2E only)
+    const preferredKeys = [
+      "finz_access_token",
+      "cv.jwt",
+      "finz_jwt",
+      "idToken",
+      "cognitoIdToken",
+    ];
+
     const storageSources = [localStorage, sessionStorage];
     for (const store of storageSources) {
-      const token =
-        store.getItem("finz_access_token") ||
-        store.getItem("cv.jwt") ||
-        store.getItem("finz_jwt") ||
-        store.getItem("idToken") ||
-        store.getItem("cognitoIdToken") ||
-        "";
-      if (token) return token;
+      for (const key of preferredKeys) {
+        const value = store.getItem(key);
+        if (value && value.trim().length > 0) return value;
+      }
     }
 
     if (import.meta.env.VITE_API_JWT_TOKEN) {
@@ -95,11 +99,11 @@ export function buildAuthHeader(): HeadersInit {
 export function handleAuthErrorStatus(status: number): never | void {
   if (status === 401) {
     logoutWithHostedUI();
-    throw new Error("Your session expired. Please sign in again.");
+    throw new AuthError("AUTH_REQUIRED", "Your session expired. Please sign in again.", 401);
   }
 
   if (status === 403) {
-    throw new Error("You don’t have permission to perform this action.");
+    throw new AuthError("FORBIDDEN", "You don’t have permission to perform this action.", 403);
   }
 }
 
@@ -114,7 +118,18 @@ export function buildHeaders(
   };
 
   if (includeAuth) {
-    Object.assign(headers, buildAuthHeader());
+    const token = getAuthToken();
+
+    if (!token) {
+      if (import.meta.env.VITE_SKIP_AUTH === "true") {
+        return headers;
+      }
+
+      console.warn("[Finanzas] Missing auth token; skipping API call until user signs in.");
+      throw new AuthError("AUTH_REQUIRED", "Authentication required to call Finanzas API", 401);
+    }
+
+    Object.assign(headers, { Authorization: `Bearer ${token}` });
   }
 
   return headers;
@@ -133,5 +148,17 @@ export async function handleApiError(response: Response): Promise<never> {
     // Could not parse error response as JSON
   }
 
-  throw new Error(errorMessage);
+  if (response.status === 401 || response.status === 403) {
+    throw new AuthError(
+      response.status === 401 ? "AUTH_REQUIRED" : "FORBIDDEN",
+      errorMessage,
+      response.status,
+    );
+  }
+
+  if (response.status >= 500) {
+    throw new ServerError("SERVER_ERROR", errorMessage, response.status);
+  }
+
+  throw new ValidationError("VALIDATION_ERROR", errorMessage, response.status);
 }

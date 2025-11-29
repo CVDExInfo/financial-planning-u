@@ -42,6 +42,8 @@ import {
 import ModuleBadge from "@/components/ModuleBadge";
 import { useProject } from "@/contexts/ProjectContext";
 import ApiService from "@/lib/api";
+import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
+import { useAuth } from "@/hooks/useAuth";
 import type { ChangeRequest as DomainChangeRequest } from "@/types/domain";
 import { toast } from "sonner";
 import ApprovalWorkflow from "./ApprovalWorkflow";
@@ -115,6 +117,7 @@ const formatRubroLabel = (item?: { category?: string; subtype?: string; descript
 
 export function SDMTChanges() {
   const { selectedProjectId, currentProject } = useProject();
+  const { login } = useAuth();
   const [changeRequests, setChangeRequests] = useState<DomainChangeRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,7 +166,10 @@ export function SDMTChanges() {
       const data = await ApiService.getChangeRequests(projectId);
       setChangeRequests(data);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "No pudimos cargar los cambios.";
+      const message = handleFinanzasApiError(err, {
+        onAuthError: () => login(),
+        fallback: "No pudimos cargar los cambios.",
+      });
       setError(message);
       setChangeRequests([]);
     } finally {
@@ -236,12 +242,11 @@ export function SDMTChanges() {
       toast.success("Cambio creado correctamente");
       await loadChangeRequests(selectedProjectId);
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Error interno en Finanzas. Intenta nuevamente más tarde.";
+      const message = handleFinanzasApiError(err, {
+        onAuthError: () => login(),
+        fallback: "Error interno en Finanzas. Intenta nuevamente más tarde.",
+      });
       setError(message);
-      toast.error(message);
     } finally {
       setSubmitting(false);
     }
