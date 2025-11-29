@@ -36,6 +36,7 @@ import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling
 import { useAuth } from "@/hooks/useAuth";
 import type { ChangeRequest as DomainChangeRequest } from "@/types/domain";
 import { toast } from "sonner";
+import ApprovalWorkflow from "./ApprovalWorkflow";
 
 const defaultForm = {
   title: "",
@@ -87,6 +88,8 @@ export function SDMTChanges() {
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedChange, setSelectedChange] = useState<DomainChangeRequest | null>(null);
+  const [workflowChange, setWorkflowChange] = useState<DomainChangeRequest | null>(null);
+  const [isWorkflowDialogOpen, setIsWorkflowDialogOpen] = useState(false);
   const [form, setForm] = useState<ChangeRequestForm>(defaultForm);
   const [submitting, setSubmitting] = useState(false);
 
@@ -190,6 +193,68 @@ export function SDMTChanges() {
         .reduce((sum, c) => sum + Number(c.impact_amount || 0), 0),
     [changeRequests],
   );
+
+  const handleApprovalAction = (
+    requestId: string,
+    action: "approve" | "reject",
+    comments: string,
+  ) => {
+    setChangeRequests((prev) =>
+      prev.map((change) => {
+        if (change.id !== requestId) return change;
+
+        const decision = action === "approve" ? "approved" : "rejected";
+        const newApproval = {
+          id: `local-${Date.now()}`,
+          change_id: requestId,
+          approver_role: "approver",
+          approver_id: "",
+          decision,
+          comment: comments,
+          approved_at: new Date().toISOString(),
+        };
+
+        return {
+          ...change,
+          status: decision,
+          approvals: Array.isArray(change.approvals)
+            ? [...change.approvals, newApproval]
+            : [newApproval],
+        };
+      }),
+    );
+
+    setIsWorkflowDialogOpen(false);
+    setWorkflowChange(null);
+  };
+
+  const mapChangeToWorkflow = (change: DomainChangeRequest) => {
+    const approvalSteps = (change.approvals || []).map((approval, index) => ({
+      id: approval.id || `${change.id}-approval-${index}`,
+      role: approval.approver_role || "Approver",
+      approverName: approval.approver_id || undefined,
+      status: (approval.decision as ChangeStatus) || "pending",
+      comments: approval.comment,
+      decidedAt: approval.approved_at,
+      required: true,
+    }));
+
+    const pendingIndex = approvalSteps.findIndex((step) => step.status === "pending");
+
+    return {
+      id: change.id,
+      title: change.title,
+      description: change.description,
+      impact: Number(change.impact_amount || 0),
+      status: change.status,
+      requestedBy: change.requested_by || "",
+      requestedAt: change.requested_at,
+      approvalSteps,
+      currentStep: pendingIndex === -1 ? approvalSteps.length : pendingIndex,
+      businessJustification: change.justification,
+      affectedLineItems: change.affected_line_items || [],
+    };
+  };
 
   if (!selectedProjectId) {
     return (
@@ -324,11 +389,11 @@ export function SDMTChanges() {
                         {Number(change.impact_amount || 0).toLocaleString()}
                       </span>
                     </TableCell>
-                    <TableCell>
-                      <div
-                        className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${statusTone(
-                          change.status,
-                        )}`}
+                  <TableCell>
+                    <div
+                      className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${statusTone(
+                        change.status,
+                      )}`}
                       >
                         {statusIcon(change.status)}
                         {change.status.charAt(0).toUpperCase() + change.status.slice(1)}
@@ -343,14 +408,27 @@ export function SDMTChanges() {
                         : "-"}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedChange(change)}
-                      >
-                        <Eye size={14} className="mr-1" />
-                        View
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedChange(change)}
+                        >
+                          <Eye size={14} className="mr-1" />
+                          View
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setWorkflowChange(change);
+                            setIsWorkflowDialogOpen(true);
+                          }}
+                        >
+                          <Clock size={14} className="mr-1" />
+                          View Workflow
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -533,6 +611,23 @@ export function SDMTChanges() {
                 </div>
               )}
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Approval Workflow</DialogTitle>
+            <DialogDescription>
+              {workflowChange?.id || "Revisa el flujo de aprobación de este cambio."}
+            </DialogDescription>
+          </DialogHeader>
+          {workflowChange && (
+            <ApprovalWorkflow
+              changeRequest={mapChangeToWorkflow(workflowChange)}
+              onApprovalAction={handleApprovalAction}
+            />
           )}
         </DialogContent>
       </Dialog>
