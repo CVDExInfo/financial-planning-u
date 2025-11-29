@@ -147,7 +147,7 @@ jobs:
             if diff -u /tmp/expected-function.js /tmp/actual-function.js; then
               echo "✅ Function code matches expected"
             else
-              echo "⚠️ Function code differs from expected"
+              echo "⚠️ Function code differs from expected (diff shown above)"
             fi
           else
             echo "❌ ERROR: Function ${CLOUDFRONT_FUNCTION_NAME} not found"

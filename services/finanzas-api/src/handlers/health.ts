@@ -23,23 +23,47 @@ async function deepHealthCheck() {
   const missingTables: string[] = [];
   const existingTables: string[] = [];
 
-  for (const table of requiredTables) {
-    const fullTableName = process.env[table.envVar] || table.fallback;
-    try {
-      await ddb.send(
-        new DescribeTableCommand({
-          TableName: fullTableName,
-        })
-      );
-      existingTables.push(fullTableName);
-    } catch (error) {
-      if ((error as { name?: string }).name === "ResourceNotFoundException") {
-        missingTables.push(fullTableName);
-      } else {
-        // Other errors (like access denied) are also problems
-        console.error(`Error checking table ${fullTableName}:`, error);
-        missingTables.push(`${fullTableName} (error: ${(error as Error).message})`);
+  // Check all tables in parallel for better performance
+  const results = await Promise.allSettled(
+    requiredTables.map(async (table) => {
+      const fullTableName = process.env[table.envVar] || table.fallback;
+      try {
+        await ddb.send(
+          new DescribeTableCommand({
+            TableName: fullTableName,
+          })
+        );
+        return { status: "exists", tableName: fullTableName };
+      } catch (error) {
+        if ((error as { name?: string }).name === "ResourceNotFoundException") {
+          return { status: "missing", tableName: fullTableName };
+        } else {
+          // Other errors (like access denied) are also problems
+          console.error(`Error checking table ${fullTableName}:`, error);
+          return {
+            status: "error",
+            tableName: fullTableName,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
       }
+    })
+  );
+
+  // Process results
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      const tableResult = result.value;
+      if (tableResult.status === "exists") {
+        existingTables.push(tableResult.tableName);
+      } else if (tableResult.status === "missing") {
+        missingTables.push(tableResult.tableName);
+      } else {
+        missingTables.push(`${tableResult.tableName} (error: ${tableResult.error})`);
+      }
+    } else {
+      // Promise was rejected
+      console.error("Health check promise rejected:", result.reason);
     }
   }
 
@@ -92,7 +116,12 @@ export const handler = async (event?: { queryStringParameters?: { deep?: string 
         timestamp,
       });
     } catch (error) {
-      console.error("Deep health check failed:", error);
+      console.error("Deep health check failed:", {
+        error,
+        stack: error instanceof Error ? error.stack : undefined,
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       return bad(
         {
           status: "error",
