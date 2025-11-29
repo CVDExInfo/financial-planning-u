@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useProject } from "@/contexts/ProjectContext";
+import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
 import Protected from "@/components/Protected";
 import ModuleBadge from "@/components/ModuleBadge";
 import { ServiceTierSelector } from "@/components/ServiceTierSelector";
@@ -55,13 +56,14 @@ import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import { logger } from "@/utils/logger";
 import { cn } from "@/lib/utils";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
-import { addProjectRubro, FinanzasApiError } from "@/api/finanzas";
+import { addProjectRubro } from "@/api/finanzas";
 import {
   uploadDocument,
   type DocumentUploadMeta,
   type DocumentUploadStage,
 } from "@/lib/documents/uploadService";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { useAuth } from "@/hooks/useAuth";
 
 // Pending change types
 type PendingChangeType = "add" | "edit" | "delete";
@@ -96,7 +98,7 @@ export function SDMTCatalog() {
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [editingItem, setEditingItem] = useState<LineItem | null>(null);
   const [isCreatingLineItem, setIsCreatingLineItem] = useState(false);
-  const allowMockData = import.meta.env.VITE_USE_MOCKS === "true";
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
   // Form state for Add/Edit Line Item dialog
   const [formData, setFormData] = useState({
@@ -126,22 +128,7 @@ export function SDMTCatalog() {
     error: lineItemsError,
     invalidate: invalidateLineItems,
   } = useProjectLineItems();
-
-  const normalizeApiError = (error: unknown) => {
-    if (!error) return null;
-    if (error instanceof FinanzasApiError) {
-      return { status: error.status, message: error.message };
-    }
-    if (error instanceof Error) {
-      return { status: (error as any).status as number | undefined, message: error.message };
-    }
-    return { status: undefined, message: String(error) };
-  };
-
-  const lineItemsErrorInfo = normalizeApiError(lineItemsError);
-
-  // Compute error message after lineItemsError is available
-
+  const { login } = useAuth();
   const loading = isLineItemsLoading && queryLineItems.length === 0;
   const refreshing = isLineItemsFetching && !isLineItemsLoading;
 
@@ -152,6 +139,11 @@ export function SDMTCatalog() {
   const hasUnsavedChanges = pendingChanges.size > 0;
 
   useEffect(() => {
+    if (lineItemsError) {
+      return;
+    }
+
+    setCatalogError(null);
     setLineItems(Array.isArray(queryLineItems) ? queryLineItems : []);
     setPendingChanges(new Map());
     setSaveBarState("idle");
@@ -163,25 +155,27 @@ export function SDMTCatalog() {
         selectedProjectId
       );
     }
-  }, [queryLineItems, selectedProjectId]);
+  }, [lineItemsError, queryLineItems, selectedProjectId]);
 
   useEffect(() => {
-    if (!lineItemsErrorInfo?.message) {
+    if (!lineItemsError) {
       return;
     }
 
-    toast.error(lineItemsErrorInfo.message);
-    logger.error("Failed to load line items:", lineItemsErrorInfo.message);
-  }, [lineItemsErrorInfo?.message]);
+    const message = handleFinanzasApiError(lineItemsError, {
+      onAuthError: () => login(),
+      fallback: "No pudimos cargar el catálogo de rubros.",
+    });
 
-  const uiErrorMessage = (() => {
-    if (allowMockData || !lineItemsErrorInfo) return null;
-    if (lineItemsErrorInfo.status === 403)
-      return "Acceso restringido a este catálogo para tu rol o proyecto.";
-    if (lineItemsErrorInfo.status && lineItemsErrorInfo.status >= 500)
-      return "El servicio de catálogo no está disponible en este momento.";
-    return lineItemsErrorInfo.message;
-  })();
+    setCatalogError(message);
+    setLineItems([]);
+    setPendingChanges(new Map());
+    setSaveBarState("idle");
+    toast.error(message);
+    logger.error("Failed to load line items:", message, lineItemsError);
+  }, [lineItemsError, login]);
+
+  const uiErrorMessage = catalogError;
 
   const safeLineItems = Array.isArray(lineItems) ? lineItems : [];
   const filteredItems = safeLineItems.filter((item) => {
