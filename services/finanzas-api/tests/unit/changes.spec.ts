@@ -119,7 +119,7 @@ describe("changes handler", () => {
     )) as APIGatewayProxyStructuredResultV2;
 
     expect(response.statusCode).toBe(400);
-    expect(auth.ensureCanWrite).not.toHaveBeenCalled();
+    expect(auth.ensureCanWrite).toHaveBeenCalledTimes(1);
   });
 
   it("validates required fields on create", async () => {
