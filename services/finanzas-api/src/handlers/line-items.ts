@@ -60,7 +60,34 @@ export const handler = async (
 
     return bad(`Method ${method} not allowed`, 405);
   } catch (error) {
-    console.error("Error in line-items handler:", error);
+    // Handle DynamoDB-specific errors with appropriate status codes
+    if (error && (error as { name?: string }).name === "ResourceNotFoundException") {
+      console.error("DynamoDB table not found", {
+        error,
+        table: tableName("rubros"),
+        operation: event.requestContext?.http?.method,
+        path: event.rawPath,
+        projectId: event.queryStringParameters?.project_id,
+      });
+      return bad(`Required table not found: ${tableName("rubros")}. Check infrastructure deployment.`, 503);
+    }
+
+    if (error && (error as { name?: string }).name === "AccessDeniedException") {
+      console.error("DynamoDB access denied", {
+        error,
+        table: tableName("rubros"),
+        operation: event.requestContext?.http?.method,
+      });
+      return bad("Database access denied - check IAM permissions", 503);
+    }
+
+    console.error("Error in line-items handler:", {
+      error,
+      stack: error instanceof Error ? (error as Error).stack : undefined,
+      method: event.requestContext?.http?.method,
+      path: event.rawPath,
+      projectId: event.queryStringParameters?.project_id,
+    });
     return serverError(
       error instanceof Error ? error.message : "Internal server error"
     );
