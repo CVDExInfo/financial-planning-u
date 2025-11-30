@@ -280,32 +280,21 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const authError = fromAuthError(error);
     if (authError) return authError;
 
-    // Handle DynamoDB-specific errors with appropriate status codes
-    if (error && (error as { name?: string }).name === "ResourceNotFoundException") {
-      console.error("DynamoDB table not found", {
-        error,
-        table: tableName("projects"),
-        operation: event.requestContext?.http?.method,
-        path: event.rawPath,
-      });
-      return bad(`Required table not found: ${tableName("projects")}. Check infrastructure deployment.`, 503);
-    }
+    const isDynamoAccessDenied =
+      error &&
+      typeof error === "object" &&
+      "name" in error &&
+      (error as { name?: string }).name === "AccessDeniedException";
 
-    if (error && (error as { name?: string }).name === "AccessDeniedException") {
+    if (isDynamoAccessDenied) {
       console.error("DynamoDB access denied", {
-        error,
         table: tableName("projects"),
-        operation: event.requestContext?.http?.method,
+        method: event.requestContext.http?.method,
       });
-      return bad("Database access denied - check IAM permissions", 503);
+      return serverError();
     }
 
-    console.error("Error in projects handler", {
-      error,
-      stack: error instanceof Error ? (error as Error).stack : undefined,
-      method: event.requestContext?.http?.method,
-      path: event.rawPath,
-    });
+    console.error("Error in projects handler", error);
     return serverError();
   }
 };
