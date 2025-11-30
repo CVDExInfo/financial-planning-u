@@ -83,6 +83,7 @@ jobs:
           fi
 
       - name: 2. Retrieve CloudFront Function Code
+        continue-on-error: true
         run: |
           set -euo pipefail
           echo "=== CloudFront Function: ${CLOUDFRONT_FUNCTION_NAME} ==="
@@ -102,16 +103,21 @@ jobs:
             echo "Function metadata:"
             jq '.FunctionSummary | {Name, Status, Stage: .FunctionMetadata.Stage}' /tmp/cf-function.json
             
-            # Get function code
+            # Get function code - try LIVE first, fall back to DEVELOPMENT
             echo ""
             echo "Retrieving function code..."
-            FUNCTION_ARN=$(jq -r '.FunctionSummary.FunctionARN' /tmp/cf-function.json)
-            aws cloudfront get-function --name "${CLOUDFRONT_FUNCTION_NAME}" --stage LIVE > /tmp/cf-function-code.json 2>/dev/null || \
-              aws cloudfront get-function --name "${CLOUDFRONT_FUNCTION_NAME}" --stage DEVELOPMENT > /tmp/cf-function-code.json
+            if aws cloudfront get-function --name "${CLOUDFRONT_FUNCTION_NAME}" --stage LIVE --query 'FunctionCode' --output text 2>/dev/null | base64 -d > /tmp/actual-function.js; then
+              echo "✅ Retrieved function code from LIVE stage"
+            elif aws cloudfront get-function --name "${CLOUDFRONT_FUNCTION_NAME}" --stage DEVELOPMENT --query 'FunctionCode' --output text 2>/dev/null | base64 -d > /tmp/actual-function.js; then
+              echo "⚠️ Retrieved function code from DEVELOPMENT stage (LIVE not available)"
+            else
+              echo "❌ Failed to retrieve function code from either LIVE or DEVELOPMENT stage"
+              exit 1
+            fi
             
             echo ""
-            echo "Function code:"
-            jq -r '.FunctionCode' /tmp/cf-function-code.json | base64 -d
+            echo "Function code (first 40 lines):"
+            head -n 40 /tmp/actual-function.js
             
             # Save expected code for comparison
             cat > /tmp/expected-function.js << 'EOF'
@@ -143,7 +149,6 @@ jobs:
             
             echo ""
             echo "Comparing actual vs expected..."
-            jq -r '.FunctionCode' /tmp/cf-function-code.json | base64 -d > /tmp/actual-function.js
             if diff -u /tmp/expected-function.js /tmp/actual-function.js; then
               echo "✅ Function code matches expected"
             else
@@ -151,6 +156,7 @@ jobs:
             fi
           else
             echo "❌ ERROR: Function ${CLOUDFRONT_FUNCTION_NAME} not found"
+            exit 1
           fi
 
       - name: 3. Validate S3 Deployment Contents
@@ -286,6 +292,7 @@ jobs:
           fi
 
       - name: 6. Check DynamoDB Tables
+        continue-on-error: true
         run: |
           set -euo pipefail
           echo "=== DynamoDB Tables ==="
@@ -334,6 +341,7 @@ jobs:
           done
 
       - name: 7. Inspect CloudWatch Logs
+        continue-on-error: true
         run: |
           set -euo pipefail
           echo "=== CloudWatch Logs ==="
