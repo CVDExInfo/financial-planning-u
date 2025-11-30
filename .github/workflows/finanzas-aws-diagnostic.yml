@@ -115,12 +115,12 @@ jobs:
                 --name "${CLOUDFRONT_FUNCTION_NAME}" \
                 --stage DEVELOPMENT \
                 --query 'FunctionCode' \
-                --output text | base64 -d > /tmp/actual-function.js
+                --output text 2>/dev/null | base64 -d > /tmp/actual-function.js
             fi
 
             echo ""
             echo "Function code (first 40 lines):"
-            head -40 /tmp/actual-function.js || cat /tmp/actual-function.js
+            head -40 /tmp/actual-function.js 2>/dev/null || echo "Unable to read function code"
 
             # Expected rewrite function source
             cat > /tmp/expected-function.js << 'EOF'
