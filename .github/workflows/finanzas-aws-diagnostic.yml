@@ -1,0 +1,445 @@
+name: Finanzas AWS Diagnostic
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+  FINANZAS_BUCKET_NAME: ukusi-ui-finanzas-prod
+  CLOUDFRONT_DIST_ID: EPQU7PVDLQXUA
+  CF_DOMAIN: d7t9x3j66yd8k.cloudfront.net
+  FINZ_API_ID: pyorjw6lbe
+  FINZ_API_STAGE: dev
+  CLOUDFRONT_FUNCTION_NAME: finanzas-path-rewrite
+
+jobs:
+  aws-diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: diagnostic-${{ github.run_id }}
+
+      - name: Verify AWS Identity
+        run: |
+          set -euo pipefail
+          echo "=== AWS Identity ==="
+          aws sts get-caller-identity
+          echo ""
+
+      - name: 1. Validate CloudFront Distribution
+        run: |
+          set -euo pipefail
+          echo "=== CloudFront Distribution Configuration ==="
+          echo "Distribution ID: ${CLOUDFRONT_DIST_ID}"
+          
+          # Get distribution config
+          aws cloudfront get-distribution-config --id "${CLOUDFRONT_DIST_ID}" \
+            --query 'DistributionConfig' > /tmp/cf-dist-config.json
+          
+          # Check for /finanzas/* behavior
+          echo ""
+          echo "Checking for /finanzas/* cache behavior..."
+          BEHAVIOR_COUNT=$(jq '.CacheBehaviors.Items[] | select(.PathPattern == "/finanzas/*")' /tmp/cf-dist-config.json | jq -s length)
+          echo "Found ${BEHAVIOR_COUNT} behavior(s) matching /finanzas/*"
+          
+          if [ "$BEHAVIOR_COUNT" = "0" ]; then
+            echo "❌ ERROR: No /finanzas/* behavior found!"
+          else
+            echo "✅ /finanzas/* behavior exists"
+            
+            # Get origin for this behavior
+            echo ""
+            echo "Behavior details:"
+            jq '.CacheBehaviors.Items[] | select(.PathPattern == "/finanzas/*") | {
+              PathPattern,
+              TargetOriginId,
+              ViewerProtocolPolicy,
+              FunctionAssociations
+            }' /tmp/cf-dist-config.json
+            
+            # Get target origin ID
+            TARGET_ORIGIN=$(jq -r '.CacheBehaviors.Items[] | select(.PathPattern == "/finanzas/*") | .TargetOriginId' /tmp/cf-dist-config.json)
+            echo ""
+            echo "Target Origin ID: ${TARGET_ORIGIN}"
+            
+            # Get origin details
+            echo "Origin configuration:"
+            jq --arg origin "$TARGET_ORIGIN" '.Origins.Items[] | select(.Id == $origin)' /tmp/cf-dist-config.json
+            
+            # Check for function associations
+            echo ""
+            echo "Function associations:"
+            jq '.CacheBehaviors.Items[] | select(.PathPattern == "/finanzas/*") | .FunctionAssociations' /tmp/cf-dist-config.json
+          fi
+
+      - name: 2. Retrieve CloudFront Function Code
+        run: |
+          set -euo pipefail
+          echo "=== CloudFront Function: ${CLOUDFRONT_FUNCTION_NAME} ==="
+          
+          # List all CloudFront functions to find the right one
+          echo "Listing CloudFront functions..."
+          aws cloudfront list-functions --query 'FunctionList.Items[].Name' --output table || echo "Failed to list functions"
+          
+          # Try to get the function
+          echo ""
+          echo "Attempting to describe function..."
+          if aws cloudfront describe-function --name "${CLOUDFRONT_FUNCTION_NAME}" > /tmp/cf-function.json 2>/dev/null; then
+            echo "✅ Function found"
+            
+            # Get function details
+            echo ""
+            echo "Function metadata:"
+            jq '.FunctionSummary | {Name, Status, Stage: .FunctionMetadata.Stage}' /tmp/cf-function.json
+            
+            # Get function code
+            echo ""
+            echo "Retrieving function code..."
+            FUNCTION_ARN=$(jq -r '.FunctionSummary.FunctionARN' /tmp/cf-function.json)
+            aws cloudfront get-function --name "${CLOUDFRONT_FUNCTION_NAME}" --stage LIVE > /tmp/cf-function-code.json 2>/dev/null || \
+              aws cloudfront get-function --name "${CLOUDFRONT_FUNCTION_NAME}" --stage DEVELOPMENT > /tmp/cf-function-code.json
+            
+            echo ""
+            echo "Function code:"
+            jq -r '.FunctionCode' /tmp/cf-function-code.json | base64 -d
+            
+            # Save expected code for comparison
+            cat > /tmp/expected-function.js << 'EOF'
+          function handler(event) {
+            var request = event.request;
+            var uri = request.uri;
+
+            if (uri === "/finanzas/" || uri === "/finanzas") {
+              request.uri = "/finanzas/index.html";
+              return request;
+            }
+
+            if (uri === "/finanzas/auth/callback.html") {
+              return request;
+            }
+
+            if (uri.startsWith("/finanzas/") && !uri.match(/\.\w+$/)) {
+              request.uri = "/finanzas/index.html";
+              return request;
+            }
+
+            return request;
+          }
+          EOF
+            
+            echo ""
+            echo "Expected function code:"
+            cat /tmp/expected-function.js
+            
+            echo ""
+            echo "Comparing actual vs expected..."
+            jq -r '.FunctionCode' /tmp/cf-function-code.json | base64 -d > /tmp/actual-function.js
+            if diff -u /tmp/expected-function.js /tmp/actual-function.js; then
+              echo "✅ Function code matches expected"
+            else
+              echo "⚠️ Function code differs from expected (diff shown above)"
+            fi
+          else
+            echo "❌ ERROR: Function ${CLOUDFRONT_FUNCTION_NAME} not found"
+          fi
+
+      - name: 3. Validate S3 Deployment Contents
+        run: |
+          set -euo pipefail
+          echo "=== S3 Bucket Contents ==="
+          echo "Bucket: s3://${FINANZAS_BUCKET_NAME}/finanzas/"
+          
+          # List files in finanzas prefix
+          echo ""
+          echo "Listing files in S3..."
+          aws s3 ls "s3://${FINANZAS_BUCKET_NAME}/finanzas/" --recursive --human-readable | head -50
+          
+          # Check for critical files
+          echo ""
+          echo "Checking for critical files..."
+          
+          FILES_TO_CHECK=(
+            "finanzas/index.html"
+            "finanzas/auth/callback.html"
+          )
+          
+          for file in "${FILES_TO_CHECK[@]}"; do
+            if aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$file" >/dev/null 2>&1; then
+              SIZE=$(aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$file" --query 'ContentLength' --output text)
+              echo "✅ $file exists (${SIZE} bytes)"
+            else
+              echo "❌ $file NOT FOUND"
+            fi
+          done
+          
+          # List JS bundles
+          echo ""
+          echo "JavaScript bundles:"
+          aws s3 ls "s3://${FINANZAS_BUCKET_NAME}/finanzas/assets/" --recursive | grep '\.js$' | grep -v '\.map$'
+          
+          # Check index.html content
+          echo ""
+          echo "Downloading index.html to check bundle references..."
+          aws s3 cp "s3://${FINANZAS_BUCKET_NAME}/finanzas/index.html" /tmp/s3-index.html
+          
+          echo "Bundle references in index.html:"
+          grep -o '/finanzas/assets/index-[^"]*\.js' /tmp/s3-index.html || echo "No bundle references found"
+
+      - name: 4. Validate API Gateway Configuration
+        run: |
+          set -euo pipefail
+          echo "=== API Gateway Configuration ==="
+          echo "API ID: ${FINZ_API_ID}"
+          echo "Stage: ${FINZ_API_STAGE}"
+          
+          # Get API details
+          echo ""
+          echo "API Gateway details:"
+          aws apigatewayv2 get-api --api-id "${FINZ_API_ID}" > /tmp/api-details.json
+          jq '{Name, ApiEndpoint, ProtocolType, ApiId}' /tmp/api-details.json
+          
+          # List routes
+          echo ""
+          echo "API Routes:"
+          aws apigatewayv2 get-routes --api-id "${FINZ_API_ID}" > /tmp/api-routes.json
+          jq -r '.Items[] | "\(.RouteKey) -> \(.Target // "N/A")"' /tmp/api-routes.json | sort
+          
+          # Check specific routes we care about
+          echo ""
+          echo "Checking key routes..."
+          KEY_ROUTES=(
+            "GET /health"
+            "GET /projects"
+            "GET /projects/{projectId}"
+            "GET /projects/{projectId}/changes"
+            "POST /projects/{projectId}/changes"
+            "GET /catalog/rubros"
+            "POST /line-items"
+          )
+          
+          for route in "${KEY_ROUTES[@]}"; do
+            if jq -e --arg route "$route" '.Items[] | select(.RouteKey == $route)' /tmp/api-routes.json >/dev/null; then
+              echo "✅ $route exists"
+            else
+              echo "❌ $route NOT FOUND"
+            fi
+          done
+          
+          # Get authorizer details
+          echo ""
+          echo "Authorizers:"
+          aws apigatewayv2 get-authorizers --api-id "${FINZ_API_ID}" > /tmp/api-authorizers.json
+          jq '.Items[] | {Name, AuthorizerType, IdentitySource}' /tmp/api-authorizers.json
+          
+          # Get CORS configuration
+          echo ""
+          echo "CORS Configuration:"
+          jq '.CorsConfiguration' /tmp/api-details.json
+
+      - name: 5. Inspect Lambda Functions
+        run: |
+          set -euo pipefail
+          echo "=== Lambda Functions ==="
+          
+          # Get routes with integrations
+          aws apigatewayv2 get-routes --api-id "${FINZ_API_ID}" > /tmp/api-routes.json
+          
+          # Extract Lambda ARNs
+          echo "Extracting Lambda functions from routes..."
+          jq -r '.Items[] | select(.Target) | .Target' /tmp/api-routes.json | \
+            grep -o 'arn:aws:lambda:[^/]*' | sort -u > /tmp/lambda-arns.txt || true
+          
+          if [ -s /tmp/lambda-arns.txt ]; then
+            echo "Found Lambda functions:"
+            cat /tmp/lambda-arns.txt
+            
+            # Get details for each Lambda
+            while IFS= read -r arn; do
+              FUNCTION_NAME=$(echo "$arn" | awk -F: '{print $NF}')
+              echo ""
+              echo "--- Lambda: $FUNCTION_NAME ---"
+              
+              # Get function configuration
+              if aws lambda get-function-configuration --function-name "$FUNCTION_NAME" > /tmp/lambda-config.json 2>/dev/null; then
+                echo "Runtime: $(jq -r .Runtime /tmp/lambda-config.json)"
+                echo "Timeout: $(jq -r .Timeout /tmp/lambda-config.json)s"
+                echo "Memory: $(jq -r .MemorySize /tmp/lambda-config.json)MB"
+                echo ""
+                echo "Environment variables:"
+                jq -r '.Environment.Variables | to_entries[] | "\(.key)=\(.value)"' /tmp/lambda-config.json | head -20
+              else
+                echo "❌ Could not get configuration for $FUNCTION_NAME"
+              fi
+            done < /tmp/lambda-arns.txt
+          else
+            echo "No Lambda integrations found in routes"
+          fi
+
+      - name: 6. Check DynamoDB Tables
+        run: |
+          set -euo pipefail
+          echo "=== DynamoDB Tables ==="
+          
+          TABLE_PREFIX="finz_"
+          TABLES=(
+            "projects"
+            "changes"
+            "rubros"
+            "rubros_taxonomia"
+            "allocations"
+            "payroll_actuals"
+            "adjustments"
+            "alerts"
+            "providers"
+            "audit_log"
+            "docs"
+            "prefacturas"
+          )
+          
+          for table in "${TABLES[@]}"; do
+            FULL_TABLE="${TABLE_PREFIX}${table}"
+            echo ""
+            echo "Checking table: $FULL_TABLE"
+            
+            if aws dynamodb describe-table --table-name "$FULL_TABLE" > /tmp/table-${table}.json 2>/dev/null; then
+              echo "✅ Table exists"
+              
+              # Get key schema
+              echo "Key schema:"
+              jq -r '.Table.KeySchema[] | "  \(.AttributeName) (\(.KeyType))"' /tmp/table-${table}.json
+              
+              # Get item count (approximate)
+              ITEM_COUNT=$(jq -r '.Table.ItemCount' /tmp/table-${table}.json)
+              echo "Item count: $ITEM_COUNT"
+              
+              # Sample one item if table is not empty
+              if [ "$ITEM_COUNT" != "0" ]; then
+                echo "Sample item:"
+                aws dynamodb scan --table-name "$FULL_TABLE" --limit 1 > /tmp/sample-${table}.json
+                jq '.Items[0]' /tmp/sample-${table}.json | head -20
+              fi
+            else
+              echo "❌ Table NOT FOUND"
+            fi
+          done
+
+      - name: 7. Inspect CloudWatch Logs
+        run: |
+          set -euo pipefail
+          echo "=== CloudWatch Logs ==="
+          
+          # Get log groups for Finanzas lambdas
+          echo "Searching for Finanzas Lambda log groups..."
+          aws logs describe-log-groups --log-group-name-prefix '/aws/lambda/' \
+            --query 'logGroups[].logGroupName' --output text | tr '\t' '\n' | grep -i finz || echo "No Finanzas log groups found"
+          
+          # Also check for API Gateway logs
+          echo ""
+          echo "API Gateway log groups:"
+          aws logs describe-log-groups --log-group-name-prefix '/aws/http-api/' \
+            --query 'logGroups[].logGroupName' --output text | tr '\t' '\n' || echo "No API Gateway log groups found"
+          
+          # Try to find recent errors in any Finanzas log groups
+          echo ""
+          echo "Searching for recent errors in Finanzas logs..."
+          LOG_GROUPS=$(aws logs describe-log-groups --log-group-name-prefix '/aws/lambda/' \
+            --query 'logGroups[?contains(logGroupName, `finz`) || contains(logGroupName, `Finz`)].logGroupName' --output text)
+          
+          if [ -n "$LOG_GROUPS" ]; then
+            for log_group in $LOG_GROUPS; do
+              echo ""
+              echo "--- Log group: $log_group ---"
+              
+              # Get recent log streams
+              RECENT_STREAM=$(aws logs describe-log-streams \
+                --log-group-name "$log_group" \
+                --order-by LastEventTime \
+                --descending \
+                --max-items 1 \
+                --query 'logStreams[0].logStreamName' \
+                --output text)
+              
+              if [ "$RECENT_STREAM" != "None" ] && [ -n "$RECENT_STREAM" ]; then
+                echo "Most recent log stream: $RECENT_STREAM"
+                echo "Recent events:"
+                aws logs get-log-events \
+                  --log-group-name "$log_group" \
+                  --log-stream-name "$RECENT_STREAM" \
+                  --limit 20 \
+                  --query 'events[].[timestamp,message]' \
+                  --output text | tail -20 || echo "No events found"
+              fi
+            done
+          fi
+
+      - name: 8. Test API Endpoints
+        run: |
+          set -euo pipefail
+          echo "=== Testing API Endpoints ==="
+          
+          API_BASE="https://${FINZ_API_ID}.execute-api.${AWS_REGION}.amazonaws.com/${FINZ_API_STAGE}"
+          echo "API Base URL: $API_BASE"
+          
+          # Test /health
+          echo ""
+          echo "Testing GET /health..."
+          curl -v -X GET "$API_BASE/health" 2>&1 | head -30 || echo "Failed"
+          
+          # Test /catalog/rubros
+          echo ""
+          echo "Testing GET /catalog/rubros..."
+          curl -v -X GET "$API_BASE/catalog/rubros" 2>&1 | head -50 || echo "Failed"
+          
+          # Test /projects (may require auth)
+          echo ""
+          echo "Testing GET /projects (may require auth)..."
+          HTTP_CODE=$(curl -s -o /tmp/projects-response.txt -w '%{http_code}' -X GET "$API_BASE/projects" || echo "000")
+          echo "HTTP Status: $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Response:"
+            cat /tmp/projects-response.txt | jq . || cat /tmp/projects-response.txt
+          elif [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+            echo "⚠️ Endpoint requires authentication (expected for protected routes)"
+          else
+            echo "Response:"
+            cat /tmp/projects-response.txt
+          fi
+
+      - name: 9. Summary Report
+        if: always()
+        run: |
+          set -euo pipefail
+          echo ""
+          echo "========================================"
+          echo "FINANZAS AWS DIAGNOSTIC SUMMARY"
+          echo "========================================"
+          echo ""
+          echo "This diagnostic run has collected information about:"
+          echo "  1. CloudFront distribution and behaviors"
+          echo "  2. CloudFront function code"
+          echo "  3. S3 bucket contents"
+          echo "  4. API Gateway routes and configuration"
+          echo "  5. Lambda functions and environment variables"
+          echo "  6. DynamoDB tables"
+          echo "  7. CloudWatch logs"
+          echo "  8. API endpoint tests"
+          echo ""
+          echo "Review the output above for any ❌ errors or ⚠️ warnings."
+          echo ""
+          echo "Key things to check:"
+          echo "  - Is the CloudFront function correct and published?"
+          echo "  - Do all required API routes exist?"
+          echo "  - Are Lambda environment variables set correctly?"
+          echo "  - Do DynamoDB tables exist with correct schema?"
+          echo "  - Are there errors in CloudWatch logs?"
+          echo ""
