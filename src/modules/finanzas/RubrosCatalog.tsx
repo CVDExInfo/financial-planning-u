@@ -56,8 +56,25 @@ export default function RubrosCatalog() {
     try {
       setLoading(true);
       setError(null);
-      const data = await finanzasClient.getRubros();
-      setRows(data);
+      const rubrosResponse = (await finanzasClient.getRubros()) as
+        | Rubro[]
+        | { data?: Rubro[] };
+
+      const normalizedRubros = Array.isArray(rubrosResponse)
+        ? rubrosResponse
+        : Array.isArray(rubrosResponse?.data)
+          ? rubrosResponse.data
+          : null;
+
+      if (!normalizedRubros) {
+        const message =
+          "Formato inesperado de respuesta del catálogo de rubros. Verifica la API de Finanzas.";
+        setError(message);
+        toast.error(message);
+        return;
+      }
+
+      setRows(normalizedRubros);
     } catch (e: any) {
       console.error(e);
       const message =
