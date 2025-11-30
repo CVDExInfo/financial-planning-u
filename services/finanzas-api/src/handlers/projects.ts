@@ -280,6 +280,20 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const authError = fromAuthError(error);
     if (authError) return authError;
 
+    const isDynamoAccessDenied =
+      error &&
+      typeof error === "object" &&
+      "name" in error &&
+      (error as { name?: string }).name === "AccessDeniedException";
+
+    if (isDynamoAccessDenied) {
+      console.error("DynamoDB access denied", {
+        table: tableName("projects"),
+        method: event.requestContext.http?.method,
+      });
+      return serverError();
+    }
+
     console.error("Error in projects handler", error);
     return serverError();
   }

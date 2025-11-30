@@ -341,9 +341,10 @@ export const finanzasClient = {
   },
 
   async getRubros(): Promise<Rubro[]> {
-    const payload = await http<{ data: unknown } | Rubro[]>("/catalog/rubros");
-    const data = normalizeListResponse<Rubro>(payload);
-    const parsed = RubroListSchema.safeParse({ data });
+    const payload = await http<unknown>("/catalog/rubros");
+    const data = normalizeDataArray<Rubro>(payload);
+    const parsed = z.array(RubroSchema).safeParse(data);
+
     if (!parsed.success) {
       console.error(parsed.error);
       throw new Error("Invalid rubros response");
