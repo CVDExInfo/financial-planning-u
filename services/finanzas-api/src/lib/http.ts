@@ -43,12 +43,15 @@ export function noContent(statusCode = 204) {
 
 /**
  * Error response with CORS headers
+ * Accepts either a string message or an object with error details
  */
-export function bad(message: string, statusCode = 400) {
+export function bad(message: string | Record<string, unknown>, statusCode = 400) {
   return {
     statusCode,
     headers: cors,
-    body: JSON.stringify({ error: message }),
+    body: typeof message === "string"
+      ? JSON.stringify({ error: message })
+      : JSON.stringify(message),
   };
 }
 

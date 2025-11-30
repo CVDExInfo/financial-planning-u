@@ -220,9 +220,35 @@ export async function handler(
     const authError = fromAuthError(error);
     if (authError) return authError;
 
+    // Handle DynamoDB-specific errors with appropriate status codes
+    if (error && (error as { name?: string }).name === "ResourceNotFoundException") {
+      console.error("DynamoDB table not found", {
+        error,
+        table: tableName("changes"),
+        operation: event.requestContext?.http?.method,
+        path: event.rawPath,
+      });
+      return bad(`Required table not found: ${tableName("changes")}. Check infrastructure deployment.`, 503);
+    }
+
+    if (error && (error as { name?: string }).name === "AccessDeniedException") {
+      console.error("DynamoDB access denied", {
+        error,
+        table: tableName("changes"),
+        operation: event.requestContext?.http?.method,
+      });
+      return bad("Database access denied - check IAM permissions", 503);
+    }
+
     const message =
       error instanceof Error ? error.message : "Unexpected error";
-    console.error("Changes handler error", error);
+    console.error("Changes handler error", {
+      error,
+      stack: error instanceof Error ? error.stack : undefined,
+      method: event.requestContext?.http?.method,
+      path: event.rawPath,
+      projectId: event.pathParameters?.projectId,
+    });
     return serverError(message);
   }
 }
