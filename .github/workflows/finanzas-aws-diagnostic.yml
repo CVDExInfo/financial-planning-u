@@ -83,6 +83,7 @@ jobs:
           fi
 
       - name: 2. Retrieve CloudFront Function Code
+        continue-on-error: true
         run: |
           set -euo pipefail
           echo "=== CloudFront Function: ${CLOUDFRONT_FUNCTION_NAME} ==="
@@ -91,29 +92,37 @@ jobs:
           echo "Listing CloudFront functions..."
           aws cloudfront list-functions --query 'FunctionList.Items[].Name' --output table || echo "Failed to list functions"
           
-          # Try to get the function
           echo ""
           echo "Attempting to describe function..."
           if aws cloudfront describe-function --name "${CLOUDFRONT_FUNCTION_NAME}" > /tmp/cf-function.json 2>/dev/null; then
             echo "✅ Function found"
-            
-            # Get function details
+
             echo ""
             echo "Function metadata:"
             jq '.FunctionSummary | {Name, Status, Stage: .FunctionMetadata.Stage}' /tmp/cf-function.json
-            
-            # Get function code
+
             echo ""
-            echo "Retrieving function code..."
-            FUNCTION_ARN=$(jq -r '.FunctionSummary.FunctionARN' /tmp/cf-function.json)
-            aws cloudfront get-function --name "${CLOUDFRONT_FUNCTION_NAME}" --stage LIVE > /tmp/cf-function-code.json 2>/dev/null || \
-              aws cloudfront get-function --name "${CLOUDFRONT_FUNCTION_NAME}" --stage DEVELOPMENT > /tmp/cf-function-code.json
-            
+            echo "Retrieving function code (LIVE, then DEVELOPMENT fallback)..."
+            # Try LIVE stage first
+            if ! aws cloudfront get-function \
+                  --name "${CLOUDFRONT_FUNCTION_NAME}" \
+                  --stage LIVE \
+                  --query 'FunctionCode' \
+                  --output text 2>/dev/null | base64 -d > /tmp/actual-function.js
+            then
+              # Fallback to DEVELOPMENT
+              aws cloudfront get-function \
+                --name "${CLOUDFRONT_FUNCTION_NAME}" \
+                --stage DEVELOPMENT \
+                --query 'FunctionCode' \
+                --output text | base64 -d > /tmp/actual-function.js
+            fi
+
             echo ""
-            echo "Function code:"
-            jq -r '.FunctionCode' /tmp/cf-function-code.json | base64 -d
-            
-            # Save expected code for comparison
+            echo "Function code (first 40 lines):"
+            head -40 /tmp/actual-function.js || cat /tmp/actual-function.js
+
+            # Expected rewrite function source
             cat > /tmp/expected-function.js << 'EOF'
           function handler(event) {
             var request = event.request;
@@ -136,14 +145,9 @@ jobs:
             return request;
           }
           EOF
-            
-            echo ""
-            echo "Expected function code:"
-            cat /tmp/expected-function.js
-            
+
             echo ""
             echo "Comparing actual vs expected..."
-            jq -r '.FunctionCode' /tmp/cf-function-code.json | base64 -d > /tmp/actual-function.js
             if diff -u /tmp/expected-function.js /tmp/actual-function.js; then
               echo "✅ Function code matches expected"
             else
