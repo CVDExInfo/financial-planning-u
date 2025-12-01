@@ -663,7 +663,7 @@ async function main() {
       const icon = result.passed ? '✅' : '❌';
       const color = result.passed ? colors.green : colors.red;
       const status = result.status ? ` (${result.status})` : '';
-      const duration = result.duration ? ` - ${duration}ms` : '';
+      const duration = result.duration ? ` - ${result.duration}ms` : '';
       log(`  ${icon} ${result.name}${status}${duration}`, color);
       if (result.message && !result.passed) {
         log(`     ${result.message}`, colors.gray);
