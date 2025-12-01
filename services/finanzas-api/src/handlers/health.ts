@@ -1,6 +1,7 @@
 import { ok, bad } from "../lib/http";
 import { ddb } from "../lib/dynamo";
 import { DescribeTableCommand } from "@aws-sdk/client-dynamodb";
+import { HeadBucketCommand, S3Client } from "@aws-sdk/client-s3";
 
 // Deep health check validates that all required infrastructure exists
 // This helps diagnose deployment issues early
@@ -22,6 +23,7 @@ async function deepHealthCheck() {
 
   const missingTables: string[] = [];
   const existingTables: string[] = [];
+  const bucketName = process.env.DOCS_BUCKET || "";
 
   // Check all tables in parallel for better performance
   const results = await Promise.allSettled(
@@ -50,6 +52,25 @@ async function deepHealthCheck() {
     })
   );
 
+  const s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-2" });
+  const bucketStatus = bucketName
+    ? await (async () => {
+        try {
+          await s3.send(new HeadBucketCommand({ Bucket: bucketName }));
+          return { status: "exists" as const, bucket: bucketName };
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error || "unknown error");
+          const code = (error as { name?: string } | undefined)?.name;
+          console.error("Error checking docs bucket", { bucket: bucketName, error: message });
+          if (code === "NotFound" || code === "NoSuchBucket") {
+            return { status: "missing" as const, bucket: bucketName, error: message };
+          }
+          return { status: "error" as const, bucket: bucketName, error: message };
+        }
+      })()
+    : { status: "missing" as const, bucket: "", error: "DOCS_BUCKET not set" };
+
   // Process results
   for (const result of results) {
     if (result.status === "fulfilled") {
@@ -68,9 +89,10 @@ async function deepHealthCheck() {
   }
 
   return {
-    healthy: missingTables.length === 0,
+    healthy: missingTables.length === 0 && bucketStatus.status === "exists",
     missingTables,
     existingTables,
+    bucketStatus,
   };
 }
 
@@ -87,12 +109,20 @@ export const handler = async (event?: { queryStringParameters?: { deep?: string 
       const healthCheck = await deepHealthCheck();
 
       if (!healthCheck.healthy) {
+        const problems = [] as string[];
+        if (healthCheck.missingTables.length) {
+          problems.push("Required DynamoDB tables not found");
+        }
+        if (healthCheck.bucketStatus.status !== "exists") {
+          problems.push("Docs bucket missing or inaccessible");
+        }
         return bad(
           {
             status: "unhealthy",
-            message: "Required DynamoDB tables not found",
+            message: problems.join("; ") || "Infrastructure check failed",
             missing_tables: healthCheck.missingTables,
             existing_tables: healthCheck.existingTables,
+            docs_bucket: healthCheck.bucketStatus,
             env,
             version,
             timestamp,
@@ -110,6 +140,7 @@ export const handler = async (event?: { queryStringParameters?: { deep?: string 
             count: healthCheck.existingTables.length,
             tables: healthCheck.existingTables,
           },
+          docs_bucket: healthCheck.bucketStatus,
         },
         env,
         version,

@@ -301,6 +301,33 @@ Resources:
         KeyType: RANGE
     Metadata:
       SamResourceId: DocsTable
+  DocsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName:
+        Ref: DocsBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      CorsConfiguration:
+        CorsRules:
+        - AllowedMethods:
+          - PUT
+          - GET
+          - HEAD
+          AllowedOrigins:
+          - Fn::Sub: https://${CloudFrontDomain}
+          AllowedHeaders:
+          - "*"
+          ExposedHeaders:
+          - ETag
   PrefacturasTable:
     Type: AWS::DynamoDB::Table
     Properties:
