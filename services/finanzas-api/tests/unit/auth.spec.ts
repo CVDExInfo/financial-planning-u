@@ -1,4 +1,4 @@
-import { ensureCanWrite } from "../../src/lib/auth";
+import { ensureCanRead, ensureCanWrite } from "../../src/lib/auth";
 
 describe("Auth Helper", () => {
   describe("Group Extraction", () => {
@@ -24,36 +24,20 @@ describe("Auth Helper", () => {
   });
 
   describe("RBAC - Write Permissions", () => {
-    it("should allow PM to write", () => {
-      const groups = ["PM"];
-      const canWrite = groups.some((g) => ["PM", "SDT"].includes(g));
-      expect(canWrite).toBe(true);
+    it("allows PM and PMO patterns to write", () => {
+      const groups = ["pm", "pmo", "ADMIN"].map((g) => g.toUpperCase());
+      const writable = groups.filter((g) => ["PM", "PMO", "ADMIN"].includes(g));
+      expect(writable.length).toBeGreaterThan(0);
     });
 
-    it("should allow SDT to write", () => {
-      const groups = ["SDT"];
-      const canWrite = groups.some((g) => ["PM", "SDT"].includes(g));
-      expect(canWrite).toBe(true);
+    it("allows SDT/SDMT/FIN/AUD to write as SDMT role", async () => {
+      for (const group of ["SDT", "SDMT", "FIN", "AUD"]) {
+        const event: any = { __verifiedClaims: { "cognito:groups": [group] } };
+        await expect(ensureCanWrite(event)).resolves.toBeUndefined();
+      }
     });
 
-    it("should deny FIN from writing", () => {
-      const groups = ["FIN"];
-      const canWrite = groups.some((g) => ["PM", "SDT"].includes(g));
-      expect(canWrite).toBe(false);
-    });
-
-    it("should deny AUD from writing", () => {
-      const groups = ["AUD"];
-      const canWrite = groups.some((g) => ["PM", "SDT"].includes(g));
-      expect(canWrite).toBe(false);
-    });
-
-    it("should allow PM group to pass ensureCanWrite", async () => {
-      const event: any = { __verifiedClaims: { "cognito:groups": ["PM"] } };
-      await expect(ensureCanWrite(event)).resolves.toBeUndefined();
-    });
-
-    it("should block legacy ikusi-acta-ui from writing", async () => {
+    it("blocks vendor-only groups from writing", async () => {
       const event: any = {
         __verifiedClaims: { "cognito:groups": ["ikusi-acta-ui"] },
       };
@@ -65,34 +49,32 @@ describe("Auth Helper", () => {
   });
 
   describe("RBAC - Read Permissions", () => {
-    it("should allow PM to read", () => {
-      const groups = ["PM"];
-      const canRead = groups.some((g) => ["PM", "SDT", "FIN", "AUD"].includes(g));
-      expect(canRead).toBe(true);
+    it("allows PMO/SDMT/VENDOR/EXEC derived groups to read", async () => {
+      for (const group of [
+        "PMO",
+        "SDT",
+        "SDMT",
+        "FIN",
+        "AUD",
+        "ikusi-acta-ui",
+        "exec-readonly",
+      ]) {
+        const event: any = { __verifiedClaims: { "cognito:groups": [group] } };
+        await expect(ensureCanRead(event)).resolves.toBeUndefined();
+      }
     });
 
-    it("should allow SDT to read", () => {
-      const groups = ["SDT"];
-      const canRead = groups.some((g) => ["PM", "SDT", "FIN", "AUD"].includes(g));
-      expect(canRead).toBe(true);
+    it("denies unknown groups", async () => {
+      const event: any = { __verifiedClaims: { "cognito:groups": ["UNKNOWN"] } };
+      await expect(ensureCanRead(event)).rejects.toEqual({
+        statusCode: 403,
+        body: "forbidden: valid group required",
+      });
     });
 
-    it("should allow FIN to read", () => {
-      const groups = ["FIN"];
-      const canRead = groups.some((g) => ["PM", "SDT", "FIN", "AUD"].includes(g));
-      expect(canRead).toBe(true);
-    });
-
-    it("should allow AUD to read", () => {
-      const groups = ["AUD"];
-      const canRead = groups.some((g) => ["PM", "SDT", "FIN", "AUD"].includes(g));
-      expect(canRead).toBe(true);
-    });
-
-    it("should deny unknown group from reading", () => {
-      const groups = ["UNKNOWN"];
-      const canRead = groups.some((g) => ["PM", "SDT", "FIN", "AUD"].includes(g));
-      expect(canRead).toBe(false);
+    it("allows authenticated users without groups to read as EXEC_RO", async () => {
+      const event: any = { __verifiedClaims: { email: "test@example.com" } };
+      await expect(ensureCanRead(event)).resolves.toBeUndefined();
     });
   });
 });

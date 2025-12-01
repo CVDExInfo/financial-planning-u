@@ -30,6 +30,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import type { ForecastCell, LineItem } from '@/types/domain';
 import { useAuth } from '@/hooks/useAuth';
 import { useProject } from '@/contexts/ProjectContext';
+import { handleFinanzasApiError } from '@/features/sdmt/cost/utils/errorHandling';
 import { useNavigate } from 'react-router-dom';
 import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
@@ -39,10 +40,11 @@ export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastCell[]>([]);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [forecastError, setForecastError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
   const [editingCell, setEditingCell] = useState<{ line_item_id: string; month: number; type: 'forecast' | 'actual' } | null>(null);
   const [editValue, setEditValue] = useState('');
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount } = useProject();
   const navigate = useNavigate();
 
@@ -66,8 +68,9 @@ export function SDMTForecast() {
 
     try {
       setLoading(true);
+      setForecastError(null);
       console.log('📊 Loading forecast data for project:', selectedProjectId, 'period:', selectedPeriod);
-      
+
       const data = await ApiService.getForecastData(selectedProjectId, parseInt(selectedPeriod));
       console.log('📈 Raw forecast data received:', data.length, 'records for project:', selectedProjectId);
       console.log('📈 Sample forecast data:', data.slice(0, 3));
@@ -106,7 +109,11 @@ export function SDMTForecast() {
       
     } catch (error) {
       console.error('❌ Failed to load forecast data for project:', selectedProjectId, error);
-      toast.error('Failed to load forecast data');
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: 'No se pudo cargar el forecast.',
+      });
+      setForecastError(message);
       setForecastData([]); // Clear data on error
     } finally {
       setLoading(false);
@@ -131,6 +138,11 @@ export function SDMTForecast() {
       setLineItems(items);
     } catch (error) {
       console.error('❌ Failed to load line items for project:', selectedProjectId, error);
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: 'No se pudieron cargar los rubros para forecast.',
+      });
+      setForecastError((prev) => prev || message);
       setLineItems([]); // Clear data on error
     }
   };
@@ -533,6 +545,16 @@ export function SDMTForecast() {
                 <div className="text-xs text-muted-foreground">
                   Project: {selectedProjectId} | Change #{projectChangeCount}
                 </div>
+              </div>
+            </div>
+          ) : forecastError ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="text-center space-y-3">
+                <div className="w-8 h-8 bg-destructive/10 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-destructive font-bold text-sm">⚠️</span>
+                </div>
+                <div className="text-destructive">{forecastError}</div>
+                <div className="text-xs text-muted-foreground">Project ID: {selectedProjectId}</div>
               </div>
             </div>
           ) : forecastGrid.length === 0 ? (

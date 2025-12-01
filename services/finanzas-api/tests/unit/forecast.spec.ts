@@ -132,4 +132,18 @@ describe("forecast handler", () => {
       expect.objectContaining({ TableName: "allocations-table" })
     );
   });
+
+  it("returns an empty data array when no allocations or payroll exist", async () => {
+    dynamo.ddb.send.mockResolvedValue({ Items: [] });
+
+    const response = (await forecastHandler(
+      baseEvent({ queryStringParameters: { projectId: "PROJ-EMPTY", months: "3" } })
+    )) as ApiResult;
+
+    expect(response.statusCode).toBe(200);
+    const payload = JSON.parse(response.body);
+    expect(Array.isArray(payload.data)).toBe(true);
+    expect(payload.data).toHaveLength(0);
+    expect(payload.months).toBe(3);
+  });
 });

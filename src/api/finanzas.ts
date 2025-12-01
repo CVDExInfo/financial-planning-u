@@ -410,8 +410,74 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     (dto.category as string) ||
     "Rubro";
 
-  const qty = Number(dto.qty ?? dto.quantity ?? 1) || 1;
-  const unit_cost = Number(dto.unit_cost ?? dto.amount ?? dto.monto ?? 0) || 0;
+  const executionType =
+    (dto.tipo_costo as string) || (dto.tipo_ejecucion as string) || "";
+
+  const recurringFromType = executionType.toLowerCase() === "mensual";
+  const oneTimeFromType =
+    executionType.toLowerCase() === "puntual" ||
+    executionType.toLowerCase() === "por_hito";
+
+  const recurring = dto.recurring !== undefined ? dto.recurring : recurringFromType;
+  const one_time =
+    dto.one_time !== undefined ? dto.one_time : oneTimeFromType || !recurring;
+
+  const qty = Number(dto.qty ?? dto.quantity ?? (dto as any).cantidad ?? 1) || 1;
+
+  const scheduledMonths = Array.isArray((dto as any).meses_programados)
+    ? ((dto as any).meses_programados as string[])
+    : [];
+
+  const parseMonth = (value?: string): number => {
+    if (!value) return 1;
+    const parts = value.split("-");
+    const monthPart = parts.length === 2 ? parts[1] : parts[0];
+    const month = Number(monthPart);
+    return month >= 1 && month <= 12 ? month : 1;
+  };
+
+  const start_month = scheduledMonths.length
+    ? parseMonth(scheduledMonths[0])
+    : Number((dto as any).start_month ?? 1) || 1;
+  const end_month = scheduledMonths.length
+    ? parseMonth(scheduledMonths[scheduledMonths.length - 1])
+    : Number((dto as any).end_month ?? (recurring ? 12 : start_month)) || 1;
+
+  const totalAmount =
+    Number(
+      (dto as any).monto_total ??
+        (dto as any).total ??
+        (dto as any).total_amount ??
+        dto.amount ??
+        dto.monto ??
+        0,
+    ) || 0;
+  const monthlyAmount =
+    Number(
+      (dto as any).monto_mensual ??
+        (dto as any).monto_mensual_estimado ??
+        (dto as any).monthly_amount ??
+        0,
+    ) || 0;
+
+  const durationMonths = Math.max(
+    scheduledMonths.length || end_month - start_month + 1,
+    1,
+  );
+
+  let unit_cost = Number(dto.unit_cost ?? dto.amount ?? dto.monto ?? 0) || 0;
+
+  if (recurring) {
+    if (monthlyAmount > 0) {
+      unit_cost = monthlyAmount;
+    } else if (totalAmount > 0 && durationMonths > 0) {
+      unit_cost = totalAmount / durationMonths;
+    }
+  }
+
+  if (!recurring && unit_cost === 0 && totalAmount > 0 && qty > 0) {
+    unit_cost = totalAmount / qty;
+  }
 
   return {
     id,
@@ -419,17 +485,18 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     subtype: (dto.tipo_costo as string) || undefined,
     vendor: (dto.vendor as string) || undefined,
     description: name,
-    one_time: Boolean(dto.one_time ?? false),
-    recurring: dto.recurring !== false,
+    one_time: Boolean(one_time),
+    recurring: Boolean(recurring && !one_time),
     qty,
     unit_cost,
-    currency: (dto.currency as Currency) || "USD",
+    currency:
+      ((dto as any).moneda as Currency) || (dto.currency as Currency) || "USD",
     fx_pair: dto.fx_pair as any,
     fx_rate_at_booking: dto.fx_rate_at_booking
       ? Number(dto.fx_rate_at_booking)
       : undefined,
-    start_month: Number(dto.start_month ?? 1) || 1,
-    end_month: Number(dto.end_month ?? 12) || 12,
+    start_month,
+    end_month,
     amortization: (dto.amortization as any) || "none",
     capex_flag: Boolean(dto.capex_flag),
     cost_center: dto.cost_center as string | undefined,
