@@ -191,6 +191,23 @@ export default function SDMTReconciliation() {
     [safeLineItems]
   );
 
+  useEffect(() => {
+    if (
+      import.meta.env.DEV &&
+      Array.isArray(lineItems) &&
+      lineItemOptions.length < lineItems.length
+    ) {
+      console.warn(
+        "[SDMT] Reconciliation line items appear truncated compared to catalog",
+        {
+          projectId,
+          received: lineItems.length,
+          visible: lineItemOptions.length,
+        }
+      );
+    }
+  }, [lineItemOptions.length, lineItems, projectId]);
+
   const lineItemDropdownMessage = (() => {
     if (lineItemsErrorInfo?.status === 401)
       return "Sesión expirada, por favor vuelve a iniciar sesión.";
