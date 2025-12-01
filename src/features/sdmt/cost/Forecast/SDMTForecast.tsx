@@ -27,7 +27,7 @@ import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
 import ModuleBadge from '@/components/ModuleBadge';
 import DataContainer from '@/components/DataContainer';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import type { ForecastCell, LineItem } from '@/types/domain';
+import type { ForecastCell } from '@/types/domain';
 import { useAuth } from '@/hooks/useAuth';
 import { useProject } from '@/contexts/ProjectContext';
 import { handleFinanzasApiError } from '@/features/sdmt/cost/utils/errorHandling';
@@ -35,10 +35,11 @@ import { useNavigate } from 'react-router-dom';
 import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
+import { normalizeForecastCells, normalizeRubroId } from '@/features/sdmt/cost/utils/dataAdapters';
+import { useProjectLineItems } from '@/hooks/useProjectLineItems';
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastCell[]>([]);
-  const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [forecastError, setForecastError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
@@ -47,6 +48,15 @@ export function SDMTForecast() {
   const { user, login } = useAuth();
   const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount } = useProject();
   const navigate = useNavigate();
+  const {
+    lineItems,
+    isLoading: isLineItemsLoading,
+    error: lineItemsError,
+  } = useProjectLineItems();
+  const safeLineItems = useMemo(
+    () => (Array.isArray(lineItems) ? lineItems : []),
+    [lineItems]
+  );
 
   // Load data when project or period changes
   useEffect(() => {
@@ -54,11 +64,19 @@ export function SDMTForecast() {
       console.log('🔄 Forecast: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
       // Reset state before loading new data
       setForecastData([]);
-      setLineItems([]);
       loadForecastData();
-      loadLineItems();
     }
   }, [selectedProjectId, selectedPeriod, projectChangeCount]);
+
+  useEffect(() => {
+    if (!lineItemsError) return;
+
+    const message = handleFinanzasApiError(lineItemsError, {
+      onAuthError: login,
+      fallback: 'No se pudieron cargar los rubros para forecast.',
+    });
+    setForecastError((prev) => prev || message);
+  }, [lineItemsError, login]);
 
   const loadForecastData = async () => {
     if (!selectedProjectId) {
@@ -71,20 +89,26 @@ export function SDMTForecast() {
       setForecastError(null);
       console.log('📊 Loading forecast data for project:', selectedProjectId, 'period:', selectedPeriod);
 
-      const data = await ApiService.getForecastData(selectedProjectId, parseInt(selectedPeriod));
-      console.log('📈 Raw forecast data received:', data.length, 'records for project:', selectedProjectId);
-      console.log('📈 Sample forecast data:', data.slice(0, 3));
-      
+      const rawData = await ApiService.getForecastData(selectedProjectId, parseInt(selectedPeriod));
+      const normalized = normalizeForecastCells(rawData);
+      console.log('📈 Raw forecast data received:', rawData.length, 'records for project:', selectedProjectId);
+      console.log('📈 Sample forecast data:', normalized.slice(0, 3));
+
       // Get matched invoices and sync with actuals
       const invoices = await ApiService.getInvoices(selectedProjectId);
       console.log('🧾 Invoices loaded:', invoices.length, 'records for project:', selectedProjectId);
-      
-      const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
+
+      const normalizedInvoices = invoices.map((inv) => ({
+        ...inv,
+        line_item_id: normalizeRubroId(inv.line_item_id),
+      }));
+
+      const matchedInvoices = normalizedInvoices.filter(inv => inv.status === 'Matched');
       console.log('🧾 Matched invoices:', matchedInvoices.length, 'records');
-      
+
       // Update forecast data with actual amounts from matched invoices
-      const updatedData = data.map(cell => {
-        const matchedInvoice = matchedInvoices.find(inv => 
+      const updatedData = normalized.map(cell => {
+        const matchedInvoice = matchedInvoices.find(inv =>
           inv.line_item_id === cell.line_item_id && inv.month === cell.month
         );
         
@@ -117,33 +141,6 @@ export function SDMTForecast() {
       setForecastData([]); // Clear data on error
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadLineItems = async () => {
-    if (!selectedProjectId) {
-      console.log('❌ No project selected, skipping line items load');
-      return;
-    }
-
-    try {
-      console.log('📋 Loading line items for project:', selectedProjectId);
-      const items = await ApiService.getLineItems(selectedProjectId);
-      console.log('📋 Line items loaded:', items.length, 'items for project:', selectedProjectId);
-      console.log('📋 Sample line items:', items.slice(0, 3).map(item => ({ 
-        id: item.id, 
-        description: item.description, 
-        category: item.category 
-      })));
-      setLineItems(items);
-    } catch (error) {
-      console.error('❌ Failed to load line items for project:', selectedProjectId, error);
-      const message = handleFinanzasApiError(error, {
-        onAuthError: login,
-        fallback: 'No se pudieron cargar los rubros para forecast.',
-      });
-      setForecastError((prev) => prev || message);
-      setLineItems([]); // Clear data on error
     }
   };
 
@@ -192,7 +189,7 @@ export function SDMTForecast() {
 
   // Group forecast data by line item and month for display
   const forecastGrid = useMemo(() => {
-    const grid = lineItems.map(lineItem => {
+    const grid = safeLineItems.map(lineItem => {
       const itemForecasts = forecastData.filter(f => f.line_item_id === lineItem.id);
       const months = Array.from({ length: 12 }, (_, i) => i + 1);
       
@@ -223,9 +220,9 @@ export function SDMTForecast() {
     }).filter(item => item.hasNonZeroValues); // Only show items with data
 
     console.log('📊 Recalculating grid for project:', selectedProjectId, 'with', grid.length, 'items');
-    
+
     return grid;
-  }, [lineItems, forecastData, selectedProjectId]);
+  }, [safeLineItems, forecastData, selectedProjectId]);
 
   // Calculate totals and metrics - using useMemo to ensure it updates when data changes
   const metrics = useMemo(() => {
@@ -251,15 +248,17 @@ export function SDMTForecast() {
     };
   }, [forecastData, selectedProjectId]);
 
-  const { 
-    totalVariance, 
-    totalPlanned, 
-    totalForecast, 
-    totalActual, 
-    variancePercentage, 
-    actualVariance, 
-    actualVariancePercentage 
+  const {
+    totalVariance,
+    totalPlanned,
+    totalForecast,
+    totalActual,
+    variancePercentage,
+    actualVariance,
+    actualVariancePercentage
   } = metrics;
+
+  const isLoadingState = loading || isLineItemsLoading;
 
   // Chart data - recalculate when forecastData changes
   const monthlyTrends = useMemo(() => {
@@ -317,7 +316,7 @@ export function SDMTForecast() {
     try {
       setExporting('excel');
       const exporter = excelExporter;
-      const buffer = await exporter.exportForecastGrid(forecastData, lineItems);
+      const buffer = await exporter.exportForecastGrid(forecastData, safeLineItems);
       const filename = `forecast-data-${new Date().toISOString().split('T')[0]}.xlsx`;
       downloadExcelFile(buffer, filename);
       toast.success('Excel report exported successfully');
@@ -408,7 +407,7 @@ export function SDMTForecast() {
           <div className="mt-2 text-xs text-muted-foreground space-x-4">
             <span>Project: {selectedProjectId}</span>
             <span>Data points: {forecastData.length}</span>
-            <span>Line items: {lineItems.length}</span>
+            <span>Line items: {safeLineItems.length}</span>
             <span>Grid rows: {forecastGrid.length}</span>
           </div>
         </div>
@@ -533,7 +532,7 @@ export function SDMTForecast() {
           <CardTitle>12-Month Forecast Grid</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {isLoadingState ? (
             <div className="flex items-center justify-center h-32">
               <div className="text-center space-y-3">
                 <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center mx-auto mb-2 animate-pulse">
