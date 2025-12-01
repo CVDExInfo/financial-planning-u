@@ -2,8 +2,9 @@
  * Finanzas endpoints used here
  * - GET /allocation-rules → cargar reglas de asignación
  */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCcw, Split } from "lucide-react";
@@ -12,25 +13,50 @@ import PageHeader from "@/components/PageHeader";
 import finanzasClient, { AllocationRule } from "@/api/finanzasClient";
 import DonutChart from "@/components/charts/DonutChart";
 import { toast } from "sonner";
+import LoadingState from "@/components/LoadingState";
 
 export default function AllocationRulesPreview() {
   const [rules, setRules] = useState<AllocationRule[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const driverChartData = rules.reduce<Record<string, number>>((acc, rule) => {
-    const key = rule.driver || "Otro";
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
+  const hasRules = rules.length > 0;
 
-  const activationData = rules.reduce(
-    (acc, rule) => {
-      if (rule.active) acc.activos += 1;
-      else acc.inactivos += 1;
-      return acc;
-    },
-    { activos: 0, inactivos: 0 }
+  const driverChartData = useMemo(
+    () =>
+      rules.reduce<Record<string, number>>((acc, rule) => {
+        const key = rule.driver || "Otro";
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {}),
+    [rules]
+  );
+
+  const activationData = useMemo(
+    () =>
+      rules.reduce(
+        (acc, rule) => {
+          if (rule.active) acc.activos += 1;
+          else acc.inactivos += 1;
+          return acc;
+        },
+        { activos: 0, inactivos: 0 }
+      ),
+    [rules]
+  );
+
+  const ChartPlaceholder = ({ title, message }: { title: string; message: string }) => (
+    <Card className="h-full">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex h-[300px] items-center justify-center text-center">
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <p className="font-medium text-foreground">Sin datos para mostrar</p>
+          <p className="text-xs leading-relaxed">{message}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 
   const loadRules = useCallback(async () => {
@@ -75,20 +101,50 @@ export default function AllocationRulesPreview() {
         }
       />
 
+      {error && (
+        <Alert variant="destructive">
+          <AlertTitle>Error al cargar reglas</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span>{error}</span>
+            <Button size="sm" variant="outline" onClick={loadRules} disabled={loading}>
+              Reintentar
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
-        <DonutChart
-          data={Object.entries(driverChartData).map(([name, value]) => ({ name, value }))}
-          title="Drivers más usados"
-          className="h-full"
-        />
-        <DonutChart
-          data={[
-            { name: "Activas", value: activationData.activos },
-            { name: "Inactivas", value: activationData.inactivos },
-          ]}
-          title="Estado de reglas"
-          className="h-full"
-        />
+        {hasRules ? (
+          <DonutChart
+            data={Object.entries(driverChartData).map(([name, value]) => ({ name, value }))}
+            title="Drivers más usados"
+            className="h-full"
+          />
+        ) : loading ? (
+          <LoadingState type="chart" />
+        ) : (
+          <ChartPlaceholder
+            title="Drivers más usados"
+            message="Configura reglas de asignación para visualizar la distribución por driver."
+          />
+        )}
+        {hasRules ? (
+          <DonutChart
+            data={[
+              { name: "Activas", value: activationData.activos },
+              { name: "Inactivas", value: activationData.inactivos },
+            ]}
+            title="Estado de reglas"
+            className="h-full"
+          />
+        ) : loading ? (
+          <LoadingState type="chart" />
+        ) : (
+          <ChartPlaceholder
+            title="Estado de reglas"
+            message="Cuando existan reglas activas o inactivas, verás el resumen aquí."
+          />
+        )}
       </div>
 
       <Card className="border-border/80 shadow-sm">
@@ -105,8 +161,8 @@ export default function AllocationRulesPreview() {
             error={error}
             onRetry={loadRules}
             loadingType="grid"
-            emptyTitle="No hay reglas configuradas"
-            emptyMessage="Cuando el backend exponga reglas, aparecerán aquí."
+            emptyTitle="No hay reglas de asignación configuradas"
+            emptyMessage="Cuando se creen reglas para tu proyecto, aparecerán aquí y habilitarán las visualizaciones."
           >
             {(items) => {
               const safeRules = Array.isArray(items) ? (items as AllocationRule[]) : [];
