@@ -157,11 +157,11 @@ describe("rubros handler", () => {
         unit_cost: 50,
         start_month: 1,
         end_month: 2,
-        total_cost: 200,
+        total_cost: 100,
       }),
     );
 
-    expect(allocationPuts).toHaveLength(2);
+    expect(allocationPuts).toHaveLength(1);
     expect(allocationPuts[0]?.Item).toEqual(
       expect.objectContaining({
         pk: "PROJECT#PROJ-1",

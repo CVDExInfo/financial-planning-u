@@ -106,7 +106,8 @@ describe("forecast handler", () => {
             created_at: "2024-01-05T00:00:00Z",
           },
         ],
-      });
+      })
+      .mockResolvedValueOnce({ Items: [] });
 
     const response = (await forecastHandler(
       baseEvent({ queryStringParameters: { projectId: "PROJ-1", months: "1" } })
