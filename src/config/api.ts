@@ -7,6 +7,11 @@ import { logoutWithHostedUI } from "./aws";
 import { AuthError, ServerError, ValidationError } from "@/lib/errors";
 import { API_BASE, HAS_API_BASE } from "./env";
 
+const envSource =
+  (typeof import.meta !== "undefined"
+    ? (import.meta as { env?: Record<string, string | undefined> }).env
+    : undefined) || (process.env as Record<string, string | undefined>);
+
 // API Base URL - use environment variable in production
 export const API_BASE_URL = API_BASE;
 
@@ -74,8 +79,8 @@ export function getAuthToken(): string | null {
       }
     }
 
-    if (import.meta.env.VITE_API_JWT_TOKEN) {
-      return import.meta.env.VITE_API_JWT_TOKEN;
+    if (envSource?.VITE_API_JWT_TOKEN) {
+      return envSource.VITE_API_JWT_TOKEN;
     }
 
     // Fallback to old "auth" key structure for backward compatibility
@@ -121,7 +126,7 @@ export function buildHeaders(
     const token = getAuthToken();
 
     if (!token) {
-      if (import.meta.env.VITE_SKIP_AUTH === "true") {
+      if (envSource?.VITE_SKIP_AUTH === "true") {
         return headers;
       }
 

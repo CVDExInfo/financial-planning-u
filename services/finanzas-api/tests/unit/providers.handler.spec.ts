@@ -17,6 +17,19 @@ describe("providers handler", () => {
     expect(payload.data.length).toBeGreaterThan(0);
   });
 
+  it("rejects requests without a valid group", async () => {
+    const response = await providersHandler({
+      headers: baseHeaders,
+      requestContext: { http: { method: "GET" } },
+      queryStringParameters: {},
+      __verifiedClaims: { "cognito:groups": ["guest"] },
+    } as any);
+
+    const payload = JSON.parse(response.body);
+    expect(response.statusCode).toBe(403);
+    expect(payload.error).toBe("forbidden: valid group required");
+  });
+
   it("allows SDT to create providers", async () => {
     const body = {
       nombre: "Proveedor Test",

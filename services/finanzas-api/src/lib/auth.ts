@@ -136,8 +136,59 @@ async function verifyJwt(event: ApiGwEvent): Promise<VerifiedClaims> {
   return payload;
 }
 
-const WRITE_GROUPS = ["SDT", "PM"] as const;
-const READ_GROUPS = ["FIN", "SDT", "PM", "AUD"] as const;
+/**
+ * Finanzas SD RBAC mapping (kept in sync with frontend mapGroupsToRoles)
+ * - PMO/PM/admin → PMO role (read + write)
+ * - SDT/SDMT/FIN/AUD → SDMT role (read + write)
+ * - vendor/acta-ui patterns → VENDOR role (read)
+ * - exec/director/manager/admin → EXEC_RO role (read)
+ * Users that resolve to any role above can read; PMO or SDMT roles can write.
+ */
+
+const ROLE_PRIORITY = ["SDMT", "PMO", "VENDOR", "EXEC_RO"] as const;
+
+type FinanzasRole = (typeof ROLE_PRIORITY)[number];
+
+function mapGroupsToRoles(groups: string[]): FinanzasRole[] {
+  const roles = new Set<FinanzasRole>();
+
+  for (const group of groups) {
+    const normalized = group.trim().toUpperCase();
+    if (!normalized) continue;
+
+    if (normalized === "ADMIN" || normalized.includes("PMO") || normalized === "PM") {
+      roles.add("PMO");
+    }
+
+    if (
+      normalized.includes("SDT") ||
+      normalized.includes("SDMT") ||
+      normalized.includes("FIN") ||
+      normalized.includes("AUD")
+    ) {
+      roles.add("SDMT");
+    }
+
+    if (normalized.includes("VENDOR") || normalized.includes("ACTA-UI") || normalized.includes("ACTA")) {
+      roles.add("VENDOR");
+    }
+
+    if (
+      normalized === "ADMIN" ||
+      normalized.includes("EXEC") ||
+      normalized.includes("DIRECTOR") ||
+      normalized.includes("MANAGER")
+    ) {
+      roles.add("EXEC_RO");
+    }
+  }
+
+  return Array.from(roles);
+}
+
+const canReadFromRoles = (roles: FinanzasRole[]) => roles.length > 0;
+const canWriteFromRoles = (roles: FinanzasRole[]) =>
+  roles.includes("PMO") || roles.includes("SDMT");
 
 function parseGroupsFromClaims(claims: VerifiedClaims): string[] {
   const raw = claims["cognito:groups"];
@@ -172,17 +223,17 @@ export async function ensureSDT(event: ApiGwEvent) {
 export async function ensureCanWrite(event: ApiGwEvent) {
   const claims = await verifyJwt(event);
   const groups = parseGroupsFromClaims(claims);
-  const canWrite = groups.some((g) => WRITE_GROUPS.includes(g as (typeof WRITE_GROUPS)[number]));
-  if (!canWrite) {
-    throw { statusCode: 403, body: "forbidden: PM or SDT required" };
-  }
+  const roles = mapGroupsToRoles(groups);
+  if (canWriteFromRoles(roles)) return;
+
+  throw { statusCode: 403, body: "forbidden: PM or SDT required" };
 }
 
 export async function ensureCanRead(event: ApiGwEvent) {
   const claims = await verifyJwt(event);
   const groups = parseGroupsFromClaims(claims);
-  const canRead = groups.some((g) => READ_GROUPS.includes(g as (typeof READ_GROUPS)[number]));
-  if (!canRead) {
-    throw { statusCode: 403, body: "forbidden: valid group required" };
-  }
+  const roles = mapGroupsToRoles(groups);
+  if (canReadFromRoles(roles)) return;
+
+  throw { statusCode: 403, body: "forbidden: valid group required" };
 }
