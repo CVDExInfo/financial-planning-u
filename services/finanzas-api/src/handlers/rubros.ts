@@ -20,6 +20,15 @@ type ProjectRubroAttachment = {
   createdAt?: string;
   createdBy?: string;
   sk?: string;
+  qty?: number;
+  unit_cost?: number;
+  currency?: string;
+  recurring?: boolean;
+  one_time?: boolean;
+  start_month?: number;
+  end_month?: number;
+  total_cost?: number;
+  description?: string;
 };
 
 type RubroResponse = {
@@ -32,6 +41,15 @@ type RubroResponse = {
   tier?: string;
   category?: string;
   metadata?: unknown;
+  qty?: number;
+  unit_cost?: number;
+  currency?: string;
+  recurring?: boolean;
+  one_time?: boolean;
+  start_month?: number;
+  end_month?: number;
+  total_cost?: number;
+  description?: string;
 };
 
 type RubroDefinition = {
@@ -46,6 +64,23 @@ const toRubroId = (item: ProjectRubroAttachment): string => {
   if (item.rubroId) return String(item.rubroId);
   if (item.sk && item.sk.startsWith("RUBRO#")) return item.sk.replace("RUBRO#", "");
   return "";
+};
+
+const parseDuration = (value?: string | null) => {
+  if (!value || typeof value !== "string") {
+    return { start: 1, end: 12 };
+  }
+
+  const match = value.match(/m?(\d{1,2})(?:-m?(\d{1,2}))?/i);
+  if (!match) {
+    return { start: 1, end: 12 };
+  }
+
+  const start = Math.min(Math.max(parseInt(match[1], 10) || 1, 1), 12);
+  const endRaw = match[2] ? parseInt(match[2], 10) : start;
+  const end = Math.min(Math.max(endRaw || start, start), 12);
+
+  return { start, end };
 };
 
 // Route: GET /projects/{projectId}/rubros
@@ -126,6 +161,15 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
         tier: item.tier,
         category: item.category,
         metadata: item.metadata,
+        qty: item.qty,
+        unit_cost: item.unit_cost,
+        currency: item.currency,
+        recurring: item.recurring,
+        one_time: item.one_time,
+        start_month: item.start_month,
+        end_month: item.end_month,
+        total_cost: item.total_cost,
+        description: item.description,
       };
     })
     .filter((rubro): rubro is RubroResponse => Boolean(rubro));
@@ -141,14 +185,23 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     return bad("missing project id");
   }
 
-  let body: { rubroIds?: string[] };
+  let body: { rubroIds?: unknown[]; rubroId?: string };
   try {
     body = JSON.parse(event.body ?? "{}");
   } catch {
     return bad("Invalid JSON in request body");
   }
 
-  if (!body.rubroIds || !Array.isArray(body.rubroIds)) {
+  const rawRubroEntries: Array<Record<string, unknown>> = Array.isArray(body.rubroIds)
+    ? body.rubroIds
+        .map((entry) =>
+          typeof entry === "string" ? { rubroId: entry } : (entry as Record<string, unknown>),
+        )
+    : body.rubroId
+      ? [{ ...body, rubroId: body.rubroId }]
+      : [];
+
+  if (rawRubroEntries.length === 0) {
     return bad("rubroIds array required");
   }
 
@@ -156,8 +209,58 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
   const now = new Date().toISOString();
   const attached: string[] = [];
 
+  const normalizeRubroPayload = (payload: Record<string, unknown>) => {
+    const rubroId = (payload.rubroId as string) || (payload.rubro_id as string) || "";
+    if (!rubroId) return null;
+
+    const qty = Number(payload.qty ?? payload.quantity ?? 1) || 1;
+    const unitCost = Number(payload.unitCost ?? payload.unit_cost ?? 0) || 0;
+    const type = typeof payload.type === "string" ? payload.type.toLowerCase() : "";
+    const recurring = payload.recurring ?? type === "recurring";
+    const oneTime = payload.one_time ?? type === "one-time" || type === "one_time";
+    const duration = parseDuration((payload.duration as string) || undefined);
+    const explicitStart = Number(payload.start_month ?? payload.startMonth ?? duration.start) ||
+      duration.start;
+    const explicitEnd = Number(payload.end_month ?? payload.endMonth ?? duration.end) || duration.end;
+
+    const startMonth = Math.min(Math.max(explicitStart, 1), 12);
+    const endMonth = Math.min(Math.max(explicitEnd, startMonth), 12);
+    const months = Math.max(endMonth - startMonth + 1, 1);
+    const baseCost = qty * unitCost;
+    const totalCost = (recurring ? baseCost * months : baseCost) || 0;
+
+    const currency =
+      typeof payload.currency === "string" && payload.currency.trim()
+        ? payload.currency
+        : "USD";
+
+    const description =
+      typeof payload.description === "string" && payload.description.trim()
+        ? payload.description.trim()
+        : undefined;
+
+    return {
+      rubroId,
+      qty,
+      unit_cost: unitCost,
+      currency,
+      recurring: Boolean(recurring && !oneTime),
+      one_time: Boolean(oneTime || (!recurring && !oneTime)),
+      start_month: startMonth,
+      end_month: endMonth,
+      total_cost: totalCost,
+      description,
+      months,
+      baseCost,
+    };
+  };
+
   // Attach each rubro to the project
-  for (const rubroId of body.rubroIds) {
+  for (const raw of rawRubroEntries) {
+    const normalized = normalizeRubroPayload(raw);
+    const rubroId = normalized?.rubroId;
+    if (!rubroId) continue;
+
     // Check if rubro exists in catalog (optional validation)
     // For MVP, we'll just attach it
 
@@ -168,6 +271,15 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
       rubroId,
       createdAt: now,
       createdBy: userEmail,
+      qty: normalized?.qty,
+      unit_cost: normalized?.unit_cost,
+      currency: normalized?.currency,
+      recurring: normalized?.recurring,
+      one_time: normalized?.one_time,
+      start_month: normalized?.start_month,
+      end_month: normalized?.end_month,
+      total_cost: normalized?.total_cost,
+      description: normalized?.description,
     };
 
     await ddb.send(
@@ -178,6 +290,33 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     );
 
     attached.push(rubroId);
+
+    // Mirror into allocations for forecast continuity
+    const monthsToMaterialize = normalized?.recurring
+      ? normalized.months
+      : 1;
+
+    const allocationBaseMonth = normalized?.start_month ?? 1;
+    for (let i = 0; i < (monthsToMaterialize || 1); i += 1) {
+      const monthValue = allocationBaseMonth + i;
+      await ddb.send(
+        new PutCommand({
+          TableName: tableName("allocations"),
+          Item: {
+            pk: `PROJECT#${projectId}`,
+            sk: `ALLOC#${rubroId}#M${monthValue}`,
+            projectId,
+            rubroId,
+            month: monthValue,
+            planned: normalized?.baseCost ?? 0,
+            forecast: normalized?.baseCost ?? 0,
+            actual: 0,
+            created_at: now,
+            created_by: userEmail,
+          },
+        })
+      );
+    }
 
     // Audit log
     const audit = {
