@@ -29,7 +29,8 @@
     "cognito:update-hosted-ui": "bash infra/cognito/update-hosted-ui-css.sh",
     "generate-docs-pdf": "node scripts/generate-docs-pdf.cjs",
     "render-docs": "node --loader ts-node/esm scripts/docs/render-docs.ts",
-    "seed:finanzas:rubros": "TS_NODE_PROJECT=tsconfig.node.json node --loader ts-node/esm/transpile-only src/modules/finanzas/data/seed_rubros.ts"
+    "seed:finanzas:rubros": "TS_NODE_PROJECT=tsconfig.node.json node --loader ts-node/esm/transpile-only src/modules/finanzas/data/seed_rubros.ts",
+    "test:finanzas-ui-diagnostic": "node tests/finanzas-ui-diagnostic/smoke-test.mjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
