@@ -17,7 +17,10 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Use native fetch (Node 18+)
+// Use native fetch (Node 18+) - fallback for older versions not needed since package.json specifies node >=18.18.0
+if (!globalThis.fetch) {
+  throw new Error('This script requires Node.js 18+ with native fetch support');
+}
 const fetch = globalThis.fetch;
 
 const BASE_URL = process.env.FINZ_UI_BASE_URL || 'https://d7t9x3j66yd8k.cloudfront.net';
@@ -120,10 +123,11 @@ async function testComponent(component, baseUrl) {
         return results;
       }
 
-      // Check fingerprints
+      // Check fingerprints (convert to lowercase once for efficiency)
+      const bodyLower = body.toLowerCase();
       for (const fingerprint of component.fingerprints) {
         // Case-insensitive search in HTML
-        const found = body.toLowerCase().includes(fingerprint.toLowerCase());
+        const found = bodyLower.includes(fingerprint.toLowerCase());
         if (found) {
           results.fingerprintsFound.push(fingerprint);
         } else {
