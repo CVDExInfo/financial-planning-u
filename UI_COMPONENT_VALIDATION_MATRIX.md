@@ -1,22 +1,27 @@
 # UI Component Validation Matrix
 
-**Date:** November 17, 2025  
+**Date:** December 1, 2025  
 **Purpose:** Quick reference for component status, known issues, and validation steps  
-**Status:** ACTIVE - Use this to track testing progress
+**Status:** ACTIVE – Source of truth for Finanzas SD UI validation
 
 ---
 
 ## Component Status Summary
 
-| Component               | Build | Functionality | UI/UX       | Testing | Notes                                           |
-| ----------------------- | ----- | ------------- | ----------- | ------- | ----------------------------------------------- |
-| **ProjectContextBar**   | ✅    | ✅            | ✅ Improved | ⏳      | Redesigned (5e54dcd), visual hierarchy improved |
-| **ServiceTierSelector** | ✅    | ⏳ Verify     | ⚠️          | ⏳      | Component exists, callbacks need testing        |
-| **SDMTCatalog**         | ✅    | ✅            | ✅          | ⏳      | Line items display, API fix applied (17c6962)   |
-| **SDMTChanges**         | ✅    | ⏳ Verify     | ✅          | ⏳      | Dialog structure fixed, state needs testing     |
-| **ApprovalWorkflow**    | ✅    | ⏳ Verify     | ✅          | ⏳      | Inside SDMTChanges, approval flow untested      |
-| **SDMTReconciliation**  | ✅    | ⏳ Verify     | ✅          | ⏳      | Invoice display/upload, needs end-to-end test   |
-| **SDMTForecast**        | ✅    | ✅            | ✅          | ⏳      | Working, data loads correctly                   |
+| Component               | Build | Functionality      | UI/UX       | Testing | Notes                                                                 |
+| ----------------------- | ----- | ------------------ | ----------- | ------- | --------------------------------------------------------------------- |
+| **ProjectContextBar**   | ✅    | ✅                 | ✅ Improved | ⏳      | Stable redesign; used in daily flows, still needs formal test record |
+| **ServiceTierSelector** | ✅    | ⏳ Verify          | ⚠️          | ⏳      | Component exists; callbacks & pricing logic still unvalidated        |
+| **SDMTCatalog**         | ✅    | ⏳ Verify          | ✅          | ⏳      | Line items load; cost fields & totals need validation vs rubro data  |
+| **SDMTChanges**         | ✅    | ⏳ UI ✅ / E2E ⏳  | ✅          | ⏳      | Multi-select & workflow wiring added; backend persistence untested   |
+| **ApprovalWorkflow**    | ✅    | ⏳                 | ✅          | ⏳      | Integrated into SDMTChanges; approval API behaviour still pending    |
+| **SDMTReconciliation**  | ✅    | ⚠️                 | ✅          | ⏳      | UI fixed for rubros; invoice upload still returns 5xx from backend   |
+| **SDMTForecast**        | ✅    | ✅ (current data)  | ✅          | ⏳      | Appears stable; must re-validate once Catalog cost mapping is final  |
+
+> Legend:  
+> - ✅ = validated and stable  
+> - ⏳ = implemented but not fully validated end-to-end  
+> - ⚠️ = known functional risk / partial breakage  
 
 ---
 
@@ -24,40 +29,32 @@
 
 ### 1. ProjectContextBar ✅
 
-**File:** `src/components/ProjectContextBar.tsx`
+**File:** `src/components/ProjectContextBar.tsx`  
 
 **Status:** ✅ IMPLEMENTED & DEPLOYED
 
-- Redesigned in commit 5e54dcd
-- Visual hierarchy improved
-- Dropdown width increased (400px → 500px)
-- Better spacing and typography
-- Selection callbacks working
+- Redesigned (hierarchy, width, typography) and integrated across SDMT modules.
+- Used as main project selector; behaviour is stable in manual sessions.
 
-**Validation Checklist:**
+**Validation Checklist**
 
-- [ ] Dropdown opens/closes
-- [ ] All projects display
-- [ ] Can select project
-- [ ] Page updates on selection
-- [ ] Visual styling correct
-- [ ] Hover states visible
-- [ ] Console logs appear
+- [ ] Dropdown opens/closes on click.
+- [ ] All expected projects display.
+- [ ] Selecting a project updates `selectedProjectId` in context.
+- [ ] SDMT tabs (Catalog, Forecast, Changes, Reconciliation) reload data for new project.
+- [ ] Visual styling matches current design (spacing, badge, labels).
+- [ ] No console errors when switching projects quickly.
 
-**Test Command:**
+**Recommended Test Notes**
 
-```bash
-# In browser console after selecting project:
+Use React DevTools or console:
+
+```js
 const { selectedProjectId, currentProject } = useProject();
-console.log({selectedProjectId, currentProject});
-# Should show selected project details
+console.log({ selectedProjectId, currentProject });
 ```
 
-**Known Issues:** None reported
-
-**Risk Level:** 🟢 LOW - Component tested and deployed
-
----
+Risk Level: 🟢 LOW – stable, but keep one formal validation run on record.
 
 ### 2. ServiceTierSelector ⏳
 
@@ -65,519 +62,257 @@ console.log({selectedProjectId, currentProject});
 
 **Status:** ⏳ NEEDS TESTING
 
-- Component renders tier cards
-- Pricing calculations present
-- onSelect callback structure exists
-- Recommended tier logic implemented
+- Renders tier cards and pricing.
+- `onSelect` callback exists but not validated in live flows.
+- UI hasn’t been part of recent SDMT work; medium priority.
 
-**Validation Checklist:**
+**Validation Checklist**
 
-- [ ] Cards render without errors
-- [ ] Pricing displays correctly
-- [ ] Can click "Select Tier" button
-- [ ] onClick fires callback
-- [ ] Console shows selection event
-- [ ] Parent receives tier selection
-- [ ] Recommended badge shows correctly
+- [ ] All tiers render with correct names & descriptions.
+- [ ] Pricing range appears correctly for each tier.
+- [ ] Clicking “Select Tier” triggers `onSelect` with correct payload.
+- [ ] Parent view responds to selection (e.g., highlights chosen tier).
+- [ ] Recommended tier badge shows according to spec.
+- [ ] No console warnings or prop-type issues.
 
-**Test Command:**
+Risk Level: 🟡 MEDIUM – out of current critical path, but needed for full offering.
 
-```bash
-# Navigate to service tier selection
-# Click a tier button, check console:
-console.log("Tier selection callback should fire");
-# Look for: "🎯 Tier selected - [name]"
-```
-
-**Common Issues:**
-
-- onSelect callback not firing
-  → Check Button onClick handler
-  → Verify parent component defines onSelect
-  → Check callback prop passed correctly
-
-- Pricing not calculating
-  → Verify mock data loaded
-  → Check pricing range calculation logic
-  → Verify serviceCatalog.json exists
-
-**Risk Level:** 🟡 MEDIUM - Needs testing and potential callback verification
-
----
-
-### 3. SDMTCatalog ✅
+### 3. SDMTCatalog ⏳
 
 **File:** `src/features/sdmt/cost/Catalog/SDMTCatalog.tsx`
 
-**Status:** ✅ WORKING
+**Status:** ⏳ WORKING BUT NEEDS COST VALIDATION
 
-- Line items load correctly
-- API response format fixed in commit 17c6962
-- Table displays data properly
-- No "filter is not a function" errors
+- Line items load; response format fixes applied previously.
+- Table structure and filters appear to work.
+- Recent sessions show all unit costs and totals as $0 for some projects; we need to confirm whether this is:
+  - Real data from Dynamo (costs not yet loaded), or
+  - Mapping/field issue between rubro catalog and project line items.
 
-**Validation Checklist:**
+**Validation Checklist**
 
-- [ ] Line items load on page open
-- [ ] Table displays all columns correctly
-- [ ] Sorting/filtering works
-- [ ] Amounts calculate correctly
-- [ ] No API errors in console
-- [ ] Mock data fallback works
-- [ ] Different projects show different data
+- [ ] Line items load on page open for known test project (e.g., BOA Cloud).
+- [ ] Table displays: Category, Description, Type, Qty, Unit Cost, Duration, Total Cost.
+- [ ] Unit Cost and Total Cost match stored values from `finz_rubros` / `finz_allocations`.
+- [ ] Filters by category & search work.
+- [ ] Changing project updates list and totals.
+- [ ] No API format mismatch errors (e.g., filter is not a function).
 
-**Test Command:**
+Risk Level: 🟡 MEDIUM – UI is stable, but business correctness of costs must be validated after catalog/line-item mapping work.
 
-```bash
-# Navigate to Catalog tab
-# Check console:
-const { selectedProjectId } = useProject();
-await ApiService.getLineItems(selectedProjectId);
-# Should return clean array of LineItem objects
-```
-
-**Known Issues:** None in current code
-
-**Risk Level:** 🟢 LOW - Working correctly
-
----
-
-### 4. SDMTChanges ⏳
+### 4. SDMTChanges ⏳ (UI passes; full E2E pending)
 
 **File:** `src/features/sdmt/cost/Changes/SDMTChanges.tsx`
 
-**Status:** ⏳ STRUCTURE FIXED, NEEDS END-TO-END TEST
+**Status:** ⏳ STRUCTURE + UI BEHAVIOUR FIXED, FULL E2E PENDING
 
-- Table renders change requests
-- View Workflow button present
-- Dialog moved outside map loop (best practice fix)
-- State management restructured
+**Recent improvements**
 
-**Validation Checklist:**
+- Change table loads and renders correctly.
+- “View” opens detail dialog.
+- New “View Workflow” button opens `ApprovalWorkflow` in a separate dialog.
+- Change creation dialog now:
+  - Uses currency dropdown (project default).
+  - Uses `useProjectLineItems` to fetch line items for the current project.
+  - Replaces free-text “affected line items” with a searchable multi-select based on canonical rubros.
+  - Stores selected line item IDs and sends them as the `affected_line_items` array (same shape as before, but derived from structured selection).
 
-- [ ] Changes load when project selected
-- [ ] Table displays change list
-- [ ] Status colors correct
-- [ ] View Workflow button visible
-- [ ] Clicking button opens dialog
-- [ ] Dialog shows correct change (not cached)
-- [ ] Dialog displays change details
-- [ ] Dialog closes on close button
-- [ ] Can interact with ApprovalWorkflow inside
+**Validation Checklist (UI level)**
 
-**Test Command:**
+- [ ] With project selected, existing changes load into table.
+- [ ] Status badge and amount formatting correct.
+- [ ] “View” dialog shows full change details and affected line items.
+- [ ] “View Workflow” opens `ApprovalWorkflow` with the right change.
+- [ ] “New Change Request”:
+  - [ ] Opens dialog.
+  - [ ] Line-item selector shows rubros matching Catalog.
+  - [ ] Multi-select allows multiple line items; badges show selected labels.
+  - [ ] Submitting creates change and closes dialog.
+- [ ] No console errors during these actions.
 
-```bash
-# Navigate to Changes tab
-# Check console:
-console.log("Changes loaded");
-# Click View Workflow button
-console.log("Dialog should open");
-# Check React DevTools for dialog open state
-```
+**E2E Checklist (backend)**
 
-**Expected Flow:**
+- [ ] `POST /projects/{id}/changes` stores `affected_line_items` as expected.
+- [ ] `GET /projects/{id}/changes` returns the new change with correct fields.
+- [ ] Approval actions (once wired to backend) update status and approvals array consistently.
 
-```
-1. Changes load → changeRequests array populated
-2. Table renders from changeRequests
-3. Click "View Workflow" → setSelectedChange + setIsWorkflowDialogOpen
-4. Dialog opens with selectedChange data
-5. ApprovalWorkflow component receives changeRequest prop
-6. User interacts with approval form
-7. Click approve/reject → handleApprovalAction called
-8. Dialog closes → state resets
-```
-
-**Common Issues:**
-
-- Dialog doesn't open
-  → Check if onClick handler properly sets both states
-  → Verify Dialog component receives correct props
-  → Check open prop is bound to isWorkflowDialogOpen
-
-- Wrong change displays
-  → Verify setSelectedChange called before dialog opens
-  → Check selectedChange in dialog content
-
-- Dialog stuck
-  → Verify onOpenChange handler on Dialog
-  → Check if setIsWorkflowDialogOpen properly bound
-
-**Risk Level:** 🟡 MEDIUM - Structure correct, needs testing
-
----
+Risk Level: 🟡 MEDIUM – UI is much stronger; approval persistence and full API round-trip still need a dedicated test cycle.
 
 ### 5. ApprovalWorkflow ⏳
 
 **File:** `src/features/sdmt/cost/Changes/ApprovalWorkflow.tsx`
 
-**Status:** ⏳ COMPONENT READY, NEEDS END-TO-END TEST
+**Status:** ⏳ COMPONENT READY & WIRED, BACKEND E2E PENDING
 
-- Receives changeRequest as prop
-- Displays approval steps timeline
-- Has approve/reject form
-- onApprovalAction callback structure present
+- Receives a mapped `changeRequest` object from SDMTChanges (`mapChangeToWorkflow`).
+- Displays:
+  - Change summary (title, description, impact).
+  - Approval steps timeline (role, status, comments).
+- Exposes `onApprovalAction(id, action, comments)` callback.
+- Parent (SDMTChanges) now:
+  - Calls `mapChangeToWorkflow(change)` to adapt domain model.
+  - Implements `handleApprovalAction` to update local state and close dialog.
+- Backend call for approve/reject may still be missing or minimal; confirm before treating as fully complete.
 
-**Validation Checklist:**
+**Validation Checklist**
 
-- [ ] Change details display (title, description, impact)
-- [ ] Approval steps timeline shows
-- [ ] Each step shows: role, approver, status
-- [ ] Status icons correct (✓, ✗, ⏳)
-- [ ] Comments from each step visible
-- [ ] Approval form appears (if user can approve)
-- [ ] Can type in comments textarea
-- [ ] Action type selector works
-- [ ] Approve/Reject buttons clickable
-- [ ] Form validates (requires comment)
-- [ ] Submission calls onApprovalAction
-- [ ] Toast appears on success
-- [ ] Dialog closes after approval
+- [ ] Workflow dialog shows correct change id, title, description, impact.
+- [ ] Timeline entries match approvals from API.
+- [ ] Icons and statuses (pending/approved/rejected) show correctly.
+- [ ] Approve/Reject form appears for authorized user.
+- [ ] Comment textarea validates required input.
+- [ ] `onApprovalAction` is called with correct parameters.
+- [ ] After action, status badge in table updates and timeline includes new step.
+- [ ] Backend (if wired) persists decision; reload still shows updated status.
 
-**Test Command:**
+Risk Level: 🟡 MEDIUM – Good shape, but must be tested against real approval API.
 
-```bash
-# With approval workflow open:
-const component = document.querySelector('[role="dialog"]');
-console.log(component?.textContent);
-# Should show change details and approval steps
-
-# Check if user can approve:
-// Look for approve/reject buttons
-// If not visible, user role may not have permission
-```
-
-**Integration Points:**
-
-- Receives changeRequest from SDMTChanges
-- Calls onApprovalAction(id, action, comments)
-- Parent should update state after approval
-- Toast should appear (sonner library)
-
-**Risk Level:** 🟡 MEDIUM - Needs full approval workflow testing
-
----
-
-### 6. SDMTReconciliation ⏳
+### 6. SDMTReconciliation ⚠️
 
 **File:** `src/features/sdmt/cost/Reconciliation/SDMTReconciliation.tsx`
 
-**Status:** ⏳ NEEDS END-TO-END TEST
+**Status:** ⚠️ UI IMPROVED; BACKEND INVOICE UPLOAD STILL FAILS
 
-- Invoice list loads
-- Upload form structured
-- Status update dialogs present
-- Export functionality exists
+**Recent improvements**
 
-**Validation Checklist:**
+- Uses canonical rubro labels (Category / Subtype — Description) for line items, matching the catalog.
+- Line-item dropdown options now derived from `useProjectLineItems`.
+- When no rubros available:
+  - Replaces disabled dropdown with a manual `line_item_id` input.
+  - Shows contextual message (session expired, no permissions, or “no rubros configured”) instead of blocking silently.
 
-- [ ] Invoices load on page open
-- [ ] Table displays invoices correctly
-- [ ] Each invoice shows: id, line_item_id, month, amount, status
-- [ ] Can upload new invoice
-- [ ] Upload form accepts files
-- [ ] Can select line item in form
-- [ ] Can change invoice status
-- [ ] Status changes persist
-- [ ] Comments work on status update
-- [ ] Can export to Excel
-- [ ] Can download PDF report
+**Current issue**
 
-**Test Command:**
+- Invoice upload (`POST /uploads/docs`) returns **500 Internal Server Error** in dev.
+- Likely tied to missing/misconfigured `finz_docs` table or DOCS_BUCKET permissions.
+- UI is sending sensible payload; error is backend/infra.
 
-```bash
-# Navigate to Reconciliation tab
-# Check console:
-const invoices = await ApiService.getInvoices(projectId);
-console.log("Invoices:", invoices);
-# Should return array of InvoiceDoc objects
-```
+**Validation Checklist (UI)**
 
-**Data Structure Validation:**
+- [ ] Invoices load and display id, line_item_id, month, amount, status.
+- [ ] Upload form opens and allows selecting line item and month.
+- [ ] Line-item dropdown options match Catalog for same project.
+- [ ] When rubros absent, manual ID input is available and clearly explained.
+- [ ] No client-side errors when submitting.
 
-```typescript
-// Each invoice must have these fields:
-{
-  id: "INV-001",
-  line_item_id: "LI-001",
-  month: 1,
-  amount: 10000,
-  status: "Pending",
-  vendor?: "Vendor Inc",
-  file_url?: "https://...",
-  uploaded_at?: "2024-01-15T...",
-  comments?: []
-}
-```
+**E2E Checklist (backend)**
 
-**Risk Level:** 🟡 MEDIUM - Needs comprehensive testing
+- [ ] `POST /uploads/docs` succeeds for a small test file.
+- [ ] New invoice appears in list with correct metadata.
+- [ ] Status update actions (match/dispute/resolve) work and persist.
+- [ ] Exports (Excel/PDF) generate correctly for reconciled invoices.
 
----
+Risk Level: 🟠 MEDIUM-HIGH – Users can see UI, but core upload flow fails until backend/infra is corrected.
 
-### 7. SDMTForecast ✅
+### 7. SDMTForecast ✅ (with caveat)
 
 **File:** `src/features/sdmt/cost/Forecast/SDMTForecast.tsx`
 
-**Status:** ✅ WORKING
+**Status:** ✅ WORKING WITH CURRENT DATA; RE-VALIDATE AFTER CATALOG FIXES
 
-- Forecast data loads
-- Chart displays correctly
-- Scenarios work
-- Data export functions
+- Forecast data loads from plan endpoint (e.g., `GET /projects/{id}/plan`).
+- Charts/tables render without errors.
+- No current bug reports; previously validated structure.
 
-**Test Notes:**
+**Validation Checklist**
 
-- This module appears stable
-- No current issues reported
+- [ ] Forecast page loads with selected project.
+- [ ] Time scale (months) matches project duration (e.g., 12 vs 24).
+- [ ] Series totals align with Catalog totals once cost mapping is correct.
+- [ ] Changing project updates forecast accordingly.
+- [ ] Export (if present) produces expected CSV/Excel.
 
-**Risk Level:** 🟢 LOW - Working
-
----
-
-## API Integration Validation
-
-### Response Format Verification
-
-**CRITICAL:** These must match exactly what UI expects
-
-| Endpoint                    | Should Return          | Status | Fix Applied   |
-| --------------------------- | ---------------------- | ------ | ------------- |
-| GET /projects/{id}/rubros   | Array of LineItem      | ✅     | Yes (17c6962) |
-| GET /projects/{id}/changes  | Array of ChangeRequest | ⏳     | Needs verify  |
-| GET /projects/{id}/invoices | Array of InvoiceDoc    | ⏳     | Needs verify  |
-| GET /projects/{id}/plan     | Array of ForecastCell  | ✅     | Working       |
-
-### Format Checklist
-
-**For getLineItems:**
-
-```json
-✅ Response should be:
-{
-  "data": [...],  // Array wrapped
-  "total": N
-}
-
-❌ NOT:
-[...]  // Direct array
-```
-
-**For getChangeRequests:**
-
-```json
-✅ Response should be:
-[...]  // Direct array
-
-❌ NOT:
-{
-  "data": [...],
-  "total": N
-}
-```
-
-**For getInvoices:**
-
-```json
-✅ Response should be:
-[...]  // Direct array
-
-❌ NOT:
-{
-  "data": [...],
-  "total": N
-}
-```
+Risk Level: 🟢 LOW – Functionally stable, but depends on correctness of upstream cost data.
 
 ---
 
-## Data Flow Verification
+## API Integration Validation (Updated)
 
-### Critical Path: Project Selection → Page Update
+CRITICAL: Response formats must match UI expectations.
+
+| Endpoint | Expected Shape | Status | Notes |
+| --- | --- | --- | --- |
+| `GET /projects/{id}/rubros` or `/line-items` | `{ data: LineItem[], total: number }` | ⏳ | Previously fixed; verify cost fields & rubro mapping |
+| `GET /projects/{id}/changes` | `ChangeRequest[]` | ⏳ | Now includes structured `affected_line_items` array |
+| `GET /projects/{id}/invoices` | `InvoiceDoc[]` | ⏳ | Needed for Reconciliation tests |
+| `GET /projects/{id}/plan` | `ForecastCell[]` | ✅ | Feeds SDMTForecast |
+| `POST /projects/{id}/changes` | Creates ChangeRequest | ⏳ | Validate multi-select mapping and persistence |
+| `POST /uploads/docs` | Creates InvoiceDoc + S3 object | ❌ | Currently 500 in dev; infra/API fix required |
+
+---
+
+## Data Flow Verification (unchanged, still critical)
+
+**Key path:** Project selection must drive all SDMT data loads.
 
 ```
-User clicks project
+User selects project
     ↓
-setSelectedProjectId called
+ProjectContextBar sets selectedProjectId
     ↓
-ProjectContext updated
+ProjectContext context updates
     ↓
-All components depending on selectedProjectId re-render
+SDMTCatalog / SDMTChanges / SDMTReconciliation / SDMTForecast re-render
     ↓
-useEffect with [selectedProjectId] triggers
+useEffect([selectedProjectId]) triggers API calls
     ↓
-API calls with new projectId
+Data loads per component
     ↓
-Data loads for new project
-    ↓
-State updated
-    ↓
-Components re-render with new data
+State updates and UI re-renders with new project data
 ```
 
-**Validation Commands:**
+For each SDMT tab, verify:
 
-```bash
-# 1. Check context value
-const { selectedProjectId } = useProject();
-console.log("Selected project:", selectedProjectId);
-
-# 2. Check if effect triggers
-useEffect(() => {
-  console.log("Effect running with project:", selectedProjectId);
-}, [selectedProjectId]);
-
-# 3. Check API response
-fetch(`/api/projects/${selectedProjectId}/...`)
-  .then(r => r.json())
-  .then(data => console.log("Response format:", typeof data, Array.isArray(data)));
-```
+- Effect dependencies include `selectedProjectId`.
+- No stale data when toggling between projects.
 
 ---
 
-## Known Issues Tracking
+## Validation Priority Matrix (Updated)
 
-### Issue #1: API Response Format Mismatch ✅ FIXED
-
-- **Status:** Fixed in commit 17c6962
-- **Verification:** Test getLineItems returns clean array
-- **Risk:** Low (fix already applied)
-
-### Issue #2: Dialog State in Map Loop ✅ FIXED
-
-- **Status:** Fixed in SDMTChanges.tsx
-- **Verification:** Dialog outside map loop, state separate
-- **Risk:** Low (structure corrected)
-
-### Issue #3: Project Selector Visual Design ✅ IMPROVED
-
-- **Status:** Redesigned in commit 5e54dcd
-- **Verification:** Check dropdown appearance and UX
-- **Risk:** Low (deployed)
-
-### Issue #4: Service Tier Selection Callbacks ⏳ NEEDS TESTING
-
-- **Status:** Component complete, needs testing
-- **Verification:** Click tier, check console for event
-- **Risk:** Medium (unknown)
-
-### Issue #5: Approval Workflow End-to-End ⏳ NEEDS TESTING
-
-- **Status:** Component complete, needs full flow test
-- **Verification:** Approve/reject a change, check persistence
-- **Risk:** Medium (unknown)
+| Component | Priority | Effort | Risk | Status |
+| --- | --- | --- | --- | --- |
+| ProjectContextBar | High | Low | Low | ✅ |
+| SDMTCatalog | High | Medium | Medium | ⏳ |
+| SDMTChanges | High | Medium | Medium | ⏳ |
+| ApprovalWorkflow | High | Medium | Medium | ⏳ |
+| SDMTReconciliation | High | High | Medium-High ⚠️ | ⚠️ |
+| ServiceTierSelector | Medium | Low | Medium | ⏳ |
+| SDMTForecast | Medium | Low | Low (data-dependent) | ✅ |
 
 ---
 
-## Validation Priority Matrix
+## Validation Roadmap (Updated)
 
-| Component           | Priority | Effort | Risk   | Status |
-| ------------------- | -------- | ------ | ------ | ------ |
-| ProjectContextBar   | High     | Low    | Low    | ✅     |
-| SDMTCatalog         | High     | Low    | Low    | ✅     |
-| SDMTChanges         | High     | Medium | Medium | ⏳     |
-| ApprovalWorkflow    | High     | Medium | Medium | ⏳     |
-| SDMTReconciliation  | High     | High   | Medium | ⏳     |
-| ServiceTierSelector | Medium   | Low    | Medium | ⏳     |
-| SDMTForecast        | Medium   | Low    | Low    | ✅     |
+**Priority 1 – E2E Core Flows (Now)**
 
----
+- Fix and validate `/uploads/docs` and docs table for Reconciliation.
+- E2E test for `POST /projects/{id}/changes` and `GET /projects/{id}/changes`.
+- Validate ApprovalWorkflow against backend (approve/reject persists).
 
-## Validation Roadmap
+**Priority 2 – Cost & Catalog Integrity**
 
-### Today (Priority 1)
+- Confirm correct cost fields from rubro/catalog tables into SDMTCatalog.
+- Re-validate SDMTForecast using corrected Catalog totals.
+- Ensure Catalog and Reconciliation use same rubro/line item source.
 
-- [ ] Validate ProjectContextBar works end-to-end
-- [ ] Verify SDMTCatalog displays data correctly
-- [ ] Confirm no API errors in console
+**Priority 3 – Secondary Components & Error Paths**
 
-### This Week (Priority 2)
-
-- [ ] Test SDMTChanges workflow opening
-- [ ] Test approval workflow form submission
-- [ ] Verify changes persist after approval
-- [ ] Test SDMTReconciliation invoice upload
-
-### Next Week (Priority 3)
-
-- [ ] Test all error scenarios
-- [ ] Verify fallback to mock data works
-- [ ] Test across different browsers
-- [ ] Performance profiling
+- Test ServiceTierSelector callbacks in real flow.
+- Validate all error states (401/403/503) present clear messages in UI.
+- Cross-browser passes (Chrome, Edge, Firefox) for SDMT tabs.
 
 ---
 
-## Testing Report Template
+## Governance: Using This Matrix as Baseline
 
-Use this to document findings:
+- This file is the baseline for UI validation decisions.
+- Before major review cycles, update it to reflect current code and infra state.
+- When a feature is completed or a regression is fixed:
+  - Update the relevant component row.
+  - Add/remove known issues.
+  - Record the date and, optionally, the commit hash in “Notes”.
+- When in doubt between code and this doc, treat current code + recent diagnostics as truth and update the doc accordingly.
 
-```markdown
-## Component: [Name]
-
-### Test Date: [Date]
-
-### Tester: [Name]
-
-### Build: [Commit Hash]
-
-### Test Results
-
-#### ✅ Passed
-
-- Item 1
-- Item 2
-
-#### ⚠️ Issues
-
-- Issue 1: [Description]
-  - Steps to reproduce
-  - Expected behavior
-  - Actual behavior
-  - Severity: [Low/Medium/High]
-
-#### 🔴 Blockers
-
-- Blocker 1: [Description]
-
-### Recommendation
-
-- [ ] Ready for production
-- [ ] Needs fixes before production
-- [ ] Ready for next phase
-
-### Notes
-
--
-```
-
----
-
-## Success Criteria
-
-Component is validated when:
-
-- ✅ No console errors
-- ✅ All UI renders correctly
-- ✅ Data loads properly
-- ✅ User interactions work
-- ✅ API calls succeed
-- ✅ State updates correctly
-- ✅ Dialogs open/close properly
-- ✅ Forms submit and persist
-- ✅ Different projects show different data
-- ✅ Can navigate between all pages
-
----
-
-## References
-
-- **End-to-End Testing Guide:** END_TO_END_TESTING_GUIDE.md
-- **Architecture Review:** ARCHITECTURE_REVIEW_COMPREHENSIVE.md
-- **Assessment Quick Reference:** ASSESSMENT_QUICK_REFERENCE.md
-- **Code Standards:** CODE_ARCHITECTURE_BEST_PRACTICES.md
-
----
-
-**Status:** Active  
-**Last Updated:** November 17, 2025  
-**Next Review:** After testing round 1 complete
+**Status:** Active
+**Last Updated:** December 1, 2025
