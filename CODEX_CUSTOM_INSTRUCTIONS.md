@@ -54,11 +54,15 @@ Before making any changes, provide a short **PLAN** section that includes:
 
 When making changes, treat these files as **primary specifications**:
 
-1. **`UI_COMPONENT_VALIDATION_MATRIX.md`** - for UI behavior and routes
-2. **`AWS_DIAGNOSTIC_FINDINGS.md`** / **`FINANZAS_AWS_INVESTIGATION_SUMMARY.md`** - for infrastructure & diagnostics
-3. **`services/finanzas-api/template.yaml`** - for API routes, tables, and environment variables
-4. **Existing handlers** under `services/finanzas-api/src/handlers/**`
-5. **API clients** under `src/lib/api.ts` or `src/api/**`
+1. **Root-level documentation:**
+   - `UI_COMPONENT_VALIDATION_MATRIX.md` - for UI behavior and routes
+   - `AWS_DIAGNOSTIC_FINDINGS.md` - for infrastructure diagnostics
+   - `FINANZAS_AWS_INVESTIGATION_SUMMARY.md` - for AWS investigation details
+2. **Backend specifications:**
+   - `services/finanzas-api/template.yaml` - for API routes, tables, and environment variables
+   - Existing handlers under `services/finanzas-api/src/handlers/**`
+3. **API clients:**
+   - `src/lib/api.ts` or `src/api/**`
 
 **If these disagree with older docs, prefer current code + these spec files.**
 
@@ -225,9 +229,8 @@ financial-planning-u/
 │   ├── workflows/              # CI/CD workflows
 │   └── COPILOT_AGENT_INSTRUCTIONS.md
 ├── docs/
-│   ├── UI_COMPONENT_VALIDATION_MATRIX.md
-│   ├── AWS_DIAGNOSTIC_FINDINGS.md
-│   └── FINANZAS_AWS_INVESTIGATION_SUMMARY.md
+│   ├── COPILOT_OPERATING_INSTRUCTIONS.md
+│   └── (various project documentation)
 ├── services/
 │   └── finanzas-api/
 │       ├── template.yaml       # SAM template (API definition)
@@ -238,8 +241,12 @@ financial-planning-u/
 │   └── lib/                    # Shared utilities
 ├── openapi/
 │   └── finanzas.yaml          # OpenAPI specification
-└── scripts/
-    └── ts-seeds/              # Database seeding scripts
+├── scripts/
+│   └── ts-seeds/              # Database seeding scripts
+├── UI_COMPONENT_VALIDATION_MATRIX.md  # Root-level spec files
+├── AWS_DIAGNOSTIC_FINDINGS.md
+├── FINANZAS_AWS_INVESTIGATION_SUMMARY.md
+└── CODEX_CUSTOM_INSTRUCTIONS.md       # This file
 ```
 
 ---
