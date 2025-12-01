@@ -1,7 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_API_BASE_URL?: string;
+  readonly VITE_API_BASE_URL: string;
+  readonly VITE_ACTA_BASE_URL?: string;
+  readonly VITE_PREFACTURAS_URL?: string;
   readonly VITE_FINZ_ENABLED?: string;
   readonly VITE_USE_MOCKS?: string;
   readonly VITE_API_JWT_TOKEN?: string;

@@ -181,6 +181,8 @@ jobs:
         env:
           BUILD_TARGET: finanzas
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
+          VITE_ACTA_BASE_URL: ${{ vars.VITE_ACTA_BASE_URL }}
+          VITE_PREFACTURAS_URL: ${{ vars.VITE_PREFACTURAS_URL }}
           VITE_BASE_URL: "/finanzas/"
           VITE_FINZ_ENABLED: "true"
           VITE_USE_MOCKS: "false"
