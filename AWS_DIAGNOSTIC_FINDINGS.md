@@ -271,6 +271,11 @@ COGNITO_ISSUER=https://cognito-idp.us-east-2.amazonaws.com/{pool_id}
 **Verification Required**:
 Check each Lambda function's environment variables match expected values
 
+**Docs infrastructure**:
+
+- SAM now provisions the `DocsBucket` S3 bucket (default name from `DocsBucketName`) with CORS for presigned `PUT` uploads and server-side encryption.
+- The deep `/health?deep=true` check validates both Dynamo tables and the docs bucket presence, returning `docs_bucket` status so missing buckets no longer surface as opaque 500s from `/uploads/docs`.
+
 ### 6. Catalog Handler Fallback Behavior
 
 **Finding**: The catalog handler has a fallback mechanism that returns a minimal dataset on error (catalog.ts lines 33-44):
