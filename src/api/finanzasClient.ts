@@ -14,16 +14,38 @@ if (!HAS_API_BASE) {
 }
 
 // Schemas
-// Schema aligned with /catalog/rubros API response
-export const RubroSchema = z.object({
-  rubro_id: z.string(),
-  nombre: z.string(),
-  categoria: z.string().optional(),
-  tipo_ejecucion: z.string().optional(),
-  descripcion: z.string().optional(),
-  linea_codigo: z.string().optional(), // Accounting line or cost center code
-  tipo_costo: z.string().optional(), // Cost type (OPEX, CAPEX, etc.)
-});
+// Schema aligned with /catalog/rubros API response (accepts id/code variants)
+export const RubroSchema = z
+  .object({
+    rubro_id: z.string().optional(),
+    id: z.string().optional(),
+    code: z.string().optional(),
+    nombre: z.string().optional(),
+    categoria: z.string().optional(),
+    tipo_ejecucion: z.string().optional(),
+    descripcion: z.string().optional(),
+    linea_codigo: z.string().optional(), // Accounting line or cost center code
+    tipo_costo: z.string().optional(), // Cost type (OPEX, CAPEX, etc.)
+  })
+  .transform((raw) => {
+    const rubroId =
+      raw.rubro_id || raw.id || raw.code || raw.nombre || "rubrosinid";
+    return {
+      rubro_id: rubroId,
+      nombre:
+        raw.nombre ||
+        raw.descripcion ||
+        raw.code ||
+        raw.rubro_id ||
+        raw.id ||
+        "Rubro sin nombre",
+      categoria: raw.categoria,
+      tipo_ejecucion: raw.tipo_ejecucion,
+      descripcion: raw.descripcion,
+      linea_codigo: raw.linea_codigo || raw.code,
+      tipo_costo: raw.tipo_costo,
+    };
+  });
 
 export const RubroListSchema = z.object({
   data: z.array(RubroSchema),
@@ -342,7 +364,7 @@ export const finanzasClient = {
 
   async getRubros(): Promise<Rubro[]> {
     const payload = await http<unknown>("/catalog/rubros");
-    const data = normalizeDataArray<Rubro>(payload);
+    const data = normalizeDataArray<unknown>(payload);
     const parsed = z.array(RubroSchema).safeParse(data);
 
     if (!parsed.success) {

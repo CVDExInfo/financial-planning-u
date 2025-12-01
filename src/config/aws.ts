@@ -12,6 +12,14 @@
 
 import { API_BASE, HAS_API_BASE } from "./env";
 
+const envSource =
+  (typeof import.meta !== "undefined"
+    ? (import.meta as { env?: Record<string, string | undefined> }).env
+    : undefined) || (process.env as Record<string, string | undefined>);
+
+const isDevEnv =
+  envSource?.DEV === "true" || envSource?.MODE === "development";
+
 const CANONICAL_COGNITO = {
   userPoolId: "us-east-2_FyHLtOhiY",
   clientId: "dshos5iou44tuach7ta3ici5m",
@@ -40,15 +48,13 @@ const DEFAULT_REDIRECT_SIGNOUT =
  * Returns fallback (or empty string) if not set, allowing calling code to handle missing values.
  */
 const getEnv = (key: string, fallback = ""): string =>
-  ((import.meta.env as Record<string, string | undefined>)[key] ??
-    fallback) as string;
+  (envSource?.[key] ?? fallback) as string;
 
 /**
  * Get environment variable with regional fallback (safe for non-sensitive defaults)
  */
 const getEnvWithRegionFallback = (key: string): string =>
-  ((import.meta.env as Record<string, string | undefined>)[key] ??
-    DEFAULT_REGION) as string;
+  (envSource?.[key] ?? DEFAULT_REGION) as string;
 
 const RESOLVED_API_BASE = HAS_API_BASE ? API_BASE : "";
 const RESOLVED_CLOUDFRONT = getEnv(
@@ -206,7 +212,7 @@ export function loginWithHostedUI(): void {
 
   const hostedUIUrl = `https://${domain}/oauth2/authorize?${params.toString()}`;
 
-  if (import.meta.env.DEV) {
+  if (isDevEnv) {
     console.log("[loginWithHostedUI] Redirecting to Cognito Hosted UI:");
     console.log("  Domain:", domain);
     console.log("  Client ID:", userPoolWebClientId);
@@ -286,7 +292,7 @@ export function logoutWithHostedUI(): void {
 /**
  * Pre-flight configuration logging (dev mode only)
  */
-if (import.meta.env.DEV) {
+if (isDevEnv) {
   console.log("[Cognito Config] Pre-flight check:");
   console.log("  Region:", aws.Auth.region);
   console.log("  User Pool ID:", aws.Auth.userPoolId || "⚠️ NOT SET");

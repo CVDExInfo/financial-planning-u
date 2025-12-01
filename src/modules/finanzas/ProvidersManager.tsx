@@ -28,6 +28,9 @@ import PageHeader from "@/components/PageHeader";
 import { Building2, Plus, RefreshCcw } from "lucide-react";
 import DataContainer from "@/components/DataContainer";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/hooks/useAuth";
+import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
+import { loadProvidersWithHandler } from "./providers.helpers";
 
 export default function ProvidersManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -37,6 +40,7 @@ export default function ProvidersManager() {
   const [providers, setProviders] = React.useState<Provider[]>([]);
 
   const { hasGroup, canEdit, isExecRO } = usePermissions();
+  const { login } = useAuth();
   const isFinReadOnly = hasGroup("FIN") && !canEdit;
   const canCreateProvider = canEdit && !isFinReadOnly && !isExecRO;
 
@@ -54,15 +58,23 @@ export default function ProvidersManager() {
     try {
       setIsLoading(true);
       setLoadError(null);
-      const data = await finanzasClient.getProviders({ limit: 50 });
-      setProviders(data);
+      const result = await loadProvidersWithHandler(
+        () => finanzasClient.getProviders({ limit: 50 }),
+        login,
+      );
+      setProviders(result.providers);
+      setLoadError(result.error);
     } catch (error: any) {
       console.error("Error loading providers", error);
-      setLoadError(error?.message || "No se pudieron cargar los proveedores");
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: "No se pudieron cargar los proveedores.",
+      });
+      setLoadError(message);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [login]);
 
   React.useEffect(() => {
     loadProviders();

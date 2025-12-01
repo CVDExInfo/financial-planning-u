@@ -194,6 +194,9 @@ export function SDMTCatalog() {
     new Set(safeLineItems.map((item) => item.category))
   );
 
+  const summaryCurrency =
+    currentProject?.currency || safeLineItems[0]?.currency || "USD";
+
   const showInitialLoading = loading;
   const showErrorState = Boolean(uiErrorMessage);
   const showEmptyState =
@@ -1219,7 +1222,7 @@ export function SDMTCatalog() {
                       (sum, item) => sum + calculateTotalCost(item),
                       0
                     ),
-                    "USD"
+                    summaryCurrency
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">
