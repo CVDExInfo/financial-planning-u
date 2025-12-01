@@ -122,11 +122,16 @@ describe("upload-docs handler", () => {
       baseEvent({ body: JSON.stringify(validBody) })
     )) as ApiResult;
 
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(201);
     const payload = JSON.parse(response.body);
     expect(payload).toEqual({
       uploadUrl: mockSignedUrl,
       objectKey: "docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf",
+      documentId: "DOC-12345678",
+      metadata: expect.objectContaining({
+        documentId: "DOC-12345678",
+        module: "prefactura",
+      }),
     });
 
     expect(auth.ensureCanWrite).toHaveBeenCalledTimes(1);
@@ -141,6 +146,7 @@ describe("upload-docs handler", () => {
             module: "prefactura",
             objectKey: payload.objectKey,
             uploader: "tester@example.com",
+            documentId: "DOC-12345678",
           }),
         }),
       })
@@ -164,7 +170,7 @@ describe("upload-docs handler", () => {
       baseEvent({ body: undefined })
     )) as ApiResult;
     expect(response.statusCode).toBe(400);
-    expect(JSON.parse(response.body).error).toMatch(/Missing request body/);
+    expect(JSON.parse(response.body).error).toMatch(/Invalid JSON body/);
   });
 
   it("returns server error when DynamoDB write fails", async () => {
@@ -176,5 +182,38 @@ describe("upload-docs handler", () => {
 
     expect(response.statusCode).toBe(500);
     expect(JSON.parse(response.body).error).toContain("ddb failure");
+  });
+
+  it("requires reconciliation fields when module is reconciliation", async () => {
+    const reconBody = {
+      ...validBody,
+      module: "reconciliation",
+      vendor: "ACME",
+      invoiceDate: "2025-02-01",
+    };
+
+    const missingAmount = (await uploadDocsHandler(
+      baseEvent({ body: JSON.stringify(reconBody) })
+    )) as ApiResult;
+
+    expect(missingAmount.statusCode).toBe(400);
+    expect(JSON.parse(missingAmount.body).error).toMatch(/amount/);
+
+    const withAmount = {
+      ...reconBody,
+      amount: 1234.56,
+      vendor: "ACME",
+      invoiceDate: "2025-02-01",
+    };
+
+    const okResponse = (await uploadDocsHandler(
+      baseEvent({ body: JSON.stringify(withAmount) })
+    )) as ApiResult;
+
+    expect(okResponse.statusCode).toBe(201);
+    const parsed = JSON.parse(okResponse.body);
+    expect(parsed.metadata.vendor).toBe("ACME");
+    expect(parsed.metadata.amount).toBe(1234.56);
+    expect(parsed.metadata.invoiceDate).toBe("2025-02-01T00:00:00.000Z");
   });
 });
