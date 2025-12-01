@@ -1,0 +1,212 @@
+name: Finanzas E2E API Tests
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'qa/**'
+  pull_request:
+    paths:
+      - 'services/finanzas-api/**'
+      - 'scripts/finanzas-e2e-api.ts'
+      - '.github/workflows/finanzas-e2e-api.yml'
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: 'API Base URL (optional override)'
+        required: false
+        type: string
+      cf_domain:
+        description: 'CloudFront Domain (optional override)'
+        required: false
+        type: string
+
+permissions:
+  id-token: write  # Required for OIDC AWS authentication
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  finanzas-e2e-api-tests:
+    name: Finanzas E2E API Tests
+    runs-on: ubuntu-latest
+    
+    env:
+      # AWS Configuration
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+      
+      # API Configuration
+      FINZ_API_BASE: ${{ inputs.api_base_url || vars.DEV_API_URL || 'https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev' }}
+      CF_DOMAIN: ${{ inputs.cf_domain || 'https://d7t9x3j66yd8k.cloudfront.net' }}
+      
+      # Cognito Configuration
+      COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
+      COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
+      
+      # Test User Credentials (from secrets)
+      USERNAME: ${{ secrets.USERNAME }}
+      PASSWORD: ${{ secrets.PASSWORD }}
+      COGNITO_TESTER_USERNAME: ${{ secrets.USERNAME }}
+      COGNITO_TESTER_PASSWORD: ${{ secrets.PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          # Ensure tsx is available for running TypeScript directly
+          if ! command -v tsx >/dev/null 2>&1; then
+            npm install -g tsx
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS credentials
+        run: |
+          echo "✓ AWS CLI version: $(aws --version)"
+          echo "✓ AWS Identity:"
+          aws sts get-caller-identity
+
+      - name: Validate configuration
+        run: |
+          set -euo pipefail
+          
+          echo "═══════════════════════════════════════════════════"
+          echo "  Configuration Validation"
+          echo "═══════════════════════════════════════════════════"
+          echo ""
+          
+          # Sanitize URLs (remove trailing slashes and CR/LF)
+          FINZ_API_BASE="$(printf '%s' "$FINZ_API_BASE" | tr -d '\r\n' | sed 's:/*$::')"
+          CF_DOMAIN="$(printf '%s' "$CF_DOMAIN" | tr -d '\r\n' | sed 's:/*$::')"
+          
+          # Export cleaned values
+          echo "FINZ_API_BASE=${FINZ_API_BASE}" >> $GITHUB_ENV
+          echo "CF_DOMAIN=${CF_DOMAIN}" >> $GITHUB_ENV
+          
+          # Validate required environment variables
+          MISSING_VARS=()
+          
+          [[ -z "${AWS_REGION:-}" ]] && MISSING_VARS+=("AWS_REGION")
+          [[ -z "${FINZ_API_BASE:-}" ]] && MISSING_VARS+=("FINZ_API_BASE")
+          [[ -z "${COGNITO_USER_POOL_ID:-}" ]] && MISSING_VARS+=("COGNITO_USER_POOL_ID")
+          [[ -z "${COGNITO_WEB_CLIENT:-}" ]] && MISSING_VARS+=("COGNITO_WEB_CLIENT")
+          [[ -z "${USERNAME:-}" ]] && MISSING_VARS+=("USERNAME")
+          [[ -z "${PASSWORD:-}" ]] && MISSING_VARS+=("PASSWORD")
+          
+          if [[ ${#MISSING_VARS[@]} -gt 0 ]]; then
+            echo "❌ Missing required environment variables:"
+            printf '   - %s\n' "${MISSING_VARS[@]}"
+            exit 1
+          fi
+          
+          echo "✓ AWS Region:         ${AWS_REGION}"
+          echo "✓ API Base URL:       ${FINZ_API_BASE}"
+          echo "✓ CloudFront Domain:  ${CF_DOMAIN}"
+          echo "✓ Cognito Pool ID:    ${COGNITO_USER_POOL_ID}"
+          echo "✓ Cognito Client ID:  ${COGNITO_WEB_CLIENT}"
+          echo "✓ Test Username:      ${USERNAME}"
+          echo "✓ All required configuration present"
+          echo ""
+
+      - name: Run E2E API Tests
+        id: e2e-tests
+        run: |
+          set -euo pipefail
+          
+          echo "═══════════════════════════════════════════════════"
+          echo "  Running Finanzas E2E API Tests"
+          echo "═══════════════════════════════════════════════════"
+          echo ""
+          
+          # Run the E2E test script
+          tsx scripts/finanzas-e2e-api.ts
+          
+          # Capture exit code
+          TEST_EXIT_CODE=$?
+          
+          echo "TEST_EXIT_CODE=${TEST_EXIT_CODE}" >> $GITHUB_OUTPUT
+          
+          exit $TEST_EXIT_CODE
+
+      - name: Generate test summary
+        if: always()
+        run: |
+          set +e  # Don't fail on errors in summary generation
+          
+          {
+            echo "## Finanzas E2E API Test Results"
+            echo ""
+            echo "**Configuration:**"
+            echo "- API Base URL: \`${FINZ_API_BASE}\`"
+            echo "- CloudFront Domain: \`${CF_DOMAIN}\`"
+            echo "- AWS Region: \`${AWS_REGION}\`"
+            echo "- Test User: \`${USERNAME}\`"
+            echo ""
+            
+            if [[ "${{ steps.e2e-tests.outcome }}" == "success" ]]; then
+              echo "### ✅ All E2E Tests Passed"
+              echo ""
+              echo "All Finanzas API endpoints are functioning correctly with authenticated requests."
+            else
+              echo "### ❌ E2E Tests Failed"
+              echo ""
+              echo "Some E2E tests failed. Please review the test output above for details."
+              echo ""
+              echo "**Common failure causes:**"
+              echo "- DynamoDB tables not provisioned or misconfigured"
+              echo "- Lambda functions not deployed or have incorrect environment variables"
+              echo "- Cognito authentication issues"
+              echo "- API Gateway configuration problems"
+              echo "- CloudFront distribution not properly configured"
+            fi
+            
+            echo ""
+            echo "**Tested Endpoints:**"
+            echo "- \`GET /health\` - Health check"
+            echo "- \`GET /catalog/rubros\` - Rubros catalog"
+            echo "- \`GET /projects\` - Projects list"
+            echo "- \`GET /line-items\` - Line items"
+            echo "- \`GET /projects/{id}/changes\` - Change requests"
+            echo "- \`POST /projects/{id}/changes\` - Create change request"
+            echo "- \`GET /allocation-rules\` - Allocation rules"
+            echo "- \`GET /providers\` - Providers list"
+            echo "- CloudFront UI accessibility"
+            echo ""
+            echo "**Next Steps:**"
+            if [[ "${{ steps.e2e-tests.outcome }}" != "success" ]]; then
+              echo "1. Review CloudWatch logs for Lambda functions"
+              echo "2. Verify DynamoDB table existence and permissions"
+              echo "3. Check API Gateway configuration and authorizers"
+              echo "4. Run \`finanzas-aws-diagnostic\` workflow for detailed infrastructure state"
+            else
+              echo "- All systems operational"
+              echo "- Monitor production deployment"
+            fi
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload test artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-logs
+          path: |
+            /tmp/finanzas-tests/
+          retention-days: 7
+          if-no-files-found: ignore
