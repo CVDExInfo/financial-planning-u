@@ -95,6 +95,7 @@ describe("forecast handler", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ Items: [] })
       .mockResolvedValueOnce({
         Items: [
           {
@@ -130,6 +131,40 @@ describe("forecast handler", () => {
     expect(dynamo.tableName).toHaveBeenCalledWith("payroll_actuals");
     expect(dynamo.QueryCommand).toHaveBeenCalledWith(
       expect.objectContaining({ TableName: "allocations-table" })
+    );
+  });
+
+  it("derives forecast amounts from rubro attachments when allocations are empty", async () => {
+    dynamo.ddb.send
+      .mockResolvedValueOnce({ Items: [] })
+      .mockResolvedValueOnce({ Items: [] })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            rubroId: "R-FALLBACK",
+            qty: 2,
+            unit_cost: 100,
+            recurring: true,
+            start_month: 1,
+            end_month: 2,
+          },
+        ],
+      });
+
+    const response = (await forecastHandler(
+      baseEvent({ queryStringParameters: { projectId: "PROJ-2", months: "2" } })
+    )) as ApiResult;
+
+    expect(response.statusCode).toBe(200);
+    const payload = JSON.parse(response.body);
+    expect(payload.data).toHaveLength(2);
+    expect(payload.data[0]).toEqual(
+      expect.objectContaining({
+        line_item_id: "R-FALLBACK",
+        month: 1,
+        planned: 200,
+        forecast: 200,
+      })
     );
   });
 
