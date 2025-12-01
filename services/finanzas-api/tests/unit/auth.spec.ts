@@ -71,5 +71,10 @@ describe("Auth Helper", () => {
         body: "forbidden: valid group required",
       });
     });
+
+    it("allows authenticated users without groups to read as EXEC_RO", async () => {
+      const event: any = { __verifiedClaims: { email: "test@example.com" } };
+      await expect(ensureCanRead(event)).resolves.toBeUndefined();
+    });
   });
 });

@@ -142,6 +142,7 @@ async function verifyJwt(event: ApiGwEvent): Promise<VerifiedClaims> {
  * - SDT/SDMT/FIN/AUD → SDMT role (read + write)
  * - vendor/acta-ui patterns → VENDOR role (read)
  * - exec/director/manager/admin → EXEC_RO role (read)
+ * - tokens without groups default to EXEC_RO (read-only) to mirror frontend mapper
  * Users that resolve to any role above can read; PMO or SDMT roles can write.
  */
 
@@ -151,6 +152,7 @@ type FinanzasRole = (typeof ROLE_PRIORITY)[number];
 
 function mapGroupsToRoles(groups: string[]): FinanzasRole[] {
   const roles = new Set<FinanzasRole>();
+  const hasAnyGroup = groups.length > 0;
 
   for (const group of groups) {
     const normalized = group.trim().toUpperCase();
@@ -181,6 +183,13 @@ function mapGroupsToRoles(groups: string[]): FinanzasRole[] {
     ) {
       roles.add("EXEC_RO");
     }
+  }
+
+  // Maintain parity with frontend role mapper: if no groups are present at all,
+  // treat the user as EXEC_RO (read-only) so authenticated but ungrouped users
+  // can still read catalog/project data.
+  if (!roles.size && !hasAnyGroup) {
+    roles.add("EXEC_RO");
   }
 
   return Array.from(roles);
