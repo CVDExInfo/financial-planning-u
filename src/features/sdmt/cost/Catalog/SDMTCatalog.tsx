@@ -64,7 +64,6 @@ import {
 } from "@/lib/documents/uploadService";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { useAuth } from "@/hooks/useAuth";
-import { useUnsavedChangesPrompt } from "@/hooks/useUnsavedChangesPrompt";
 
 // Pending change types
 type PendingChangeType = "add" | "edit" | "delete";
@@ -139,10 +138,11 @@ export function SDMTCatalog() {
   // Check if there are unsaved changes
   const hasUnsavedChanges = pendingChanges.size > 0;
 
-  useUnsavedChangesPrompt(
-    hasUnsavedChanges && saveBarState !== "saving",
-    "Tienes cambios sin guardar en el catálogo. ¿Quieres salir sin guardar?",
-  );
+  // Navigation blockers in react-router require a data router. The SDMT catalog
+  // currently renders under a BrowserRouter, so using useBlocker would throw
+  // "useBlocker must be used within a data router". We intentionally skip the
+  // unsaved-changes blocker to keep this screen accessible from top navigation
+  // until the app is migrated to a data router.
 
   useEffect(() => {
     if (lineItemsError) {
