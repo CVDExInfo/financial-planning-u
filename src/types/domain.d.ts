@@ -45,6 +45,7 @@ export type LineItem = {
   created_at: string;
   updated_at: string;
   created_by: string;
+  total_cost?: number;
   // Service tier specific fields
   service_tier?: string;
   service_type?: string;
