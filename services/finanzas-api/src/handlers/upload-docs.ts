@@ -167,6 +167,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       })
     );
 
+    // 201 Created – presigned upload URL and metadata record created for this document
     return ok({ uploadUrl, objectKey, documentId, metadata: metadataItem }, 201);
   } catch (error) {
     const name = (error as { name?: string } | undefined)?.name;
