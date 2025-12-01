@@ -217,7 +217,7 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     const unitCost = Number(payload.unitCost ?? payload.unit_cost ?? 0) || 0;
     const type = typeof payload.type === "string" ? payload.type.toLowerCase() : "";
     const recurring = payload.recurring ?? type === "recurring";
-    const oneTime = payload.one_time ?? type === "one-time" || type === "one_time";
+    const oneTime = payload.one_time ?? (type === "one-time" || type === "one_time");
     const duration = parseDuration((payload.duration as string) || undefined);
     const explicitStart = Number(payload.start_month ?? payload.startMonth ?? duration.start) ||
       duration.start;
