@@ -177,6 +177,18 @@ jobs:
               TablePrefix=finz_ \
               PolicyStoreId="${POLICY_STORE_ID:-}"
 
+      - name: Dump recent CloudFormation events on failure
+        if: failure()
+        run: |
+          set -euo pipefail
+          echo "🔎 Fetching recent CloudFormation events for ${FINZ_API_STACK}"
+          aws cloudformation describe-stack-events \
+            --stack-name "${FINZ_API_STACK}" \
+            --max-items 20 \
+            --query 'StackEvents[0:10].[LogicalResourceId,ResourceStatus,ResourceStatusReason]' \
+            --output table || true
+          exit 1
+
       - name: Output API info
         id: out
         working-directory: services/finanzas-api

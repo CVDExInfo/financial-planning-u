@@ -35,6 +35,12 @@ Parameters:
     Default: ''
     Description: Amazon Verified Permissions Policy Store ID (optional, for fine-grained
       authorization)
+Conditions:
+  HasPolicyStore:
+    Fn::Not:
+    - Fn::Equals:
+      - Ref: PolicyStoreId
+      - ""
 Globals:
   Function:
     Runtime: nodejs20.x
@@ -83,7 +89,10 @@ Globals:
         STAGE_NAME:
           Ref: StageName
         POLICY_STORE_ID:
-          Ref: PolicyStoreId
+          Fn::If:
+          - HasPolicyStore
+          - Ref: PolicyStoreId
+          - ""
         DOCS_BUCKET:
           Ref: DocsBucketName
         ALLOWED_ORIGIN:
@@ -446,13 +455,19 @@ Resources:
       - DynamoDBCrudPolicy:
           TableName:
             Ref: AuditTable
-      - Statement:
-        - Sid: AVPIsAuthorizedWithToken
-          Effect: Allow
-          Action:
-          - verifiedpermissions:IsAuthorizedWithToken
-          Resource:
-            Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
+      - Fn::If:
+        - HasPolicyStore
+        - PolicyName: AllowAVPIsAuthorizedWithToken
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Sid: AVPIsAuthorizedWithToken
+              Effect: Allow
+              Action:
+              - verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
+        - Ref: AWS::NoValue
       Events:
         CreateProject:
           Type: HttpApi
@@ -823,13 +838,19 @@ Resources:
       - DynamoDBCrudPolicy:
           TableName:
             Ref: AllocationsTable
-      - Statement:
-        - Sid: AVPIsAuthorizedWithToken
-          Effect: Allow
-          Action:
-          - verifiedpermissions:IsAuthorizedWithToken
-          Resource:
-            Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
+      - Fn::If:
+        - HasPolicyStore
+        - PolicyName: AllowAVPIsAuthorizedWithToken
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Sid: AVPIsAuthorizedWithToken
+              Effect: Allow
+              Action:
+              - verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
+        - Ref: AWS::NoValue
       Events:
         ListAllocations:
           Type: HttpApi
@@ -953,13 +974,19 @@ Resources:
       - DynamoDBCrudPolicy:
           TableName:
             Ref: AllocationsTable
-      - Statement:
-        - Sid: AVPIsAuthorizedWithToken
-          Effect: Allow
-          Action:
-          - verifiedpermissions:IsAuthorizedWithToken
-          Resource:
-            Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
+      - Fn::If:
+        - HasPolicyStore
+        - PolicyName: AllowAVPIsAuthorizedWithToken
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Sid: AVPIsAuthorizedWithToken
+              Effect: Allow
+              Action:
+              - verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
+        - Ref: AWS::NoValue
       Events:
         CloseMonth:
           Type: HttpApi
@@ -1019,13 +1046,19 @@ Resources:
       - DynamoDBCrudPolicy:
           TableName:
             Ref: AdjustmentsTable
-      - Statement:
-        - Sid: AVPIsAuthorizedWithToken
-          Effect: Allow
-          Action:
-          - verifiedpermissions:IsAuthorizedWithToken
-          Resource:
-            Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
+      - Fn::If:
+        - HasPolicyStore
+        - PolicyName: AllowAVPIsAuthorizedWithToken
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Sid: AVPIsAuthorizedWithToken
+              Effect: Allow
+              Action:
+              - verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
+        - Ref: AWS::NoValue
       Events:
         CreateAdjustment:
           Type: HttpApi
