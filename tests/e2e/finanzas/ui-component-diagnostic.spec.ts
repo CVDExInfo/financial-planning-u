@@ -12,6 +12,11 @@
 
 import { test, expect } from '@playwright/test';
 
+// Configuration constants
+const COMPONENT_LOAD_TIMEOUT = 30000; // 30 seconds for navigation
+const REACT_RENDER_TIMEOUT = 10000;  // 10 seconds for React root
+const CONTENT_TIMEOUT = 15000;        // 15 seconds for content to appear
+
 // Component validation configuration
 const COMPONENT_TESTS = [
   {
@@ -143,6 +148,16 @@ const COMPONENT_TESTS = [
   },
 ];
 
+/**
+ * Helper function to wait for component to be ready
+ * Waits for React root and then for network to be idle
+ */
+async function waitForComponentReady(page) {
+  await page.waitForSelector('#root', { timeout: REACT_RENDER_TIMEOUT });
+  // Wait for network to be idle, indicating content has loaded
+  await page.waitForLoadState('networkidle', { timeout: CONTENT_TIMEOUT });
+}
+
 // Group tests by category for better organization
 const testsByCategory = COMPONENT_TESTS.reduce((acc, component) => {
   if (!acc[component.category]) {
@@ -156,47 +171,51 @@ const testsByCategory = COMPONENT_TESTS.reduce((acc, component) => {
 for (const [category, components] of Object.entries(testsByCategory)) {
   test.describe(`Finanzas UI Components - ${category}`, () => {
     for (const component of components) {
-      test(`${component.name} - should render with expected content`, async ({ page }) => {
-        // Navigate to the component
+      // Only fail test for critical components
+      const testFn = component.critical ? test : test;
+      
+      testFn(`${component.name} - should render with expected content`, async ({ page }) => {
         console.log(`\n✅ Testing: ${component.name}`);
         console.log(`   Route: ${component.route}`);
         console.log(`   Critical: ${component.critical ? 'YES' : 'NO'}`);
         
+        // Navigate to the component
         await page.goto(component.route, { 
           waitUntil: 'networkidle',
-          timeout: 30000 
+          timeout: COMPONENT_LOAD_TIMEOUT 
         });
 
-        // Wait for React to render
-        await page.waitForSelector('#root', { timeout: 10000 });
-
-        // Give a bit more time for content to render
-        await page.waitForTimeout(2000);
+        // Wait for React to render and content to load
+        await waitForComponentReady(page);
 
         // Run all validations for this component
+        let allValidationsPassed = true;
+        const errors: string[] = [];
+
         for (const validation of component.validations) {
           if (validation.type === 'text') {
-            // Check if the text is present on the page
-            const content = await page.content();
-            const hasText = content.includes(validation.value);
-            
-            if (hasText) {
+            try {
+              // Use Playwright's built-in text matching for more reliable validation
+              const textLocator = page.getByText(validation.value, { exact: false });
+              await textLocator.waitFor({ timeout: CONTENT_TIMEOUT, state: 'visible' });
               console.log(`   ✅ ${validation.description}`);
-            } else {
-              console.log(`   ❌ ${validation.description} - NOT FOUND`);
-              
-              // For critical components, fail the test
-              if (component.critical) {
-                expect(hasText, `Critical component "${component.name}" missing expected text: "${validation.value}"`).toBeTruthy();
-              } else {
-                // For non-critical, just log the warning but don't fail
-                console.log(`   ⚠️  Non-critical component - continuing`);
-              }
+            } catch (error) {
+              allValidationsPassed = false;
+              const errorMsg = `${validation.description} - NOT FOUND`;
+              errors.push(errorMsg);
+              console.log(`   ❌ ${errorMsg}`);
             }
           }
         }
 
-        console.log(`   ✅ Component validation complete\n`);
+        console.log(`   ${allValidationsPassed ? '✅' : '❌'} Component validation ${allValidationsPassed ? 'complete' : 'failed'}\n`);
+
+        // For critical components, fail the test if validations failed
+        if (component.critical && !allValidationsPassed) {
+          expect(allValidationsPassed, 
+            `Critical component "${component.name}" failed validation:\n${errors.join('\n')}`
+          ).toBeTruthy();
+        }
       });
     }
   });
@@ -222,18 +241,19 @@ test.describe('Finanzas UI Diagnostic Summary', () => {
       try {
         await page.goto(component.route, { 
           waitUntil: 'networkidle',
-          timeout: 30000 
+          timeout: COMPONENT_LOAD_TIMEOUT 
         });
 
-        await page.waitForSelector('#root', { timeout: 10000 });
-        await page.waitForTimeout(2000);
+        await waitForComponentReady(page);
 
-        const content = await page.content();
         let allValidationsPassed = true;
 
         for (const validation of component.validations) {
           if (validation.type === 'text') {
-            if (!content.includes(validation.value)) {
+            try {
+              const textLocator = page.getByText(validation.value, { exact: false });
+              await textLocator.waitFor({ timeout: CONTENT_TIMEOUT, state: 'visible' });
+            } catch {
               allValidationsPassed = false;
               results.errors.push(`${component.name}: Missing "${validation.value}"`);
             }
