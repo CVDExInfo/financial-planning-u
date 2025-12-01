@@ -165,6 +165,7 @@ jobs:
       - name: Deploy
         working-directory: services/finanzas-api
         run: |
+          set -euo pipefail
           sam deploy --no-confirm-changeset \
             --stack-name "${FINZ_API_STACK}" \
             --resolve-s3 --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
@@ -175,7 +176,16 @@ jobs:
               CognitoUserPoolClientId=${{ env.COGNITO_WEB_CLIENT }} \
               StageName=${FINZ_API_STAGE} \
               TablePrefix=finz_ \
-              PolicyStoreId="${POLICY_STORE_ID:-}"
+              PolicyStoreId="${POLICY_STORE_ID:-}" \
+            || {
+              echo "❌ sam deploy failed, fetching recent CloudFormation events..."
+              aws cloudformation describe-stack-events \
+                --stack-name "${FINZ_API_STACK}" \
+                --max-items 20 \
+                --query 'StackEvents[0:10].[LogicalResourceId,ResourceStatus,ResourceStatusReason]' \
+                --output table || true
+              exit 1
+            }
 
       - name: Output API info
         id: out

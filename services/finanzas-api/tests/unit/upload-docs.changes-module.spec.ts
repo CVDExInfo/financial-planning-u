@@ -37,7 +37,7 @@ describe("upload docs handler (changes module)", () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
-  it("accepts changes module payloads using ESM imports", async () => {
+  it("accepts changes module payloads and returns 201 with upload URL", async () => {
     const event = {
       version: "2.0",
       routeKey: "POST /upload-docs",
@@ -56,7 +56,7 @@ describe("upload docs handler (changes module)", () => {
 
     const response = await uploadDocsHandler(event);
 
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(201);
     const payload = JSON.parse(response.body);
     expect(payload.uploadUrl).toContain("https://signed.example/upload");
 
