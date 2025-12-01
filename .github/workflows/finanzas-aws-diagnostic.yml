@@ -467,14 +467,47 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Run Finanzas UI Component Diagnostics
+      - name: Run Finanzas UI Component Diagnostics (HTTP Smoke Test)
         env:
           FINZ_UI_BASE_URL: https://${{ env.CF_DOMAIN }}
         run: |
-          echo "=== Finanzas UI Component Diagnostics ==="
+          echo "=== Finanzas UI Component Diagnostics (HTTP Layer) ==="
           echo "Testing UI components against CloudFront: $FINZ_UI_BASE_URL"
           echo ""
+          echo "This validates that:"
+          echo "  - Each route returns HTTP 200"
+          echo "  - HTML document is served"
+          echo "  - React root div is present"
+          echo "  - JS bundle is loaded"
+          echo ""
           npm run test:finanzas-ui-diagnostic
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Finanzas UI Component Diagnostics (E2E Browser Test)
+        env:
+          FINZ_UI_BASE_URL: https://${{ env.CF_DOMAIN }}/finanzas/
+        run: |
+          echo ""
+          echo "=== Finanzas UI Component Diagnostics (Browser Layer) ==="
+          echo "Testing rendered UI components in real browser: $FINZ_UI_BASE_URL"
+          echo ""
+          echo "This validates that:"
+          echo "  - React components render correctly"
+          echo "  - Expected page headings are present"
+          echo "  - Component-specific UI elements are visible"
+          echo "  - No critical rendering errors"
+          echo ""
+          npx playwright test tests/e2e/finanzas/ui-component-diagnostic.spec.ts --reporter=list
+
+      - name: Upload Playwright Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-ui-diagnostic
+          path: playwright-report/
+          retention-days: 7
 
       - name: UI Diagnostic Summary
         if: always()
@@ -484,13 +517,19 @@ jobs:
           echo "UI COMPONENT DIAGNOSTIC COMPLETE"
           echo "========================================"
           echo ""
-          echo "UI component validation has been completed."
-          echo "Review the output above for component status."
+          echo "UI component validation has been completed in two phases:"
           echo ""
-          echo "Each Finanzas UI component and route was tested for:"
+          echo "Phase 1: HTTP Smoke Test"
           echo "  ✅ HTTP 200 response from CloudFront"
           echo "  ✅ Valid HTML document returned"
-          echo "  ✅ Expected UI fingerprints present"
+          echo "  ✅ React root div present"
+          echo "  ✅ JS bundle reference verified"
           echo ""
-          echo "Critical components must pass for production readiness."
+          echo "Phase 2: Browser E2E Test"
+          echo "  ✅ Components render in real browser"
+          echo "  ✅ Page titles and headings present"
+          echo "  ✅ Component-specific UI elements visible"
+          echo "  ✅ No critical rendering errors"
+          echo ""
+          echo "Critical components must pass both phases for production readiness."
           echo ""
