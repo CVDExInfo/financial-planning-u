@@ -451,3 +451,46 @@ jobs:
           echo "  - Do DynamoDB tables exist with correct schema?"
           echo "  - Are there errors in CloudWatch logs?"
           echo ""
+
+  ui-component-diagnostic:
+    runs-on: ubuntu-latest
+    needs: aws-diagnostic
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Finanzas UI Component Diagnostics
+        env:
+          FINZ_UI_BASE_URL: https://${{ env.CF_DOMAIN }}
+        run: |
+          echo "=== Finanzas UI Component Diagnostics ==="
+          echo "Testing UI components against CloudFront: $FINZ_UI_BASE_URL"
+          echo ""
+          npm run test:finanzas-ui-diagnostic
+
+      - name: UI Diagnostic Summary
+        if: always()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "UI COMPONENT DIAGNOSTIC COMPLETE"
+          echo "========================================"
+          echo ""
+          echo "UI component validation has been completed."
+          echo "Review the output above for component status."
+          echo ""
+          echo "Each Finanzas UI component and route was tested for:"
+          echo "  ✅ HTTP 200 response from CloudFront"
+          echo "  ✅ Valid HTML document returned"
+          echo "  ✅ Expected UI fingerprints present"
+          echo ""
+          echo "Critical components must pass for production readiness."
+          echo ""

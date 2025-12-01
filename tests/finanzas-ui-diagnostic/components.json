@@ -1,0 +1,109 @@
+{
+  "components": [
+    {
+      "name": "Auth Callback",
+      "route": "/finanzas/auth/callback.html",
+      "fingerprints": ["callback"],
+      "category": "Auth",
+      "critical": true
+    },
+    {
+      "name": "Finanzas Landing",
+      "route": "/finanzas/",
+      "fingerprints": ["root", "/finanzas/assets/index-"],
+      "category": "Landing",
+      "critical": true
+    },
+    {
+      "name": "Projects Manager",
+      "route": "/finanzas/projects",
+      "fingerprints": ["root", "/finanzas/assets/index-"],
+      "category": "Budget Management",
+      "critical": true
+    },
+    {
+      "name": "Rubros Catalog",
+      "route": "/finanzas/catalog/rubros",
+      "fingerprints": ["root", "/finanzas/assets/index-"],
+      "category": "Budget Management",
+      "critical": true
+    },
+    {
+      "name": "Allocation Rules",
+      "route": "/finanzas/rules",
+      "fingerprints": ["root"],
+      "category": "Budget Management",
+      "critical": false
+    },
+    {
+      "name": "Adjustments Manager",
+      "route": "/finanzas/adjustments",
+      "fingerprints": ["root"],
+      "category": "Budget Management",
+      "critical": false
+    },
+    {
+      "name": "Cashflow Dashboard",
+      "route": "/finanzas/cashflow",
+      "fingerprints": ["root"],
+      "category": "Budget Management",
+      "critical": false
+    },
+    {
+      "name": "Scenarios Dashboard",
+      "route": "/finanzas/scenarios",
+      "fingerprints": ["root"],
+      "category": "Budget Management",
+      "critical": false
+    },
+    {
+      "name": "Providers Manager",
+      "route": "/finanzas/providers",
+      "fingerprints": ["root"],
+      "category": "Budget Management",
+      "critical": false
+    },
+    {
+      "name": "SDMT Cost Catalog",
+      "route": "/finanzas/sdmt/cost/catalog",
+      "fingerprints": ["root"],
+      "category": "SDMT Cost",
+      "critical": true
+    },
+    {
+      "name": "SDMT Forecast",
+      "route": "/finanzas/sdmt/cost/forecast",
+      "fingerprints": ["root"],
+      "category": "SDMT Cost",
+      "critical": true
+    },
+    {
+      "name": "SDMT Reconciliation",
+      "route": "/finanzas/sdmt/cost/reconciliation",
+      "fingerprints": ["root"],
+      "category": "SDMT Cost",
+      "critical": true
+    },
+    {
+      "name": "SDMT Cashflow",
+      "route": "/finanzas/sdmt/cost/cashflow",
+      "fingerprints": ["root"],
+      "category": "SDMT Cost",
+      "critical": false
+    },
+    {
+      "name": "SDMT Scenarios",
+      "route": "/finanzas/sdmt/cost/scenarios",
+      "fingerprints": ["root"],
+      "category": "SDMT Cost",
+      "critical": false
+    },
+    {
+      "name": "SDMT Changes",
+      "route": "/finanzas/sdmt/cost/changes",
+      "fingerprints": ["root"],
+      "category": "SDMT Cost",
+      "critical": true
+    }
+  ]
+}
