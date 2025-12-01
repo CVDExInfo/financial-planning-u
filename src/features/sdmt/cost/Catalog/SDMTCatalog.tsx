@@ -64,6 +64,7 @@ import {
 } from "@/lib/documents/uploadService";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { useAuth } from "@/hooks/useAuth";
+import { useUnsavedChangesPrompt } from "@/hooks/useUnsavedChangesPrompt";
 
 // Pending change types
 type PendingChangeType = "add" | "edit" | "delete";
@@ -137,6 +138,11 @@ export function SDMTCatalog() {
 
   // Check if there are unsaved changes
   const hasUnsavedChanges = pendingChanges.size > 0;
+
+  useUnsavedChangesPrompt(
+    hasUnsavedChanges && saveBarState !== "saving",
+    "Tienes cambios sin guardar en el catálogo. ¿Quieres salir sin guardar?",
+  );
 
   useEffect(() => {
     if (lineItemsError) {
