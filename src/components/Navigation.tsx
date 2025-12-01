@@ -60,6 +60,7 @@ type NavigationItem = {
   icon: React.ComponentType<{ size?: number; className?: string }>;
   isPremium?: boolean;
   stack: NavigationStack;
+  startGroup?: boolean;
 };
 
 type FinanzasNavItem = {
@@ -80,6 +81,7 @@ type FinanzasNavItem = {
   icon: React.ComponentType<{ size?: number; className?: string }>;
   isPremium?: boolean;
   visibleFor: FinanzasRole[];
+  startGroup?: boolean;
 };
 
 type NavigationSection = {
@@ -121,10 +123,11 @@ export function Navigation() {
   const FINANZAS_NAV_ITEMS: FinanzasNavItem[] = [
     {
       id: "forecast",
-      label: "Forecast",
+      label: "Forecast (Proyecto)",
       path: "/sdmt/cost/forecast",
       icon: TrendingUp,
       visibleFor: ["SDMT", "EXEC_RO"],
+      startGroup: true,
     },
     {
       id: "reconciliation",
@@ -184,7 +187,7 @@ export function Navigation() {
     },
     {
       id: "flujoCaja",
-      label: "Flujo de Caja",
+      label: "Flujo de Caja (Portafolio)",
       path: "/cashflow",
       icon: BarChart3,
       visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
@@ -192,7 +195,7 @@ export function Navigation() {
     },
     {
       id: "escenarios",
-      label: "Escenarios",
+      label: "Escenarios (Portafolio)",
       path: "/scenarios",
       icon: Layers,
       visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
@@ -274,9 +277,10 @@ export function Navigation() {
         },
         {
           path: "/sdmt/cost/forecast",
-          label: "Forecast",
+          label: "Forecast (Proyecto)",
           icon: TrendingUp,
           stack: "sdmt",
+          startGroup: true,
         },
         {
           path: "/sdmt/cost/reconciliation",
@@ -285,14 +289,8 @@ export function Navigation() {
           stack: "sdmt",
         },
         {
-          path: "/sdmt/cost/changes",
-          label: "Changes",
-          icon: GitPullRequest,
-          stack: "sdmt",
-        },
-        {
           path: "/sdmt/cost/cashflow",
-          label: "Cash Flow",
+          label: "Cash Flow (Proyecto)",
           icon: BarChart3,
           isPremium: true,
           stack: "sdmt",
@@ -302,6 +300,12 @@ export function Navigation() {
           label: "Scenarios",
           icon: Layers,
           isPremium: true,
+          stack: "sdmt",
+        },
+        {
+          path: "/sdmt/cost/changes",
+          label: "Changes",
+          icon: GitPullRequest,
           stack: "sdmt",
         },
       ],
@@ -316,6 +320,7 @@ export function Navigation() {
         icon: item.icon,
         isPremium: item.isPremium,
         stack: "finanzas" as const,
+        startGroup: item.startGroup,
       })),
     },
   ];
@@ -383,6 +388,9 @@ export function Navigation() {
                         const normalizedItemPath = normalizeAppPath(item.path);
                         const isActive = normalizedPath === normalizedItemPath;
                         const isPremium = item.isPremium;
+                        const clusterClass = item.startGroup
+                          ? "relative pl-4 before:absolute before:-left-2 before:top-1/2 before:h-4 before:-translate-y-1/2 before:border-l before:border-border/50"
+                          : "";
 
                         const linkElement = (
                           <Link
@@ -399,6 +407,7 @@ export function Navigation() {
                                   ? "border-dashed border-border text-muted-foreground/80 hover:bg-muted/50"
                                   : "border-transparent text-muted-foreground hover:bg-muted"
                               }
+                              ${clusterClass}
                             `}
                           >
                             <item.icon size={16} className={isPremium ? "opacity-70" : ""} />
@@ -443,6 +452,9 @@ export function Navigation() {
                             const normalizedItemPath = normalizeAppPath(item.path);
                             const isActive = normalizedPath === normalizedItemPath;
                             const isPremium = item.isPremium;
+                            const clusterClass = item.startGroup
+                              ? "relative pl-4 before:absolute before:-left-2 before:top-1/2 before:h-4 before:-translate-y-1/2 before:border-l before:border-border/50"
+                              : "";
 
                             const linkElement = (
                               <Link
@@ -459,6 +471,7 @@ export function Navigation() {
                                       ? "border-dashed border-border text-muted-foreground/80 hover:bg-muted/50"
                                       : "border-transparent text-muted-foreground hover:bg-muted"
                                   }
+                                  ${clusterClass}
                                 `}
                               >
                                 <Icon size={16} className={isPremium ? "opacity-70" : ""} />

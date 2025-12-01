@@ -1,5 +1,14 @@
 import { Link } from "react-router-dom";
-import { BarChart3, Building2, FolderKanban, Layers, Settings2, ShieldCheck, Waypoints } from "lucide-react";
+import {
+  BarChart3,
+  Building2,
+  FolderKanban,
+  Layers,
+  Settings2,
+  ShieldCheck,
+  TrendingUp,
+  Waypoints,
+} from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PageHeader from "@/components/PageHeader";
 
@@ -34,6 +43,12 @@ const tiles = [
     description: "Monitorea ingresos, egresos y margen mensual usando datos existentes.",
     href: "/cashflow",
     icon: <BarChart3 className="h-5 w-5" />,
+  },
+  {
+    title: "Forecast SDMT",
+    description: "Visualiza y ajusta forecast mensual por proyecto, conectado con conciliación e invoices.",
+    href: "/sdmt/cost/forecast",
+    icon: <TrendingUp className="h-5 w-5" />,
   },
   {
     title: "Escenarios",
@@ -94,12 +109,40 @@ export default function FinanzasHome() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
-            <li>Consultar y gestionar proyectos con su MOD autorizado.</li>
-            <li>Revisar el catálogo de rubros y las reglas de asignación de costos.</li>
-            <li>Cargar y conciliar facturas por proyecto y periodo.</li>
-            <li>Visualizar escenarios de flujo de caja y forecast a nivel portafolio.</li>
-          </ul>
+          <div className="space-y-3 text-xs text-muted-foreground">
+            <ul className="list-disc space-y-1 pl-4">
+              <li>Consultar y gestionar proyectos con su MOD autorizado.</li>
+              <li>Revisar el catálogo de rubros y las reglas de asignación de costos.</li>
+              <li>Cargar y conciliar facturas por proyecto y periodo.</li>
+              <li>Visualizar escenarios de flujo de caja y forecast a nivel portafolio.</li>
+            </ul>
+
+            <div className="rounded-md border border-dashed border-border/60 bg-background/40 p-3">
+              <p className="mb-2 font-medium text-foreground">Recorrido sugerido</p>
+              <ol className="space-y-1 pl-4">
+                <li>
+                  <Link to="/projects" className="text-foreground hover:text-primary">
+                    1. Selecciona un proyecto
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/sdmt/cost/catalog" className="text-foreground hover:text-primary">
+                    2. Revisa el catálogo de costos
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/sdmt/cost/forecast" className="text-foreground hover:text-primary">
+                    3. Administra forecast y conciliación
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/sdmt/cost/reconciliation" className="text-foreground hover:text-primary">
+                    4. Ajusta facturas y conciliación por periodo
+                  </Link>
+                </li>
+              </ol>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
