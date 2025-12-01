@@ -48,9 +48,29 @@ export function LoginPage() {
   const previousAppearance = useRef<string | undefined>();
 
   // External entry points for other modules (same CloudFront distribution)
-  const PMO_PORTAL_LOGIN = "https://d7t9x3j66yd8k.cloudfront.net/login";
+  const rawActaUrl = import.meta.env.VITE_ACTA_BASE_URL?.trim();
+  const PMO_PORTAL_LOGIN =
+    rawActaUrl && rawActaUrl.length > 0
+      ? rawActaUrl
+      : "https://d7t9x3j66yd8k.cloudfront.net/login";
+
+  if (!rawActaUrl) {
+    console.warn(
+      "[LoginPage] VITE_ACTA_BASE_URL no está definido; usando fallback para PMO Platform.",
+    );
+  }
+
+  const rawPrefacturasUrl = import.meta.env.VITE_PREFACTURAS_URL?.trim();
   const PREFACTURAS_PORTAL_LOGIN =
-    "https://d7t9x3j66yd8k.cloudfront.net/prefacturas/login";
+    rawPrefacturasUrl && rawPrefacturasUrl.length > 0
+      ? rawPrefacturasUrl
+      : "https://d7t9x3j66yd8k.cloudfront.net/prefacturas/login";
+
+  if (!rawPrefacturasUrl) {
+    console.warn(
+      "[LoginPage] VITE_PREFACTURAS_URL no está definido; usando fallback para Prefacturas.",
+    );
+  }
 
   const sessionEmail = useMemo(
     () =>

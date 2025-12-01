@@ -396,12 +396,11 @@ async function testChanges(token: string, projectId?: string): Promise<TestResul
     );
 
     // POST /projects/{id}/changes
+    // Fixed: Use impact_amount instead of amount to match API contract
     const testChange = {
       title: `E2E Test Change ${Date.now()}`,
       description: 'Automated E2E test change request',
-      change_type: 'addition',
-      impact: 'minor',
-      amount: 1000,
+      impact_amount: 1000,
       currency: 'USD',
       affected_line_items: [],
       justification: 'E2E test validation',

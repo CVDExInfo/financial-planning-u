@@ -1,0 +1,37 @@
+name: Seed Sample Data
+
+on:
+  workflow_dispatch:  # Manual trigger from GitHub UI
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # Needed for OIDC
+      contents: read    # Read repository contents
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Install script dependencies
+        run: |
+          npm init -y
+          npm install @aws-sdk/client-cloudformation @aws-sdk/client-dynamodb @aws-sdk/util-dynamodb
+
+      - name: Run seed script
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          FINZ_API_STACK: ${{ vars.FINZ_API_STACK }}
+        run: |
+          node scripts/seed-sample-data.js
