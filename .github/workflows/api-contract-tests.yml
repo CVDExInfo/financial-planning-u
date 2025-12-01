@@ -71,6 +71,21 @@ jobs:
           sed -i 's/\r$//' "$GITHUB_ENV"
 
       - name: Generate Cognito JWT
+        # ⚠️ CI Test User Group Requirement:
+        # The test user (USERNAME/PASSWORD secrets) MUST belong to at least one
+        # of the authorized Cognito groups for Finanzas SD. Valid groups include:
+        # SDT (Service Delivery Team), PM (Project Manager), FIN (Finance), AUD (Audit).
+        # 
+        # If tests fail with HTTP 403 and response body:
+        #   {"error":"forbidden: valid group required"}
+        # This indicates a GROUP MEMBERSHIP MISCONFIGURATION, not an API bug.
+        # 
+        # To fix:
+        # 1. Go to AWS Console → Cognito → User Pool (from COGNITO_USER_POOL_ID)
+        # 2. Navigate to Users and Groups
+        # 3. Find the CI test user (from USERNAME secret)
+        # 4. Add the user to one of the authorized groups (e.g., SDT)
+        # 5. Re-run this workflow
         id: jwt
         uses: ./.github/actions/cognito-generate-jwt
         with:
