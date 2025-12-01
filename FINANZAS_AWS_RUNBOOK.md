@@ -426,9 +426,183 @@ Escalate to engineering team if:
 
 ---
 
+## Running E2E API Tests
+
+### Overview
+
+The Finanzas E2E API test suite provides comprehensive end-to-end validation of all key API endpoints with real Cognito authentication. This test is more thorough than the diagnostic workflow as it validates actual functionality rather than just infrastructure state.
+
+### How to Run E2E Tests
+
+**Option 1: Via GitHub Actions (Recommended)**
+
+1. Go to https://github.com/CVDExInfo/financial-planning-u/actions
+2. Click "Finanzas E2E API Tests" workflow
+3. Click "Run workflow"
+4. (Optional) Override API base URL or CloudFront domain
+5. Click "Run workflow" button
+
+**Option 2: Via GitHub CLI**
+
+```bash
+gh workflow run finanzas-e2e-api.yml --ref main
+```
+
+**Option 3: Locally (requires AWS credentials and environment variables)**
+
+```bash
+# Set required environment variables
+export AWS_REGION=us-east-2
+export COGNITO_USER_POOL_ID=<your-pool-id>
+export COGNITO_WEB_CLIENT=<your-client-id>
+export USERNAME=<test-user-email>
+export PASSWORD=<test-user-password>
+export FINZ_API_BASE=https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev
+export CF_DOMAIN=https://d7t9x3j66yd8k.cloudfront.net
+
+# Run the test script
+tsx scripts/finanzas-e2e-api.ts
+```
+
+### What the E2E Tests Validate
+
+The E2E test suite performs the following checks:
+
+1. **Cognito Authentication**
+   - Obtains a valid JWT token using USER_PASSWORD_AUTH flow
+   - Validates token can be used for API calls
+
+2. **Projects Endpoints**
+   - `GET /projects` - Retrieves projects list
+   - Validates response format and structure
+
+3. **Line Items Endpoints**
+   - `GET /line-items?project_id={id}` - Retrieves line items for a project
+   - Validates data structure and count
+
+4. **Changes Endpoints**
+   - `GET /projects/{id}/changes` - Retrieves change requests
+   - `POST /projects/{id}/changes` - Creates a test change request
+   - Validates full CRUD cycle
+
+5. **Catalog Endpoints**
+   - `GET /catalog/rubros` - Retrieves rubros catalog
+   - **Validates non-fallback data** (checks for absence of `X-Fallback: true` header)
+   - Ensures DynamoDB table is properly populated
+
+6. **Upload Endpoints**
+   - Notes: Currently skipped (requires multipart/form-data)
+   - Documents that `POST /uploads/docs` should be tested manually
+
+7. **Other Key Endpoints**
+   - `GET /health` - Health check
+   - `GET /allocation-rules` - Allocation rules
+   - `GET /providers` - Providers list
+
+8. **CloudFront UI**
+   - `GET /finanzas/` - Main UI page
+   - Validates HTML content is returned
+
+### Interpreting E2E Test Results
+
+The test output uses clear indicators:
+
+- `✅` - Test passed, endpoint is functional
+- `❌` - Test failed, requires investigation
+- `⚠️` - Warning or skipped test
+
+**Example successful output:**
+
+```
+✅ Get Projects List (200) - Found 7 projects
+✅ Get Line Items for Project (200) - Found 42 line items
+✅ Get Changes for Project (200) - Found 3 changes
+✅ Create Change Request (201) - Created change with ID: CHG-123
+✅ Get Rubros Catalog (200) - Found 156 rubros (non-fallback)
+✅ Health Check (200) - Health check passed
+✅ CloudFront UI Main Page (200) - UI accessible
+
+Total: 8 tests | ✅ 8 passed | ❌ 0 failed
+```
+
+**Common Failure Patterns:**
+
+1. **Authentication Failure**
+   ```
+   ❌ Authentication failed
+   Error: Failed to obtain ID token from Cognito
+   ```
+   - Check test user credentials in GitHub Secrets
+   - Verify Cognito User Pool ID and Client ID
+
+2. **DynamoDB Table Not Found**
+   ```
+   ❌ Get Projects List (500)
+   Response: {"message": "Changes table not found for this environment"}
+   ```
+   - Run diagnostic workflow to check table existence
+   - Verify Lambda environment variables
+
+3. **Fallback Data Detected**
+   ```
+   ❌ Get Rubros Catalog (200)
+   WARNING: Fallback data detected (X-Fallback: true)
+   ```
+   - DynamoDB table exists but is empty or inaccessible
+   - Check IAM permissions for Lambda
+   - Verify table has data seeded
+
+4. **Authorization Failure**
+   ```
+   ❌ Get Projects List (403)
+   Response: Forbidden
+   ```
+   - Verify test user is in correct Cognito group
+   - Check API Gateway authorizer configuration
+
+### Comparison with Diagnostic Workflow
+
+| Aspect | E2E Tests | Diagnostic Workflow |
+|--------|-----------|---------------------|
+| **Purpose** | Validate functionality | Validate infrastructure |
+| **Auth** | Real Cognito flow | Optional |
+| **API Calls** | Full request/response cycle | Basic connectivity |
+| **Data Validation** | Response structure & content | Existence checks |
+| **Changes Tested** | Creates test data | Read-only |
+| **Run Time** | ~30-60 seconds | ~2-5 minutes |
+| **Best For** | Pre-deployment validation | Infrastructure debugging |
+
+### When to Run E2E Tests
+
+- **Always:**
+  - Before merging PRs that affect API handlers
+  - After deploying infrastructure changes
+  - Before production releases
+
+- **Consider Running:**
+  - After Cognito configuration changes
+  - After DynamoDB schema updates
+  - When investigating reported bugs
+
+- **Not Needed:**
+  - For UI-only changes (unless they affect API calls)
+  - For documentation-only changes
+  - For infrastructure-only changes (use diagnostic workflow instead)
+
+---
+
 ## Quick Reference Commands
 
 ```bash
+# Run E2E tests locally
+export AWS_REGION=us-east-2
+export COGNITO_USER_POOL_ID=<pool-id>
+export COGNITO_WEB_CLIENT=<client-id>
+export USERNAME=<test-user>
+export PASSWORD=<test-password>
+export FINZ_API_BASE=https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev
+tsx scripts/finanzas-e2e-api.ts
+
 # Health checks
 curl https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev/health
 curl https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev/health?deep=true

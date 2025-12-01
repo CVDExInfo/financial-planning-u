@@ -48,8 +48,23 @@ export function LoginPage() {
   const previousAppearance = useRef<string | undefined>();
 
   // External entry points for other modules (same CloudFront distribution)
-  const PMO_PORTAL_LOGIN = "https://d7t9x3j66yd8k.cloudfront.net/login";
+  const rawActaUrl = import.meta.env.VITE_ACTA_BASE_URL;
+  if (!rawActaUrl) {
+    console.error(
+      "[LoginPage] VITE_ACTA_BASE_URL no está definido; usando fallback para PMO Platform.",
+    );
+  }
+  const PMO_PORTAL_LOGIN =
+    rawActaUrl ?? "https://d7t9x3j66yd8k.cloudfront.net/login";
+
+  const rawPrefacturasUrl = import.meta.env.VITE_PREFACTURAS_URL;
+  if (!rawPrefacturasUrl) {
+    console.warn(
+      "[LoginPage] VITE_PREFACTURAS_URL no está definido; usando fallback para Prefacturas.",
+    );
+  }
   const PREFACTURAS_PORTAL_LOGIN =
+    rawPrefacturasUrl ??
     "https://d7t9x3j66yd8k.cloudfront.net/prefacturas/login";
 
   const sessionEmail = useMemo(
