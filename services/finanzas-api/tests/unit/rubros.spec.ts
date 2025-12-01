@@ -10,10 +10,10 @@ jest.mock("../../src/lib/dynamo", () => ({
   ddb: { send: jest.fn() },
   QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
   BatchGetCommand: jest.fn().mockImplementation((input) => ({ input })),
-  PutCommand: jest.fn(),
-  DeleteCommand: jest.fn(),
-  GetCommand: jest.fn(),
-  tableName: jest.fn(() => "rubros-table"),
+  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+  DeleteCommand: jest.fn().mockImplementation((input) => ({ input })),
+  GetCommand: jest.fn().mockImplementation((input) => ({ input })),
+  tableName: jest.fn((name: string) => `${name}-table`),
 }));
 
 import { handler as rubrosHandler } from "../../src/handlers/rubros.js";
@@ -23,6 +23,9 @@ const dynamo = jest.requireMock("../../src/lib/dynamo") as {
   QueryCommand: jest.Mock;
   BatchGetCommand: jest.Mock;
   tableName: jest.Mock;
+};
+const auth = jest.requireMock("../../src/lib/auth") as {
+  getUserEmail: jest.Mock;
 };
 
 const baseEvent = (overrides: Partial<APIGatewayProxyEventV2> = {}) => ({
@@ -116,6 +119,57 @@ describe("rubros handler", () => {
   it("validates project id", async () => {
     const response = await rubrosHandler(baseEvent({ pathParameters: {} }));
     expect(response.statusCode).toBe(400);
+  });
+
+  it("persists cost metadata and allocations when attaching a rubro", async () => {
+    auth.getUserEmail.mockResolvedValueOnce("user@example.com");
+    const postEvent = baseEvent({
+      requestContext: {
+        ...baseEvent().requestContext,
+        http: { ...baseEvent().requestContext.http, method: "POST" },
+      },
+      pathParameters: { projectId: "PROJ-1" },
+      body: JSON.stringify({
+        rubroIds: [
+          {
+            rubroId: "R-200",
+            qty: 2,
+            unitCost: 50,
+            duration: "M1-M2",
+          },
+        ],
+      }),
+    });
+
+    const response = await rubrosHandler(postEvent);
+    expect(response.statusCode).toBe(200);
+
+    const calls = dynamo.ddb.send.mock.calls.map((call) => call[0].input);
+    const rubroPut = calls.find((call) => call?.TableName === "rubros-table");
+    const allocationPuts = calls.filter(
+      (call) => call?.TableName === "allocations-table",
+    );
+
+    expect(rubroPut?.Item).toEqual(
+      expect.objectContaining({
+        rubroId: "R-200",
+        qty: 2,
+        unit_cost: 50,
+        start_month: 1,
+        end_month: 2,
+        total_cost: 100,
+      }),
+    );
+
+    expect(allocationPuts).toHaveLength(1);
+    expect(allocationPuts[0]?.Item).toEqual(
+      expect.objectContaining({
+        pk: "PROJECT#PROJ-1",
+        month: 1,
+        planned: 100,
+        forecast: 100,
+      }),
+    );
   });
 
   it("filters attachments without a rubro id", async () => {

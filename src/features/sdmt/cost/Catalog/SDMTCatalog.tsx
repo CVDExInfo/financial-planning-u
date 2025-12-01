@@ -219,9 +219,16 @@ export function SDMTCatalog() {
   };
 
   const calculateTotalCost = (item: LineItem) => {
-    const duration = item.end_month - item.start_month + 1;
-    const baseCost = item.qty * item.unit_cost;
-    return item.recurring ? baseCost * duration : baseCost;
+    const totalFromApi = Number(item.total_cost ?? (item as any).total_cost ?? (item as any).total);
+    if (Number.isFinite(totalFromApi) && totalFromApi > 0) {
+      return totalFromApi;
+    }
+
+    const qty = Number(item.qty ?? 0);
+    const unitCost = Number(item.unit_cost ?? 0);
+    const duration = Number(item.end_month ?? 0) - Number(item.start_month ?? 0) + 1;
+    const baseCost = qty * unitCost;
+    return item.recurring ? baseCost * (duration > 0 ? duration : 1) : baseCost;
   };
 
   const handleShare = async () => {

@@ -49,6 +49,15 @@ export const handler = async (
         metadata: item.metadata,
         createdAt: item.createdAt,
         createdBy: item.createdBy,
+        qty: item.qty,
+        unit_cost: item.unit_cost,
+        currency: item.currency,
+        recurring: item.recurring,
+        one_time: item.one_time,
+        start_month: item.start_month,
+        end_month: item.end_month,
+        total_cost: item.total_cost,
+        description: item.description,
       }));
 
       return ok({
