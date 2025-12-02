@@ -440,6 +440,18 @@ export class ApiService {
   }
 
   // Forecast Management
+  static async getForecastPayload(
+    project_id: string,
+    period_months?: number,
+  ): Promise<{
+    data: ForecastCell[];
+    projectId: string;
+    months: number;
+    generated_at: string;
+  }> {
+    return this.fetchForecastPayload(project_id, period_months);
+  }
+
   static async getForecastData(
     project_id: string,
     period_months?: number
