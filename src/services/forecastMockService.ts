@@ -9,7 +9,17 @@ import forecastDataDefault from "@/mocks/forecast.json";
 import forecastDataFintech from "@/mocks/forecast-fintech.json";
 import forecastDataRetail from "@/mocks/forecast-retail.json";
 
-const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
+// Safe check for mock mode
+function checkMockMode(): boolean {
+  try {
+    return String(import.meta.env?.VITE_USE_MOCKS || "false") === "true";
+  } catch {
+    // In test environments where import.meta.env might not be available
+    return false;
+  }
+}
+
+const USE_MOCKS = checkMockMode();
 
 // Map of project IDs to their mock data
 const MOCK_DATA_MAP: Record<string, ForecastCell[]> = {
@@ -33,17 +43,15 @@ export function getMockForecastData(
   months: number;
   generated_at: string;
 } {
-  if (!USE_MOCKS) {
-    throw new Error("Mock service called when VITE_USE_MOCKS is not enabled");
-  }
-
   // Get appropriate mock data for this project
   const mockData = MOCK_DATA_MAP[projectId] || MOCK_DATA_MAP.default;
 
   // Filter data to requested period (default 12 months)
   const filteredData = mockData.filter((cell) => cell.month <= periodMonths);
 
-  console.log(`[Mock] Returning ${filteredData.length} forecast cells for project ${projectId}`);
+  if (checkMockMode()) {
+    console.log(`[Mock] Returning ${filteredData.length} forecast cells for project ${projectId}`);
+  }
 
   return {
     data: filteredData,
@@ -57,7 +65,7 @@ export function getMockForecastData(
  * Check if mock mode is enabled
  */
 export function isMockModeEnabled(): boolean {
-  return USE_MOCKS;
+  return checkMockMode();
 }
 
 /**
