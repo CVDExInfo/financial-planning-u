@@ -30,6 +30,8 @@
     "generate-docs-pdf": "node scripts/generate-docs-pdf.cjs",
     "render-docs": "node --loader ts-node/esm scripts/docs/render-docs.ts",
     "seed:finanzas:rubros": "TS_NODE_PROJECT=tsconfig.node.json node --loader ts-node/esm/transpile-only src/modules/finanzas/data/seed_rubros.ts",
+    "seed:finanzas:dev": "tsx scripts/seed/finanzas-seed.ts --mode=dev",
+    "seed:finanzas:test": "tsx scripts/seed/finanzas-seed.ts --mode=test",
     "test:finanzas-ui-diagnostic": "node tests/finanzas-ui-diagnostic/smoke-test.mjs"
   },
   "dependencies": {
@@ -121,7 +123,8 @@
     "tsx": "^4.20.6",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "csv-parse": "^5.5.6"
   },
   "workspaces": {
     "packages": [

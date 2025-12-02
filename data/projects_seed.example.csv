@@ -1,0 +1,3 @@
+project_id,client,name,currency,presupuesto_total,start_date,end_date,status,description
+PRJ-1001,Cliente Demo,Plataforma Móvil Demo,USD,120000,2025-01-01,2025-12-31,active,Proyecto de referencia para pruebas
+PRJ-2002,Cliente Enterprise,Portal Financiero QA,USD,240000,2025-03-01,2026-02-28,active,Carga de ejemplo para escenarios extendidos
