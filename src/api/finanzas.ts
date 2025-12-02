@@ -343,12 +343,21 @@ export async function addProjectRubro<T = Json>(
   const hasRubroIds = Array.isArray(payload.rubroIds) && payload.rubroIds.length > 0;
   const hasRubroId = typeof payload.rubroId === "string" && payload.rubroId.length > 0;
 
-  let wirePayload: Record<string, unknown> = { ...payload };
+  const { rubroIds, rubroId, ...sharedFields } = payload;
+  const rubroEntries: Array<Record<string, unknown>> = hasRubroIds
+    ? rubroIds.map((entry) =>
+        typeof entry === "string"
+          ? { ...sharedFields, rubroId: entry }
+          : { ...sharedFields, ...(entry as Record<string, unknown>) },
+      )
+    : hasRubroId
+      ? [{ ...sharedFields, rubroId }]
+      : [];
 
-  if (!hasRubroIds && hasRubroId) {
-    const { rubroId, ...rest } = payload;
-    wirePayload = { ...rest, rubroIds: [rubroId] };
-  }
+  const wirePayload: Record<string, unknown> = {
+    ...sharedFields,
+    rubroIds: rubroEntries.length > 0 ? rubroEntries : rubroIds,
+  };
 
   // The deployed API exposes /projects/{id}/rubros; keep a single fallback to
   // /catalog/rubros for legacy stacks that might still use that mount.
