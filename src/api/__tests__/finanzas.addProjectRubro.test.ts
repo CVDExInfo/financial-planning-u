@@ -44,7 +44,7 @@ afterEach(() => {
 });
 
 describe("addProjectRubro", () => {
-  it("wraps single rubroId into rubroIds[] for the API payload", async () => {
+  it("wraps single rubroId into rubroIds[] entries while preserving fields", async () => {
     await postProjectRubros(
       "P-123",
       {
@@ -60,7 +60,19 @@ describe("addProjectRubro", () => {
     assert.equal(recordedCalls.length, 1);
     const body = JSON.parse((recordedCalls[0].init?.body as string) ?? "{}");
 
-    assert.deepEqual(body.rubroIds, ["R-001"], "rubroIds should be wrapped in an array");
+    assert.deepEqual(
+      body.rubroIds,
+      [
+        {
+          rubroId: "R-001",
+          qty: 1,
+          unitCost: 1250,
+          type: "Recurring",
+          duration: "M1-M12",
+        },
+      ],
+      "rubroIds should be wrapped in an array of detailed entries",
+    );
     assert.ok(!("rubroId" in body), "payload should not include rubroId key");
     assert.match(recordedCalls[0].url ?? "", /\/projects\/P-123\/rubros$/);
   });

@@ -185,20 +185,30 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     return bad("missing project id");
   }
 
-  let body: { rubroIds?: unknown[]; rubroId?: string };
+  let body: { rubroIds?: unknown[]; rubroId?: string } & Record<string, unknown>;
   try {
     body = JSON.parse(event.body ?? "{}");
-  } catch {
+  } catch (error) {
+    console.error("attachRubros: invalid JSON", { projectId, raw: event.body, error });
     return bad("Invalid JSON in request body");
   }
 
-  const rawRubroEntries: Array<Record<string, unknown>> = Array.isArray(body.rubroIds)
-    ? body.rubroIds
-        .map((entry) =>
-          typeof entry === "string" ? { rubroId: entry } : (entry as Record<string, unknown>),
-        )
-    : body.rubroId
-      ? [{ ...body, rubroId: body.rubroId }]
+  const { rubroIds: bodyRubroIds, rubroId: singleRubroId, ...sharedFields } = body;
+
+  const rawRubroEntries: Array<Record<string, unknown>> = Array.isArray(bodyRubroIds)
+    ? bodyRubroIds
+        .map((entry) => {
+          if (typeof entry === "string") {
+            return { ...sharedFields, rubroId: entry };
+          }
+          if (entry && typeof entry === "object") {
+            return { ...sharedFields, ...(entry as Record<string, unknown>) };
+          }
+          return null;
+        })
+        .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    : singleRubroId
+      ? [{ ...sharedFields, rubroId: singleRubroId }]
       : [];
 
   if (rawRubroEntries.length === 0) {
@@ -255,11 +265,31 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     };
   };
 
+  const normalizedEntries = rawRubroEntries
+    .map((raw) => normalizeRubroPayload(raw))
+    .filter((normalized): normalized is NonNullable<ReturnType<typeof normalizeRubroPayload>> =>
+      Boolean(normalized?.rubroId),
+    );
+
+  if (normalizedEntries.length === 0) {
+    console.warn("attachRubros: no valid rubro entries after normalization", {
+      projectId,
+      attemptedRubroIds: rawRubroEntries,
+    });
+    return bad("rubroIds array required");
+  }
+
+  const warnings: string[] = [];
+
+  console.info("attachRubros: normalized request", {
+    projectId,
+    rubroCount: normalizedEntries.length,
+    rubroIds: normalizedEntries.map((entry) => entry.rubroId),
+  });
+
   // Attach each rubro to the project
-  for (const raw of rawRubroEntries) {
-    const normalized = normalizeRubroPayload(raw);
-    const rubroId = normalized?.rubroId;
-    if (!rubroId) continue;
+  for (const normalized of normalizedEntries) {
+    const rubroId = normalized.rubroId;
 
     // Check if rubro exists in catalog (optional validation)
     // For MVP, we'll just attach it
@@ -282,12 +312,22 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
       description: normalized?.description,
     };
 
-    await ddb.send(
-      new PutCommand({
-        TableName: tableName("rubros"),
-        Item: attachment,
-      })
-    );
+    try {
+      await ddb.send(
+        new PutCommand({
+          TableName: tableName("rubros"),
+          Item: attachment,
+        })
+      );
+    } catch (error) {
+      console.error("attachRubros: failed to persist rubro attachment", {
+        projectId,
+        rubroId,
+        attachment,
+        error,
+      });
+      throw error;
+    }
 
     attached.push(rubroId);
 
@@ -299,23 +339,37 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     const allocationBaseMonth = normalized?.start_month ?? 1;
     for (let i = 0; i < (monthsToMaterialize || 1); i += 1) {
       const monthValue = allocationBaseMonth + i;
-      await ddb.send(
-        new PutCommand({
-          TableName: tableName("allocations"),
-          Item: {
-            pk: `PROJECT#${projectId}`,
-            sk: `ALLOC#${rubroId}#M${monthValue}`,
-            projectId,
-            rubroId,
-            month: monthValue,
-            planned: normalized?.baseCost ?? 0,
-            forecast: normalized?.baseCost ?? 0,
-            actual: 0,
-            created_at: now,
-            created_by: userEmail,
-          },
-        })
-      );
+      try {
+        await ddb.send(
+          new PutCommand({
+            TableName: tableName("allocations"),
+            Item: {
+              pk: `PROJECT#${projectId}`,
+              sk: `ALLOC#${rubroId}#M${monthValue}`,
+              projectId,
+              rubroId,
+              month: monthValue,
+              planned: normalized?.baseCost ?? 0,
+              forecast: normalized?.baseCost ?? 0,
+              actual: 0,
+              created_at: now,
+              created_by: userEmail,
+            },
+          })
+        );
+      } catch (error) {
+        console.error("attachRubros: failed to mirror allocation", {
+          projectId,
+          rubroId,
+          monthValue,
+          allocationCost: normalized?.baseCost ?? 0,
+          error,
+        });
+        warnings.push(
+          `Allocation mirror failed for rubro ${rubroId} month ${monthValue}: ${(error as Error)?.message ||
+            "unknown error"}`,
+        );
+      }
     }
 
     // Audit log
@@ -334,17 +388,31 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
       user_agent: event.requestContext.http.userAgent,
     };
 
-    await ddb.send(
-      new PutCommand({
-        TableName: tableName("audit_log"),
-        Item: audit,
-      })
-    );
+    try {
+      await ddb.send(
+        new PutCommand({
+          TableName: tableName("audit_log"),
+          Item: audit,
+        })
+      );
+    } catch (error) {
+      console.error("attachRubros: failed to write audit log", {
+        projectId,
+        rubroId,
+        audit,
+        error,
+      });
+      warnings.push(
+        `Audit log write failed for rubro ${rubroId}: ${(error as Error)?.message ||
+          "unknown error"}`,
+      );
+    }
   }
 
   return ok({
     message: `Attached ${attached.length} rubros to project ${projectId}`,
     attached,
+    warnings: warnings.length ? warnings : undefined,
   });
 }
 
