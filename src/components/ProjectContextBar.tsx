@@ -114,15 +114,17 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
           <div className="flex items-center space-x-6">
             {/* Project Selector */}
             <div className="flex items-center space-x-3">
-              <label className="text-sm font-medium text-foreground">
+              <label htmlFor="project-selector" className="text-sm font-medium text-foreground">
                 Project:
               </label>
               <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>
                   <Button
+                    id="project-selector"
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
+                    aria-label="Select project"
                     className="w-[320px] justify-between"
                     disabled={loading || !!projectError}
                   >
@@ -263,11 +265,11 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
 
           {/* Period Selector */}
           <div className="flex items-center space-x-3">
-            <label className="text-sm font-medium text-foreground">
+            <label htmlFor="period-selector" className="text-sm font-medium text-foreground">
               Period:
             </label>
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger id="period-selector" name="period" className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -738,11 +738,27 @@ export class ApiService {
     months: number;
     generated_at: string;
   }> {
-    await this.delay(150);
-
     const months = Number.isFinite(period_months)
       ? Math.max(Number(period_months) || 12, 1)
       : 12;
+
+    // Mock mode: return deterministic data without hitting the API
+    if (import.meta.env.VITE_USE_MOCKS === "true") {
+      await this.delay(150);
+      const { getMockForecastData, mockDelay } = await import("@/services/forecastMockService");
+      await mockDelay(150);
+      const mockData = getMockForecastData(projectId, months);
+      logger.info(
+        "[Mock] Forecast data returned:",
+        mockData.data.length,
+        "records for project:",
+        projectId
+      );
+      return mockData;
+    }
+
+    // Real API mode
+    await this.delay(150);
 
     const params = new URLSearchParams({ projectId });
     params.set("months", months.toString());
