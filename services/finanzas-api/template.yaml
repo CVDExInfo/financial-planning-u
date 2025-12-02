@@ -756,6 +756,9 @@ Resources:
       - DynamoDBCrudPolicy:
           TableName:
             Ref: AuditTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AllocationsTable
       Events:
         AttachRubro:
           Type: HttpApi
