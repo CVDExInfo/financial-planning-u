@@ -1,15 +1,24 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 
-import * as forecastService from "@/features/sdmt/cost/Forecast/forecastService";
-import ApiService from "@/lib/api";
 import type { ForecastCell } from "@/types/domain";
 
 const originalImportMeta = (globalThis as any).import?.meta;
+let forecastService: typeof import("@/features/sdmt/cost/Forecast/forecastService");
+let ApiService: typeof import("@/lib/api").default;
 
 function setUseMocks(value: string) {
+  process.env.VITE_USE_MOCKS = value;
+  process.env.VITE_API_BASE_URL = "https://example.com";
   (globalThis as any).import = {
-    meta: { env: { VITE_USE_MOCKS: value } },
+    meta: {
+      env: {
+        VITE_USE_MOCKS: value,
+        VITE_API_BASE_URL: "https://example.com",
+        DEV: false,
+        MODE: "test",
+      },
+    },
   } as unknown as ImportMeta;
 }
 
@@ -25,8 +34,10 @@ const sampleCell: ForecastCell = {
 };
 
 describe("forecastService", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setUseMocks("false");
+    forecastService = await import("@/features/sdmt/cost/Forecast/forecastService");
+    ApiService = (await import("@/lib/api")).default;
   });
 
   it("uses mock payloads when VITE_USE_MOCKS=true", async () => {

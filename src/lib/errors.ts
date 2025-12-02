@@ -24,3 +24,18 @@ export class ServerError extends Error {
 }
 
 export type ApiError = AuthError | ValidationError | ServerError;
+
+export type BaselineErrorKind = "auth" | "validation" | "server" | "network";
+
+export class BaselineError extends Error {
+  constructor(
+    public kind: BaselineErrorKind,
+    public code: string,
+    public safeMessage: string,
+    public httpStatus?: number,
+    public details?: unknown,
+  ) {
+    super(safeMessage);
+    this.name = "BaselineError";
+  }
+}

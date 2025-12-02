@@ -16,7 +16,11 @@ export type ForecastPayload = {
   source: "api" | "mock";
 };
 
-const isMockEnabled = () => String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
+const envSource =
+  (typeof import.meta !== "undefined" && (import.meta as any)?.env) ||
+  (typeof process !== "undefined" ? (process.env as Record<string, any>) : {});
+
+const isMockEnabled = () => String(envSource?.VITE_USE_MOCKS || "false") === "true";
 
 const pickForecastMock = (projectId: string | undefined) => {
   if (!projectId) return forecastDefault as ForecastCell[];

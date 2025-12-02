@@ -13,8 +13,10 @@
  * - See README.md for complete setup instructions
  */
 
-const metaEnv = (import.meta as any)?.env ?? {};
-const rawApiBase = metaEnv?.VITE_API_BASE_URL ?? "";
+const envSource =
+  (typeof import.meta !== "undefined" && (import.meta as any)?.env) ||
+  (typeof process !== "undefined" ? (process.env as Record<string, string | undefined>) : {});
+const rawApiBase = envSource?.VITE_API_BASE_URL ?? "";
 const normalizedApiBase = typeof rawApiBase === "string"
   ? rawApiBase.trim().replace(/\/+$/, "")
   : "";
@@ -23,7 +25,7 @@ export const API_BASE = normalizedApiBase;
 export const HAS_API_BASE = API_BASE.length > 0;
 
 // Log API_BASE at runtime for debugging
-if (metaEnv?.DEV) {
+if (envSource?.DEV) {
   console.log(`[env.ts] API_BASE configured: "${API_BASE}" (has value: ${HAS_API_BASE})`);
 }
 
@@ -59,7 +61,7 @@ The Finanzas frontend requires VITE_API_BASE_URL to be configured.
   console.error(errorMessage);
   
   // In production builds, also show user-friendly UI error
-  if (metaEnv?.PROD) {
+  if (envSource?.PROD) {
     // Store error for display in UI components
     (window as any).__FINANZAS_CONFIG_ERROR__ = errorMessage;
   }
