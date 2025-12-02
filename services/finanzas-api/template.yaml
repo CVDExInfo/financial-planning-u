@@ -740,13 +740,16 @@ Resources:
       CodeUri: .
       Handler: rubros.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName:
-              Ref: RubrosTable
-        - DynamoDBCrudPolicy:
-            TableName:
-              Ref: AuditTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: RubrosTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AuditTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AllocationsTable
       Events:
         AttachRubro:
           Type: HttpApi
