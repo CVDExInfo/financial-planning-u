@@ -135,7 +135,24 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       ContentType: contentType,
     });
 
-    const uploadUrl = await getSignedUrl(s3, putCommand, { expiresIn: 600 });
+    const requestId = event.requestContext?.requestId;
+    const logContext = {
+      requestId,
+      projectId,
+      moduleName,
+      lineItemId,
+      invoiceNumber,
+      bucket: DOCS_BUCKET,
+      objectKey,
+    };
+
+    let uploadUrl: string;
+    try {
+      uploadUrl = await getSignedUrl(s3, putCommand, { expiresIn: 600 });
+    } catch (error) {
+      console.error("upload-docs presign failed", { ...logContext, error });
+      return serverError("Unable to generate upload URL");
+    }
 
     const createdAt = new Date().toISOString();
     const documentId = `DOC-${crypto.randomUUID().split("-")[0]}`;
@@ -160,28 +177,49 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       created_at: createdAt,
     };
 
-    await ddb.send(
-      new PutCommand({
-        TableName: tableName("docs"),
-        Item: metadataItem,
-      })
-    );
+    const responseWarnings: string[] = [];
+    const docsTable = tableName("docs");
+    try {
+      await ddb.send(
+        new PutCommand({
+          TableName: docsTable,
+          Item: metadataItem,
+        })
+      );
+    } catch (error) {
+      const name = (error as { name?: string } | undefined)?.name;
+      const failureContext = { ...logContext, tableName: docsTable, error };
 
-    // 201 Created – presigned upload URL and metadata record created for this document
-    return ok({ uploadUrl, objectKey, documentId, metadata: metadataItem }, 201);
-  } catch (error) {
-    const name = (error as { name?: string } | undefined)?.name;
-    if (name === "ResourceNotFoundException" || name === "AccessDeniedException") {
-      const message =
-        name === "ResourceNotFoundException"
-          ? "Docs table not found or not provisioned (TABLE_DOCS)"
-          : "Access denied writing to docs table";
-      return bad(message, 503);
+      if (name === "ResourceNotFoundException" || name === "AccessDeniedException") {
+        const message =
+          name === "ResourceNotFoundException"
+            ? "Docs table not found or not provisioned (TABLE_DOCS)"
+            : "Access denied writing to docs table";
+        console.error("upload-docs metadata table failure", failureContext);
+        return bad(message, 503);
+      }
+
+      const warningMessage =
+        error instanceof Error
+          ? `Metadata not recorded in docs table: ${error.message}`
+          : "Metadata not recorded in docs table";
+      responseWarnings.push(warningMessage);
+      console.error("upload-docs metadata write failed", failureContext);
     }
 
-    console.error("upload-docs error", error);
-    return serverError(
-      error instanceof Error ? error.message : "Failed to create upload URL"
-    );
+    const responseBody = {
+      uploadUrl,
+      objectKey,
+      documentId,
+      metadata: metadataItem,
+      ...(responseWarnings.length ? { warnings: responseWarnings } : {}),
+    };
+
+    // 201 Created – presigned upload URL and metadata record created for this document
+    return ok(responseBody, 201);
+  } catch (error) {
+    const requestId = event.requestContext?.requestId;
+    console.error("upload-docs unexpected error", { requestId, error });
+    return serverError("Failed to process document upload request");
   }
 };
