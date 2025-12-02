@@ -49,8 +49,13 @@ export function getMockForecastData(
   // Filter data to requested period (default 12 months)
   const filteredData = mockData.filter((cell) => cell.month <= periodMonths);
 
-  if (checkMockMode()) {
-    console.log(`[Mock] Returning ${filteredData.length} forecast cells for project ${projectId}`);
+  // Log only in development mode
+  try {
+    if (import.meta.env?.DEV) {
+      console.log(`[Mock] Returning ${filteredData.length} forecast cells for project ${projectId}`);
+    }
+  } catch {
+    // Silent fail in test environments
   }
 
   return {
@@ -65,7 +70,7 @@ export function getMockForecastData(
  * Check if mock mode is enabled
  */
 export function isMockModeEnabled(): boolean {
-  return checkMockMode();
+  return USE_MOCKS;
 }
 
 /**

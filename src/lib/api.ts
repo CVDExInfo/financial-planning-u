@@ -744,9 +744,8 @@ export class ApiService {
 
     // Mock mode: return deterministic data without hitting the API
     if (import.meta.env.VITE_USE_MOCKS === "true") {
-      await this.delay(150);
       const { getMockForecastData, mockDelay } = await import("@/services/forecastMockService");
-      await mockDelay(150);
+      await mockDelay(150); // Single delay for consistency with real API
       const mockData = getMockForecastData(projectId, months);
       logger.info(
         "[Mock] Forecast data returned:",
