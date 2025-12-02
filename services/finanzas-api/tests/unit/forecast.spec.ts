@@ -95,6 +95,7 @@ describe("forecast handler", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ Items: [] })
       .mockResolvedValueOnce({
         Items: [
           {

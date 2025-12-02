@@ -457,7 +457,7 @@ Resources:
             Ref: AuditTable
       - Fn::If:
         - HasPolicyStore
-        - Version: "2012-10-17"
+        - Version: '2012-10-17'
           Statement:
           - Sid: AllowAVPIsAuthorizedWithToken
             Effect: Allow
@@ -465,7 +465,7 @@ Resources:
             - verifiedpermissions:IsAuthorizedWithToken
             Resource:
               Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
-        - !Ref AWS::NoValue
+        - Ref: AWS::NoValue
       Events:
         CreateProject:
           Type: HttpApi
@@ -838,7 +838,7 @@ Resources:
             Ref: AllocationsTable
       - Fn::If:
         - HasPolicyStore
-        - Version: "2012-10-17"
+        - Version: '2012-10-17'
           Statement:
           - Sid: AllowAVPIsAuthorizedWithToken
             Effect: Allow
@@ -846,7 +846,7 @@ Resources:
             - verifiedpermissions:IsAuthorizedWithToken
             Resource:
               Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
-        - !Ref AWS::NoValue
+        - Ref: AWS::NoValue
       Events:
         ListAllocations:
           Type: HttpApi
@@ -972,7 +972,7 @@ Resources:
             Ref: AllocationsTable
       - Fn::If:
         - HasPolicyStore
-        - Version: "2012-10-17"
+        - Version: '2012-10-17'
           Statement:
           - Sid: AllowAVPIsAuthorizedWithToken
             Effect: Allow
@@ -980,7 +980,7 @@ Resources:
             - verifiedpermissions:IsAuthorizedWithToken
             Resource:
               Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
-        - !Ref AWS::NoValue
+        - Ref: AWS::NoValue
       Events:
         CloseMonth:
           Type: HttpApi
@@ -1042,7 +1042,7 @@ Resources:
             Ref: AdjustmentsTable
       - Fn::If:
         - HasPolicyStore
-        - Version: "2012-10-17"
+        - Version: '2012-10-17'
           Statement:
           - Sid: AllowAVPIsAuthorizedWithToken
             Effect: Allow
@@ -1050,7 +1050,7 @@ Resources:
             - verifiedpermissions:IsAuthorizedWithToken
             Resource:
               Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
-        - !Ref AWS::NoValue
+        - Ref: AWS::NoValue
       Events:
         CreateAdjustment:
           Type: HttpApi
