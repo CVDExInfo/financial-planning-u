@@ -287,7 +287,8 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     rubroIds: normalizedEntries.map((entry) => entry.rubroId),
   });
 
-  // Attach each rubro to the project
+  // Attach (or upsert) each rubro to the project. PUT without a condition acts as an
+  // idempotent upsert so edits can reuse the same rubroId without a dedicated PATCH route.
   for (const normalized of normalizedEntries) {
     const rubroId = normalized.rubroId;
 
