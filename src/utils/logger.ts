@@ -14,8 +14,12 @@
  *   logger.error('Error occurred', error);
  */
 
-const isDevelopment = import.meta.env.DEV;
-const isProduction = import.meta.env.PROD;
+const envSource =
+  (typeof import.meta !== "undefined" && (import.meta as any)?.env) ||
+  (typeof process !== "undefined" ? (process.env as Record<string, any>) : {});
+
+const isDevelopment = envSource?.DEV === true || envSource?.DEV === "true";
+const isProduction = envSource?.PROD === true || envSource?.PROD === "true";
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 

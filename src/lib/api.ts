@@ -21,7 +21,17 @@ import {
   getAuthToken,
 } from "@/config/api";
 import { logger } from "@/utils/logger";
-import { AuthError, ServerError, ValidationError } from "@/lib/errors";
+import {
+  AuthError,
+  BaselineError,
+  ServerError,
+  ValidationError,
+} from "@/lib/errors";
+import { createMockBaseline } from "@/mocks/baselineStore";
+
+const envSource =
+  (typeof import.meta !== "undefined" && (import.meta as any)?.env) ||
+  (typeof process !== "undefined" ? (process.env as Record<string, any>) : {});
 
 // PRODUCTION MODE: All mock data imports and fallbacks removed
 // All API calls go directly to Lambda handlers with no fallbacks
@@ -39,7 +49,7 @@ export class ApiService {
     if (!includeAuth) return merged;
 
     const token = getAuthToken();
-    if (!token && import.meta.env.VITE_SKIP_AUTH !== "true") {
+    if (!token && envSource?.VITE_SKIP_AUTH !== "true") {
       logger.warn("[Finanzas] Missing token; redirecting user to login before API call.");
       throw new AuthError("AUTH_REQUIRED", "Debes iniciar sesión para continuar", 401);
     }
@@ -65,7 +75,7 @@ export class ApiService {
     const response = await fetch(url, { ...init, headers });
     const bodyText = await response.text();
 
-    if (import.meta.env.DEV) {
+    if (envSource?.DEV) {
       logger.debug("[Finanzas] API response", {
         method,
         endpoint,
@@ -220,6 +230,14 @@ export class ApiService {
   static async createBaseline(
     data: BaselineCreateRequest
   ): Promise<BaselineCreateResponse> {
+    const useMocks = String(envSource?.VITE_USE_MOCKS || "false") === "true";
+
+    if (useMocks) {
+      const mockBaseline = createMockBaseline(data);
+      logger.info("[Finanzas Baseline] Created mock baseline", mockBaseline);
+      return mockBaseline;
+    }
+
     try {
       const response = await fetch(buildApiUrl(API_ENDPOINTS.baseline), {
         method: "POST",
@@ -227,21 +245,68 @@ export class ApiService {
         body: JSON.stringify(data),
       });
 
+      const textPayload = await response.text();
+      const parsedPayload = (() => {
+        try {
+          return textPayload ? JSON.parse(textPayload) : null;
+        } catch {
+          return textPayload || null;
+        }
+      })();
+
       if (!response.ok) {
-        const errorText = await response.text();
-        logger.error("Failed to create baseline:", errorText);
-        throw new Error(
-          `Failed to create baseline: ${response.status} - ${errorText}`
+        logger.error("[Finanzas Baseline] Failed to create baseline", {
+          status: response.status,
+          payload: parsedPayload,
+        });
+
+        if (response.status >= 500) {
+          throw new BaselineError(
+            "server",
+            "baseline.create.failed",
+            "Hubo un problema al crear la línea base.",
+            response.status,
+            parsedPayload,
+          );
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          throw new BaselineError(
+            "auth",
+            "baseline.create.forbidden",
+            "Autorización requerida para crear la línea base.",
+            response.status,
+            parsedPayload,
+          );
+        }
+
+        throw new BaselineError(
+          "validation",
+          "baseline.create.invalid",
+          typeof parsedPayload === "string"
+            ? parsedPayload
+            : "No se pudo crear la línea base.",
+          response.status,
+          parsedPayload,
         );
       }
 
-      const result = await response.json();
+      const result = textPayload ? JSON.parse(textPayload) : {};
       const parsed = BaselineCreateResponseSchema.parse(result);
       logger.info("Baseline created via API:", parsed);
       return parsed;
     } catch (error) {
+      if (error instanceof BaselineError) {
+        throw error;
+      }
       logger.error("Failed to create baseline via API:", error);
-      throw error;
+      throw new BaselineError(
+        "network",
+        "baseline.create.network",
+        "Hubo un problema al crear la línea base.",
+        undefined,
+        error,
+      );
     }
   }
 
@@ -440,6 +505,18 @@ export class ApiService {
   }
 
   // Forecast Management
+  static async getForecastPayload(
+    project_id: string,
+    period_months?: number,
+  ): Promise<{
+    data: ForecastCell[];
+    projectId: string;
+    months: number;
+    generated_at: string;
+  }> {
+    return this.fetchForecastPayload(project_id, period_months);
+  }
+
   static async getForecastData(
     project_id: string,
     period_months?: number

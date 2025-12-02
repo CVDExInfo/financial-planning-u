@@ -25,18 +25,17 @@ import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import LineChartComponent from '@/components/charts/LineChart';
 import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
 import ModuleBadge from '@/components/ModuleBadge';
-import DataContainer from '@/components/DataContainer';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import type { ForecastCell } from '@/types/domain';
 import { useAuth } from '@/hooks/useAuth';
 import { useProject } from '@/contexts/ProjectContext';
 import { handleFinanzasApiError } from '@/features/sdmt/cost/utils/errorHandling';
 import { useNavigate } from 'react-router-dom';
-import ApiService from '@/lib/api';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
-import { normalizeForecastCells, normalizeRubroId } from '@/features/sdmt/cost/utils/dataAdapters';
+import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
+import { getForecastPayload, getProjectInvoices } from './forecastService';
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastCell[]>([]);
@@ -45,6 +44,8 @@ export function SDMTForecast() {
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
   const [editingCell, setEditingCell] = useState<{ line_item_id: string; month: number; type: 'forecast' | 'actual' } | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [dataSource, setDataSource] = useState<'api' | 'mock'>('api');
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const { user, login } = useAuth();
   const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount } = useProject();
   const navigate = useNavigate();
@@ -87,31 +88,26 @@ export function SDMTForecast() {
     try {
       setLoading(true);
       setForecastError(null);
-      console.log('📊 Loading forecast data for project:', selectedProjectId, 'period:', selectedPeriod);
+      const months = parseInt(selectedPeriod);
+      if (import.meta.env.DEV) {
+        console.debug('[Forecast] Loading data', { projectId: selectedProjectId, months });
+      }
 
-      const rawData = await ApiService.getForecastData(selectedProjectId, parseInt(selectedPeriod));
-      const normalized = normalizeForecastCells(rawData);
-      console.log('📈 Raw forecast data received:', rawData.length, 'records for project:', selectedProjectId);
-      console.log('📈 Sample forecast data:', normalized.slice(0, 3));
+      const payload = await getForecastPayload(selectedProjectId, months);
+      const normalized = normalizeForecastCells(payload.data);
+      setDataSource(payload.source);
+      setGeneratedAt(payload.generatedAt);
 
       // Get matched invoices and sync with actuals
-      const invoices = await ApiService.getInvoices(selectedProjectId);
-      console.log('🧾 Invoices loaded:', invoices.length, 'records for project:', selectedProjectId);
-
-      const normalizedInvoices = invoices.map((inv) => ({
-        ...inv,
-        line_item_id: normalizeRubroId(inv.line_item_id),
-      }));
-
-      const matchedInvoices = normalizedInvoices.filter(inv => inv.status === 'Matched');
-      console.log('🧾 Matched invoices:', matchedInvoices.length, 'records');
+      const invoices = await getProjectInvoices(selectedProjectId);
+      const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
 
       // Update forecast data with actual amounts from matched invoices
       const updatedData = normalized.map(cell => {
         const matchedInvoice = matchedInvoices.find(inv =>
           inv.line_item_id === cell.line_item_id && inv.month === cell.month
         );
-        
+
         if (matchedInvoice) {
           return {
             ...cell,
@@ -119,18 +115,20 @@ export function SDMTForecast() {
             variance: cell.forecast - cell.planned // Keep forecast-based variance
           };
         }
-        
+
         return cell;
       });
-      
-      console.log('🔄 Setting forecast data...', updatedData.length, 'cells');
+
       setForecastData(updatedData);
-      
-      console.log('✅ Forecast data loaded for project:', selectedProjectId);
-      console.log('💰 Total planned:', updatedData.reduce((sum, cell) => sum + (cell.planned || 0), 0));
-      console.log('💰 Total forecast:', updatedData.reduce((sum, cell) => sum + (cell.forecast || 0), 0));
-      console.log('💰 Total actual:', updatedData.reduce((sum, cell) => sum + (cell.actual || 0), 0));
-      
+
+      if (import.meta.env.DEV) {
+        console.debug('[Forecast] Data loaded', {
+          projectId: selectedProjectId,
+          source: payload.source,
+          records: updatedData.length,
+        });
+      }
+
     } catch (error) {
       console.error('❌ Failed to load forecast data for project:', selectedProjectId, error);
       const message = handleFinanzasApiError(error, {
@@ -219,7 +217,9 @@ export function SDMTForecast() {
       };
     }).filter(item => item.hasNonZeroValues); // Only show items with data
 
-    console.log('📊 Recalculating grid for project:', selectedProjectId, 'with', grid.length, 'items');
+    if (import.meta.env.DEV && grid.length > 0) {
+      console.debug('[Forecast] Grid recalculated', { projectId: selectedProjectId, rows: grid.length });
+    }
 
     return grid;
   }, [safeLineItems, forecastData, selectedProjectId]);
@@ -234,8 +234,14 @@ export function SDMTForecast() {
     const actualVariance = totalActual - totalForecast;
     const actualVariancePercentage = totalForecast > 0 ? (actualVariance / totalForecast) * 100 : 0;
 
-    console.log('📊 Recalculating metrics for', forecastData.length, 'data points');
-    console.log('📊 Project:', selectedProjectId, 'Totals - P:', totalPlanned, 'F:', totalForecast, 'A:', totalActual);
+    if (import.meta.env.DEV && forecastData.length > 0) {
+      console.debug('[Forecast] Metrics recalculated', {
+        projectId: selectedProjectId,
+        totalPlanned,
+        totalForecast,
+        totalActual,
+      });
+    }
 
     return {
       totalVariance,
@@ -273,8 +279,9 @@ export function SDMTForecast() {
       };
     });
 
-    console.log('📊 Recalculating chart trends for project:', selectedProjectId);
-    console.log('📊 Sample month data:', trends.slice(0, 3));
+    if (import.meta.env.DEV && forecastData.length > 0) {
+      console.debug('[Forecast] Chart trends recalculated', { projectId: selectedProjectId });
+    }
     
     return trends;
   }, [forecastData, selectedProjectId]);
@@ -409,6 +416,12 @@ export function SDMTForecast() {
             <span>Data points: {forecastData.length}</span>
             <span>Line items: {safeLineItems.length}</span>
             <span>Grid rows: {forecastGrid.length}</span>
+            <Badge variant={dataSource === 'mock' ? 'outline' : 'secondary'}>
+              {dataSource === 'mock' ? 'Mock data' : 'API data'}
+            </Badge>
+            {generatedAt && (
+              <span>Last updated: {new Date(generatedAt).toLocaleString()}</span>
+            )}
           </div>
         </div>
         <ModuleBadge />
@@ -617,6 +630,9 @@ export function SDMTForecast() {
                                     onBlur={handleCellSave}
                                     onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
                                     className="h-7 text-xs"
+                                    id={`forecast-input-${cell.line_item_id}-${cell.month}`}
+                                    name={`forecast-${cell.line_item_id}-${cell.month}`}
+                                    aria-label={`Forecast value for ${cell.line_item_id} month ${cell.month}`}
                                     autoFocus
                                   />
                                 ) : (
@@ -647,6 +663,9 @@ export function SDMTForecast() {
                                     onBlur={handleCellSave}
                                     onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
                                     className="h-7 text-xs"
+                                    id={`actual-input-${cell.line_item_id}-${cell.month}`}
+                                    name={`actual-${cell.line_item_id}-${cell.month}`}
+                                    aria-label={`Actual value for ${cell.line_item_id} month ${cell.month}`}
                                     autoFocus
                                   />
                                 ) : (

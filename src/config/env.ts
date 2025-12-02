@@ -13,7 +13,11 @@
  * - See README.md for complete setup instructions
  */
 
-const metaEnv = (import.meta as any)?.env ?? {};
+// Prefer Vite's import.meta.env in the browser, but fall back to process.env when
+// running in Node-based unit tests where import.meta is undefined.
+const metaEnv =
+  (typeof import.meta !== "undefined" && (import.meta as any)?.env) ||
+  (typeof process !== "undefined" ? (process.env as Record<string, string | undefined>) : {});
 const rawApiBase = metaEnv?.VITE_API_BASE_URL ?? "";
 const normalizedApiBase = typeof rawApiBase === "string"
   ? rawApiBase.trim().replace(/\/+$/, "")

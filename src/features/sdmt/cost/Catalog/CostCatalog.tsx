@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Plus,
   Upload,
@@ -72,15 +73,19 @@ export function CostCatalog() {
       {/* Búsqueda y acciones */}
       <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-md">
+          <Label className="sr-only" htmlFor="cost-catalog-search">Buscar partidas de costo</Label>
           <MagnifyingGlass
             size={20}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <Input
+            id="cost-catalog-search"
+            name="costCatalogSearch"
             placeholder="Buscar partidas de costo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
+            aria-label="Buscar partidas de costo"
           />
         </div>
 

@@ -48,6 +48,7 @@ import {
   type DocumentUploadMeta,
   type DocumentUploadStage,
 } from "@/lib/documents/uploadService";
+import { BaselineError } from "@/lib/errors";
 
 // Helper function to extract email from JWT token
 function extractEmailFromJWT(token: string): string {
@@ -232,14 +233,28 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       setBaselineId(baseline.baseline_id);
       setBaselineMeta(baseline);
       setSignatureComplete(true);
-      toast.success("✓ Baseline successfully signed and created");
+      await refreshProject();
+      toast.success("Línea base creada correctamente.");
     } catch (error) {
-      console.error("❌ Failed to create baseline:", error);
-      toast.error(
-        `Failed to create baseline: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
+      console.error(
+        "[Finanzas Baseline] Failed to create baseline for project",
+        derivedProjectId,
+        error,
       );
+
+      if (error instanceof BaselineError && error.kind === "server") {
+        toast.error(
+          "No se pudo crear la línea base por un problema interno en Finanzas. Inténtalo de nuevo más tarde o contacta a soporte.",
+        );
+      } else {
+        const message =
+          error instanceof BaselineError
+            ? error.safeMessage
+            : error instanceof Error
+              ? error.message
+              : "No se pudo crear la línea base.";
+        toast.error(message);
+      }
     } finally {
       setIsSigning(false);
     }
