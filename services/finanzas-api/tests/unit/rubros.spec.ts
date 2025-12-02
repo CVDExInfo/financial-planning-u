@@ -172,6 +172,152 @@ describe("rubros handler", () => {
     );
   });
 
+  it("upserts an existing rubro when the same rubroId is provided", async () => {
+    auth.getUserEmail.mockResolvedValueOnce("user@example.com");
+    const postEvent = baseEvent({
+      requestContext: {
+        ...baseEvent().requestContext,
+        http: { ...baseEvent().requestContext.http, method: "POST" },
+      },
+      pathParameters: { projectId: "PROJ-1" },
+      body: JSON.stringify({
+        rubroIds: [
+          {
+            rubroId: "R-200",
+            qty: 5,
+            unitCost: 125,
+            duration: "M3-M5",
+            currency: "USD",
+            description: "Updated consulting",
+            type: "recurring",
+          },
+        ],
+      }),
+    });
+
+    const response = await rubrosHandler(postEvent);
+    expect(response.statusCode).toBe(200);
+
+    const calls = dynamo.ddb.send.mock.calls.map((call) => call[0].input);
+    const rubroPut = calls.find((call) => call?.TableName === "rubros-table");
+    expect(rubroPut?.Item).toEqual(
+      expect.objectContaining({
+        pk: "PROJECT#PROJ-1",
+        sk: "RUBRO#R-200",
+        rubroId: "R-200",
+        qty: 5,
+        unit_cost: 125,
+        start_month: 3,
+        end_month: 5,
+        total_cost: 1875,
+        description: "Updated consulting",
+      }),
+    );
+  });
+
+  it("preserves shared payload fields when rubroIds is an array of strings", async () => {
+    auth.getUserEmail.mockResolvedValueOnce("user@example.com");
+    const postEvent = baseEvent({
+      requestContext: {
+        ...baseEvent().requestContext,
+        http: { ...baseEvent().requestContext.http, method: "POST" },
+      },
+      pathParameters: { projectId: "PROJ-1" },
+      body: JSON.stringify({
+        rubroIds: ["R-300"],
+        qty: 3,
+        unitCost: 1000,
+        duration: "M2-M3",
+        type: "one-time",
+        currency: "MXN",
+        description: "Consulting",
+      }),
+    });
+
+    const response = await rubrosHandler(postEvent);
+    expect(response.statusCode).toBe(200);
+
+    const calls = dynamo.ddb.send.mock.calls.map((call) => call[0].input);
+    const rubroPut = calls.find((call) => call?.TableName === "rubros-table");
+    const allocationPuts = calls.filter((call) => call?.TableName === "allocations-table");
+
+    expect(rubroPut?.Item).toEqual(
+      expect.objectContaining({
+        rubroId: "R-300",
+        qty: 3,
+        unit_cost: 1000,
+        start_month: 2,
+        end_month: 3,
+        total_cost: 3000,
+        description: "Consulting",
+        currency: "MXN",
+      }),
+    );
+
+    expect(allocationPuts).toHaveLength(1);
+    expect(allocationPuts[0]?.Item).toEqual(
+      expect.objectContaining({
+        pk: "PROJECT#PROJ-1",
+        sk: "ALLOC#R-300#M2",
+        planned: 3000,
+        forecast: 3000,
+        created_by: "user@example.com",
+      }),
+    );
+  });
+
+  it("returns warnings when allocation mirroring fails but still attaches rubro", async () => {
+    auth.getUserEmail.mockResolvedValueOnce("user@example.com");
+    const postEvent = baseEvent({
+      requestContext: {
+        ...baseEvent().requestContext,
+        http: { ...baseEvent().requestContext.http, method: "POST" },
+      },
+      pathParameters: { projectId: "PROJ-1" },
+      body: JSON.stringify({
+        rubroIds: [
+          {
+            rubroId: "R-500",
+            qty: 1,
+            unitCost: 200,
+            duration: "M1",
+          },
+        ],
+      }),
+    });
+
+    dynamo.ddb.send
+      .mockResolvedValueOnce({}) // rubro Put
+      .mockRejectedValueOnce(new Error("allocations table missing")) // allocation mirror
+      .mockResolvedValueOnce({}); // audit log
+
+    const response = await rubrosHandler(postEvent);
+    expect(response.statusCode).toBe(200);
+
+    const payload = JSON.parse(response.body as string);
+    expect(payload.attached).toEqual(["R-500"]);
+    expect(payload.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Allocation mirror failed for rubro R-500"),
+      ]),
+    );
+  });
+
+  it("returns 400 when no rubro identifiers are provided", async () => {
+    const postEvent = baseEvent({
+      requestContext: {
+        ...baseEvent().requestContext,
+        http: { ...baseEvent().requestContext.http, method: "POST" },
+      },
+      pathParameters: { projectId: "PROJ-1" },
+      body: JSON.stringify({ qty: 1, unitCost: 50 }),
+    });
+
+    const response = await rubrosHandler(postEvent);
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body as string).error).toContain("rubroIds");
+  });
+
   it("filters attachments without a rubro id", async () => {
     dynamo.ddb.send
       .mockResolvedValueOnce({ Items: [{ projectId: "PROJ-1", sk: "RUBRO#" }] })
