@@ -431,20 +431,24 @@ Resources:
       CodeUri: .
       Handler: projects.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName:
-              Ref: ProjectsTable
-        - DynamoDBCrudPolicy:
-            TableName:
-              Ref: AuditTable
-        - Statement:
-            - Sid: AVPIsAuthorizedWithToken
-              Effect: Allow
-              Action:
-                - verifiedpermissions:IsAuthorizedWithToken
-              Resource:
-                Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AuditTable
+      - Fn::If:
+        - HasPolicyStore
+        - Version: "2012-10-17"
+          Statement:
+          - Sid: AllowAVPIsAuthorizedWithToken
+            Effect: Allow
+            Action:
+            - verifiedpermissions:IsAuthorizedWithToken
+            Resource:
+              Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
+        - !Ref AWS::NoValue
       Events:
         CreateProject:
           Type: HttpApi
@@ -821,17 +825,21 @@ Resources:
       CodeUri: .
       Handler: allocations.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName:
-              Ref: AllocationsTable
-        - Statement:
-            - Sid: AVPIsAuthorizedWithToken
-              Effect: Allow
-              Action:
-                - verifiedpermissions:IsAuthorizedWithToken
-              Resource:
-                Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AllocationsTable
+      - Fn::If:
+        - HasPolicyStore
+        - Version: "2012-10-17"
+          Statement:
+          - Sid: AllowAVPIsAuthorizedWithToken
+            Effect: Allow
+            Action:
+            - verifiedpermissions:IsAuthorizedWithToken
+            Resource:
+              Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
+        - !Ref AWS::NoValue
       Events:
         ListAllocations:
           Type: HttpApi
@@ -951,20 +959,24 @@ Resources:
       CodeUri: .
       Handler: close-month.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName:
-              Ref: ProjectsTable
-        - DynamoDBCrudPolicy:
-            TableName:
-              Ref: AllocationsTable
-        - Statement:
-            - Sid: AVPIsAuthorizedWithToken
-              Effect: Allow
-              Action:
-                - verifiedpermissions:IsAuthorizedWithToken
-              Resource:
-                Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AllocationsTable
+      - Fn::If:
+        - HasPolicyStore
+        - Version: "2012-10-17"
+          Statement:
+          - Sid: AllowAVPIsAuthorizedWithToken
+            Effect: Allow
+            Action:
+            - verifiedpermissions:IsAuthorizedWithToken
+            Resource:
+              Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
+        - !Ref AWS::NoValue
       Events:
         CloseMonth:
           Type: HttpApi
@@ -1022,17 +1034,21 @@ Resources:
       CodeUri: .
       Handler: adjustments.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName:
-              Ref: AdjustmentsTable
-        - Statement:
-            - Sid: AVPIsAuthorizedWithToken
-              Effect: Allow
-              Action:
-                - verifiedpermissions:IsAuthorizedWithToken
-              Resource:
-                Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/*
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AdjustmentsTable
+      - Fn::If:
+        - HasPolicyStore
+        - Version: "2012-10-17"
+          Statement:
+          - Sid: AllowAVPIsAuthorizedWithToken
+            Effect: Allow
+            Action:
+            - verifiedpermissions:IsAuthorizedWithToken
+            Resource:
+              Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
+        - !Ref AWS::NoValue
       Events:
         CreateAdjustment:
           Type: HttpApi
