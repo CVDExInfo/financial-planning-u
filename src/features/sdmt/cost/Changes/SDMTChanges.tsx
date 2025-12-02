@@ -146,6 +146,23 @@ export function SDMTChanges() {
     [safeLineItems],
   );
 
+  useEffect(() => {
+    if (
+      import.meta.env.DEV &&
+      Array.isArray(lineItems) &&
+      lineItemOptions.length < lineItems.length
+    ) {
+      console.warn(
+        "[SDMT] Changes line items appear truncated compared to catalog",
+        {
+          projectId: selectedProjectId,
+          received: lineItems.length,
+          visible: lineItemOptions.length,
+        },
+      );
+    }
+  }, [lineItemOptions.length, lineItems, selectedProjectId]);
+
   const selectedLineItemLabels = useMemo(() => {
     const labelMap = new Map(lineItemOptions.map((option) => [option.value, option.label]));
     return selectedLineItemIds.map((id) => labelMap.get(id) || id);
