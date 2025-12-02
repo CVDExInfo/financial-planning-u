@@ -198,6 +198,7 @@ export function SDMTForecast() {
   };
 
   // Group forecast data by line item and month for display
+  // Note: selectedProjectId not needed in deps - when it changes, useEffect resets forecastData which triggers recalc
   const forecastGrid = useMemo(() => {
     const grid = safeLineItems.map(lineItem => {
       const itemForecasts = forecastData.filter(f => f.line_item_id === lineItem.id);
@@ -237,6 +238,7 @@ export function SDMTForecast() {
   }, [safeLineItems, forecastData]);
 
   // Calculate totals and metrics - using useMemo to ensure it updates when data changes
+  // Note: selectedProjectId not needed in deps - when it changes, useEffect resets forecastData which triggers recalc
   const metrics = useMemo(() => {
     const totalVariance = forecastData.reduce((sum, cell) => sum + (cell.variance || 0), 0);
     const totalPlanned = forecastData.reduce((sum, cell) => sum + (cell.planned || 0), 0);
@@ -279,6 +281,7 @@ export function SDMTForecast() {
   const isLoadingState = loading || isLineItemsLoading;
 
   // Chart data - recalculate when forecastData changes
+  // Note: selectedProjectId not needed in deps - when it changes, useEffect resets forecastData which triggers recalc
   const monthlyTrends = useMemo(() => {
     const trends = Array.from({ length: 12 }, (_, i) => {
       const month = i + 1;

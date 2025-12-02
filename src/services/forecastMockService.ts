@@ -14,7 +14,7 @@ function checkMockMode(): boolean {
   try {
     return String(import.meta.env?.VITE_USE_MOCKS || "false") === "true";
   } catch {
-    // In test environments where import.meta.env might not be available
+    // In Node.js test environments, import.meta.env might not be available
     return false;
   }
 }
@@ -55,7 +55,8 @@ export function getMockForecastData(
       console.log(`[Mock] Returning ${filteredData.length} forecast cells for project ${projectId}`);
     }
   } catch {
-    // Silent fail in test environments
+    // In Node.js test environments, import.meta.env might not be available. Silent failure is acceptable here
+    // since logging is not critical to functionality and tests should focus on data correctness.
   }
 
   return {
