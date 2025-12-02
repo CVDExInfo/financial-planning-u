@@ -16,6 +16,7 @@ import { useProject } from '@/contexts/ProjectContext';
 import ApiService from '@/lib/api';
 import usePermissions from '@/hooks/usePermissions';
 import type { Scenario } from '@/types/domain';
+import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 
 const scenarioColorPalette = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#a855f7'];
 
@@ -59,10 +60,11 @@ export function SDMTScenarios() {
     try {
       setLoading(true);
       const months = Math.max(parseInt(selectedPeriod || '12', 10), 1);
-      const [data, forecastCells] = await Promise.all([
+      const [data, forecastCellsRaw] = await Promise.all([
         ApiService.getScenarios(selectedProjectId, months),
         ApiService.getForecastData(selectedProjectId, months)
       ]);
+      const forecastCells = normalizeForecastCells(forecastCellsRaw);
       setScenarios(data);
       setSelectedScenarios(data.map((scenario) => scenario.id));
 

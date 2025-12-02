@@ -60,7 +60,7 @@ export const handler = async (
     console.info("[forecast] params", { projectId, months });
 
     // Query allocations for this project
-    const [allocationsResult, payrollResult] = await Promise.all([
+    const [allocationsResult, payrollResult, rubrosResult] = await Promise.all([
       ddb.send(
         new QueryCommand({
           TableName: tableName("allocations"),
@@ -79,39 +79,98 @@ export const handler = async (
           },
         })
       ),
+      ddb.send(
+        new QueryCommand({
+          TableName: tableName("rubros"),
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+          ExpressionAttributeValues: {
+            ":pk": `PROJECT#${projectId}`,
+            ":sk": "RUBRO#",
+          },
+        })
+      ),
     ]);
 
     // Combine data into forecast cells
     const allocations = allocationsResult.Items || [];
     const payrolls = payrollResult.Items || [];
+    const rubroAttachments = rubrosResult.Items || [];
 
     const forecastData: ForecastItem[] = [];
 
-    // Add allocation data
-    for (const allocation of allocations) {
-      const month = Number(allocation.month || allocation.mes || 1);
-      if (month <= months) {
-        forecastData.push({
-          line_item_id:
-            allocation.rubroId || allocation.line_item_id || "unknown",
-          month,
-          planned: Number(allocation.planned || allocation.monto_planeado || 0),
-          forecast: Number(
-            allocation.forecast ||
-              allocation.monto_proyectado ||
-              allocation.planned ||
-              0
-          ),
-          actual: Number(allocation.actual || allocation.monto_real || 0),
-          variance: Number(allocation.actual || 0) - Number(allocation.planned || 0),
-          variance_reason: allocation.variance_reason,
-          notes: allocation.notes || allocation.notas,
-          last_updated:
-            allocation.updated_at ||
-            allocation.created_at ||
-            new Date().toISOString(),
-          updated_by: allocation.updated_by || allocation.created_by || "system",
-        });
+    // Add allocation data (preferred path when present)
+    if (allocations.length > 0) {
+      for (const allocation of allocations) {
+        const month = Number(allocation.month || allocation.mes || 1);
+        if (month <= months) {
+          forecastData.push({
+            line_item_id:
+              allocation.rubroId || allocation.line_item_id || "unknown",
+            month,
+            planned: Number(allocation.planned || allocation.monto_planeado || 0),
+            forecast: Number(
+              allocation.forecast ||
+                allocation.monto_proyectado ||
+                allocation.planned ||
+                0
+            ),
+            actual: Number(allocation.actual || allocation.monto_real || 0),
+            variance: Number(allocation.actual || 0) - Number(allocation.planned || 0),
+            variance_reason: allocation.variance_reason,
+            notes: allocation.notes || allocation.notas,
+            last_updated:
+              allocation.updated_at ||
+              allocation.created_at ||
+              new Date().toISOString(),
+            updated_by: allocation.updated_by || allocation.created_by || "system",
+          });
+        }
+      }
+    } else {
+      // Fallback: derive monthly plan from rubro attachments when allocations table is empty
+      for (const attachment of rubroAttachments) {
+        const rubroId = (attachment.rubroId as string) || (attachment.sk as string) || "unknown";
+        const qty = Number(attachment.qty ?? 1) || 1;
+        const unitCost = Number(attachment.unit_cost ?? attachment.total_cost ?? 0) || 0;
+        const startMonth = Math.min(
+          Math.max(Number(attachment.start_month ?? 1) || 1, 1),
+          months,
+        );
+        const endMonth = Math.min(
+          Math.max(Number(attachment.end_month ?? startMonth) || startMonth, startMonth),
+          months,
+        );
+        const recurring = Boolean(attachment.recurring && !attachment.one_time);
+        const baseCost = qty * unitCost;
+        const monthsToMaterialize = recurring
+          ? Math.max(endMonth - startMonth + 1, 1)
+          : 1;
+
+        for (let idx = 0; idx < monthsToMaterialize; idx += 1) {
+          const month = startMonth + idx;
+          if (month > months) break;
+
+          forecastData.push({
+            line_item_id: rubroId.replace(/^RUBRO#/, ""),
+            month,
+            planned: baseCost,
+            forecast: baseCost,
+            actual: Number(attachment.actual || 0),
+            variance: Number(attachment.actual || 0) - baseCost,
+            variance_reason: attachment.variance_reason,
+            notes: attachment.description,
+            last_updated:
+              (attachment.updated_at as string) ||
+              (attachment.createdAt as string) ||
+              (attachment.created_at as string) ||
+              new Date().toISOString(),
+            updated_by:
+              (attachment.updated_by as string) ||
+              (attachment.createdBy as string) ||
+              (attachment.created_by as string) ||
+              "system",
+          });
+        }
       }
     }
 
