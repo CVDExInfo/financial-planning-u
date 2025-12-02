@@ -401,10 +401,14 @@ export function SDMTCatalog() {
         rubroId,
         qty: formData.qty,
         unitCost: formData.unit_cost,
-        type: formData.recurring ? "Recurring" : "One-time",
+        type: formData.recurring ? "recurring" : "one-time",
         duration: formData.recurring
           ? `M${formData.start_month}-M${formData.end_month}`
           : `M${formData.start_month}`,
+        currency: formData.currency,
+        description: formData.description,
+        start_month: formData.start_month,
+        end_month: formData.end_month,
       });
 
       toast.success("Line item created");

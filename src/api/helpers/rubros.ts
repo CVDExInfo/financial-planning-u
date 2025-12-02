@@ -26,7 +26,13 @@ export function buildRubroPayload(input: AttachRubroInput) {
   }
 
   return {
-    rubroIds: derivedIds,
+    rubroIds: derivedIds.map((id) => ({
+      rubroId: id,
+      qty: input.qty,
+      unitCost: input.unitCost,
+      type: input.type,
+      duration: input.duration,
+    })),
     qty: input.qty,
     unitCost: input.unitCost,
     type: input.type,
