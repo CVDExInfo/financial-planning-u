@@ -223,6 +223,43 @@ describe("rubros handler", () => {
     );
   });
 
+  it("returns warnings when allocation mirroring fails but still attaches rubro", async () => {
+    auth.getUserEmail.mockResolvedValueOnce("user@example.com");
+    const postEvent = baseEvent({
+      requestContext: {
+        ...baseEvent().requestContext,
+        http: { ...baseEvent().requestContext.http, method: "POST" },
+      },
+      pathParameters: { projectId: "PROJ-1" },
+      body: JSON.stringify({
+        rubroIds: [
+          {
+            rubroId: "R-500",
+            qty: 1,
+            unitCost: 200,
+            duration: "M1",
+          },
+        ],
+      }),
+    });
+
+    dynamo.ddb.send
+      .mockResolvedValueOnce({}) // rubro Put
+      .mockRejectedValueOnce(new Error("allocations table missing")) // allocation mirror
+      .mockResolvedValueOnce({}); // audit log
+
+    const response = await rubrosHandler(postEvent);
+    expect(response.statusCode).toBe(200);
+
+    const payload = JSON.parse(response.body as string);
+    expect(payload.attached).toEqual(["R-500"]);
+    expect(payload.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Allocation mirror failed for rubro R-500"),
+      ]),
+    );
+  });
+
   it("filters attachments without a rubro id", async () => {
     dynamo.ddb.send
       .mockResolvedValueOnce({ Items: [{ projectId: "PROJ-1", sk: "RUBRO#" }] })

@@ -279,6 +279,8 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     return bad("rubroIds array required");
   }
 
+  const warnings: string[] = [];
+
   console.info("attachRubros: normalized request", {
     projectId,
     rubroCount: normalizedEntries.length,
@@ -363,7 +365,10 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
           allocationCost: normalized?.baseCost ?? 0,
           error,
         });
-        throw error;
+        warnings.push(
+          `Allocation mirror failed for rubro ${rubroId} month ${monthValue}: ${(error as Error)?.message ||
+            "unknown error"}`,
+        );
       }
     }
 
@@ -383,17 +388,31 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
       user_agent: event.requestContext.http.userAgent,
     };
 
-    await ddb.send(
-      new PutCommand({
-        TableName: tableName("audit_log"),
-        Item: audit,
-      })
-    );
+    try {
+      await ddb.send(
+        new PutCommand({
+          TableName: tableName("audit_log"),
+          Item: audit,
+        })
+      );
+    } catch (error) {
+      console.error("attachRubros: failed to write audit log", {
+        projectId,
+        rubroId,
+        audit,
+        error,
+      });
+      warnings.push(
+        `Audit log write failed for rubro ${rubroId}: ${(error as Error)?.message ||
+          "unknown error"}`,
+      );
+    }
   }
 
   return ok({
     message: `Attached ${attached.length} rubros to project ${projectId}`,
     attached,
+    warnings: warnings.length ? warnings : undefined,
   });
 }
 
