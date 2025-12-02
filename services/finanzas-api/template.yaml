@@ -1,7 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Finanzas SD API (HTTP API + Cognito JWT + DynamoDB + EventBridge)
-
 Parameters:
   CognitoUserPoolArn:
     Type: String
@@ -34,276 +33,289 @@ Parameters:
   PolicyStoreId:
     Type: String
     Default: ''
-    Description: Amazon Verified Permissions Policy Store ID (optional, for fine-grained authorization)
-
+    Description: Amazon Verified Permissions Policy Store ID (optional, for fine-grained
+      authorization)
 Conditions:
   HasPolicyStore:
     Fn::Not:
-      - Fn::Equals:
-          - Ref: PolicyStoreId
-          - ""
-
+    - Fn::Equals:
+      - Ref: PolicyStoreId
+      - ""
 Globals:
   Function:
     Runtime: nodejs20.x
     Timeout: 15
     MemorySize: 256
     Architectures:
-      - x86_64
+    - x86_64
     Tracing: Active
     Environment:
       Variables:
         NODE_OPTIONS: --enable-source-maps
-
-        TABLE_PROJECTS:        !Sub ${TablePrefix}projects
-        TABLE_RUBROS:          !Sub ${TablePrefix}rubros
-        TABLE_RUBROS_TAXONOMIA: !Sub ${TablePrefix}rubros_taxonomia
-
-        # Primary tables used by shared data access helpers
-        TABLE_ALLOCATIONS:     !Sub ${TablePrefix}allocations
-        TABLE_PAYROLL_ACTUALS: !Sub ${TablePrefix}payroll_actuals
-        TABLE_ADJUSTMENTS:     !Sub ${TablePrefix}adjustments
-
-        # Legacy aliases for backward compatibility with seeding scripts
-        TABLE_ALLOC:           !Sub ${TablePrefix}allocations
-        TABLE_PAYROLL:         !Sub ${TablePrefix}payroll_actuals
-        TABLE_ADJ:             !Sub ${TablePrefix}adjustments
-
-        TABLE_ALERTS:          !Sub ${TablePrefix}alerts
-        TABLE_PROVIDERS:       !Sub ${TablePrefix}providers
-        TABLE_AUDIT:           !Sub ${TablePrefix}audit_log
-        TABLE_AUDIT_LOG:       !Sub ${TablePrefix}audit_log
-        TABLE_DOCS:            !Sub ${TablePrefix}docs
-        TABLE_PREFACTURAS:     !Sub ${TablePrefix}prefacturas
-        TABLE_CHANGES:         !Sub ${TablePrefix}changes
-
-        STAGE_NAME:            !Ref StageName
-
-        # Only set POLICY_STORE_ID when a PolicyStoreId is provided
+        TABLE_PROJECTS:
+          Fn::Sub: ${TablePrefix}projects
+        TABLE_RUBROS:
+          Fn::Sub: ${TablePrefix}rubros
+        TABLE_RUBROS_TAXONOMIA:
+          Fn::Sub: ${TablePrefix}rubros_taxonomia
+        # Primary table environment variables used by shared data access helpers
+        TABLE_ALLOCATIONS:
+          Fn::Sub: ${TablePrefix}allocations
+        TABLE_PAYROLL_ACTUALS:
+          Fn::Sub: ${TablePrefix}payroll_actuals
+        TABLE_ADJUSTMENTS:
+          Fn::Sub: ${TablePrefix}adjustments
+        # Legacy aliases kept for backward compatibility with seeding scripts
+        TABLE_ALLOC:
+          Fn::Sub: ${TablePrefix}allocations
+        TABLE_PAYROLL:
+          Fn::Sub: ${TablePrefix}payroll_actuals
+        TABLE_ADJ:
+          Fn::Sub: ${TablePrefix}adjustments
+        TABLE_ALERTS:
+          Fn::Sub: ${TablePrefix}alerts
+        TABLE_PROVIDERS:
+          Fn::Sub: ${TablePrefix}providers
+        TABLE_AUDIT:
+          Fn::Sub: ${TablePrefix}audit_log
+        TABLE_AUDIT_LOG:
+          Fn::Sub: ${TablePrefix}audit_log
+        TABLE_DOCS:
+          Fn::Sub: ${TablePrefix}docs
+        TABLE_PREFACTURAS:
+          Fn::Sub: ${TablePrefix}prefacturas
+        TABLE_CHANGES:
+          Fn::Sub: ${TablePrefix}changes
+        STAGE_NAME:
+          Ref: StageName
         POLICY_STORE_ID:
           Fn::If:
-            - HasPolicyStore
-            - !Ref PolicyStoreId
-            - ""
-
-        DOCS_BUCKET:           !Ref DocsBucketName
-        ALLOWED_ORIGIN:        !Sub https://${CloudFrontDomain}
-        COGNITO_USER_POOL_ID:  !Ref CognitoUserPoolId
-        COGNITO_CLIENT_ID:     !Ref CognitoUserPoolClientId
-        COGNITO_ISSUER:        !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
-
+          - HasPolicyStore
+          - Ref: PolicyStoreId
+          - ""
+        DOCS_BUCKET:
+          Ref: DocsBucketName
+        ALLOWED_ORIGIN:
+          Fn::Sub: https://${CloudFrontDomain}
+        COGNITO_USER_POOL_ID:
+          Ref: CognitoUserPoolId
+        COGNITO_CLIENT_ID:
+          Ref: CognitoUserPoolClientId
+        COGNITO_ISSUER:
+          Fn::Sub: https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
 Resources:
   ApiAccessLogs:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName:  !Sub /aws/http-api/${StageName}/finz-access
+      LogGroupName:
+        Fn::Sub: /aws/http-api/${StageName}/finz-access
       RetentionInDays: 14
     Metadata:
       SamResourceId: ApiAccessLogs
-
   ProjectsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName:     !Sub ${TablePrefix}projects
-      BillingMode:   PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${TablePrefix}projects
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
     Metadata:
       SamResourceId: ProjectsTable
-
   RubrosTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName:     !Sub ${TablePrefix}rubros
-      BillingMode:   PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${TablePrefix}rubros
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
     Metadata:
       SamResourceId: RubrosTable
-
   RubrosTaxonomiaTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName:     !Sub ${TablePrefix}rubros_taxonomia
-      BillingMode:   PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${TablePrefix}rubros_taxonomia
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
     Metadata:
       SamResourceId: RubrosTaxonomiaTable
-
   AllocationsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName:     !Sub ${TablePrefix}allocations
-      BillingMode:   PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${TablePrefix}allocations
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
     Metadata:
       SamResourceId: AllocationsTable
-
   PayrollTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName:     !Sub ${TablePrefix}payroll_actuals
-      BillingMode:   PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${TablePrefix}payroll_actuals
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
     Metadata:
       SamResourceId: PayrollTable
-
   AdjustmentsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName:     !Sub ${TablePrefix}adjustments
-      BillingMode:   PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${TablePrefix}adjustments
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
     Metadata:
       SamResourceId: AdjustmentsTable
-
   ChangesTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName:     !Sub ${TablePrefix}changes
-      BillingMode:   PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${TablePrefix}changes
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
     Metadata:
       SamResourceId: ChangesTable
-
   AlertsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName:     !Sub ${TablePrefix}alerts
-      BillingMode:   PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${TablePrefix}alerts
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
     Metadata:
       SamResourceId: AlertsTable
-
   ProvidersTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName:     !Sub ${TablePrefix}providers
-      BillingMode:   PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${TablePrefix}providers
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
     Metadata:
       SamResourceId: ProvidersTable
-
   AuditTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName:     !Sub ${TablePrefix}audit_log
-      BillingMode:   PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${TablePrefix}audit_log
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
     Metadata:
       SamResourceId: AuditTable
-
   DocsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName:     !Sub ${TablePrefix}docs
-      BillingMode:   PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${TablePrefix}docs
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
     Metadata:
       SamResourceId: DocsTable
-
   DocsBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
     Properties:
-      BucketName: !Ref DocsBucketName
+      BucketName:
+        Ref: DocsBucketName
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -311,95 +323,95 @@ Resources:
         RestrictPublicBuckets: true
       BucketEncryption:
         ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
       CorsConfiguration:
         CorsRules:
-          - AllowedMethods:
-              - PUT
-              - GET
-              - HEAD
-            AllowedOrigins:
-              - !Sub https://${CloudFrontDomain}
-            AllowedHeaders:
-              - "*"
-            ExposedHeaders:
-              - ETag
-
+        - AllowedMethods:
+          - PUT
+          - GET
+          - HEAD
+          AllowedOrigins:
+          - Fn::Sub: https://${CloudFrontDomain}
+          AllowedHeaders:
+          - "*"
+          ExposedHeaders:
+          - ETag
   PrefacturasTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName:     !Sub ${TablePrefix}prefacturas
-      BillingMode:   PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${TablePrefix}prefacturas
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
       KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
     Metadata:
       SamResourceId: PrefacturasTable
-
   Api:
     Type: AWS::Serverless::HttpApi
     Properties:
-      StageName: !Ref StageName
-      # CORS for all Finanzas SD HTTP routes
+      StageName:
+        Ref: StageName
+      # CORS is handled by API Gateway for all Finanzas SD HTTP routes so that
+      # browser preflight requests from the CloudFront-hosted UI succeed
+      # (specifically for /line-items across GET/POST/PUT/DELETE). Keeping this
+      # configuration here ensures OPTIONS requests are answered directly by
+      # API Gateway with the required Access-Control-* headers.
       CorsConfiguration:
         AllowOrigins:
-          - !Sub https://${CloudFrontDomain}
+        - Fn::Sub: https://${CloudFrontDomain}
         AllowHeaders:
-          - Authorization
-          - Content-Type
-          - X-Amz-Date
-          - X-Amz-Security-Token
-          - X-Requested-With
-          - X-Api-Key
+        - Authorization
+        - Content-Type
+        - X-Amz-Date
+        - X-Amz-Security-Token
+        - X-Requested-With
+        - X-Api-Key
         AllowMethods:
-          - GET
-          - POST
-          - PUT
-          - PATCH
-          - DELETE
-          - OPTIONS
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
         AllowCredentials: true
         MaxAge: 86400
       AccessLogSettings:
-        DestinationArn: !GetAtt ApiAccessLogs.Arn
-        Format: >
-          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp",
-          "routeKey":"$context.routeKey","status":$context.status,
-          "method":"$context.httpMethod","path":"$context.path",
-          "userAgent":"$context.identity.userAgent"}
+        DestinationArn:
+          Fn::GetAtt:
+          - ApiAccessLogs
+          - Arn
+        # Only include access log variables that are supported by API Gateway HTTP APIs.
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","routeKey":"$context.routeKey","status":$context.status,"method":"$context.httpMethod","path":"$context.path","userAgent":"$context.identity.userAgent"}'
       Auth:
         Authorizers:
           CognitoJwt:
             JwtConfiguration:
               Audience:
-                - !Ref CognitoUserPoolClientId
-              Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
+              - Ref: CognitoUserPoolClientId
+              Issuer:
+                Fn::Sub: https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
             IdentitySource: $request.header.Authorization
         DefaultAuthorizer: CognitoJwt
     Metadata:
       SamResourceId: Api
-
-  # ─────────────────────────────
-  #  Lambda Functions
-  # ─────────────────────────────
-
   HealthFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/health.ts
+        - src/handlers/health.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node20
@@ -408,26 +420,26 @@ Resources:
       CodeUri: .
       Handler: health.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
+      - AWSLambdaBasicExecutionRole
       Events:
         Health:
           Type: HttpApi
           Properties:
             Path: /health
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: NONE
-
   ProjectsFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/projects.ts
+        - src/handlers/projects.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -436,28 +448,34 @@ Resources:
       CodeUri: .
       Handler: projects.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProjectsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AuditTable
-        - Fn::If:
-            - HasPolicyStore
-            - Version: '2012-10-17'
-              Statement:
-                - Sid: AllowAVPIsAuthorizedWithToken
-                  Effect: Allow
-                  Action:
-                    - verifiedpermissions:IsAuthorizedWithToken
-                  Resource: !Sub arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
-            - !Ref AWS::NoValue
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AuditTable
+      - Fn::If:
+        - HasPolicyStore
+        - PolicyName: AllowAVPIsAuthorizedWithToken
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Sid: AVPIsAuthorizedWithToken
+              Effect: Allow
+              Action:
+              - verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
+        - Ref: AWS::NoValue
       Events:
         CreateProject:
           Type: HttpApi
           Properties:
             Path: /projects
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         ListProjects:
@@ -465,19 +483,19 @@ Resources:
           Properties:
             Path: /projects
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   BaselineFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/baseline.ts
+        - src/handlers/baseline.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -486,18 +504,21 @@ Resources:
       CodeUri: .
       Handler: baseline.createBaseline
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProjectsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AuditTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AuditTable
       Events:
         CreateBaseline:
           Type: HttpApi
           Properties:
             Path: /baseline
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         GetBaseline:
@@ -505,17 +526,17 @@ Resources:
           Properties:
             Path: /baseline/{baseline_id}
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   CatalogFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/catalog.ts
+        - src/handlers/catalog.ts
         Minify: true
         Sourcemap: true
         Target: node18
@@ -524,30 +545,32 @@ Resources:
       CodeUri: .
       Handler: catalog.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBReadPolicy:
-            TableName: !Ref RubrosTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref RubrosTaxonomiaTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: RubrosTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: RubrosTaxonomiaTable
       Events:
         ListRubros:
           Type: HttpApi
           Properties:
             Path: /catalog/rubros
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: NONE
-
   LineItemsFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/line-items.ts
+        - src/handlers/line-items.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node20
@@ -556,28 +579,29 @@ Resources:
       CodeUri: .
       Handler: line-items.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBReadPolicy:
-            TableName: !Ref RubrosTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: RubrosTable
       Events:
         ListLineItems:
           Type: HttpApi
           Properties:
             Path: /line-items
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   AllocationRulesGet:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/allocationRules.ts
+        - src/handlers/allocationRules.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -586,29 +610,30 @@ Resources:
       CodeUri: .
       Handler: allocationRules.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
+      - AWSLambdaBasicExecutionRole
       Environment:
         Variables:
-          SKIP_AUTH: !Ref SkipAuth
+          SKIP_AUTH:
+            Ref: SkipAuth
       Events:
         GetAllocationRules:
           Type: HttpApi
           Properties:
             Path: /allocation-rules
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   HandoffFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/handoff.ts
+        - src/handlers/handoff.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -617,18 +642,21 @@ Resources:
       CodeUri: .
       Handler: handoff.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProjectsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AuditTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AuditTable
       Events:
         CreateHandoff:
           Type: HttpApi
           Properties:
             Path: /projects/{projectId}/handoff
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         GetHandoff:
@@ -636,7 +664,8 @@ Resources:
           Properties:
             Path: /projects/{projectId}/handoff
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         UpdateHandoff:
@@ -644,19 +673,19 @@ Resources:
           Properties:
             Path: /handoff/{handoffId}
             Method: PUT
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   UploadDocumentFunction:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/upload-docs.ts
+        - src/handlers/upload-docs.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node20
@@ -665,36 +694,37 @@ Resources:
       CodeUri: .
       Handler: uploadDocs.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref DocsTable
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - s3:PutObject
-                - s3:PutObjectAcl
-                - s3:GetObject
-              Resource: !Sub arn:aws:s3:::${DocsBucketName}/*
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: DocsTable
+      - Statement:
+        - Effect: Allow
+          Action:
+          - s3:PutObject
+          - s3:PutObjectAcl
+          - s3:GetObject
+          Resource:
+            Fn::Sub: arn:aws:s3:::${DocsBucketName}/*
       Events:
         RequestUploadUrl:
           Type: HttpApi
           Properties:
             Path: /uploads/docs
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   AlertsPep3Fn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/health.ts
+        - src/handlers/health.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -703,17 +733,16 @@ Resources:
       CodeUri: .
       Handler: health.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-
+      - AWSLambdaBasicExecutionRole
   RubrosFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/rubros.ts
+        - src/handlers/rubros.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -722,18 +751,21 @@ Resources:
       CodeUri: .
       Handler: rubros.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref RubrosTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AuditTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: RubrosTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AuditTable
       Events:
         AttachRubro:
           Type: HttpApi
           Properties:
             Path: /projects/{projectId}/rubros
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         ListRubros:
@@ -741,7 +773,8 @@ Resources:
           Properties:
             Path: /projects/{projectId}/rubros
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         DetachRubro:
@@ -749,19 +782,19 @@ Resources:
           Properties:
             Path: /projects/{projectId}/rubros/{rubroId}
             Method: DELETE
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   BillingFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/billing.ts
+        - src/handlers/billing.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node20
@@ -770,28 +803,29 @@ Resources:
       CodeUri: .
       Handler: billing.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBReadPolicy:
-            TableName: !Ref PrefacturasTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: PrefacturasTable
       Events:
         GetBilling:
           Type: HttpApi
           Properties:
             Path: /projects/{projectId}/billing
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   AllocationsFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/allocations.ts
+        - src/handlers/allocations.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -800,26 +834,31 @@ Resources:
       CodeUri: .
       Handler: allocations.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AllocationsTable
-        - Fn::If:
-            - HasPolicyStore
-            - Version: '2012-10-17'
-              Statement:
-                - Sid: AllowAVPIsAuthorizedWithToken
-                  Effect: Allow
-                  Action:
-                    - verifiedpermissions:IsAuthorizedWithToken
-                  Resource: !Sub arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
-            - !Ref AWS::NoValue
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AllocationsTable
+      - Fn::If:
+        - HasPolicyStore
+        - PolicyName: AllowAVPIsAuthorizedWithToken
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Sid: AVPIsAuthorizedWithToken
+              Effect: Allow
+              Action:
+              - verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
+        - Ref: AWS::NoValue
       Events:
         ListAllocations:
           Type: HttpApi
           Properties:
             Path: /allocations
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         BulkAllocations:
@@ -827,19 +866,19 @@ Resources:
           Properties:
             Path: /projects/{id}/allocations:bulk
             Method: PUT
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   PlanFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/plan.ts
+        - src/handlers/plan.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -848,34 +887,38 @@ Resources:
       CodeUri: .
       Handler: plan.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBReadPolicy:
-            TableName: !Ref ProjectsTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref AllocationsTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref PayrollTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref AdjustmentsTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: AllocationsTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: PayrollTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: AdjustmentsTable
       Events:
         GetPlan:
           Type: HttpApi
           Properties:
             Path: /projects/{id}/plan
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   PayrollFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/payroll.ts
+        - src/handlers/payroll.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -884,16 +927,18 @@ Resources:
       CodeUri: .
       Handler: payroll.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref PayrollTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: PayrollTable
       Events:
         ListPayrollActuals:
           Type: HttpApi
           Properties:
             Path: /payroll/actuals
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         IngestPayroll:
@@ -901,19 +946,19 @@ Resources:
           Properties:
             Path: /payroll/ingest
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   CloseMonthFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/close-month.ts
+        - src/handlers/close-month.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -922,40 +967,45 @@ Resources:
       CodeUri: .
       Handler: close-month.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProjectsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AllocationsTable
-        - Fn::If:
-            - HasPolicyStore
-            - Version: '2012-10-17'
-              Statement:
-                - Sid: AllowAVPIsAuthorizedWithToken
-                  Effect: Allow
-                  Action:
-                    - verifiedpermissions:IsAuthorizedWithToken
-                  Resource: !Sub arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
-            - !Ref AWS::NoValue
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AllocationsTable
+      - Fn::If:
+        - HasPolicyStore
+        - PolicyName: AllowAVPIsAuthorizedWithToken
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Sid: AVPIsAuthorizedWithToken
+              Effect: Allow
+              Action:
+              - verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
+        - Ref: AWS::NoValue
       Events:
         CloseMonth:
           Type: HttpApi
           Properties:
             Path: /close-month
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   ReconFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/recon.ts
+        - src/handlers/recon.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -964,26 +1014,26 @@ Resources:
       CodeUri: .
       Handler: recon.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
+      - AWSLambdaBasicExecutionRole
       Events:
         GetRecon:
           Type: HttpApi
           Properties:
             Path: /recon
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   AdjustmentsFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/adjustments.ts
+        - src/handlers/adjustments.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -992,26 +1042,31 @@ Resources:
       CodeUri: .
       Handler: adjustments.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AdjustmentsTable
-        - Fn::If:
-            - HasPolicyStore
-            - Version: '2012-10-17'
-              Statement:
-                - Sid: AllowAVPIsAuthorizedWithToken
-                  Effect: Allow
-                  Action:
-                    - verifiedpermissions:IsAuthorizedWithToken
-                  Resource: !Sub arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
-            - !Ref AWS::NoValue
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AdjustmentsTable
+      - Fn::If:
+        - HasPolicyStore
+        - PolicyName: AllowAVPIsAuthorizedWithToken
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Sid: AVPIsAuthorizedWithToken
+              Effect: Allow
+              Action:
+              - verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}
+        - Ref: AWS::NoValue
       Events:
         CreateAdjustment:
           Type: HttpApi
           Properties:
             Path: /adjustments
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         ListAdjustments:
@@ -1019,19 +1074,19 @@ Resources:
           Properties:
             Path: /adjustments
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   AlertsFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/alerts.ts
+        - src/handlers/alerts.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -1040,28 +1095,29 @@ Resources:
       CodeUri: .
       Handler: alerts.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBReadPolicy:
-            TableName: !Ref AlertsTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: AlertsTable
       Events:
         GetAlerts:
           Type: HttpApi
           Properties:
             Path: /alerts
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   ProvidersFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/providers.ts
+        - src/handlers/providers.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node18
@@ -1070,16 +1126,18 @@ Resources:
       CodeUri: .
       Handler: providers.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ProvidersTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProvidersTable
       Events:
         CreateProvider:
           Type: HttpApi
           Properties:
             Path: /providers
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         ListProviders:
@@ -1087,19 +1145,19 @@ Resources:
           Properties:
             Path: /providers
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   ForecastFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/forecast.ts
+        - src/handlers/forecast.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node20
@@ -1108,34 +1166,38 @@ Resources:
       CodeUri: .
       Handler: forecast.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBReadPolicy:
-            TableName: !Ref ProjectsTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref AllocationsTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref PayrollTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref AdjustmentsTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: ProjectsTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: AllocationsTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: PayrollTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: AdjustmentsTable
       Events:
         GetForecast:
           Type: HttpApi
           Properties:
             Path: /plan/forecast
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   PrefacturasFn:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints:
-          - src/handlers/prefacturas.ts
+        - src/handlers/prefacturas.ts
         External:
-          - aws-sdk
+        - aws-sdk
         Minify: true
         Sourcemap: true
         Target: node20
@@ -1144,16 +1206,18 @@ Resources:
       CodeUri: .
       Handler: prefacturas.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref PrefacturasTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: PrefacturasTable
       Events:
         GetPrefacturas:
           Type: HttpApi
           Properties:
             Path: /prefacturas
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         PostPrefacturas:
@@ -1161,10 +1225,12 @@ Resources:
           Properties:
             Path: /prefacturas
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
 
+  # Indentation corrected so InvoicesFn is a sibling resource, not nested under PrefacturasFn.
   InvoicesFn:
     Type: AWS::Serverless::Function
     Metadata:
@@ -1174,24 +1240,25 @@ Resources:
         Target: node20
         Sourcemap: true
         External:
-          - aws-sdk
+        - aws-sdk
         EntryPoints:
-          - src/handlers/invoices/app.ts
-      SamResourceId: InvoicesFn
+        - src/handlers/invoices/app.ts
     Properties:
       CodeUri: .
-      Handler: app.handler
+      Handler: invoices/app.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref PrefacturasTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: PrefacturasTable
       Events:
         GetProjectInvoices:
           Type: HttpApi
           Properties:
             Path: /projects/{projectId}/invoices
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         GetProjectInvoiceById:
@@ -1199,7 +1266,8 @@ Resources:
           Properties:
             Path: /projects/{projectId}/invoices/{invoiceId}
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         UpdateProjectInvoiceStatus:
@@ -1207,10 +1275,10 @@ Resources:
           Properties:
             Path: /projects/{projectId}/invoices/{invoiceId}/status
             Method: PUT
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   ChangesFn:
     Type: AWS::Serverless::Function
     Metadata:
@@ -1220,24 +1288,26 @@ Resources:
         Target: node20
         Sourcemap: true
         External:
-          - aws-sdk
+        - aws-sdk
         EntryPoints:
-          - src/handlers/changes.ts
+        - src/handlers/changes.ts
       SamResourceId: ChangesFn
     Properties:
       CodeUri: .
       Handler: changes.handler
       Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ChangesTable
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ChangesTable
       Events:
         ListProjectChanges:
           Type: HttpApi
           Properties:
             Path: /projects/{projectId}/changes
             Method: GET
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
         CreateProjectChange:
@@ -1245,40 +1315,49 @@ Resources:
           Properties:
             Path: /projects/{projectId}/changes
             Method: POST
-            ApiId: !Ref Api
+            ApiId:
+              Ref: Api
             Auth:
               Authorizer: CognitoJwt
-
   Pep3Rule:
     Type: AWS::Events::Rule
     Properties:
       ScheduleExpression: cron(0 8 1 * ? *)
       State: ENABLED
       Targets:
-        - Arn: !GetAtt AlertsPep3Fn.Arn
-          Id: pep3-target
+      - Arn:
+          Fn::GetAtt:
+          - AlertsPep3Fn
+          - Arn
+        Id: pep3-target
     Metadata:
       SamResourceId: Pep3Rule
-
   Pep3Permission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref AlertsPep3Fn
+      FunctionName:
+        Ref: AlertsPep3Fn
       Principal: events.amazonaws.com
-      SourceArn: !GetAtt Pep3Rule.Arn
+      SourceArn:
+        Fn::GetAtt:
+        - Pep3Rule
+        - Arn
     Metadata:
       SamResourceId: Pep3Permission
-
+# Outputs restored to the template root to fix prior indentation drift.
 Outputs:
   FinzApiId:
     Description: HTTP API ID
-    Value: !Ref Api
+    Value:
+      Ref: Api
     Export:
-      Name: !Sub finz-api-id-${StageName}
-
+      Name:
+        Fn::Sub: finz-api-id-${StageName}
   FinzApiUrl:
     Description: HTTP API URL
-    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
+    Value:
+      Fn::Sub: https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
     Export:
-      Name: !Sub finz-api-url-${StageName}
+      Name:
+        Fn::Sub: finz-api-url-${StageName}
