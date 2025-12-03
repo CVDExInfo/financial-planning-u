@@ -56,7 +56,7 @@ import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import { logger } from "@/utils/logger";
 import { cn } from "@/lib/utils";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
-import { addProjectRubro, deleteProjectRubro } from "@/api/finanzas";
+import { addProjectRubro, deleteProjectRubro, FinanzasApiError } from "@/api/finanzas";
 import {
   uploadDocument,
   type DocumentUploadMeta,
@@ -363,13 +363,40 @@ export function SDMTCatalog() {
         };
       });
 
-      toast.success("Supporting document uploaded");
+      if (uploaded.warnings?.length) {
+        console.warn("Catalog document upload returned warnings", {
+          lineItemId: docTarget.id,
+          warnings: uploaded.warnings,
+        });
+      }
+
+      if (!uploaded.status || uploaded.status === 201 || uploaded.status === 200) {
+        toast.success("Supporting document uploaded");
+      }
       setDocDialogOpen(false);
       setDocFile(null);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to upload document";
+      let message = "Failed to upload document";
+
+      if (error instanceof FinanzasApiError) {
+        if (error.status === 503) {
+          message =
+            "Document uploads are temporarily unavailable. Please try again later.";
+        } else if (error.status && error.status >= 500) {
+          message = "Error interno en Finanzas";
+        } else {
+          message = error.message || message;
+        }
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
+
       toast.error(message);
+      console.error("Document upload failed", {
+        lineItemId: docTarget?.id,
+        projectId: selectedProjectId,
+        error,
+      });
     } finally {
       setIsUploadingDocument(false);
       setDocumentUploadStage(null);
