@@ -1,6 +1,11 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
+import {
+  APIGatewayProxyEventV2,
+  APIGatewayProxyStructuredResultV2,
+} from "aws-lambda";
 
 type ApiResult = APIGatewayProxyStructuredResultV2;
+
+// --- Mocks -------------------------------------------------------------------
 
 jest.mock("../../src/lib/dynamo", () => ({
   ddb: { send: jest.fn() },
@@ -19,6 +24,8 @@ const dynamo = jest.requireMock("../../src/lib/dynamo") as {
   QueryCommand: jest.Mock;
   tableName: jest.Mock;
 };
+
+// --- Helpers -----------------------------------------------------------------
 
 const baseEvent = (
   overrides: Partial<APIGatewayProxyEventV2> = {}
@@ -51,6 +58,8 @@ const baseEvent = (
   ...overrides,
 });
 
+// --- Tests -------------------------------------------------------------------
+
 describe("forecast handler", () => {
   beforeEach(() => {
     jest.resetAllMocks();
@@ -70,7 +79,9 @@ describe("forecast handler", () => {
 
   it("validates months parameter", async () => {
     const response = (await forecastHandler(
-      baseEvent({ queryStringParameters: { projectId: "PROJ-1", months: "0" } })
+      baseEvent({
+        queryStringParameters: { projectId: "PROJ-1", months: "0" },
+      })
     )) as ApiResult;
 
     expect(response.statusCode).toBe(400);
@@ -79,6 +90,7 @@ describe("forecast handler", () => {
   });
 
   it("merges allocations and payroll into forecast cells", async () => {
+    // allocations
     dynamo.ddb.send
       .mockResolvedValueOnce({
         Items: [
@@ -97,6 +109,7 @@ describe("forecast handler", () => {
           },
         ],
       })
+      // payroll
       .mockResolvedValueOnce({
         Items: [
           {
@@ -107,10 +120,14 @@ describe("forecast handler", () => {
             created_at: "2024-01-05T00:00:00Z",
           },
         ],
-      });
+      })
+      // rubros (unused in this scenario)
+      .mockResolvedValueOnce({ Items: [] });
 
     const response = (await forecastHandler(
-      baseEvent({ queryStringParameters: { projectId: "PROJ-1", months: "1" } })
+      baseEvent({
+        queryStringParameters: { projectId: "PROJ-1", months: "1" },
+      })
     )) as ApiResult;
 
     expect(response.statusCode).toBe(200);
@@ -122,10 +139,14 @@ describe("forecast handler", () => {
     expect(payload.data).toHaveLength(2);
     expect(payload.generated_at).toBeDefined();
 
-    const allocation = payload.data.find((item: any) => item.line_item_id === "R1");
-    const payroll = payload.data.find((item: any) => item.line_item_id.startsWith("payroll-"));
+    const allocation = payload.data.find(
+      (item: any) => item.line_item_id === "R1"
+    );
+    const payroll = payload.data.find((item: any) =>
+      item.line_item_id.startsWith("payroll-")
+    );
 
-    expect(allocation.variance).toBe(-200);
+    expect(allocation.variance).toBe(-200); // 800 - 1000
     expect(payroll.actual).toBe(2100);
 
     expect(dynamo.tableName).toHaveBeenCalledWith("allocations");
@@ -136,9 +157,12 @@ describe("forecast handler", () => {
   });
 
   it("derives forecast amounts from rubro attachments when allocations are empty", async () => {
+    // allocations
     dynamo.ddb.send
       .mockResolvedValueOnce({ Items: [] })
+      // payroll
       .mockResolvedValueOnce({ Items: [] })
+      // rubros
       .mockResolvedValueOnce({
         Items: [
           {
@@ -153,11 +177,16 @@ describe("forecast handler", () => {
       });
 
     const response = (await forecastHandler(
-      baseEvent({ queryStringParameters: { projectId: "PROJ-2", months: "2" } })
+      baseEvent({
+        queryStringParameters: { projectId: "PROJ-2", months: "2" },
+      })
     )) as ApiResult;
 
     expect(response.statusCode).toBe(200);
     const payload = JSON.parse(response.body);
+
+    expect(Array.isArray(payload.data)).toBe(true);
+    // recurring across months 1 and 2
     expect(payload.data).toHaveLength(2);
     expect(payload.data[0]).toEqual(
       expect.objectContaining({
@@ -170,20 +199,25 @@ describe("forecast handler", () => {
   });
 
   it("returns an empty data array when no allocations or payroll exist", async () => {
+    // All three queries return empty
     dynamo.ddb.send.mockResolvedValue({ Items: [] });
 
     const response = (await forecastHandler(
-      baseEvent({ queryStringParameters: { projectId: "PROJ-EMPTY", months: "3" } })
+      baseEvent({
+        queryStringParameters: { projectId: "PROJ-EMPTY", months: "3" },
+      })
     )) as ApiResult;
 
     expect(response.statusCode).toBe(200);
     const payload = JSON.parse(response.body);
+
     expect(Array.isArray(payload.data)).toBe(true);
     expect(payload.data).toHaveLength(0);
     expect(payload.months).toBe(3);
   });
 
   it("returns 500 when DynamoDB queries fail", async () => {
+    // First query (allocations) fails; others don't matter for Promise.all
     dynamo.ddb.send.mockRejectedValueOnce(new Error("boom"));
     dynamo.ddb.send.mockResolvedValue({ Items: [] });
 
@@ -193,13 +227,4 @@ describe("forecast handler", () => {
     const payload = JSON.parse(response.body);
     expect(payload.error).toMatch(/Finanzas/i);
   });
-it("returns 500 when DynamoDB queries fail", async () => {
-  dynamo.ddb.send.mockRejectedValueOnce(new Error("boom"));
-  dynamo.ddb.send.mockResolvedValue({ Items: [] });
-
-  const response = (await forecastHandler(baseEvent())) as ApiResult;
-
-  expect(response.statusCode).toBe(500);
-  const payload = JSON.parse(response.body);
-  expect(payload.error).toMatch(/Finanzas/i);
 });
