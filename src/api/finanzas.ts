@@ -388,6 +388,31 @@ export async function addProjectRubro<T = Json>(
   return (text ? JSON.parse(text) : {}) as T;
 }
 
+export async function deleteProjectRubro(
+  projectId: string,
+  rubroId: string,
+): Promise<void> {
+  const base = requireApiBase();
+  const headers = { "Content-Type": "application/json", ...buildAuthHeader() };
+
+  const primary = `${base}/projects/${encodeURIComponent(
+    projectId,
+  )}/rubros/${encodeURIComponent(rubroId)}`;
+  let res = await fetch(primary, { method: "DELETE", headers });
+
+  if (res.status === 404 || res.status === 405) {
+    const fallback = `${base}/projects/${encodeURIComponent(
+      projectId,
+    )}/catalog/rubros/${encodeURIComponent(rubroId)}`;
+    res = await fetch(fallback, { method: "DELETE", headers });
+  }
+
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    throw new Error(`deleteProjectRubro failed (${res.status}): ${bodyText}`);
+  }
+}
+
 /* ──────────────────────────────────────────────────────────
    Catalog: fetch project rubros / line items
    Used by: src/hooks/useProjectLineItems.ts

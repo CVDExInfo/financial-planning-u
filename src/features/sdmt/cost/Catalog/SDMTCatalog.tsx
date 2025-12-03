@@ -56,7 +56,7 @@ import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import { logger } from "@/utils/logger";
 import { cn } from "@/lib/utils";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
-import { addProjectRubro } from "@/api/finanzas";
+import { addProjectRubro, deleteProjectRubro } from "@/api/finanzas";
 import {
   uploadDocument,
   type DocumentUploadMeta,
@@ -603,7 +603,7 @@ export function SDMTCatalog() {
           } else if (change.type === "delete") {
             // Delete the item (skip if it was a temp item that was never saved)
             if (!change.item.id.startsWith("temp-")) {
-              await ApiService.deleteLineItem(change.item.id);
+              await deleteProjectRubro(selectedProjectId, change.item.id);
               successCount++;
             } else {
               successCount++; // Count temp deletions as successful
