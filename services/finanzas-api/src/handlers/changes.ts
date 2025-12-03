@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 
 import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth.js";
 import { fromAuthError, ok, bad, serverError } from "../lib/http.js";
-import { ddb, PutCommand, QueryCommand, tableName } from "../lib/dynamo.js";
+import { ddb, PutCommand, QueryCommand, GetCommand, tableName } from "../lib/dynamo.js";
 import { logError } from "../utils/logging.js";
 
 // Normalize "array-ish" inputs (string, string[], comma/newline-separated) into a string[]
