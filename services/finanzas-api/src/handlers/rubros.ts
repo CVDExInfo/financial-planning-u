@@ -36,6 +36,7 @@ type RubroResponse = {
   id: string;
   rubro_id: string;
   nombre: string;
+  categoria?: string;
   linea_codigo?: string;
   tipo_costo?: string;
   project_id: string;
@@ -57,8 +58,20 @@ type RubroDefinition = {
   rubro_id?: string;
   codigo?: string;
   nombre?: string;
+  categoria?: string | null;
+  categoria_codigo?: string | null;
   linea_codigo?: string | null;
   tipo_costo?: string | null;
+};
+
+type RubroTaxonomia = {
+  linea_codigo?: string;
+  categoria?: string;
+  categoria_codigo?: string;
+  linea_gasto?: string;
+  tipo_costo?: string;
+  tipo_ejecucion?: string;
+  descripcion?: string;
 };
 
 const toRubroId = (item: ProjectRubroAttachment): string => {
@@ -67,7 +80,14 @@ const toRubroId = (item: ProjectRubroAttachment): string => {
   return "";
 };
 
-const parseDuration = (value?: string | null) => {
+const MAX_MONTH = 60;
+
+const parseDuration = (value?: string | number | null) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const term = Math.min(Math.max(Math.floor(value), 1), MAX_MONTH);
+    return { start: 1, end: term };
+  }
+
   if (!value || typeof value !== "string") {
     return { start: 1, end: 12 };
   }
@@ -77,9 +97,9 @@ const parseDuration = (value?: string | null) => {
     return { start: 1, end: 12 };
   }
 
-  const start = Math.min(Math.max(parseInt(match[1], 10) || 1, 1), 12);
+  const start = Math.min(Math.max(parseInt(match[1], 10) || 1, 1), MAX_MONTH);
   const endRaw = match[2] ? parseInt(match[2], 10) : start;
-  const end = Math.min(Math.max(endRaw || start, start), 12);
+  const end = Math.min(Math.max(endRaw || start, start), MAX_MONTH);
 
   return { start, end };
 };
@@ -131,33 +151,71 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
   const rubroDefinitions: Record<string, RubroDefinition> = {};
 
   if (rubroIds.length > 0) {
-    const keys = rubroIds.map((id) => ({
-      pk: `RUBRO#${id}`,
-      sk: "METADATA",
-    }));
+    const fetchDefinitions = async (skValue: string, ids: string[]) => {
+      const keys = ids.map((id) => ({ pk: `RUBRO#${id}`, sk: skValue }));
 
-    // DynamoDB BatchGetItem is limited to 100 keys per call, so chunk the keys
-    const chunkSize = 100;
-    for (let i = 0; i < keys.length; i += chunkSize) {
-      const chunk = keys.slice(i, i + chunkSize);
+      const chunkSize = 100;
+      for (let i = 0; i < keys.length; i += chunkSize) {
+        const chunk = keys.slice(i, i + chunkSize);
 
-      const batch = await ddb.send(
-        new BatchGetCommand({
-          RequestItems: {
-            [tableName("rubros")]: {
-              Keys: chunk,
+        const batch = await ddb.send(
+          new BatchGetCommand({
+            RequestItems: {
+              [tableName("rubros")]: {
+                Keys: chunk,
+              },
             },
-          },
-        })
-      );
+          })
+        );
 
-      const responses =
-        (batch.Responses?.[tableName("rubros")] as RubroDefinition[]) || [];
+        const responses =
+          (batch.Responses?.[tableName("rubros")] as RubroDefinition[]) || [];
 
-      for (const def of responses) {
-        const id = def.rubro_id || def.codigo || "";
-        if (!id) continue;
-        rubroDefinitions[id] = { ...def, rubro_id: def.rubro_id ?? def.codigo };
+        for (const def of responses) {
+          const id = def.rubro_id || def.codigo || "";
+          if (!id) continue;
+          rubroDefinitions[id] = { ...def, rubro_id: def.rubro_id ?? def.codigo };
+        }
+      }
+    };
+
+    await fetchDefinitions("METADATA", rubroIds);
+
+    const missingIds = rubroIds.filter((id) => !rubroDefinitions[id]);
+    if (missingIds.length > 0) {
+      await fetchDefinitions("DEF", missingIds);
+    }
+  }
+
+  const taxonomyKeys = new Set<string>();
+
+  Object.values(rubroDefinitions).forEach((def) => {
+    if (def.linea_codigo) taxonomyKeys.add(def.linea_codigo);
+  });
+  rubroIds.forEach((id) => taxonomyKeys.add(id));
+
+  const taxonomyByLinea: Record<string, RubroTaxonomia> = {};
+
+  if (taxonomyKeys.size > 0 && process.env.NODE_ENV !== "test") {
+    for (const linea of taxonomyKeys) {
+      try {
+        const query = await ddb.send(
+          new QueryCommand({
+            TableName: tableName("rubros_taxonomia"),
+            KeyConditionExpression: "pk = :pk",
+            ExpressionAttributeValues: {
+              ":pk": `LINEA#${linea}`,
+            },
+            Limit: 1,
+          }),
+        );
+
+        const entry = ((query as any)?.Items?.[0] as RubroTaxonomia | undefined) || undefined;
+        if (entry?.linea_codigo) {
+          taxonomyByLinea[linea] = entry;
+        }
+      } catch (error) {
+        console.warn("rubros: taxonomy lookup failed", { linea, error });
       }
     }
   }
@@ -167,16 +225,20 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
       const rubroId = toRubroId(item);
       if (!rubroId) return null;
       const definition = rubroDefinitions[rubroId] || {};
+      const taxonomy =
+        taxonomyByLinea[definition.linea_codigo || rubroId] || undefined;
 
       const normalizedId =
         definition.rubro_id || definition.codigo || rubroId || item.rubroId;
       return {
         id: normalizedId,
         rubro_id: normalizedId,
-        nombre: definition.nombre || item.category || rubroId,
+        nombre:
+          definition.nombre || taxonomy?.linea_gasto || item.category || rubroId,
+        categoria: definition.categoria || taxonomy?.categoria || undefined,
         linea_codigo:
-          definition.linea_codigo || definition.codigo || undefined,
-        tipo_costo: definition.tipo_costo || undefined,
+          definition.linea_codigo || taxonomy?.linea_codigo || definition.codigo || rubroId,
+        tipo_costo: definition.tipo_costo || taxonomy?.tipo_costo || undefined,
         project_id: projectId,
         tier: item.tier,
         category: item.category,
@@ -246,16 +308,38 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     const qty = Number(payload.qty ?? payload.quantity ?? 1) || 1;
     const unitCost = Number(payload.unitCost ?? payload.unit_cost ?? 0) || 0;
     const type = typeof payload.type === "string" ? payload.type.toLowerCase() : "";
-    const recurring = payload.recurring ?? type === "recurring";
-    const oneTime = payload.one_time ?? (type === "one-time" || type === "one_time");
-    const duration = parseDuration((payload.duration as string) || undefined);
-    const explicitStart = Number(payload.start_month ?? payload.startMonth ?? duration.start) ||
-      duration.start;
-    const explicitEnd = Number(payload.end_month ?? payload.endMonth ?? duration.end) || duration.end;
+    const recurringFlag = payload.recurring ?? type === "recurring";
+    const oneTimeFlag =
+      payload.one_time ?? (type === "one-time" || type === "one_time");
 
-    const startMonth = Math.min(Math.max(explicitStart, 1), 12);
-    const endMonth = Math.min(Math.max(explicitEnd, startMonth), 12);
-    const months = Math.max(endMonth - startMonth + 1, 1);
+    const durationInput = (payload.duration as string | number | undefined) ?? undefined;
+    const parsedDuration = parseDuration(durationInput ?? undefined);
+    const explicitStart = Number(
+      payload.start_month ?? payload.startMonth ?? parsedDuration.start,
+    );
+    const explicitEnd = Number(payload.end_month ?? payload.endMonth ?? parsedDuration.end);
+    const term = Number(
+      payload.term ??
+        payload.duration_months ??
+        payload.term_months ??
+        (typeof durationInput === "number" ? durationInput : null),
+    );
+
+    const startMonth = Math.min(Math.max(explicitStart || 1, 1), MAX_MONTH);
+
+    const recurring = Boolean(recurringFlag && !oneTimeFlag);
+    const oneTime = Boolean(oneTimeFlag || (!recurringFlag && !oneTimeFlag));
+
+    const computedEnd = recurring
+      ? startMonth + (Number.isFinite(term) && term ? Math.max(Math.floor(term), 1) - 1 : 0)
+      : startMonth;
+    const endCandidate = Number.isFinite(explicitEnd) ? explicitEnd : parsedDuration.end;
+    const endMonthRaw = recurring
+      ? Math.max(computedEnd, endCandidate || startMonth)
+      : endCandidate || startMonth;
+    const endMonth = Math.min(Math.max(endMonthRaw, startMonth), MAX_MONTH);
+
+    const months = recurring ? Math.max(endMonth - startMonth + 1, 1) : 1;
     const baseCost = qty * unitCost;
     const totalCost = (recurring ? baseCost * months : baseCost) || 0;
 
@@ -274,8 +358,8 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
       qty,
       unit_cost: unitCost,
       currency,
-      recurring: Boolean(recurring && !oneTime),
-      one_time: Boolean(oneTime || (!recurring && !oneTime)),
+      recurring,
+      one_time: oneTime,
       start_month: startMonth,
       end_month: endMonth,
       total_cost: totalCost,
