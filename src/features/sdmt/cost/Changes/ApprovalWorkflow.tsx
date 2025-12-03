@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -62,18 +62,28 @@ interface ApprovalWorkflowProps {
     requestId: string,
     action: "approve" | "reject",
     comments: string
-  ) => void;
+  ) => Promise<void>;
+  canApprove?: boolean;
+  isSubmitting?: boolean;
+  prefillAction?: "approve" | "reject" | null;
+  onCloseActionDialog?: () => void;
 }
 
 export function ApprovalWorkflow({
   changeRequest,
   onApprovalAction,
+  canApprove = false,
+  isSubmitting = false,
+  prefillAction,
+  onCloseActionDialog,
 }: ApprovalWorkflowProps) {
   const [actionType, setActionType] = useState<"approve" | "reject" | null>(
     null
   );
   const [comments, setComments] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const isPending = changeRequest.status === "pending";
 
   const getStepStatusIcon = (status: string) => {
     switch (status) {
@@ -88,24 +98,52 @@ export function ApprovalWorkflow({
     }
   };
 
-  const handleApprovalSubmit = () => {
-    if (!actionType || !comments.trim()) {
-      toast.error("Please provide comments for your decision");
+  const handleApprovalSubmit = async () => {
+    if (!actionType) {
+      toast.error("Selecciona una acción para continuar");
       return;
     }
 
-    onApprovalAction(changeRequest.id, actionType, comments);
-    setIsDialogOpen(false);
-    setComments("");
-    setActionType(null);
+    if (actionType === "reject" && !comments.trim()) {
+      toast.error("Agrega un comentario para rechazar la solicitud");
+      return;
+    }
 
-    toast.success(`Change request ${actionType}d successfully`);
+    try {
+      await onApprovalAction(changeRequest.id, actionType, comments);
+      setIsDialogOpen(false);
+      setComments("");
+      setActionType(null);
+      if (onCloseActionDialog) onCloseActionDialog();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo actualizar";
+      toast.error(message);
+    }
   };
 
-  const canCurrentUserApprove = () => {
-    // In a real app, this would check against the current user's role and permissions
-    const currentStep = changeRequest.approvalSteps[changeRequest.currentStep];
-    return currentStep && currentStep.status === "pending";
+  const canCurrentUserApprove = useCallback(
+    () => canApprove && isPending,
+    [canApprove, isPending],
+  );
+
+  const openActionDialog = useCallback((action: "approve" | "reject") => {
+    setActionType(action);
+    setIsDialogOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (prefillAction && canCurrentUserApprove()) {
+      openActionDialog(prefillAction);
+    }
+  }, [canCurrentUserApprove, openActionDialog, prefillAction]);
+
+  const handleDialogOpenChange = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      setComments("");
+      setActionType(null);
+      if (onCloseActionDialog) onCloseActionDialog();
+    }
   };
 
   return (
@@ -255,17 +293,11 @@ export function ApprovalWorkflow({
           {/* Action Buttons */}
           {canCurrentUserApprove() && (
             <div className="mt-6 pt-6 border-t">
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-wrap">
                 <Button
-                  onClick={() => {
-                    console.log(
-                      "✅ Approving change request:",
-                      changeRequest.id
-                    );
-                    setActionType("approve");
-                    setIsDialogOpen(true);
-                  }}
+                  onClick={() => openActionDialog("approve")}
                   className="bg-green-600 hover:bg-green-700"
+                  disabled={isSubmitting}
                 >
                   <CheckCircle2 size={16} className="mr-2" />
                   Approve
@@ -273,29 +305,18 @@ export function ApprovalWorkflow({
 
                 <Button
                   variant="destructive"
-                  onClick={() => {
-                    console.log(
-                      "❌ Rejecting change request:",
-                      changeRequest.id
-                    );
-                    setActionType("reject");
-                    setIsDialogOpen(true);
-                  }}
+                  onClick={() => openActionDialog("reject")}
+                  disabled={isSubmitting}
                 >
                   <XCircle size={16} className="mr-2" />
                   Reject
-                </Button>
-
-                <Button variant="outline">
-                  <Eye size={16} className="mr-2" />
-                  View Full Details
                 </Button>
               </div>
             </div>
           )}
 
           {/* Confirmation Dialog - Used by both Approve and Reject */}
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>
@@ -312,7 +333,8 @@ export function ApprovalWorkflow({
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="comments" className="text-sm font-medium">
-                    Comments <span className="text-red-500">*</span>
+                    Comments
+                    {actionType === "reject" && <span className="text-red-500"> *</span>}
                   </Label>
                   <Textarea
                     id="comments"
@@ -331,11 +353,7 @@ export function ApprovalWorkflow({
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      setIsDialogOpen(false);
-                      setComments("");
-                      setActionType(null);
-                    }}
+                    onClick={() => handleDialogOpenChange(false)}
                   >
                     Cancel
                   </Button>
@@ -344,9 +362,12 @@ export function ApprovalWorkflow({
                     variant={
                       actionType === "approve" ? "default" : "destructive"
                     }
+                    disabled={isSubmitting}
                   >
-                    Confirm{" "}
-                    {actionType === "approve" ? "Approval" : "Rejection"}
+                    {isSubmitting && (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    )}
+                    Confirm {actionType === "approve" ? "Approval" : "Rejection"}
                   </Button>
                 </div>
               </div>

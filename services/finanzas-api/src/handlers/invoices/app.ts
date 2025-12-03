@@ -165,6 +165,21 @@ function mapDynamoError(
     console.warn("Invoices table throttled", failureContext);
     return bad("Invoices storage temporarily unavailable", 503);
   }
+}
+
+type CreateInvoicePayload = {
+  projectId?: string;
+  lineItemId?: string;
+  month?: number;
+  amount?: number;
+  description?: string;
+  vendor?: string;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  documentKey?: string;
+  originalName?: string;
+  contentType?: string;
+};
 
   console.error("Invoices Dynamo failure", failureContext);
   return serverError("Error interno en Finanzas");

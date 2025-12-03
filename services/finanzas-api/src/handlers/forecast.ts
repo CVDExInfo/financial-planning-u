@@ -40,6 +40,7 @@ export const handler = async (
   let rubrosCount: number | undefined;
 
   try {
+    // ---- Auth guard --------------------------------------------------------
     try {
       await ensureCanRead(event as never);
     } catch (authError) {
@@ -50,11 +51,11 @@ export const handler = async (
       throw authError;
     }
 
+    // ---- Parse & validate query params ------------------------------------
     const queryParams = event.queryStringParameters || {};
     projectId = queryParams.projectId || queryParams.project_id;
     const monthsStr = queryParams.months;
 
-    // Validate required parameters
     if (!projectId) {
       return bad("Missing required parameter: projectId");
     }
@@ -66,12 +67,12 @@ export const handler = async (
 
     console.info("[forecast] params", { projectId, months });
 
+    // ---- Query DynamoDB: allocations, payroll, rubros ----------------------
     let allocationsResult;
     let payrollResult;
     let rubrosResult;
 
     try {
-      // Query allocations, payroll, and rubro attachments for this project
       [allocationsResult, payrollResult, rubrosResult] = await Promise.all([
         ddb.send(
           new QueryCommand({
@@ -111,7 +112,7 @@ export const handler = async (
       return serverError("Error interno en Finanzas");
     }
 
-    // Combine data into forecast cells
+    // ---- Combine data into forecast cells ---------------------------------
     const allocations = allocationsResult?.Items || [];
     const payrolls = payrollResult?.Items || [];
     const rubroAttachments = rubrosResult?.Items || [];
@@ -122,25 +123,32 @@ export const handler = async (
 
     const forecastData: ForecastItem[] = [];
 
-    // Add allocation data (preferred path when present)
+    // Preferred path: allocations (plan/forecast/actual per line item/month)
     if (allocations.length > 0) {
       for (const allocation of allocations) {
         const month = Number(allocation.month || allocation.mes || 1);
-        if (month <= months) {
+        if (month <= (months as number)) {
+          const planned = Number(
+            allocation.planned || allocation.monto_planeado || 0
+          );
+          const forecast = Number(
+            allocation.forecast ||
+              allocation.monto_proyectado ||
+              allocation.planned ||
+              0
+          );
+          const actual = Number(
+            allocation.actual || allocation.monto_real || 0
+          );
+
           forecastData.push({
             line_item_id:
               allocation.rubroId || allocation.line_item_id || "unknown",
             month,
-            planned: Number(allocation.planned || allocation.monto_planeado || 0),
-            forecast: Number(
-              allocation.forecast ||
-                allocation.monto_proyectado ||
-                allocation.planned ||
-                0
-            ),
-            actual: Number(allocation.actual || allocation.monto_real || 0),
-            variance:
-              Number(allocation.actual || 0) - Number(allocation.planned || 0),
+            planned,
+            forecast,
+            actual,
+            variance: actual - planned,
             variance_reason: allocation.variance_reason,
             notes: allocation.notes || allocation.notas,
             last_updated:
@@ -152,24 +160,29 @@ export const handler = async (
         }
       }
     } else {
-      // Fallback: derive monthly plan from rubro attachments when allocations table is empty
+      // Fallback: derive monthly plan from rubro attachments when allocations are empty
       for (const attachment of rubroAttachments) {
         const rubroId =
-          (attachment.rubroId as string) || (attachment.sk as string) || "unknown";
+          (attachment.rubroId as string) ||
+          (attachment.sk as string) ||
+          "unknown";
+
         const qty = Number(attachment.qty ?? 1) || 1;
         const unitCost =
           Number(attachment.unit_cost ?? attachment.total_cost ?? 0) || 0;
+
         const startMonth = Math.min(
           Math.max(Number(attachment.start_month ?? 1) || 1, 1),
-          months,
+          months as number
         );
         const endMonth = Math.min(
           Math.max(
             Number(attachment.end_month ?? startMonth) || startMonth,
             startMonth
           ),
-          months,
+          months as number
         );
+
         const recurring = Boolean(attachment.recurring && !attachment.one_time);
         const baseCost = qty * unitCost;
         const monthsToMaterialize = recurring
@@ -178,17 +191,19 @@ export const handler = async (
 
         for (let idx = 0; idx < monthsToMaterialize; idx += 1) {
           const month = startMonth + idx;
-          if (month > months) break;
+          if (month > (months as number)) break;
+
+          const actual = Number(attachment.actual || 0);
 
           forecastData.push({
             line_item_id: rubroId.replace(/^RUBRO#/, ""),
             month,
             planned: baseCost,
             forecast: baseCost,
-            actual: Number(attachment.actual || 0),
-            variance: Number(attachment.actual || 0) - baseCost,
-            variance_reason: attachment.variance_reason,
-            notes: attachment.description,
+            actual,
+            variance: actual - baseCost,
+            variance_reason: attachment.variance_reason as string | undefined,
+            notes: (attachment.description as string) || undefined,
             last_updated:
               (attachment.updated_at as string) ||
               (attachment.createdAt as string) ||
@@ -204,23 +219,28 @@ export const handler = async (
       }
     }
 
-    // Add payroll data
+    // Add payroll data as separate “line items”
     for (const payroll of payrolls) {
       const month = Number(payroll.month || payroll.mes || 1);
-      if (month <= months) {
+      if (month <= (months as number)) {
+        const planned = Number(payroll.salario_base || 0);
+        const actual = Number(
+          payroll.salario_real || payroll.salario_base || 0
+        );
         forecastData.push({
           line_item_id: `payroll-${payroll.empleado_id || "unknown"}`,
           month,
-          planned: Number(payroll.salario_base || 0),
-          forecast: Number(payroll.salario_base || 0),
-          actual: Number(payroll.salario_real || payroll.salario_base || 0),
-          variance:
-            Number(payroll.salario_real || 0) - Number(payroll.salario_base || 0),
-          variance_reason: payroll.motivo,
-          notes: payroll.notas,
+          planned,
+          forecast: planned,
+          actual,
+          variance: actual - planned,
+          variance_reason: payroll.motivo as string | undefined,
+          notes: payroll.notas as string | undefined,
           last_updated:
-            payroll.fecha_pago || payroll.created_at || new Date().toISOString(),
-          updated_by: payroll.created_by || "system",
+            (payroll.fecha_pago as string) ||
+            (payroll.created_at as string) ||
+            new Date().toISOString(),
+          updated_by: (payroll.created_by as string) || "system",
         });
       }
     }
