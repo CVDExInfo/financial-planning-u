@@ -52,9 +52,11 @@ function parsePayload(raw: string | null | undefined): UploadPayload | null {
             : undefined,
       invoiceDate: payload.invoiceDate
         ? String(payload.invoiceDate).trim()
-        : payload.date
-          ? String(payload.date).trim()
-          : undefined,
+        : payload.invoice_date
+          ? String(payload.invoice_date).trim()
+          : payload.date
+            ? String(payload.date).trim()
+            : undefined,
       checksumSha256: payload.checksumSha256
         ? String(payload.checksumSha256).trim()
         : undefined,
