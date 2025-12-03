@@ -24,9 +24,14 @@ type InvoiceRecord = {
   month?: number;
   amount?: number;
   status?: string;
+  description?: string;
+  vendor?: string;
+  invoiceNumber?: string;
+  invoiceDate?: string;
   documentKey?: string;
   file_name?: string;
   originalName?: string;
+  contentType?: string;
   uploaded_by?: string;
   uploaded_at?: string;
   created_at?: string;
@@ -50,52 +55,19 @@ const normalizeInvoice = (item: InvoiceRecord) => {
     month: Number(item.month ?? 1),
     amount: Number(item.amount ?? 0),
     status: (item.status as InvoiceStatus) || "Pending",
+    description: item.description,
+    vendor: item.vendor,
+    invoice_number: item.invoiceNumber,
+    invoice_date: item.invoiceDate,
     documentKey: item.documentKey,
     file_name: item.file_name,
     originalName: item.originalName || item.file_name,
+    contentType: item.contentType,
     uploaded_by: item.uploaded_by,
     uploaded_at: item.uploaded_at || item.created_at,
     updated_at: item.updated_at,
   };
 };
-
-async function listInvoices(projectId: string) {
-  try {
-    const result = await ddb.send(
-      new QueryCommand({
-        TableName: tableName("prefacturas"),
-        KeyConditionExpression: "pk = :pk",
-        ExpressionAttributeValues: { ":pk": `PROJECT#${projectId}` },
-      })
-    );
-
-    const items = (result.Items as InvoiceRecord[]) || [];
-    const data = items.map(normalizeInvoice);
-
-    return ok({ data, projectId, total: data.length });
-  } catch (error) {
-    return mapDynamoError(error, { projectId, operation: "listInvoices" });
-  }
-}
-
-async function getInvoice(projectId: string, invoiceId: string) {
-  try {
-    const response = await ddb.send(
-      new GetCommand({
-        TableName: tableName("prefacturas"),
-        Key: { pk: `PROJECT#${projectId}`, sk: `INVOICE#${invoiceId}` },
-      })
-    );
-
-    if (!response.Item) {
-      return notFound("Invoice not found");
-    }
-
-    return ok(normalizeInvoice(response.Item as InvoiceRecord));
-  } catch (error) {
-    return mapDynamoError(error, { projectId, invoiceId, operation: "getInvoice" });
-  }
-}
 
 type CreateInvoicePayload = {
   projectId?: string;
@@ -117,16 +89,32 @@ function parseCreatePayload(body: string | null): CreateInvoicePayload | null {
     const parsed = JSON.parse(body);
     return {
       projectId: parsed.projectId ? String(parsed.projectId).trim() : undefined,
-      lineItemId: parsed.lineItemId ? String(parsed.lineItemId).trim() : undefined,
-      month: parsed.month !== undefined ? Number(parsed.month) : undefined,
-      amount: parsed.amount !== undefined ? Number(parsed.amount) : undefined,
-      description: parsed.description ? String(parsed.description) : undefined,
+      lineItemId: parsed.lineItemId
+        ? String(parsed.lineItemId).trim()
+        : undefined,
+      month:
+        parsed.month !== undefined ? Number(parsed.month) : undefined,
+      amount:
+        parsed.amount !== undefined ? Number(parsed.amount) : undefined,
+      description: parsed.description
+        ? String(parsed.description)
+        : undefined,
       vendor: parsed.vendor ? String(parsed.vendor).trim() : undefined,
-      invoiceNumber: parsed.invoiceNumber ? String(parsed.invoiceNumber).trim() : undefined,
-      invoiceDate: parsed.invoiceDate ? String(parsed.invoiceDate).trim() : undefined,
-      documentKey: parsed.documentKey ? String(parsed.documentKey).trim() : undefined,
-      originalName: parsed.originalName ? String(parsed.originalName).trim() : undefined,
-      contentType: parsed.contentType ? String(parsed.contentType).trim() : undefined,
+      invoiceNumber: parsed.invoiceNumber
+        ? String(parsed.invoiceNumber).trim()
+        : undefined,
+      invoiceDate: parsed.invoiceDate
+        ? String(parsed.invoiceDate).trim()
+        : undefined,
+      documentKey: parsed.documentKey
+        ? String(parsed.documentKey).trim()
+        : undefined,
+      originalName: parsed.originalName
+        ? String(parsed.originalName).trim()
+        : undefined,
+      contentType: parsed.contentType
+        ? String(parsed.contentType).trim()
+        : undefined,
     };
   } catch (error) {
     console.warn("Invalid JSON for invoice create", error);
@@ -141,16 +129,20 @@ function mapDynamoError(
 ): APIGatewayProxyResultV2 {
   const name = (error as { name?: string } | undefined)?.name;
   const message = (error as { message?: string } | undefined)?.message || "";
+
   const failureContext = { ...context, tableName: tableName(tableKey), error };
 
   if (name === "ResourceNotFoundException") {
     console.error("Invoices table not found", failureContext);
     return bad("Invoices table not found", 503);
   }
+
   if (name === "AccessDeniedException") {
     console.error("Access denied writing invoices", failureContext);
     return bad("Access denied writing invoices", 503);
   }
+
+  // Some Dynamo validation errors (missing table) surface as ValidationException
   if (
     name === "ValidationException" &&
     /Requested resource not found|non-existent table/i.test(message)
@@ -158,31 +150,62 @@ function mapDynamoError(
     console.error("Invoices table not found (validation)", failureContext);
     return bad("Invoices table not found", 503);
   }
+
+  // Throttling / throughput issues → treat as temporary 503
   if (
     name &&
-    ["ThrottlingException", "ProvisionedThroughputExceededException"].includes(name)
+    ["ThrottlingException", "ProvisionedThroughputExceededException"].includes(
+      name,
+    )
   ) {
     console.warn("Invoices table throttled", failureContext);
     return bad("Invoices storage temporarily unavailable", 503);
   }
-}
-
-type CreateInvoicePayload = {
-  projectId?: string;
-  lineItemId?: string;
-  month?: number;
-  amount?: number;
-  description?: string;
-  vendor?: string;
-  invoiceNumber?: string;
-  invoiceDate?: string;
-  documentKey?: string;
-  originalName?: string;
-  contentType?: string;
-};
 
   console.error("Invoices Dynamo failure", failureContext);
   return serverError("Error interno en Finanzas");
+}
+
+async function listInvoices(projectId: string) {
+  try {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: tableName("prefacturas"),
+        KeyConditionExpression: "pk = :pk",
+        ExpressionAttributeValues: { ":pk": `PROJECT#${projectId}` },
+      }),
+    );
+
+    const items = (result.Items as InvoiceRecord[]) || [];
+    const data = items.map(normalizeInvoice);
+
+    return ok({ data, projectId, total: data.length });
+  } catch (error) {
+    return mapDynamoError(error, { projectId, operation: "listInvoices" });
+  }
+}
+
+async function getInvoice(projectId: string, invoiceId: string) {
+  try {
+    const response = await ddb.send(
+      new GetCommand({
+        TableName: tableName("prefacturas"),
+        Key: { pk: `PROJECT#${projectId}`, sk: `INVOICE#${invoiceId}` },
+      }),
+    );
+
+    if (!response.Item) {
+      return notFound("Invoice not found");
+    }
+
+    return ok(normalizeInvoice(response.Item as InvoiceRecord));
+  } catch (error) {
+    return mapDynamoError(error, {
+      projectId,
+      invoiceId,
+      operation: "getInvoice",
+    });
+  }
 }
 
 async function createInvoice(
@@ -200,15 +223,26 @@ async function createInvoice(
     return bad("projectId mismatch between path and body", 400);
   if (!payload.lineItemId) return bad("lineItemId is required", 400);
 
-  if (!payload.month || !Number.isInteger(payload.month) || payload.month < 1 || payload.month > 12) {
+  if (
+    !payload.month ||
+    !Number.isInteger(payload.month) ||
+    payload.month < 1 ||
+    payload.month > 12
+  ) {
     return bad("month must be an integer between 1 and 12", 400);
   }
 
-  if (!payload.amount || !Number.isFinite(payload.amount) || payload.amount <= 0) {
+  if (
+    !payload.amount ||
+    !Number.isFinite(payload.amount) ||
+    payload.amount <= 0
+  ) {
     return bad("amount must be a positive number", 400);
   }
 
-  const invoiceDateValue = payload.invoiceDate ? Date.parse(payload.invoiceDate) : undefined;
+  const invoiceDateValue = payload.invoiceDate
+    ? Date.parse(payload.invoiceDate)
+    : undefined;
   const normalizedInvoiceDate =
     typeof invoiceDateValue === "number" && !Number.isNaN(invoiceDateValue)
       ? new Date(invoiceDateValue).toISOString()
@@ -219,8 +253,11 @@ async function createInvoice(
     const rubro = await ddb.send(
       new GetCommand({
         TableName: tableName("rubros"),
-        Key: { pk: `PROJECT#${projectId}`, sk: `RUBRO#${payload.lineItemId}` },
-      })
+        Key: {
+          pk: `PROJECT#${projectId}`,
+          sk: `RUBRO#${payload.lineItemId}`,
+        },
+      }),
     );
     if (!rubro.Item) {
       return bad("lineItemId not found for project", 400);
@@ -240,7 +277,10 @@ async function createInvoice(
   try {
     uploadedBy = await getUserEmail(event as never);
   } catch (error) {
-    console.warn("Unable to resolve uploader email for invoice", { projectId, error });
+    console.warn("Unable to resolve uploader email for invoice", {
+      projectId,
+      error,
+    });
   }
 
   const item: InvoiceRecord = {
@@ -251,7 +291,8 @@ async function createInvoice(
     projectId,
     lineItemId: payload.lineItemId,
     invoiceNumber:
-      payload.invoiceNumber || `INV-${Date.now().toString(36).toUpperCase()}`,
+      payload.invoiceNumber ||
+      `INV-${Date.now().toString(36).toUpperCase()}`,
     amount: payload.amount,
     month: payload.month,
     vendor: payload.vendor,
@@ -276,10 +317,14 @@ async function createInvoice(
       new PutCommand({
         TableName: tableName("prefacturas"),
         Item: item,
-      })
+      }),
     );
   } catch (error) {
-    return mapDynamoError(error, { projectId, invoiceId, operation: "createInvoice" });
+    return mapDynamoError(error, {
+      projectId,
+      invoiceId,
+      operation: "createInvoice",
+    });
   }
 
   return ok(normalizeInvoice(item), 201);
@@ -333,10 +378,14 @@ async function updateStatus(
         ExpressionAttributeValues: values,
         ConditionExpression: "attribute_exists(pk) AND attribute_exists(sk)",
         ReturnValues: "ALL_NEW",
-      })
+      }),
     );
   } catch (error) {
-    return mapDynamoError(error, { projectId, invoiceId, operation: "updateStatus" });
+    return mapDynamoError(error, {
+      projectId,
+      invoiceId,
+      operation: "updateStatus",
+    });
   }
 
   const attributes = result.Attributes as InvoiceRecord | undefined;
@@ -391,7 +440,7 @@ export async function handler(
         return bad("Missing invoiceId", 400);
       }
       await ensureCanWrite(event as never);
-      return updateStatus(projectId, invoiceId, event.body);
+      return updateStatus(projectId, invoiceId, event.body ?? null);
     }
 
     return notFound("Route not handled by InvoicesFn");
