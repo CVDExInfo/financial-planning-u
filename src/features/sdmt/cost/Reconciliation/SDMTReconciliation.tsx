@@ -336,11 +336,21 @@ export default function SDMTReconciliation() {
       return;
     }
 
+    if (!uploadFormData.invoice_date) {
+      toast.error("Invoice date is required for reconciliation");
+      return;
+    }
+
+    const vendorValue = uploadFormData.vendor.trim();
+    if (!vendorValue) {
+      toast.error("Vendor is required for reconciliation");
+      return;
+    }
+
     if (
       !uploadFormData.file ||
       !uploadFormData.line_item_id ||
-      !uploadFormData.amount ||
-      !uploadFormData.invoice_date
+      !uploadFormData.amount
     ) {
       toast.error("Please fill in all required fields");
       return;
@@ -365,7 +375,7 @@ export default function SDMTReconciliation() {
         month: uploadFormData.month,
         amount,
         description: uploadFormData.description.trim() || undefined,
-        vendor: uploadFormData.vendor.trim() || undefined,
+        vendor: vendorValue,
         invoice_number: uploadFormData.invoice_number.trim() || undefined,
         invoice_date: uploadFormData.invoice_date.trim() || undefined,
       });
