@@ -574,6 +574,15 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       );
 
       if (successes.length) {
+        successes.forEach((upload) => {
+          if (upload.warnings?.length) {
+            console.warn("Prefactura document upload returned warnings", {
+              file: upload.originalName,
+              warnings: upload.warnings,
+              objectKey: upload.documentKey,
+            });
+          }
+        });
         setSupportingDocs((prev) => [...successes, ...prev]);
         toast.success(
           successes.length > 1

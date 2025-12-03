@@ -151,6 +151,8 @@ export type UploadStage = "presigning" | "uploading" | "complete";
 type PresignResponse = {
   uploadUrl: string;
   objectKey: string;
+  warnings?: string[];
+  status?: number;
 };
 
 async function presignUpload(_: {
@@ -172,11 +174,56 @@ async function presignUpload(_: {
     checksumSha256: await sha256(file),
   };
 
-  return fetchJson<PresignResponse>(`${base}/uploads/docs`, {
+  const response = await fetch(`${base}/uploads/docs`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...buildAuthHeader() },
     body: JSON.stringify(body),
   });
+
+  const rawText = await response.text().catch(() => "");
+  let parsed: Partial<PresignResponse & { error?: string; message?: string }> =
+    {};
+  try {
+    parsed = rawText ? JSON.parse(rawText) : {};
+  } catch {
+    // Keep fallback message below
+  }
+
+  if (!response.ok) {
+    try {
+      handleAuthErrorStatus(response.status);
+    } catch (err) {
+      throw toFinanzasError(
+        err,
+        parsed.error || parsed.message || rawText || "Upload authorization failed",
+        response.status,
+      );
+    }
+
+    const defaultMsg = parsed.error || parsed.message || rawText;
+    const isServiceUnavailable = response.status === 503;
+    const message = isServiceUnavailable
+      ? parsed.error || "Uploads are temporarily unavailable. Please try again later."
+      : response.status >= 500
+        ? "Error interno en Finanzas"
+        : defaultMsg || `Upload request failed (${response.status})`;
+
+    throw new FinanzasApiError(message, response.status);
+  }
+
+  if (!parsed.uploadUrl || !parsed.objectKey) {
+    throw new FinanzasApiError(
+      "Upload service returned an unexpected response while preparing the document upload.",
+      response.status,
+    );
+  }
+
+  return {
+    uploadUrl: parsed.uploadUrl,
+    objectKey: parsed.objectKey,
+    warnings: parsed.warnings || [],
+    status: response.status,
+  };
 }
 
 async function uploadFileWithPresign(
@@ -253,6 +300,8 @@ export type UploadSupportingDocResult = {
   documentKey: string;
   originalName: string;
   contentType: string;
+  warnings?: string[];
+  status?: number;
 };
 
 export type UploadSupportingDocOptions = {
@@ -285,6 +334,8 @@ export async function uploadSupportingDocument(
     documentKey: presign.objectKey,
     originalName: payload.file.name,
     contentType: payload.file.type || "application/octet-stream",
+    warnings: presign.warnings,
+    status: presign.status,
   };
 }
 

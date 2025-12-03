@@ -18,6 +18,7 @@ import {
   type DocumentUploadMeta,
   type DocumentUploadStage,
 } from "@/lib/documents/uploadService";
+import { FinanzasApiError } from "@/api/finanzas";
 import { toast } from "sonner";
 
 type ChangeRequest = {
@@ -129,13 +130,40 @@ export function ChangeManager() {
         };
       });
 
-      toast.success("Change evidence uploaded");
+      if (uploaded.warnings?.length) {
+        console.warn("Change attachment upload returned warnings", {
+          changeId: attachmentTarget.id,
+          warnings: uploaded.warnings,
+        });
+      }
+
+      if (!uploaded.status || uploaded.status === 201 || uploaded.status === 200) {
+        toast.success("Change evidence uploaded");
+      }
       setAttachmentDialogOpen(false);
       setAttachmentFile(null);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to upload attachment";
+      let message = "Failed to upload attachment";
+
+      if (error instanceof FinanzasApiError) {
+        if (error.status === 503) {
+          message =
+            "Document uploads are temporarily unavailable. Please try again later.";
+        } else if (error.status && error.status >= 500) {
+          message = "Error interno en Finanzas";
+        } else {
+          message = error.message || message;
+        }
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
+
       toast.error(message);
+      console.error("Change attachment upload failed", {
+        changeId: attachmentTarget?.id,
+        projectId: selectedProjectId,
+        error,
+      });
     } finally {
       setIsUploadingAttachment(false);
       setAttachmentStage(null);

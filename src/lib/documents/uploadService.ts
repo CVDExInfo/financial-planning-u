@@ -50,6 +50,14 @@ export async function uploadDocument(
     }
   );
 
+  if (result.warnings?.length) {
+    console.warn("Document upload completed with warnings", {
+      file: request.file.name,
+      warnings: result.warnings,
+      objectKey: result.documentKey,
+    });
+  }
+
   return {
     ...result,
     uploadedAt: new Date().toISOString(),
