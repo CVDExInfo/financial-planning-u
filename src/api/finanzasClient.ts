@@ -302,12 +302,17 @@ export const ProviderCreateSchema = z.object({
 
 export type ProviderCreate = z.infer<typeof ProviderCreateSchema>;
 
+const ProviderMetadataSchema = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((value) => (value === null || value === undefined ? undefined : value));
+
 export const ProviderSchema = ProviderCreateSchema.extend({
   id: z.string(),
   estado: z.enum(["active", "inactive", "suspended"]).optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
-  created_by: z.string().email().optional(),
+  created_by: ProviderMetadataSchema,
 });
 
 export const ProviderListSchema = z.object({
