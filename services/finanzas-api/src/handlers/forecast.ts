@@ -33,6 +33,12 @@ const parseMonths = (monthsStr?: string | null) => {
 export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
+  let projectId: string | undefined;
+  let months: number | null = null;
+  let allocationsCount: number | undefined;
+  let payrollCount: number | undefined;
+  let rubrosCount: number | undefined;
+
   try {
     try {
       await ensureCanRead(event as never);
@@ -44,57 +50,95 @@ export const handler = async (
       throw authError;
     }
 
-    const projectId = event.queryStringParameters?.projectId;
-    const monthsStr = event.queryStringParameters?.months;
+    const queryParams = event.queryStringParameters || {};
+    projectId = queryParams.projectId || queryParams.project_id;
+    const monthsStr = queryParams.months;
 
     // Validate required parameters
     if (!projectId) {
       return bad("Missing required parameter: projectId");
     }
 
-    const months = parseMonths(monthsStr);
+    months = parseMonths(monthsStr);
     if (months === null) {
       return bad("Invalid months parameter. Must be between 1 and 60.");
     }
 
     console.info("[forecast] params", { projectId, months });
 
-    // Query allocations for this project
+    const safeQuery = async <T>(
+      tableKey: Parameters<typeof tableName>[0],
+      input: ConstructorParameters<typeof QueryCommand>[0]
+    ): Promise<{ items: T[]; error?: unknown }> => {
+      try {
+        const result = await ddb.send(new QueryCommand(input));
+        return { items: (result?.Items as T[]) || [] };
+      } catch (err) {
+        console.error("[forecast] query failed", {
+          tableKey,
+          projectId,
+          months,
+          error: err,
+        });
+        return { items: [], error: err };
+      }
+    };
+
     const [allocationsResult, payrollResult, rubrosResult] = await Promise.all([
-      ddb.send(
-        new QueryCommand({
+      safeQuery(
+        "allocations",
+        {
           TableName: tableName("allocations"),
           KeyConditionExpression: "pk = :pk",
           ExpressionAttributeValues: {
             ":pk": `PROJECT#${projectId}`,
           },
-        })
+        }
       ),
-      ddb.send(
-        new QueryCommand({
+      safeQuery(
+        "payroll_actuals",
+        {
           TableName: tableName("payroll_actuals"),
           KeyConditionExpression: "pk = :pk",
           ExpressionAttributeValues: {
             ":pk": `PROJECT#${projectId}`,
           },
-        })
+        }
       ),
-      ddb.send(
-        new QueryCommand({
+      safeQuery(
+        "rubros",
+        {
           TableName: tableName("rubros"),
           KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
           ExpressionAttributeValues: {
             ":pk": `PROJECT#${projectId}`,
             ":sk": "RUBRO#",
           },
-        })
+        }
       ),
     ]);
 
+    if (allocationsResult.error && payrollResult.error && rubrosResult.error) {
+      console.error("[forecast] all queries failed", {
+        projectId,
+        months,
+        errors: {
+          allocations: allocationsResult.error,
+          payroll: payrollResult.error,
+          rubros: rubrosResult.error,
+        },
+      });
+      return serverError("Error interno en Finanzas");
+    }
+
     // Combine data into forecast cells
-    const allocations = allocationsResult.Items || [];
-    const payrolls = payrollResult.Items || [];
-    const rubroAttachments = rubrosResult.Items || [];
+    const allocations = allocationsResult.items || [];
+    const payrolls = payrollResult.items || [];
+    const rubroAttachments = rubrosResult.items || [];
+
+    allocationsCount = allocations.length;
+    payrollCount = payrolls.length;
+    rubrosCount = rubroAttachments.length;
 
     const forecastData: ForecastItem[] = [];
 
@@ -115,7 +159,8 @@ export const handler = async (
                 0
             ),
             actual: Number(allocation.actual || allocation.monto_real || 0),
-            variance: Number(allocation.actual || 0) - Number(allocation.planned || 0),
+            variance:
+              Number(allocation.actual || 0) - Number(allocation.planned || 0),
             variance_reason: allocation.variance_reason,
             notes: allocation.notes || allocation.notas,
             last_updated:
@@ -129,15 +174,20 @@ export const handler = async (
     } else {
       // Fallback: derive monthly plan from rubro attachments when allocations table is empty
       for (const attachment of rubroAttachments) {
-        const rubroId = (attachment.rubroId as string) || (attachment.sk as string) || "unknown";
+        const rubroId =
+          (attachment.rubroId as string) || (attachment.sk as string) || "unknown";
         const qty = Number(attachment.qty ?? 1) || 1;
-        const unitCost = Number(attachment.unit_cost ?? attachment.total_cost ?? 0) || 0;
+        const unitCost =
+          Number(attachment.unit_cost ?? attachment.total_cost ?? 0) || 0;
         const startMonth = Math.min(
           Math.max(Number(attachment.start_month ?? 1) || 1, 1),
           months,
         );
         const endMonth = Math.min(
-          Math.max(Number(attachment.end_month ?? startMonth) || startMonth, startMonth),
+          Math.max(
+            Number(attachment.end_month ?? startMonth) || startMonth,
+            startMonth
+          ),
           months,
         );
         const recurring = Boolean(attachment.recurring && !attachment.one_time);
@@ -195,6 +245,15 @@ export const handler = async (
       }
     }
 
+    console.info("[forecast] response stats", {
+      projectId,
+      months,
+      allocationsCount,
+      payrollCount,
+      rubrosCount,
+      forecastCount: forecastData.length,
+    });
+
     return ok({
       data: forecastData,
       projectId,
@@ -202,9 +261,14 @@ export const handler = async (
       generated_at: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[forecast] unexpected error", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
-    return serverError(errorMessage);
+    console.error("[forecast] unexpected error building forecast", {
+      projectId,
+      months,
+      allocationsCount,
+      payrollCount,
+      rubrosCount,
+      error,
+    });
+    return serverError("Error interno en Finanzas");
   }
 };

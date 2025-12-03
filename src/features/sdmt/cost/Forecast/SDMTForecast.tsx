@@ -265,6 +265,8 @@ export function SDMTForecast() {
   } = metrics;
 
   const isLoadingState = loading || isLineItemsLoading;
+  const hasGridData = forecastGrid.length > 0;
+  const isEmptyState = !isLoadingState && !forecastError && forecastData.length === 0;
 
   // Chart data - recalculate when forecastData changes
   const monthlyTrends = useMemo(() => {
@@ -569,7 +571,21 @@ export function SDMTForecast() {
                 <div className="text-xs text-muted-foreground">Project ID: {selectedProjectId}</div>
               </div>
             </div>
-          ) : forecastGrid.length === 0 ? (
+          ) : isEmptyState ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="text-center space-y-3">
+                <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-muted-foreground font-bold text-sm">🗂️</span>
+                </div>
+                <div className="text-muted-foreground">
+                  No forecast data available yet for {currentProject?.name || 'this project'}.
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Add allocations or rubros to start building the forecast.
+                </div>
+              </div>
+            </div>
+          ) : !hasGridData ? (
             <div className="flex items-center justify-center h-32">
               <div className="text-center space-y-3">
                 <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
