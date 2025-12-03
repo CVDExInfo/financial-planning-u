@@ -140,6 +140,7 @@ function mapDynamoError(
   tableKey: Parameters<typeof tableName>[0] = "prefacturas",
 ): APIGatewayProxyResultV2 {
   const name = (error as { name?: string } | undefined)?.name;
+  const message = (error as { message?: string } | undefined)?.message || "";
   const failureContext = { ...context, tableName: tableName(tableKey), error };
 
   if (name === "ResourceNotFoundException") {
@@ -150,6 +151,35 @@ function mapDynamoError(
     console.error("Access denied writing invoices", failureContext);
     return bad("Access denied writing invoices", 503);
   }
+  if (
+    name === "ValidationException" &&
+    /Requested resource not found|non-existent table/i.test(message)
+  ) {
+    console.error("Invoices table not found (validation)", failureContext);
+    return bad("Invoices table not found", 503);
+  }
+  if (
+    name &&
+    ["ThrottlingException", "ProvisionedThroughputExceededException"].includes(name)
+  ) {
+    console.warn("Invoices table throttled", failureContext);
+    return bad("Invoices storage temporarily unavailable", 503);
+  }
+}
+
+type CreateInvoicePayload = {
+  projectId?: string;
+  lineItemId?: string;
+  month?: number;
+  amount?: number;
+  description?: string;
+  vendor?: string;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  documentKey?: string;
+  originalName?: string;
+  contentType?: string;
+};
 
   console.error("Invoices Dynamo failure", failureContext);
   return serverError("Error interno en Finanzas");
