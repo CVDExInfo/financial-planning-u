@@ -391,7 +391,19 @@ export function SDMTChanges() {
       });
 
       setChangeRequests((prev) =>
-        prev.map((change) => (change.id === updated.id ? updated : change)),
+        prev.map((change) => {
+          if (change.id !== requestId) return change;
+
+          const fallbackStatus = action === "approve" ? "approved" : "rejected";
+          const safeUpdated = updated ?? change;
+
+          return {
+            ...change,
+            ...safeUpdated,
+            status: safeUpdated.status ?? fallbackStatus,
+            approvals: safeUpdated.approvals ?? change.approvals ?? [],
+          };
+        }),
       );
 
       toast.success(action === "approve" ? "Cambio aprobado" : "Cambio rechazado");
