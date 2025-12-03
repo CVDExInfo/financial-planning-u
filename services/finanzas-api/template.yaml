@@ -1324,6 +1324,15 @@ Resources:
               Ref: Api
             Auth:
               Authorizer: CognitoJwt
+        UpdateProjectChangeApproval:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/changes/{changeId}/approval
+            Method: POST
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
 
   Pep3Rule:
     Type: AWS::Events::Rule
