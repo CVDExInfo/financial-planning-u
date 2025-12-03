@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { postProjectRubros } from "../helpers/rubros";
+import { deleteProjectRubro, postProjectRubros } from "../helpers/rubros";
 
 type FetchCall = { url?: string; init?: RequestInit };
 
@@ -75,6 +75,31 @@ describe("addProjectRubro", () => {
     );
     assert.ok(!("rubroId" in body), "payload should not include rubroId key");
     assert.match(recordedCalls[0].url ?? "", /\/projects\/P-123\/rubros$/);
+  });
+});
+
+describe("deleteProjectRubro", () => {
+  it("calls DELETE on project rubro and falls back to catalog mount", async () => {
+    let callCount = 0;
+    (globalThis as any).fetch = async (url: string, init?: RequestInit) => {
+      recordedCalls.push({ url, init });
+      callCount += 1;
+      if (callCount === 1) {
+        return { ok: false, status: 404, text: async () => "" } as Response;
+      }
+      return { ok: true, status: 200, text: async () => "" } as Response;
+    };
+
+    await deleteProjectRubro(
+      "P-456",
+      "R-999",
+      { apiBase: "https://api.example.com", headers: {}, fetchImpl: (globalThis as any).fetch },
+    );
+
+    assert.equal(recordedCalls.length, 2);
+    assert.equal(recordedCalls[0].init?.method, "DELETE");
+    assert.match(recordedCalls[0].url ?? "", /\/projects\/P-456\/rubros\/R-999$/);
+    assert.match(recordedCalls[1].url ?? "", /\/projects\/P-456\/catalog\/rubros\/R-999$/);
   });
 });
 
