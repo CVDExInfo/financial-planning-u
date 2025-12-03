@@ -105,7 +105,9 @@ function parseCreatePayload(body: string | null): CreateInvoicePayload | null {
         : undefined,
       invoiceDate: parsed.invoiceDate
         ? String(parsed.invoiceDate).trim()
-        : undefined,
+        : parsed.invoice_date
+          ? String(parsed.invoice_date).trim()
+          : undefined,
       documentKey: parsed.documentKey
         ? String(parsed.documentKey).trim()
         : undefined,
