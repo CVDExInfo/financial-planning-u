@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ import { useProject } from "@/contexts/ProjectContext";
 import ApiService from "@/lib/api";
 import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import type { ChangeRequest as DomainChangeRequest } from "@/types/domain";
 import { toast } from "sonner";
 import ApprovalWorkflow from "./ApprovalWorkflow";
@@ -61,6 +63,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { FinanzasApiError } from "@/api/finanzas";
 
 const defaultForm = {
   title: "",
@@ -69,7 +72,7 @@ const defaultForm = {
   currency: "USD",
   baseline_id: "",
   justification: "",
-  affected_line_items: "",
+  affected_line_items: [] as string[],
 };
 
 type ChangeRequestForm = typeof defaultForm;
@@ -112,12 +115,13 @@ const formatRubroLabel = (item?: { category?: string; subtype?: string; descript
   const categoryLabel = subtype
     ? `${category ?? "General"} / ${subtype}`
     : category ?? "General";
-  return `${categoryLabel} — ${description}`;
+  return `Rubro — ${categoryLabel} — ${description}`;
 };
 
 export function SDMTChanges() {
   const { selectedProjectId, currentProject } = useProject();
   const { login } = useAuth();
+  const { canApprove } = usePermissions();
   const [changeRequests, setChangeRequests] = useState<DomainChangeRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,9 +130,35 @@ export function SDMTChanges() {
   const [workflowChange, setWorkflowChange] = useState<DomainChangeRequest | null>(null);
   const [isWorkflowDialogOpen, setIsWorkflowDialogOpen] = useState(false);
   const [form, setForm] = useState<ChangeRequestForm>(defaultForm);
-  const [submitting, setSubmitting] = useState(false);
   const [selectedLineItemIds, setSelectedLineItemIds] = useState<string[]>([]);
   const [lineItemSelectorOpen, setLineItemSelectorOpen] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+  const [pendingWorkflowAction, setPendingWorkflowAction] = useState<
+    "approve" | "reject" | null
+  >(null);
+
+  const resolveChangeError = useCallback(
+    (err: unknown, fallback: string) => {
+      if (err instanceof FinanzasApiError) {
+        if (err.status && err.status >= 400 && err.status < 500) {
+          return err.message || fallback;
+        }
+        if (err.status === 503) {
+          return "Change service temporarily unavailable. Please try again later.";
+        }
+        if (err.status && err.status >= 500) {
+          return "Error interno en Finanzas.";
+        }
+      }
+
+      return handleFinanzasApiError(err, {
+        onAuthError: () => login(),
+        fallback,
+      });
+    },
+    [login],
+  );
 
   const {
     lineItems,
@@ -163,10 +193,41 @@ export function SDMTChanges() {
     }
   }, [lineItemOptions.length, lineItems, selectedProjectId]);
 
-  const selectedLineItemLabels = useMemo(() => {
-    const labelMap = new Map(lineItemOptions.map((option) => [option.value, option.label]));
-    return selectedLineItemIds.map((id) => labelMap.get(id) || id);
-  }, [lineItemOptions, selectedLineItemIds]);
+  const lineItemLabelMap = useMemo(
+    () => new Map(lineItemOptions.map((option) => [option.value, option.label])),
+    [lineItemOptions],
+  );
+
+  const selectedLineItemLabels = useMemo(
+    () => selectedLineItemIds.map((id) => lineItemLabelMap.get(id) || id),
+    [lineItemLabelMap, selectedLineItemIds],
+  );
+
+  const computedFormErrors = useMemo(() => {
+    const errors: Record<string, string> = {};
+    const impact = Number(form.impact_amount);
+
+    if (!form.title.trim()) errors.title = "El título es obligatorio.";
+    if (!form.description.trim()) errors.description = "La descripción es obligatoria.";
+    if (!form.justification.trim()) errors.justification = "La justificación es obligatoria.";
+    if (Number.isNaN(impact) || impact <= 0)
+      errors.impact_amount = "El impacto debe ser un número mayor a 0.";
+    if (!form.currency) errors.currency = "Selecciona una moneda.";
+    if (selectedLineItemIds.length === 0)
+      errors.affected_line_items = "Selecciona al menos un rubro afectado.";
+
+    return errors;
+  }, [form.currency, form.description, form.impact_amount, form.justification, form.title, selectedLineItemIds.length]);
+
+  const isFormValid = useMemo(
+    () => Object.keys(computedFormErrors).length === 0,
+    [computedFormErrors],
+  );
+
+  const validateForm = useCallback(() => {
+    setFormErrors(computedFormErrors);
+    return Object.keys(computedFormErrors).length === 0;
+  }, [computedFormErrors]);
 
   const lineItemSelectorMessage = useMemo(() => {
     if (lineItemsLoading) return "Cargando rubros...";
@@ -176,6 +237,46 @@ export function SDMTChanges() {
     return null;
   }, [lineItemsError, lineItemsLoading, safeLineItems.length]);
 
+  const createChangeMutation = useMutation({
+    mutationFn: async (
+      payload: Pick<
+        DomainChangeRequest,
+        "baseline_id" | "title" | "description" | "impact_amount" | "currency" | "justification" | "affected_line_items"
+      >,
+    ) => {
+      if (!selectedProjectId) {
+        throw new FinanzasApiError(
+          "Selecciona un proyecto antes de crear un cambio.",
+        );
+      }
+
+      return ApiService.createChangeRequest(selectedProjectId, payload);
+    },
+  });
+
+  const approvalMutation = useMutation({
+    mutationFn: async ({
+      changeId,
+      action,
+      comment,
+    }: {
+      changeId: string;
+      action: "approve" | "reject";
+      comment?: string;
+    }) => {
+      if (!selectedProjectId) {
+        throw new FinanzasApiError(
+          "Selecciona un proyecto antes de aprobar o rechazar.",
+        );
+      }
+
+      return ApiService.updateChangeApproval(selectedProjectId, changeId, {
+        action,
+        comment,
+      });
+    },
+  });
+
   const loadChangeRequests = useCallback(async (projectId: string) => {
     try {
       setLoading(true);
@@ -183,16 +284,13 @@ export function SDMTChanges() {
       const data = await ApiService.getChangeRequests(projectId);
       setChangeRequests(data);
     } catch (err) {
-      const message = handleFinanzasApiError(err, {
-        onAuthError: () => login(),
-        fallback: "No pudimos cargar los cambios.",
-      });
+      const message = resolveChangeError(err, "No pudimos cargar los cambios.");
       setError(message);
       setChangeRequests([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [resolveChangeError]);
 
   useEffect(() => {
     if (!selectedProjectId) {
@@ -226,46 +324,35 @@ export function SDMTChanges() {
       return;
     }
 
-    const impact = Number(form.impact_amount);
-    if (!form.title.trim() || !form.description.trim() || Number.isNaN(impact)) {
-      setError("Título, descripción e impacto son obligatorios.");
-      return;
-    }
+    if (!validateForm()) return;
+
+    const payload = {
+      baseline_id: form.baseline_id.trim(),
+      title: form.title.trim(),
+      description: form.description.trim(),
+      impact_amount: Number(form.impact_amount),
+      currency: form.currency || currentProject?.currency || "USD",
+      justification: form.justification.trim(),
+      affected_line_items: selectedLineItemIds,
+    };
 
     try {
-      setSubmitting(true);
       setError(null);
-      const affectedLineItemsString = selectedLineItemIds.filter(Boolean).join(",");
-      const affectedLineItemsPayload = affectedLineItemsString
-        ? affectedLineItemsString.split(",")
-        : [];
-      await ApiService.createChangeRequest(selectedProjectId, {
-        baseline_id: form.baseline_id,
-        title: form.title.trim(),
-        description: form.description.trim(),
-        impact_amount: impact,
-        currency: form.currency || "USD",
-        justification: form.justification.trim(),
-        affected_line_items: affectedLineItemsPayload,
-        requested_by: "",
-        requested_at: "",
-        status: "pending",
-        approvals: [],
-      });
+      setApprovalError(null);
+      await createChangeMutation.mutateAsync(payload);
 
       setForm(defaultForm);
+      setFormErrors({});
       setSelectedLineItemIds([]);
       setCreateOpen(false);
-      toast.success("Cambio creado correctamente");
+      toast.success("Cambio creado y enviado a aprobación");
       await loadChangeRequests(selectedProjectId);
     } catch (err) {
-      const message = handleFinanzasApiError(err, {
-        onAuthError: () => login(),
-        fallback: "Error interno en Finanzas. Intenta nuevamente más tarde.",
-      });
+      const message = resolveChangeError(
+        err,
+        "Error interno en Finanzas. Intenta nuevamente más tarde.",
+      );
       setError(message);
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -289,38 +376,46 @@ export function SDMTChanges() {
     [changeRequests],
   );
 
-  const handleApprovalAction = (
+  const handleApprovalAction = async (
     requestId: string,
     action: "approve" | "reject",
     comments: string,
   ) => {
-    setChangeRequests((prev) =>
-      prev.map((change) => {
-        if (change.id !== requestId) return change;
+    const trimmedComment = comments.trim();
+    try {
+      setApprovalError(null);
+      const updated = await approvalMutation.mutateAsync({
+        changeId: requestId,
+        action,
+        comment: trimmedComment,
+      });
 
-        const decision = action === "approve" ? "approved" : "rejected";
-        const newApproval = {
-          id: `local-${Date.now()}`,
-          change_id: requestId,
-          approver_role: "approver",
-          approver_id: "",
-          decision,
-          comment: comments,
-          approved_at: new Date().toISOString(),
-        };
+      setChangeRequests((prev) =>
+        prev.map((change) => (change.id === updated.id ? updated : change)),
+      );
 
-        return {
-          ...change,
-          status: decision,
-          approvals: Array.isArray(change.approvals)
-            ? [...change.approvals, newApproval]
-            : [newApproval],
-        };
-      }),
-    );
+      toast.success(action === "approve" ? "Cambio aprobado" : "Cambio rechazado");
+      setIsWorkflowDialogOpen(false);
+      setWorkflowChange(null);
+    } catch (err) {
+      const message = resolveChangeError(
+        err,
+        "No pudimos actualizar la aprobación. Intenta nuevamente.",
+      );
+      setApprovalError(message);
+      throw new Error(message);
+    } finally {
+      setPendingWorkflowAction(null);
+    }
+  };
 
-    setIsWorkflowDialogOpen(false);
-    setWorkflowChange(null);
+  const handleWorkflowDialogChange = (open: boolean) => {
+    setIsWorkflowDialogOpen(open);
+    if (!open) {
+      setWorkflowChange(null);
+      setPendingWorkflowAction(null);
+      setApprovalError(null);
+    }
   };
 
   const mapChangeToWorkflow = (change: DomainChangeRequest) => {
@@ -470,63 +565,93 @@ export function SDMTChanges() {
                   </TableCell>
                 </TableRow>
               ) : (
-                changeRequests.map((change) => (
-                  <TableRow key={change.id}>
-                    <TableCell className="font-mono">{change.id}</TableCell>
-                    <TableCell className="font-medium">{change.title}</TableCell>
-                    <TableCell>
-                      <span
-                        className={
-                          Number(change.impact_amount) > 0 ? "text-red-600" : "text-green-600"
-                        }
-                      >
-                        {Number(change.impact_amount) > 0 ? "+" : ""}$
-                        {Number(change.impact_amount || 0).toLocaleString()}
-                      </span>
-                    </TableCell>
-                  <TableCell>
-                    <div
-                      className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${statusTone(
-                        change.status,
-                      )}`}
-                      >
-                        {statusIcon(change.status)}
-                        {change.status.charAt(0).toUpperCase() + change.status.slice(1)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {change.requested_by || "-"}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {change.requested_at
-                        ? new Date(change.requested_at).toLocaleDateString()
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedChange(change)}
+                changeRequests.map((change) => {
+                  const impactValue = Number(change.impact_amount || 0);
+
+                  return (
+                    <TableRow key={change.id}>
+                      <TableCell className="font-mono">{change.id}</TableCell>
+                      <TableCell className="font-medium">{change.title}</TableCell>
+                      <TableCell>
+                        <span
+                          className={impactValue > 0 ? "text-red-600" : "text-green-600"}
                         >
-                          <Eye size={14} className="mr-1" />
-                          View
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => {
-                            setWorkflowChange(change);
-                            setIsWorkflowDialogOpen(true);
-                          }}
+                          {impactValue > 0 ? "+" : ""}${impactValue.toLocaleString()}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div
+                          className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${statusTone(
+                            change.status,
+                          )}`}
                         >
-                          <Clock size={14} className="mr-1" />
-                          View Workflow
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                          {statusIcon(change.status)}
+                          {change.status.charAt(0).toUpperCase() + change.status.slice(1)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {change.requested_by || "-"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {change.requested_at
+                          ? new Date(change.requested_at).toLocaleDateString()
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedChange(change)}
+                          >
+                            <Eye size={14} className="mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              setWorkflowChange(change);
+                              setPendingWorkflowAction(null);
+                              setIsWorkflowDialogOpen(true);
+                            }}
+                          >
+                            <Clock size={14} className="mr-1" />
+                            View Workflow
+                          </Button>
+                          {canApprove && change.status === "pending" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setWorkflowChange(change);
+                                  setPendingWorkflowAction("approve");
+                                  setIsWorkflowDialogOpen(true);
+                                }}
+                              >
+                                <CheckCircle2 size={14} className="mr-1 text-green-600" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => {
+                                  setWorkflowChange(change);
+                                  setPendingWorkflowAction("reject");
+                                  setIsWorkflowDialogOpen(true);
+                                }}
+                              >
+                                <XCircle size={14} className="mr-1" />
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -548,6 +673,9 @@ export function SDMTChanges() {
                   value={form.title}
                   onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                 />
+                {formErrors.title && (
+                  <p className="text-sm text-destructive mt-1">{formErrors.title}</p>
+                )}
               </div>
               <div>
                 <Label htmlFor="baseline">Baseline ID (optional)</Label>
@@ -569,6 +697,9 @@ export function SDMTChanges() {
                   setForm((prev) => ({ ...prev, description: e.target.value }))
                 }
               />
+              {formErrors.description && (
+                <p className="text-sm text-destructive mt-1">{formErrors.description}</p>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -581,6 +712,11 @@ export function SDMTChanges() {
                     setForm((prev) => ({ ...prev, impact_amount: e.target.value }))
                   }
                 />
+                {formErrors.impact_amount && (
+                  <p className="text-sm text-destructive mt-1">
+                    {formErrors.impact_amount}
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="currency">Currency</Label>
@@ -601,6 +737,9 @@ export function SDMTChanges() {
                     ))}
                   </SelectContent>
                 </Select>
+                {formErrors.currency && (
+                  <p className="text-sm text-destructive mt-1">{formErrors.currency}</p>
+                )}
               </div>
               <div>
                 <Label htmlFor="justification">Justification</Label>
@@ -611,6 +750,11 @@ export function SDMTChanges() {
                     setForm((prev) => ({ ...prev, justification: e.target.value }))
                   }
                 />
+                {formErrors.justification && (
+                  <p className="text-sm text-destructive mt-1">
+                    {formErrors.justification}
+                  </p>
+                )}
               </div>
             </div>
             <div className="space-y-2">
@@ -678,6 +822,9 @@ export function SDMTChanges() {
               {lineItemSelectorMessage && (
                 <p className="text-sm text-muted-foreground">{lineItemSelectorMessage}</p>
               )}
+              {formErrors.affected_line_items && (
+                <p className="text-sm text-destructive">{formErrors.affected_line_items}</p>
+              )}
               {selectedLineItemLabels.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {selectedLineItemLabels.map((label, index) => (
@@ -689,11 +836,21 @@ export function SDMTChanges() {
               )}
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting}>
+              <Button
+                variant="outline"
+                onClick={() => setCreateOpen(false)}
+                disabled={createChangeMutation.isPending}
+              >
                 Cancel
               </Button>
-              <Button onClick={onSubmit} disabled={submitting}>
-                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Create
+              <Button
+                onClick={onSubmit}
+                disabled={!isFormValid || createChangeMutation.isPending}
+              >
+                {createChangeMutation.isPending && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                Create change request
               </Button>
             </div>
           </div>
@@ -764,7 +921,7 @@ export function SDMTChanges() {
                   <div className="flex flex-wrap gap-2 mt-1">
                     {selectedChange.affected_line_items.map((item) => (
                       <Badge key={item} variant="outline">
-                        {item}
+                        {lineItemLabelMap.get(item) || item}
                       </Badge>
                     ))}
                   </div>
@@ -775,7 +932,7 @@ export function SDMTChanges() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen}>
+      <Dialog open={isWorkflowDialogOpen} onOpenChange={handleWorkflowDialogChange}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Approval Workflow</DialogTitle>
@@ -783,10 +940,19 @@ export function SDMTChanges() {
               {workflowChange?.id || "Revisa el flujo de aprobación de este cambio."}
             </DialogDescription>
           </DialogHeader>
+          {approvalError && (
+            <Alert variant="destructive">
+              <AlertDescription>{approvalError}</AlertDescription>
+            </Alert>
+          )}
           {workflowChange && (
             <ApprovalWorkflow
               changeRequest={mapChangeToWorkflow(workflowChange)}
               onApprovalAction={handleApprovalAction}
+              canApprove={canApprove && workflowChange.status === "pending"}
+              isSubmitting={approvalMutation.isPending}
+              prefillAction={pendingWorkflowAction}
+              onCloseActionDialog={() => setPendingWorkflowAction(null)}
             />
           )}
         </DialogContent>

@@ -1175,6 +1175,10 @@ Resources:
         - DynamoDBReadPolicy:
             TableName:
               Ref: AdjustmentsTable
+        # Allow rubro queries when allocations are missing
+        - DynamoDBReadPolicy:
+            TableName:
+              Ref: RubrosTable
       Events:
         GetForecast:
           Type: HttpApi
@@ -1248,6 +1252,9 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName:
               Ref: PrefacturasTable
+        - DynamoDBReadPolicy:
+            TableName:
+              Ref: RubrosTable
       Events:
         GetProjectInvoices:
           Type: HttpApi
@@ -1312,6 +1319,15 @@ Resources:
           Type: HttpApi
           Properties:
             Path: /projects/{projectId}/changes
+            Method: POST
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        UpdateProjectChangeApproval:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/changes/{changeId}/approval
             Method: POST
             ApiId:
               Ref: Api
