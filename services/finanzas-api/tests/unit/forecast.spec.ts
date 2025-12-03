@@ -53,7 +53,9 @@ const baseEvent = (
 
 describe("forecast handler", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    dynamo.tableName.mockImplementation((name: string) => `${name}-table`);
+    dynamo.QueryCommand.mockImplementation((input) => ({ input }));
   });
 
   it("rejects requests without projectId", async () => {
@@ -95,7 +97,6 @@ describe("forecast handler", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ Items: [] })
       .mockResolvedValueOnce({
         Items: [
           {
@@ -181,5 +182,16 @@ describe("forecast handler", () => {
     expect(Array.isArray(payload.data)).toBe(true);
     expect(payload.data).toHaveLength(0);
     expect(payload.months).toBe(3);
+  });
+
+  it("returns 500 when DynamoDB queries fail", async () => {
+    dynamo.ddb.send.mockRejectedValueOnce(new Error("boom"));
+    dynamo.ddb.send.mockResolvedValue({ Items: [] });
+
+    const response = (await forecastHandler(baseEvent())) as ApiResult;
+
+    expect(response.statusCode).toBe(500);
+    const payload = JSON.parse(response.body);
+    expect(payload.error).toMatch(/Finanzas/i);
   });
 });
