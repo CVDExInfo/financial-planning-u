@@ -1265,6 +1265,15 @@ Resources:
               Ref: Api
             Auth:
               Authorizer: CognitoJwt
+        CreateProjectInvoice:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/invoices
+            Method: POST
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
         GetProjectInvoiceById:
           Type: HttpApi
           Properties:
@@ -1319,6 +1328,15 @@ Resources:
           Type: HttpApi
           Properties:
             Path: /projects/{projectId}/changes
+            Method: POST
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        UpdateProjectChangeApproval:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/changes/{changeId}/approval
             Method: POST
             ApiId:
               Ref: Api

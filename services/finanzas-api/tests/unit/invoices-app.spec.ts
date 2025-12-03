@@ -209,6 +209,29 @@ describe("InvoicesFn handler", () => {
     expect(JSON.parse(response.body).error).toMatch(/Invoices table not found/);
   });
 
+  it("maps Dynamo validation missing table errors to 503", async () => {
+    dynamo.ddb.send.mockRejectedValueOnce({
+      name: "ValidationException",
+      message: "Requested resource not found: Table: finz_prefacturas not found",
+    });
+
+    const response = (await invoicesHandler(
+      baseEvent({
+        routeKey: "POST /projects/{projectId}/invoices",
+        rawPath: "/projects/PROJ-1/invoices",
+        requestContext: {
+          ...baseEvent().requestContext,
+          http: { ...baseEvent().requestContext.http, method: "POST" },
+          routeKey: "POST /projects/{projectId}/invoices",
+        },
+        body: JSON.stringify({ projectId: "PROJ-1", lineItemId: "L-1", month: 1, amount: 10 }),
+      })
+    )) as ApiResult;
+
+    expect(response.statusCode).toBe(503);
+    expect(JSON.parse(response.body).error).toMatch(/Invoices table not found/);
+  });
+
   it("updates invoice status", async () => {
     dynamo.ddb.send.mockResolvedValueOnce({
       Attributes: {

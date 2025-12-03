@@ -942,6 +942,41 @@ export class ApiService {
     };
   }
 
+  static async updateChangeApproval(
+    project_id: string,
+    change_id: string,
+    data: { action: "approve" | "reject"; comment?: string },
+  ): Promise<ChangeRequest> {
+    const endpoint = `/projects/${project_id}/changes/${change_id}/approval`;
+    const payload = await this.request(endpoint, {
+      method: "POST",
+      headers: this.buildRequestHeaders(),
+      body: JSON.stringify(data),
+    });
+
+    return {
+      id: payload.id || payload.changeId || change_id,
+      baseline_id: payload.baseline_id || payload.baselineId || "",
+      title: payload.title || "",
+      description: payload.description || "",
+      impact_amount: Number(payload.impact_amount ?? payload.impactAmount ?? 0),
+      currency: payload.currency || "USD",
+      affected_line_items: Array.isArray(payload.affected_line_items)
+        ? payload.affected_line_items
+        : Array.isArray(payload.affectedLineItems)
+          ? payload.affectedLineItems
+          : [],
+      justification:
+        payload.justification || payload.businessJustification || payload.reason || "",
+      requested_by:
+        payload.requested_by || payload.requestedBy || payload.created_by || "",
+      requested_at:
+        payload.requested_at || payload.requestedAt || payload.created_at || new Date().toISOString(),
+      status: (payload.status as ChangeRequest["status"]) || "pending",
+      approvals: Array.isArray(payload.approvals) ? payload.approvals : [],
+    };
+  }
+
   // File Upload
   static async getSignedUploadUrl(
     filename: string

@@ -18,6 +18,7 @@ jest.mock("../../src/lib/auth", () => ({
 jest.mock("../../src/lib/dynamo", () => ({
   ddb: { send: jest.fn() },
   QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
+  GetCommand: jest.fn().mockImplementation((input) => ({ input })),
   PutCommand: jest.fn().mockImplementation((input) => ({ input })),
   tableName: jest.fn(() => "changes-table"),
 }));
@@ -28,6 +29,7 @@ const auth = jest.requireMock("../../src/lib/auth") as jest.Mocked<
 const dynamo = jest.requireMock("../../src/lib/dynamo") as {
   ddb: { send: jest.Mock };
   QueryCommand: jest.Mock;
+  GetCommand: jest.Mock;
   PutCommand: jest.Mock;
   tableName: jest.Mock;
 };
@@ -73,6 +75,28 @@ describe("changes handler", () => {
       requestContext: {
         ...template.requestContext,
         routeKey: "POST /projects/{projectId}/changes",
+        http: { ...template.requestContext.http, method: "POST" },
+      },
+    };
+  };
+
+  const toApprovalEvent = (
+    changeId: string,
+    body: string,
+  ): APIGatewayProxyEventV2 => {
+    const template = baseEvent({
+      routeKey: "POST /projects/{projectId}/changes/{changeId}/approval",
+      rawPath: `/projects/PROJ-1/changes/${changeId}/approval`,
+      pathParameters: { projectId: "PROJ-1", changeId },
+    });
+
+    return {
+      ...template,
+      routeKey: "POST /projects/{projectId}/changes/{changeId}/approval",
+      body,
+      requestContext: {
+        ...template.requestContext,
+        routeKey: "POST /projects/{projectId}/changes/{changeId}/approval",
         http: { ...template.requestContext.http, method: "POST" },
       },
     };
@@ -175,6 +199,65 @@ describe("changes handler", () => {
 
     expect(response.statusCode).toBe(409);
     expect(JSON.parse(response.body).error).toMatch(/already exists/i);
+    expect(auth.ensureCanWrite).toHaveBeenCalledTimes(1);
+  });
+
+  it("approves a change request", async () => {
+    dynamo.ddb.send
+      .mockResolvedValueOnce({ Item: { pk: "PROJECT#PROJ-1", sk: "CHANGE#CHG-1", id: "CHG-1" } })
+      .mockResolvedValueOnce({});
+
+    const response = (await handler(
+      toApprovalEvent(
+        "CHG-1",
+        JSON.stringify({ action: "approve", comment: "Looks good" }),
+      ),
+    )) as APIGatewayProxyStructuredResultV2;
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.status).toBe("approved");
+    expect(auth.ensureCanWrite).toHaveBeenCalledTimes(1);
+    expect(dynamo.GetCommand).toHaveBeenCalled();
+    expect(dynamo.PutCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ TableName: "changes-table" }),
+    );
+  });
+
+  it("rejects a change request with required comment", async () => {
+    dynamo.ddb.send
+      .mockResolvedValueOnce({ Item: { pk: "PROJECT#PROJ-1", sk: "CHANGE#CHG-2", id: "CHG-2" } })
+      .mockResolvedValueOnce({});
+
+    const response = (await handler(
+      toApprovalEvent(
+        "CHG-2",
+        JSON.stringify({ action: "reject", comment: "Missing budget" }),
+      ),
+    )) as APIGatewayProxyStructuredResultV2;
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).status).toBe("rejected");
+    expect(auth.ensureCanWrite).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns validation error for invalid approval payload", async () => {
+    const response = (await handler(
+      toApprovalEvent("CHG-3", JSON.stringify({ action: "reject" })),
+    )) as APIGatewayProxyStructuredResultV2;
+
+    expect(response.statusCode).toBe(422);
+    expect(auth.ensureCanWrite).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 404 for missing change on approval", async () => {
+    dynamo.ddb.send.mockResolvedValueOnce({ Item: undefined });
+
+    const response = (await handler(
+      toApprovalEvent("CHG-404", JSON.stringify({ action: "approve" })),
+    )) as APIGatewayProxyStructuredResultV2;
+
+    expect(response.statusCode).toBe(404);
     expect(auth.ensureCanWrite).toHaveBeenCalledTimes(1);
   });
 
