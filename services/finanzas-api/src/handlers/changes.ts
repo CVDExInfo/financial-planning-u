@@ -8,7 +8,13 @@ import { randomUUID } from "node:crypto";
 
 import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth.js";
 import { fromAuthError, ok, bad, serverError } from "../lib/http.js";
-import { ddb, PutCommand, QueryCommand, tableName } from "../lib/dynamo.js";
+import {
+  ddb,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  tableName,
+} from "../lib/dynamo.js";
 
 // Normalize "array-ish" inputs (string, string[], comma/newline-separated) into a string[]
 const normalizeArray = (value: unknown): string[] => {
@@ -97,6 +103,20 @@ async function listChanges(projectId: string) {
     }
     throw error;
   }
+}
+
+async function findChangeItem(projectId: string, changeId: string) {
+  const changesTable = tableName("changes");
+  const key = { pk: `PROJECT#${projectId}`, sk: `CHANGE#${changeId}` };
+
+  const result = await ddb.send(
+    new GetCommand({
+      TableName: changesTable,
+      Key: key,
+    }),
+  );
+
+  return result.Item as Record<string, unknown> | undefined;
 }
 
 async function createChange(
@@ -194,12 +214,107 @@ async function createChange(
   return ok(normalizeChange(item), 201);
 }
 
+async function approveOrRejectChange(
+  projectId: string,
+  changeId: string,
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  let payload: Record<string, unknown>;
+  try {
+    payload = event.body ? JSON.parse(event.body) : {};
+  } catch {
+    return bad("Invalid JSON body", 400);
+  }
+
+  const action = typeof payload.action === "string" ? payload.action : "";
+  const comment =
+    typeof payload.comment === "string" ? payload.comment.trim() : "";
+
+  if (action !== "approve" && action !== "reject") {
+    return bad("action must be either 'approve' or 'reject'", 400);
+  }
+
+  if (action === "reject" && !comment) {
+    return bad("comment is required when rejecting a change", 422);
+  }
+
+  const changesTable = tableName("changes");
+
+  let existingItem: Record<string, unknown> | undefined;
+  try {
+    existingItem = await findChangeItem(projectId, changeId);
+  } catch (error) {
+    if (error && (error as { name?: string }).name === "ResourceNotFoundException") {
+      console.error("Changes table not found", { table: changesTable, error });
+      return bad("Changes table not found for this environment", 500);
+    }
+    throw error;
+  }
+
+  if (!existingItem) {
+    return bad("Change request not found", 404);
+  }
+
+  const normalized = normalizeChange(existingItem);
+  const decision = action === "approve" ? "approved" : "rejected";
+  const approverId = (await getUserEmail(event as never)) || "";
+  const now = new Date().toISOString();
+
+  const approvals = Array.isArray(existingItem.approvals)
+    ? (existingItem.approvals as unknown[])
+    : [];
+
+  const newApproval = {
+    id: `APR-${Date.now()}-${randomUUID()}`,
+    change_id: normalized.id,
+    approver_role: "approver",
+    approver_id: approverId,
+    decision,
+    comment: comment || undefined,
+    approved_at: now,
+  };
+
+  const updatedItem = {
+    ...existingItem,
+    approvals: [...approvals, newApproval],
+    status: decision,
+    updated_at: now,
+    ...(decision === "approved"
+      ? { approved_at: now }
+      : { rejected_at: now }),
+  };
+
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: changesTable,
+        Item: updatedItem,
+        ConditionExpression: "attribute_exists(pk) AND attribute_exists(sk)",
+      }),
+    );
+  } catch (error) {
+    if (error && (error as { name?: string }).name === "ConditionalCheckFailedException") {
+      return bad("Change request not found", 404);
+    }
+
+    if (error && (error as { name?: string }).name === "ResourceNotFoundException") {
+      console.error("Changes table not found", { table: changesTable, error });
+      return bad("Changes table not found for this environment", 500);
+    }
+
+    throw error;
+  }
+
+  return ok(normalizeChange(updatedItem));
+}
+
 export async function handler(
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> {
   try {
     const method = event.requestContext?.http?.method ?? "";
     const projectId = event.pathParameters?.projectId;
+    const changeId = event.pathParameters?.changeId;
 
     if (!projectId) {
       return bad("Missing projectId", 400);
@@ -208,6 +323,11 @@ export async function handler(
     if (method === "GET") {
       await ensureCanRead(event as never);
       return listChanges(projectId);
+    }
+
+    if (method === "POST" && changeId && event.rawPath?.includes("/approval")) {
+      await ensureCanWrite(event as never);
+      return approveOrRejectChange(projectId, changeId, event);
     }
 
     if (method === "POST") {
