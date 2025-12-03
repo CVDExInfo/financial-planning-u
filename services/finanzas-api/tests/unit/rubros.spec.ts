@@ -329,6 +329,39 @@ describe("rubros handler", () => {
     expect(payload.data).toEqual([]);
   });
 
+  it("paginates the rubro attachment query", async () => {
+    dynamo.ddb.send.mockReset();
+
+    dynamo.ddb.send
+      .mockResolvedValueOnce({
+        Items: [
+          { projectId: "PROJ-1", rubroId: "R-1", sk: "RUBRO#R-1" },
+          { projectId: "PROJ-1", rubroId: "R-2", sk: "RUBRO#R-2" },
+        ],
+        LastEvaluatedKey: { pk: "PROJECT#PROJ-1", sk: "RUBRO#R-2" },
+      })
+      .mockResolvedValueOnce({
+        Items: [{ projectId: "PROJ-1", rubroId: "R-3", sk: "RUBRO#R-3" }],
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          "rubros-table": [
+            { codigo: "R-1", nombre: "Rubro 1" },
+            { codigo: "R-2", nombre: "Rubro 2" },
+            { codigo: "R-3", nombre: "Rubro 3" },
+          ],
+        },
+      });
+
+    const response = await rubrosHandler(baseEvent());
+    expect(response.statusCode).toBe(200);
+
+    expect(dynamo.QueryCommand).toHaveBeenCalledTimes(2);
+    const payload = JSON.parse(response.body as string);
+    expect(payload.data).toHaveLength(3);
+    expect(payload.total).toBe(3);
+  });
+
   it("chunks BatchGetCommand when more than 100 rubros attached", async () => {
     // Reset mocks specifically for this test
     dynamo.ddb.send.mockReset();

@@ -91,19 +91,38 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
     return bad("missing project id");
   }
 
-  // Query all rubros attached to this project
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: tableName("rubros"),
-      KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-      ExpressionAttributeValues: {
-        ":pk": `PROJECT#${projectId}`,
-        ":sk": "RUBRO#",
-      },
-    })
-  );
+  // Query all rubros attached to this project (paginate to avoid silently
+  // truncating the list when a project has >1MB of rubros)
+  let lastEvaluatedKey: Record<string, unknown> | undefined;
+  const attachments: ProjectRubroAttachment[] = [];
+  let safetyCounter = 0;
 
-  const attachments = (result.Items || []) as ProjectRubroAttachment[];
+  do {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: tableName("rubros"),
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+        ExpressionAttributeValues: {
+          ":pk": `PROJECT#${projectId}`,
+          ":sk": "RUBRO#",
+        },
+        ExclusiveStartKey: lastEvaluatedKey,
+      })
+    );
+
+    const pageItems = (result.Items || []) as ProjectRubroAttachment[];
+    attachments.push(...pageItems);
+    lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+
+    // Defensive break to avoid infinite loops if Dynamo keeps returning a LEK
+    safetyCounter += 1;
+    if (safetyCounter > 50) {
+      console.warn("Exceeded pagination safety limit while listing rubros", {
+        projectId,
+      });
+      break;
+    }
+  } while (lastEvaluatedKey);
   const rubroIds = Array.from(
     new Set(attachments.map((item) => toRubroId(item)).filter(Boolean)),
   );
