@@ -1265,6 +1265,15 @@ Resources:
               Ref: Api
             Auth:
               Authorizer: CognitoJwt
+        CreateProjectInvoice:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/invoices
+            Method: POST
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
         GetProjectInvoiceById:
           Type: HttpApi
           Properties:
