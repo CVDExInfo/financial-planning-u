@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ensureCanRead, ensureCanWrite } from "../lib/auth";
 import { ok, bad, serverError, fromAuthError } from "../lib/http";
 import { ddb, tableName, PutCommand, ScanCommand } from "../lib/dynamo";
+import { logError } from "../utils/logging";
 import crypto from "node:crypto";
 
 /**
@@ -250,7 +251,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         );
       } catch (ddbError) {
         const errorObj = ddbError as Error;
-        console.error("ProjectsFn put failed", {
+        logError("ProjectsFn put failed", {
           projectId: id,
           errorName: errorObj?.name,
           message: errorObj?.message,
@@ -287,14 +288,14 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       (error as { name?: string }).name === "AccessDeniedException";
 
     if (isDynamoAccessDenied) {
-      console.error("DynamoDB access denied", {
+      logError("DynamoDB access denied", {
         table: tableName("projects"),
         method: event.requestContext.http?.method,
       });
       return serverError();
     }
 
-    console.error("Error in projects handler", error);
+    logError("Error in projects handler", error);
     return serverError();
   }
 };

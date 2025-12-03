@@ -2,6 +2,7 @@ import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureCanRead } from "../lib/auth";
 import { ok, bad, serverError, fromAuthError } from "../lib/http";
 import { ddb, tableName, QueryCommand } from "../lib/dynamo";
+import { logError } from "../utils/logging";
 
 interface BillingPeriod {
   month: number;
@@ -123,7 +124,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       monthly_inflows,
     });
   } catch (error) {
-    console.error("Error generating billing plan:", error);
+    logError("Error generating billing plan:", error);
     return serverError(
       error instanceof Error ? error.message : "Failed to load billing plan"
     );

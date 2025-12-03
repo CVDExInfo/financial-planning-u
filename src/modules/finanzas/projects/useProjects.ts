@@ -57,10 +57,12 @@ function extractMessage(err: unknown): string {
 export function useProjects() {
   const [projects, setProjects] = useState<ProjectForUI[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setRefreshing(true);
     try {
       const response = await getProjects();
       const items = normalizeProjectsPayload(response);
@@ -83,6 +85,7 @@ export function useProjects() {
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -118,8 +121,8 @@ export function useProjects() {
   }, [load]);
 
   return useMemo(
-    () => ({ projects, loading, error, reload: load, create }),
-    [projects, loading, error, load, create],
+    () => ({ projects, loading, refreshing, error, reload: load, create }),
+    [projects, loading, refreshing, error, load, create],
   );
 }
 

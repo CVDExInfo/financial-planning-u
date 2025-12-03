@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { randomUUID, createHash } from "node:crypto";
 import { ddb, tableName, PutCommand, GetCommand } from "../lib/dynamo";
 import { ensureCanWrite, getUserEmail } from "../lib/auth";
+import { logError } from "../utils/logging";
 
 const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
   requestContext: {
@@ -256,7 +257,7 @@ export const createBaseline = async (
       }),
     };
   } catch (error) {
-    console.error("Error creating baseline:", error);
+    logError("Error creating baseline:", error);
     return {
       statusCode: 500,
       headers: {
@@ -346,7 +347,7 @@ export const getBaseline = async (
       body: JSON.stringify(projectResult.Item),
     };
   } catch (error) {
-    console.error("Error getting baseline:", error);
+    logError("Error getting baseline:", error);
     return {
       statusCode: 500,
       headers: {

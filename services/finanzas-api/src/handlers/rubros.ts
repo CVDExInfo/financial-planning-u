@@ -10,6 +10,7 @@ import {
   BatchGetCommand,
 } from "../lib/dynamo";
 import { ok, bad, notFound, serverError, fromAuthError } from "../lib/http";
+import { logError } from "../utils/logging";
 
 type ProjectRubroAttachment = {
   projectId?: string;
@@ -208,7 +209,7 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
   try {
     body = JSON.parse(event.body ?? "{}");
   } catch (error) {
-    console.error("attachRubros: invalid JSON", { projectId, raw: event.body, error });
+    logError("attachRubros: invalid JSON", { projectId, raw: event.body, error });
     return bad("Invalid JSON in request body");
   }
 
@@ -340,7 +341,7 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
         })
       );
     } catch (error) {
-      console.error("attachRubros: failed to persist rubro attachment", {
+      logError("attachRubros: failed to persist rubro attachment", {
         projectId,
         rubroId,
         attachment,
@@ -378,7 +379,7 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
           })
         );
       } catch (error) {
-        console.error("attachRubros: failed to mirror allocation", {
+        logError("attachRubros: failed to mirror allocation", {
           projectId,
           rubroId,
           monthValue,
@@ -416,7 +417,7 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
         })
       );
     } catch (error) {
-      console.error("attachRubros: failed to write audit log", {
+      logError("attachRubros: failed to write audit log", {
         projectId,
         rubroId,
         audit,
@@ -527,7 +528,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return authError;
     }
 
-    console.error("Rubros handler error:", err);
+    logError("Rubros handler error:", err);
     return serverError("Internal server error");
   }
 };

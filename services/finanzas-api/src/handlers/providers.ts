@@ -1,5 +1,6 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth";
+import { logError } from "../utils/logging";
 
 type Provider = {
   id: string;
@@ -129,7 +130,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       const e = err as { statusCode?: number; body?: string };
       return jsonResponse(e.statusCode || 500, { error: e.body || "error" });
     }
-    console.error("/providers unhandled error", err);
+    logError("/providers unhandled error", err);
     return jsonResponse(500, { error: "internal error" });
   }
 };

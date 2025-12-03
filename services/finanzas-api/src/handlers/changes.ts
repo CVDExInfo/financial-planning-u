@@ -8,13 +8,8 @@ import { randomUUID } from "node:crypto";
 
 import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth.js";
 import { fromAuthError, ok, bad, serverError } from "../lib/http.js";
-import {
-  ddb,
-  GetCommand,
-  PutCommand,
-  QueryCommand,
-  tableName,
-} from "../lib/dynamo.js";
+import { ddb, PutCommand, QueryCommand, GetCommand, tableName } from "../lib/dynamo.js";
+import { logError } from "../utils/logging.js";
 
 // Normalize "array-ish" inputs (string, string[], comma/newline-separated) into a string[]
 const normalizeArray = (value: unknown): string[] => {
@@ -98,7 +93,7 @@ async function listChanges(projectId: string) {
     return ok({ data, projectId, total: data.length });
   } catch (error) {
     if (error && (error as { name?: string }).name === "ResourceNotFoundException") {
-      console.error("Changes table not found", { table: changesTable, error });
+      logError("Changes table not found", { table: changesTable, error });
       return bad("Changes table not found for this environment", 500);
     }
     throw error;
@@ -204,7 +199,7 @@ async function createChange(
     }
 
     if (error && (error as { name?: string }).name === "ResourceNotFoundException") {
-      console.error("Changes table not found", { table: changesTable, error });
+      logError("Changes table not found", { table: changesTable, error });
       return bad("Changes table not found for this environment", 500);
     }
 
@@ -342,7 +337,7 @@ export async function handler(
 
     // Handle DynamoDB-specific errors with appropriate status codes
     if (error && (error as { name?: string }).name === "ResourceNotFoundException") {
-      console.error("DynamoDB table not found", {
+      logError("DynamoDB table not found", {
         error,
         table: tableName("changes"),
         operation: event.requestContext?.http?.method,
@@ -352,7 +347,7 @@ export async function handler(
     }
 
     if (error && (error as { name?: string }).name === "AccessDeniedException") {
-      console.error("DynamoDB access denied", {
+      logError("DynamoDB access denied", {
         error,
         table: tableName("changes"),
         operation: event.requestContext?.http?.method,
@@ -362,7 +357,7 @@ export async function handler(
 
     const message =
       error instanceof Error ? error.message : "Unexpected error";
-    console.error("Changes handler error", {
+    logError("Changes handler error", {
       error,
       stack: error instanceof Error ? error.stack : undefined,
       method: event.requestContext?.http?.method,
