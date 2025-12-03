@@ -679,7 +679,7 @@ Resources:
       SamResourceId: UploadDocumentFunction
     Properties:
       CodeUri: .
-      Handler: uploadDocs.handler
+      Handler: upload-docs.handler
       Policies:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:

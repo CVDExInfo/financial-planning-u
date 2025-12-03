@@ -339,7 +339,8 @@ export default function SDMTReconciliation() {
     if (
       !uploadFormData.file ||
       !uploadFormData.line_item_id ||
-      !uploadFormData.amount
+      !uploadFormData.amount ||
+      !uploadFormData.invoice_date
     ) {
       toast.error("Please fill in all required fields");
       return;
@@ -366,7 +367,7 @@ export default function SDMTReconciliation() {
         description: uploadFormData.description.trim() || undefined,
         vendor: uploadFormData.vendor.trim() || undefined,
         invoice_number: uploadFormData.invoice_number.trim() || undefined,
-        invoice_date: uploadFormData.invoice_date || undefined,
+        invoice_date: uploadFormData.invoice_date.trim() || undefined,
       });
     } catch (err) {
       // onError handler already surfaces messaging; this catch prevents unhandled rejections
@@ -750,7 +751,7 @@ export default function SDMTReconciliation() {
                 />
               </div>
               <div>
-                <Label htmlFor="invoice_date">Invoice Date</Label>
+                <Label htmlFor="invoice_date">Invoice Date *</Label>
                 <Input
                   id="invoice_date"
                   name="invoice_date"
