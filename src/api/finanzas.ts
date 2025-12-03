@@ -266,7 +266,6 @@ export async function uploadInvoice(
   });
   await uploadFileWithPresign(payload.file, presign);
 
-  const base = requireApiBase();
   const body = {
     projectId,
     lineItemId: payload.line_item_id,
@@ -278,13 +277,29 @@ export async function uploadInvoice(
       payload.invoice_number || `INV-${Date.now().toString(36).toUpperCase()}`,
     invoiceDate: payload.invoice_date,
     documentKey: presign.objectKey,
+    originalName: payload.file.name,
+    contentType: payload.file.type || "application/octet-stream",
   };
 
-  return fetchJson<InvoiceDTO>(`${base}/prefacturas`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...buildAuthHeader() },
-    body: JSON.stringify(body),
-  });
+  try {
+    const response = await httpClient.post<InvoiceDTO>(
+      `/projects/${encodeURIComponent(projectId)}/invoices`,
+      body,
+      { headers: buildAuthHeader() },
+    );
+    return response.data;
+  } catch (err) {
+    if (err instanceof HttpError && [404, 405].includes(err.status)) {
+      const base = requireApiBase();
+      return fetchJson<InvoiceDTO>(`${base}/prefacturas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...buildAuthHeader() },
+        body: JSON.stringify(body),
+      });
+    }
+
+    throw toFinanzasError(err, "Unable to upload invoice");
+  }
 }
 
 // Canonical uploadSupportingDocument - single, future-proof signature

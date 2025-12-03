@@ -263,14 +263,24 @@ export default function SDMTReconciliation() {
     mutationFn: (payload: UploadInvoicePayload & { projectId: string }) =>
       uploadInvoice(payload.projectId, payload),
     onSuccess: async () => {
-      toast.success("Invoice uploaded successfully");
+      toast.success("Invoice uploaded and linked");
+      setShowUploadForm(false);
       setUploadFormData(createInitialUploadForm());
       await invalidateInvoices();
     },
     onError: (err: unknown) => {
-      const message =
-        err instanceof Error ? err.message : "Failed to upload invoice";
+      let message = "Error interno en Finanzas.";
+      if (err instanceof FinanzasApiError) {
+        if (err.status === 503) {
+          message = "Invoice service temporarily unavailable. Please try again later.";
+        } else if (err.status && err.status >= 400 && err.status < 500) {
+          message = err.message || "No se pudo cargar la factura.";
+        }
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
       toast.error(message);
+      console.error("Invoice upload failed", { projectId, payload: uploadFormData, err });
     },
   });
 
@@ -345,17 +355,22 @@ export default function SDMTReconciliation() {
       return;
     }
 
-    await uploadMutation.mutateAsync({
-      projectId,
-      file: uploadFormData.file,
-      line_item_id: uploadFormData.line_item_id,
-      month: uploadFormData.month,
-      amount,
-      description: uploadFormData.description.trim() || undefined,
-      vendor: uploadFormData.vendor.trim() || undefined,
-      invoice_number: uploadFormData.invoice_number.trim() || undefined,
-      invoice_date: uploadFormData.invoice_date || undefined,
-    });
+    try {
+      await uploadMutation.mutateAsync({
+        projectId,
+        file: uploadFormData.file,
+        line_item_id: uploadFormData.line_item_id,
+        month: uploadFormData.month,
+        amount,
+        description: uploadFormData.description.trim() || undefined,
+        vendor: uploadFormData.vendor.trim() || undefined,
+        invoice_number: uploadFormData.invoice_number.trim() || undefined,
+        invoice_date: uploadFormData.invoice_date || undefined,
+      });
+    } catch (err) {
+      // onError handler already surfaces messaging; this catch prevents unhandled rejections
+      console.error("Upload invoice mutation rejected", err);
+    }
   };
 
   const handleStatusUpdate = async (
