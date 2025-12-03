@@ -249,6 +249,10 @@ async function createInvoice(
       : undefined;
 
   // Soft validation for rubro membership to avoid writing invoices to the wrong project
+  console.info("InvoicesFn validate line item", {
+    projectId,
+    lineItemId: payload.lineItemId,
+  });
   try {
     const rubro = await ddb.send(
       new GetCommand({
@@ -311,6 +315,15 @@ async function createInvoice(
   if (!payload.documentKey) {
     console.warn("Invoice created without documentKey", { projectId, invoiceId });
   }
+
+  console.info("InvoicesFn creating invoice", {
+    projectId,
+    lineItemId: payload.lineItemId,
+    invoiceId,
+    amount: payload.amount,
+    month: payload.month,
+    documentKey: payload.documentKey,
+  });
 
   try {
     await ddb.send(
@@ -399,12 +412,12 @@ async function updateStatus(
 export async function handler(
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> {
-  try {
-    const method = event.requestContext?.http?.method ?? "";
-    const rawPath = event.rawPath ?? "";
-    const projectId = event.pathParameters?.projectId;
-    const invoiceId = event.pathParameters?.invoiceId;
+  const method = event.requestContext?.http?.method ?? "";
+  const rawPath = event.rawPath ?? "";
+  const projectId = event.pathParameters?.projectId;
+  const invoiceId = event.pathParameters?.invoiceId;
 
+  try {
     if (!projectId) {
       return bad("Missing projectId", 400);
     }
@@ -449,7 +462,12 @@ export async function handler(
     if (authError) return authError;
 
     const message = error instanceof Error ? error.message : "Unexpected error";
-    console.error("InvoicesFn error", error);
+    console.error("InvoicesFn error", {
+      projectId,
+      rawPath,
+      method,
+      error,
+    });
     return serverError(message);
   }
 }

@@ -280,7 +280,8 @@ export default function SDMTReconciliation() {
         message = err.message;
       }
       toast.error(message);
-      console.error("Invoice upload failed", { projectId, payload: uploadFormData, err });
+      console.error("Invoice upload failed: Details below.");
+      console.error({ projectId, payload: uploadFormData, err });
     },
   });
 
