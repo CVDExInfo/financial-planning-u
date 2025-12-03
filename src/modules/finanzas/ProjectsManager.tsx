@@ -38,7 +38,7 @@ import ProjectDetailsPanel from "./projects/ProjectDetailsPanel";
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const { projects, loading, error, reload, create } = useProjects();
+  const { projects, loading, refreshing, error, reload, create } = useProjects();
   const pageSize = 10;
   const [page, setPage] = React.useState(0);
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(
@@ -46,6 +46,17 @@ export default function ProjectsManager() {
   );
   const [viewMode, setViewMode] = React.useState<"portfolio" | "project">(
     "portfolio",
+  );
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState<string>("all");
+  const [sortKey, setSortKey] = React.useState<"code" | "start_date" | "status">(
+    "code",
+  );
+  const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">(
+    "asc",
+  );
+  const [lastCreatedCode, setLastCreatedCode] = React.useState<string | null>(
+    null,
   );
   const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
@@ -60,15 +71,53 @@ export default function ProjectsManager() {
   const [modTotal, setModTotal] = React.useState("");
   const [description, setDescription] = React.useState("");
 
-  const totalPages = Math.max(1, Math.ceil(projects.length / pageSize));
+  const filteredProjects = React.useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return projects.filter((project) => {
+      const matchesTerm = term
+        ? [project.code, project.name, project.client].some((value) =>
+            value?.toLowerCase().includes(term),
+          )
+        : true;
+
+      const normalizedStatus = (project.status || "Desconocido").toLowerCase();
+      const matchesStatus =
+        statusFilter === "all"
+          ? true
+          : normalizedStatus === statusFilter.toLowerCase();
+
+      return matchesTerm && matchesStatus;
+    });
+  }, [projects, searchTerm, statusFilter]);
+
+  const sortedProjects = React.useMemo(() => {
+    const direction = sortDirection === "asc" ? 1 : -1;
+    const sorters: Record<typeof sortKey, (a: ProjectForUI, b: ProjectForUI) => number> = {
+      code: (a, b) => a.code.localeCompare(b.code),
+      start_date: (a, b) => {
+        const aDate = a.start_date ? new Date(a.start_date).getTime() : 0;
+        const bDate = b.start_date ? new Date(b.start_date).getTime() : 0;
+        return aDate - bDate;
+      },
+      status: (a, b) => (a.status || "").localeCompare(b.status || ""),
+    };
+
+    return [...filteredProjects].sort((a, b) => sorters[sortKey](a, b) * direction);
+  }, [filteredProjects, sortDirection, sortKey]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedProjects.length / pageSize));
 
   React.useEffect(() => {
     setPage((prev) => Math.min(prev, totalPages - 1));
-  }, [projects.length, totalPages]);
+  }, [sortedProjects.length, totalPages]);
+
+  React.useEffect(() => {
+    setPage(0);
+  }, [searchTerm, sortKey, sortDirection, statusFilter]);
 
   const selectedProject = React.useMemo(
-    () => projects.find((project) => project.id === selectedProjectId) || null,
-    [projects, selectedProjectId],
+    () => sortedProjects.find((project) => project.id === selectedProjectId) || null,
+    [sortedProjects, selectedProjectId],
   );
 
   const projectsForView = React.useMemo(() => {
@@ -76,13 +125,30 @@ export default function ProjectsManager() {
       return [selectedProject];
     }
 
-    return projects;
-  }, [projects, selectedProject, viewMode]);
+    return sortedProjects;
+  }, [sortedProjects, selectedProject, viewMode]);
 
   const visibleProjects = React.useMemo(
-    () => projects.slice(page * pageSize, page * pageSize + pageSize),
-    [projects, page, pageSize],
+    () =>
+      sortedProjects.slice(
+        page * pageSize,
+        page * pageSize + pageSize,
+      ),
+    [sortedProjects, page, pageSize],
   );
+
+  const statusOptions = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          projects
+            .map((project) => project.status || "Desconocido")
+            .filter(Boolean),
+        ),
+      ),
+    [projects],
+  );
+  const isRefreshingList = loading || refreshing;
 
   const statusChartData = React.useMemo(() => {
     const counts: Record<string, number> = {};
@@ -209,6 +275,12 @@ export default function ProjectsManager() {
 
       await create(validatedPayload);
 
+      setLastCreatedCode(validatedPayload.code);
+      setSearchTerm(validatedPayload.code);
+      setPage(0);
+      setSelectedProjectId(null);
+      setViewMode("portfolio");
+
       toast.success(`Proyecto "${validatedPayload.name}" creado exitosamente.`);
       setIsCreateDialogOpen(false);
 
@@ -242,11 +314,11 @@ export default function ProjectsManager() {
             <Button
               variant="outline"
               onClick={loadProjects}
-              disabled={loading}
+              disabled={isRefreshingList}
               className="gap-2"
             >
               <RefreshCcw className="h-4 w-4" />
-              {loading ? "Actualizando" : "Refrescar"}
+              {isRefreshingList ? "Actualizando" : "Refrescar"}
             </Button>
             {canCreateProject && (
               <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
@@ -257,6 +329,17 @@ export default function ProjectsManager() {
           </div>
         }
       />
+
+      {isRefreshingList && (
+        <div
+          className="flex items-center gap-2 text-sm text-muted-foreground"
+          aria-live="polite"
+          role="status"
+        >
+          <RefreshCcw className="h-4 w-4 animate-spin" />
+          <span>Actualizando lista de proyectos…</span>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex gap-2">
@@ -294,7 +377,70 @@ export default function ProjectsManager() {
             >
               Quitar selección
             </Button>
-          )}
+            )}
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3 md:items-end">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="projectSearch">Buscar proyecto</Label>
+          <Input
+            id="projectSearch"
+            name="projectSearch"
+            placeholder="Código, nombre o cliente"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            autoComplete="off"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="statusFilter">Estado</Label>
+          <Select
+            value={statusFilter}
+            onValueChange={(value) => setStatusFilter(value)}
+          >
+            <SelectTrigger id="statusFilter">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {statusOptions.map((status) => (
+                <SelectItem key={status} value={status.toLowerCase()}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="sortKey">Ordenar por</Label>
+          <div className="flex gap-2">
+            <Select
+              value={sortKey}
+              onValueChange={(value) => setSortKey(value as typeof sortKey)}
+            >
+              <SelectTrigger id="sortKey" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="code">Código</SelectItem>
+                <SelectItem value="start_date">Fecha de inicio</SelectItem>
+                <SelectItem value="status">Estado</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Cambiar orden"
+              onClick={() =>
+                setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
+              }
+            >
+              {sortDirection === "asc" ? "↑" : "↓"}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -371,11 +517,13 @@ export default function ProjectsManager() {
                             : null;
 
                         const isSelected = project.id === selectedProjectId;
+                        const isNewlyCreated =
+                          lastCreatedCode && project.code === lastCreatedCode;
 
                         return (
                           <tr
                             key={`${project.id}-${project.code}`}
-                            className={`border-b last:border-0 cursor-pointer transition-colors ${isSelected ? "bg-muted/60 border-l-4 border-primary" : "hover:bg-muted/40"}`}
+                            className={`border-b last:border-0 cursor-pointer transition-colors ${isSelected ? "bg-muted/60 border-l-4 border-primary" : "hover:bg-muted/40"} ${isNewlyCreated ? "bg-primary/10 ring-1 ring-primary/50" : ""}`}
                             onClick={() => setSelectedProjectId(project.id)}
                           >
                             <td className="py-2 pr-4 text-muted-foreground font-medium">
@@ -458,23 +606,27 @@ export default function ProjectsManager() {
                   <Label htmlFor="name">Nombre del Proyecto *</Label>
                   <Input
                     id="name"
+                    name="name"
                     placeholder="Ej: Mobile Banking App MVP"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
                     minLength={3}
                     maxLength={200}
+                    autoComplete="off"
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="code">Código *</Label>
                   <Input
                     id="code"
+                    name="code"
                     placeholder="PROJ-2025-001"
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                     required
                     pattern="PROJ-\d{4}-\d{3}"
+                    autoComplete="off"
                   />
                   <p className="text-xs text-muted-foreground">
                     Formato: PROJ-YYYY-NNN
@@ -486,12 +638,14 @@ export default function ProjectsManager() {
                 <Label htmlFor="client">Cliente *</Label>
                 <Input
                   id="client"
+                  name="client"
                   placeholder="Ej: Global Bank Corp"
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
                   required
                   minLength={2}
                   maxLength={200}
+                  autoComplete="organization"
                 />
               </div>
 
@@ -500,20 +654,24 @@ export default function ProjectsManager() {
                   <Label htmlFor="startDate">Fecha de Inicio *</Label>
                   <Input
                     id="startDate"
+                    name="startDate"
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                     required
+                    autoComplete="off"
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="endDate">Fecha de Fin *</Label>
                   <Input
                     id="endDate"
+                    name="endDate"
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     required
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -523,6 +681,7 @@ export default function ProjectsManager() {
                   <Label htmlFor="modTotal">Presupuesto Total (MOD) *</Label>
                   <Input
                     id="modTotal"
+                    name="modTotal"
                     type="number"
                     min="0"
                     step="0.01"
@@ -530,6 +689,7 @@ export default function ProjectsManager() {
                     value={modTotal}
                     onChange={(e) => setModTotal(e.target.value)}
                     required
+                    autoComplete="off"
                   />
                 </div>
                 <div className="grid gap-2">
@@ -544,6 +704,7 @@ export default function ProjectsManager() {
                       <SelectItem value="MXN">MXN</SelectItem>
                     </SelectContent>
                   </Select>
+                  <input type="hidden" name="currency" value={currency} />
                 </div>
               </div>
 
@@ -551,10 +712,12 @@ export default function ProjectsManager() {
                 <Label htmlFor="description">Descripción (opcional)</Label>
                 <Input
                   id="description"
+                  name="description"
                   placeholder="Descripción del proyecto..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   maxLength={1000}
+                  autoComplete="off"
                 />
               </div>
             </div>
