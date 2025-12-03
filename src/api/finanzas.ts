@@ -161,14 +161,20 @@ async function presignUpload(_: {
   module: UploadModule;
   lineItemId?: string;
   invoiceNumber?: string;
+  invoiceDate?: string;
+  vendor?: string;
+  amount?: number;
 }): Promise<PresignResponse> {
-  const { projectId, file, module, lineItemId, invoiceNumber } = _;
+  const { projectId, file, module, lineItemId, invoiceNumber, invoiceDate, vendor, amount } = _;
   const base = requireApiBase();
   const body = {
     projectId,
     module,
     lineItemId,
     invoiceNumber,
+    invoiceDate,
+    vendor,
+    amount,
     contentType: file.type || "application/octet-stream",
     originalName: file.name,
     checksumSha256: await sha256(file),
@@ -263,6 +269,9 @@ export async function uploadInvoice(
     module: options?.module ?? "reconciliation",
     lineItemId: payload.line_item_id,
     invoiceNumber: payload.invoice_number,
+    invoiceDate: payload.invoice_date,
+    vendor: payload.vendor,
+    amount: payload.amount,
   });
   await uploadFileWithPresign(payload.file, presign);
 
