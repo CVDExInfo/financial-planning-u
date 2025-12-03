@@ -184,6 +184,10 @@ function AppContent() {
                 path="/finanzas/sdmt/cost/catalog"
                 element={<Navigate to="/sdmt/cost/catalog" replace />}
               />
+              <Route
+                path="/finanzas/sdmt/cost/reconciliation"
+                element={<Navigate to="/sdmt/cost/reconciliation" replace />}
+              />
               <Route path="/sdmt/cost/catalog" element={<SDMTCatalog />} />
               <Route path="/sdmt/cost/forecast" element={<SDMTForecast />} />
               <Route
