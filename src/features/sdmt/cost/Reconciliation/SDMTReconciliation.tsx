@@ -341,6 +341,12 @@ export default function SDMTReconciliation() {
       return;
     }
 
+    const parsedInvoiceDate = Date.parse(uploadFormData.invoice_date);
+    if (Number.isNaN(parsedInvoiceDate)) {
+      toast.error("Enter a valid invoice date");
+      return;
+    }
+
     const vendorValue = uploadFormData.vendor.trim();
     if (!vendorValue) {
       toast.error("Vendor is required for reconciliation");
@@ -364,6 +370,10 @@ export default function SDMTReconciliation() {
     const amount = parseFloat(uploadFormData.amount);
     if (Number.isNaN(amount)) {
       toast.error("Enter a valid invoice amount");
+      return;
+    }
+    if (!(amount > 0)) {
+      toast.error("Invoice amount must be greater than zero");
       return;
     }
 
