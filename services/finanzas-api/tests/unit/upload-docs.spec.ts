@@ -173,15 +173,30 @@ describe("upload-docs handler", () => {
     expect(JSON.parse(response.body).error).toMatch(/Invalid JSON body/);
   });
 
-  it("returns server error when DynamoDB write fails", async () => {
+  it("returns 201 with warnings when DynamoDB write fails", async () => {
     dynamo.ddb.send.mockRejectedValue(new Error("ddb failure"));
 
     const response = (await uploadDocsHandler(
       baseEvent({ body: JSON.stringify(validBody) })
     )) as ApiResult;
 
+    expect(response.statusCode).toBe(201);
+    const payload = JSON.parse(response.body);
+    expect(payload.warnings).toEqual([
+      "Metadata not recorded in docs table: ddb failure",
+    ]);
+  });
+
+  it("returns server error when presign generation fails", async () => {
+    getSignedUrl.mockRejectedValueOnce(new Error("s3 error"));
+
+    const response = (await uploadDocsHandler(
+      baseEvent({ body: JSON.stringify(validBody) })
+    )) as ApiResult;
+
     expect(response.statusCode).toBe(500);
-    expect(JSON.parse(response.body).error).toContain("ddb failure");
+    expect(JSON.parse(response.body).error).toContain("Unable to generate upload URL");
+    expect(dynamo.ddb.send).not.toHaveBeenCalled();
   });
 
   it("requires reconciliation fields when module is reconciliation", async () => {
