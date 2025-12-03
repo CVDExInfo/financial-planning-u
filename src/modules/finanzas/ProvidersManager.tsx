@@ -3,7 +3,11 @@
  * - POST /providers → registrar proveedores
  */
 import React from "react";
-import finanzasClient, { type Provider, type ProviderCreate } from "@/api/finanzasClient";
+import finanzasClient, {
+  ProviderCreateSchema,
+  type Provider,
+  type ProviderCreate,
+} from "@/api/finanzasClient";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -102,7 +106,17 @@ export default function ProvidersManager() {
         notas: notas || undefined,
       };
 
-      await finanzasClient.createProvider(payload);
+      const validated = ProviderCreateSchema.safeParse(payload);
+
+      if (!validated.success) {
+        const errorMessage = validated.error.issues
+          .map((issue) => issue.message || issue.path.join("."))
+          .join("; ");
+        toast.error(errorMessage || "Datos inválidos. Verifica el formulario.");
+        return;
+      }
+
+      await finanzasClient.createProvider(validated.data);
 
       toast.success(`Proveedor "${nombre}" creado exitosamente`);
       setIsCreateDialogOpen(false);
