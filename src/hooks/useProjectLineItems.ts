@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getProjectRubros } from "@/api/finanzas";
 import { useProject } from "@/contexts/ProjectContext";
@@ -27,6 +27,16 @@ export function useProjectLineItems() {
   });
 
   const lineItems = useMemo(() => query.data ?? [], [query.data]);
+
+  useEffect(() => {
+    if (import.meta.env.DEV && projectId && Array.isArray(query.data)) {
+      console.info("[useProjectLineItems] loaded", {
+        projectId,
+        count: query.data.length,
+        ids: query.data.map((li) => li.id).filter(Boolean),
+      });
+    }
+  }, [projectId, query.data]);
 
   const invalidate = useCallback(async () => {
     if (!projectId) return;
