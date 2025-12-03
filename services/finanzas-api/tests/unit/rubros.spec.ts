@@ -172,6 +172,49 @@ describe("rubros handler", () => {
     );
   });
 
+  it("upserts an existing rubro when the same rubroId is provided", async () => {
+    auth.getUserEmail.mockResolvedValueOnce("user@example.com");
+    const postEvent = baseEvent({
+      requestContext: {
+        ...baseEvent().requestContext,
+        http: { ...baseEvent().requestContext.http, method: "POST" },
+      },
+      pathParameters: { projectId: "PROJ-1" },
+      body: JSON.stringify({
+        rubroIds: [
+          {
+            rubroId: "R-200",
+            qty: 5,
+            unitCost: 125,
+            duration: "M3-M5",
+            currency: "USD",
+            description: "Updated consulting",
+            type: "recurring",
+          },
+        ],
+      }),
+    });
+
+    const response = await rubrosHandler(postEvent);
+    expect(response.statusCode).toBe(200);
+
+    const calls = dynamo.ddb.send.mock.calls.map((call) => call[0].input);
+    const rubroPut = calls.find((call) => call?.TableName === "rubros-table");
+    expect(rubroPut?.Item).toEqual(
+      expect.objectContaining({
+        pk: "PROJECT#PROJ-1",
+        sk: "RUBRO#R-200",
+        rubroId: "R-200",
+        qty: 5,
+        unit_cost: 125,
+        start_month: 3,
+        end_month: 5,
+        total_cost: 1875,
+        description: "Updated consulting",
+      }),
+    );
+  });
+
   it("preserves shared payload fields when rubroIds is an array of strings", async () => {
     auth.getUserEmail.mockResolvedValueOnce("user@example.com");
     const postEvent = baseEvent({
@@ -258,6 +301,21 @@ describe("rubros handler", () => {
         expect.stringContaining("Allocation mirror failed for rubro R-500"),
       ]),
     );
+  });
+
+  it("returns 400 when no rubro identifiers are provided", async () => {
+    const postEvent = baseEvent({
+      requestContext: {
+        ...baseEvent().requestContext,
+        http: { ...baseEvent().requestContext.http, method: "POST" },
+      },
+      pathParameters: { projectId: "PROJ-1" },
+      body: JSON.stringify({ qty: 1, unitCost: 50 }),
+    });
+
+    const response = await rubrosHandler(postEvent);
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body as string).error).toContain("rubroIds");
   });
 
   it("filters attachments without a rubro id", async () => {

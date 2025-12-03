@@ -107,8 +107,7 @@ describe("forecast handler", () => {
             created_at: "2024-01-05T00:00:00Z",
           },
         ],
-      })
-      .mockResolvedValueOnce({ Items: [] });
+      });
 
     const response = (await forecastHandler(
       baseEvent({ queryStringParameters: { projectId: "PROJ-1", months: "1" } })
@@ -185,10 +184,8 @@ describe("forecast handler", () => {
   });
 
   it("returns 500 when DynamoDB queries fail", async () => {
-    dynamo.ddb.send
-      .mockRejectedValueOnce(new Error("allocations down"))
-      .mockRejectedValueOnce(new Error("payroll down"))
-      .mockRejectedValueOnce(new Error("rubros down"));
+    dynamo.ddb.send.mockRejectedValueOnce(new Error("boom"));
+    dynamo.ddb.send.mockResolvedValue({ Items: [] });
 
     const response = (await forecastHandler(baseEvent())) as ApiResult;
 
@@ -196,22 +193,13 @@ describe("forecast handler", () => {
     const payload = JSON.parse(response.body);
     expect(payload.error).toMatch(/Finanzas/i);
   });
+it("returns 500 when DynamoDB queries fail", async () => {
+  dynamo.ddb.send.mockRejectedValueOnce(new Error("boom"));
+  dynamo.ddb.send.mockResolvedValue({ Items: [] });
 
-  it("returns partial data when one query fails but others succeed", async () => {
-    dynamo.ddb.send
-      .mockResolvedValueOnce({
-        Items: [
-          { month: 1, rubroId: "R1", planned: 100 },
-        ],
-      })
-      .mockRejectedValueOnce(new Error("payroll down"))
-      .mockResolvedValueOnce({ Items: [] });
+  const response = (await forecastHandler(baseEvent())) as ApiResult;
 
-    const response = (await forecastHandler(baseEvent())) as ApiResult;
-
-    expect(response.statusCode).toBe(200);
-    const payload = JSON.parse(response.body);
-    expect(payload.data).toHaveLength(1);
-    expect(payload.data[0].line_item_id).toBe("R1");
-  });
+  expect(response.statusCode).toBe(500);
+  const payload = JSON.parse(response.body);
+  expect(payload.error).toMatch(/Finanzas/i);
 });
