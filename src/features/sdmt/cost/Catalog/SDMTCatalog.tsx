@@ -56,7 +56,7 @@ import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import { logger } from "@/utils/logger";
 import { cn } from "@/lib/utils";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
-import { addProjectRubro } from "@/api/finanzas";
+import { addProjectRubro, deleteProjectRubro } from "@/api/finanzas";
 import {
   uploadDocument,
   type DocumentUploadMeta,
@@ -98,6 +98,7 @@ export function SDMTCatalog() {
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [editingItem, setEditingItem] = useState<LineItem | null>(null);
   const [isCreatingLineItem, setIsCreatingLineItem] = useState(false);
+  const [isUpdatingLineItem, setIsUpdatingLineItem] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
   // Form state for Add/Edit Line Item dialog
@@ -401,10 +402,14 @@ export function SDMTCatalog() {
         rubroId,
         qty: formData.qty,
         unitCost: formData.unit_cost,
-        type: formData.recurring ? "Recurring" : "One-time",
+        type: formData.recurring ? "recurring" : "one-time",
         duration: formData.recurring
           ? `M${formData.start_month}-M${formData.end_month}`
           : `M${formData.start_month}`,
+        currency: formData.currency,
+        description: formData.description,
+        start_month: formData.start_month,
+        end_month: formData.end_month,
       });
 
       toast.success("Line item created");
@@ -450,6 +455,11 @@ export function SDMTCatalog() {
       return;
     }
 
+    if (!selectedProjectId) {
+      toast.error("Please select a project before saving");
+      return;
+    }
+
     // Merge form data with existing item to preserve all properties
     const updatedItem: LineItem = {
       ...editingItem,
@@ -466,27 +476,54 @@ export function SDMTCatalog() {
       updated_at: new Date().toISOString(),
     };
 
-    // Add to pending changes, preserving original for rollback
-    setPendingChanges((prev) => {
-      const updated = new Map(prev);
-      const existing = updated.get(editingItem.id);
-      updated.set(editingItem.id, {
-        type: "edit",
-        item: updatedItem,
-        originalItem: existing?.originalItem || editingItem, // Preserve original if already pending
-      });
-      return updated;
-    });
+    const duration = updatedItem.recurring
+      ? `M${updatedItem.start_month}-M${updatedItem.end_month}`
+      : `M${updatedItem.start_month}`;
 
-    // Update local state for immediate UI feedback
-    setLineItems((prev) =>
-      prev.map((item) => (item.id === editingItem.id ? updatedItem : item))
-    );
-    setSaveBarState("dirty");
-    toast.success("Line item modified (unsaved)");
-    setIsEditDialogOpen(false);
-    setEditingItem(null);
-    resetForm();
+    try {
+      setIsUpdatingLineItem(true);
+      const response = await addProjectRubro(selectedProjectId, {
+        rubroId: updatedItem.id,
+        qty: updatedItem.qty,
+        unitCost: updatedItem.unit_cost,
+        type: updatedItem.recurring ? "recurring" : "one-time",
+        duration,
+        currency: updatedItem.currency,
+        description: updatedItem.description,
+        start_month: updatedItem.start_month,
+        end_month: updatedItem.end_month,
+      });
+
+      const warnings = (response as any)?.warnings;
+      if (Array.isArray(warnings) && warnings.length) {
+        console.warn("Rubros edit returned warnings", warnings);
+      }
+
+      setLineItems((prev) =>
+        prev.map((item) => (item.id === editingItem.id ? updatedItem : item))
+      );
+      setPendingChanges((prev) => {
+        const updated = new Map(prev);
+        updated.delete(editingItem.id);
+        return updated;
+      });
+      setSaveBarState("idle");
+      toast.success("Line item updated");
+      setIsEditDialogOpen(false);
+      setEditingItem(null);
+      resetForm();
+      await invalidateLineItems();
+      invalidateProjectData();
+    } catch (error) {
+      logger.error("Failed to update line item:", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to update line item. Please try again.";
+      toast.error(message);
+    } finally {
+      setIsUpdatingLineItem(false);
+    }
   };
 
   const handleDeleteClick = async (item: LineItem) => {
@@ -518,6 +555,11 @@ export function SDMTCatalog() {
       return;
     }
 
+    if (!selectedProjectId) {
+      toast.error("Please select a project before saving changes");
+      return;
+    }
+
     try {
       setSaveBarState("saving");
       logger.info(`Saving ${pendingChanges.size} pending changes...`);
@@ -544,12 +586,24 @@ export function SDMTCatalog() {
               logger.warn(`Skipping edit of temporary item ${change.item.id}`);
               continue;
             }
-            await ApiService.updateLineItem(change.item.id, change.item);
+            await addProjectRubro(selectedProjectId, {
+              rubroId: change.item.id,
+              qty: change.item.qty,
+              unitCost: change.item.unit_cost,
+              type: change.item.recurring ? "recurring" : "one-time",
+              duration: change.item.recurring
+                ? `M${change.item.start_month}-M${change.item.end_month}`
+                : `M${change.item.start_month}`,
+              currency: change.item.currency,
+              description: change.item.description,
+              start_month: change.item.start_month,
+              end_month: change.item.end_month,
+            });
             successCount++;
           } else if (change.type === "delete") {
             // Delete the item (skip if it was a temp item that was never saved)
             if (!change.item.id.startsWith("temp-")) {
-              await ApiService.deleteLineItem(change.item.id);
+              await deleteProjectRubro(selectedProjectId, change.item.id);
               successCount++;
             } else {
               successCount++; // Count temp deletions as successful
@@ -1207,8 +1261,11 @@ export function SDMTCatalog() {
                       >
                         Cancel
                       </Button>
-                      <Button onClick={handleUpdateLineItem}>
-                        Update Line Item
+                      <Button
+                        onClick={handleUpdateLineItem}
+                        disabled={isUpdatingLineItem}
+                      >
+                        {isUpdatingLineItem ? "Saving..." : "Update Line Item"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>

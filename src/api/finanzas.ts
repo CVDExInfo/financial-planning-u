@@ -343,12 +343,21 @@ export async function addProjectRubro<T = Json>(
   const hasRubroIds = Array.isArray(payload.rubroIds) && payload.rubroIds.length > 0;
   const hasRubroId = typeof payload.rubroId === "string" && payload.rubroId.length > 0;
 
-  let wirePayload: Record<string, unknown> = { ...payload };
+  const { rubroIds, rubroId, ...sharedFields } = payload;
+  const rubroEntries: Array<Record<string, unknown>> = hasRubroIds
+    ? rubroIds.map((entry) =>
+        typeof entry === "string"
+          ? { ...sharedFields, rubroId: entry }
+          : { ...sharedFields, ...(entry as Record<string, unknown>) },
+      )
+    : hasRubroId
+      ? [{ ...sharedFields, rubroId }]
+      : [];
 
-  if (!hasRubroIds && hasRubroId) {
-    const { rubroId, ...rest } = payload;
-    wirePayload = { ...rest, rubroIds: [rubroId] };
-  }
+  const wirePayload: Record<string, unknown> = {
+    ...sharedFields,
+    rubroIds: rubroEntries.length > 0 ? rubroEntries : rubroIds,
+  };
 
   // The deployed API exposes /projects/{id}/rubros; keep a single fallback to
   // /catalog/rubros for legacy stacks that might still use that mount.
@@ -377,6 +386,31 @@ export async function addProjectRubro<T = Json>(
 
   const text = await res.text();
   return (text ? JSON.parse(text) : {}) as T;
+}
+
+export async function deleteProjectRubro(
+  projectId: string,
+  rubroId: string,
+): Promise<void> {
+  const base = requireApiBase();
+  const headers = { "Content-Type": "application/json", ...buildAuthHeader() };
+
+  const primary = `${base}/projects/${encodeURIComponent(
+    projectId,
+  )}/rubros/${encodeURIComponent(rubroId)}`;
+  let res = await fetch(primary, { method: "DELETE", headers });
+
+  if (res.status === 404 || res.status === 405) {
+    const fallback = `${base}/projects/${encodeURIComponent(
+      projectId,
+    )}/catalog/rubros/${encodeURIComponent(rubroId)}`;
+    res = await fetch(fallback, { method: "DELETE", headers });
+  }
+
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    throw new Error(`deleteProjectRubro failed (${res.status}): ${bodyText}`);
+  }
 }
 
 /* ──────────────────────────────────────────────────────────

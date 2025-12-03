@@ -14,6 +14,8 @@ export type AttachRubroOptions = {
   fetchImpl?: typeof fetch;
 };
 
+export type DetachRubroOptions = AttachRubroOptions;
+
 export function buildRubroPayload(input: AttachRubroInput) {
   const derivedIds = Array.isArray(input.rubroIds)
     ? input.rubroIds
@@ -26,7 +28,13 @@ export function buildRubroPayload(input: AttachRubroInput) {
   }
 
   return {
-    rubroIds: derivedIds,
+    rubroIds: derivedIds.map((id) => ({
+      rubroId: id,
+      qty: input.qty,
+      unitCost: input.unitCost,
+      type: input.type,
+      duration: input.duration,
+    })),
     qty: input.qty,
     unitCost: input.unitCost,
     type: input.type,
@@ -66,4 +74,33 @@ export async function postProjectRubros<T = Record<string, unknown>>(
 
   const text = await res.text();
   return (text ? JSON.parse(text) : {}) as T;
+}
+
+export async function deleteProjectRubro(
+  projectId: string,
+  rubroId: string,
+  options: DetachRubroOptions,
+): Promise<void> {
+  const fetcher = options.fetchImpl ?? fetch;
+  const headers = options.headers ?? { "Content-Type": "application/json" };
+
+  const primary = `${options.apiBase}/projects/${encodeURIComponent(
+    projectId,
+  )}/rubros/${encodeURIComponent(rubroId)}`;
+  let res = await fetcher(primary, {
+    method: "DELETE",
+    headers,
+  });
+
+  if (res.status === 404 || res.status === 405) {
+    const fallback = `${options.apiBase}/projects/${encodeURIComponent(
+      projectId,
+    )}/catalog/rubros/${encodeURIComponent(rubroId)}`;
+    res = await fetcher(fallback, { method: "DELETE", headers });
+  }
+
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    throw new Error(`deleteProjectRubro failed (${res.status}): ${bodyText}`);
+  }
 }
