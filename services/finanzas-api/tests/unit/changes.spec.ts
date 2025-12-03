@@ -269,7 +269,8 @@ describe("changes handler", () => {
     )) as APIGatewayProxyStructuredResultV2;
 
     expect(response.statusCode).toBe(500);
-    expect(JSON.parse(response.body).error).toMatch(/table not found/i);
+    const payload = JSON.parse(response.body as string);
+    expect(payload.error).toMatch(/table not found/i);
     expect(auth.ensureCanRead).toHaveBeenCalledTimes(1);
   });
 });
