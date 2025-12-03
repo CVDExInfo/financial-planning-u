@@ -7,6 +7,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { ok, bad, serverError, fromAuthError } from "../lib/http";
 import { ensureCanRead } from "../lib/auth";
 import { ddb, tableName, QueryCommand } from "../lib/dynamo";
+import { logError } from "../utils/logging";
 
 type ForecastItem = {
   line_item_id: string;
@@ -104,7 +105,7 @@ export const handler = async (
         ),
       ]);
     } catch (queryError) {
-      console.error("[forecast] failed to query data", {
+      logError("[forecast] failed to query data", {
         projectId,
         months,
         error: queryError,
@@ -261,7 +262,7 @@ export const handler = async (
       generated_at: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[forecast] unexpected error building forecast", {
+    logError("[forecast] unexpected error building forecast", {
       projectId,
       months,
       allocationsCount,

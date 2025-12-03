@@ -2,6 +2,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { ensureCanRead } from "../lib/auth";
 import { ok, bad, serverError } from "../lib/http";
 import { ddb, QueryCommand, tableName } from "../lib/dynamo";
+import { logError } from "../utils/logging";
 
 /**
  * GET /invoices?project_id=xxx
@@ -41,7 +42,7 @@ export const handler = async (
 
     return bad(`Method ${method} not allowed`, 405);
   } catch (error) {
-    console.error("Error in invoices handler:", error);
+    logError("Error in invoices handler:", error);
     return serverError(
       error instanceof Error ? error.message : "Internal server error"
     );

@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { ensureCanWrite, getUserEmail } from "../lib/auth";
 import { bad, ok, serverError } from "../lib/http";
 import { ddb, PutCommand, tableName } from "../lib/dynamo";
+import { logError } from "../utils/logging";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-2" });
 const DOCS_BUCKET = process.env.DOCS_BUCKET;
@@ -150,7 +151,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     try {
       uploadUrl = await getSignedUrl(s3, putCommand, { expiresIn: 600 });
     } catch (error) {
-      console.error("upload-docs presign failed", { ...logContext, error });
+      logError("upload-docs presign failed", { ...logContext, error });
       return serverError("Unable to generate upload URL");
     }
 
@@ -195,7 +196,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           name === "ResourceNotFoundException"
             ? "Docs table not found or not provisioned (TABLE_DOCS)"
             : "Access denied writing to docs table";
-        console.error("upload-docs metadata table failure", failureContext);
+        logError("upload-docs metadata table failure", failureContext);
         return bad(message, 503);
       }
 
@@ -204,7 +205,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           ? `Metadata not recorded in docs table: ${error.message}`
           : "Metadata not recorded in docs table";
       responseWarnings.push(warningMessage);
-      console.error("upload-docs metadata write failed", failureContext);
+      logError("upload-docs metadata write failed", failureContext);
     }
 
     const responseBody = {
@@ -219,7 +220,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     return ok(responseBody, 201);
   } catch (error) {
     const requestId = event.requestContext?.requestId;
-    console.error("upload-docs unexpected error", { requestId, error });
+    logError("upload-docs unexpected error", { requestId, error });
     return serverError("Failed to process document upload request");
   }
 };
