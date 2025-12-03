@@ -9,3 +9,13 @@ The rubros handler now:
 Read paths:
 - `GET /projects/{projectId}/rubros` and `GET /line-items?project_id=...` return the enriched rubro attachment (qty, unit_cost, total_cost, schedule) so the Catalog and dropdowns can compute totals.
 - `GET /plan/forecast` prefers allocations; if none exist yet, it falls back to deriving monthly amounts from rubro attachments so charts never drop to zero when a project only has catalog data.
+
+## Invoices → Recon/Actuals
+
+- `POST /projects/{projectId}/invoices` writes an invoice record into **prefacturas** with the shape
+  - `pk=PROJECT#{projectId}` / `sk=INVOICE#{invoiceId}`
+  - `lineItemId`, `month` (1–12), `amount` (>0), `vendor`, `description`, `invoiceNumber`, `invoiceDate`
+  - `documentKey`, `originalName`, `contentType` (linked to `finz_docs` presign upload)
+  - `status` (`Pending`/`Matched`/`Disputed`), `uploaded_by`, timestamps
+- A soft guard validates that the `lineItemId` exists in **rubros** for the same project before accepting an invoice.
+- Recon/Forecast “actuals” aggregate `prefacturas` amounts by `projectId + rubro + month`, so canonical rubro IDs stay aligned between Catalog, Changes, and Reconciliation.
