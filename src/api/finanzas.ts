@@ -294,7 +294,7 @@ async function uploadFileWithPresign(
   file: File,
   presign: PresignResponse,
 ): Promise<void> {
-  let rsp: Response;
+  let rsp: Response | undefined;
   try {
     rsp = await fetch(presign.uploadUrl, {
       method: "PUT",
@@ -309,13 +309,18 @@ async function uploadFileWithPresign(
     if (import.meta.env.DEV) {
       try {
         const origin = new URL(presign.uploadUrl).origin;
-        // Don't log full URL to avoid leaking credentials
-        console.error("[uploadFileWithPresign] Network error:", {
-          url: origin,
-          error,
+        console.error("[uploadFileWithPresign] S3 PUT failed", {
+          origin,
+          status: rsp?.status,
+          statusText: rsp?.statusText,
+          error: error instanceof Error ? error.message : String(error),
         });
       } catch {
-        console.error("[uploadFileWithPresign] Network error:", { error });
+        console.error("[uploadFileWithPresign] S3 PUT failed", {
+          status: rsp?.status,
+          statusText: rsp?.statusText,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
@@ -326,21 +331,22 @@ async function uploadFileWithPresign(
     if (import.meta.env.DEV) {
       try {
         const origin = new URL(presign.uploadUrl).origin;
-        console.error("[uploadFileWithPresign] S3 PUT failed:", {
-          url: origin,
+        console.error("[uploadFileWithPresign] S3 PUT failed", {
+          origin,
           status: rsp.status,
           statusText: rsp.statusText,
         });
       } catch {
-        console.error("[uploadFileWithPresign] S3 PUT failed:", {
+        console.error("[uploadFileWithPresign] S3 PUT failed", {
           status: rsp.status,
           statusText: rsp.statusText,
         });
       }
     }
 
+    const statusPart = rsp.status ? ` (status ${rsp.status})` : "";
     throw new FinanzasApiError(
-      `Failed uploading document to storage. Please check your connection and try again. (${rsp.status})`,
+      `Failed uploading document to storage${statusPart}.`,
       rsp.status,
     );
   }

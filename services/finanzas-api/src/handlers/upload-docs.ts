@@ -9,6 +9,7 @@ import { logError } from "../utils/logging";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-2" });
 const DOCS_BUCKET = process.env.DOCS_BUCKET;
+const isDevStage = process.env.STAGE_NAME === "dev";
 const ALLOWED_MODULES = new Set([
   "prefactura",
   "catalog",
@@ -199,6 +200,16 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
       logError("upload-docs presign failed", s3ErrorContext);
       return serverError("Unable to generate upload URL");
+    }
+
+    if (isDevStage) {
+      console.info("[upload-docs] presign generated", {
+        requestId,
+        bucket: DOCS_BUCKET,
+        objectKey,
+        module: moduleName,
+        projectId,
+      });
     }
 
     const createdAt = new Date().toISOString();
