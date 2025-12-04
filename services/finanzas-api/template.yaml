@@ -31,10 +31,6 @@ Parameters:
     Type: String
     Default: d7t9x3j66yd8k.cloudfront.net
     Description: CloudFront domain used for Finanzas UI (no protocol)
-  AdditionalUploadOrigin:
-    Type: String
-    Default: ""
-    Description: Optional additional allowed origin for docs uploads (e.g. alternate CloudFront domain)
   PolicyStoreId:
     Type: String
     Default: ''
@@ -45,11 +41,6 @@ Conditions:
     Fn::Not:
       - Fn::Equals:
           - Ref: PolicyStoreId
-          - ""
-  HasAdditionalUploadOrigin:
-    Fn::Not:
-      - Fn::Equals:
-          - Ref: AdditionalUploadOrigin
           - ""
 
 Globals:
@@ -114,42 +105,6 @@ Globals:
           Fn::Sub: https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
 
 Resources:
-  DocsBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName:
-        Ref: DocsBucketName
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      CorsConfiguration:
-        CorsRules:
-          - AllowedMethods:
-              - PUT
-              - GET
-              - HEAD
-            AllowedOrigins:
-              Fn::If:
-                - HasAdditionalUploadOrigin
-                - - Fn::Sub: https://${CloudFrontDomain}
-                  - Ref: AdditionalUploadOrigin
-                - - Fn::Sub: https://${CloudFrontDomain}
-            AllowedHeaders:
-              - "*"
-            ExposedHeaders:
-              - ETag
-              - x-amz-request-id
-              - x-amz-id-2
-            MaxAge: 300
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-
   ApiAccessLogs:
     Type: AWS::Logs::LogGroup
     Properties:
