@@ -93,3 +93,57 @@ The script will:
 4. Call `/catalog/rubros` and show HTTP status and any 401 diagnostics from access logs
 
 If you receive a 401, immediately check the access log line for `authorizerError`.
+
+## S3 CORS Configuration for Document Uploads
+
+The `DocsBucket` (ukusi-ui-finanzas-prod) is configured with CORS rules to allow browser-based uploads from the Finanzas UI CloudFront distribution. The CORS configuration in `template.yaml` allows:
+
+- **Methods**: PUT, GET, HEAD
+- **Origins**: CloudFront domain(s) specified via parameters
+- **Headers**: All headers (`*`)
+- **Exposed Headers**: ETag, x-amz-request-id, x-amz-id-2
+- **Max Age**: 300 seconds (5 minutes)
+
+### CloudFront Domain Configuration
+
+The `CloudFrontDomain` parameter (default: `d7t9x3j66yd8k.cloudfront.net`) must match the actual CloudFront distribution serving the Finanzas UI. If you have multiple CloudFront distributions or domains, use the `AdditionalUploadOrigin` parameter:
+
+```bash
+sam deploy ... --parameter-overrides \
+  CloudFrontDomain=d7t9x3j66yd8k.cloudfront.net \
+  AdditionalUploadOrigin=https://alternate.cloudfront.net
+```
+
+### Verifying CORS Configuration
+
+After deploying the stack, verify the S3 bucket CORS configuration:
+
+```bash
+aws s3api get-bucket-cors --bucket ukusi-ui-finanzas-prod
+```
+
+### Document Upload Health Check
+
+Use the health check script to validate the complete upload pipeline (API → presigned URL → S3 PUT):
+
+```bash
+export FINZ_API_BASE_URL=https://your-api-id.execute-api.us-east-2.amazonaws.com/dev
+export AUTH_TOKEN=your-cognito-id-token
+npm run check-upload-docs
+```
+
+Or run directly:
+
+```bash
+FINZ_API_BASE_URL=https://... AUTH_TOKEN=... npx ts-node scripts/check-upload-docs.ts
+```
+
+The script will:
+1. Request a presigned URL from `/uploads/docs`
+2. Attempt to PUT a test file to S3
+3. Report success or CORS/network errors
+
+If you see CORS errors (e.g., "Access-Control-Allow-Origin missing"), verify:
+- The CloudFormation stack has been deployed with the latest template.yaml
+- The `CloudFrontDomain` parameter matches your actual CloudFront domain
+- The S3 bucket CORS rules match the template configuration

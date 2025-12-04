@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -19,6 +19,7 @@ import {
   type JWTClaims,
 } from "@/lib/jwt";
 import { UserInfo, UserRole } from "@/types/domain";
+import { queryClient } from "@/lib/queryClient";
 
 export type AuthSession = {
   idToken: string | null;
@@ -176,6 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [routeConfigMissing, setRouteConfigMissing] = useState(false);
   const [groupClaims, setGroupClaims] = useState<string[]>([]);
+  const isLoggingOutRef = useRef(false);
   const location = useLocation();
 
   const roles = useMemo(
@@ -435,7 +437,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   function logout() {
+    if (isLoggingOutRef.current) return;
+    isLoggingOutRef.current = true;
+
     clearLocalTokens();
+    queryClient.clear();
     setUser(null);
     setGroups([]);
     setIdToken(null);
