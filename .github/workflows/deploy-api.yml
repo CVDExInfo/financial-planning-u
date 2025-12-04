@@ -176,6 +176,7 @@ jobs:
               CognitoUserPoolClientId=${{ env.COGNITO_WEB_CLIENT }} \
               StageName=${FINZ_API_STAGE} \
               TablePrefix=finz_ \
+              DocsBucketName=ukusi-ui-finanzas-prod \
               PolicyStoreId="${POLICY_STORE_ID:-}" \
             || {
               echo "❌ sam deploy failed, fetching recent CloudFormation events..."

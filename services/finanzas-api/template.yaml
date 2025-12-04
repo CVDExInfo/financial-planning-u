@@ -135,11 +135,11 @@ Resources:
               - GET
               - HEAD
             AllowedOrigins:
-              - Fn::Sub: https://${CloudFrontDomain}
-              - Fn::If:
-                  - HasAdditionalUploadOrigin
+              Fn::If:
+                - HasAdditionalUploadOrigin
+                - - Fn::Sub: https://${CloudFrontDomain}
                   - Ref: AdditionalUploadOrigin
-                  - Ref: AWS::NoValue
+                - - Fn::Sub: https://${CloudFrontDomain}
             AllowedHeaders:
               - "*"
             ExposedHeaders:
