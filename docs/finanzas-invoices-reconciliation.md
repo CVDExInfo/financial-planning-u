@@ -36,19 +36,25 @@ Enable Ikusi finance / SDMT teams to match real vendor invoices against forecast
 - `invoice_id`  
   - Generated server-side. Today uses an `INV-…` style identifier (e.g. `INV-<short-uuid>`).  
   - **Action item:** migrate to the data-dictionary pattern `inv_[a-z0-9]{10}` when stable.
+
 - `project_id`  
   - Required; must match the `{projectId}` path parameter.  
   - UI enforces project selection via `ProjectContext`.
+
 - `invoice_number`  
   - Required in the UI; stored as `invoice_number` (vendor reference).  
   - In earlier versions the backend could fall back to `INV-<timestamp>` if missing; UI now always supplies it, so fallback can be removed or left as defensive behavior.
+
 - `amount`  
   - Stored as numeric; UI validates `> 0`.
+
 - `invoice_date`  
   - Accepted as `YYYY-MM-DD`; stored as ISO timestamp (`2025-11-01T00:00:00.000Z`) after parsing.
+
 - `currency`  
   - **Not yet persisted**; UI formats with a default currency (usually `USD` or project currency).  
   - **Action item:** add `currency` to the table + payload.
+
 - `forecast_id`  
   - **Not yet persisted.** Matching today is based on `line_item_id` + `month`.  
   - **Action item:** introduce `forecast_id` once `FORECAST_ALLOCATION` is finalized.
@@ -57,7 +63,7 @@ Enable Ikusi finance / SDMT teams to match real vendor invoices against forecast
 
 - **PROJECT**
   - Reconciliation is scoped to a single project (`selectedProjectId`).  
-  - In Dynamo, invoices live under a project-centric partition (`pk` pattern `PROJECT#<projectId>` or equivalent), in the **invoices table** (exact table name is environment-specific).
+  - In Dynamo, invoices live under a project-centric partition (`pk` pattern `PROJECT#<projectId>` or equivalent), in the **invoices/prefacturas table** (exact table name is environment-specific).
 
 - **FORECAST_ALLOCATION** (plan vs real)
   - For each `(project_id, rubro_id, month)` there is (or will be) a forecast allocation row.  
@@ -105,64 +111,66 @@ Enable Ikusi finance / SDMT teams to match real vendor invoices against forecast
 
   ```text
   docs/{projectId}/{module}/{contextPart}-{random}-{safeFilename}
-
+````
 
 Where:
 
-module = "reconciliation" for this flow (other modules: prefactura, catalog, changes).
+* `module` = `"reconciliation"` for this flow (other modules: `prefactura`, `catalog`, `changes`).
+* `contextPart` prefers `lineItemId`, else `invoiceNumber`, else a timestamp.
+* `safeFilename` is the original file name normalized by replacing disallowed chars (e.g., `[^A-Za-z0-9._-]` → `_`).
 
-contextPart prefers lineItemId, else invoiceNumber, else a timestamp.
+### 3.2 Flow
 
-safeFilename is the original file name normalized by replacing disallowed chars (e.g., [^A-Za-z0-9._-] → _).
+1. UI calls **`POST /uploads/docs`** with:
 
-3.2 Flow
+   ```json
+   {
+     "projectId": "PROJ-123",
+     "module": "reconciliation",
+     "lineItemId": "RUBRO-1",
+     "invoiceNumber": "FAC-9981",
+     "invoiceDate": "2025-11-01",
+     "vendor": "Ikusi Vendor",
+     "amount": 12500,
+     "contentType": "application/pdf",
+     "originalName": "invoice-nov.pdf"
+   }
+   ```
 
-UI calls POST /uploads/docs with:
+2. Upload Lambda (`upload-docs.ts`):
 
-{
-  "projectId": "PROJ-123",
-  "module": "reconciliation",
-  "lineItemId": "RUBRO-1",
-  "invoiceNumber": "FAC-9981",
-  "invoiceDate": "2025-11-01",
-  "vendor": "Ikusi Vendor",
-  "amount": 12500,
-  "contentType": "image/png | application/pdf | …",
-  "originalName": "invoice-nov.png"
-}
+   * Validates required fields per module (`projectId`, `module`, basic file metadata; for reconciliation also `lineItemId`, `amount > 0`, valid `invoiceDate`, `vendor`).
+   * Computes `objectKey` under `docs/{projectId}/reconciliation/...`.
+   * Persists a metadata record in the docs table (project, module, `documentId`, `objectKey`, etc.).
+   * Returns:
 
+     ```json
+     {
+       "uploadUrl": "https://ukusi-ui-finanzas-prod.s3.us-east-2.amazonaws.com/...",
+       "objectKey": "docs/PROJ-123/reconciliation/RUBRO-1-ab12-invoice-nov.pdf",
+       "documentId": "DOC-ab12",
+       "bucket": "ukusi-ui-finanzas-prod",
+       "metadata": { "...": "..." },
+       "warnings": []
+     }
+     ```
 
-Upload Lambda:
+3. Browser performs a **direct PUT** to S3:
 
-Validates required fields per module (projectId, module, basic file metadata; for reconciliation also lineItemId, amount > 0, valid invoiceDate, vendor).
+   ```http
+   PUT {uploadUrl}
+   Content-Type: <file.type>
 
-Computes objectKey under docs/{projectId}/reconciliation/....
+   <file bytes>
+   ```
 
-Persists a metadata record in the docs table (project, module, documentId, objectKey, etc.).
+4. On success, the UI then calls `POST /projects/{projectId}/invoices` (see below) with the `documentKey` and other invoice details.
 
-Returns:
+### 3.3 CORS requirements (confirmed)
 
-{
-  "uploadUrl": "https://ukusi-ui-finanzas-prod.s3.us-east-2.amazonaws.com/...",
-  "objectKey": "docs/PROJ-123/reconciliation/RUBRO-1-ab12-invoice-nov.png",
-  "documentId": "DOC-ab12"
-}
+On `ukusi-ui-finanzas-prod` we configured:
 
-
-Browser performs a direct PUT to S3:
-
-PUT {uploadUrl}
-Content-Type: <file.type>
-
-<file bytes>
-
-
-On success, the UI then calls POST /projects/{projectId}/invoices (see below) with the documentKey and other invoice details.
-
-3.3 CORS requirements (confirmed)
-
-On ukusi-ui-finanzas-prod we configured:
-
+```json
 [
   {
     "AllowedOrigins": [
@@ -174,25 +182,27 @@ On ukusi-ui-finanzas-prod we configured:
     "MaxAgeSeconds": 300
   }
 ]
+```
 
+This is the **minimal, working configuration**:
 
-This is the minimal, working configuration:
+* Allows the Finanzas CloudFront origin to PUT objects.
+* Lets the browser read basic headers (`ETag`).
+* Has been validated end-to-end by successfully uploading invoices from the Reconciliation screen.
 
-Allows the Finanzas CloudFront origin to PUT objects.
+---
 
-Lets the browser read the basic headers it needs (ETag etc.).
+## 4. API Contracts
 
-Was validated end-to-end by successfully uploading invoices from the Reconciliation screen.
+### 4.1 Presign upload (documents)
 
-4. API Contracts
-4.1 Presign upload (documents)
+**Method / URL**
 
-Method / URL
+* `POST /uploads/docs`
 
-POST /uploads/docs
+**Request (Reconciliation)**
 
-Request (Reconciliation)
-
+```json
 {
   "projectId": "PROJ-123",
   "module": "reconciliation",
@@ -204,37 +214,43 @@ Request (Reconciliation)
   "contentType": "application/pdf",
   "originalName": "invoice-nov.pdf"
 }
+```
 
+**Response 201**
 
-Response 201
-
+```json
 {
   "uploadUrl": "https://ukusi-ui-finanzas-prod.s3.us-east-2.amazonaws.com/...",
   "objectKey": "docs/PROJ-123/reconciliation/RUBRO-1-ab12-invoice-nov.pdf",
-  "documentId": "DOC-ab12"
+  "documentId": "DOC-ab12",
+  "bucket": "ukusi-ui-finanzas-prod",
+  "metadata": { "...": "..." },
+  "warnings": []
 }
+```
 
+**Validation & error behavior**
 
-Validation & error behavior
+* Validates `projectId`, `module`, `contentType`, `originalName`.
+* For `module = "reconciliation"` also validates `lineItemId`, `amount > 0`, and `invoiceDate`.
+* On failure:
 
-Validates projectId, module, contentType, originalName.
+  * 400 for missing/invalid fields.
+  * 5xx for internal errors (S3, Dynamo, etc.), mapped via shared `FinanzasApiError` handler.
 
-For module = "reconciliation" also validates lineItemId, amount > 0, and invoiceDate.
+---
 
-On failure:
+### 4.2 Create invoice (main reconciliation API)
 
-400 for missing/invalid fields.
+> **Note:** the create/update logic lives in the reconciliation backend (not in `invoices.ts`, which is a read-only alias). The UI interacts with it via `POST /projects/{projectId}/invoices` and status-update actions.
 
-5xx for internal errors (S3, Dynamo, etc.), mapped via shared FinanzasApiError handler.
+**Method / URL**
 
-4.2 Create invoice
+* `POST /projects/{projectId}/invoices`
 
-Method / URL
+**Request body (current implementation)**
 
-POST /projects/{projectId}/invoices
-
-Request body (current implementation)
-
+```json
 {
   "projectId": "PROJ-123",
   "lineItemId": "RUBRO-1",
@@ -248,34 +264,27 @@ Request body (current implementation)
   "originalName": "invoice-nov.pdf",
   "contentType": "application/pdf"
 }
+```
 
+**Behavior**
 
-Behavior
+* Validates:
 
-Validates:
+  * `projectId` in body matches `{projectId}` in path.
+  * `lineItemId` belongs to the selected project / catalog.
+  * `month` ∈ [1, 12].
+  * `amount > 0`.
+  * `invoiceDate` parses to a valid date (if present).
+* Generates `invoiceId` (currently `INV-…`) and sets:
 
-projectId in body matches {projectId} in path.
+  * `status = "Pending"`.
+  * `uploaded_by` from Cognito user.
+  * `uploaded_at` timestamp.
+* Persists invoice in the invoices/prefacturas table under the project partition.
 
-lineItemId belongs to the selected project / catalog.
+**Response 201**
 
-month ∈ [1, 12].
-
-amount > 0.
-
-invoiceDate parses to a valid date (if present).
-
-Generates invoiceId (currently INV-…) and sets:
-
-status = "Pending".
-
-uploaded_by from Cognito user.
-
-uploaded_at timestamp.
-
-Persists invoice in the invoices table under the project partition.
-
-Response 201
-
+```json
 {
   "id": "INV-ab12",
   "project_id": "PROJ-123",
@@ -292,184 +301,197 @@ Response 201
   "uploaded_by": "user@example.com",
   "uploaded_at": "2025-12-04T01:26:33.000Z"
 }
+```
 
-4.3 Status update (design target)
+---
 
-Note: as of this document, status updates are handled via the existing reconciliation UI actions and backend methods; a dedicated REST endpoint is a design goal, not confirmed in production.
+### 4.3 Status update (design target)
 
-Proposed contract
+> **Note:** as of this document, status updates are handled via the existing reconciliation backend endpoints; a dedicated REST endpoint is a **design goal**, not confirmed in production.
 
-PUT /projects/{projectId}/invoices/{invoiceId}/status
+**Proposed contract**
+
+* `PUT /projects/{projectId}/invoices/{invoiceId}/status`
 
 Request:
 
+```json
 {
   "status": "Matched",
   "comment": "Validated against November forecast"
 }
-
+```
 
 Behavior:
 
-Validate {projectId} and {invoiceId} exist and belong together.
+* Validate `{projectId}` and `{invoiceId}` exist and belong together.
+* `status ∈ { "Pending", "Matched", "Disputed" }`.
+* Persist new status + optional comment and `updated_at`.
 
-status ∈ { "Pending", "Matched", "Disputed" }.
+---
 
-Persist new status + optional comment and updated_at.
+### 4.4 GET /invoices alias (read-only)
 
-5. UI Flow (SDMT Reconciliation)
+Handler: **`invoices.ts`**
 
-Select Project
+**Method / URL**
 
-User chooses a project from the global project selector.
+* `GET /invoices?project_id={projectId}`
 
-All reconciliation queries use selectedProjectId.
+**Purpose**
 
-Open Reconciliation
+* Provide a **read-only alias** to fetch invoices/prefacturas for a project, primarily for frontend compatibility and legacy integrations.
+* Internally, this queries the same underlying table used by the reconciliation module.
 
-Route: /finanzas/sdmt/cost/reconciliation (exact path per router config).
+**Behavior**
 
-Screen loads:
+* Requires `project_id` query string parameter; otherwise returns `400`.
+* Enforces read access via `ensureCanRead`.
+* Queries the invoices/prefacturas table by project partition and returns:
 
-Summary tiles: Matched, Pending Review, Disputed Items.
+```json
+{
+  "data": [ /* invoice rows */ ],
+  "projectId": "PROJ-123",
+  "total": 3
+}
+```
 
-Invoices grid for the selected project and period.
+* Returns `200` with an empty array if no invoices are found.
+* Returns `500` with a generic error message if DynamoDB or auth handling fails.
 
-Upload Invoice
+---
 
-Click “Upload Invoice”.
+## 5. UI Flow (SDMT Reconciliation)
 
-Modal fields:
+1. **Select Project**
 
-Line Item (maps to lineItemId from catalog).
+   * User chooses a project from the global project selector.
+   * All reconciliation queries use `selectedProjectId`.
 
-Month (1–12).
+2. **Open Reconciliation**
 
-Invoice Amount (amount).
+   * Route: `/finanzas/sdmt/cost/reconciliation` (exact path per router config).
+   * Screen loads:
 
-Vendor (vendor).
+     * Summary tiles: `Matched`, `Pending Review`, `Disputed Items`.
+     * Invoices grid for the selected project and period.
 
-Invoice Number (invoiceNumber – vendor reference).
+3. **Upload Invoice**
 
-Invoice Date (invoiceDate).
+   * Click **“Upload Invoice”**.
+   * Modal fields:
 
-File input (file, with extension whitelist).
+     * **Line Item** (maps to `lineItemId` from catalog).
+     * **Month** (1–12).
+     * **Invoice Amount** (`amount`).
+     * **Vendor** (`vendor`).
+     * **Invoice Number** (`invoiceNumber` – vendor reference).
+     * **Invoice Date** (`invoiceDate`).
+     * File input (`file`, with extension whitelist).
+   * On submit:
 
-On submit:
+     1. Call **`POST /uploads/docs`** to get `uploadUrl` + `objectKey`.
+     2. Perform **PUT to S3** with the selected file.
+     3. Call **`POST /projects/{projectId}/invoices`** with invoice details + `documentKey`.
 
-Call POST /uploads/docs to get uploadUrl + objectKey.
+4. **Success behavior**
 
-Perform PUT to S3 with the selected file.
+   * Toast: “Invoice and document uploaded”.
+   * S3 now contains the file under the reconciliation prefix.
+   * Invoices grid refetches and shows the new row with status `Pending`.
+   * Summary tiles update counts for `Pending Review`.
 
-Call POST /projects/{projectId}/invoices with invoice details + documentKey.
+5. **Viewing & updating invoices**
 
-Success behavior
+   * Grid columns (current):
 
-Toast: “Invoice and document uploaded”.
+     * Line Item / Month.
+     * Amount.
+     * Status (badge).
+     * Vendor.
+     * Invoice Number.
+     * File (filename with link to download via presigned GET).
+   * Users with appropriate permissions can:
 
-S3 now contains the file under the reconciliation prefix.
+     * Change status (e.g., `Pending → Matched` or `Disputed`).
+     * Open related forecast / allocation screens (where configured).
 
-Invoices grid refetches and shows the new row with status Pending.
+6. **Key UI clarifications**
 
-Summary tiles update counts for Pending Review.
+* **Invoice Number** (`invoice_number`) is **vendor-facing** and always user-editable in the form.
+* **Internal invoice ID** (`id` / `invoice_id`) is never edited; it’s used for status updates and internal references.
+* The **currency shown** is currently implicit (e.g., `USD`). Once `currency` is persisted in the backend, the grid will format amounts using that value.
 
-Viewing & updating invoices
+---
 
-Grid columns (current):
+## 6. Status Logic
 
-Line Item / Month.
+### 6.1 Current
 
-Amount.
+* Supported statuses in code/UI:
 
-Status (badge).
+  * `Pending` (default on creation).
+  * `Matched`.
+  * `Disputed`.
+* Transitions are **explicit** (set by user action).
+* Matching itself is **manual** (operator compares invoice vs forecast and chooses the status).
+* Variance reporting and export are derived by joining invoices with allocations; no automatic “over/under” state is written back yet.
 
-Vendor.
+### 6.2 Planned extensions
 
-Invoice Number.
+* Add `forecast_id` to strongly tie an invoice to a specific allocation row.
+* Surface explicit variance metrics (amount, percentage) and color-coded thresholds.
+* Support bulk operations (e.g., approve all invoices in a filtered view).
 
-File (filename with link to download via presigned GET).
+---
 
-Users with appropriate permissions can:
+## 7. Open Questions / TODOs
 
-Change status (e.g., Pending → Matched or Disputed).
+1. **Identifier normalization**
 
-Open related forecast / allocation screens (where configured).
+   * Align `invoice_id` format to `inv_[a-z0-9]{10}` and update any consumers (Acta / Prefactura / reporting).
 
-Key UI clarifications
+2. **Currency handling**
 
-Invoice Number (invoice_number) is vendor-facing and always user-editable in the form.
+   * Add `currency` column to the invoice table and wire it through the UI form + API.
+   * Decide default per project (e.g., from project metadata).
 
-Internal invoice ID (id / invoice_id) is never edited; it’s used for status updates and internal references.
+3. **Forecast linkage**
 
-The currency shown is currently implicit (e.g., USD). Once currency is persisted in the backend, the grid will format amounts using that value.
+   * Introduce `forecast_id` in the invoice schema.
+   * Update reconciliation UI to select a specific allocation where multiple exist for the same line item/month.
 
-6. Status Logic
-6.1 Current
+4. **Provider linkage**
 
-Supported statuses in code/UI:
+   * Decide whether `vendor` should remain free text or map to a `PROVIDER` record (with id, tax data, payment terms).
 
-Pending (default on creation).
+5. **Validation / uniqueness**
 
-Matched.
+   * Enforce uniqueness or at least soft checks on `(project_id, invoice_number)` to reduce duplicates.
+   * Add richer validation rules for `invoice_number` and `invoice_date` per Ikusi policy.
 
-Disputed.
+6. **Search & filtering UX**
 
-Transitions are explicit (set by user action).
+   * Add filters by status, vendor, date range, and amount range.
+   * Add pagination or virtual scrolling for projects with many invoices.
 
-Matching itself is manual (operator compares invoice vs forecast and chooses the status).
+7. **Document lifecycle**
 
-Variance reporting and export are derived by joining invoices with allocations; no automatic “over/under” state is written back yet.
+   * Define retention and deletion rules for S3 objects and corresponding docs metadata:
 
-6.2 Planned extensions
+     * When an invoice is deleted.
+     * When an invoice is superseded (re-upload).
+     * When a project is archived.
 
-Add forecast_id to strongly tie an invoice to a specific allocation row.
+```
 
-Surface explicit variance metrics (amount, percentage) and color-coded thresholds.
+---
 
-Support bulk operations (e.g., approve all invoices in a filtered view).
+### Quick note on the two backend files you just shared
 
-7. Open Questions / TODOs
+- **`upload-docs.ts`** – matches this doc perfectly (modules set, presign, metadata write, 201 response). No changes required.
+- **`invoices.ts`** – is a **GET-only alias** (`/invoices?project_id=…`) that returns `{ data, projectId, total }`. The new **section 4.4** above now explicitly documents this behavior, so code and docs are aligned.
 
-Identifier normalization
-
-Align invoice_id format to inv_[a-z0-9]{10} and update any consumers (Acta / Prefactura / reporting).
-
-Currency handling
-
-Add currency column to the invoice table and wire it through the UI form + API.
-
-Decide default per project (e.g., from project metadata).
-
-Forecast linkage
-
-Introduce forecast_id in the invoice schema.
-
-Update reconciliation UI to select a specific allocation where multiple exist for the same line item/month.
-
-Provider linkage
-
-Decide whether vendor should remain free text or map to a PROVIDER record (with id, tax data, payment terms).
-
-Validation / uniqueness
-
-Enforce uniqueness or at least soft checks on (project_id, invoice_number) to reduce duplicates.
-
-Add richer validation rules for invoice_number and invoice_date per Ikusi policy.
-
-Search & filtering UX
-
-Add filters by status, vendor, date range, and amount range.
-
-Add pagination or virtual scrolling for projects with many invoices.
-
-Document lifecycle
-
-Define retention and deletion rules for S3 objects and corresponding docs metadata:
-
-When an invoice is deleted.
-
-When an invoice is superseded (re-upload).
-
-When a project is archived.
-
-This version should be safe to merge as source-of-truth: it’s honest about what’s live vs planned and matches the flows we just validated (CORS, S3 uploads, POST /projects/{id}/invoices).
+When you’re ready, we can move on to the rubros / line-items handlers and make sure SDMT Catalog ↔ Finanzas API taxonomy is just as tight.
+```
