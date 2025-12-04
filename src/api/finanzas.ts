@@ -9,6 +9,10 @@ import {
   type ProjectsResponse,
   type Json,
 } from "./finanzas-projects-helpers";
+import {
+  byLineaCodigo as taxonomyByLineaCodigo,
+} from "@/modules/rubros.taxonomia";
+import { taxonomyByRubroId } from "@/modules/rubros.catalog.enriched";
 
 // ---------- Environment ----------
 const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
@@ -764,7 +768,7 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     unit_cost = totalAmount / qty;
   }
 
-  return {
+  const base: LineItem = {
     id,
     category: categoria,
     subtype: tipoCosto || undefined,
@@ -812,10 +816,42 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     linea_codigo: lineaCodigo,
     categoria,
     tipo_costo: tipoCosto,
-  } satisfies LineItem & {
-    linea_codigo?: string;
-    categoria?: string;
-    tipo_costo?: string;
+  };
+
+  return applyTaxonomy(base);
+};
+
+const applyTaxonomy = (
+  item: LineItem,
+):
+  | LineItem
+  | (LineItem & {
+      linea_codigo?: string;
+      categoria?: string;
+      tipo_costo?: string;
+    }) => {
+  const taxonomy =
+    taxonomyByRubroId.get(item.id) ||
+    taxonomyByLineaCodigo.get(item.linea_codigo || item.id);
+
+  if (!taxonomy) return item;
+
+  const lineaCodigo = taxonomy.linea_codigo || item.linea_codigo;
+  const categoria = taxonomy.categoria || item.category;
+  const tipo_costo = taxonomy.tipo_costo || item.tipo_costo;
+  const description =
+    item.description ||
+    taxonomy.linea_gasto ||
+    taxonomy.descripcion ||
+    item.id;
+
+  return {
+    ...item,
+    linea_codigo: lineaCodigo || item.id,
+    categoria: categoria || item.category,
+    tipo_costo,
+    category: categoria || item.category,
+    description,
   };
 };
 

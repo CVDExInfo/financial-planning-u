@@ -645,7 +645,7 @@ export default function SDMTReconciliation() {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-[1.6fr,1fr] md:items-end">
               <div className="space-y-2">
                 <Label htmlFor={lineItemSelectId}>Line Item *</Label>
                 {lineItemOptions.length ? (
