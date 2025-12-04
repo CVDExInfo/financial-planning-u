@@ -9,6 +9,7 @@ import { logError } from "../utils/logging";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-2" });
 const DOCS_BUCKET = process.env.DOCS_BUCKET;
+const isDevStage = process.env.STAGE_NAME === "dev";
 const ALLOWED_MODULES = new Set([
   "prefactura",
   "catalog",
@@ -71,10 +72,6 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
     await ensureCanWrite(event as unknown as Parameters<typeof ensureCanWrite>[0]);
 
-    if (!DOCS_BUCKET) {
-      throw new Error("DOCS_BUCKET environment variable is not configured");
-    }
-
     const payload = parsePayload(event.body);
     if (!payload) {
       return bad("Invalid JSON body");
@@ -92,6 +89,26 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       invoiceDate,
       checksumSha256,
     } = payload;
+
+    const requestId = event.requestContext?.requestId;
+
+    console.info("upload-docs: received request", {
+      requestId,
+      projectId,
+      module: moduleName,
+      lineItemId,
+      invoiceNumber,
+      contentType,
+      originalName,
+      vendor,
+      amount,
+      invoiceDate,
+    });
+
+    if (!DOCS_BUCKET) {
+      console.error("upload-docs: DOCS_BUCKET not configured", { requestId });
+      return bad("Docs bucket not configured", 503);
+    }
 
     if (!projectId) return bad("projectId is required");
     if (!moduleName || !ALLOWED_MODULES.has(moduleName)) {
@@ -132,13 +149,22 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const contextPart = lineItemId || invoiceNumber || timestamp;
     const objectKey = `docs/${projectId}/${moduleName}/${contextPart}-${suffix}-${safeName}`;
 
+    console.info("upload-docs: generating object key", {
+      requestId,
+      projectId,
+      module: moduleName,
+      lineItemId,
+      invoiceNumber,
+      bucket: DOCS_BUCKET,
+      objectKey,
+    });
+
     const putCommand = new PutObjectCommand({
       Bucket: DOCS_BUCKET,
       Key: objectKey,
       ContentType: contentType,
     });
 
-    const requestId = event.requestContext?.requestId;
     const logContext = {
       requestId,
       projectId,
@@ -153,8 +179,37 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     try {
       uploadUrl = await getSignedUrl(s3, putCommand, { expiresIn: 600 });
     } catch (error) {
-      logError("upload-docs presign failed", { ...logContext, error });
+      const name = (error as { name?: string; Code?: string } | undefined)?.name;
+      const code = (error as { Code?: string } | undefined)?.Code;
+      const message = (error as { message?: string } | undefined)?.message;
+      const s3ErrorContext = {
+        ...logContext,
+        errorName: name || code,
+        errorMessage: message,
+      };
+
+      if (name === "NoSuchBucket" || code === "NoSuchBucket") {
+        console.error("upload-docs presign failed: bucket not found", s3ErrorContext);
+        return bad("Docs bucket not found or not configured", 503);
+      }
+
+      if (name === "AccessDenied" || code === "AccessDenied") {
+        console.error("upload-docs presign failed: access denied", s3ErrorContext);
+        return bad("Docs bucket access denied", 503);
+      }
+
+      logError("upload-docs presign failed", s3ErrorContext);
       return serverError("Unable to generate upload URL");
+    }
+
+    if (isDevStage) {
+      console.info("[upload-docs] presign generated", {
+        requestId,
+        bucket: DOCS_BUCKET,
+        objectKey,
+        module: moduleName,
+        projectId,
+      });
     }
 
     const createdAt = new Date().toISOString();
@@ -207,7 +262,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           ? `Metadata not recorded in docs table: ${error.message}`
           : "Metadata not recorded in docs table";
       responseWarnings.push(warningMessage);
-      logError("upload-docs metadata write failed", failureContext);
+      console.warn("upload-docs metadata write failed", failureContext);
     }
 
     const responseBody = {
@@ -215,6 +270,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       objectKey,
       documentId,
       metadata: metadataItem,
+      bucket: DOCS_BUCKET,
       ...(responseWarnings.length ? { warnings: responseWarnings } : {}),
     };
 

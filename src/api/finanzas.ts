@@ -88,6 +88,19 @@ function toFinanzasError(
   return new FinanzasApiError(fallback, statusOverride);
 }
 
+const isDevEnv =
+  (typeof import.meta !== "undefined" && Boolean((import.meta as any)?.env?.DEV)) ||
+  (typeof process !== "undefined" && process.env?.NODE_ENV === "development");
+
+const logApiDebug = (
+  message: string,
+  payload?: Record<string, unknown> | string | number,
+): void => {
+  if (isDevEnv) {
+    console.info(`[finanzas-api] ${message}`, payload ?? "");
+  }
+};
+
 // ---------- Common DTOs ----------
 export type InvoiceStatus = "Pending" | "Matched" | "Disputed";
 
@@ -151,6 +164,7 @@ export type UploadStage = "presigning" | "uploading" | "complete";
 type PresignResponse = {
   uploadUrl: string;
   objectKey: string;
+  bucket: string;
   warnings?: string[];
   status?: number;
 };
@@ -165,7 +179,16 @@ async function presignUpload(_: {
   vendor?: string;
   amount?: number;
 }): Promise<PresignResponse> {
-  const { projectId, file, module, lineItemId, invoiceNumber, invoiceDate, vendor, amount } = _;
+  const {
+    projectId,
+    file,
+    module,
+    lineItemId,
+    invoiceNumber,
+    invoiceDate,
+    vendor,
+    amount,
+  } = _;
   const base = requireApiBase();
   const body = {
     projectId,
@@ -212,7 +235,10 @@ async function presignUpload(_: {
     } catch (err) {
       throw toFinanzasError(
         err,
-        parsed.error || parsed.message || rawText || "Upload authorization failed",
+        parsed.error ||
+          parsed.message ||
+          rawText ||
+          "Upload authorization failed",
         response.status,
       );
     }
@@ -220,10 +246,11 @@ async function presignUpload(_: {
     const defaultMsg = parsed.error || parsed.message || rawText;
     const isServiceUnavailable = response.status === 503;
     const message = isServiceUnavailable
-      ? parsed.error || "Uploads are temporarily unavailable. Please try again later."
+      ? parsed.error ||
+        "Uploads are temporarily unavailable. Please try again later."
       : response.status >= 500
-        ? "Error interno en Finanzas"
-        : defaultMsg || `Upload request failed (${response.status})`;
+      ? "Error interno en Finanzas"
+      : defaultMsg || `Upload request failed (${response.status})`;
 
     throw new FinanzasApiError(message, response.status);
   }
@@ -235,27 +262,94 @@ async function presignUpload(_: {
     );
   }
 
+  if (!parsed.bucket) {
+    throw new FinanzasApiError(
+      "Upload service did not return bucket information. Please contact support.",
+      response.status,
+    );
+  }
+
   return {
     uploadUrl: parsed.uploadUrl,
     objectKey: parsed.objectKey,
+    bucket: parsed.bucket,
     warnings: parsed.warnings || [],
     status: response.status,
   };
+}
+
+function buildNetworkErrorMessage(error: unknown): string {
+  if (error instanceof TypeError) {
+    return "Failed uploading document to storage. Please check your connection and try again.";
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 }
 
 async function uploadFileWithPresign(
   file: File,
   presign: PresignResponse,
 ): Promise<void> {
-  const rsp = await fetch(presign.uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": file.type || "application/octet-stream",
-    },
-    body: file,
-  });
+  let rsp: Response | undefined;
+  try {
+    rsp = await fetch(presign.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      body: file,
+    });
+  } catch (error) {
+    const message = buildNetworkErrorMessage(error);
 
-  if (!rsp.ok) throw new Error(`S3 PUT failed (${rsp.status})`);
+    if (import.meta.env.DEV) {
+      try {
+        const origin = new URL(presign.uploadUrl).origin;
+        console.error("[uploadFileWithPresign] S3 PUT failed", {
+          origin,
+          status: rsp?.status,
+          statusText: rsp?.statusText,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      } catch {
+        console.error("[uploadFileWithPresign] S3 PUT failed", {
+          status: rsp?.status,
+          statusText: rsp?.statusText,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    throw new FinanzasApiError(message);
+  }
+
+  if (!rsp.ok) {
+    if (import.meta.env.DEV) {
+      try {
+        const origin = new URL(presign.uploadUrl).origin;
+        console.error("[uploadFileWithPresign] S3 PUT failed", {
+          origin,
+          status: rsp.status,
+          statusText: rsp.statusText,
+        });
+      } catch {
+        console.error("[uploadFileWithPresign] S3 PUT failed", {
+          status: rsp.status,
+          statusText: rsp.statusText,
+        });
+      }
+    }
+
+    const statusPart = rsp.status ? ` (status ${rsp.status})` : "";
+    throw new FinanzasApiError(
+      `Failed uploading document to storage${statusPart}.`,
+      rsp.status,
+    );
+  }
 }
 
 // ---------- Invoices ----------
@@ -295,6 +389,21 @@ export async function uploadInvoice(
     vendor: payload.vendor,
     amount: payload.amount,
   });
+
+  if (import.meta.env.DEV) {
+    console.info("[uploadInvoice] Presign successful", {
+      projectId,
+      line_item_id: payload.line_item_id,
+      amount: payload.amount,
+      invoice_number: payload.invoice_number,
+      invoice_date: normalizedInvoiceDate ?? payload.invoice_date,
+      vendor: payload.vendor,
+      module: options?.module ?? "reconciliation",
+      objectKey: presign.objectKey,
+      bucket: presign.bucket,
+    });
+  }
+
   await uploadFileWithPresign(payload.file, presign);
 
   const body = {
@@ -448,40 +557,73 @@ export async function addProjectRubro<T = Json>(
           : { ...sharedFields, ...(entry as Record<string, unknown>) },
       )
     : hasRubroId
-      ? [{ ...sharedFields, rubroId }]
-      : [];
+    ? [{ ...sharedFields, rubroId }]
+    : [];
 
   const wirePayload: Record<string, unknown> = {
     ...sharedFields,
     rubroIds: rubroEntries.length > 0 ? rubroEntries : rubroIds,
   };
 
+  const requestBody = JSON.stringify(wirePayload);
+
+  const requestOnce = async (url: string): Promise<Response> => {
+    logApiDebug("POST rubro", { url, body: wirePayload });
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers,
+        body: requestBody,
+      });
+
+      logApiDebug("POST rubro response", { url, status: res.status });
+      return res;
+    } catch (error) {
+      logApiDebug("POST rubro network error", {
+        url,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new FinanzasApiError(
+        error instanceof Error ? error.message : "Network error saving rubro",
+      );
+    }
+  };
+
   // The deployed API exposes /projects/{id}/rubros; keep a single fallback to
   // /catalog/rubros for legacy stacks that might still use that mount.
   const primary = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
-  let res = await fetch(primary, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(wirePayload),
-  });
+  let res = await requestOnce(primary);
 
   if (res.status === 404 || res.status === 405) {
     const fallback = `${base}/projects/${encodeURIComponent(
       projectId,
     )}/catalog/rubros`;
-    res = await fetch(fallback, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(wirePayload),
-    });
+    res = await requestOnce(fallback);
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    handleAuthErrorStatus(res.status);
   }
 
   if (!res.ok) {
     const bodyText = await res.text().catch(() => "");
-    throw new Error(`addProjectRubro failed (${res.status}): ${bodyText}`);
+    logApiDebug("POST rubro failed", {
+      url: res.url,
+      status: res.status,
+      body: bodyText,
+    });
+    if (res.status === 0) {
+      throw new FinanzasApiError(`Network/CORS error calling ${res.url}`, res.status);
+    }
+    throw new FinanzasApiError(
+      `addProjectRubro failed (${res.status}): ${bodyText || res.statusText}`,
+      res.status,
+    );
   }
 
-  const text = await res.text();
+  const text = await res.text().catch(() => "");
+  logApiDebug("POST rubro succeeded", { url: res.url, status: res.status });
   return (text ? JSON.parse(text) : {}) as T;
 }
 
@@ -525,6 +667,8 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     (dto.id as string) ||
     (dto.rubro_id as string) ||
     (dto.rubroId as string) ||
+    (dto as any).codigo ||
+    (dto.linea_codigo as string) ||
     (dto.sk as string) ||
     "";
 
@@ -543,18 +687,20 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     "Rubro";
 
   const executionType =
-    (dto.tipo_costo as string) || (dto.tipo_ejecucion as string) || "";
+    (dto.tipo_costo as string) || (dto as any).tipo_ejecucion || "";
 
   const recurringFromType = executionType.toLowerCase() === "mensual";
   const oneTimeFromType =
     executionType.toLowerCase() === "puntual" ||
     executionType.toLowerCase() === "por_hito";
 
-  const recurring = dto.recurring !== undefined ? dto.recurring : recurringFromType;
+  const recurring =
+    dto.recurring !== undefined ? dto.recurring : recurringFromType;
   const one_time =
     dto.one_time !== undefined ? dto.one_time : oneTimeFromType || !recurring;
 
-  const qty = Number(dto.qty ?? dto.quantity ?? (dto as any).cantidad ?? 1) || 1;
+  const qty =
+    Number(dto.qty ?? dto.quantity ?? (dto as any).cantidad ?? 1) || 1;
 
   const scheduledMonths = Array.isArray((dto as any).meses_programados)
     ? ((dto as any).meses_programados as string[])
@@ -573,15 +719,17 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     : Number((dto as any).start_month ?? 1) || 1;
   const end_month = scheduledMonths.length
     ? parseMonth(scheduledMonths[scheduledMonths.length - 1])
-    : Number((dto as any).end_month ?? (recurring ? 12 : start_month)) || 1;
+    : Number(
+        (dto as any).end_month ?? (recurring ? 12 : start_month),
+      ) || 1;
 
   const totalAmount =
     Number(
       (dto as any).monto_total ??
         (dto as any).total ??
         (dto as any).total_amount ??
-        dto.amount ??
-        dto.monto ??
+        (dto as any).amount ??
+        (dto as any).monto ??
         0,
     ) || 0;
   const monthlyAmount =
@@ -597,7 +745,9 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     1,
   );
 
-  let unit_cost = Number(dto.unit_cost ?? dto.amount ?? dto.monto ?? 0) || 0;
+  let unit_cost =
+    Number((dto as any).unit_cost ?? (dto as any).amount ?? (dto as any).monto) ||
+    0;
 
   if (recurring) {
     if (monthlyAmount > 0) {
@@ -615,40 +765,60 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     id,
     category,
     subtype: (dto.tipo_costo as string) || undefined,
-    vendor: (dto.vendor as string) || undefined,
+    vendor: (dto as any).vendor as string | undefined,
     description: name,
     one_time: Boolean(one_time),
     recurring: Boolean(recurring && !one_time),
     qty,
     unit_cost,
     currency:
-      ((dto as any).moneda as Currency) || (dto.currency as Currency) || "USD",
-    fx_pair: dto.fx_pair as any,
-    fx_rate_at_booking: dto.fx_rate_at_booking
-      ? Number(dto.fx_rate_at_booking)
+      ((dto as any).moneda as Currency) ||
+      (dto as any).currency ||
+      "USD",
+    fx_pair: (dto as any).fx_pair,
+    fx_rate_at_booking: (dto as any).fx_rate_at_booking
+      ? Number((dto as any).fx_rate_at_booking)
       : undefined,
     start_month,
     end_month,
-    amortization: (dto.amortization as any) || "none",
-    capex_flag: Boolean(dto.capex_flag),
-    cost_center: dto.cost_center as string | undefined,
-    gl_code: dto.gl_code as string | undefined,
-    tax_pct: dto.tax_pct ? Number(dto.tax_pct) : undefined,
-    indexation_policy: (dto.indexation_policy as any) || "none",
-    attachments: Array.isArray(dto.attachments) ? (dto.attachments as string[]) : [],
-    notes: (dto.notes as string) || undefined,
-    created_at: (dto.created_at as string) || new Date().toISOString(),
-    updated_at: (dto.updated_at as string) || new Date().toISOString(),
-    created_by: (dto.created_by as string) || "finanzas-api",
-    service_tier: dto.tier as string | undefined,
-    service_type: dto.service_type as string | undefined,
-    sla_uptime: dto.sla_uptime as string | undefined,
-    deliverable: dto.deliverable as string | undefined,
-    max_participants: dto.max_participants
-      ? Number(dto.max_participants)
+    amortization: (dto as any).amortization || "none",
+    capex_flag: Boolean((dto as any).capex_flag),
+    cost_center: (dto as any).cost_center as string | undefined,
+    gl_code: (dto as any).gl_code as string | undefined,
+    tax_pct: (dto as any).tax_pct ? Number((dto as any).tax_pct) : undefined,
+    indexation_policy: (dto as any).indexation_policy || "none",
+    attachments: Array.isArray((dto as any).attachments)
+      ? ((dto as any).attachments as string[])
+      : [],
+    notes: ((dto as any).notes as string) || undefined,
+    created_at:
+      ((dto as any).created_at as string) || new Date().toISOString(),
+    updated_at:
+      ((dto as any).updated_at as string) || new Date().toISOString(),
+    created_by: ((dto as any).created_by as string) || "finanzas-api",
+    service_tier: (dto.tier as string) || undefined,
+    service_type: (dto as any).service_type as string | undefined,
+    sla_uptime: (dto as any).sla_uptime as string | undefined,
+    deliverable: (dto as any).deliverable as string | undefined,
+    max_participants: (dto as any).max_participants
+      ? Number((dto as any).max_participants)
       : undefined,
-    duration_days: dto.duration_days ? Number(dto.duration_days) : undefined,
+    duration_days: (dto as any).duration_days
+      ? Number((dto as any).duration_days)
+      : undefined,
   } satisfies LineItem;
+};
+
+const coerceLineItemList = (input: unknown): LineItemDTO[] => {
+  if (Array.isArray(input)) return input as LineItemDTO[];
+  if (!input || typeof input !== "object") return [];
+
+  const candidate = input as Record<string, unknown>;
+  if (Array.isArray(candidate.data)) return candidate.data as LineItemDTO[];
+  if (Array.isArray(candidate.items)) return candidate.items as LineItemDTO[];
+  if (Array.isArray((candidate as any).line_items))
+    return (candidate as any).line_items as LineItemDTO[];
+  return [];
 };
 
 export async function getProjectRubros(
@@ -680,26 +850,20 @@ export async function getProjectRubros(
       );
     }
 
-    let payload = Array.isArray(res.data)
-      ? res.data
-      : Array.isArray((res.data as any)?.data)
-      ? (res.data as any).data
-      : [];
+    let payload = coerceLineItemList(res.data);
 
     // If the primary route returns an empty list, attempt the line-items alias
     // to capture the full catalog used by other modules.
     if (payload.length === 0) {
-      const aliasPath = `/line-items?project_id=${encodeURIComponent(projectId)}`;
+      const aliasPath = `/line-items?project_id=${encodeURIComponent(
+        projectId,
+      )}`;
       res = await httpClient.get<LineItemDTO[] | { data?: LineItemDTO[] }>(
         aliasPath,
         { headers: buildAuthHeader() },
       );
 
-      payload = Array.isArray(res.data)
-        ? res.data
-        : Array.isArray((res.data as any)?.data)
-        ? (res.data as any).data
-        : [];
+      payload = coerceLineItemList(res.data);
     }
 
     return payload
@@ -858,8 +1022,10 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
       if (Array.isArray(payload)) return payload;
       if (payload && Array.isArray(payload.data)) return payload.data;
       if (payload && Array.isArray(payload.items)) return payload.items;
-      if (payload?.data && Array.isArray(payload.data.items)) return payload.data.items;
-      if (payload?.data && Array.isArray(payload.data.data)) return payload.data.data;
+      if (payload?.data && Array.isArray(payload.data.items))
+        return payload.data.items;
+      if (payload?.data && Array.isArray(payload.data.data))
+        return payload.data.data;
       return [];
     };
 
@@ -911,7 +1077,8 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
       handleAuthErrorStatus(err.status);
     }
 
-    const isNotFound = err instanceof HttpError && (err.status === 404 || err.status === 405);
+    const isNotFound =
+      err instanceof HttpError && (err.status === 404 || err.status === 405);
     if (!isNotFound) {
       if (err instanceof HttpError) {
         if (err.status === 403) {
@@ -947,7 +1114,5 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
 
       throw toFinanzasError(fallbackErr, "Unable to load invoices");
     }
-
-    throw toFinanzasError(err, "Unable to load invoices");
   }
 }

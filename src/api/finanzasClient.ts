@@ -469,13 +469,20 @@ export const finanzasClient = {
     return data;
   },
 
-  async createProvider(payload: ProviderCreate): Promise<unknown> {
+  async createProvider(payload: ProviderCreate): Promise<Provider> {
     checkAuth();
     const data = await http<unknown>("/providers", {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    return data;
+
+    const parsed = ProviderSchema.safeParse(data);
+    if (!parsed.success) {
+      console.error(parsed.error);
+      throw new Error("Invalid provider response from server");
+    }
+
+    return parsed.data;
   },
 };
 
