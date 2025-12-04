@@ -88,6 +88,19 @@ function toFinanzasError(
   return new FinanzasApiError(fallback, statusOverride);
 }
 
+const isDevEnv =
+  (typeof import.meta !== "undefined" && Boolean((import.meta as any)?.env?.DEV)) ||
+  (typeof process !== "undefined" && process.env?.NODE_ENV === "development");
+
+const logApiDebug = (
+  message: string,
+  payload?: Record<string, unknown> | string | number,
+): void => {
+  if (isDevEnv) {
+    console.info(`[finanzas-api] ${message}`, payload ?? "");
+  }
+};
+
 // ---------- Common DTOs ----------
 export type InvoiceStatus = "Pending" | "Matched" | "Disputed";
 
@@ -546,32 +559,65 @@ export async function addProjectRubro<T = Json>(
     rubroIds: rubroEntries.length > 0 ? rubroEntries : rubroIds,
   };
 
+  const requestBody = JSON.stringify(wirePayload);
+
+  const requestOnce = async (url: string): Promise<Response> => {
+    logApiDebug("POST rubro", { url, body: wirePayload });
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers,
+        body: requestBody,
+      });
+
+      logApiDebug("POST rubro response", { url, status: res.status });
+      return res;
+    } catch (error) {
+      logApiDebug("POST rubro network error", {
+        url,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new FinanzasApiError(
+        error instanceof Error ? error.message : "Network error saving rubro",
+      );
+    }
+  };
+
   // The deployed API exposes /projects/{id}/rubros; keep a single fallback to
   // /catalog/rubros for legacy stacks that might still use that mount.
   const primary = `${base}/projects/${encodeURIComponent(projectId)}/rubros`;
-  let res = await fetch(primary, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(wirePayload),
-  });
+  let res = await requestOnce(primary);
 
   if (res.status === 404 || res.status === 405) {
     const fallback = `${base}/projects/${encodeURIComponent(
       projectId,
     )}/catalog/rubros`;
-    res = await fetch(fallback, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(wirePayload),
-    });
+    res = await requestOnce(fallback);
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    handleAuthErrorStatus(res.status);
   }
 
   if (!res.ok) {
     const bodyText = await res.text().catch(() => "");
-    throw new Error(`addProjectRubro failed (${res.status}): ${bodyText}`);
+    logApiDebug("POST rubro failed", {
+      url: res.url,
+      status: res.status,
+      body: bodyText,
+    });
+    if (res.status === 0) {
+      throw new FinanzasApiError(`Network/CORS error calling ${res.url}`, res.status);
+    }
+    throw new FinanzasApiError(
+      `addProjectRubro failed (${res.status}): ${bodyText || res.statusText}`,
+      res.status,
+    );
   }
 
-  const text = await res.text();
+  const text = await res.text().catch(() => "");
+  logApiDebug("POST rubro succeeded", { url: res.url, status: res.status });
   return (text ? JSON.parse(text) : {}) as T;
 }
 

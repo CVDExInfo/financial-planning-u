@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useEffect, useId, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 import { COST_CATEGORIES, getCategoryByCode } from "@/data/cost-categories";
 import {
   Table,
@@ -50,7 +51,6 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { SaveBar, type SaveBarState } from "@/components/SaveBar";
 import { toast } from "sonner";
 import type { LineItem, BaselineBudget, Currency } from "@/types/domain";
-import ApiService from "@/lib/api";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import { logger } from "@/utils/logger";
@@ -115,6 +115,9 @@ export function SDMTCatalog() {
     end_month: 1,
     recurring: false,
   });
+  const formInstanceId = useId();
+  const addFieldId = (name: string) => `catalog-add-${formInstanceId}-${name}`;
+  const editFieldId = (name: string) => `catalog-edit-${formInstanceId}-${name}`;
 
   const {
     selectedProjectId,
@@ -332,6 +335,28 @@ export function SDMTCatalog() {
     Math.max(data.end_month - data.start_month + 1, 1);
 
   const currentTermMonths = getTermMonths(formData);
+
+  const addIds = {
+    category: addFieldId("category"),
+    lineItem: addFieldId("line-item"),
+    description: addFieldId("description"),
+    startMonth: addFieldId("start-month"),
+    term: addFieldId("term"),
+    qty: addFieldId("qty"),
+    unitCost: addFieldId("unit-cost"),
+    currency: addFieldId("currency"),
+  };
+
+  const editIds = {
+    category: editFieldId("category"),
+    lineItem: editFieldId("line-item"),
+    description: editFieldId("description"),
+    startMonth: editFieldId("start-month"),
+    term: editFieldId("term"),
+    qty: editFieldId("qty"),
+    unitCost: editFieldId("unit-cost"),
+    currency: editFieldId("currency"),
+  };
 
   const setRecurringFlag = (recurring: boolean) => {
     setFormData((prev) => {
@@ -665,15 +690,19 @@ export function SDMTCatalog() {
       for (const [id, change] of pendingChanges.entries()) {
         try {
           if (change.type === "add") {
-            // Create the item (API will assign real ID)
-            const created = await ApiService.createLineItem(
-              selectedProjectId,
-              change.item
-            );
-            // Update local state with real ID
-            setLineItems((prev) =>
-              prev.map((item) => (item.id === id ? created : item))
-            );
+            await addProjectRubro(selectedProjectId, {
+              rubroId: change.item.id,
+              qty: change.item.qty,
+              unitCost: change.item.unit_cost,
+              type: change.item.recurring ? "recurring" : "one-time",
+              duration: change.item.recurring
+                ? `M${change.item.start_month}-M${change.item.end_month}`
+                : `M${change.item.start_month}`,
+              currency: change.item.currency,
+              description: change.item.description,
+              start_month: change.item.start_month,
+              end_month: change.item.end_month,
+            });
             successCount++;
           } else if (change.type === "edit") {
             // Update the item
@@ -963,7 +992,7 @@ export function SDMTCatalog() {
                       <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <label>Categoría *</label>
+                            <Label htmlFor={addIds.category}>Categoría *</Label>
                             <Select
                               value={formData.categoryCode}
                               onValueChange={(value) => {
@@ -978,7 +1007,7 @@ export function SDMTCatalog() {
                                 }));
                               }}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger id={addIds.category} name="category">
                                 <SelectValue placeholder="Seleccione categoría" />
                               </SelectTrigger>
                               <SelectContent className="max-h-[300px]">
@@ -994,7 +1023,7 @@ export function SDMTCatalog() {
                             </Select>
                           </div>
                           <div className="space-y-2">
-                            <label>Línea de Gasto *</label>
+                            <Label htmlFor={addIds.lineItem}>Línea de Gasto *</Label>
                             <Select
                               value={formData.lineItemCode}
                               onValueChange={(value) => {
@@ -1013,7 +1042,10 @@ export function SDMTCatalog() {
                               }}
                               disabled={!formData.categoryCode}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger
+                                id={addIds.lineItem}
+                                name="line-item"
+                              >
                                 <SelectValue
                                   placeholder={
                                     formData.categoryCode
@@ -1039,8 +1071,10 @@ export function SDMTCatalog() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <label>Description *</label>
+                          <Label htmlFor={addIds.description}>Description *</Label>
                           <Input
+                            id={addIds.description}
+                            name="description"
                             value={formData.description}
                             onChange={(e) =>
                               setFormData((prev) => ({
@@ -1078,7 +1112,7 @@ export function SDMTCatalog() {
                         </div>
                         <div className="grid grid-cols-3 gap-4">
                           <div className="space-y-2">
-                            <label>Type</label>
+                            <Label>Type</Label>
                             <div className="flex gap-2">
                               <Button
                                 variant={formData.recurring ? "outline" : "default"}
@@ -1097,8 +1131,10 @@ export function SDMTCatalog() {
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <label>Start Month</label>
+                            <Label htmlFor={addIds.startMonth}>Start Month</Label>
                             <Input
+                              id={addIds.startMonth}
+                              name="start_month"
                               type="number"
                               value={formData.start_month}
                               min={1}
@@ -1109,7 +1145,7 @@ export function SDMTCatalog() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <label>Term (months)</label>
+                            <Label htmlFor={addIds.term}>Term (months)</Label>
                             {formData.recurring ? (
                               <Select
                                 value={String(currentTermMonths)}
@@ -1117,7 +1153,7 @@ export function SDMTCatalog() {
                                   updateTermMonths(parseInt(value, 10) || 12)
                                 }
                               >
-                                <SelectTrigger>
+                                <SelectTrigger id={addIds.term} name="term">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1135,8 +1171,10 @@ export function SDMTCatalog() {
                         </div>
                         <div className="grid grid-cols-3 gap-4">
                           <div className="space-y-2">
-                            <label>Quantity</label>
+                            <Label htmlFor={addIds.qty}>Quantity</Label>
                             <Input
+                              id={addIds.qty}
+                              name="qty"
                               type="number"
                               value={formData.qty}
                               onChange={(e) =>
@@ -1150,8 +1188,10 @@ export function SDMTCatalog() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <label>Unit Cost *</label>
+                            <Label htmlFor={addIds.unitCost}>Unit Cost *</Label>
                             <Input
+                              id={addIds.unitCost}
+                              name="unit_cost"
                               type="number"
                               value={formData.unit_cost}
                               onChange={(e) =>
@@ -1166,7 +1206,7 @@ export function SDMTCatalog() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <label>Currency</label>
+                            <Label htmlFor={addIds.currency}>Currency</Label>
                             <Select
                               value={formData.currency}
                               onValueChange={(value) =>
@@ -1176,7 +1216,10 @@ export function SDMTCatalog() {
                                 }))
                               }
                             >
-                              <SelectTrigger>
+                              <SelectTrigger
+                                id={addIds.currency}
+                                name="currency"
+                              >
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1239,7 +1282,7 @@ export function SDMTCatalog() {
                     <div className="grid gap-4 py-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <label>Categoría *</label>
+                          <Label htmlFor={editIds.category}>Categoría *</Label>
                           <Select
                             value={formData.categoryCode}
                             onValueChange={(value) => {
@@ -1254,7 +1297,7 @@ export function SDMTCatalog() {
                               }));
                             }}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger id={editIds.category} name="category">
                               <SelectValue placeholder="Seleccione categoría" />
                             </SelectTrigger>
                             <SelectContent className="max-h-[300px]">
@@ -1267,7 +1310,7 @@ export function SDMTCatalog() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <label>Línea de Gasto *</label>
+                          <Label htmlFor={editIds.lineItem}>Línea de Gasto *</Label>
                           <Select
                             value={formData.lineItemCode}
                             onValueChange={(value) => {
@@ -1286,7 +1329,10 @@ export function SDMTCatalog() {
                             }}
                             disabled={!formData.categoryCode}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger
+                              id={editIds.lineItem}
+                              name="line-item"
+                            >
                               <SelectValue
                                 placeholder={
                                   formData.categoryCode
@@ -1312,8 +1358,10 @@ export function SDMTCatalog() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <label>Description *</label>
+                        <Label htmlFor={editIds.description}>Description *</Label>
                         <Input
+                          id={editIds.description}
+                          name="description"
                           value={formData.description}
                           onChange={(e) =>
                             setFormData((prev) => ({
@@ -1348,7 +1396,7 @@ export function SDMTCatalog() {
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <label>Type</label>
+                          <Label>Type</Label>
                           <div className="flex gap-2">
                             <Button
                               variant={formData.recurring ? "outline" : "default"}
@@ -1367,8 +1415,10 @@ export function SDMTCatalog() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <label>Start Month</label>
+                          <Label htmlFor={editIds.startMonth}>Start Month</Label>
                           <Input
+                            id={editIds.startMonth}
+                            name="start_month"
                             type="number"
                             value={formData.start_month}
                             min={1}
@@ -1379,7 +1429,7 @@ export function SDMTCatalog() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label>Term (months)</label>
+                          <Label htmlFor={editIds.term}>Term (months)</Label>
                           {formData.recurring ? (
                             <Select
                               value={String(currentTermMonths)}
@@ -1387,7 +1437,7 @@ export function SDMTCatalog() {
                                 updateTermMonths(parseInt(value, 10) || 12)
                               }
                             >
-                              <SelectTrigger>
+                              <SelectTrigger id={editIds.term} name="term">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1401,15 +1451,17 @@ export function SDMTCatalog() {
                           ) : (
                             <Input value={1} disabled />
                           )}
-                        </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <label>Quantity</label>
-                          <Input
-                            type="number"
-                            value={formData.qty}
-                            onChange={(e) =>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor={editIds.qty}>Quantity</Label>
+                        <Input
+                          id={editIds.qty}
+                          name="qty"
+                          type="number"
+                          value={formData.qty}
+                          onChange={(e) =>
                               setFormData((prev) => ({
                                 ...prev,
                                 qty: parseInt(e.target.value) || 1,
@@ -1418,13 +1470,15 @@ export function SDMTCatalog() {
                             min="1"
                             placeholder="1"
                           />
-                        </div>
-                        <div className="space-y-2">
-                          <label>Unit Cost *</label>
-                          <Input
-                            type="number"
-                            value={formData.unit_cost}
-                            onChange={(e) =>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={editIds.unitCost}>Unit Cost *</Label>
+                        <Input
+                          id={editIds.unitCost}
+                          name="unit_cost"
+                          type="number"
+                          value={formData.unit_cost}
+                          onChange={(e) =>
                               setFormData((prev) => ({
                                 ...prev,
                                 unit_cost: parseFloat(e.target.value) || 0,
@@ -1433,23 +1487,26 @@ export function SDMTCatalog() {
                             min="0"
                             step="0.01"
                             placeholder="0.00"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label>Currency</label>
-                          <Select
-                            value={formData.currency}
-                            onValueChange={(value) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                currency: value,
-                              }))
-                            }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={editIds.currency}>Currency</Label>
+                        <Select
+                          value={formData.currency}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              currency: value,
+                            }))
+                          }
+                        >
+                          <SelectTrigger
+                            id={editIds.currency}
+                            name="currency"
                           >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
                               <SelectItem value="USD">USD</SelectItem>
                               <SelectItem value="EUR">EUR</SelectItem>
                               <SelectItem value="MXN">MXN</SelectItem>
