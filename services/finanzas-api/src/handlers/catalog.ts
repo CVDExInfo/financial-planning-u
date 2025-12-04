@@ -13,6 +13,15 @@ type RubroItem = {
   descripcion?: string | null;
 };
 
+type RubroTaxonomia = {
+  linea_codigo?: string | null;
+  categoria?: string | null;
+  tipo_costo?: string | null;
+  tipo_ejecucion?: string | null;
+  descripcion?: string | null;
+  linea_gasto?: string | null;
+};
+
 function encodeNextToken(key: Record<string, unknown> | undefined) {
   if (!key) return undefined;
   return Buffer.from(JSON.stringify(key)).toString("base64");
@@ -57,33 +66,67 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       TableName: tableName("rubros"),
       Limit: limit,
       ExclusiveStartKey: startKey,
-      // Narrow the projection to relevant attributes for bandwidth efficiency
       ProjectionExpression:
         "rubro_id, nombre, categoria, linea_codigo, tipo_costo, tipo_ejecucion, descripcion",
-      // Filter only definition rows. In this table, some items may have an 'sk' attribute to distinguish between different item types
-      // (e.g., versioning, metadata, or other variants). Rows with 'sk' = 'DEF' represent the main definition entries for a rubro,
-      // while other 'sk' values (or absence of 'sk') may represent other item types or legacy rows. This filter ensures we only
-      // return definition rows. Note: safe if attribute sk exists; if not, Dynamo will ignore it in filter.
       FilterExpression: "attribute_not_exists(sk) OR sk = :def",
       ExpressionAttributeValues: { ":def": "DEF" },
     } as const;
 
-    const out = await ddb.send(new ScanCommand(params));
+    const [out, taxonomyScan] = await Promise.all([
+      ddb.send(new ScanCommand(params)),
+      ddb.send(
+        new ScanCommand({
+          TableName: tableName("rubros_taxonomia"),
+          ProjectionExpression:
+            "linea_codigo, categoria, tipo_costo, tipo_ejecucion, descripcion, linea_gasto",
+        }),
+      ),
+    ]);
+
+    const taxonomyEntries = (taxonomyScan.Items || []) as RubroTaxonomia[];
+    const taxonomyByLinea = new Map<string, RubroTaxonomia>();
+    const taxonomyByRubro = new Map<string, RubroTaxonomia>();
+
+    taxonomyEntries.forEach((tx) => {
+      if (tx.linea_codigo) taxonomyByLinea.set(tx.linea_codigo, tx);
+      if (tx.linea_gasto) taxonomyByRubro.set(tx.linea_gasto, tx);
+    });
+
     const items = (out.Items || []) as RubroItem[];
-    const data = items
+    let data = items
       .filter((it) => !!it.rubro_id && !!it.nombre)
-      .map((it) => ({
-        rubro_id: it.rubro_id!,
-        nombre: it.nombre!,
-        categoria: it.categoria ?? undefined,
-        linea_codigo: it.linea_codigo ?? undefined,
-        tipo_costo: it.tipo_costo ?? undefined,
-        tipo_ejecucion: it.tipo_ejecucion ?? undefined,
-        descripcion: it.descripcion ?? undefined,
-      }));
+      .map((it) => {
+        const taxonomy =
+          taxonomyByLinea.get(it.linea_codigo || "") ||
+          taxonomyByRubro.get(it.rubro_id || "") ||
+          undefined;
+        return {
+          rubro_id: it.rubro_id!,
+          nombre: it.nombre!,
+          categoria: it.categoria ?? taxonomy?.categoria ?? undefined,
+          linea_codigo: it.linea_codigo ?? taxonomy?.linea_codigo ?? undefined,
+          tipo_costo: it.tipo_costo ?? taxonomy?.tipo_costo ?? undefined,
+          tipo_ejecucion: it.tipo_ejecucion ?? taxonomy?.tipo_ejecucion ?? undefined,
+          descripcion: it.descripcion ?? taxonomy?.descripcion ?? undefined,
+        };
+      });
+
+    if (data.length === 0 && taxonomyEntries.length > 0) {
+      data = taxonomyEntries
+        .filter((tx) => tx.linea_codigo && tx.linea_gasto)
+        .map((tx) => ({
+          rubro_id: tx.linea_codigo as string,
+          nombre: tx.linea_gasto as string,
+          categoria: tx.categoria ?? undefined,
+          linea_codigo: tx.linea_codigo ?? undefined,
+          tipo_costo: tx.tipo_costo ?? undefined,
+          tipo_ejecucion: tx.tipo_ejecucion ?? undefined,
+          descripcion: tx.descripcion ?? undefined,
+        }));
+    }
 
     const nextToken = encodeNextToken(
-      out.LastEvaluatedKey as unknown as Record<string, unknown> | undefined
+      out.LastEvaluatedKey as unknown as Record<string, unknown> | undefined,
     );
 
     return {
