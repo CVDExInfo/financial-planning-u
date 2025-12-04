@@ -68,8 +68,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       ExclusiveStartKey: startKey,
       ProjectionExpression:
         "rubro_id, nombre, categoria, linea_codigo, tipo_costo, tipo_ejecucion, descripcion",
-      FilterExpression: "attribute_not_exists(sk) OR sk = :def",
-      ExpressionAttributeValues: { ":def": "DEF" },
+      FilterExpression: "attribute_not_exists(sk) OR sk = :def OR sk = :metadata",
+      ExpressionAttributeValues: { ":def": "DEF", ":metadata": "METADATA" },
     } as const;
 
     const [out, taxonomyScan] = await Promise.all([

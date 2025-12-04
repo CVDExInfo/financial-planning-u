@@ -360,6 +360,19 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     const oneTimeFlag =
       payload.one_time ?? (type === "one-time" || type === "one_time");
 
+    const category =
+      typeof payload.category === "string" && payload.category.trim()
+        ? payload.category.trim()
+        : undefined;
+    const lineaCodigo =
+      typeof payload.linea_codigo === "string" && payload.linea_codigo.trim()
+        ? payload.linea_codigo.trim()
+        : undefined;
+    const tipoCosto =
+      typeof payload.tipo_costo === "string" && payload.tipo_costo.trim()
+        ? payload.tipo_costo.trim()
+        : undefined;
+
     const durationInput = (payload.duration as string | number | undefined) ?? undefined;
     const parsedDuration = parseDuration(durationInput ?? undefined);
     const explicitStart = Number(
@@ -414,6 +427,9 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
       description,
       months,
       baseCost,
+      category,
+      linea_codigo: lineaCodigo,
+      tipo_costo: tipoCosto,
     };
   };
 
@@ -463,6 +479,9 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
       end_month: normalized?.end_month,
       total_cost: normalized?.total_cost,
       description: normalized?.description,
+      category: normalized?.category,
+      linea_codigo: normalized?.linea_codigo,
+      tipo_costo: normalized?.tipo_costo,
     };
 
     try {
