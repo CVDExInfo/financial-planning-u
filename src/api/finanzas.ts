@@ -236,10 +236,17 @@ async function presignUpload(_: {
     );
   }
 
+  if (!parsed.bucket) {
+    throw new FinanzasApiError(
+      "Upload service did not return bucket information. Please contact support.",
+      response.status,
+    );
+  }
+
   return {
     uploadUrl: parsed.uploadUrl,
     objectKey: parsed.objectKey,
-    bucket: parsed.bucket || "",
+    bucket: parsed.bucket,
     warnings: parsed.warnings || [],
     status: response.status,
   };
@@ -260,12 +267,7 @@ async function uploadFileWithPresign(
     });
   } catch (error) {
     // Network/fetch failures
-    const message =
-      error instanceof TypeError
-        ? "Failed uploading document to storage. Please check your connection and try again."
-        : error instanceof Error
-        ? error.message
-        : String(error);
+    const message = buildNetworkErrorMessage(error);
     
     if (import.meta.env.DEV) {
       console.error("[uploadFileWithPresign] Network error:", {
@@ -290,6 +292,18 @@ async function uploadFileWithPresign(
       `Failed uploading document to storage. Please check your connection and try again. (${rsp.status})`,
     );
   }
+}
+
+function buildNetworkErrorMessage(error: unknown): string {
+  if (error instanceof TypeError) {
+    return "Failed uploading document to storage. Please check your connection and try again.";
+  }
+  
+  if (error instanceof Error) {
+    return error.message;
+  }
+  
+  return String(error);
 }
 
 // ---------- Invoices ----------
