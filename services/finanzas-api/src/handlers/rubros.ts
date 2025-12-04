@@ -39,6 +39,10 @@ type RubroResponse = {
   nombre: string;
   categoria?: string;
   linea_codigo?: string;
+  categoria_codigo?: string | null;
+  linea_gasto?: string | null;
+  descripcion?: string | null;
+  tipo_ejecucion?: string | null;
   tipo_costo?: string;
   project_id: string;
   tier?: string;
@@ -63,6 +67,9 @@ type RubroDefinition = {
   categoria_codigo?: string | null;
   linea_codigo?: string | null;
   tipo_costo?: string | null;
+  linea_gasto?: string | null;
+  descripcion?: string | null;
+  tipo_ejecucion?: string | null;
 };
 
 type RubroTaxonomia = {
@@ -266,7 +273,11 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
         id: normalizedId,
         rubro_id: normalizedId,
         nombre:
-          definition.nombre || taxonomy?.linea_gasto || item.category || rubroId,
+          definition.nombre ||
+          taxonomy?.linea_gasto ||
+          taxonomy?.descripcion ||
+          item.category ||
+          rubroId,
         categoria:
           definition.categoria ||
           taxonomy?.categoria ||
@@ -278,6 +289,24 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
           taxonomyByRubro[rubroId]?.linea_codigo ||
           definition.codigo ||
           rubroId,
+        categoria_codigo:
+          definition.categoria_codigo ||
+          taxonomy?.categoria_codigo ||
+          taxonomyByRubro[rubroId]?.categoria_codigo ||
+          null,
+        linea_gasto:
+          definition.linea_gasto ||
+          taxonomy?.linea_gasto ||
+          taxonomyByRubro[rubroId]?.linea_gasto ||
+          null,
+        descripcion:
+          definition.descripcion ||
+          definition.nombre ||
+          taxonomy?.descripcion ||
+          taxonomyByRubro[rubroId]?.descripcion ||
+          null,
+        tipo_ejecucion:
+          taxonomy?.tipo_ejecucion || taxonomyByRubro[rubroId]?.tipo_ejecucion || null,
         tipo_costo:
           definition.tipo_costo ||
           taxonomy?.tipo_costo ||
