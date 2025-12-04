@@ -151,6 +151,7 @@ export type UploadStage = "presigning" | "uploading" | "complete";
 type PresignResponse = {
   uploadUrl: string;
   objectKey: string;
+  bucket: string;
   warnings?: string[];
   status?: number;
 };
@@ -235,9 +236,17 @@ async function presignUpload(_: {
     );
   }
 
+  if (!parsed.bucket) {
+    throw new FinanzasApiError(
+      "Upload service did not return bucket information. Please contact support.",
+      response.status,
+    );
+  }
+
   return {
     uploadUrl: parsed.uploadUrl,
     objectKey: parsed.objectKey,
+    bucket: parsed.bucket,
     warnings: parsed.warnings || [],
     status: response.status,
   };
@@ -247,15 +256,54 @@ async function uploadFileWithPresign(
   file: File,
   presign: PresignResponse,
 ): Promise<void> {
-  const rsp = await fetch(presign.uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": file.type || "application/octet-stream",
-    },
-    body: file,
-  });
+  let rsp: Response;
+  try {
+    rsp = await fetch(presign.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      body: file,
+    });
+  } catch (error) {
+    // Network/fetch failures
+    const message = buildNetworkErrorMessage(error);
+    
+    if (import.meta.env.DEV) {
+      console.error("[uploadFileWithPresign] Network error:", {
+        url: new URL(presign.uploadUrl).origin, // Don't leak credentials
+        error,
+      });
+    }
+    
+    throw new FinanzasApiError(message);
+  }
 
-  if (!rsp.ok) throw new Error(`S3 PUT failed (${rsp.status})`);
+  if (!rsp.ok) {
+    if (import.meta.env.DEV) {
+      console.error("[uploadFileWithPresign] S3 PUT failed:", {
+        url: new URL(presign.uploadUrl).origin,
+        status: rsp.status,
+        statusText: rsp.statusText,
+      });
+    }
+    
+    throw new FinanzasApiError(
+      `Failed uploading document to storage. Please check your connection and try again. (${rsp.status})`,
+    );
+  }
+}
+
+function buildNetworkErrorMessage(error: unknown): string {
+  if (error instanceof TypeError) {
+    return "Failed uploading document to storage. Please check your connection and try again.";
+  }
+  
+  if (error instanceof Error) {
+    return error.message;
+  }
+  
+  return String(error);
 }
 
 // ---------- Invoices ----------
@@ -295,6 +343,21 @@ export async function uploadInvoice(
     vendor: payload.vendor,
     amount: payload.amount,
   });
+  
+  if (import.meta.env.DEV) {
+    console.info("[uploadInvoice] Presign successful", {
+      projectId,
+      line_item_id: payload.line_item_id,
+      amount: payload.amount,
+      invoice_number: payload.invoice_number,
+      invoice_date: normalizedInvoiceDate ?? payload.invoice_date,
+      vendor: payload.vendor,
+      module: options?.module ?? "reconciliation",
+      objectKey: presign.objectKey,
+      bucket: presign.bucket,
+    });
+  }
+  
   await uploadFileWithPresign(payload.file, presign);
 
   const body = {

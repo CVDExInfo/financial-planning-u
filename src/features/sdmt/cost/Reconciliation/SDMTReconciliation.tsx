@@ -263,25 +263,22 @@ export default function SDMTReconciliation() {
     mutationFn: (payload: UploadInvoicePayload & { projectId: string }) =>
       uploadInvoice(payload.projectId, payload),
     onSuccess: async () => {
-      toast.success("Invoice uploaded and linked");
+      toast.success("Invoice and document uploaded");
       setShowUploadForm(false);
       setUploadFormData(createInitialUploadForm());
       await invalidateInvoices();
     },
     onError: (err: unknown) => {
-      let message = "Error interno en Finanzas.";
+      let message = "Unexpected error uploading invoice – please try again or contact support.";
       if (err instanceof FinanzasApiError) {
-        if (err.status === 503) {
-          message = "Invoice service temporarily unavailable. Please try again later.";
-        } else if (err.status && err.status >= 400 && err.status < 500) {
-          message = err.message || "No se pudo cargar la factura.";
-        }
+        message = err.message;
       } else if (err instanceof Error) {
         message = err.message;
       }
       toast.error(message);
-      console.error("Invoice upload failed: Details below.");
-      console.error({ projectId, payload: uploadFormData, err });
+      if (import.meta.env.DEV) {
+        console.error("[SDMTReconciliation] Invoice upload failed", { projectId, payload: uploadFormData, err });
+      }
     },
   });
 
