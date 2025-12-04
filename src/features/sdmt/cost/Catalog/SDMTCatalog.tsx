@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { COST_CATEGORIES, getCategoryByCode } from "@/data/cost-categories";
@@ -112,7 +113,7 @@ export function SDMTCatalog() {
     unit_cost: 0,
     currency: "USD",
     start_month: 1,
-    end_month: 12,
+    end_month: 1,
     recurring: false,
   });
 
@@ -318,8 +319,60 @@ export function SDMTCatalog() {
       unit_cost: 0,
       currency: "USD",
       start_month: 1,
-      end_month: 12,
+      end_month: 1,
       recurring: false,
+    });
+  };
+
+  const clampMonth = (value: number) => {
+    if (!Number.isFinite(value)) return 1;
+    return Math.min(Math.max(Math.round(value), 1), 60);
+  };
+
+  const getTermMonths = (data: typeof formData) =>
+    Math.max(data.end_month - data.start_month + 1, 1);
+
+  const currentTermMonths = getTermMonths(formData);
+
+  const setRecurringFlag = (recurring: boolean) => {
+    setFormData((prev) => {
+      const start = clampMonth(prev.start_month);
+      const prevTerm = getTermMonths(prev);
+      const term = recurring ? Math.max(prevTerm, 12) : 1;
+      const end = recurring ? clampMonth(start + term - 1) : start;
+
+      return {
+        ...prev,
+        recurring,
+        start_month: start,
+        end_month: end,
+      };
+    });
+  };
+
+  const updateStartMonth = (value: number) => {
+    const start = clampMonth(value);
+    setFormData((prev) => {
+      const term = prev.recurring ? getTermMonths(prev) : 1;
+      const end = prev.recurring ? clampMonth(start + term - 1) : start;
+      return {
+        ...prev,
+        start_month: start,
+        end_month: end,
+      };
+    });
+  };
+
+  const updateTermMonths = (months: number) => {
+    const term = Math.max(months, 1);
+    setFormData((prev) => {
+      const start = clampMonth(prev.start_month);
+      const end = prev.recurring ? clampMonth(start + term - 1) : start;
+      return {
+        ...prev,
+        start_month: start,
+        end_month: end,
+      };
     });
   };
 
@@ -423,6 +476,18 @@ export function SDMTCatalog() {
     const rubroId =
       formData.lineItemCode || formData.categoryCode || `custom-${Date.now()}`;
 
+    const endMonth = formData.recurring
+      ? formData.end_month
+      : formData.start_month;
+    const durationMonths = formData.recurring
+      ? Math.max(endMonth - formData.start_month + 1, 1)
+      : 1;
+
+    const selectedCategory = getCategoryByCode(formData.categoryCode);
+    const selectedLineItem = selectedCategory?.lineas.find(
+      (line) => line.codigo === formData.lineItemCode,
+    );
+
     try {
       setIsCreatingLineItem(true);
       await addProjectRubro(selectedProjectId, {
@@ -431,12 +496,16 @@ export function SDMTCatalog() {
         unitCost: formData.unit_cost,
         type: formData.recurring ? "recurring" : "one-time",
         duration: formData.recurring
-          ? `M${formData.start_month}-M${formData.end_month}`
+          ? `M${formData.start_month}-M${endMonth}`
           : `M${formData.start_month}`,
         currency: formData.currency,
         description: formData.description,
         start_month: formData.start_month,
-        end_month: formData.end_month,
+        end_month: endMonth,
+        term: durationMonths,
+        category: selectedCategory?.nombre || formData.category,
+        linea_codigo: formData.lineItemCode || formData.categoryCode,
+        tipo_costo: selectedLineItem?.tipo_costo,
       });
 
       toast.success("Line item created");
@@ -464,7 +533,7 @@ export function SDMTCatalog() {
       unit_cost: item.unit_cost,
       currency: item.currency,
       start_month: item.start_month ?? 1,
-      end_month: item.end_month ?? 12,
+      end_month: item.recurring ? item.end_month ?? 12 : item.start_month ?? 1,
       recurring: item.recurring ?? false,
     });
     setIsEditDialogOpen(true);
@@ -487,6 +556,18 @@ export function SDMTCatalog() {
       return;
     }
 
+    const endMonth = formData.recurring
+      ? formData.end_month
+      : formData.start_month;
+    const durationMonths = formData.recurring
+      ? Math.max(endMonth - formData.start_month + 1, 1)
+      : 1;
+
+    const selectedCategory = getCategoryByCode(formData.categoryCode);
+    const selectedLineItem = selectedCategory?.lineas.find(
+      (line) => line.codigo === formData.lineItemCode,
+    );
+
     // Merge form data with existing item to preserve all properties
     const updatedItem: LineItem = {
       ...editingItem,
@@ -497,7 +578,7 @@ export function SDMTCatalog() {
       unit_cost: formData.unit_cost,
       currency: formData.currency as Currency,
       start_month: formData.start_month,
-      end_month: formData.end_month,
+      end_month: endMonth,
       recurring: formData.recurring,
       one_time: !formData.recurring,
       updated_at: new Date().toISOString(),
@@ -519,6 +600,10 @@ export function SDMTCatalog() {
         description: updatedItem.description,
         start_month: updatedItem.start_month,
         end_month: updatedItem.end_month,
+        term: durationMonths,
+        category: selectedCategory?.nombre || updatedItem.category,
+        linea_codigo: formData.lineItemCode || formData.categoryCode,
+        tipo_costo: selectedLineItem?.tipo_costo,
       });
 
       const warnings = (response as any)?.warnings;
@@ -895,7 +980,7 @@ export function SDMTCatalog() {
                       <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <label>Categoría *</label>
+                            <Label htmlFor="category-select">Categoría *</Label>
                             <Select
                               value={formData.categoryCode}
                               onValueChange={(value) => {
@@ -910,7 +995,7 @@ export function SDMTCatalog() {
                                 }));
                               }}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger id="category-select">
                                 <SelectValue placeholder="Seleccione categoría" />
                               </SelectTrigger>
                               <SelectContent className="max-h-[300px]">
@@ -926,7 +1011,7 @@ export function SDMTCatalog() {
                             </Select>
                           </div>
                           <div className="space-y-2">
-                            <label>Línea de Gasto *</label>
+                            <Label htmlFor="linea-gasto-select">Línea de Gasto *</Label>
                             <Select
                               value={formData.lineItemCode}
                               onValueChange={(value) => {
@@ -945,7 +1030,7 @@ export function SDMTCatalog() {
                               }}
                               disabled={!formData.categoryCode}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger id="linea-gasto-select">
                                 <SelectValue
                                   placeholder={
                                     formData.categoryCode
@@ -971,8 +1056,9 @@ export function SDMTCatalog() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <label>Description *</label>
+                          <Label htmlFor="description-input">Description *</Label>
                           <Input
+                            id="description-input"
                             value={formData.description}
                             onChange={(e) =>
                               setFormData((prev) => ({
@@ -1007,6 +1093,66 @@ export function SDMTCatalog() {
                                 </div>
                               ) : null;
                             })()}
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label>Type</Label>
+                            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Type selector">
+                              <Button
+                                className="w-full"
+                                variant={formData.recurring ? "outline" : "default"}
+                                onClick={() => setRecurringFlag(false)}
+                                type="button"
+                              >
+                                One-time
+                              </Button>
+                              <Button
+                                className="w-full"
+                                variant={formData.recurring ? "default" : "outline"}
+                                onClick={() => setRecurringFlag(true)}
+                                type="button"
+                              >
+                                Recurring
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="start-month-input">Start Month</Label>
+                            <Input
+                              id="start-month-input"
+                              type="number"
+                              value={formData.start_month}
+                              min={1}
+                              max={60}
+                              onChange={(e) =>
+                                updateStartMonth(parseInt(e.target.value, 10) || 1)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="term-select">Term (months)</Label>
+                            {formData.recurring ? (
+                              <Select
+                                value={String(currentTermMonths)}
+                                onValueChange={(value) =>
+                                  updateTermMonths(parseInt(value, 10) || 12)
+                                }
+                              >
+                                <SelectTrigger id="term-select">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {[12, 24, 36, 48, 60].map((term) => (
+                                    <SelectItem key={term} value={String(term)}>
+                                      {term} months
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input value={1} disabled />
+                            )}
+                          </div>
                         </div>
                         <div className="grid grid-cols-3 gap-4">
                           <div className="space-y-2">
@@ -1114,7 +1260,7 @@ export function SDMTCatalog() {
                     <div className="grid gap-4 py-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <label>Categoría *</label>
+                          <Label htmlFor="edit-category-select">Categoría *</Label>
                           <Select
                             value={formData.categoryCode}
                             onValueChange={(value) => {
@@ -1141,11 +1287,11 @@ export function SDMTCatalog() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="space-y-2">
-                          <label>Línea de Gasto *</label>
-                          <Select
-                            value={formData.lineItemCode}
-                            onValueChange={(value) => {
+                          <div className="space-y-2">
+                            <Label htmlFor="edit-linea-gasto-select">Línea de Gasto *</Label>
+                            <Select
+                              value={formData.lineItemCode}
+                              onValueChange={(value) => {
                               const category = getCategoryByCode(
                                 formData.categoryCode
                               );
@@ -1158,13 +1304,13 @@ export function SDMTCatalog() {
                                 subtype: lineItem?.nombre || "",
                                 description: lineItem?.descripcion || "",
                               }));
-                            }}
-                            disabled={!formData.categoryCode}
-                          >
-                            <SelectTrigger>
-                              <SelectValue
-                                placeholder={
-                                  formData.categoryCode
+                              }}
+                              disabled={!formData.categoryCode}
+                            >
+                              <SelectTrigger id="edit-linea-gasto-select">
+                                <SelectValue
+                                  placeholder={
+                                    formData.categoryCode
                                     ? "Seleccione línea"
                                     : "Primero seleccione categoría"
                                 }
@@ -1187,8 +1333,9 @@ export function SDMTCatalog() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <label>Description *</label>
+                        <Label htmlFor="edit-description">Description *</Label>
                         <Input
+                          id="edit-description"
                           value={formData.description}
                           onChange={(e) =>
                             setFormData((prev) => ({
@@ -1220,6 +1367,66 @@ export function SDMTCatalog() {
                               </div>
                             ) : null;
                           })()}
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label>Type</Label>
+                          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Type selector">
+                            <Button
+                              className="w-full"
+                              variant={formData.recurring ? "outline" : "default"}
+                              onClick={() => setRecurringFlag(false)}
+                              type="button"
+                            >
+                              One-time
+                            </Button>
+                            <Button
+                              className="w-full"
+                              variant={formData.recurring ? "default" : "outline"}
+                              onClick={() => setRecurringFlag(true)}
+                              type="button"
+                            >
+                              Recurring
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-start-month">Start Month</Label>
+                          <Input
+                            id="edit-start-month"
+                            type="number"
+                            value={formData.start_month}
+                            min={1}
+                            max={60}
+                            onChange={(e) =>
+                              updateStartMonth(parseInt(e.target.value, 10) || 1)
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-term-select">Term (months)</Label>
+                          {formData.recurring ? (
+                            <Select
+                              value={String(currentTermMonths)}
+                              onValueChange={(value) =>
+                                updateTermMonths(parseInt(value, 10) || 12)
+                              }
+                            >
+                              <SelectTrigger id="edit-term-select">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {[12, 24, 36, 48, 60].map((term) => (
+                                  <SelectItem key={term} value={String(term)}>
+                                    {term} months
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input value={1} disabled />
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
