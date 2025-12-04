@@ -161,24 +161,41 @@ async function presignUpload(_: {
   module: UploadModule;
   lineItemId?: string;
   invoiceNumber?: string;
+  invoiceDate?: string;
+  vendor?: string;
+  amount?: number;
 }): Promise<PresignResponse> {
-  const { projectId, file, module, lineItemId, invoiceNumber } = _;
+  const { projectId, file, module, lineItemId, invoiceNumber, invoiceDate, vendor, amount } = _;
   const base = requireApiBase();
   const body = {
     projectId,
     module,
     lineItemId,
     invoiceNumber,
+    invoiceDate,
+    vendor,
+    amount,
     contentType: file.type || "application/octet-stream",
     originalName: file.name,
     checksumSha256: await sha256(file),
   };
 
-  const response = await fetch(`${base}/uploads/docs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...buildAuthHeader() },
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${base}/uploads/docs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...buildAuthHeader() },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    const message =
+      error instanceof TypeError
+        ? `Network error contacting uploads service at ${base}/uploads/docs`
+        : error instanceof Error
+        ? error.message
+        : String(error);
+    throw new FinanzasApiError(message);
+  }
 
   const rawText = await response.text().catch(() => "");
   let parsed: Partial<PresignResponse & { error?: string; message?: string }> =
@@ -230,15 +247,29 @@ async function uploadFileWithPresign(
   file: File,
   presign: PresignResponse,
 ): Promise<void> {
-  const rsp = await fetch(presign.uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": file.type || "application/octet-stream",
-    },
-    body: file,
-  });
+  try {
+    const rsp = await fetch(presign.uploadUrl, {
+      method: "PUT",
+      mode: "cors",
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      body: file,
+    });
 
-  if (!rsp.ok) throw new Error(`S3 PUT failed (${rsp.status})`);
+    if (!rsp.ok) throw new FinanzasApiError(`S3 PUT failed (${rsp.status})`, rsp.status);
+  } catch (error) {
+    if (error instanceof FinanzasApiError) throw error;
+
+    const message =
+      error instanceof TypeError
+        ? "Failed uploading document to storage. Please check your connection and try again."
+        : error instanceof Error
+          ? error.message
+          : "Failed uploading document to storage";
+
+    throw new FinanzasApiError(message);
+  }
 }
 
 // ---------- Invoices ----------
@@ -257,12 +288,26 @@ export async function uploadInvoice(
   if (!Number.isFinite(payload.amount))
     throw new Error("Amount must be a finite number");
 
+  const parsedInvoiceDate = payload.invoice_date
+    ? Date.parse(payload.invoice_date)
+    : undefined;
+  const normalizedInvoiceDate =
+    typeof parsedInvoiceDate === "number" && !Number.isNaN(parsedInvoiceDate)
+      ? new Date(parsedInvoiceDate).toISOString()
+      : undefined;
+  if (payload.invoice_date && !normalizedInvoiceDate) {
+    throw new FinanzasApiError("Invoice date must be a valid date string");
+  }
+
   const presign = await presignUpload({
     projectId,
     file: payload.file,
     module: options?.module ?? "reconciliation",
     lineItemId: payload.line_item_id,
     invoiceNumber: payload.invoice_number,
+    invoiceDate: normalizedInvoiceDate ?? payload.invoice_date,
+    vendor: payload.vendor,
+    amount: payload.amount,
   });
   await uploadFileWithPresign(payload.file, presign);
 
@@ -275,7 +320,7 @@ export async function uploadInvoice(
     vendor: payload.vendor,
     invoiceNumber:
       payload.invoice_number || `INV-${Date.now().toString(36).toUpperCase()}`,
-    invoiceDate: payload.invoice_date,
+    invoiceDate: normalizedInvoiceDate ?? payload.invoice_date,
     documentKey: presign.objectKey,
     originalName: payload.file.name,
     contentType: payload.file.type || "application/octet-stream",
@@ -494,6 +539,8 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     (dto.id as string) ||
     (dto.rubro_id as string) ||
     (dto.rubroId as string) ||
+    (dto.codigo as string) ||
+    (dto.linea_codigo as string) ||
     (dto.sk as string) ||
     "";
 
@@ -508,6 +555,7 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     (dto.linea_codigo as string) ||
     (dto.categoria as string) ||
     (dto.category as string) ||
+    (dto.codigo as string) ||
     "Rubro";
 
   const executionType =
@@ -619,6 +667,18 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
   } satisfies LineItem;
 };
 
+const coerceLineItemList = (input: unknown): LineItemDTO[] => {
+  if (Array.isArray(input)) return input as LineItemDTO[];
+  if (!input || typeof input !== "object") return [];
+
+  const candidate = input as Record<string, unknown>;
+  if (Array.isArray(candidate.data)) return candidate.data as LineItemDTO[];
+  if (Array.isArray(candidate.items)) return candidate.items as LineItemDTO[];
+  if (Array.isArray((candidate as any).line_items))
+    return (candidate as any).line_items as LineItemDTO[];
+  return [];
+};
+
 export async function getProjectRubros(
   projectId: string,
 ): Promise<LineItem[]> {
@@ -648,13 +708,27 @@ export async function getProjectRubros(
       );
     }
 
-    const payload = Array.isArray(res.data)
-      ? res.data
-      : Array.isArray((res.data as any)?.data)
-      ? (res.data as any).data
-      : [];
+    let payload = coerceLineItemList(res.data);
 
-    return payload.map(normalizeLineItem).filter((item) => !!item.id);
+    // If the primary route returns an empty list, attempt the line-items alias
+    // to capture the full catalog used by other modules.
+    if (payload.length === 0) {
+      const aliasPath = `/line-items?project_id=${encodeURIComponent(projectId)}`;
+      res = await httpClient.get<LineItemDTO[] | { data?: LineItemDTO[] }>(
+        aliasPath,
+        { headers: buildAuthHeader() },
+      );
+
+      payload = coerceLineItemList(res.data);
+    }
+
+    return payload
+      .map(normalizeLineItem)
+      .filter((item) => !!item.id)
+      .filter(
+        (item, idx, arr) =>
+          idx === arr.findIndex((candidate) => candidate.id === item.id),
+      );
   } catch (err) {
     if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
       try {

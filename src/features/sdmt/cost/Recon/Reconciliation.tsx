@@ -1,3 +1,6 @@
+// Deprecated stub component. The live reconciliation route renders
+// src/features/sdmt/cost/Reconciliation/SDMTReconciliation.tsx. This file is
+// retained only as a fallback while feature work stabilizes.
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
