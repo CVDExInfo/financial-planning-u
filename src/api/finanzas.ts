@@ -632,7 +632,6 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     (dto.category as string) ||
     (dto as any).linea_gasto ||
     (dto.linea_codigo as string) ||
-    (dto as any).codigo ||
     "Rubro";
 
   const executionType =

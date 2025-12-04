@@ -112,7 +112,7 @@ export function SDMTCatalog() {
     unit_cost: 0,
     currency: "USD",
     start_month: 1,
-    end_month: 12,
+    end_month: 1,
     recurring: false,
   });
 
@@ -318,8 +318,60 @@ export function SDMTCatalog() {
       unit_cost: 0,
       currency: "USD",
       start_month: 1,
-      end_month: 12,
+      end_month: 1,
       recurring: false,
+    });
+  };
+
+  const clampMonth = (value: number) => {
+    if (!Number.isFinite(value)) return 1;
+    return Math.min(Math.max(Math.round(value), 1), 60);
+  };
+
+  const getTermMonths = (data: typeof formData) =>
+    Math.max(data.end_month - data.start_month + 1, 1);
+
+  const currentTermMonths = getTermMonths(formData);
+
+  const setRecurringFlag = (recurring: boolean) => {
+    setFormData((prev) => {
+      const start = clampMonth(prev.start_month);
+      const prevTerm = getTermMonths(prev);
+      const term = recurring ? Math.max(prevTerm, 12) : 1;
+      const end = recurring ? clampMonth(start + term - 1) : start;
+
+      return {
+        ...prev,
+        recurring,
+        start_month: start,
+        end_month: end,
+      };
+    });
+  };
+
+  const updateStartMonth = (value: number) => {
+    const start = clampMonth(value);
+    setFormData((prev) => {
+      const term = prev.recurring ? getTermMonths(prev) : 1;
+      const end = prev.recurring ? clampMonth(start + term - 1) : start;
+      return {
+        ...prev,
+        start_month: start,
+        end_month: end,
+      };
+    });
+  };
+
+  const updateTermMonths = (months: number) => {
+    const term = Math.max(months, 1);
+    setFormData((prev) => {
+      const start = clampMonth(prev.start_month);
+      const end = prev.recurring ? clampMonth(start + term - 1) : start;
+      return {
+        ...prev,
+        start_month: start,
+        end_month: end,
+      };
     });
   };
 
@@ -423,6 +475,13 @@ export function SDMTCatalog() {
     const rubroId =
       formData.lineItemCode || formData.categoryCode || `custom-${Date.now()}`;
 
+    const endMonth = formData.recurring
+      ? formData.end_month
+      : formData.start_month;
+    const durationMonths = formData.recurring
+      ? Math.max(endMonth - formData.start_month + 1, 1)
+      : 1;
+
     try {
       setIsCreatingLineItem(true);
       await addProjectRubro(selectedProjectId, {
@@ -431,12 +490,13 @@ export function SDMTCatalog() {
         unitCost: formData.unit_cost,
         type: formData.recurring ? "recurring" : "one-time",
         duration: formData.recurring
-          ? `M${formData.start_month}-M${formData.end_month}`
+          ? `M${formData.start_month}-M${endMonth}`
           : `M${formData.start_month}`,
         currency: formData.currency,
         description: formData.description,
         start_month: formData.start_month,
-        end_month: formData.end_month,
+        end_month: endMonth,
+        term: durationMonths,
       });
 
       toast.success("Line item created");
@@ -464,7 +524,7 @@ export function SDMTCatalog() {
       unit_cost: item.unit_cost,
       currency: item.currency,
       start_month: item.start_month ?? 1,
-      end_month: item.end_month ?? 12,
+      end_month: item.recurring ? item.end_month ?? 12 : item.start_month ?? 1,
       recurring: item.recurring ?? false,
     });
     setIsEditDialogOpen(true);
@@ -487,6 +547,13 @@ export function SDMTCatalog() {
       return;
     }
 
+    const endMonth = formData.recurring
+      ? formData.end_month
+      : formData.start_month;
+    const durationMonths = formData.recurring
+      ? Math.max(endMonth - formData.start_month + 1, 1)
+      : 1;
+
     // Merge form data with existing item to preserve all properties
     const updatedItem: LineItem = {
       ...editingItem,
@@ -497,7 +564,7 @@ export function SDMTCatalog() {
       unit_cost: formData.unit_cost,
       currency: formData.currency as Currency,
       start_month: formData.start_month,
-      end_month: formData.end_month,
+      end_month: endMonth,
       recurring: formData.recurring,
       one_time: !formData.recurring,
       updated_at: new Date().toISOString(),
@@ -519,6 +586,7 @@ export function SDMTCatalog() {
         description: updatedItem.description,
         start_month: updatedItem.start_month,
         end_month: updatedItem.end_month,
+        term: durationMonths,
       });
 
       const warnings = (response as any)?.warnings;
@@ -1010,6 +1078,63 @@ export function SDMTCatalog() {
                         </div>
                         <div className="grid grid-cols-3 gap-4">
                           <div className="space-y-2">
+                            <label>Type</label>
+                            <div className="flex gap-2">
+                              <Button
+                                variant={formData.recurring ? "outline" : "default"}
+                                onClick={() => setRecurringFlag(false)}
+                                type="button"
+                              >
+                                One-time
+                              </Button>
+                              <Button
+                                variant={formData.recurring ? "default" : "outline"}
+                                onClick={() => setRecurringFlag(true)}
+                                type="button"
+                              >
+                                Recurring
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label>Start Month</label>
+                            <Input
+                              type="number"
+                              value={formData.start_month}
+                              min={1}
+                              max={60}
+                              onChange={(e) =>
+                                updateStartMonth(parseInt(e.target.value, 10) || 1)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label>Term (months)</label>
+                            {formData.recurring ? (
+                              <Select
+                                value={String(currentTermMonths)}
+                                onValueChange={(value) =>
+                                  updateTermMonths(parseInt(value, 10) || 12)
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {[12, 24, 36, 48, 60].map((term) => (
+                                    <SelectItem key={term} value={String(term)}>
+                                      {term} months
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input value={1} disabled />
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
                             <label>Quantity</label>
                             <Input
                               type="number"
@@ -1220,6 +1345,63 @@ export function SDMTCatalog() {
                               </div>
                             ) : null;
                           })()}
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <label>Type</label>
+                          <div className="flex gap-2">
+                            <Button
+                              variant={formData.recurring ? "outline" : "default"}
+                              onClick={() => setRecurringFlag(false)}
+                              type="button"
+                            >
+                              One-time
+                            </Button>
+                            <Button
+                              variant={formData.recurring ? "default" : "outline"}
+                              onClick={() => setRecurringFlag(true)}
+                              type="button"
+                            >
+                              Recurring
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label>Start Month</label>
+                          <Input
+                            type="number"
+                            value={formData.start_month}
+                            min={1}
+                            max={60}
+                            onChange={(e) =>
+                              updateStartMonth(parseInt(e.target.value, 10) || 1)
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label>Term (months)</label>
+                          {formData.recurring ? (
+                            <Select
+                              value={String(currentTermMonths)}
+                              onValueChange={(value) =>
+                                updateTermMonths(parseInt(value, 10) || 12)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {[12, 24, 36, 48, 60].map((term) => (
+                                  <SelectItem key={term} value={String(term)}>
+                                    {term} months
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input value={1} disabled />
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">

@@ -8,6 +8,7 @@ import {
   DeleteCommand,
   GetCommand,
   BatchGetCommand,
+  ScanCommand,
 } from "../lib/dynamo";
 import { ok, bad, notFound, serverError, fromAuthError } from "../lib/http";
 import { logError } from "../utils/logging";
@@ -195,6 +196,7 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
   rubroIds.forEach((id) => taxonomyKeys.add(id));
 
   const taxonomyByLinea: Record<string, RubroTaxonomia> = {};
+  const taxonomyByRubro: Record<string, RubroTaxonomia> = {};
 
   if (taxonomyKeys.size > 0 && process.env.NODE_ENV !== "test") {
     for (const linea of taxonomyKeys) {
@@ -218,6 +220,34 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
         console.warn("rubros: taxonomy lookup failed", { linea, error });
       }
     }
+
+    // If we still have gaps, fallback to a lightweight scan and map by both linea_codigo and linea_gasto.
+    const missingLineas = Array.from(taxonomyKeys).filter(
+      (key) => !taxonomyByLinea[key],
+    );
+    if (missingLineas.length > 0) {
+      try {
+        const scan = await ddb.send(
+          new ScanCommand({
+            TableName: tableName("rubros_taxonomia"),
+            ProjectionExpression:
+              "linea_codigo, categoria, categoria_codigo, linea_gasto, tipo_costo, tipo_ejecucion, descripcion",
+          }),
+        );
+
+        const entries = ((scan as any)?.Items || []) as RubroTaxonomia[];
+        for (const entry of entries) {
+          if (entry.linea_codigo) {
+            taxonomyByLinea[entry.linea_codigo] = entry;
+          }
+          if (entry.linea_gasto) {
+            taxonomyByRubro[entry.linea_gasto] = entry;
+          }
+        }
+      } catch (error) {
+        console.warn("rubros: taxonomy scan fallback failed", { error });
+      }
+    }
   }
 
   const rubros = attachments
@@ -226,7 +256,9 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
       if (!rubroId) return null;
       const definition = rubroDefinitions[rubroId] || {};
       const taxonomy =
-        taxonomyByLinea[definition.linea_codigo || rubroId] || undefined;
+        taxonomyByLinea[definition.linea_codigo || rubroId] ||
+        taxonomyByRubro[rubroId] ||
+        undefined;
 
       const normalizedId =
         definition.rubro_id || definition.codigo || rubroId || item.rubroId;
@@ -235,13 +267,29 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
         rubro_id: normalizedId,
         nombre:
           definition.nombre || taxonomy?.linea_gasto || item.category || rubroId,
-        categoria: definition.categoria || taxonomy?.categoria || undefined,
+        categoria:
+          definition.categoria ||
+          taxonomy?.categoria ||
+          taxonomyByRubro[rubroId]?.categoria ||
+          undefined,
         linea_codigo:
-          definition.linea_codigo || taxonomy?.linea_codigo || definition.codigo || rubroId,
-        tipo_costo: definition.tipo_costo || taxonomy?.tipo_costo || undefined,
+          definition.linea_codigo ||
+          taxonomy?.linea_codigo ||
+          taxonomyByRubro[rubroId]?.linea_codigo ||
+          definition.codigo ||
+          rubroId,
+        tipo_costo:
+          definition.tipo_costo ||
+          taxonomy?.tipo_costo ||
+          taxonomyByRubro[rubroId]?.tipo_costo ||
+          undefined,
         project_id: projectId,
         tier: item.tier,
-        category: item.category,
+        category:
+          definition.categoria ||
+          taxonomy?.categoria ||
+          taxonomyByRubro[rubroId]?.categoria ||
+          item.category,
         metadata: item.metadata,
         qty: item.qty,
         unit_cost: item.unit_cost,

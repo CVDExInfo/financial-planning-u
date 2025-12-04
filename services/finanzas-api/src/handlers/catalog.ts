@@ -84,18 +84,22 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     ]);
 
     const taxonomyEntries = (taxonomyScan.Items || []) as RubroTaxonomia[];
-    const taxonomyByLinea = new Map(
-      taxonomyEntries
-        .filter((tx) => tx.linea_codigo)
-        .map((tx) => [tx.linea_codigo as string, tx]),
-    );
+    const taxonomyByLinea = new Map<string, RubroTaxonomia>();
+    const taxonomyByRubro = new Map<string, RubroTaxonomia>();
+
+    taxonomyEntries.forEach((tx) => {
+      if (tx.linea_codigo) taxonomyByLinea.set(tx.linea_codigo, tx);
+      if (tx.linea_gasto) taxonomyByRubro.set(tx.linea_gasto, tx);
+    });
 
     const items = (out.Items || []) as RubroItem[];
     let data = items
       .filter((it) => !!it.rubro_id && !!it.nombre)
       .map((it) => {
         const taxonomy =
-          taxonomyByLinea.get(it.linea_codigo || it.rubro_id || "") || undefined;
+          taxonomyByLinea.get(it.linea_codigo || "") ||
+          taxonomyByRubro.get(it.rubro_id || "") ||
+          undefined;
         return {
           rubro_id: it.rubro_id!,
           nombre: it.nombre!,
