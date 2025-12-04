@@ -3,6 +3,7 @@
  * - POST /providers → registrar proveedores
  */
 import React from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import finanzasClient, {
   ProviderCreateSchema,
   type Provider,
@@ -38,10 +39,7 @@ import { loadProvidersWithHandler } from "./providers.helpers";
 
 export default function ProvidersManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [loadError, setLoadError] = React.useState<string | null>(null);
-  const [providers, setProviders] = React.useState<Provider[]>([]);
+  const queryClient = useQueryClient();
 
   const { hasGroup, canEdit, isExecRO } = usePermissions();
   const { login } = useAuth();
@@ -58,70 +56,29 @@ export default function ProvidersManager() {
   const [pais, setPais] = React.useState("");
   const [notas, setNotas] = React.useState("");
 
-  const loadProviders = React.useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setLoadError(null);
+  const providersQuery = useQuery({
+    queryKey: ["providers"],
+    queryFn: async () => {
       const result = await loadProvidersWithHandler(
         () => finanzasClient.getProviders({ limit: 50 }),
         login,
       );
-      setProviders(result.providers);
-      setLoadError(result.error);
-    } catch (error: any) {
-      console.error("Error loading providers", error);
-      const message = handleFinanzasApiError(error, {
-        onAuthError: login,
-        fallback: "No se pudieron cargar los proveedores.",
-      });
-      setLoadError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [login]);
 
-  React.useEffect(() => {
-    loadProviders();
-  }, [loadProviders]);
-
-  const handleSubmitCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!nombre || !taxId) {
-      toast.error("Por favor completa todos los campos requeridos");
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-
-      const payload: ProviderCreate = {
-        nombre,
-        tax_id: taxId,
-        tipo,
-        contacto_nombre: contactoNombre || undefined,
-        contacto_email: contactoEmail || undefined,
-        contacto_telefono: contactoTelefono || undefined,
-        pais: pais || undefined,
-        notas: notas || undefined,
-      };
-
-      const validated = ProviderCreateSchema.safeParse(payload);
-
-      if (!validated.success) {
-        const errorMessage = validated.error.issues
-          .map((issue) => issue.message || issue.path.join("."))
-          .join("; ");
-        toast.error(errorMessage || "Datos inválidos. Verifica el formulario.");
-        return;
+      if (result.error) {
+        throw new Error(result.error);
       }
 
-      await finanzasClient.createProvider(validated.data);
+      return result.providers;
+    },
+    refetchOnWindowFocus: true,
+  });
 
-      toast.success(`Proveedor "${nombre}" creado exitosamente`);
+  const createProviderMutation = useMutation({
+    mutationFn: (payload: ProviderCreate) => finanzasClient.createProvider(payload),
+    onSuccess: async (createdProvider) => {
+      toast.success(`Proveedor "${createdProvider.nombre}" creado exitosamente`);
       setIsCreateDialogOpen(false);
-
-      loadProviders();
+      await queryClient.invalidateQueries({ queryKey: ["providers"] });
 
       // Reset form
       setNombre("");
@@ -132,31 +89,60 @@ export default function ProvidersManager() {
       setContactoTelefono("");
       setPais("");
       setNotas("");
-    } catch (e: any) {
-      console.error("Error creating provider:", e);
+    },
+    onError: (error) => {
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: "Error al crear el proveedor",
+      });
+      toast.error(message);
+    },
+  });
 
-      const errorMessage = e?.message || "Error al crear el proveedor";
+  const isSubmitting = createProviderMutation.isPending;
 
-      if (errorMessage.includes("501")) {
-        toast.error(
-          "Esta función aún no está implementada en el servidor (501). El backend necesita completar este handler."
-        );
-      } else if (
-        errorMessage.includes("signed in") ||
-        errorMessage.includes("401") ||
-        errorMessage.includes("403")
-      ) {
-        toast.error(errorMessage);
-      } else if (errorMessage.includes("HTML") || errorMessage.includes("login page")) {
-        toast.error("No se pudo conectar con la API de Finanzas. Por favor contacta a soporte.");
-        console.error("API configuration issue:", errorMessage);
-      } else {
-        toast.error(errorMessage);
-      }
-    } finally {
-      setIsSubmitting(false);
+  const handleSubmitCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!nombre || !taxId) {
+      toast.error("Por favor completa todos los campos requeridos");
+      return;
+    }
+
+    const payload: ProviderCreate = {
+      nombre,
+      tax_id: taxId,
+      tipo,
+      contacto_nombre: contactoNombre || undefined,
+      contacto_email: contactoEmail || undefined,
+      contacto_telefono: contactoTelefono || undefined,
+      pais: pais || undefined,
+      notas: notas || undefined,
+    };
+
+    const validated = ProviderCreateSchema.safeParse(payload);
+
+    if (!validated.success) {
+      const errorMessage = validated.error.issues
+        .map((issue) => issue.message || issue.path.join("."))
+        .join("; ");
+      toast.error(errorMessage || "Datos inválidos. Verifica el formulario.");
+      return;
+    }
+
+    try {
+      await createProviderMutation.mutateAsync(validated.data);
+    } catch (error) {
+      console.error("Error creating provider:", error);
     }
   };
+
+  const providersError =
+    providersQuery.error instanceof Error
+      ? providersQuery.error
+      : providersQuery.error
+      ? new Error(String(providersQuery.error))
+      : null;
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -167,9 +153,14 @@ export default function ProvidersManager() {
         icon={<Building2 className="h-5 w-5 text-white" />}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={loadProviders} className="gap-2" disabled={isLoading}>
+            <Button
+              variant="outline"
+              onClick={() => providersQuery.refetch()}
+              className="gap-2"
+              disabled={providersQuery.isFetching}
+            >
               <RefreshCcw className="h-4 w-4" />
-              {isLoading ? "Actualizando" : "Refrescar"}
+              {providersQuery.isFetching ? "Actualizando" : "Refrescar"}
             </Button>
             {canCreateProvider && (
               <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
@@ -190,10 +181,10 @@ export default function ProvidersManager() {
         </CardHeader>
         <CardContent>
           <DataContainer
-            data={providers}
-            isLoading={isLoading}
-            error={loadError}
-            onRetry={loadProviders}
+            data={providersQuery.data}
+            isLoading={providersQuery.isLoading || providersQuery.isFetching}
+            error={providersError}
+            onRetry={() => providersQuery.refetch()}
             loadingType="table"
             emptyTitle="No hay proveedores"
             emptyMessage="Crea un proveedor o revisa que tu rol tenga permisos de escritura. FIN solo consulta."
