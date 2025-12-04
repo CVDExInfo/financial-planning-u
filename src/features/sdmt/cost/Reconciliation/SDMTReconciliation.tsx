@@ -100,14 +100,14 @@ const formatMatrixLabel = (
 
 const formatRubroLabel = (item?: LineItem, fallbackId?: string) => {
   if (!item) return fallbackId || "Line item";
-  const category = item.category?.trim();
-  const subtype = item.subtype?.trim();
+  const category = (item as any).categoria?.trim() || item.category?.trim();
   const description = item.description?.trim() || fallbackId || "Line item";
-  const categoryLabel = subtype
-    ? `${category ?? "General"} / ${subtype}`
-    : category ?? "General";
-  const idPart = item.id ? ` [${item.id}]` : fallbackId ? ` [${fallbackId}]` : "";
-  return `${categoryLabel} — ${description}${idPart}`;
+  const lineaCodigo = (item as any).linea_codigo?.trim();
+  const tipoCosto = (item as any).tipo_costo?.trim();
+  const categoryLabel = category || "General";
+  const codePart = lineaCodigo || item.id || fallbackId || "";
+  const tipoCostoSuffix = tipoCosto ? ` • ${tipoCosto}` : "";
+  return `${categoryLabel} — ${description}${codePart ? ` [${codePart}]` : ""}${tipoCostoSuffix}`;
 };
 
 const formatCurrency = (amount: number) =>
@@ -523,10 +523,10 @@ export default function SDMTReconciliation() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-2">
           <h1 className="text-3xl font-bold">Invoice Reconciliation</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground leading-relaxed">
             Upload and match invoices against forecasted amounts
             {currentProject && (
               <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
@@ -644,9 +644,9 @@ export default function SDMTReconciliation() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+          <div className="space-y-6 py-4">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
                 <Label htmlFor={lineItemSelectId}>Line Item *</Label>
                 {lineItemOptions.length ? (
                   <Select
@@ -693,7 +693,7 @@ export default function SDMTReconciliation() {
                 )}
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor={monthSelectId}>Month *</Label>
                 <Select
                   value={String(uploadFormData.month)}
@@ -718,8 +718,8 @@ export default function SDMTReconciliation() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
                 <Label htmlFor="amount">Invoice Amount *</Label>
                 <Input
                   id="amount"
@@ -735,7 +735,7 @@ export default function SDMTReconciliation() {
                   }
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="vendor">Vendor</Label>
                 <Input
                   id="vendor"
@@ -752,8 +752,8 @@ export default function SDMTReconciliation() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
                 <Label htmlFor="invoice_number">Invoice Number</Label>
                 <Input
                   id="invoice_number"
@@ -768,7 +768,7 @@ export default function SDMTReconciliation() {
                   }
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="invoice_date">Invoice Date *</Label>
                 <Input
                   id="invoice_date"
@@ -785,7 +785,7 @@ export default function SDMTReconciliation() {
               </div>
             </div>
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor={fileInputId}>Upload File *</Label>
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4">
                 <Input

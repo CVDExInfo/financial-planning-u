@@ -673,25 +673,28 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     "";
 
   const id = rubroId.replace(/^RUBRO#/, "");
+  const lineaCodigo = (dto.linea_codigo as string) || id;
+  const categoria =
+    (dto.categoria as string) ||
+    (dto.category as string) ||
+    (dto as any).linea_gasto ||
+    lineaCodigo ||
+    "Rubro";
   const name =
     (dto.nombre as string) ||
     (dto.descripcion as string) ||
     (dto.description as string) ||
+    categoria ||
     id ||
     "Rubro";
-  const category =
-    (dto.categoria as string) ||
-    (dto.category as string) ||
-    (dto as any).linea_gasto ||
-    (dto.linea_codigo as string) ||
-    "Rubro";
+  const tipoCosto = (dto.tipo_costo as string) || undefined;
 
-  const executionType =
-    (dto.tipo_costo as string) || (dto as any).tipo_ejecucion || "";
+  const executionType = ((dto as any).tipo_ejecucion as string) || "";
 
   const recurringFromType = executionType.toLowerCase() === "mensual";
   const oneTimeFromType =
     executionType.toLowerCase() === "puntual" ||
+    executionType.toLowerCase() === "puntual/hito" ||
     executionType.toLowerCase() === "por_hito";
 
   const recurring =
@@ -763,8 +766,8 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
 
   return {
     id,
-    category,
-    subtype: (dto.tipo_costo as string) || undefined,
+    category: categoria,
+    subtype: tipoCosto || undefined,
     vendor: (dto as any).vendor as string | undefined,
     description: name,
     one_time: Boolean(one_time),
@@ -806,7 +809,14 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     duration_days: (dto as any).duration_days
       ? Number((dto as any).duration_days)
       : undefined,
-  } satisfies LineItem;
+    linea_codigo: lineaCodigo,
+    categoria,
+    tipo_costo: tipoCosto,
+  } satisfies LineItem & {
+    linea_codigo?: string;
+    categoria?: string;
+    tipo_costo?: string;
+  };
 };
 
 const coerceLineItemList = (input: unknown): LineItemDTO[] => {

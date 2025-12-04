@@ -29,6 +29,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Plus, RefreshCcw } from "lucide-react";
 import DataContainer from "@/components/DataContainer";
 import PageHeader from "@/components/PageHeader";
+import { byRubroId as rubrosCatalogById } from "@/modules/rubros.catalog.enriched";
 
 function Cell({ children }: { children: React.ReactNode }) {
   return (
@@ -74,7 +75,25 @@ export default function RubrosCatalog() {
         return;
       }
 
-      setRows(normalizedRubros);
+      const enrichedRows = normalizedRubros.map((rubro) => {
+        const catalog = rubrosCatalogById.get(rubro.rubro_id);
+        const nombre =
+          rubro.nombre ||
+          catalog?.nombre ||
+          catalog?.linea_gasto ||
+          rubro.rubro_id;
+
+        return {
+          ...catalog,
+          ...rubro,
+          nombre,
+          categoria: rubro.categoria ?? catalog?.categoria ?? null,
+          linea_codigo: rubro.linea_codigo ?? catalog?.linea_codigo ?? null,
+          tipo_costo: rubro.tipo_costo ?? catalog?.tipo_costo ?? null,
+        } as Rubro;
+      });
+
+      setRows(enrichedRows);
     } catch (e: any) {
       console.error(e);
       const message =
@@ -202,11 +221,11 @@ export default function RubrosCatalog() {
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="bg-muted text-muted-foreground text-xs uppercase tracking-wide">
-                        <th className="text-left px-3 py-2">rubro_id</th>
-                        <th className="text-left px-3 py-2">nombre</th>
-                        <th className="text-left px-3 py-2">categoria</th>
-                        <th className="text-left px-3 py-2">linea_codigo</th>
-                        <th className="text-left px-3 py-2">tipo_costo</th>
+                        <th className="text-left px-3 py-2">RUBRO_ID</th>
+                        <th className="text-left px-3 py-2">NOMBRE</th>
+                        <th className="text-left px-3 py-2">CATEGORÍA</th>
+                        <th className="text-left px-3 py-2">LINEA_CODIGO</th>
+                        <th className="text-left px-3 py-2">TIPO_COSTO</th>
                         <th className="text-left px-3 py-2">Acciones</th>
                       </tr>
                     </thead>
