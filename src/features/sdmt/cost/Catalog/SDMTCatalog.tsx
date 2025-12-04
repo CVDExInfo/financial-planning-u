@@ -523,11 +523,40 @@ export function SDMTCatalog() {
 
   const handleEditClick = (item: LineItem) => {
     setEditingItem(item);
+    
+    // Preserve existing taxonomy codes from the item to avoid wiping them on save
+    const existingLineaCodigo = (item as any).linea_codigo || "";
+    const existingTipoCosto = (item as any).tipo_costo || "";
+    
+    // Try to extract category code and line item code from linea_codigo
+    // linea_codigo format is typically: "CAT-LINE" or just the line code
+    let categoryCode = "";
+    let lineItemCode = "";
+    
+    if (existingLineaCodigo) {
+      // If linea_codigo contains a dash, split it
+      const parts = existingLineaCodigo.split("-");
+      if (parts.length > 1) {
+        categoryCode = parts[0];
+        lineItemCode = existingLineaCodigo;
+      } else {
+        // If no dash, it might be just a line code or category code
+        lineItemCode = existingLineaCodigo;
+        // Try to find matching category by searching in COST_CATEGORIES
+        const matchingCategory = COST_CATEGORIES.find(cat => 
+          cat.lineas.some(linea => linea.codigo === existingLineaCodigo)
+        );
+        if (matchingCategory) {
+          categoryCode = matchingCategory.codigo;
+        }
+      }
+    }
+    
     setFormData({
       category: item.category,
-      categoryCode: "",
+      categoryCode,
       subtype: item.subtype || "",
-      lineItemCode: "",
+      lineItemCode,
       description: item.description,
       qty: item.qty,
       unit_cost: item.unit_cost,
@@ -568,6 +597,14 @@ export function SDMTCatalog() {
       (line) => line.codigo === formData.lineItemCode,
     );
 
+    // Preserve existing taxonomy codes if no new selection was made
+    const existingLineaCodigo = (editingItem as any).linea_codigo || "";
+    const existingTipoCosto = (editingItem as any).tipo_costo || "";
+    
+    // Use new codes if selected, otherwise preserve existing ones
+    const lineaCodigo = formData.lineItemCode || formData.categoryCode || existingLineaCodigo;
+    const tipoCosto = selectedLineItem?.tipo_costo || existingTipoCosto;
+
     // Merge form data with existing item to preserve all properties
     const updatedItem: LineItem = {
       ...editingItem,
@@ -602,8 +639,8 @@ export function SDMTCatalog() {
         end_month: updatedItem.end_month,
         term: durationMonths,
         category: selectedCategory?.nombre || updatedItem.category,
-        linea_codigo: formData.lineItemCode || formData.categoryCode,
-        tipo_costo: selectedLineItem?.tipo_costo,
+        linea_codigo: lineaCodigo,
+        tipo_costo: tipoCosto,
       });
 
       const warnings = (response as any)?.warnings;
