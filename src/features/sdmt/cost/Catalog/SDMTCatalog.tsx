@@ -376,6 +376,17 @@ export function SDMTCatalog() {
     });
   };
 
+  /**
+   * Extract taxonomy codes from a line item to preserve them during edits.
+   * Returns linea_codigo and tipo_costo if they exist on the item.
+   */
+  const extractTaxonomyCodes = (item: LineItem): { linea_codigo: string; tipo_costo: string } => {
+    return {
+      linea_codigo: (item as any).linea_codigo || "",
+      tipo_costo: (item as any).tipo_costo || "",
+    };
+  };
+
   const openDocumentDialog = (item: LineItem) => {
     setDocTarget(item);
     setDocFile(null);
@@ -525,8 +536,7 @@ export function SDMTCatalog() {
     setEditingItem(item);
     
     // Preserve existing taxonomy codes from the item to avoid wiping them on save
-    const existingLineaCodigo = (item as any).linea_codigo || "";
-    const existingTipoCosto = (item as any).tipo_costo || "";
+    const { linea_codigo: existingLineaCodigo, tipo_costo: existingTipoCosto } = extractTaxonomyCodes(item);
     
     // Try to extract category code and line item code from linea_codigo
     // linea_codigo format is typically: "CAT-LINE" or just the line code
@@ -598,8 +608,7 @@ export function SDMTCatalog() {
     );
 
     // Preserve existing taxonomy codes if no new selection was made
-    const existingLineaCodigo = (editingItem as any).linea_codigo || "";
-    const existingTipoCosto = (editingItem as any).tipo_costo || "";
+    const { linea_codigo: existingLineaCodigo, tipo_costo: existingTipoCosto } = extractTaxonomyCodes(editingItem);
     
     // Use new codes if selected, otherwise preserve existing ones
     const lineaCodigo = formData.lineItemCode || formData.categoryCode || existingLineaCodigo;
