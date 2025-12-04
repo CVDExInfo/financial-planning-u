@@ -128,6 +128,7 @@ describe("upload-docs handler", () => {
       uploadUrl: mockSignedUrl,
       objectKey: "docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf",
       documentId: "DOC-12345678",
+      bucket: "docs-bucket",
       metadata: expect.objectContaining({
         documentId: "DOC-12345678",
         module: "prefactura",
@@ -187,6 +188,28 @@ describe("upload-docs handler", () => {
     ]);
   });
 
+  it("returns 503 when docs table is missing", async () => {
+    dynamo.ddb.send.mockRejectedValue({ name: "ResourceNotFoundException" });
+
+    const response = (await uploadDocsHandler(
+      baseEvent({ body: JSON.stringify(validBody) })
+    )) as ApiResult;
+
+    expect(response.statusCode).toBe(503);
+    expect(JSON.parse(response.body).error).toContain("Docs table not found");
+  });
+
+  it("returns 503 when docs table access is denied", async () => {
+    dynamo.ddb.send.mockRejectedValue({ name: "AccessDeniedException" });
+
+    const response = (await uploadDocsHandler(
+      baseEvent({ body: JSON.stringify(validBody) })
+    )) as ApiResult;
+
+    expect(response.statusCode).toBe(503);
+    expect(JSON.parse(response.body).error).toContain("Access denied");
+  });
+
   it("returns server error when presign generation fails", async () => {
     getSignedUrl.mockRejectedValueOnce(new Error("s3 error"));
 
@@ -196,6 +219,30 @@ describe("upload-docs handler", () => {
 
     expect(response.statusCode).toBe(500);
     expect(JSON.parse(response.body).error).toContain("Unable to generate upload URL");
+    expect(dynamo.ddb.send).not.toHaveBeenCalled();
+  });
+
+  it("surfaces NoSuchBucket presign failures as 503", async () => {
+    getSignedUrl.mockRejectedValueOnce({ name: "NoSuchBucket" });
+
+    const response = (await uploadDocsHandler(
+      baseEvent({ body: JSON.stringify(validBody) })
+    )) as ApiResult;
+
+    expect(response.statusCode).toBe(503);
+    expect(JSON.parse(response.body).error).toContain("Docs bucket not found");
+    expect(dynamo.ddb.send).not.toHaveBeenCalled();
+  });
+
+  it("surfaces AccessDenied presign failures as 503", async () => {
+    getSignedUrl.mockRejectedValueOnce({ name: "AccessDenied" });
+
+    const response = (await uploadDocsHandler(
+      baseEvent({ body: JSON.stringify(validBody) })
+    )) as ApiResult;
+
+    expect(response.statusCode).toBe(503);
+    expect(JSON.parse(response.body).error).toContain("access denied");
     expect(dynamo.ddb.send).not.toHaveBeenCalled();
   });
 
