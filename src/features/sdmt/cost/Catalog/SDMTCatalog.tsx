@@ -1,12 +1,11 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Label } from "@/components/ui/label";
-import { COST_CATEGORIES, getCategoryByCode } from "@/data/cost-categories";
 import {
   Table,
   TableBody,
@@ -31,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import {
   Plus,
   Search,
@@ -42,6 +42,7 @@ import {
   Star,
   Paperclip,
 } from "lucide-react";
+
 import { usePermissions } from "@/hooks/usePermissions";
 import { useProject } from "@/contexts/ProjectContext";
 import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
@@ -57,7 +58,11 @@ import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import { logger } from "@/utils/logger";
 import { cn } from "@/lib/utils";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
-import { addProjectRubro, deleteProjectRubro, FinanzasApiError } from "@/api/finanzas";
+import {
+  addProjectRubro,
+  deleteProjectRubro,
+  FinanzasApiError,
+} from "@/api/finanzas";
 import {
   uploadDocument,
   type DocumentUploadMeta,
@@ -65,17 +70,48 @@ import {
 } from "@/lib/documents/uploadService";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  COST_CATEGORIES,
+  getCategoryByCode,
+} from "@/data/cost-categories";
 
-// Pending change types
 type PendingChangeType = "add" | "edit" | "delete";
 
 interface PendingChange {
   type: PendingChangeType;
   item: LineItem;
-  originalItem?: LineItem; // For edits, keep original for rollback
+  originalItem?: LineItem;
 }
 
 type CatalogDocumentMeta = DocumentUploadMeta;
+
+interface CatalogFormState {
+  category: string;
+  categoryCode: string;
+  subtype: string;
+  lineItemCode: string;
+  description: string;
+  qty: number;
+  unit_cost: number;
+  currency: string;
+  start_month: number;
+  end_month: number;
+  recurring: boolean;
+}
+
+const createEmptyFormState = (): CatalogFormState => ({
+  category: "",
+  categoryCode: "",
+  subtype: "",
+  lineItemCode: "",
+  description: "",
+  qty: 1,
+  unit_cost: 0,
+  currency: "USD",
+  start_month: 1,
+  end_month: 1,
+  recurring: false,
+});
 
 export function SDMTCatalog() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
@@ -86,8 +122,10 @@ export function SDMTCatalog() {
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
   const [docDialogOpen, setDocDialogOpen] = useState(false);
   const [docTarget, setDocTarget] = useState<LineItem | null>(null);
   const [docFile, setDocFile] = useState<File | null>(null);
@@ -97,28 +135,16 @@ export function SDMTCatalog() {
   const [documentUploadStage, setDocumentUploadStage] =
     useState<DocumentUploadStage | null>(null);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+
   const [editingItem, setEditingItem] = useState<LineItem | null>(null);
   const [isCreatingLineItem, setIsCreatingLineItem] = useState(false);
   const [isUpdatingLineItem, setIsUpdatingLineItem] = useState(false);
+
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
-  // Form state for Add/Edit Line Item dialog
-  const [formData, setFormData] = useState({
-    category: "",
-    categoryCode: "",
-    subtype: "",
-    lineItemCode: "",
-    description: "",
-    qty: 1,
-    unit_cost: 0,
-    currency: "USD",
-    start_month: 1,
-    end_month: 1,
-    recurring: false,
-  });
-  const formInstanceId = useId();
-  const addFieldId = (name: string) => `catalog-add-${formInstanceId}-${name}`;
-  const editFieldId = (name: string) => `catalog-edit-${formInstanceId}-${name}`;
+  const [formData, setFormData] = useState<CatalogFormState>(
+    createEmptyFormState()
+  );
 
   const {
     selectedProjectId,
@@ -126,6 +152,7 @@ export function SDMTCatalog() {
     projectChangeCount,
     invalidateProjectData,
   } = useProject();
+
   const {
     lineItems: queryLineItems,
     isLoading: isLineItemsLoading,
@@ -133,21 +160,13 @@ export function SDMTCatalog() {
     error: lineItemsError,
     invalidate: invalidateLineItems,
   } = useProjectLineItems();
-  const { login } = useAuth();
-  const loading = isLineItemsLoading && queryLineItems.length === 0;
-  const refreshing = isLineItemsFetching && !isLineItemsLoading;
 
-  // Use the new permissions system
+  const { login } = useAuth();
   const { isReadOnly, currentRole } = usePermissions();
 
-  // Check if there are unsaved changes
+  const loading = isLineItemsLoading && queryLineItems.length === 0;
+  const refreshing = isLineItemsFetching && !isLineItemsLoading;
   const hasUnsavedChanges = pendingChanges.size > 0;
-
-  // Navigation blockers in react-router require a data router. The SDMT catalog
-  // currently renders under a BrowserRouter, so using useBlocker would throw
-  // "useBlocker must be used within a data router". We intentionally skip the
-  // unsaved-changes blocker to keep this screen accessible from top navigation
-  // until the app is migrated to a data router.
 
   useEffect(() => {
     if (lineItemsError) {
@@ -158,6 +177,7 @@ export function SDMTCatalog() {
     setLineItems(Array.isArray(queryLineItems) ? queryLineItems : []);
     setPendingChanges(new Map());
     setSaveBarState("idle");
+
     if (selectedProjectId) {
       logger.debug(
         "Catalog: received",
@@ -198,6 +218,7 @@ export function SDMTCatalog() {
       description.includes(term) || category.includes(term);
     const matchesCategory =
       categoryFilter === "all" || item.category === categoryFilter;
+
     return matchesSearch && matchesCategory;
   });
 
@@ -224,16 +245,80 @@ export function SDMTCatalog() {
   };
 
   const calculateTotalCost = (item: LineItem) => {
-    const totalFromApi = Number(item.total_cost ?? (item as any).total_cost ?? (item as any).total);
+    const totalFromApi = Number(
+      (item as any).total_cost ?? (item as any).total
+    );
     if (Number.isFinite(totalFromApi) && totalFromApi > 0) {
       return totalFromApi;
     }
 
     const qty = Number(item.qty ?? 0);
     const unitCost = Number(item.unit_cost ?? 0);
-    const duration = Number(item.end_month ?? 0) - Number(item.start_month ?? 0) + 1;
+    const duration =
+      Number(item.end_month ?? 0) - Number(item.start_month ?? 0) + 1;
     const baseCost = qty * unitCost;
-    return item.recurring ? baseCost * (duration > 0 ? duration : 1) : baseCost;
+
+    return item.recurring
+      ? baseCost * (duration > 0 ? duration : 1)
+      : baseCost;
+  };
+
+  const clampMonth = (value: number) => {
+    if (!Number.isFinite(value)) return 1;
+    return Math.min(Math.max(Math.round(value), 1), 60);
+  };
+
+  const getTermMonths = (data: CatalogFormState) =>
+    Math.max(data.end_month - data.start_month + 1, 1);
+
+  const currentTermMonths = getTermMonths(formData);
+
+  const setRecurringFlag = (recurring: boolean) => {
+    setFormData((prev) => {
+      const start = clampMonth(prev.start_month);
+      const prevTerm = getTermMonths(prev);
+      const term = recurring ? Math.max(prevTerm, 12) : 1;
+      const end = recurring ? clampMonth(start + term - 1) : start;
+
+      return {
+        ...prev,
+        recurring,
+        start_month: start,
+        end_month: end,
+      };
+    });
+  };
+
+  const updateStartMonth = (value: number) => {
+    const start = clampMonth(value);
+    setFormData((prev) => {
+      const term = prev.recurring ? getTermMonths(prev) : 1;
+      const end = prev.recurring ? clampMonth(start + term - 1) : start;
+
+      return {
+        ...prev,
+        start_month: start,
+        end_month: end,
+      };
+    });
+  };
+
+  const updateTermMonths = (months: number) => {
+    const term = Math.max(months, 1);
+    setFormData((prev) => {
+      const start = clampMonth(prev.start_month);
+      const end = prev.recurring ? clampMonth(start + term - 1) : start;
+
+      return {
+        ...prev,
+        start_month: start,
+        end_month: end,
+      };
+    });
+  };
+
+  const resetForm = () => {
+    setFormData(createEmptyFormState());
   };
 
   const handleShare = async () => {
@@ -267,7 +352,9 @@ export function SDMTCatalog() {
           {
             label: "Labor Costs",
             value: formatReportCurrency(laborCost),
-            change: `${((laborCost / totalCost) * 100).toFixed(1)}% of total`,
+            change: `${((laborCost / totalCost) * 100).toFixed(
+              1
+            )}% of total`,
             changeType: "neutral" as const,
             color: "#14B8A6",
           },
@@ -290,7 +377,7 @@ export function SDMTCatalog() {
             filteredItems.filter((item) => item.recurring).length
           } recurring cost items identified`,
           `${
-            filteredItems.filter((item) => item.capex_flag).length
+            filteredItems.filter((item) => (item as any).capex_flag).length
           } items flagged as capital expenditure`,
         ],
         recommendations: [
@@ -309,74 +396,6 @@ export function SDMTCatalog() {
       toast.error("Failed to generate professional report");
       console.error("Share error:", error);
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      category: "",
-      categoryCode: "",
-      subtype: "",
-      lineItemCode: "",
-      description: "",
-      qty: 1,
-      unit_cost: 0,
-      currency: "USD",
-      start_month: 1,
-      end_month: 1,
-      recurring: false,
-    });
-  };
-
-  const clampMonth = (value: number) => {
-    if (!Number.isFinite(value)) return 1;
-    return Math.min(Math.max(Math.round(value), 1), 60);
-  };
-
-  const getTermMonths = (data: typeof formData) =>
-    Math.max(data.end_month - data.start_month + 1, 1);
-
-  const currentTermMonths = getTermMonths(formData);
-
-  const setRecurringFlag = (recurring: boolean) => {
-    setFormData((prev) => {
-      const start = clampMonth(prev.start_month);
-      const prevTerm = getTermMonths(prev);
-      const term = recurring ? Math.max(prevTerm, 12) : 1;
-      const end = recurring ? clampMonth(start + term - 1) : start;
-
-      return {
-        ...prev,
-        recurring,
-        start_month: start,
-        end_month: end,
-      };
-    });
-  };
-
-  const updateStartMonth = (value: number) => {
-    const start = clampMonth(value);
-    setFormData((prev) => {
-      const term = prev.recurring ? getTermMonths(prev) : 1;
-      const end = prev.recurring ? clampMonth(start + term - 1) : start;
-      return {
-        ...prev,
-        start_month: start,
-        end_month: end,
-      };
-    });
-  };
-
-  const updateTermMonths = (months: number) => {
-    const term = Math.max(months, 1);
-    setFormData((prev) => {
-      const start = clampMonth(prev.start_month);
-      const end = prev.recurring ? clampMonth(start + term - 1) : start;
-      return {
-        ...prev,
-        start_month: start,
-        end_month: end,
-      };
-    });
   };
 
   const openDocumentDialog = (item: LineItem) => {
@@ -399,6 +418,7 @@ export function SDMTCatalog() {
     try {
       setIsUploadingDocument(true);
       setDocumentUploadStage("presigning");
+
       const uploaded = await uploadDocument(
         {
           projectId: selectedProjectId,
@@ -429,6 +449,7 @@ export function SDMTCatalog() {
       if (!uploaded.status || uploaded.status === 201 || uploaded.status === 200) {
         toast.success("Supporting document uploaded");
       }
+
       setDocDialogOpen(false);
       setDocFile(null);
     } catch (error) {
@@ -460,11 +481,7 @@ export function SDMTCatalog() {
   };
 
   const handleSubmitLineItem = async () => {
-    if (
-      !formData.category ||
-      !formData.description ||
-      formData.unit_cost <= 0
-    ) {
+    if (!formData.category || !formData.description || formData.unit_cost <= 0) {
       toast.error(
         "Please fill in all required fields (category, description, unit cost)"
       );
@@ -482,17 +499,19 @@ export function SDMTCatalog() {
     const endMonth = formData.recurring
       ? formData.end_month
       : formData.start_month;
+
     const durationMonths = formData.recurring
       ? Math.max(endMonth - formData.start_month + 1, 1)
       : 1;
 
     const selectedCategory = getCategoryByCode(formData.categoryCode);
     const selectedLineItem = selectedCategory?.lineas.find(
-      (line) => line.codigo === formData.lineItemCode,
+      (line) => line.codigo === formData.lineItemCode
     );
 
     try {
       setIsCreatingLineItem(true);
+
       await addProjectRubro(selectedProjectId, {
         rubroId,
         qty: formData.qty,
@@ -526,30 +545,28 @@ export function SDMTCatalog() {
 
   const handleEditClick = (item: LineItem) => {
     setEditingItem(item);
+
     setFormData({
-      category: item.category,
+      category: item.category || "",
       categoryCode: "",
-      subtype: item.subtype || "",
+      subtype: (item as any).subtype || "",
       lineItemCode: "",
-      description: item.description,
-      qty: item.qty,
-      unit_cost: item.unit_cost,
-      currency: item.currency,
+      description: item.description || "",
+      qty: item.qty ?? 1,
+      unit_cost: item.unit_cost ?? 0,
+      currency: (item.currency as Currency) || "USD",
       start_month: item.start_month ?? 1,
       end_month: item.recurring ? item.end_month ?? 12 : item.start_month ?? 1,
       recurring: item.recurring ?? false,
     });
+
     setIsEditDialogOpen(true);
   };
 
   const handleUpdateLineItem = async () => {
     if (!editingItem) return;
 
-    if (
-      !formData.category ||
-      !formData.description ||
-      formData.unit_cost <= 0
-    ) {
+    if (!formData.category || !formData.description || formData.unit_cost <= 0) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -562,19 +579,33 @@ export function SDMTCatalog() {
     const endMonth = formData.recurring
       ? formData.end_month
       : formData.start_month;
+
     const durationMonths = formData.recurring
       ? Math.max(endMonth - formData.start_month + 1, 1)
       : 1;
 
     const selectedCategory = getCategoryByCode(formData.categoryCode);
     const selectedLineItem = selectedCategory?.lineas.find(
-      (line) => line.codigo === formData.lineItemCode,
+      (line) => line.codigo === formData.lineItemCode
     );
 
-    // Merge form data with existing item to preserve all properties
+    const existingLineaCodigo = (editingItem as any).linea_codigo;
+    const existingTipoCosto = (editingItem as any).tipo_costo;
+
+    const lineaCodigoPayload =
+      formData.lineItemCode ||
+      formData.categoryCode ||
+      existingLineaCodigo;
+
+    const tipoCostoPayload =
+      selectedLineItem?.tipo_costo ?? existingTipoCosto;
+
+    const categoryPayload =
+      selectedCategory?.nombre || formData.category || editingItem.category;
+
     const updatedItem: LineItem = {
       ...editingItem,
-      category: formData.category,
+      category: categoryPayload,
       subtype: formData.subtype,
       description: formData.description,
       qty: formData.qty,
@@ -593,6 +624,7 @@ export function SDMTCatalog() {
 
     try {
       setIsUpdatingLineItem(true);
+
       const response = await addProjectRubro(selectedProjectId, {
         rubroId: updatedItem.id,
         qty: updatedItem.qty,
@@ -604,9 +636,9 @@ export function SDMTCatalog() {
         start_month: updatedItem.start_month,
         end_month: updatedItem.end_month,
         term: durationMonths,
-        category: selectedCategory?.nombre || updatedItem.category,
-        linea_codigo: formData.lineItemCode || formData.categoryCode,
-        tipo_costo: selectedLineItem?.tipo_costo,
+        category: categoryPayload,
+        linea_codigo: lineaCodigoPayload,
+        tipo_costo: tipoCostoPayload,
       });
 
       const warnings = (response as any)?.warnings;
@@ -617,11 +649,13 @@ export function SDMTCatalog() {
       setLineItems((prev) =>
         prev.map((item) => (item.id === editingItem.id ? updatedItem : item))
       );
+
       setPendingChanges((prev) => {
         const updated = new Map(prev);
         updated.delete(editingItem.id);
         return updated;
       });
+
       setSaveBarState("idle");
       toast.success("Line item updated");
       setIsEditDialogOpen(false);
@@ -650,20 +684,17 @@ export function SDMTCatalog() {
       return;
     }
 
-    // Add to pending changes
     setPendingChanges((prev) => {
       const updated = new Map(prev);
       updated.set(item.id, { type: "delete", item });
       return updated;
     });
 
-    // Remove from local state for immediate UI feedback
     setLineItems((prev) => prev.filter((i) => i.id !== item.id));
     setSaveBarState("dirty");
     toast.success("Line item marked for deletion (unsaved)");
   };
 
-  // Save all pending changes to the backend
   const handleSaveChanges = async () => {
     if (pendingChanges.size === 0) {
       toast.info("No changes to save");
@@ -700,7 +731,6 @@ export function SDMTCatalog() {
             });
             successCount++;
           } else if (change.type === "edit") {
-            // Update the item
             if (change.item.id.startsWith("temp-")) {
               logger.warn(`Skipping edit of temporary item ${change.item.id}`);
               continue;
@@ -720,12 +750,11 @@ export function SDMTCatalog() {
             });
             successCount++;
           } else if (change.type === "delete") {
-            // Delete the item (skip if it was a temp item that was never saved)
             if (!change.item.id.startsWith("temp-")) {
               await deleteProjectRubro(selectedProjectId, change.item.id);
               successCount++;
             } else {
-              successCount++; // Count temp deletions as successful
+              successCount++;
             }
           }
         } catch (error) {
@@ -734,20 +763,17 @@ export function SDMTCatalog() {
         }
       }
 
-      // Clear pending changes
       setPendingChanges(new Map());
 
       if (errorCount === 0) {
         setSaveBarState("success");
         toast.success(`Successfully saved ${successCount} change(s)`);
-        // Reload from server to ensure consistency
         await invalidateLineItems();
       } else {
         setSaveBarState("error");
         toast.error(`Saved ${successCount} changes, but ${errorCount} failed`);
       }
 
-      // Reset to idle after showing success
       setTimeout(() => {
         setSaveBarState("idle");
       }, 3000);
@@ -758,7 +784,6 @@ export function SDMTCatalog() {
     }
   };
 
-  // Cancel all pending changes and reload
   const handleCancelChanges = async () => {
     if (
       !confirm(
@@ -771,7 +796,6 @@ export function SDMTCatalog() {
     setPendingChanges(new Map());
     setSaveBarState("idle");
     toast.info("Changes discarded");
-    // Reload fresh data from server
     await invalidateLineItems();
   };
 
@@ -782,7 +806,6 @@ export function SDMTCatalog() {
       setExporting("excel");
       toast.loading("Preparing Excel export...");
 
-      // Create a baseline budget structure for export
       const totalAmount = filteredItems.reduce(
         (sum, item) => sum + calculateTotalCost(item),
         0
@@ -926,7 +949,7 @@ export function SDMTCatalog() {
                   onValueChange={setCategoryFilter}
                 >
                   <SelectTrigger className="w-[200px]">
-                    <SelectValue />
+                    <SelectValue placeholder="Filter by category" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
@@ -969,7 +992,10 @@ export function SDMTCatalog() {
                 <Protected action="create">
                   <Dialog
                     open={isAddDialogOpen}
-                    onOpenChange={setIsAddDialogOpen}
+                    onOpenChange={(open) => {
+                      setIsAddDialogOpen(open);
+                      if (!open) resetForm();
+                    }}
                   >
                     <DialogTrigger asChild>
                       <Button className="gap-2">
@@ -987,7 +1013,9 @@ export function SDMTCatalog() {
                       <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="category-select">Categoría *</Label>
+                            <Label htmlFor="add-category-select">
+                              Categoría *
+                            </Label>
                             <Select
                               value={formData.categoryCode}
                               onValueChange={(value) => {
@@ -1002,7 +1030,7 @@ export function SDMTCatalog() {
                                 }));
                               }}
                             >
-                              <SelectTrigger id="category-select">
+                              <SelectTrigger id="add-category-select">
                                 <SelectValue placeholder="Seleccione categoría" />
                               </SelectTrigger>
                               <SelectContent className="max-h-[300px]">
@@ -1018,7 +1046,9 @@ export function SDMTCatalog() {
                             </Select>
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="linea-gasto-select">Línea de Gasto *</Label>
+                            <Label htmlFor="add-linea-gasto-select">
+                              Línea de Gasto *
+                            </Label>
                             <Select
                               value={formData.lineItemCode}
                               onValueChange={(value) => {
@@ -1037,7 +1067,7 @@ export function SDMTCatalog() {
                               }}
                               disabled={!formData.categoryCode}
                             >
-                              <SelectTrigger id="linea-gasto-select">
+                              <SelectTrigger id="add-linea-gasto-select">
                                 <SelectValue
                                   placeholder={
                                     formData.categoryCode
@@ -1062,10 +1092,13 @@ export function SDMTCatalog() {
                             </Select>
                           </div>
                         </div>
+
                         <div className="space-y-2">
-                          <Label htmlFor="description-input">Description *</Label>
+                          <Label htmlFor="add-description-input">
+                            Description *
+                          </Label>
                           <Input
-                            id="description-input"
+                            id="add-description-input"
                             value={formData.description}
                             onChange={(e) =>
                               setFormData((prev) => ({
@@ -1101,13 +1134,20 @@ export function SDMTCatalog() {
                               ) : null;
                             })()}
                         </div>
+
                         <div className="grid grid-cols-3 gap-4">
                           <div className="space-y-2">
                             <Label>Type</Label>
-                            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Type selector">
+                            <div
+                              className="grid grid-cols-2 gap-2"
+                              role="group"
+                              aria-label="Type selector"
+                            >
                               <Button
                                 className="w-full"
-                                variant={formData.recurring ? "outline" : "default"}
+                                variant={
+                                  formData.recurring ? "outline" : "default"
+                                }
                                 onClick={() => setRecurringFlag(false)}
                                 type="button"
                               >
@@ -1115,7 +1155,9 @@ export function SDMTCatalog() {
                               </Button>
                               <Button
                                 className="w-full"
-                                variant={formData.recurring ? "default" : "outline"}
+                                variant={
+                                  formData.recurring ? "default" : "outline"
+                                }
                                 onClick={() => setRecurringFlag(true)}
                                 type="button"
                               >
@@ -1124,33 +1166,44 @@ export function SDMTCatalog() {
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="start-month-input">Start Month</Label>
+                            <Label htmlFor="add-start-month-input">
+                              Start Month
+                            </Label>
                             <Input
-                              id="start-month-input"
+                              id="add-start-month-input"
                               type="number"
                               value={formData.start_month}
                               min={1}
                               max={60}
                               onChange={(e) =>
-                                updateStartMonth(parseInt(e.target.value, 10) || 1)
+                                updateStartMonth(
+                                  parseInt(e.target.value, 10) || 1
+                                )
                               }
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="term-select">Term (months)</Label>
+                            <Label htmlFor="add-term-select">
+                              Term (months)
+                            </Label>
                             {formData.recurring ? (
                               <Select
                                 value={String(currentTermMonths)}
                                 onValueChange={(value) =>
-                                  updateTermMonths(parseInt(value, 10) || 12)
+                                  updateTermMonths(
+                                    parseInt(value, 10) || 12
+                                  )
                                 }
                               >
-                                <SelectTrigger id="term-select">
+                                <SelectTrigger id="add-term-select">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {[12, 24, 36, 48, 60].map((term) => (
-                                    <SelectItem key={term} value={String(term)}>
+                                    <SelectItem
+                                      key={term}
+                                      value={String(term)}
+                                    >
                                       {term} months
                                     </SelectItem>
                                   ))}
@@ -1161,44 +1214,46 @@ export function SDMTCatalog() {
                             )}
                           </div>
                         </div>
+
                         <div className="grid grid-cols-3 gap-4">
                           <div className="space-y-2">
-                            <label>Quantity</label>
+                            <Label htmlFor="add-qty">Quantity</Label>
                             <Input
-                              id={addIds.qty}
+                              id="add-qty"
                               name="qty"
                               type="number"
                               value={formData.qty}
                               onChange={(e) =>
                                 setFormData((prev) => ({
                                   ...prev,
-                                  qty: parseInt(e.target.value) || 1,
+                                  qty: parseInt(e.target.value, 10) || 1,
                                 }))
                               }
-                              min="1"
+                              min={1}
                               placeholder="1"
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor={addIds.unitCost}>Unit Cost *</Label>
+                            <Label htmlFor="add-unit-cost">Unit Cost *</Label>
                             <Input
-                              id={addIds.unitCost}
+                              id="add-unit-cost"
                               name="unit_cost"
                               type="number"
                               value={formData.unit_cost}
                               onChange={(e) =>
                                 setFormData((prev) => ({
                                   ...prev,
-                                  unit_cost: parseFloat(e.target.value) || 0,
+                                  unit_cost:
+                                    parseFloat(e.target.value) || 0,
                                 }))
                               }
-                              min="0"
+                              min={0}
                               step="0.01"
                               placeholder="0.00"
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor={addIds.currency}>Currency</Label>
+                            <Label htmlFor="add-currency">Currency</Label>
                             <Select
                               value={formData.currency}
                               onValueChange={(value) =>
@@ -1208,10 +1263,7 @@ export function SDMTCatalog() {
                                 }))
                               }
                             >
-                              <SelectTrigger
-                                id={addIds.currency}
-                                name="currency"
-                              >
+                              <SelectTrigger id="add-currency" name="currency">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1274,7 +1326,9 @@ export function SDMTCatalog() {
                     <div className="grid gap-4 py-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="edit-category-select">Categoría *</Label>
+                          <Label htmlFor="edit-category-select">
+                            Categoría *
+                          </Label>
                           <Select
                             value={formData.categoryCode}
                             onValueChange={(value) => {
@@ -1289,23 +1343,28 @@ export function SDMTCatalog() {
                               }));
                             }}
                           >
-                            <SelectTrigger id={editIds.category} name="category">
+                            <SelectTrigger id="edit-category-select">
                               <SelectValue placeholder="Seleccione categoría" />
                             </SelectTrigger>
                             <SelectContent className="max-h-[300px]">
                               {COST_CATEGORIES.map((cat) => (
-                                <SelectItem key={cat.codigo} value={cat.codigo}>
+                                <SelectItem
+                                  key={cat.codigo}
+                                  value={cat.codigo}
+                                >
                                   {cat.codigo} - {cat.nombre}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-linea-gasto-select">Línea de Gasto *</Label>
-                            <Select
-                              value={formData.lineItemCode}
-                              onValueChange={(value) => {
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-linea-gasto-select">
+                            Línea de Gasto *
+                          </Label>
+                          <Select
+                            value={formData.lineItemCode}
+                            onValueChange={(value) => {
                               const category = getCategoryByCode(
                                 formData.categoryCode
                               );
@@ -1318,13 +1377,13 @@ export function SDMTCatalog() {
                                 subtype: lineItem?.nombre || "",
                                 description: lineItem?.descripcion || "",
                               }));
-                              }}
-                              disabled={!formData.categoryCode}
-                            >
-                              <SelectTrigger id="edit-linea-gasto-select">
-                                <SelectValue
-                                  placeholder={
-                                    formData.categoryCode
+                            }}
+                            disabled={!formData.categoryCode}
+                          >
+                            <SelectTrigger id="edit-linea-gasto-select">
+                              <SelectValue
+                                placeholder={
+                                  formData.categoryCode
                                     ? "Seleccione línea"
                                     : "Primero seleccione categoría"
                                 }
@@ -1346,8 +1405,11 @@ export function SDMTCatalog() {
                           </Select>
                         </div>
                       </div>
+
                       <div className="space-y-2">
-                        <Label htmlFor="edit-description">Description *</Label>
+                        <Label htmlFor="edit-description">
+                          Description *
+                        </Label>
                         <Input
                           id="edit-description"
                           value={formData.description}
@@ -1375,20 +1437,30 @@ export function SDMTCatalog() {
                                 <Badge variant="outline" className="text-xs">
                                   {lineItem.tipo_costo}
                                 </Badge>
-                                <Badge variant="secondary" className="text-xs">
+                                <Badge
+                                  variant="secondary"
+                                  className="text-xs"
+                                >
                                   {lineItem.fuente_referencia}
                                 </Badge>
                               </div>
                             ) : null;
                           })()}
                       </div>
+
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label>Type</Label>
-                          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Type selector">
+                          <div
+                            className="grid grid-cols-2 gap-2"
+                            role="group"
+                            aria-label="Type selector"
+                          >
                             <Button
                               className="w-full"
-                              variant={formData.recurring ? "outline" : "default"}
+                              variant={
+                                formData.recurring ? "outline" : "default"
+                              }
                               onClick={() => setRecurringFlag(false)}
                               type="button"
                             >
@@ -1396,7 +1468,9 @@ export function SDMTCatalog() {
                             </Button>
                             <Button
                               className="w-full"
-                              variant={formData.recurring ? "default" : "outline"}
+                              variant={
+                                formData.recurring ? "default" : "outline"
+                              }
                               onClick={() => setRecurringFlag(true)}
                               type="button"
                             >
@@ -1405,7 +1479,9 @@ export function SDMTCatalog() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="edit-start-month">Start Month</Label>
+                          <Label htmlFor="edit-start-month">
+                            Start Month
+                          </Label>
                           <Input
                             id="edit-start-month"
                             type="number"
@@ -1413,12 +1489,16 @@ export function SDMTCatalog() {
                             min={1}
                             max={60}
                             onChange={(e) =>
-                              updateStartMonth(parseInt(e.target.value, 10) || 1)
+                              updateStartMonth(
+                                parseInt(e.target.value, 10) || 1
+                              )
                             }
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="edit-term-select">Term (months)</Label>
+                          <Label htmlFor="edit-term-select">
+                            Term (months)
+                          </Label>
                           {formData.recurring ? (
                             <Select
                               value={String(currentTermMonths)}
@@ -1431,7 +1511,10 @@ export function SDMTCatalog() {
                               </SelectTrigger>
                               <SelectContent>
                                 {[12, 24, 36, 48, 60].map((term) => (
-                                  <SelectItem key={term} value={String(term)}>
+                                  <SelectItem
+                                    key={term}
+                                    value={String(term)}
+                                  >
                                     {term} months
                                   </SelectItem>
                                 ))}
@@ -1442,100 +1525,59 @@ export function SDMTCatalog() {
                           )}
                         </div>
                       </div>
+
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <label>Quantity</label>
+                          <Label htmlFor="edit-qty">Quantity</Label>
                           <Input
-                            id={editIds.startMonth}
-                            name="start_month"
+                            id="edit-qty"
+                            name="qty"
                             type="number"
-                            value={formData.start_month}
-                            min={1}
-                            max={60}
+                            value={formData.qty}
                             onChange={(e) =>
-                              updateStartMonth(parseInt(e.target.value, 10) || 1)
+                              setFormData((prev) => ({
+                                ...prev,
+                                qty: parseInt(e.target.value, 10) || 1,
+                              }))
                             }
+                            min={1}
+                            placeholder="1"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor={editIds.term}>Term (months)</Label>
-                          {formData.recurring ? (
-                            <Select
-                              value={String(currentTermMonths)}
-                              onValueChange={(value) =>
-                                updateTermMonths(parseInt(value, 10) || 12)
-                              }
-                            >
-                              <SelectTrigger id={editIds.term} name="term">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {[12, 24, 36, 48, 60].map((term) => (
-                                  <SelectItem key={term} value={String(term)}>
-                                    {term} months
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Input value={1} disabled />
-                          )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor={editIds.qty}>Quantity</Label>
-                        <Input
-                          id={editIds.qty}
-                          name="qty"
-                          type="number"
-                          value={formData.qty}
-                          onChange={(e) =>
+                          <Label htmlFor="edit-unit-cost">Unit Cost *</Label>
+                          <Input
+                            id="edit-unit-cost"
+                            name="unit_cost"
+                            type="number"
+                            value={formData.unit_cost}
+                            onChange={(e) =>
                               setFormData((prev) => ({
                                 ...prev,
-                                qty: parseInt(e.target.value) || 1,
+                                unit_cost:
+                                  parseFloat(e.target.value) || 0,
                               }))
                             }
-                            min="1"
-                            placeholder="1"
-                          />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={editIds.unitCost}>Unit Cost *</Label>
-                        <Input
-                          id={editIds.unitCost}
-                          name="unit_cost"
-                          type="number"
-                          value={formData.unit_cost}
-                          onChange={(e) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                unit_cost: parseFloat(e.target.value) || 0,
-                              }))
-                            }
-                            min="0"
+                            min={0}
                             step="0.01"
                             placeholder="0.00"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={editIds.currency}>Currency</Label>
-                        <Select
-                          value={formData.currency}
-                          onValueChange={(value) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              currency: value,
-                            }))
-                          }
-                        >
-                          <SelectTrigger
-                            id={editIds.currency}
-                            name="currency"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-currency">Currency</Label>
+                          <Select
+                            value={formData.currency}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                currency: value,
+                              }))
+                            }
                           >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
+                            <SelectTrigger id="edit-currency" name="currency">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
                               <SelectItem value="USD">USD</SelectItem>
                               <SelectItem value="EUR">EUR</SelectItem>
                               <SelectItem value="MXN">MXN</SelectItem>
@@ -1573,7 +1615,9 @@ export function SDMTCatalog() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="p-4">
-                <div className="text-2xl font-bold">{safeLineItems.length}</div>
+                <div className="text-2xl font-bold">
+                  {safeLineItems.length}
+                </div>
                 <p className="text-sm text-muted-foreground">
                   Total Line Items
                 </p>
@@ -1606,7 +1650,9 @@ export function SDMTCatalog() {
                 <div className="text-2xl font-bold">
                   {safeLineItems.filter((item) => item.recurring).length}
                 </div>
-                <p className="text-sm text-muted-foreground">Recurring Items</p>
+                <p className="text-sm text-muted-foreground">
+                  Recurring Items
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -1621,7 +1667,9 @@ export function SDMTCatalog() {
                 <div className="flex items-center justify-center h-32">
                   <div className="text-center space-y-3">
                     <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center mx-auto mb-2 animate-pulse">
-                      <span className="text-primary font-bold text-sm">📂</span>
+                      <span className="text-primary font-bold text-sm">
+                        📂
+                      </span>
                     </div>
                     <div className="text-muted-foreground">
                       Loading line items
@@ -1680,9 +1728,9 @@ export function SDMTCatalog() {
                                   <div className="font-medium">
                                     {item.category}
                                   </div>
-                                  {item.subtype && (
+                                  {(item as any).subtype && (
                                     <div className="text-sm text-muted-foreground">
-                                      {item.subtype}
+                                      {(item as any).subtype}
                                     </div>
                                   )}
                                 </div>
@@ -1705,10 +1753,12 @@ export function SDMTCatalog() {
                               </div>
                             </TableCell>
                             <TableCell className="max-w-[300px]">
-                              <div className="truncate">{item.description}</div>
-                              {item.vendor && (
+                              <div className="truncate">
+                                {item.description}
+                              </div>
+                              {(item as any).vendor && (
                                 <div className="text-sm text-muted-foreground">
-                                  Vendor: {item.vendor}
+                                  Vendor: {(item as any).vendor}
                                 </div>
                               )}
                               {lineItemDocuments[item.id]?.length ? (
@@ -1739,19 +1789,26 @@ export function SDMTCatalog() {
                               <div className="flex gap-1">
                                 <Badge
                                   variant={
-                                    item.one_time ? "default" : "secondary"
+                                    (item as any).one_time
+                                      ? "default"
+                                      : "secondary"
                                   }
                                 >
-                                  {item.one_time ? "One-time" : "Recurring"}
+                                  {(item as any).one_time
+                                    ? "One-time"
+                                    : "Recurring"}
                                 </Badge>
-                                {item.capex_flag && (
+                                {(item as any).capex_flag && (
                                   <Badge variant="outline">CapEx</Badge>
                                 )}
                               </div>
                             </TableCell>
                             <TableCell>{item.qty}</TableCell>
                             <TableCell>
-                              {formatCurrency(item.unit_cost, item.currency)}
+                              {formatCurrency(
+                                item.unit_cost,
+                                item.currency as string
+                              )}
                             </TableCell>
                             <TableCell>
                               M{item.start_month}-{item.end_month}
@@ -1759,7 +1816,7 @@ export function SDMTCatalog() {
                             <TableCell className="font-medium">
                               {formatCurrency(
                                 calculateTotalCost(item),
-                                item.currency
+                                item.currency as string
                               )}
                             </TableCell>
                             <TableCell>
@@ -1817,6 +1874,7 @@ export function SDMTCatalog() {
         </TabsContent>
       </Tabs>
 
+      {/* Document upload dialog */}
       <Dialog
         open={docDialogOpen}
         onOpenChange={(open) => {
@@ -1843,7 +1901,9 @@ export function SDMTCatalog() {
             <Input
               type="file"
               accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg"
-              onChange={(event) => setDocFile(event.target.files?.[0] ?? null)}
+              onChange={(event) =>
+                setDocFile(event.target.files?.[0] ?? null)
+              }
               disabled={isUploadingDocument}
             />
             <p className="text-xs text-muted-foreground">
@@ -1906,7 +1966,7 @@ export function SDMTCatalog() {
         onSave={handleSaveChanges}
         onCancel={handleCancelChanges}
         showSaveAndClose={false}
-        successMessage={`Successfully saved ${pendingChanges.size} change(s)`}
+        successMessage="Changes saved successfully"
       />
     </div>
   );
