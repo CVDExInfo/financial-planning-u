@@ -106,7 +106,8 @@ const formatRubroLabel = (item?: LineItem, fallbackId?: string) => {
   const categoryLabel = subtype
     ? `${category ?? "General"} / ${subtype}`
     : category ?? "General";
-  return `${categoryLabel} — ${description}`;
+  const idPart = item.id ? ` [${item.id}]` : fallbackId ? ` [${fallbackId}]` : "";
+  return `${categoryLabel} — ${description}${idPart}`;
 };
 
 const formatCurrency = (amount: number) =>
