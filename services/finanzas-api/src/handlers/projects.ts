@@ -165,9 +165,9 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     if (isHandoffRoute) {
       await ensureCanWrite(event);
 
-      const projectId =
+      const projectIdFromPath =
         event.pathParameters?.projectId || event.pathParameters?.id || "";
-      if (!projectId) {
+      if (!projectIdFromPath) {
         return bad("Missing projectId in path", 400);
       }
 
@@ -196,11 +196,52 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       }
 
       try {
+        let resolvedProjectId = projectIdFromPath;
+
+        const baselineLookup = await ddb.send(
+          new GetCommand({
+            TableName: tableName("prefacturas"),
+            Key: {
+              pk: `PROJECT#${resolvedProjectId}`,
+              sk: `BASELINE#${baselineId}`,
+            },
+          })
+        );
+
+        let baseline = baselineLookup.Item as Record<string, unknown> | undefined;
+
+        if (!baseline) {
+          const baselineById = await ddb.send(
+            new GetCommand({
+              TableName: tableName("prefacturas"),
+              Key: {
+                pk: `BASELINE#${baselineId}`,
+                sk: "METADATA",
+              },
+            })
+          );
+
+          const fallbackBaseline = baselineById.Item as
+            | Record<string, unknown>
+            | undefined;
+
+          if (fallbackBaseline) {
+            baseline = fallbackBaseline;
+            const baselineProjectId =
+              (fallbackBaseline.project_id as string) ||
+              (fallbackBaseline.projectId as string);
+
+            if (baselineProjectId) {
+              resolvedProjectId = baselineProjectId;
+            }
+          }
+        }
+
         const existingProject = await ddb.send(
           new GetCommand({
             TableName: tableName("projects"),
             Key: {
-              pk: `PROJECT#${projectId}`,
+              pk: `PROJECT#${resolvedProjectId}`,
               sk: "METADATA",
             },
           })
@@ -214,27 +255,22 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
               baselineId)
         ) {
           return ok({
-            projectId,
+            projectId: resolvedProjectId,
             baselineId,
             status: "HandoffComplete",
           });
         }
 
-        const baselineLookup = await ddb.send(
-          new GetCommand({
-            TableName: tableName("prefacturas"),
-            Key: {
-              pk: `PROJECT#${projectId}`,
-              sk: `BASELINE#${baselineId}`,
-            },
-          })
-        );
-
-        if (!baselineLookup.Item) {
+        if (!baseline) {
           return bad("Baseline not found for project", 404);
         }
 
-        const baseline = baselineLookup.Item as Record<string, unknown>;
+        const baselineProjectId =
+          (baseline.project_id as string) || (baseline.projectId as string);
+
+        if (baselineProjectId && baselineProjectId !== resolvedProjectId) {
+          resolvedProjectId = baselineProjectId;
+        }
         const now = new Date().toISOString();
         const createdBy =
           event.requestContext.authorizer?.jwt?.claims?.email || "system";
@@ -251,21 +287,21 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
               );
 
         const projectItem = {
-          pk: `PROJECT#${projectId}`,
+          pk: `PROJECT#${resolvedProjectId}`,
           sk: "METADATA",
-          id: projectId,
-          project_id: projectId,
-          projectId: projectId,
+          id: resolvedProjectId,
+          project_id: resolvedProjectId,
+          projectId: resolvedProjectId,
           nombre:
             (baseline.project_name as string) ||
             (existingProject.Item as Record<string, unknown> | undefined)
               ?.nombre ||
-            `Proyecto ${projectId}`,
+            `Proyecto ${resolvedProjectId}`,
           name:
             (baseline.project_name as string) ||
             (existingProject.Item as Record<string, unknown> | undefined)
               ?.name ||
-            `Project ${projectId}`,
+            `Project ${resolvedProjectId}`,
           cliente:
             (baseline.client_name as string) ||
             (existingProject.Item as Record<string, unknown> | undefined)
@@ -332,24 +368,24 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           })
         );
 
-        const auditEntry = {
-          pk: `ENTITY#PROJECT#${projectId}`,
-          sk: `TS#${now}`,
-          action: "HANDOFF_PROJECT",
-          resource_type: "project_handoff",
-          resource_id: projectId,
-          user: projectItem.created_by,
-          timestamp: now,
-          before: existingProject.Item || null,
-          after: {
-            project_id: projectId,
-            baseline_id: baselineId,
-            mod_total: projectItem.mod_total,
-          },
-          source: "API",
-          ip_address: event.requestContext.http?.sourceIp,
-          user_agent: event.requestContext.http?.userAgent,
-        };
+          const auditEntry = {
+            pk: `ENTITY#PROJECT#${resolvedProjectId}`,
+            sk: `TS#${now}`,
+            action: "HANDOFF_PROJECT",
+            resource_type: "project_handoff",
+            resource_id: resolvedProjectId,
+            user: projectItem.created_by,
+            timestamp: now,
+            before: existingProject.Item || null,
+            after: {
+              project_id: resolvedProjectId,
+              baseline_id: baselineId,
+              mod_total: projectItem.mod_total,
+            },
+            source: "API",
+            ip_address: event.requestContext.http?.sourceIp,
+            user_agent: event.requestContext.http?.userAgent,
+          };
 
         await ddb.send(
           new PutCommand({
@@ -358,11 +394,11 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           })
         );
 
-        return ok({
-          projectId,
-          baselineId,
-          status: "HandoffComplete",
-        });
+          return ok({
+            projectId: resolvedProjectId,
+            baselineId,
+            status: "HandoffComplete",
+          });
       } catch (error) {
         const authError = fromAuthError(error);
         if (authError) return authError;
