@@ -1,39 +1,30 @@
-# Finanzas SD – Arquitectura técnica
+# Finanzas SD – Arquitectura técnica / Technical architecture
 
-## Frontend
-- **Finanzas Home**: entrada `/finanzas/` con accesos rápidos a proyectos y conciliación.
-- **Projects**: creación y edición de proyectos, moneda, fechas y responsable.
-- **Rubros Catalog**: consulta/selección del catálogo maestro (categoría, línea de código, tipo de costo).
-- **SDMT Catalog**: sincroniza rubros/line items contra SDMT y muestra estado de handoff.
-- **Reconciliation**: carga de facturas y documentos, comparación contra forecast y line items.
+## Component map
+- **Frontend (Finanzas UI)**: rutas `/finanzas/**`, React + Cognito Hosted UI, despliegue en S3 + CloudFront.
+- **API Gateway `finanzas-sd-api`**: proxy único con rutas por dominio (projects, rubros, allocations, invoices, uploads, health).
+- **Lambdas por dominio** (carpeta `services/finanzas-api/src/handlers`): validan JWT Cognito y aplican lógica de negocio.
+- **Almacenamiento**:
+  - **DynamoDB**: tablas de proyectos, baselines, rubros, line items, allocation rules, invoices y alerts/changes.
+  - **S3**: bucket estático para UI (`ukusi-ui-finanzas-*`) y prefix de evidencias para `uploads/docs`.
+- **Observabilidad**: logs estructurados en CloudWatch; endpoints `/health` y `/alerts`.
+- **Seguridad**: Cognito groups (`PMO`, `FIN`, `SDMT`, `AUDIT`, `EXEC_RO`) aplicados en UI y API authorizer.
 
-## Backend (Lambdas por dominio)
-- **projects**: alta/listado de proyectos y handoff.
-- **rubros**: catálogo y asignación a proyectos.
-- **line-items**: consulta y relación entre rubros y partidas.
-- **allocation-rules / forecast**: reglas de distribución y cálculo de plan mensual.
-- **invoices**: registro/actualización de facturas y prefacturas por proyecto.
-- **upload-docs**: carga de documentos (module=`reconciliation`), metadatos enlazados a proyecto/line item/invoice.
-- **health**: verificación de plataforma.
+Ver diagrama `diagrams/finanzas-architecture.svg` para flujos de solicitud y almacenamiento.
 
-## Autenticación y autorización
-- Tokens Cognito (grupos `EXEC_RO`, `PMO`, `SDMT`, `FIN`, `AUDIT`) se validan en API Gateway.
-- La UI filtra vistas según grupo y envía el JWT en cada llamada; handlers rechazan accesos sin grupo requerido.
+## Request flow (end-to-end)
+1. Usuario ingresa vía Hosted UI Cognito y obtiene JWT con grupos.
+2. Finanzas UI envía llamadas firmadas con JWT hacia API Gateway.
+3. Authorizer valida grupos y enruta a la Lambda correspondiente.
+4. Lambda opera sobre DynamoDB (lectura/escritura), puede publicar alertas y retorna respuesta JSON.
+5. Para cargas de evidencia, la Lambda genera la clave S3 y registra metadatos vinculados a proyecto/line item/invoice.
 
-## Modelo de datos (DynamoDB)
-- **Projects**: `pk=PROJECT#{id}`, `sk=METADATA`; campos: `nombre`, `cliente`, `moneda`, `estado`, `start_date`, `end_date`.
-- **Rubros**: `pk=RUBRO#{id}`, `sk=CATALOGO`; campos: `nombre`, `categoria`, `linea_codigo`, `tipo_costo`, `unidad`, `moneda_base`.
-- **Line items**: `pk=PROJECT#{id}`, `sk=LINE_ITEM#{lineItemId}` con referencia a `rubroId`, `monto`, `moneda`, `mes`.
-- **Invoices/Reconciliation**: `pk=PROJECT#{id}`, `sk=INVOICE#{invoiceId}`; campos `monto`, `moneda`, `estatus`, `periodo`, `evidencias`.
-- **Docs**: `pk=PROJECT#{id}`, `sk=DOC#{docId}`; metadatos `module`, `lineItemId` o `invoiceId`, `s3_key`, `uploader`.
+## Deployment/runtime
+- Región `us-east-2`; infraestructura descrita en `services/finanzas-api/template.yaml` (SAM).
+- Promoción por etapas (dev/stg/prod) sin mezclar Acta/Prefactura artefactos.
+- Pipelines existentes reutilizan diagnósticos (`finanzas-aws-diagnostic`) y health checks profundos.
 
-## Integraciones e infraestructura compartida
-- **S3**: `ukusi-ui-finanzas-prod` hospeda la UI y recibe cargas de `/uploads/docs` con metadatos.
-- **API Gateway**: `finanzas-sd-api` con etapas dev/stg/prod expone los handlers anteriores.
-- **EventBridge**: usado para tareas programadas (ej. forecast o alertas) cuando aplicable.
-
-## Flujos clave
-1. **Creación de proyecto** → API `POST /projects` persiste metadatos y genera handoff para SDMT.
-2. **Selección de rubros** → `GET /catalog/rubros` lista el catálogo; `POST /projects/{projectId}/rubros` vincula rubros a un proyecto.
-3. **Carga de evidencia** → `POST /uploads/docs` guarda archivo en S3 y metadatos en Dynamo, etiquetando `module=reconciliation`.
-4. **Registro de factura** → `POST /projects/{projectId}/invoices` crea factura asociada a line items; `GET /invoices` filtra por `project_id` para conciliación.
+## Data protection controls (resumen)
+- JWT verificado en API Gateway; Lambdas niegan acceso si falta grupo requerido.
+- Evidencia en S3 con claves segregadas por proyecto y sin llaves estáticas.
+- Registros de auditoría para cambios de baseline, handoff y facturas.
