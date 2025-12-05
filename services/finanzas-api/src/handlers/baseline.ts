@@ -93,7 +93,13 @@ export const createBaseline = async (
     const authContext = adaptAuthContext(event);
     await ensureCanWrite(authContext as never);
 
-    const body: BaselineRequest = JSON.parse(event.body || "{}");
+    let body: BaselineRequest;
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch (parseError) {
+      logError("Invalid JSON payload for baseline creation", parseError);
+      return bad("El cuerpo de la solicitud no es un JSON válido.");
+    }
 
     if (!body.project_name) {
       return bad("Falta el nombre del proyecto.");
@@ -288,13 +294,15 @@ export const listBaselines = async (
       new ScanCommand({
         TableName: prefacturasTable,
         FilterExpression:
-          "begins_with(#pk, :pkPrefix) AND (#status = :status OR :status = :noStatus)",
+          "begins_with(#pk, :pkPrefix) AND #sk = :skMeta AND (#status = :status OR :status = :noStatus)",
         ExpressionAttributeNames: {
           "#pk": "pk",
+          "#sk": "sk",
           "#status": "status",
         },
         ExpressionAttributeValues: {
           ":pkPrefix": "BASELINE#",
+          ":skMeta": "METADATA",
           ":status": statusFilter,
           ":noStatus": "",
         },
