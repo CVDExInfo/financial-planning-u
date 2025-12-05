@@ -470,8 +470,15 @@ export type UploadSupportingDocResult = {
 };
 
 export type PrefacturaSupportingDocRef = {
+  // Preferred snake_case fields for backend compatibility
+  document_id?: string;
+  document_key: string;
+  original_name?: string;
+  uploaded_at?: string;
+  content_type?: string;
+  // Legacy camelCase aliases kept for backward compatibility
   documentId?: string;
-  documentKey: string;
+  documentKey?: string;
   originalName?: string;
   uploadedAt?: string;
   contentType?: string;
