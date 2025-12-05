@@ -34,7 +34,6 @@ import { ChartInsightsPanel } from "@/components/ChartInsightsPanel";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { StackedColumnsChart } from "@/components/charts/StackedColumnsChart";
 import type { DealInputs, LaborEstimate, NonLaborEstimate } from "@/types/domain";
-import ApiService from "@/lib/api";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import {
@@ -47,6 +46,7 @@ import {
   createPrefacturaBaseline,
   type PrefacturaBaselineResponse,
   type PrefacturaBaselinePayload,
+  handoffBaseline,
   FinanzasApiError,
 } from "@/api/finanzas";
 
@@ -356,7 +356,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       });
 
       // Call handoff API
-      await ApiService.handoffBaseline(projectId, {
+      await handoffBaseline(projectId, {
         baseline_id: baselineId,
         mod_total: grandTotal,
         pct_ingenieros: laborPercentage,
@@ -378,11 +378,13 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       }, 500);
     } catch (error) {
       console.error("❌ Handoff failed:", error);
-      toast.error(
-        `Handoff failed: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
+      const handoffMessage =
+        error instanceof FinanzasApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Unknown error";
+      toast.error(`Handoff failed: ${handoffMessage}`);
     } finally {
       setIsHandingOff(false);
     }

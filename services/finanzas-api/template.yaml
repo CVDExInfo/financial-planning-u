@@ -440,6 +440,9 @@ Resources:
       - DynamoDBCrudPolicy:
           TableName:
             Ref: AuditTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: PrefacturasTable
       - Fn::If:
         - HasPolicyStore
         - Version: "2012-10-17"
@@ -466,6 +469,15 @@ Resources:
           Properties:
             Path: /projects
             Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        ProjectsHandoff:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/handoff
+            Method: POST
             ApiId:
               Ref: Api
             Auth:
