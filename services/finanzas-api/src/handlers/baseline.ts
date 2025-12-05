@@ -12,10 +12,14 @@ import { bad, ok, serverError } from "../lib/http";
 import { logError } from "../utils/logging";
 
 const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
+  headers: event.headers,
   requestContext: {
     authorizer: {
       jwt: {
-        claims: event.requestContext?.authorizer?.claims ?? {},
+        claims:
+          event.requestContext?.authorizer?.jwt?.claims ||
+          event.requestContext?.authorizer?.claims ||
+          {},
       },
     },
   },
@@ -254,7 +258,7 @@ export const createBaseline = async (
           error,
         });
         return serverError(
-          "Prefactura baselines store is unavailable. Please try again later."
+          "El almacén de líneas base de prefacturas no está disponible o está mal configurado."
         );
       }
 
@@ -274,6 +278,20 @@ export const createBaseline = async (
       201
     );
   } catch (error) {
+    const statusCode = (error as { statusCode?: number } | undefined)?.statusCode;
+    const body = (error as { body?: unknown } | undefined)?.body;
+
+    if (statusCode) {
+      return {
+        statusCode,
+        body:
+          typeof body === "string" ? body : JSON.stringify(body || "Unauthorized"),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      };
+    }
+
     logError("Error creating baseline:", error);
     return serverError(
       error instanceof Error ? error.message : "Failed to create baseline"
