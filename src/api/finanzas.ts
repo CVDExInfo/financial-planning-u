@@ -1167,6 +1167,52 @@ export async function createProject(
   }
 }
 
+export type HandoffBaselinePayload = {
+  baseline_id: string;
+  mod_total?: number;
+  pct_ingenieros?: number;
+  pct_sdm?: number;
+  aceptado_por?: string;
+};
+
+export type HandoffBaselineResponse = {
+  projectId: string;
+  baselineId: string;
+  status?: string;
+};
+
+export async function handoffBaseline(
+  projectId: string,
+  payload: HandoffBaselinePayload,
+): Promise<HandoffBaselineResponse> {
+  ensureApiBase();
+
+  const url = `${requireApiBase()}/projects/${encodeURIComponent(
+    projectId,
+  )}/handoff`;
+  const idempotencyKey = `handoff-${projectId}-${payload.baseline_id}-${Date.now()}`;
+
+  try {
+    const result = await fetchJson<HandoffBaselineResponse>(url, {
+      method: "POST",
+      headers: {
+        ...buildAuthHeader(),
+        "Content-Type": "application/json",
+        "X-Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    return {
+      projectId: result.projectId || projectId,
+      baselineId: result.baselineId || payload.baseline_id,
+      status: result.status || "HandoffComplete",
+    };
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to handoff baseline");
+  }
+}
+
 // Alias for compatibility with tests/hooks referencing older helper name
 export const getProjectLineItems = getProjectRubros;
 

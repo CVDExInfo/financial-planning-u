@@ -2,7 +2,13 @@ import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { z } from "zod";
 import { ensureCanRead, ensureCanWrite } from "../lib/auth";
 import { ok, bad, serverError, fromAuthError } from "../lib/http";
-import { ddb, tableName, PutCommand, ScanCommand } from "../lib/dynamo";
+import {
+  ddb,
+  tableName,
+  PutCommand,
+  ScanCommand,
+  GetCommand,
+} from "../lib/dynamo";
 import { logError } from "../utils/logging";
 import crypto from "node:crypto";
 
@@ -148,7 +154,225 @@ export const normalizeProjectItem = (
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
-    if (event.requestContext.http.method === "POST") {
+    const method = event.requestContext.http.method;
+    const rawPath = event.rawPath || event.requestContext.http.path || "";
+    const routeKey = event.requestContext.routeKey;
+
+    const isHandoffRoute =
+      method === "POST" &&
+      (routeKey?.includes("/handoff") || rawPath.includes("/handoff"));
+
+    if (isHandoffRoute) {
+      await ensureCanWrite(event);
+
+      const projectId =
+        event.pathParameters?.projectId || event.pathParameters?.id || "";
+      if (!projectId) {
+        return bad("Missing projectId in path", 400);
+      }
+
+      const idempotencyKey =
+        event.headers["x-idempotency-key"] ||
+        event.headers["X-Idempotency-Key"] ||
+        event.headers["X-IDEMPOTENCY-KEY"];
+
+      if (!idempotencyKey) {
+        return bad("X-Idempotency-Key header required", 400);
+      }
+
+      let handoffBody: Record<string, unknown>;
+      try {
+        handoffBody = JSON.parse(event.body ?? "{}");
+      } catch {
+        return bad("Invalid JSON in request body");
+      }
+
+      const baselineId =
+        (handoffBody.baseline_id as string) ||
+        (handoffBody.baselineId as string);
+
+      if (!baselineId || typeof baselineId !== "string") {
+        return bad("baseline_id is required", 422);
+      }
+
+      try {
+        const existingProject = await ddb.send(
+          new GetCommand({
+            TableName: tableName("projects"),
+            Key: {
+              pk: `PROJECT#${projectId}`,
+              sk: "METADATA",
+            },
+          })
+        );
+
+        if (
+          existingProject.Item &&
+          ((existingProject.Item as Record<string, unknown>).baseline_id ===
+            baselineId ||
+            (existingProject.Item as Record<string, unknown>).baselineId ===
+              baselineId)
+        ) {
+          return ok({
+            projectId,
+            baselineId,
+            status: "HandoffComplete",
+          });
+        }
+
+        const baselineLookup = await ddb.send(
+          new GetCommand({
+            TableName: tableName("prefacturas"),
+            Key: {
+              pk: `PROJECT#${projectId}`,
+              sk: `BASELINE#${baselineId}`,
+            },
+          })
+        );
+
+        if (!baselineLookup.Item) {
+          return bad("Baseline not found for project", 404);
+        }
+
+        const baseline = baselineLookup.Item as Record<string, unknown>;
+        const now = new Date().toISOString();
+        const createdBy =
+          event.requestContext.authorizer?.jwt?.claims?.email || "system";
+
+        const modTotalFromPayload = Number(handoffBody.mod_total || 0);
+        const resolvedBudget =
+          !Number.isNaN(modTotalFromPayload) && modTotalFromPayload > 0
+            ? modTotalFromPayload
+            : Number(
+                baseline.contract_value ||
+                  baseline.total_amount ||
+                  baseline.mod_total ||
+                  0
+              );
+
+        const projectItem = {
+          pk: `PROJECT#${projectId}`,
+          sk: "METADATA",
+          id: projectId,
+          project_id: projectId,
+          projectId: projectId,
+          nombre:
+            (baseline.project_name as string) ||
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.nombre ||
+            `Proyecto ${projectId}`,
+          name:
+            (baseline.project_name as string) ||
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.name ||
+            `Project ${projectId}`,
+          cliente:
+            (baseline.client_name as string) ||
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.cliente ||
+            "",
+          client:
+            (baseline.client_name as string) ||
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.client ||
+            "",
+          moneda:
+            (baseline.currency as string) ||
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.moneda ||
+            "USD",
+          currency:
+            (baseline.currency as string) ||
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.currency ||
+            "USD",
+          presupuesto_total: resolvedBudget,
+          mod_total: resolvedBudget,
+          descripcion:
+            (baseline.project_description as string) ||
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.descripcion ||
+            "",
+          description:
+            (baseline.project_description as string) ||
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.description ||
+            "",
+          baseline_id: baselineId,
+          baselineId,
+          baseline_status: "handed_off",
+          baseline_accepted_at: now,
+          status:
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.status || "active",
+          estado:
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.estado || "active",
+          module:
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.module || "SDMT",
+          source: "prefactura",
+          created_at:
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.created_at || now,
+          updated_at: now,
+          created_by:
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.created_by || createdBy,
+          accepted_by: (handoffBody.aceptado_por as string) || createdBy,
+          pct_ingenieros: Number(handoffBody.pct_ingenieros || 0),
+          pct_sdm: Number(handoffBody.pct_sdm || 0),
+          last_handoff_key: idempotencyKey,
+        };
+
+        await ddb.send(
+          new PutCommand({
+            TableName: tableName("projects"),
+            Item: projectItem,
+          })
+        );
+
+        const auditEntry = {
+          pk: `ENTITY#PROJECT#${projectId}`,
+          sk: `TS#${now}`,
+          action: "HANDOFF_PROJECT",
+          resource_type: "project_handoff",
+          resource_id: projectId,
+          user: projectItem.created_by,
+          timestamp: now,
+          before: existingProject.Item || null,
+          after: {
+            project_id: projectId,
+            baseline_id: baselineId,
+            mod_total: projectItem.mod_total,
+          },
+          source: "API",
+          ip_address: event.requestContext.http?.sourceIp,
+          user_agent: event.requestContext.http?.userAgent,
+        };
+
+        await ddb.send(
+          new PutCommand({
+            TableName: tableName("audit_log"),
+            Item: auditEntry,
+          })
+        );
+
+        return ok({
+          projectId,
+          baselineId,
+          status: "HandoffComplete",
+        });
+      } catch (error) {
+        const authError = fromAuthError(error);
+        if (authError) return authError;
+
+        logError("Error during handoff", error);
+        return serverError();
+      }
+    }
+
+    if (method === "POST") {
       await ensureCanWrite(event);
 
       let body: Record<string, unknown>;
@@ -269,12 +493,21 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       new ScanCommand({
         TableName: tableName("projects"),
         Limit: 50,
+        FilterExpression: "begins_with(#pk, :pkPrefix) AND #sk = :metadata",
+        ExpressionAttributeNames: {
+          "#pk": "pk",
+          "#sk": "sk",
+        },
+        ExpressionAttributeValues: {
+          ":pkPrefix": "PROJECT#",
+          ":metadata": "METADATA",
+        },
       })
     );
 
-    const projects = (result.Items ?? []).map((item) =>
-      normalizeProjectItem(item as Record<string, unknown>)
-    );
+    const projects = (result.Items ?? [])
+      .map((item) => normalizeProjectItem(item as Record<string, unknown>))
+      .filter((item) => item.project_id);
 
     return ok({ data: projects, total: projects.length });
   } catch (error) {
