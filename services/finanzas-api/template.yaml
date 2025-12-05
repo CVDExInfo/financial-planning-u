@@ -664,15 +664,6 @@ Resources:
             TableName:
               Ref: PrefacturasTable
       Events:
-        CreateHandoff:
-          Type: HttpApi
-          Properties:
-            Path: /projects/{projectId}/handoff
-            Method: POST
-            ApiId:
-              Ref: Api
-            Auth:
-              Authorizer: CognitoJwt
         GetHandoff:
           Type: HttpApi
           Properties:
