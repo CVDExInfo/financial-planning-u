@@ -449,7 +449,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          find dist-finanzas -type f ! -name '*.map' -print \
+          find dist-finanzas -type f ! -name '*.map' ! -name '*.docx' -print \
             | sed 's|^dist-finanzas/||' \
             | sort > /tmp/local-finanzas-manifest.txt
 
@@ -457,10 +457,10 @@ jobs:
             --bucket "${FINANZAS_BUCKET_NAME}" \
             --prefix "finanzas/" \
             --output json \
-            | jq -r '.Contents[]?.Key | select(. | endswith(".map") | not) | sub("^finanzas/"; "")' \
+            | jq -r '.Contents[]?.Key | select(. | endswith(".map") | not) | select(. | endswith(".docx") | not) | sub("^finanzas/"; "")' \
             | sort > /tmp/s3-finanzas-manifest.txt
 
-          echo "🔍 Comparing local vs S3 manifests (excluding .map files)..."
+          echo "🔍 Comparing local vs S3 manifests (excluding .map/.docx files)..."
           if ! diff -u /tmp/local-finanzas-manifest.txt /tmp/s3-finanzas-manifest.txt; then
             echo "❌ Finanzas S3 manifest mismatch — bucket drift detected"
             echo "   Ensure sync completed successfully and CloudFront invalidation is executed"
