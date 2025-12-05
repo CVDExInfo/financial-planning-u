@@ -1,5 +1,7 @@
 # Finanzas SD – Overview / Resumen ejecutivo
 
+Finanzas SD explains how the platform governs project costs, rubros, and evidence end-to-end so PMO, Finanzas, and SDMT share a single source of truth. / Finanzas SD describe cómo la plataforma gobierna costos de proyecto, rubros y evidencia de punta a punta para que PMO, Finanzas y SDMT compartan una sola fuente de verdad.
+
 ## Purpose / Propósito
 Finanzas SD delivers end-to-end cost governance for Ikusi/CVDEx projects. It standardizes rubros, tracks project baselines, reconciles invoices, and produces auditable evidence for PMO Colombia without mixing Acta or Prefactura materials.
 
