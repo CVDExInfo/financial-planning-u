@@ -637,6 +637,62 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
+  HandoffFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/handoff.ts
+        External:
+          - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: HandoffFn
+    Properties:
+      CodeUri: .
+      Handler: handoff.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName:
+              Ref: ProjectsTable
+        - DynamoDBCrudPolicy:
+            TableName:
+              Ref: AuditTable
+        - DynamoDBReadPolicy:
+            TableName:
+              Ref: PrefacturasTable
+      Events:
+        CreateHandoff:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/handoff
+            Method: POST
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        GetHandoff:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/handoff
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        UpdateHandoff:
+          Type: HttpApi
+          Properties:
+            Path: /handoff/{handoffId}
+            Method: PUT
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+
   UploadDocumentFunction:
     Type: AWS::Serverless::Function
     Metadata:

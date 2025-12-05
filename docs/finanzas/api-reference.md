@@ -4,6 +4,8 @@ Base URL (dev): `https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev`
 
 Authentication: JWT Cognito con grupos (`PMO`, `FIN`, `SDMT`, `AUDIT`, `EXEC_RO`). Todas las llamadas requieren header `Authorization: Bearer <token>`.
 
+![Finanzas SD – Arquitectura de API](diagrams/finanzas-architecture.svg)
+
 ## Core endpoints
 | Path | Method(s) | Purpose / Notas | Roles típicos |
 | --- | --- | --- | --- |
