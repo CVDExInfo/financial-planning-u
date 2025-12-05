@@ -5,6 +5,8 @@ import {
   type UploadStage,
 } from "@/api/finanzas";
 
+export { uploadSupportingDocument, type UploadSupportingDocResult } from "@/api/finanzas";
+
 export type DocumentUploadStage = UploadStage;
 export type DocumentModule = UploadModule;
 

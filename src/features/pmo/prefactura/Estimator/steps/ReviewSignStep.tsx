@@ -38,7 +38,7 @@ import ApiService from "@/lib/api";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
 import {
-  uploadDocumentsBatch,
+  uploadDocument,
   type DocumentUploadMeta,
   type DocumentUploadStage,
 } from "@/lib/documents/uploadService";
@@ -83,14 +83,14 @@ interface ReviewSignStepProps {
 type SupportingDocumentMeta = DocumentUploadMeta;
 
 const uploadStageText: Record<DocumentUploadStage, string> = {
-  presigning: "Requesting secure upload slot…",
-  uploading: "Uploading to S3…",
-  complete: "Verifying upload…",
+  presigning: "Solicitando espacio seguro...",
+  uploading: "Subiendo a S3...",
+  complete: "Verificando carga...",
 };
 
 export function ReviewSignStep({ data }: ReviewSignStepProps) {
   const navigate = useNavigate();
-  const { refreshProject, setSelectedProjectId } = useProject();
+  const { refreshProject, selectedProjectId, setSelectedProjectId } = useProject();
   const [isReviewed, setIsReviewed] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
   const [signatureComplete, setSignatureComplete] = useState(false);
@@ -113,6 +113,9 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
   const { dealInputs, laborEstimates, nonLaborEstimates, fxIndexationData } =
     data;
 
+  const hasUploadsInFlight =
+    isUploadingDoc || Object.keys(uploadProgress).length > 0;
+
   const derivedProjectId = useMemo(() => {
     if (dealInputs?.project_name) {
       return `PRJ-${dealInputs.project_name
@@ -122,6 +125,11 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
     }
     return fallbackProjectIdRef.current;
   }, [dealInputs?.project_name]);
+
+  const uploadProjectId = useMemo(
+    () => selectedProjectId || derivedProjectId,
+    [derivedProjectId, selectedProjectId]
+  );
 
   // Calculate totals
   const laborTotal = laborEstimates.reduce((sum, item) => {
@@ -187,6 +195,10 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
 
   const handleDigitalSign = async () => {
     if (!isReviewed) return;
+    if (hasUploadsInFlight) {
+      toast.error("Espera a que terminen las cargas de documentos.");
+      return;
+    }
     if (!dealInputs || !dealInputs.project_name) {
       toast.error(
         "Missing project information. Please review the estimator inputs."
@@ -225,7 +237,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       // - Signature metadata: signed_by/signed_role/signed_at (from user email)
       const baselineRequest: PrefacturaBaselinePayload = {
         // Deal inputs
-        project_id: derivedProjectId,
+        project_id: uploadProjectId,
         project_name: dealInputs.project_name,
         project_description: dealInputs.project_description,
         client_name: dealInputs.client_name,
@@ -240,11 +252,13 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         fx_indexation: fxIndexationData ?? undefined,
         // Supporting docs are persisted alongside the baseline record
         supporting_documents: supportingDocs.map((doc) => ({
-          documentId: doc.documentId,
-          documentKey: doc.documentKey,
-          originalName: doc.originalName,
-          uploadedAt: doc.uploadedAt,
-          contentType: doc.contentType,
+          document_id: doc.documentId || doc.document_id,
+          document_key: doc.documentKey || doc.document_key || "",
+          original_name: doc.originalName || doc.original_name,
+          uploaded_at:
+            doc.uploadedAt || doc.uploaded_at || new Date().toISOString(),
+          content_type:
+            doc.contentType || doc.content_type || "application/octet-stream",
         })),
         // Signature metadata
         signed_by: userEmail,
@@ -567,6 +581,8 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       return;
     }
 
+    const successfulUploads: SupportingDocumentMeta[] = [];
+
     try {
       setIsUploadingDoc(true);
       setUploadProgress((prev) => {
@@ -577,63 +593,60 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         return next;
       });
 
-      const { successes, failures } = await uploadDocumentsBatch(
-        files,
-        { projectId: derivedProjectId, module: "prefactura" },
-        {
-          onStageChange: (stage, file) => {
-            setUploadProgress((prev) => ({ ...prev, [file.name]: stage }));
-            if (stage === "complete") {
-              setTimeout(() => {
+      for (const file of files) {
+        try {
+          const uploaded = await uploadDocument(
+            { projectId: uploadProjectId, module: "prefactura", file },
+            {
+              onStageChange: (stage) => {
+                setUploadProgress((prev) => ({ ...prev, [file.name]: stage }));
+                if (stage === "complete") {
+                  setTimeout(() => {
+                    setUploadProgress((current) => {
+                      const next = { ...current };
+                      delete next[file.name];
+                      return next;
+                    });
+                  }, 1200);
+                }
+              },
+              onError: () => {
                 setUploadProgress((current) => {
                   const next = { ...current };
                   delete next[file.name];
                   return next;
                 });
-              }, 1200);
+              },
             }
-          },
-          onError: (file) => {
-            setUploadProgress((current) => {
-              const next = { ...current };
-              delete next[file.name];
-              return next;
-            });
-          },
-        }
-      );
+          );
 
-      if (successes.length) {
-        successes.forEach((upload) => {
-          if (upload.warnings?.length) {
-            console.warn("Prefactura document upload returned warnings", {
-              file: upload.originalName,
-              warnings: upload.warnings,
-              objectKey: upload.documentKey,
-            });
-          }
-        });
-        setSupportingDocs((prev) => [...successes, ...prev]);
+          successfulUploads.push(uploaded);
+        } catch (error) {
+          const message =
+            error instanceof FinanzasApiError
+              ? error.message
+              : "No se pudo cargar el documento. Inténtelo de nuevo más tarde.";
+          console.error("[Prefactura Docs] Upload failed", {
+            file: file.name,
+            error,
+          });
+          toast.error(message);
+          setUploadProgress((current) => {
+            const next = { ...current };
+            delete next[file.name];
+            return next;
+          });
+        }
+      }
+
+      if (successfulUploads.length) {
+        setSupportingDocs((prev) => [...successfulUploads, ...prev]);
         toast.success(
-          successes.length > 1
-            ? `${successes.length} supporting documents uploaded`
-            : "Supporting document uploaded"
+          successfulUploads.length > 1
+            ? "Documentos cargados correctamente"
+            : "Documento cargado correctamente"
         );
       }
-
-      if (failures.length) {
-        const message =
-          failures.length === 1
-            ? `${failures[0].file.name}: ${failures[0].message}`
-            : `${failures.length} uploads failed. Check console for details.`;
-        toast.error(message);
-      }
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to upload supporting document";
-      toast.error(message);
     } finally {
       setIsUploadingDoc(false);
       event.target.value = "";
@@ -993,31 +1006,36 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
               </label>
             </div>
 
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-muted-foreground">
-                Signing as: PMO User • {new Date().toLocaleDateString()}
-              </div>
-              <Button
-                onClick={handleDigitalSign}
-                disabled={!isReviewed || isSigning}
-                className="gap-2"
-                size="lg"
-              >
-                {isSigning ? (
-                  <>
-                    <Clock size={16} className="animate-spin" />
-                    Creating Baseline...
-                  </>
-                ) : (
-                  <>
-                    <PenTool size={16} />
-                    Sign & Create Baseline
-                  </>
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-muted-foreground">
+                  Signing as: PMO User • {new Date().toLocaleDateString()}
+                </div>
+                <Button
+                  onClick={handleDigitalSign}
+                  disabled={!isReviewed || isSigning || hasUploadsInFlight}
+                  className="gap-2"
+                  size="lg"
+                >
+                  {isSigning ? (
+                    <>
+                      <Clock size={16} className="animate-spin" />
+                      Creating Baseline...
+                    </>
+                  ) : (
+                    <>
+                      <PenTool size={16} />
+                      Sign & Create Baseline
+                    </>
+                  )}
+                </Button>
+                {hasUploadsInFlight && (
+                  <p className="text-xs text-muted-foreground text-right">
+                    Subiendo documentos de respaldo...
+                  </p>
                 )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
       ) : (
         <Card className="border-green-500 bg-green-50">
           <CardHeader>
