@@ -33,13 +33,7 @@ import { toast } from "sonner";
 import { ChartInsightsPanel } from "@/components/ChartInsightsPanel";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { StackedColumnsChart } from "@/components/charts/StackedColumnsChart";
-import type {
-  DealInputs,
-  LaborEstimate,
-  NonLaborEstimate,
-  BaselineCreateRequest,
-  BaselineCreateResponse,
-} from "@/types/domain";
+import type { DealInputs, LaborEstimate, NonLaborEstimate } from "@/types/domain";
 import ApiService from "@/lib/api";
 import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
 import { PDFExporter, formatReportCurrency } from "@/lib/pdf-export";
@@ -49,6 +43,12 @@ import {
   type DocumentUploadStage,
 } from "@/lib/documents/uploadService";
 import { BaselineError } from "@/lib/errors";
+import {
+  createPrefacturaBaseline,
+  type PrefacturaBaselineResponse,
+  type PrefacturaBaselinePayload,
+  FinanzasApiError,
+} from "@/api/finanzas";
 
 // Helper function to extract email from JWT token
 function extractEmailFromJWT(token: string): string {
@@ -96,7 +96,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
   const [signatureComplete, setSignatureComplete] = useState(false);
   const [baselineId, setBaselineId] = useState<string>("");
   const [baselineMeta, setBaselineMeta] =
-    useState<BaselineCreateResponse | null>(null);
+    useState<PrefacturaBaselineResponse | null>(null);
   const [isHandingOff, setIsHandingOff] = useState(false);
   const [showHandoffConfirm, setShowHandoffConfirm] = useState(false);
   const [supportingDocs, setSupportingDocs] = useState<
@@ -212,8 +212,20 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         createdBy: userEmail,
       });
 
-      // Create baseline with ALL required fields
-      const baselineRequest = {
+      // Baseline payload snapshot for backend signing & storage
+      // Shape includes:
+      // - Deal inputs: project_name, project_description, client_name, currency,
+      //   start_date, duration_months, contract_value, assumptions
+      // - Labor costs: labor_estimates[] with role, country, level, fte_count,
+      //   hourly_rate, hours_per_month, on_cost_percentage, start/end months
+      // - Non-labor: non_labor_estimates[] with category, description, amount,
+      //   one_time flag, capex_flag, start/end months, vendor
+      // - FX/indexation: fx_indexation object
+      // - Supporting documents: documentId/documentKey/originalName metadata
+      // - Signature metadata: signed_by/signed_role/signed_at (from user email)
+      const baselineRequest: PrefacturaBaselinePayload = {
+        // Deal inputs
+        project_id: derivedProjectId,
         project_name: dealInputs.project_name,
         project_description: dealInputs.project_description,
         client_name: dealInputs.client_name,
@@ -222,15 +234,27 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         duration_months: dealInputs.duration_months,
         contract_value: dealInputs.contract_value,
         assumptions: dealInputs.assumptions || [],
-        created_by: userEmail,
+        // Cost breakdowns
         labor_estimates: laborEstimates,
         non_labor_estimates: nonLaborEstimates,
         fx_indexation: fxIndexationData ?? undefined,
-      } satisfies BaselineCreateRequest;
+        // Supporting docs are persisted alongside the baseline record
+        supporting_documents: supportingDocs.map((doc) => ({
+          documentId: doc.documentId,
+          documentKey: doc.documentKey,
+          originalName: doc.originalName,
+          uploadedAt: doc.uploadedAt,
+          contentType: doc.contentType,
+        })),
+        // Signature metadata
+        signed_by: userEmail,
+        signed_role: "PMO",
+        signed_at: new Date().toISOString(),
+      };
 
-      const baseline = await ApiService.createBaseline(baselineRequest);
+      const baseline = await createPrefacturaBaseline(baselineRequest);
 
-      setBaselineId(baseline.baseline_id);
+      setBaselineId(baseline.baselineId);
       setBaselineMeta(baseline);
       setSignatureComplete(true);
       await refreshProject();
@@ -245,6 +269,12 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       if (error instanceof BaselineError && error.kind === "server") {
         toast.error(
           "No se pudo crear la línea base por un problema interno en Finanzas. Inténtalo de nuevo más tarde o contacta a soporte.",
+        );
+      } else if (error instanceof FinanzasApiError) {
+        toast.error(
+          error.status && error.status >= 500
+            ? "Hubo un problema al crear la línea base."
+            : error.message
         );
       } else {
         const message =
@@ -364,7 +394,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         0
       );
       const totalAmount = totalLaborCost + totalNonLaborCost;
-      const signatureHash = baselineMeta?.signature_hash || baselineId;
+      const signatureHash = baselineMeta?.signatureHash || baselineId;
 
       // Create baseline data structure for export
       const baselineData = {

@@ -210,169 +210,230 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {laborEstimates.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <Select
-                          value={item.role}
-                          onValueChange={(value) =>
-                            updateLaborItem(index, "role", value)
-                          }
-                        >
-                          <SelectTrigger className="w-40">
-                            <SelectValue placeholder="Select role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ROLES.map((role) => (
-                              <SelectItem key={role} value={role}>
-                                {role}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={item.country}
-                          onValueChange={(value) =>
-                            updateLaborItem(index, "country", value)
-                          }
-                        >
-                          <SelectTrigger className="w-[120px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.keys(LABOR_PRESETS).map((country) => (
-                              <SelectItem key={country} value={country}>
-                                {country}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={item.level}
-                          onValueChange={(value) =>
-                            updateLaborItem(index, "level", value)
-                          }
-                        >
-                          <SelectTrigger className="w-[100px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="junior">Junior</SelectItem>
-                            <SelectItem value="mid">Mid</SelectItem>
-                            <SelectItem value="senior">Senior</SelectItem>
-                            <SelectItem value="lead">Lead</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.fte_count}
-                          onChange={(e) =>
-                            updateLaborItem(
-                              index,
-                              "fte_count",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          className="w-16"
-                          min="0.1"
-                          step="0.1"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.hourly_rate}
-                          onChange={(e) =>
-                            updateLaborItem(
-                              index,
-                              "hourly_rate",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          className="w-24"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.hours_per_month}
-                          onChange={(e) =>
-                            updateLaborItem(
-                              index,
-                              "hours_per_month",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          className="w-20"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.on_cost_percentage}
-                          onChange={(e) =>
-                            updateLaborItem(
-                              index,
-                              "on_cost_percentage",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          className="w-20"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.start_month}
-                          onChange={(e) =>
-                            updateLaborItem(
-                              index,
-                              "start_month",
-                              parseInt(e.target.value) || 1
-                            )
-                          }
-                          className="w-16"
-                          min="1"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.end_month}
-                          onChange={(e) =>
-                            updateLaborItem(
-                              index,
-                              "end_month",
-                              parseInt(e.target.value) || 1
-                            )
-                          }
-                          className="w-16"
-                          min="1"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          ${calculateItemTotal(item).toLocaleString()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeLaborItem(index)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 size={16} />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {laborEstimates.map((item, index) => {
+                    const baseId = `labor-${index}`;
+                    const roleId = `${baseId}-role`;
+                    const countryId = `${baseId}-country`;
+                    const levelId = `${baseId}-level`;
+                    const fteId = `${baseId}-fte`;
+                    const rateId = `${baseId}-rate`;
+                    const hoursId = `${baseId}-hours`;
+                    const onCostId = `${baseId}-oncost`;
+                    const startId = `${baseId}-start`;
+                    const endId = `${baseId}-end`;
+
+                    return (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={roleId}>
+                            Role
+                          </Label>
+                          <Select
+                            value={item.role}
+                            onValueChange={(value) =>
+                              updateLaborItem(index, "role", value)
+                            }
+                          >
+                            <SelectTrigger id={roleId} className="w-40" name={roleId}>
+                              <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROLES.map((role) => (
+                                <SelectItem key={role} value={role}>
+                                  {role}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={countryId}>
+                            Country
+                          </Label>
+                          <Select
+                            value={item.country}
+                            onValueChange={(value) =>
+                              updateLaborItem(index, "country", value)
+                            }
+                          >
+                            <SelectTrigger
+                              id={countryId}
+                              name={countryId}
+                              className="w-[120px]"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.keys(LABOR_PRESETS).map((country) => (
+                                <SelectItem key={country} value={country}>
+                                  {country}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={levelId}>
+                            Level
+                          </Label>
+                          <Select
+                            value={item.level}
+                            onValueChange={(value) =>
+                              updateLaborItem(index, "level", value)
+                            }
+                          >
+                            <SelectTrigger
+                              id={levelId}
+                              name={levelId}
+                              className="w-[100px]"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="junior">Junior</SelectItem>
+                              <SelectItem value="mid">Mid</SelectItem>
+                              <SelectItem value="senior">Senior</SelectItem>
+                              <SelectItem value="lead">Lead</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={fteId}>
+                            FTE Count
+                          </Label>
+                          <Input
+                            id={fteId}
+                            name={fteId}
+                            type="number"
+                            value={item.fte_count}
+                            onChange={(e) =>
+                              updateLaborItem(
+                                index,
+                                "fte_count",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-16"
+                            min="0.1"
+                            step="0.1"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={rateId}>
+                            Hourly rate
+                          </Label>
+                          <Input
+                            id={rateId}
+                            name={rateId}
+                            type="number"
+                            value={item.hourly_rate}
+                            onChange={(e) =>
+                              updateLaborItem(
+                                index,
+                                "hourly_rate",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-24"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={hoursId}>
+                            Hours per month
+                          </Label>
+                          <Input
+                            id={hoursId}
+                            name={hoursId}
+                            type="number"
+                            value={item.hours_per_month}
+                            onChange={(e) =>
+                              updateLaborItem(
+                                index,
+                                "hours_per_month",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-20"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={onCostId}>
+                            On-cost percentage
+                          </Label>
+                          <Input
+                            id={onCostId}
+                            name={onCostId}
+                            type="number"
+                            value={item.on_cost_percentage}
+                            onChange={(e) =>
+                              updateLaborItem(
+                                index,
+                                "on_cost_percentage",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-20"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={startId}>
+                            Start month
+                          </Label>
+                          <Input
+                            id={startId}
+                            name={startId}
+                            type="number"
+                            value={item.start_month}
+                            onChange={(e) =>
+                              updateLaborItem(
+                                index,
+                                "start_month",
+                                parseInt(e.target.value) || 1
+                              )
+                            }
+                            className="w-16"
+                            min="1"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={endId}>
+                            End month
+                          </Label>
+                          <Input
+                            id={endId}
+                            name={endId}
+                            type="number"
+                            value={item.end_month}
+                            onChange={(e) =>
+                              updateLaborItem(
+                                index,
+                                "end_month",
+                                parseInt(e.target.value) || 1
+                              )
+                            }
+                            className="w-16"
+                            min="1"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            ${calculateItemTotal(item).toLocaleString()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeLaborItem(index)}
+                            className="text-destructive hover:text-destructive"
+                            aria-label={`Remove labor role ${item.role || index + 1}`}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
