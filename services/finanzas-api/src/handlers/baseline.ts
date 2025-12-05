@@ -279,8 +279,7 @@ export const listBaselines = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    const authContext = adaptAuthContext(event);
-    await ensureCanRead(authContext as never);
+    await ensureCanRead(event as never);
 
     const statusFilter =
       event.queryStringParameters?.status?.trim() || "PendingSDMT";
