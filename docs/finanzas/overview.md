@@ -1,26 +1,36 @@
-# Finanzas SD – Overview
+# Finanzas SD – Overview / Resumen ejecutivo
 
-## Propósito y alcance
-Finanzas SD gestiona costos, rubros y conciliación para proyectos de servicio Ikusi/CVDEx. Conecta al PMO Colombia y al equipo SDMT para que los proyectos tengan presupuesto trazable, catálogos de rubros consistentes y facturas conciliadas contra el forecast.
+## Purpose / Propósito
+Finanzas SD delivers end-to-end cost governance for Ikusi/CVDEx projects. It standardizes rubros, tracks project baselines, reconciles invoices, and produces auditable evidence for PMO Colombia without mixing Acta or Prefactura materials.
 
-## Cómo encaja con PMO y SDMT
-- **PMO** registra proyectos y rubros base desde Finanzas, asegurando datos de costos y moneda antes del handoff.
-- **Finanzas SD** mantiene el catálogo de rubros, asigna line items y recibe documentos de soporte (facturas, prefacturas, evidencias).
-- **SDMT** consume los proyectos y rubros aprobados para planeación y control operativo.
+## Scope and audiences / Alcance y audiencias
+- **PMO Colombia**: project intake, baseline definition, evidence handling.
+- **Finanzas & SDMT**: catalog alignment, allocations, forecast vs. actuals.
+- **Auditoría**: traceability of approvals, document history, access control.
 
-### Flujo resumido (texto)
-```
-PMO -> Finanzas (proyectos, rubros) -> SDMT (catálogo y forecast) -> Finanzas (conciliación de facturas)
-```
+## Core capabilities / Capacidades clave
+- Project creation, baseline capture, and SDMT handoff.
+- Rubros catalog selection with allocation rules and monthly plan generation.
+- Evidence-driven reconciliation for invoices (facturas) with document uploads.
+- Health and observability endpoints for platform readiness.
 
-## Arquitectura de alto nivel
-- **Frontend**: Finanzas UI (ruta `/finanzas/**`) con módulos Home, Projects, Rubros Catalog, SDMT Catalog y Reconciliation.
-- **Backend**: Finanzas API (carpeta `services/finanzas-api`) expuesta vía API Gateway `finanzas-sd-api` (dev/stg/prod).
-- **Autenticación**: Cognito con grupos comunes (`EXEC_RO`, `PMO`, `SDMT`, `FIN`, `AUDIT`) aplicados en UI y API.
-- **Almacenamiento**:
-  - DynamoDB: tablas de proyectos, rubros, allocation rules, line items, docs y facturas/prefacturas.
-  - S3: bucket `ukusi-ui-finanzas-prod` para UI estática y carga de documentos.
-- **Orquestación**: Lambdas por dominio (projects, rubros, line-items, reconciliation/invoices, upload-docs) conectadas por API Gateway.
+## Modules / Módulos funcionales
+- **Projects & Baseline**: intake, milestone dates, moneda, responsible contacts.
+- **Rubros & Line Items**: catalog queries, project-level associations, adjustments.
+- **Allocations & Forecast**: distribution rules, plan generation, close-month.
+- **Invoices & Reconciliation**: registration, status transitions, alerts.
+- **Uploads**: secure evidence ingestion tied to project/line item/invoice context.
 
-## Valor para PMO Colombia (lenguaje sencillo)
-Finanzas SD permite que el PMO lleve trazabilidad completa de los costos del proyecto: registra el proyecto una sola vez, usa rubros estandarizados del catálogo SDMT y luego concilia facturas contra el forecast antes de enviarlas a SDMT. Esto reduce reprocesos, evita diferencias de moneda y da visibilidad temprana a Finanzas y a la dirección ejecutiva.
+## High-level flow / Flujo de alto nivel
+1. PMO registra proyecto y baseline inicial.
+2. Se seleccionan rubros del catálogo y se generan line items con reglas de asignación.
+3. Finanzas registra facturas y adjunta evidencia; se reconcilian contra forecast.
+4. SDMT recibe handoff consolidado y alertas de desviaciones.
+
+## Dependencies and constraints / Dependencias
+- AWS Cognito para autenticación (grupos `PMO`, `FIN`, `SDMT`, `AUDIT`, `EXEC_RO`).
+- API Gateway `finanzas-sd-api` con Lambdas por dominio bajo `services/finanzas-api`.
+- DynamoDB para proyectos, rubros, line items, allocations y facturas; S3 para UI y evidencias.
+- Región operativa: `us-east-2`.
+
+Para detalles técnicos consulte `architecture.md`, modelos en `data-models.md`, y API en `api-reference.md`.

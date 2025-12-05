@@ -1,0 +1,27 @@
+@startuml
+skinparam backgroundColor #ffffff
+skinparam shadowing false
+skinparam dpi 150
+actor PMO
+participant "Finanzas UI" as UI
+participant "API Gateway" as APIGW
+participant "Lambda Projects" as LProjects
+participant "DynamoDB" as Dynamo
+
+PMO -> UI : Crear proyecto / baseline
+UI -> APIGW : POST /projects
+APIGW -> LProjects : validar JWT + payload
+LProjects -> Dynamo : Guardar PROJECT + BASELINE
+Dynamo --> LProjects : OK
+LProjects --> APIGW : 201 + projectId
+APIGW --> UI : projectId
+
+PMO -> UI : Generar handoff
+UI -> APIGW : POST /projects/{projectId}/handoff
+APIGW -> LProjects : validar baseline cerrada
+LProjects -> Dynamo : Leer rubros y line items
+LProjects -> Dynamo : Registrar HANDOFF
+Dynamo --> LProjects : OK
+LProjects --> APIGW : 200 + handoffId
+APIGW --> UI : handoffId + summary
+@enduml
