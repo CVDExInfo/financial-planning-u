@@ -1,3 +1,4 @@
+> [ARCHIVED] Superseded by docs/finanzas/overview.md on 2025-12-05
 # Finanzas build forensics report
 
 ## Symptoms
