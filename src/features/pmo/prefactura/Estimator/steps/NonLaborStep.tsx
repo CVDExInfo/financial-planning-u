@@ -235,130 +235,177 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {nonLaborEstimates.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <Select
-                          value={item.category}
-                          onValueChange={(value) =>
-                            updateNonLaborItem(index, "category", value)
-                          }
-                        >
-                          <SelectTrigger className="w-[140px]">
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CATEGORIES.map((category) => (
-                              <SelectItem key={category} value={category}>
-                                {category}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={item.description}
-                          onChange={(e) =>
-                            updateNonLaborItem(
-                              index,
-                              "description",
-                              e.target.value
-                            )
-                          }
-                          placeholder="e.g., AWS EC2 instances"
-                          className="w-[200px]"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.amount}
-                          onChange={(e) =>
-                            updateNonLaborItem(
-                              index,
-                              "amount",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          className="w-24"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Checkbox
-                          checked={item.one_time}
-                          onCheckedChange={(checked) =>
-                            updateNonLaborItem(index, "one_time", checked)
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.start_month || 1}
-                          onChange={(e) =>
-                            updateNonLaborItem(
-                              index,
-                              "start_month",
-                              parseInt(e.target.value) || 1
-                            )
-                          }
-                          className="w-16"
-                          min="1"
-                          disabled={item.one_time}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.end_month || 1}
-                          onChange={(e) =>
-                            updateNonLaborItem(
-                              index,
-                              "end_month",
-                              parseInt(e.target.value) || 1
-                            )
-                          }
-                          className="w-16"
-                          min="1"
-                          disabled={item.one_time}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={item.vendor || ""}
-                          onChange={(e) =>
-                            updateNonLaborItem(index, "vendor", e.target.value)
-                          }
-                          placeholder="Vendor name"
-                          className="w-[120px]"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Checkbox
-                          checked={item.capex_flag}
-                          onCheckedChange={(checked) =>
-                            updateNonLaborItem(index, "capex_flag", checked)
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          ${calculateItemTotal(item).toLocaleString()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeNonLaborItem(index)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 size={16} />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {nonLaborEstimates.map((item, index) => {
+                    const baseId = `nonlabor-${index}`;
+                    const categoryId = `${baseId}-category`;
+                    const descriptionId = `${baseId}-description`;
+                    const amountId = `${baseId}-amount`;
+                    const startId = `${baseId}-start`;
+                    const endId = `${baseId}-end`;
+                    const vendorId = `${baseId}-vendor`;
+
+                    return (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={categoryId}>
+                            Category
+                          </Label>
+                          <Select
+                            value={item.category}
+                            onValueChange={(value) =>
+                              updateNonLaborItem(index, "category", value)
+                            }
+                          >
+                            <SelectTrigger
+                              id={categoryId}
+                              name={categoryId}
+                              className="w-[140px]"
+                            >
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CATEGORIES.map((category) => (
+                                <SelectItem key={category} value={category}>
+                                  {category}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={descriptionId}>
+                            Description
+                          </Label>
+                          <Input
+                            id={descriptionId}
+                            name={descriptionId}
+                            value={item.description}
+                            onChange={(e) =>
+                              updateNonLaborItem(
+                                index,
+                                "description",
+                                e.target.value
+                              )
+                            }
+                            placeholder="e.g., AWS EC2 instances"
+                            className="w-[200px]"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={amountId}>
+                            Amount
+                          </Label>
+                          <Input
+                            id={amountId}
+                            name={amountId}
+                            type="number"
+                            value={item.amount}
+                            onChange={(e) =>
+                              updateNonLaborItem(
+                                index,
+                                "amount",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-24"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Checkbox
+                            id={`one-time-${index}`}
+                            checked={item.one_time}
+                            onCheckedChange={(checked) =>
+                              updateNonLaborItem(index, "one_time", checked)
+                            }
+                            aria-label="One-time expense"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={startId}>
+                            Start month
+                          </Label>
+                          <Input
+                            id={startId}
+                            name={startId}
+                            type="number"
+                            value={item.start_month || 1}
+                            onChange={(e) =>
+                              updateNonLaborItem(
+                                index,
+                                "start_month",
+                                parseInt(e.target.value) || 1
+                              )
+                            }
+                            className="w-16"
+                            min="1"
+                            disabled={item.one_time}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={endId}>
+                            End month
+                          </Label>
+                          <Input
+                            id={endId}
+                            name={endId}
+                            type="number"
+                            value={item.end_month || 1}
+                            onChange={(e) =>
+                              updateNonLaborItem(
+                                index,
+                                "end_month",
+                                parseInt(e.target.value) || 1
+                              )
+                            }
+                            className="w-16"
+                            min="1"
+                            disabled={item.one_time}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Label className="sr-only" htmlFor={vendorId}>
+                            Vendor
+                          </Label>
+                          <Input
+                            id={vendorId}
+                            name={vendorId}
+                            value={item.vendor || ""}
+                            onChange={(e) =>
+                              updateNonLaborItem(index, "vendor", e.target.value)
+                            }
+                            placeholder="Vendor name"
+                            className="w-[120px]"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Checkbox
+                            id={`capex-${index}`}
+                            checked={item.capex_flag}
+                            onCheckedChange={(checked) =>
+                              updateNonLaborItem(index, "capex_flag", checked)
+                            }
+                            aria-label="CapEx"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            ${calculateItemTotal(item).toLocaleString()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeNonLaborItem(index)}
+                            className="text-destructive hover:text-destructive"
+                            aria-label={`Remove non-labor item ${index + 1}`}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

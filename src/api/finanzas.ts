@@ -169,6 +169,8 @@ type PresignResponse = {
   uploadUrl: string;
   objectKey: string;
   bucket: string;
+  documentId?: string;
+  metadata?: Record<string, unknown>;
   warnings?: string[];
   status?: number;
 };
@@ -277,6 +279,8 @@ async function presignUpload(_: {
     uploadUrl: parsed.uploadUrl,
     objectKey: parsed.objectKey,
     bucket: parsed.bucket,
+    documentId: (parsed as any).documentId,
+    metadata: (parsed as any).metadata,
     warnings: parsed.warnings || [],
     status: response.status,
   };
@@ -459,8 +463,46 @@ export type UploadSupportingDocResult = {
   documentKey: string;
   originalName: string;
   contentType: string;
+  documentId?: string;
+  metadata?: Record<string, unknown>;
   warnings?: string[];
   status?: number;
+};
+
+export type PrefacturaSupportingDocRef = {
+  documentId?: string;
+  documentKey: string;
+  originalName?: string;
+  uploadedAt?: string;
+  contentType?: string;
+};
+
+export type PrefacturaBaselinePayload = {
+  project_id: string;
+  project_name: string;
+  project_description?: string;
+  client_name?: string;
+  currency?: string;
+  start_date?: string;
+  duration_months?: number;
+  contract_value?: number;
+  assumptions?: string[];
+  labor_estimates: Record<string, unknown>[];
+  non_labor_estimates: Record<string, unknown>[];
+  fx_indexation?: Record<string, unknown>;
+  supporting_documents?: PrefacturaSupportingDocRef[];
+  signed_by?: string;
+  signed_role?: string;
+  signed_at?: string;
+};
+
+export type PrefacturaBaselineResponse = {
+  baselineId: string;
+  projectId: string;
+  status: string;
+  signatureHash?: string;
+  totalAmount?: number;
+  createdAt?: string;
 };
 
 export type UploadSupportingDocOptions = {
@@ -493,9 +535,57 @@ export async function uploadSupportingDocument(
     documentKey: presign.objectKey,
     originalName: payload.file.name,
     contentType: payload.file.type || "application/octet-stream",
+    documentId: presign.documentId,
+    metadata: presign.metadata,
     warnings: presign.warnings,
     status: presign.status,
   };
+}
+
+export async function createPrefacturaBaseline(
+  payload: PrefacturaBaselinePayload
+): Promise<PrefacturaBaselineResponse> {
+  ensureApiBase();
+  const base = requireApiBase();
+
+  try {
+    const response = await fetch(`${base}/baseline`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...buildAuthHeader() },
+      body: JSON.stringify(payload),
+    });
+
+    const text = await response.text();
+    const parsed = text ? JSON.parse(text) : {};
+
+    if (!response.ok) {
+      throw new FinanzasApiError(
+        typeof parsed === "string"
+          ? parsed
+          : parsed?.message || "Hubo un problema al crear la línea base.",
+        response.status
+      );
+    }
+
+    const baselineResponse: PrefacturaBaselineResponse = {
+      baselineId: parsed.baselineId || parsed.baseline_id || "",
+      projectId: parsed.projectId || parsed.project_id || payload.project_id,
+      status: parsed.status || "PendingSDMT",
+      signatureHash: parsed.signatureHash || parsed.signature_hash,
+      totalAmount: parsed.totalAmount || parsed.total_amount,
+      createdAt: parsed.createdAt || parsed.created_at,
+    };
+
+    return baselineResponse;
+  } catch (error) {
+    if (error instanceof FinanzasApiError) {
+      throw error;
+    }
+
+    throw new FinanzasApiError(
+      error instanceof Error ? error.message : "Failed to create baseline"
+    );
+  }
 }
 
 export async function updateInvoiceStatus(
