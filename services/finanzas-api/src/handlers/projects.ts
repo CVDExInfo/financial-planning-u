@@ -8,6 +8,7 @@ import {
   PutCommand,
   ScanCommand,
   GetCommand,
+  QueryCommand,
 } from "../lib/dynamo";
 import { logError } from "../utils/logging";
 import crypto from "node:crypto";
@@ -187,30 +188,80 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         return bad("Invalid JSON in request body");
       }
 
-      const baselineId =
-        (handoffBody.baseline_id as string) ||
-        (handoffBody.baselineId as string);
+        const handoffFields =
+          handoffBody && typeof handoffBody.fields === "object"
+            ? (handoffBody.fields as Record<string, unknown>)
+            : undefined;
 
-      if (!baselineId || typeof baselineId !== "string") {
-        return bad("baseline_id is required", 422);
-      }
+        let baselineId =
+          (handoffBody.baseline_id as string) ||
+          (handoffBody.baselineId as string) ||
+          (handoffFields?.baseline_id as string) ||
+          (handoffFields?.baselineId as string);
 
       try {
         let resolvedProjectId = projectIdFromPath;
 
-        const baselineLookup = await ddb.send(
+        const existingProject = await ddb.send(
           new GetCommand({
-            TableName: tableName("prefacturas"),
+            TableName: tableName("projects"),
             Key: {
               pk: `PROJECT#${resolvedProjectId}`,
-              sk: `BASELINE#${baselineId}`,
+              sk: "METADATA",
             },
           })
         );
 
+        const idempotencyCheck = await ddb.send(
+          new GetCommand({
+            TableName: tableName("projects"),
+            Key: {
+              pk: "IDEMPOTENCY#HANDOFF",
+              sk: idempotencyKey,
+            },
+          })
+        );
+
+        if (idempotencyCheck.Item) {
+          const existingPayload = JSON.stringify(idempotencyCheck.Item.payload);
+          const currentPayload = JSON.stringify({
+            projectId: projectIdFromPath,
+            body: handoffBody,
+          });
+
+          if (existingPayload !== currentPayload) {
+            return bad(
+              "Conflict: idempotency key used with different payload",
+              409
+            );
+          }
+
+          return ok(idempotencyCheck.Item.result || idempotencyCheck.Item);
+        }
+
+        const baselineFromProject = (existingProject.Item as
+          | Record<string, unknown>
+          | undefined)?.baseline_id as string | undefined;
+
+        if (!baselineId && baselineFromProject) {
+          baselineId = baselineFromProject;
+        }
+
+        const baselineLookup = baselineId
+          ? await ddb.send(
+              new GetCommand({
+                TableName: tableName("prefacturas"),
+                Key: {
+                  pk: `PROJECT#${resolvedProjectId}`,
+                  sk: `BASELINE#${baselineId}`,
+                },
+              })
+            )
+          : { Item: undefined };
+
         let baseline = baselineLookup.Item as Record<string, unknown> | undefined;
 
-        if (!baseline) {
+        if (!baseline && baselineId) {
           const baselineById = await ddb.send(
             new GetCommand({
               TableName: tableName("prefacturas"),
@@ -237,15 +288,32 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           }
         }
 
-        const existingProject = await ddb.send(
-          new GetCommand({
-            TableName: tableName("projects"),
-            Key: {
-              pk: `PROJECT#${resolvedProjectId}`,
-              sk: "METADATA",
-            },
-          })
-        );
+        if (!baseline && !baselineId) {
+          const baselineQuery = await ddb.send(
+            new QueryCommand({
+              TableName: tableName("prefacturas"),
+              KeyConditionExpression: "#pk = :pk AND begins_with(#sk, :sk)",
+              ExpressionAttributeNames: {
+                "#pk": "pk",
+                "#sk": "sk",
+              },
+              ExpressionAttributeValues: {
+                ":pk": `PROJECT#${resolvedProjectId}`,
+                ":sk": "BASELINE#",
+              },
+              ScanIndexForward: false,
+              Limit: 1,
+            })
+          );
+
+          if (baselineQuery.Items && baselineQuery.Items.length > 0) {
+            baseline = baselineQuery.Items[0] as Record<string, unknown>;
+            const skValue = baseline.sk as string | undefined;
+            if (skValue?.startsWith("BASELINE#")) {
+              baselineId = skValue.replace("BASELINE#", "");
+            }
+          }
+        }
 
         if (
           existingProject.Item &&
@@ -262,7 +330,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         }
 
         if (!baseline) {
-          return bad("Baseline not found for project", 404);
+          baseline = {};
         }
 
         const baselineProjectId =
@@ -275,7 +343,12 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         const createdBy =
           event.requestContext.authorizer?.jwt?.claims?.email || "system";
 
-        const modTotalFromPayload = Number(handoffBody.mod_total || 0);
+        const modTotalFromPayload = Number(
+          handoffBody.mod_total ??
+            handoffFields?.mod_total ??
+            handoffFields?.total_amount ??
+            0
+        );
         const resolvedBudget =
           !Number.isNaN(modTotalFromPayload) && modTotalFromPayload > 0
             ? modTotalFromPayload
@@ -352,53 +425,112 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             (existingProject.Item as Record<string, unknown> | undefined)
               ?.created_at || now,
           updated_at: now,
-          created_by:
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.created_by || createdBy,
-          accepted_by: (handoffBody.aceptado_por as string) || createdBy,
-          pct_ingenieros: Number(handoffBody.pct_ingenieros || 0),
-          pct_sdm: Number(handoffBody.pct_sdm || 0),
-          last_handoff_key: idempotencyKey,
-        };
+            created_by:
+              (existingProject.Item as Record<string, unknown> | undefined)
+                ?.created_by || createdBy,
+            accepted_by:
+              (handoffBody.aceptado_por as string) ||
+              (handoffBody.owner as string) ||
+              createdBy,
+            pct_ingenieros: Number(
+              handoffBody.pct_ingenieros ?? handoffFields?.pct_ingenieros ?? 0
+            ),
+            pct_sdm: Number(handoffBody.pct_sdm ?? handoffFields?.pct_sdm ?? 0),
+            last_handoff_key: idempotencyKey,
+          };
 
-        await ddb.send(
-          new PutCommand({
-            TableName: tableName("projects"),
-            Item: projectItem,
-          })
-        );
+          const handoffId = `handoff_${crypto
+            .randomUUID()
+            .replace(/-/g, "")
+            .slice(0, 10)}`;
+
+          const handoffOwner =
+            (handoffBody.owner as string) || createdBy || "unknown@unknown";
+
+          const handoffRecord = {
+            pk: `PROJECT#${resolvedProjectId}`,
+            sk: `HANDOFF#${handoffId}`,
+            handoffId,
+            projectId: resolvedProjectId,
+            baselineId: baselineId || (projectItem.baseline_id as string),
+            owner: handoffOwner,
+            fields: handoffFields || handoffBody,
+            version: 1,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: createdBy,
+          };
+
+          await ddb.send(
+            new PutCommand({
+              TableName: tableName("projects"),
+              Item: projectItem,
+            })
+          );
+
+          await ddb.send(
+            new PutCommand({
+              TableName: tableName("projects"),
+              Item: handoffRecord,
+            })
+          );
 
           const auditEntry = {
             pk: `ENTITY#PROJECT#${resolvedProjectId}`,
             sk: `TS#${now}`,
-            action: "HANDOFF_PROJECT",
+            action: "HANDOFF_UPDATE",
             resource_type: "project_handoff",
-            resource_id: resolvedProjectId,
-            user: projectItem.created_by,
+            resource_id: handoffId,
+            user: createdBy,
             timestamp: now,
             before: existingProject.Item || null,
             after: {
-              project_id: resolvedProjectId,
-              baseline_id: baselineId,
-              mod_total: projectItem.mod_total,
+              project: projectItem,
+              handoff: handoffRecord,
             },
             source: "API",
             ip_address: event.requestContext.http?.sourceIp,
             user_agent: event.requestContext.http?.userAgent,
           };
 
-        await ddb.send(
-          new PutCommand({
-            TableName: tableName("audit_log"),
-            Item: auditEntry,
-          })
-        );
+          await ddb.send(
+            new PutCommand({
+              TableName: tableName("audit_log"),
+              Item: auditEntry,
+            })
+          );
 
-          return ok({
-            projectId: resolvedProjectId,
-            baselineId,
-            status: "HandoffComplete",
-          });
+          const ttl = Math.floor(Date.now() / 1000) + 86400;
+
+          const idempotencyRecord = {
+            pk: "IDEMPOTENCY#HANDOFF",
+            sk: idempotencyKey,
+            payload: { projectId: projectIdFromPath, body: handoffBody },
+            result: {
+              handoffId,
+              projectId: resolvedProjectId,
+              baselineId,
+              status: "HandoffComplete",
+            },
+            ttl,
+          };
+
+          await ddb.send(
+            new PutCommand({
+              TableName: tableName("projects"),
+              Item: idempotencyRecord,
+            })
+          );
+
+          return ok(
+            {
+              handoffId,
+              projectId: resolvedProjectId,
+              baselineId,
+              status: "HandoffComplete",
+            },
+            201
+          );
       } catch (error) {
         const authError = fromAuthError(error);
         if (authError) return authError;
