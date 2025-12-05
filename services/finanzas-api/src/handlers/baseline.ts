@@ -7,7 +7,7 @@ import {
   GetCommand,
   ScanCommand,
 } from "../lib/dynamo";
-import { ensureCanWrite, getUserEmail } from "../lib/auth";
+import { ensureCanWrite, ensureCanRead, getUserEmail } from "../lib/auth";
 import { bad, ok, serverError } from "../lib/http";
 import { logError } from "../utils/logging";
 
@@ -279,6 +279,9 @@ export const listBaselines = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
+    const authContext = adaptAuthContext(event);
+    await ensureCanRead(authContext as never);
+
     const statusFilter =
       event.queryStringParameters?.status?.trim() || "PendingSDMT";
 
