@@ -484,7 +484,7 @@ Resources:
       SamResourceId: BaselineFn
     Properties:
       CodeUri: .
-      Handler: baseline.createBaseline
+      Handler: baseline.handler
       Policies:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:
@@ -493,6 +493,9 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName:
               Ref: AuditTable
+        - DynamoDBCrudPolicy:
+            TableName:
+              Ref: PrefacturasTable
       Events:
         CreateBaseline:
           Type: HttpApi
@@ -507,6 +510,15 @@ Resources:
           Type: HttpApi
           Properties:
             Path: /baseline/{baseline_id}
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        ListBaselines:
+          Type: HttpApi
+          Properties:
+            Path: /prefacturas/baselines
             Method: GET
             ApiId:
               Ref: Api

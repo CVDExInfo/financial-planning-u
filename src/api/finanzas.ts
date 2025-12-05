@@ -505,6 +505,18 @@ export type PrefacturaBaselineResponse = {
   createdAt?: string;
 };
 
+export type PrefacturaBaselineListItem = {
+  baseline_id: string;
+  project_id: string;
+  project_name?: string;
+  client_name?: string;
+  status?: string;
+  total_amount?: number;
+  created_at?: string;
+  signed_by?: string;
+  signed_at?: string;
+};
+
 export type UploadSupportingDocOptions = {
   onStageChange?: (stage: UploadStage) => void;
 };
@@ -559,12 +571,19 @@ export async function createPrefacturaBaseline(
     const parsed = text ? JSON.parse(text) : {};
 
     if (!response.ok) {
-      throw new FinanzasApiError(
+      const backendMessage =
         typeof parsed === "string"
           ? parsed
-          : parsed?.message || "Hubo un problema al crear la línea base.",
-        response.status
-      );
+          : parsed?.message || "Hubo un problema al crear la línea base.";
+
+      if (response.status >= 500) {
+        throw new FinanzasApiError(
+          "Hubo un problema al crear la línea base.",
+          response.status
+        );
+      }
+
+      throw new FinanzasApiError(backendMessage, response.status);
     }
 
     const baselineResponse: PrefacturaBaselineResponse = {
@@ -586,6 +605,30 @@ export async function createPrefacturaBaseline(
       error instanceof Error ? error.message : "Failed to create baseline"
     );
   }
+}
+
+export async function listPrefacturaBaselines(status?: string): Promise<{
+  items: PrefacturaBaselineListItem[];
+}> {
+  ensureApiBase();
+  const base = requireApiBase();
+
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  const res = await fetch(`${base}/prefacturas/baselines${query}`, {
+    headers: buildAuthHeader(),
+  });
+
+  const text = await res.text();
+  const parsed = text ? JSON.parse(text) : {};
+
+  if (!res.ok) {
+    throw new FinanzasApiError(
+      parsed?.message || "No se pudieron obtener las líneas base",
+      res.status
+    );
+  }
+
+  return parsed;
 }
 
 export async function updateInvoiceStatus(

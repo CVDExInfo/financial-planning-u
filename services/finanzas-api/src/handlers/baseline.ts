@@ -1,6 +1,12 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { randomUUID, createHash } from "node:crypto";
-import { ddb, tableName, PutCommand, GetCommand } from "../lib/dynamo";
+import {
+  ddb,
+  tableName,
+  PutCommand,
+  GetCommand,
+  ScanCommand,
+} from "../lib/dynamo";
 import { ensureCanWrite, getUserEmail } from "../lib/auth";
 import { bad, ok, serverError } from "../lib/http";
 import { logError } from "../utils/logging";
@@ -90,7 +96,7 @@ export const createBaseline = async (
     const body: BaselineRequest = JSON.parse(event.body || "{}");
 
     if (!body.project_name) {
-      return bad("Missing required field: project_name");
+      return bad("Falta el nombre del proyecto.");
     }
 
     const laborEstimates = Array.isArray(body.labor_estimates)
@@ -100,10 +106,23 @@ export const createBaseline = async (
       ? body.non_labor_estimates
       : [];
 
+    if (!laborEstimates.length && !nonLaborEstimates.length) {
+      return bad(
+        "Debe haber al menos un costo de mano de obra o no laboral para crear la línea base."
+      );
+    }
+
     const project_id =
       body.project_id?.trim() ||
       `PRJ-${body.project_name.toUpperCase().replace(/[^A-Z0-9]+/g, "-")}`;
     const baseline_id = `base_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+
+    const currency = body.currency?.trim() || "USD";
+    const durationMonths = body.duration_months ?? 12;
+
+    if (!durationMonths || durationMonths <= 0) {
+      return bad("La duración del proyecto debe ser mayor a cero.");
+    }
 
     const laborTotal = laborEstimates.reduce((sum, item) => {
       const baseHours = (item.hours_per_month || 0) * (item.fte_count || 0);
@@ -133,9 +152,9 @@ export const createBaseline = async (
       project_name: body.project_name,
       project_description: body.project_description || "",
       client_name: body.client_name || "",
-      currency: body.currency || "USD",
+      currency,
       start_date: body.start_date || timestamp,
-      duration_months: body.duration_months || 12,
+      duration_months: durationMonths,
       contract_value: body.contract_value || total_amount,
       assumptions: body.assumptions || [],
       labor_estimates: laborEstimates,
@@ -164,9 +183,9 @@ export const createBaseline = async (
       project_id,
       project_name: body.project_name,
       client_name: body.client_name || "",
-      currency: body.currency || "USD",
+      currency,
       start_date: body.start_date || timestamp,
-      duration_months: body.duration_months || 12,
+      duration_months: durationMonths,
       contract_value: body.contract_value || total_amount,
       assumptions: body.assumptions || [],
       labor_estimates: laborEstimates,
@@ -254,6 +273,102 @@ export const createBaseline = async (
       error instanceof Error ? error.message : "Failed to create baseline"
     );
   }
+};
+
+export const listBaselines = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
+  try {
+    const statusFilter =
+      event.queryStringParameters?.status?.trim() || "PendingSDMT";
+
+    const prefacturasTable = tableName("prefacturas");
+
+    const scanResult = await ddb.send(
+      new ScanCommand({
+        TableName: prefacturasTable,
+        FilterExpression:
+          "begins_with(#pk, :pkPrefix) AND (#status = :status OR :status = :noStatus)",
+        ExpressionAttributeNames: {
+          "#pk": "pk",
+          "#status": "status",
+        },
+        ExpressionAttributeValues: {
+          ":pkPrefix": "BASELINE#",
+          ":status": statusFilter,
+          ":noStatus": "",
+        },
+      })
+    );
+
+    const items = (scanResult.Items || [])
+      .map((item) => ({
+        baseline_id:
+          item.baseline_id ||
+          (typeof item.pk === "string"
+            ? item.pk.replace("BASELINE#", "")
+            : undefined),
+        project_id: item.project_id,
+        project_name:
+          item.project_name || item.preview?.project_name || item.payload?.project_name,
+        client_name:
+          item.client_name || item.preview?.client_name || item.payload?.client_name,
+        status: item.status,
+        total_amount: item.total_amount || item.payload?.contract_value,
+        created_at: item.created_at,
+        signed_by: item.signed_by,
+        signed_at: item.signed_at,
+      }))
+      .filter((item) => item.baseline_id)
+      .sort((a, b) => {
+        if (a.created_at && b.created_at) {
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }
+        return 0;
+      });
+
+    return ok({ items });
+  } catch (error) {
+    logError("Error listing baselines:", error);
+    return serverError(
+      error instanceof Error ? error.message : "Failed to list baselines"
+    );
+  }
+};
+
+export const handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
+  const routeKey =
+    (event as { requestContext?: { routeKey?: string } }).requestContext
+      ?.routeKey || "";
+  const method =
+    event.httpMethod?.toUpperCase() ||
+    (event as { requestContext?: { http?: { method?: string } } }).requestContext
+      ?.http?.method?.toUpperCase() ||
+    "";
+  const rawPath =
+    (event as { rawPath?: string }).rawPath || event.path || event.resource || "";
+
+  if (routeKey === "POST /baseline" || (method === "POST" && rawPath === "/baseline")) {
+    return createBaseline(event);
+  }
+
+  if (
+    routeKey === "GET /baseline/{baseline_id}" ||
+    (method === "GET" && rawPath.startsWith("/baseline/"))
+  ) {
+    return getBaseline(event);
+  }
+
+  if (
+    routeKey === "GET /prefacturas/baselines" ||
+    (method === "GET" && rawPath.startsWith("/prefacturas/baselines"))
+  ) {
+    return listBaselines(event);
+  }
+
+  return bad("Ruta no encontrada", 404);
 };
 
 /**
