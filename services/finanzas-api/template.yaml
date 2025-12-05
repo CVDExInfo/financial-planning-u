@@ -354,7 +354,6 @@ Resources:
           - Authorization
           - Content-Type
           - X-Idempotency-Key
-          - x-idempotency-key
           - X-Amz-Date
           - X-Amz-Security-Token
           - X-Requested-With
@@ -665,15 +664,6 @@ Resources:
             TableName:
               Ref: PrefacturasTable
       Events:
-        CreateHandoff:
-          Type: HttpApi
-          Properties:
-            Path: /projects/{projectId}/handoff
-            Method: POST
-            ApiId:
-              Ref: Api
-            Auth:
-              Authorizer: CognitoJwt
         GetHandoff:
           Type: HttpApi
           Properties:
