@@ -1,8 +1,6 @@
 # Finanzas SD – Arquitectura técnica / Technical architecture
 
 ## Component map
-![Finanzas SD – Arquitectura técnica](diagrams/finanzas-architecture.svg)
-
 - **Frontend (Finanzas UI)**: rutas `/finanzas/**`, React + Cognito Hosted UI, despliegue en S3 + CloudFront.
 - **API Gateway `finanzas-sd-api`**: proxy único con rutas por dominio (projects, rubros, allocations, invoices, uploads, health).
 - **Lambdas por dominio** (carpeta `services/finanzas-api/src/handlers`): validan JWT Cognito y aplican lógica de negocio.
@@ -11,6 +9,8 @@
   - **S3**: bucket estático para UI (`ukusi-ui-finanzas-*`) y prefix de evidencias para `uploads/docs`.
 - **Observabilidad**: logs estructurados en CloudWatch; endpoints `/health` y `/alerts`.
 - **Seguridad**: Cognito groups (`PMO`, `FIN`, `SDMT`, `AUDIT`, `EXEC_RO`) aplicados en UI y API authorizer.
+
+Ver diagrama `diagrams/finanzas-architecture.svg` para flujos de solicitud y almacenamiento.
 
 ## Request flow (end-to-end)
 1. Usuario ingresa vía Hosted UI Cognito y obtiene JWT con grupos.
