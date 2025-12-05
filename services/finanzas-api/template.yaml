@@ -353,6 +353,8 @@ Resources:
         AllowHeaders:
           - Authorization
           - Content-Type
+          - X-Idempotency-Key
+          - x-idempotency-key
           - X-Amz-Date
           - X-Amz-Security-Token
           - X-Requested-With
