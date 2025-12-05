@@ -13,6 +13,52 @@ import {
 import { logError } from "../utils/logging";
 import crypto from "node:crypto";
 
+type BaselineDealInputs = {
+  project_name?: string;
+  client_name?: string;
+  contract_value?: number;
+  duration_months?: number;
+  start_date?: string;
+  end_date?: string;
+  currency?: string;
+};
+
+type BaselineLaborEstimate = {
+  role?: string;
+  level?: string;
+  hours_per_month?: number;
+  fte_count?: number;
+  hourly_rate?: number;
+  rate?: number;
+  on_cost_percentage?: number;
+  start_month?: number;
+  end_month?: number;
+};
+
+type BaselineNonLaborEstimate = {
+  category?: string;
+  description?: string;
+  amount?: number;
+  vendor?: string;
+  one_time?: boolean;
+  start_month?: number;
+  end_month?: number;
+};
+
+type BaselinePayload = {
+  project_id?: string;
+  project_name?: string;
+  client_name?: string;
+  currency?: string;
+  start_date?: string;
+  end_date?: string;
+  duration_months?: number;
+  contract_value?: number;
+  labor_estimates?: BaselineLaborEstimate[];
+  non_labor_estimates?: BaselineNonLaborEstimate[];
+  deal_inputs?: BaselineDealInputs;
+};
+
 /**
  * Payload sent by the UI (Crear Proyecto modal)
  * {
@@ -151,6 +197,239 @@ export const normalizeProjectItem = (
       (item as Record<string, unknown>).createdBy ||
       null,
   };
+};
+
+const toDateOnlyString = (value?: string | null): string | undefined => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+};
+
+const normalizeBaseline = (
+  baseline: Record<string, unknown> | undefined
+): BaselinePayload => {
+  const payload = (baseline?.payload as BaselinePayload | undefined) || {};
+  const dealInputs = (payload?.deal_inputs as BaselineDealInputs | undefined) || {};
+
+  const labor_estimates =
+    (baseline?.labor_estimates as BaselineLaborEstimate[] | undefined) ||
+    payload.labor_estimates ||
+    [];
+  const non_labor_estimates =
+    (baseline?.non_labor_estimates as BaselineNonLaborEstimate[] | undefined) ||
+    payload.non_labor_estimates ||
+    [];
+
+  return {
+    project_id:
+      (baseline?.project_id as string | undefined) ||
+      (payload?.project_id as string | undefined),
+    project_name:
+      (baseline?.project_name as string | undefined) ||
+      (payload?.project_name as string | undefined) ||
+      dealInputs.project_name,
+    client_name:
+      (baseline?.client_name as string | undefined) ||
+      (payload?.client_name as string | undefined) ||
+      dealInputs.client_name,
+    currency:
+      (baseline?.currency as string | undefined) ||
+      (payload?.currency as string | undefined) ||
+      dealInputs.currency,
+    start_date:
+      (baseline?.start_date as string | undefined) ||
+      (payload?.start_date as string | undefined) ||
+      dealInputs.start_date,
+    end_date:
+      (baseline as { end_date?: string } | undefined)?.end_date ||
+      (payload as { end_date?: string } | undefined)?.end_date ||
+      dealInputs.end_date,
+    duration_months:
+      (baseline?.duration_months as number | undefined) ||
+      (payload?.duration_months as number | undefined) ||
+      dealInputs.duration_months,
+    contract_value:
+      (baseline?.contract_value as number | undefined) ||
+      (payload?.contract_value as number | undefined) ||
+      dealInputs.contract_value,
+    labor_estimates,
+    non_labor_estimates,
+    deal_inputs: dealInputs,
+  };
+};
+
+const deriveEndDate = (
+  startDate?: string,
+  durationMonths?: number,
+  providedEndDate?: string
+): string | undefined => {
+  const explicit = toDateOnlyString(providedEndDate);
+  if (explicit) return explicit;
+
+  const normalizedStart = toDateOnlyString(startDate);
+  if (!normalizedStart || !durationMonths || durationMonths <= 0) return undefined;
+
+  const end = new Date(normalizedStart);
+  end.setMonth(end.getMonth() + durationMonths - 1);
+  return end.toISOString();
+};
+
+type SeededLineItem = {
+  rubroId: string;
+  nombre: string;
+  descripcion?: string;
+  category?: string;
+  qty: number;
+  unit_cost: number;
+  currency: string;
+  recurring: boolean;
+  one_time: boolean;
+  start_month: number;
+  end_month: number;
+  total_cost: number;
+  metadata?: Record<string, unknown>;
+};
+
+const buildSeedLineItems = (
+  baseline: BaselinePayload,
+  projectId: string,
+  baselineId?: string
+): SeededLineItem[] => {
+  const items: SeededLineItem[] = [];
+  const currency = baseline.currency || "USD";
+
+  (baseline.labor_estimates || []).forEach((estimate, index) => {
+    const hoursPerMonth = Number(estimate.hours_per_month || 0);
+    const fteCount = Number(estimate.fte_count || 0);
+    const hourlyRate = Number(estimate.hourly_rate || estimate.rate || 0);
+    const onCostPct = Number(estimate.on_cost_percentage || 0);
+    const baseCost = hoursPerMonth * fteCount * hourlyRate;
+    const onCost = baseCost * (onCostPct / 100);
+    const monthlyCost = baseCost + onCost;
+    const startMonth = Math.max(Number(estimate.start_month || 1), 1);
+    const endMonth = Math.max(Number(estimate.end_month || startMonth), startMonth);
+    const months = endMonth - startMonth + 1;
+    const totalCost = monthlyCost * months;
+
+    items.push({
+      rubroId: `baseline-labor-${index + 1}`,
+      nombre: estimate.role || "Labor",
+      descripcion: estimate.level ? `${estimate.role ?? "Role"} (${estimate.level})` : estimate.role,
+      category: "Labor",
+      qty: 1,
+      unit_cost: monthlyCost,
+      currency,
+      recurring: true,
+      one_time: false,
+      start_month: startMonth,
+      end_month: endMonth,
+      total_cost: totalCost,
+      metadata: {
+        source: "baseline",
+        baseline_id: baselineId,
+        project_id: projectId,
+        role: estimate.role,
+      },
+    });
+  });
+
+  (baseline.non_labor_estimates || []).forEach((estimate, index) => {
+    const amount = Number(estimate.amount || 0);
+    const recurring = !estimate.one_time;
+    const startMonth = Math.max(Number(estimate.start_month || 1), 1);
+    const endMonth = recurring
+      ? Math.max(Number(estimate.end_month || startMonth), startMonth)
+      : startMonth;
+    const months = recurring ? endMonth - startMonth + 1 : 1;
+    const totalCost = recurring ? amount * months : amount;
+
+    items.push({
+      rubroId: `baseline-non-labor-${index + 1}`,
+      nombre: estimate.category || "Gasto No Laboral",
+      descripcion: estimate.description,
+      category: estimate.category || "Non-labor",
+      qty: 1,
+      unit_cost: amount,
+      currency,
+      recurring,
+      one_time: !recurring,
+      start_month: startMonth,
+      end_month: endMonth,
+      total_cost: totalCost,
+      metadata: {
+        source: "baseline",
+        baseline_id: baselineId,
+        project_id: projectId,
+        vendor: estimate.vendor,
+      },
+    });
+  });
+
+  return items;
+};
+
+const seedLineItemsFromBaseline = async (
+  projectId: string,
+  baseline: BaselinePayload,
+  baselineId?: string
+) => {
+  try {
+    const existing = await ddb.send(
+      new QueryCommand({
+        TableName: tableName("rubros"),
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+        ExpressionAttributeValues: {
+          ":pk": `PROJECT#${projectId}`,
+          ":sk": "RUBRO#",
+        },
+        Limit: 1,
+      })
+    );
+
+    if ((existing.Items?.length || 0) > 0) {
+      return { seeded: 0, skipped: true };
+    }
+
+    const seedItems = buildSeedLineItems(baseline, projectId, baselineId);
+
+    if (!seedItems.length) {
+      return { seeded: 0, skipped: true };
+    }
+
+    for (const item of seedItems) {
+      await ddb.send(
+        new PutCommand({
+          TableName: tableName("rubros"),
+          Item: {
+            pk: `PROJECT#${projectId}`,
+            sk: `RUBRO#${item.rubroId}`,
+            projectId,
+            rubroId: item.rubroId,
+            nombre: item.nombre,
+            descripcion: item.descripcion,
+            category: item.category,
+            qty: item.qty,
+            unit_cost: item.unit_cost,
+            currency: item.currency,
+            recurring: item.recurring,
+            one_time: item.one_time,
+            start_month: item.start_month,
+            end_month: item.end_month,
+            total_cost: item.total_cost,
+            metadata: item.metadata,
+            createdAt: new Date().toISOString(),
+            createdBy: "prefactura-handoff",
+          },
+        })
+      );
+    }
+
+    return { seeded: seedItems.length, skipped: false };
+  } catch (error) {
+    logError("Failed to seed baseline line items", { projectId, baselineId, error });
+    return { seeded: 0, skipped: true, error };
+  }
 };
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
@@ -343,6 +622,10 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         const createdBy =
           event.requestContext.authorizer?.jwt?.claims?.email || "system";
 
+        const normalizedBaseline = normalizeBaseline(
+          baseline as Record<string, unknown> | undefined
+        );
+
         const modTotalFromPayload = Number(
           handoffBody.mod_total ??
             handoffFields?.mod_total ??
@@ -353,11 +636,31 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           !Number.isNaN(modTotalFromPayload) && modTotalFromPayload > 0
             ? modTotalFromPayload
             : Number(
-                baseline.contract_value ||
+                normalizedBaseline.contract_value ||
                   baseline.total_amount ||
                   baseline.mod_total ||
                   0
               );
+
+        const durationMonths =
+          normalizedBaseline.duration_months &&
+          normalizedBaseline.duration_months > 0
+            ? normalizedBaseline.duration_months
+            : undefined;
+        const startDate =
+          normalizedBaseline.start_date ||
+          normalizedBaseline.deal_inputs?.start_date ||
+          (baseline.start_date as string | undefined);
+        const endDate = deriveEndDate(
+          startDate,
+          durationMonths,
+          normalizedBaseline.end_date || normalizedBaseline.deal_inputs?.end_date
+        );
+        const resolvedCurrency =
+          normalizedBaseline.currency ||
+          (existingProject.Item as Record<string, unknown> | undefined)?.moneda ||
+          (existingProject.Item as Record<string, unknown> | undefined)?.currency ||
+          "USD";
 
         const projectItem = {
           pk: `PROJECT#${resolvedProjectId}`,
@@ -386,15 +689,30 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
               ?.client ||
             "",
           moneda:
-            (baseline.currency as string) ||
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.moneda ||
-            "USD",
+            resolvedCurrency,
           currency:
-            (baseline.currency as string) ||
+            resolvedCurrency,
+          fecha_inicio:
+            startDate ||
             (existingProject.Item as Record<string, unknown> | undefined)
-              ?.currency ||
-            "USD",
+              ?.fecha_inicio ||
+            null,
+          start_date:
+            startDate ||
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.start_date ||
+            null,
+          fecha_fin:
+            endDate ||
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.fecha_fin ||
+            null,
+          end_date:
+            endDate ||
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.end_date ||
+            null,
+          duration_months: durationMonths,
           presupuesto_total: resolvedBudget,
           mod_total: resolvedBudget,
           descripcion:
@@ -473,6 +791,12 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
               TableName: tableName("projects"),
               Item: handoffRecord,
             })
+          );
+
+          await seedLineItemsFromBaseline(
+            resolvedProjectId,
+            normalizedBaseline,
+            baselineId
           );
 
           const auditEntry = {
