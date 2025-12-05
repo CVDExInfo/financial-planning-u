@@ -1,5 +1,7 @@
 # Finanzas SD – Security & compliance
 
+Executive perspective: security leans on Cognito, scoped IAM roles, and auditable storage so every approval, upload, and reconciliation is provable. / Perspectiva ejecutiva: la seguridad se apoya en Cognito, roles IAM acotados y almacenamiento auditable para que cada aprobación, carga y conciliación sea comprobable.
+
 ## Access control
 - Autenticación: Cognito Hosted UI + JWT; API Gateway authorizer verifica firma y grupos (`PMO`, `FIN`, `SDMT`, `AUDIT`, `EXEC_RO`).
 - Autorización por dominio: handlers validan grupo requerido; rechazan llamadas sin rol o sin `projectId` asociado.

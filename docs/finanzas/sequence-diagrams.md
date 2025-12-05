@@ -1,5 +1,7 @@
 # Finanzas SD – Sequence diagrams / Diagramas de secuencia
 
+Executive perspective: these flows show how PMO, Finanzas, and SDMT coordinate handoffs and reconciliations with evidence and access controls at every step. / Perspectiva ejecutiva: estos flujos muestran cómo PMO, Finanzas y SDMT coordinan handoffs y conciliaciones con evidencia y controles de acceso en cada paso.
+
 ## Project intake to SDMT handoff
 - Flujo: PMO crea proyecto → define baseline → asocia rubros → genera handoff para SDMT.
 - Ver `diagrams/finanzas-sequence-handoff.svg` para pasos y validaciones.

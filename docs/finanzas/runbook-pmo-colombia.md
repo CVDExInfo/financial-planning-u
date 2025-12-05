@@ -1,5 +1,7 @@
 # Runbook PMO Colombia – Finanzas SD
 
+Perspectiva ejecutiva: este runbook resume los pasos diarios para que PMO y Finanzas operen Finanzas SD, desde intake hasta handoff a SDMT con evidencia completa. / Executive perspective: this runbook summarizes the day-to-day steps for PMO and Finance to run Finanzas SD from intake through SDMT handoff with complete evidence.
+
 ## 1. Flujo operativo PMO → Finanzas → SDMT
 1. **Crear proyecto en Finanzas**: ingresar datos básicos (cliente, moneda, fechas) en el módulo Projects.
 2. **Configurar rubros y line items**: usar el catálogo SDMT para seleccionar rubros, ajustar montos y asignar periodos.

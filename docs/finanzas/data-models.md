@@ -1,5 +1,7 @@
 # Finanzas SD – Data models / Modelos de datos
 
+Executive perspective: these schemas keep each project, rubro, and evidence traceable from intake to reconciliation, balancing agility with auditable guardrails. / Perspectiva ejecutiva: estos esquemas mantienen cada proyecto, rubro y evidencia trazable desde el intake hasta la reconciliación, equilibrando agilidad con controles auditables.
+
 ## DynamoDB tables (resumen)
 - **Projects**: `pk=PROJECT#{projectId}` / `sk=METADATA`; campos clave: `name`, `cliente`, `moneda`, `start_date`, `end_date`, `owner`, `status`, `baseline_id`.
 - **Baselines**: `pk=PROJECT#{projectId}` / `sk=BASELINE#{baselineId}`; métricas de presupuesto, versión y aprobador.

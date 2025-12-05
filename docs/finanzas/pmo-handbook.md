@@ -1,5 +1,7 @@
 # Manual operativo PMO Colombia – Finanzas SD
 
+Perspectiva ejecutiva: este manual guía a la PMO para ejecutar Finanzas SD con consistencia, evidencia trazable y roles claros entre PMO, Finanzas y SDMT. / Executive perspective: this handbook helps PMO run Finanzas SD consistently with traceable evidence and clear handoffs across PMO, Finance, and SDMT.
+
 ## Objetivo
 Guía en español para que el PMO Colombia ejecute Finanzas SD de forma consistente, con controles de evidencia y sin mezclar Acta/Prefactura.
 

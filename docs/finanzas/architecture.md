@@ -1,5 +1,7 @@
 # Finanzas SD – Arquitectura técnica / Technical architecture
 
+Executive perspective: Finanzas SD runs as a secure, decoupled stack where Cognito, API Gateway, and domain Lambdas enforce access while DynamoDB and S3 keep evidence auditable. / Perspectiva ejecutiva: Finanzas SD opera como una pila desacoplada y segura donde Cognito, API Gateway y Lambdas por dominio aplican controles de acceso mientras DynamoDB y S3 mantienen evidencia auditable.
+
 ## Component map
 - **Frontend (Finanzas UI)**: rutas `/finanzas/**`, React + Cognito Hosted UI, despliegue en S3 + CloudFront.
 - **API Gateway `finanzas-sd-api`**: proxy único con rutas por dominio (projects, rubros, allocations, invoices, uploads, health).
