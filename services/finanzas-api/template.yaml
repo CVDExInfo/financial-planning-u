@@ -649,6 +649,9 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName:
               Ref: AuditTable
+        - DynamoDBReadPolicy:
+            TableName:
+              Ref: PrefacturasTable
       Events:
         CreateHandoff:
           Type: HttpApi

@@ -132,13 +132,50 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     };
   }
 
-  // Create new handoff
+  // Extract baseline_id from payload
+  const baselineId = (body.baseline_id || body.baselineId) as string | undefined;
+  if (!baselineId) {
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "baseline_id is required" }),
+    };
+  }
+
+  // Fetch baseline data from prefacturas table to get project details
+  const baselineResult = await ddb.send(
+    new GetCommand({
+      TableName: tableName("prefacturas"),
+      Key: {
+        pk: `BASELINE#${baselineId}`,
+        sk: "METADATA",
+      },
+    })
+  );
+
+  if (!baselineResult.Item) {
+    return {
+      statusCode: 404,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Baseline not found" }),
+    };
+  }
+
+  const baseline = baselineResult.Item;
+  const projectName = baseline.payload?.project_name || baseline.project_name || "Unnamed Project";
+  const clientName = baseline.payload?.client_name || baseline.client_name || "";
+  const currency = baseline.payload?.currency || baseline.currency || "USD";
+  const startDate = baseline.payload?.start_date || baseline.start_date || now;
+  const totalAmount = baseline.total_amount || body.mod_total || 0;
+
+  // Create new handoff record
   const handoffId = `handoff_${uuidv4().replace(/-/g, "").substring(0, 10)}`;
   const handoff = {
     pk: `PROJECT#${projectId}`,
     sk: `HANDOFF#${handoffId}`,
     handoffId,
     projectId,
+    baselineId,
     owner: body.owner || userEmail,
     fields: body.fields || body, // Support both structured and flat formats
     version: 1,
@@ -147,7 +184,39 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     createdBy: userEmail,
   };
 
-  // Store handoff
+  // Create/update SDMT-ready project in projects table
+  const projectMetadata = {
+    pk: `PROJECT#${projectId}`,
+    sk: "METADATA",
+    id: projectId,
+    project_id: projectId,
+    projectId,
+    name: projectName,
+    nombre: projectName,
+    client: clientName,
+    cliente: clientName,
+    code: projectId, // Use projectId as code if not provided
+    codigo: projectId,
+    status: "active",
+    estado: "active",
+    module: "SDMT",
+    source: "prefactura",
+    baseline_id: baselineId,
+    baseline_accepted_at: now,
+    currency,
+    moneda: currency,
+    start_date: startDate,
+    fecha_inicio: startDate,
+    mod_total: totalAmount,
+    presupuesto_total: totalAmount,
+    created_at: now,
+    updated_at: now,
+    created_by: userEmail,
+    handed_off_at: now,
+    handed_off_by: userEmail,
+  };
+
+  // Store handoff record
   await ddb.send(
     new PutCommand({
       TableName: tableName("projects"),
@@ -155,21 +224,27 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     })
   );
 
+  // Store or update project metadata for SDMT
+  await ddb.send(
+    new PutCommand({
+      TableName: tableName("projects"),
+      Item: projectMetadata,
+    })
+  );
+
   // Store idempotency record (with 24h TTL)
   const ttl = Math.floor(Date.now() / 1000) + 86400; // 24 hours
+  const result = {
+    projectId,
+    baselineId,
+    status: "HandoffComplete",
+  };
+
   const idempotencyRecord = {
     pk: `IDEMPOTENCY#HANDOFF`,
     sk: idempotencyKey,
     payload: body,
-    result: {
-      handoffId,
-      projectId,
-      owner: handoff.owner,
-      fields: handoff.fields,
-      version: handoff.version,
-      createdAt: handoff.createdAt,
-      updatedAt: handoff.updatedAt,
-    },
+    result,
     ttl,
   };
 
@@ -190,7 +265,10 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     user: userEmail,
     timestamp: now,
     before: null,
-    after: handoff,
+    after: {
+      handoff,
+      project: projectMetadata,
+    },
     source: "API",
     ip_address: event.requestContext.http.sourceIp,
     user_agent: event.requestContext.http.userAgent,
@@ -204,17 +282,9 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   );
 
   return {
-    statusCode: 201,
+    statusCode: 200,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      handoffId,
-      projectId,
-      owner: handoff.owner,
-      fields: handoff.fields,
-      version: handoff.version,
-      createdAt: handoff.createdAt,
-      updatedAt: handoff.updatedAt,
-    }),
+    body: JSON.stringify(result),
   };
 }
 
