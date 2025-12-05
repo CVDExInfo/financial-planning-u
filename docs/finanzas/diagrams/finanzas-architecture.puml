@@ -1,0 +1,36 @@
+@startuml
+skinparam backgroundColor #ffffff
+skinparam style strictuml
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam dpi 150
+
+actor Usuario
+rectangle "Finanzas UI\nReact + Cognito" as UI
+rectangle "API Gateway\nfinanzas-sd-api" as APIGW
+rectangle "Lambda Projects" as LProjects
+rectangle "Lambda Rubros" as LRubros
+rectangle "Lambda Allocations" as LAlloc
+rectangle "Lambda Invoices" as LInv
+rectangle "Lambda Uploads" as LUp
+rectangle "Lambda Health" as LHealth
+node "DynamoDB" as Dynamo
+folder "S3" as S3
+
+Usuario --> UI : JWT Cognito
+UI --> APIGW : HTTPS requests
+APIGW --> LProjects : /projects, /baseline, /handoff
+APIGW --> LRubros : /catalog/rubros, /projects/{id}/rubros
+APIGW --> LAlloc : /allocation-rules, /plan/forecast, /close-month
+APIGW --> LInv : /invoices, /recon, /alerts
+APIGW --> LUp : /uploads/docs
+APIGW --> LHealth : /health
+
+LProjects --> Dynamo
+LRubros --> Dynamo
+LAlloc --> Dynamo
+LInv --> Dynamo
+LUp --> Dynamo
+LUp --> S3 : evidencia (prefijo proyecto)
+
+@enduml

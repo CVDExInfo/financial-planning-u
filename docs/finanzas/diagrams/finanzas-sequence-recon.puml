@@ -1,0 +1,35 @@
+@startuml
+skinparam backgroundColor #ffffff
+skinparam shadowing false
+skinparam dpi 150
+actor Finanzas
+participant "Finanzas UI" as UI
+participant "API Gateway" as APIGW
+participant "Lambda Invoices" as LInv
+participant "Lambda Uploads" as LUp
+participant "DynamoDB" as Dynamo
+participant "S3" as S3
+
+Finanzas -> UI : Captura factura y evidencia
+UI -> APIGW : POST /projects/{projectId}/invoices
+APIGW -> LInv : validar JWT + payload
+LInv -> Dynamo : Guardar INVOICE (draft)
+Dynamo --> LInv : OK
+LInv --> APIGW : 201 + invoiceId
+APIGW --> UI : invoiceId
+
+UI -> APIGW : POST /uploads/docs (metadata)
+APIGW -> LUp : validar referencia
+LUp -> Dynamo : Registrar DOC metadatos
+LUp -> S3 : Subir archivo (prefijo proyecto)
+S3 --> LUp : OK
+LUp --> APIGW : 200 + docId
+APIGW --> UI : docId
+
+UI -> APIGW : PUT /projects/{projectId}/invoices/{invoiceId}/status (ready/approved)
+APIGW -> LInv : validar evidencias
+LInv -> Dynamo : Actualizar estado + reconciliación
+Dynamo --> LInv : OK
+LInv --> APIGW : 200 + status
+APIGW --> UI : Confirmación
+@enduml
