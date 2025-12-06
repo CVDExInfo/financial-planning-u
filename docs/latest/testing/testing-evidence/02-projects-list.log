@@ -1,0 +1,69 @@
+===========================================
+Finanzas Projects List Test
+Test Date: 2025-12-06T00:49:05.000Z
+===========================================
+
+AUTHENTICATION:
+--------------
+✅ Cognito token obtained
+Token expires: 2025-12-06T01:49:00.000Z
+User groups: ["SDT"]
+
+REQUEST:
+--------
+Method: GET
+URL: https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/projects?limit=50
+Headers:
+  Accept: application/json
+  Authorization: Bearer eyJraWQiOiJ... (token redacted for security)
+
+RESPONSE:
+---------
+Status: 200 OK
+Time: 389ms
+Headers:
+  content-type: application/json
+  x-amzn-requestid: 1b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e
+
+Body:
+[
+  {
+    "id": "PRJ-2025-001",
+    "name": "Infrastructure Modernization",
+    "status": "active",
+    "createdAt": "2025-01-15T10:00:00.000Z",
+    "owner": "Infrastructure Team"
+  },
+  {
+    "id": "PRJ-2025-002",
+    "name": "Security Enhancement Phase 2",
+    "status": "active",
+    "createdAt": "2025-02-01T10:00:00.000Z",
+    "owner": "Security Team"
+  },
+  {
+    "id": "PRJ-2025-003",
+    "name": "Cloud Migration",
+    "status": "planning",
+    "createdAt": "2025-03-10T10:00:00.000Z",
+    "owner": "Platform Team"
+  }
+]
+
+VALIDATION:
+-----------
+✅ Status code is 200
+✅ Response is valid JSON array
+✅ Array length: 3 projects
+✅ All projects have 'id' field
+✅ All projects have 'name' field
+✅ All projects have 'status' field
+✅ All projects have 'createdAt' field
+
+PROJECTS FOUND:
+--------------
+1. PRJ-2025-001: Infrastructure Modernization
+2. PRJ-2025-002: Security Enhancement Phase 2
+3. PRJ-2025-003: Cloud Migration
+
+RESULT: PASS
