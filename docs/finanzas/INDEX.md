@@ -5,6 +5,8 @@
 
 Esta colección se enfoca solo en Finanzas SD; Acta y Prefactura quedan excluidos. / This collection focuses solely on Finanzas SD; Acta and Prefactura are excluded.
 
+**Quick Start:** See [README.md](README.md) for documentation structure, audience guide, and update procedures.
+
 ## 📋 Document Index / Índice de documentos
 
 **Para PMO / For Project Managers**
