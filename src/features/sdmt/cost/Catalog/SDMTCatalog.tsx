@@ -1318,9 +1318,9 @@ export function SDMTCatalog() {
                 >
                   <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                      <DialogTitle>Edit Line Item</DialogTitle>
+                      <DialogTitle>Editar Rubro</DialogTitle>
                       <DialogDescription>
-                        Update the cost line item details
+                        Actualizar los detalles del rubro de costo
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -1419,7 +1419,7 @@ export function SDMTCatalog() {
                               description: e.target.value,
                             }))
                           }
-                          placeholder="Detailed description of the line item"
+                          placeholder="Descripción detallada del rubro"
                         />
                         {formData.lineItemCode &&
                           (() => {
@@ -1450,11 +1450,11 @@ export function SDMTCatalog() {
 
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label>Type</Label>
+                          <Label>Tipo</Label>
                           <div
                             className="grid grid-cols-2 gap-2"
                             role="group"
-                            aria-label="Type selector"
+                            aria-label="Selector de tipo"
                           >
                             <Button
                               className="w-full"
@@ -1464,7 +1464,7 @@ export function SDMTCatalog() {
                               onClick={() => setRecurringFlag(false)}
                               type="button"
                             >
-                              One-time
+                              Una vez
                             </Button>
                             <Button
                               className="w-full"
@@ -1474,13 +1474,13 @@ export function SDMTCatalog() {
                               onClick={() => setRecurringFlag(true)}
                               type="button"
                             >
-                              Recurring
+                              Recurrente
                             </Button>
                           </div>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="edit-start-month">
-                            Start Month
+                            Mes de Inicio
                           </Label>
                           <Input
                             id="edit-start-month"
@@ -1497,7 +1497,7 @@ export function SDMTCatalog() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="edit-term-select">
-                            Term (months)
+                            Plazo (meses)
                           </Label>
                           {formData.recurring ? (
                             <Select
@@ -1515,7 +1515,7 @@ export function SDMTCatalog() {
                                     key={term}
                                     value={String(term)}
                                   >
-                                    {term} months
+                                    {term} meses
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -1528,7 +1528,7 @@ export function SDMTCatalog() {
 
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="edit-qty">Quantity</Label>
+                          <Label htmlFor="edit-qty">Cantidad</Label>
                           <Input
                             id="edit-qty"
                             name="qty"
@@ -1545,7 +1545,7 @@ export function SDMTCatalog() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="edit-unit-cost">Unit Cost *</Label>
+                          <Label htmlFor="edit-unit-cost">Costo Unitario *</Label>
                           <Input
                             id="edit-unit-cost"
                             name="unit_cost"
@@ -1564,7 +1564,7 @@ export function SDMTCatalog() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="edit-currency">Currency</Label>
+                          <Label htmlFor="edit-currency">Moneda</Label>
                           <Select
                             value={formData.currency}
                             onValueChange={(value) =>
@@ -1596,13 +1596,13 @@ export function SDMTCatalog() {
                           resetForm();
                         }}
                       >
-                        Cancel
+                        Cancelar
                       </Button>
                       <Button
                         onClick={handleUpdateLineItem}
                         disabled={isUpdatingLineItem}
                       >
-                        {isUpdatingLineItem ? "Saving..." : "Update Line Item"}
+                        {isUpdatingLineItem ? "Guardando..." : "Actualizar Rubro"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -1619,7 +1619,7 @@ export function SDMTCatalog() {
                   {safeLineItems.length}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Total Line Items
+                  Total de Rubros
                 </p>
               </CardContent>
             </Card>
@@ -1635,14 +1635,14 @@ export function SDMTCatalog() {
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Total Estimated Cost
+                  Costo Estimado Total
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <div className="text-2xl font-bold">{categories.length}</div>
-                <p className="text-sm text-muted-foreground">Categories</p>
+                <p className="text-sm text-muted-foreground">Categorías</p>
               </CardContent>
             </Card>
             <Card>
@@ -1651,7 +1651,7 @@ export function SDMTCatalog() {
                   {safeLineItems.filter((item) => item.recurring).length}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Recurring Items
+                  Rubros Recurrentes
                 </p>
               </CardContent>
             </Card>
@@ -1660,7 +1660,7 @@ export function SDMTCatalog() {
           {/* Line Items Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Line Items</CardTitle>
+              <CardTitle>Rubros</CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -1672,7 +1672,7 @@ export function SDMTCatalog() {
                       </span>
                     </div>
                     <div className="text-muted-foreground">
-                      Loading line items
+                      Cargando rubros
                       {currentProject ? ` for ${currentProject.name}` : ""}...
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -1683,14 +1683,14 @@ export function SDMTCatalog() {
               ) : filteredItems.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground mb-4">
-                    No line items found
+                    No se encontraron rubros
                   </p>
                   <Button
                     onClick={() => setIsAddDialogOpen(true)}
                     className="gap-2"
                   >
                     <Plus size={16} />
-                    Add First Line Item
+                    Agregar Primer Rubro
                   </Button>
                 </div>
               ) : (
@@ -1698,14 +1698,14 @@ export function SDMTCatalog() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Qty</TableHead>
-                        <TableHead>Unit Cost</TableHead>
-                        <TableHead>Duration</TableHead>
-                        <TableHead>Total Cost</TableHead>
-                        <TableHead>Actions</TableHead>
+                        <TableHead>Categoría</TableHead>
+                        <TableHead>Descripción</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Cant.</TableHead>
+                        <TableHead>Costo Unitario</TableHead>
+                        <TableHead>Duración</TableHead>
+                        <TableHead>Costo Total</TableHead>
+                        <TableHead>Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1739,7 +1739,7 @@ export function SDMTCatalog() {
                                     variant="default"
                                     className="text-[10px] bg-green-600"
                                   >
-                                    NEW
+                                    NUEVO
                                   </Badge>
                                 )}
                                 {isEdited && (
@@ -1747,7 +1747,7 @@ export function SDMTCatalog() {
                                     variant="default"
                                     className="text-[10px] bg-amber-600"
                                   >
-                                    MODIFIED
+                                    MODIFICADO
                                   </Badge>
                                 )}
                               </div>
@@ -1758,7 +1758,7 @@ export function SDMTCatalog() {
                               </div>
                               {(item as any).vendor && (
                                 <div className="text-sm text-muted-foreground">
-                                  Vendor: {(item as any).vendor}
+                                  Proveedor: {(item as any).vendor}
                                 </div>
                               )}
                               {lineItemDocuments[item.id]?.length ? (
@@ -1795,8 +1795,8 @@ export function SDMTCatalog() {
                                   }
                                 >
                                   {(item as any).one_time
-                                    ? "One-time"
-                                    : "Recurring"}
+                                    ? "Una vez"
+                                    : "Recurrente"}
                                 </Badge>
                                 {(item as any).capex_flag && (
                                   <Badge variant="outline">CapEx</Badge>
@@ -1826,7 +1826,7 @@ export function SDMTCatalog() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => openDocumentDialog(item)}
-                                    title="Upload supporting document"
+                                    title="Cargar documento de soporte"
                                   >
                                     <Paperclip size={16} />
                                   </Button>
@@ -1836,7 +1836,7 @@ export function SDMTCatalog() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleEditClick(item)}
-                                    title="Edit line item"
+                                    title="Editar rubro"
                                   >
                                     <Edit size={16} />
                                   </Button>
@@ -1847,7 +1847,7 @@ export function SDMTCatalog() {
                                     size="sm"
                                     className="text-destructive"
                                     onClick={() => handleDeleteClick(item)}
-                                    title="Delete line item"
+                                    title="Eliminar rubro"
                                   >
                                     <Trash2 size={16} />
                                   </Button>
@@ -1888,15 +1888,15 @@ export function SDMTCatalog() {
           <DialogHeader>
             <DialogTitle>Upload Supporting Document</DialogTitle>
             <DialogDescription>
-              Documents are stored in the shared docs bucket with line item
-              metadata so SDMT and PMO can reference the same evidence.
+              Los documentos se almacenan en el bucket compartido con metadatos del rubro
+              para que SDMT y PMO puedan referenciar la misma evidencia.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground">
               {docTarget
                 ? `${docTarget.category} - ${docTarget.description}`
-                : "Select a line item"}
+                : "Selecciona un rubro"}
             </div>
             <Input
               type="file"
@@ -1907,22 +1907,22 @@ export function SDMTCatalog() {
               disabled={isUploadingDocument}
             />
             <p className="text-xs text-muted-foreground">
-              Accepted formats include PDF, Office documents, CSV, and common
-              image types. Files are uploaded via the `/uploads/docs` flow.
+              Los formatos aceptados incluyen PDF, documentos Office, CSV y tipos de
+              imagen comunes. Los archivos se cargan mediante el flujo `/uploads/docs`.
             </p>
             {isUploadingDocument && documentUploadStage && (
               <p className="text-xs text-primary">
                 {documentUploadStage === "presigning"
-                  ? "Requesting secure upload slot…"
+                  ? "Solicitando espacio de carga seguro…"
                   : documentUploadStage === "uploading"
-                  ? "Uploading to S3…"
-                  : "Finalizing upload…"}
+                  ? "Cargando a S3…"
+                  : "Finalizando carga…"}
               </p>
             )}
             {docTarget && lineItemDocuments[docTarget.id]?.length ? (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">
-                  Recent uploads
+                  Cargas recientes
                 </p>
                 <div className="space-y-1">
                   {lineItemDocuments[docTarget.id].map((doc) => (
@@ -1946,14 +1946,14 @@ export function SDMTCatalog() {
               onClick={() => setDocDialogOpen(false)}
               disabled={isUploadingDocument}
             >
-              Cancel
+              Cancelar
             </Button>
             <Button
               type="button"
               onClick={handleDocumentUpload}
               disabled={!docFile || isUploadingDocument}
             >
-              {isUploadingDocument ? "Uploading..." : "Upload Document"}
+              {isUploadingDocument ? "Cargando..." : "Cargar Documento"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1966,7 +1966,7 @@ export function SDMTCatalog() {
         onSave={handleSaveChanges}
         onCancel={handleCancelChanges}
         showSaveAndClose={false}
-        successMessage="Changes saved successfully"
+        successMessage="Cambios guardados exitosamente"
       />
     </div>
   );
