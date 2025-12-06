@@ -13,6 +13,9 @@ DOCS_DIR="${SCRIPT_DIR}/../docs/latest/testing"
 OUTPUT_DIR="${DOCS_DIR}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 
+# Global flag for pandoc availability
+USE_PANDOC=false
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -49,8 +52,19 @@ check_dependencies() {
         exit 1
     fi
     
-    local version=$(wkhtmltopdf --version | head -n1)
+    local version=$(wkhtmltopdf --version 2>/dev/null | head -n1 || echo 'unknown version')
     log_success "Found $version"
+    
+    # Check for pandoc (preferred) or fallback to sed-based conversion
+    if command -v pandoc &> /dev/null; then
+        USE_PANDOC=true
+        local pandoc_version=$(pandoc --version 2>/dev/null | head -n1 || echo 'unknown')
+        log_success "Found pandoc for enhanced markdown processing"
+    else
+        USE_PANDOC=false
+        log_warning "pandoc not found - using basic markdown conversion"
+        log_info "For better formatting, install pandoc: sudo apt-get install -y pandoc"
+    fi
 }
 
 create_header_html() {
@@ -390,11 +404,26 @@ convert_markdown_to_pdf() {
     
     log_info "Converting $(basename "$md_file") to PDF..."
     
-    # Convert markdown to HTML first (preserving tables and formatting)
+    # Convert markdown to HTML first
     local html_file="${md_file%.md}.html"
     
-    # Simple markdown to HTML conversion with proper table support
-    cat > "$html_file" <<EOF
+    if [ "$USE_PANDOC" = true ]; then
+        # Use pandoc for robust conversion
+        log_info "Using pandoc for markdown conversion..."
+        pandoc "$md_file" \
+            --from=markdown \
+            --to=html5 \
+            --standalone \
+            --css="$css_file" \
+            --metadata title="$title" \
+            --output="$html_file" 2>&1 || {
+                log_error "Pandoc conversion failed"
+                return 1
+            }
+    else
+        # Fallback to basic HTML conversion
+        log_warning "Using basic markdown conversion (limited formatting)"
+        cat > "$html_file" <<EOF
 <!DOCTYPE html>
 <html>
 <head>
@@ -404,25 +433,28 @@ convert_markdown_to_pdf() {
 </head>
 <body>
 EOF
-    
-    # Process markdown (basic conversion)
-    # This is a simplified conversion - in production, you'd use a proper markdown processor
-    sed -e 's/^# \(.*\)/<h1>\1<\/h1>/' \
-        -e 's/^## \(.*\)/<h2>\1<\/h2>/' \
-        -e 's/^### \(.*\)/<h3>\1<\/h3>/' \
-        -e 's/^#### \(.*\)/<h4>\1<\/h4>/' \
-        -e 's/^\*\*\(.*\)\*\*/<strong>\1<\/strong>/g' \
-        -e 's/^- \(.*\)/<li>\1<\/li>/' \
-        -e 's/^$/\<p\>\<\/p\>/' \
-        "$md_file" >> "$html_file"
-    
-    cat >> "$html_file" <<EOF
+        
+        # Basic markdown to HTML conversion (simplified - tables and complex formatting may not render perfectly)
+        sed -e 's/^# \(.*\)/<h1>\1<\/h1>/' \
+            -e 's/^## \(.*\)/<h2>\1<\/h2>/' \
+            -e 's/^### \(.*\)/<h3>\1<\/h3>/' \
+            -e 's/^#### \(.*\)/<h4>\1<\/h4>/' \
+            -e 's/^\*\*\(.*\)\*\*/<strong>\1<\/strong>/g' \
+            -e 's/^- \(.*\)/<li>\1<\/li>/' \
+            -e 's/^$/\<p\>\<\/p\>/' \
+            "$md_file" >> "$html_file"
+        
+        cat >> "$html_file" <<EOF
 </body>
 </html>
 EOF
+    fi
     
     # Convert HTML to PDF with wkhtmltopdf
-    wkhtmltopdf \
+    local wkhtmltopdf_output
+    local wkhtmltopdf_exit_code
+    
+    wkhtmltopdf_output=$(wkhtmltopdf \
         --page-size A4 \
         --margin-top 25mm \
         --margin-right 20mm \
@@ -438,7 +470,16 @@ EOF
         --javascript-delay 1000 \
         --encoding UTF-8 \
         "$html_file" \
-        "$pdf_file" 2>&1 | grep -v "Exit with code 1" || true
+        "$pdf_file" 2>&1)
+    wkhtmltopdf_exit_code=$?
+    
+    # Check if conversion was successful
+    if [ $wkhtmltopdf_exit_code -ne 0 ] && [ $wkhtmltopdf_exit_code -ne 1 ]; then
+        log_error "wkhtmltopdf failed with exit code $wkhtmltopdf_exit_code"
+        log_error "$wkhtmltopdf_output"
+        rm -f "$html_file"
+        return 1
+    fi
     
     # Clean up temporary HTML file
     rm -f "$html_file"
