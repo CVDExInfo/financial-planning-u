@@ -16,6 +16,16 @@ Executive perspective: Finanzas SD runs as a secure, decoupled stack where Cogni
 - **Observabilidad**: logs estructurados en CloudWatch; endpoints `/health` y `/alerts`.
 - **Seguridad**: Cognito groups (`PMO`, `FIN`, `SDMT`, `AUDIT`, `EXEC_RO`) aplicados en UI y API authorizer.
 
+## Architecture Diagrams / Diagramas de arquitectura
+
+Three architectural views are available:
+
+1. **Executive View** (`diagrams/finanzas-architecture-executive.svg`) - Business-friendly high-level diagram for stakeholders
+2. **Technical AWS View** (`diagrams/finanzas-architecture-technical.svg`) - Detailed AWS services with all components and integrations
+3. **Original System View** (`diagrams/finanzas-architecture.svg`) - Compact component-level architecture
+
+For creating branded Lucid versions, see [LUCID_GUIDELINES.md](diagrams/LUCID_GUIDELINES.md).
+
 Ver diagrama `diagrams/finanzas-architecture.svg` para flujos de solicitud y almacenamiento.
 
 ## Request flow (end-to-end)
