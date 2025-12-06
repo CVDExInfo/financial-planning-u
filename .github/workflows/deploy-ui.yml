@@ -449,7 +449,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Compare only the SPA assets we actually sync (exclude source maps, legacy docx, and docs/ bundles managed elsewhere)
           find dist-finanzas -type f \
             ! -name '*.map' \
             ! -name '*.docx' \
@@ -470,12 +469,13 @@ jobs:
             | sort > /tmp/s3-finanzas-manifest.txt
 
           echo "🔍 Comparing local vs S3 manifests (excluding .map/.docx files and docs/ prefix)..."
+
           if ! diff -u /tmp/local-finanzas-manifest.txt /tmp/s3-finanzas-manifest.txt; then
             echo "❌ Finanzas S3 manifest mismatch — bucket drift detected"
             echo "   Ensure sync completed successfully and CloudFront invalidation is executed"
             exit 1
           fi
-
+          
           echo "✅ Finanzas S3 manifest matches local build"
 
       - name: Verify auth callback in S3

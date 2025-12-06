@@ -491,6 +491,7 @@ export type PrefacturaBaselinePayload = {
   client_name?: string;
   currency?: string;
   start_date?: string;
+  end_date?: string;
   duration_months?: number;
   contract_value?: number;
   assumptions?: string[];
@@ -501,6 +502,15 @@ export type PrefacturaBaselinePayload = {
   signed_by?: string;
   signed_role?: string;
   signed_at?: string;
+  deal_inputs?: {
+    project_name?: string;
+    client_name?: string;
+    contract_value?: number;
+    duration_months?: number;
+    start_date?: string;
+    end_date?: string;
+    currency?: string;
+  };
 };
 
 export type PrefacturaBaselineResponse = {
