@@ -239,6 +239,11 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     projectId,
     baselineId,
     status: "HandoffComplete",
+    owner: handoff.owner,
+    fields: handoff.fields,
+    version: handoff.version,
+    createdAt: handoff.createdAt,
+    updatedAt: handoff.updatedAt,
   };
 
   const idempotencyRecord = {
