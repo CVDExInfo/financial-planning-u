@@ -1,5 +1,9 @@
 # Finanzas SD – API Contracts
 
+**Last updated:** 2025-12-06  
+**Audience:** Engineers, Integration Teams  
+**Purpose:** Detailed API contracts with request/response examples
+
 Autenticación: JWT Cognito. Grupos típicos: `PMO`, `SDMT`, `FIN`, `EXEC_RO`. A menos que se indique, se requiere token con uno de estos grupos.
 
 ## Rubros Catalog

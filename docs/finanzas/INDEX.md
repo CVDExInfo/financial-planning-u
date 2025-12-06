@@ -1,5 +1,8 @@
 # Finanzas SD – Documentation Portal / Portal de documentación
 
+**Last updated:** 2025-12-06  
+**Purpose:** Central index for all Finanzas SD documentation
+
 Esta colección se enfoca solo en Finanzas SD; Acta y Prefactura quedan excluidos. / This collection focuses solely on Finanzas SD; Acta and Prefactura are excluded.
 
 ## 📋 Document Index / Índice de documentos
@@ -27,6 +30,9 @@ Esta colección se enfoca solo en Finanzas SD; Acta y Prefactura quedan excluido
 
 **Anexo R1 / R1 Annex**
 - [annex-r1/README.md](annex-r1/README.md) — Índice de ejecución R1 (histórico).
+
+**Archived Documentation / Documentación archivada**
+- [archive/](archive/) — Documentos obsoletos o supersedidos (build forensics, infra audit, callback validation).
 
 ## 📊 Status & Releases / Estado y lanzamientos
 - **R1 scope**: baseline de proyectos, catálogo de rubros, handoff SDMT y reconciliación con evidencia. / Scope R1: project baseline, rubros catalog, SDMT handoff, and evidence-backed reconciliation.

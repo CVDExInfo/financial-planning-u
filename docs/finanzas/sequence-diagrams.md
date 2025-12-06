@@ -1,5 +1,9 @@
 # Finanzas SD – Sequence diagrams / Diagramas de secuencia
 
+**Last updated:** 2025-12-06  
+**Audience:** Engineers, SDMT, PMO  
+**Purpose:** Visual flows for key processes and interactions
+
 Executive perspective: these flows show how PMO, Finanzas, and SDMT coordinate handoffs and reconciliations with evidence and access controls at every step. / Perspectiva ejecutiva: estos flujos muestran cómo PMO, Finanzas y SDMT coordinan handoffs y conciliaciones con evidencia y controles de acceso en cada paso.
 
 ## Project intake to SDMT handoff

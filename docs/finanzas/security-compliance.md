@@ -1,5 +1,9 @@
 # Finanzas SD – Security & compliance
 
+**Last updated:** 2025-12-06  
+**Audience:** Audit, Security, PMO, SDMT  
+**Purpose:** Security controls and compliance guidelines
+
 Executive perspective: security leans on Cognito, scoped IAM roles, and auditable storage so every approval, upload, and reconciliation is provable. / Perspectiva ejecutiva: la seguridad se apoya en Cognito, roles IAM acotados y almacenamiento auditable para que cada aprobación, carga y conciliación sea comprobable.
 
 ## Access control
