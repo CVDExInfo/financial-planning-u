@@ -1,0 +1,48 @@
+@startuml
+' Executive-friendly architecture diagram - high level
+skinparam backgroundColor #ffffff
+skinparam style strictuml
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam dpi 150
+
+title Finanzas SD - Executive Architecture View
+
+actor "PMO\nFinanzas\nSDMT" as Users
+rectangle "Finanzas SD\nWeb Application" as WebApp {
+  component "Projects" as Proj
+  component "Rubros Catalog" as Cat
+  component "Reconciliation" as Recon
+  component "Reports" as Rep
+}
+
+cloud "AWS Cloud\n(Secure & Auditable)" as AWS {
+  database "Project Data\n& Evidence" as Data
+  component "Business Logic\n& Controls" as Logic
+}
+
+rectangle "External Systems" as Ext {
+  component "SDMT\nCost Management" as SDMT
+  component "SharePoint\nReports" as SP
+}
+
+Users --> WebApp : Access via browser\n(secure login)
+WebApp --> Logic : API calls
+Logic --> Data : Store/retrieve
+Logic --> SDMT : Handoff
+Logic --> SP : Reports
+
+note right of AWS
+  - Cognito authentication
+  - Role-based access (PMO/FIN/SDMT/AUDIT)
+  - All changes audited
+  - Evidence stored securely
+end note
+
+note bottom of WebApp
+  Main modules: Projects, Rubros Catalog,
+  Allocation Rules, Adjustments, Cashflow,
+  Scenarios, Providers, SDMT modules
+end note
+
+@enduml
