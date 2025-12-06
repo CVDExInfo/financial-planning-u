@@ -34,6 +34,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import useProjects, { type ProjectForUI } from "./projects/useProjects";
 import { Badge } from "@/components/ui/badge";
 import ProjectDetailsPanel from "./projects/ProjectDetailsPanel";
+import { getProjectDisplay } from "@/lib/projects/display";
 
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -74,10 +75,11 @@ export default function ProjectsManager() {
   const filteredProjects = React.useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return projects.filter((project) => {
+      const display = getProjectDisplay(project);
       const matchesTerm = term
-        ? [project.code, project.name, project.client].some((value) =>
-            value?.toLowerCase().includes(term),
-          )
+        ? [display.code, display.name, display.client, display.id]
+            .filter(Boolean)
+            .some((value) => value!.toLowerCase().includes(term))
         : true;
 
       const normalizedStatus = (project.status || "Desconocido").toLowerCase();
@@ -507,6 +509,7 @@ export default function ProjectsManager() {
                     </thead>
                     <tbody>
                       {visibleProjects.map((project: ProjectForUI) => {
+                        const display = getProjectDisplay(project);
                         const durationMonths = calculateDurationInMonths(
                           project.start_date,
                           project.end_date,
@@ -527,13 +530,13 @@ export default function ProjectsManager() {
                             onClick={() => setSelectedProjectId(project.id)}
                           >
                             <td className="py-2 pr-4 text-muted-foreground font-medium">
-                              {project.code || "—"}
+                              {display.code || "—"}
                             </td>
                             <td className="py-2 pr-4 font-semibold text-foreground">
-                              {project.name || "Proyecto sin nombre"}
+                              {display.name || "Proyecto sin nombre"}
                           </td>
                           <td className="py-2 pr-4 text-muted-foreground">
-                            {project.client || "—"}
+                            {display.client || "—"}
                           </td>
                           <td className="py-2 pr-4 text-muted-foreground">
                             {formatDate(project.start_date)}

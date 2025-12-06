@@ -10,6 +10,7 @@ import {
   normalizeProjectsPayload,
   type Json,
 } from "@/api/finanzas-projects-helpers";
+import { getProjectDisplay } from "@/lib/projects/display";
 import { logoutWithHostedUI } from "@/config/aws";
 
 export type ProjectForUI = {
@@ -30,21 +31,27 @@ function normalizeProjectForUI(raw: Json): ProjectForUI {
   const safeString = (value: unknown, fallback = "") =>
     (value ? String(value) : fallback).trim();
 
+  const display = getProjectDisplay(raw as any);
+  const updatedAt = safeString(
+    raw.updated_at || (raw as any)?.updatedAt || (raw as any)?.last_updated || "",
+  );
+  const createdAt = safeString(
+    raw.created_at || (raw as any)?.createdAt || (raw as any)?.dateCreated || "",
+  );
+
   return {
-    id: safeString(
-      raw.id || raw.project_id || raw.projectId || raw.pk || raw.sk || "",
-    ),
-    code: safeString(raw.code || raw.codigo || raw.project_code || ""),
-    name: safeString(raw.name || raw.nombre || raw.project_name || ""),
-    client: safeString(raw.client || raw.cliente || ""),
+    id: display.id,
+    code: display.code,
+    name: display.name,
+    client: display.client || "",
     start_date:
       safeString(raw.start_date || raw.fecha_inicio || "") || undefined,
     end_date: safeString(raw.end_date || raw.fecha_fin || "") || undefined,
     mod_total: Number(raw.mod_total ?? raw.presupuesto_total ?? 0) || 0,
     currency: safeString(raw.currency || raw.moneda || "USD"),
     status: safeString(raw.status || raw.estado || "Activo"),
-    updated_at: safeString(raw.updated_at || raw.fecha_actualizacion || ""),
-    created_at: safeString(raw.created_at || raw.fecha_creacion || ""),
+    updated_at: updatedAt || undefined,
+    created_at: createdAt || undefined,
   } as ProjectForUI;
 }
 

@@ -10,12 +10,15 @@ import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling
 import { useAuth } from "@/hooks/useAuth";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import ApiService from "@/lib/api";
+import { getProjectDisplay } from "@/lib/projects/display";
 import type { Project } from "@/types/domain";
 import { logger } from "@/utils/logger";
 
 export type ProjectSummary = {
   id: string;
+  code?: string;
   name: string;
+  client?: string;
   description?: string;
   baselineId?: string;
   baselineAcceptedAt?: string;
@@ -131,14 +134,20 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     setProjectChangeCount((prev) => prev + 1);
   }, []);
 
-  const mapProject = (project: Project): ProjectSummary => ({
-    id: project.id?.trim() || "",
-    name: project.name?.trim() || "Unnamed Project",
-    description: project.description || "",
-    baselineId: project.baseline_id || undefined,
-    baselineAcceptedAt: project.baseline_accepted_at,
-    status: project.status,
-  });
+  const mapProject = (project: Project): ProjectSummary => {
+    const display = getProjectDisplay(project);
+
+    return {
+      id: display.id,
+      code: display.code,
+      name: display.name,
+      client: display.client,
+      description: project.description || "",
+      baselineId: project.baseline_id || undefined,
+      baselineAcceptedAt: project.baseline_accepted_at,
+      status: project.status,
+    };
+  };
 
   const loadProjects = useCallback(async () => {
     try {

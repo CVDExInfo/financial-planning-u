@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getProjectDisplay } from "@/lib/projects/display";
 import { type ProjectForUI } from "./useProjects";
 
 interface ProjectDetailsPanelProps {
@@ -14,6 +15,7 @@ export default function ProjectDetailsPanel({
   calculateDurationInMonths,
   formatDate,
 }: ProjectDetailsPanelProps) {
+  const display = getProjectDisplay(project);
   const durationMonths = calculateDurationInMonths(
     project.start_date,
     project.end_date,
@@ -34,12 +36,12 @@ export default function ProjectDetailsPanel({
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">Código – Nombre</p>
           <p className="font-semibold">
-            {project.code || "—"} {project.name ? `· ${project.name}` : ""}
+            {display.code || "—"} {display.name ? `· ${display.name}` : ""}
           </p>
         </div>
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">Cliente</p>
-          <p className="font-medium">{project.client || "—"}</p>
+          <p className="font-medium">{display.client || "—"}</p>
         </div>
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">Periodo</p>
@@ -68,7 +70,15 @@ export default function ProjectDetailsPanel({
         </div>
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">Última actualización</p>
-          <p className="font-medium">{formatDate(project.updated_at)}</p>
+          <p className="font-medium">
+            {formatDate(
+              project.updated_at ||
+                (project as any)?.updatedAt ||
+                project.created_at ||
+                (project as any)?.createdAt ||
+                null,
+            )}
+          </p>
         </div>
       </CardContent>
     </Card>
