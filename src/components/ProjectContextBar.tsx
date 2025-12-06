@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { useProject } from "@/contexts/ProjectContext";
 import LoadingSpinner from "./LoadingSpinner";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { getProjectDisplay } from "@/lib/projects/display";
 
 interface ProjectContextBarProps {
   className?: string;
@@ -49,7 +50,9 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
 
   const safeProjects = Array.isArray(projects) ? projects : [];
   const sortedProjects = [...safeProjects].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    getProjectDisplay(a).name.localeCompare(getProjectDisplay(b).name, undefined, {
+      sensitivity: "base",
+    })
   );
   const hasProjects = sortedProjects.length > 0;
   const showEmptyState = !loading && !projectError && !hasProjects;
@@ -123,7 +126,7 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
-                    className="w-[320px] justify-between"
+                    className="w-[340px] justify-between"
                     disabled={loading || !!projectError}
                   >
                     {loading ? (
@@ -132,8 +135,15 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                         <span>Loading projects...</span>
                       </div>
                     ) : currentProject ? (
-                      <span className="truncate font-medium">
-                        {currentProject.name}
+                      <span className="flex flex-col text-left">
+                        <span className="truncate font-medium leading-tight">
+                          {currentProject.name}
+                        </span>
+                        {currentProject.code && (
+                          <span className="truncate text-xs text-muted-foreground">
+                            {currentProject.code}
+                          </span>
+                        )}
                       </span>
                     ) : (
                       "Select project..."
@@ -141,87 +151,75 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                     <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[550px] p-0" align="start">
+                <PopoverContent className="w-[520px] p-0" align="start">
                   <Command shouldFilter={true}>
                     <CommandInput
-                      placeholder="Search projects by name, ID, or description..."
+                      placeholder="Search by name, code, ID, or client..."
                       className="border-b"
                     />
-                    <CommandList className="max-h-[450px]">
+                    <CommandList className="max-h-[420px] overflow-y-auto">
                       <CommandEmpty className="py-8 text-center text-muted-foreground">
                         <div className="text-sm">No projects found</div>
                       </CommandEmpty>
                       <CommandGroup className="overflow-visible">
                         {hasProjects &&
                           sortedProjects.map((project) => {
+                            const display = getProjectDisplay(project);
                             const isSelected = selectedProjectId === project.id;
+                            const searchValue = `${display.name} ${display.code} ${display.id} ${display.client ?? ""}`;
+
                             return (
                               <CommandItem
                                 key={project.id}
-                                value={project.id}
+                                value={searchValue}
                                 onSelect={() => {
                                   selectProject(project);
                                   setOpen(false);
                                 }}
                                 className={cn(
-                                  "cursor-pointer px-3 py-3.5 mx-1 my-0.5 rounded-md transition-colors flex items-start gap-3",
+                                  "cursor-pointer px-3 py-2 mx-1 my-0.5 rounded-md transition-colors flex items-start gap-3 border",
                                   isSelected
-                                    ? "bg-primary/10 border border-primary/40"
-                                    : "hover:bg-muted/60 border border-transparent"
+                                    ? "bg-primary/5 border-primary"
+                                    : "border-transparent hover:bg-muted/60",
                                 )}
                               >
-                                <div className="mt-0.5 shrink-0">
-                                  <Check
-                                    className={cn(
-                                      "h-5 w-5 rounded border border-input transition-colors",
-                                      isSelected
-                                        ? "bg-primary text-primary-foreground border-primary"
-                                        : "text-muted-foreground"
-                                    )}
-                                  />
-                                </div>
-                                <div className="flex flex-col flex-1 min-w-0 gap-1.5">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="font-semibold text-sm leading-tight">
-                                      {project.name}
-                                    </span>
-                                    <Badge
-                                      variant={
-                                        isSelected ? "default" : "secondary"
-                                      }
-                                      className="text-xs px-2 py-0.5 shrink-0 whitespace-nowrap"
-                                    >
-                                      {project.id}
-                                    </Badge>
-                                  </div>
-                                  {project.description && (
-                                    <span className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                                      {project.description}
-                                    </span>
+                                <div
+                                  className={cn(
+                                    "mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-muted-foreground",
+                                    isSelected
+                                      ? "border-primary bg-primary/10 text-primary"
+                                      : "border-input",
                                   )}
-                                  <div className="flex items-center gap-2 pt-1">
-                                    {project.baselineId && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-xs py-0 px-1.5"
-                                      >
-                                        <span className="text-[10px]">
-                                          Baseline:{" "}
-                                          {project.baselineId.substring(0, 8)}
-                                        </span>
-                                      </Badge>
-                                    )}
+                                >
+                                  {isSelected && <Check className="h-4 w-4" />}
+                                </div>
+                                <div className="flex flex-col flex-1 min-w-0 gap-1">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-semibold text-sm leading-tight truncate">
+                                      {display.name}
+                                    </span>
                                     {project.status && (
                                       <Badge
-                                        variant="outline"
-                                        className="text-xs py-0 px-1.5"
+                                        variant={isSelected ? "default" : "secondary"}
+                                        className="text-[11px] px-2 py-0.5 capitalize"
                                       >
-                                        <span className="text-[10px] font-medium">
-                                          {project.status}
-                                        </span>
+                                        {project.status}
                                       </Badge>
                                     )}
                                   </div>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground truncate">
+                                    <span className="truncate font-medium">{display.code}</span>
+                                    {display.client && (
+                                      <span className="truncate">• {display.client}</span>
+                                    )}
+                                  </div>
+                                  {project.baselineId && (
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="text-[11px] py-0 px-1.5">
+                                        Baseline: {project.baselineId.substring(0, 8)}
+                                      </Badge>
+                                    </div>
+                                  )}
                                 </div>
                               </CommandItem>
                             );
