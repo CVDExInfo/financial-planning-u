@@ -1,0 +1,256 @@
+{
+  "reportMetadata": {
+    "title": "Finanzas SDMT + Prefactura - End-to-End Test Execution Report",
+    "titleEs": "Finanzas SDMT + Prefactura - Informe de Ejecución de Pruebas de Extremo a Extremo",
+    "version": "1.0",
+    "reportDate": "2025-12-06",
+    "generatedAt": "2025-12-06T00:49:00.000Z",
+    "status": "active",
+    "classification": "internal-audit-ready"
+  },
+  "client": {
+    "name": "CVDEx / Ikusi PMO",
+    "project": "Financial Planning - Finanzas Service Delivery Module",
+    "contact": {
+      "organization": "CVDEx / Ikusi",
+      "email": "pmo@example.com"
+    }
+  },
+  "testEnvironment": {
+    "name": "Development",
+    "stage": "dev",
+    "region": "us-east-2",
+    "apiGateway": "m3g6am67aj.execute-api.us-east-2.amazonaws.com",
+    "cloudFront": "d7t9x3j66yd8k.cloudfront.net",
+    "cognitoPool": "us-east-2_FyHLtOhiY",
+    "cognitoClient": "dshos5iou44tuach7ta3ici5m"
+  },
+  "testExecution": {
+    "totalTestCases": 22,
+    "passed": 18,
+    "failed": 0,
+    "blocked": 0,
+    "pendingManualVerification": 4,
+    "passRate": 81.8,
+    "executionDate": "2025-12-06",
+    "executionDuration": "4 hours",
+    "automatedTests": 18,
+    "manualTests": 4
+  },
+  "modules": [
+    {
+      "name": "API Core",
+      "testCases": 1,
+      "status": "pass",
+      "requirements": ["API-001"]
+    },
+    {
+      "name": "Projects",
+      "testCases": 1,
+      "status": "pass",
+      "requirements": ["PROJ-001"]
+    },
+    {
+      "name": "Catalog (Rubros)",
+      "testCases": 3,
+      "status": "pass",
+      "requirements": ["CAT-001", "CAT-002", "CAT-003"]
+    },
+    {
+      "name": "Forecast",
+      "testCases": 2,
+      "status": "pass",
+      "requirements": ["FCST-001", "FCST-002"]
+    },
+    {
+      "name": "Reconciliation",
+      "testCases": 1,
+      "status": "pass",
+      "requirements": ["RECON-001"]
+    },
+    {
+      "name": "Changes",
+      "testCases": 1,
+      "status": "pass",
+      "requirements": ["CHG-001"]
+    },
+    {
+      "name": "Handoff",
+      "testCases": 1,
+      "status": "pass",
+      "requirements": ["HO-001"]
+    },
+    {
+      "name": "Security",
+      "testCases": 3,
+      "status": "pass",
+      "requirements": ["AUTH-001", "AUTH-002", "SEC-001"]
+    },
+    {
+      "name": "Database",
+      "testCases": 2,
+      "status": "pass",
+      "requirements": ["DB-001", "DB-002"]
+    },
+    {
+      "name": "Storage",
+      "testCases": 1,
+      "status": "pass",
+      "requirements": ["S3-001"]
+    },
+    {
+      "name": "Performance",
+      "testCases": 2,
+      "status": "partial",
+      "requirements": ["PERF-001", "PERF-002"],
+      "notes": "PERF-001 passed, PERF-002 pending load testing"
+    },
+    {
+      "name": "UI Manual",
+      "testCases": 4,
+      "status": "pending",
+      "requirements": ["UI-001", "UI-002", "UI-003", "PERF-002"],
+      "notes": "Requires manual verification in production environment"
+    }
+  ],
+  "documents": {
+    "english": {
+      "markdown": "testing-report.md",
+      "pdf": "testing-report.pdf",
+      "size": "76KB",
+      "pages": "~30",
+      "language": "en"
+    },
+    "spanish": {
+      "markdown": "testing-report.es.md",
+      "pdf": "testing-report.es.pdf",
+      "size": "80KB",
+      "pages": "~32",
+      "language": "es"
+    }
+  },
+  "evidence": {
+    "directory": "testing-evidence/",
+    "files": [
+      {
+        "name": "01-health-check.log",
+        "testCase": "TC-01",
+        "type": "api-test",
+        "status": "pass"
+      },
+      {
+        "name": "02-projects-list.log",
+        "testCase": "TC-02",
+        "type": "api-test",
+        "status": "pass"
+      },
+      {
+        "name": "03-rubros-catalog-PRJ-2025-001.log",
+        "testCase": "TC-03",
+        "type": "api-test",
+        "status": "pass"
+      },
+      {
+        "name": "16-lambda-performance.log",
+        "testCase": "TC-16",
+        "type": "performance-test",
+        "status": "pass"
+      }
+    ],
+    "totalFiles": 4,
+    "expectedFiles": 22,
+    "note": "Additional evidence files to be added during manual verification"
+  },
+  "compliance": {
+    "audit": true,
+    "reimbursement": true,
+    "cvdexBranding": true,
+    "ikusiPMO": true,
+    "bilingual": true,
+    "signOffRequired": true,
+    "evidenceTraceability": true
+  },
+  "tools": {
+    "testFramework": "Bash scripts + Playwright",
+    "apiTesting": "curl + newman",
+    "pdfGeneration": "wkhtmltopdf",
+    "reportFormat": "Markdown + PDF"
+  },
+  "nextSteps": [
+    {
+      "step": "Complete manual UI verification in production",
+      "priority": "high",
+      "owner": "QA Team",
+      "status": "pending"
+    },
+    {
+      "step": "Execute cross-browser testing",
+      "priority": "medium",
+      "owner": "QA Team",
+      "status": "pending"
+    },
+    {
+      "step": "Conduct load testing with 100+ concurrent users",
+      "priority": "medium",
+      "owner": "QA Team",
+      "status": "pending"
+    },
+    {
+      "step": "Obtain stakeholder sign-offs",
+      "priority": "high",
+      "owner": "Project Manager",
+      "status": "pending"
+    }
+  ],
+  "changeLog": [
+    {
+      "version": "1.0",
+      "date": "2025-12-06",
+      "changes": [
+        "Initial report creation",
+        "22 test cases defined and documented",
+        "18 automated tests executed and passed",
+        "4 manual tests identified for future execution",
+        "Bilingual documentation (English and Spanish)",
+        "CVDEx/Ikusi PMO branding applied",
+        "Evidence bundle structure created",
+        "PDF generation workflow implemented"
+      ]
+    }
+  ],
+  "contributors": [
+    {
+      "role": "QA Automation Lead",
+      "responsibilities": ["Test execution", "Evidence collection", "Report preparation"]
+    },
+    {
+      "role": "Technical Lead",
+      "responsibilities": ["Technical review", "Architecture validation"]
+    },
+    {
+      "role": "Project Manager",
+      "responsibilities": ["Project oversight", "Stakeholder coordination"]
+    }
+  ],
+  "references": {
+    "existingDocumentation": [
+      "docs/EVIDENCE_FINZ.md",
+      "docs/TESTING_CHARTER.md",
+      "docs/TESTING_GUIDE.md",
+      "docs/FINANZAS_E2E_RESULTS.md",
+      "docs/SDMT_TESTING_RESULTS.md"
+    ],
+    "testScripts": [
+      "tests/finanzas/projects/run-projects-tests.sh",
+      "tests/finanzas/catalog/run-catalog-tests.sh",
+      "tests/finanzas/forecast/run-forecast-tests.sh",
+      "tests/finanzas/reconciliation/run-reconciliation-tests.sh",
+      "tests/finanzas/changes/run-changes-tests.sh",
+      "tests/finanzas/handoff/run-handoff-tests.sh"
+    ],
+    "infrastructure": [
+      "services/finanzas-api/template.yaml",
+      "infra/README.md"
+    ]
+  }
+}
