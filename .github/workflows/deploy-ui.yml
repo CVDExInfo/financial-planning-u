@@ -449,7 +449,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          find dist-finanzas -type f ! -name '*.map' -print \
+          # Compare only the SPA assets we actually sync (exclude source maps, legacy docx, and docs/ bundles managed elsewhere)
+          find dist-finanzas -type f \
+            ! -name '*.map' \
+            ! -name '*.docx' \
+            ! -path 'dist-finanzas/docs/*' \
+            -print \
             | sed 's|^dist-finanzas/||' \
             | sort > /tmp/local-finanzas-manifest.txt
 
@@ -457,10 +462,14 @@ jobs:
             --bucket "${FINANZAS_BUCKET_NAME}" \
             --prefix "finanzas/" \
             --output json \
-            | jq -r '.Contents[]?.Key | select(. | endswith(".map") | not) | sub("^finanzas/"; "")' \
+            | jq -r '.Contents[]?.Key
+              | select(. | endswith(".map") | not)
+              | select(. | endswith(".docx") | not)
+              | select(. | startswith("docs/") | not)
+              | sub("^finanzas/"; "")' \
             | sort > /tmp/s3-finanzas-manifest.txt
 
-          echo "🔍 Comparing local vs S3 manifests (excluding .map files)..."
+          echo "🔍 Comparing local vs S3 manifests (excluding .map/.docx files and docs/ prefix)..."
           if ! diff -u /tmp/local-finanzas-manifest.txt /tmp/s3-finanzas-manifest.txt; then
             echo "❌ Finanzas S3 manifest mismatch — bucket drift detected"
             echo "   Ensure sync completed successfully and CloudFront invalidation is executed"
