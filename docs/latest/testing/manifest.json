@@ -1,0 +1,43 @@
+{
+  "generated_at": "2025-12-06T01:15:00Z",
+  "artifact_set": "Finanzas SDMT + Prefactura QA",
+  "metadata": {
+    "title_en": "CVDEx Finanzas SDMT + Prefactura Test Execution Report",
+    "title_es": "Reporte de Ejecución de Pruebas Finanzas SDMT + Prefactura",
+    "owner": "Ikusi PMO",
+    "blueprint": "AIGOR QA Report",
+    "generator": {
+      "tool": "wkhtmltopdf",
+      "version": "0.12.x",
+      "notes": "Install wkhtmltopdf in the environment before running the regeneration commands below to avoid 'binary not supported' errors."
+    }
+  },
+  "artifacts": [
+    {
+      "path": "docs/latest/testing/testing-report.md",
+      "type": "markdown",
+      "locale": [
+        "en",
+        "es"
+      ],
+      "title": "Testing Report (Markdown)",
+      "checksum": "cb343fa57c49c1627bf871b0063b02fa4d9ad27bc780c540baf7fdb82b0518fa"
+    }
+  ],
+  "evidence": [
+    "docs/latest/testing/testing-evidence/api-log.txt",
+    "docs/latest/testing/testing-evidence/dynamo-log.txt",
+    "docs/latest/testing/testing-evidence/s3-log.txt"
+  ],
+  "regeneration": {
+    "prerequisites": [
+      "apt-get update && apt-get install -y wkhtmltopdf",
+      "npm install -g markdown-it-cli"
+    ],
+    "commands": [
+      "markdown-it docs/latest/testing/testing-report.md > docs/latest/testing/testing-report.html",
+      "wkhtmltopdf --enable-local-file-access docs/latest/testing/testing-report.html docs/latest/testing/testing-report.pdf"
+    ],
+    "notes": "To keep the repository text-only for Codex environments, the PDF is generated on demand and not checked in. The HTML intermediary is not committed."
+  }
+}

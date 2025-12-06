@@ -1,0 +1,4 @@
+[2025-01-30T10:05:12Z] INFO  correlationId=sdmt-pref-001 path=/prefactura/create status=201 durationMs=842 actor=qa.bot
+[2025-01-30T10:05:13Z] INFO  correlationId=sdmt-pref-001 path=/prefactura/approve status=200 durationMs=412 actor=qa.bot
+[2025-01-30T10:05:14Z] WARN  correlationId=sdmt-pref-002 path=/prefactura/preview status=200 durationMs=655 actor=qa.bot note="minor UI lag"
+[2025-01-30T10:05:15Z] INFO  correlationId=sdmt-pref-003 path=/sdmt/summary status=200 durationMs=215 actor=qa.bot
