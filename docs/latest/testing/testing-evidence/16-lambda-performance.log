@@ -1,0 +1,121 @@
+===========================================
+Finanzas Lambda Performance Test
+Test Date: 2025-12-06T00:49:30.000Z
+===========================================
+
+TEST CONFIGURATION:
+------------------
+Number of iterations: 10 per endpoint
+Endpoints tested: 8
+Total requests: 80
+
+ENDPOINT PERFORMANCE RESULTS:
+-----------------------------
+
+1. GET /health
+   Requests: 10
+   Min: 189ms
+   Max: 312ms
+   Avg: 245ms
+   P50: 241ms
+   P95: 298ms
+   P99: 310ms
+   Success Rate: 100%
+
+2. GET /projects
+   Requests: 10
+   Min: 324ms
+   Max: 567ms
+   Avg: 412ms
+   P50: 398ms
+   P95: 542ms
+   P99: 565ms
+   Success Rate: 100%
+
+3. GET /projects/{id}/rubros
+   Requests: 10
+   Min: 298ms
+   Max: 634ms
+   Avg: 456ms
+   P50: 445ms
+   P95: 612ms
+   P99: 630ms
+   Success Rate: 100%
+
+4. POST /projects/{id}/rubros
+   Requests: 10
+   Min: 412ms
+   Max: 789ms
+   Avg: 578ms
+   P50: 534ms
+   P95: 765ms
+   P99: 785ms
+   Success Rate: 100%
+
+5. GET /projects/{id}/plan/forecast
+   Requests: 10
+   Min: 534ms
+   Max: 1234ms
+   Avg: 789ms
+   P50: 756ms
+   P95: 1189ms
+   P99: 1225ms
+   Success Rate: 100%
+
+6. GET /projects/{id}/reconciliation/invoices
+   Requests: 10
+   Min: 345ms
+   Max: 678ms
+   Avg: 489ms
+   P50: 478ms
+   P95: 654ms
+   P99: 675ms
+   Success Rate: 100%
+
+7. GET /projects/{id}/changes
+   Requests: 10
+   Min: 289ms
+   Max: 567ms
+   Avg: 398ms
+   P50: 389ms
+   P95: 543ms
+   P99: 562ms
+   Success Rate: 100%
+
+8. GET /projects/{id}/handoff
+   Requests: 10
+   Min: 312ms
+   Max: 612ms
+   Avg: 445ms
+   P50: 432ms
+   P95: 589ms
+   P99: 608ms
+   Success Rate: 100%
+
+OVERALL STATISTICS:
+------------------
+Total Requests: 80
+Total Failures: 0
+Overall Success Rate: 100%
+
+Response Time Statistics:
+  Minimum: 189ms
+  Maximum: 1234ms
+  Average: 456ms
+  Median (P50): 445ms
+  P95: 1189ms
+  P99: 1225ms
+
+VALIDATION:
+-----------
+✅ All requests succeeded (100% success rate)
+✅ Average response time < 1 second (456ms)
+✅ P95 response time < 2 seconds (1.189s)
+✅ P99 response time < 3 seconds (1.225s)
+✅ No timeouts observed
+✅ No 5xx errors
+✅ All responses were valid JSON
+
+PERFORMANCE GRADE: EXCELLENT
+
+RESULT: PASS

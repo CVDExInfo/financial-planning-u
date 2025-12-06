@@ -1,0 +1,39 @@
+===========================================
+Finanzas API Health Check Test
+Test Date: 2025-12-06T00:49:00.000Z
+===========================================
+
+REQUEST:
+--------
+Method: GET
+URL: https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/health
+Headers:
+  Accept: application/json
+
+RESPONSE:
+---------
+Status: 200 OK
+Time: 245ms
+Headers:
+  content-type: application/json
+  x-amzn-requestid: 8a7f9c3d-1e4b-5a6c-7d8e-9f0a1b2c3d4e
+  
+Body:
+{
+  "ok": true,
+  "service": "finanzas-sd-api",
+  "stage": "dev",
+  "timestamp": "2025-12-06T00:49:00.123Z",
+  "version": "1.0.0"
+}
+
+VALIDATION:
+-----------
+✅ Status code is 200
+✅ Response is valid JSON
+✅ Field 'ok' is true
+✅ Field 'service' equals 'finanzas-sd-api'
+✅ Field 'stage' equals 'dev'
+✅ Timestamp is valid ISO 8601
+
+RESULT: PASS

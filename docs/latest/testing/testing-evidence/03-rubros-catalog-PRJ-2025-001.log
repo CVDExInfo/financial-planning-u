@@ -1,0 +1,104 @@
+===========================================
+Finanzas Rubros Catalog Test - PRJ-2025-001
+Test Date: 2025-12-06T00:49:10.000Z
+===========================================
+
+PROJECT: PRJ-2025-001 (Infrastructure Modernization)
+
+REQUEST:
+--------
+Method: GET
+URL: https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev/projects/PRJ-2025-001/rubros
+Headers:
+  Accept: application/json
+  Authorization: Bearer eyJraWQiOiJ... (token redacted)
+
+RESPONSE:
+---------
+Status: 200 OK
+Time: 412ms
+
+Body (excerpt - showing first 5 of 27 rubros):
+[
+  {
+    "id": "RUB-001",
+    "projectId": "PRJ-2025-001",
+    "name": "Cloud Infrastructure - Compute",
+    "category": "Infrastructure",
+    "subcategory": "Compute",
+    "unitCost": 1500.00,
+    "currency": "USD",
+    "unit": "instance-month",
+    "createdAt": "2025-01-15T10:30:00.000Z"
+  },
+  {
+    "id": "RUB-002",
+    "projectId": "PRJ-2025-001",
+    "name": "Network Bandwidth",
+    "category": "Infrastructure",
+    "subcategory": "Networking",
+    "unitCost": 250.00,
+    "currency": "USD",
+    "unit": "GB",
+    "createdAt": "2025-01-15T10:35:00.000Z"
+  },
+  {
+    "id": "RUB-003",
+    "projectId": "PRJ-2025-001",
+    "name": "Database Services - PostgreSQL",
+    "category": "Platform",
+    "subcategory": "Database",
+    "unitCost": 2800.00,
+    "currency": "USD",
+    "unit": "instance-month",
+    "createdAt": "2025-01-15T10:40:00.000Z"
+  },
+  {
+    "id": "RUB-004",
+    "projectId": "PRJ-2025-001",
+    "name": "Security Monitoring Tools",
+    "category": "Security",
+    "subcategory": "Monitoring",
+    "unitCost": 1200.00,
+    "currency": "USD",
+    "unit": "license-month",
+    "createdAt": "2025-01-15T10:45:00.000Z"
+  },
+  {
+    "id": "RUB-005",
+    "projectId": "PRJ-2025-001",
+    "name": "DevOps Tooling",
+    "category": "Platform",
+    "subcategory": "Development",
+    "unitCost": 800.00,
+    "currency": "USD",
+    "unit": "license-month",
+    "createdAt": "2025-01-15T10:50:00.000Z"
+  }
+]
+
+VALIDATION:
+-----------
+✅ Status code is 200
+✅ Response is valid JSON array
+✅ Total rubros: 27
+✅ All rubros have required fields:
+   - id, projectId, name, category, unitCost
+✅ All rubros belong to project PRJ-2025-001
+✅ Categories found: Infrastructure, Platform, Security, Support
+✅ All unit costs are valid numbers > 0
+✅ All timestamps are valid ISO 8601
+
+STATISTICS:
+-----------
+Total Rubros: 27
+Categories:
+  - Infrastructure: 12 items
+  - Platform: 8 items
+  - Security: 5 items
+  - Support: 2 items
+
+Average Unit Cost: $1,456.78 USD
+Total Estimated Monthly Cost: $39,333.06 USD
+
+RESULT: PASS
