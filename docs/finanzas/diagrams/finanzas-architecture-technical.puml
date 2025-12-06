@@ -90,6 +90,8 @@ note bottom of apigw
   Region: us-east-2
   Auth: Cognito JWT Authorizer
   Groups: PMO, FIN, SDMT, AUDIT, EXEC_RO
+  Note: Values shown are from dev environment
+  (see template.yaml for production config)
 end note
 
 @enduml

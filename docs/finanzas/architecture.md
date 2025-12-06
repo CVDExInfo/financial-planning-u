@@ -11,8 +11,9 @@ Executive perspective: Finanzas SD runs as a secure, decoupled stack where Cogni
 - **API Gateway `finanzas-sd-api`**: proxy único con rutas por dominio (projects, rubros, allocations, invoices, uploads, health).
 - **Lambdas por dominio** (carpeta `services/finanzas-api/src/handlers`): validan JWT Cognito y aplican lógica de negocio.
 - **Almacenamiento**:
-  - **DynamoDB**: tables `finz_projects`, `finz_rubros`, `finz_rubros_taxonomia`, `finz_allocations`, `finz_payroll_actuals`, `finz_adjustments`, `finz_changes`, `finz_alerts`, `finz_providers`, `finz_audit_log`, `finz_docs`, `finz_prefacturas`. All use `pk`/`sk` composite keys with PAY_PER_REQUEST billing.
+  - **DynamoDB**: tables `finz_projects`, `finz_rubros`, `finz_rubros_taxonomia`, `finz_allocations`, `finz_payroll_actuals`, `finz_adjustments`, `finz_changes`, `finz_alerts`, `finz_providers`, `finz_audit_log`, `finz_docs`, `finz_prefacturas`. All use `pk`/`sk` composite keys with PAY_PER_REQUEST billing mode (verified in template.yaml).
   - **S3**: bucket estático para UI (`ukusi-ui-finanzas-prod` via CloudFront `d7t9x3j66yd8k.cloudfront.net`) y bucket de evidencias para `uploads/docs`.
+  - **Note:** Infrastructure values shown are for dev environment as defined in `services/finanzas-api/template.yaml`.
 - **Observabilidad**: logs estructurados en CloudWatch; endpoints `/health` y `/alerts`.
 - **Seguridad**: Cognito groups (`PMO`, `FIN`, `SDMT`, `AUDIT`, `EXEC_RO`) aplicados en UI y API authorizer.
 

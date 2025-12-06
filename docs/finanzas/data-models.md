@@ -7,7 +7,7 @@
 Executive perspective: these schemas keep each project, rubro, and evidence traceable from intake to reconciliation, balancing agility with auditable guardrails. / Perspectiva ejecutiva: estos esquemas mantienen cada proyecto, rubro y evidencia trazable desde el intake hasta la reconciliación, equilibrando agilidad con controles auditables.
 
 ## DynamoDB tables (resumen)
-All tables use composite keys (`pk` as HASH, `sk` as RANGE) with PAY_PER_REQUEST billing mode.
+All tables use composite keys (`pk` as HASH, `sk` as RANGE) with PAY_PER_REQUEST billing mode as defined in `services/finanzas-api/template.yaml`.
 
 - **finz_projects**: `pk=PROJECT#{projectId}` / `sk=METADATA`; campos clave: `name`, `cliente`, `moneda`, `start_date`, `end_date`, `owner`, `status`, `baseline_id`.
 - **finz_rubros**: `pk=RUBRO#{rubroId}` / `sk=CATALOGO`; atributos `categoria`, `linea_codigo`, `tipo_costo`, `unidad`, `moneda_base`.
