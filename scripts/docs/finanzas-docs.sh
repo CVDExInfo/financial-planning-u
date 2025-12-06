@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Finanzas SD Documentation Build Script
+# Generates PDFs and diagrams from Markdown sources
+# Output: SVG diagrams + individual PDFs + unified FinanzasDocsBinder.pdf
+# Note: This script does NOT generate .docx files - only PDF output for client delivery
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DOCS_ROOT="$ROOT_DIR/docs/finanzas"
 DIAGRAM_DIR="$DOCS_ROOT/diagrams"
@@ -25,6 +30,7 @@ if command -v pandoc >/dev/null 2>&1 && command -v wkhtmltopdf >/dev/null 2>&1 &
     "architecture.md"
     "data-models.md"
     "api-reference.md"
+    "api-contracts.md"
     "sequence-diagrams.md"
     "security-compliance.md"
     "pmo-handbook.md"
@@ -63,6 +69,7 @@ if command -v pandoc >/dev/null 2>&1 && command -v wkhtmltopdf >/dev/null 2>&1 &
         architecture)                         TITLE="Finanzas SD – Technical Architecture" ;;
         data-models)                          TITLE="Finanzas SD – Data Models" ;;
         api-reference)                        TITLE="Finanzas SD – API Reference" ;;
+        api-contracts)                        TITLE="Finanzas SD – API Contracts" ;;
         sequence-diagrams)                    TITLE="Finanzas SD – Sequence Diagrams & Flows" ;;
         security-compliance)                  TITLE="Finanzas SD – Security & Compliance" ;;
         pmo-handbook)                         TITLE="Manual de uso PMO Colombia – Finanzas SD" ;;

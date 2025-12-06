@@ -1,5 +1,9 @@
 # Finanzas SD – Overview / Resumen ejecutivo
 
+**Last updated:** 2025-12-06  
+**Audience:** PMO, Finanzas, SDMT, Executives  
+**Purpose:** Executive overview of Finanzas SD capabilities and scope
+
 Finanzas SD explains how the platform governs project costs, rubros, and evidence end-to-end so PMO, Finanzas, and SDMT share a single source of truth. / Finanzas SD describe cómo la plataforma gobierna costos de proyecto, rubros y evidencia de punta a punta para que PMO, Finanzas y SDMT compartan una sola fuente de verdad.
 
 ## Purpose / Propósito
@@ -17,11 +21,15 @@ Finanzas SD delivers end-to-end cost governance for Ikusi/CVDEx projects. It sta
 - Health and observability endpoints for platform readiness.
 
 ## Modules / Módulos funcionales
-- **Projects & Baseline**: intake, milestone dates, moneda, responsible contacts.
-- **Rubros & Line Items**: catalog queries, project-level associations, adjustments.
-- **Allocations & Forecast**: distribution rules, plan generation, close-month.
-- **Invoices & Reconciliation**: registration, status transitions, alerts.
-- **Uploads**: secure evidence ingestion tied to project/line item/invoice context.
+- **Proyectos (Projects)**: crear y gestionar proyectos con presupuestos, fechas y responsables.
+- **Catálogo de Rubros (Rubros Catalog)**: consultar catálogo maestro de rubros con taxonomía y línea contable.
+- **Reglas de Asignación (Allocation Rules)**: definir reglas de distribución de presupuesto (driver percent, fixed, tickets, hours).
+- **Ajustes Presupuestarios (Adjustments)**: gestionar excesos, reducciones y reasignaciones de presupuesto.
+- **Flujo de Caja (Cashflow)**: monitorear ingresos, egresos y margen mensual.
+- **Forecast SDMT**: visualizar y ajustar forecast mensual por proyecto.
+- **Escenarios (Scenarios)**: comparar escenarios frente al baseline.
+- **Proveedores (Providers)**: registrar y administrar proveedores del sistema.
+- **SDMT Cost Modules**: Catálogo (Catalog), Conciliación (Reconciliation), Cambios (Changes) para SDMT users.
 
 ## High-level flow / Flujo de alto nivel
 1. PMO registra proyecto y baseline inicial.

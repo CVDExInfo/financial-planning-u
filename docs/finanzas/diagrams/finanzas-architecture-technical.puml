@@ -1,0 +1,97 @@
+@startuml
+' Technical AWS architecture diagram - detailed
+skinparam backgroundColor #ffffff
+skinparam style strictuml
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam dpi 150
+
+title Finanzas SD - Technical AWS Architecture
+
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v14.0/dist
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/SecurityIdentityCompliance/Cognito.puml
+!include AWSPuml/NetworkingContentDelivery/CloudFront.puml
+!include AWSPuml/Storage/SimpleStorageService.puml
+!include AWSPuml/NetworkingContentDelivery/APIGateway.puml
+!include AWSPuml/Compute/Lambda.puml
+!include AWSPuml/Database/DynamoDB.puml
+!include AWSPuml/ManagementGovernance/CloudWatch.puml
+
+' Presentation Tier
+actor "Users\n(PMO/FIN/SDMT)" as Users
+CloudFront(cf, "CloudFront", "CDN")
+SimpleStorageService(s3ui, "S3 Static Hosting", "ukusi-ui-finanzas-prod")
+
+' Identity & API Gateway
+Cognito(cognito, "Cognito", "User Pool\nus-east-2_FyHLtOhiY")
+APIGateway(apigw, "HTTP API", "finanzas-sd-api-dev")
+
+' Lambda Functions (Domain Handlers)
+Lambda(lambdaProjects, "Projects", "Handler")
+Lambda(lambdaRubros, "Rubros", "Handler")
+Lambda(lambdaAlloc, "Allocations", "Handler")
+Lambda(lambdaInvoices, "Invoices", "Handler")
+Lambda(lambdaUploads, "Uploads", "Handler")
+Lambda(lambdaHealth, "Health", "Handler")
+
+' Data Layer
+DynamoDB(dynamo, "DynamoDB", "12 tables\nfinz_*")
+SimpleStorageService(s3docs, "S3 Evidence", "Document storage")
+
+' Observability
+CloudWatch(cw, "CloudWatch", "Logs & Metrics")
+
+' Connections
+Users --> cf : HTTPS
+cf --> s3ui : Origin
+Users --> cognito : Login (Hosted UI)
+cognito --> Users : JWT token
+
+Users --> apigw : API calls + JWT
+apigw --> cognito : Validate JWT
+apigw --> lambdaProjects : /projects
+apigw --> lambdaRubros : /catalog/rubros
+apigw --> lambdaAlloc : /allocations
+apigw --> lambdaInvoices : /invoices
+apigw --> lambdaUploads : /uploads/docs
+apigw --> lambdaHealth : /health
+
+lambdaProjects --> dynamo : Read/Write
+lambdaRubros --> dynamo : Read/Write
+lambdaAlloc --> dynamo : Read/Write
+lambdaInvoices --> dynamo : Read/Write
+lambdaUploads --> dynamo : Write metadata
+lambdaUploads --> s3docs : Store files
+
+lambdaProjects --> cw : Logs
+lambdaRubros --> cw : Logs
+lambdaAlloc --> cw : Logs
+lambdaInvoices --> cw : Logs
+lambdaUploads --> cw : Logs
+
+note right of dynamo
+  Tables:
+  - finz_projects
+  - finz_rubros
+  - finz_rubros_taxonomia
+  - finz_allocations
+  - finz_payroll_actuals
+  - finz_adjustments
+  - finz_changes
+  - finz_alerts
+  - finz_providers
+  - finz_audit_log
+  - finz_docs
+  - finz_prefacturas
+end note
+
+note bottom of apigw
+  Region: us-east-2
+  Auth: Cognito JWT Authorizer
+  Groups: PMO, FIN, SDMT, AUDIT, EXEC_RO
+  Note: Values shown are from dev environment
+  (see template.yaml for production config)
+end note
+
+@enduml

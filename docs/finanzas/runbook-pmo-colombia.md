@@ -1,5 +1,9 @@
 # Runbook PMO Colombia – Finanzas SD
 
+**Last updated:** 2025-12-06  
+**Audience:** PMO Colombia, Finanzas  
+**Purpose:** Day-to-day operational procedures and troubleshooting
+
 Perspectiva ejecutiva: este runbook resume los pasos diarios para que PMO y Finanzas operen Finanzas SD, desde intake hasta handoff a SDMT con evidencia completa. / Executive perspective: this runbook summarizes the day-to-day steps for PMO and Finance to run Finanzas SD from intake through SDMT handoff with complete evidence.
 
 ## 1. Flujo operativo PMO → Finanzas → SDMT

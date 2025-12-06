@@ -1,5 +1,9 @@
 # Finanzas SD – Glossary / Glosario bilingüe
 
+**Last updated:** 2025-12-06  
+**Audience:** All users (PMO, Finanzas, SDMT, Audit)  
+**Purpose:** Bilingual terminology reference
+
 | Término | English | Descripción |
 | --- | --- | --- |
 | Baseline | Baseline | Versión aprobada de presupuesto inicial de un proyecto. |

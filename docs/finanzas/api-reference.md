@@ -1,5 +1,9 @@
 # Finanzas SD – API reference (Finanzas-only)
 
+**Last updated:** 2025-12-06  
+**Audience:** Engineers, SDMT, Integration Teams  
+**Purpose:** Quick reference for Finanzas SD API endpoints
+
 Executive perspective: these endpoints are the contract for PMO, Finanzas, and SDMT apps to manage baselines, allocations, invoices, and evidence with consistent access control. / Perspectiva ejecutiva: estos endpoints son el contrato para que PMO, Finanzas y SDMT administren baselines, asignaciones, facturas y evidencia con controles de acceso consistentes.
 
 Base URL (dev): `https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev`

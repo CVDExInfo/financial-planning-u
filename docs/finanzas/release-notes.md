@@ -1,5 +1,18 @@
 # Finanzas SD – Release notes
 
+**Last updated:** 2025-12-06  
+**Audience:** All stakeholders  
+**Purpose:** Track major releases and changes
+
+## 2025-12-06 (Documentation Refresh)
+- Comprehensive documentation cleanup and alignment with current codebase.
+- Added "Last updated" dates and audience/purpose metadata to all core docs.
+- Updated module names and UI labels to match current React implementation.
+- Verified all API endpoints against SAM template (template.yaml).
+- Corrected DynamoDB table list (12 tables including finz_rubros_taxonomia, finz_docs, finz_prefacturas).
+- Removed duplicate archived documents (docs/archive/finanzas/).
+- Improved bilingual consistency in terminology.
+
 ## 2024-11 (Docs rebuild)
 - Nueva colección de documentos enfocada solo en Finanzas SD (sin Acta/Prefactura).
 - Índice central `INDEX.md` con enlaces a arquitectura, modelos, API y seguridad.
