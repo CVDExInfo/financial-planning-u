@@ -476,7 +476,7 @@ jobs:
             echo "   Ensure sync completed successfully and CloudFront invalidation is executed"
             exit 1
           fi
-
+          
           echo "✅ Finanzas S3 manifest matches local build"
 
       - name: Verify auth callback in S3
