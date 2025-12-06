@@ -235,9 +235,15 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   // Store idempotency record (with 24h TTL)
   const ttl = Math.floor(Date.now() / 1000) + 86400; // 24 hours
   const result = {
+    handoffId,
     projectId,
     baselineId,
     status: "HandoffComplete",
+    owner: handoff.owner,
+    fields: handoff.fields,
+    version: handoff.version,
+    createdAt: handoff.createdAt,
+    updatedAt: handoff.updatedAt,
   };
 
   const idempotencyRecord = {
