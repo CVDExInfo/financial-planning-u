@@ -66,8 +66,6 @@ import {
 
 import {
   formatLineItemDisplay,
-  formatMatrixLabel,
-  formatRubroLabel,
   extractFriendlyFilename,
 } from "./lineItemFormatters";
 
