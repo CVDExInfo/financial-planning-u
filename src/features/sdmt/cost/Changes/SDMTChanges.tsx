@@ -108,10 +108,10 @@ const statusTone = (status: ChangeStatus) => {
 };
 
 const formatRubroLabel = (item?: { category?: string; subtype?: string; description?: string }, fallbackId?: string) => {
-  if (!item) return fallbackId || "Line item";
+  if (!item) return fallbackId || "Rubro";
   const category = item.category?.trim();
   const subtype = item.subtype?.trim();
-  const description = item.description?.trim() || fallbackId || "Line item";
+  const description = item.description?.trim() || fallbackId || "Rubro";
   const categoryLabel = subtype
     ? `${category ?? "General"} / ${subtype}`
     : category ?? "General";
@@ -145,7 +145,7 @@ export function SDMTChanges() {
           return err.message || fallback;
         }
         if (err.status === 503) {
-          return "Change service temporarily unavailable. Please try again later.";
+          return "Servicio de cambios temporalmente no disponible. Por favor intenta más tarde.";
         }
         if (err.status && err.status >= 500) {
           return "Error interno en Finanzas.";
@@ -463,7 +463,7 @@ export function SDMTChanges() {
       <div className="max-w-4xl mx-auto p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Change Management</h1>
+            <h1 className="text-3xl font-bold">Gestión de Cambios</h1>
             <p className="text-muted-foreground">
               Selecciona un proyecto para ver y crear solicitudes de cambio.
             </p>
@@ -483,9 +483,9 @@ export function SDMTChanges() {
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Change Management</h1>
+          <h1 className="text-3xl font-bold">Gestión de Cambios</h1>
           <p className="text-muted-foreground">
-            Track budget change requests and approval workflows
+            Rastrea solicitudes de cambio de presupuesto y flujos de aprobación
             {currentProject && (
               <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                 {currentProject.name}
@@ -501,21 +501,21 @@ export function SDMTChanges() {
           <CardContent className="p-4 text-center">
             <Clock className="mx-auto mb-2 text-amber-500" size={32} />
             <div className="text-2xl font-bold text-amber-600">{pendingCount}</div>
-            <p className="text-sm text-muted-foreground">Pending Approval</p>
+            <p className="text-sm text-muted-foreground">Aprobación Pendiente</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <CheckCircle2 className="mx-auto mb-2 text-green-500" size={32} />
             <div className="text-2xl font-bold text-green-600">{approvedCount}</div>
-            <p className="text-sm text-muted-foreground">Approved</p>
+            <p className="text-sm text-muted-foreground">Aprobado</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <XCircle className="mx-auto mb-2 text-red-500" size={32} />
             <div className="text-2xl font-bold text-red-600">{rejectedCount}</div>
-            <p className="text-sm text-muted-foreground">Rejected</p>
+            <p className="text-sm text-muted-foreground">Rechazado</p>
           </CardContent>
         </Card>
         <Card>
@@ -527,16 +527,16 @@ export function SDMTChanges() {
             >
               {totalImpact >= 0 ? "+" : ""}${totalImpact.toLocaleString()}
             </div>
-            <p className="text-sm text-muted-foreground">Net Budget Impact</p>
+            <p className="text-sm text-muted-foreground">Impacto Neto en Presupuesto</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Change Requests</h2>
+        <h2 className="text-xl font-semibold">Solicitudes de Cambio</h2>
         <Button className="gap-2" onClick={() => setCreateOpen(true)}>
           <Plus size={16} />
-          New Change Request
+          Nueva Solicitud de Cambio
         </Button>
       </div>
 
@@ -551,13 +551,13 @@ export function SDMTChanges() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Request ID</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Impact</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Requested By</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>ID de Solicitud</TableHead>
+                <TableHead>Título</TableHead>
+                <TableHead>Impacto</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Solicitado Por</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -566,14 +566,14 @@ export function SDMTChanges() {
                   <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading change requests...
+                      Cargando solicitudes de cambio...
                     </div>
                   </TableCell>
                 </TableRow>
               ) : changeRequests.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                    No change requests yet.
+                    Aún no hay solicitudes de cambio.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -617,7 +617,7 @@ export function SDMTChanges() {
                             onClick={() => setSelectedChange(change)}
                           >
                             <Eye size={14} className="mr-1" />
-                            View
+                            Ver
                           </Button>
                           <Button
                             variant="secondary"
@@ -629,7 +629,7 @@ export function SDMTChanges() {
                             }}
                           >
                             <Clock size={14} className="mr-1" />
-                            View Workflow
+                            Ver Flujo
                           </Button>
                           {canApprove && change.status === "pending" && (
                             <>
@@ -643,7 +643,7 @@ export function SDMTChanges() {
                                 }}
                               >
                                 <CheckCircle2 size={14} className="mr-1 text-green-600" />
-                                Approve
+                                Aprobar
                               </Button>
                               <Button
                                 size="sm"
@@ -655,7 +655,7 @@ export function SDMTChanges() {
                                 }}
                               >
                                 <XCircle size={14} className="mr-1" />
-                                Reject
+                                Rechazar
                               </Button>
                             </>
                           )}
@@ -673,13 +673,13 @@ export function SDMTChanges() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create change request</DialogTitle>
-            <DialogDescription>Provide the details for this change.</DialogDescription>
+            <DialogTitle>Crear solicitud de cambio</DialogTitle>
+            <DialogDescription>Proporciona los detalles para este cambio.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="title">Title</Label>
+                <Label htmlFor="title">Título</Label>
                 <Input
                   id="title"
                   value={form.title}
@@ -690,7 +690,7 @@ export function SDMTChanges() {
                 )}
               </div>
               <div>
-                <Label htmlFor="baseline">Baseline ID (optional)</Label>
+                <Label htmlFor="baseline">ID de Línea Base (opcional)</Label>
                 <Input
                   id="baseline"
                   value={form.baseline_id}
@@ -701,7 +701,7 @@ export function SDMTChanges() {
               </div>
             </div>
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Descripción</Label>
               <Textarea
                 id="description"
                 value={form.description}
@@ -715,7 +715,7 @@ export function SDMTChanges() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="impact">Impact amount</Label>
+                <Label htmlFor="impact">Monto del impacto</Label>
                 <Input
                   id="impact"
                   type="number"
@@ -731,7 +731,7 @@ export function SDMTChanges() {
                 )}
               </div>
               <div>
-                <Label htmlFor="currency">Currency</Label>
+                <Label htmlFor="currency">Moneda</Label>
                 <Select
                   value={form.currency}
                   onValueChange={(value) =>
@@ -754,7 +754,7 @@ export function SDMTChanges() {
                 )}
               </div>
               <div>
-                <Label htmlFor="justification">Justification</Label>
+                <Label htmlFor="justification">Justificación</Label>
                 <Input
                   id="justification"
                   value={form.justification}
@@ -771,7 +771,7 @@ export function SDMTChanges() {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="line-items">Affected line items</Label>
+                <Label htmlFor="line-items">Rubros afectados</Label>
                 {selectedLineItemIds.length > 0 && (
                   <span className="text-xs text-muted-foreground">
                     {selectedLineItemIds.length} selected
@@ -789,8 +789,8 @@ export function SDMTChanges() {
                   >
                     <span className="truncate text-left">
                       {lineItemsLoading
-                        ? "Loading line items..."
-                        : selectedLineItemLabels[0] || "Select affected line items"}
+                        ? "Cargando rubros..."
+                        : selectedLineItemLabels[0] || "Selecciona rubros afectados"}
                       {selectedLineItemIds.length > 1 && (
                         <span className="text-muted-foreground ml-1">
                           +{selectedLineItemIds.length - 1} more
@@ -802,9 +802,9 @@ export function SDMTChanges() {
                 </PopoverTrigger>
                 <PopoverContent className="w-[520px] p-0" align="start">
                   <Command>
-                    <CommandInput placeholder="Search line items" />
+                    <CommandInput placeholder="Buscar rubros" />
                     <CommandList>
-                      <CommandEmpty>No line items found.</CommandEmpty>
+                      <CommandEmpty>No se encontraron rubros.</CommandEmpty>
                       <CommandGroup>
                         {lineItemOptions.map((option) => {
                           const isSelected = selectedLineItemIds.includes(option.value);
@@ -853,7 +853,7 @@ export function SDMTChanges() {
                 onClick={() => setCreateOpen(false)}
                 disabled={createChangeMutation.isPending}
               >
-                Cancel
+                Cancelar
               </Button>
               <Button
                 onClick={onSubmit}
@@ -862,7 +862,7 @@ export function SDMTChanges() {
                 {createChangeMutation.isPending && (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 )}
-                Create change request
+                Crear solicitud de cambio
               </Button>
             </div>
           </div>
@@ -872,7 +872,7 @@ export function SDMTChanges() {
       <Dialog open={!!selectedChange} onOpenChange={(open) => !open && setSelectedChange(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Change request details</DialogTitle>
+            <DialogTitle>Detalles de solicitud de cambio</DialogTitle>
             <DialogDescription>{selectedChange?.id}</DialogDescription>
           </DialogHeader>
           {selectedChange && (
@@ -885,7 +885,7 @@ export function SDMTChanges() {
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Impact</p>
+                  <p className="text-muted-foreground">Impacto</p>
                   <p
                     className={`font-semibold ${
                       Number(selectedChange.impact_amount) > 0
@@ -898,7 +898,7 @@ export function SDMTChanges() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Status</p>
+                  <p className="text-muted-foreground">Estado</p>
                   <div
                     className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${statusTone(
                       selectedChange.status,
@@ -909,11 +909,11 @@ export function SDMTChanges() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Requested by</p>
+                  <p className="text-muted-foreground">Solicitado por</p>
                   <p className="font-semibold">{selectedChange.requested_by || "N/A"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Requested at</p>
+                  <p className="text-muted-foreground">Solicitado el</p>
                   <p className="font-semibold">
                     {selectedChange.requested_at
                       ? new Date(selectedChange.requested_at).toLocaleString()
@@ -923,13 +923,13 @@ export function SDMTChanges() {
               </div>
               {selectedChange.justification && (
                 <div>
-                  <p className="text-muted-foreground text-sm">Justification</p>
+                  <p className="text-muted-foreground text-sm">Justificación</p>
                   <p className="text-sm">{selectedChange.justification}</p>
                 </div>
               )}
               {selectedChange.affected_line_items?.length > 0 && (
                 <div>
-                  <p className="text-muted-foreground text-sm">Affected line items</p>
+                  <p className="text-muted-foreground text-sm">Rubros afectados</p>
                   <div className="flex flex-wrap gap-2 mt-1">
                     {selectedChange.affected_line_items.map((item) => (
                       <Badge key={item} variant="outline">
@@ -947,7 +947,7 @@ export function SDMTChanges() {
       <Dialog open={isWorkflowDialogOpen} onOpenChange={handleWorkflowDialogChange}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Approval Workflow</DialogTitle>
+            <DialogTitle>Flujo de Aprobación</DialogTitle>
             <DialogDescription>
               {workflowChange?.id || "Revisa el flujo de aprobación de este cambio."}
             </DialogDescription>
