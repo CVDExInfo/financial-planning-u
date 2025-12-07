@@ -28,12 +28,13 @@ When a comprehensive baseline budget was created from the Prefactura/Estimator U
 ### Backend Changes (`services/finanzas-api/src/handlers/handoff.ts`)
 
 #### 0. Enriched API Response (NEW - Contract Compliance)
-The POST `/projects/{projectId}/handoff` endpoint now returns enriched response data:
+The POST `/projects/{projectId}/handoff` endpoint now returns enriched response data with **HTTP 201 Created** status:
 
 ```typescript
+// Returns 201 Created for successful handoff creation
 // Response includes all relevant project metadata
 const result = {
-  handoffId,              // REQUIRED - maintained for API contract
+  handoffId,              // REQUIRED - maintained for API contract (Postman tests)
   projectId,
   baselineId,
   status: "HandoffComplete",
@@ -54,12 +55,26 @@ const result = {
   createdAt: handoff.createdAt,
   updatedAt: handoff.updatedAt,
 };
+
+return {
+  statusCode: 201,  // 201 Created for new handoff
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(result),
+};
 ```
 
+**API Contract Requirements:**
+- **Status Code**: `201 Created` for new handoff creation, `200 OK` for idempotent retry
+- **handoffId**: REQUIRED field (asserted by Postman contract tests)
+- **Format**: `handoff_${uuid().replace(/-/g, '').substring(0, 10)}`
+- **Purpose**: Links POST (create) with PUT (update) operations
+
 **Why this matters:**
-- Maintains `handoffId` for Postman contract test compliance
+- Maintains `handoffId` for Postman contract test compliance (source of truth)
+- Returns proper HTTP 201 Created status for resource creation
 - Provides all project data in single API call (reduces round trips)
 - Enables API consumers to access enriched metadata immediately
+- Supports idempotent handoff operations
 
 #### 1. Client Field Mapping
 ```typescript
