@@ -169,7 +169,7 @@ export function SDMTForecast() {
       });
       setForecastData(updatedData);
       setEditingCell(null);
-      toast.success(`${editingCell.type === 'forecast' ? 'Forecast' : 'Actual'} updated successfully`);
+      toast.success(`${editingCell.type === 'forecast' ? 'Pronóstico' : 'Real'} actualizado correctamente`);
     }
   };
 
@@ -328,9 +328,9 @@ export function SDMTForecast() {
       const buffer = await exporter.exportForecastGrid(forecastData, safeLineItems);
       const filename = `forecast-data-${new Date().toISOString().split('T')[0]}.xlsx`;
       downloadExcelFile(buffer, filename);
-      toast.success('Excel report exported successfully');
+      toast.success('Reporte Excel exportado exitosamente');
     } catch (error) {
-      toast.error('Failed to export Excel report');
+      toast.error('Error al exportar reporte Excel');
       console.error(error);
     } finally {
       setExporting(null);
@@ -343,31 +343,31 @@ export function SDMTForecast() {
     try {
       setExporting('pdf');
       const reportData = {
-        title: 'Cost Forecast Analysis',
-        subtitle: 'Executive Summary & Variance Report',
+        title: 'Análisis de Pronóstico de Costos',
+        subtitle: 'Resumen Ejecutivo y Reporte de Variaciones',
         generated: new Date().toLocaleDateString(),
         metrics: [
           {
-            label: 'Total Planned Budget',
+            label: 'Presupuesto Planeado Total',
             value: formatReportCurrency(totalPlanned),
             color: '#64748b'
           },
           {
-            label: 'Current Forecast',
+            label: 'Pronóstico Actual',
             value: formatReportCurrency(totalForecast),
             change: formatReportPercentage(((totalForecast - totalPlanned) / totalPlanned) * 100),
             changeType: getChangeType(totalForecast - totalPlanned),
             color: '#2BB673'
           },
           {
-            label: 'Actual Expenses',
+            label: 'Gastos Reales',
             value: formatReportCurrency(totalActual),
             change: formatReportPercentage(((totalActual - totalPlanned) / totalPlanned) * 100),
             changeType: getChangeType(totalActual - totalPlanned),
             color: '#14B8A6'
           },
           {
-            label: 'Budget Variance',
+            label: 'Variación de Presupuesto',
             value: formatReportCurrency(Math.abs(totalVariance)),
             change: formatReportPercentage(Math.abs(variancePercentage)),
             changeType: getChangeType(-Math.abs(totalVariance)),
@@ -375,23 +375,23 @@ export function SDMTForecast() {
           }
         ],
         summary: [
-          `Total project budget variance: ${formatReportCurrency(totalVariance)} (${variancePercentage.toFixed(1)}%)`,
-          `${forecastData.filter(f => f.variance > 0).length} line items showing cost overruns`,
-          `${forecastData.filter(f => f.variance < 0).length} line items under budget`,
-          `Current forecast accuracy: ${(100 - Math.abs(variancePercentage)).toFixed(1)}%`
+          `Variación total del presupuesto del proyecto: ${formatReportCurrency(totalVariance)} (${variancePercentage.toFixed(1)}%)`,
+          `${forecastData.filter(f => f.variance > 0).length} rubros mostrando sobrecostos`,
+          `${forecastData.filter(f => f.variance < 0).length} rubros bajo presupuesto`,
+          `Precisión actual del pronóstico: ${(100 - Math.abs(variancePercentage)).toFixed(1)}%`
         ],
         recommendations: [
-          totalVariance > 50000 ? 'Immediate budget review required for significant overruns' : 'Budget variance within acceptable range',
-          'Focus on line items with highest variance impact for cost optimization',
-          'Consider updating forecast models based on actual performance trends',
-          'Implement enhanced tracking for high-risk cost categories'
+          totalVariance > 50000 ? 'Se requiere revisión inmediata del presupuesto por sobrecostos significativos' : 'Variación de presupuesto dentro del rango aceptable',
+          'Enfocar en rubros con mayor impacto de variación para optimización de costos',
+          'Considerar actualizar modelos de pronóstico basados en tendencias de desempeño real',
+          'Implementar seguimiento mejorado para categorías de costo de alto riesgo'
         ]
       };
 
       await PDFExporter.exportToPDF(reportData);
-      toast.success('Professional forecast report generated');
+      toast.success('Reporte profesional de pronóstico generado');
     } catch (error) {
-      toast.error('Failed to generate PDF summary');
+      toast.error('Error al generar resumen PDF');
       console.error(error);
     } finally {
       setExporting(null);
@@ -403,9 +403,9 @@ export function SDMTForecast() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Forecast Management</h1>
+          <h1 className="text-3xl font-bold">Gestión de Pronóstico</h1>
           <p className="text-muted-foreground">
-            Track planned vs forecast vs actual costs across time periods
+            Seguimiento de costos planeados vs pronóstico vs reales a través de períodos de tiempo
             {currentProject && (
               <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                 {currentProject.name} | Change #{projectChangeCount}
@@ -419,7 +419,7 @@ export function SDMTForecast() {
             <span>Line items: {safeLineItems.length}</span>
             <span>Grid rows: {forecastGrid.length}</span>
             <Badge variant={dataSource === 'mock' ? 'outline' : 'secondary'}>
-              {dataSource === 'mock' ? 'Mock data' : 'API data'}
+              {dataSource === 'mock' ? 'Datos de prueba' : 'Datos de API'}
             </Badge>
             {generatedAt && (
               <span>Last updated: {new Date(generatedAt).toLocaleString()}</span>
@@ -434,22 +434,22 @@ export function SDMTForecast() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{formatCurrency(totalPlanned)}</div>
-            <p className="text-sm text-muted-foreground">Total Planned</p>
-            <p className="text-xs text-muted-foreground">From Planview</p>
+            <p className="text-sm text-muted-foreground">Total Planeado</p>
+            <p className="text-xs text-muted-foreground">De Planview</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{formatCurrency(totalForecast)}</div>
-            <p className="text-sm text-muted-foreground">Total Forecast</p>
-            <p className="text-xs text-muted-foreground">PMO Adjusted</p>
+            <p className="text-sm text-muted-foreground">Pronóstico Total</p>
+            <p className="text-xs text-muted-foreground">Ajustado PMO</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalActual)}</div>
-            <p className="text-sm text-muted-foreground">Total Actual</p>
-            <p className="text-xs text-muted-foreground">SDMT Tracked</p>
+            <p className="text-sm text-muted-foreground">Total Real</p>
+            <p className="text-xs text-muted-foreground">Seguimiento SDMT</p>
           </CardContent>
         </Card>
         <Card>
@@ -459,7 +459,7 @@ export function SDMTForecast() {
             </div>
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               {getVarianceIcon(totalVariance)}
-              Forecast Variance
+              Variación de Pronóstico
             </p>
             <p className="text-xs text-muted-foreground">{Math.abs(variancePercentage).toFixed(1)}%</p>
           </CardContent>
@@ -471,7 +471,7 @@ export function SDMTForecast() {
             </div>
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               {getVarianceIcon(actualVariance)}
-              Actual Variance
+              Variación Real
             </p>
             <p className="text-xs text-muted-foreground">{Math.abs(actualVariancePercentage).toFixed(1)}%</p>
           </CardContent>
@@ -491,9 +491,9 @@ export function SDMTForecast() {
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Share Forecast Data</DialogTitle>
+                  <DialogTitle>Compartir Datos de Pronóstico</DialogTitle>
                   <DialogDescription>
-                    Export and share forecast data in multiple formats for stakeholders and reporting.
+                    Exportar y compartir datos de pronóstico en múltiples formatos para interesados y reportes.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="py-6 space-y-4">
@@ -509,9 +509,9 @@ export function SDMTForecast() {
                       ) : (
                         <FileSpreadsheet size={24} />
                       )}
-                      <span>Excel Report</span>
+                      <span>Reporte Excel</span>
                       <span className="text-xs text-muted-foreground">
-                        {exporting === 'excel' ? 'Generating...' : 'Detailed forecast with formulas'}
+                        {exporting === 'excel' ? 'Generando...' : 'Pronóstico detallado con fórmulas'}
                       </span>
                     </Button>
                     <Button 
@@ -525,9 +525,9 @@ export function SDMTForecast() {
                       ) : (
                         <Share2 size={24} />
                       )}
-                      <span>PDF Summary</span>
+                      <span>Resumen PDF</span>
                       <span className="text-xs text-muted-foreground">
-                        {exporting === 'pdf' ? 'Generating...' : 'Executive summary format'}
+                        {exporting === 'pdf' ? 'Generando...' : 'Formato de resumen ejecutivo'}
                       </span>
                     </Button>
                   </div>
@@ -544,7 +544,7 @@ export function SDMTForecast() {
       {/* Forecast Grid */}
       <Card>
         <CardHeader>
-          <CardTitle>12-Month Forecast Grid</CardTitle>
+          <CardTitle>Cuadrícula de Pronóstico 12 Meses</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoadingState ? (
@@ -554,7 +554,7 @@ export function SDMTForecast() {
                   <span className="text-primary font-bold text-sm">📊</span>
                 </div>
                 <div className="text-muted-foreground">
-                  Loading forecast data{currentProject ? ` for ${currentProject.name}` : ''}...
+                  Cargando datos de pronóstico{currentProject ? ` para ${currentProject.name}` : ''}...
                 </div>
                 <div className="text-xs text-muted-foreground">
                   Project: {selectedProjectId} | Change #{projectChangeCount}
@@ -578,10 +578,10 @@ export function SDMTForecast() {
                   <span className="text-muted-foreground font-bold text-sm">🗂️</span>
                 </div>
                 <div className="text-muted-foreground">
-                  No forecast data available yet for {currentProject?.name || 'this project'}.
+                  No hay datos de pronóstico disponibles aún para {currentProject?.name || 'este proyecto'}.
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Add allocations or rubros to start building the forecast.
+                  Agrega asignaciones o rubros para comenzar a construir el pronóstico.
                 </div>
               </div>
             </div>
@@ -592,7 +592,7 @@ export function SDMTForecast() {
                   <span className="text-muted-foreground font-bold text-sm">📋</span>
                 </div>
                 <div className="text-muted-foreground">
-                  No forecast data available for {currentProject?.name || 'this project'}
+                  No hay datos de pronóstico disponibles para {currentProject?.name || 'este proyecto'}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   Project ID: {selectedProjectId}
@@ -604,7 +604,7 @@ export function SDMTForecast() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="sticky left-0 bg-background min-w-[300px]">Line Item</TableHead>
+                    <TableHead className="sticky left-0 bg-background min-w-[300px]">Rubro</TableHead>
                     {Array.from({ length: 12 }, (_, i) => (
                       <TableHead key={i + 1} className="text-center min-w-[140px]">
                         M{i + 1}
