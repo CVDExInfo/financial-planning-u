@@ -27,6 +27,40 @@ When a comprehensive baseline budget was created from the Prefactura/Estimator U
 
 ### Backend Changes (`services/finanzas-api/src/handlers/handoff.ts`)
 
+#### 0. Enriched API Response (NEW - Contract Compliance)
+The POST `/projects/{projectId}/handoff` endpoint now returns enriched response data:
+
+```typescript
+// Response includes all relevant project metadata
+const result = {
+  handoffId,              // REQUIRED - maintained for API contract
+  projectId,
+  baselineId,
+  status: "HandoffComplete",
+  
+  // New fields from data lineage fix
+  projectName,            // Human-readable name
+  client: clientName,     // Client/customer name
+  code: projectCode,      // Clean project code (P-12ab34cd)
+  startDate,              // Project start date
+  endDate,                // Calculated end date
+  durationMonths,         // Project duration
+  currency,               // Project currency
+  modTotal: totalAmount,  // Total MOD budget
+  
+  // Existing metadata
+  owner: handoff.owner,
+  version: handoff.version,
+  createdAt: handoff.createdAt,
+  updatedAt: handoff.updatedAt,
+};
+```
+
+**Why this matters:**
+- Maintains `handoffId` for Postman contract test compliance
+- Provides all project data in single API call (reduces round trips)
+- Enables API consumers to access enriched metadata immediately
+
 #### 1. Client Field Mapping
 ```typescript
 // BEFORE: Client extracted but variable name mismatch led to empty string
