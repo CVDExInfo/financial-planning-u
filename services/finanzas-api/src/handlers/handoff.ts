@@ -170,12 +170,28 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   const totalAmount = baseline.total_amount || body.mod_total || 0;
 
   // Calculate end_date from start_date + duration_months
+  // Using proper date arithmetic to handle month boundaries and leap years correctly
   let endDate = baseline.payload?.end_date || baseline.end_date;
   if (!endDate && startDate && durationMonths) {
     const start = new Date(startDate);
     if (!isNaN(start.getTime())) {
+      // Add months by adjusting year and month separately to handle boundaries correctly
       const end = new Date(start);
-      end.setMonth(end.getMonth() + durationMonths);
+      const targetMonth = end.getMonth() + durationMonths;
+      const yearsToAdd = Math.floor(targetMonth / 12);
+      const monthsToAdd = targetMonth % 12;
+      
+      end.setFullYear(end.getFullYear() + yearsToAdd);
+      end.setMonth(monthsToAdd);
+      
+      // Handle day overflow (e.g., Jan 31 + 1 month should be Feb 28/29, not Mar 3)
+      // If the day changed unexpectedly, set to last day of previous month
+      const originalDay = start.getDate();
+      if (end.getDate() !== originalDay && end.getDate() < originalDay) {
+        // Day overflowed, set to last day of target month
+        end.setDate(0); // Sets to last day of previous month (which is our target)
+      }
+      
       endDate = end.toISOString().split('T')[0]; // yyyy-mm-dd format
     }
   }
@@ -199,13 +215,15 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   // Generate a clean project code from projectId if not already in proper format
   // projectId might be something like "PRJ-PROJECT-P-5AE50ACE" (derived from project name)
   // We want a cleaner code like "P-5ae50ace" or keep projectId if it's already clean
+  const MAX_CLEAN_CODE_LENGTH = 20;
+  const CODE_SUFFIX_LENGTH = 8;
   let projectCode = projectId;
   
   // If projectId looks like it was auto-generated from a name (contains "PROJECT" or is very long),
   // generate a shorter code. Otherwise use projectId as-is.
-  if (projectId.includes("PROJECT") || projectId.length > 20) {
+  if (projectId.includes("PROJECT") || projectId.length > MAX_CLEAN_CODE_LENGTH) {
     // Generate a short code: extract meaningful part or create new one
-    const baselineIdShort = baselineId.replace(/^base_/, '').substring(0, 8);
+    const baselineIdShort = baselineId.replace(/^base_/, '').substring(0, CODE_SUFFIX_LENGTH);
     projectCode = `P-${baselineIdShort}`;
   }
 
