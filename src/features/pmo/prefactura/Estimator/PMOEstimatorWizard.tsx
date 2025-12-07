@@ -29,32 +29,32 @@ interface EstimatorStep {
 const STEPS: EstimatorStep[] = [
   {
     id: 'deal-inputs',
-    title: 'Deal Inputs',
-    description: 'Project basics and timeline',
+    title: 'Datos del Proyecto',
+    description: 'Información básica y cronograma',
     component: DealInputsStep
   },
   {
     id: 'labor',
-    title: 'Labor Costs',
-    description: 'Team composition and rates',
+    title: 'Costos de Mano de Obra',
+    description: 'Composición del equipo y tarifas',
     component: LaborStep
   },
   {
     id: 'non-labor',
-    title: 'Non-Labor Costs',
-    description: 'Infrastructure, licenses, services',
+    title: 'Costos No Laborales',
+    description: 'Infraestructura, licencias, servicios',
     component: NonLaborStep
   },
   {
     id: 'fx-indexation',
-    title: 'FX & Indexation',
-    description: 'Currency and inflation adjustments',
+    title: 'FX e Indexación',
+    description: 'Ajustes de moneda e inflación',
     component: FXIndexationStep
   },
   {
     id: 'review-sign',
-    title: 'Review & Sign',
-    description: 'Final review and digital signature',
+    title: 'Revisión y Firma',
+    description: 'Revisión final y firma digital',
     component: ReviewSignStep
   }
 ];
@@ -119,13 +119,13 @@ export function PMOEstimatorWizard() {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">PMO Pre-Factura Estimator</h1>
+            <h1 className="text-3xl font-bold text-foreground">Estimador de Pre-Factura PMO</h1>
             <p className="text-muted-foreground mt-2">
-              Create a comprehensive baseline budget for project handoff to SDMT
+              Crea un presupuesto base completo para transferir proyectos a SDMT
             </p>
           </div>
           <Badge className="module-badge-pmo">
-            PMO Module
+            Módulo PMO
           </Badge>
         </div>
       </div>
@@ -134,10 +134,10 @@ export function PMOEstimatorWizard() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-muted-foreground">
-            Step {currentStepIndex + 1} of {STEPS.length}
+            Paso {currentStepIndex + 1} de {STEPS.length}
           </span>
           <span className="text-sm font-medium text-muted-foreground">
-            {Math.round(progressPercentage)}% Complete
+            {Math.round(progressPercentage)}% Completado
           </span>
         </div>
         <Progress value={progressPercentage} className="h-2" />
@@ -213,7 +213,7 @@ export function PMOEstimatorWizard() {
           className="gap-2"
         >
           <ArrowLeft size={16} />
-          Previous
+          Anterior
         </Button>
 
         {isLastStep ? (
@@ -221,7 +221,7 @@ export function PMOEstimatorWizard() {
             onClick={() => navigate('/sdmt/cost/catalog')}
             className="gap-2"
           >
-            Complete & Handoff to SDMT
+            Completar y Transferir a SDMT
             <ArrowRight size={16} />
           </Button>
         ) : (
@@ -229,7 +229,7 @@ export function PMOEstimatorWizard() {
             onClick={handleNext}
             className="gap-2"
           >
-            Next
+            Siguiente
             <ArrowRight size={16} />
           </Button>
         )}

@@ -99,9 +99,9 @@ const formatMatrixLabel = (
 };
 
 const formatRubroLabel = (item?: LineItem, fallbackId?: string) => {
-  if (!item) return fallbackId || "Line item";
+  if (!item) return fallbackId || "Rubro";
   const category = (item as any).categoria?.trim() || item.category?.trim();
-  const description = item.description?.trim() || fallbackId || "Line item";
+  const description = item.description?.trim() || fallbackId || "Rubro";
   const lineaCodigo = (item as any).linea_codigo?.trim();
   const tipoCosto = (item as any).tipo_costo?.trim();
   const categoryLabel = category || "General";
@@ -225,13 +225,13 @@ export default function SDMTReconciliation() {
     if (invoicesErrorInfo?.status === 401 || lineItemsErrorInfo?.status === 401)
       return "Sesión expirada, por favor vuelve a iniciar sesión.";
     if (invoicesErrorInfo?.status === 403)
-      return "Access to reconciliation data is restricted for this project.";
+      return "Acceso a datos de conciliación restringido para este proyecto.";
     if (lineItemsErrorInfo?.status === 403)
-      return "Access to catalog data is restricted for this project.";
+      return "Acceso a datos del catálogo restringido para este proyecto.";
     if (invoicesErrorInfo?.status && invoicesErrorInfo.status >= 500)
-      return "Reconciliation service is unavailable. Please try again.";
+      return "Servicio de conciliación no disponible. Por favor intenta nuevamente.";
     if (lineItemsErrorInfo?.status && lineItemsErrorInfo.status >= 500)
-      return "Catalog service is unavailable. Please try again.";
+      return "Servicio de catálogo no disponible. Por favor intenta nuevamente.";
     if (invoicesErrorInfo?.message) return invoicesErrorInfo.message;
     if (lineItemsErrorInfo?.message) return lineItemsErrorInfo.message;
     return null;
@@ -264,13 +264,13 @@ export default function SDMTReconciliation() {
     mutationFn: (payload: UploadInvoicePayload & { projectId: string }) =>
       uploadInvoice(payload.projectId, payload),
     onSuccess: async () => {
-      toast.success("Invoice and document uploaded");
+      toast.success("Factura y documento subidos exitosamente");
       setShowUploadForm(false);
       setUploadFormData(createInitialUploadForm());
       await invalidateInvoices();
     },
     onError: (err: unknown) => {
-      let message = "Unexpected error uploading invoice – please try again or contact support.";
+      let message = "Error inesperado al subir factura. Por favor intenta nuevamente o contacta soporte.";
       if (err instanceof FinanzasApiError) {
         message = err.message;
       } else if (err instanceof Error) {
@@ -294,17 +294,17 @@ export default function SDMTReconciliation() {
       comment?: string;
     }) => {
       if (!projectId) {
-        throw new Error("Select a project before updating invoice status");
+        throw new Error("Selecciona un proyecto antes de actualizar el estado de la factura");
       }
       return updateInvoiceStatus(projectId, invoiceId, { status, comment });
     },
     onSuccess: async (_data, vars) => {
-      toast.success(`Invoice status updated to ${vars.status}`);
+      toast.success(`Estado de factura actualizado a ${vars.status}`);
       await invalidateInvoices();
     },
     onError: (err: unknown) => {
       const message =
-        err instanceof Error ? err.message : "Failed to update invoice status";
+        err instanceof Error ? err.message : "Error al actualizar estado de factura";
       toast.error(message);
     },
   });
@@ -335,19 +335,19 @@ export default function SDMTReconciliation() {
     }
 
     if (!uploadFormData.invoice_date) {
-      toast.error("Invoice date is required for reconciliation");
+      toast.error("Fecha de factura requerida para conciliación");
       return;
     }
 
     const parsedInvoiceDate = Date.parse(uploadFormData.invoice_date);
     if (Number.isNaN(parsedInvoiceDate)) {
-      toast.error("Enter a valid invoice date");
+      toast.error("Ingresa una fecha de factura válida");
       return;
     }
 
     const vendorValue = uploadFormData.vendor.trim();
     if (!vendorValue) {
-      toast.error("Vendor is required for reconciliation");
+      toast.error("Proveedor requerido para conciliación");
       return;
     }
 
@@ -356,22 +356,22 @@ export default function SDMTReconciliation() {
       !uploadFormData.line_item_id ||
       !uploadFormData.amount
     ) {
-      toast.error("Please fill in all required fields");
+      toast.error("Por favor completa todos los campos requeridos");
       return;
     }
 
     if (!projectId) {
-      toast.error("Select a project before uploading invoices");
+      toast.error("Selecciona un proyecto antes de subir facturas");
       return;
     }
 
     const amount = parseFloat(uploadFormData.amount);
     if (Number.isNaN(amount)) {
-      toast.error("Enter a valid invoice amount");
+      toast.error("Ingresa un monto de factura válido");
       return;
     }
     if (!(amount > 0)) {
-      toast.error("Invoice amount must be greater than zero");
+      toast.error("El monto de la factura debe ser mayor a cero");
       return;
     }
 
@@ -410,7 +410,7 @@ export default function SDMTReconciliation() {
 
   const handleExportVarianceReport = async () => {
     try {
-      toast.loading("Generating variance report…");
+      toast.loading("Generando reporte de variación…");
       const mockForecast: ForecastCell[] = filteredInvoices.map((inv) => {
         const li = safeLineItems.find((x) => x.id === inv.line_item_id);
         const planned = li ? li.qty * li.unit_cost : inv.amount;
@@ -436,17 +436,17 @@ export default function SDMTReconciliation() {
         .slice(0, 10)}.xlsx`;
       downloadExcelFile(buf, fname);
       toast.dismiss();
-      toast.success("Variance report exported");
+      toast.success("Reporte de variación exportado");
     } catch (e) {
       toast.dismiss();
-      toast.error("Failed to export variance report");
+      toast.error("Error al exportar reporte de variación");
       console.error(e);
     }
   };
 
   const handleShareReconciliationSummary = async () => {
     try {
-      toast.loading("Generating reconciliation report…");
+      toast.loading("Generando reporte de conciliación…");
       const total = filteredInvoices.reduce((s, inv) => s + inv.amount, 0);
       const matchRate = filteredInvoices.length
         ? (matchedCount / filteredInvoices.length) * 100
@@ -454,42 +454,42 @@ export default function SDMTReconciliation() {
       const avg = filteredInvoices.length ? total / filteredInvoices.length : 0;
 
       await PDFExporter.exportToPDF({
-        title: "Invoice Reconciliation Report",
-        subtitle: "Financial Control & Compliance Summary",
+        title: "Reporte de Conciliación de Facturas",
+        subtitle: "Resumen de Control Financiero y Cumplimiento",
         generated: new Date().toLocaleDateString(),
         metrics: [
-          { label: "Total Invoices", value: String(filteredInvoices.length) },
-          { label: "Matched", value: String(matchedCount) },
-          { label: "Pending", value: String(pendingCount) },
-          { label: "Disputed", value: String(disputedCount) },
+          { label: "Total Facturas", value: String(filteredInvoices.length) },
+          { label: "Conciliadas", value: String(matchedCount) },
+          { label: "Pendientes", value: String(pendingCount) },
+          { label: "Disputadas", value: String(disputedCount) },
         ],
         summary: [
-          `Processed ${filteredInvoices.length} invoices worth ${formatCurrency(
+          `Procesadas ${filteredInvoices.length} facturas por un valor de ${formatCurrency(
             total
           )}`,
-          `Invoice match rate: ${matchRate.toFixed(1)}% (${matchedCount}/${
+          `Tasa de conciliación: ${matchRate.toFixed(1)}% (${matchedCount}/${
             filteredInvoices.length
           })`,
-          `Average invoice amount: ${formatCurrency(avg)}`,
-          `${disputedCount} disputes require immediate attention`,
+          `Monto promedio por factura: ${formatCurrency(avg)}`,
+          `${disputedCount} disputas requieren atención inmediata`,
         ],
         recommendations: [
           matchRate < 80
-            ? "Improve invoice matching — current rate below target"
-            : "Maintain current matching performance",
+            ? "Mejorar conciliación de facturas — tasa actual debajo del objetivo"
+            : "Mantener el desempeño actual de conciliación",
           pendingCount > 0
-            ? `Process ${pendingCount} pending invoices to improve cycle time`
-            : "No pending items",
+            ? `Procesar ${pendingCount} facturas pendientes para mejorar tiempo de ciclo`
+            : "No hay elementos pendientes",
           disputedCount > 0
-            ? `Resolve ${disputedCount} disputed invoices to reduce risk`
-            : "No disputes",
+            ? `Resolver ${disputedCount} facturas disputadas para reducir riesgo`
+            : "No hay disputas",
         ],
       });
       toast.dismiss();
-      toast.success("Reconciliation report generated");
+      toast.success("Reporte de conciliación generado");
     } catch (e) {
       toast.dismiss();
-      toast.error("Failed to generate report");
+      toast.error("Error al generar reporte");
       console.error(e);
     }
   };
@@ -502,7 +502,7 @@ export default function SDMTReconciliation() {
         <Card className="p-6">
           <div className="flex items-center gap-3 text-muted-foreground">
             <LoadingSpinner />
-            <span>Loading reconciliation data…</span>
+            <span>Cargando datos de conciliación…</span>
           </div>
         </Card>
       </div>
@@ -515,7 +515,7 @@ export default function SDMTReconciliation() {
       <div className="max-w-7xl mx-auto p-6 space-y-4">
         <ErrorBanner message={uiErrorMessage} />
         <Button variant="outline" className="w-fit" onClick={handleRetryLoad}>
-          Retry loading data
+          Reintentar carga de datos
         </Button>
       </div>
     );
@@ -525,9 +525,9 @@ export default function SDMTReconciliation() {
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold">Invoice Reconciliation</h1>
+          <h1 className="text-3xl font-bold">Conciliación de Facturas</h1>
           <p className="text-muted-foreground leading-relaxed">
-            Upload and match invoices against forecasted amounts
+            Sube y concilia facturas contra montos pronosticados
             {currentProject && (
               <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                 {currentProject.name} | Change #{projectChangeCount}
@@ -537,7 +537,7 @@ export default function SDMTReconciliation() {
           {(filterLineItem || filterMonth) && (
             <div className="flex items-center gap-2 mt-2">
               <Badge variant="outline">
-                Filtered:{" "}
+                Filtrado:{" "}
                 {filterLineItem
                   ? formatMatrixLabel(
                       safeLineItems.find((li) => li.id === filterLineItem),
@@ -553,7 +553,7 @@ export default function SDMTReconciliation() {
                 size="sm"
                 onClick={() => navigate("/sdmt/cost/reconciliation")}
               >
-                <X size={14} className="mr-1" /> Clear Filter
+                <X size={14} className="mr-1" /> Limpiar Filtro
               </Button>
             </div>
           )}
@@ -567,7 +567,7 @@ export default function SDMTReconciliation() {
             className="gap-2"
           >
             <Share2 size={16} />
-            Share
+            Compartir
           </Button>
           <Button
             variant="outline"
@@ -576,7 +576,7 @@ export default function SDMTReconciliation() {
             className="gap-2"
           >
             <Download size={16} />
-            Export
+            Exportar
           </Button>
           <ModuleBadge />
           <Button
@@ -590,7 +590,7 @@ export default function SDMTReconciliation() {
             }
           >
             <Plus size={16} />
-            Upload Invoice
+            Subir Factura
           </Button>
         </div>
       </div>
@@ -603,7 +603,7 @@ export default function SDMTReconciliation() {
             <div className="text-2xl font-bold text-green-600">
               {matchedCount}
             </div>
-            <p className="text-sm text-muted-foreground">Matched Invoices</p>
+            <p className="text-sm text-muted-foreground">Facturas Conciliadas</p>
           </CardContent>
         </Card>
 
@@ -613,7 +613,7 @@ export default function SDMTReconciliation() {
             <div className="text-2xl font-bold text-blue-600">
               {pendingCount}
             </div>
-            <p className="text-sm text-muted-foreground">Pending Review</p>
+            <p className="text-sm text-muted-foreground">Revisión Pendiente</p>
           </CardContent>
         </Card>
 
@@ -623,7 +623,7 @@ export default function SDMTReconciliation() {
             <div className="text-2xl font-bold text-red-600">
               {disputedCount}
             </div>
-            <p className="text-sm text-muted-foreground">Disputed Items</p>
+            <p className="text-sm text-muted-foreground">Elementos Disputados</p>
           </CardContent>
         </Card>
       </div>
@@ -637,17 +637,16 @@ export default function SDMTReconciliation() {
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Upload Invoice</DialogTitle>
+            <DialogTitle>Subir Factura</DialogTitle>
             <DialogDescription>
-              Upload invoice documents and link them to specific cost line items
-              and time periods.
+              Sube documentos de factura y vincúlalos a rubros específicos de costos y períodos de tiempo.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
             <div className="grid gap-4 md:grid-cols-[1.6fr,1fr] md:items-end">
               <div className="space-y-2">
-                <Label htmlFor={lineItemSelectId}>Line Item *</Label>
+                <Label htmlFor={lineItemSelectId}>Rubro *</Label>
                 {lineItemOptions.length ? (
                   <Select
                     value={uploadFormData.line_item_id}
@@ -658,8 +657,8 @@ export default function SDMTReconciliation() {
                       }))
                     }
                   >
-                    <SelectTrigger id={lineItemSelectId} aria-label="Line item">
-                      <SelectValue placeholder="Select line item" />
+                    <SelectTrigger id={lineItemSelectId} aria-label="Rubro">
+                      <SelectValue placeholder="Selecciona rubro" />
                     </SelectTrigger>
                     <SelectContent>
                       {lineItemOptions.map((option) => (
@@ -672,7 +671,7 @@ export default function SDMTReconciliation() {
                 ) : (
                   <Input
                     id={lineItemSelectId}
-                    placeholder="Enter line item ID"
+                    placeholder="Ingresa ID de rubro"
                     value={uploadFormData.line_item_id}
                     onChange={(e) =>
                       setUploadFormData((prev) => ({
@@ -694,7 +693,7 @@ export default function SDMTReconciliation() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor={monthSelectId}>Month *</Label>
+                <Label htmlFor={monthSelectId}>Mes *</Label>
                 <Select
                   value={String(uploadFormData.month)}
                   onValueChange={(value) =>
@@ -704,8 +703,8 @@ export default function SDMTReconciliation() {
                     }))
                   }
                 >
-                  <SelectTrigger id={monthSelectId} aria-label="Invoice month">
-                    <SelectValue placeholder="Select month" />
+                  <SelectTrigger id={monthSelectId} aria-label="Mes de factura">
+                    <SelectValue placeholder="Selecciona mes" />
                   </SelectTrigger>
                   <SelectContent>
                     {Array.from({ length: 12 }, (_, i) => (
@@ -720,7 +719,7 @@ export default function SDMTReconciliation() {
 
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="amount">Invoice Amount *</Label>
+                <Label htmlFor="amount">Monto de Factura *</Label>
                 <Input
                   id="amount"
                   name="amount"
@@ -736,11 +735,11 @@ export default function SDMTReconciliation() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="vendor">Vendor</Label>
+                <Label htmlFor="vendor">Proveedor</Label>
                 <Input
                   id="vendor"
                   name="vendor"
-                  placeholder="Vendor name"
+                  placeholder="Nombre del proveedor"
                   value={uploadFormData.vendor}
                   onChange={(e) =>
                     setUploadFormData((prev) => ({
@@ -754,11 +753,11 @@ export default function SDMTReconciliation() {
 
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="invoice_number">Invoice Number</Label>
+                <Label htmlFor="invoice_number">Número de Factura</Label>
                 <Input
                   id="invoice_number"
                   name="invoice_number"
-                  placeholder="INV-001"
+                  placeholder="FAC-001"
                   value={uploadFormData.invoice_number}
                   onChange={(e) =>
                     setUploadFormData((prev) => ({
@@ -769,7 +768,7 @@ export default function SDMTReconciliation() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="invoice_date">Invoice Date *</Label>
+                <Label htmlFor="invoice_date">Fecha de Factura *</Label>
                 <Input
                   id="invoice_date"
                   name="invoice_date"
@@ -786,7 +785,7 @@ export default function SDMTReconciliation() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor={fileInputId}>Upload File *</Label>
+              <Label htmlFor={fileInputId}>Subir Archivo *</Label>
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4">
                 <Input
                   id={fileInputId}
@@ -801,11 +800,11 @@ export default function SDMTReconciliation() {
                   id={fileHelpId}
                   className="text-xs text-muted-foreground text-center"
                 >
-                  Supported formats: PDF, JPG, PNG, Excel, CSV
+                  Formatos soportados: PDF, JPG, PNG, Excel, CSV
                 </p>
                 {uploadFormData.file && (
                   <p className="text-sm text-primary mt-2">
-                    Selected: {uploadFormData.file.name}
+                    Seleccionado: {uploadFormData.file.name}
                   </p>
                 )}
               </div>
@@ -814,13 +813,13 @@ export default function SDMTReconciliation() {
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setShowUploadForm(false)}>
-              Cancel
+              Cancelar
             </Button>
             <Button
               onClick={handleInvoiceSubmit}
               disabled={uploadMutation.isPending || !canUploadInvoices}
             >
-              {uploadMutation.isPending ? "Uploading..." : "Upload Invoice"}
+              {uploadMutation.isPending ? "Subiendo..." : "Subir Factura"}
             </Button>
           </div>
         </DialogContent>
@@ -829,26 +828,26 @@ export default function SDMTReconciliation() {
       {/* Invoices table */}
       <Card>
         <CardHeader>
-          <CardTitle>Invoices & Documentation</CardTitle>
+          <CardTitle>Facturas y Documentación</CardTitle>
         </CardHeader>
         <CardContent>
           {invoicesErrorInfo ? (
             <div className="text-center py-12 text-destructive">
-              {invoicesErrorInfo.message || "Failed to load invoices."}
+              {invoicesErrorInfo.message || "Error al cargar facturas."}
             </div>
           ) : invoicesLoading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="text-muted-foreground">Loading invoices...</div>
+              <div className="text-muted-foreground">Cargando facturas...</div>
             </div>
           ) : filteredInvoices.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">
                 {filterLineItem || filterMonth
-                  ? "No invoices found matching filter"
-                  : "No invoices uploaded yet"}
+                  ? "No se encontraron facturas con ese filtro"
+                  : "Aún no se han subido facturas"}
               </p>
               <p className="text-sm text-muted-foreground">
-                Upload invoices to track and match against forecast amounts
+                Sube facturas para rastrear y conciliar contra montos pronosticados
               </p>
             </div>
           ) : (
@@ -856,13 +855,13 @@ export default function SDMTReconciliation() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Line Item</TableHead>
-                    <TableHead>Month</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>File</TableHead>
-                    <TableHead>Uploaded</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead>Rubro</TableHead>
+                    <TableHead>Mes</TableHead>
+                    <TableHead>Monto</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Archivo</TableHead>
+                    <TableHead>Subido</TableHead>
+                    <TableHead>Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -882,7 +881,7 @@ export default function SDMTReconciliation() {
                             variant="ghost"
                             className="h-4 w-4 p-0"
                             onClick={() => navigateToForecast(inv.line_item_id, inv.month)}
-                            title="View in forecast"
+                            title="Ver en pronóstico"
                           >
                             <ExternalLink size={12} />
                           </Button>
@@ -915,7 +914,7 @@ export default function SDMTReconciliation() {
                             {inv.originalName ||
                               inv.file_name ||
                               inv.documentKey ||
-                              "Pending document"}
+                              "Documento pendiente"}
                           </span>
                           {inv.documentKey && (
                             <span
@@ -948,7 +947,7 @@ export default function SDMTReconciliation() {
                                   }
                                   disabled={statusMutation.isPending}
                                 >
-                                  Match
+                                  Conciliar
                                 </Button>
                                 <Button
                                   size="sm"
@@ -957,12 +956,12 @@ export default function SDMTReconciliation() {
                                     handleStatusUpdate(
                                       inv.id,
                                       "Disputed",
-                                      "Requires review",
+                                      "Requiere revisión",
                                     )
                                   }
                                   disabled={statusMutation.isPending}
                                 >
-                                  Dispute
+                                  Disputar
                                 </Button>
                               </>
                             )}
@@ -973,7 +972,7 @@ export default function SDMTReconciliation() {
                                 onClick={() => handleStatusUpdate(inv.id, "Matched")}
                                 disabled={statusMutation.isPending}
                               >
-                                Resolve
+                                Resolver
                               </Button>
                             )}
                           </div>
