@@ -166,7 +166,19 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   const clientName = baseline.payload?.client_name || baseline.client_name || "";
   const currency = baseline.payload?.currency || baseline.currency || "USD";
   const startDate = baseline.payload?.start_date || baseline.start_date || now;
+  const durationMonths = baseline.payload?.duration_months || baseline.duration_months || 12;
   const totalAmount = baseline.total_amount || body.mod_total || 0;
+
+  // Calculate end_date from start_date + duration_months
+  let endDate = baseline.payload?.end_date || baseline.end_date;
+  if (!endDate && startDate && durationMonths) {
+    const start = new Date(startDate);
+    if (!isNaN(start.getTime())) {
+      const end = new Date(start);
+      end.setMonth(end.getMonth() + durationMonths);
+      endDate = end.toISOString().split('T')[0]; // yyyy-mm-dd format
+    }
+  }
 
   // Create new handoff record
   const handoffId = `handoff_${uuidv4().replace(/-/g, "").substring(0, 10)}`;
@@ -184,6 +196,19 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     createdBy: userEmail,
   };
 
+  // Generate a clean project code from projectId if not already in proper format
+  // projectId might be something like "PRJ-PROJECT-P-5AE50ACE" (derived from project name)
+  // We want a cleaner code like "P-5ae50ace" or keep projectId if it's already clean
+  let projectCode = projectId;
+  
+  // If projectId looks like it was auto-generated from a name (contains "PROJECT" or is very long),
+  // generate a shorter code. Otherwise use projectId as-is.
+  if (projectId.includes("PROJECT") || projectId.length > 20) {
+    // Generate a short code: extract meaningful part or create new one
+    const baselineIdShort = baselineId.replace(/^base_/, '').substring(0, 8);
+    projectCode = `P-${baselineIdShort}`;
+  }
+
   // Create/update SDMT-ready project in projects table
   const projectMetadata = {
     pk: `PROJECT#${projectId}`,
@@ -193,10 +218,10 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     projectId,
     name: projectName,
     nombre: projectName,
-    client: clientName,
-    cliente: clientName,
-    code: projectId, // Use projectId as code if not provided
-    codigo: projectId,
+    client: clientName || "",
+    cliente: clientName || "",
+    code: projectCode,
+    codigo: projectCode,
     status: "active",
     estado: "active",
     module: "SDMT",
@@ -207,6 +232,9 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     moneda: currency,
     start_date: startDate,
     fecha_inicio: startDate,
+    end_date: endDate || null,
+    fecha_fin: endDate || null,
+    duration_months: durationMonths,
     mod_total: totalAmount,
     presupuesto_total: totalAmount,
     created_at: now,
