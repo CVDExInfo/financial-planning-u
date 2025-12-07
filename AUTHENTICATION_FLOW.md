@@ -526,7 +526,144 @@ As of November 2025, all Spark and KV (Key-Value store) runtime dependencies hav
 
 Any "Quality Gates" functionality or features that previously relied on Spark integration are currently disabled or have been reimplemented using Cognito-based data sources. The SDMT Cost Catalog continues to function using local data and API endpoints without any Spark/KV dependencies.
 
+## Multi-SPA Integration with Prefacturas
+
+### Architecture Overview
+
+The Finanzas application is part of a **multi-SPA architecture** sharing a single CloudFront distribution with the Prefacturas SPA. Both applications:
+
+- Share the same AWS Cognito User Pool for authentication
+- Use the same CloudFront distribution (`d7t9x3j66yd8k.cloudfront.net`)
+- Maintain completely independent routing and state
+- Navigate between each other via full page redirects
+
+### Path Mapping
+
+| SPA | Path Prefix | Origin | CloudFront Function |
+|-----|-------------|--------|-------------------|
+| Finanzas | `/finanzas/*` | finanzas-ui-s3 | finanzas-spa-rewrite |
+| Prefacturas | `/prefacturas/*` | prefactura-ui-s3 | prefacturas-spa-rewrite |
+
+### Navigation Between SPAs
+
+**From Finanzas to Prefacturas:**
+
+The Finanzas application provides buttons to navigate to Prefacturas using **full page navigation** (not React Router):
+
+```typescript
+// HomePage.tsx
+const prefacturasEntryPath = "/prefacturas/login";
+const navigateToPrefacturas = () => window.location.assign(prefacturasEntryPath);
+
+// LoginPage.tsx
+const PREFACTURAS_PORTAL_LOGIN = 
+  import.meta.env.VITE_PREFACTURAS_URL || 
+  "https://d7t9x3j66yd8k.cloudfront.net/prefacturas/login";
+```
+
+**Why Full Page Navigation?**
+
+1. Each SPA has its own React Router instance that only handles routes within its basename
+2. Prevents routing conflicts between the two applications
+3. Ensures clean state separation between apps
+4. Allows each app to have different authentication flows
+
+**Implementation Guidelines:**
+
+- ✅ **DO** use `window.location.assign()` for cross-SPA navigation
+- ✅ **DO** use environment variables for cross-SPA URLs (`VITE_PREFACTURAS_URL`)
+- ❌ **DON'T** use `<Link to="/prefacturas/...">` (stays in Finanzas Router)
+- ❌ **DON'T** use `navigate("/prefacturas/...")` (stays in Finanzas Router)
+
+### Cognito Configuration for Multi-SPA
+
+Both SPAs share the same Cognito User Pool and App Client but require their own callback URLs:
+
+**Allowed Callback URLs:**
+```
+https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html
+https://d7t9x3j66yd8k.cloudfront.net/finanzas/
+https://d7t9x3j66yd8k.cloudfront.net/prefacturas/auth/callback.html
+https://d7t9x3j66yd8k.cloudfront.net/prefacturas/
+```
+
+**Allowed Sign-out URLs:**
+```
+https://d7t9x3j66yd8k.cloudfront.net/finanzas/
+https://d7t9x3j66yd8k.cloudfront.net/prefacturas/
+```
+
+### Session Sharing
+
+When a user is authenticated in Finanzas and navigates to Prefacturas:
+
+1. Both apps read from the same localStorage tokens (`cv.jwt`, `finz_jwt`)
+2. User remains authenticated without re-login (same Cognito session)
+3. Each app validates the JWT independently
+4. Role mappings may differ between apps based on their permission logic
+
+### Environment Variables
+
+**Finanzas SPA** (`.env.production`):
+```bash
+# Prefacturas portal entry point
+VITE_PREFACTURAS_URL=https://d7t9x3j66yd8k.cloudfront.net/prefacturas/login
+
+# Cognito redirects for Finanzas
+VITE_COGNITO_REDIRECT_SIGNIN=https://d7t9x3j66yd8k.cloudfront.net/finanzas/auth/callback.html
+VITE_COGNITO_REDIRECT_SIGNOUT=https://d7t9x3j66yd8k.cloudfront.net/finanzas/
+```
+
+**Prefacturas SPA** (in `acta-ui-pre-factura` repository):
+```bash
+# Finanzas entry point (if needed)
+VITE_FINANZAS_URL=https://d7t9x3j66yd8k.cloudfront.net/finanzas/
+
+# Cognito redirects for Prefacturas
+VITE_COGNITO_REDIRECT_SIGNIN=https://d7t9x3j66yd8k.cloudfront.net/prefacturas/auth/callback.html
+VITE_COGNITO_REDIRECT_SIGNOUT=https://d7t9x3j66yd8k.cloudfront.net/prefacturas/
+```
+
+### Testing Cross-SPA Authentication
+
+1. **Login in Finanzas:**
+   - Authenticate via Cognito Hosted UI
+   - Verify tokens stored in localStorage
+   - Check user session active
+
+2. **Navigate to Prefacturas:**
+   - Click "Entrar a Prefacturas Portal" button
+   - Verify full page navigation occurs (URL changes to `/prefacturas/*`)
+   - Verify user remains authenticated without re-login
+   - Confirm Prefacturas loads user data from same JWT
+
+3. **Navigate Back to Finanzas:**
+   - Use browser back button or Prefacturas link to Finanzas
+   - Verify full page navigation
+   - Confirm session still active
+
+4. **Logout:**
+   - Logout from either app
+   - Verify tokens cleared from localStorage
+   - Navigate to other app → should show login screen
+
+### Deployment Considerations
+
+When deploying changes that affect authentication:
+
+1. **Cognito Changes:** Update callback URLs in Cognito first, then deploy SPAs
+2. **CloudFront Changes:** Deploy functions and behaviors before invalidating cache
+3. **Coordinated Deploys:** If changing shared authentication logic, coordinate deployments of both SPAs
+4. **Rollback Plan:** Have rollback procedures for both SPAs if authentication breaks
+
+### Documentation References
+
+For detailed information about the multi-SPA architecture:
+
+- [Multi-SPA CloudFront Architecture](./docs/MULTI_SPA_CLOUDFRONT_ARCHITECTURE.md) - Complete architecture guide
+- [CloudFront Operations Guide](./docs/CLOUDFRONT_OPERATIONS_GUIDE.md) - AWS operations procedures
+
 ---
 
-**Last Updated**: November 2025  
+**Last Updated**: December 2024  
 **Maintainers**: Ikusi Digital Platform Team
