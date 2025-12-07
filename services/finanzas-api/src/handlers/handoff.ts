@@ -166,7 +166,35 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   const clientName = baseline.payload?.client_name || baseline.client_name || "";
   const currency = baseline.payload?.currency || baseline.currency || "USD";
   const startDate = baseline.payload?.start_date || baseline.start_date || now;
+  const durationMonths = baseline.payload?.duration_months || baseline.duration_months || 12;
   const totalAmount = baseline.total_amount || body.mod_total || 0;
+
+  // Calculate end_date from start_date + duration_months
+  // Using proper date arithmetic to handle month boundaries and leap years correctly
+  let endDate = baseline.payload?.end_date || baseline.end_date;
+  if (!endDate && startDate && durationMonths) {
+    const start = new Date(startDate);
+    if (!isNaN(start.getTime())) {
+      // Add months by adjusting year and month separately to handle boundaries correctly
+      const end = new Date(start);
+      const targetMonth = end.getMonth() + durationMonths;
+      const yearsToAdd = Math.floor(targetMonth / 12);
+      const monthsToAdd = targetMonth % 12;
+      
+      end.setFullYear(end.getFullYear() + yearsToAdd);
+      end.setMonth(monthsToAdd);
+      
+      // Handle day overflow (e.g., Jan 31 + 1 month should be Feb 28/29, not Mar 3)
+      // If the day changed unexpectedly, set to last day of previous month
+      const originalDay = start.getDate();
+      if (end.getDate() !== originalDay && end.getDate() < originalDay) {
+        // Day overflowed, set to last day of target month
+        end.setDate(0); // Sets to last day of previous month (which is our target)
+      }
+      
+      endDate = end.toISOString().split('T')[0]; // yyyy-mm-dd format
+    }
+  }
 
   // Create new handoff record
   const handoffId = `handoff_${uuidv4().replace(/-/g, "").substring(0, 10)}`;
@@ -184,6 +212,21 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     createdBy: userEmail,
   };
 
+  // Generate a clean project code from projectId if not already in proper format
+  // projectId might be something like "PRJ-PROJECT-P-5AE50ACE" (derived from project name)
+  // We want a cleaner code like "P-5ae50ace" or keep projectId if it's already clean
+  const MAX_CLEAN_CODE_LENGTH = 20;
+  const CODE_SUFFIX_LENGTH = 8;
+  let projectCode = projectId;
+  
+  // If projectId looks like it was auto-generated from a name (contains "PROJECT" or is very long),
+  // generate a shorter code. Otherwise use projectId as-is.
+  if (projectId.includes("PROJECT") || projectId.length > MAX_CLEAN_CODE_LENGTH) {
+    // Generate a short code: extract meaningful part or create new one
+    const baselineIdShort = baselineId.replace(/^base_/, '').substring(0, CODE_SUFFIX_LENGTH);
+    projectCode = `P-${baselineIdShort}`;
+  }
+
   // Create/update SDMT-ready project in projects table
   const projectMetadata = {
     pk: `PROJECT#${projectId}`,
@@ -193,10 +236,10 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     projectId,
     name: projectName,
     nombre: projectName,
-    client: clientName,
-    cliente: clientName,
-    code: projectId, // Use projectId as code if not provided
-    codigo: projectId,
+    client: clientName || "",
+    cliente: clientName || "",
+    code: projectCode,
+    codigo: projectCode,
     status: "active",
     estado: "active",
     module: "SDMT",
@@ -207,6 +250,9 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     moneda: currency,
     start_date: startDate,
     fecha_inicio: startDate,
+    end_date: endDate || null,
+    fecha_fin: endDate || null,
+    duration_months: durationMonths,
     mod_total: totalAmount,
     presupuesto_total: totalAmount,
     created_at: now,
@@ -234,8 +280,12 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
 
   // Store idempotency record (with 24h TTL)
   const ttl = Math.floor(Date.now() / 1000) + 86400; // 24 hours
+  
+  // API Response Contract: handoffId is REQUIRED for Postman contract tests
+  // and for linking POST (create) with PUT (update) operations
+  // handoffId format: handoff_<10-char-uuid>
   const result = {
-    handoffId,
+    handoffId,              // REQUIRED: API contract for POST /projects/{projectId}/handoff
     projectId,
     baselineId,
     status: "HandoffComplete",
@@ -244,6 +294,15 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     version: handoff.version,
     createdAt: handoff.createdAt,
     updatedAt: handoff.updatedAt,
+    // Additional fields from PR 515 - data lineage fix
+    projectName,
+    client: clientName || "",
+    code: projectCode,
+    startDate,
+    endDate: endDate || null,
+    durationMonths,
+    currency,
+    modTotal: totalAmount,
   };
 
   const idempotencyRecord = {
@@ -287,8 +346,11 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     })
   );
 
+  // Return 201 Created for successful handoff creation
+  // The response MUST include handoffId for API contract compliance (Postman tests)
+  // handoffId is derived from: handoff_${uuidv4()} - see line 200
   return {
-    statusCode: 200,
+    statusCode: 201,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(result),
   };
