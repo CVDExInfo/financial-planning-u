@@ -290,6 +290,15 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     version: handoff.version,
     createdAt: handoff.createdAt,
     updatedAt: handoff.updatedAt,
+    // Additional fields from PR 515 - data lineage fix
+    projectName,
+    client: clientName || "",
+    code: projectCode,
+    startDate,
+    endDate: endDate || null,
+    durationMonths,
+    currency,
+    modTotal: totalAmount,
   };
 
   const idempotencyRecord = {
