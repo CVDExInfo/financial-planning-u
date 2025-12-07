@@ -280,8 +280,12 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
 
   // Store idempotency record (with 24h TTL)
   const ttl = Math.floor(Date.now() / 1000) + 86400; // 24 hours
+  
+  // API Response Contract: handoffId is REQUIRED for Postman contract tests
+  // and for linking POST (create) with PUT (update) operations
+  // handoffId format: handoff_<10-char-uuid>
   const result = {
-    handoffId,
+    handoffId,              // REQUIRED: API contract for POST /projects/{projectId}/handoff
     projectId,
     baselineId,
     status: "HandoffComplete",
@@ -342,8 +346,11 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     })
   );
 
+  // Return 201 Created for successful handoff creation
+  // The response MUST include handoffId for API contract compliance (Postman tests)
+  // handoffId is derived from: handoff_${uuidv4()} - see line 200
   return {
-    statusCode: 200,
+    statusCode: 201,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(result),
   };
