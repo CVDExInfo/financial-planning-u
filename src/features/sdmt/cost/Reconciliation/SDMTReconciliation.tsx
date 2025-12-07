@@ -145,7 +145,6 @@ export default function SDMTReconciliation() {
   const {
     providers,
     isLoading: providersLoading,
-    error: providersError,
   } = useProviders({ estado: "active" });
 
   const normalizeApiError = (error: unknown) => {
