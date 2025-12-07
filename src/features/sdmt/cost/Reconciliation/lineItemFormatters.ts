@@ -8,6 +8,14 @@
 
 import type { LineItem } from "@/types/domain";
 
+// Helper type for extended line items with Spanish property names
+// This supports both Spanish (categoria, linea_codigo, tipo_costo) and English property names
+type ExtendedLineItem = LineItem & {
+  categoria?: string;
+  linea_codigo?: string;
+  tipo_costo?: string;
+};
+
 export interface LineItemLabelOptions {
   showHierarchy?: boolean;
   showCode?: boolean;
@@ -53,10 +61,11 @@ export function formatLineItemDisplay(
     };
   }
 
-  const category = (item as any).categoria?.trim() || item.category?.trim();
+  const extended = item as ExtendedLineItem;
+  const category = (extended.categoria || item.category)?.trim();
   const description = item.description?.trim() || "";
-  const lineaCodigo = (item as any).linea_codigo?.trim();
-  const tipoCosto = (item as any).tipo_costo?.trim();
+  const lineaCodigo = extended.linea_codigo?.trim();
+  const tipoCosto = extended.tipo_costo?.trim();
 
   // Build primary label: category hierarchy and description
   const categoryLabel = category || "General";
@@ -109,10 +118,11 @@ export function formatLineItemDisplay(
 export function formatRubroLabel(item?: LineItem, fallbackId?: string): string {
   if (!item) return fallbackId || "Line item";
   
-  const category = (item as any).categoria?.trim() || item.category?.trim();
+  const extended = item as ExtendedLineItem;
+  const category = (extended.categoria || item.category)?.trim();
   const description = item.description?.trim() || fallbackId || "Line item";
-  const lineaCodigo = (item as any).linea_codigo?.trim();
-  const tipoCosto = (item as any).tipo_costo?.trim();
+  const lineaCodigo = extended.linea_codigo?.trim();
+  const tipoCosto = extended.tipo_costo?.trim();
   const categoryLabel = category || "General";
   const codePart = lineaCodigo || item.id || fallbackId || "";
   const tipoCostoSuffix = tipoCosto ? ` • ${tipoCosto}` : "";

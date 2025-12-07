@@ -73,6 +73,10 @@ import {
 
 /** --------- Types & helpers --------- */
 
+// Constants
+const VENDOR_OTHER_VALUE = "__other__";
+const STORAGE_PATH_DISPLAY_LENGTH = 40;
+
 type UploadFormState = {
   line_item_id: string;
   month: number;
@@ -95,8 +99,8 @@ const createInitialUploadForm = (): UploadFormState => ({
   invoice_date: "",
 });
 
-// Note: formatMatrixLabel and formatRubroLabel functions are now imported from lineItemFormatters.ts
-// Keeping local copies for backwards compatibility, but consider migrating to imported versions.
+// Note: Additional formatting functions (formatMatrixLabel, formatRubroLabel) are available
+// from lineItemFormatters.ts for backward compatibility with other modules.
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("en-US", {
@@ -751,7 +755,7 @@ export default function SDMTReconciliation() {
                           {provider.nombre}
                         </SelectItem>
                       ))}
-                      <SelectItem value="__other__">Other (enter manually)</SelectItem>
+                      <SelectItem value={VENDOR_OTHER_VALUE}>Other (enter manually)</SelectItem>
                     </SelectContent>
                   </Select>
                 ) : (
@@ -779,7 +783,7 @@ export default function SDMTReconciliation() {
                     Enter vendor name exactly as shown on the invoice.
                   </p>
                 )}
-                {uploadFormData.vendor === "__other__" && (
+                {uploadFormData.vendor === VENDOR_OTHER_VALUE && (
                   <Input
                     id="vendor-custom"
                     name="vendor-custom"
@@ -806,6 +810,12 @@ export default function SDMTReconciliation() {
                   placeholder="INV-001"
                   value={uploadFormData.invoice_number}
                   onChange={(e) =>
+                    setUploadFormData((prev) => ({
+                      ...prev,
+                      invoice_number: e.target.value,
+                    }))
+                  }
+                  onBlur={(e) =>
                     setUploadFormData((prev) => ({
                       ...prev,
                       invoice_number: e.target.value.trim(),
@@ -979,8 +989,8 @@ export default function SDMTReconciliation() {
                               className="text-xs text-muted-foreground truncate"
                               title={`Storage path: ${inv.documentKey}`}
                             >
-                              {inv.documentKey.length > 40 
-                                ? `${inv.documentKey.substring(0, 40)}...`
+                              {inv.documentKey.length > STORAGE_PATH_DISPLAY_LENGTH 
+                                ? `${inv.documentKey.substring(0, STORAGE_PATH_DISPLAY_LENGTH)}...`
                                 : inv.documentKey}
                             </span>
                           )}

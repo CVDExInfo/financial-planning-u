@@ -30,7 +30,12 @@ export function useProviders(options: ProvidersOptions = {}) {
         return providers;
       } catch (error) {
         // Handle auth errors by triggering re-authentication
-        if (error instanceof Error && /401|403|expired/i.test(error.message)) {
+        const isAuthError = 
+          (error as any)?.status === 401 || 
+          (error as any)?.status === 403 ||
+          (error instanceof Error && /unauthorized|forbidden/i.test(error.message));
+        
+        if (isAuthError) {
           login?.();
         }
         throw error;
