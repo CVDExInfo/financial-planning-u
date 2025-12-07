@@ -104,6 +104,20 @@ function handler(event) {
 
   // Redirect /finanzas to /finanzas/ (preserves querystring)
   if (uri === "/finanzas") {
+    var query = request.querystring;
+    var queryParts = [];
+
+    for (var key in query) {
+      if (Object.prototype.hasOwnProperty.call(query, key)) {
+        var queryValue = query[key];
+        if (queryValue && queryValue.value !== undefined) {
+          queryParts.push(key + "=" + queryValue.value);
+        }
+      }
+    }
+
+    var queryString = queryParts.length > 0 ? "?" + queryParts.join("&") : "";
+
     return {
       statusCode: 301,
       statusDescription: "Moved Permanently",

@@ -506,7 +506,7 @@ To add a new Cognito group → role mapping:
 
 **Status**: ✅ Fully Removed
 
-As of November 2025, all Spark and KV (Key-Value store) runtime dependencies have been completely removed from the Finanzas application. This change ensures the authentication and user data flows are exclusively Cognito-based.
+As of November 2024, all Spark and KV (Key-Value store) runtime dependencies have been completely removed from the Finanzas application. This change ensures the authentication and user data flows are exclusively Cognito-based.
 
 ### What Was Removed
 
