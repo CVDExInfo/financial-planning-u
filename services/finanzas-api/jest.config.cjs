@@ -7,6 +7,9 @@ module.exports = {
   clearMocks: true,
   extensionsToTreatAsEsm: [".ts"],
   setupFiles: ["<rootDir>/tests/jest.env.setup.js"],
+  transformIgnorePatterns: [
+    "node_modules/(?!(uuid)/)"
+  ],
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
   },
