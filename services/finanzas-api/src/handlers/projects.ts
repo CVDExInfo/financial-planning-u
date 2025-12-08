@@ -13,6 +13,14 @@ import {
 import { logError } from "../utils/logging";
 import crypto from "node:crypto";
 
+/**
+ * Generate a unique handoff ID
+ * Format: handoff_<10-char-uuid>
+ */
+function generateHandoffId(): string {
+  return `handoff_${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`;
+}
+
 type BaselineDealInputs = {
   project_name?: string;
   client_name?: string;
@@ -617,7 +625,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           );
 
           const existingHandoffId = existingHandoffQuery.Items?.[0]?.handoffId || 
-            `handoff_${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`;
+            generateHandoffId();
 
           return ok({
             handoffId: existingHandoffId,
@@ -795,10 +803,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             last_handoff_key: idempotencyKey,
           };
 
-          const handoffId = `handoff_${crypto
-            .randomUUID()
-            .replace(/-/g, "")
-            .slice(0, 10)}`;
+          const handoffId = generateHandoffId();
 
           const handoffOwner =
             (handoffBody.owner as string) || createdBy || "unknown@unknown";
