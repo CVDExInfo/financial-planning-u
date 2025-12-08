@@ -589,7 +589,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"owner\": \"test@example.com\",\n    \"fields\": {\n        \"mod_total\": 1500000,\n        \"pct_ingenieros\": 65,\n        \"pct_sdm\": 35,\n        \"notes\": \"Contract test handoff\"\n    },\n    \"baseline_id\": \"{{baseline_id_seed}}\"\n}",
+              "raw": "{\n    \"baseline_id\": \"{{baseline_id_seed}}\",\n    \"owner\": \"test@example.com\",\n    \"project_name\": \"Contract Test Project\",\n    \"client_name\": \"Test Client Corp\",\n    \"currency\": \"USD\",\n    \"start_date\": \"2025-01-01\",\n    \"duration_months\": 12,\n    \"fields\": {\n        \"mod_total\": 1500000,\n        \"pct_ingenieros\": 65,\n        \"pct_sdm\": 35,\n        \"notes\": \"Contract test handoff\"\n    }\n}",
               "options": {
                 "raw": {
                   "language": "json"
