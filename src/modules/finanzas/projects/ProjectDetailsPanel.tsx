@@ -69,6 +69,28 @@ export default function ProjectDetailsPanel({
           <p className="font-medium">{project.status || "Desconocido"}</p>
         </div>
         <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">Baseline ID</p>
+          <p className="font-medium font-mono">
+            {project.baseline_id || "—"}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">Estatus de baseline</p>
+          <p className="font-medium capitalize">
+            {project.baseline_status || "—"}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">Aceptado por</p>
+          <p className="font-medium">{project.accepted_by || "—"}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">Aceptado el</p>
+          <p className="font-medium">
+            {formatDate(project.baseline_accepted_at)}
+          </p>
+        </div>
+        <div className="space-y-1">
           <p className="text-sm text-muted-foreground">Última actualización</p>
           <p className="font-medium">
             {formatDate(

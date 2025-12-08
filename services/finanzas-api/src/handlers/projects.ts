@@ -196,6 +196,26 @@ export const normalizeProjectItem = (
       (item as Record<string, unknown>).created_by ||
       (item as Record<string, unknown>).createdBy ||
       null,
+    baseline_id:
+      (item as Record<string, unknown>).baseline_id ||
+      (item as Record<string, unknown>).baselineId ||
+      null,
+    baselineId:
+      (item as Record<string, unknown>).baselineId ||
+      (item as Record<string, unknown>).baseline_id ||
+      null,
+    baseline_status:
+      (item as Record<string, unknown>).baseline_status ||
+      (item as Record<string, unknown>).baselineStatus ||
+      null,
+    accepted_by:
+      (item as Record<string, unknown>).accepted_by ||
+      (item as Record<string, unknown>).aceptado_por ||
+      null,
+    baseline_accepted_at:
+      (item as Record<string, unknown>).baseline_accepted_at ||
+      (item as Record<string, unknown>).baselineAcceptedAt ||
+      null,
   };
 };
 
@@ -727,7 +747,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             "",
           baseline_id: baselineId,
           baselineId,
-          baseline_status: "handed_off",
+          baseline_status: "accepted",
           baseline_accepted_at: now,
           status:
             (existingProject.Item as Record<string, unknown> | undefined)

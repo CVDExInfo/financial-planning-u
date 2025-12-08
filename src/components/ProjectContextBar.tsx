@@ -250,10 +250,22 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                   {currentProject.baselineId}
                   <ExternalLink size={12} />
                 </Badge>
-                {currentProject.baselineAcceptedAt && (
-                  <span className="text-xs text-muted-foreground">
-                    Accepted {formatDate(currentProject.baselineAcceptedAt)}
-                  </span>
+                {(currentProject.baseline_status || currentProject.accepted_by) && (
+                  <div className="flex flex-col text-xs text-muted-foreground">
+                    {currentProject.baseline_status && (
+                      <span className="capitalize">
+                        {currentProject.baseline_status}
+                      </span>
+                    )}
+                    {currentProject.accepted_by && (
+                      <span>
+                        Accepted by {currentProject.accepted_by}
+                        {currentProject.baselineAcceptedAt
+                          ? ` on ${formatDate(currentProject.baselineAcceptedAt)}`
+                          : ""}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             ) : null}
