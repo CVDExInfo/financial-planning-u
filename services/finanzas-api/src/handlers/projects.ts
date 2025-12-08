@@ -652,7 +652,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             projectId: resolvedProjectId,
             baselineId,
             status: "HandoffComplete",
-          });
+          }, 201);
         }
 
         if (!baseline) {
