@@ -115,7 +115,6 @@ describe("Handoff Data Mapping", () => {
 
     it("should not use long projectId as code", () => {
       const longProjectId = "P-e3f6647d-3b01-492d-8e54-28bcedcf8919";
-      const expectedCodePrefix = "P-";
       
       // Code should be short, not the full UUID
       const isLongUuid = /^P-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(longProjectId);
