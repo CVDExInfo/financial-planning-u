@@ -26,6 +26,10 @@ export const ProjectSchema = z.object({
   description: z.string().default(""),
   status: z.enum(["active", "inactive", "archived"]).default("active"),
   baseline_id: z.string().default(""),
+  baseline_status: z
+    .enum(["pending", "handed_off", "accepted", "rejected"])
+    .optional(),
+  accepted_by: z.string().optional(),
   baseline_accepted_at: z.string().datetime().optional(),
   next_billing_periods: z.array(z.unknown()).default([]),
   created_at: z.string().datetime().optional(),

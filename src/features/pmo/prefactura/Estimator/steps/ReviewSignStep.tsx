@@ -95,6 +95,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
   const [isSigning, setIsSigning] = useState(false);
   const [signatureComplete, setSignatureComplete] = useState(false);
   const [baselineId, setBaselineId] = useState<string>("");
+  const [signedBy, setSignedBy] = useState<string>("");
   const [baselineMeta, setBaselineMeta] =
     useState<PrefacturaBaselineResponse | null>(null);
   const [isHandingOff, setIsHandingOff] = useState(false);
@@ -214,6 +215,8 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       const userEmail = authData
         ? extractEmailFromJWT(authData)
         : "unknown@user.com";
+
+      setSignedBy(userEmail);
 
       console.log("✍️  Submitting baseline for server-side signing:", {
         projectName: dealInputs?.project_name,
@@ -362,6 +365,8 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         pct_ingenieros: laborPercentage,
         pct_sdm: 100 - laborPercentage,
         aceptado_por: userEmail,
+        project_name: dealInputs?.project_name,
+        client_name: dealInputs?.client_name,
       });
 
       toast.success("✓ Project successfully handed off to SDMT team!");
@@ -1010,7 +1015,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
 
               <div className="flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
-                  Signing as: PMO User • {new Date().toLocaleDateString()}
+                  Signing as: {signedBy || "PMO User"} • {new Date().toLocaleDateString()}
                 </div>
                 <Button
                   onClick={handleDigitalSign}
@@ -1134,6 +1139,11 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                       {baselineId}
                     </code>
                   </li>
+                  {signedBy && (
+                    <li>
+                      <span className="font-medium">Signed by:</span> {signedBy}
+                    </li>
+                  )}
                   <li>
                     <span className="font-medium">Total Budget:</span> $
                     {(

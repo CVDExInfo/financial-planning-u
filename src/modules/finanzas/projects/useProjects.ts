@@ -6,11 +6,8 @@ import {
   getProjects,
   FinanzasApiError,
 } from "@/api/finanzas";
-import {
-  normalizeProjectsPayload,
-  type Json,
-} from "@/api/finanzas-projects-helpers";
-import { getProjectDisplay } from "@/lib/projects/display";
+import { normalizeProjectsPayload } from "@/api/finanzas-projects-helpers";
+import { normalizeProjectForUI } from "./normalizeProject";
 import { logoutWithHostedUI } from "@/config/aws";
 
 export type ProjectForUI = {
@@ -23,37 +20,13 @@ export type ProjectForUI = {
   mod_total: number;
   currency?: string;
   status?: string;
+  baseline_id?: string;
+  baseline_status?: string | null;
+  accepted_by?: string | null;
+  baseline_accepted_at?: string | null;
   updated_at?: string;
   created_at?: string;
 };
-
-function normalizeProjectForUI(raw: Json): ProjectForUI {
-  const safeString = (value: unknown, fallback = "") =>
-    (value ? String(value) : fallback).trim();
-
-  const display = getProjectDisplay(raw as any);
-  const updatedAt = safeString(
-    raw.updated_at || (raw as any)?.updatedAt || (raw as any)?.last_updated || "",
-  );
-  const createdAt = safeString(
-    raw.created_at || (raw as any)?.createdAt || (raw as any)?.dateCreated || "",
-  );
-
-  return {
-    id: display.id,
-    code: display.code,
-    name: display.name,
-    client: display.client || "",
-    start_date:
-      safeString(raw.start_date || raw.fecha_inicio || "") || undefined,
-    end_date: safeString(raw.end_date || raw.fecha_fin || "") || undefined,
-    mod_total: Number(raw.mod_total ?? raw.presupuesto_total ?? 0) || 0,
-    currency: safeString(raw.currency || raw.moneda || "USD"),
-    status: safeString(raw.status || raw.estado || "Activo"),
-    updated_at: updatedAt || undefined,
-    created_at: createdAt || undefined,
-  } as ProjectForUI;
-}
 
 function extractMessage(err: unknown): string {
   if (err instanceof FinanzasApiError) return err.message;

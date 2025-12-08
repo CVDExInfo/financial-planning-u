@@ -22,6 +22,8 @@ export type ProjectSummary = {
   description?: string;
   baselineId?: string;
   baselineAcceptedAt?: string;
+  baseline_status?: string;
+  accepted_by?: string;
   status?: Project["status"];
   period?: string;
 };
@@ -145,6 +147,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       description: project.description || "",
       baselineId: project.baseline_id || undefined,
       baselineAcceptedAt: project.baseline_accepted_at,
+      baseline_status: (project as any)?.baseline_status,
+      accepted_by: (project as any)?.accepted_by,
       status: project.status,
     };
   };

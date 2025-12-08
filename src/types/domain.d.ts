@@ -191,6 +191,8 @@ export type Project = {
   start_date?: string | null;
   end_date?: string | null;
   baseline_id?: string;
+  baseline_status?: "pending" | "handed_off" | "accepted" | "rejected" | null;
+  accepted_by?: string | null;
   baseline_accepted_at?: string;
   next_billing_periods: BillingPeriod[];
   status: "active" | "completed" | "on_hold";

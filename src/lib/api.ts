@@ -185,13 +185,24 @@ export class ApiService {
           project?.name ||
           "";
 
+        const baselineStatus =
+          project?.baseline_status || project?.baselineStatus || "";
+        const acceptedBy = project?.accepted_by || project?.aceptado_por || "";
+        const baselineAcceptedAt =
+          project?.baseline_accepted_at ||
+          project?.baselineAcceptedAt ||
+          project?.baselineAccepted_at ||
+          "";
+
         return {
           id: String(id).trim(),
           name: String(name || "").trim() || "Unnamed Project",
           description: project?.description || project?.descripcion || "",
           baseline_id: project?.baseline_id || project?.baselineId || "",
+          baseline_status: baselineStatus || undefined,
+          accepted_by: acceptedBy || undefined,
           baseline_accepted_at:
-            project?.baseline_accepted_at ||
+            baselineAcceptedAt ||
             project?.created_at ||
             project?.createdAt ||
             project?.fecha_inicio ||
