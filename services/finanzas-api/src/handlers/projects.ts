@@ -601,7 +601,26 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             (existingProject.Item as Record<string, unknown>).baselineId ===
               baselineId)
         ) {
+          // Project already handed off with this baseline - return existing handoff
+          // Query for the most recent handoff record to get handoffId
+          const existingHandoffQuery = await ddb.send(
+            new QueryCommand({
+              TableName: tableName("projects"),
+              KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+              ExpressionAttributeValues: {
+                ":pk": `PROJECT#${resolvedProjectId}`,
+                ":sk": "HANDOFF#",
+              },
+              ScanIndexForward: false, // Get most recent first
+              Limit: 1,
+            })
+          );
+
+          const existingHandoffId = existingHandoffQuery.Items?.[0]?.handoffId || 
+            `handoff_${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`;
+
           return ok({
+            handoffId: existingHandoffId,
             projectId: resolvedProjectId,
             baselineId,
             status: "HandoffComplete",

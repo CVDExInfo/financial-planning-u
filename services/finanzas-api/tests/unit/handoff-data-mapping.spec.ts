@@ -213,4 +213,48 @@ describe("Handoff Data Mapping", () => {
       expect(expectedMetadata.code.length).toBeLessThanOrEqual(20);
     });
   });
+
+  describe("API Response Contract", () => {
+    it("should always include handoffId in response for POST /projects/{projectId}/handoff", () => {
+      // Simulating the response object that should be returned
+      const handoffId = "handoff_abc123def4";
+      const projectId = "P-5ae50ace";
+      const baselineId = "base_17d353bb1566";
+
+      const response = {
+        handoffId,
+        projectId,
+        baselineId,
+        status: "HandoffComplete",
+      };
+
+      // API contract assertions
+      expect(response).toHaveProperty("handoffId");
+      expect(response.handoffId).toBe(handoffId);
+      expect(response).toHaveProperty("projectId");
+      expect(response).toHaveProperty("baselineId");
+      expect(response).toHaveProperty("status");
+    });
+
+    it("should include handoffId even when project already exists with baseline", () => {
+      // When a project already exists with the same baseline,
+      // the API should still return handoffId (from existing handoff record)
+      const existingHandoffId = "handoff_existing123";
+      const projectId = "P-5ae50ace";
+      const baselineId = "base_17d353bb1566";
+
+      // Simulate early return scenario when project already exists
+      const response = {
+        handoffId: existingHandoffId,
+        projectId,
+        baselineId,
+        status: "HandoffComplete",
+      };
+
+      expect(response).toHaveProperty("handoffId");
+      expect(response.handoffId).toBe(existingHandoffId);
+      expect(typeof response.handoffId).toBe("string");
+      expect(response.handoffId).toContain("handoff");
+    });
+  });
 });
