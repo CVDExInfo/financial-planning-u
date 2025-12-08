@@ -172,7 +172,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
 
   // Calculate end_date from start_date + duration_months
   // Using proper date arithmetic to handle month boundaries and leap years correctly
-  let endDate = baseline.payload?.end_date || baseline.end_date;
+  let endDate = baseline?.payload?.end_date || baseline?.end_date || body.end_date || body.endDate;
   if (!endDate && startDate && durationMonths) {
     const start = new Date(startDate);
     if (!isNaN(start.getTime())) {
