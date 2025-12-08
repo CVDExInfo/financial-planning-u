@@ -1391,6 +1391,13 @@ Resources:
       SamResourceId: Pep3Permission
 
 Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL for the Finanzas SD API
+    Value:
+      Fn::Sub: https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
+    Export:
+      Name:
+        Fn::Sub: finanzas-sd-api-endpoint-${StageName}
   FinzApiId:
     Description: HTTP API ID
     Value:
