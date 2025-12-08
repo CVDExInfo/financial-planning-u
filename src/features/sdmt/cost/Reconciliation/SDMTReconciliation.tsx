@@ -56,6 +56,7 @@ import { useProject } from "@/contexts/ProjectContext";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import { useProjectInvoices } from "@/hooks/useProjectInvoices";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useProviders } from "@/hooks/useProviders";
 import {
   uploadInvoice,
   updateInvoiceStatus,
@@ -63,7 +64,16 @@ import {
   FinanzasApiError,
 } from "@/api/finanzas";
 
+import {
+  formatLineItemDisplay,
+  extractFriendlyFilename,
+} from "./lineItemFormatters";
+
 /** --------- Types & helpers --------- */
+
+// Constants
+const VENDOR_OTHER_VALUE = "__other__";
+const STORAGE_PATH_DISPLAY_LENGTH = 40;
 
 type UploadFormState = {
   line_item_id: string;
@@ -87,6 +97,8 @@ const createInitialUploadForm = (): UploadFormState => ({
   invoice_date: "",
 });
 
+// Note: Additional formatting functions (formatMatrixLabel, formatRubroLabel) are available
+// from lineItemFormatters.ts for backward compatibility with other modules.
 const formatMatrixLabel = (
   item?: LineItem,
   month?: number,
@@ -148,6 +160,12 @@ export default function SDMTReconciliation() {
     error: lineItemsError,
     invalidate: invalidateLineItems,
   } = useProjectLineItems();
+
+  // Fetch providers for vendor dropdown
+  const {
+    providers,
+    isLoading: providersLoading,
+  } = useProviders({ estado: "active" });
 
   const normalizeApiError = (error: unknown) => {
     if (!error) return null;
@@ -735,19 +753,69 @@ export default function SDMTReconciliation() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="vendor">Proveedor</Label>
-                <Input
-                  id="vendor"
-                  name="vendor"
-                  placeholder="Nombre del proveedor"
-                  value={uploadFormData.vendor}
-                  onChange={(e) =>
-                    setUploadFormData((prev) => ({
-                      ...prev,
-                      vendor: e.target.value,
-                    }))
-                  }
-                />
+                <Label htmlFor="vendor">Vendor *</Label>
+                {providers.length > 0 ? (
+                  <Select
+                    value={uploadFormData.vendor}
+                    onValueChange={(value) =>
+                      setUploadFormData((prev) => ({
+                        ...prev,
+                        vendor: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="vendor" aria-label="Vendor">
+                      <SelectValue placeholder="Select vendor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {providers.map((provider) => (
+                        <SelectItem key={provider.id} value={provider.nombre}>
+                          {provider.nombre}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={VENDOR_OTHER_VALUE}>Other (enter manually)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id="vendor"
+                    name="vendor"
+                    placeholder="Vendor name (as on invoice)"
+                    value={uploadFormData.vendor}
+                    onChange={(e) =>
+                      setUploadFormData((prev) => ({
+                        ...prev,
+                        vendor: e.target.value,
+                      }))
+                    }
+                    aria-describedby="vendor-help"
+                  />
+                )}
+                {providersLoading && (
+                  <p className="text-xs text-muted-foreground">
+                    Loading vendors...
+                  </p>
+                )}
+                {!providersLoading && providers.length === 0 && (
+                  <p id="vendor-help" className="text-xs text-muted-foreground">
+                    Enter vendor name exactly as shown on the invoice.
+                  </p>
+                )}
+                {uploadFormData.vendor === VENDOR_OTHER_VALUE && (
+                  <Input
+                    id="vendor-custom"
+                    name="vendor-custom"
+                    placeholder="Enter vendor name"
+                    className="mt-2"
+                    onChange={(e) =>
+                      setUploadFormData((prev) => ({
+                        ...prev,
+                        vendor: e.target.value,
+                      }))
+                    }
+                    autoFocus
+                  />
+                )}
               </div>
             </div>
 
@@ -765,7 +833,17 @@ export default function SDMTReconciliation() {
                       invoice_number: e.target.value,
                     }))
                   }
+                  onBlur={(e) =>
+                    setUploadFormData((prev) => ({
+                      ...prev,
+                      invoice_number: e.target.value.trim(),
+                    }))
+                  }
+                  aria-describedby="invoice-number-help"
                 />
+                <p id="invoice-number-help" className="text-xs text-muted-foreground">
+                  Enter the invoice number from vendor's invoice document.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="invoice_date">Fecha de Factura *</Label>
@@ -869,17 +947,28 @@ export default function SDMTReconciliation() {
                     <TableRow key={inv.id}>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="font-medium">
-                            {formatMatrixLabel(
-                              safeLineItems.find((li) => li.id === inv.line_item_id),
-                              inv.month,
-                              inv.line_item_id
-                            )}
+                          <div className="max-w-md">
+                            {(() => {
+                              const lineItem = safeLineItems.find((li) => li.id === inv.line_item_id);
+                              const formatted = formatLineItemDisplay(lineItem, inv.month);
+                              return (
+                                <div title={formatted.tooltip}>
+                                  <div className="font-medium truncate">
+                                    {formatted.primary}
+                                  </div>
+                                  {formatted.secondary && (
+                                    <div className="text-xs text-muted-foreground truncate">
+                                      {formatted.secondary}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-4 w-4 p-0"
+                            className="h-4 w-4 p-0 flex-shrink-0"
                             onClick={() => navigateToForecast(inv.line_item_id, inv.month)}
                             title="Ver en pronóstico"
                           >
@@ -907,11 +996,19 @@ export default function SDMTReconciliation() {
 
                       <TableCell className="max-w-[260px]">
                         <div className="flex flex-col text-sm">
+                          {/* Prefer friendly filename, else fallback to original, file_name, documentKey, or default text */}
                           <span
-                            className="truncate"
-                            title={inv.originalName || inv.file_name || inv.documentKey || ""}
+                            className="truncate font-medium"
+                            title={
+                              extractFriendlyFilename(inv.documentKey, inv.originalName) ||
+                              inv.originalName ||
+                              inv.file_name ||
+                              inv.documentKey ||
+                              "Documento pendiente"
+                            }
                           >
-                            {inv.originalName ||
+                            {extractFriendlyFilename(inv.documentKey, inv.originalName) ||
+                              inv.originalName ||
                               inv.file_name ||
                               inv.documentKey ||
                               "Documento pendiente"}
@@ -919,9 +1016,11 @@ export default function SDMTReconciliation() {
                           {inv.documentKey && (
                             <span
                               className="text-xs text-muted-foreground truncate"
-                              title={inv.documentKey}
+                              title={`Storage path: ${inv.documentKey}`}
                             >
-                              {inv.documentKey}
+                              {inv.documentKey.length > STORAGE_PATH_DISPLAY_LENGTH
+                                ? `${inv.documentKey.substring(0, STORAGE_PATH_DISPLAY_LENGTH)}...`
+                                : inv.documentKey}
                             </span>
                           )}
                         </div>
@@ -930,7 +1029,11 @@ export default function SDMTReconciliation() {
                       <TableCell>
                         <div className="text-sm">
                           <div>{new Date(inv.uploaded_at).toLocaleDateString()}</div>
-                          <div className="text-muted-foreground">{inv.uploaded_by}</div>
+                          {inv.uploaded_by && (
+                            <div className="text-xs text-muted-foreground">
+                              Submitted by {inv.uploaded_by}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
 
