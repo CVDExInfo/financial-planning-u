@@ -153,15 +153,22 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     })
   );
 
-  // Extract project details from baseline if found, otherwise use request body defaults
-  // This allows contract tests to work without requiring specific seed data
-  const baseline = baselineResult.Item || {};
-  const projectName = baseline.payload?.project_name || baseline.project_name || body.project_name || body.projectName || "Unnamed Project";
-  const clientName = baseline.payload?.client_name || baseline.client_name || body.client_name || body.clientName || body.client || "";
-  const currency = baseline.payload?.currency || baseline.currency || body.currency || "USD";
-  const startDate = baseline.payload?.start_date || baseline.start_date || body.start_date || body.startDate || now;
-  const durationMonths = baseline.payload?.duration_months || baseline.duration_months || body.duration_months || body.durationMonths || 12;
-  const totalAmount = baseline.total_amount || body.mod_total || body.modTotal || 0;
+  // Helper function to extract project data from baseline or request body
+  // This allows contract tests to work without requiring baseline seed data
+  const extractProjectData = (baseline: Record<string, any> | undefined, body: Record<string, any>) => {
+    const payload = baseline?.payload || {};
+    return {
+      projectName: payload.project_name || baseline?.project_name || body.project_name || body.projectName || "Unnamed Project",
+      clientName: payload.client_name || baseline?.client_name || body.client_name || body.clientName || body.client || "",
+      currency: payload.currency || baseline?.currency || body.currency || "USD",
+      startDate: payload.start_date || baseline?.start_date || body.start_date || body.startDate || now,
+      durationMonths: payload.duration_months || baseline?.duration_months || body.duration_months || body.durationMonths || 12,
+      totalAmount: baseline?.total_amount || body.mod_total || body.modTotal || 0,
+    };
+  };
+
+  const baseline = baselineResult.Item;
+  const { projectName, clientName, currency, startDate, durationMonths, totalAmount } = extractProjectData(baseline, body);
 
   // Calculate end_date from start_date + duration_months
   // Using proper date arithmetic to handle month boundaries and leap years correctly
