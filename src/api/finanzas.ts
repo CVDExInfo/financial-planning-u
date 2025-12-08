@@ -1119,7 +1119,7 @@ export async function getProjects(): Promise<ProjectsResponse> {
   ensureApiBase();
 
   try {
-    const response = await httpClient.get<ProjectsResponse>("/projects?limit=50", {
+    const response = await httpClient.get<ProjectsResponse>("/projects?limit=100", {
       headers: buildAuthHeader(),
     });
 

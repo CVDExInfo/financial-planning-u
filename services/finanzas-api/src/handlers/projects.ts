@@ -13,6 +13,14 @@ import {
 import { logError } from "../utils/logging";
 import crypto from "node:crypto";
 
+/**
+ * Generate a unique handoff ID
+ * Format: handoff_<10-char-uuid>
+ */
+function generateHandoffId(): string {
+  return `handoff_${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`;
+}
+
 type BaselineDealInputs = {
   project_name?: string;
   client_name?: string;
@@ -601,7 +609,26 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             (existingProject.Item as Record<string, unknown>).baselineId ===
               baselineId)
         ) {
+          // Project already handed off with this baseline - return existing handoff
+          // Query for the most recent handoff record to get handoffId
+          const existingHandoffQuery = await ddb.send(
+            new QueryCommand({
+              TableName: tableName("projects"),
+              KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+              ExpressionAttributeValues: {
+                ":pk": `PROJECT#${resolvedProjectId}`,
+                ":sk": "HANDOFF#",
+              },
+              ScanIndexForward: false, // Get most recent first
+              Limit: 1,
+            })
+          );
+
+          const existingHandoffId = existingHandoffQuery.Items?.[0]?.handoffId || 
+            generateHandoffId();
+
           return ok({
+            handoffId: existingHandoffId,
             projectId: resolvedProjectId,
             baselineId,
             status: "HandoffComplete",
@@ -662,32 +689,51 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           (existingProject.Item as Record<string, unknown> | undefined)?.currency ||
           "USD";
 
+        // Extract project name and client from normalized baseline (which looks in payload, deal_inputs, etc.)
+        const projectName = 
+          normalizedBaseline.project_name ||
+          (existingProject.Item as Record<string, unknown> | undefined)?.nombre ||
+          (existingProject.Item as Record<string, unknown> | undefined)?.name ||
+          `Project ${resolvedProjectId}`;
+        
+        const clientName = 
+          normalizedBaseline.client_name ||
+          (existingProject.Item as Record<string, unknown> | undefined)?.cliente ||
+          (existingProject.Item as Record<string, unknown> | undefined)?.client ||
+          "";
+
+        // Generate a clean project code for handoff projects
+        // For handoff projects, we want a short, human-readable code like "P-8charHash"
+        // NOT the long UUID-based projectId
+        const MAX_CLEAN_CODE_LENGTH = 20;
+        const CODE_SUFFIX_LENGTH = 8;
+        let projectCode = 
+          (existingProject.Item as Record<string, unknown> | undefined)?.code ||
+          (existingProject.Item as Record<string, unknown> | undefined)?.codigo ||
+          resolvedProjectId;
+        
+        // If projectId is a long UUID, generate a shorter code based on baseline ID
+        if (
+          baselineId &&
+          (resolvedProjectId.length > MAX_CLEAN_CODE_LENGTH || 
+           /^P-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedProjectId))
+        ) {
+          const baselineIdShort = baselineId.replace(/^base_/, '').substring(0, CODE_SUFFIX_LENGTH);
+          projectCode = `P-${baselineIdShort}`;
+        }
+
         const projectItem = {
           pk: `PROJECT#${resolvedProjectId}`,
           sk: "METADATA",
           id: resolvedProjectId,
           project_id: resolvedProjectId,
           projectId: resolvedProjectId,
-          nombre:
-            (baseline.project_name as string) ||
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.nombre ||
-            `Proyecto ${resolvedProjectId}`,
-          name:
-            (baseline.project_name as string) ||
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.name ||
-            `Project ${resolvedProjectId}`,
-          cliente:
-            (baseline.client_name as string) ||
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.cliente ||
-            "",
-          client:
-            (baseline.client_name as string) ||
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.client ||
-            "",
+          nombre: projectName,
+          name: projectName,
+          cliente: clientName,
+          client: clientName,
+          code: projectCode,
+          codigo: projectCode,
           moneda:
             resolvedCurrency,
           currency:
@@ -757,10 +803,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             last_handoff_key: idempotencyKey,
           };
 
-          const handoffId = `handoff_${crypto
-            .randomUUID()
-            .replace(/-/g, "")
-            .slice(0, 10)}`;
+          const handoffId = generateHandoffId();
 
           const handoffOwner =
             (handoffBody.owner as string) || createdBy || "unknown@unknown";
@@ -981,10 +1024,15 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     // GET /projects
     await ensureCanRead(event);
 
+    // Support query parameter for limit, default to 100, max 100
+    const queryParams = event.queryStringParameters || {};
+    const requestedLimit = queryParams.limit ? parseInt(queryParams.limit, 10) : 100;
+    const limit = Math.min(Math.max(requestedLimit, 1), 100); // Clamp between 1 and 100
+
     const result = await ddb.send(
       new ScanCommand({
         TableName: tableName("projects"),
-        Limit: 50,
+        Limit: limit,
         FilterExpression: "begins_with(#pk, :pkPrefix) AND #sk = :metadata",
         ExpressionAttributeNames: {
           "#pk": "pk",
