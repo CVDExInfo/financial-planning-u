@@ -474,10 +474,17 @@ export default function ProjectsManager() {
 
       <Card className="border-border/80 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Proyectos disponibles</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Los proyectos se almacenan en DynamoDB y se sincronizan en tiempo real. Cada error o vacío se muestra con contexto.
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base font-semibold">Proyectos disponibles</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Los proyectos se almacenan en DynamoDB y se sincronizan en tiempo real. Cada error o vacío se muestra con contexto.
+              </p>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Total proyectos: <span className="font-semibold text-foreground">{projects.length}</span>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <DataContainer

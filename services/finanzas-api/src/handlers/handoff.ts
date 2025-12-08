@@ -213,17 +213,17 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     createdBy: userEmail,
   };
 
-  // Generate a clean project code from projectId if not already in proper format
-  // projectId might be something like "PRJ-PROJECT-P-5AE50ACE" (derived from project name)
-  // We want a cleaner code like "P-5ae50ace" or keep projectId if it's already clean
+  // Generate a clean project code from baseline or projectId
+  // For handoff projects, we want a short, human-readable code like "P-8charHash"
+  // NOT the long UUID-based projectId like "P-e3f6647d-3b01-492d-8e54-28bcedcf8919"
   const MAX_CLEAN_CODE_LENGTH = 20;
   const CODE_SUFFIX_LENGTH = 8;
   let projectCode = projectId;
   
-  // If projectId looks like it was auto-generated from a name (contains "PROJECT" or is very long),
-  // generate a shorter code. Otherwise use projectId as-is.
-  if (projectId.includes("PROJECT") || projectId.length > MAX_CLEAN_CODE_LENGTH) {
-    // Generate a short code: extract meaningful part or create new one
+  // If projectId is a long UUID (contains hyphens and is long), generate a shorter code
+  // based on the baseline ID to ensure consistency
+  if (projectId.length > MAX_CLEAN_CODE_LENGTH || /^P-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)) {
+    // Generate a short code from baseline ID
     const baselineIdShort = baselineId.replace(/^base_/, '').substring(0, CODE_SUFFIX_LENGTH);
     projectCode = `P-${baselineIdShort}`;
   }
