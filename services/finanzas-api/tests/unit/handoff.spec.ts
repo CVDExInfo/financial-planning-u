@@ -187,6 +187,75 @@ describe("Handoff Handler", () => {
       expect(body).toHaveProperty("projectId", "P-test123");
       expect(body).toHaveProperty("baselineId", "base_test123");
       expect(body).toHaveProperty("status", "HandoffComplete");
+      
+      // NEW: Verify baseline_status defaults to "handed_off" when no force_accept
+      expect(body).toHaveProperty("baseline_status", "handed_off");
+      expect(body.accepted_by).toBeUndefined();
+      expect(body.baseline_accepted_at).toBeUndefined();
+    });
+
+    it("should set baseline_status to 'accepted' when force_accept is true", async () => {
+      // Mock DynamoDB responses
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const commandName = command.constructor.name || command.input?.constructor?.name;
+        
+        if (commandName === 'GetCommand' && command.input?.Key?.pk === 'IDEMPOTENCY#HANDOFF') {
+          return Promise.resolve({ Item: undefined });
+        }
+        
+        if (commandName === 'GetCommand' && command.input?.Key?.pk?.startsWith('BASELINE#')) {
+          return Promise.resolve({
+            Item: {
+              pk: 'BASELINE#base_test456',
+              sk: 'METADATA',
+              project_name: 'Test Project',
+              client_name: 'Test Client',
+              currency: 'USD',
+              start_date: '2025-01-01',
+              duration_months: 12,
+              total_amount: 100000,
+            },
+          });
+        }
+        
+        if (commandName === 'PutCommand') {
+          return Promise.resolve({});
+        }
+        
+        return Promise.resolve({});
+      });
+
+      const event = baseEvent({
+        body: JSON.stringify({
+          baseline_id: "base_test456",
+          owner: "test@example.com",
+          force_accept: true,
+          aceptado_por: "approver@example.com",
+          project_name: "Test Project",
+          client_name: "Test Client",
+          currency: "USD",
+          start_date: "2025-01-01",
+          duration_months: 12,
+        }),
+        pathParameters: {
+          projectId: "P-test456",
+        },
+        headers: {
+          "x-idempotency-key": "test-key-force-accept",
+        },
+      });
+
+      const response = await handoffHandler(event);
+
+      expect(response.statusCode).toBe(201);
+
+      const body = JSON.parse(response.body);
+
+      // When force_accept is true, baseline should be accepted
+      expect(body).toHaveProperty("baseline_status", "accepted");
+      expect(body).toHaveProperty("accepted_by", "approver@example.com");
+      expect(body).toHaveProperty("baseline_accepted_at");
+      expect(typeof body.baseline_accepted_at).toBe("string");
     });
   });
 });

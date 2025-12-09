@@ -47,6 +47,7 @@ import {
   type PrefacturaBaselineResponse,
   type PrefacturaBaselinePayload,
   handoffBaseline,
+  acceptBaseline,
   FinanzasApiError,
 } from "@/api/finanzas";
 
@@ -92,6 +93,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
   const navigate = useNavigate();
   const { refreshProject, selectedProjectId, setSelectedProjectId } = useProject();
   const [isReviewed, setIsReviewed] = useState(false);
+  const [shouldAcceptBaseline, setShouldAcceptBaseline] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
   const [signatureComplete, setSignatureComplete] = useState(false);
   const [baselineId, setBaselineId] = useState<string>("");
@@ -355,21 +357,40 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         baselineId,
         modTotal: grandTotal,
         laborPercentage,
-        aceptadoPor: userEmail,
       });
 
-      // Call handoff API
+      // Call handoff API WITHOUT aceptado_por to prevent auto-acceptance
       await handoffBaseline(projectId, {
         baseline_id: baselineId,
         mod_total: grandTotal,
         pct_ingenieros: laborPercentage,
         pct_sdm: 100 - laborPercentage,
-        aceptado_por: userEmail,
         project_name: dealInputs?.project_name,
         client_name: dealInputs?.client_name,
       });
 
       toast.success("✓ Project successfully handed off to SDMT team!");
+
+      // If user chose to accept baseline, call acceptBaseline endpoint
+      if (shouldAcceptBaseline) {
+        try {
+          await acceptBaseline(projectId, {
+            baseline_id: baselineId,
+            accepted_by: userEmail,
+          });
+          toast.success("✓ Baseline accepted!");
+        } catch (acceptError) {
+          console.error("❌ Baseline acceptance failed:", acceptError);
+          const acceptMessage =
+            acceptError instanceof FinanzasApiError
+              ? acceptError.message
+              : acceptError instanceof Error
+                ? acceptError.message
+                : "Unknown error";
+          toast.error(`Baseline acceptance failed: ${acceptMessage}`);
+          // Don't fail the whole flow if acceptance fails - handoff already succeeded
+        }
+      }
 
       // Refresh projects to get the newly created project
       await refreshProject();
@@ -1165,9 +1186,23 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                   </li>
                 </ul>
               </div>
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox
+                  id="accept-baseline-confirm"
+                  checked={shouldAcceptBaseline}
+                  onCheckedChange={(checked) => setShouldAcceptBaseline(checked === true)}
+                />
+                <label
+                  htmlFor="accept-baseline-confirm"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Also accept baseline immediately (optional)
+                </label>
+              </div>
               <p className="text-xs text-muted-foreground">
                 Once handed off, the project data will be transferred to the
                 SDMT team for cost management and monitoring.
+                {!shouldAcceptBaseline && " You can accept the baseline later from the project view."}
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>

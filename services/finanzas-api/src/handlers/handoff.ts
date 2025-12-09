@@ -197,6 +197,11 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     }
   }
 
+  // Determine if this is an explicit force-accept scenario
+  // Only set baseline_status to "accepted" if force_accept is explicitly true
+  const isForceAccept = Boolean(body.force_accept === true || body.accept_action === 'accept');
+  const baselineStatus = isForceAccept ? "accepted" : "handed_off";
+
   // Create new handoff record
   const handoffId = `handoff_${uuidv4().replace(/-/g, "").substring(0, 10)}`;
   const handoff = {
@@ -246,9 +251,10 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     module: "SDMT",
     source: "prefactura",
     baseline_id: baselineId,
-    baseline_status: "accepted",
-    accepted_by: body.aceptado_por || body.owner || userEmail,
-    baseline_accepted_at: now,
+    baseline_status: baselineStatus,
+    // Only set accepted_by and baseline_accepted_at when force_accept is true
+    accepted_by: isForceAccept ? (body.aceptado_por || body.owner || userEmail) : undefined,
+    baseline_accepted_at: isForceAccept ? now : undefined,
     currency,
     moneda: currency,
     start_date: startDate,
@@ -292,9 +298,9 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     projectId,
     baselineId,
     status: "HandoffComplete",
-    baseline_status: "accepted",
-    accepted_by: projectMetadata.accepted_by,
-    baseline_accepted_at: projectMetadata.baseline_accepted_at,
+    baseline_status: baselineStatus,
+    accepted_by: projectMetadata.accepted_by || undefined,
+    baseline_accepted_at: projectMetadata.baseline_accepted_at || undefined,
     owner: handoff.owner,
     fields: handoff.fields,
     version: handoff.version,

@@ -683,6 +683,41 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
+  AcceptBaselineFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/acceptBaseline.ts
+        External:
+          - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: AcceptBaselineFn
+    Properties:
+      CodeUri: .
+      Handler: acceptBaseline.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName:
+              Ref: ProjectsTable
+        - DynamoDBCrudPolicy:
+            TableName:
+              Ref: AuditTable
+      Events:
+        AcceptBaseline:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/accept-baseline
+            Method: PATCH
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+
   UploadDocumentFunction:
     Type: AWS::Serverless::Function
     Metadata:
