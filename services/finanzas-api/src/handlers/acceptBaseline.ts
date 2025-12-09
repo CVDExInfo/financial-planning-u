@@ -103,8 +103,8 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
       baseline_accepted_at: now,
     },
     source: "API",
-    ip_address: event.requestContext.http.sourceIp,
-    user_agent: event.requestContext.http.userAgent,
+    ip_address: event.requestContext.http.sourceIp || "unknown",
+    user_agent: event.requestContext.http.userAgent || "unknown",
   };
 
   await ddb.send(

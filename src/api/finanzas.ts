@@ -1256,13 +1256,9 @@ export async function acceptBaseline(
       body: JSON.stringify(payload),
     });
 
-    return {
-      projectId: result.projectId || projectId,
-      baselineId: result.baselineId || payload.baseline_id,
-      baseline_status: result.baseline_status || "accepted",
-      accepted_by: result.accepted_by || "",
-      baseline_accepted_at: result.baseline_accepted_at || new Date().toISOString(),
-    };
+    // Return the response as-is from the server without adding fallback values
+    // that don't reflect actual server state
+    return result;
   } catch (err) {
     throw toFinanzasError(err, "Unable to accept baseline");
   }
