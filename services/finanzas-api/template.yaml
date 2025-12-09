@@ -35,12 +35,21 @@ Parameters:
     Type: String
     Default: ''
     Description: Amazon Verified Permissions Policy Store ID (optional, for fine-grained authorization)
+  AlarmEmail:
+    Type: String
+    Default: ''
+    Description: Optional email address for CloudWatch alarm notifications
 
 Conditions:
   HasPolicyStore:
     Fn::Not:
       - Fn::Equals:
           - Ref: PolicyStoreId
+          - ""
+  HasAlarmEmail:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: AlarmEmail
           - ""
 
 Globals:
@@ -1425,7 +1434,101 @@ Resources:
     Metadata:
       SamResourceId: Pep3Permission
 
+  # CloudWatch Alarms for Observability
+  AlarmSNSTopic:
+    Type: AWS::SNS::Topic
+    Condition: HasAlarmEmail
+    Properties:
+      TopicName:
+        Fn::Sub: finanzas-api-alarms-${StageName}
+      DisplayName: Finanzas API Alarms
+      Subscription:
+        - Endpoint:
+            Ref: AlarmEmail
+          Protocol: email
+    Metadata:
+      SamResourceId: AlarmSNSTopic
+
+  Api5xxErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasAlarmEmail
+    Properties:
+      AlarmName:
+        Fn::Sub: finanzas-api-5xx-errors-${StageName}
+      AlarmDescription: Alert when API Gateway returns 5xx errors
+      MetricName: 5XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: ApiId
+          Value:
+            Ref: Api
+      AlarmActions:
+        - Ref: AlarmSNSTopic
+    Metadata:
+      SamResourceId: Api5xxErrorAlarm
+
+  Api4xxErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasAlarmEmail
+    Properties:
+      AlarmName:
+        Fn::Sub: finanzas-api-4xx-errors-${StageName}
+      AlarmDescription: Alert when API Gateway returns excessive 4xx errors
+      MetricName: 4XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 100
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: ApiId
+          Value:
+            Ref: Api
+      AlarmActions:
+        - Ref: AlarmSNSTopic
+    Metadata:
+      SamResourceId: Api4xxErrorAlarm
+
+  ApiLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasAlarmEmail
+    Properties:
+      AlarmName:
+        Fn::Sub: finanzas-api-high-latency-${StageName}
+      AlarmDescription: Alert when API latency exceeds 3 seconds
+      MetricName: Latency
+      Namespace: AWS/ApiGateway
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 3000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: ApiId
+          Value:
+            Ref: Api
+      AlarmActions:
+        - Ref: AlarmSNSTopic
+    Metadata:
+      SamResourceId: ApiLatencyAlarm
+
 Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL for the Finanzas SD API
+    Value:
+      Fn::Sub: https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
+    Export:
+      Name:
+        Fn::Sub: finanzas-sd-api-endpoint-${StageName}
   FinzApiId:
     Description: HTTP API ID
     Value:
@@ -1440,3 +1543,11 @@ Outputs:
     Export:
       Name:
         Fn::Sub: finz-api-url-${StageName}
+  AlarmTopicArn:
+    Description: SNS Topic ARN for CloudWatch alarms (if configured)
+    Condition: HasAlarmEmail
+    Value:
+      Ref: AlarmSNSTopic
+    Export:
+      Name:
+        Fn::Sub: finanzas-api-alarm-topic-${StageName}
