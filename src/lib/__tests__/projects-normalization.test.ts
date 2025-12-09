@@ -42,6 +42,19 @@ describe("normalizeProjectForUI", () => {
     assert.equal(normalized.baseline_accepted_at, "2024-01-02T00:00:00.000Z");
   });
 
+  it("maps baseline_status as 'handed_off' when present", () => {
+    const normalized = normalizeProjectForUI({
+      ...baseProject,
+      baseline_id: "base_xyz",
+      baseline_status: "handed_off",
+    });
+
+    assert.equal(normalized.baseline_id, "base_xyz");
+    assert.equal(normalized.baseline_status, "handed_off");
+    assert.equal(normalized.accepted_by, null);
+    assert.equal(normalized.baseline_accepted_at, null);
+  });
+
   it("falls back gracefully when acceptance metadata is missing", () => {
     const normalized = normalizeProjectForUI(baseProject);
     assert.equal(normalized.baseline_id, undefined);

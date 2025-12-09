@@ -1223,6 +1223,51 @@ export async function handoffBaseline(
   }
 }
 
+export interface AcceptBaselinePayload {
+  baseline_id: string;
+  accepted_by?: string;
+}
+
+export interface AcceptBaselineResponse {
+  projectId: string;
+  baselineId: string;
+  baseline_status: string;
+  accepted_by: string;
+  baseline_accepted_at: string;
+}
+
+export async function acceptBaseline(
+  projectId: string,
+  payload: AcceptBaselinePayload,
+): Promise<AcceptBaselineResponse> {
+  ensureApiBase();
+
+  const url = `${requireApiBase()}/projects/${encodeURIComponent(
+    projectId,
+  )}/accept-baseline`;
+
+  try {
+    const result = await fetchJson<AcceptBaselineResponse>(url, {
+      method: "PATCH",
+      headers: {
+        ...buildAuthHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    return {
+      projectId: result.projectId || projectId,
+      baselineId: result.baselineId || payload.baseline_id,
+      baseline_status: result.baseline_status || "accepted",
+      accepted_by: result.accepted_by || "",
+      baseline_accepted_at: result.baseline_accepted_at || new Date().toISOString(),
+    };
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to accept baseline");
+  }
+}
+
 // Alias for compatibility with tests/hooks referencing older helper name
 export const getProjectLineItems = getProjectRubros;
 
