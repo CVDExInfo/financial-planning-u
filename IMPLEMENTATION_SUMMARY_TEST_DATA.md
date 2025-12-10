@@ -339,27 +339,79 @@ npm test
 
 ---
 
+## Follow-Up Requirements Completed (PR#540 Comment)
+
+Per follow-up comment requesting additional hardening:
+
+### ✅ 1. Deep Validation of Canonical Seeds vs Contracts
+- **Baseline-Rubro 1:1 Match**: Explicit documentation added to seed script
+- All rubro attachments include `baselineId` field linking to specific baseline
+- Estimator items reference both `baselineId` and catalog `rubroId`
+- Validation output confirms linkage during seeding
+- Comment added: "IMPORTANT: All rubros must reference the baseline to ensure 1:1 match"
+
+### ✅ 2. Strengthened verify-canonical-projects.ts
+- **Extended Checks**: Now validates rubros count, allocations count, payroll months
+- Rubros: must have >0 attachments per project
+- Allocations: must have >0 records per project
+- Payroll: must have >=2 months of data per project
+- **Detailed Output**: Shows component counts per project
+- **Exit Codes**: Returns 1 if any project incomplete, 0 if all complete
+- **Troubleshooting**: Shows which specific components are missing
+
+### ✅ 3. Hardened reset-dev-projects Safety
+- **Environment Guard**: Confirmed matches seed script (prod/production/stg/staging)
+- **Catalog Protection**: Added explicit comment - script does NOT touch rubros catalog
+- Catalog tables (finz_rubros, finz_rubros_taxonomia) are production assets
+- Only deletes project-specific data from non-canonical projects
+
+### ✅ 4. Aligned Tests with Canonical Data
+- **Test Fixtures**: Created canonical-projects.ts with type-safe constants
+- **Updated Tests**: baseline-sdmt.spec.ts (11 tests), rubros.spec.ts (10 tests)
+- **21/21 Tests Passing**: All unit tests use canonical project IDs
+- API responses validated against baseline-first flow
+
+### ✅ 5. Wired Seeds + Reset into CI
+- **CI Workflow**: Added "Setup Canonical Test Data" step to api-contract-tests.yml
+- **Workflow Order**: reset → seed → verify (before Newman tests)
+- **Safety**: Runs with STAGE=dev to ensure environment guards trigger
+- **Fail-Fast**: Tests only run if verification passes
+
+### ✅ 6. Guardrails Around Rubros Catalog
+- **Idempotent Seeding**: Catalog seeding only creates if missing, never modifies
+- **Canonical Subset**: Only 17 rubros seeded for test projects (not full 71)
+- **Production Protection**: Seed uses idempotent putItem helper
+- **Reset Protection**: Reset script excludes catalog tables entirely
+
+### ✅ 7. Updated Documentation
+- **Troubleshooting Section**: 120+ lines added to finanzas-schemas-and-seeds.md
+- **Common Issues**: Env guards, AWS credentials, missing tables
+- **Best Practices**: Canonical project maintenance guidelines
+- **CI Integration**: Documented workflow steps and safety features
+
+---
+
 ## Next Steps (Optional)
 
-The core implementation is complete. Optional enhancements:
+The core implementation and all follow-up requirements are complete. Optional enhancements:
 
 1. **Additional Test Files**
    - Update `handoff.spec.ts` to use canonical projects
    - Update `forecast.spec.ts` with canonical data
    - Update `payroll.handler.spec.ts` with aligned data
 
-2. **Contract Tests**
-   - Run Postman/Newman tests with canonical data
-   - Update collection to use canonical project IDs
+2. **Contract Tests with Deployment**
+   - Run Postman/Newman tests against deployed dev environment
+   - Verify API responses match OpenAPI specs with real data
 
 3. **Manual Verification**
-   - Deploy to dev environment
-   - Run seed scripts with AWS credentials
-   - Verify UI shows only canonical projects
+   - Deploy to dev environment with AWS credentials
+   - Run seed scripts and verify in DynamoDB
+   - Check UI shows only canonical projects
 
-4. **Production Deployment**
-   - Document production seed process
-   - Create production-safe seed scripts
+4. **Production Considerations**
+   - Document production seed process (if needed)
+   - Create production-safe seed scripts (with different data)
    - Update deployment runbooks
 
 ---
