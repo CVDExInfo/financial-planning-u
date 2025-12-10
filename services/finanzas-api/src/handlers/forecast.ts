@@ -13,7 +13,7 @@ import { ok, bad, serverError, fromAuthError } from "../lib/http";
 import { ensureCanRead } from "../lib/auth";
 import { ddb, tableName, QueryCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
-import { queryProjectRubros, generateForecastGrid } from "../lib/baseline-sdmt";
+import { queryProjectRubros } from "../lib/baseline-sdmt";
 
 type ForecastItem = {
   line_item_id: string;
