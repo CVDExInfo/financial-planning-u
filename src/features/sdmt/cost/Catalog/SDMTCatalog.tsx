@@ -900,7 +900,7 @@ export function SDMTCatalog() {
           <ModuleBadge />
           {isReadOnly() && (
             <Badge variant="outline" className="text-xs">
-              {ES_TEXTS.roles.pmReadOnly}
+              {ES_TEXTS.roles.readOnly}
             </Badge>
           )}
         </div>

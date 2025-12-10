@@ -326,7 +326,7 @@ export default function ProjectsManager() {
             {canCreateProject && (
               <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
                 <Plus size={16} />
-                Crear Proyecto
+                {ES_TEXTS.portfolio.createProject}
               </Button>
             )}
           </div>

@@ -27,6 +27,7 @@ export const ES_TEXTS = {
     description: "Visión consolidada de proyectos activos y presupuestos",
     projectsTab: "Proyectos",
     summaryTab: "Resumen Ejecutivo",
+    createProject: "Crear Proyecto",
     modVsIndirect: "MOD vs Costos Indirectos",
     modLabel: "Mano de Obra Directa",
     indirectLabel: "Costos Indirectos",
@@ -103,8 +104,9 @@ export const ES_TEXTS = {
     finanzas: "Finanzas",
     auditor: "Auditor",
     assignSDM: "Asignar SDM",
+    readOnly: "Solo Lectura",
     sdmResponsibility: "A partir de esta etapa, el control de pronóstico y conciliación es responsabilidad del SDM",
-    pmReadOnly: "Como PM, esta vista es de solo lectura después de la aceptación del baseline",
+    pmReadOnlyNote: "Como PM, esta vista es de solo lectura después de la aceptación del baseline",
     sdmAccess: "Acceso limitado a proyectos asignados",
   },
 
