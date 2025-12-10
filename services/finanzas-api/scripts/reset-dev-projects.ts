@@ -33,7 +33,6 @@ import * as readline from "readline";
 const AWS_REGION = process.env.AWS_REGION || "us-east-2";
 const STAGE = process.env.STAGE || process.env.ENV || "dev";
 const TABLE_PROJECTS = process.env.TABLE_PROJECTS || "finz_projects";
-const TABLE_RUBROS = process.env.TABLE_RUBROS || "finz_rubros";
 const TABLE_ALLOC = process.env.TABLE_ALLOC || "finz_allocations";
 const TABLE_PAYROLL = process.env.TABLE_PAYROLL || "finz_payroll_actuals";
 const TABLE_ADJ = process.env.TABLE_ADJ || "finz_adjustments";
