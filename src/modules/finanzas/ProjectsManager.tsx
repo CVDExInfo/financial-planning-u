@@ -35,6 +35,7 @@ import useProjects, { type ProjectForUI } from "./projects/useProjects";
 import { Badge } from "@/components/ui/badge";
 import ProjectDetailsPanel from "./projects/ProjectDetailsPanel";
 import { getProjectDisplay } from "@/lib/projects/display";
+import { ES_TEXTS } from "@/lib/i18n/es";
 
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -308,8 +309,8 @@ export default function ProjectsManager() {
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <PageHeader
-        title="Gestión de Proyectos"
-        description="Consulta los proyectos que llegan desde la API de Finanzas y registra nuevos según tus permisos."
+        title={ES_TEXTS.portfolio.title}
+        description={ES_TEXTS.portfolio.description}
         badge="Finanzas"
         actions={
           <div className="flex gap-2">
@@ -320,7 +321,7 @@ export default function ProjectsManager() {
               className="gap-2"
             >
               <RefreshCcw className="h-4 w-4" />
-              {isRefreshingList ? "Actualizando" : "Refrescar"}
+              {isRefreshingList ? "Actualizando" : ES_TEXTS.actions.refresh}
             </Button>
             {canCreateProject && (
               <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">

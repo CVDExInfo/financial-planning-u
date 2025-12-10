@@ -68,6 +68,7 @@ import {
   formatLineItemDisplay,
   extractFriendlyFilename,
 } from "./lineItemFormatters";
+import { ES_TEXTS } from "@/lib/i18n/es";
 
 /** --------- Types & helpers --------- */
 
@@ -543,9 +544,9 @@ export default function SDMTReconciliation() {
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold">Conciliación de Facturas</h1>
+          <h1 className="text-3xl font-bold">{ES_TEXTS.reconciliation.title}</h1>
           <p className="text-muted-foreground leading-relaxed">
-            Sube y concilia facturas contra montos pronosticados
+            {ES_TEXTS.reconciliation.description}
             {currentProject && (
               <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                 {currentProject.name} | Change #{projectChangeCount}
