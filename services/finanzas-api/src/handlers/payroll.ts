@@ -40,7 +40,6 @@ import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureSDT } from "../lib/auth";
 import { bad, ok } from "../lib/http";
 import {
-  parsePayrollEntryCreate,
   safeParsePayrollEntryCreate,
   PayrollKind,
 } from "../validation/payroll";
