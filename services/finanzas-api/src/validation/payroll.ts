@@ -118,14 +118,12 @@ export const PayrollIngestSchema = z.object({
   nomina_total: z.number().min(0),
   
   // NEW: Role-specific breakdown (preferred)
-  desglose_roles: z.object({
-    'Ingeniero Delivery': z.number().optional(),
-    'Ingeniero Soporte N1': z.number().optional(),
-    'Ingeniero Soporte N2': z.number().optional(),
-    'Ingeniero Soporte N3': z.number().optional(),
-    'Service Delivery Manager': z.number().optional(),
-    'Project Manager': z.number().optional(),
-  }).optional(),
+  // Dynamically generated from MOD_ROLES constant to ensure consistency
+  desglose_roles: z.object(
+    Object.fromEntries(
+      MOD_ROLES.map(role => [role, z.number().optional()])
+    ) as Record<MODRole, z.ZodOptional<z.ZodNumber>>
+  ).optional(),
   
   // LEGACY: Backward compatibility (deprecated)
   desglose: z.object({

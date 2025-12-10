@@ -17,15 +17,13 @@ export type MODRole = typeof MOD_ROLES[number];
 /**
  * MOD Roles Breakdown Schema
  * Percentage allocation for each of the 6 approved MOD roles
+ * Dynamically generated from MOD_ROLES constant to ensure consistency
  */
-export const MODRolesSchema = z.object({
-  'Ingeniero Delivery': z.number().min(0).max(100).optional(),
-  'Ingeniero Soporte N1': z.number().min(0).max(100).optional(),
-  'Ingeniero Soporte N2': z.number().min(0).max(100).optional(),
-  'Ingeniero Soporte N3': z.number().min(0).max(100).optional(),
-  'Service Delivery Manager': z.number().min(0).max(100).optional(),
-  'Project Manager': z.number().min(0).max(100).optional(),
-});
+export const MODRolesSchema = z.object(
+  Object.fromEntries(
+    MOD_ROLES.map(role => [role, z.number().min(0).max(100).optional()])
+  ) as Record<MODRole, z.ZodOptional<z.ZodNumber>>
+);
 
 export type MODRoles = z.infer<typeof MODRolesSchema>;
 
