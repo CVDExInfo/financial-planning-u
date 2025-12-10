@@ -3,7 +3,6 @@
  * Validates the 6 client-approved MOD roles
  */
 
-import { z } from "zod";
 import { HandoffSchema, MOD_ROLES, MODRolesSchema } from "../../src/validation/handoff";
 
 describe("MOD Roles Validation", () => {
