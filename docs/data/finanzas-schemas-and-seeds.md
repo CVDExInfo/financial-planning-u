@@ -257,7 +257,203 @@ Requires AWS credentials via:
 
 ---
 
-## Golden Project: P-GOLDEN-1
+## Canonical Demo Projects Universe
+
+### Overview
+
+For testing and development, Finanzas SD uses a **small, realistic universe of 5–10 demo projects** based on actual Ikusi service delivery scenarios. These projects cover different:
+
+- Service types (NOC, SOC, WiFi, Cloud, Connectivity)
+- Durations (24, 36, 48, 60 months)
+- Budget scales ($2M to $25M)
+- Clients (Claro, Bancolombia, Avianca, etc.)
+- Margin scenarios (favorable, on-target, challenged)
+
+**Purpose**: Provide consistent, presentation-ready data for:
+- Unit and integration tests
+- Contract/API tests
+- Dev environment demos
+- UI screenshots and walkthroughs
+- Role-based scenario testing (PM, SDM, FIN)
+
+### Canonical Projects List
+
+| Project ID | Name | Client | Service Type | Duration | Start | Total Budget | Status |
+|------------|------|--------|--------------|----------|-------|--------------|--------|
+| P-NOC-CLARO-BOG | NOC Claro Bogotá | Claro Colombia | NOC 24x7 | 60 months | 2025-01 | $18.5M USD | active |
+| P-SOC-BANCOL-MED | SOC Bancolombia Medellín | Bancolombia | SOC/Security | 36 months | 2025-02 | $12.8M USD | active |
+| P-WIFI-ELDORADO | WiFi Aeropuerto El Dorado | Avianca | WiFi Infrastructure | 24 months | 2025-01 | $4.2M USD | active |
+| P-CLOUD-ECOPETROL | Cloud Ops Ecopetrol | Ecopetrol | Cloud Operations | 48 months | 2024-12 | $22.5M USD | active |
+| P-SD-TIGO-CALI | Service Delivery Tigo Cali | Tigo Colombia | Managed Services | 36 months | 2025-03 | $9.6M USD | active |
+| P-CONNECT-AVIANCA | Connectivity Avianca | Avianca | SD-WAN/MPLS | 48 months | 2024-11 | $15.3M USD | active |
+| P-DATACENTER-ETB | Datacenter ETB | ETB | Datacenter Ops | 60 months | 2025-01 | $25.0M USD | active |
+
+**Total Portfolio Value:** ~$108M USD across 7 active projects
+
+### Project Details
+
+#### 1. P-NOC-CLARO-BOG (NOC Claro Bogotá)
+
+**Business Context**: 24x7 Network Operations Center for Claro's corporate network in Bogotá region.
+
+- **Duration**: 60 months (2025-01 to 2029-12)
+- **Total Budget**: $18.5M USD ($308,333/month)
+- **Contract Value**: $18M (MOD) + $0.5M (indirect)
+- **Target Margin**: 12%
+- **MOD Resources**:
+  - 8 x NOC Engineers (Gold tier)
+  - 2 x NOC Leads (Premium tier)
+  - 1 x SDM (Gold tier)
+- **Baseline ID**: BL-NOC-CLARO-001
+- **Baseline Items**: 11 line items (MOD, monitoring tools, circuits, facilities)
+- **Margin Profile**: **Favorable** (consistently under budget due to efficient staffing)
+
+#### 2. P-SOC-BANCOL-MED (SOC Bancolombia Medellín)
+
+**Business Context**: Security Operations Center for financial services monitoring and incident response.
+
+- **Duration**: 36 months (2025-02 to 2028-01)
+- **Total Budget**: $12.8M USD ($355,556/month)
+- **Contract Value**: $12M (MOD) + $0.8M (indirect)
+- **Target Margin**: 15%
+- **MOD Resources**:
+  - 6 x Security Analysts (Premium tier)
+  - 1 x SOC Lead (Premium tier)
+  - 1 x SDM (Gold tier)
+- **Baseline ID**: BL-SOC-BANCOL-001
+- **Baseline Items**: 9 line items (MOD, SIEM licenses, security tools, training)
+- **Margin Profile**: **On-target** (meeting margin expectations)
+
+#### 3. P-WIFI-ELDORADO (WiFi Aeropuerto El Dorado)
+
+**Business Context**: Enterprise WiFi infrastructure and management for El Dorado International Airport.
+
+- **Duration**: 24 months (2025-01 to 2026-12)
+- **Total Budget**: $4.2M USD ($175,000/month)
+- **Contract Value**: $3.8M (MOD + equipment) + $0.4M (indirect)
+- **Target Margin**: 10%
+- **MOD Resources**:
+  - 3 x WiFi Engineers (Gold tier)
+  - 1 x Tech Lead (Premium tier)
+  - 1 x SDM (Gold tier)
+- **Baseline ID**: BL-WIFI-ELDORADO-001
+- **Baseline Items**: 8 line items (MOD, AP licenses, controllers, support)
+- **Margin Profile**: **On-target** (steady performance)
+
+#### 4. P-CLOUD-ECOPETROL (Cloud Ops Ecopetrol)
+
+**Business Context**: Hybrid cloud operations (AWS + Azure) for national oil company.
+
+- **Duration**: 48 months (2024-12 to 2028-11)
+- **Total Budget**: $22.5M USD ($468,750/month)
+- **Contract Value**: $21M (MOD + cloud) + $1.5M (indirect)
+- **Target Margin**: 14%
+- **MOD Resources**:
+  - 10 x Cloud Engineers (Premium tier)
+  - 2 x Cloud Architects (Premium tier)
+  - 1 x SDM (Premium tier)
+- **Baseline ID**: BL-CLOUD-ECOPETROL-001
+- **Baseline Items**: 14 line items (MOD, AWS/Azure spend, observability, compliance)
+- **Margin Profile**: **Challenged** (cloud cost overruns in some months)
+
+#### 5. P-SD-TIGO-CALI (Service Delivery Tigo Cali)
+
+**Business Context**: Managed IT services for Tigo's Cali operations center.
+
+- **Duration**: 36 months (2025-03 to 2028-02)
+- **Total Budget**: $9.6M USD ($266,667/month)
+- **Contract Value**: $9M (MOD) + $0.6M (indirect)
+- **Target Margin**: 11%
+- **MOD Resources**:
+  - 5 x Service Engineers (Gold tier)
+  - 1 x Service Lead (Gold tier)
+  - 1 x SDM (Gold tier)
+- **Baseline ID**: BL-SD-TIGO-001
+- **Baseline Items**: 10 line items (MOD, ITSM tools, spare parts, training)
+- **Margin Profile**: **Favorable** (well-controlled costs)
+
+#### 6. P-CONNECT-AVIANCA (Connectivity Avianca)
+
+**Business Context**: SD-WAN and MPLS connectivity for Avianca's nationwide network.
+
+- **Duration**: 48 months (2024-11 to 2028-10)
+- **Total Budget**: $15.3M USD ($318,750/month)
+- **Contract Value**: $14.5M (MOD + circuits) + $0.8M (indirect)
+- **Target Margin**: 13%
+- **MOD Resources**:
+  - 6 x Network Engineers (Gold tier)
+  - 1 x Network Architect (Premium tier)
+  - 1 x SDM (Gold tier)
+- **Baseline ID**: BL-CONNECT-AVIANCA-001
+- **Baseline Items**: 12 line items (MOD, circuits, SD-WAN licenses, NOC support)
+- **Margin Profile**: **On-target** (meeting margin expectations)
+
+#### 7. P-DATACENTER-ETB (Datacenter ETB)
+
+**Business Context**: Co-location and managed datacenter services for ETB's enterprise clients.
+
+- **Duration**: 60 months (2025-01 to 2029-12)
+- **Total Budget**: $25.0M USD ($416,667/month)
+- **Contract Value**: $23M (MOD + facilities) + $2M (indirect)
+- **Target Margin**: 16%
+- **MOD Resources**:
+  - 12 x Datacenter Ops Engineers (Gold tier)
+  - 2 x Datacenter Leads (Premium tier)
+  - 1 x SDM (Premium tier)
+- **Baseline ID**: BL-DATACENTER-ETB-001
+- **Baseline Items**: 15 line items (MOD, power, cooling, monitoring, compliance)
+- **Margin Profile**: **Favorable** (economies of scale on facilities)
+
+### Role Scenario Coverage
+
+The canonical projects support the following role-based test scenarios:
+
+#### PM (Project Manager) Scenarios
+1. **Project Creation + Baseline**: Create project, define baseline, handoff to SDM
+2. **Baseline Revision**: Update baseline mid-project (change orders)
+3. **Multi-Baseline Projects**: Handle projects with multiple baselines/amendments
+
+**Test Projects**: All 7 projects
+
+#### SDM (Service Delivery Manager) Scenarios
+1. **Forecast Management**: Monthly forecast updates, variance analysis
+2. **Allocation Management**: Manage resource allocations across rubros
+3. **Reconciliation**: Monthly recon between allocations and actuals
+4. **Adjustment Requests**: Request budget adjustments (excesos, reducciones)
+5. **Over/Under Budget**: Handle both favorable and unfavorable variances
+
+**Test Projects**: 
+- Favorable variance: P-NOC-CLARO-BOG, P-SD-TIGO-CALI, P-DATACENTER-ETB
+- On-target: P-SOC-BANCOL-MED, P-WIFI-ELDORADO, P-CONNECT-AVIANCA
+- Challenged: P-CLOUD-ECOPETROL
+
+#### FIN (Finance) Scenarios
+1. **Portfolio Dashboard**: View all projects, total budget, margins
+2. **Payroll Reconciliation**: Match payroll actuals to allocations
+3. **Financial Reports**: Generate monthly/quarterly financial summaries
+4. **Variance Analysis**: Identify projects over/under budget
+5. **Audit Trail**: Review all financial transactions and approvals
+
+**Test Projects**: All 7 projects (full portfolio view)
+
+### Seed Data Requirements
+
+For each canonical project, the seed script must provide:
+
+1. **Project record** with metadata (client, name, dates, budget, status)
+2. **Baseline record(s)** with acceptance data
+3. **Catalog rubros** (from standard Ikusi catalog)
+4. **Project-rubro attachments** (1:1 match with baseline items)
+5. **Estimator items** (baseline breakdown by rubro)
+6. **Allocations** (first 2-3 months, distributed per rubro)
+7. **Payroll actuals** (first 2-3 months, with realistic variance)
+8. **Adjustments** (1-2 samples for projects with variances)
+
+**Total seed records per project**: ~50-100 records (depending on rubros count)
+
+---
+
+## Golden Project: P-GOLDEN-1 (DEPRECATED - Use Canonical Projects)
 
 ### Overview
 
@@ -517,4 +713,156 @@ GET /finanzas/recon?projectId=P-GOLDEN-1&month=2025-01
 
 ---
 
-*Last Updated: 2025-11-15*
+## Reset Script for Dev/Test Environments
+
+### Purpose
+
+The reset script (`services/finanzas-api/scripts/reset-dev-projects.ts`) provides a **safe mechanism** to clean up test/dev environments by deleting non-canonical projects and their related data.
+
+**Use Cases**:
+- Reset dev environment to a clean slate
+- Remove noisy test data accumulated during development
+- Prepare environment for demos or QA testing
+- Start fresh after failed test runs
+
+### Safety Features
+
+1. **Environment Guard**: Aborts if `STAGE` or `ENV` environment variables indicate production (`prod`, `stg`, `production`, `staging`)
+2. **Dry Run Mode**: Preview what will be deleted without making changes (`--dry-run` flag)
+3. **Canonical Project Protection**: Never deletes the 7 canonical demo projects
+4. **Confirmation Prompt**: Requires explicit confirmation before deletion (unless `--force` flag is used)
+5. **Audit Log**: Records all deletion operations with timestamps
+
+### Usage
+
+#### Dry Run (Safe Preview)
+
+```bash
+cd services/finanzas-api
+npm run reset:dev-projects -- --dry-run
+```
+
+**Output Example**:
+```
+🔍 Scanning for non-canonical projects...
+   Found 23 projects in database
+   - 7 are canonical (protected)
+   - 16 are non-canonical (candidates for deletion)
+
+📋 Projects to be deleted:
+   - PROJ-1 (test project from unit tests)
+   - P-TEST-123 (temporary test project)
+   - P-OLD-DEMO-001 (old demo data)
+   ... (13 more)
+
+📊 Related records to be deleted:
+   - Rubros: 48 attachments
+   - Allocations: 192 records
+   - Payroll: 192 records
+   - Adjustments: 12 records
+   - Total: 444 records
+
+⚠️  DRY RUN MODE - No changes made
+```
+
+#### Actual Deletion
+
+```bash
+cd services/finanzas-api
+npm run reset:dev-projects
+```
+
+**Confirmation Prompt**:
+```
+⚠️  WARNING: This will delete 16 projects and 444 related records
+   Environment: dev
+   Protected: 7 canonical projects will NOT be deleted
+   
+   Type 'CONFIRM' to proceed: _
+```
+
+#### Force Mode (No Confirmation)
+
+```bash
+cd services/finanzas-api
+npm run reset:dev-projects -- --force
+```
+
+**Use with caution!** Recommended only in CI/CD pipelines.
+
+### Environment Variables
+
+- `AWS_REGION` (default: `us-east-2`)
+- `STAGE` or `ENV` - If set to `prod`, `stg`, `production`, or `staging`, script will abort
+- `TABLE_PROJECTS` (default: `finz_projects`)
+- `TABLE_RUBROS` (default: `finz_rubros`)
+- `TABLE_ALLOC` (default: `finz_allocations`)
+- `TABLE_PAYROLL` (default: `finz_payroll_actuals`)
+- `TABLE_ADJ` (default: `finz_adjustments`)
+
+### Canonical Projects (Protected)
+
+The following project IDs are **never deleted**:
+
+1. `P-NOC-CLARO-BOG`
+2. `P-SOC-BANCOL-MED`
+3. `P-WIFI-ELDORADO`
+4. `P-CLOUD-ECOPETROL`
+5. `P-SD-TIGO-CALI`
+6. `P-CONNECT-AVIANCA`
+7. `P-DATACENTER-ETB`
+
+### What Gets Deleted
+
+For each non-canonical project:
+
+1. **Project record** (pk: `PROJECT#{projectId}`, sk: `META`)
+2. **Handoff record** (pk: `PROJECT#{projectId}`, sk: `HANDOFF`)
+3. **Rubro attachments** (pk: `PROJECT#{projectId}`, sk: `RUBRO#*`)
+4. **Estimator items** (pk: `PROJECT#{projectId}`, sk: `ESTIMATOR#*`)
+5. **Allocations** (pk: `PROJECT#{projectId}#MONTH#*`, sk: `ALLOC#*`)
+6. **Payroll actuals** (pk: `PROJECT#{projectId}#MONTH#*`, sk: `PAYROLL#*`)
+7. **Adjustments** (pk: `PROJECT#{projectId}`, sk: `ADJ#*`)
+8. **Audit logs** (pk: `PROJECT#{projectId}`, sk: `AUDIT#*`)
+
+### After Reset: Re-seed Canonical Projects
+
+After running the reset script, re-seed the canonical projects:
+
+```bash
+cd services/finanzas-api
+npm run seed:canonical-projects
+```
+
+This ensures the dev environment has the full set of 7 demo projects with consistent data.
+
+### Integration with CI/CD
+
+Example workflow step:
+
+```yaml
+- name: Reset and seed dev environment
+  run: |
+    cd services/finanzas-api
+    npm run reset:dev-projects -- --force
+    npm run seed:canonical-projects
+  env:
+    AWS_REGION: us-east-2
+    STAGE: dev
+```
+
+---
+
+## Related Files
+
+- **OpenAPI Spec:** `openapi/finanzas.yaml`
+- **Zod Validators:** `services/finanzas-api/src/validation/`
+- **Seed Scripts:**
+  - Canonical Projects: `services/finanzas-api/src/seed/seed_canonical_projects.ts`
+  - Legacy Golden Project: `services/finanzas-api/src/seed/seed_finanzas_golden_project.ts` (deprecated)
+- **Reset Script:** `services/finanzas-api/scripts/reset-dev-projects.ts`
+- **Health Handler:** `services/finanzas-api/src/handlers/health.ts`
+
+---
+
+*Last Updated: 2025-12-10*
