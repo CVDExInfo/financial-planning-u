@@ -2,7 +2,7 @@ import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureCanRead } from "../lib/auth";
 import { bad, ok, serverError } from "../lib/http";
 import { queryProjectRubros, generateForecastGrid } from "../lib/baseline-sdmt";
-import { ddb, tableName, QueryCommand } from "../lib/dynamo";
+// (Removed unused imports from "../lib/dynamo")
 
 /**
  * Reconciliation handler - GET /recon
