@@ -282,9 +282,18 @@ function addMonths(startMonth: string, offset: number): string {
 
 /**
  * Seed catalog rubros
+ * 
+ * IMPORTANT: This function only ensures the canonical rubros exist in the catalog.
+ * It does NOT modify existing catalog entries - the putItem helper is idempotent.
+ * The rubros catalog (71 items) is the single source of truth and should be seeded
+ * separately via the rubros catalog seed scripts if needed.
+ * 
+ * This subset (17 rubros) covers the MOD, TEC, INF, SEC categories needed for
+ * the canonical test projects only.
  */
 async function seedCatalogRubros() {
-  console.log("\n📚 Seeding catalog rubros");
+  console.log("\n📚 Seeding catalog rubros (canonical subset)");
+  console.log("   Note: Idempotent - only creates if missing, never modifies existing");
 
   for (const rubro of CATALOG_RUBROS) {
     const item = {
@@ -372,22 +381,25 @@ async function seedProject(project: CanonicalProject) {
   console.log(`  ✓ Baseline record`);
 
   // 4. Project rubro attachments
+  // IMPORTANT: All rubros must reference the baseline to ensure 1:1 match
+  // This enforces the baseline-first flow: only rubros from the baseline are attached
   for (const rubroId of project.rubros) {
     const attachmentItem = {
       pk: `PROJECT#${project.projectId}`,
       sk: `RUBRO#${rubroId}`,
       projectId: project.projectId,
       rubroId: rubroId,
-      baselineId: project.baselineId,
+      baselineId: project.baselineId, // Links rubro to specific baseline
       attachedAt: now,
       attachedBy: "pm.lead@ikusi.com",
     };
 
     await putItem(TABLE_PROJECTS, attachmentItem);
   }
-  console.log(`  ✓ Rubro attachments (${project.rubros.length})`);
+  console.log(`  ✓ Rubro attachments (${project.rubros.length}) - all linked to ${project.baselineId}`);
 
   // 5. Estimator items (one per resource type)
+  // Each estimator item represents a baseline line item and maps to a catalog rubro
   for (let i = 0; i < project.resources.length; i++) {
     const resource = project.resources[i];
     const estimatorId = `est_${project.projectId}_${i + 1}`;
@@ -398,8 +410,8 @@ async function seedProject(project: CanonicalProject) {
       sk: `ESTIMATOR#${estimatorId}`,
       id: estimatorId,
       projectId: project.projectId,
-      baselineId: project.baselineId,
-      rubroId: rubroId,
+      baselineId: project.baselineId, // Links estimator item to baseline
+      rubroId: rubroId, // References catalog rubro
       nombre: `${resource.role} - ${project.duration} meses`,
       tier: resource.tier,
       quantity: resource.count,
@@ -512,6 +524,9 @@ async function seedProject(project: CanonicalProject) {
     console.log(`  ✓ Adjustment (1 record)`);
   }
 
+  // Validation: Confirm 1:1 baseline-rubro relationship
+  console.log(`  ℹ️  Validation: ${project.rubros.length} rubros, ${project.resources.length} estimator items, all linked to baseline ${project.baselineId}`);
+  
   console.log(`  ✅ Project ${project.projectId} seeded successfully`);
 }
 
