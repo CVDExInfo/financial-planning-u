@@ -236,7 +236,7 @@ describe("rubros handler", () => {
         unit_cost: 95000,
         start_month: 1,
         end_month: 60,
-        total_cost: 5700000, // 1 * 95000 * 60 months
+        total_cost: 5700000, // Total over duration: 1 qty * 95000 unit_cost * 60 months
         description: "Service Delivery Manager",
       }),
     );
