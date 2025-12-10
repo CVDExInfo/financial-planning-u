@@ -340,8 +340,13 @@ const buildSeedLineItems = (
     const months = endMonth - startMonth + 1;
     const totalCost = monthlyCost * months;
 
+    // SDMT ALIGNMENT FIX: Include baselineId in rubroId for uniqueness
+    const rubroId = baselineId 
+      ? `${baselineId}-labor-${index + 1}`
+      : `baseline-labor-${index + 1}`;
+
     items.push({
-      rubroId: `baseline-labor-${index + 1}`,
+      rubroId,
       nombre: estimate.role || "Labor",
       descripcion: estimate.level ? `${estimate.role ?? "Role"} (${estimate.level})` : estimate.role,
       category: "Labor",
@@ -372,8 +377,13 @@ const buildSeedLineItems = (
     const months = recurring ? endMonth - startMonth + 1 : 1;
     const totalCost = recurring ? amount * months : amount;
 
+    // SDMT ALIGNMENT FIX: Include baselineId in rubroId for uniqueness
+    const rubroId = baselineId
+      ? `${baselineId}-non-labor-${index + 1}`
+      : `baseline-non-labor-${index + 1}`;
+
     items.push({
-      rubroId: `baseline-non-labor-${index + 1}`,
+      rubroId,
       nombre: estimate.category || "Gasto No Laboral",
       descripcion: estimate.description,
       category: estimate.category || "Non-labor",
@@ -403,20 +413,31 @@ const seedLineItemsFromBaseline = async (
   baselineId?: string
 ) => {
   try {
-    const existing = await ddb.send(
-      new QueryCommand({
-        TableName: tableName("rubros"),
-        KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-        ExpressionAttributeValues: {
-          ":pk": `PROJECT#${projectId}`,
-          ":sk": "RUBRO#",
-        },
-        Limit: 1,
-      })
-    );
+    // SDMT ALIGNMENT FIX: Allow multiple baselines to be seeded
+    // Check if THIS baseline has already been seeded by looking for
+    // rubros with matching baseline_id in metadata.
+    // Query pattern: begins_with(sk, "RUBRO#${baselineId}") will match
+    // any rubroId that starts with the baselineId (e.g., "RUBRO#base_123-labor-1")
+    if (baselineId) {
+      const existing = await ddb.send(
+        new QueryCommand({
+          TableName: tableName("rubros"),
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+          ExpressionAttributeValues: {
+            ":pk": `PROJECT#${projectId}`,
+            ":sk": `RUBRO#${baselineId}`,
+          },
+          Limit: 1,
+        })
+      );
 
-    if ((existing.Items?.length || 0) > 0) {
-      return { seeded: 0, skipped: true };
+      if ((existing.Items?.length || 0) > 0) {
+        console.info("[seedLineItems] Baseline already seeded, skipping", {
+          projectId,
+          baselineId,
+        });
+        return { seeded: 0, skipped: true };
+      }
     }
 
     const seedItems = buildSeedLineItems(baseline, projectId, baselineId);

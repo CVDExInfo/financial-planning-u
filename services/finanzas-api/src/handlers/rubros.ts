@@ -12,6 +12,15 @@ import {
 } from "../lib/dynamo";
 import { ok, bad, notFound, serverError, fromAuthError } from "../lib/http";
 import { logError } from "../utils/logging";
+import { queryProjectRubros } from "../lib/baseline-sdmt";
+
+/**
+ * Rubros handler - CRUD operations for project rubros
+ * 
+ * SDMT ALIGNMENT FIX:
+ * - GET /projects/{projectId}/rubros now filters by active baseline
+ * - Prevents returning rubros from multiple baselines
+ */
 
 type ProjectRubroAttachment = {
   projectId?: string;
@@ -120,38 +129,30 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
     return bad("missing project id");
   }
 
-  // Query all rubros attached to this project (paginate to avoid silently
-  // truncating the list when a project has >1MB of rubros)
-  let lastEvaluatedKey: Record<string, unknown> | undefined;
-  const attachments: ProjectRubroAttachment[] = [];
-  let safetyCounter = 0;
-
-  do {
-    const result = await ddb.send(
-      new QueryCommand({
-        TableName: tableName("rubros"),
-        KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-        ExpressionAttributeValues: {
-          ":pk": `PROJECT#${projectId}`,
-          ":sk": "RUBRO#",
-        },
-        ExclusiveStartKey: lastEvaluatedKey,
-      })
-    );
-
-    const pageItems = (result.Items || []) as ProjectRubroAttachment[];
-    attachments.push(...pageItems);
-    lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-
-    // Defensive break to avoid infinite loops if Dynamo keeps returning a LEK
-    safetyCounter += 1;
-    if (safetyCounter > 50) {
-      console.warn("Exceeded pagination safety limit while listing rubros", {
-        projectId,
-      });
-      break;
-    }
-  } while (lastEvaluatedKey);
+  // SDMT ALIGNMENT FIX: Use baseline-filtered query
+  // This ensures we only return rubros from the active baseline
+  const baselineRubros = await queryProjectRubros(projectId);
+  
+  // Convert BaselineRubro[] to expected format
+  const attachments: ProjectRubroAttachment[] = baselineRubros.map((rubro) => ({
+    projectId: rubro.metadata?.project_id as string | undefined,
+    rubroId: rubro.rubroId,
+    tier: undefined,
+    category: rubro.category,
+    metadata: rubro.metadata,
+    createdAt: undefined,
+    createdBy: undefined,
+    sk: `RUBRO#${rubro.rubroId}`,
+    qty: rubro.qty,
+    unit_cost: rubro.unit_cost,
+    currency: rubro.currency,
+    recurring: rubro.recurring,
+    one_time: rubro.one_time,
+    start_month: rubro.start_month,
+    end_month: rubro.end_month,
+    total_cost: rubro.total_cost,
+    description: rubro.descripcion,
+  }));
   const rubroIds = Array.from(
     new Set(attachments.map((item) => toRubroId(item)).filter(Boolean)),
   );

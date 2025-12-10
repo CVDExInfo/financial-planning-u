@@ -227,13 +227,21 @@ export function SDMTForecast() {
 
   // Calculate totals and metrics - using useMemo to ensure it updates when data changes
   const metrics = useMemo(() => {
-    const totalVariance = forecastData.reduce((sum, cell) => sum + (cell.variance || 0), 0);
     const totalPlanned = forecastData.reduce((sum, cell) => sum + (cell.planned || 0), 0);
     const totalForecast = forecastData.reduce((sum, cell) => sum + (cell.forecast || 0), 0);
     const totalActual = forecastData.reduce((sum, cell) => sum + (cell.actual || 0), 0);
+    
+    // SDMT ALIGNMENT FIX: Calculate variances at aggregate level, not sum of cell variances
+    // Variación de Pronóstico = difference between total forecast and total planned
+    const totalVariance = totalForecast - totalPlanned;
     const variancePercentage = totalPlanned > 0 ? (totalVariance / totalPlanned) * 100 : 0;
-    const actualVariance = totalActual - totalForecast;
-    const actualVariancePercentage = totalForecast > 0 ? (actualVariance / totalForecast) * 100 : 0;
+    
+    // Variación Real = difference between actual and planned (not actual vs forecast)
+    // This represents how much actual costs deviate from the original plan/baseline.
+    // Previously calculated as (actual - forecast), but business requirement per screenshots
+    // shows this should be (actual - planned) to measure variance from baseline budget.
+    const actualVariance = totalActual - totalPlanned;
+    const actualVariancePercentage = totalPlanned > 0 ? (actualVariance / totalPlanned) * 100 : 0;
 
     if (import.meta.env.DEV && forecastData.length > 0) {
       console.debug('[Forecast] Metrics recalculated', {
@@ -241,6 +249,8 @@ export function SDMTForecast() {
         totalPlanned,
         totalForecast,
         totalActual,
+        totalVariance,
+        actualVariance,
       });
     }
 
