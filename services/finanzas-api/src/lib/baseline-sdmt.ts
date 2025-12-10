@@ -138,6 +138,7 @@ export async function queryProjectRubros(
   let lastEvaluatedKey: Record<string, unknown> | undefined;
   const allRubros: BaselineRubro[] = [];
   let safetyCounter = 0;
+  const MAX_PAGINATION_ITERATIONS = 50; // Prevent infinite loops
 
   do {
     const result = await ddb.send(
@@ -157,7 +158,7 @@ export async function queryProjectRubros(
     lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
 
     safetyCounter += 1;
-    if (safetyCounter > 50) {
+    if (safetyCounter > MAX_PAGINATION_ITERATIONS) {
       console.warn("Exceeded pagination safety limit while querying rubros", {
         projectId,
         baselineId: targetBaselineId,

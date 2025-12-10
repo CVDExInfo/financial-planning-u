@@ -5,6 +5,7 @@ import {
 import { ensureCanRead } from "../lib/auth";
 import { ok, bad, serverError, noContent } from "../lib/http";
 import { ddb, QueryCommand, tableName } from "../lib/dynamo";
+import { queryProjectRubros } from "../lib/baseline-sdmt";
 
 /**
  * GET /line-items?project_id=xxx

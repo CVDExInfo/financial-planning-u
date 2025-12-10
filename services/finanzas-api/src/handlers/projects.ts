@@ -415,7 +415,9 @@ const seedLineItemsFromBaseline = async (
   try {
     // SDMT ALIGNMENT FIX: Allow multiple baselines to be seeded
     // Check if THIS baseline has already been seeded by looking for
-    // rubros with matching baseline_id in metadata
+    // rubros with matching baseline_id in metadata.
+    // Query pattern: begins_with(sk, "RUBRO#${baselineId}") will match
+    // any rubroId that starts with the baselineId (e.g., "RUBRO#base_123-labor-1")
     if (baselineId) {
       const existing = await ddb.send(
         new QueryCommand({
