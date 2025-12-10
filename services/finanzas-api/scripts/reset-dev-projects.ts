@@ -36,6 +36,10 @@ const TABLE_PROJECTS = process.env.TABLE_PROJECTS || "finz_projects";
 const TABLE_ALLOC = process.env.TABLE_ALLOC || "finz_allocations";
 const TABLE_PAYROLL = process.env.TABLE_PAYROLL || "finz_payroll_actuals";
 
+// IMPORTANT: This script does NOT touch the rubros catalog table (finz_rubros)
+// or taxonomy table (finz_rubros_taxonomia). Those are production assets.
+// Only project-specific data (allocations, payroll) and non-canonical projects are deleted.
+
 const ddb = new DynamoDBClient({ region: AWS_REGION });
 
 // Canonical project IDs (protected - never deleted)

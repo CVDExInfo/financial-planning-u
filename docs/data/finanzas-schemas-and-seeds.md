@@ -865,4 +865,111 @@ Example workflow step:
 
 ---
 
+## Troubleshooting Canonical Projects
+
+### Verification Failures
+
+If `npm run verify:canonical-projects` fails, check the following:
+
+#### "Project not found"
+- **Cause**: Project hasn't been seeded
+- **Fix**: Run `npm run seed:canonical-projects`
+
+#### "Missing handoff/baseline"
+- **Cause**: Seed script didn't complete or partial failure
+- **Fix**: 
+  ```bash
+  npm run reset:dev-projects
+  npm run seed:canonical-projects
+  npm run verify:canonical-projects
+  ```
+
+#### "No rubros attached"
+- **Cause**: Rubro attachments failed to seed
+- **Symptoms**: Project exists but has 0 rubros
+- **Fix**: Re-run seed script (it's idempotent)
+
+#### "No allocations" or "Insufficient payroll data"
+- **Cause**: Allocation or payroll seeding failed
+- **Symptoms**: Rubros exist but no monthly data
+- **Fix**: Check AWS credentials and table names, then re-seed
+
+#### "Rubros not linked to baseline"
+- **Cause**: Data corruption or manual modification
+- **Symptoms**: Rubros exist but `baselineId` field is missing/incorrect
+- **Fix**: Delete project and re-seed:
+  ```bash
+  # In AWS Console or CLI, delete the project
+  npm run seed:canonical-projects
+  ```
+
+### Common Issues
+
+#### Environment Guard Failures
+
+```
+❌ FATAL: Cannot run seed script in production/staging environment!
+```
+
+- **Cause**: `STAGE` or `ENV` variable set to `prod`, `production`, `stg`, or `staging`
+- **Fix**: Set `STAGE=dev` or `STAGE=test`
+  ```bash
+  export STAGE=dev
+  npm run seed:canonical-projects
+  ```
+
+#### AWS Credentials Issues
+
+```
+Error: Missing credentials in config
+```
+
+- **Cause**: AWS SDK can't find credentials
+- **Fix**: Configure AWS credentials:
+  ```bash
+  aws configure
+  # OR set environment variables
+  export AWS_ACCESS_KEY_ID=...
+  export AWS_SECRET_ACCESS_KEY=...
+  export AWS_REGION=us-east-2
+  ```
+
+#### DynamoDB Table Not Found
+
+```
+ResourceNotFoundException: Requested resource not found
+```
+
+- **Cause**: Tables don't exist in the environment
+- **Fix**: Deploy the Finanzas API stack first
+  ```bash
+  cd services/finanzas-api
+  sam build
+  sam deploy --guided
+  ```
+
+### Best Practices
+
+1. **Always verify after seeding**
+   ```bash
+   npm run seed:canonical-projects && npm run verify:canonical-projects
+   ```
+
+2. **Use dry-run before reset**
+   ```bash
+   npm run reset:dev-projects -- --dry-run
+   ```
+
+3. **Keep canonical projects pristine**
+   - Don't manually modify canonical projects in dev/test
+   - If you need to test changes, create a temporary non-canonical project
+   - Use `P-TEST-*` naming for temporary projects
+
+4. **Check logs for details**
+   - Seed script shows per-project progress
+   - Verify script shows component counts
+   - Reset script shows deletion preview
+
+---
+
 *Last Updated: 2025-12-10*
