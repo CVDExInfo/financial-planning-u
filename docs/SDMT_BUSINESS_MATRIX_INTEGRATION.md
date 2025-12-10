@@ -58,6 +58,27 @@ interface CostLineItem {
 
 **Total**: 99 standardized line items
 
+### MOD Role Alignment
+
+The **MOD - Mano de Obra Directa** category (6 line items) aligns with the client-approved roles for Service Delivery:
+
+| Catalog Line Item | MOD Role(s) Used in Handoff/Payroll |
+|-------------------|-------------------------------------|
+| MOD-ING           | Ingeniero Soporte N1, N2, N3        |
+| MOD-LEAD          | Ingeniero Delivery                  |
+| MOD-SDM           | Service Delivery Manager            |
+| MOD-PM            | Project Manager                     |
+| MOD-OT            | (Overtime - not a role)             |
+| MOD-CONT/MOD-EXT  | (Contractors - not roles)           |
+
+When defining MOD roles in project baselines and handoffs, these 6 specific roles are used:
+1. Ingeniero Delivery
+2. Ingeniero Soporte N1
+3. Ingeniero Soporte N2
+4. Ingeniero Soporte N3
+5. Service Delivery Manager
+6. Project Manager
+
 ---
 
 ## UI Implementation
