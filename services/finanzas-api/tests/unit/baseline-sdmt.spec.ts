@@ -1,6 +1,8 @@
 /**
  * Unit tests for baseline → SDMT alignment fixes
  * Tests the filtering and mapping functions in lib/baseline-sdmt.ts
+ * 
+ * Uses canonical project IDs to ensure consistency with seeded test data.
  */
 
 import { describe, it, expect } from "@jest/globals";
@@ -10,77 +12,83 @@ import {
   generateForecastGrid,
   type BaselineRubro,
 } from "../../src/lib/baseline-sdmt";
+import { CANONICAL_PROJECT_IDS, CANONICAL_BASELINE_IDS } from "../fixtures/canonical-projects";
 
 describe("Baseline → SDMT Alignment", () => {
+  // Use canonical projects for test data
+  const TEST_PROJECT_ID = CANONICAL_PROJECT_IDS.NOC_CLARO;
+  const TEST_BASELINE_1 = CANONICAL_BASELINE_IDS.NOC_CLARO;
+  const TEST_BASELINE_2 = CANONICAL_BASELINE_IDS.SOC_BANCOL;
+
   describe("filterRubrosByBaseline", () => {
     it("should filter rubros by baseline_id in metadata", () => {
       const rubros: BaselineRubro[] = [
         {
-          rubroId: "base_123-labor-1",
-          nombre: "Labor 1",
-          category: "Labor",
-          qty: 1,
-          unit_cost: 1000,
+          rubroId: "RB0001",
+          nombre: "MOD Engineers - Baseline 1",
+          category: "MOD",
+          qty: 8,
+          unit_cost: 75000,
           currency: "USD",
           recurring: true,
           one_time: false,
           start_month: 1,
-          end_month: 12,
-          total_cost: 12000,
-          metadata: { baseline_id: "base_123", project_id: "P-001" },
+          end_month: 60,
+          total_cost: 36000000,
+          metadata: { baseline_id: TEST_BASELINE_1, project_id: TEST_PROJECT_ID },
         },
         {
-          rubroId: "base_456-labor-1",
-          nombre: "Labor 2",
-          category: "Labor",
+          rubroId: "RB0002",
+          nombre: "MOD Tech Lead - Baseline 2",
+          category: "MOD",
           qty: 1,
-          unit_cost: 2000,
+          unit_cost: 110000,
           currency: "USD",
           recurring: true,
           one_time: false,
           start_month: 1,
-          end_month: 12,
-          total_cost: 24000,
-          metadata: { baseline_id: "base_456", project_id: "P-001" },
+          end_month: 36,
+          total_cost: 3960000,
+          metadata: { baseline_id: TEST_BASELINE_2, project_id: TEST_PROJECT_ID },
         },
       ];
 
-      const filtered = filterRubrosByBaseline(rubros, "base_123");
+      const filtered = filterRubrosByBaseline(rubros, TEST_BASELINE_1);
       
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].rubroId).toBe("base_123-labor-1");
-      expect(filtered[0].metadata?.baseline_id).toBe("base_123");
+      expect(filtered[0].rubroId).toBe("RB0001");
+      expect(filtered[0].metadata?.baseline_id).toBe(TEST_BASELINE_1);
     });
 
     it("should return all rubros if baselineId is null", () => {
       const rubros: BaselineRubro[] = [
         {
-          rubroId: "base_123-labor-1",
-          nombre: "Labor 1",
-          category: "Labor",
-          qty: 1,
-          unit_cost: 1000,
+          rubroId: "RB0001",
+          nombre: "MOD Engineers",
+          category: "MOD",
+          qty: 8,
+          unit_cost: 75000,
           currency: "USD",
           recurring: true,
           one_time: false,
           start_month: 1,
-          end_month: 12,
-          total_cost: 12000,
-          metadata: { baseline_id: "base_123" },
+          end_month: 60,
+          total_cost: 36000000,
+          metadata: { baseline_id: TEST_BASELINE_1 },
         },
         {
-          rubroId: "base_456-labor-1",
-          nombre: "Labor 2",
-          category: "Labor",
+          rubroId: "RB0002",
+          nombre: "MOD Tech Lead",
+          category: "MOD",
           qty: 1,
-          unit_cost: 2000,
+          unit_cost: 110000,
           currency: "USD",
           recurring: true,
           one_time: false,
           start_month: 1,
-          end_month: 12,
-          total_cost: 24000,
-          metadata: { baseline_id: "base_456" },
+          end_month: 36,
+          total_cost: 3960000,
+          metadata: { baseline_id: TEST_BASELINE_2 },
         },
       ];
 

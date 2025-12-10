@@ -260,14 +260,161 @@ Examples:
 
 ---
 
+## Test Data & Demo Projects
+
+### Overview
+
+For testing and demos, the Finanzas SD system uses **7 canonical demo projects** with realistic data. These projects are automatically seeded in dev/test environments and provide consistent scenarios for:
+
+- Unit and integration testing
+- UI demos and screenshots
+- Training and onboarding
+- Role-based scenario walkthroughs
+
+### Canonical Demo Projects
+
+| Project ID | Name | Client | Service Type | Duration | Budget |
+|------------|------|--------|--------------|----------|--------|
+| P-NOC-CLARO-BOG | NOC Claro Bogotá | Claro Colombia | NOC 24x7 | 60 months | $18.5M |
+| P-SOC-BANCOL-MED | SOC Bancolombia Medellín | Bancolombia | SOC/Security | 36 months | $12.8M |
+| P-WIFI-ELDORADO | WiFi Aeropuerto El Dorado | Avianca | WiFi Infrastructure | 24 months | $4.2M |
+| P-CLOUD-ECOPETROL | Cloud Ops Ecopetrol | Ecopetrol | Cloud Operations | 48 months | $22.5M |
+| P-SD-TIGO-CALI | Service Delivery Tigo Cali | Tigo Colombia | Managed Services | 36 months | $9.6M |
+| P-CONNECT-AVIANCA | Connectivity Avianca | Avianca | SD-WAN/MPLS | 48 months | $15.3M |
+| P-DATACENTER-ETB | Datacenter ETB | ETB | Datacenter Ops | 60 months | $25.0M |
+
+**Total Portfolio**: ~$108M USD across 7 active projects
+
+### Test Data Structure
+
+Each canonical project includes:
+
+1. **Project metadata** (client, name, dates, budget, status)
+2. **Baseline/handoff** (approved by PM, accepted by SDM)
+3. **Catalog rubros** (from standard business matrix categories)
+4. **Project-rubro attachments** (1:1 with baseline items)
+5. **Estimator items** (detailed cost breakdown)
+6. **Allocations** (first 3 months of monthly budget distribution)
+7. **Payroll actuals** (first 3 months with realistic variance)
+8. **Adjustments** (for projects with budget variances)
+
+### Example: P-NOC-CLARO-BOG Line Items
+
+This project demonstrates a **favorable margin** scenario (under budget).
+
+**MOD Resources**:
+- 8 × NOC Engineers (Gold tier) @ $75k/month
+- 2 × NOC Leads (Premium tier) @ $110k/month
+- 1 × SDM (Gold tier) @ $95k/month
+
+**Catalog Rubros Used**:
+1. **RB0001** - MOD: Ingenieros asignados al servicio (Gold)
+2. **RB0002** - MOD: Perfil senior técnico / líder (Premium)
+3. **RB0003** - MOD: Service Delivery Manager (Gold)
+4. **RB0010** - TEC: Herramientas de monitoreo 24x7
+5. **RB0015** - TEL: Circuitos y enlaces
+
+**Monthly Budget**: ~$308k/month  
+**Variance**: Consistently 3-5% under budget (favorable)
+
+### Example: P-CLOUD-ECOPETROL Line Items
+
+This project demonstrates a **challenged margin** scenario (over budget).
+
+**MOD Resources**:
+- 10 × Cloud Engineers (Premium tier) @ $100k/month
+- 2 × Cloud Architects (Premium tier) @ $125k/month
+- 1 × SDM (Premium tier) @ $100k/month
+
+**Catalog Rubros Used**:
+1. **RB0001** - MOD: Ingenieros asignados al servicio (Premium)
+2. **RB0002** - MOD: Perfil senior técnico / arquitecto (Premium)
+3. **RB0003** - MOD: Service Delivery Manager (Premium)
+4. **RB0040** - INF: Servicios Cloud AWS/Azure
+5. **RB0045** - TEC: Herramientas de observabilidad cloud
+6. **RB0050** - SEC: Compliance y auditoría de seguridad cloud
+
+**Monthly Budget**: ~$469k/month  
+**Variance**: 2-5% over budget due to cloud cost overruns  
+**Adjustments**: Includes approved budget increase in month 3
+
+### Seeding Test Data
+
+To reset and re-seed the canonical projects in dev/test:
+
+```bash
+cd services/finanzas-api
+
+# Step 1: Reset environment (removes non-canonical projects)
+npm run reset:dev-projects -- --dry-run   # Preview first
+npm run reset:dev-projects                # Execute with confirmation
+
+# Step 2: Seed canonical projects
+npm run seed:canonical-projects
+```
+
+**Safety**: The reset script never deletes canonical projects and will abort if run in production.
+
+### Using Test Data in Manual Testing
+
+#### PM Scenario: Create Baseline & Handoff
+1. Navigate to project: **P-NOC-CLARO-BOG**
+2. View baseline: **BL-NOC-CLARO-001**
+3. Review line items (should show 5 rubros matching baseline)
+4. Test handoff acceptance workflow
+
+#### SDM Scenario: Forecast & Reconciliation
+1. Navigate to project: **P-CLOUD-ECOPETROL**
+2. View allocations for months 2025-01, 2025-02, 2025-03
+3. Compare allocations vs actuals (should show 2-5% variance)
+4. Review adjustment request for month 3 (cloud overrun)
+
+#### FIN Scenario: Portfolio Dashboard
+1. View all 7 projects in portfolio
+2. Check total budget: ~$108M USD
+3. Identify projects by margin profile:
+   - Favorable: P-NOC-CLARO-BOG, P-SD-TIGO-CALI, P-DATACENTER-ETB
+   - On-target: P-SOC-BANCOL-MED, P-WIFI-ELDORADO, P-CONNECT-AVIANCA
+   - Challenged: P-CLOUD-ECOPETROL
+4. Test variance reporting and drill-down
+
+### Test Data Maintenance
+
+**When to Reset**:
+- Before demos or presentations
+- After major development changes
+- When test data becomes inconsistent
+- Before QA testing cycles
+
+**DO**:
+- Use canonical project IDs in tests
+- Rely on seeded data for predictable scenarios
+- Test variance scenarios with P-CLOUD-ECOPETROL
+- Test favorable scenarios with P-NOC-CLARO-BOG
+
+**DON'T**:
+- Create test projects manually in dev/test
+- Hard-code project IDs other than canonical ones
+- Modify canonical project data directly
+- Delete canonical projects
+
+### Related Documentation
+
+- **Full project details**: `docs/data/finanzas-schemas-and-seeds.md`
+- **Seed script source**: `services/finanzas-api/src/seed/seed_canonical_projects.ts`
+- **Reset script source**: `services/finanzas-api/scripts/reset-dev-projects.ts`
+
+---
+
 ## Getting Help
 
 - **Technical Issues**: SDMT module maintainer
 - **Business Matrix Updates**: Finance/Accounting team
 - **Missing Categories**: PMO/Prefactura team
+- **Test Data Issues**: See `docs/data/finanzas-schemas-and-seeds.md`
 - **Documentation**: `docs/SDMT_BUSINESS_MATRIX_INTEGRATION.md`
 
 ---
 
-**Last Updated**: November 14, 2025  
-**Version**: 1.0 (Initial Release)
+**Last Updated**: December 10, 2025  
+**Version**: 1.1 (Added Test Data Section)

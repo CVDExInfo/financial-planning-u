@@ -1,4 +1,5 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
+import { CANONICAL_PROJECT_IDS, CANONICAL_BASELINE_IDS, CANONICAL_RUBROS } from "../fixtures/canonical-projects";
 
 jest.mock("../../src/lib/auth", () => ({
   ensureCanRead: jest.fn(),
@@ -35,10 +36,14 @@ const baselineSDMT = jest.requireMock("../../src/lib/baseline-sdmt") as {
   queryProjectRubros: jest.Mock;
 };
 
+// Use canonical project for consistent testing
+const TEST_PROJECT_ID = CANONICAL_PROJECT_IDS.NOC_CLARO;
+const TEST_BASELINE_ID = CANONICAL_BASELINE_IDS.NOC_CLARO;
+
 const baseEvent = (overrides: Partial<APIGatewayProxyEventV2> = {}) => ({
   version: "2.0",
   routeKey: "GET /projects/{projectId}/rubros",
-  rawPath: "/projects/PROJ-1/rubros",
+  rawPath: `/projects/${TEST_PROJECT_ID}/rubros`,
   rawQueryString: "",
   headers: {},
   requestContext: {
@@ -48,7 +53,7 @@ const baseEvent = (overrides: Partial<APIGatewayProxyEventV2> = {}) => ({
     domainPrefix: "example",
     http: {
       method: "GET",
-      path: "/projects/PROJ-1/rubros",
+      path: `/projects/${TEST_PROJECT_ID}/rubros`,
       protocol: "HTTP/1.1",
       sourceIp: "127.0.0.1",
       userAgent: "jest",
@@ -59,7 +64,7 @@ const baseEvent = (overrides: Partial<APIGatewayProxyEventV2> = {}) => ({
     time: "",
     timeEpoch: 0,
   },
-  pathParameters: { projectId: "PROJ-1" },
+  pathParameters: { projectId: TEST_PROJECT_ID },
   isBase64Encoded: false,
   ...overrides,
 });
@@ -73,30 +78,35 @@ describe("rubros handler", () => {
     baselineSDMT.queryProjectRubros.mockResolvedValue([]);
   });
 
-  it("returns attached project rubros with catalog metadata", async () => {
+  it("returns attached project rubros with catalog metadata (baseline-first flow)", async () => {
+    // Use canonical rubros from the baseline
+    const testRubroId = CANONICAL_RUBROS.MOD_ENGINEERS;
+    
     // Mock queryProjectRubros to return baseline-filtered rubros
     baselineSDMT.queryProjectRubros.mockResolvedValueOnce([
       {
-        projectId: "PROJ-1",
-        rubroId: "R-100",
-        sk: "RUBRO#R-100",
-        tier: "gold",
-        category: "Ops",
+        projectId: TEST_PROJECT_ID,
+        rubroId: testRubroId,
+        sk: `RUBRO#${testRubroId}`,
+        tier: "Gold",
+        category: "MOD",
         metadata: {
-          baseline_id: "base_123",
-          project_id: "PROJ-1",
+          baseline_id: TEST_BASELINE_ID,
+          project_id: TEST_PROJECT_ID,
         },
       },
     ]);
     
-    // Mock BatchGet for rubro definitions
+    // Mock BatchGet for rubro definitions from catalog
     dynamo.ddb.send.mockResolvedValueOnce({
       Responses: {
         "rubros-table": [
           {
-            codigo: "R-100",
-            nombre: "Infraestructura",
-            tipo_costo: "RECURRENT",
+            codigo: testRubroId,
+            nombre: "Costo mensual de ingenieros asignados al servicio según % de asignación",
+            tipo_costo: "Recurrente",
+            categoria: "MOD",
+            tier: "Gold",
           },
         ],
       },
@@ -106,22 +116,23 @@ describe("rubros handler", () => {
     expect(response.statusCode).toBe(200);
 
     const payload = JSON.parse(response.body as string);
-    expect(payload.project_id).toBe("PROJ-1");
+    expect(payload.project_id).toBe(TEST_PROJECT_ID);
     expect(payload.data).toEqual([
       expect.objectContaining({
-        id: "R-100",
-        rubro_id: "R-100",
-        nombre: "Infraestructura",
-        linea_codigo: "R-100",
-        tipo_costo: "RECURRENT",
+        id: testRubroId,
+        rubro_id: testRubroId,
+        nombre: expect.stringContaining("ingenieros"),
+        linea_codigo: testRubroId,
+        tipo_costo: "Recurrente",
+        categoria: "MOD",
       }),
     ]);
 
-    expect(baselineSDMT.queryProjectRubros).toHaveBeenCalledWith("PROJ-1");
+    expect(baselineSDMT.queryProjectRubros).toHaveBeenCalledWith(TEST_PROJECT_ID);
     expect(dynamo.BatchGetCommand).toHaveBeenCalledWith(
       expect.objectContaining({
         RequestItems: expect.objectContaining({
-          "rubros-table": expect.objectContaining({ Keys: [{ pk: "RUBRO#R-100", sk: "METADATA" }] }),
+          "rubros-table": expect.objectContaining({ Keys: [{ pk: `RUBRO#${testRubroId}`, sk: "METADATA" }] }),
         }),
       }),
     );
@@ -132,22 +143,24 @@ describe("rubros handler", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("persists cost metadata and allocations when attaching a rubro", async () => {
+  it("persists cost metadata and allocations when attaching a rubro (from baseline)", async () => {
     auth.getUserEmail.mockResolvedValueOnce("user@example.com");
+    const testRubroId = CANONICAL_RUBROS.MOD_TECH_LEAD;
+    
     const postEvent = baseEvent({
       requestContext: {
         ...baseEvent().requestContext,
         http: { ...baseEvent().requestContext.http, method: "POST" },
       },
-      pathParameters: { projectId: "PROJ-1" },
+      pathParameters: { projectId: TEST_PROJECT_ID },
       body: JSON.stringify({
+        baselineId: TEST_BASELINE_ID, // Must specify baseline
         rubroIds: [
           {
-            rubroId: "R-200",
+            rubroId: testRubroId,
             qty: 2,
-            unitCost: 50,
-            duration: "M1-M2",
-          },
+            unitCost: 110000,
+            duration: "M1-M60",
         ],
       }),
     });
