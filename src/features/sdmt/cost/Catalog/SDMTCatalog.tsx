@@ -75,6 +75,7 @@ import {
   getCategoryByCode,
 } from "@/data/cost-categories";
 import { ES_TEXTS } from "@/lib/i18n/es";
+import { isMODCategory, getCostTypeLabel } from "@/lib/cost-utils";
 
 type PendingChangeType = "add" | "edit" | "delete";
 
@@ -919,13 +920,14 @@ export function SDMTCatalog() {
             <Package size={16} />
             Rubros
           </TabsTrigger>
-          <TabsTrigger
+          {/* Service Levels tab hidden per item 19 - R1 scope */}
+          {/* <TabsTrigger
             value="service-tiers"
             className="flex items-center gap-2"
           >
             <Star size={16} />
             Niveles de Servicio Ikusi
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="line-items" className="space-y-6">
@@ -1726,8 +1728,17 @@ export function SDMTCatalog() {
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <div>
-                                  <div className="font-medium">
+                                  <div className="font-medium flex items-center gap-2">
                                     {item.category}
+                                    {/* MOD badge per item 6 */}
+                                    {isMODCategory(item.category) && (
+                                      <Badge 
+                                        variant="outline" 
+                                        className="text-[10px] border-blue-500 text-blue-700 dark:text-blue-400"
+                                      >
+                                        {ES_TEXTS.costStructure.mod}
+                                      </Badge>
+                                    )}
                                   </div>
                                   {(item as any).subtype && (
                                     <div className="text-sm text-muted-foreground">
@@ -1866,13 +1877,14 @@ export function SDMTCatalog() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="service-tiers" className="space-y-6">
+        {/* Service Levels tab content hidden per item 19 - R1 scope */}
+        {/* <TabsContent value="service-tiers" className="space-y-6">
           <ServiceTierSelector
             onTierSelected={async () => {
               await invalidateLineItems();
             }}
           />
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
 
       {/* Document upload dialog */}
