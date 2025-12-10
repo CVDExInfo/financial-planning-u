@@ -186,6 +186,60 @@ async function handleGet(event: APIGatewayProxyEventV2) {
 }
 
 /**
+ * GET /payroll/actuals?projectId={id}&month={YYYY-MM}
+ * Get payroll actuals for a project and month (API contract endpoint)
+ * 
+ * Query params:
+ * - projectId: required
+ * - month: required YYYY-MM filter
+ * 
+ * Response: { projectId, month, data: [...] }
+ */
+async function handleGetActuals(event: APIGatewayProxyEventV2) {
+  const projectId = event.queryStringParameters?.projectId;
+  const month = event.queryStringParameters?.month;
+
+  if (!projectId) {
+    return bad("Missing required query parameter: projectId", 400);
+  }
+
+  if (!month) {
+    return bad("Missing required query parameter: month", 400);
+  }
+
+  // Validate month format
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    return bad("Invalid month format. Must be YYYY-MM", 400);
+  }
+
+  try {
+    // Query payroll actuals for the specified project and month
+    const entries = await queryPayrollByPeriod(projectId, month, 'actual');
+
+    return ok({
+      projectId,
+      month,
+      data: entries,
+    });
+  } catch (error) {
+    console.error("Error querying payroll actuals:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://d7t9x3j66yd8k.cloudfront.net',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+      body: JSON.stringify({
+        error: 'Internal server error',
+        message: errorMessage,
+      }),
+    };
+  }
+}
+
+/**
  * GET /payroll/summary?projectId={id}
  * Get time series summary for a project with plan/forecast/actual breakdown and metrics
  * 
@@ -445,6 +499,13 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return handleGetDashboard(event);
     }
     return bad(`Method ${method} not allowed for /payroll/dashboard`, 405);
+  }
+
+  if (rawPath.includes("/payroll/actuals")) {
+    if (method === "GET") {
+      return handleGetActuals(event);
+    }
+    return bad(`Method ${method} not allowed for /payroll/actuals`, 405);
   }
 
   if (method === "GET") {
