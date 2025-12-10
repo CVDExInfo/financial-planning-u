@@ -2,7 +2,118 @@
 
 This directory contains seed scripts for populating DynamoDB tables with test and development data.
 
-## Golden Project Seed
+## 🌟 Canonical Projects Seed (RECOMMENDED)
+
+### Overview
+
+The **canonical projects seed** (`seed_canonical_projects.ts`) creates a complete portfolio of **7 realistic demo projects** based on actual Ikusi service delivery scenarios. This is the **recommended seed script** for dev/test environments.
+
+**Why use this instead of the golden project?**
+- ✅ Portfolio of 7 projects vs 1 single project
+- ✅ Covers different scenarios (favorable, on-target, challenged margins)
+- ✅ Realistic client names (Claro, Bancolombia, Avianca, etc.)
+- ✅ Diverse service types (NOC, SOC, WiFi, Cloud, SD-WAN, Datacenter)
+- ✅ Role-based test scenarios (PM, SDM, FIN)
+- ✅ Total portfolio value: ~$108M USD
+
+### What Gets Seeded
+
+For **each of the 7 projects**:
+- **Project Record**: Metadata (client, name, dates, budget)
+- **Baseline/Handoff**: Budget handoff with acceptance
+- **Catalog Rubros**: Standard Ikusi rubros (MOD, TEC, INF, etc.)
+- **Project Rubro Attachments**: Links rubros to the project (matches baseline)
+- **Estimator Items**: Resource breakdown by role (engineers, leads, SDM)
+- **Allocations**: First 3 months of monthly budget distribution
+- **Payroll Actuals**: First 3 months with realistic variance
+- **Adjustments**: For challenged projects (budget overruns)
+
+**Total Records**: ~350-500 records across all tables
+
+### Running the Seed
+
+```bash
+cd services/finanzas-api
+npm run seed:canonical-projects
+```
+
+### The 7 Canonical Projects
+
+| Project ID | Name | Client | Duration | Budget | Margin Profile |
+|------------|------|--------|----------|--------|----------------|
+| P-NOC-CLARO-BOG | NOC Claro Bogotá | Claro Colombia | 60 months | $18.5M | ✅ Favorable |
+| P-SOC-BANCOL-MED | SOC Bancolombia Medellín | Bancolombia | 36 months | $12.8M | ⚖️ On-target |
+| P-WIFI-ELDORADO | WiFi Aeropuerto El Dorado | Avianca | 24 months | $4.2M | ⚖️ On-target |
+| P-CLOUD-ECOPETROL | Cloud Ops Ecopetrol | Ecopetrol | 48 months | $22.5M | ⚠️ Challenged |
+| P-SD-TIGO-CALI | Service Delivery Tigo Cali | Tigo Colombia | 36 months | $9.6M | ✅ Favorable |
+| P-CONNECT-AVIANCA | Connectivity Avianca | Avianca | 48 months | $15.3M | ⚖️ On-target |
+| P-DATACENTER-ETB | Datacenter ETB | ETB | 60 months | $25.0M | ✅ Favorable |
+
+### Environment Variables
+
+```bash
+AWS_REGION=us-east-2              # AWS region
+STAGE=dev                         # Environment (dev/test only, aborts on prod/stg)
+TABLE_PROJECTS=finz_projects      # Projects table name
+TABLE_RUBROS=finz_rubros         # Rubros catalog table
+TABLE_ALLOC=finz_allocations     # Allocations table
+TABLE_PAYROLL=finz_payroll_actuals # Payroll actuals table
+TABLE_ADJ=finz_adjustments       # Adjustments table
+```
+
+### Safety Features
+
+- ✅ **Environment guard**: Aborts if `STAGE` or `ENV` is `prod`, `stg`, `production`, or `staging`
+- ✅ **Idempotent**: Safe to run multiple times
+- ✅ **Clear output**: Shows progress for each project and entity type
+
+### Use Cases
+
+**For PM (Project Manager) Testing**:
+- Use `P-NOC-CLARO-BOG` for baseline creation and handoff
+- Use `P-WIFI-ELDORADO` for shorter-term projects
+
+**For SDM (Service Delivery Manager) Testing**:
+- Use `P-CLOUD-ECOPETROL` for challenged margin scenarios (budget overruns)
+- Use `P-NOC-CLARO-BOG` for favorable variance scenarios
+
+**For FIN (Finance) Testing**:
+- View full portfolio dashboard with all 7 projects
+- Test variance reporting across different margin profiles
+
+### Verification
+
+After seeding, verify the projects:
+
+```bash
+# List all canonical projects
+aws dynamodb scan \
+  --table-name finz_projects \
+  --filter-expression "begins_with(pk, :pk) AND sk = :sk" \
+  --expression-attribute-values '{":pk":{"S":"PROJECT#P-"}":sk":{"S":"META"}}'
+
+# Or use the API
+GET /finanzas/projects
+```
+
+### Resetting the Environment
+
+Before re-seeding, use the reset script to clean up non-canonical projects:
+
+```bash
+# Preview what will be deleted
+npm run reset:dev-projects -- --dry-run
+
+# Actually delete (with confirmation)
+npm run reset:dev-projects
+
+# Re-seed canonical projects
+npm run seed:canonical-projects
+```
+
+---
+
+## 📦 Golden Project Seed (LEGACY)
 
 ### Overview
 
@@ -127,8 +238,75 @@ GET /finanzas/projects/P-GOLDEN-1/rubros
 - ✅ Include error handling
 - ✅ Document what gets seeded
 
+## Related Scripts
+
+### Reset Dev Projects
+
+The reset script (`../scripts/reset-dev-projects.ts`) provides safe cleanup of dev/test environments:
+
+```bash
+# Preview deletions
+npm run reset:dev-projects -- --dry-run
+
+# Delete non-canonical projects (with confirmation)
+npm run reset:dev-projects
+
+# Delete without confirmation (CI/CD use)
+npm run reset:dev-projects -- --force
+```
+
+**Features**:
+- ✅ Never deletes canonical projects (protected)
+- ✅ Environment guard (aborts on prod/stg)
+- ✅ Dry-run mode for safety
+- ✅ Confirmation prompt
+- ✅ Deletes all related records (rubros, allocations, payroll, adjustments)
+
 ## References
 
 - **Documentation**: `docs/data/finanzas-schemas-and-seeds.md`
+- **Test Fixtures**: `tests/fixtures/canonical-projects.ts`
 - **Validation Schemas**: `src/validation/`
 - **OpenAPI Spec**: `openapi/finanzas.yaml`
+
+## Quick Start
+
+### First Time Setup
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Set environment variables
+export AWS_REGION=us-east-2
+export STAGE=dev
+
+# 3. Seed canonical projects
+npm run seed:canonical-projects
+```
+
+### Regular Development Workflow
+
+```bash
+# Reset environment (removes test noise)
+npm run reset:dev-projects
+
+# Re-seed canonical projects
+npm run seed:canonical-projects
+
+# Run tests with consistent data
+npm test
+```
+
+### CI/CD Pipeline
+
+```yaml
+- name: Setup test data
+  run: |
+    cd services/finanzas-api
+    npm run reset:dev-projects -- --force
+    npm run seed:canonical-projects
+  env:
+    AWS_REGION: us-east-2
+    STAGE: dev
+```

@@ -12,7 +12,10 @@
     "seed:rubros": "TS_NODE_PROJECT=../../tsconfig.node.json node --loader ts-node/esm/transpile-only ../../src/modules/finanzas/data/seed_rubros.ts",
     "seed:taxonomy": "ts-node --project ../../tsconfig.node.json ../../scripts/ts-seeds/seed_rubros_taxonomia.ts",
     "seed:finanzas:golden": "ts-node src/seed/seed_finanzas_golden_project.ts",
-    "seed:project-rubros": "ts-node src/seed/seed_project_rubros.ts"
+    "seed:project-rubros": "ts-node src/seed/seed_project_rubros.ts",
+    "seed:canonical-projects": "ts-node src/seed/seed_canonical_projects.ts",
+    "reset:dev-projects": "ts-node scripts/reset-dev-projects.ts",
+    "verify:canonical-projects": "ts-node scripts/verify-canonical-projects.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.931.0",

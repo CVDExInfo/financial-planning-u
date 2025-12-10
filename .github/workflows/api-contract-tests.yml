@@ -100,6 +100,40 @@ jobs:
           npm install -g newman newman-reporter-json
           newman --version
 
+      - name: "Setup Canonical Test Data"
+        id: seed_data
+        continue-on-error: false
+        env:
+          STAGE: dev
+          AWS_REGION: ${{ env.AWS_REGION }}
+        run: |
+          set -euo pipefail
+          
+          echo "🌱 Setting up canonical test data for API tests"
+          cd services/finanzas-api
+          
+          # Install dependencies if needed
+          if [ ! -d "node_modules" ]; then
+            echo "Installing dependencies..."
+            npm install
+          fi
+          
+          # Reset dev environment (delete non-canonical projects)
+          echo "🧹 Resetting dev environment..."
+          npm run reset:dev-projects -- --force || {
+            echo "⚠️  Reset failed or no projects to delete - continuing"
+          }
+          
+          # Seed canonical projects
+          echo "📦 Seeding canonical projects..."
+          npm run seed:canonical-projects
+          
+          # Verify canonical projects
+          echo "🔍 Verifying canonical projects..."
+          npm run verify:canonical-projects
+          
+          echo "✅ Canonical test data setup complete"
+
       - name: "Newman Contract Tests - Finanzas SD API"
         id: newman
         continue-on-error: false
