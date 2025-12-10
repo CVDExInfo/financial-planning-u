@@ -78,7 +78,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.5.2",
     "exceljs": "^4.4.0",
-    "framer-motion": "^12.23.25",
+    "framer-motion": "^12.23.26",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.556.0",
     "marked": "^17.0.1",
