@@ -2,7 +2,7 @@ import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { ddb, tableName } from "../lib/dynamo";
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { cors } from "../lib/http";
-import { queryProjectRubros, calculateRubrosTotalCost } from "../lib/baseline-sdmt";
+import { queryProjectRubros } from "../lib/baseline-sdmt";
 
 /**
  * Catalog handler - GET /catalog/rubros
