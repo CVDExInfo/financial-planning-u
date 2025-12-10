@@ -1,6 +1,11 @@
 /**
  * Forecast handler - GET /plan/forecast
  * Returns forecast data for a project
+ * 
+ * SDMT ALIGNMENT FIX:
+ * - Now filters rubros by project's active baseline_id
+ * - Generates P/F/A grid from baseline-derived rubros only
+ * - Prevents phantom line items from old baselines
  */
 
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
@@ -8,6 +13,7 @@ import { ok, bad, serverError, fromAuthError } from "../lib/http";
 import { ensureCanRead } from "../lib/auth";
 import { ddb, tableName, QueryCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
+import { queryProjectRubros, generateForecastGrid } from "../lib/baseline-sdmt";
 
 type ForecastItem = {
   line_item_id: string;
@@ -68,13 +74,28 @@ export const handler = async (
 
     console.info("[forecast] params", { projectId, months });
 
-    // ---- Query DynamoDB: allocations, payroll, rubros ----------------------
+    // ---- Query baseline-filtered rubros ------------------------------------
+    // SDMT ALIGNMENT FIX: Use baseline-filtered rubros to prevent mixing
+    // data from multiple baselines
+    let baselineRubros;
+    try {
+      baselineRubros = await queryProjectRubros(projectId);
+      rubrosCount = baselineRubros.length;
+    } catch (queryError) {
+      logError("[forecast] failed to query baseline rubros", {
+        projectId,
+        months,
+        error: queryError,
+      });
+      return serverError("Error interno en Finanzas");
+    }
+
+    // ---- Query DynamoDB: allocations, payroll ------------------------------
     let allocationsResult;
     let payrollResult;
-    let rubrosResult;
 
     try {
-      [allocationsResult, payrollResult, rubrosResult] = await Promise.all([
+      [allocationsResult, payrollResult] = await Promise.all([
         ddb.send(
           new QueryCommand({
             TableName: tableName("allocations"),
@@ -93,16 +114,6 @@ export const handler = async (
             },
           })
         ),
-        ddb.send(
-          new QueryCommand({
-            TableName: tableName("rubros"),
-            KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-            ExpressionAttributeValues: {
-              ":pk": `PROJECT#${projectId}`,
-              ":sk": "RUBRO#",
-            },
-          })
-        ),
       ]);
     } catch (queryError) {
       logError("[forecast] failed to query data", {
@@ -116,11 +127,10 @@ export const handler = async (
     // ---- Combine data into forecast cells ---------------------------------
     const allocations = allocationsResult?.Items || [];
     const payrolls = payrollResult?.Items || [];
-    const rubroAttachments = rubrosResult?.Items || [];
+    const rubroAttachments = baselineRubros; // Use filtered rubros
 
     allocationsCount = allocations.length;
     payrollCount = payrolls.length;
-    rubrosCount = rubroAttachments.length;
 
     const forecastData: ForecastItem[] = [];
 

@@ -2,6 +2,17 @@ import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { ddb, tableName } from "../lib/dynamo";
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { cors } from "../lib/http";
+import { queryProjectRubros, calculateRubrosTotalCost } from "../lib/baseline-sdmt";
+
+/**
+ * Catalog handler - GET /catalog/rubros
+ * 
+ * SDMT ALIGNMENT FIX:
+ * - Now supports ?project_id parameter to return baseline-filtered rubros
+ * - Without project_id: returns generic catalog (existing behavior)
+ * - With project_id: returns only rubros from project's active baseline
+ * - This ensures catalog totals match the accepted baseline, not inflated by old data
+ */
 
 type RubroItem = {
   rubro_id?: string;
@@ -53,8 +64,43 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   ];
 
   try {
-    // Query params: limit (1-200), nextToken (opaque)
+    // SDMT ALIGNMENT: Check if project_id is provided
     const qp = event.queryStringParameters || {};
+    const projectId = qp.project_id || qp.projectId;
+
+    // If project_id provided, return baseline-filtered rubros for that project
+    if (projectId) {
+      try {
+        const baselineRubros = await queryProjectRubros(projectId);
+        
+        const data = baselineRubros.map((rubro) => ({
+          rubro_id: rubro.rubroId,
+          nombre: rubro.nombre,
+          categoria: rubro.category || undefined,
+          linea_codigo: rubro.rubroId,
+          tipo_costo: undefined,
+          tipo_ejecucion: undefined,
+          descripcion: rubro.descripcion || undefined,
+        }));
+
+        return {
+          statusCode: 200,
+          headers: { ...cors, "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            data, 
+            total: data.length,
+            project_id: projectId,
+            filtered_by_baseline: true,
+          }),
+        };
+      } catch (error) {
+        console.error("[catalog] Error fetching project rubros", { projectId, error });
+        // Fall through to generic catalog on error
+      }
+    }
+
+    // Generic catalog path (no project_id or error in project-specific query)
+    // Query params: limit (1-200), nextToken (opaque)
     const limit = Math.min(
       Math.max(parseInt(qp.limit || "100", 10) || 100, 1),
       200
