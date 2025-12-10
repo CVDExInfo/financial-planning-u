@@ -119,15 +119,18 @@ export function LineChartComponent({
             <YAxis
               stroke="oklch(0.45 0 0)"
               fontSize={12}
-              tickFormatter={(value) =>
-                valueFormatter?.(value) ||
-                new Intl.NumberFormat('en-US', {
+              tickFormatter={(value) => {
+                if (valueFormatter) {
+                  return valueFormatter(value);
+                }
+                // Default compact formatter matching tooltip style
+                return new Intl.NumberFormat('en-US', {
                   style: 'currency',
                   currency: 'USD',
                   minimumFractionDigits: 0,
                   notation: 'compact',
-                }).format(value)
-              }
+                }).format(value);
+              }}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend 

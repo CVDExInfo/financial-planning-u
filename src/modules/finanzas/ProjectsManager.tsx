@@ -158,7 +158,9 @@ export default function ProjectsManager() {
 
   const coverageChartData = React.useMemo(() => {
     if (payrollDashboard.length === 0) {
-      // Fallback to status chart if no payroll data
+      // Fallback to status chart if no payroll data is available yet.
+      // This ensures the chart always shows useful information during the initial load
+      // or when the payroll dashboard endpoint is unavailable.
       const counts: Record<string, number> = {};
       projectsForView.forEach((project) => {
         const status = project.status || "Desconocido";
@@ -200,9 +202,10 @@ export default function ProjectsManager() {
         .sort((a, b) => a.month.localeCompare(b.month))
         .map((item) => ({
           month: item.month,
-          "Meta objetivo": item.payrollTarget || 0,
-          "MOD proyectada": item.totalForecastMOD || item.totalPlanMOD || 0,
-          "MOD real": item.totalActualMOD || 0,
+          "Meta objetivo": item.payrollTarget ?? 0,
+          // Prefer forecast over plan, but only if forecast is explicitly set (not undefined)
+          "MOD proyectada": item.totalForecastMOD !== undefined ? item.totalForecastMOD : (item.totalPlanMOD ?? 0),
+          "MOD real": item.totalActualMOD ?? 0,
         }));
     }
 
