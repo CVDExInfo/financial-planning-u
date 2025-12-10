@@ -29,6 +29,7 @@ describe("Projects handler", () => {
   });
 
   it("falls back to pk when no identifiers exist", () => {
+    // Note: Using "META" (legacy) to test backward compatibility with old data
     const item = { pk: "LEGACY", sk: "META" };
 
     const result = normalizeProjectItem(item);

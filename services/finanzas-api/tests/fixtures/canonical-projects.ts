@@ -220,7 +220,7 @@ export function mockCanonicalProjectRecord(projectId: typeof CANONICAL_PROJECT_I
 
   return {
     pk: `PROJECT#${projectId}`,
-    sk: "META",
+    sk: "METADATA",
     projectId,
     name: details.name,
     client: details.client,
@@ -249,7 +249,7 @@ export function mockCanonicalBaselineRecord(
 
   return {
     pk: `BASELINE#${baselineId}`,
-    sk: "META",
+    sk: "METADATA",
     baselineId,
     projectId,
     name: `Baseline ${details.name}`,
