@@ -136,14 +136,9 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       "statusCode" in error &&
       "body" in error
     ) {
-      const statusCode = Number((error as { statusCode: number }).statusCode);
       const message = String((error as { body: string }).body || "Access denied");
       
-      // Auth errors are typically 401/403, return as-is if they're in our allowed set
-      if (statusCode === 400) {
-        return bad(message, 400);
-      }
-      // Map other auth errors to 400 (bad request) per contract
+      // Map auth errors to 400 (bad request) per contract
       return bad(message, 400);
     }
     
