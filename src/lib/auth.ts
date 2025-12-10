@@ -206,9 +206,12 @@ export function canAccessRoute(route: string, role: UserRole): boolean {
 
   return routes.some((pattern) => {
     // Convert glob pattern to regex
-    const regex = new RegExp(
-      `^${pattern.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*")}$`
-    );
+    // IMPORTANT: Replace ** first with placeholder to avoid conflict with single * replacement
+    const regexPattern = pattern
+      .replace(/\*\*/g, "___DOUBLESTAR___")  // Placeholder for **
+      .replace(/\*/g, "[^/]*")               // Single * matches anything except /
+      .replace(/___DOUBLESTAR___/g, ".*");   // ** matches anything including /
+    const regex = new RegExp(`^${regexPattern}$`);
     return regex.test(normalizedRoute);
   });
 }
