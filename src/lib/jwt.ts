@@ -247,6 +247,9 @@ export type FinanzasRole = "PM" | "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
 export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
   const roles: Set<FinanzasRole> = new Set();
 
+  // System/utility groups that should NOT grant application roles
+  const ignoredGroups = ["acta-ui", "cognito" /* built-in */];
+
   for (const group of cognitoGroups) {
     const normalized = group.trim().toLowerCase();
     if (!normalized) continue;
@@ -276,8 +279,12 @@ export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
       roles.add("SDMT");
     }
 
-    // VENDOR access: vendor or acta-ui patterns
-    if (normalized.includes("vendor") || normalized.includes("acta-ui")) {
+    // VENDOR access: vendor-specific cohorts only
+    if (
+      normalized.includes("vendor") ||
+      normalized.includes("proveedor") ||
+      normalized.includes("partner")
+    ) {
       roles.add("VENDOR");
     }
 
