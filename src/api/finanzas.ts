@@ -1178,6 +1178,32 @@ export async function createProject(
   }
 }
 
+export type MODProjectionByMonth = {
+  month: string;
+  totalPlanMOD: number;
+  totalForecastMOD: number;
+  totalActualMOD: number;
+  payrollTarget?: number;
+  projectCount: number;
+};
+
+export async function getPayrollDashboard(): Promise<MODProjectionByMonth[]> {
+  ensureApiBase();
+
+  try {
+    const response = await httpClient.get<MODProjectionByMonth[]>("/payroll/dashboard", {
+      headers: buildAuthHeader(),
+    });
+
+    return response.data;
+  } catch (err) {
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      handleAuthErrorStatus(err.status);
+    }
+    throw toFinanzasError(err, "Unable to load payroll dashboard data");
+  }
+}
+
 export type HandoffBaselinePayload = {
   baseline_id: string;
   mod_total?: number;

@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import ProjectDetailsPanel from "./projects/ProjectDetailsPanel";
 import { getProjectDisplay } from "@/lib/projects/display";
 import { ES_TEXTS } from "@/lib/i18n/es";
+import { getPayrollDashboard, type MODProjectionByMonth } from "@/api/finanzas";
 
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -60,6 +61,8 @@ export default function ProjectsManager() {
   const [lastCreatedCode, setLastCreatedCode] = React.useState<string | null>(
     null,
   );
+  const [payrollDashboard, setPayrollDashboard] = React.useState<MODProjectionByMonth[]>([]);
+  const [payrollLoading, setPayrollLoading] = React.useState(false);
   const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
 
@@ -153,20 +156,58 @@ export default function ProjectsManager() {
   );
   const isRefreshingList = loading || refreshing;
 
-  const statusChartData = React.useMemo(() => {
-    const counts: Record<string, number> = {};
+  const coverageChartData = React.useMemo(() => {
+    if (payrollDashboard.length === 0) {
+      // Fallback to status chart if no payroll data
+      const counts: Record<string, number> = {};
+      projectsForView.forEach((project) => {
+        const status = project.status || "Desconocido";
+        counts[status] = (counts[status] ?? 0) + 1;
+      });
+      return Object.entries(counts).map(([label, value]) => ({ name: label, value }));
+    }
 
-    projectsForView.forEach((project) => {
-      const status = project.status || "Desconocido";
-      counts[status] = (counts[status] ?? 0) + 1;
-    });
+    // Calculate coverage: compare total MOD projected against total target
+    const totalTarget = payrollDashboard.reduce((sum, item) => sum + (item.payrollTarget || 0), 0);
+    const totalProjected = payrollDashboard.reduce(
+      (sum, item) => sum + (item.totalForecastMOD || item.totalPlanMOD || 0),
+      0
+    );
 
-    return Object.entries(counts).map(([label, value]) => ({ name: label, value }));
-  }, [projectsForView]);
+    if (totalTarget === 0) {
+      // No target set, show 100% projected
+      return [{ name: "MOD proyectada", value: totalProjected }];
+    }
 
-  const budgetByStartMonth = React.useMemo(() => {
+    const covered = Math.min(totalProjected, totalTarget);
+    const uncovered = Math.max(totalTarget - totalProjected, 0);
+
+    const data = [];
+    if (covered > 0) {
+      data.push({ name: "Meta cubierta", value: covered });
+    }
+    if (uncovered > 0) {
+      data.push({ name: "Meta no cubierta", value: uncovered });
+    }
+
+    return data.length > 0 ? data : [{ name: "Sin datos", value: 1 }];
+  }, [projectsForView, payrollDashboard]);
+
+  const modChartData = React.useMemo(() => {
+    // Use payroll dashboard data if available, otherwise fallback to simple aggregation
+    if (payrollDashboard.length > 0) {
+      return payrollDashboard
+        .sort((a, b) => a.month.localeCompare(b.month))
+        .map((item) => ({
+          month: item.month,
+          "Meta objetivo": item.payrollTarget || 0,
+          "MOD proyectada": item.totalForecastMOD || item.totalPlanMOD || 0,
+          "MOD real": item.totalActualMOD || 0,
+        }));
+    }
+
+    // Fallback: simple aggregation by project start month
     const map: Record<string, number> = {};
-
     projectsForView.forEach((project) => {
       const date = project.start_date;
       if (!date) return;
@@ -177,8 +218,13 @@ export default function ProjectsManager() {
 
     return Object.entries(map)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([label, value]) => ({ month: label, "MOD total": value }));
-  }, [projectsForView]);
+      .map(([label, value]) => ({
+        month: label,
+        "Meta objetivo": value * 1.1, // 110% of plan as target
+        "MOD proyectada": value,
+        "MOD real": 0,
+      }));
+  }, [projectsForView, payrollDashboard]);
 
   const formatCurrency = React.useCallback(
     (value: number, currencyCode: string = "USD") =>
@@ -240,6 +286,23 @@ export default function ProjectsManager() {
   const loadProjects = React.useCallback(async () => {
     await reload();
   }, [reload]);
+
+  const loadPayrollDashboard = React.useCallback(async () => {
+    try {
+      setPayrollLoading(true);
+      const data = await getPayrollDashboard();
+      setPayrollDashboard(data);
+    } catch (err) {
+      console.error("Error loading payroll dashboard:", err);
+      // Don't show toast error for dashboard data - it's optional
+    } finally {
+      setPayrollLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void loadPayrollDashboard();
+  }, [loadPayrollDashboard]);
 
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -449,14 +512,19 @@ export default function ProjectsManager() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <DonutChart
-          data={statusChartData}
-          title="Distribución por estado"
+          data={coverageChartData}
+          title="Cobertura de Meta de Nómina"
+          subtitle="Comparación entre meta de recursos humanos y MOD del portafolio"
           className="h-full"
         />
         <LineChartComponent
-          data={budgetByStartMonth}
-          lines={[{ dataKey: "MOD total", name: "MOD total" }]}
-          title="MOD proyectado por mes de inicio"
+          data={modChartData}
+          lines={[
+            { dataKey: "Meta objetivo", name: "Meta objetivo de nómina", color: "#8b5cf6" },
+            { dataKey: "MOD proyectada", name: "MOD proyectada", color: "#3b82f6" },
+            { dataKey: "MOD real", name: "MOD real", color: "#10b981" },
+          ]}
+          title="Desempeño de MOD vs Meta Objetivo"
           className="h-full"
           labelPrefix="Mes"
           valueFormatter={formatCurrency}
