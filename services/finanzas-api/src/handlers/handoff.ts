@@ -201,6 +201,9 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   // Only set baseline_status to "accepted" if force_accept is explicitly true
   const isForceAccept = Boolean(body.force_accept === true || body.accept_action === 'accept');
   const baselineStatus = isForceAccept ? "accepted" : "handed_off";
+  const sdmManagerName =
+    (body.fields as { sdm_manager_name?: string } | undefined)?.sdm_manager_name ||
+    (body as { sdm_manager_name?: string }).sdm_manager_name;
 
   // Create new handoff record
   const handoffId = `handoff_${uuidv4().replace(/-/g, "").substring(0, 10)}`;
@@ -216,6 +219,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     createdAt: now,
     updatedAt: now,
     createdBy: userEmail,
+    sdm_manager_name: sdmManagerName,
   };
 
   // Generate a clean project code from baseline or projectId
@@ -269,6 +273,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     created_by: userEmail,
     handed_off_at: now,
     handed_off_by: userEmail,
+    sdm_manager_name: sdmManagerName,
   };
 
   // Store handoff record
@@ -315,6 +320,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     durationMonths,
     currency,
     modTotal: totalAmount,
+    sdm_manager_name: sdmManagerName,
   };
 
   const idempotencyRecord = {

@@ -133,7 +133,7 @@ function buildSessionFromTokens(
 
   const mappedRoles = mapGroupsToRoles(cognitoGroups).filter(
     (role): role is UserRole =>
-      ["PMO", "SDMT", "VENDOR", "EXEC_RO"].includes(role)
+      ["PM", "PMO", "SDMT", "VENDOR", "EXEC_RO"].includes(role)
   );
   const fallbackRole = mappedRoles[0] ?? getDefaultUserRole({
     email,

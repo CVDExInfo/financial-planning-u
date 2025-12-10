@@ -173,6 +173,7 @@ describe("Handoff Data Mapping", () => {
           start_date: "2025-01-01",
           duration_months: 12,
           contract_value: 196022000,
+          sdm_manager_name: "Laura Gómez",
         },
       };
       const baselineId = "base_17d353bb1566";
@@ -200,6 +201,7 @@ describe("Handoff Data Mapping", () => {
         start_date: baseline.payload.start_date,
         duration_months: baseline.payload.duration_months,
         mod_total: baseline.payload.contract_value,
+        sdm_manager_name: "Laura Gómez",
       };
 
       // Assertions
@@ -211,6 +213,7 @@ describe("Handoff Data Mapping", () => {
       expect(expectedMetadata.codigo).toBe("P-17d353bb");
       expect(expectedMetadata.code).not.toBe(projectId); // Code should NOT be the long UUID
       expect(expectedMetadata.code.length).toBeLessThanOrEqual(20);
+      expect(expectedMetadata.sdm_manager_name).toBe("Laura Gómez");
     });
   });
 
