@@ -49,7 +49,7 @@ export const ES_TEXTS = {
     deleteRubro: "Eliminar Rubro",
     category: "Categoría",
     subtype: "Subtipo",
-    description: "Descripción",
+    rubroDescription: "Descripción",
     quantity: "Cantidad",
     unitCost: "Costo Unitario",
     total: "Total",
