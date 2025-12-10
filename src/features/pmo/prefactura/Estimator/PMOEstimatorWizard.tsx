@@ -119,7 +119,7 @@ export function PMOEstimatorWizard() {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Planificación Proyecto Servicio</h1>
+            <h1 className="text-3xl font-bold text-foreground">Planificación Proyecto de Servicio</h1>
             <p className="text-muted-foreground mt-2">
               Crea un presupuesto base completo para transferir proyectos a SDMT
             </p>
