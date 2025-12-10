@@ -75,7 +75,7 @@ import {
   getCategoryByCode,
 } from "@/data/cost-categories";
 import { ES_TEXTS } from "@/lib/i18n/es";
-import { isMODCategory, getCostTypeLabel } from "@/lib/cost-utils";
+import { isMODCategory } from "@/lib/cost-utils";
 
 type PendingChangeType = "add" | "edit" | "delete";
 
