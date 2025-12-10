@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, Calculator } from "lucide-react";
 import type { LaborEstimate } from "@/types/domain";
+import { useModRoles } from "@/hooks/useModRoles";
 
 // Labor rate presets by country and role
 const LABOR_PRESETS = {
@@ -44,18 +45,21 @@ const LABOR_PRESETS = {
   },
 };
 
-const ROLES = [
-  "Frontend Developer",
-  "Backend Developer",
-  "Full Stack Developer",
-  "DevOps Engineer",
-  "UI/UX Designer",
-  "Business Analyst",
-  "Project Manager",
-  "Technical Lead",
-  "Architect",
-  "QA Engineer",
-];
+/**
+ * Labor roles are now sourced from MOD (Mano de Obra Directa) taxonomy
+ * defined in src/modules/modRoles.ts and aligned with Rubros catalog.
+ * 
+ * This ensures consistency between:
+ * - PMO Estimator (this component)
+ * - SDMT Cost Management (catalog, forecast, changes)
+ * - Backend payroll and cost tracking
+ * 
+ * The MOD roles are:
+ * - Ingeniero Delivery (Lead Engineer)
+ * - Ingeniero Soporte N1/N2/N3 (Support Engineers)
+ * - Service Delivery Manager
+ * - Project Manager
+ */
 
 interface LaborStepProps {
   data: LaborEstimate[];
@@ -67,6 +71,9 @@ interface LaborStepProps {
 }
 
 export function LaborStep({ data, setData, onNext }: LaborStepProps) {
+  // Fetch MOD roles from Rubros taxonomy
+  const { roles: modRoles, loading: rolesLoading } = useModRoles();
+  
   const [laborEstimates, setLaborEstimates] = useState<LaborEstimate[]>(
     data.length > 0 ? data : []
   );
@@ -233,12 +240,17 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                             onValueChange={(value) =>
                               updateLaborItem(index, "role", value)
                             }
+                            disabled={rolesLoading}
                           >
                             <SelectTrigger id={roleId} className="w-40" name={roleId}>
-                              <SelectValue placeholder="Select role" />
+                              <SelectValue 
+                                placeholder={
+                                  rolesLoading ? "Loading roles..." : "Select role"
+                                } 
+                              />
                             </SelectTrigger>
                             <SelectContent>
-                              {ROLES.map((role) => (
+                              {modRoles.map((role) => (
                                 <SelectItem key={role} value={role}>
                                   {role}
                                 </SelectItem>
