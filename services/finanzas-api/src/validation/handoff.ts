@@ -1,13 +1,35 @@
 import { z } from 'zod';
+import { MOD_ROLES, type MODRole } from '../constants/mod-roles';
+
+/**
+ * MOD Roles Breakdown Schema
+ * Percentage allocation for each of the 6 approved MOD roles
+ * Dynamically generated from MOD_ROLES constant to ensure consistency
+ */
+export const MODRolesSchema = z.object(
+  Object.fromEntries(
+    MOD_ROLES.map(role => [role, z.number().min(0).max(100).optional()])
+  ) as Record<MODRole, z.ZodOptional<z.ZodNumber>>
+);
+
+export type MODRoles = z.infer<typeof MODRolesSchema>;
 
 /**
  * Handoff Schema
  * Validates handoff data when a project is transferred to Service Delivery Team
+ * 
+ * Supports both new (mod_roles) and legacy (pct_ingenieros/pct_sdm) formats for backward compatibility
  */
 export const HandoffSchema = z.object({
   mod_total: z.number().min(0, 'mod_total must be non-negative'),
-  pct_ingenieros: z.number().min(0).max(100, 'pct_ingenieros must be between 0 and 100'),
-  pct_sdm: z.number().min(0).max(100, 'pct_sdm must be between 0 and 100'),
+  
+  // NEW: Role-specific breakdown (preferred)
+  mod_roles: MODRolesSchema.optional(),
+  
+  // LEGACY: Backward compatibility with old percentage fields (deprecated)
+  pct_ingenieros: z.number().min(0).max(100, 'pct_ingenieros must be between 0 and 100').optional(),
+  pct_sdm: z.number().min(0).max(100, 'pct_sdm must be between 0 and 100').optional(),
+  
   aceptado_por: z.string().email('aceptado_por must be a valid email').optional(),
   fecha_handoff: z
     .string()

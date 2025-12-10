@@ -57,6 +57,15 @@
    └─ MOD-EXT - Contratistas externos (labor)
    ```
 
+   **Note on MOD Roles**: When defining MOD in project baselines and handoffs, the following
+   specific roles are used:
+   - Ingeniero Delivery
+   - Ingeniero Soporte N1, N2, N3
+   - Service Delivery Manager
+   - Project Manager
+   
+   These roles are mapped to the catalog line items for consistent cost tracking.
+
 4. **Description Auto-Fills**
 
    ```

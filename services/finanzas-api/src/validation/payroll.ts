@@ -95,16 +95,30 @@ export const PayrollActualCreateSchema = PayrollActualSchema.omit({
 
 export type PayrollActualCreate = z.infer<typeof PayrollActualCreateSchema>;
 
+import { MOD_ROLES, type MODRole } from '../constants/mod-roles';
+
 /**
  * Payroll Ingest Schema (from OpenAPI)
+ * Supports both new role-specific breakdown and legacy format
  */
 export const PayrollIngestSchema = z.object({
   mes: z.string().regex(/^\d{4}-\d{2}$/),
   nomina_total: z.number().min(0),
+  
+  // NEW: Role-specific breakdown (preferred)
+  // Dynamically generated from MOD_ROLES constant to ensure consistency
+  desglose_roles: z.object(
+    Object.fromEntries(
+      MOD_ROLES.map(role => [role, z.number().min(0).optional()])
+    ) as Record<MODRole, z.ZodOptional<z.ZodNumber>>
+  ).optional(),
+  
+  // LEGACY: Backward compatibility (deprecated)
   desglose: z.object({
     ingenieros: z.number().optional(),
     sdm: z.number().optional(),
   }).optional(),
+  
   source: z.string().optional(),
   uploaded_by: z.string().email().optional(),
 });

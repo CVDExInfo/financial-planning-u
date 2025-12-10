@@ -19,7 +19,12 @@ export {
   parseHandoff,
   safeParseHandoff,
   type Handoff,
+  MODRolesSchema,
+  type MODRoles,
 } from './handoff';
+
+// MOD Roles (re-exported from constants for convenience)
+export { MOD_ROLES, type MODRole } from '../constants/mod-roles';
 
 // Rubros
 export {

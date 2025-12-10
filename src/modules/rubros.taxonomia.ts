@@ -1,6 +1,8 @@
 // AUTO-GENERATED taxonomy for Catálogo de Rubros (classification)
 // Source: user-provided table (R1 – Modelo & Gobierno)
 
+import { MOD_ROLES, type MODRole } from './modRoles';
+
 export type RubroTaxonomia = {
   categoria_codigo: string;
   categoria: string;
@@ -11,6 +13,20 @@ export type RubroTaxonomia = {
   tipo_costo: 'OPEX' | 'CAPEX';
   fuente_referencia: string;
 };
+
+/**
+ * MOD Role Mapping - Client-approved roles for Service Delivery
+ * Maps Rubros line items to specific MOD roles used in baseline handoff and payroll
+ */
+export const MOD_ROLE_MAPPING: Record<string, MODRole | MODRole[]> = {
+  'MOD-ING': ['Ingeniero Soporte N1', 'Ingeniero Soporte N2', 'Ingeniero Soporte N3'],
+  'MOD-LEAD': 'Ingeniero Delivery',
+  'MOD-SDM': 'Service Delivery Manager',
+  'MOD-PM': 'Project Manager',
+} as const;
+
+// Re-export MOD_ROLES for backward compatibility
+export { MOD_ROLES };
 
 export const CATALOGO_RUBROS: RubroTaxonomia[] = [
   {
