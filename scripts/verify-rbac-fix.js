@@ -124,7 +124,8 @@ scenarios.forEach(({ title, role, tests }) => {
 });
 
 console.log("\n╔═══════════════════════════════════════════════════════════════════╗");
-console.log(`║  Test Summary: ${totalPassed}/${totalTests} passed, ${totalFailed} failed${" ".repeat(33 - totalPassed.toString().length - totalTests.toString().length - totalFailed.toString().length)}║`);
+const summaryText = `Test Summary: ${totalPassed}/${totalTests} passed, ${totalFailed} failed`;
+console.log(`║  ${summaryText.padEnd(65)}║`);
 console.log("╚═══════════════════════════════════════════════════════════════════╝\n");
 
 if (totalFailed > 0) {

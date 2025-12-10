@@ -200,6 +200,9 @@ export function normalizeAppPath(route: string): string {
   return route;
 }
 
+// Placeholder constant for glob pattern replacement to avoid conflicts
+const GLOB_DOUBLE_STAR_PLACEHOLDER = "___DOUBLESTAR___";
+
 export function canAccessRoute(route: string, role: UserRole): boolean {
   const normalizedRoute = normalizeAppPath(route);
   const { routes } = getRoutesForRole(role);
@@ -208,9 +211,9 @@ export function canAccessRoute(route: string, role: UserRole): boolean {
     // Convert glob pattern to regex
     // IMPORTANT: Replace ** first with placeholder to avoid conflict with single * replacement
     const regexPattern = pattern
-      .replace(/\*\*/g, "___DOUBLESTAR___")  // Placeholder for **
-      .replace(/\*/g, "[^/]*")               // Single * matches anything except /
-      .replace(/___DOUBLESTAR___/g, ".*");   // ** matches anything including /
+      .replace(/\*\*/g, GLOB_DOUBLE_STAR_PLACEHOLDER)  // Placeholder for **
+      .replace(/\*/g, "[^/]*")                         // Single * matches anything except /
+      .replace(new RegExp(GLOB_DOUBLE_STAR_PLACEHOLDER, "g"), ".*");  // ** matches anything including /
     const regex = new RegExp(`^${regexPattern}$`);
     return regex.test(normalizedRoute);
   });
