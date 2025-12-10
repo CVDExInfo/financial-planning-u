@@ -5,6 +5,7 @@ import {
 import { ensureCanRead } from "../lib/auth";
 import { ok, bad, serverError, noContent } from "../lib/http";
 import { ddb, QueryCommand, tableName } from "../lib/dynamo";
+import { queryProjectRubros } from "../lib/baseline-sdmt";
 
 /**
  * GET /line-items?project_id=xxx
@@ -50,20 +51,13 @@ export const handler = async (
       return bad("Missing required parameter: project_id", 400);
     }
 
-    // Query all rubros/line-items attached to this project
-    const result = await ddb.send(
-      new QueryCommand({
-        TableName: tableName("rubros"),
-        KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-        ExpressionAttributeValues: {
-          ":pk": `PROJECT#${projectId}`,
-          ":sk": "RUBRO#",
-        },
-      })
-    );
+    // Query rubros filtered by project's active baseline
+    // This ensures we only return rubros from the accepted baseline,
+    // not from all historical baselines
+    const filteredRubros = await queryProjectRubros(projectId);
 
     // Keep the existing line item shape for downstream callers
-    const lineItems = (result.Items || []).map((item: any) => ({
+    const lineItems = filteredRubros.map((item: any) => ({
       id: item.rubroId,
       projectId: item.projectId,
       rubroId: item.rubroId,

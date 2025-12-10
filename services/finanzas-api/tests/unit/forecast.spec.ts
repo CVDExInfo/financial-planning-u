@@ -17,12 +17,20 @@ jest.mock("../../src/lib/auth", () => ({
   ensureCanRead: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock("../../src/lib/baseline-sdmt", () => ({
+  queryProjectRubros: jest.fn(() => Promise.resolve([])),
+}));
+
 import { handler as forecastHandler } from "../../src/handlers/forecast.js";
 
 const dynamo = jest.requireMock("../../src/lib/dynamo") as {
   ddb: { send: jest.Mock };
   QueryCommand: jest.Mock;
   tableName: jest.Mock;
+};
+
+const baselineSDMT = jest.requireMock("../../src/lib/baseline-sdmt") as {
+  queryProjectRubros: jest.Mock;
 };
 
 // --- Helpers -----------------------------------------------------------------
@@ -65,6 +73,8 @@ describe("forecast handler", () => {
     jest.resetAllMocks();
     dynamo.tableName.mockImplementation((name: string) => `${name}-table`);
     dynamo.QueryCommand.mockImplementation((input) => ({ input }));
+    // Mock queryProjectRubros to return empty array by default
+    baselineSDMT.queryProjectRubros.mockResolvedValue([]);
   });
 
   it("rejects requests without projectId", async () => {
@@ -157,24 +167,28 @@ describe("forecast handler", () => {
   });
 
   it("derives forecast amounts from rubro attachments when allocations are empty", async () => {
+    // Mock queryProjectRubros to return rubro data
+    baselineSDMT.queryProjectRubros.mockResolvedValueOnce([
+      {
+        rubroId: "R-FALLBACK",
+        qty: 2,
+        unit_cost: 100,
+        recurring: true,
+        start_month: 1,
+        end_month: 2,
+        total_cost: 400,
+        currency: "USD",
+        category: "Test",
+        nombre: "Test Rubro",
+        one_time: false,
+      },
+    ]);
+
     // allocations
     dynamo.ddb.send
       .mockResolvedValueOnce({ Items: [] })
       // payroll
-      .mockResolvedValueOnce({ Items: [] })
-      // rubros
-      .mockResolvedValueOnce({
-        Items: [
-          {
-            rubroId: "R-FALLBACK",
-            qty: 2,
-            unit_cost: 100,
-            recurring: true,
-            start_month: 1,
-            end_month: 2,
-          },
-        ],
-      });
+      .mockResolvedValueOnce({ Items: [] });
 
     const response = (await forecastHandler(
       baseEvent({
