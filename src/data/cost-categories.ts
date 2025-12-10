@@ -18,18 +18,7 @@ export interface CostLineItem {
   fuente_referencia: string;
 }
 
-/**
- * MOD Roles - Client-approved roles for Service Delivery
- * These are the only roles that should appear in MOD role selection
- */
-export const MOD_ROLES = [
-  'Ingeniero Delivery',
-  'Ingeniero Soporte N1',
-  'Ingeniero Soporte N2',
-  'Ingeniero Soporte N3',
-  'Service Delivery Manager',
-  'Project Manager',
-] as const;
+import { MOD_ROLES } from '@/modules/modRoles';
 
 export const COST_CATEGORIES: CostCategory[] = [
   {

@@ -95,19 +95,7 @@ export const PayrollActualCreateSchema = PayrollActualSchema.omit({
 
 export type PayrollActualCreate = z.infer<typeof PayrollActualCreateSchema>;
 
-/**
- * MOD Role Types - Client-approved roles for Service Delivery (must match handoff.ts)
- */
-export const MOD_ROLES = [
-  'Ingeniero Delivery',
-  'Ingeniero Soporte N1',
-  'Ingeniero Soporte N2',
-  'Ingeniero Soporte N3',
-  'Service Delivery Manager',
-  'Project Manager',
-] as const;
-
-export type MODRole = typeof MOD_ROLES[number];
+import { MOD_ROLES, type MODRole } from '../constants/mod-roles';
 
 /**
  * Payroll Ingest Schema (from OpenAPI)
@@ -121,7 +109,7 @@ export const PayrollIngestSchema = z.object({
   // Dynamically generated from MOD_ROLES constant to ensure consistency
   desglose_roles: z.object(
     Object.fromEntries(
-      MOD_ROLES.map(role => [role, z.number().optional()])
+      MOD_ROLES.map(role => [role, z.number().min(0).optional()])
     ) as Record<MODRole, z.ZodOptional<z.ZodNumber>>
   ).optional(),
   
