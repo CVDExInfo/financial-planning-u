@@ -56,3 +56,106 @@ describe("PM role route visibility", () => {
     assert.equal(getDefaultRouteForRole(role), "/pmo/prefactura/estimator");
   });
 });
+
+describe("SDMT role route visibility", () => {
+  const role: UserRole = "SDMT";
+  const allowed = [
+    "/sdmt/cost/catalog",
+    "/sdmt/cost/forecast",
+    "/sdmt/cost/reconciliation",
+    "/sdmt/cost/changes",
+    "/sdmt/cost/cashflow",
+    "/sdmt/cost/scenarios",
+    "/catalog/rubros",
+    "/rules",
+    "/projects/list",  // /projects/** pattern
+  ];
+  const blocked = [
+    "/pmo/prefactura/estimator", // PMO-only route
+  ];
+
+  it("allows full access to SDMT cost management routes", () => {
+    allowed.forEach((route) => {
+      assert.equal(
+        canAccessRoute(normalizeAppPath(route), role),
+        true,
+        `${route} should be allowed for SDMT`,
+      );
+    });
+
+    blocked.forEach((route) => {
+      assert.equal(
+        canAccessRoute(normalizeAppPath(route), role),
+        false,
+        `${route} should be blocked for SDMT`,
+      );
+    });
+  });
+
+  it("defaults SDMT users to the catalog route", () => {
+    assert.equal(getDefaultRouteForRole(role), "/sdmt/cost/catalog");
+  });
+});
+
+describe("EXEC_RO role route visibility", () => {
+  const role: UserRole = "EXEC_RO";
+  const allowed = [
+    "/sdmt/cost/catalog",
+    "/sdmt/cost/forecast",
+    "/sdmt/cost/reconciliation",
+    "/sdmt/cost/changes",
+    "/sdmt/cost/cashflow",
+    "/pmo/prefactura/estimator",
+    "/catalog/rubros",
+    "/rules",
+  ];
+
+  it("allows read-only access to all PMO and SDMT routes", () => {
+    allowed.forEach((route) => {
+      assert.equal(
+        canAccessRoute(normalizeAppPath(route), role),
+        true,
+        `${route} should be allowed for EXEC_RO`,
+      );
+    });
+  });
+
+  it("defaults EXEC_RO users to the cashflow dashboard", () => {
+    assert.equal(getDefaultRouteForRole(role), "/sdmt/cost/cashflow");
+  });
+});
+
+describe("PMO role route visibility", () => {
+  const role: UserRole = "PMO";
+  const allowed = [
+    "/pmo/prefactura/estimator",
+  ];
+  const blocked = [
+    "/sdmt/cost/catalog",
+    "/sdmt/cost/forecast",
+    "/sdmt/cost/reconciliation",
+    "/catalog/rubros", // Finanzas routes blocked for PMO
+  ];
+
+  it("restricts PMO users to PMO workspace only", () => {
+    allowed.forEach((route) => {
+      assert.equal(
+        canAccessRoute(normalizeAppPath(route), role),
+        true,
+        `${route} should be allowed for PMO`,
+      );
+    });
+
+    blocked.forEach((route) => {
+      assert.equal(
+        canAccessRoute(normalizeAppPath(route), role),
+        false,
+        `${route} should be blocked for PMO`,
+      );
+    });
+  });
+
+  it("defaults PMO users to the estimator route", () => {
+    assert.equal(getDefaultRouteForRole(role), "/pmo/prefactura/estimator");
+  });
+});
