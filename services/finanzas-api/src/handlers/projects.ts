@@ -21,6 +21,37 @@ function generateHandoffId(): string {
   return `handoff_${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`;
 }
 
+/**
+ * Generate a short, human-friendly project code from projectId and baselineId
+ * If projectId is a long UUID (P-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx), 
+ * convert it to P-<8chars> using baselineId or projectId hash
+ * Otherwise, keep the projectId as-is
+ */
+function generateShortProjectCode(projectId: string, baselineId?: string): string {
+  const MAX_CLEAN_CODE_LENGTH = 20;
+  const CODE_SUFFIX_LENGTH = 8;
+  
+  // Check if projectId is a long UUID format
+  const isLongUuid = /^P-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId);
+  
+  if (projectId.length > MAX_CLEAN_CODE_LENGTH || isLongUuid) {
+    // Try to extract short code from baselineId
+    if (baselineId) {
+      const baselineIdShort = baselineId
+        .replace(/^base_/, '')
+        .substring(0, CODE_SUFFIX_LENGTH);
+      return `P-${baselineIdShort}`;
+    }
+    
+    // Fallback: use first 8 chars of projectId UUID (after P-)
+    const uuidPart = projectId.replace(/^P-/, '').replace(/-/g, '');
+    return `P-${uuidPart.substring(0, CODE_SUFFIX_LENGTH)}`;
+  }
+  
+  // Short projectId - keep as-is
+  return projectId;
+}
+
 type BaselineDealInputs = {
   project_name?: string;
   client_name?: string;
@@ -146,6 +177,19 @@ export const normalizeProjectItem = (
     (item as Record<string, unknown>).startDate ||
     null;
 
+  // Extract existing code or generate short code
+  const existingCode = 
+    (item as Record<string, unknown>).code ??
+    (item as Record<string, unknown>).codigo;
+  
+  const baselineId = 
+    (item as Record<string, unknown>).baseline_id ||
+    (item as Record<string, unknown>).baselineId;
+  
+  const shortCode = existingCode 
+    ? String(existingCode)
+    : generateShortProjectCode(String(derivedId), baselineId ? String(baselineId) : undefined);
+
   return {
     id: derivedId,
     identifier: derivedId,
@@ -163,10 +207,8 @@ export const normalizeProjectItem = (
       (item as Record<string, unknown>).name ??
       (item as Record<string, unknown>).nombre ??
       null,
-    code:
-      (item as Record<string, unknown>).code ??
-      (item as Record<string, unknown>).codigo ??
-      null,
+    code: shortCode,
+    codigo: shortCode,
     fecha_inicio: start_date,
     start_date,
     fecha_fin,

@@ -75,6 +75,7 @@ export interface MODProjectionByMonth {
   totalPlanMOD: number;          // Sum of all projects' plan MOD
   totalForecastMOD: number;      // Sum of all projects' forecast MOD
   totalActualMOD: number;        // Sum of all projects' actual MOD
+  payrollTarget?: number;        // HR payroll target (meta objetivo de nómina)
   projectCount: number;          // Number of projects starting in this month
 }
 
