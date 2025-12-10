@@ -383,6 +383,8 @@ async function seedProject(project: CanonicalProject) {
   // 4. Project rubro attachments
   // IMPORTANT: All rubros must reference the baseline to ensure 1:1 match
   // This enforces the baseline-first flow: only rubros from the baseline are attached
+  // SDMT ALIGNMENT: Store baseline_id in metadata structure for consistency with
+  // the projects.ts handler and filterRubrosByBaseline expectations
   for (const rubroId of project.rubros) {
     const attachmentItem = {
       pk: `PROJECT#${project.projectId}`,
@@ -390,6 +392,11 @@ async function seedProject(project: CanonicalProject) {
       projectId: project.projectId,
       rubroId: rubroId,
       baselineId: project.baselineId,
+      metadata: {
+        source: "seed",
+        baseline_id: project.baselineId,
+        project_id: project.projectId,
+      },
       attachedAt: now,
       attachedBy: "pm.lead@ikusi.com",
     };
