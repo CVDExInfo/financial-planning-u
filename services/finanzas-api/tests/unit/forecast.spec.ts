@@ -17,12 +17,20 @@ jest.mock("../../src/lib/auth", () => ({
   ensureCanRead: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock("../../src/lib/baseline-sdmt", () => ({
+  queryProjectRubros: jest.fn(() => Promise.resolve([])),
+}));
+
 import { handler as forecastHandler } from "../../src/handlers/forecast.js";
 
 const dynamo = jest.requireMock("../../src/lib/dynamo") as {
   ddb: { send: jest.Mock };
   QueryCommand: jest.Mock;
   tableName: jest.Mock;
+};
+
+const baselineSDMT = jest.requireMock("../../src/lib/baseline-sdmt") as {
+  queryProjectRubros: jest.Mock;
 };
 
 // --- Helpers -----------------------------------------------------------------
@@ -65,6 +73,8 @@ describe("forecast handler", () => {
     jest.resetAllMocks();
     dynamo.tableName.mockImplementation((name: string) => `${name}-table`);
     dynamo.QueryCommand.mockImplementation((input) => ({ input }));
+    // Mock queryProjectRubros to return empty array by default
+    baselineSDMT.queryProjectRubros.mockResolvedValue([]);
   });
 
   it("rejects requests without projectId", async () => {

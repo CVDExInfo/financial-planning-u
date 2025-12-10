@@ -16,6 +16,10 @@ jest.mock("../../src/lib/dynamo", () => ({
   tableName: jest.fn((name: string) => `${name}-table`),
 }));
 
+jest.mock("../../src/lib/baseline-sdmt", () => ({
+  queryProjectRubros: jest.fn(() => Promise.resolve([])),
+}));
+
 import { handler as rubrosHandler } from "../../src/handlers/rubros.js";
 
 const dynamo = jest.requireMock("../../src/lib/dynamo") as {
@@ -26,6 +30,9 @@ const dynamo = jest.requireMock("../../src/lib/dynamo") as {
 };
 const auth = jest.requireMock("../../src/lib/auth") as {
   getUserEmail: jest.Mock;
+};
+const baselineSDMT = jest.requireMock("../../src/lib/baseline-sdmt") as {
+  queryProjectRubros: jest.Mock;
 };
 
 const baseEvent = (overrides: Partial<APIGatewayProxyEventV2> = {}) => ({
@@ -62,32 +69,38 @@ describe("rubros handler", () => {
     jest.clearAllMocks();
     // Reset ddb.send to return a default empty response
     dynamo.ddb.send.mockResolvedValue({});
+    // Mock queryProjectRubros to return empty array by default
+    baselineSDMT.queryProjectRubros.mockResolvedValue([]);
   });
 
   it("returns attached project rubros with catalog metadata", async () => {
-    dynamo.ddb.send
-      .mockResolvedValueOnce({
-        Items: [
+    // Mock queryProjectRubros to return baseline-filtered rubros
+    baselineSDMT.queryProjectRubros.mockResolvedValueOnce([
+      {
+        projectId: "PROJ-1",
+        rubroId: "R-100",
+        sk: "RUBRO#R-100",
+        tier: "gold",
+        category: "Ops",
+        metadata: {
+          baseline_id: "base_123",
+          project_id: "PROJ-1",
+        },
+      },
+    ]);
+    
+    // Mock BatchGet for rubro definitions
+    dynamo.ddb.send.mockResolvedValueOnce({
+      Responses: {
+        "rubros-table": [
           {
-            projectId: "PROJ-1",
-            rubroId: "R-100",
-            sk: "RUBRO#R-100",
-            tier: "gold",
-            category: "Ops",
+            codigo: "R-100",
+            nombre: "Infraestructura",
+            tipo_costo: "RECURRENT",
           },
         ],
-      })
-      .mockResolvedValueOnce({
-        Responses: {
-          "rubros-table": [
-            {
-              codigo: "R-100",
-              nombre: "Infraestructura",
-              tipo_costo: "RECURRENT",
-            },
-          ],
-        },
-      });
+      },
+    });
 
     const response = await rubrosHandler(baseEvent());
     expect(response.statusCode).toBe(200);
@@ -104,9 +117,7 @@ describe("rubros handler", () => {
       }),
     ]);
 
-    expect(dynamo.QueryCommand).toHaveBeenCalledWith(
-      expect.objectContaining({ TableName: "rubros-table" }),
-    );
+    expect(baselineSDMT.queryProjectRubros).toHaveBeenCalledWith("PROJ-1");
     expect(dynamo.BatchGetCommand).toHaveBeenCalledWith(
       expect.objectContaining({
         RequestItems: expect.objectContaining({
