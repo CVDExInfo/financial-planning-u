@@ -343,31 +343,26 @@ describe("rubros handler", () => {
   it("paginates the rubro attachment query", async () => {
     dynamo.ddb.send.mockReset();
 
-    dynamo.ddb.send
-      .mockResolvedValueOnce({
-        Items: [
-          { projectId: "PROJ-1", rubroId: "R-1", sk: "RUBRO#R-1" },
-          { projectId: "PROJ-1", rubroId: "R-2", sk: "RUBRO#R-2" },
+    // Mock queryProjectRubros to return paginated data
+    baselineSDMT.queryProjectRubros.mockResolvedValueOnce([
+      { projectId: "PROJ-1", rubroId: "R-1", sk: "RUBRO#R-1" },
+      { projectId: "PROJ-1", rubroId: "R-2", sk: "RUBRO#R-2" },
+      { projectId: "PROJ-1", rubroId: "R-3", sk: "RUBRO#R-3" },
+    ]);
+
+    dynamo.ddb.send.mockResolvedValueOnce({
+      Responses: {
+        "rubros-table": [
+          { codigo: "R-1", nombre: "Rubro 1" },
+          { codigo: "R-2", nombre: "Rubro 2" },
+          { codigo: "R-3", nombre: "Rubro 3" },
         ],
-        LastEvaluatedKey: { pk: "PROJECT#PROJ-1", sk: "RUBRO#R-2" },
-      })
-      .mockResolvedValueOnce({
-        Items: [{ projectId: "PROJ-1", rubroId: "R-3", sk: "RUBRO#R-3" }],
-      })
-      .mockResolvedValueOnce({
-        Responses: {
-          "rubros-table": [
-            { codigo: "R-1", nombre: "Rubro 1" },
-            { codigo: "R-2", nombre: "Rubro 2" },
-            { codigo: "R-3", nombre: "Rubro 3" },
-          ],
-        },
-      });
+      },
+    });
 
     const response = await rubrosHandler(baseEvent());
     expect(response.statusCode).toBe(200);
 
-    expect(dynamo.QueryCommand).toHaveBeenCalledTimes(2);
     const payload = JSON.parse(response.body as string);
     expect(payload.data).toHaveLength(3);
     expect(payload.total).toBe(3);
@@ -387,7 +382,10 @@ describe("rubros handler", () => {
       category: "Ops",
     }));
 
-    // Mock responses in order: QueryCommand, then two BatchGetCommands
+    // Mock queryProjectRubros to return 101 rubros
+    baselineSDMT.queryProjectRubros.mockResolvedValueOnce(attachments);
+
+    // Mock responses for BatchGetCommands
     const firstBatch = Array.from({ length: 100 }, (_, i) => ({
       codigo: `R-${i}`,
       nombre: `Rubro ${i}`,
@@ -402,9 +400,6 @@ describe("rubros handler", () => {
     // Set up mock to handle multiple calls
     dynamo.ddb.send.mockImplementation(async (command) => {
       const tableKey = dynamo.tableName('rubros');
-      if (command.input && command.input.KeyConditionExpression) {
-        return { Items: attachments };
-      }
       if (command.input && command.input.RequestItems) {
         const keys = command.input.RequestItems[tableKey].Keys;
         if (keys.length === 100) {

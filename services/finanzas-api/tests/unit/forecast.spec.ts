@@ -167,24 +167,28 @@ describe("forecast handler", () => {
   });
 
   it("derives forecast amounts from rubro attachments when allocations are empty", async () => {
+    // Mock queryProjectRubros to return rubro data
+    baselineSDMT.queryProjectRubros.mockResolvedValueOnce([
+      {
+        rubroId: "R-FALLBACK",
+        qty: 2,
+        unit_cost: 100,
+        recurring: true,
+        start_month: 1,
+        end_month: 2,
+        total_cost: 400,
+        currency: "USD",
+        category: "Test",
+        nombre: "Test Rubro",
+        one_time: false,
+      },
+    ]);
+
     // allocations
     dynamo.ddb.send
       .mockResolvedValueOnce({ Items: [] })
       // payroll
-      .mockResolvedValueOnce({ Items: [] })
-      // rubros
-      .mockResolvedValueOnce({
-        Items: [
-          {
-            rubroId: "R-FALLBACK",
-            qty: 2,
-            unit_cost: 100,
-            recurring: true,
-            start_month: 1,
-            end_month: 2,
-          },
-        ],
-      });
+      .mockResolvedValueOnce({ Items: [] });
 
     const response = (await forecastHandler(
       baseEvent({
