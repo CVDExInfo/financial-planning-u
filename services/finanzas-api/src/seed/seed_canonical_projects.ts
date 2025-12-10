@@ -324,7 +324,7 @@ async function seedProject(project: CanonicalProject) {
   // 1. Project record
   const projectItem = {
     pk: `PROJECT#${project.projectId}`,
-    sk: `META`,
+    sk: "METADATA",
     projectId: project.projectId,
     name: project.name,
     client: project.client,
@@ -366,7 +366,7 @@ async function seedProject(project: CanonicalProject) {
   // 3. Baseline record
   const baselineItem = {
     pk: `BASELINE#${project.baselineId}`,
-    sk: `META`,
+    sk: "METADATA",
     baselineId: project.baselineId,
     projectId: project.projectId,
     name: `Baseline ${project.name}`,

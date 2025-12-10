@@ -1070,11 +1070,13 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const requestedLimit = queryParams.limit ? parseInt(queryParams.limit, 10) : 100;
     const limit = Math.min(Math.max(requestedLimit, 1), 100); // Clamp between 1 and 100
 
+    // BACKWARD COMPATIBILITY SHIM: Accept both METADATA (new standard) and META (legacy)
+    // This allows transition period where both may exist. METADATA is preferred.
     const result = await ddb.send(
       new ScanCommand({
         TableName: tableName("projects"),
         Limit: limit,
-        FilterExpression: "begins_with(#pk, :pkPrefix) AND #sk = :metadata",
+        FilterExpression: "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta)",
         ExpressionAttributeNames: {
           "#pk": "pk",
           "#sk": "sk",
@@ -1082,12 +1084,23 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         ExpressionAttributeValues: {
           ":pkPrefix": "PROJECT#",
           ":metadata": "METADATA",
+          ":meta": "META",
         },
       })
     );
 
     const projects = (result.Items ?? [])
-      .map((item) => normalizeProjectItem(item as Record<string, unknown>))
+      .map((item) => {
+        const normalized = normalizeProjectItem(item as Record<string, unknown>);
+        // Log warning if serving from legacy META to identify remaining legacy data
+        if ((item as Record<string, unknown>).sk === "META") {
+          console.warn("[projects] Serving project from legacy META key", {
+            projectId: normalized.project_id,
+            sk: "META",
+          });
+        }
+        return normalized;
+      })
       .filter((item) => item.project_id);
 
     return ok({ data: projects, total: projects.length });

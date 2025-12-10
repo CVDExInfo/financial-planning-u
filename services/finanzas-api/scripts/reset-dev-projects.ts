@@ -83,9 +83,10 @@ async function scanProjects(): Promise<{ projectId: string; name?: string; pk: s
     const response = await ddb.send(
       new ScanCommand({
         TableName: TABLE_PROJECTS,
-        FilterExpression: "begins_with(pk, :project) AND sk = :meta",
+        FilterExpression: "begins_with(pk, :project) AND (sk = :metadata OR sk = :meta)",
         ExpressionAttributeValues: marshall({
           ":project": "PROJECT#",
+          ":metadata": "METADATA",
           ":meta": "META",
         }),
         ExclusiveStartKey: lastEvaluatedKey,
