@@ -263,12 +263,29 @@ export default function SDMTReconciliation() {
 
   // Filters
   const filteredInvoices = useMemo(() => {
+    // Create a set of valid line item IDs from baseline-filtered rubros
+    const validLineItemIds = new Set(safeLineItems.map((li) => li.id));
+    
     return safeInvoices.filter((inv) => {
+      // SDMT ALIGNMENT FIX: Exclude invoices with line_item_id that don't match any baseline rubro
+      // This prevents showing phantom "$0 / PendingSDMT" entries from old baselines
+      if (!validLineItemIds.has(inv.line_item_id)) {
+        if (import.meta.env.DEV) {
+          console.debug('[Reconciliation] Filtered out invoice with invalid line_item_id:', {
+            invoice_id: inv.id,
+            line_item_id: inv.line_item_id,
+            amount: inv.amount,
+            status: inv.status,
+          });
+        }
+        return false;
+      }
+      
       if (filterLineItem && inv.line_item_id !== filterLineItem) return false;
       if (filterMonth && inv.month !== parseInt(filterMonth, 10)) return false;
       return true;
     });
-  }, [safeInvoices, filterLineItem, filterMonth]);
+  }, [safeInvoices, safeLineItems, filterLineItem, filterMonth]);
 
   const matchedCount = filteredInvoices.filter((x) => x.status === "Matched")
     .length;
