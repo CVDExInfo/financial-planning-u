@@ -1091,9 +1091,10 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
     const projects = (result.Items ?? [])
       .map((item) => {
-        const normalized = normalizeProjectItem(item as Record<string, unknown>);
+        const record = item as Record<string, unknown>;
+        const normalized = normalizeProjectItem(record);
         // Log warning if serving from legacy META to identify remaining legacy data
-        if ((item as Record<string, unknown>).sk === "META") {
+        if (record.sk === "META") {
           console.warn("[projects] Serving project from legacy META key", {
             projectId: normalized.project_id,
             sk: "META",
