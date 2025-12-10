@@ -36,6 +36,7 @@ import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeTyp
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
+import { ES_TEXTS } from '@/lib/i18n/es';
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastCell[]>([]);
@@ -413,9 +414,9 @@ export function SDMTForecast() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gestión de Pronóstico</h1>
+          <h1 className="text-3xl font-bold">{ES_TEXTS.forecast.title}</h1>
           <p className="text-muted-foreground">
-            Seguimiento de costos planeados vs pronóstico vs reales a través de períodos de tiempo
+            {ES_TEXTS.forecast.description}
             {currentProject && (
               <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                 {currentProject.name} | Change #{projectChangeCount}

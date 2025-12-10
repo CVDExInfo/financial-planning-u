@@ -47,6 +47,7 @@ import {
 import { toast } from "sonner";
 import { Logo } from "@/components/Logo";
 import { logoutWithHostedUI } from "@/config/aws";
+import { ES_TEXTS } from "@/lib/i18n/es";
 
 // Navigation visibility summary:
 // - PMO section: only visible when the active role is PMO or when browsing a /finanzas/pmo/* route.
@@ -123,7 +124,7 @@ export function Navigation() {
   const FINANZAS_NAV_ITEMS: FinanzasNavItem[] = [
     {
       id: "forecast",
-      label: "Forecast (Proyecto)",
+      label: ES_TEXTS.nav.forecast,
       path: "/sdmt/cost/forecast",
       icon: TrendingUp,
       visibleFor: ["SDMT", "EXEC_RO"],
@@ -131,63 +132,63 @@ export function Navigation() {
     },
     {
       id: "reconciliation",
-      label: "Reconciliation",
+      label: ES_TEXTS.nav.reconciliation,
       path: "/sdmt/cost/reconciliation",
       icon: FileCheck,
       visibleFor: ["SDMT", "VENDOR", "EXEC_RO"],
     },
     {
       id: "changes",
-      label: "Changes",
+      label: ES_TEXTS.nav.changes,
       path: "/sdmt/cost/changes",
       icon: GitPullRequest,
       visibleFor: ["SDMT", "EXEC_RO"],
     },
     {
       id: "projects",
-      label: "Proyectos",
+      label: ES_TEXTS.nav.portfolio,
       path: "/projects",
       icon: FolderKanban,
       visibleFor: ["SDMT", "PMO", "EXEC_RO"],
     },
     {
       id: "catalogoCostos",
-      label: "Catálogo de Costos",
+      label: ES_TEXTS.nav.costStructure,
       path: "/sdmt/cost/catalog",
       icon: BookOpen,
       visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
     },
     {
       id: "catalogoRubros",
-      label: "Catálogo de Rubros",
+      label: ES_TEXTS.nav.rubros,
       path: "/catalog/rubros",
       icon: BookOpen,
       visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
     },
     {
       id: "reglas",
-      label: "Reglas",
+      label: ES_TEXTS.nav.rules,
       path: "/rules",
       icon: BookOpen,
       visibleFor: ["SDMT", "PMO", "EXEC_RO"],
     },
     {
       id: "ajustes",
-      label: "Ajustes",
+      label: ES_TEXTS.nav.adjustments,
       path: "/adjustments",
       icon: Shield,
       visibleFor: ["SDMT", "EXEC_RO"],
     },
     {
       id: "proveedores",
-      label: "Proveedores",
+      label: ES_TEXTS.nav.providers,
       path: "/providers",
       icon: Layers,
       visibleFor: ["SDMT", "EXEC_RO"],
     },
     {
       id: "flujoCaja",
-      label: "Flujo de Caja (Portafolio)",
+      label: ES_TEXTS.nav.cashflow,
       path: "/cashflow",
       icon: BarChart3,
       visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
@@ -195,7 +196,7 @@ export function Navigation() {
     },
     {
       id: "escenarios",
-      label: "Escenarios (Portafolio)",
+      label: ES_TEXTS.nav.scenarios,
       path: "/scenarios",
       icon: Layers,
       visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
@@ -271,40 +272,40 @@ export function Navigation() {
       items: [
         {
           path: "/sdmt/cost/catalog",
-          label: "Cost Catalog",
+          label: ES_TEXTS.nav.costStructure,
           icon: BookOpen,
           stack: "sdmt",
         },
         {
           path: "/sdmt/cost/forecast",
-          label: "Forecast (Proyecto)",
+          label: ES_TEXTS.nav.forecast,
           icon: TrendingUp,
           stack: "sdmt",
           startGroup: true,
         },
         {
           path: "/sdmt/cost/reconciliation",
-          label: "Reconciliation",
+          label: ES_TEXTS.nav.reconciliation,
           icon: FileCheck,
           stack: "sdmt",
         },
         {
           path: "/sdmt/cost/cashflow",
-          label: "Cash Flow (Proyecto)",
+          label: ES_TEXTS.nav.cashflow,
           icon: BarChart3,
           isPremium: true,
           stack: "sdmt",
         },
         {
           path: "/sdmt/cost/scenarios",
-          label: "Scenarios",
+          label: ES_TEXTS.nav.scenarios,
           icon: Layers,
           isPremium: true,
           stack: "sdmt",
         },
         {
           path: "/sdmt/cost/changes",
-          label: "Changes",
+          label: ES_TEXTS.nav.changes,
           icon: GitPullRequest,
           stack: "sdmt",
         },

@@ -48,6 +48,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import type { ChangeRequest as DomainChangeRequest } from "@/types/domain";
 import { toast } from "sonner";
+import { ES_TEXTS } from "@/lib/i18n/es";
 import ApprovalWorkflow from "./ApprovalWorkflow";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import {
@@ -463,7 +464,7 @@ export function SDMTChanges() {
       <div className="max-w-4xl mx-auto p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Gestión de Cambios</h1>
+            <h1 className="text-3xl font-bold">{ES_TEXTS.changes.title}</h1>
             <p className="text-muted-foreground">
               Selecciona un proyecto para ver y crear solicitudes de cambio.
             </p>
@@ -483,9 +484,9 @@ export function SDMTChanges() {
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gestión de Cambios</h1>
+          <h1 className="text-3xl font-bold">{ES_TEXTS.changes.title}</h1>
           <p className="text-muted-foreground">
-            Rastrea solicitudes de cambio de presupuesto y flujos de aprobación
+            {ES_TEXTS.changes.description}
             {currentProject && (
               <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                 {currentProject.name}
