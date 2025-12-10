@@ -161,6 +161,7 @@ describe("rubros handler", () => {
             qty: 2,
             unitCost: 110000,
             duration: "M1-M60",
+          },
         ],
       }),
     });
@@ -176,22 +177,23 @@ describe("rubros handler", () => {
 
     expect(rubroPut?.Item).toEqual(
       expect.objectContaining({
-        rubroId: "R-200",
+        rubroId: testRubroId,
+        projectId: TEST_PROJECT_ID,
         qty: 2,
-        unit_cost: 50,
+        unit_cost: 110000,
         start_month: 1,
-        end_month: 2,
-        total_cost: 100,
+        end_month: 60,
+        total_cost: 220000, // 2 * 110000
       }),
     );
 
     expect(allocationPuts).toHaveLength(1);
     expect(allocationPuts[0]?.Item).toEqual(
       expect.objectContaining({
-        pk: "PROJECT#PROJ-1",
+        pk: `PROJECT#${TEST_PROJECT_ID}`,
         month: 1,
-        planned: 100,
-        forecast: 100,
+        planned: 220000,
+        forecast: 220000,
       }),
     );
   });
@@ -203,16 +205,17 @@ describe("rubros handler", () => {
         ...baseEvent().requestContext,
         http: { ...baseEvent().requestContext.http, method: "POST" },
       },
-      pathParameters: { projectId: "PROJ-1" },
+      pathParameters: { projectId: TEST_PROJECT_ID },
       body: JSON.stringify({
+        baselineId: TEST_BASELINE_ID,
         rubroIds: [
           {
-            rubroId: "R-200",
-            qty: 5,
-            unitCost: 125,
-            duration: "M3-M5",
+            rubroId: CANONICAL_RUBROS.MOD_SDM,
+            qty: 1,
+            unitCost: 95000,
+            duration: "M1-M60",
             currency: "USD",
-            description: "Updated consulting",
+            description: "Service Delivery Manager",
             type: "recurring",
           },
         ],
@@ -226,15 +229,15 @@ describe("rubros handler", () => {
     const rubroPut = calls.find((call) => call?.TableName === "rubros-table");
     expect(rubroPut?.Item).toEqual(
       expect.objectContaining({
-        pk: "PROJECT#PROJ-1",
-        sk: "RUBRO#R-200",
-        rubroId: "R-200",
-        qty: 5,
-        unit_cost: 125,
-        start_month: 3,
-        end_month: 5,
-        total_cost: 1875,
-        description: "Updated consulting",
+        pk: `PROJECT#${TEST_PROJECT_ID}`,
+        sk: `RUBRO#${CANONICAL_RUBROS.MOD_SDM}`,
+        rubroId: CANONICAL_RUBROS.MOD_SDM,
+        qty: 1,
+        unit_cost: 95000,
+        start_month: 1,
+        end_month: 60,
+        total_cost: 5700000, // 1 * 95000 * 60 months
+        description: "Service Delivery Manager",
       }),
     );
   });
