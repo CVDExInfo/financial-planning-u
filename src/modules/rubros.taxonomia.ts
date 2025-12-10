@@ -12,6 +12,26 @@ export type RubroTaxonomia = {
   fuente_referencia: string;
 };
 
+/**
+ * MOD Role Mapping - Client-approved roles for Service Delivery
+ * Maps Rubros line items to specific MOD roles used in baseline handoff and payroll
+ */
+export const MOD_ROLE_MAPPING = {
+  'MOD-ING': ['Ingeniero Soporte N1', 'Ingeniero Soporte N2', 'Ingeniero Soporte N3'],
+  'MOD-LEAD': 'Ingeniero Delivery',
+  'MOD-SDM': 'Service Delivery Manager',
+  'MOD-PM': 'Project Manager',
+} as const;
+
+export const MOD_ROLES = [
+  'Ingeniero Delivery',
+  'Ingeniero Soporte N1',
+  'Ingeniero Soporte N2',
+  'Ingeniero Soporte N3',
+  'Service Delivery Manager',
+  'Project Manager',
+] as const;
+
 export const CATALOGO_RUBROS: RubroTaxonomia[] = [
   {
     categoria_codigo: `MOD`,

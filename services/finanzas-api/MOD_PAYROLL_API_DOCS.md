@@ -9,6 +9,23 @@ This API enables tracking of **Mano de Obra Directa (MOD)** across three tempora
 
 It supports the "MOD proyectado por mes de inicio" chart and labor vs indirect cost analysis on the `/finanzas/projects` dashboard.
 
+## MOD Roles
+
+The system supports **6 approved MOD roles** for Service Delivery:
+
+1. **Ingeniero Delivery** - Delivery engineer responsible for implementation
+2. **Ingeniero Soporte N1** - Level 1 support engineer
+3. **Ingeniero Soporte N2** - Level 2 support engineer
+4. **Ingeniero Soporte N3** - Level 3 support engineer (senior/specialist)
+5. **Service Delivery Manager** - SDM responsible for operational management
+6. **Project Manager** - PM responsible for project coordination
+
+These roles are used consistently across:
+- MOD/payroll payloads in this API
+- Baseline handoff to Service Delivery team
+- Rubros cost catalog (MOD category line items)
+- SDMT cost catalog views
+
 ## Endpoints
 
 ### 1. POST /payroll - Ingest Payroll Data

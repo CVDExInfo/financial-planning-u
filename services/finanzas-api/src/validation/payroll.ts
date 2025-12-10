@@ -96,15 +96,43 @@ export const PayrollActualCreateSchema = PayrollActualSchema.omit({
 export type PayrollActualCreate = z.infer<typeof PayrollActualCreateSchema>;
 
 /**
+ * MOD Role Types - Client-approved roles for Service Delivery (must match handoff.ts)
+ */
+export const MOD_ROLES = [
+  'Ingeniero Delivery',
+  'Ingeniero Soporte N1',
+  'Ingeniero Soporte N2',
+  'Ingeniero Soporte N3',
+  'Service Delivery Manager',
+  'Project Manager',
+] as const;
+
+export type MODRole = typeof MOD_ROLES[number];
+
+/**
  * Payroll Ingest Schema (from OpenAPI)
+ * Supports both new role-specific breakdown and legacy format
  */
 export const PayrollIngestSchema = z.object({
   mes: z.string().regex(/^\d{4}-\d{2}$/),
   nomina_total: z.number().min(0),
+  
+  // NEW: Role-specific breakdown (preferred)
+  desglose_roles: z.object({
+    'Ingeniero Delivery': z.number().optional(),
+    'Ingeniero Soporte N1': z.number().optional(),
+    'Ingeniero Soporte N2': z.number().optional(),
+    'Ingeniero Soporte N3': z.number().optional(),
+    'Service Delivery Manager': z.number().optional(),
+    'Project Manager': z.number().optional(),
+  }).optional(),
+  
+  // LEGACY: Backward compatibility (deprecated)
   desglose: z.object({
     ingenieros: z.number().optional(),
     sdm: z.number().optional(),
   }).optional(),
+  
   source: z.string().optional(),
   uploaded_by: z.string().email().optional(),
 });

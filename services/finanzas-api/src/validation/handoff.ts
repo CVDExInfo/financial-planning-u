@@ -1,13 +1,50 @@
 import { z } from 'zod';
 
 /**
+ * MOD Role Types - Client-approved roles for Service Delivery
+ */
+export const MOD_ROLES = [
+  'Ingeniero Delivery',
+  'Ingeniero Soporte N1',
+  'Ingeniero Soporte N2',
+  'Ingeniero Soporte N3',
+  'Service Delivery Manager',
+  'Project Manager',
+] as const;
+
+export type MODRole = typeof MOD_ROLES[number];
+
+/**
+ * MOD Roles Breakdown Schema
+ * Percentage allocation for each of the 6 approved MOD roles
+ */
+export const MODRolesSchema = z.object({
+  'Ingeniero Delivery': z.number().min(0).max(100).optional(),
+  'Ingeniero Soporte N1': z.number().min(0).max(100).optional(),
+  'Ingeniero Soporte N2': z.number().min(0).max(100).optional(),
+  'Ingeniero Soporte N3': z.number().min(0).max(100).optional(),
+  'Service Delivery Manager': z.number().min(0).max(100).optional(),
+  'Project Manager': z.number().min(0).max(100).optional(),
+});
+
+export type MODRoles = z.infer<typeof MODRolesSchema>;
+
+/**
  * Handoff Schema
  * Validates handoff data when a project is transferred to Service Delivery Team
+ * 
+ * Supports both new (mod_roles) and legacy (pct_ingenieros/pct_sdm) formats for backward compatibility
  */
 export const HandoffSchema = z.object({
   mod_total: z.number().min(0, 'mod_total must be non-negative'),
-  pct_ingenieros: z.number().min(0).max(100, 'pct_ingenieros must be between 0 and 100'),
-  pct_sdm: z.number().min(0).max(100, 'pct_sdm must be between 0 and 100'),
+  
+  // NEW: Role-specific breakdown (preferred)
+  mod_roles: MODRolesSchema.optional(),
+  
+  // LEGACY: Backward compatibility with old percentage fields (deprecated)
+  pct_ingenieros: z.number().min(0).max(100, 'pct_ingenieros must be between 0 and 100').optional(),
+  pct_sdm: z.number().min(0).max(100, 'pct_sdm must be between 0 and 100').optional(),
+  
   aceptado_por: z.string().email('aceptado_por must be a valid email').optional(),
   fecha_handoff: z
     .string()
