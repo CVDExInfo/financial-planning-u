@@ -235,7 +235,10 @@ export function SDMTForecast() {
     const totalVariance = totalForecast - totalPlanned;
     const variancePercentage = totalPlanned > 0 ? (totalVariance / totalPlanned) * 100 : 0;
     
-    // Variación Real = difference between actual and planned
+    // Variación Real = difference between actual and planned (not actual vs forecast)
+    // This represents how much actual costs deviate from the original plan/baseline.
+    // Previously calculated as (actual - forecast), but business requirement per screenshots
+    // shows this should be (actual - planned) to measure variance from baseline budget.
     const actualVariance = totalActual - totalPlanned;
     const actualVariancePercentage = totalPlanned > 0 ? (actualVariance / totalPlanned) * 100 : 0;
 
