@@ -48,10 +48,14 @@ export function calculateLaborVsIndirect(params: {
     return m / total;
   };
 
-  // Calculate totals
-  const totalPlan = ((planMOD ?? 0) + (planIndirect ?? 0)) || undefined;
-  const totalForecast = ((forecastMOD ?? 0) + (forecastIndirect ?? planIndirect ?? 0)) || undefined;
-  const totalActual = ((actualMOD ?? 0) + (actualIndirect ?? 0)) || undefined;
+  // Calculate totals (preserve 0 values, only undefined if both components are missing)
+  const hasPlan = planMOD !== undefined || planIndirect !== undefined;
+  const hasForecast = forecastMOD !== undefined || (forecastIndirect ?? planIndirect) !== undefined;
+  const hasActual = actualMOD !== undefined || actualIndirect !== undefined;
+
+  const totalPlan = hasPlan ? (planMOD ?? 0) + (planIndirect ?? 0) : undefined;
+  const totalForecast = hasForecast ? (forecastMOD ?? 0) + (forecastIndirect ?? planIndirect ?? 0) : undefined;
+  const totalActual = hasActual ? (actualMOD ?? 0) + (actualIndirect ?? 0) : undefined;
 
   return {
     laborSharePlan: calculateShare(planMOD, planIndirect),

@@ -175,8 +175,8 @@ export async function queryPayrollByPeriod(
 /**
  * Query all payroll entries for a project across all periods
  * 
- * Note: This requires scanning with a FilterExpression since our pk includes MONTH.
- * For better performance, consider using a GSI on projectId if this becomes a common query.
+ * Note: Since our pk includes MONTH, we need to scan or use a GSI.
+ * For now, we'll scan with a filter. Consider adding a GSI on projectId if this becomes a bottleneck.
  * 
  * @param projectId Project identifier
  * @param kind Optional filter for specific kind
@@ -188,13 +188,13 @@ export async function queryPayrollByProject(
 ): Promise<PayrollEntry[]> {
   const skPrefix = kind ? `PAYROLL#${kind.toUpperCase()}#` : 'PAYROLL#';
   
-  // Query using begins_with on pk to match PROJECT#${projectId}#MONTH#
+  // Use Scan with filter since pk varies by month
   const result = await ddb.send(
-    new QueryCommand({
+    new ScanCommand({
       TableName: tableName('payroll_actuals'),
-      KeyConditionExpression: 'begins_with(pk, :pk) AND begins_with(sk, :sk)',
+      FilterExpression: 'begins_with(pk, :pkPrefix) AND begins_with(sk, :sk)',
       ExpressionAttributeValues: {
-        ':pk': `PROJECT#${projectId}#MONTH#`,
+        ':pkPrefix': `PROJECT#${projectId}#MONTH#`,
         ':sk': skPrefix,
       },
     })

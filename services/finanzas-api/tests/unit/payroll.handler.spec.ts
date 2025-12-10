@@ -278,11 +278,19 @@ describe('Payroll Handler Tests', () => {
 
   describe('GET /payroll/dashboard', () => {
     it('should return aggregated MOD projections', async () => {
-      (dynamo.ddb.send as jest.Mock).mockResolvedValue({ Items: [] });
+      // Mock scan calls to return empty results
+      (dynamo.ddb.send as jest.Mock).mockImplementation(() => 
+        Promise.resolve({ Items: [] })
+      );
 
       const event = createEvent('GET', '/payroll/dashboard');
 
       const response = await handler(event);
+      
+      if (response.statusCode !== 200) {
+        console.error('Dashboard error response:', response.body);
+      }
+
       const body = JSON.parse(response.body);
 
       expect(response.statusCode).toBe(200);

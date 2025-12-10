@@ -53,7 +53,7 @@ describe('calculateLaborVsIndirect', () => {
     });
 
     expect(result.laborSharePlan).toBeUndefined();
-    expect(result.totalPlan).toBeUndefined();
+    expect(result.totalPlan).toBe(0); // Now we preserve 0 values instead of converting to undefined
   });
 
   it('should calculate all three kinds independently', () => {

@@ -50,6 +50,7 @@ import {
   queryPayrollByPeriod,
   ddb,
   QueryCommand,
+  ScanCommand,
   tableName,
 } from "../lib/dynamo";
 import { PayrollEntry, PayrollTimeSeries, MODProjectionByMonth } from "../lib/types";
@@ -92,8 +93,22 @@ async function handlePost(event: APIGatewayProxyEventV2) {
   const userId = (event.requestContext as any).authorizer?.jwt?.claims?.email as string | undefined;
 
   try {
-    // Type assertion for putPayrollEntry - validation.data has all required fields
-    const entry = await putPayrollEntry(data as any, userId);
+    // Validated data has all required fields for putPayrollEntry
+    const entry = await putPayrollEntry({
+      projectId: data.projectId,
+      period: data.period,
+      kind: data.kind,
+      amount: data.amount,
+      currency: data.currency,
+      allocationId: data.allocationId,
+      rubroId: data.rubroId,
+      resourceCount: data.resourceCount,
+      source: data.source,
+      uploadedBy: data.uploadedBy,
+      notes: data.notes,
+      createdBy: data.createdBy,
+      updatedBy: data.updatedBy,
+    }, userId);
     return ok(entry, 201);
   } catch (error) {
     console.error("Error creating payroll entry:", error);
@@ -226,13 +241,22 @@ async function handleGetSummary(event: APIGatewayProxyEventV2) {
     // Group allocations by period for indirect costs
     const allocationMap = new Map<string, { plan?: number; actual?: number }>();
     
+    interface AllocationItem {
+      month?: string;
+      planned?: number;
+      monto_planeado?: number;
+      actual?: number;
+      monto_real?: number;
+    }
+    
     for (const alloc of allocations) {
-      const month = (alloc as any).month;
+      const allocation = alloc as AllocationItem;
+      const month = allocation.month;
       if (!month) continue;
       
       const existing = allocationMap.get(month) || {};
-      existing.plan = (existing.plan || 0) + ((alloc as any).planned || (alloc as any).monto_planeado || 0);
-      existing.actual = (existing.actual || 0) + ((alloc as any).actual || (alloc as any).monto_real || 0);
+      existing.plan = (existing.plan || 0) + (allocation.planned || allocation.monto_planeado || 0);
+      existing.actual = (existing.actual || 0) + (allocation.actual || allocation.monto_real || 0);
       
       allocationMap.set(month, existing);
     }
@@ -302,10 +326,11 @@ async function handleGetSummary(event: APIGatewayProxyEventV2) {
 async function handleGetDashboard(_event: APIGatewayProxyEventV2) {
   try {
     // Get all projects with their start dates
+    // Note: This uses begins_with with sk filter to scan projects
     const projectsResult = await ddb.send(
-      new QueryCommand({
+      new ScanCommand({
         TableName: tableName('projects'),
-        KeyConditionExpression: 'begins_with(pk, :pk) AND sk = :sk',
+        FilterExpression: 'begins_with(pk, :pk) AND sk = :sk',
         ExpressionAttributeValues: {
           ':pk': 'PROJECT#',
           ':sk': 'META',
@@ -315,12 +340,14 @@ async function handleGetDashboard(_event: APIGatewayProxyEventV2) {
     const projects = projectsResult.Items || [];
 
     // Get all payroll entries
+    // Note: This scans the table - consider a GSI on projectId for better performance
     const payrollResult = await ddb.send(
-      new QueryCommand({
+      new ScanCommand({
         TableName: tableName('payroll_actuals'),
-        KeyConditionExpression: 'begins_with(pk, :pk)',
+        FilterExpression: 'begins_with(pk, :pk) AND begins_with(sk, :sk)',
         ExpressionAttributeValues: {
           ':pk': 'PROJECT#',
+          ':sk': 'PAYROLL#',
         },
       })
     );
