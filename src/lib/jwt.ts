@@ -242,7 +242,7 @@ export function formatTokenExpiration(claims: JWTClaims): string {
  * @param cognitoGroups Array of Cognito group names
  * @returns Array of application UserRole values
  */
-export type FinanzasRole = "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
+export type FinanzasRole = "PM" | "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
 
 export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
   const roles: Set<FinanzasRole> = new Set();
@@ -251,12 +251,18 @@ export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
     const normalized = group.trim().toLowerCase();
     if (!normalized) continue;
 
-    // PMO access: PM/PMO/admin groups
-    if (
-      normalized === "admin" ||
-      normalized.includes("pm") ||
-      normalized.includes("pmo")
-    ) {
+    const isPmGroup =
+      normalized === "pm" ||
+      normalized.startsWith("pm-") ||
+      normalized.includes("project_manager");
+
+    // PM access: explicit PM groups
+    if (isPmGroup) {
+      roles.add("PM");
+    }
+
+    // PMO access: PMO/admin groups
+    if (normalized === "admin" || normalized.includes("pmo")) {
       roles.add("PMO");
     }
 

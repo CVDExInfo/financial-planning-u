@@ -29,6 +29,7 @@ type BaselineDealInputs = {
   start_date?: string;
   end_date?: string;
   currency?: string;
+  sdm_manager_name?: string;
 };
 
 type BaselineLaborEstimate = {
@@ -62,6 +63,7 @@ type BaselinePayload = {
   end_date?: string;
   duration_months?: number;
   contract_value?: number;
+  sdm_manager_name?: string;
   labor_estimates?: BaselineLaborEstimate[];
   non_labor_estimates?: BaselineNonLaborEstimate[];
   deal_inputs?: BaselineDealInputs;
@@ -152,6 +154,10 @@ export const normalizeProjectItem = (
     cliente: (item as Record<string, unknown>).cliente ?? null,
     client: (item as Record<string, unknown>).client ??
       (item as Record<string, unknown>).cliente ?? null,
+    sdm_manager_name:
+      (item as Record<string, unknown>).sdm_manager_name ??
+      (item as Record<string, unknown>).sd_manager_name ??
+      null,
     nombre: (item as Record<string, unknown>).nombre ?? null,
     name:
       (item as Record<string, unknown>).name ??
@@ -265,6 +271,10 @@ const normalizeBaseline = (
       (baseline?.currency as string | undefined) ||
       (payload?.currency as string | undefined) ||
       dealInputs.currency,
+    sdm_manager_name:
+      (baseline as { sdm_manager_name?: string } | undefined)?.sdm_manager_name ||
+      (payload as { sdm_manager_name?: string } | undefined)?.sdm_manager_name ||
+      (dealInputs as { sdm_manager_name?: string }).sdm_manager_name,
     start_date:
       (baseline?.start_date as string | undefined) ||
       (payload?.start_date as string | undefined) ||
@@ -812,6 +822,11 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             (existingProject.Item as Record<string, unknown> | undefined)
               ?.description ||
             "",
+          sdm_manager_name:
+            normalizedBaseline.sdm_manager_name ||
+            (existingProject.Item as Record<string, unknown> | undefined)
+              ?.sdm_manager_name ||
+            undefined,
           baseline_id: baselineId,
           baselineId,
           baseline_status: "accepted",
@@ -861,6 +876,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             createdAt: now,
             updatedAt: now,
             createdBy: createdBy,
+            sdm_manager_name: normalizedBaseline.sdm_manager_name,
           };
 
           await ddb.send(

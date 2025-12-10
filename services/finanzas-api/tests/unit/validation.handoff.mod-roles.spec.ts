@@ -75,6 +75,7 @@ describe("MOD Roles Validation", () => {
   describe("HandoffSchema with mod_roles", () => {
     const baseHandoff = {
       mod_total: 12240000,
+      sdm_manager_name: "Laura Gómez",
       aceptado_por: "pm.lead@ikusi.com",
       fecha_handoff: "2024-12-15",
       notas: "Proyecto de plataforma IA",

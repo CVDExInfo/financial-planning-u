@@ -198,6 +198,8 @@ export class ApiService {
           id: String(id).trim(),
           name: String(name || "").trim() || "Unnamed Project",
           description: project?.description || project?.descripcion || "",
+          sdm_manager_name:
+            project?.sdm_manager_name || project?.sd_manager_name || undefined,
           baseline_id: project?.baseline_id || project?.baselineId || "",
           baseline_status: baselineStatus || undefined,
           accepted_by: acceptedBy || undefined,

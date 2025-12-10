@@ -1,6 +1,12 @@
 import { mapGroupsToRoles, type FinanzasRole } from "../lib/jwt";
 
-export const ROLE_PRIORITY: FinanzasRole[] = ["SDMT", "PMO", "EXEC_RO", "VENDOR"];
+export const ROLE_PRIORITY: FinanzasRole[] = [
+  "SDMT",
+  "PMO",
+  "PM",
+  "EXEC_RO",
+  "VENDOR",
+];
 
 export function normalizeGroups(groups: unknown): string[] {
   if (!groups) return [];

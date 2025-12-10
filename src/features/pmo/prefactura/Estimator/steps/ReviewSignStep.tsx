@@ -250,6 +250,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         start_date: dealInputs.start_date,
         duration_months: dealInputs.duration_months,
         contract_value: dealInputs.contract_value,
+        sdm_manager_name: dealInputs.sdm_manager_name,
         assumptions: dealInputs.assumptions || [],
         // Cost breakdowns
         labor_estimates: laborEstimates,

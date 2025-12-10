@@ -4,6 +4,12 @@ import { z } from "zod";
 
 const HandoffSchema = z.object({
   mod_total: z.number().min(0, "mod_total must be non-negative"),
+  sdm_manager_name: z
+    .string()
+    .trim()
+    .min(1, "sdm_manager_name must not be empty")
+    .max(200, "sdm_manager_name cannot exceed 200 characters")
+    .optional(),
   pct_ingenieros: z
     .number()
     .min(0)
@@ -19,6 +25,7 @@ const HandoffSchema = z.object({
 describe("Handoff Validation", () => {
   const validHandoff = {
     mod_total: 12240000,
+    sdm_manager_name: "Laura Gómez",
     pct_ingenieros: 85,
     pct_sdm: 15,
     aceptado_por: "pm.lead@ikusi.com",
@@ -30,6 +37,12 @@ describe("Handoff Validation", () => {
     it("should validate a complete valid handoff", () => {
       const result = HandoffSchema.parse(validHandoff);
       expect(result).toEqual(validHandoff);
+    });
+
+    it("should allow omitting sdm_manager_name for backwards compatibility", () => {
+      const { sdm_manager_name: _sdm, ...legacy } = validHandoff;
+      const result = HandoffSchema.parse(legacy);
+      expect(result.sdm_manager_name).toBeUndefined();
     });
 
     it("should validate without optional notas field", () => {
@@ -74,6 +87,11 @@ describe("Handoff Validation", () => {
       expect(() => HandoffSchema.parse(invalidData)).toThrow();
     });
 
+    it("should reject empty sdm_manager_name when provided", () => {
+      const invalid = { ...validHandoff, sdm_manager_name: "" };
+      expect(() => HandoffSchema.parse(invalid)).toThrow();
+    });
+  
     it("should accept 0% for percentages", () => {
       const edgeCaseData = {
         ...validHandoff,

@@ -5,13 +5,13 @@ import {
   canAccessRoute as legacyCanAccessRoute,
   canPerformAction as legacyCanPerformAction,
 } from "../lib/auth";
-import { type FinanzasRole } from "../lib/jwt";
+import { type FinanzasRole as JwtFinanzasRole } from "../lib/jwt";
 import {
   resolveFinanzasRole,
   ROLE_PRIORITY,
 } from "./permissions-helpers";
 
-export type FinanzasRole = "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
+export type FinanzasRole = JwtFinanzasRole;
 
 
 type PermissionCheck = {
@@ -72,6 +72,7 @@ export function usePermissions() {
       hasPremiumFinanzasFeatures: false,
       canDelete: () => false,
       canApprove: () => false,
+      isPM: false,
       isPMO: false,
       isSDMT: false,
       isVendor: false,
@@ -123,6 +124,7 @@ export function usePermissions() {
   const canUpdate = () => canPerformAction("update");
 
   const isPMO = effectiveRole === "PMO";
+  const isPM = effectiveRole === "PM";
   const isSDMT = effectiveRole === "SDMT";
   const isVendor = effectiveRole === "VENDOR";
   const isExecRO = effectiveRole === "EXEC_RO";
@@ -154,6 +156,7 @@ export function usePermissions() {
     hasPremiumFinanzasFeatures,
     canDelete,
     canApprove,
+    isPM,
     isPMO,
     isSDMT,
     isVendor,

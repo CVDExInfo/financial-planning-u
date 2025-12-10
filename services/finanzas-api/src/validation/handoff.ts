@@ -22,7 +22,14 @@ export type MODRoles = z.infer<typeof MODRolesSchema>;
  */
 export const HandoffSchema = z.object({
   mod_total: z.number().min(0, 'mod_total must be non-negative'),
-  
+
+  sdm_manager_name: z
+    .string()
+    .trim()
+    .min(1, 'sdm_manager_name must not be empty')
+    .max(200, 'sdm_manager_name cannot exceed 200 characters')
+    .optional(),
+
   // NEW: Role-specific breakdown (preferred)
   mod_roles: MODRolesSchema.optional(),
   

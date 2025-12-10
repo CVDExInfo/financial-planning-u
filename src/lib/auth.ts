@@ -7,17 +7,34 @@ import { UserRole, UserInfo, ModuleType } from "@/types/domain";
 // Role hierarchy for permission checking
 const ROLE_HIERARCHY: Record<UserRole, number> = {
   VENDOR: 1,
-  SDMT: 2,
-  PMO: 3,
-  EXEC_RO: 4,
+  PM: 2,
+  SDMT: 3,
+  PMO: 4,
+  EXEC_RO: 5,
 };
 
+const envSource =
+  (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env) || {};
+
 const IS_FINZ_BUILD =
-  import.meta.env.VITE_FINZ_ENABLED === "true" ||
+  envSource.VITE_FINZ_ENABLED === "true" ||
   (typeof window !== "undefined" && window.location.pathname.startsWith("/finanzas"));
 
 // Role permissions mapping
 const ROLE_PERMISSIONS = {
+  PM: {
+    // Project Manager: limited view to baseline estimator and rubros read-only
+    routes: [
+      "/",
+      "/profile",
+      "/pmo/**",
+      "/pmo/prefactura/**",
+      "/sdmt/cost/catalog",
+      "/catalog/rubros",
+    ],
+    actions: ["read"],
+    description: "Acceso limitado a estimador y catálogo de rubros",
+  },
   PMO: {
     // PMO users are isolated to the PMO workspace
     routes: ["/", "/profile", "/pmo/**", "/pmo/prefactura/**"],
@@ -190,7 +207,7 @@ export function canAccessRoute(route: string, role: UserRole): boolean {
   return routes.some((pattern) => {
     // Convert glob pattern to regex
     const regex = new RegExp(
-      pattern.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*")
+      `^${pattern.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*")}$`
     );
     return regex.test(normalizedRoute);
   });
@@ -239,6 +256,7 @@ export function getRoleInfo(role: UserRole) {
  */
 export function getDefaultRouteForRole(role: UserRole): string {
   switch (role) {
+    case "PM":
     case "PMO":
       return "/pmo/prefactura/estimator";
     case "SDMT":
@@ -348,5 +366,5 @@ export function canAccessFinanzasModule(userRoles: UserRole[]): boolean {
  * @returns true if user has access to PMO module
  */
 export function canAccessPMOModule(userRoles: UserRole[]): boolean {
-  return userRoles.some((role) => ["PMO", "EXEC_RO"].includes(role));
+  return userRoles.some((role) => ["PM", "PMO", "EXEC_RO"].includes(role));
 }

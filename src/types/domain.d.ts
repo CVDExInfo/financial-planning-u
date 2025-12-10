@@ -13,7 +13,7 @@ export type VarianceReason =
   | "vendor_delay"
   | "scope"
   | "other";
-export type UserRole = "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
+export type UserRole = "PM" | "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
 export type ModuleType = "PMO" | "SDMT";
 export type InvoiceStatus = "Pending" | "Matched" | "Disputed";
 export type ApprovalDecision = "approve" | "reject";
@@ -188,6 +188,7 @@ export type Project = {
   name: string;
   description?: string;
   client?: string | null;
+  sdm_manager_name?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   baseline_id?: string;
@@ -288,6 +289,7 @@ export type DealInputs = {
   duration_months: number;
   contract_value?: number;
   client_name?: string;
+  sdm_manager_name: string;
   assumptions: string[];
 };
 
@@ -323,6 +325,7 @@ export type BaselineCreateRequest = {
   start_date?: string;
   duration_months?: number;
   contract_value?: number;
+  sdm_manager_name?: string;
   assumptions?: string[];
   created_by: string;
   labor_estimates: LaborEstimate[];

@@ -52,6 +52,7 @@ const sampleRequest: BaselineCreateRequest = {
   start_date: "2024-01-01",
   duration_months: 12,
   contract_value: 10000,
+  sdm_manager_name: "Laura Gómez",
   assumptions: ["All good"],
   created_by: "tester@example.com",
   labor_estimates: [
@@ -141,6 +142,29 @@ describe("ApiService.createBaseline", () => {
     const result = await ApiService.createBaseline(sampleRequest);
     assert.equal(result.baseline_id, "BL-123");
     assert.equal(result.project_id, "PRJ-123");
+  });
+
+  it("sends the service delivery manager name in the payload", async () => {
+    setUseMocks("false");
+    let capturedBody: any = null;
+    global.fetch = (async (_url, init) => {
+      capturedBody = init?.body ? JSON.parse(init.body as string) : null;
+      return {
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            baseline_id: "BL-123",
+            project_id: "PRJ-123",
+            signature_hash: "sig-12345",
+            total_amount: 1234,
+            created_at: "2024-01-01T00:00:00Z",
+          }),
+      } as any;
+    }) as any;
+
+    await ApiService.createBaseline(sampleRequest);
+    assert.equal(capturedBody.sdm_manager_name, "Laura Gómez");
   });
 });
 

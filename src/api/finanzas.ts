@@ -494,6 +494,7 @@ export type PrefacturaBaselinePayload = {
   end_date?: string;
   duration_months?: number;
   contract_value?: number;
+  sdm_manager_name?: string;
   assumptions?: string[];
   labor_estimates: Record<string, unknown>[];
   non_labor_estimates: Record<string, unknown>[];

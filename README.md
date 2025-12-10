@@ -4,6 +4,11 @@ Enterprise-grade UI for PMO Pre-Factura estimation and SDMT cost/forecasting. Th
 
 The backend for this project lives under `services/finanzas-api` and is defined with AWS SAM. The OpenAPI contract is in `openapi/finanzas.yaml`.
 
+## 🚀 Recent updates
+
+- PM users now see only the baseline estimator and rubros/cost structure pages; forecast, reconciliation, and changes are hidden and blocked by route guards.
+- The prefactura/baseline flow now captures a manual **Service Delivery Manager (Nombre)** and persists it through the API payloads and Dynamo metadata.
+
 ## 🔐 Authentication
 
 This application uses **AWS Cognito** for authentication with support for:

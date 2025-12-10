@@ -76,6 +76,7 @@ interface BaselineRequest {
   start_date?: string;
   duration_months?: number;
   contract_value?: number;
+  sdm_manager_name?: string;
   labor_estimates: LaborEstimate[];
   non_labor_estimates: NonLaborEstimate[];
   fx_indexation?: FxIndexation;
@@ -166,6 +167,7 @@ export const createBaseline = async (
       start_date: body.start_date || timestamp,
       duration_months: durationMonths,
       contract_value: body.contract_value || total_amount,
+      sdm_manager_name: body.sdm_manager_name,
       assumptions: body.assumptions || [],
       labor_estimates: laborEstimates,
       non_labor_estimates: nonLaborEstimates,
@@ -197,6 +199,7 @@ export const createBaseline = async (
       start_date: body.start_date || timestamp,
       duration_months: durationMonths,
       contract_value: body.contract_value || total_amount,
+      sdm_manager_name: body.sdm_manager_name,
       assumptions: body.assumptions || [],
       labor_estimates: laborEstimates,
       non_labor_estimates: nonLaborEstimates,
@@ -235,6 +238,7 @@ export const createBaseline = async (
             signature_hash,
             total_amount,
             created_at: timestamp,
+            sdm_manager_name: body.sdm_manager_name,
             preview: {
               project_name: body.project_name,
               client_name: body.client_name || "",

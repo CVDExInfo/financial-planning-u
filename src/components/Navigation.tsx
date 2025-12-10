@@ -62,6 +62,7 @@ type NavigationItem = {
   isPremium?: boolean;
   stack: NavigationStack;
   startGroup?: boolean;
+  allowedRoles?: FinanzasRole[];
 };
 
 type FinanzasNavItem = {
@@ -156,14 +157,14 @@ export function Navigation() {
       label: ES_TEXTS.nav.costStructure,
       path: "/sdmt/cost/catalog",
       icon: BookOpen,
-      visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
+      visibleFor: ["SDMT", "PMO", "PM", "VENDOR", "EXEC_RO"],
     },
     {
       id: "catalogoRubros",
       label: ES_TEXTS.nav.rubros,
       path: "/catalog/rubros",
       icon: BookOpen,
-      visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
+      visibleFor: ["SDMT", "PMO", "PM", "VENDOR", "EXEC_RO"],
     },
     {
       id: "reglas",
@@ -213,6 +214,7 @@ export function Navigation() {
   // was initialized, causing a ReferenceError).
   const isPmoContext =
     activeRole === "PMO" ||
+    activeRole === "PM" ||
     location.pathname.startsWith("/finanzas/pmo/") ||
     normalizedPath.startsWith("/pmo/");
 
@@ -262,6 +264,7 @@ export function Navigation() {
           label: "Estimator",
           icon: Calculator,
           stack: "pmo",
+          allowedRoles: ["PM", "PMO"],
         },
       ],
     },
@@ -275,6 +278,7 @@ export function Navigation() {
           label: ES_TEXTS.nav.costStructure,
           icon: BookOpen,
           stack: "sdmt",
+          allowedRoles: ["SDMT", "PMO", "EXEC_RO", "VENDOR"],
         },
         {
           path: "/sdmt/cost/forecast",
@@ -282,12 +286,14 @@ export function Navigation() {
           icon: TrendingUp,
           stack: "sdmt",
           startGroup: true,
+          allowedRoles: ["SDMT", "EXEC_RO"],
         },
         {
           path: "/sdmt/cost/reconciliation",
           label: ES_TEXTS.nav.reconciliation,
           icon: FileCheck,
           stack: "sdmt",
+          allowedRoles: ["SDMT", "EXEC_RO", "VENDOR"],
         },
         {
           path: "/sdmt/cost/cashflow",
@@ -295,6 +301,7 @@ export function Navigation() {
           icon: BarChart3,
           isPremium: true,
           stack: "sdmt",
+          allowedRoles: ["SDMT", "PMO", "EXEC_RO", "VENDOR"],
         },
         {
           path: "/sdmt/cost/scenarios",
@@ -302,12 +309,14 @@ export function Navigation() {
           icon: Layers,
           isPremium: true,
           stack: "sdmt",
+          allowedRoles: ["SDMT", "PMO", "EXEC_RO", "VENDOR"],
         },
         {
           path: "/sdmt/cost/changes",
           label: ES_TEXTS.nav.changes,
           icon: GitPullRequest,
           stack: "sdmt",
+          allowedRoles: ["SDMT", "EXEC_RO"],
         },
       ],
     },
@@ -332,10 +341,14 @@ export function Navigation() {
 
   const filterNavItem = (item: NavigationItem) => {
     const normalizedItemPath = normalizeAppPath(item.path);
+    const allowedByRole =
+      !item.allowedRoles ||
+      item.allowedRoles.includes((activeRole as FinanzasRole) ?? "EXEC_RO");
 
     if (!allowedStacks.includes(item.stack)) return false;
     if (item.stack === "pmo" && !isPmoContext) return false;
     if (item.isPremium && !hasPremiumFinanzasFeatures) return false;
+    if (!allowedByRole) return false;
     return roleCanAccessRoute(normalizedItemPath);
   };
 

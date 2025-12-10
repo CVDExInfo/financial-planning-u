@@ -35,6 +35,11 @@ const dealInputsSchema: z.ZodType<DealInputs> = z.object({
     .max(60, "Duration cannot exceed 60 months"),
   contract_value: z.number().optional(),
   client_name: z.string().optional(),
+  sdm_manager_name: z
+    .string()
+    .trim()
+    .min(1, "Service Delivery Manager name is required")
+    .max(200, "El nombre no puede exceder 200 caracteres"),
   assumptions: z.array(z.string()).default([]),
 }) as z.ZodType<DealInputs>;
 
@@ -50,16 +55,19 @@ interface DealInputsStepProps {
 export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
   const form = useForm<DealInputs>({
     resolver: zodResolver(dealInputsSchema),
-    defaultValues: data || {
-      project_name: "",
-      project_description: "",
-      currency: "USD",
-      start_date: "",
-      duration_months: 12,
-      contract_value: undefined,
-      client_name: "",
-      assumptions: [],
-    },
+    defaultValues: data
+      ? { ...data, sdm_manager_name: data.sdm_manager_name ?? "" }
+      : {
+          project_name: "",
+          project_description: "",
+          currency: "USD",
+          start_date: "",
+          duration_months: 12,
+          contract_value: undefined,
+          client_name: "",
+          sdm_manager_name: "",
+          assumptions: [],
+        },
   });
 
   const assumptions = form.watch("assumptions") || [];
@@ -147,6 +155,24 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
                   <FormLabel>Client Name</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g., Acme Corporation" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="sdm_manager_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Service Delivery Manager (Nombre) *</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Laura Gómez"
+                      {...field}
+                      onChange={(event) => field.onChange(event.target.value)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
