@@ -140,6 +140,10 @@ async function countProjectRubros(projectId: string): Promise<number> {
 
 /**
  * Count allocations for a project (first few months)
+ * 
+ * NOTE: Uses Scan operation due to composite partition key (PROJECT#id#MONTH#yyyy-mm).
+ * This is acceptable for verification in dev/test with small datasets.
+ * For production or large datasets, consider adding a GSI on projectId.
  */
 async function countAllocations(projectId: string): Promise<number> {
   try {
@@ -172,6 +176,10 @@ async function countAllocations(projectId: string): Promise<number> {
 
 /**
  * Get unique payroll months for a project
+ * 
+ * NOTE: Uses Scan operation due to composite partition key (PROJECT#id#MONTH#yyyy-mm).
+ * This is acceptable for verification in dev/test with small datasets (7 projects, 3 months each).
+ * For production or large datasets, consider adding a GSI on projectId.
  */
 async function getPayrollMonths(projectId: string): Promise<string[]> {
   try {

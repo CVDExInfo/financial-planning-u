@@ -389,7 +389,7 @@ async function seedProject(project: CanonicalProject) {
       sk: `RUBRO#${rubroId}`,
       projectId: project.projectId,
       rubroId: rubroId,
-      baselineId: project.baselineId, // Links rubro to specific baseline
+      baselineId: project.baselineId,
       attachedAt: now,
       attachedBy: "pm.lead@ikusi.com",
     };
@@ -410,8 +410,8 @@ async function seedProject(project: CanonicalProject) {
       sk: `ESTIMATOR#${estimatorId}`,
       id: estimatorId,
       projectId: project.projectId,
-      baselineId: project.baselineId, // Links estimator item to baseline
-      rubroId: rubroId, // References catalog rubro
+      baselineId: project.baselineId,
+      rubroId: rubroId,
       nombre: `${resource.role} - ${project.duration} meses`,
       tier: resource.tier,
       quantity: resource.count,
