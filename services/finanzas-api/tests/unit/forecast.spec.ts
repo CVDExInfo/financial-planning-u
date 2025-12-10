@@ -241,4 +241,51 @@ describe("forecast handler", () => {
     const payload = JSON.parse(response.body);
     expect(payload.error).toMatch(/Finanzas/i);
   });
+
+  it("derives forecast from rubros with top-level baselineId (legacy seed data)", async () => {
+    // Mock queryProjectRubros to return rubro with top-level baselineId
+    baselineSDMT.queryProjectRubros.mockResolvedValueOnce([
+      {
+        rubroId: "RB0001",
+        nombre: "MOD Engineers",
+        category: "MOD",
+        qty: 8,
+        unit_cost: 75000,
+        baselineId: "BL-TEST-001", // Legacy: top-level baseline_id
+        recurring: true,
+        one_time: false,
+        start_month: 1,
+        end_month: 2,
+        total_cost: 1200000,
+        currency: "USD",
+      },
+    ]);
+
+    // allocations
+    dynamo.ddb.send
+      .mockResolvedValueOnce({ Items: [] })
+      // payroll
+      .mockResolvedValueOnce({ Items: [] });
+
+    const response = (await forecastHandler(
+      baseEvent({
+        queryStringParameters: { projectId: "PROJ-LEGACY", months: "2" },
+      })
+    )) as ApiResult;
+
+    expect(response.statusCode).toBe(200);
+    const payload = JSON.parse(response.body);
+
+    expect(Array.isArray(payload.data)).toBe(true);
+    // Should have 2 entries (recurring across months 1 and 2)
+    expect(payload.data.length).toBeGreaterThan(0);
+    expect(payload.data[0]).toEqual(
+      expect.objectContaining({
+        line_item_id: "RB0001",
+        month: 1,
+        planned: 600000, // qty * unit_cost
+        forecast: 600000,
+      })
+    );
+  });
 });

@@ -133,6 +133,72 @@ describe("Baseline → SDMT Alignment", () => {
       expect(filtered).toHaveLength(1);
       expect(filtered[0].rubroId).toBe("base_123-labor-1");
     });
+
+    it("should support rubros with top-level baselineId (legacy seed data)", () => {
+      const rubros = [
+        {
+          rubroId: "RB0001",
+          nombre: "MOD Engineers",
+          category: "MOD",
+          qty: 8,
+          unit_cost: 75000,
+          currency: "USD",
+          recurring: true,
+          one_time: false,
+          start_month: 1,
+          end_month: 60,
+          total_cost: 36000000,
+          baselineId: TEST_BASELINE_1, // Top-level for legacy seed data
+          metadata: {},
+        },
+        {
+          rubroId: "RB0002",
+          nombre: "MOD Tech Lead",
+          category: "MOD",
+          qty: 1,
+          unit_cost: 110000,
+          currency: "USD",
+          recurring: true,
+          one_time: false,
+          start_month: 1,
+          end_month: 36,
+          total_cost: 3960000,
+          baselineId: TEST_BASELINE_2, // Different baseline
+          metadata: {},
+        },
+      ];
+
+      const filtered = filterRubrosByBaseline(rubros, TEST_BASELINE_1);
+      
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].rubroId).toBe("RB0001");
+      expect(filtered[0].baselineId).toBe(TEST_BASELINE_1);
+    });
+
+    it("should prefer metadata.baseline_id over top-level baselineId", () => {
+      const rubros = [
+        {
+          rubroId: "RB0001",
+          nombre: "MOD Engineers",
+          category: "MOD",
+          qty: 8,
+          unit_cost: 75000,
+          currency: "USD",
+          recurring: true,
+          one_time: false,
+          start_month: 1,
+          end_month: 60,
+          total_cost: 36000000,
+          baselineId: "wrong-baseline", // Top-level (wrong)
+          metadata: { baseline_id: TEST_BASELINE_1 }, // Metadata (correct)
+        },
+      ];
+
+      const filtered = filterRubrosByBaseline(rubros, TEST_BASELINE_1);
+      
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].rubroId).toBe("RB0001");
+    });
   });
 
   describe("calculateRubrosTotalCost", () => {

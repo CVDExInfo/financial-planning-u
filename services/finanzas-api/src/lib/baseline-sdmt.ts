@@ -50,9 +50,10 @@ export interface BaselineRubro {
   start_month: number;
   end_month: number;
   total_cost: number;
+  baselineId?: string; // Legacy: top-level baseline_id (seed data)
   metadata?: {
     source?: string;
-    baseline_id?: string;
+    baseline_id?: string; // Preferred: metadata baseline_id (handler-created)
     project_id?: string;
     [key: string]: unknown;
   };
@@ -106,9 +107,13 @@ export async function getProjectActiveBaseline(
  *
  * This is the critical function that ensures SDMT views only show rubros
  * from the specified baseline, preventing mixing of multiple baselines.
+ * 
+ * BACKWARD COMPATIBILITY:
+ * Checks both metadata.baseline_id (new standard) and top-level baselineId
+ * (legacy seed data) to support existing projects while maintaining isolation.
  */
 export function filterRubrosByBaseline<
-  T extends { metadata?: { baseline_id?: string } }
+  T extends { metadata?: { baseline_id?: string }; baselineId?: string }
 >(rubros: T[], baselineId: string | null): T[] {
   // Backwards compatibility: if we don't know the baseline, return all rubros.
   if (!baselineId) {
@@ -116,7 +121,8 @@ export function filterRubrosByBaseline<
   }
 
   return rubros.filter((rubro) => {
-    const rubroBaselineId = rubro.metadata?.baseline_id;
+    // Check both metadata.baseline_id (preferred) and top-level baselineId (legacy)
+    const rubroBaselineId = rubro.metadata?.baseline_id || rubro.baselineId;
 
     // Only include rubros that explicitly match this baseline.
     if (rubroBaselineId === baselineId) {
