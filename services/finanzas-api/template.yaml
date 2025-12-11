@@ -1034,6 +1034,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName:
               Ref: PayrollTable
+        - DynamoDBReadPolicy:
+            TableName:
+              Ref: ProjectsTable
+        - DynamoDBReadPolicy:
+            TableName:
+              Ref: AllocationsTable
       Events:
         ListPayrollActuals:
           Type: HttpApi
@@ -1049,6 +1055,42 @@ Resources:
           Properties:
             Path: /payroll/ingest
             Method: POST
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        GetPayroll:
+          Type: HttpApi
+          Properties:
+            Path: /payroll
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        PostPayroll:
+          Type: HttpApi
+          Properties:
+            Path: /payroll
+            Method: POST
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        GetPayrollSummary:
+          Type: HttpApi
+          Properties:
+            Path: /payroll/summary
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        GetPayrollDashboard:
+          Type: HttpApi
+          Properties:
+            Path: /payroll/dashboard
+            Method: GET
             ApiId:
               Ref: Api
             Auth:

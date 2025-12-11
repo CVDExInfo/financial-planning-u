@@ -145,7 +145,8 @@ describe("rubros handler", () => {
 
   it("persists cost metadata and allocations when attaching a rubro (from baseline)", async () => {
     auth.getUserEmail.mockResolvedValueOnce("user@example.com");
-    const testRubroId = CANONICAL_RUBROS.MOD_TECH_LEAD;
+    const testRubroId = CANONICAL_RUBROS.MOD_TECH_LEAD; // Legacy ID: RB0002
+    const canonicalId = "MOD-LEAD"; // Expected canonical ID after normalization
     
     const postEvent = baseEvent({
       requestContext: {
@@ -175,9 +176,13 @@ describe("rubros handler", () => {
       (call) => call?.TableName === "allocations-table",
     );
 
+    // Expect canonical ID in storage, with legacy ID preserved
     expect(rubroPut?.Item).toEqual(
       expect.objectContaining({
-        rubroId: testRubroId,
+        rubroId: canonicalId,
+        rubro_id: canonicalId,
+        sk: `RUBRO#${canonicalId}`,
+        _legacy_id: testRubroId, // Legacy ID preserved for audit
         projectId: TEST_PROJECT_ID,
         qty: 2,
         unit_cost: 110000,
@@ -200,6 +205,9 @@ describe("rubros handler", () => {
 
   it("upserts an existing rubro when the same rubroId is provided", async () => {
     auth.getUserEmail.mockResolvedValueOnce("user@example.com");
+    const legacyId = CANONICAL_RUBROS.MOD_SDM; // Legacy ID: RB0003
+    const canonicalId = "MOD-SDM"; // Expected canonical ID after normalization
+    
     const postEvent = baseEvent({
       requestContext: {
         ...baseEvent().requestContext,
@@ -210,7 +218,7 @@ describe("rubros handler", () => {
         baselineId: TEST_BASELINE_ID,
         rubroIds: [
           {
-            rubroId: CANONICAL_RUBROS.MOD_SDM,
+            rubroId: legacyId,
             qty: 1,
             unitCost: 95000,
             duration: "M1-M60",
@@ -227,11 +235,15 @@ describe("rubros handler", () => {
 
     const calls = dynamo.ddb.send.mock.calls.map((call) => call[0].input);
     const rubroPut = calls.find((call) => call?.TableName === "rubros-table");
+    
+    // Expect canonical ID in storage, with legacy ID preserved
     expect(rubroPut?.Item).toEqual(
       expect.objectContaining({
         pk: `PROJECT#${TEST_PROJECT_ID}`,
-        sk: `RUBRO#${CANONICAL_RUBROS.MOD_SDM}`,
-        rubroId: CANONICAL_RUBROS.MOD_SDM,
+        sk: `RUBRO#${canonicalId}`,
+        rubroId: canonicalId,
+        rubro_id: canonicalId,
+        _legacy_id: legacyId, // Legacy ID preserved for audit
         qty: 1,
         unit_cost: 95000,
         start_month: 1,

@@ -129,6 +129,10 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'RB0070': 'INN-POC',
   'RB0071': 'INN-AUT',
   
+  // Additional legacy IDs used in seed data
+  'RB0075': 'INF-RACK',   // Racks y espacio de co-location
+  'RB0080': 'INF-BCK',    // Backup y disaster recovery
+  
   // Old seed format
   'RUBRO-SENIOR-DEV': 'MOD-LEAD',
   'RUBRO-AWS-INFRA': 'INF-CLOUD',
