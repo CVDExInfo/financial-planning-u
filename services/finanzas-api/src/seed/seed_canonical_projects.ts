@@ -435,6 +435,8 @@ async function seedProject(project: CanonicalProject) {
   console.log(`  ✓ Estimator items (${project.resources.length})`);
 
   // 6. Allocations (first 3 months)
+  // FIXED: Use pk = PROJECT#{projectId} to match handler queries
+  // Month is stored in both sk and as an attribute for easy filtering
   const allocMonths = 3;
   let allocCount = 0;
 
@@ -448,17 +450,22 @@ async function seedProject(project: CanonicalProject) {
       const amount = resource.monthlyCost * resource.count;
 
       const allocItem = {
-        pk: `PROJECT#${project.projectId}#MONTH#${month}`,
-        sk: `ALLOC#${allocId}`,
+        pk: `PROJECT#${project.projectId}`,
+        sk: `ALLOC#${month}#${allocId}`,
         id: allocId,
         projectId: project.projectId,
         rubroId: rubroId,
         month: month,
         amount: amount,
+        planned: amount,
+        forecast: amount,
+        actual: 0,
         resourceCount: resource.count,
         source: "estimator",
         status: "committed",
+        baselineId: project.baselineId,
         createdAt: now,
+        updatedAt: now,
       };
 
       await putItem(TABLE_ALLOC, allocItem);
@@ -468,6 +475,8 @@ async function seedProject(project: CanonicalProject) {
   console.log(`  ✓ Allocations (${allocCount} records)`);
 
   // 7. Payroll actuals (first 3 months with variance based on margin profile)
+  // FIXED: Use pk = PROJECT#{projectId} to match handler queries
+  // Month is stored in both sk and as an attribute for easy filtering
   let payrollCount = 0;
   const varianceFactors: Record<string, number[]> = {
     favorable: [0.95, 0.96, 0.97], // 3-5% under budget
@@ -489,17 +498,20 @@ async function seedProject(project: CanonicalProject) {
       const actualAmount = Math.round(plannedAmount * varianceFactor);
 
       const payrollItem = {
-        pk: `PROJECT#${project.projectId}#MONTH#${month}`,
-        sk: `PAYROLL#${payrollId}`,
+        pk: `PROJECT#${project.projectId}`,
+        sk: `PAYROLL#${month}#${payrollId}`,
         id: payrollId,
         projectId: project.projectId,
         rubroId: rubroId,
         month: month,
+        period: month,
         amount: actualAmount,
+        kind: "actual",
         resourceCount: resource.count,
         source: "SAP_HR",
         uploadedBy: "finance@ikusi.com",
         uploadedAt: now,
+        createdAt: now,
       };
 
       await putItem(TABLE_PAYROLL, payrollItem);
