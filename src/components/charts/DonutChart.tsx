@@ -31,11 +31,6 @@ export function DonutChart({
   outerRadius = 100,
   className = ""
 }: DonutChartProps) {
-  const dataWithColors = data.map((item, index) => ({
-    ...item,
-    color: item.color || COLORS[index % COLORS.length]
-  }));
-
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0];
@@ -77,7 +72,10 @@ export function DonutChart({
     );
   };
 
-  if (!data || data.length === 0) {
+  // Filter out zero-value entries and check if we have meaningful data
+  const meaningfulData = data.filter(item => item.value > 0);
+  
+  if (!data || data.length === 0 || meaningfulData.length === 0) {
     return (
       <Card className={className}>
         {title && (
@@ -89,11 +87,24 @@ export function DonutChart({
           </CardHeader>
         )}
         <CardContent className="flex items-center justify-center h-[300px]">
-          <p className="text-muted-foreground">No data available</p>
+          <div className="text-center space-y-2">
+            <p className="text-muted-foreground">No hay datos disponibles</p>
+            <p className="text-xs text-muted-foreground">
+              {data.length > 0 && meaningfulData.length === 0 
+                ? "Todos los valores son cero"
+                : "Agrega proyectos con presupuesto para ver la distribución"}
+            </p>
+          </div>
         </CardContent>
       </Card>
     );
   }
+
+  // Use meaningful data only (filter zero values for better visualization)
+  const displayData = meaningfulData.map((item, index) => ({
+    ...item,
+    color: item.color || COLORS[index % COLORS.length]
+  }));
 
   return (
     <Card className={className}>
@@ -109,7 +120,7 @@ export function DonutChart({
         <ResponsiveContainer width="100%" height={300}>
           <PieChart>
             <Pie
-              data={dataWithColors}
+              data={displayData}
               cx="50%"
               cy="50%"
               labelLine={false}
@@ -119,7 +130,7 @@ export function DonutChart({
               fill="#8884d8"
               dataKey="value"
             >
-              {dataWithColors.map((entry, index) => (
+              {displayData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>

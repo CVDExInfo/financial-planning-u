@@ -81,6 +81,21 @@ export const handler = async (
     try {
       baselineRubros = await queryProjectRubros(projectId);
       rubrosCount = baselineRubros.length;
+      
+      // Log baseline information for debugging
+      if (rubrosCount === 0) {
+        console.warn("[forecast] No rubros found for project", {
+          projectId,
+          months,
+          note: "Project may not have an active baseline or rubros may not be seeded yet"
+        });
+      } else {
+        console.info("[forecast] Rubros loaded", {
+          projectId,
+          rubrosCount,
+          months
+        });
+      }
     } catch (queryError) {
       logError("[forecast] failed to query baseline rubros", {
         projectId,
