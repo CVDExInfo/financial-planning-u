@@ -257,18 +257,22 @@ async function seedAllocations() {
   
   for (const alloc of allocations) {
     const item = {
-      pk: `PROJECT#${PROJECT_ID}#MONTH#${alloc.month}`,
-      sk: `ALLOC#${alloc.id}`,
+      pk: `PROJECT#${PROJECT_ID}`,
+      sk: `ALLOC#${alloc.month}#${alloc.id}`,
       id: alloc.id,
       projectId: PROJECT_ID,
       rubroId: alloc.rubroId,
       estimatorItemId: alloc.estimatorId,
       month: alloc.month,
       amount: alloc.amount,
+      planned: alloc.amount,
+      forecast: alloc.amount,
+      actual: 0,
       resourceCount: alloc.resources,
       source: "estimator",
       status: "committed",
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     
     const status = await putItem(TABLE_ALLOC, item);
@@ -296,18 +300,21 @@ async function seedPayrollActuals() {
   
   for (const actual of actuals) {
     const item = {
-      pk: `PROJECT#${PROJECT_ID}#MONTH#${actual.month}`,
-      sk: `PAYROLL#${actual.id}`,
+      pk: `PROJECT#${PROJECT_ID}`,
+      sk: `PAYROLL#${actual.month}#${actual.id}`,
       id: actual.id,
       projectId: PROJECT_ID,
       allocationId: actual.allocId,
       rubroId: actual.rubroId,
       month: actual.month,
+      period: actual.month,
       amount: actual.amount,
+      kind: "actual",
       resourceCount: actual.resources,
       source: "SAP_HR",
       uploadedBy: "finance@ikusi.com",
       uploadedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
     
     const status = await putItem(TABLE_PAYROLL, item);

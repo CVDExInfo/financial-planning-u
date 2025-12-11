@@ -15,7 +15,10 @@
     "seed:project-rubros": "ts-node src/seed/seed_project_rubros.ts",
     "seed:canonical-projects": "ts-node src/seed/seed_canonical_projects.ts",
     "reset:dev-projects": "ts-node scripts/reset-dev-projects.ts",
-    "verify:canonical-projects": "ts-node scripts/verify-canonical-projects.ts"
+    "verify:canonical-projects": "ts-node scripts/verify-canonical-projects.ts",
+    "verify:allocations": "ts-node scripts/verify-allocations-vs-projects.ts",
+    "verify:payroll": "ts-node scripts/verify-payroll-vs-projects.ts",
+    "verify:forecast-pipeline": "ts-node scripts/verify-forecast-pipeline.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.931.0",
