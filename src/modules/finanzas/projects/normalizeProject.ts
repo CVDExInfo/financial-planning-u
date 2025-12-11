@@ -33,6 +33,14 @@ export function normalizeProjectForUI(raw: Json): ProjectForUI {
       safeString(
         (raw as any)?.baseline_accepted_at || (raw as any)?.baselineAcceptedAt || "",
       ) || null,
+    rejected_by:
+      safeString((raw as any)?.rejected_by || (raw as any)?.rechazado_por || "") || null,
+    baseline_rejected_at:
+      safeString(
+        (raw as any)?.baseline_rejected_at || (raw as any)?.baselineRejectedAt || "",
+      ) || null,
+    rejection_comment:
+      safeString((raw as any)?.rejection_comment || (raw as any)?.comentario_rechazo || "") || null,
     updated_at: updatedAt || undefined,
     created_at: createdAt || undefined,
   } as ProjectForUI;

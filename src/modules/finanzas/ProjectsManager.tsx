@@ -194,40 +194,6 @@ export default function ProjectsManager() {
     return data.length > 0 ? data : [{ name: "Sin datos", value: 1 }];
   }, [projectsForView, payrollDashboard]);
 
-  const modChartData = React.useMemo(() => {
-    // Use payroll dashboard data if available, otherwise fallback to simple aggregation
-    if (payrollDashboard.length > 0) {
-      return payrollDashboard
-        .sort((a, b) => a.month.localeCompare(b.month))
-        .map((item) => ({
-          month: item.month,
-          "Meta objetivo": item.payrollTarget ?? 0,
-          // Prefer forecast over plan, but only if forecast is explicitly set (not undefined)
-          "MOD proyectada": item.totalForecastMOD !== undefined ? item.totalForecastMOD : (item.totalPlanMOD ?? 0),
-          "MOD real": item.totalActualMOD ?? 0,
-        }));
-    }
-
-    // Fallback: simple aggregation by project start month
-    const map: Record<string, number> = {};
-    projectsForView.forEach((project) => {
-      const date = project.start_date;
-      if (!date) return;
-      const monthKey = date.slice(0, 7);
-      const mod = Number(project.mod_total ?? 0);
-      map[monthKey] = (map[monthKey] ?? 0) + mod;
-    });
-
-    return Object.entries(map)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([label, value]) => ({
-        month: label,
-        "Meta objetivo": value * 1.1, // 110% of plan as target
-        "MOD proyectada": value,
-        "MOD real": 0,
-      }));
-  }, [projectsForView, payrollDashboard]);
-
   // Chart data: use payroll actuals when viewing a single project, otherwise use budget
   const modChartData = React.useMemo(() => {
     // If we have payroll data for the selected project, use it

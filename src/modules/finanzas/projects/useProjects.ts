@@ -24,6 +24,9 @@ export type ProjectForUI = {
   baseline_status?: string | null;
   accepted_by?: string | null;
   baseline_accepted_at?: string | null;
+  rejected_by?: string | null;
+  baseline_rejected_at?: string | null;
+  rejection_comment?: string | null;
   updated_at?: string;
   created_at?: string;
 };
