@@ -157,14 +157,14 @@ export function Navigation() {
       label: ES_TEXTS.nav.costStructure,
       path: "/sdmt/cost/catalog",
       icon: BookOpen,
-      visibleFor: ["SDMT", "PMO", "PM", "VENDOR", "EXEC_RO"],
+      visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
     },
     {
       id: "catalogoRubros",
       label: ES_TEXTS.nav.rubros,
       path: "/catalog/rubros",
       icon: BookOpen,
-      visibleFor: ["SDMT", "PMO", "PM", "VENDOR", "EXEC_RO"],
+      visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
     },
     {
       id: "reglas",

@@ -27,14 +27,19 @@ describe("mapGroupsToRoles", () => {
     assert.deepEqual(asSet(roles), asSet(["SDMT"]));
   });
 
-  it("maps acta-ui vendor group to VENDOR", () => {
+  it("ignores ikusi-acta-ui and defaults to EXEC_RO", () => {
     const roles = mapGroupsToRoles(["ikusi-acta-ui"]);
-    assert.deepEqual(asSet(roles), asSet(["VENDOR"]));
+    assert.deepEqual(asSet(roles), asSet(["EXEC_RO"]));
   });
 
-  it("maps mixed FIN + vendor groups to both roles", () => {
+  it("ignores ikusi-acta-ui when mixed with valid groups", () => {
     const roles = mapGroupsToRoles(["FIN", "ikusi-acta-ui"]);
-    assert.deepEqual(asSet(roles), asSet(["SDMT", "VENDOR"]));
+    assert.deepEqual(asSet(roles), asSet(["SDMT"]));
+  });
+
+  it("maps vendor group to VENDOR", () => {
+    const roles = mapGroupsToRoles(["vendor"]);
+    assert.deepEqual(asSet(roles), asSet(["VENDOR"]));
   });
 });
 

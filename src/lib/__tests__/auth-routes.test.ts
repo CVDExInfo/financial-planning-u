@@ -23,18 +23,22 @@ after(() => {
 describe("PM role route visibility", () => {
   const role: UserRole = "PM";
   const allowed = [
+    "/",
+    "/profile",
     "/pmo/prefactura/estimator",
-    "/catalog/rubros",
-    "/sdmt/cost/catalog",
   ];
   const blocked = [
+    "/catalog/rubros",
+    "/sdmt/cost/catalog",
     "/sdmt/cost/forecast",
     "/sdmt/cost/reconciliation",
     "/sdmt/cost/changes",
     "/adjustments",
+    "/projects",
+    "/rules",
   ];
 
-  it("allows only the estimator and catalog views for PM", () => {
+  it("allows only the estimator for PM (no SDMT routes)", () => {
     allowed.forEach((route) => {
       assert.equal(
         canAccessRoute(normalizeAppPath(route), role),
@@ -60,6 +64,8 @@ describe("PM role route visibility", () => {
 describe("SDMT role route visibility", () => {
   const role: UserRole = "SDMT";
   const allowed = [
+    "/",
+    "/profile",
     "/sdmt/cost/catalog",
     "/sdmt/cost/forecast",
     "/sdmt/cost/reconciliation",
@@ -67,8 +73,19 @@ describe("SDMT role route visibility", () => {
     "/sdmt/cost/cashflow",
     "/sdmt/cost/scenarios",
     "/catalog/rubros",
+    "/catalog/costos",
     "/rules",
-    "/projects/list",  // /projects/** pattern
+    "/projects",
+    "/projects/list",
+    "/projects/123",
+    "/adjustments",
+    "/adjustments/list",
+    "/adjustments/edit/456",
+    "/providers",
+    "/providers/list",
+    "/providers/view/789",
+    "/cashflow",
+    "/scenarios",
   ];
   const blocked = [
     "/pmo/prefactura/estimator", // PMO-only route
