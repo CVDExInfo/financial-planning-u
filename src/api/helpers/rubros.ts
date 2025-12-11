@@ -11,12 +11,7 @@
 import {
   CANONICAL_RUBROS_TAXONOMY,
   getCanonicalRubroId,
-  getTaxonomyById,
-  getTaxonomyByCategory,
   isValidRubroId as validateRubroId,
-  getActiveRubros,
-  getLaborRubros as getCanonicalLaborRubros,
-  getNonLaborRubros as getCanonicalNonLaborRubros,
   type CanonicalRubroTaxonomy,
 } from '@/lib/rubros/canonical-taxonomy';
 import { MOD_ROLE_MAPPING, MOD_ROLES, type RubroTaxonomia } from '@/modules/rubros.taxonomia';

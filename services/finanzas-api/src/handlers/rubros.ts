@@ -13,11 +13,7 @@ import {
 import { ok, bad, notFound, serverError, fromAuthError } from "../lib/http";
 import { logError } from "../utils/logging";
 import { queryProjectRubros } from "../lib/baseline-sdmt";
-import {
-  getCanonicalRubroId,
-  isValidRubroId,
-  normalizeRubroId,
-} from "../lib/canonical-taxonomy";
+import { normalizeRubroId } from "../lib/canonical-taxonomy";
 
 /**
  * Rubros handler - CRUD operations for project rubros
