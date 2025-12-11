@@ -154,7 +154,7 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                 <PopoverContent className="w-[480px] p-0" align="start">
                   <Command shouldFilter={true}>
                     <CommandInput
-                      placeholder="Search projects by name, code, or client..."
+                      placeholder="Search by name, code, or client..."
                       className="border-b"
                     />
                     <CommandList className="max-h-[300px] overflow-y-auto">
