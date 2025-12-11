@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, Calculator } from "lucide-react";
 import type { LaborEstimate } from "@/types/domain";
 import { useModRoles } from "@/hooks/useModRoles";
+import { mapModRoleToRubroId, type MODRole } from "@/api/helpers/rubros";
 
 // Labor rate presets by country and role
 const LABOR_PRESETS = {
@@ -80,6 +81,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
 
   const addLaborItem = () => {
     const newItem: LaborEstimate = {
+      rubroId: "",
       role: "",
       country: "Colombia",
       level: "mid",
@@ -102,6 +104,14 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
     const updated = [...laborEstimates];
     updated[index] = { ...updated[index], [field]: value };
 
+    // When role changes, update rubroId to canonical linea_codigo
+    if (field === "role" && typeof value === "string") {
+      const rubroId = mapModRoleToRubroId(value as MODRole);
+      if (rubroId) {
+        updated[index].rubroId = rubroId;
+      }
+    }
+
     // Auto-update hourly rate if country/level changes
     if (field === "country" || field === "level") {
       const country = field === "country" ? value : updated[index].country;
@@ -119,6 +129,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
     setLaborEstimates(updated);
     console.log("✏️  Labor item updated:", {
       index,
+      rubroId: updated[index].rubroId,
       role: updated[index].role,
       country: updated[index].country,
       level: updated[index].level,
