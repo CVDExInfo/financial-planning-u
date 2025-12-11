@@ -235,9 +235,12 @@ CRITICAL: Response formats must match UI expectations.
 | `GET /projects/{id}/rubros` or `/line-items` | `{ data: LineItem[], total: number }` | ⏳ | Previously fixed; verify cost fields & rubro mapping |
 | `GET /projects/{id}/changes` | `ChangeRequest[]` | ⏳ | Now includes structured `affected_line_items` array |
 | `GET /projects/{id}/invoices` | `InvoiceDoc[]` | ⏳ | Needed for Reconciliation tests |
-| `GET /projects/{id}/plan` | `ForecastCell[]` | ✅ | Feeds SDMTForecast |
+| `GET /plan/forecast?projectId={id}&months={n}` | `{ data: ForecastCell[], projectId, months, generated_at }` | 🔧 | **FIXED** - Seed scripts now use correct pk format |
+| `GET /payroll/dashboard` | `MODProjectionByMonth[]` | 🔧 | **FIXED** - Should return non-zero after reseeding |
 | `POST /projects/{id}/changes` | Creates ChangeRequest | ⏳ | Validate multi-select mapping and persistence |
 | `POST /uploads/docs` | Creates InvoiceDoc + S3 object | ❌ | Currently 500 in dev; infra/API fix required |
+
+**Recent Fix (Dec 11, 2025)**: Fixed pk/sk mismatch in allocations & payroll seed scripts. See `docs/finanzas/testing/forecast-pipeline.md` for details.
 
 ---
 
