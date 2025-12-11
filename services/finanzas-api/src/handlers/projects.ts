@@ -64,6 +64,7 @@ type BaselineDealInputs = {
 };
 
 type BaselineLaborEstimate = {
+  rubroId?: string;  // Canonical rubro ID from taxonomy (e.g., "MOD-ING", "MOD-LEAD")
   role?: string;
   level?: string;
   hours_per_month?: number;
@@ -76,6 +77,7 @@ type BaselineLaborEstimate = {
 };
 
 type BaselineNonLaborEstimate = {
+  rubroId?: string;  // Canonical rubro ID from taxonomy (e.g., "GSV-REU", "SOI-AWS")
   category?: string;
   description?: string;
   amount?: number;
@@ -392,14 +394,20 @@ const buildSeedLineItems = (
     const months = endMonth - startMonth + 1;
     const totalCost = monthlyCost * months;
 
-    // SDMT ALIGNMENT FIX: Include baselineId in rubroId for uniqueness
-    const rubroId = baselineId 
-      ? `${baselineId}-labor-${index + 1}`
-      : `baseline-labor-${index + 1}`;
+    // Use canonical rubroId from taxonomy if provided, otherwise fall back to synthetic ID
+    // IMPORTANT: The frontend now sends rubroId (e.g., "MOD-ING", "MOD-LEAD") from the
+    // canonical rubros taxonomy. This ensures proper data lineage into SDMT.
+    const canonicalRubroId = estimate.rubroId || "MOD-ING"; // Default to MOD-ING if not provided
+    
+    // Create unique rubro SK by combining canonical ID with baseline and index
+    // Format: RUBRO#MOD-ING#base_xxx#1
+    const rubroSK = baselineId 
+      ? `${canonicalRubroId}#${baselineId}#${index + 1}`
+      : `${canonicalRubroId}#baseline#${index + 1}`;
 
     items.push({
-      rubroId,
-      nombre: estimate.role || "Labor",
+      rubroId: rubroSK,
+      nombre: estimate.role || canonicalRubroId,
       descripcion: estimate.level ? `${estimate.role ?? "Role"} (${estimate.level})` : estimate.role,
       category: "Labor",
       qty: 1,
@@ -415,6 +423,7 @@ const buildSeedLineItems = (
         baseline_id: baselineId,
         project_id: projectId,
         role: estimate.role,
+        linea_codigo: canonicalRubroId,  // Store canonical taxonomy code
       },
     });
   });
@@ -429,14 +438,20 @@ const buildSeedLineItems = (
     const months = recurring ? endMonth - startMonth + 1 : 1;
     const totalCost = recurring ? amount * months : amount;
 
-    // SDMT ALIGNMENT FIX: Include baselineId in rubroId for uniqueness
-    const rubroId = baselineId
-      ? `${baselineId}-non-labor-${index + 1}`
-      : `baseline-non-labor-${index + 1}`;
+    // Use canonical rubroId from taxonomy if provided, otherwise fall back to category-based ID
+    // IMPORTANT: The frontend now sends rubroId (e.g., "GSV-REU", "SOI-AWS") from the
+    // canonical rubros taxonomy. This ensures proper data lineage into SDMT.
+    const canonicalRubroId = estimate.rubroId || "GSV-OTHER"; // Default if not provided
+    
+    // Create unique rubro SK by combining canonical ID with baseline and index
+    // Format: RUBRO#GSV-REU#base_xxx#1
+    const rubroSK = baselineId
+      ? `${canonicalRubroId}#${baselineId}#${index + 1}`
+      : `${canonicalRubroId}#baseline#${index + 1}`;
 
     items.push({
-      rubroId,
-      nombre: estimate.category || "Gasto No Laboral",
+      rubroId: rubroSK,
+      nombre: estimate.description || estimate.category || canonicalRubroId,
       descripcion: estimate.description,
       category: estimate.category || "Non-labor",
       qty: 1,
@@ -452,6 +467,7 @@ const buildSeedLineItems = (
         baseline_id: baselineId,
         project_id: projectId,
         vendor: estimate.vendor,
+        linea_codigo: canonicalRubroId,  // Store canonical taxonomy code
       },
     });
   });
