@@ -151,14 +151,14 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                     <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[520px] p-0" align="start">
+                <PopoverContent className="w-[480px] p-0" align="start">
                   <Command shouldFilter={true}>
                     <CommandInput
-                      placeholder="Search by name, code, ID, or client..."
+                      placeholder="Search projects by name, code, or client..."
                       className="border-b"
                     />
-                    <CommandList className="max-h-[420px] overflow-y-auto">
-                      <CommandEmpty className="py-8 text-center text-muted-foreground">
+                    <CommandList className="max-h-[300px] overflow-y-auto">
+                      <CommandEmpty className="py-6 text-center text-muted-foreground">
                         <div className="text-sm">No projects found</div>
                       </CommandEmpty>
                       <CommandGroup className="overflow-visible">
@@ -177,7 +177,7 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                                   setOpen(false);
                                 }}
                                 className={cn(
-                                  "cursor-pointer px-3 py-2 mx-1 my-0.5 rounded-md transition-colors flex items-start gap-3 border",
+                                  "cursor-pointer px-2 py-1.5 mx-1 my-0.5 rounded-md transition-colors flex items-start gap-2 border",
                                   isSelected
                                     ? "bg-primary/5 border-primary"
                                     : "border-transparent hover:bg-muted/60",
@@ -185,13 +185,13 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                               >
                                 <div
                                   className={cn(
-                                    "mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-muted-foreground",
+                                    "mt-0.5 flex h-4 w-4 items-center justify-center rounded-full border text-muted-foreground shrink-0",
                                     isSelected
                                       ? "border-primary bg-primary/10 text-primary"
                                       : "border-input",
                                   )}
                                 >
-                                  {isSelected && <Check className="h-4 w-4" />}
+                                  {isSelected && <Check className="h-3 w-3" />}
                                 </div>
                                 <div className="flex flex-col flex-1 min-w-0 gap-1">
                                   <div className="flex items-center justify-between gap-2">
