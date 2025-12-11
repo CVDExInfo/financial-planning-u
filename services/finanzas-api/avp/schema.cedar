@@ -2,8 +2,11 @@ namespace Finanzas
 
 // === Entity types ===
 entity User            {}
-entity Group           {}  // e.g., SDT, FIN, AUD, PMO, EXEC_RO, VENDOR
-entity Project         { owner: User }
+entity Group           {}  // e.g., SDT, FIN, AUD, PMO, EXEC_RO, VENDOR, SDM, ADMIN
+entity Project         { 
+  owner: User,
+  sdmManagerEmail: String?   // Key field for ABAC - SDM manager's email
+}
 entity Adjustment      { project: Project, owner: User }
 entity Allocation      { project: Project, owner: User }
 entity Provider        { project: Project, owner: User }
@@ -32,6 +35,8 @@ action ViewAdjustments  appliesTo (User, Adjustment);
 action CreateAdjustment appliesTo (User, Adjustment);
 
 action ViewProjects     appliesTo (User, Project);
+action ListProjects     appliesTo (User, Project);
+action GetProject       appliesTo (User, Project);
 action CreateProject    appliesTo (User, Project);
 
 action BulkAllocate     appliesTo (User, Allocation);
@@ -48,6 +53,7 @@ action ApprovePrefactura appliesTo (User, Prefactura);
 context {
   // copied from API/GW or Lambda:
   jwt_groups: Set<String>,        // Cognito groups from the ID token
+  user_email: String?,            // User's email from JWT for ABAC comparisons
   http_method: String,
   route: String,                  // e.g. "/projects/{id}/allocations:bulk"
   project_id: String?,            // from path param when applicable

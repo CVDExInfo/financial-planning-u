@@ -14,6 +14,55 @@ permit (
 )
 when { "SDT" in context.jwt_groups || "FIN" in context.jwt_groups || "AUD" in context.jwt_groups };
 
+// Policy 2a: ADMIN has full access to list and view all projects
+permit (
+  principal,
+  action in [Finanzas::Action::"ListProjects", Finanzas::Action::"GetProject", Finanzas::Action::"ViewProjects"],
+  resource
+)
+when { "ADMIN" in context.jwt_groups };
+
+// Policy 2b: EXC_RO (Executive Read-Only) can list and view all projects
+permit (
+  principal,
+  action in [Finanzas::Action::"ListProjects", Finanzas::Action::"GetProject", Finanzas::Action::"ViewProjects"],
+  resource
+)
+when { 
+  "EXEC" in context.jwt_groups || 
+  "EXEC_RO" in context.jwt_groups || 
+  "DIRECTOR" in context.jwt_groups || 
+  "MANAGER" in context.jwt_groups 
+};
+
+// Policy 2c: PMO and SDMT can list and view all projects
+permit (
+  principal,
+  action in [Finanzas::Action::"ListProjects", Finanzas::Action::"GetProject", Finanzas::Action::"ViewProjects"],
+  resource
+)
+when { 
+  "PMO" in context.jwt_groups || 
+  "PM" in context.jwt_groups ||
+  "SDMT" in context.jwt_groups || 
+  "SDT" in context.jwt_groups || 
+  "FIN" in context.jwt_groups 
+};
+
+// Policy 2d: SDM can list and view ONLY their own projects
+// This is an ABAC policy that checks resource.sdmManagerEmail against principal email
+permit (
+  principal,
+  action in [Finanzas::Action::"ListProjects", Finanzas::Action::"GetProject", Finanzas::Action::"ViewProjects"],
+  resource
+)
+when { 
+  "SDM" in context.jwt_groups &&
+  context.user_email.has_value() &&
+  resource.sdmManagerEmail.has_value() &&
+  context.user_email == resource.sdmManagerEmail
+};
+
 // Policy 3 TEMPLATE: allow project members to view and post adjustments, view plan
 @policyTemplate ProjectMemberAccess(project: Finanzas::Project)
 permit (

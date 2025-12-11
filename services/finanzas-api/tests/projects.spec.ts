@@ -9,6 +9,16 @@ type ApiEvent = Mutable<Parameters<typeof handler>[0]>;
 jest.mock("../src/lib/auth", () => ({
   ensureCanWrite: jest.fn(async () => undefined),
   ensureCanRead: jest.fn(async () => undefined),
+  getUserContext: jest.fn(async () => ({
+    email: "test@example.com",
+    groups: ["SDMT"],
+    roles: ["SDMT"],
+    isAdmin: false,
+    isExecRO: false,
+    isSDM: false,
+    isPMO: false,
+    isSDMT: true,
+  })),
 }));
 
 jest.mock("../src/lib/dynamo", () => {
@@ -78,10 +88,12 @@ describe("projects handler POST", () => {
 
     expect(response.statusCode).toBe(201);
     const body = JSON.parse(response.body);
+    // Canonical DTO fields (camelCase, English only)
+    expect(body.projectId).toMatch(/^P-/);
     expect(body.name).toBe(payload.name);
     expect(body.client).toBe(payload.client);
-    expect(body.mod_total).toBeCloseTo(125000.5);
-    expect(body.codigo || body.code).toBe(payload.code);
+    expect(body.modTotal).toBeCloseTo(125000.5);
+    expect(body.code).toBe(payload.code);
     expect(mockDdbSend).toHaveBeenCalledTimes(2);
     const firstCall = mockDdbSend.mock.calls[0]?.[0];
     const secondCall = mockDdbSend.mock.calls[1]?.[0];
