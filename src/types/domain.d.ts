@@ -294,6 +294,9 @@ export type DealInputs = {
 };
 
 export type LaborEstimate = {
+  /** Canonical rubro ID from taxonomy (e.g., "MOD-ING", "MOD-LEAD") */
+  rubroId: string;
+  /** Display label for the role (for backward compatibility) */
   role: string;
   country: string;
   level: "junior" | "mid" | "senior" | "lead";
@@ -306,6 +309,9 @@ export type LaborEstimate = {
 };
 
 export type NonLaborEstimate = {
+  /** Canonical rubro ID from taxonomy (e.g., "GSV-REU", "SOI-AWS") */
+  rubroId?: string;
+  /** Category for grouping (for backward compatibility) */
   category: string;
   description: string;
   amount: number;

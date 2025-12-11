@@ -22,8 +22,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Server, CreditCard } from "lucide-react";
 import type { NonLaborEstimate, Currency } from "@/types/domain";
+import { useNonLaborCatalog } from "@/hooks/useRubrosCatalog";
 
-const CATEGORIES = [
+// Legacy categories - kept for backward compatibility but now populated from rubros catalog
+const LEGACY_CATEGORIES = [
   "Support",
   "Infrastructure Services",
   "Premium Services",
@@ -33,58 +35,6 @@ const CATEGORIES = [
   "Admin Services",
   "Training Services",
 ];
-
-const COMMON_ITEMS = {
-  Support: [
-    "Ikusi Platinum",
-    "Ikusi Gold",
-    "Ikusi Premium",
-    "Ikusi Star",
-    "Ikusi Go",
-  ],
-  "Infrastructure Services": [
-    "Cloud Infrastructure Management",
-    "Database Administration",
-    "Network Operations",
-    "Security Management",
-  ],
-  "Premium Services": [
-    "Ikusi Platinum Advanced Support",
-    "System Architecture Consulting",
-    "Performance Optimization",
-    "Security Audits",
-  ],
-  "Standard Services": [
-    "Ikusi Gold Standard Support",
-    "Regular Maintenance",
-    "Basic Monitoring",
-    "Standard Updates",
-  ],
-  "Basic Services": [
-    "Ikusi Go Entry Support",
-    "Basic Setup",
-    "Documentation",
-    "Initial Configuration",
-  ],
-  "Operation Services": [
-    "System Operations",
-    "24/7 Monitoring",
-    "Incident Response",
-    "Performance Management",
-  ],
-  "Admin Services": [
-    "System Administration",
-    "User Management",
-    "Configuration Management",
-    "Backup Services",
-  ],
-  "Training Services": [
-    "User Training",
-    "Admin Training",
-    "Technical Documentation",
-    "Knowledge Transfer",
-  ],
-};
 
 interface NonLaborStepProps {
   data: NonLaborEstimate[];
@@ -96,12 +46,26 @@ interface NonLaborStepProps {
 }
 
 export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
+  // Fetch non-labor rubros from canonical taxonomy
+  const { rubros: nonLaborRubros, loading: rubrosLoading } = useNonLaborCatalog();
+  
   const [nonLaborEstimates, setNonLaborEstimates] = useState<
     NonLaborEstimate[]
   >(data.length > 0 ? data : []);
 
+  // Group rubros by category for organized display
+  const rubrosByCategory = nonLaborRubros.reduce((acc, rubro) => {
+    const category = rubro.categoryName || rubro.category || "Other";
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(rubro);
+    return acc;
+  }, {} as Record<string, typeof nonLaborRubros>);
+
   const addNonLaborItem = () => {
     const newItem: NonLaborEstimate = {
+      rubroId: "",
       category: "",
       description: "",
       amount: 0,
@@ -126,9 +90,23 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
   ) => {
     const updated = [...nonLaborEstimates];
     updated[index] = { ...updated[index], [field]: value };
+    
+    // When rubroId changes, auto-populate category and description
+    if (field === "rubroId" && typeof value === "string") {
+      const selectedRubro = nonLaborRubros.find((r) => r.id === value);
+      if (selectedRubro) {
+        updated[index].category = selectedRubro.categoryName || selectedRubro.category || "";
+        // Only set description if it's empty to allow user override
+        if (!updated[index].description) {
+          updated[index].description = selectedRubro.label;
+        }
+      }
+    }
+    
     setNonLaborEstimates(updated);
     console.log("✏️  Non-labor item updated:", {
       index,
+      rubroId: updated[index].rubroId,
       category: updated[index].category,
       description: updated[index].description,
       amount: updated[index].amount,
@@ -222,7 +200,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Category</TableHead>
+                    <TableHead>Rubro</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>One-time</TableHead>
@@ -248,26 +226,38 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                       <TableRow key={index}>
                         <TableCell>
                           <Label className="sr-only" htmlFor={categoryId}>
-                            Category
+                            Rubro
                           </Label>
                           <Select
-                            value={item.category}
+                            value={item.rubroId || ""}
                             onValueChange={(value) =>
-                              updateNonLaborItem(index, "category", value)
+                              updateNonLaborItem(index, "rubroId", value)
                             }
+                            disabled={rubrosLoading}
                           >
                             <SelectTrigger
                               id={categoryId}
                               name={categoryId}
-                              className="w-[140px]"
+                              className="w-[200px]"
                             >
-                              <SelectValue placeholder="Select category" />
+                              <SelectValue 
+                                placeholder={
+                                  rubrosLoading ? "Loading rubros..." : "Select rubro"
+                                } 
+                              />
                             </SelectTrigger>
                             <SelectContent>
-                              {CATEGORIES.map((category) => (
-                                <SelectItem key={category} value={category}>
-                                  {category}
-                                </SelectItem>
+                              {Object.entries(rubrosByCategory).map(([categoryName, rubros]) => (
+                                <div key={categoryName}>
+                                  <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
+                                    {categoryName}
+                                  </div>
+                                  {rubros.map((rubro) => (
+                                    <SelectItem key={rubro.id} value={rubro.id}>
+                                      {rubro.label}
+                                    </SelectItem>
+                                  ))}
+                                </div>
                               ))}
                             </SelectContent>
                           </Select>
@@ -427,38 +417,39 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
         </Card>
       )}
 
-      {/* Quick Add Common Items */}
-      {nonLaborEstimates.length === 0 && (
+      {/* Quick Add Common Items from Rubros Catalog */}
+      {nonLaborEstimates.length === 0 && !rubrosLoading && (
         <Card>
           <CardHeader>
             <CardTitle>Quick Add Common Items</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Object.entries(COMMON_ITEMS).map(([category, items]) => (
-                <div key={category}>
-                  <h4 className="font-medium mb-2">{category}</h4>
+              {Object.entries(rubrosByCategory).slice(0, 6).map(([categoryName, rubros]) => (
+                <div key={categoryName}>
+                  <h4 className="font-medium mb-2">{categoryName}</h4>
                   <div className="space-y-1">
-                    {items.map((item) => (
+                    {rubros.slice(0, 5).map((rubro) => (
                       <Button
-                        key={item}
+                        key={rubro.id}
                         variant="outline"
                         size="sm"
                         className="w-full justify-start text-xs"
                         onClick={() => {
                           const newItem: NonLaborEstimate = {
-                            category,
-                            description: item,
+                            rubroId: rubro.id,
+                            category: categoryName,
+                            description: rubro.label,
                             amount: 1000,
                             currency: "USD",
-                            one_time: true,
-                            capex_flag: false,
+                            one_time: rubro.executionType === "puntual/hito",
+                            capex_flag: rubro.costType === "CAPEX",
                           };
                           setNonLaborEstimates([newItem]);
                         }}
                       >
                         <Plus size={12} className="mr-1" />
-                        {item}
+                        {rubro.label}
                       </Button>
                     ))}
                   </div>
@@ -512,20 +503,20 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
             <div className="mt-4">
               <Label className="text-muted-foreground">By Category</Label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                {CATEGORIES.map((category) => {
+                {Object.keys(rubrosByCategory).map((categoryName) => {
                   const categoryTotal = nonLaborEstimates
-                    .filter((item) => item.category === category)
+                    .filter((item) => item.category === categoryName)
                     .reduce((sum, item) => sum + calculateItemTotal(item), 0);
 
                   if (categoryTotal === 0) return null;
 
                   return (
                     <Badge
-                      key={category}
+                      key={categoryName}
                       variant="outline"
                       className="justify-between"
                     >
-                      <span className="text-xs">{category}:</span>
+                      <span className="text-xs">{categoryName}:</span>
                       <span className="font-medium">
                         ${categoryTotal.toLocaleString()}
                       </span>
