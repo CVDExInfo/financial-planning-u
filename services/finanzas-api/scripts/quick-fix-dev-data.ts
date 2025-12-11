@@ -27,6 +27,16 @@ const ddb = new DynamoDBClient({ region: AWS_REGION });
 
 const tableName = (name: string) => `${TABLE_PREFIX}${name}`;
 
+/**
+ * Type definition for rubro metadata to ensure consistency
+ */
+interface RubroMetadata {
+  baseline_id: string;
+  project_id: string;
+  source: string;
+  [key: string]: any; // Allow additional fields
+}
+
 async function fixProjectMetadata(projectId: string, expectedBaselineId: string) {
   console.log(`\n🔧 Fixing project metadata for ${projectId}...`);
   
@@ -110,7 +120,7 @@ async function fixRubrosMetadata(projectId: string, expectedBaselineId: string) 
 
       if (!hasMetadata) {
         // Need to fix metadata
-        const metadata = {
+        const metadata: RubroMetadata = {
           ...rubro.metadata,
           baseline_id: expectedBaselineId,
           project_id: projectId,

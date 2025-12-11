@@ -92,8 +92,10 @@ When verification passes, you should see:
 ### 1. Test Payroll Dashboard
 ```bash
 # Using curl (replace JWT_TOKEN with actual token)
+# Find API_URL: AWS Console > API Gateway > FinanzasAPI > Stages > dev > Invoke URL
+# Or from SAM output: Look for "ApiUrl" in stack outputs
 curl -H "Authorization: Bearer $JWT_TOKEN" \
-  https://your-api-gateway-url/dev/payroll/dashboard
+  https://<api-id>.execute-api.us-east-2.amazonaws.com/dev/payroll/dashboard
 ```
 
 Expected: Array of MOD projections by month
@@ -101,7 +103,7 @@ Expected: Array of MOD projections by month
 ### 2. Test Forecast Grid
 ```bash
 curl -H "Authorization: Bearer $JWT_TOKEN" \
-  "https://your-api-gateway-url/dev/plan/forecast?projectId=P-CLOUD-ECOPETROL&months=12"
+  "https://<api-id>.execute-api.us-east-2.amazonaws.com/dev/plan/forecast?projectId=P-CLOUD-ECOPETROL&months=12"
 ```
 
 Expected: JSON with `data` array containing forecast cells
@@ -112,7 +114,7 @@ curl -X PATCH \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"baseline_id":"BL-SOC-BANCOL-001","comment":"Test reject"}' \
-  https://your-api-gateway-url/dev/projects/P-SOC-BANCOL-MED/reject-baseline
+  https://<api-id>.execute-api.us-east-2.amazonaws.com/dev/projects/P-SOC-BANCOL-MED/reject-baseline
 ```
 
 Expected: JSON with `baseline_status: "rejected"`
