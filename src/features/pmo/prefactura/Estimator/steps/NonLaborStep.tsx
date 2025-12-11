@@ -161,23 +161,23 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-2xl font-semibold mb-2">Non-Labor Costs</h2>
+        <h2 className="text-2xl font-semibold mb-2">Costos No Laborales</h2>
         <p className="text-muted-foreground">
-          Add infrastructure, software licenses, and other non-labor expenses
+          Agrega infraestructura, licencias de software y otros gastos no laborales
         </p>
       </div>
 
       {/* Add Non-Labor Item */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium">Cost Items</h3>
+          <h3 className="text-lg font-medium">Elementos de Costo</h3>
           <p className="text-sm text-muted-foreground">
-            Include all non-labor expenses for the project
+            Incluye todos los gastos no laborales del proyecto
           </p>
         </div>
         <Button onClick={addNonLaborItem} className="gap-2">
           <Plus size={16} />
-          Add Cost Item
+          Agregar Elemento de Costo
         </Button>
       </div>
 
@@ -190,14 +190,14 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Rubro</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>One-time</TableHead>
-                    <TableHead>Start</TableHead>
-                    <TableHead>End</TableHead>
-                    <TableHead>Vendor</TableHead>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead>Monto</TableHead>
+                    <TableHead>Una vez</TableHead>
+                    <TableHead>Inicio</TableHead>
+                    <TableHead>Fin</TableHead>
+                    <TableHead>Proveedor</TableHead>
                     <TableHead>CapEx</TableHead>
-                    <TableHead>Total Cost</TableHead>
+                    <TableHead>Costo Total</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -231,7 +231,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                             >
                               <SelectValue 
                                 placeholder={
-                                  rubrosLoading ? "Loading rubros..." : "Select rubro"
+                                  rubrosLoading ? "Cargando rubros..." : "Seleccionar rubro"
                                 } 
                               />
                             </SelectTrigger>
@@ -253,7 +253,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={descriptionId}>
-                            Description
+                            Descripción
                           </Label>
                           <Input
                             id={descriptionId}
@@ -266,13 +266,13 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                                 e.target.value
                               )
                             }
-                            placeholder="e.g., AWS EC2 instances"
+                            placeholder="ej., Instancias AWS EC2"
                             className="w-[200px]"
                           />
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={amountId}>
-                            Amount
+                            Monto
                           </Label>
                           <Input
                             id={amountId}
@@ -296,12 +296,12 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                             onCheckedChange={(checked) =>
                               updateNonLaborItem(index, "one_time", checked)
                             }
-                            aria-label="One-time expense"
+                            aria-label="Gasto único"
                           />
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={startId}>
-                            Start month
+                            Mes de inicio
                           </Label>
                           <Input
                             id={startId}
@@ -322,7 +322,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={endId}>
-                            End month
+                            Mes de fin
                           </Label>
                           <Input
                             id={endId}
@@ -343,7 +343,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={vendorId}>
-                            Vendor
+                            Proveedor
                           </Label>
                           <Input
                             id={vendorId}
@@ -352,7 +352,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                             onChange={(e) =>
                               updateNonLaborItem(index, "vendor", e.target.value)
                             }
-                            placeholder="Vendor name"
+                            placeholder="Nombre del proveedor"
                             className="w-[120px]"
                           />
                         </TableCell>
@@ -377,7 +377,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                             size="sm"
                             onClick={() => removeNonLaborItem(index)}
                             className="text-destructive hover:text-destructive"
-                            aria-label={`Remove non-labor item ${index + 1}`}
+                            aria-label={`Eliminar elemento no laboral ${index + 1}`}
                           >
                             <Trash2 size={16} />
                           </Button>
@@ -394,13 +394,13 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Server size={48} className="text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No cost items added</h3>
+            <h3 className="text-lg font-medium mb-2">No se han agregado elementos de costo</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Add infrastructure, software licenses, and other non-labor costs
+              Agrega infraestructura, licencias de software y otros costos no laborales
             </p>
             <Button onClick={addNonLaborItem} className="gap-2">
               <Plus size={16} />
-              Add First Cost Item
+              Agregar Primer Elemento de Costo
             </Button>
           </CardContent>
         </Card>
@@ -410,7 +410,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
       {nonLaborEstimates.length === 0 && !rubrosLoading && (
         <Card>
           <CardHeader>
-            <CardTitle>Quick Add Common Items</CardTitle>
+            <CardTitle>Agregar Rápidamente Elementos Comunes</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -457,17 +457,17 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard size={20} />
-              Non-Labor Cost Summary
+              Resumen de Costos No Laborales
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <Label className="text-muted-foreground">Total Items</Label>
+                <Label className="text-muted-foreground">Elementos Totales</Label>
                 <p className="text-2xl font-bold">{nonLaborEstimates.length}</p>
               </div>
               <div>
-                <Label className="text-muted-foreground">One-time Costs</Label>
+                <Label className="text-muted-foreground">Costos Únicos</Label>
                 <p className="text-2xl font-bold">
                   $
                   {nonLaborEstimates
@@ -477,13 +477,13 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                 </p>
               </div>
               <div>
-                <Label className="text-muted-foreground">CapEx Total</Label>
+                <Label className="text-muted-foreground">Total CapEx</Label>
                 <p className="text-2xl font-bold text-amber-600">
                   ${getCapexTotal().toLocaleString()}
                 </p>
               </div>
               <div>
-                <Label className="text-muted-foreground">Total Non-Labor</Label>
+                <Label className="text-muted-foreground">Total No Laboral</Label>
                 <p className="text-3xl font-bold text-primary">
                   ${getTotalCost().toLocaleString()}
                 </p>
@@ -492,7 +492,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
 
             {/* Category Breakdown */}
             <div className="mt-4">
-              <Label className="text-muted-foreground">By Category</Label>
+              <Label className="text-muted-foreground">Por Categoría</Label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
                 {Object.keys(rubrosByCategory).map((categoryName) => {
                   const categoryTotal = nonLaborEstimates
@@ -522,7 +522,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
 
       <div className="flex justify-end">
         <Button onClick={handleNext} className="gap-2">
-          Continue to FX & Indexation
+          Continuar a FX e Indexación
         </Button>
       </div>
     </div>

@@ -94,13 +94,13 @@ export function FXIndexationStep({
   const getHedgingDescription = (strategy: string) => {
     switch (strategy) {
       case "none":
-        return "No hedging - full FX exposure";
+        return "Sin cobertura - exposición FX completa";
       case "forward_80":
-        return "80% hedged with forward contracts";
+        return "80% cubierto con contratos forward";
       case "forward_100":
-        return "100% hedged with forward contracts";
+        return "100% cubierto con contratos forward";
       case "options":
-        return "Options strategy for downside protection";
+        return "Estrategia de opciones para protección a la baja";
       default:
         return "";
     }
@@ -128,11 +128,10 @@ export function FXIndexationStep({
     <div className="space-y-8">
       <div className="text-center">
         <h2 className="text-2xl font-semibold mb-2">
-          FX & Indexation Parameters
+          Parámetros de FX e Indexación
         </h2>
         <p className="text-muted-foreground">
-          Define currency exchange rates and inflation adjustments for accurate
-          cost projections
+          Define las tasas de cambio de moneda y ajustes por inflación para proyecciones precisas de costos
         </p>
       </div>
 
@@ -142,27 +141,27 @@ export function FXIndexationStep({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign size={20} />
-              Foreign Exchange (FX)
+              Tipo de Cambio (FX)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label>USD/COP Exchange Rate</Label>
+              <Label>Tasa de Cambio USD/COP</Label>
               <Input
                 type="number"
                 value={fxData.usd_cop_rate}
                 onChange={(e) =>
                   updateFxData("usd_cop_rate", parseFloat(e.target.value) || 0)
                 }
-                placeholder="e.g., 4000"
+                placeholder="ej., 4000"
               />
               <p className="text-xs text-muted-foreground">
-                Current spot rate for project calculations
+                Tasa spot actual para cálculos del proyecto
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label>Rate Source</Label>
+              <Label>Fuente de la Tasa</Label>
               <Select
                 value={fxData.rate_source}
                 onValueChange={(value) => updateFxData("rate_source", value)}
@@ -177,14 +176,14 @@ export function FXIndexationStep({
                   <SelectItem value="Bloomberg">Bloomberg</SelectItem>
                   <SelectItem value="Reuters">Reuters</SelectItem>
                   <SelectItem value="Internal Treasury">
-                    Internal Treasury
+                    Tesorería Interna
                   </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Hedging Strategy</Label>
+              <Label>Estrategia de Cobertura</Label>
               <Select
                 value={fxData.hedging_strategy}
                 onValueChange={(value) =>
@@ -195,12 +194,12 @@ export function FXIndexationStep({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No Hedging</SelectItem>
-                  <SelectItem value="forward_80">80% Forward Hedge</SelectItem>
+                  <SelectItem value="none">Sin Cobertura</SelectItem>
+                  <SelectItem value="forward_80">Cobertura Forward 80%</SelectItem>
                   <SelectItem value="forward_100">
-                    100% Forward Hedge
+                    Cobertura Forward 100%
                   </SelectItem>
-                  <SelectItem value="options">Options Strategy</SelectItem>
+                  <SelectItem value="options">Estrategia de Opciones</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
@@ -211,8 +210,7 @@ export function FXIndexationStep({
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                FX rates will be applied to all USD-denominated costs when
-                converting to local reporting currency.
+                Las tasas FX se aplicarán a todos los costos denominados en USD al convertir a moneda local de reporte.
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -223,13 +221,13 @@ export function FXIndexationStep({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp size={20} />
-              Indexation Policy
+              Política de Indexación
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>CPI Annual Rate (%)</Label>
+                <Label>Tasa Anual de IPC (%)</Label>
                 <Input
                   type="number"
                   value={indexationData.cpi_annual_rate}
@@ -239,12 +237,12 @@ export function FXIndexationStep({
                       parseFloat(e.target.value) || 0
                     )
                   }
-                  placeholder="e.g., 3.0"
+                  placeholder="ej., 3.0"
                   step="0.1"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Min Wage Annual Rate (%)</Label>
+                <Label>Tasa Anual de Salario Mínimo (%)</Label>
                 <Input
                   type="number"
                   value={indexationData.min_wage_annual_rate}
@@ -254,14 +252,14 @@ export function FXIndexationStep({
                       parseFloat(e.target.value) || 0
                     )
                   }
-                  placeholder="e.g., 12.0"
+                  placeholder="ej., 12.0"
                   step="0.1"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Adjustment Frequency</Label>
+              <Label>Frecuencia de Ajuste</Label>
               <Select
                 value={indexationData.adjustment_frequency}
                 onValueChange={(value) =>
@@ -272,16 +270,16 @@ export function FXIndexationStep({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="quarterly">Quarterly</SelectItem>
-                  <SelectItem value="annually">Annually</SelectItem>
+                  <SelectItem value="monthly">Mensual</SelectItem>
+                  <SelectItem value="quarterly">Trimestral</SelectItem>
+                  <SelectItem value="annually">Anual</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Labor Cost Indexation</Label>
+                <Label>Indexación de Costos Laborales</Label>
                 <Select
                   value={indexationData.labor_indexation}
                   onValueChange={(value) =>
@@ -292,19 +290,19 @@ export function FXIndexationStep({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No Indexation</SelectItem>
+                    <SelectItem value="none">Sin Indexación</SelectItem>
                     <SelectItem value="CPI">
-                      Consumer Price Index (CPI)
+                      Índice de Precios al Consumidor (IPC)
                     </SelectItem>
                     <SelectItem value="min_wage">
-                      Minimum Wage Increases
+                      Incrementos del Salario Mínimo
                     </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label>Non-Labor Cost Indexation</Label>
+                <Label>Indexación de Costos No Laborales</Label>
                 <Select
                   value={indexationData.non_labor_indexation}
                   onValueChange={(value) =>
@@ -315,9 +313,9 @@ export function FXIndexationStep({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No Indexation</SelectItem>
+                    <SelectItem value="none">Sin Indexación</SelectItem>
                     <SelectItem value="CPI">
-                      Consumer Price Index (CPI)
+                      Índice de Precios al Consumidor (IPC)
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -327,8 +325,8 @@ export function FXIndexationStep({
             <Alert>
               <TrendingUp className="h-4 w-4" />
               <AlertDescription>
-                Indexation will be applied {indexationData.adjustment_frequency}{" "}
-                starting from month 4 of the project.
+                La indexación se aplicará {indexationData.adjustment_frequency === "monthly" ? "mensualmente" : indexationData.adjustment_frequency === "quarterly" ? "trimestralmente" : "anualmente"}{" "}
+                a partir del mes 4 del proyecto.
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -338,12 +336,12 @@ export function FXIndexationStep({
       {/* Impact Summary */}
       <Card className="bg-muted/50">
         <CardHeader>
-          <CardTitle>FX & Indexation Impact Summary</CardTitle>
+          <CardTitle>Resumen del Impacto de FX e Indexación</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="text-center">
-              <Label className="text-muted-foreground">FX Rate</Label>
+              <Label className="text-muted-foreground">Tasa FX</Label>
               <p className="text-2xl font-bold">
                 {fxData.usd_cop_rate.toLocaleString()}
               </p>
@@ -351,58 +349,58 @@ export function FXIndexationStep({
             </div>
 
             <div className="text-center">
-              <Label className="text-muted-foreground">Hedging Coverage</Label>
+              <Label className="text-muted-foreground">Cobertura de Hedge</Label>
               <p className="text-2xl font-bold">
                 {fxData.hedging_strategy === "forward_80"
                   ? "80%"
                   : fxData.hedging_strategy === "forward_100"
                   ? "100%"
                   : fxData.hedging_strategy === "options"
-                  ? "Protected"
+                  ? "Protegido"
                   : "0%"}
               </p>
-              <p className="text-sm text-muted-foreground">FX Risk Coverage</p>
+              <p className="text-sm text-muted-foreground">Cobertura de Riesgo FX</p>
             </div>
 
             <div className="text-center">
-              <Label className="text-muted-foreground">Labor Indexation</Label>
+              <Label className="text-muted-foreground">Indexación Laboral</Label>
               <p className="text-2xl font-bold text-amber-600">
                 {indexationImpact.laborRate.toFixed(1)}%
               </p>
-              <p className="text-sm text-muted-foreground">Annual Rate</p>
+              <p className="text-sm text-muted-foreground">Tasa Anual</p>
             </div>
 
             <div className="text-center">
               <Label className="text-muted-foreground">
-                Non-Labor Indexation
+                Indexación No Laboral
               </Label>
               <p className="text-2xl font-bold text-amber-600">
                 {indexationImpact.nonLaborRate.toFixed(1)}%
               </p>
-              <p className="text-sm text-muted-foreground">Annual Rate</p>
+              <p className="text-sm text-muted-foreground">Tasa Anual</p>
             </div>
           </div>
 
           <div className="mt-6 p-4 bg-card rounded-lg">
-            <h4 className="font-medium mb-2">Key Assumptions</h4>
+            <h4 className="font-medium mb-2">Supuestos Clave</h4>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• FX rate sourced from {fxData.rate_source}</li>
+              <li>• Tasa FX obtenida de {fxData.rate_source}</li>
               <li>• {getHedgingDescription(fxData.hedging_strategy)}</li>
               <li>
-                • Indexation adjustments applied{" "}
-                {indexationData.adjustment_frequency}
+                • Ajustes de indexación aplicados{" "}
+                {indexationData.adjustment_frequency === "monthly" ? "mensualmente" : indexationData.adjustment_frequency === "quarterly" ? "trimestralmente" : "anualmente"}
               </li>
               <li>
-                • Labor costs indexed to{" "}
+                • Costos laborales indexados a{" "}
                 {indexationData.labor_indexation === "none"
-                  ? "no indexation"
-                  : indexationData.labor_indexation}
+                  ? "sin indexación"
+                  : indexationData.labor_indexation === "CPI" ? "IPC" : "salario mínimo"}
               </li>
               <li>
-                • Non-labor costs indexed to{" "}
+                • Costos no laborales indexados a{" "}
                 {indexationData.non_labor_indexation === "none"
-                  ? "no indexation"
-                  : indexationData.non_labor_indexation}
+                  ? "sin indexación"
+                  : "IPC"}
               </li>
             </ul>
           </div>
@@ -411,7 +409,7 @@ export function FXIndexationStep({
 
       <div className="flex justify-end">
         <Button onClick={handleNext} className="gap-2">
-          Continue to Review & Sign
+          Continuar a Revisar y Firmar
         </Button>
       </div>
     </div>
