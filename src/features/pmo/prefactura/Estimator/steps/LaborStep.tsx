@@ -185,24 +185,23 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-2xl font-semibold mb-2">Labor Cost Estimation</h2>
+        <h2 className="text-2xl font-semibold mb-2">Estimación de Costos Laborales</h2>
         <p className="text-muted-foreground">
-          Define your team composition, rates, and duration for accurate labor
-          cost projections
+          Define la composición de tu equipo, tarifas y duración para proyecciones precisas de costos laborales
         </p>
       </div>
 
       {/* Add Labor Item */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium">Team Members</h3>
+          <h3 className="text-lg font-medium">Miembros del Equipo</h3>
           <p className="text-sm text-muted-foreground">
-            Add roles with their associated costs and duration
+            Agrega roles con sus costos asociados y duración
           </p>
         </div>
         <Button onClick={addLaborItem} className="gap-2">
           <Plus size={16} />
-          Add Team Member
+          Agregar Miembro del Equipo
         </Button>
       </div>
 
@@ -214,16 +213,16 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Country</TableHead>
-                    <TableHead>Level</TableHead>
+                    <TableHead>Rol</TableHead>
+                    <TableHead>País</TableHead>
+                    <TableHead>Nivel</TableHead>
                     <TableHead>FTE</TableHead>
-                    <TableHead>Rate/Hour</TableHead>
-                    <TableHead>Hours/Month</TableHead>
-                    <TableHead>On-Cost %</TableHead>
-                    <TableHead>Start</TableHead>
-                    <TableHead>End</TableHead>
-                    <TableHead>Total Cost</TableHead>
+                    <TableHead>Tarifa/Hora</TableHead>
+                    <TableHead>Horas/Mes</TableHead>
+                    <TableHead>Costo Adicional %</TableHead>
+                    <TableHead>Inicio</TableHead>
+                    <TableHead>Fin</TableHead>
+                    <TableHead>Costo Total</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -244,7 +243,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                       <TableRow key={index}>
                         <TableCell>
                           <Label className="sr-only" htmlFor={roleId}>
-                            Role
+                            Rol
                           </Label>
                           <Select
                             value={item.role}
@@ -256,7 +255,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                             <SelectTrigger id={roleId} className="w-40" name={roleId}>
                               <SelectValue 
                                 placeholder={
-                                  rolesLoading ? "Loading roles..." : "Select role"
+                                  rolesLoading ? "Cargando roles..." : "Seleccionar rol"
                                 } 
                               />
                             </SelectTrigger>
@@ -271,7 +270,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={countryId}>
-                            Country
+                            País
                           </Label>
                           <Select
                             value={item.country}
@@ -297,7 +296,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={levelId}>
-                            Level
+                            Nivel
                           </Label>
                           <Select
                             value={item.level}
@@ -322,7 +321,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={fteId}>
-                            FTE Count
+                            Cantidad FTE
                           </Label>
                           <Input
                             id={fteId}
@@ -343,7 +342,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={rateId}>
-                            Hourly rate
+                            Tarifa por hora
                           </Label>
                           <Input
                             id={rateId}
@@ -362,7 +361,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={hoursId}>
-                            Hours per month
+                            Horas por mes
                           </Label>
                           <Input
                             id={hoursId}
@@ -381,7 +380,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={onCostId}>
-                            On-cost percentage
+                            Porcentaje de costo adicional
                           </Label>
                           <Input
                             id={onCostId}
@@ -400,7 +399,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={startId}>
-                            Start month
+                            Mes de inicio
                           </Label>
                           <Input
                             id={startId}
@@ -420,7 +419,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={endId}>
-                            End month
+                            Mes de fin
                           </Label>
                           <Input
                             id={endId}
@@ -449,7 +448,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                             size="sm"
                             onClick={() => removeLaborItem(index)}
                             className="text-destructive hover:text-destructive"
-                            aria-label={`Remove labor role ${item.role || index + 1}`}
+                            aria-label={`Eliminar rol laboral ${item.role || index + 1}`}
                           >
                             <Trash2 size={16} />
                           </Button>
@@ -466,14 +465,13 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Calculator size={48} className="text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No team members added</h3>
+            <h3 className="text-lg font-medium mb-2">No se han agregado miembros del equipo</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Start by adding team members to estimate labor costs for your
-              project
+              Comienza agregando miembros del equipo para estimar los costos laborales de tu proyecto
             </p>
             <Button onClick={addLaborItem} className="gap-2">
               <Plus size={16} />
-              Add First Team Member
+              Agregar Primer Miembro del Equipo
             </Button>
           </CardContent>
         </Card>
@@ -485,13 +483,13 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calculator size={20} />
-              Labor Cost Summary
+              Resumen de Costos Laborales
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <Label className="text-muted-foreground">Total Team Size</Label>
+                <Label className="text-muted-foreground">Tamaño Total del Equipo</Label>
                 <p className="text-2xl font-bold">
                   {laborEstimates.reduce(
                     (sum, item) => sum + item.fte_count,
@@ -502,7 +500,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
               </div>
               <div>
                 <Label className="text-muted-foreground">
-                  Avg. Monthly Rate
+                  Tarifa Mensual Promedio
                 </Label>
                 <p className="text-2xl font-bold">
                   $
@@ -516,14 +514,14 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
               </div>
               <div>
                 <Label className="text-muted-foreground">
-                  Total Labor Cost
+                  Costo Laboral Total
                 </Label>
                 <p className="text-3xl font-bold text-primary">
                   ${getTotalCost().toLocaleString()}
                 </p>
               </div>
               <div>
-                <Label className="text-muted-foreground">Unique Roles</Label>
+                <Label className="text-muted-foreground">Roles Únicos</Label>
                 <p className="text-2xl font-bold">
                   {new Set(laborEstimates.map((item) => item.role)).size}
                 </p>
@@ -539,7 +537,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
           disabled={laborEstimates.length === 0}
           className="gap-2"
         >
-          Continue to Non-Labor Costs
+          Continuar a Costos No Laborales
         </Button>
       </div>
     </div>

@@ -25,20 +25,20 @@ import { Plus, X } from "lucide-react";
 import type { DealInputs, Currency } from "@/types/domain";
 
 const dealInputsSchema: z.ZodType<DealInputs> = z.object({
-  project_name: z.string().min(1, "Project name is required"),
+  project_name: z.string().min(1, "El nombre del proyecto es requerido"),
   project_description: z.string().optional(),
   currency: z.enum(["USD", "COP"]),
-  start_date: z.string().min(1, "Start date is required"),
+  start_date: z.string().min(1, "La fecha de inicio es requerida"),
   duration_months: z
     .number()
-    .min(1, "Duration must be at least 1 month")
-    .max(60, "Duration cannot exceed 60 months"),
+    .min(1, "La duración debe ser de al menos 1 mes")
+    .max(60, "La duración no puede exceder 60 meses"),
   contract_value: z.number().optional(),
   client_name: z.string().optional(),
   sdm_manager_name: z
     .string()
     .trim()
-    .min(1, "Service Delivery Manager name is required")
+    .min(1, "El nombre del Service Delivery Manager es requerido")
     .max(200, "El nombre no puede exceder 200 caracteres"),
   assumptions: z.array(z.string()).default([]),
 }) as z.ZodType<DealInputs>;
@@ -120,10 +120,9 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-2xl font-semibold mb-2">Project Information</h2>
+        <h2 className="text-2xl font-semibold mb-2">Información del Proyecto</h2>
         <p className="text-muted-foreground">
-          Enter the basic project details to establish the foundation for your
-          estimate
+          Ingrese los detalles básicos del proyecto para establecer la base de su estimación
         </p>
       </div>
 
@@ -135,10 +134,10 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
               name="project_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Project Name *</FormLabel>
+                  <FormLabel>Nombre del Proyecto *</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="e.g., Digital Platform Modernization"
+                      placeholder="ej., Modernización de Plataforma Digital"
                       {...field}
                     />
                   </FormControl>
@@ -152,9 +151,9 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
               name="client_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Client Name</FormLabel>
+                  <FormLabel>Nombre del Cliente</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Acme Corporation" {...field} />
+                    <Input placeholder="ej., Acme Corporation" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -184,19 +183,19 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
               name="currency"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Project Currency *</FormLabel>
+                  <FormLabel>Moneda del Proyecto *</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select currency" />
+                        <SelectValue placeholder="Seleccionar moneda" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="USD">USD - US Dollar</SelectItem>
-                      <SelectItem value="COP">COP - Colombian Peso</SelectItem>
+                      <SelectItem value="USD">USD - Dólar Estadounidense</SelectItem>
+                      <SelectItem value="COP">COP - Peso Colombiano</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -209,11 +208,11 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
               name="contract_value"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Contract Value</FormLabel>
+                  <FormLabel>Valor del Contrato</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      placeholder="e.g., 500000"
+                      placeholder="ej., 500000"
                       {...field}
                       onChange={(e) =>
                         field.onChange(
@@ -234,7 +233,7 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
               name="start_date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Start Date *</FormLabel>
+                  <FormLabel>Fecha de Inicio *</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
@@ -248,7 +247,7 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
               name="duration_months"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Duration (Months) *</FormLabel>
+                  <FormLabel>Duración (Meses) *</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -271,10 +270,10 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
             name="project_description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Project Description</FormLabel>
+                <FormLabel>Descripción del Proyecto</FormLabel>
                 <FormControl>
                   <Textarea
-                    placeholder="Describe the project scope, objectives, and key deliverables..."
+                    placeholder="Describa el alcance del proyecto, objetivos y entregables clave..."
                     rows={4}
                     {...field}
                   />
@@ -288,7 +287,7 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-base font-medium">
-                Project Assumptions
+                Supuestos del Proyecto
               </Label>
               <Button
                 type="button"
@@ -298,7 +297,7 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
                 className="gap-2"
               >
                 <Plus size={16} />
-                Add Assumption
+                Agregar Supuesto
               </Button>
             </div>
 
@@ -306,7 +305,7 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
               {assumptions.map((assumption, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <Input
-                    placeholder="e.g., Fixed exchange rate for duration"
+                    placeholder="ej., Tasa de cambio fija durante la duración"
                     value={assumption}
                     onChange={(e) => updateAssumption(index, e.target.value)}
                     className="flex-1"
@@ -324,9 +323,9 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
 
               {assumptions.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p>No assumptions added yet</p>
+                  <p>No se han agregado supuestos aún</p>
                   <p className="text-sm">
-                    Click "Add Assumption" to include project assumptions
+                    Haga clic en "Agregar Supuesto" para incluir supuestos del proyecto
                   </p>
                 </div>
               )}
@@ -335,23 +334,23 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
 
           {/* Summary */}
           <div className="bg-muted/50 rounded-lg p-6">
-            <h3 className="font-medium mb-4">Summary</h3>
+            <h3 className="font-medium mb-4">Resumen</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">Currency:</span>
+                <span className="text-muted-foreground">Moneda:</span>
                 <Badge className="ml-2">{form.watch("currency")}</Badge>
               </div>
               <div>
-                <span className="text-muted-foreground">Duration:</span>
+                <span className="text-muted-foreground">Duración:</span>
                 <Badge variant="outline" className="ml-2">
-                  {form.watch("duration_months")} months
+                  {form.watch("duration_months")} meses
                 </Badge>
               </div>
               {form.watch("contract_value") && (
                 <div>
-                  <span className="text-muted-foreground">Value:</span>
+                  <span className="text-muted-foreground">Valor:</span>
                   <Badge variant="outline" className="ml-2">
-                    {new Intl.NumberFormat("en-US", {
+                    {new Intl.NumberFormat("es-CO", {
                       style: "currency",
                       currency: form.watch("currency"),
                       minimumFractionDigits: 0,
@@ -360,7 +359,7 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
                 </div>
               )}
               <div>
-                <span className="text-muted-foreground">Assumptions:</span>
+                <span className="text-muted-foreground">Supuestos:</span>
                 <Badge variant="outline" className="ml-2">
                   {assumptions.filter((a) => a.trim()).length}
                 </Badge>
@@ -370,7 +369,7 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
 
           <div className="flex justify-end">
             <Button type="submit" className="gap-2">
-              Continue to Labor Costs
+              Continuar a Costos Laborales
             </Button>
           </div>
         </form>

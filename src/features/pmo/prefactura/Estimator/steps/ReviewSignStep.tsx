@@ -543,7 +543,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       const reportData = {
         title: "Project Baseline Budget",
         subtitle: "PMO Pre-Factura Estimate Summary",
-        generated: new Date().toLocaleDateString(),
+        generated: new Date().toLocaleDateString('es-CO'),
         metrics: [
           {
             label: "Total Project Cost",
@@ -686,11 +686,10 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
     <div className="space-y-8">
       <div className="text-center">
         <h2 className="text-2xl font-semibold mb-2">
-          Review & Digital Signature
+          Revisión y Firma Digital
         </h2>
         <p className="text-muted-foreground">
-          Review your complete baseline estimate and digitally sign for handoff
-          to SDMT
+          Revise su estimación de línea base completa y firme digitalmente para la entrega a SDMT
         </p>
       </div>
 
@@ -699,7 +698,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText size={24} />
-            Executive Summary
+            Resumen Ejecutivo
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -710,7 +709,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                 ${grandTotal.toLocaleString()}
               </p>
               <p className="text-sm text-muted-foreground">
-                Total Project Cost
+                Costo Total del Proyecto
               </p>
             </div>
             <div className="text-center">
@@ -718,14 +717,14 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
               <p className="text-3xl font-bold">
                 {dealInputs?.duration_months || 0}
               </p>
-              <p className="text-sm text-muted-foreground">Months Duration</p>
+              <p className="text-sm text-muted-foreground">Meses de Duración</p>
             </div>
             <div className="text-center">
               <Users className="mx-auto mb-2 text-muted-foreground" size={32} />
               <p className="text-3xl font-bold">
                 {laborEstimates.reduce((sum, item) => sum + item.fte_count, 0)}
               </p>
-              <p className="text-sm text-muted-foreground">Total FTEs</p>
+              <p className="text-sm text-muted-foreground">FTEs Totales</p>
             </div>
             <div className="text-center">
               <Server
@@ -733,7 +732,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                 size={32}
               />
               <p className="text-3xl font-bold">{nonLaborEstimates.length}</p>
-              <p className="text-sm text-muted-foreground">Cost Items</p>
+              <p className="text-sm text-muted-foreground">Elementos de Costo</p>
             </div>
           </div>
         </CardContent>
@@ -744,38 +743,38 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         {/* Project Details */}
         <Card>
           <CardHeader>
-            <CardTitle>Project Details</CardTitle>
+            <CardTitle>Detalles del Proyecto</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <span className="font-medium">Project Name:</span>
+              <span className="font-medium">Nombre del Proyecto:</span>
               <p className="text-muted-foreground">
                 {dealInputs?.project_name}
               </p>
             </div>
             <div>
-              <span className="font-medium">Client:</span>
+              <span className="font-medium">Cliente:</span>
               <p className="text-muted-foreground">
-                {dealInputs?.client_name || "Not specified"}
+                {dealInputs?.client_name || "No especificado"}
               </p>
             </div>
             <div>
-              <span className="font-medium">Currency:</span>
+              <span className="font-medium">Moneda:</span>
               <Badge className="ml-2">{dealInputs?.currency}</Badge>
             </div>
             <div>
-              <span className="font-medium">Start Date:</span>
+              <span className="font-medium">Fecha de Inicio:</span>
               <p className="text-muted-foreground">{dealInputs?.start_date}</p>
             </div>
             <div>
-              <span className="font-medium">Duration:</span>
+              <span className="font-medium">Duración:</span>
               <p className="text-muted-foreground">
-                {dealInputs?.duration_months} months
+                {dealInputs?.duration_months} meses
               </p>
             </div>
             {dealInputs?.contract_value && (
               <div>
-                <span className="font-medium">Contract Value:</span>
+                <span className="font-medium">Valor del Contrato:</span>
                 <p className="text-muted-foreground">
                   ${dealInputs.contract_value.toLocaleString()}
                 </p>
@@ -787,33 +786,33 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         {/* Cost Breakdown */}
         <Card>
           <CardHeader>
-            <CardTitle>Cost Breakdown</CardTitle>
+            <CardTitle>Desglose de Costos</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
-              <span>Labor Costs:</span>
+              <span>Costos Laborales:</span>
               <span className="font-bold">${laborTotal.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span>Non-Labor Costs:</span>
+              <span>Costos No Laborales:</span>
               <span className="font-bold">
                 ${nonLaborTotal.toLocaleString()}
               </span>
             </div>
             <Separator />
             <div className="flex justify-between items-center text-lg">
-              <span className="font-bold">Total Estimate:</span>
+              <span className="font-bold">Estimación Total:</span>
               <span className="font-bold text-primary">
                 ${grandTotal.toLocaleString()}
               </span>
             </div>
 
             <div className="pt-4">
-              <span className="font-medium">Cost Distribution:</span>
+              <span className="font-medium">Distribución de Costos:</span>
               <div className="mt-2 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-sm">
-                    Labor ({((laborTotal / grandTotal) * 100).toFixed(1)}%)
+                    Laboral ({((laborTotal / grandTotal) * 100).toFixed(1)}%)
                   </span>
                   <div className="w-32 bg-muted rounded-full h-2">
                     <div
@@ -824,7 +823,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm">
-                    Non-Labor ({((nonLaborTotal / grandTotal) * 100).toFixed(1)}
+                    No Laboral ({((nonLaborTotal / grandTotal) * 100).toFixed(1)}
                     %)
                   </span>
                   <div className="w-32 bg-muted rounded-full h-2">
@@ -846,7 +845,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       {dealInputs?.assumptions && dealInputs.assumptions.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Key Assumptions</CardTitle>
+            <CardTitle>Supuestos Clave</CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
@@ -869,12 +868,12 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
 
       {/* Charts */}
       <ChartInsightsPanel
-        title="Cost Analysis & Insights"
+        title="Análisis de Costos e Insights"
         charts={[
           <DonutChart
             key="cost-mix"
             data={costMixData}
-            title="Cost Mix Breakdown"
+            title="Desglose de Mezcla de Costos"
           />,
           <StackedColumnsChart
             key="monthly-breakdown"
@@ -882,21 +881,21 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
             stacks={[
               {
                 dataKey: "Labor",
-                name: "Labor",
+                name: "Laboral",
                 color: "oklch(0.61 0.15 160)",
               },
               {
                 dataKey: "Non-Labor",
-                name: "Non-Labor",
+                name: "No Laboral",
                 color: "oklch(0.72 0.15 65)",
               },
             ]}
-            title="Monthly Cost Distribution"
+            title="Distribución de Costos Mensual"
           />,
         ]}
         insights={[
           {
-            title: "Labor vs Non-Labor",
+            title: "Laboral vs No Laboral",
             value: `${((laborTotal / grandTotal) * 100).toFixed(0)}% / ${(
               (nonLaborTotal / grandTotal) *
               100
@@ -904,14 +903,14 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
             type: laborTotal > nonLaborTotal ? "positive" : "neutral",
           },
           {
-            title: "Average Monthly Cost",
+            title: "Costo Mensual Promedio",
             value: `$${Math.round(
               grandTotal / (dealInputs?.duration_months || 1)
             ).toLocaleString()}`,
             type: "neutral",
           },
           {
-            title: "Team Size",
+            title: "Tamaño del Equipo",
             value: `${laborEstimates.reduce(
               (sum, item) => sum + item.fte_count,
               0
@@ -924,7 +923,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Upload size={18} /> Supporting Documents
+            <Upload size={18} /> Documentos de Soporte
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -932,7 +931,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
             htmlFor={supportingDocsInputId}
             className="text-sm font-medium text-foreground"
           >
-            Attach supporting documents
+            Adjuntar documentos de soporte
           </Label>
           <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-4">
             <Input
@@ -949,14 +948,13 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
               id={supportingDocsHelpId}
               className="text-xs text-muted-foreground mt-2"
             >
-              Files upload via the shared `/uploads/docs` endpoint using the
-              Prefactura module tag so SDMT can reference them later.
+              Los archivos se cargan a través del endpoint compartido `/uploads/docs` usando la etiqueta del módulo Prefactura para que SDMT pueda referenciarlos más tarde.
             </p>
           </div>
           {isUploadingDoc && (
             <div className="text-sm text-primary space-y-1">
               {Object.keys(uploadProgress).length === 0 ? (
-                <p>Preparing uploads…</p>
+                <p>Preparando cargas…</p>
               ) : (
                 Object.entries(uploadProgress).map(([name, stage]) => (
                   <p key={name} className="flex items-center gap-2">
@@ -988,14 +986,14 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                     </div>
                   </div>
                   <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(doc.uploadedAt).toLocaleDateString()}
+                    {new Date(doc.uploadedAt).toLocaleDateString('es-CO')}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No supporting documents uploaded yet.
+              No se han cargado documentos de soporte todavía.
             </p>
           )}
         </CardContent>
@@ -1007,16 +1005,14 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PenTool size={20} />
-              Digital Signature Required
+              Firma Digital Requerida
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <Alert>
               <CheckCircle2 className="h-4 w-4" />
               <AlertDescription>
-                By signing this baseline estimate, you confirm the accuracy of
-                all data and authorize handoff to the SDMT team for ongoing cost
-                management and forecasting.
+                Al firmar esta estimación de línea base, confirma la precisión de todos los datos y autoriza la entrega al equipo SDMT para la gestión y previsión continua de costos.
               </AlertDescription>
             </Alert>
 
@@ -1030,14 +1026,13 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                 htmlFor="review-confirm"
                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               >
-                I have reviewed all project details, costs, and assumptions
-                above and confirm their accuracy
+                He revisado todos los detalles del proyecto, costos y supuestos anteriores y confirmo su precisión
               </label>
             </div>
 
               <div className="flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
-                  Signing as: {signedBy || "PMO User"} • {new Date().toLocaleDateString()}
+                  Firmando como: {signedBy || "Usuario PMO"} • {new Date().toLocaleDateString('es-CO')}
                 </div>
                 <Button
                   onClick={handleDigitalSign}
@@ -1048,12 +1043,12 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                   {isSigning ? (
                     <>
                       <Clock size={16} className="animate-spin" />
-                      Creating Baseline...
+                      Creando Línea Base...
                     </>
                   ) : (
                     <>
                       <PenTool size={16} />
-                      Sign & Create Baseline
+                      Firmar y Crear Línea Base
                     </>
                   )}
                 </Button>
@@ -1070,27 +1065,26 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-green-700">
               <CheckCircle2 size={20} />
-              Baseline Successfully Created
+              Línea Base Creada Exitosamente
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <Alert className="border-green-200 bg-green-50">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-700">
-                Your baseline estimate has been digitally signed and is ready
-                for SDMT handoff.
+                Su estimación de línea base ha sido firmada digitalmente y está lista para la entrega a SDMT.
               </AlertDescription>
             </Alert>
 
             <div className="bg-white rounded-lg p-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Baseline ID:</span>
+                  <span className="text-muted-foreground">ID de Línea Base:</span>
                   <p className="font-mono font-bold">{baselineId}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Created:</span>
-                  <p className="font-medium">{new Date().toLocaleString()}</p>
+                  <span className="text-muted-foreground">Creado:</span>
+                  <p className="font-medium">{new Date().toLocaleString('es-CO')}</p>
                 </div>
               </div>
             </div>
@@ -1103,7 +1097,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                   onClick={handleExportBaseline}
                 >
                   <FileSpreadsheet size={16} />
-                  Export Excel
+                  Exportar Excel
                 </Button>
                 <Button
                   variant="outline"
@@ -1111,7 +1105,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                   onClick={handleExportPDFSummary}
                 >
                   <FileText size={16} />
-                  Share Report
+                  Compartir Reporte
                 </Button>
               </div>
               <Button
@@ -1123,11 +1117,11 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                 {isHandingOff ? (
                   <>
                     <Clock size={16} className="animate-spin" />
-                    Handing Off...
+                    Entregando...
                   </>
                 ) : (
                   <>
-                    Complete & Handoff to SDMT
+                    Completar y Entregar a SDMT
                     <CheckCircle2 size={16} />
                   </>
                 )}
@@ -1144,30 +1138,30 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Handoff to SDMT</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar Entrega a SDMT</AlertDialogTitle>
             <AlertDialogDescription className="space-y-4">
               <div>
                 <p className="font-medium text-foreground mb-3">
-                  Review handoff details:
+                  Revisar detalles de la entrega:
                 </p>
                 <ul className="space-y-2 text-sm">
                   <li>
-                    <span className="font-medium">Project:</span>{" "}
+                    <span className="font-medium">Proyecto:</span>{" "}
                     {dealInputs?.project_name}
                   </li>
                   <li>
-                    <span className="font-medium">Baseline ID:</span>{" "}
+                    <span className="font-medium">ID de Línea Base:</span>{" "}
                     <code className="bg-muted px-2 py-1 rounded">
                       {baselineId}
                     </code>
                   </li>
                   {signedBy && (
                     <li>
-                      <span className="font-medium">Signed by:</span> {signedBy}
+                      <span className="font-medium">Firmado por:</span> {signedBy}
                     </li>
                   )}
                   <li>
-                    <span className="font-medium">Total Budget:</span> $
+                    <span className="font-medium">Presupuesto Total:</span> $
                     {(
                       laborEstimates.reduce((sum, item) => {
                         const baseHours = item.hours_per_month * item.fte_count;
@@ -1197,20 +1191,19 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                   htmlFor="accept-baseline-confirm"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                 >
-                  Also accept baseline immediately (optional)
+                  También aceptar línea base inmediatamente (opcional)
                 </label>
               </div>
               <p className="text-xs text-muted-foreground">
-                Once handed off, the project data will be transferred to the
-                SDMT team for cost management and monitoring.
-                {!shouldAcceptBaseline && " You can accept the baseline later from the project view."}
+                Una vez entregado, los datos del proyecto se transferirán al equipo SDMT para la gestión y monitoreo de costos.
+                {!shouldAcceptBaseline && " Puede aceptar la línea base más tarde desde la vista del proyecto."}
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex justify-end gap-2">
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmHandoff} disabled={isHandingOff}>
-              {isHandingOff ? "Handing Off..." : "Confirm Handoff"}
+              {isHandingOff ? "Entregando..." : "Confirmar Entrega"}
             </AlertDialogAction>
           </div>
         </AlertDialogContent>
