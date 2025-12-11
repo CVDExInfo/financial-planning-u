@@ -13,9 +13,20 @@ import {
 import { ok, bad, notFound, serverError, fromAuthError } from "../lib/http";
 import { logError } from "../utils/logging";
 import { queryProjectRubros } from "../lib/baseline-sdmt";
+import {
+  getCanonicalRubroId,
+  isValidRubroId,
+  normalizeRubroId,
+} from "../lib/canonical-taxonomy";
 
 /**
  * Rubros handler - CRUD operations for project rubros
+ * 
+ * TAXONOMY ALIGNMENT:
+ * - All rubro_ids are normalized to canonical taxonomy (linea_codigo format)
+ * - Legacy IDs (RB####, RUBRO-###) are automatically mapped
+ * - Validates all rubro_ids against canonical taxonomy
+ * - Returns warnings for legacy or unknown IDs
  * 
  * SDMT ALIGNMENT FIX:
  * - GET /projects/{projectId}/rubros now filters by active baseline
@@ -479,25 +490,50 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
 
   const warnings: string[] = [];
 
+  // Validate and normalize all rubro_ids to canonical format
+  const validatedEntries = normalizedEntries.map((entry) => {
+    const validation = normalizeRubroId(entry.rubroId);
+    
+    if (validation.warning) {
+      warnings.push(validation.warning);
+      console.warn("attachRubros: rubro validation", {
+        projectId,
+        original: entry.rubroId,
+        canonical: validation.canonicalId,
+        warning: validation.warning,
+      });
+    }
+    
+    return {
+      ...entry,
+      rubroId: validation.canonicalId, // Use canonical ID
+      _originalId: entry.rubroId, // Keep original for audit
+      _isLegacy: validation.isLegacy,
+      _isValid: validation.isValid,
+    };
+  });
+
   console.info("attachRubros: normalized request", {
     projectId,
-    rubroCount: normalizedEntries.length,
-    rubroIds: normalizedEntries.map((entry) => entry.rubroId),
+    rubroCount: validatedEntries.length,
+    rubroIds: validatedEntries.map((entry) => entry.rubroId),
+    legacyCount: validatedEntries.filter((e) => e._isLegacy).length,
   });
 
   // Attach (or upsert) each rubro to the project. PUT without a condition acts as an
   // idempotent upsert so edits can reuse the same rubroId without a dedicated PATCH route.
-  for (const normalized of normalizedEntries) {
-    const rubroId = normalized.rubroId;
+  for (const normalized of validatedEntries) {
+    const rubroId = normalized.rubroId; // Already canonical after validation
 
     // Check if rubro exists in catalog (optional validation)
     // For MVP, we'll just attach it
 
     const attachment = {
       pk: `PROJECT#${projectId}`,
-      sk: `RUBRO#${rubroId}`,
+      sk: `RUBRO#${rubroId}`, // Canonical ID in sort key
       projectId,
-      rubroId,
+      rubroId, // Canonical ID
+      rubro_id: rubroId, // Also store as rubro_id for compatibility
       createdAt: now,
       createdBy: userEmail,
       qty: normalized?.qty,
@@ -510,8 +546,10 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
       total_cost: normalized?.total_cost,
       description: normalized?.description,
       category: normalized?.category,
-      linea_codigo: normalized?.linea_codigo,
+      linea_codigo: normalized?.linea_codigo || rubroId, // Use canonical ID as linea_codigo
       tipo_costo: normalized?.tipo_costo,
+      // Audit fields for legacy tracking
+      ...(normalized._isLegacy && { _legacy_id: normalized._originalId }),
     };
 
     try {
