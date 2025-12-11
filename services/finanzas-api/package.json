@@ -19,7 +19,9 @@
     "verify:canonical-projects": "ts-node scripts/verify-canonical-projects.ts",
     "verify:allocations": "ts-node scripts/verify-allocations-vs-projects.ts",
     "verify:payroll": "ts-node scripts/verify-payroll-vs-projects.ts",
-    "verify:forecast-pipeline": "ts-node scripts/verify-forecast-pipeline.ts"
+    "verify:forecast-pipeline": "ts-node scripts/verify-forecast-pipeline.ts",
+    "verify:dev-environment": "ts-node scripts/verify-dev-environment.ts",
+    "fix:dev-data": "ts-node scripts/quick-fix-dev-data.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.931.0",

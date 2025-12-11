@@ -112,18 +112,7 @@ async function handlePost(event: APIGatewayProxyEventV2) {
   } catch (error) {
     console.error("Error creating payroll entry:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://d7t9x3j66yd8k.cloudfront.net',
-        'Access-Control-Allow-Credentials': 'true',
-      },
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: errorMessage,
-      }),
-    };
+    return bad({ error: 'Internal server error', message: errorMessage }, 500);
   }
 }
 
@@ -170,18 +159,7 @@ async function handleGet(event: APIGatewayProxyEventV2) {
   } catch (error) {
     console.error("Error querying payroll:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://d7t9x3j66yd8k.cloudfront.net',
-        'Access-Control-Allow-Credentials': 'true',
-      },
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: errorMessage,
-      }),
-    };
+    return bad({ error: 'Internal server error', message: errorMessage }, 500);
   }
 }
 
@@ -224,18 +202,7 @@ async function handleGetActuals(event: APIGatewayProxyEventV2) {
   } catch (error) {
     console.error("Error querying payroll actuals:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://d7t9x3j66yd8k.cloudfront.net',
-        'Access-Control-Allow-Credentials': 'true',
-      },
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: errorMessage,
-      }),
-    };
+    return bad({ error: 'Internal server error', message: errorMessage }, 500);
   }
 }
 
@@ -350,18 +317,7 @@ async function handleGetSummary(event: APIGatewayProxyEventV2) {
   } catch (error) {
     console.error("Error generating payroll summary:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://d7t9x3j66yd8k.cloudfront.net',
-        'Access-Control-Allow-Credentials': 'true',
-      },
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: errorMessage,
-      }),
-    };
+    return bad({ error: 'Internal server error', message: errorMessage }, 500);
   }
 }
 
@@ -469,18 +425,7 @@ async function handleGetDashboard(_event: APIGatewayProxyEventV2) {
   } catch (error) {
     console.error("Error generating dashboard data:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://d7t9x3j66yd8k.cloudfront.net',
-        'Access-Control-Allow-Credentials': 'true',
-      },
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: errorMessage,
-      }),
-    };
+    return bad({ error: 'Internal server error', message: errorMessage }, 500);
   }
 }
 
