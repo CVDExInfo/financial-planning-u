@@ -165,9 +165,39 @@ export default function ProjectsManager() {
 
   const coverageChartData = React.useMemo(() => {
     if (payrollDashboard.length === 0) {
-      // Fallback to status chart if no payroll data is available yet.
+      // Fallback: Show portfolio budget distribution by project
       // This ensures the chart always shows useful information during the initial load
       // or when the payroll dashboard endpoint is unavailable.
+      
+      // If no projects have mod_total > 0, show count by status
+      const hasProjectBudgets = projectsForView.some(p => (p.mod_total || 0) > 0);
+      
+      if (hasProjectBudgets) {
+        // Show top 5 projects by budget, rest as "Otros"
+        const sortedProjects = [...projectsForView]
+          .filter(p => (p.mod_total || 0) > 0)
+          .sort((a, b) => (b.mod_total || 0) - (a.mod_total || 0));
+        
+        const topProjects = sortedProjects.slice(0, 5);
+        const otherProjects = sortedProjects.slice(5);
+        
+        const chartData = topProjects.map(p => ({
+          name: p.name.length > 25 ? `${p.name.slice(0, 25)}...` : p.name,
+          value: p.mod_total || 0,
+        }));
+        
+        if (otherProjects.length > 0) {
+          const otherTotal = otherProjects.reduce((sum, p) => sum + (p.mod_total || 0), 0);
+          chartData.push({
+            name: `Otros (${otherProjects.length})`,
+            value: otherTotal,
+          });
+        }
+        
+        return chartData.length > 0 ? chartData : [{ name: "Sin presupuesto", value: 0 }];
+      }
+      
+      // Fallback: show status distribution
       const counts: Record<string, number> = {};
       projectsForView.forEach((project) => {
         const status = project.status || "Desconocido";
@@ -205,7 +235,7 @@ export default function ProjectsManager() {
       data.push({ name: "Meta no cubierta", value: uncovered });
     }
 
-    return data.length > 0 ? data : [{ name: "Sin datos", value: 1 }];
+    return data.length > 0 ? data : [{ name: "Sin datos", value: 0 }];
   }, [projectsForView, payrollDashboard]);
 
   // Chart data: use payroll actuals when viewing a single project, otherwise show empty.
@@ -533,8 +563,12 @@ export default function ProjectsManager() {
       <div className="grid gap-4 md:grid-cols-2">
         <DonutChart
           data={coverageChartData}
-          title="Cobertura de Meta de Nómina"
-          subtitle="Comparación entre meta de recursos humanos y MOD del portafolio"
+          title={payrollDashboard.length > 0 ? "Cobertura de Meta de Nómina" : "Distribución de Presupuesto por Proyecto"}
+          subtitle={payrollDashboard.length > 0 
+            ? "Comparación entre meta de recursos humanos y MOD del portafolio"
+            : "Top 5 proyectos por monto total de MOD"}
+          emptyStateMessage="No hay datos disponibles"
+          emptyStateDetail="Agrega proyectos con presupuesto para ver la distribución"
           className="h-full"
         />
         <LineChartComponent

@@ -111,6 +111,10 @@ export async function getProjectActiveBaseline(
  * BACKWARD COMPATIBILITY:
  * Checks both metadata.baseline_id (new standard) and top-level baselineId
  * (legacy seed data) to support existing projects while maintaining isolation.
+ * 
+ * LENIENT MODE:
+ * If we have a baseline but NO rubros match it, fall back to showing all rubros
+ * (this handles projects where baseline_id exists but rubros weren't properly tagged)
  */
 export function filterRubrosByBaseline<
   T extends { metadata?: { baseline_id?: string }; baselineId?: string }
@@ -120,18 +124,34 @@ export function filterRubrosByBaseline<
     return rubros;
   }
 
-  return rubros.filter((rubro) => {
+  const matchedRubros = rubros.filter((rubro) => {
     // Check both metadata.baseline_id (preferred) and top-level baselineId (legacy)
     const rubroBaselineId = rubro.metadata?.baseline_id || rubro.baselineId;
 
     // Only include rubros that explicitly match this baseline.
-    if (rubroBaselineId === baselineId) {
-      return true;
-    }
-
-    // Legacy rubros without baseline_id are excluded to avoid mixing.
-    return false;
+    return rubroBaselineId === baselineId;
   });
+
+  // LENIENT MODE: If baseline is set but no rubros match, include rubros without baseline_id
+  // This handles migration scenarios where projects have rubros but they weren't tagged
+  if (matchedRubros.length === 0 && rubros.length > 0) {
+    console.warn("[filterRubrosByBaseline] No rubros matched baseline, falling back to untagged rubros", {
+      baselineId,
+      totalRubros: rubros.length,
+      rubrosSample: rubros.slice(0, 3).map(r => ({
+        baselineId: r.baselineId,
+        metadataBaselineId: r.metadata?.baseline_id
+      }))
+    });
+    
+    // Return rubros that have no baseline tag (legacy data)
+    return rubros.filter((rubro) => {
+      const rubroBaselineId = rubro.metadata?.baseline_id || rubro.baselineId;
+      return !rubroBaselineId;
+    });
+  }
+
+  return matchedRubros;
 }
 
 /**

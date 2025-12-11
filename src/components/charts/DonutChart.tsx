@@ -12,6 +12,8 @@ interface DonutChartProps {
   innerRadius?: number;
   outerRadius?: number;
   className?: string;
+  emptyStateMessage?: string;
+  emptyStateDetail?: string;
 }
 
 const COLORS = [
@@ -29,13 +31,10 @@ export function DonutChart({
   subtitle,
   innerRadius = 60, 
   outerRadius = 100,
-  className = ""
+  className = "",
+  emptyStateMessage = "No hay datos disponibles",
+  emptyStateDetail
 }: DonutChartProps) {
-  const dataWithColors = data.map((item, index) => ({
-    ...item,
-    color: item.color || COLORS[index % COLORS.length]
-  }));
-
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0];
@@ -77,7 +76,10 @@ export function DonutChart({
     );
   };
 
-  if (!data || data.length === 0) {
+  // Filter out zero-value entries and check if we have meaningful data
+  const meaningfulData = data.filter(item => item.value > 0);
+  
+  if (!data || data.length === 0 || meaningfulData.length === 0) {
     return (
       <Card className={className}>
         {title && (
@@ -89,11 +91,25 @@ export function DonutChart({
           </CardHeader>
         )}
         <CardContent className="flex items-center justify-center h-[300px]">
-          <p className="text-muted-foreground">No data available</p>
+          <div className="text-center space-y-2">
+            <p className="text-muted-foreground">{emptyStateMessage}</p>
+            {emptyStateDetail && (
+              <p className="text-xs text-muted-foreground">{emptyStateDetail}</p>
+            )}
+            {!emptyStateDetail && data.length > 0 && meaningfulData.length === 0 && (
+              <p className="text-xs text-muted-foreground">Todos los valores son cero</p>
+            )}
+          </div>
         </CardContent>
       </Card>
     );
   }
+
+  // Use meaningful data only (filter zero values for better visualization)
+  const displayData = meaningfulData.map((item, index) => ({
+    ...item,
+    color: item.color || COLORS[index % COLORS.length]
+  }));
 
   return (
     <Card className={className}>
@@ -109,7 +125,7 @@ export function DonutChart({
         <ResponsiveContainer width="100%" height={300}>
           <PieChart>
             <Pie
-              data={dataWithColors}
+              data={displayData}
               cx="50%"
               cy="50%"
               labelLine={false}
@@ -119,7 +135,7 @@ export function DonutChart({
               fill="#8884d8"
               dataKey="value"
             >
-              {dataWithColors.map((entry, index) => (
+              {displayData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
