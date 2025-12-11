@@ -36,6 +36,10 @@ import { Badge } from "@/components/ui/badge";
 import ProjectDetailsPanel from "./projects/ProjectDetailsPanel";
 import { getProjectDisplay } from "@/lib/projects/display";
 import { ES_TEXTS } from "@/lib/i18n/es";
+import {
+  getPayrollDashboardForProject,
+  type MODProjectionByMonth,
+} from "@/api/payrollService";
 
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -60,6 +64,10 @@ export default function ProjectsManager() {
   const [lastCreatedCode, setLastCreatedCode] = React.useState<string | null>(
     null,
   );
+  const [payrollDashboard, setPayrollDashboard] = React.useState<
+    MODProjectionByMonth[]
+  >([]);
+  const [payrollLoading, setPayrollLoading] = React.useState(false);
   const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
 
@@ -180,6 +188,26 @@ export default function ProjectsManager() {
       .map(([label, value]) => ({ month: label, "MOD total": value }));
   }, [projectsForView]);
 
+  // Chart data: use payroll actuals when viewing a single project, otherwise use budget
+  const modChartData = React.useMemo(() => {
+    // If we have payroll data for the selected project, use it
+    if (
+      viewMode === "project" &&
+      selectedProject &&
+      payrollDashboard.length > 0
+    ) {
+      return payrollDashboard.map((entry) => ({
+        month: entry.month,
+        "MOD Actual": entry.totalActualMOD,
+        "MOD Forecast": entry.totalForecastMOD,
+        "MOD Plan": entry.totalPlanMOD,
+      }));
+    }
+
+    // Otherwise, use the budget data from project start dates
+    return budgetByStartMonth;
+  }, [viewMode, selectedProject, payrollDashboard, budgetByStartMonth]);
+
   const formatCurrency = React.useCallback(
     (value: number, currencyCode: string = "USD") =>
       new Intl.NumberFormat("es-MX", {
@@ -240,6 +268,43 @@ export default function ProjectsManager() {
   const loadProjects = React.useCallback(async () => {
     await reload();
   }, [reload]);
+
+  // Load payroll dashboard data when a project is selected
+  React.useEffect(() => {
+    if (!selectedProjectId) {
+      setPayrollDashboard([]);
+      return;
+    }
+
+    let cancelled = false;
+    const loadPayroll = async () => {
+      setPayrollLoading(true);
+      try {
+        const data = await getPayrollDashboardForProject(selectedProjectId);
+        if (!cancelled) {
+          setPayrollDashboard(data);
+        }
+      } catch (error) {
+        console.error("Error loading payroll dashboard", {
+          projectId: selectedProjectId,
+          error,
+        });
+        if (!cancelled) {
+          setPayrollDashboard([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setPayrollLoading(false);
+        }
+      }
+    };
+
+    void loadPayroll();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectId]);
 
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -454,9 +519,23 @@ export default function ProjectsManager() {
           className="h-full"
         />
         <LineChartComponent
-          data={budgetByStartMonth}
-          lines={[{ dataKey: "MOD total", name: "MOD total" }]}
-          title="MOD proyectado por mes de inicio"
+          data={modChartData}
+          lines={
+            viewMode === "project" &&
+            selectedProject &&
+            payrollDashboard.length > 0
+              ? [
+                  { dataKey: "MOD Actual", name: "MOD Actual" },
+                  { dataKey: "MOD Forecast", name: "MOD Forecast" },
+                  { dataKey: "MOD Plan", name: "MOD Plan" },
+                ]
+              : [{ dataKey: "MOD total", name: "MOD total" }]
+          }
+          title={
+            viewMode === "project" && selectedProject && payrollDashboard.length > 0
+              ? "MOD proyectado vs actual (desde nómina)"
+              : "MOD proyectado por mes de inicio"
+          }
           className="h-full"
           labelPrefix="Mes"
           valueFormatter={formatCurrency}
