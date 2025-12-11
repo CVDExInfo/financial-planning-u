@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface LineChartProps {
   data: Array<{
-    month: number;
-    [key: string]: number;
+    month: number | string;
+    [key: string]: number | string;
   }>;
   lines: Array<{
     dataKey: string;
@@ -17,7 +17,7 @@ interface LineChartProps {
   className?: string;
   labelPrefix?: string;
   valueFormatter?: (value: number) => string;
-  xTickFormatter?: (value: number) => string;
+  xTickFormatter?: (value: number | string) => string;
 }
 
 const DEFAULT_COLORS = [
@@ -114,20 +114,23 @@ export function LineChartComponent({
               dataKey="month"
               stroke="oklch(0.45 0 0)"
               fontSize={12}
-              tickFormatter={xTickFormatter || ((value) => `M${value}`)}
+              tickFormatter={xTickFormatter || ((value) => typeof value === 'number' ? `M${value}` : String(value))}
             />
             <YAxis
               stroke="oklch(0.45 0 0)"
               fontSize={12}
-              tickFormatter={(value) =>
-                valueFormatter?.(value) ||
-                new Intl.NumberFormat('en-US', {
+              tickFormatter={(value) => {
+                if (valueFormatter) {
+                  return valueFormatter(value);
+                }
+                // Default compact formatter matching tooltip style
+                return new Intl.NumberFormat('en-US', {
                   style: 'currency',
                   currency: 'USD',
                   minimumFractionDigits: 0,
                   notation: 'compact',
-                }).format(value)
-              }
+                }).format(value);
+              }}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend 

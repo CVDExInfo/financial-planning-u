@@ -8,6 +8,7 @@ interface DonutChartProps {
     color?: string;
   }>;
   title?: string;
+  subtitle?: string;
   innerRadius?: number;
   outerRadius?: number;
   className?: string;
@@ -24,7 +25,8 @@ const COLORS = [
 
 export function DonutChart({ 
   data, 
-  title, 
+  title,
+  subtitle,
   innerRadius = 60, 
   outerRadius = 100,
   className = ""
@@ -81,6 +83,9 @@ export function DonutChart({
         {title && (
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{title}</CardTitle>
+            {subtitle && (
+              <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+            )}
           </CardHeader>
         )}
         <CardContent className="flex items-center justify-center h-[300px]">
@@ -95,6 +100,9 @@ export function DonutChart({
       {title && (
         <CardHeader className="pb-2">
           <CardTitle className="text-base">{title}</CardTitle>
+          {subtitle && (
+            <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+          )}
         </CardHeader>
       )}
       <CardContent>

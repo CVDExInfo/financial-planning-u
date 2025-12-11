@@ -296,6 +296,66 @@ describe('Payroll Handler Tests', () => {
       expect(response.statusCode).toBe(200);
       expect(Array.isArray(body)).toBe(true);
     });
+
+    it('should include payrollTarget field based on plan MOD', async () => {
+      // Mock projects with start dates
+      const mockProjects = [
+        {
+          pk: 'PROJECT#P-TEST-001',
+          sk: 'META',
+          start_date: '2025-01-15',
+          projectId: 'P-TEST-001',
+        },
+      ];
+
+      // Mock payroll entries
+      const mockPayroll = [
+        {
+          pk: 'PROJECT#P-TEST-001#MONTH#2025-01',
+          sk: 'PAYROLL#plan#123',
+          projectId: 'P-TEST-001',
+          period: '2025-01',
+          kind: 'plan',
+          amount: 10000,
+        },
+        {
+          pk: 'PROJECT#P-TEST-001#MONTH#2025-01',
+          sk: 'PAYROLL#forecast#456',
+          projectId: 'P-TEST-001',
+          period: '2025-01',
+          kind: 'forecast',
+          amount: 9500,
+        },
+      ];
+
+      // Mock scan calls - first for projects, then for payroll
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({ Items: mockProjects })
+        .mockResolvedValueOnce({ Items: mockPayroll });
+
+      const event = createEvent('GET', '/payroll/dashboard');
+
+      const response = await handler(event);
+      const body = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBeGreaterThan(0);
+
+      // Verify first month has payrollTarget
+      const firstMonth = body[0];
+      expect(firstMonth).toHaveProperty('month');
+      expect(firstMonth).toHaveProperty('totalPlanMOD');
+      expect(firstMonth).toHaveProperty('totalForecastMOD');
+      expect(firstMonth).toHaveProperty('totalActualMOD');
+      expect(firstMonth).toHaveProperty('payrollTarget');
+      expect(firstMonth).toHaveProperty('projectCount');
+
+      // Verify payrollTarget is 110% of plan MOD
+      if (firstMonth.totalPlanMOD > 0) {
+        expect(firstMonth.payrollTarget).toBeCloseTo(firstMonth.totalPlanMOD * 1.1, 2);
+      }
+    });
   });
 
   describe('Method routing', () => {
