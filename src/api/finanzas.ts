@@ -1291,6 +1291,48 @@ export async function acceptBaseline(
   }
 }
 
+export interface RejectBaselinePayload {
+  baseline_id: string;
+  rejected_by?: string;
+  comment?: string;
+  reason?: string;
+}
+
+export interface RejectBaselineResponse {
+  projectId: string;
+  baselineId: string;
+  baseline_status: string;
+  rejected_by: string;
+  baseline_rejected_at: string;
+  rejection_comment?: string;
+}
+
+export async function rejectBaseline(
+  projectId: string,
+  payload: RejectBaselinePayload,
+): Promise<RejectBaselineResponse> {
+  ensureApiBase();
+
+  const url = `${requireApiBase()}/projects/${encodeURIComponent(
+    projectId,
+  )}/reject-baseline`;
+
+  try {
+    const result = await fetchJson<RejectBaselineResponse>(url, {
+      method: "PATCH",
+      headers: {
+        ...buildAuthHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    return result;
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to reject baseline");
+  }
+}
+
 // Alias for compatibility with tests/hooks referencing older helper name
 export const getProjectLineItems = getProjectRubros;
 

@@ -37,6 +37,7 @@ import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters'
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
 import { ES_TEXTS } from '@/lib/i18n/es';
+import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastCell[]>([]);
@@ -439,6 +440,9 @@ export function SDMTForecast() {
         </div>
         <ModuleBadge />
       </div>
+
+      {/* Baseline Status Panel */}
+      <BaselineStatusPanel />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">

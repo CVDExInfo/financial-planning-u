@@ -24,6 +24,9 @@ export type ProjectSummary = {
   baselineAcceptedAt?: string;
   baseline_status?: string;
   accepted_by?: string;
+  rejected_by?: string;
+  baseline_rejected_at?: string;
+  rejection_comment?: string;
   status?: Project["status"];
   period?: string;
 };
@@ -149,6 +152,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       baselineAcceptedAt: project.baseline_accepted_at,
       baseline_status: (project as any)?.baseline_status,
       accepted_by: (project as any)?.accepted_by,
+      rejected_by: (project as any)?.rejected_by,
+      baseline_rejected_at: (project as any)?.baseline_rejected_at,
+      rejection_comment: (project as any)?.rejection_comment,
       status: project.status,
     };
   };
