@@ -19,38 +19,39 @@ const docClient = DynamoDBDocumentClient.from(client);
 const DEMO_PROJECTS = ["P-c1d76e28", "P-5ae50ace", "P-75596c6c", "P-546370be"];
 
 // Sample rubros to add to each project
+// UPDATED: Using canonical taxonomy IDs (linea_codigo format)
 const SAMPLE_RUBROS = [
   {
-    rubro_id: "RUBRO-SENIOR-DEV",
-    description: "Senior Developer",
-    category: "Labor",
+    rubro_id: "MOD-LEAD", // Canonical ID (was: RUBRO-SENIOR-DEV)
+    description: "Ingeniero líder / coordinador",
+    category: "MOD",
     qty: 2,
     unit_cost: 12500,
     duration: "M1-12",
     type: "Recurring",
   },
   {
-    rubro_id: "RUBRO-AWS-INFRA",
-    description: "AWS Infrastructure",
-    category: "Cloud Services",
+    rubro_id: "INF-CLOUD", // Canonical ID (was: RUBRO-AWS-INFRA)
+    description: "Servicios Cloud / hosting",
+    category: "INF",
     qty: 1,
     unit_cost: 3500,
     duration: "M1-12",
     type: "Recurring",
   },
   {
-    rubro_id: "RUBRO-LICENSE",
-    description: "Software Licenses",
-    category: "Software",
+    rubro_id: "TEC-LIC-MON", // Canonical ID (was: RUBRO-LICENSE)
+    description: "Licencias de monitoreo/observabilidad",
+    category: "TEC",
     qty: 5,
     unit_cost: 299,
     duration: "M1-12",
     type: "Recurring",
   },
   {
-    rubro_id: "RUBRO-CONSULTING",
-    description: "Technical Consulting",
-    category: "Services",
+    rubro_id: "GSV-REU", // Canonical ID (was: RUBRO-CONSULTING)
+    description: "Reuniones de seguimiento",
+    category: "GSV",
     qty: 40,
     unit_cost: 175,
     duration: "M1-3",

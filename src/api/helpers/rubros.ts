@@ -4,9 +4,17 @@
  * This module provides the single source of truth for rubros taxonomy
  * used across PMO Estimator and SDMT modules. It ensures consistent
  * data lineage from Estimator → Baseline → Rubros → Forecast.
+ * 
+ * UPDATED: Now uses canonical taxonomy from @/lib/rubros/canonical-taxonomy
  */
 
-import { CATALOGO_RUBROS, MOD_ROLE_MAPPING, MOD_ROLES, type RubroTaxonomia } from '@/modules/rubros.taxonomia';
+import {
+  CANONICAL_RUBROS_TAXONOMY,
+  getCanonicalRubroId,
+  isValidRubroId as validateRubroId,
+  type CanonicalRubroTaxonomy,
+} from '@/lib/rubros/canonical-taxonomy';
+import { MOD_ROLE_MAPPING, MOD_ROLES, type RubroTaxonomia } from '@/modules/rubros.taxonomia';
 import type { MODRole } from '@/modules/modRoles';
 
 // Re-export MODRole type for convenience
@@ -56,11 +64,10 @@ const MOD_ROLE_TO_LINEA_CODIGO: Record<MODRole, string> = {
  * @returns Promise resolving to array of all rubros with enriched metadata
  */
 export async function fetchRubrosCatalog(): Promise<RubroMeta[]> {
-  // Currently returns static catalog, but structured as async
-  // to support future API-based fetching if needed
+  // Use canonical taxonomy as single source of truth
   return Promise.resolve(
-    CATALOGO_RUBROS.map((taxonomy) => ({
-      id: taxonomy.linea_codigo,
+    CANONICAL_RUBROS_TAXONOMY.map((taxonomy) => ({
+      id: taxonomy.id, // Canonical ID (linea_codigo)
       label: taxonomy.linea_gasto,
       type: taxonomy.categoria_codigo === 'MOD' ? 'labor' : 'non-labor',
       category: taxonomy.categoria_codigo,
@@ -121,14 +128,16 @@ export function mapRubroIdToModRoles(lineaCodigo: string): MODRole[] {
 }
 
 /**
- * Get a specific rubro by its linea_codigo
+ * Get a specific rubro by its linea_codigo (supports legacy IDs)
  * 
- * @param lineaCodigo - Canonical linea_codigo
+ * @param lineaCodigo - Canonical linea_codigo or legacy ID
  * @returns RubroMeta or undefined if not found
  */
 export async function getRubroByCode(lineaCodigo: string): Promise<RubroMeta | undefined> {
+  // Normalize to canonical ID first
+  const canonicalId = getCanonicalRubroId(lineaCodigo);
   const allRubros = await fetchRubrosCatalog();
-  return allRubros.find((r) => r.id === lineaCodigo);
+  return allRubros.find((r) => r.id === canonicalId);
 }
 
 /**
@@ -153,11 +162,11 @@ export async function getRubrosByCategory(): Promise<Map<string, RubroMeta[]>> {
 /**
  * Validate if a rubroId exists in the canonical taxonomy
  * 
- * @param rubroId - Rubro ID to validate
+ * @param rubroId - Rubro ID to validate (canonical or legacy)
  * @returns true if valid, false otherwise
  */
 export function isValidRubroId(rubroId: string): boolean {
-  return CATALOGO_RUBROS.some((r) => r.linea_codigo === rubroId);
+  return validateRubroId(rubroId);
 }
 
 /**

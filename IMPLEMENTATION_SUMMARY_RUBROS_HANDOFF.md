@@ -1,8 +1,102 @@
-# Backend Implementation Summary: Project Rubros & Handoff CRUD
+# Backend Implementation Summary: Rubros Taxonomy Alignment & Project Rubros CRUD
 
 ## Implementation Complete ✅
 
-This PR successfully implements **project-scoped tier services (rubros) and handoff CRUD** for the Finanzas SD API as specified in the L3 Backend Engineer prompt.
+This PR successfully implements:
+1. **Canonical Rubros Taxonomy** as single source of truth
+2. **Legacy ID mapping and normalization** across all rubros
+3. **Project-scoped rubros CRUD** with taxonomy validation
+4. **Migration tooling** for aligning existing data
+
+---
+
+## Rubros Taxonomy Alignment
+
+### Problem Statement
+The application had multiple conflicting rubros data sources:
+- **src/modules/rubros.taxonomia.ts**: 71 entries with linea_codigo format (MOD-ING, GSV-REU, etc.)
+- **src/modules/rubros.catalog.ts**: 71 entries with RB#### format (RB0001-RB0071)
+- **src/modules/finanzas/data/rubros.taxonomia.ts**: 5 simple entries (RUBRO-001 through RUBRO-005)
+- **Seed files**: Custom formats (RUBRO-SENIOR-DEV, RUBRO-AWS-INFRA, etc.)
+
+This caused:
+- Mismatched rubro_ids between frontend and backend
+- Empty or partial data in graphs/tables
+- Inability to join rubros across different sources
+- Confusion about which ID format to use
+
+### Solution: Canonical Taxonomy
+
+Created **src/lib/rubros/canonical-taxonomy.ts** as the single source of truth:
+- **71 canonical entries** using linea_codigo format (e.g., MOD-ING, GSV-REU, TEC-LIC-MON)
+- **Complete legacy mapping**: RB####, RUBRO-###, and seed formats → canonical IDs
+- **Validation utilities**: `isValidRubroId()`, `getCanonicalRubroId()`, `normalizeRubroId()`
+- **Type-safe**: Full TypeScript definitions with CanonicalRubroTaxonomy interface
+
+### Implementation Details
+
+#### 1. Canonical Taxonomy Structure
+```typescript
+export interface CanonicalRubroTaxonomy {
+  id: string;                    // Canonical linea_codigo (e.g., "MOD-ING")
+  categoria_codigo: string;      // Category code (e.g., "MOD", "GSV")
+  categoria: string;             // Category name (Spanish)
+  linea_codigo: string;          // Same as id
+  linea_gasto: string;           // Line item description
+  descripcion: string;           // Detailed description
+  tipo_ejecucion: TipoEjecucion; // "mensual" | "puntual/hito"
+  tipo_costo: TipoCosto;         // "OPEX" | "CAPEX"
+  fuente_referencia: string;     // Reference source
+  isActive: boolean;             // Whether currently active
+}
+```
+
+#### 2. Legacy ID Mapping Examples
+```typescript
+// Old simple format
+"RUBRO-001" → "MOD-ING"
+"RUBRO-002" → "TEC-HW-FIELD"
+
+// Old catalog format (71 entries)
+"RB0001" → "MOD-ING"
+"RB0017" → "TEC-LIC-MON"
+"RB0071" → "INN-AUT"
+
+// Old seed format
+"RUBRO-SENIOR-DEV" → "MOD-LEAD"
+"RUBRO-AWS-INFRA" → "INF-CLOUD"
+```
+
+#### 3. Backend Integration
+- **services/finanzas-api/src/lib/canonical-taxonomy.ts**: Backend validation utilities
+- **services/finanzas-api/src/handlers/rubros.ts**: Auto-normalizes all rubro_ids
+  - Validates incoming rubro_ids
+  - Maps legacy IDs to canonical
+  - Returns warnings for legacy/unknown IDs
+  - Stores only canonical IDs in DynamoDB
+
+#### 4. Frontend Integration
+- **src/api/helpers/rubros.ts**: Updated to use canonical taxonomy
+- **src/modules/finanzas/RubrosCatalog.tsx**: Displays canonical IDs and enriches with taxonomy
+- **src/hooks/useRubrosCatalog.ts**: Provides canonical rubros to React components
+
+#### 5. Migration Tooling
+- **scripts/finanzas-migrations/align-project-rubros-to-taxonomy.ts**
+  - Scans all project_rubros records in DynamoDB
+  - Maps legacy IDs to canonical taxonomy
+  - Supports dry-run mode for safe testing
+  - Generates unmapped rubros report
+  - Idempotent (safe to re-run)
+
+### Green Criteria Met
+- ✅ Single canonical taxonomy established (71 entries)
+- ✅ All legacy ID formats mapped to canonical
+- ✅ Backend normalizes all rubro_ids automatically
+- ✅ Frontend uses canonical taxonomy exclusively
+- ✅ Migration script ready for data alignment
+- ✅ Comprehensive unit tests (71 test cases)
+- ✅ No data deletions (only ID normalization)
+- ✅ Backwards compatible (legacy IDs still work)
 
 ---
 
