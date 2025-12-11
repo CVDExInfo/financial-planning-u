@@ -193,25 +193,46 @@ function toProjectRubroRequest(payload: RubroCreate): ProjectRubroRequest {
   return parsed.data;
 }
 
-// Project schemas
+// Project schemas - Canonical (English only, camelCase)
 export const ProjectCreateSchema = z.object({
   name: z.string().min(3).max(200),
   code: z.string().regex(/^PROJ-\d{4}-\d{3}$/),
   client: z.string().min(2).max(200),
   start_date: z.string(),
   end_date: z.string(),
-  currency: z.enum(["USD", "EUR", "MXN"]),
+  currency: z.enum(["USD", "EUR", "MXN", "COP"]),
   mod_total: z.number().min(0),
   description: z.string().max(1000).optional(),
 });
 
 export type ProjectCreate = z.infer<typeof ProjectCreateSchema>;
 
-export const ProjectSchema = ProjectCreateSchema.extend({
-  id: z.string(),
-  status: z.enum(["active", "completed", "on_hold", "cancelled"]),
-  created_at: z.string(),
-  updated_at: z.string(),
+// Canonical Project schema - matches backend ProjectDTO
+export const ProjectSchema = z.object({
+  projectId: z.string(),
+  code: z.string(),
+  name: z.string(),
+  client: z.string(),
+  description: z.string(),
+  status: z.string(),
+  currency: z.string(),
+  modTotal: z.number(),
+  startDate: z.string(),
+  endDate: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  createdBy: z.string().optional(),
+  // ABAC fields
+  sdmManagerEmail: z.string().optional(),
+  sdmManagerName: z.string().optional(),
+  pmLeadEmail: z.string().optional(),
+  // Baseline tracking
+  baselineId: z.string().optional(),
+  baselineStatus: z.string().optional(),
+  baselineAcceptedAt: z.string().optional(),
+  // Additional metadata
+  module: z.string().optional(),
+  source: z.string().optional(),
 });
 
 export type Project = z.infer<typeof ProjectSchema>;

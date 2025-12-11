@@ -236,13 +236,13 @@ export function formatTokenExpiration(claims: JWTClaims): string {
 
 /**
  * Map Cognito groups to application UserRoles
- * Cognito groups: PM, SDT, FIN, AUD, admin, acta-ui-ikusi, etc.
- * Application roles: PMO, SDMT, VENDOR, EXEC_RO
+ * Cognito groups: ADMIN, SDM, PM, SDT, FIN, AUD, admin, acta-ui-ikusi, etc.
+ * Application roles: ADMIN, PMO, SDMT, SDM, PM, VENDOR, EXEC_RO
  *
  * @param cognitoGroups Array of Cognito group names
  * @returns Array of application UserRole values
  */
-export type FinanzasRole = "PM" | "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
+export type FinanzasRole = "ADMIN" | "PMO" | "SDMT" | "SDM" | "PM" | "VENDOR" | "EXEC_RO";
 
 export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
   const roles: Set<FinanzasRole> = new Set();
@@ -259,6 +259,11 @@ export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
       continue;
     }
 
+    // ADMIN: highest priority - full system access
+    if (normalized === "admin" || normalized === "administrator") {
+      roles.add("ADMIN");
+    }
+
     const isPmGroup =
       normalized === "pm" ||
       normalized.startsWith("pm-") ||
@@ -269,8 +274,8 @@ export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
       roles.add("PM");
     }
 
-    // PMO access: PMO/admin groups
-    if (normalized === "admin" || normalized.includes("pmo")) {
+    // PMO access: PMO groups (not plain admin, that's ADMIN role)
+    if (normalized.includes("pmo")) {
       roles.add("PMO");
     }
 
@@ -284,6 +289,11 @@ export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
       roles.add("SDMT");
     }
 
+    // SDM access: Service Delivery Manager (project-scoped)
+    if (normalized === "sdm" || normalized.includes("service_delivery_manager")) {
+      roles.add("SDM");
+    }
+
     // VENDOR access: vendor-specific cohorts only (excluding ignored groups)
     if (
       normalized.includes("vendor") ||
@@ -293,12 +303,11 @@ export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
       roles.add("VENDOR");
     }
 
-    // EXEC_RO: admin and exec-like groups
+    // EXEC_RO: exec-like groups (but not admin which is ADMIN role)
     if (
-      normalized === "admin" ||
       normalized.includes("exec") ||
       normalized.includes("director") ||
-      normalized.includes("manager")
+      (normalized.includes("manager") && !normalized.includes("service_delivery"))
     ) {
       roles.add("EXEC_RO");
     }
