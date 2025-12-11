@@ -121,8 +121,8 @@ describe("canonical-taxonomy", () => {
   });
 
   describe("taxonomy completeness", () => {
-    it("should have 71 canonical IDs", () => {
-      expect(CANONICAL_IDS.size).toBe(71);
+    it("should have 72 canonical IDs", () => {
+      expect(CANONICAL_IDS.size).toBe(72);
     });
 
     it("should have all expected MOD rubros", () => {
@@ -135,12 +135,20 @@ describe("canonical-taxonomy", () => {
       expect(CANONICAL_IDS.has("MOD-EXT")).toBe(true);
     });
 
-    it("should have legacy mapping for all RB#### entries", () => {
+    it("should have legacy mapping for all RB#### entries (RB0001-RB0071 plus extended IDs)", () => {
+      // Sequential IDs RB0001-RB0071
       for (let i = 1; i <= 71; i++) {
         const legacyId = `RB${String(i).padStart(4, "0")}`;
         expect(LEGACY_RUBRO_ID_MAP[legacyId]).toBeDefined();
         expect(CANONICAL_IDS.has(LEGACY_RUBRO_ID_MAP[legacyId])).toBe(true);
       }
+      
+      // Additional extended IDs used in seed data
+      const extendedIds = ['RB0075', 'RB0080'];
+      extendedIds.forEach(legacyId => {
+        expect(LEGACY_RUBRO_ID_MAP[legacyId]).toBeDefined();
+        expect(CANONICAL_IDS.has(LEGACY_RUBRO_ID_MAP[legacyId])).toBe(true);
+      });
     });
 
     it("should have legacy mapping for old RUBRO-### format", () => {
