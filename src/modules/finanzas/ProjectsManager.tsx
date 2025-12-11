@@ -228,26 +228,6 @@ export default function ProjectsManager() {
       }));
   }, [projectsForView, payrollDashboard]);
 
-  // Chart data: use payroll actuals when viewing a single project, otherwise use budget
-  const modChartData = React.useMemo(() => {
-    // If we have payroll data for the selected project, use it
-    if (
-      viewMode === "project" &&
-      selectedProject &&
-      payrollDashboard.length > 0
-    ) {
-      return payrollDashboard.map((entry) => ({
-        month: entry.month,
-        "MOD Actual": entry.totalActualMOD,
-        "MOD Forecast": entry.totalForecastMOD,
-        "MOD Plan": entry.totalPlanMOD,
-      }));
-    }
-
-    // Otherwise, use the budget data from project start dates
-    return budgetByStartMonth;
-  }, [viewMode, selectedProject, payrollDashboard, budgetByStartMonth]);
-
   const formatCurrency = React.useCallback(
     (value: number, currencyCode: string = "USD") =>
       new Intl.NumberFormat("es-MX", {
