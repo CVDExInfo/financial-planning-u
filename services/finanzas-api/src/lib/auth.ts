@@ -138,15 +138,17 @@ async function verifyJwt(event: ApiGwEvent): Promise<VerifiedClaims> {
 
 /**
  * Finanzas SD RBAC mapping (kept in sync with frontend mapGroupsToRoles)
- * - PMO/PM/admin → PMO role (read + write)
+ * - ADMIN → ADMIN role (full access to all projects)
+ * - PMO/PM → PMO role (read + write)
  * - SDT/SDMT/FIN/AUD → SDMT role (read + write)
+ * - SDM → SDM role (read + write, but only to own projects)
  * - vendor/acta-ui patterns → VENDOR role (read)
- * - exec/director/manager/admin → EXEC_RO role (read)
+ * - exec/director/manager → EXC_RO role (read-only, all projects)
  * - tokens without groups default to EXEC_RO (read-only) to mirror frontend mapper
  * Users that resolve to any role above can read; PMO or SDMT roles can write.
  */
 
-const ROLE_PRIORITY = ["SDMT", "PMO", "VENDOR", "EXEC_RO"] as const;
+const ROLE_PRIORITY = ["ADMIN", "PMO", "SDMT", "SDM", "VENDOR", "EXC_RO"] as const;
 
 type FinanzasRole = (typeof ROLE_PRIORITY)[number];
 
@@ -158,7 +160,12 @@ function mapGroupsToRoles(groups: string[]): FinanzasRole[] {
     const normalized = group.trim().toUpperCase();
     if (!normalized) continue;
 
-    if (normalized === "ADMIN" || normalized.includes("PMO") || normalized === "PM") {
+    // ADMIN has highest priority
+    if (normalized === "ADMIN") {
+      roles.add("ADMIN");
+    }
+
+    if (normalized.includes("PMO") || normalized === "PM") {
       roles.add("PMO");
     }
 
@@ -171,17 +178,22 @@ function mapGroupsToRoles(groups: string[]): FinanzasRole[] {
       roles.add("SDMT");
     }
 
+    // SDM - Service Delivery Manager (project-scoped access)
+    if (normalized === "SDM" || normalized.includes("SDM")) {
+      roles.add("SDM");
+    }
+
     if (normalized.includes("VENDOR") || normalized.includes("ACTA-UI") || normalized.includes("ACTA")) {
       roles.add("VENDOR");
     }
 
+    // EXC_RO - Executive read-only
     if (
-      normalized === "ADMIN" ||
       normalized.includes("EXEC") ||
       normalized.includes("DIRECTOR") ||
       normalized.includes("MANAGER")
     ) {
-      roles.add("EXEC_RO");
+      roles.add("EXC_RO");
     }
   }
 
@@ -189,7 +201,7 @@ function mapGroupsToRoles(groups: string[]): FinanzasRole[] {
   // treat the user as EXEC_RO (read-only) so authenticated but ungrouped users
   // can still read catalog/project data.
   if (!roles.size && !hasAnyGroup) {
-    roles.add("EXEC_RO");
+    roles.add("EXC_RO");
   }
 
   return Array.from(roles);
@@ -218,6 +230,39 @@ function parseGroupsFromClaims(claims: VerifiedClaims): string[] {
 export async function getUserEmail(event: ApiGwEvent): Promise<string> {
   const claims = await verifyJwt(event);
   return (claims.email as string) || "system";
+}
+
+/**
+ * Get user context including email, groups, and resolved roles
+ * Useful for ABAC decision-making
+ */
+export interface UserContext {
+  email: string;
+  groups: string[];
+  roles: FinanzasRole[];
+  isAdmin: boolean;
+  isExecRO: boolean;
+  isSDM: boolean;
+  isPMO: boolean;
+  isSDMT: boolean;
+}
+
+export async function getUserContext(event: ApiGwEvent): Promise<UserContext> {
+  const claims = await verifyJwt(event);
+  const email = (claims.email as string) || "system";
+  const groups = parseGroupsFromClaims(claims);
+  const roles = mapGroupsToRoles(groups);
+
+  return {
+    email,
+    groups,
+    roles,
+    isAdmin: roles.includes("ADMIN"),
+    isExecRO: roles.includes("EXC_RO"),
+    isSDM: roles.includes("SDM"),
+    isPMO: roles.includes("PMO"),
+    isSDMT: roles.includes("SDMT"),
+  };
 }
 
 export async function ensureSDT(event: ApiGwEvent) {
