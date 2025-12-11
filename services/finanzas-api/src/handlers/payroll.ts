@@ -451,11 +451,16 @@ async function handleGetDashboard(_event: APIGatewayProxyEventV2) {
     const dashboard: MODProjectionByMonth[] = [];
     
     for (const [month, data] of Array.from(monthMap.entries()).sort()) {
+      // Calculate HR payroll target as 110% of plan MOD if plan exists
+      // This is a reasonable default until actual HR targets are available
+      const payrollTarget = data.plan > 0 ? data.plan * 1.1 : undefined;
+      
       dashboard.push({
         month,
         totalPlanMOD: data.plan,
         totalForecastMOD: data.forecast,
         totalActualMOD: data.actual,
+        payrollTarget,
         projectCount: data.projects.size,
       });
     }
