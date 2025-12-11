@@ -33,7 +33,7 @@ interface BaselineStatusPanelProps {
   className?: string;
 }
 
-type BaselineStatus = "pending" | "handed_off" | "accepted" | "rejected" | string;
+type BaselineStatus = "pending" | "handed_off" | "accepted" | "rejected";
 
 export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   const { currentProject, refreshProject } = useProject();
@@ -114,7 +114,7 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   }
 
   const status = (currentProject.baseline_status || "pending") as BaselineStatus;
-  const normalizedStatus = status.toLowerCase();
+  const normalizedStatus = status.toLowerCase() as BaselineStatus;
 
   const getStatusBadge = (status: BaselineStatus) => {
     const normalized = status.toLowerCase();
@@ -314,4 +314,4 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   );
 }
 
-export default BaselineStatusPanel;
+// Export only as named export for consistency and better tree-shaking

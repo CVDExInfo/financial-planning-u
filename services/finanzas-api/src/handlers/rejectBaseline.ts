@@ -142,6 +142,19 @@ async function rejectBaseline(event: APIGatewayProxyEventV2) {
   //   })
   // );
 
+  // Helper to normalize project fields (handles both English and Spanish field names)
+  const normalizeProjectFields = (attrs: any) => ({
+    id: attrs?.id || projectId,
+    name: attrs?.name || attrs?.nombre,
+    code: attrs?.code || attrs?.codigo,
+    client: attrs?.client || attrs?.cliente,
+    status: attrs?.status || attrs?.estado,
+    currency: attrs?.currency || attrs?.moneda,
+    mod_total: attrs?.mod_total || attrs?.presupuesto_total,
+    start_date: attrs?.start_date || attrs?.fecha_inicio,
+    end_date: attrs?.end_date || attrs?.fecha_fin,
+  });
+
   // Return normalized project response
   const result = {
     projectId,
@@ -150,16 +163,7 @@ async function rejectBaseline(event: APIGatewayProxyEventV2) {
     rejected_by: rejectedBy,
     baseline_rejected_at: now,
     rejection_comment: comment,
-    // Include other relevant project fields
-    id: updated.Attributes?.id || projectId,
-    name: updated.Attributes?.name || updated.Attributes?.nombre,
-    code: updated.Attributes?.code || updated.Attributes?.codigo,
-    client: updated.Attributes?.client || updated.Attributes?.cliente,
-    status: updated.Attributes?.status || updated.Attributes?.estado,
-    currency: updated.Attributes?.currency || updated.Attributes?.moneda,
-    mod_total: updated.Attributes?.mod_total || updated.Attributes?.presupuesto_total,
-    start_date: updated.Attributes?.start_date || updated.Attributes?.fecha_inicio,
-    end_date: updated.Attributes?.end_date || updated.Attributes?.fecha_fin,
+    ...normalizeProjectFields(updated.Attributes),
   };
 
   return ok(result);
