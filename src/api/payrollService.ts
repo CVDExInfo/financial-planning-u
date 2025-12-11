@@ -3,7 +3,7 @@
  * Service for fetching payroll dashboard data from the Finanzas API
  */
 
-import { API_BASE, HAS_API_BASE } from "@/config/env";
+import { HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import httpClient, { HttpError } from "@/lib/http-client";
 
