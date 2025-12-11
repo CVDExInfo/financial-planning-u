@@ -26,6 +26,7 @@ const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
 });
 
 interface LaborEstimate {
+  rubroId?: string;  // Canonical rubro ID from taxonomy (e.g., "MOD-ING", "MOD-LEAD")
   role?: string;
   country?: string;
   level?: string;
@@ -42,6 +43,7 @@ interface LaborEstimate {
 }
 
 interface NonLaborEstimate {
+  rubroId?: string;  // Canonical rubro ID from taxonomy (e.g., "GSV-REU", "SOI-AWS")
   category?: string;
   description?: string;
   amount?: number;
