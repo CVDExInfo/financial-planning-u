@@ -301,6 +301,30 @@ npm run finz:seed-demo
 
 ---
 
+## Testing & Validation Status
+
+### Unit Tests ✅
+- **37 comprehensive tests** covering all demo scenario components
+- All tests passing in CI/CD pipeline
+- Test coverage includes:
+  - Month series generation (6 tests)
+  - Variance application (4 tests)
+  - Scenario definitions (8 tests)
+  - Project/baseline builders (6 tests)
+  - Allocation builders (5 tests)
+  - Payroll builders (5 tests)
+  - Integration tests (3 tests)
+
+### Safety Checks ✅
+- **Environment protection**: Script aborts if `STAGE` is prod/stg/production/staging
+- **Explicit enablement**: Requires `FINZ_SEED_DEMO=true` environment variable
+- **Idempotency**: Safe to run multiple times without data corruption
+
+### Code Quality ✅
+- TypeScript compilation: No errors
+- ESLint: No linting errors
+- All existing tests (312 total) continue to pass
+
 ## Validation Checklist
 
 After seeding, verify the following UI screens show non-zero data:

@@ -15,7 +15,7 @@
  *   TABLE_PAYROLL (default: finz_payroll_actuals)
  */
 
-import { DynamoDBClient, PutItemCommand, GetItemCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, PutItemCommand, BatchWriteItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
 import { DEMO_SCENARIOS } from "./finzDemoScenarios";
 import {
@@ -70,60 +70,52 @@ function checkEnvironmentSafety() {
 // =============================================================================
 
 /**
- * Check if an item exists in DynamoDB
+ * Put item (idempotent - overwrites if exists)
  */
-async function itemExists(tableName: string, pk: string, sk: string): Promise<boolean> {
-  try {
-    const result = await ddb.send(
-      new GetItemCommand({
-        TableName: tableName,
-        Key: marshall({ pk, sk }),
-      })
-    );
-    return !!result.Item;
-  } catch (_error) {
-    return false;
-  }
-}
-
-/**
- * Put item (idempotent - updates if exists)
- */
-async function putItem(tableName: string, item: Record<string, any>): Promise<string> {
-  const exists = await itemExists(tableName, item.pk, item.sk);
-
+async function putItem(tableName: string, item: Record<string, any>): Promise<void> {
   await ddb.send(
     new PutItemCommand({
       TableName: tableName,
       Item: marshall(item, { removeUndefinedValues: true }),
     })
   );
-
-  return exists ? "updated" : "created";
 }
 
 /**
- * Batch write items with DynamoDB 25-item limit handling
+ * Batch write items using BatchWriteItem with DynamoDB 25-item limit handling
+ * This is significantly more efficient than individual PutItem calls
  */
 async function batchPutItems(tableName: string, items: Record<string, any>[]): Promise<void> {
   if (items.length === 0) return;
   
-  // Process in batches of 25 (DynamoDB limit)
+  // Process in batches of 25 (DynamoDB BatchWriteItem limit)
   const BATCH_SIZE = 25;
   let processedCount = 0;
   
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const batch = items.slice(i, i + BATCH_SIZE);
     
-    // For simplicity, use individual puts (could be optimized with BatchWriteItem)
-    for (const item of batch) {
-      await putItem(tableName, item);
-      processedCount++;
-      
-      // Progress indicator for large batches
-      if (processedCount % 50 === 0) {
-        console.log(`     ... ${processedCount}/${items.length} records`);
-      }
+    // Build BatchWriteItem request
+    const writeRequests = batch.map((item) => ({
+      PutRequest: {
+        Item: marshall(item, { removeUndefinedValues: true }),
+      },
+    }));
+    
+    // Send batch write
+    await ddb.send(
+      new BatchWriteItemCommand({
+        RequestItems: {
+          [tableName]: writeRequests,
+        },
+      })
+    );
+    
+    processedCount += batch.length;
+    
+    // Progress indicator for large batches
+    if (processedCount % 50 === 0 || processedCount === items.length) {
+      console.log(`     ... ${processedCount}/${items.length} records`);
     }
   }
 }
@@ -167,17 +159,17 @@ async function seedDemoScenarios() {
     const allocations = buildDemoAllocationItems(scenario);
     const payrolls = buildDemoPayrollActuals(scenario);
 
-    // Write projects and baselines (small count, can use individual puts)
+    // Write projects and baselines (small count, use individual puts for clarity)
     console.log(`   ├─ Writing project metadata...`);
     for (const item of projects) {
-      const status = await putItem(TABLE_PROJECTS, item);
-      console.log(`   │  ✓ Project ${status}`);
+      await putItem(TABLE_PROJECTS, item);
+      console.log(`   │  ✓ Project written`);
     }
 
     console.log(`   ├─ Writing baselines and handoff...`);
     for (const item of baselines) {
-      const status = await putItem(TABLE_PROJECTS, item);
-      console.log(`   │  ✓ ${item.sk} ${status}`);
+      await putItem(TABLE_PROJECTS, item);
+      console.log(`   │  ✓ ${item.sk} written`);
     }
 
     // Write allocations (large count, use batch)
