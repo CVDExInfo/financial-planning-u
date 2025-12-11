@@ -1007,63 +1007,8 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
 };
 
 /**
- * Get canonical rubro_id from any legacy format
- * 
- * @param legacyId - Any rubro ID (canonical or legacy)
- * @returns Canonical linea_codigo, or the input if already canonical
- */
-export function getCanonicalRubroId(legacyId: string): string {
-  // Check if it's a legacy ID that needs mapping
-  const mapped = LEGACY_RUBRO_ID_MAP[legacyId];
-  if (mapped) {
-    return mapped;
-  }
-  
-  // Check if it's already a canonical ID
-  const isCanonical = CANONICAL_RUBROS_TAXONOMY.some(r => r.id === legacyId);
-  if (isCanonical) {
-    return legacyId;
-  }
-  
-  // Unknown ID - log warning and return as-is
-  console.warn(`[rubros-taxonomy] Unknown rubro_id: ${legacyId} - not in canonical taxonomy or legacy map`);
-  return legacyId;
-}
-
-/**
- * Get taxonomy entry by canonical ID
- */
-export function getTaxonomyById(rubroId: string): CanonicalRubroTaxonomy | undefined {
-  const canonicalId = getCanonicalRubroId(rubroId);
-  return CANONICAL_RUBROS_TAXONOMY.find(r => r.id === canonicalId);
-}
-
-/**
- * Get all taxonomy entries by category
- */
-export function getTaxonomyByCategory(categoryCodigo: string): CanonicalRubroTaxonomy[] {
-  return CANONICAL_RUBROS_TAXONOMY.filter(r => r.categoria_codigo === categoryCodigo);
-}
-
-/**
- * Validate if a rubro_id is valid (canonical or has legacy mapping)
- */
-export function isValidRubroId(rubroId: string): boolean {
-  // Check canonical
-  if (CANONICAL_RUBROS_TAXONOMY.some(r => r.id === rubroId)) {
-    return true;
-  }
-  
-  // Check legacy mapping
-  if (LEGACY_RUBRO_ID_MAP[rubroId]) {
-    return true;
-  }
-  
-  return false;
-}
-
-/**
- * Index by canonical ID for fast lookups
+ * Index by canonical ID for fast lookups (O(1))
+ * Defined early so functions can use it
  */
 export const TAXONOMY_BY_ID = new Map(
   CANONICAL_RUBROS_TAXONOMY.map(r => [r.id, r])
@@ -1080,6 +1025,62 @@ export const TAXONOMY_BY_CATEGORY = new Map<string, CanonicalRubroTaxonomy[]>(
     return acc;
   }, new Map())
 );
+
+/**
+ * Get canonical rubro_id from any legacy format
+ * 
+ * @param legacyId - Any rubro ID (canonical or legacy)
+ * @returns Canonical linea_codigo, or the input if already canonical
+ */
+export function getCanonicalRubroId(legacyId: string): string {
+  // Check if it's a legacy ID that needs mapping
+  const mapped = LEGACY_RUBRO_ID_MAP[legacyId];
+  if (mapped) {
+    return mapped;
+  }
+  
+  // Check if it's already a canonical ID (O(1) lookup using Map)
+  if (TAXONOMY_BY_ID.has(legacyId)) {
+    return legacyId;
+  }
+  
+  // Unknown ID - log warning and return as-is
+  console.warn(`[rubros-taxonomy] Unknown rubro_id: ${legacyId} - not in canonical taxonomy or legacy map`);
+  return legacyId;
+}
+
+/**
+ * Get taxonomy entry by canonical ID (O(1) lookup)
+ */
+export function getTaxonomyById(rubroId: string): CanonicalRubroTaxonomy | undefined {
+  const canonicalId = getCanonicalRubroId(rubroId);
+  return TAXONOMY_BY_ID.get(canonicalId);
+}
+
+/**
+ * Get all taxonomy entries by category
+ */
+export function getTaxonomyByCategory(categoryCodigo: string): CanonicalRubroTaxonomy[] {
+  return CANONICAL_RUBROS_TAXONOMY.filter(r => r.categoria_codigo === categoryCodigo);
+}
+
+/**
+ * Validate if a rubro_id is valid (canonical or has legacy mapping)
+ * Uses O(1) Map lookup for optimal performance
+ */
+export function isValidRubroId(rubroId: string): boolean {
+  // Check canonical (O(1) lookup)
+  if (TAXONOMY_BY_ID.has(rubroId)) {
+    return true;
+  }
+  
+  // Check legacy mapping (O(1) object property lookup)
+  if (LEGACY_RUBRO_ID_MAP[rubroId]) {
+    return true;
+  }
+  
+  return false;
+}
 
 /**
  * Get all active rubros (for UI dropdowns, etc.)
