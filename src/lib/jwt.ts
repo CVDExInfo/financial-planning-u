@@ -248,19 +248,24 @@ export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
   const roles: Set<FinanzasRole> = new Set();
 
   // System/utility groups that should NOT grant application roles
-  const ignoredGroups = ["acta-ui", "cognito" /* built-in */];
+  const ignoredGroups = ["acta-ui", "ikusi-acta-ui", "cognito" /* built-in */];
 
   for (const group of cognitoGroups) {
     const normalized = group.trim().toLowerCase();
     if (!normalized) continue;
+
+    // Skip ignored system/utility groups
+    if (ignoredGroups.some(ignored => normalized.includes(ignored))) {
+      continue;
+    }
 
     const isPmGroup =
       normalized === "pm" ||
       normalized.startsWith("pm-") ||
       normalized.includes("project_manager");
 
-    // PM access: explicit PM groups
-    if (isPmGroup) {
+    // PM access: explicit PM groups only (not PMO-related groups)
+    if (isPmGroup && !normalized.includes("pmo")) {
       roles.add("PM");
     }
 
@@ -279,7 +284,7 @@ export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
       roles.add("SDMT");
     }
 
-    // VENDOR access: vendor-specific cohorts only
+    // VENDOR access: vendor-specific cohorts only (excluding ignored groups)
     if (
       normalized.includes("vendor") ||
       normalized.includes("proveedor") ||

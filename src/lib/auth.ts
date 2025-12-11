@@ -23,17 +23,15 @@ const IS_FINZ_BUILD =
 // Role permissions mapping
 const ROLE_PERMISSIONS = {
   PM: {
-    // Project Manager: limited view to baseline estimator and rubros read-only
+    // Project Manager: limited to PMO estimator only
     routes: [
       "/",
       "/profile",
       "/pmo/**",
       "/pmo/prefactura/**",
-      "/sdmt/cost/catalog",
-      "/catalog/rubros",
     ],
     actions: ["read"],
-    description: "Acceso limitado a estimador y catálogo de rubros",
+    description: "Acceso limitado solo al estimador PMO",
   },
   PMO: {
     // PMO users are isolated to the PMO workspace
@@ -47,11 +45,16 @@ const ROLE_PERMISSIONS = {
       "/",
       "/profile",
       "/sdmt/**",
+      "/projects",
       "/projects/**",
       "/catalog/**",
       "/rules",
+      "/adjustments",
       "/adjustments/**",
+      "/providers",
       "/providers/**",
+      "/cashflow",
+      "/scenarios",
     ],
     actions: ["create", "read", "update", "delete"],
     description: "Full access to SDMT cost management modules",
