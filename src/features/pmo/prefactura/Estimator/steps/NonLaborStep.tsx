@@ -54,6 +54,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
   >(data.length > 0 ? data : []);
 
   // Group rubros by category for organized display
+  // Use categoryName (full name) as primary, fall back to category (code), or use "Other"
   const rubrosByCategory = nonLaborRubros.reduce((acc, rubro) => {
     const category = rubro.categoryName || rubro.category || "Other";
     if (!acc[category]) {
@@ -444,6 +445,8 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                             currency: "USD",
                             one_time: rubro.executionType === "puntual/hito",
                             capex_flag: rubro.costType === "CAPEX",
+                            start_month: 1,
+                            end_month: 1,
                           };
                           setNonLaborEstimates([newItem]);
                         }}

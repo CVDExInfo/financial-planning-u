@@ -23,11 +23,17 @@ export interface UseRubrosCatalogResult {
 }
 
 /**
- * Hook to get all rubros from the canonical taxonomy
+ * Generic hook for fetching rubros with different fetch functions
+ * Reduces code duplication across specific rubro hooks
  * 
+ * @param fetchFn - Async function that fetches rubros
+ * @param errorMessage - Error message to use if fetch fails
  * @returns Object containing rubros array, loading state, and error state
  */
-export function useRubrosCatalog(): UseRubrosCatalogResult {
+function useRubrosGeneric(
+  fetchFn: () => Promise<RubroMeta[]>,
+  errorMessage: string
+): UseRubrosCatalogResult {
   const [rubros, setRubros] = useState<RubroMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -38,14 +44,14 @@ export function useRubrosCatalog(): UseRubrosCatalogResult {
     const loadRubros = async () => {
       try {
         setLoading(true);
-        const data = await fetchRubrosCatalog();
+        const data = await fetchFn();
         if (mounted) {
           setRubros(data);
           setError(null);
         }
       } catch (err) {
         if (mounted) {
-          setError(err instanceof Error ? err : new Error('Failed to load rubros'));
+          setError(err instanceof Error ? err : new Error(errorMessage));
         }
       } finally {
         if (mounted) {
@@ -59,9 +65,18 @@ export function useRubrosCatalog(): UseRubrosCatalogResult {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [fetchFn, errorMessage]);
 
   return { rubros, loading, error };
+}
+
+/**
+ * Hook to get all rubros from the canonical taxonomy
+ * 
+ * @returns Object containing rubros array, loading state, and error state
+ */
+export function useRubrosCatalog(): UseRubrosCatalogResult {
+  return useRubrosGeneric(fetchRubrosCatalog, 'Failed to load rubros');
 }
 
 /**
@@ -70,40 +85,7 @@ export function useRubrosCatalog(): UseRubrosCatalogResult {
  * @returns Object containing labor rubros array, loading state, and error state
  */
 export function useLaborRubros(): UseRubrosCatalogResult {
-  const [rubros, setRubros] = useState<RubroMeta[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadRubros = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchLaborRubros();
-        if (mounted) {
-          setRubros(data);
-          setError(null);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err : new Error('Failed to load labor rubros'));
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadRubros();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  return { rubros, loading, error };
+  return useRubrosGeneric(fetchLaborRubros, 'Failed to load labor rubros');
 }
 
 /**
@@ -112,38 +94,5 @@ export function useLaborRubros(): UseRubrosCatalogResult {
  * @returns Object containing non-labor rubros array, loading state, and error state
  */
 export function useNonLaborCatalog(): UseRubrosCatalogResult {
-  const [rubros, setRubros] = useState<RubroMeta[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadRubros = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchNonLaborRubros();
-        if (mounted) {
-          setRubros(data);
-          setError(null);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err : new Error('Failed to load non-labor rubros'));
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadRubros();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  return { rubros, loading, error };
+  return useRubrosGeneric(fetchNonLaborRubros, 'Failed to load non-labor rubros');
 }

@@ -63,6 +63,10 @@ type BaselineDealInputs = {
   sdm_manager_name?: string;
 };
 
+// Default rubro codes for fallback scenarios
+const DEFAULT_LABOR_RUBRO = "MOD-ING";
+const DEFAULT_NON_LABOR_RUBRO = "GSV-OTHER";
+
 type BaselineLaborEstimate = {
   rubroId?: string;  // Canonical rubro ID from taxonomy (e.g., "MOD-ING", "MOD-LEAD")
   role?: string;
@@ -394,10 +398,10 @@ const buildSeedLineItems = (
     const months = endMonth - startMonth + 1;
     const totalCost = monthlyCost * months;
 
-    // Use canonical rubroId from taxonomy if provided, otherwise fall back to synthetic ID
+    // Use canonical rubroId from taxonomy if provided, otherwise fall back to default
     // IMPORTANT: The frontend now sends rubroId (e.g., "MOD-ING", "MOD-LEAD") from the
     // canonical rubros taxonomy. This ensures proper data lineage into SDMT.
-    const canonicalRubroId = estimate.rubroId || "MOD-ING"; // Default to MOD-ING if not provided
+    const canonicalRubroId = estimate.rubroId || DEFAULT_LABOR_RUBRO;
     
     // Create unique rubro SK by combining canonical ID with baseline and index
     // Format: RUBRO#MOD-ING#base_xxx#1
@@ -438,10 +442,10 @@ const buildSeedLineItems = (
     const months = recurring ? endMonth - startMonth + 1 : 1;
     const totalCost = recurring ? amount * months : amount;
 
-    // Use canonical rubroId from taxonomy if provided, otherwise fall back to category-based ID
+    // Use canonical rubroId from taxonomy if provided, otherwise fall back to default
     // IMPORTANT: The frontend now sends rubroId (e.g., "GSV-REU", "SOI-AWS") from the
     // canonical rubros taxonomy. This ensures proper data lineage into SDMT.
-    const canonicalRubroId = estimate.rubroId || "GSV-OTHER"; // Default if not provided
+    const canonicalRubroId = estimate.rubroId || DEFAULT_NON_LABOR_RUBRO;
     
     // Create unique rubro SK by combining canonical ID with baseline and index
     // Format: RUBRO#GSV-REU#base_xxx#1

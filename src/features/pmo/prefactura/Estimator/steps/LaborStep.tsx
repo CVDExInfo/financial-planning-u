@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, Calculator } from "lucide-react";
 import type { LaborEstimate } from "@/types/domain";
 import { useModRoles } from "@/hooks/useModRoles";
-import { mapModRoleToRubroId } from "@/api/helpers/rubros";
+import { mapModRoleToRubroId, type MODRole } from "@/api/helpers/rubros";
 
 // Labor rate presets by country and role
 const LABOR_PRESETS = {
@@ -106,7 +106,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
 
     // When role changes, update rubroId to canonical linea_codigo
     if (field === "role" && typeof value === "string") {
-      const rubroId = mapModRoleToRubroId(value as any);
+      const rubroId = mapModRoleToRubroId(value as MODRole);
       if (rubroId) {
         updated[index].rubroId = rubroId;
       }

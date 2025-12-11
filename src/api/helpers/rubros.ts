@@ -9,6 +9,9 @@
 import { CATALOGO_RUBROS, MOD_ROLE_MAPPING, MOD_ROLES, type RubroTaxonomia } from '@/modules/rubros.taxonomia';
 import type { MODRole } from '@/modules/modRoles';
 
+// Re-export MODRole type for convenience
+export type { MODRole };
+
 /**
  * Extended metadata for a rubro that includes both catalog and taxonomy info
  */
@@ -95,6 +98,12 @@ export async function fetchNonLaborRubros(): Promise<RubroMeta[]> {
  * @param role - MOD role name (e.g., "Ingeniero Delivery")
  * @returns Canonical linea_codigo (e.g., "MOD-LEAD") or undefined if not found
  */
+/**
+ * Default rubro codes for fallback scenarios
+ */
+export const DEFAULT_LABOR_RUBRO = "MOD-ING";
+export const DEFAULT_NON_LABOR_RUBRO = "GSV-OTHER";
+
 export function mapModRoleToRubroId(role: MODRole): string | undefined {
   return MOD_ROLE_TO_LINEA_CODIGO[role];
 }

@@ -309,8 +309,8 @@ export type LaborEstimate = {
 };
 
 export type NonLaborEstimate = {
-  /** Canonical rubro ID from taxonomy (e.g., "GSV-REU", "SOI-AWS") */
-  rubroId?: string;
+  /** Canonical rubro ID from taxonomy (e.g., "GSV-REU", "SOI-AWS") - Required for proper lineage */
+  rubroId: string;
   /** Category for grouping (for backward compatibility) */
   category: string;
   description: string;
