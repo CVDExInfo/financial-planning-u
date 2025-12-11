@@ -727,6 +727,41 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
+  RejectBaselineFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/rejectBaseline.ts
+        External:
+          - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node18
+      SamResourceId: RejectBaselineFn
+    Properties:
+      CodeUri: .
+      Handler: rejectBaseline.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName:
+              Ref: ProjectsTable
+        - DynamoDBCrudPolicy:
+            TableName:
+              Ref: AuditTable
+      Events:
+        RejectBaseline:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/reject-baseline
+            Method: PATCH
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+
   UploadDocumentFunction:
     Type: AWS::Serverless::Function
     Metadata:

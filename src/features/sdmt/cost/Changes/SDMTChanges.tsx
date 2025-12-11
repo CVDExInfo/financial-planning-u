@@ -65,6 +65,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { FinanzasApiError } from "@/api/finanzas";
+import { BaselineStatusPanel } from "@/components/baseline/BaselineStatusPanel";
 
 const defaultForm = {
   title: "",
@@ -496,6 +497,9 @@ export function SDMTChanges() {
         </div>
         <ModuleBadge />
       </div>
+
+      {/* Baseline Status Panel */}
+      <BaselineStatusPanel />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>

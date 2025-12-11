@@ -80,16 +80,40 @@ export default function ProjectDetailsPanel({
             {project.baseline_status || "—"}
           </p>
         </div>
-        <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">Aceptado por</p>
-          <p className="font-medium">{project.accepted_by || "—"}</p>
-        </div>
-        <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">Aceptado el</p>
-          <p className="font-medium">
-            {formatDate(project.baseline_accepted_at)}
-          </p>
-        </div>
+        {project.accepted_by && (
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">Aceptado por</p>
+            <p className="font-medium">{project.accepted_by}</p>
+          </div>
+        )}
+        {project.baseline_accepted_at && (
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">Aceptado el</p>
+            <p className="font-medium">
+              {formatDate(project.baseline_accepted_at)}
+            </p>
+          </div>
+        )}
+        {project.rejected_by && (
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">Rechazado por</p>
+            <p className="font-medium">{project.rejected_by}</p>
+          </div>
+        )}
+        {project.baseline_rejected_at && (
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">Rechazado el</p>
+            <p className="font-medium">
+              {formatDate(project.baseline_rejected_at)}
+            </p>
+          </div>
+        )}
+        {project.rejection_comment && (
+          <div className="space-y-1 md:col-span-2">
+            <p className="text-sm text-muted-foreground">Motivo de rechazo</p>
+            <p className="font-medium text-sm">{project.rejection_comment}</p>
+          </div>
+        )}
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">Última actualización</p>
           <p className="font-medium">

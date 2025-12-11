@@ -9,8 +9,8 @@ import {
 } from "../lib/dynamo";
 import { bad, fromAuthError, notFound, ok, serverError } from "../lib/http";
 
-// Route: PATCH /projects/{projectId}/accept-baseline
-async function acceptBaseline(event: APIGatewayProxyEventV2) {
+// Route: PATCH /projects/{projectId}/reject-baseline
+async function rejectBaseline(event: APIGatewayProxyEventV2) {
   await ensureCanWrite(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
@@ -30,7 +30,8 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
   }
 
   const userEmail = await getUserEmail(event);
-  const acceptedBy = (body.accepted_by || userEmail) as string;
+  const rejectedBy = (body.rejected_by || userEmail) as string;
+  const comment = (body.comment || "") as string;
   const now = new Date().toISOString();
 
   // Fetch the current project metadata to ensure it exists and has the baseline
@@ -57,7 +58,7 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     );
   }
 
-  // Update project metadata with acceptance information
+  // Update project metadata with rejection information
   const updated = await ddb.send(
     new UpdateCommand({
       TableName: tableName("projects"),
@@ -66,41 +67,45 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
         sk: "METADATA",
       },
       UpdateExpression:
-        "SET #baseline_status = :baseline_status, #accepted_by = :accepted_by, #baseline_accepted_at = :baseline_accepted_at, #updated_at = :updated_at",
+        "SET #baseline_status = :baseline_status, #rejected_by = :rejected_by, #baseline_rejected_at = :baseline_rejected_at, #rejection_comment = :rejection_comment, #updated_at = :updated_at",
       ExpressionAttributeNames: {
         "#baseline_status": "baseline_status",
-        "#accepted_by": "accepted_by",
-        "#baseline_accepted_at": "baseline_accepted_at",
+        "#rejected_by": "rejected_by",
+        "#baseline_rejected_at": "baseline_rejected_at",
+        "#rejection_comment": "rejection_comment",
         "#updated_at": "updated_at",
       },
       ExpressionAttributeValues: {
-        ":baseline_status": "accepted",
-        ":accepted_by": acceptedBy,
-        ":baseline_accepted_at": now,
+        ":baseline_status": "rejected",
+        ":rejected_by": rejectedBy,
+        ":baseline_rejected_at": now,
+        ":rejection_comment": comment,
         ":updated_at": now,
       },
       ReturnValues: "ALL_NEW",
     })
   );
 
-  // Write audit log for baseline acceptance
+  // Write audit log for baseline rejection
   const audit = {
     pk: `ENTITY#PROJECT#${projectId}`,
     sk: `TS#${now}`,
-    action: "BASELINE_ACCEPTED",
+    action: "BASELINE_REJECTED",
     resource_type: "project",
     resource_id: projectId,
     user: userEmail,
     timestamp: now,
     before: {
       baseline_status: projectResult.Item.baseline_status,
-      accepted_by: projectResult.Item.accepted_by,
-      baseline_accepted_at: projectResult.Item.baseline_accepted_at,
+      rejected_by: projectResult.Item.rejected_by,
+      baseline_rejected_at: projectResult.Item.baseline_rejected_at,
+      rejection_comment: projectResult.Item.rejection_comment,
     },
     after: {
-      baseline_status: "accepted",
-      accepted_by: acceptedBy,
-      baseline_accepted_at: now,
+      baseline_status: "rejected",
+      rejected_by: rejectedBy,
+      baseline_rejected_at: now,
+      rejection_comment: comment,
     },
     source: "API",
     ip_address: event.requestContext.http.sourceIp || "unknown",
@@ -113,6 +118,29 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
       Item: audit,
     })
   );
+
+  // TODO: PM Notification Extension Point
+  // When a baseline is rejected, notify the PM via:
+  // 1. Email lambda (if configured)
+  // 2. Notifications table entry (for in-app notifications)
+  // 
+  // Example notification entry:
+  // await ddb.send(
+  //   new PutCommand({
+  //     TableName: tableName("project_notifications"),
+  //     Item: {
+  //       pk: `PROJECT#${projectId}`,
+  //       sk: `NOTIFICATION#${now}`,
+  //       type: "baseline_rejected",
+  //       recipient: projectResult.Item.pm_email,
+  //       message: `SDMT has rejected the baseline for project ${projectResult.Item.name}`,
+  //       comment: comment,
+  //       rejected_by: rejectedBy,
+  //       timestamp: now,
+  //       read: false,
+  //     },
+  //   })
+  // );
 
   // Helper to normalize project fields (handles both English and Spanish field names)
   const normalizeProjectFields = (attrs: any) => ({
@@ -131,9 +159,10 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
   const result = {
     projectId,
     baselineId,
-    baseline_status: "accepted",
-    accepted_by: acceptedBy,
-    baseline_accepted_at: now,
+    baseline_status: "rejected",
+    rejected_by: rejectedBy,
+    baseline_rejected_at: now,
+    rejection_comment: comment,
     ...normalizeProjectFields(updated.Attributes),
   };
 
@@ -147,7 +176,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
     // Route based on method and path
     if (method === "PATCH" && path.includes("/projects/")) {
-      return await acceptBaseline(event);
+      return await rejectBaseline(event);
     } else {
       return {
         statusCode: 405,
@@ -160,7 +189,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const authError = fromAuthError(err);
     if (authError) return authError;
 
-    console.error("Accept baseline handler error:", err);
+    console.error("Reject baseline handler error:", err);
     return serverError();
   }
 };
