@@ -24,18 +24,6 @@ import { Plus, Trash2, Server, CreditCard } from "lucide-react";
 import type { NonLaborEstimate, Currency } from "@/types/domain";
 import { useNonLaborCatalog } from "@/hooks/useRubrosCatalog";
 
-// Legacy categories - kept for backward compatibility but now populated from rubros catalog
-const LEGACY_CATEGORIES = [
-  "Support",
-  "Infrastructure Services",
-  "Premium Services",
-  "Standard Services",
-  "Basic Services",
-  "Operation Services",
-  "Admin Services",
-  "Training Services",
-];
-
 interface NonLaborStepProps {
   data: NonLaborEstimate[];
   setData: (data: NonLaborEstimate[]) => void;
