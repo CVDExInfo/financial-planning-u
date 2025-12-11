@@ -148,7 +148,7 @@ async function verifyJwt(event: ApiGwEvent): Promise<VerifiedClaims> {
  * Users that resolve to any role above can read; PMO or SDMT roles can write.
  */
 
-const ROLE_PRIORITY = ["ADMIN", "PMO", "SDMT", "SDM", "VENDOR", "EXC_RO"] as const;
+const ROLE_PRIORITY = ["ADMIN", "PMO", "SDMT", "SDM", "VENDOR", "EXEC_RO"] as const;
 
 type FinanzasRole = (typeof ROLE_PRIORITY)[number];
 
