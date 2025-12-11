@@ -62,6 +62,7 @@ export default function ProjectsManager() {
     null,
   );
   const [payrollDashboard, setPayrollDashboard] = React.useState<MODProjectionByMonth[]>([]);
+  const [payrollLoading, setPayrollLoading] = React.useState(false);
   const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
 
@@ -194,7 +195,8 @@ export default function ProjectsManager() {
     return data.length > 0 ? data : [{ name: "Sin datos", value: 1 }];
   }, [projectsForView, payrollDashboard]);
 
-  // Chart data: use payroll actuals when viewing a single project, otherwise use budget
+  // Chart data: use payroll actuals when viewing a single project, otherwise show empty
+  // The chart is resilient and will render without data instead of crashing.
   const modChartData = React.useMemo(() => {
     // If we have payroll data for the selected project, use it
     if (
@@ -204,15 +206,15 @@ export default function ProjectsManager() {
     ) {
       return payrollDashboard.map((entry) => ({
         month: entry.month,
-        "MOD Actual": entry.totalActualMOD,
-        "MOD Forecast": entry.totalForecastMOD,
-        "MOD Plan": entry.totalPlanMOD,
+        "Meta objetivo": entry.payrollTarget ?? 0,
+        "MOD proyectada": entry.totalForecastMOD ?? entry.totalPlanMOD ?? 0,
+        "MOD real": entry.totalActualMOD ?? 0,
       }));
     }
 
-    // Otherwise, use the budget data from project start dates
-    return budgetByStartMonth;
-  }, [viewMode, selectedProject, payrollDashboard, budgetByStartMonth]);
+    // Safe fallback: no payroll data → empty array, chart renders without error
+    return [];
+  }, [viewMode, selectedProject, payrollDashboard]);
 
   const formatCurrency = React.useCallback(
     (value: number, currencyCode: string = "USD") =>
