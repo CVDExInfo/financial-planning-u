@@ -58,17 +58,18 @@ Finanzas SD uses three main layers for roles and permissions:
 
 ## 2. Finanzas Roles – Definitions
 
-Finanzas SD works with four logical roles:
+Finanzas SD works with five logical roles:
 
 | Finanzas Role | Description                                                                                         |
 |--------------|-----------------------------------------------------------------------------------------------------|
-| `SDMT`       | Service Delivery / Finanzas team. Full cost management: projects, catalog, rules, forecast, etc.   |
+| `PM`         | Project Managers. **Strictly limited** to PMO estimator only (`/pmo/prefactura/estimator`). Cannot access any SDMT routes, catalogs, or cost management screens. |
 | `PMO`        | PMO users. Focused on estimators and baseline hand-off; limited editing in Finanzas SD.             |
+| `SDMT`       | Service Delivery / Finanzas team. Full cost management: projects, catalog, rules, forecast, etc.   |
 | `VENDOR`     | External vendors / partners. Restricted to catalog + reconciliation (invoice uploads).             |
 | `EXEC_RO`    | Executives / leadership. Read-only visibility across Finanzas SD modules for oversight/reporting.  |
 
 > ℹ️  A user can have **multiple roles** inferred from multiple groups.  
-> The effective role used by the UI is determined by `resolveFinanzasRole`, according to the priority: **SDMT → PMO → EXEC_RO → VENDOR**.
+> The effective role used by the UI is determined by `resolveFinanzasRole`, according to the priority: **SDMT → PMO → EXEC_RO → VENDOR → PM**.
 
 ---
 
@@ -85,14 +86,19 @@ At a high level:
 
 For each group `g` (lowercased):
 
+- **PM** (Project Manager - Limited Access)
+  - If `g === "pm"` or `g.startsWith("pm-")`, and
+  - Does NOT contain `"pmo"` (PMO groups are separate)
+  - **UI Access**: Limited to PMO estimator only (`/pmo/prefactura/estimator`)
+  - **No SDMT routes**: Cannot access `/sdmt/**`, `/catalog/**`, `/projects/**`
 - **PMO**
   - If `g === "admin"`, or
-  - `g` contains `"pm"` or `"pmo"`.
+  - `g` contains `"pmo"`.
 - **SDMT**
   - If `g` contains `"sdt"`, `"sdmt"`, `"fin"`, or `"aud"`.
-  - **Backend note:** the new `PM` group is treated as a write-capable Finanzas SD persona for API access checks (see Section 4.3).
 - **VENDOR**
-  - If `g` contains `"vendor"` or `"acta-ui"`.
+  - If `g` contains `"vendor"`, `"proveedor"`, or `"partner"`.
+  - **Note**: `"ikusi-acta-ui"` and `"acta-ui"` are explicitly ignored and do NOT grant VENDOR role.
 - **EXEC_RO**
   - If `g === "admin"`, or
   - `g` contains `"exec"`, `"director"`, or `"manager"`.
@@ -109,20 +115,23 @@ If **no roles** match any groups, the default is:
 | `FIN`              | `SDMT`                                | Finanzas SD team (full cost management)        |
 | `AUD`              | `SDMT`                                | Audit/control, but treated as SDMT in Finanzas |
 | `SDT`              | `SDMT`                                | Service Delivery team                          |
-| `ikusi-acta-ui`    | _Legacy_ (ignored for Finanzas SD RBAC)| Previously Acta UI portal; excluded from backend authorization |
+| `PM`               | `PM`                                  | Project Manager (limited to estimator only)    |
+| `ikusi-acta-ui`    | `EXEC_RO` (default)                   | **Ignored**: Legacy group; defaults to read-only. Does NOT grant VENDOR role. |
+| `acta-ui`          | `EXEC_RO` (default)                   | **Ignored**: System/utility group; defaults to read-only |
 | _no matching group_| `EXEC_RO`                             | Default read-only                              |
 
 When a user belongs to multiple Cognito groups, all corresponding Finanzas roles are collected. The **effective role** (used in `usePermissions`) is the highest-priority role in this list:
 
 ```ts
-ROLE_PRIORITY = ["SDMT", "PMO", "EXEC_RO", "VENDOR"];
+ROLE_PRIORITY = ["SDMT", "PMO", "EXEC_RO", "VENDOR", "PM"];
 ```
 
 Example:
 
-* Groups: `["FIN", "ikusi-acta-ui"]` → roles `{SDMT, VENDOR}` → effective role = `SDMT`.
-* Groups: `["ikusi-acta-ui"]` → roles `{VENDOR}` → effective role = `VENDOR`.
+* Groups: `["FIN", "ikusi-acta-ui"]` → roles `{SDMT}` → effective role = `SDMT` (ikusi-acta-ui is ignored).
+* Groups: `["ikusi-acta-ui"]` → roles `{EXEC_RO}` → effective role = `EXEC_RO` (default for ignored groups).
 * Groups: `["admin", "FIN"]` → roles `{PMO, EXEC_RO, SDMT}` → effective role = `SDMT`.
+* Groups: `["pm"]` → roles `{PM}` → effective role = `PM` (limited to estimator only).
 
 ---
 
@@ -132,16 +141,16 @@ The table below describes **high-level capabilities per role**. Concrete UI deci
 
 ### 4.1. Capabilities
 
-| Capability             |                 PMO                 | SDMT |               VENDOR               | EXEC_RO |
-| ---------------------- | :---------------------------------: | :--: | :--------------------------------: | :-----: |
-| View Finanzas SD shell |                  ✅                  |   ✅  |                  ✅                 |    ✅    |
-| Manage cost data       |                  ⛔                  |   ✅  |                  ⛔                 |    ⛔    |
-| Create baseline        | ✅ (via PMO estimator/hand-off only) |   ✅  |                  ⛔                 |    ⛔    |
-| Upload invoices        |                  ⛔                  |   ✅  |                  ✅                 |    ⛔    |
-| Edit rules / catalog   |                  ⛔                  |   ✅  |                  ⛔                 |    ⛔    |
-| Edit projects          |                  ⛔                  |   ✅  |                  ⛔                 |    ⛔    |
-| Read all modules       |                  ✅                  |   ✅  | Partial (catalog & reconciliation) |    ✅    |
-| Approve / delete       |                  ⛔                  |   ✅  |                  ⛔                 |    ⛔    |
+| Capability             |   PM   |                 PMO                 | SDMT |               VENDOR               | EXEC_RO |
+| ---------------------- | :----: | :---------------------------------: | :--: | :--------------------------------: | :-----: |
+| View Finanzas SD shell |   ⛔   |                  ✅                  |   ✅  |                  ✅                 |    ✅    |
+| Manage cost data       |   ⛔   |                  ⛔                  |   ✅  |                  ⛔                 |    ⛔    |
+| Create baseline        | ✅ (estimator only) | ✅ (via PMO estimator/hand-off only) |   ✅  |                  ⛔                 |    ⛔    |
+| Upload invoices        |   ⛔   |                  ⛔                  |   ✅  |                  ✅                 |    ⛔    |
+| Edit rules / catalog   |   ⛔   |                  ⛔                  |   ✅  |                  ⛔                 |    ⛔    |
+| Edit projects          |   ⛔   |                  ⛔                  |   ✅  |                  ⛔                 |    ⛔    |
+| Read all modules       | ⛔ (estimator only) |                  ✅                  |   ✅  | Partial (catalog & reconciliation) |    ✅    |
+| Approve / delete       |   ⛔   |                  ⛔                  |   ✅  |                  ⛔                 |    ⛔    |
 
 > **Implementation note**:
 >
@@ -155,19 +164,20 @@ The table below describes **high-level capabilities per role**. Concrete UI deci
 
 This table focuses on the main Finanzas SD modules. "RO" = read-only, "RW" = read/write, "N/A" = no access.
 
-| Module / Screen              | PMO | SDMT | VENDOR | EXEC_RO | Notes                                     |
-| ---------------------------- | :-: | :--: | :----: | :-----: | ----------------------------------------- |
-| Finanzas SD Landing / Shell  |  RO |  RW  |   RO   |    RO   | All roles can see entry-point cards       |
-| Proyectos                    |  RO |  RW  |   N/A  |    RO   | PMO sees baseline info; SDMT edits        |
-| Catálogo de Costos           |  RO |  RW  |   RO   |    RO   | VENDOR can reference lines, not edit      |
-| Catálogo de Rubros           |  RO |  RW  |   RO   |    RO   | Same as above                             |
-| Reglas de Asignación         |  RO |  RW  |   N/A  |    RO   | Adjusted via SDMT only                    |
-| Ajustes                      | N/A |  RW  |   N/A  |    RO   | Advanced SDMT only view                   |
-| Reconciliation (Prefacturas) |  RO |  RW  |   RW   |    RO   | Vendors + SDMT can upload; others see RO  |
-| Forecast                     |  RO |  RW  |   N/A  |    RO   | SDMT only for input, PMO/Exec RO for view |
-| Flujo de Caja (Premium)      |  RO |  RW  |   N/A  |    RO   | Premium; non-SDMT roles see charts as RO  |
-| Escenarios (Premium)         |  RO |  RW  |   N/A  |    RO   | Premium; non-SDMT roles see scenarios RO  |
-| Proveedores                  | N/A |  RW  |   N/A  |    RO   | SDMT maintain list; execs read only       |
+| Module / Screen              |  PM | PMO | SDMT | VENDOR | EXEC_RO | Notes                                     |
+| ---------------------------- | :-: | :-: | :--: | :----: | :-----: | ----------------------------------------- |
+| PMO Estimator                |  RW |  RW |  N/A |   N/A  |    RO   | PM can only access estimator              |
+| Finanzas SD Landing / Shell  | N/A |  RO |  RW  |   RO   |    RO   | PM blocked; others see entry-point cards  |
+| Proyectos                    | N/A |  RO |  RW  |   N/A  |    RO   | PM blocked; PMO sees baseline; SDMT edits |
+| Catálogo de Costos           | N/A |  RO |  RW  |   RO   |    RO   | PM blocked; VENDOR can reference only     |
+| Catálogo de Rubros           | N/A |  RO |  RW  |   RO   |    RO   | PM blocked; VENDOR can reference only     |
+| Reglas de Asignación         | N/A |  RO |  RW  |   N/A  |    RO   | PM blocked; adjusted via SDMT only        |
+| Ajustes                      | N/A | N/A |  RW  |   N/A  |    RO   | PM blocked; advanced SDMT only view       |
+| Reconciliation (Prefacturas) | N/A |  RO |  RW  |   RW   |    RO   | PM blocked; Vendors + SDMT upload         |
+| Forecast                     | N/A |  RO |  RW  |   N/A  |    RO   | PM blocked; SDMT input, PMO/Exec RO view  |
+| Flujo de Caja (Premium)      | N/A |  RO |  RW  |   N/A  |    RO   | PM blocked; Premium feature               |
+| Escenarios (Premium)         | N/A |  RO |  RW  |   N/A  |    RO   | PM blocked; Premium feature               |
+| Proveedores                  | N/A | N/A |  RW  |   N/A  |    RO   | PM blocked; SDMT maintains list           |
 
 Actual behaviour is enforced by:
 
