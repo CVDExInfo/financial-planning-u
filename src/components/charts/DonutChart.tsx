@@ -12,6 +12,8 @@ interface DonutChartProps {
   innerRadius?: number;
   outerRadius?: number;
   className?: string;
+  emptyStateMessage?: string;
+  emptyStateDetail?: string;
 }
 
 const COLORS = [
@@ -29,7 +31,9 @@ export function DonutChart({
   subtitle,
   innerRadius = 60, 
   outerRadius = 100,
-  className = ""
+  className = "",
+  emptyStateMessage = "No hay datos disponibles",
+  emptyStateDetail
 }: DonutChartProps) {
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -88,12 +92,13 @@ export function DonutChart({
         )}
         <CardContent className="flex items-center justify-center h-[300px]">
           <div className="text-center space-y-2">
-            <p className="text-muted-foreground">No hay datos disponibles</p>
-            <p className="text-xs text-muted-foreground">
-              {data.length > 0 && meaningfulData.length === 0 
-                ? "Todos los valores son cero"
-                : "Agrega proyectos con presupuesto para ver la distribución"}
-            </p>
+            <p className="text-muted-foreground">{emptyStateMessage}</p>
+            {emptyStateDetail && (
+              <p className="text-xs text-muted-foreground">{emptyStateDetail}</p>
+            )}
+            {!emptyStateDetail && data.length > 0 && meaningfulData.length === 0 && (
+              <p className="text-xs text-muted-foreground">Todos los valores son cero</p>
+            )}
           </div>
         </CardContent>
       </Card>

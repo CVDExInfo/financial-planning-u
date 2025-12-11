@@ -567,6 +567,8 @@ export default function ProjectsManager() {
           subtitle={payrollDashboard.length > 0 
             ? "Comparación entre meta de recursos humanos y MOD del portafolio"
             : "Top 5 proyectos por monto total de MOD"}
+          emptyStateMessage="No hay datos disponibles"
+          emptyStateDetail="Agrega proyectos con presupuesto para ver la distribución"
           className="h-full"
         />
         <LineChartComponent
