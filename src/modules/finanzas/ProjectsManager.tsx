@@ -61,7 +61,8 @@ export default function ProjectsManager() {
   const [lastCreatedCode, setLastCreatedCode] = React.useState<string | null>(
     null,
   );
-  const [payrollDashboard, setPayrollDashboard] = React.useState<MODProjectionByMonth[]>([]);
+  const [payrollDashboard, setPayrollDashboard] =
+    React.useState<MODProjectionByMonth[]>([]);
   const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
 
@@ -97,7 +98,10 @@ export default function ProjectsManager() {
 
   const sortedProjects = React.useMemo(() => {
     const direction = sortDirection === "asc" ? 1 : -1;
-    const sorters: Record<typeof sortKey, (a: ProjectForUI, b: ProjectForUI) => number> = {
+    const sorters: Record<
+      typeof sortKey,
+      (a: ProjectForUI, b: ProjectForUI) => number
+    > = {
       code: (a, b) => a.code.localeCompare(b.code),
       start_date: (a, b) => {
         const aDate = a.start_date ? new Date(a.start_date).getTime() : 0;
@@ -107,7 +111,9 @@ export default function ProjectsManager() {
       status: (a, b) => (a.status || "").localeCompare(b.status || ""),
     };
 
-    return [...filteredProjects].sort((a, b) => sorters[sortKey](a, b) * direction);
+    return [...filteredProjects].sort(
+      (a, b) => sorters[sortKey](a, b) * direction,
+    );
   }, [filteredProjects, sortDirection, sortKey]);
 
   const totalPages = Math.max(1, Math.ceil(sortedProjects.length / pageSize));
@@ -121,7 +127,8 @@ export default function ProjectsManager() {
   }, [searchTerm, sortKey, sortDirection, statusFilter]);
 
   const selectedProject = React.useMemo(
-    () => sortedProjects.find((project) => project.id === selectedProjectId) || null,
+    () =>
+      sortedProjects.find((project) => project.id === selectedProjectId) || null,
     [sortedProjects, selectedProjectId],
   );
 
@@ -153,6 +160,7 @@ export default function ProjectsManager() {
       ),
     [projects],
   );
+
   const isRefreshingList = loading || refreshing;
 
   const coverageChartData = React.useMemo(() => {
@@ -165,14 +173,20 @@ export default function ProjectsManager() {
         const status = project.status || "Desconocido";
         counts[status] = (counts[status] ?? 0) + 1;
       });
-      return Object.entries(counts).map(([label, value]) => ({ name: label, value }));
+      return Object.entries(counts).map(([label, value]) => ({
+        name: label,
+        value,
+      }));
     }
 
     // Calculate coverage: compare total MOD projected against total target
-    const totalTarget = payrollDashboard.reduce((sum, item) => sum + (item.payrollTarget || 0), 0);
+    const totalTarget = payrollDashboard.reduce(
+      (sum, item) => sum + (item.payrollTarget || 0),
+      0,
+    );
     const totalProjected = payrollDashboard.reduce(
       (sum, item) => sum + (item.totalForecastMOD || item.totalPlanMOD || 0),
-      0
+      0,
     );
 
     if (totalTarget === 0) {
@@ -194,9 +208,9 @@ export default function ProjectsManager() {
     return data.length > 0 ? data : [{ name: "Sin datos", value: 1 }];
   }, [projectsForView, payrollDashboard]);
 
-  // Chart data: use payroll actuals when viewing a single project, otherwise use budget
+  // Chart data: use payroll actuals when viewing a single project, otherwise show empty.
+  // The chart is resilient and will render without data instead of crashing.
   const modChartData = React.useMemo(() => {
-    // If we have payroll data for the selected project, use it
     if (
       viewMode === "project" &&
       selectedProject &&
@@ -204,15 +218,16 @@ export default function ProjectsManager() {
     ) {
       return payrollDashboard.map((entry) => ({
         month: entry.month,
-        "MOD Actual": entry.totalActualMOD,
-        "MOD Forecast": entry.totalForecastMOD,
-        "MOD Plan": entry.totalPlanMOD,
+        "Meta objetivo": entry.payrollTarget ?? 0,
+        "MOD proyectada":
+          entry.totalForecastMOD ?? entry.totalPlanMOD ?? 0,
+        "MOD real": entry.totalActualMOD ?? 0,
       }));
     }
 
-    // Otherwise, use the budget data from project start dates
-    return budgetByStartMonth;
-  }, [viewMode, selectedProject, payrollDashboard, budgetByStartMonth]);
+    // Safe fallback: no payroll data → empty array, chart renders without error
+    return [];
+  }, [viewMode, selectedProject, payrollDashboard]);
 
   const formatCurrency = React.useCallback(
     (value: number, currencyCode: string = "USD") =>
@@ -231,11 +246,16 @@ export default function ProjectsManager() {
       const startDateObj = new Date(start);
       const endDateObj = new Date(end);
 
-      if (Number.isNaN(startDateObj.getTime()) || Number.isNaN(endDateObj.getTime())) {
+      if (
+        Number.isNaN(startDateObj.getTime()) ||
+        Number.isNaN(endDateObj.getTime())
+      ) {
         return null;
       }
 
-      const diffInMs = Math.abs(endDateObj.getTime() - startDateObj.getTime());
+      const diffInMs = Math.abs(
+        endDateObj.getTime() - startDateObj.getTime(),
+      );
       const approxMonths = diffInMs / (1000 * 60 * 60 * 24 * 30);
 
       return Math.max(0, Math.round(approxMonths));
@@ -252,7 +272,8 @@ export default function ProjectsManager() {
 
   const renderStatusBadge = React.useCallback((status?: string) => {
     const normalized = (status || "desconocido").toLowerCase();
-    let variant: "default" | "secondary" | "outline" | "destructive" = "outline";
+    let variant: "default" | "secondary" | "outline" | "destructive" =
+      "outline";
 
     if (normalized.includes("activo") || normalized === "active") {
       variant = "default";
@@ -277,14 +298,12 @@ export default function ProjectsManager() {
 
   const loadPayrollDashboard = React.useCallback(async () => {
     try {
-      setPayrollLoading(true);
       const data = await getPayrollDashboard();
-      setPayrollDashboard(data);
+      setPayrollDashboard(data ?? []);
     } catch (err) {
       console.error("Error loading payroll dashboard:", err);
-      // Don't show toast error for dashboard data - it's optional
-    } finally {
-      setPayrollLoading(false);
+      // Dashboard data is optional; do not surface toast here
+      setPayrollDashboard([]);
     }
   }, []);
 
@@ -335,7 +354,9 @@ export default function ProjectsManager() {
       setSelectedProjectId(null);
       setViewMode("portfolio");
 
-      toast.success(`Proyecto "${validatedPayload.name}" creado exitosamente.`);
+      toast.success(
+        `Proyecto "${validatedPayload.name}" creado exitosamente.`,
+      );
       setIsCreateDialogOpen(false);
 
       // Reset form
@@ -372,10 +393,15 @@ export default function ProjectsManager() {
               className="gap-2"
             >
               <RefreshCcw className="h-4 w-4" />
-              {isRefreshingList ? "Actualizando" : ES_TEXTS.actions.refresh}
+              {isRefreshingList
+                ? "Actualizando"
+                : ES_TEXTS.actions.refresh}
             </Button>
             {canCreateProject && (
-              <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+              <Button
+                onClick={() => setIsCreateDialogOpen(true)}
+                className="gap-2"
+              >
                 <Plus size={16} />
                 {ES_TEXTS.portfolio.createProject}
               </Button>
@@ -416,7 +442,9 @@ export default function ProjectsManager() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>
             {selectedProject
-              ? `Proyecto seleccionado: ${selectedProject.name || selectedProject.code}`
+              ? `Proyecto seleccionado: ${
+                  selectedProject.name || selectedProject.code
+                }`
               : "Sin proyecto seleccionado"}
           </span>
           {selectedProject && (
@@ -431,7 +459,7 @@ export default function ProjectsManager() {
             >
               Quitar selección
             </Button>
-            )}
+          )}
         </div>
       </div>
 
@@ -473,7 +501,9 @@ export default function ProjectsManager() {
           <div className="flex gap-2">
             <Select
               value={sortKey}
-              onValueChange={(value) => setSortKey(value as typeof sortKey)}
+              onValueChange={(value) =>
+                setSortKey(value as typeof sortKey)
+              }
             >
               <SelectTrigger id="sortKey" className="w-full">
                 <SelectValue />
@@ -489,7 +519,9 @@ export default function ProjectsManager() {
               size="icon"
               aria-label="Cambiar orden"
               onClick={() =>
-                setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
+                setSortDirection((prev) =>
+                  prev === "asc" ? "desc" : "asc",
+                )
               }
             >
               {sortDirection === "asc" ? "↑" : "↓"}
@@ -508,9 +540,21 @@ export default function ProjectsManager() {
         <LineChartComponent
           data={modChartData}
           lines={[
-            { dataKey: "Meta objetivo", name: "Meta objetivo de nómina", color: "#8b5cf6" },
-            { dataKey: "MOD proyectada", name: "MOD proyectada", color: "#3b82f6" },
-            { dataKey: "MOD real", name: "MOD real", color: "#10b981" },
+            {
+              dataKey: "Meta objetivo",
+              name: "Meta objetivo de nómina",
+              color: "#8b5cf6",
+            },
+            {
+              dataKey: "MOD proyectada",
+              name: "MOD proyectada",
+              color: "#3b82f6",
+            },
+            {
+              dataKey: "MOD real",
+              name: "MOD real",
+              color: "#10b981",
+            },
           ]}
           title="Desempeño de MOD vs Meta Objetivo"
           className="h-full"
@@ -533,13 +577,19 @@ export default function ProjectsManager() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base font-semibold">Proyectos disponibles</CardTitle>
+              <CardTitle className="text-base font-semibold">
+                Proyectos disponibles
+              </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Los proyectos se almacenan en DynamoDB y se sincronizan en tiempo real. Cada error o vacío se muestra con contexto.
+                Los proyectos se almacenan en DynamoDB y se sincronizan en
+                tiempo real. Cada error o vacío se muestra con contexto.
               </p>
             </div>
             <div className="text-sm text-muted-foreground">
-              Total proyectos: <span className="font-semibold text-foreground">{projects.length}</span>
+              Total proyectos:{" "}
+              <span className="font-semibold text-foreground">
+                {projects.length}
+              </span>
             </div>
           </div>
         </CardHeader>
@@ -562,49 +612,72 @@ export default function ProjectsManager() {
                         <th className="py-2 pr-4 font-medium">Código</th>
                         <th className="py-2 pr-4 font-medium">Nombre</th>
                         <th className="py-2 pr-4 font-medium">Cliente</th>
-                        <th className="py-2 pr-4 font-medium">Fecha de inicio</th>
-                        <th className="py-2 pr-4 font-medium">Fecha de fin</th>
-                        <th className="py-2 pr-4 font-medium">Duración (meses)</th>
+                        <th className="py-2 pr-4 font-medium">
+                          Fecha de inicio
+                        </th>
+                        <th className="py-2 pr-4 font-medium">
+                          Fecha de fin
+                        </th>
+                        <th className="py-2 pr-4 font-medium">
+                          Duración (meses)
+                        </th>
                         <th className="py-2 pr-4 font-medium">MOD total</th>
-                        <th className="py-2 pr-4 font-medium">MOD mensual</th>
+                        <th className="py-2 pr-4 font-medium">
+                          MOD mensual
+                        </th>
                         <th className="py-2 pr-4 font-medium">Estado</th>
-                        <th className="py-2 pr-4 font-medium">Última actualización</th>
+                        <th className="py-2 pr-4 font-medium">
+                          Última actualización
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {visibleProjects.map((project: ProjectForUI) => {
                         const display = getProjectDisplay(project);
-                        const durationMonths = calculateDurationInMonths(
-                          project.start_date,
-                          project.end_date,
-                        );
+                        const durationMonths =
+                          calculateDurationInMonths(
+                            project.start_date,
+                            project.end_date,
+                          );
                         const modMensual =
                           durationMonths && durationMonths > 0
                             ? project.mod_total / durationMonths
                             : null;
 
-                        const isSelected = project.id === selectedProjectId;
+                        const isSelected =
+                          project.id === selectedProjectId;
                         const isNewlyCreated =
-                          lastCreatedCode && project.code === lastCreatedCode;
+                          lastCreatedCode &&
+                          project.code === lastCreatedCode;
 
                         return (
                           <tr
                             key={`${project.id}-${project.code}`}
-                            className={`border-b last:border-0 cursor-pointer transition-colors ${isSelected ? "bg-muted/60 border-l-4 border-primary" : "hover:bg-muted/40"} ${isNewlyCreated ? "bg-primary/10 ring-1 ring-primary/50" : ""}`}
-                            onClick={() => setSelectedProjectId(project.id)}
+                            className={`border-b last:border-0 cursor-pointer transition-colors ${
+                              isSelected
+                                ? "bg-muted/60 border-l-4 border-primary"
+                                : "hover:bg-muted/40"
+                            } ${
+                              isNewlyCreated
+                                ? "bg-primary/10 ring-1 ring-primary/50"
+                                : ""
+                            }`}
+                            onClick={() =>
+                              setSelectedProjectId(project.id)
+                            }
                           >
                             <td className="py-2 pr-4 text-muted-foreground font-medium">
                               {display.code || "—"}
                             </td>
                             <td className="py-2 pr-4 font-semibold text-foreground">
                               {display.name || "Proyecto sin nombre"}
-                          </td>
-                          <td className="py-2 pr-4 text-muted-foreground">
-                            {display.client || "—"}
-                          </td>
-                          <td className="py-2 pr-4 text-muted-foreground">
-                            {formatDate(project.start_date)}
-                          </td>
+                            </td>
+                            <td className="py-2 pr-4 text-muted-foreground">
+                              {display.client || "—"}
+                            </td>
+                            <td className="py-2 pr-4 text-muted-foreground">
+                              {formatDate(project.start_date)}
+                            </td>
                             <td className="py-2 pr-4 text-muted-foreground">
                               {formatDate(project.end_date)}
                             </td>
@@ -612,18 +685,26 @@ export default function ProjectsManager() {
                               {durationMonths ?? "—"}
                             </td>
                             <td className="py-2 pr-4 text-muted-foreground">
-                              {formatCurrency(project.mod_total, project.currency)}
+                              {formatCurrency(
+                                project.mod_total,
+                                project.currency,
+                              )}
                             </td>
                             <td className="py-2 pr-4 text-muted-foreground">
                               {modMensual != null
-                                ? formatCurrency(modMensual, project.currency)
+                                ? formatCurrency(
+                                    modMensual,
+                                    project.currency,
+                                  )
                                 : "—"}
                             </td>
                             <td className="py-2 pr-4 text-muted-foreground">
                               {renderStatusBadge(project.status)}
                             </td>
                             <td className="py-2 pr-4 text-muted-foreground">
-                              {formatDate(project.updated_at || project.created_at)}
+                              {formatDate(
+                                project.updated_at || project.created_at,
+                              )}
                             </td>
                           </tr>
                         );
@@ -637,7 +718,9 @@ export default function ProjectsManager() {
                     variant="outline"
                     size="sm"
                     disabled={page === 0}
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    onClick={() =>
+                      setPage((p) => Math.max(0, p - 1))
+                    }
                   >
                     Anterior
                   </Button>
@@ -648,7 +731,11 @@ export default function ProjectsManager() {
                     variant="outline"
                     size="sm"
                     disabled={page + 1 >= totalPages}
-                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    onClick={() =>
+                      setPage((p) =>
+                        Math.min(totalPages - 1, p + 1),
+                      )
+                    }
                   >
                     Siguiente
                   </Button>
@@ -658,12 +745,17 @@ export default function ProjectsManager() {
           </DataContainer>
         </CardContent>
       </Card>
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+
+      <Dialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
             <DialogDescription>
-              Completa la información del proyecto para agregarlo al sistema Finanzas
+              Completa la información del proyecto para
+              agregarlo al sistema Finanzas
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmitCreate}>
@@ -692,7 +784,7 @@ export default function ProjectsManager() {
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                     required
-                    pattern="PROJ-\d{4}-\d{3}"
+                    pattern="PROJ-\\d{4}-\\d{3}"
                     autoComplete="off"
                   />
                   <p className="text-xs text-muted-foreground">
@@ -745,7 +837,9 @@ export default function ProjectsManager() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="modTotal">Presupuesto Total (MOD) *</Label>
+                  <Label htmlFor="modTotal">
+                    Presupuesto Total (MOD) *
+                  </Label>
                   <Input
                     id="modTotal"
                     name="modTotal"
@@ -761,7 +855,12 @@ export default function ProjectsManager() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="currency">Moneda *</Label>
-                  <Select value={currency} onValueChange={(v) => setCurrency(v as any)}>
+                  <Select
+                    value={currency}
+                    onValueChange={(v) =>
+                      setCurrency(v as typeof currency)
+                    }
+                  >
                     <SelectTrigger id="currency">
                       <SelectValue />
                     </SelectTrigger>
@@ -776,7 +875,9 @@ export default function ProjectsManager() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="description">Descripción (opcional)</Label>
+                <Label htmlFor="description">
+                  Descripción (opcional)
+                </Label>
                 <Input
                   id="description"
                   name="description"
@@ -806,4 +907,4 @@ export default function ProjectsManager() {
       </Dialog>
     </div>
   );
-}
+                                         }
