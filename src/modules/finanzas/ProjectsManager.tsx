@@ -62,7 +62,6 @@ export default function ProjectsManager() {
     null,
   );
   const [payrollDashboard, setPayrollDashboard] = React.useState<MODProjectionByMonth[]>([]);
-  const [payrollLoading, setPayrollLoading] = React.useState(false);
   const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
 
