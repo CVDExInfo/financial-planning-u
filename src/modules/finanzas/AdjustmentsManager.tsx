@@ -2,7 +2,7 @@
  * Finanzas endpoints used here
  * - POST /adjustments → crear ajustes presupuestarios
  */
-import React from "react";
+import React, { useMemo } from "react";
 import finanzasClient, { type Adjustment, type AdjustmentCreate } from "@/api/finanzasClient";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PageHeader from "@/components/PageHeader";
 import { ShieldCheck, Plus, RefreshCcw } from "lucide-react";
 import DataContainer from "@/components/DataContainer";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useFinanzasUser } from "@/hooks/useFinanzasUser";
+import { useRBACProjects } from "@/hooks/useRBACProjects";
+import { useRubrosTaxonomy } from "@/hooks/useRubrosTaxonomy";
 
 export default function AdjustmentsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -39,6 +43,10 @@ export default function AdjustmentsManager() {
   const SHOW_ADJUSTMENT_CHARTS = false;
 
   const { hasGroup, canEdit, isExecRO } = usePermissions();
+  const { isFIN, isSDMT, userEmail } = useFinanzasUser();
+  const { projects: availableProjects } = useRBACProjects();
+  const { categories, getRubrosByCategory, getRubroById } = useRubrosTaxonomy();
+  
   const isFinReadOnly = hasGroup("FIN") && !canEdit;
   const canCreateAdjustment = canEdit && !isFinReadOnly && !isExecRO;
 
@@ -53,6 +61,27 @@ export default function AdjustmentsManager() {
   const [justificacion, setJustificacion] = React.useState("");
   const [solicitadoPor, setSolicitadoPor] = React.useState("");
   const [projectFilter, setProjectFilter] = React.useState("");
+  
+  // New rubro context fields
+  const [categoriaRubro, setCategoriaRubro] = React.useState("");
+  const [rubroId, setRubroId] = React.useState("");
+  
+  // Get rubros for selected category
+  const availableRubros = useMemo(() => {
+    if (!categoriaRubro) return [];
+    return getRubrosByCategory(categoriaRubro);
+  }, [categoriaRubro, getRubrosByCategory]);
+  
+  // Get taxonomy entry for selected rubro
+  const selectedRubro = useMemo(() => {
+    if (!rubroId) return null;
+    return getRubroById(rubroId);
+  }, [rubroId, getRubroById]);
+  
+  // Get selected project for display
+  const selectedProject = useMemo(() => {
+    return availableProjects.find(p => p.projectId === projectId);
+  }, [projectId, availableProjects]);
 
   const loadAdjustments = React.useCallback(async () => {
     try {
@@ -92,7 +121,7 @@ export default function AdjustmentsManager() {
         monto: parseFloat(monto),
         fecha_inicio: fechaInicio,
         solicitado_por: solicitadoPor,
-        origen_rubro_id: origenRubroId || undefined,
+        origen_rubro_id: origenRubroId || rubroId || undefined, // Use canonical rubroId if selected
         destino_rubro_id: destinoRubroId || undefined,
         metodo_distribucion: metodoDistribucion || undefined,
         justificacion: justificacion || undefined,
@@ -115,6 +144,8 @@ export default function AdjustmentsManager() {
       setMetodoDistribucion("pro_rata_forward");
       setJustificacion("");
       setSolicitadoPor("");
+      setCategoriaRubro("");
+      setRubroId("");
     } catch (e: any) {
       console.error("Error creating adjustment:", e);
 
@@ -140,6 +171,13 @@ export default function AdjustmentsManager() {
       setIsSubmitting(false);
     }
   };
+  
+  // Initialize form when dialog opens
+  React.useEffect(() => {
+    if (isCreateDialogOpen && userEmail && !solicitadoPor) {
+      setSolicitadoPor(userEmail);
+    }
+  }, [isCreateDialogOpen, userEmail, solicitadoPor]);
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -270,17 +308,41 @@ export default function AdjustmentsManager() {
           </DialogHeader>
           <form onSubmit={handleSubmitCreate}>
             <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
+              {/* Project Selection - RBAC aware */}
+              <div className="grid gap-2">
+                <Label htmlFor="projectId">Proyecto *</Label>
+                {isSDMT && selectedProject ? (
+                  // Read-only for SDMT when in project context
+                  <div className="flex items-center gap-2 p-2 border border-border rounded-md bg-muted/30">
+                    <Badge variant="secondary">{selectedProject.code}</Badge>
+                    <span className="text-sm font-medium">{selectedProject.name}</span>
+                    {selectedProject.client && (
+                      <span className="text-sm text-muted-foreground">· {selectedProject.client}</span>
+                    )}
+                  </div>
+                ) : (
+                  // Dropdown for FIN or when no project context
+                  <Select value={projectId} onValueChange={setProjectId} required>
+                    <SelectTrigger id="projectId">
+                      <SelectValue placeholder="Selecciona un proyecto..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableProjects.map((proj) => (
+                        <SelectItem key={proj.projectId} value={proj.projectId}>
+                          <span className="font-medium">{proj.code}</span>
+                          {' · '}
+                          {proj.name}
+                          {proj.client && (
+                            <span className="text-muted-foreground"> · {proj.client}</span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              
               <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="projectId">ID del Proyecto *</Label>
-                  <Input
-                    id="projectId"
-                    placeholder="proj_abc123..."
-                    value={projectId}
-                    onChange={(e) => setProjectId(e.target.value)}
-                    required
-                  />
-                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="tipo">Tipo de Ajuste *</Label>
                   <Select value={tipo} onValueChange={(v) => setTipo(v as any)}>
@@ -294,9 +356,6 @@ export default function AdjustmentsManager() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="monto">Monto *</Label>
                   <Input
@@ -310,18 +369,76 @@ export default function AdjustmentsManager() {
                     required
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="fechaInicio">Mes de Inicio *</Label>
-                  <Input
-                    id="fechaInicio"
-                    placeholder="2025-11"
-                    value={fechaInicio}
-                    onChange={(e) => setFechaInicio(e.target.value)}
-                    required
-                    pattern="\d{4}-\d{2}"
-                  />
-                  <p className="text-xs text-muted-foreground">Formato: YYYY-MM</p>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="fechaInicio">Mes de Inicio *</Label>
+                <Input
+                  id="fechaInicio"
+                  placeholder="2025-11"
+                  value={fechaInicio}
+                  onChange={(e) => setFechaInicio(e.target.value)}
+                  required
+                  pattern="\d{4}-\d{2}"
+                />
+                <p className="text-xs text-muted-foreground">Formato: YYYY-MM</p>
+              </div>
+              
+              {/* Optional Rubro Context for traceability */}
+              <div className="p-3 bg-muted/50 rounded-md border border-border space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-semibold">Contexto de Rubro (Opcional)</Label>
+                  <Badge variant="outline" className="text-xs">Recomendado para trazabilidad</Badge>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Asocia este ajuste con una categoría y rubro específico para mejor seguimiento
+                </p>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-2">
+                    <Label htmlFor="categoriaRubro" className="text-xs">Categoría</Label>
+                    <Select value={categoriaRubro} onValueChange={setCategoriaRubro}>
+                      <SelectTrigger id="categoriaRubro" className="h-9">
+                        <SelectValue placeholder="Selecciona..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.codigo} value={cat.codigo}>
+                            {cat.codigo} · {cat.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="rubroId" className="text-xs">Línea de Gasto</Label>
+                    <Select 
+                      value={rubroId} 
+                      onValueChange={setRubroId}
+                      disabled={!categoriaRubro}
+                    >
+                      <SelectTrigger id="rubroId" className="h-9">
+                        <SelectValue placeholder={
+                          categoriaRubro ? "Selecciona..." : "Primero categoría"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableRubros.map((rubro) => (
+                          <SelectItem key={rubro.id} value={rubro.id}>
+                            {rubro.linea_codigo} · {rubro.linea_gasto}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                {selectedRubro && (
+                  <div className="text-xs text-muted-foreground p-2 bg-background rounded">
+                    {selectedRubro.descripcion}
+                  </div>
+                )}
               </div>
 
               {tipo === "reasignacion" && (
@@ -382,6 +499,17 @@ export default function AdjustmentsManager() {
                   onChange={(e) => setJustificacion(e.target.value)}
                   maxLength={2000}
                 />
+              </div>
+              
+              {/* Approval flow hint */}
+              <div className="text-xs text-muted-foreground p-3 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-900">
+                <p className="font-medium mb-1">💡 Flujo de aprobación</p>
+                <p>
+                  {isSDMT 
+                    ? "Como SDMT, los ajustes a tu proyecto pueden ser auto-aprobados o requerir revisión según monto y tipo."
+                    : "Los ajustes creados por FIN fluyen al proceso de aprobación SDMT cuando corresponda según políticas de gobierno."
+                  }
+                </p>
               </div>
             </div>
             <DialogFooter>
