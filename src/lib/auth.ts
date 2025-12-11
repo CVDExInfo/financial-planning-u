@@ -41,6 +41,10 @@ const ROLE_PERMISSIONS = {
   },
   SDMT: {
     // SDMT module plus Finanzas (feature) routes
+    // Note: We need both `/projects` and `/projects/**` because:
+    // - `/projects/**` matches `/projects/123` but NOT `/projects` (exact)
+    // - Glob pattern `/**` requires at least one path segment after the prefix
+    // - Same applies to `/adjustments`, `/providers`, etc.
     routes: [
       "/",
       "/profile",

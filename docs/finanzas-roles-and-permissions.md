@@ -126,6 +126,8 @@ When a user belongs to multiple Cognito groups, all corresponding Finanzas roles
 ROLE_PRIORITY = ["SDMT", "PMO", "EXEC_RO", "VENDOR", "PM"];
 ```
 
+> ⚠️ **Important**: PM has the lowest priority. This is **intentional design** to ensure that users with multiple roles (e.g., PM + SDMT) always get the more privileged role. A pure PM user (only `pm` group) will have PM as their effective role, but if they also have SDMT/PMO/EXEC_RO groups, those take precedence.
+
 Example:
 
 * Groups: `["FIN", "ikusi-acta-ui"]` → roles `{SDMT}` → effective role = `SDMT` (ikusi-acta-ui is ignored).
