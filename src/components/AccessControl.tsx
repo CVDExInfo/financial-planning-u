@@ -13,6 +13,7 @@ import { ShieldAlert } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { getDefaultRouteForRole, normalizeAppPath } from "@/lib/auth";
+import { formatRequiredRoles } from "@/auth/rolePolicies";
 
 interface AccessControlProps {
   children: React.ReactNode;
@@ -46,10 +47,20 @@ export function AccessControl({
     return <Navigate to={loginPath} state={{ from: location.pathname }} replace />;
   }
 
-  const allowed = hasAnyRole(requiredRoles);
+  // Check role-based access (if requiredRoles specified)
+  const roleCheckPassed = hasAnyRole(requiredRoles);
+  
+  // Check route-based access (from auth.ts ROLE_PERMISSIONS)
   const routeAllowed = canAccessRoute(normalizeAppPath(location.pathname));
 
-  if (!allowed || !routeAllowed) {
+  // Access is granted if:
+  // 1. No specific roles required (empty array) AND route is allowed, OR
+  // 2. Role check passed AND route is allowed
+  const hasAccess = 
+    (requiredRoles.length === 0 && routeAllowed) || 
+    (roleCheckPassed && routeAllowed);
+
+  if (!hasAccess) {
     const defaultRoute = getDefaultRouteForRole(currentRole);
 
     return (
@@ -67,7 +78,9 @@ export function AccessControl({
           <CardContent>
             <Alert>
               <AlertDescription>
-                Required roles: {requiredRoles.join(", ") || "Not specified"}
+                {requiredRoles.length > 0 
+                  ? `Required roles: ${formatRequiredRoles(requiredRoles)}`
+                  : `Your current role (${currentRole}) does not have access to this page.`}
                 <br />
                 Please contact your administrator if you believe this is a mistake.
               </AlertDescription>
