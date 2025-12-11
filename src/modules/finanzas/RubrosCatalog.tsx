@@ -29,7 +29,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Plus, RefreshCcw } from "lucide-react";
 import DataContainer from "@/components/DataContainer";
 import PageHeader from "@/components/PageHeader";
-import { byRubroId as rubrosCatalogById } from "@/modules/rubros.catalog.enriched";
+import { TAXONOMY_BY_ID as taxonomyById } from "@/lib/rubros/canonical-taxonomy";
+import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
 
 function Cell({ children }: { children: React.ReactNode }) {
   return (
@@ -76,20 +77,28 @@ export default function RubrosCatalog() {
       }
 
       const enrichedRows = normalizedRubros.map((rubro) => {
-        const catalog = rubrosCatalogById.get(rubro.rubro_id);
+        // Normalize to canonical ID if legacy
+        const canonicalId = getCanonicalRubroId(rubro.rubro_id);
+        const taxonomy = taxonomyById.get(canonicalId);
+        
+        // Prefer taxonomy data, fallback to API response
         const nombre =
           rubro.nombre ||
-          catalog?.nombre ||
-          catalog?.linea_gasto ||
+          taxonomy?.linea_gasto ||
+          taxonomy?.descripcion ||
           rubro.rubro_id;
 
         return {
-          ...catalog,
           ...rubro,
+          rubro_id: canonicalId, // Use canonical ID
           nombre,
-          categoria: rubro.categoria ?? catalog?.categoria ?? null,
-          linea_codigo: rubro.linea_codigo ?? catalog?.linea_codigo ?? null,
-          tipo_costo: rubro.tipo_costo ?? catalog?.tipo_costo ?? null,
+          categoria: rubro.categoria ?? taxonomy?.categoria ?? null,
+          categoria_codigo: rubro.categoria_codigo ?? taxonomy?.categoria_codigo ?? null,
+          linea_codigo: rubro.linea_codigo ?? taxonomy?.linea_codigo ?? canonicalId,
+          linea_gasto: rubro.linea_gasto ?? taxonomy?.linea_gasto ?? nombre,
+          tipo_costo: rubro.tipo_costo ?? taxonomy?.tipo_costo ?? null,
+          tipo_ejecucion: rubro.tipo_ejecucion ?? taxonomy?.tipo_ejecucion ?? null,
+          descripcion: rubro.descripcion ?? taxonomy?.descripcion ?? null,
         } as Rubro;
       });
 
