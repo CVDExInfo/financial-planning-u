@@ -543,7 +543,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       const reportData = {
         title: "Project Baseline Budget",
         subtitle: "PMO Pre-Factura Estimate Summary",
-        generated: new Date().toLocaleDateString(),
+        generated: new Date().toLocaleDateString('es-CO'),
         metrics: [
           {
             label: "Total Project Cost",
@@ -986,7 +986,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                     </div>
                   </div>
                   <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(doc.uploadedAt).toLocaleDateString()}
+                    {new Date(doc.uploadedAt).toLocaleDateString('es-CO')}
                   </span>
                 </div>
               ))}
