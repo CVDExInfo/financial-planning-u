@@ -24,7 +24,7 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     return bad("Invalid JSON in request body");
   }
 
-  const baselineId = (body.baseline_id || body.baselineId) as string | undefined;
+  const baselineId = body.baseline_id as string | undefined;
   if (!baselineId) {
     return bad("baseline_id is required");
   }

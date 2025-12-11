@@ -1295,7 +1295,6 @@ export interface RejectBaselinePayload {
   baseline_id: string;
   rejected_by?: string;
   comment?: string;
-  reason?: string;
 }
 
 export interface RejectBaselineResponse {

@@ -24,14 +24,14 @@ async function rejectBaseline(event: APIGatewayProxyEventV2) {
     return bad("Invalid JSON in request body");
   }
 
-  const baselineId = (body.baseline_id || body.baselineId) as string | undefined;
+  const baselineId = body.baseline_id as string | undefined;
   if (!baselineId) {
     return bad("baseline_id is required");
   }
 
   const userEmail = await getUserEmail(event);
   const rejectedBy = (body.rejected_by || userEmail) as string;
-  const comment = (body.comment || body.reason || "") as string;
+  const comment = (body.comment || "") as string;
   const now = new Date().toISOString();
 
   // Fetch the current project metadata to ensure it exists and has the baseline

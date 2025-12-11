@@ -192,21 +192,21 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
                   </span>
                 )}
                 
-                {normalizedStatus === "rejected" && (currentProject as any).rejected_by && (
+                {normalizedStatus === "rejected" && currentProject.rejected_by && (
                   <span>
-                    Rejected by <strong>{(currentProject as any).rejected_by}</strong>
-                    {(currentProject as any).baseline_rejected_at && (
-                      <> on {formatDate((currentProject as any).baseline_rejected_at)}</>
+                    Rejected by <strong>{currentProject.rejected_by}</strong>
+                    {currentProject.baseline_rejected_at && (
+                      <> on {formatDate(currentProject.baseline_rejected_at)}</>
                     )}
                   </span>
                 )}
               </div>
 
-              {normalizedStatus === "rejected" && (currentProject as any).rejection_comment && (
+              {normalizedStatus === "rejected" && currentProject.rejection_comment && (
                 <Alert className="mt-2">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription className="text-xs">
-                    <strong>Rejection reason:</strong> {(currentProject as any).rejection_comment}
+                    <strong>Rejection reason:</strong> {currentProject.rejection_comment}
                   </AlertDescription>
                 </Alert>
               )}

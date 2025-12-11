@@ -150,11 +150,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       description: project.description || "",
       baselineId: project.baseline_id || undefined,
       baselineAcceptedAt: project.baseline_accepted_at,
-      baseline_status: (project as any)?.baseline_status,
-      accepted_by: (project as any)?.accepted_by,
-      rejected_by: (project as any)?.rejected_by,
-      baseline_rejected_at: (project as any)?.baseline_rejected_at,
-      rejection_comment: (project as any)?.rejection_comment,
+      baseline_status: project.baseline_status || undefined,
+      accepted_by: project.accepted_by || undefined,
+      rejected_by: project.rejected_by || undefined,
+      baseline_rejected_at: project.baseline_rejected_at,
+      rejection_comment: project.rejection_comment,
       status: project.status,
     };
   };
