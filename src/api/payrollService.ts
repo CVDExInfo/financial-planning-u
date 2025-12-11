@@ -8,6 +8,36 @@ import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import httpClient, { HttpError } from "@/lib/http-client";
 
 /**
+ * PayrollKind discriminator for plan/forecast/actual
+ */
+export type PayrollKind = "plan" | "forecast" | "actual";
+
+/**
+ * PayrollEntry - raw payroll entry from backend
+ */
+export interface PayrollEntry {
+  id: string;
+  projectId: string;
+  period: string; // YYYY-MM format
+  kind: PayrollKind;
+  amount: number;
+  currency: string;
+  allocationId?: string;
+  rubroId?: string;
+  resourceCount?: number;
+  source?: string;
+  uploadedBy?: string;
+  uploadedAt?: string;
+  notes?: string;
+  pk?: string;
+  sk?: string;
+  createdAt?: string;
+  createdBy?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+/**
  * MOD Projection by month for dashboard display
  * Matches the MODProjectionByMonth interface from backend
  */
@@ -60,7 +90,7 @@ export async function getPayrollDashboardForProject(
     // Call the backend /payroll endpoint with projectId to get payroll entries
     // The endpoint reads from DynamoDB finz_payroll_actuals table
     // Query: pk = PROJECT#${projectId}#MONTH#${period} for all periods
-    const response = await httpClient.get<any>(
+    const response = await httpClient.get<PayrollEntry[]>(
       `/payroll?projectId=${encodeURIComponent(projectId)}`,
       { headers },
     );
@@ -103,7 +133,7 @@ export async function getPayrollDashboardForProject(
  * This is a helper function in case the backend doesn't return aggregated data
  */
 function aggregatePayrollByMonth(
-  entries: any[],
+  entries: PayrollEntry[],
   projectId: string,
 ): MODProjectionByMonth[] {
   const monthMap = new Map<

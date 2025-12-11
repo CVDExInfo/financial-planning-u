@@ -67,7 +67,6 @@ export default function ProjectsManager() {
   const [payrollDashboard, setPayrollDashboard] = React.useState<
     MODProjectionByMonth[]
   >([]);
-  const [payrollLoading, setPayrollLoading] = React.useState(false);
   const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
 
@@ -278,23 +277,22 @@ export default function ProjectsManager() {
 
     let cancelled = false;
     const loadPayroll = async () => {
-      setPayrollLoading(true);
       try {
         const data = await getPayrollDashboardForProject(selectedProjectId);
         if (!cancelled) {
           setPayrollDashboard(data);
         }
       } catch (error) {
-        console.error("Error loading payroll dashboard", {
+        console.error("Error loading payroll dashboard for project", {
           projectId: selectedProjectId,
           error,
         });
         if (!cancelled) {
           setPayrollDashboard([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setPayrollLoading(false);
+          // Show a toast notification to inform the user
+          toast.error(
+            "No se pudieron cargar los datos de nómina para este proyecto. Mostrando vista de presupuesto.",
+          );
         }
       }
     };
