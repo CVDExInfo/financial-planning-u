@@ -45,6 +45,7 @@ describe("projects handler RBAC", () => {
         {
           pk: "PROJECT#P-1",
           sk: "METADATA",
+          project_id: "P-1",
           nombre: "Proyecto Uno",
           cliente: "Cliente",
           fecha_inicio: "2024-01-01",
@@ -52,18 +53,25 @@ describe("projects handler RBAC", () => {
           moneda: "USD",
           presupuesto_total: 100,
           estado: "active",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
         },
       ],
     });
 
     const response = await projectsHandler(
-      baseEvent({ __verifiedClaims: { "cognito:groups": ["FIN"] } } as any),
+      baseEvent({ __verifiedClaims: { "cognito:groups": ["FIN"], email: "fin.user@example.com" } } as any),
     );
 
     expect(response.statusCode).toBe(200);
     const payload = JSON.parse(response.body as string);
     expect(Array.isArray(payload.data)).toBe(true);
-    expect(payload.data[0].id).toBe("P-1");
+    // Canonical DTO now returns projectId, not id
+    expect(payload.data[0].projectId).toBe("P-1");
+    // Should have canonical fields
+    expect(payload.data[0].name).toBe("Proyecto Uno");
+    expect(payload.data[0].client).toBe("Cliente");
+    expect(payload.data[0].currency).toBe("USD");
   });
 
   it("rejects requests without valid groups", async () => {

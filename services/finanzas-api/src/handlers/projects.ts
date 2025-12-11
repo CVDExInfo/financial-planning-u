@@ -1,6 +1,6 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { z } from "zod";
-import { ensureCanRead, ensureCanWrite } from "../lib/auth";
+import { ensureCanRead, ensureCanWrite, getUserContext } from "../lib/auth";
 import { ok, bad, serverError, fromAuthError } from "../lib/http";
 import {
   ddb,
@@ -12,6 +12,7 @@ import {
 } from "../lib/dynamo";
 import { logError } from "../utils/logging";
 import crypto from "node:crypto";
+import { mapToProjectDTO, type ProjectRecord, type ProjectDTO } from "../models/project";
 
 /**
  * Generate a unique handoff ID
@@ -1060,6 +1061,16 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       const createdBy =
         event.requestContext.authorizer?.jwt?.claims?.email || "system";
 
+      // Get user context to potentially set SDM manager
+      const userContext = await getUserContext(event);
+      
+      // If user is SDM, set them as the project's SDM manager
+      // If user is SDMT/PMO, they can specify sdmManagerEmail in the payload
+      const sdmManagerEmail = userContext.isSDM 
+        ? userContext.email
+        : (body.sdm_manager_email as string | undefined) || 
+          (body.sdmManagerEmail as string | undefined);
+
       const item = {
         pk: `PROJECT#${id}`,
         sk: "METADATA",
@@ -1087,6 +1098,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         created_at: now,
         updated_at: now,
         created_by: createdBy,
+        // Set SDM manager email for ABAC
+        ...(sdmManagerEmail ? { sdm_manager_email: sdmManagerEmail } : {}),
       };
 
       try {
@@ -1137,50 +1150,105 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         throw ddbError;
       }
 
-      return ok(normalizeProjectItem(item), 201);
+      // Return canonical DTO
+      return ok(mapToProjectDTO(item as ProjectRecord), 201);
     }
 
     // GET /projects
     await ensureCanRead(event);
+
+    // Get user context for RBAC filtering
+    const userContext = await getUserContext(event);
 
     // Support query parameter for limit, default to 100, max 100
     const queryParams = event.queryStringParameters || {};
     const requestedLimit = queryParams.limit ? parseInt(queryParams.limit, 10) : 100;
     const limit = Math.min(Math.max(requestedLimit, 1), 100); // Clamp between 1 and 100
 
-    // BACKWARD COMPATIBILITY SHIM: Accept both METADATA (new standard) and META (legacy)
-    // This allows transition period where both may exist. METADATA is preferred.
-    const result = await ddb.send(
-      new ScanCommand({
-        TableName: tableName("projects"),
-        Limit: limit,
-        FilterExpression: "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta)",
-        ExpressionAttributeNames: {
-          "#pk": "pk",
-          "#sk": "sk",
-        },
-        ExpressionAttributeValues: {
-          ":pkPrefix": "PROJECT#",
-          ":metadata": "METADATA",
-          ":meta": "META",
-        },
-      })
-    );
+    let rawProjects: ProjectRecord[] = [];
 
-    const projects = (result.Items ?? [])
-      .map((item) => {
-        const record = item as Record<string, unknown>;
-        const normalized = normalizeProjectItem(record);
-        // Log warning if serving from legacy META to identify remaining legacy data
+    // RBAC-aware querying:
+    // - ADMIN and EXC_RO: scan all projects
+    // - SDM: only query projects where sdmManagerEmail matches user email
+    // - Others: return empty list for now (future: implement user-project assignments)
+    
+    if (userContext.isAdmin || userContext.isExecRO || userContext.isPMO || userContext.isSDMT) {
+      // These roles see all projects
+      // BACKWARD COMPATIBILITY SHIM: Accept both METADATA (new standard) and META (legacy)
+      const result = await ddb.send(
+        new ScanCommand({
+          TableName: tableName("projects"),
+          Limit: limit,
+          FilterExpression: "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta)",
+          ExpressionAttributeNames: {
+            "#pk": "pk",
+            "#sk": "sk",
+          },
+          ExpressionAttributeValues: {
+            ":pkPrefix": "PROJECT#",
+            ":metadata": "METADATA",
+            ":meta": "META",
+          },
+        })
+      );
+
+      rawProjects = (result.Items ?? []) as ProjectRecord[];
+      
+      // Log warnings for legacy META keys
+      rawProjects.forEach((record) => {
         if (record.sk === "META") {
           console.warn("[projects] Serving project from legacy META key", {
-            projectId: normalized.project_id,
+            projectId: record.project_id || record.projectId,
             sk: "META",
           });
         }
-        return normalized;
-      })
-      .filter((item) => item.project_id);
+      });
+    } else if (userContext.isSDM) {
+      // SDM users only see projects they manage
+      // For now, use scan with filter until GSI is deployed
+      // TODO: Once GSI on sdmManagerEmail is deployed, use Query instead of Scan
+      const result = await ddb.send(
+        new ScanCommand({
+          TableName: tableName("projects"),
+          FilterExpression: 
+            "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta) AND " +
+            "(#sdmEmail = :userEmail OR #acceptedBy = :userEmail OR #aceptadoPor = :userEmail)",
+          ExpressionAttributeNames: {
+            "#pk": "pk",
+            "#sk": "sk",
+            "#sdmEmail": "sdm_manager_email",
+            "#acceptedBy": "accepted_by",
+            "#aceptadoPor": "aceptado_por",
+          },
+          ExpressionAttributeValues: {
+            ":pkPrefix": "PROJECT#",
+            ":metadata": "METADATA",
+            ":meta": "META",
+            ":userEmail": userContext.email,
+          },
+        })
+      );
+
+      rawProjects = (result.Items ?? []) as ProjectRecord[];
+      
+      console.info("[projects] SDM filtered projects", {
+        sdmEmail: userContext.email,
+        projectCount: rawProjects.length,
+      });
+    } else {
+      // Other users: return empty list
+      // Future enhancement: check user-project assignments
+      console.info("[projects] User has no project access", {
+        email: userContext.email,
+        roles: userContext.roles,
+      });
+      rawProjects = [];
+    }
+
+    // Map all raw records to canonical DTOs
+    const projects: ProjectDTO[] = rawProjects
+      .map((record) => mapToProjectDTO(record))
+      .filter((dto) => dto.projectId); // Ensure valid projectId
 
     return ok({ data: projects, total: projects.length });
   } catch (error) {

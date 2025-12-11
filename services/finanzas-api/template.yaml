@@ -134,11 +134,22 @@ Resources:
           AttributeType: S
         - AttributeName: sk
           AttributeType: S
+        - AttributeName: sdm_manager_email
+          AttributeType: S
       KeySchema:
         - AttributeName: pk
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1_sdmManagerEmail
+          KeySchema:
+            - AttributeName: sdm_manager_email
+              KeyType: HASH
+            - AttributeName: pk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
     Metadata:
       SamResourceId: ProjectsTable
 

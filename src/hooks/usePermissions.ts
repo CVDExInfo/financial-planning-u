@@ -126,13 +126,15 @@ export function usePermissions() {
   const isPMO = effectiveRole === "PMO";
   const isPM = effectiveRole === "PM";
   const isSDMT = effectiveRole === "SDMT";
+  const isSDM = effectiveRole === "SDM";
   const isVendor = effectiveRole === "VENDOR";
   const isExecRO = effectiveRole === "EXEC_RO";
+  const isAdmin = effectiveRole === "ADMIN";
 
-  const canManageCosts = isSDMT;
-  const canCreateBaseline = isSDMT;
-  const canUploadInvoices = isSDMT || isVendor;
-  const canEdit = isSDMT;
+  const canManageCosts = isSDMT || isSDM;
+  const canCreateBaseline = isSDMT || isSDM;
+  const canUploadInvoices = isSDMT || isVendor || isSDM;
+  const canEdit = isSDMT || isSDM;
   const canDelete = isSDMT;
   const canApprove = isSDMT;
 
@@ -159,8 +161,10 @@ export function usePermissions() {
     isPM,
     isPMO,
     isSDMT,
+    isSDM,
     isVendor,
     isExecRO,
+    isAdmin,
     canManageCosts,
     canCreateBaseline,
     canUploadInvoices,
