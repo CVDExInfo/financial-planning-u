@@ -14,6 +14,7 @@
     "seed:finanzas:golden": "ts-node src/seed/seed_finanzas_golden_project.ts",
     "seed:project-rubros": "ts-node src/seed/seed_project_rubros.ts",
     "seed:canonical-projects": "ts-node src/seed/seed_canonical_projects.ts",
+    "finz:seed-demo": "ts-node src/seed/demo/seedDemoScenarios.ts",
     "reset:dev-projects": "ts-node scripts/reset-dev-projects.ts",
     "verify:canonical-projects": "ts-node scripts/verify-canonical-projects.ts",
     "verify:allocations": "ts-node scripts/verify-allocations-vs-projects.ts",
