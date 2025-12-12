@@ -39,6 +39,14 @@ import { ES_TEXTS } from "@/lib/i18n/es";
 import { getPayrollDashboard, type MODProjectionByMonth } from "@/api/finanzas";
 import { getPayrollDashboardForProject } from "@/api/payrollService";
 
+// Type for MOD chart data points
+export type ModChartPoint = {
+  month: string;
+  "Allocations MOD": number;
+  "Adjusted/Projected MOD": number;
+  "Actual Payroll MOD": number;
+};
+
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
