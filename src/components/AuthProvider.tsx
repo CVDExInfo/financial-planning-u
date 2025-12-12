@@ -207,13 +207,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const effectiveRole = currentRole || DEFAULT_ROLE;
-    const { routes, hasConfig } = getRoutesForRole(effectiveRole);
+    // If no currentRole, user has no access - don't check routes
+    if (!currentRole) {
+      setRouteConfigMissing(true);
+      console.warn("[Router] No role assigned - user has no access", {
+        user,
+        availableRoles,
+        groups: groupClaims,
+      });
+      return;
+    }
+
+    const { routes, hasConfig } = getRoutesForRole(currentRole);
 
     if (!hasConfig) {
       setRouteConfigMissing(true);
       console.error("[Router] No route configuration found for role", {
-        role: effectiveRole,
+        role: currentRole,
         user,
         availableRoles,
         groups: groupClaims,
@@ -223,7 +233,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRouteConfigMissing(false);
       if (import.meta.env.DEV) {
         console.debug("[Router] Active role routes", {
-          role: effectiveRole,
+          role: currentRole,
           routes,
         });
       }
@@ -231,10 +241,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [availableRoles, currentRole, groupClaims, user]);
 
   useEffect(() => {
+    // Only suggest a role if user has available roles
+    const userRoles = availableRoles.length ? availableRoles : roles;
+    if (userRoles.length === 0) {
+      // User has no roles, ensure currentRole is null
+      if (currentRole !== null) {
+        setCurrentRole(null);
+      }
+      return;
+    }
+
+    // Use first available role as fallback if currentRole is null
+    const fallbackRole = currentRole || userRoles[0];
     const suggestedRole = getRoleForPath(
       location.pathname,
-      availableRoles.length ? availableRoles : roles,
-      currentRole || DEFAULT_ROLE,
+      userRoles,
+      fallbackRole,
     );
 
     if (suggestedRole !== currentRole && (availableRoles.length === 0 || availableRoles.includes(suggestedRole))) {
@@ -304,7 +326,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setGroups([]);
       setAvpDecisions([]);
       setAvailableRoles([]);
-      setCurrentRole(DEFAULT_ROLE);
+      setCurrentRole(null);
       setUser(null);
     } catch (authError) {
       console.error("[AuthProvider] Failed to initialize auth", authError);
@@ -314,7 +336,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setGroups([]);
       setAvpDecisions([]);
       setAvailableRoles([]);
-      setCurrentRole(DEFAULT_ROLE);
+      setCurrentRole(null);
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -443,7 +465,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessToken(null);
     setAvpDecisions([]);
     setAvailableRoles([]);
-    setCurrentRole(DEFAULT_ROLE);
+    setCurrentRole(null);
     setGroupClaims([]);
     setError(null);
 
@@ -492,11 +514,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const checkRouteAccess = (route: string): boolean => {
-    return canAccessRoute(route, currentRole || DEFAULT_ROLE);
+    // Users without a role have no access
+    if (!currentRole) {
+      return false;
+    }
+    return canAccessRoute(route, currentRole);
   };
 
   const checkActionPermission = (action: string): boolean => {
-    return canPerformAction(action, currentRole || DEFAULT_ROLE);
+    // Users without a role cannot perform any actions
+    if (!currentRole) {
+      return false;
+    }
+    return canPerformAction(action, currentRole);
   };
 
   const signIn = async () => {
@@ -516,7 +546,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       groups,
       avpDecisions,
       availableRoles,
-      currentRole: currentRole || DEFAULT_ROLE,
+      currentRole,
     }),
     [
       idToken,
@@ -540,7 +570,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated,
     isLoading,
     error,
-    currentRole: currentRole || DEFAULT_ROLE,
+    currentRole,
     availableRoles,
     setRole,
     routeConfigMissing,
