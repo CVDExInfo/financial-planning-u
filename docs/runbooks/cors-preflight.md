@@ -92,52 +92,20 @@ curl -i -X OPTIONS "$API_BASE/catalog/rubros" \
 ```
 
 ### Automated Validation Script
+
+A ready-to-use validation script is available at `scripts/validate-cors.sh`:
+
 ```bash
-#!/bin/bash
-set -euo pipefail
+# Run with default values
+./scripts/validate-cors.sh
 
-API_BASE="${FINZ_API_BASE:-https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev}"
-CF_ORIGIN="${CF_ORIGIN:-https://d7t9x3j66yd8k.cloudfront.net}"
-
-ENDPOINTS=(
-  "/projects"
-  "/plan/forecast"
-  "/catalog/rubros"
-  "/allocation-rules"
-  "/providers"
-)
-
-echo "Testing CORS preflight for ${API_BASE}"
-echo "Origin: ${CF_ORIGIN}"
-echo ""
-
-FAILED=0
-for endpoint in "${ENDPOINTS[@]}"; do
-  echo "Testing: OPTIONS ${endpoint}"
-  
-  RESPONSE=$(curl -s -i -X OPTIONS "${API_BASE}${endpoint}" \
-    -H "Origin: ${CF_ORIGIN}" \
-    -H "Access-Control-Request-Method: GET" \
-    -H "Access-Control-Request-Headers: authorization,content-type")
-  
-  if echo "$RESPONSE" | grep -q "access-control-allow-origin"; then
-    echo "  ✓ CORS headers present"
-  else
-    echo "  ✗ CORS headers MISSING"
-    FAILED=$((FAILED + 1))
-  fi
-  
-  echo ""
-done
-
-if [ $FAILED -eq 0 ]; then
-  echo "✅ All CORS preflight tests passed"
-  exit 0
-else
-  echo "❌ ${FAILED} CORS preflight test(s) failed"
-  exit 1
-fi
+# Or specify custom API and origin
+export FINZ_API_BASE="https://your-api.execute-api.region.amazonaws.com/stage"
+export CF_ORIGIN="https://your-cloudfront-domain.cloudfront.net"
+./scripts/validate-cors.sh
 ```
+
+The script tests all critical endpoints and provides clear pass/fail results with troubleshooting guidance.
 
 ## Tiered Testing Architecture
 
