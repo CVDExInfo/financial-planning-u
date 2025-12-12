@@ -7,9 +7,9 @@ import { resolveFinanzasRole } from "../../hooks/permissions-helpers";
 const asSet = (values: string[]) => new Set(values);
 
 describe("mapGroupsToRoles", () => {
-  it("maps admin to PMO and EXEC_RO", () => {
+  it("maps admin to ADMIN role only", () => {
     const roles = mapGroupsToRoles(["admin"]);
-    assert.deepEqual(asSet(roles), asSet(["PMO", "EXEC_RO"]));
+    assert.deepEqual(asSet(roles), asSet(["ADMIN"]));
   });
 
   it("maps FIN to SDMT", () => {
@@ -27,9 +27,35 @@ describe("mapGroupsToRoles", () => {
     assert.deepEqual(asSet(roles), asSet(["SDMT"]));
   });
 
-  it("ignores ikusi-acta-ui and defaults to EXEC_RO", () => {
+  it("ignores ikusi-acta-ui and returns empty (no default EXEC_RO)", () => {
     const roles = mapGroupsToRoles(["ikusi-acta-ui"]);
+    assert.deepEqual(asSet(roles), asSet([]));
+  });
+
+  it("returns empty array for users with no recognized groups", () => {
+    const roles = mapGroupsToRoles([]);
+    assert.deepEqual(asSet(roles), asSet([]));
+  });
+
+  it("returns empty array for unrecognized groups", () => {
+    const roles = mapGroupsToRoles(["UNKNOWN", "RANDOM"]);
+    assert.deepEqual(asSet(roles), asSet([]));
+  });
+
+  it("maps explicit EXEC_RO group to EXEC_RO role", () => {
+    const roles = mapGroupsToRoles(["EXEC_RO"]);
     assert.deepEqual(asSet(roles), asSet(["EXEC_RO"]));
+  });
+
+  it("maps exec-related groups to EXEC_RO role", () => {
+    const roles1 = mapGroupsToRoles(["exec"]);
+    assert.deepEqual(asSet(roles1), asSet(["EXEC_RO"]));
+    
+    const roles2 = mapGroupsToRoles(["director"]);
+    assert.deepEqual(asSet(roles2), asSet(["EXEC_RO"]));
+    
+    const roles3 = mapGroupsToRoles(["manager"]);
+    assert.deepEqual(asSet(roles3), asSet(["EXEC_RO"]));
   });
 
   it("ignores ikusi-acta-ui when mixed with valid groups", () => {
