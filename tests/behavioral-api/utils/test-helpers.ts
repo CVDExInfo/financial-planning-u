@@ -19,10 +19,10 @@ const API_BASE_URL =
 
 const COGNITO_REGION = process.env.AWS_REGION || process.env.COGNITO_REGION || "us-east-2";
 const COGNITO_USER_POOL_ID =
-  process.env.COGNITO_USER_POOL_ID || "us-east-2_FyHLtOhiY";
+  process.env.COGNITO_USER_POOL_ID;
 const COGNITO_CLIENT_ID =
-  process.env.COGNITO_WEB_CLIENT || process.env.COGNITO_CLIENT_ID || "dshos5iou44tuach7ta3ici5m";
-const CLOUDFRONT_ORIGIN = process.env.CF_DOMAIN || "https://d7t9x3j66yd8k.cloudfront.net";
+  process.env.COGNITO_WEB_CLIENT || process.env.COGNITO_CLIENT_ID;
+const CLOUDFRONT_ORIGIN = process.env.CF_DOMAIN;
 
 // Token cache to avoid rate limits
 const tokenCache: Record<string, { token: string; expiresAt: number }> = {};
@@ -58,6 +58,9 @@ export function getApiBaseUrl(): string {
  * Get CloudFront origin for CORS tests
  */
 export function getCloudFrontOrigin(): string {
+  if (!CLOUDFRONT_ORIGIN) {
+    throw new Error("CF_DOMAIN environment variable must be set");
+  }
   return CLOUDFRONT_ORIGIN.replace(/\/$/, "");
 }
 
@@ -69,6 +72,10 @@ export function getCloudFrontOrigin(): string {
  * @returns ID token string
  */
 export async function getCognitoToken(credentials: RoleCredentials): Promise<string> {
+  if (!COGNITO_CLIENT_ID) {
+    throw new Error("COGNITO_WEB_CLIENT or COGNITO_CLIENT_ID environment variable must be set");
+  }
+
   const cacheKey = `${credentials.username}:${credentials.role}`;
   const cached = tokenCache[cacheKey];
 
@@ -287,7 +294,7 @@ export function pickProjectWithBaseline(projects: any[]): any | null {
  * @returns Credentials or null if not configured
  */
 export function getRoleCredentials(role: string): RoleCredentials | null {
-  const envPrefix = `E2E_${role.toUpperCase().replace("-", "_")}`;
+  const envPrefix = `E2E_${role.toUpperCase().replace(/-/g, "_")}`;
   const username = process.env[`${envPrefix}_EMAIL`] || process.env[`${envPrefix}_USERNAME`];
   const password = process.env[`${envPrefix}_PASSWORD`];
 
@@ -302,6 +309,22 @@ export function getRoleCredentials(role: string): RoleCredentials | null {
     password,
     role,
   };
+}
+
+/**
+ * Get test credentials with fallback to alternate roles
+ * 
+ * @param preferredRoles - Array of role names to try in order
+ * @returns First available credentials or null
+ */
+export function getTestCredentials(preferredRoles: string[]): RoleCredentials | null {
+  for (const role of preferredRoles) {
+    const credentials = getRoleCredentials(role);
+    if (credentials) {
+      return credentials;
+    }
+  }
+  return null;
 }
 
 /**

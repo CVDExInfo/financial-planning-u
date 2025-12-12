@@ -10,6 +10,7 @@ import {
   getApiBaseUrl,
   getCognitoToken,
   getRoleCredentials,
+  getTestCredentials,
   apiRequest,
   printEvidence,
 } from "./utils/test-helpers.js";
@@ -27,15 +28,7 @@ describe("API Health & Smoke Tests", () => {
 
   it("can authenticate with Cognito and reach API", async () => {
     // Try to get credentials for any available role
-    const roles = ["SDMT", "PMO", "SDM_FIN", "EXEC_RO"];
-    let credentials = null;
-
-    for (const role of roles) {
-      credentials = getRoleCredentials(role);
-      if (credentials) {
-        break;
-      }
-    }
+    const credentials = getTestCredentials(["SDMT", "PMO", "SDM_FIN", "EXEC_RO"]);
 
     if (!credentials) {
       console.warn("⚠️  Skipping auth test: No role credentials configured");
@@ -74,7 +67,7 @@ describe("API Health & Smoke Tests", () => {
   });
 
   it("can parse JSON response from API", async () => {
-    const credentials = getRoleCredentials("SDMT") || getRoleCredentials("PMO");
+    const credentials = getTestCredentials(["SDMT", "PMO"]);
 
     if (!credentials) {
       console.warn("⚠️  Skipping JSON parse test: SDMT or PMO credentials not configured");
@@ -98,7 +91,7 @@ describe("API Health & Smoke Tests", () => {
   });
 
   it("API returns CORS headers on actual requests", async () => {
-    const credentials = getRoleCredentials("SDMT") || getRoleCredentials("PMO");
+    const credentials = getTestCredentials(["SDMT", "PMO"]);
 
     if (!credentials) {
       console.warn("⚠️  Skipping CORS header test: SDMT or PMO credentials not configured");

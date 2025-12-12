@@ -242,7 +242,7 @@ describe("RBAC Enforcement Tests", () => {
 
   describe("NO_GROUP User Access (Security Critical)", () => {
     it("Users with no Cognito group are denied all protected endpoints", async () => {
-      const credentials = getRoleCredentials("NO_GROUP") || getRoleCredentials("NOGROUP");
+      const credentials = getRoleCredentials("NO_GROUP");
 
       if (!credentials) {
         console.warn(

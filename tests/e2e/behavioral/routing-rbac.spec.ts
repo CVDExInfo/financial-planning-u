@@ -12,7 +12,7 @@ const BASE_URL = process.env.FINZ_UI_BASE_URL || "https://d7t9x3j66yd8k.cloudfro
 test.describe("Routing RBAC Tests", () => {
   test.describe("NO_GROUP User Access", () => {
     test("users with no Cognito group cannot access protected routes", async ({ page }) => {
-      const credentials = getRoleCredentials("NO_GROUP") || getRoleCredentials("NOGROUP");
+      const credentials = getRoleCredentials("NO_GROUP");
 
       if (!credentials) {
         test.skip(
@@ -50,7 +50,7 @@ test.describe("Routing RBAC Tests", () => {
     });
 
     test("NO_GROUP users cannot see SDMT navigation items", async ({ page }) => {
-      const credentials = getRoleCredentials("NO_GROUP") || getRoleCredentials("NOGROUP");
+      const credentials = getRoleCredentials("NO_GROUP");
 
       if (!credentials) {
         test.skip(true, "NO_GROUP credentials not configured");

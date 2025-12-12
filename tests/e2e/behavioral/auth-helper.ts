@@ -13,7 +13,7 @@ import {
 
 const COGNITO_REGION = process.env.AWS_REGION || process.env.COGNITO_REGION || "us-east-2";
 const COGNITO_CLIENT_ID =
-  process.env.COGNITO_WEB_CLIENT || process.env.COGNITO_CLIENT_ID || "dshos5iou44tuach7ta3ici5m";
+  process.env.COGNITO_WEB_CLIENT || process.env.COGNITO_CLIENT_ID;
 
 interface AuthResult {
   idToken: string;
@@ -28,6 +28,10 @@ export async function authenticateWithCognito(
   username: string,
   password: string
 ): Promise<AuthResult> {
+  if (!COGNITO_CLIENT_ID) {
+    throw new Error("COGNITO_WEB_CLIENT or COGNITO_CLIENT_ID environment variable must be set");
+  }
+
   const client = new CognitoIdentityProviderClient({ region: COGNITO_REGION });
 
   try {
@@ -103,7 +107,7 @@ export async function setupAuthenticatedPage(
  * Get role credentials from environment
  */
 export function getRoleCredentials(role: string): { username: string; password: string } | null {
-  const envPrefix = `E2E_${role.toUpperCase().replace("-", "_")}`;
+  const envPrefix = `E2E_${role.toUpperCase().replace(/-/g, "_")}`;
   const username = process.env[`${envPrefix}_EMAIL`] || process.env[`${envPrefix}_USERNAME`];
   const password = process.env[`${envPrefix}_PASSWORD`];
 
