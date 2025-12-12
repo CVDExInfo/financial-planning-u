@@ -19,6 +19,7 @@ export const ES_TEXTS = {
     providers: "Proveedores",
     cashflow: "Flujo de Caja",
     scenarios: "Escenarios",
+    hubDesempeno: "Hub de Desempeño",
   },
 
   // Portfolio View

@@ -67,6 +67,7 @@ type NavigationItem = {
 
 type FinanzasNavItem = {
   id:
+    | "hubDesempeno"
     | "forecast"
     | "reconciliation"
     | "changes"
@@ -124,12 +125,19 @@ export function Navigation() {
 
   const FINANZAS_NAV_ITEMS: FinanzasNavItem[] = [
     {
+      id: "hubDesempeno",
+      label: ES_TEXTS.nav.hubDesempeno,
+      path: "/hub",
+      icon: TrendingUp,
+      visibleFor: ["SDMT", "EXEC_RO"],
+      startGroup: true,
+    },
+    {
       id: "forecast",
       label: ES_TEXTS.nav.forecast,
       path: "/sdmt/cost/forecast",
       icon: TrendingUp,
       visibleFor: ["SDMT", "EXEC_RO"],
-      startGroup: true,
     },
     {
       id: "reconciliation",
