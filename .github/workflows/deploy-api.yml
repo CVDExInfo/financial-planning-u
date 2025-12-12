@@ -133,17 +133,17 @@ jobs:
           export PATH="$PWD/node_modules/.bin:$PATH"
           sam build
 
-        - name: Validate AVP schema/policies match repo (drift guard)
-          if: steps.avp_check.outputs.avp_enabled == 'true'
-          working-directory: services/finanzas-api
-          env:
-            POLICY_STORE_ID: ${{ env.POLICY_STORE_ID }}
-            AWS_REGION: ${{ env.AWS_REGION }}
-            REQUIRED_POLICY_IDS_DEV: ${{ env.REQUIRED_POLICY_IDS_DEV }}
-          run: |
-            set -euo pipefail
-            echo "🔍 Validating AVP schema and FIN policy alignment against repo..."
-  
+      - name: Validate AVP schema/policies match repo (drift guard)
+        if: steps.avp_check.outputs.avp_enabled == 'true'
+        working-directory: services/finanzas-api
+        env:
+          POLICY_STORE_ID: ${{ env.POLICY_STORE_ID }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          REQUIRED_POLICY_IDS_DEV: ${{ env.REQUIRED_POLICY_IDS_DEV }}
+        run: |
+          set -euo pipefail
+          echo "🔍 Validating AVP schema and FIN policy alignment against repo..."
+
             REMOTE_SCHEMA_JSON="$(aws verifiedpermissions get-schema \
               --policy-store-id "$POLICY_STORE_ID" \
               --region "$AWS_REGION" \
