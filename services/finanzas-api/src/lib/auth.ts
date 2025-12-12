@@ -187,13 +187,13 @@ function mapGroupsToRoles(groups: string[]): FinanzasRole[] {
       roles.add("VENDOR");
     }
 
-    // EXC_RO - Executive read-only
+    // EXEC_RO - Executive read-only
     if (
       normalized.includes("EXEC") ||
       normalized.includes("DIRECTOR") ||
       normalized.includes("MANAGER")
     ) {
-      roles.add("EXC_RO");
+      roles.add("EXEC_RO");
     }
   }
 
@@ -254,7 +254,7 @@ export async function getUserContext(event: ApiGwEvent): Promise<UserContext> {
     groups,
     roles,
     isAdmin: roles.includes("ADMIN"),
-    isExecRO: roles.includes("EXC_RO"),
+    isExecRO: roles.includes("EXEC_RO"),
     isSDM: roles.includes("SDM"),
     isPMO: roles.includes("PMO"),
     isSDMT: roles.includes("SDMT"),
