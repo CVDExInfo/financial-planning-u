@@ -1,4 +1,5 @@
 name: Deploy Finanzas API
+
 on:
   push:
     branches:
@@ -10,31 +11,366 @@ on:
 permissions:
   id-token: write
   contents: read
+
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+
+  # ✅ DEV-only (single stage for now)
   DEPLOYMENT_ENV: dev
   FINZ_API_STACK: finanzas-sd-api-dev
   FINZ_API_STAGE: dev
 
+  # Cognito (required)
   COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
   COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }}
   COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
 
+  # ✅ Canonical DEV API ID (guard)
   FINZ_API_ID_DEV: ${{ vars.FINZ_API_ID_DEV || 'pyorjw6lbe' }}
 
+  # AVP (optional)
   POLICY_STORE_ID: ${{ vars.POLICY_STORE_ID || '' }}
 
   # DEV-only required policy IDs (space or comma separated)
   REQUIRED_POLICY_IDS_DEV: ${{ vars.REQUIRED_POLICY_IDS_DEV || 'hhKNjToeFMfEtGyLuUjg6' }}
 
-
 jobs:
   deploy-api:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Normalize line endings for local actions
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y dos2unix
+          find .github/actions -type f -print0 | xargs -0 dos2unix || true
+
+      - name: Install CLI helpers
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
+      - name: Preflight env
+        run: |
+          set -euo pipefail
+          echo "🚀 Deployment Environment: ${DEPLOYMENT_ENV}"
+          echo "📦 Stack Name: ${FINZ_API_STACK}"
+          echo "🔌 Stage: ${FINZ_API_STAGE}"
+          echo "🌐 Region: ${AWS_REGION}"
+          echo "🔑 Expected API ID (dev): ${FINZ_API_ID_DEV}"
+
+          for k in AWS_REGION FINZ_API_STACK FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_USER_POOL_ARN COGNITO_WEB_CLIENT; do
+            v="${!k:-}"
+            if [ -z "$v" ]; then
+              echo "❌ $k is empty"
+              exit 1
+            fi
+          done
+
+          echo "✅ Env OK"
+
+      - name: Configure AWS (OIDC)
+        uses: ./.github/actions/oidc-configure-aws
+        with:
+          role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          session_name: deploy-api-${{ github.run_id }}
+
+      - name: Verify identity (fail fast)
+        run: aws sts get-caller-identity
+
+      - name: Preflight - Verify AVP Policy Store (optional)
+        id: avp_check
+        run: |
+          set -euo pipefail
+          if [ -n "${POLICY_STORE_ID:-}" ]; then
+            echo "Verifying AVP Policy Store: $POLICY_STORE_ID"
+            if aws verifiedpermissions get-policy-store \
+              --region "${AWS_REGION}" \
+              --policy-store-id "$POLICY_STORE_ID" \
+              --query 'policyStoreId' --output text >/dev/null 2>&1; then
+              echo "✅ AVP Policy Store verified: $POLICY_STORE_ID"
+              echo "avp_enabled=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "❌ AVP Policy Store not found: $POLICY_STORE_ID"
+              echo "Run the AVP deployment first or clear POLICY_STORE_ID to skip AVP checks."
+              exit 1
+            fi
+          else
+            echo "ℹ️ POLICY_STORE_ID not set - AVP checks will be skipped"
+            echo "avp_enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install SAM CLI
+        run: |
+          pipx install aws-sam-cli
+          sam --version
+
+      - name: Install dependencies
+        working-directory: services/finanzas-api
+        run: |
+          set -euo pipefail
+          echo "Installing API service dependencies"
+          if ! npm ci; then
+            echo "npm ci failed (lock mismatch). Falling back to npm install."
+            npm install
+          fi
+
+      - name: Build
+        working-directory: services/finanzas-api
+        run: |
+          set -euo pipefail
+          if ! npm ci; then
+            npm install
+          fi
+          npm i -g esbuild || true
+          npm install esbuild --no-save || true
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          sam build
+
+      - name: Validate AVP schema/policies match repo (drift guard)
+        if: steps.avp_check.outputs.avp_enabled == 'true'
+        env:
+          POLICY_STORE_ID: ${{ env.POLICY_STORE_ID }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          REQUIRED_POLICY_IDS_DEV: ${{ env.REQUIRED_POLICY_IDS_DEV }}
+        run: |
+          set -euo pipefail
+          echo "🔍 Validating AVP schema and FIN policy alignment against repo..."
+
+          REMOTE_SCHEMA_JSON="$(aws verifiedpermissions get-schema \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --region "$AWS_REGION" \
+            --output json)"
+
+          # Robustly extract schema as a string across possible response shapes
+          REMOTE_SCHEMA="$(echo "$REMOTE_SCHEMA_JSON" | jq -er '
+            if (.schema | type) == "string" then .schema
+            elif (.schema | type) == "object" then
+              (.schema.definition.cedarJson? // .schema.cedarJson? // .schema.definition? // empty)
+            else empty end
+          ')" || true
+
+          if [ -z "${REMOTE_SCHEMA:-}" ]; then
+            echo "❌ Unable to read Cedar schema from policy store $POLICY_STORE_ID"
+            echo "$REMOTE_SCHEMA_JSON" | head -c 600 || true
+            exit 1
+          fi
+
+          printf '%s' "$REMOTE_SCHEMA" > /tmp/remote-schema.cedar
+
+          # ✅ Find local schema.cedar anywhere in the repo (avoids brittle ../../ paths)
+          echo "Locating local schema.cedar in repository..."
+          LOCAL_SCHEMA_PATH=""
+          if [ -f "$GITHUB_WORKSPACE/avp/schema.cedar" ]; then
+            LOCAL_SCHEMA_PATH="$GITHUB_WORKSPACE/avp/schema.cedar"
+          else
+            FOUND="$(find "$GITHUB_WORKSPACE" -maxdepth 6 -type f -name "schema.cedar" | head -n 1 || true)"
+            if [ -n "${FOUND:-}" ]; then
+              LOCAL_SCHEMA_PATH="$FOUND"
+            fi
+          fi
+
+          if [ -z "${LOCAL_SCHEMA_PATH:-}" ] || [ ! -f "$LOCAL_SCHEMA_PATH" ]; then
+            echo "❌ Local schema.cedar not found in repo. Expected avp/schema.cedar or any schema.cedar within maxdepth 6."
+            echo "Repo tree (top):"
+            ls -la "$GITHUB_WORKSPACE" || true
+            exit 1
+          fi
+
+          echo "✅ Using local schema: $LOCAL_SCHEMA_PATH"
+
+          REMOTE_NORM="$(tr -d '[:space:]' < /tmp/remote-schema.cedar)"
+          LOCAL_NORM="$(tr -d '[:space:]' < "$LOCAL_SCHEMA_PATH")"
+
+          if [ "$REMOTE_NORM" != "$LOCAL_NORM" ]; then
+            echo "❌ Schema drift detected between policy store and $LOCAL_SCHEMA_PATH"
+            exit 1
+          fi
+
+          echo "✅ AVP schema matches repository version"
+
+          REQUIRED_IDS="$(echo "${REQUIRED_POLICY_IDS_DEV:-}" | tr ',' ' ' | xargs)"
+          if [ -n "$REQUIRED_IDS" ]; then
+            echo "🔒 Verifying required AVP policies for DEV: $REQUIRED_IDS"
+            POLICY_IDS="$(aws verifiedpermissions list-policies \
+              --policy-store-id "$POLICY_STORE_ID" \
+              --region "$AWS_REGION" \
+              --query 'policies[].policyId' \
+              --output text | tr '\t' '\n')"
+
+            MISSING=()
+            for PID in $REQUIRED_IDS; do
+              echo "$POLICY_IDS" | grep -q "^${PID}$" || MISSING+=("$PID")
+            done
+
+            if [ ${#MISSING[@]} -gt 0 ]; then
+              echo "❌ Missing required policy IDs: ${MISSING[*]}"
+              exit 1
+            fi
+
+            echo "✅ Required DEV AVP policies present"
+          else
+            echo "ℹ️ No required DEV policy ids configured; skipping policy-id guard"
+          fi
+
+      - name: Preflight - Check stack status
+        run: |
+          set -euo pipefail
+          echo "Checking stack status for: ${FINZ_API_STACK}"
+
+          STACK_STATUS="$(aws cloudformation describe-stacks \
+            --stack-name "${FINZ_API_STACK}" \
+            --region "${AWS_REGION}" \
+            --query 'Stacks[0].StackStatus' \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")"
+
+          if [[ "$STACK_STATUS" == *"_IN_PROGRESS" ]]; then
+            echo "❌ Stack is already in progress (Status: $STACK_STATUS)"
+            exit 1
+          fi
+
+          echo "✅ Stack status check passed: $STACK_STATUS"
+
+      - name: Auto-delete stack in rollback state
+        run: |
+          set -euo pipefail
+          STACK_STATUS="$(aws cloudformation describe-stacks \
+            --stack-name "${FINZ_API_STACK}" \
+            --region "${AWS_REGION}" \
+            --query 'Stacks[0].StackStatus' \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")"
+
+          if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ] || [ "$STACK_STATUS" = "ROLLBACK_FAILED" ]; then
+            echo "♻️ Deleting stuck stack ${FINZ_API_STACK} (status: $STACK_STATUS) before redeploy"
+            aws cloudformation delete-stack --stack-name "${FINZ_API_STACK}" --region "${AWS_REGION}"
+            aws cloudformation wait stack-delete-complete --stack-name "${FINZ_API_STACK}" --region "${AWS_REGION}"
+            echo "✅ Stack deleted; proceeding"
+          else
+            echo "ℹ️ No deletion needed (status: $STACK_STATUS)"
+          fi
+
+      - name: Deploy
+        working-directory: services/finanzas-api
+        run: |
+          set -euo pipefail
+          sam deploy --no-confirm-changeset \
+            --stack-name "${FINZ_API_STACK}" \
+            --resolve-s3 \
+            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --region "${AWS_REGION}" \
+            --parameter-overrides \
+              CognitoUserPoolArn=${COGNITO_USER_POOL_ARN} \
+              CognitoUserPoolId=${COGNITO_USER_POOL_ID} \
+              CognitoUserPoolClientId=${COGNITO_WEB_CLIENT} \
+              StageName=${FINZ_API_STAGE} \
+              TablePrefix=finz_ \
+              DocsBucketName=ukusi-ui-finanzas-prod \
+              PolicyStoreId="${POLICY_STORE_ID:-}" \
+            || {
+              echo "❌ sam deploy failed, showing recent CloudFormation events..."
+              aws cloudformation describe-stack-events \
+                --stack-name "${FINZ_API_STACK}" \
+                --max-items 20 \
+                --query 'StackEvents[0:10].[LogicalResourceId,ResourceStatus,ResourceStatusReason]' \
+                --output table || true
+              exit 1
+            }
+
+      - name: Output API info
+        id: out
+        run: |
+          set -euo pipefail
+          API_ID="$(aws cloudformation describe-stacks --stack-name "${FINZ_API_STACK}" \
+            --region "${AWS_REGION}" \
+            --query "Stacks[0].Outputs[?OutputKey=='FinzApiId'].OutputValue" --output text)"
+          API_URL="$(aws cloudformation describe-stacks --stack-name "${FINZ_API_STACK}" \
+            --region "${AWS_REGION}" \
+            --query "Stacks[0].Outputs[?OutputKey=='FinzApiUrl'].OutputValue" --output text)"
+
+          printf 'api_id=%s\n' "$API_ID" >> "$GITHUB_OUTPUT"
+          printf 'api_url=%s\n' "$API_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Guard - canonical API id and required routes present
+        run: |
+          set -euo pipefail
+          HOST_ID="$(echo "${{ steps.out.outputs.api_url }}" | awk -F'[/.]' '{print $3}')"
+          EXPECTED="${FINZ_API_ID_DEV}"
+
+          if [ -n "${EXPECTED:-}" ] && [ "$HOST_ID" != "$EXPECTED" ]; then
+            echo "❌ Expected API id ${EXPECTED}, got ${HOST_ID} from ${{ steps.out.outputs.api_url }}"
+            exit 1
+          fi
+
+          echo "✅ API ID matches expected: ${HOST_ID}"
+
+          echo "Verifying routes on API ${HOST_ID}..."
+          ROUTES="$(aws apigatewayv2 get-routes --api-id "$HOST_ID" --region "${AWS_REGION}" --query 'Items[].RouteKey' --output text)"
+
+          for ROUTE in "GET /health" "GET /catalog/rubros" "POST /projects"; do
+            echo "$ROUTES" | tr '\t' '\n' | grep -q "^${ROUTE}$" || {
+              echo "❌ Mandatory route '${ROUTE}' not found on API ${HOST_ID}"
+              exit 1
+            }
+            echo "✅ Route found: ${ROUTE}"
+          done
+
+          AUTH_COUNT="$(aws apigatewayv2 get-authorizers --api-id "$HOST_ID" --region "${AWS_REGION}" --query 'length(Items[?Name==`CognitoJwt`])' --output text)"
+          if [ "$AUTH_COUNT" = "0" ]; then
+            echo "❌ CognitoJwt authorizer not found on API ${HOST_ID}"
+            exit 1
+          fi
+          echo "✅ CognitoJwt authorizer present"
+
+      - name: Readiness - wait for /health (max 90s)
+        env:
+          BASE: ${{ steps.out.outputs.api_url }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 18); do
+            CODE="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || true)"
+            if [ "$CODE" = "200" ]; then
+              echo "✅ API ready (health=200)"
+              exit 0
+            fi
+            echo "Waiting for API... (try $i, code=$CODE)"
+            sleep 5
+          done
+          echo "❌ API not ready in time"
+          exit 1
+
+      - name: Smoke (health)
+        run: curl -sS --fail "${{ steps.out.outputs.api_url }}/health" | jq .
+
+      - name: Generate Cognito JWT
+        id: jwt
+        uses: ./.github/actions/cognito-generate-jwt
+        with:
+          user_pool_id: ${{ env.COGNITO_USER_POOL_ID }}
+          client_id: ${{ env.COGNITO_WEB_CLIENT }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          aws_region: ${{ env.AWS_REGION }}
+
+      - name: Smoke (protected POST /projects)
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          curl -sS -X POST "${{ steps.out.outputs.api_url }}/projects" \
+            -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" \
+            -H "Content-Type: application/json" \
+            -d '{"cliente":"Cliente Alpha","nombre":"Proyecto A","fecha_inicio":"2025-01-01","fecha_fin":"2025-09-30","moneda":"COP"}' | jq .
+
+      - name: Smoke (GET /catalog/rubros)
+        run: curl -sS --fail "${{ steps.out.outputs.api_url }}/catalog/rubros" | jq '.'
+
+      - name: Smoke (GET /allocation-rules) with JWT
+        run: |
+          curl -sS --fail \
+            -H "Authorization: Bearer ${{ steps.jwt.outputs.access_token }}" \
+            "${{ steps.out.outputs.api_url }}/allocation-rules" | jq '.'      - name: Normalize line endings for local actions
         run: |
           sudo apt-get update -y
           sudo apt-get install -y dos2unix
