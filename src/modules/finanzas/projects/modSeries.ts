@@ -368,7 +368,6 @@ function buildAdjustedProjectedSeries(
     if (!modPredicate(row)) continue;
 
     // Adjustments can be distributed across multiple months
-    const mesesImpactados = row.meses_impactados || row.monthsImpacted || [];
     const distribucion = row.distribucion || row.distribution || [];
 
     // If we have distribution, use it
