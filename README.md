@@ -630,17 +630,23 @@ The application uses a comprehensive behavioral testing protocol that validates 
 - **[Behavioral Testing Guide](./docs/BEHAVIORAL_TESTING.md)** - Complete testing protocol documentation
 - **[Security: NO_GROUP Validation](./docs/BEHAVIORAL_TESTING.md#security-no_group-user-validation)** - Critical role leakage prevention
 
+**Setup Test Users**:
+```bash
+# Create Cognito test users (requires AWS credentials)
+./scripts/cognito/setup-test-users.sh
+```
+
 **Required Test Credentials** (environment variables):
 ```bash
 # Configure for each role: PMO, SDMT, EXEC_RO, NO_GROUP
-E2E_PMO_EMAIL=...
-E2E_PMO_PASSWORD=...
-E2E_SDMT_EMAIL=...
-E2E_SDMT_PASSWORD=...
-E2E_EXEC_EMAIL=...
-E2E_EXEC_PASSWORD=...
-E2E_NO_GROUP_EMAIL=...        # CRITICAL for security testing
-E2E_NO_GROUP_PASSWORD=...
+E2E_PMO_EMAIL=e2e-pmo-test@ikusi.com
+E2E_PMO_PASSWORD=SecureTestPass2025!
+E2E_SDMT_EMAIL=e2e-sdmt-test@ikusi.com
+E2E_SDMT_PASSWORD=SecureTestPass2025!
+E2E_EXEC_EMAIL=e2e-exec-test@ikusi.com
+E2E_EXEC_PASSWORD=SecureTestPass2025!
+E2E_NO_GROUP_EMAIL=e2e-nogroup-test@ikusi.com  # CRITICAL for security testing
+E2E_NO_GROUP_PASSWORD=SecureTestPass2025!
 ```
 
 **CI Workflows:**

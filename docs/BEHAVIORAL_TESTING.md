@@ -193,7 +193,28 @@ npx playwright show-report
 
 ## Configuring Test Users in Cognito
 
-### Creating Test Users
+### Automated Setup (Recommended)
+
+Use the provided script to create all test users at once:
+
+```bash
+# Ensure AWS credentials are configured (via aws configure, SSO, or env vars)
+./scripts/cognito/setup-test-users.sh
+```
+
+This script will:
+- Create users for PMO, SDMT, EXEC_RO, and NO_GROUP roles
+- Set passwords to `SecureTestPass2025!`
+- Assign appropriate Cognito groups
+- Verify NO_GROUP user has zero group memberships
+
+After running the script, add the credentials to `.env.local` or GitHub Actions secrets as shown in the script output.
+
+### Manual Setup
+
+Alternatively, create test users manually:
+
+#### Creating Test Users
 
 For each role, create a user in Cognito:
 
