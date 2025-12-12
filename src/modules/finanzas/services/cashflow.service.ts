@@ -59,11 +59,7 @@ export async function getCashflowForAllProjects(
   try {
     // Fetch cashflow with controlled concurrency (batches of 5)
     const BATCH_SIZE = 5;
-    const results: PromiseSettledResult<{
-      inflows: Array<{ month: number; amount: number }>;
-      outflows: Array<{ month: number; amount: number }>;
-      margin: Array<{ month: number; percentage: number }>;
-    }>[] = [];
+    const results: PromiseSettledResult<CashflowResponse>[] = [];
 
     for (let i = 0; i < projectIds.length; i += BATCH_SIZE) {
       const batch = projectIds.slice(i, i + BATCH_SIZE);
@@ -116,7 +112,8 @@ export async function getCashflowForAllProjects(
       aggregated.inflows.push({ month, amount: inflowAmount });
       aggregated.outflows.push({ month, amount: outflowAmount });
 
-      // Calculate margin
+      // Calculate profit margin percentage: (revenue - costs) / revenue * 100
+      // This represents the percentage of revenue retained as profit
       const marginAmount = inflowAmount - outflowAmount;
       const marginPercentage =
         inflowAmount > 0 ? (marginAmount / inflowAmount) * 100 : 0;

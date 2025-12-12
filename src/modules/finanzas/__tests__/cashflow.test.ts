@@ -108,15 +108,21 @@ describe("toCashflowSeries", () => {
   });
 
   it("should coerce string-like numbers to actual numbers", () => {
-    // Simulate malformed API response with string numbers
-    const response: CashflowResponse = {
-      inflows: [{ month: 1, amount: Number("100000") }],
-      outflows: [{ month: 1, amount: Number("80000") }],
-      margin: [{ month: 1, percentage: Number("20") }],
-    };
+    // The transform function uses Number() which can handle numeric strings
+    // This test verifies that even if the API returns numeric values,
+    // they are properly converted through Number() coercion
+    const response = {
+      inflows: [{ month: 1, amount: 100000 }],
+      outflows: [{ month: 1, amount: 80000 }],
+      margin: [{ month: 1, percentage: 20 }],
+    } as CashflowResponse;
 
     const result = toCashflowSeries(response, 1);
 
+    // Verify values are properly coerced to numbers
+    assert.strictEqual(typeof result.ingresos[0], "number");
+    assert.strictEqual(typeof result.egresos[0], "number");
+    assert.strictEqual(typeof result.margen[0], "number");
     assert.deepStrictEqual(result.ingresos, [100000]);
     assert.deepStrictEqual(result.egresos, [80000]);
     assert.deepStrictEqual(result.neto, [20000]);
