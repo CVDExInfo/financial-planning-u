@@ -985,6 +985,8 @@ Resources:
     Properties:
       CodeUri: .
       Handler: plan.handler
+      DependsOn:
+        - PayrollTable
       Policies:
         - AWSLambdaBasicExecutionRole
         - DynamoDBReadPolicy:
@@ -995,7 +997,7 @@ Resources:
               Ref: AllocationsTable
         - DynamoDBReadPolicy:
             TableName:
-              Ref: PayrollTable
+              Fn::Sub: ${TablePrefix}payroll_actuals
         - DynamoDBReadPolicy:
             TableName:
               Ref: AdjustmentsTable
@@ -1029,11 +1031,13 @@ Resources:
     Properties:
       CodeUri: .
       Handler: payroll.handler
+      DependsOn:
+        - PayrollTable
       Policies:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:
             TableName:
-              Ref: PayrollTable
+              Fn::Sub: ${TablePrefix}payroll_actuals
         - DynamoDBReadPolicy:
             TableName:
               Ref: ProjectsTable
@@ -1312,6 +1316,8 @@ Resources:
     Properties:
       CodeUri: .
       Handler: forecast.handler
+      DependsOn:
+        - PayrollTable
       Policies:
         - AWSLambdaBasicExecutionRole
         - DynamoDBReadPolicy:
@@ -1322,7 +1328,7 @@ Resources:
               Ref: AllocationsTable
         - DynamoDBReadPolicy:
             TableName:
-              Ref: PayrollTable
+              Fn::Sub: ${TablePrefix}payroll_actuals
         - DynamoDBReadPolicy:
             TableName:
               Ref: AdjustmentsTable
@@ -1510,6 +1516,8 @@ Resources:
     Properties:
       CodeUri: .
       Handler: hub.handler
+      DependsOn:
+        - PayrollTable
       Policies:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:
@@ -1520,7 +1528,7 @@ Resources:
               Ref: AllocationsTable
         - DynamoDBCrudPolicy:
             TableName:
-              Ref: PayrollActualsTable
+              Fn::Sub: ${TablePrefix}payroll_actuals
         - DynamoDBCrudPolicy:
             TableName:
               Ref: AdjustmentsTable
