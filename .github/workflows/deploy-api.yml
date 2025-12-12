@@ -170,21 +170,16 @@ jobs:
             exit 1
           fi
 
-          python - <<'PY'
-import sys
-from pathlib import Path
+          # Compare schema files ignoring whitespace, using bash only
+          REMOTE_NORM="$(tr -d '[:space:]' < /tmp/remote-schema.cedar)"
+          LOCAL_NORM="$(tr -d '[:space:]' < "$LOCAL_SCHEMA_PATH")"
 
-remote = Path("/tmp/remote-schema.cedar").read_text(encoding="utf-8")
-local  = Path("../../avp/schema.cedar").read_text(encoding="utf-8")
+          if [ "$REMOTE_NORM" != "$LOCAL_NORM" ]; then
+            echo "❌ Schema drift detected between policy store and $LOCAL_SCHEMA_PATH"
+            exit 1
+          fi
 
-def norm(s: str) -> str:
-    return "".join(s.split())
-
-if norm(remote) != norm(local):
-    sys.exit("Schema drift detected between policy store and ../../avp/schema.cedar")
-
-print("✅ AVP schema matches repository version")
-PY
+          echo "✅ AVP schema matches repository version"
 
           REQUIRED_IDS="$(echo "${REQUIRED_POLICY_IDS_DEV:-}" | tr ',' ' ' | xargs)"
           if [ -n "$REQUIRED_IDS" ]; then
