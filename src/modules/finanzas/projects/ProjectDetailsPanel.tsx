@@ -2,7 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProjectDisplay } from "@/lib/projects/display";
 import { type ProjectForUI } from "./useProjects";
 import LineChartComponent from "@/components/charts/LineChart";
-import type { ModChartPoint } from "../ProjectsManager";
+
+export type ModChartPoint = {
+  month: string;
+  "Allocations MOD": number;
+  "Adjusted/Projected MOD": number;
+  "Actual Payroll MOD": number;
+};
 
 interface ProjectDetailsPanelProps {
   project: ProjectForUI;
@@ -10,6 +16,7 @@ interface ProjectDetailsPanelProps {
   calculateDurationInMonths: (start?: string, end?: string) => number | null;
   formatDate: (value?: string | null) => string;
   modChartData?: ModChartPoint[];
+  chartTitle?: string;
 }
 
 export default function ProjectDetailsPanel({
@@ -18,6 +25,7 @@ export default function ProjectDetailsPanel({
   calculateDurationInMonths,
   formatDate,
   modChartData = [],
+  chartTitle = "MOD Performance (Allocations vs Adjusted/Projected vs Actual Payroll)",
 }: ProjectDetailsPanelProps) {
   const display = getProjectDisplay(project);
   const durationMonths = calculateDurationInMonths(
@@ -131,50 +139,49 @@ export default function ProjectDetailsPanel({
             )}
           </p>
         </div>
-        </CardContent>
-      </Card>
+      </CardContent>
+    </Card>
 
-      {/* MOD Performance Chart */}
-      <Card className="border-border/80 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">
-            Desempeño de MOD (Asignaciones vs Proyectado/Ajustado vs Nómina Real)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {modChartData.length === 0 ? (
-            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-              No hay datos disponibles
-            </div>
-          ) : (
-            <LineChartComponent
-              data={modChartData}
-              lines={[
-                {
-                  dataKey: "Allocations MOD",
-                  name: "Asignaciones (Plan)",
-                  color: "#8b5cf6",
-                },
-                {
-                  dataKey: "Adjusted/Projected MOD",
-                  name: "Proyectado/Ajustado",
-                  color: "#3b82f6",
-                },
-                {
-                  dataKey: "Actual Payroll MOD",
-                  name: "Nómina Real",
-                  color: "#10b981",
-                },
-              ]}
-              title=""
-              className="h-full"
-              labelPrefix="Mes"
-              valueFormatter={formatCurrency}
-              xTickFormatter={(value) => String(value)}
-            />
-          )}
-        </CardContent>
-      </Card>
+    {/* MOD Performance Chart */}
+    <Card className="border-border/80 shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-base font-semibold">
+          {chartTitle}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {modChartData.length > 0 ? (
+          <LineChartComponent
+            data={modChartData}
+            lines={[
+              {
+                dataKey: "Allocations MOD",
+                name: "Allocations MOD",
+                color: "#8b5cf6",
+              },
+              {
+                dataKey: "Adjusted/Projected MOD",
+                name: "Adjusted/Projected MOD",
+                color: "#3b82f6",
+              },
+              {
+                dataKey: "Actual Payroll MOD",
+                name: "Actual Payroll MOD",
+                color: "#10b981",
+              },
+            ]}
+            labelPrefix="Month"
+            valueFormatter={formatCurrency}
+            xTickFormatter={(value) => String(value)}
+            className="h-full"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+            No data available
+          </div>
+        )}
+      </CardContent>
+    </Card>
     </>
   );
 }
