@@ -50,18 +50,28 @@ export async function getCashflowForProject(
 
 /**
  * Fetch cashflow data for all projects (aggregated)
+ * Uses controlled concurrency to avoid overwhelming the server
  */
 export async function getCashflowForAllProjects(
   projectIds: string[],
   months: number
 ): Promise<CashflowResponse> {
   try {
-    // Fetch cashflow for all projects in parallel
-    const results = await Promise.allSettled(
-      projectIds.map((projectId) =>
-        ApiService.getCashFlowData(projectId, months)
-      )
-    );
+    // Fetch cashflow with controlled concurrency (batches of 5)
+    const BATCH_SIZE = 5;
+    const results: PromiseSettledResult<{
+      inflows: Array<{ month: number; amount: number }>;
+      outflows: Array<{ month: number; amount: number }>;
+      margin: Array<{ month: number; percentage: number }>;
+    }>[] = [];
+
+    for (let i = 0; i < projectIds.length; i += BATCH_SIZE) {
+      const batch = projectIds.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.allSettled(
+        batch.map((projectId) => ApiService.getCashFlowData(projectId, months))
+      );
+      results.push(...batchResults);
+    }
 
     // Aggregate data across all projects
     const aggregated: CashflowResponse = {
@@ -180,9 +190,18 @@ export async function getCashflow(
 ): Promise<CashflowResponse> {
   if (mode === "ALL") {
     return getCashflowForAllProjects(projectIds, months);
-  } else if (projectId) {
+  } else if (mode === "PROJECT") {
+    if (!projectId) {
+      logger.warn("getCashflow called in PROJECT mode without projectId");
+      return {
+        inflows: [],
+        outflows: [],
+        margin: [],
+      };
+    }
     return getCashflowForProject(projectId, months);
   } else {
+    logger.warn("getCashflow called with invalid mode:", mode);
     return {
       inflows: [],
       outflows: [],

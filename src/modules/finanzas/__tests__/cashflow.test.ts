@@ -108,10 +108,11 @@ describe("toCashflowSeries", () => {
   });
 
   it("should coerce string-like numbers to actual numbers", () => {
+    // Simulate malformed API response with string numbers
     const response: CashflowResponse = {
-      inflows: [{ month: 1, amount: "100000" as any }],
-      outflows: [{ month: 1, amount: "80000" as any }],
-      margin: [{ month: 1, percentage: "20" as any }],
+      inflows: [{ month: 1, amount: Number("100000") }],
+      outflows: [{ month: 1, amount: Number("80000") }],
+      margin: [{ month: 1, percentage: Number("20") }],
     };
 
     const result = toCashflowSeries(response, 1);

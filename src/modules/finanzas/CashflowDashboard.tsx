@@ -21,7 +21,12 @@ export default function CashflowDashboard() {
 
   const months = Math.max(parseInt(selectedPeriod || "12", 10), 1);
   const mode = selectedProjectId ? "PROJECT" : "ALL";
-  const allProjectIds = projects.map((p) => p.id).filter(Boolean);
+  
+  // Memoize project IDs to avoid recalculation on every render
+  const allProjectIds = React.useMemo(
+    () => projects.map((p) => p.id).filter(Boolean),
+    [projects]
+  );
 
   const currencyFormatter = React.useCallback(
     (value: number) =>
