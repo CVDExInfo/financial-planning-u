@@ -203,8 +203,8 @@ export default function RubrosCatalog() {
             error={error}
             onRetry={loadRubros}
             loadingType="table"
-            emptyTitle="No hay rubros disponibles"
-            emptyMessage="Aún no hay rubros listos. Intenta refrescar o sincroniza el catálogo desde Finanzas."
+            emptyTitle="No hay rubros en el catálogo"
+            emptyMessage="El catálogo de rubros se carga desde la taxonomía canónica. Si ves este mensaje, verifica la conexión con la API o contacta a soporte."
           >
             {(items) => {
               const safeItems = Array.isArray(items) ? (items as Rubro[]) : [];

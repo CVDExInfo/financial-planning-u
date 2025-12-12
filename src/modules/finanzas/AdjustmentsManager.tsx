@@ -269,27 +269,40 @@ export default function AdjustmentsManager() {
                       <th className="py-2 pr-4 font-medium">Estado</th>
                       <th className="py-2 pr-4 font-medium">Inicio</th>
                       <th className="py-2 pr-4 font-medium">Solicitado por</th>
+                      <th className="py-2 pr-4 font-medium">Actualizado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(items as Adjustment[]).map((adjustment) => (
-                      <tr key={adjustment.id} className="border-b last:border-0">
-                        <td className="py-2 pr-4 font-medium">{adjustment.project_id}</td>
-                        <td className="py-2 pr-4 capitalize">{adjustment.tipo}</td>
-                        <td className="py-2 pr-4">
-                          {new Intl.NumberFormat("es-MX", {
-                            style: "currency",
-                            currency: "USD",
-                            maximumFractionDigits: 0,
-                          }).format(adjustment.monto)}
-                        </td>
-                        <td className="py-2 pr-4 capitalize text-muted-foreground">
-                          {adjustment.estado?.replace("_", " ") || "pendiente"}
-                        </td>
-                        <td className="py-2 pr-4">{adjustment.fecha_inicio || "—"}</td>
-                        <td className="py-2 pr-4">{adjustment.solicitado_por}</td>
-                      </tr>
-                    ))}
+                    {(items as Adjustment[]).map((adjustment) => {
+                      const updatedDate = adjustment.updated_at || adjustment.created_at;
+                      const formattedDate = updatedDate 
+                        ? new Date(updatedDate).toLocaleDateString('es-MX', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })
+                        : '—';
+                      
+                      return (
+                        <tr key={adjustment.id} className="border-b last:border-0">
+                          <td className="py-2 pr-4 font-medium">{adjustment.project_id}</td>
+                          <td className="py-2 pr-4 capitalize">{adjustment.tipo}</td>
+                          <td className="py-2 pr-4">
+                            {new Intl.NumberFormat("es-MX", {
+                              style: "currency",
+                              currency: "USD",
+                              maximumFractionDigits: 0,
+                            }).format(adjustment.monto)}
+                          </td>
+                          <td className="py-2 pr-4 capitalize text-muted-foreground">
+                            {adjustment.estado?.replace("_", " ") || "pendiente"}
+                          </td>
+                          <td className="py-2 pr-4">{adjustment.fecha_inicio || "—"}</td>
+                          <td className="py-2 pr-4 text-xs">{adjustment.solicitado_por}</td>
+                          <td className="py-2 pr-4 text-xs text-muted-foreground">{formattedDate}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
