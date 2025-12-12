@@ -121,6 +121,18 @@ export function SDMTForecast() {
         return cell;
       });
 
+      if (import.meta.env.DEV) {
+        console.debug('[Forecast] data pipeline', {
+          projectId: selectedProjectId,
+          rawCells: Array.isArray(payload.data) ? payload.data.length : 0,
+          normalizedCells: normalized.length,
+          invoices: invoices.length,
+          matchedInvoices: matchedInvoices.length,
+          lineItems: safeLineItems.length,
+          generatedAt: payload.generatedAt,
+        });
+      }
+
       setForecastData(updatedData);
 
       if (import.meta.env.DEV) {
@@ -596,7 +608,7 @@ export function SDMTForecast() {
                   No hay datos de pronóstico disponibles aún para {currentProject?.name || 'este proyecto'}.
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Agrega asignaciones o rubros para comenzar a construir el pronóstico.
+                  Project ID: {selectedProjectId} | Última generación: {generatedAt ? new Date(generatedAt).toLocaleString() : 'sin registro'}
                 </div>
               </div>
             </div>

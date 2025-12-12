@@ -47,9 +47,7 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
       if (!currentProject?.id || !currentProject?.baselineId) {
         throw new Error("Project or baseline ID missing");
       }
-      return acceptBaseline(currentProject.id, {
-        baseline_id: currentProject.baselineId,
-      });
+      return acceptBaseline(currentProject.id);
     },
     onSuccess: async () => {
       toast.success("Baseline accepted successfully");
