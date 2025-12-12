@@ -34,6 +34,8 @@ servers:
 tags:
   - name: Health
     description: Service health and status monitoring
+  - name: Hub
+    description: Financial Performance Hub - Executive dashboard (SDMT and EXEC_RO only)
   - name: Projects
     description: Project management and handoff operations
   - name: Catalog
@@ -1511,6 +1513,156 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /finanzas/hub/summary:
+    get:
+      tags:
+        - Hub
+      summary: Hub de Desempeño Summary
+      description: |
+        Returns KPI tiles and high-level portfolio metrics for the Financial Performance Hub.
+        Only accessible to SDMT and EXEC_RO roles.
+      operationId: getHubSummary
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "ALL"
+          description: "Scope filter: 'ALL' for all projects or specific project code"
+      responses:
+        "200":
+          description: Hub summary data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /finanzas/hub/mod-performance:
+    get:
+      tags:
+        - Hub
+      summary: MOD Performance Time Series
+      description: |
+        Returns monthly time series data for MOD (Mano de Obra Directa) performance.
+        Only accessible to SDMT and EXEC_RO roles.
+      operationId: getHubModPerformance
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "ALL"
+          description: "Scope filter: 'ALL' for all projects or specific project code"
+      responses:
+        "200":
+          description: MOD performance data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubModPerformance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /finanzas/hub/cashflow:
+    get:
+      tags:
+        - Hub
+      summary: Cashflow Data
+      description: |
+        Returns monthly cashflow view with forecasted vs actual outflow and rubro breakdown.
+        Only accessible to SDMT and EXEC_RO roles.
+      operationId: getHubCashflow
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "ALL"
+          description: "Scope filter: 'ALL' for all projects or specific project code"
+      responses:
+        "200":
+          description: Cashflow data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubCashflow"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /finanzas/hub/rubros-breakdown:
+    get:
+      tags:
+        - Hub
+      summary: Rubros Breakdown
+      description: |
+        Returns pie/donut chart ready breakdown by category and rubro.
+        Only accessible to SDMT and EXEC_RO roles.
+      operationId: getHubRubrosBreakdown
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "ALL"
+          description: "Scope filter: 'ALL' for all projects or specific project code"
+        - name: modOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: "Filter to MOD-only rubros when true"
+      responses:
+        "200":
+          description: Rubros breakdown data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubRubrosBreakdown"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /finanzas/hub/export:
+    post:
+      tags:
+        - Hub
+      summary: Export Hub Data to Excel
+      description: |
+        Generates a premium Excel report with Hub data and returns a presigned S3 download URL.
+        Only accessible to SDMT and EXEC_RO roles.
+      operationId: exportHub
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HubExportRequest"
+      responses:
+        "200":
+          description: Export initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubExportResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     CognitoJWT:
@@ -2555,6 +2707,267 @@ components:
           type: string
           format: date-time
           description: Error timestamp
+
+    HubSummary:
+      type: object
+      required:
+        - scope
+        - currency
+        - asOf
+        - kpis
+      properties:
+        scope:
+          type: string
+          description: Scope of the data (ALL or project code)
+        currency:
+          type: string
+          description: Currency code (e.g., USD)
+        asOf:
+          type: string
+          format: date
+          description: Date of the data snapshot
+        kpis:
+          type: object
+          required:
+            - baselineMOD
+            - allocations
+            - adjustedMOD
+            - actualPayroll
+            - variance
+            - variancePercent
+            - burnRate
+            - paidMonthsCount
+            - riskFlagsCount
+          properties:
+            baselineMOD:
+              type: number
+              description: Baseline MOD budget
+            allocations:
+              type: number
+              description: Total MOD allocations
+            adjustedMOD:
+              type: number
+              description: MOD adjusted with changes
+            actualPayroll:
+              type: number
+              description: Actual payroll paid
+            variance:
+              type: number
+              description: Variance between actual and baseline
+            variancePercent:
+              type: number
+              description: Variance as percentage
+            burnRate:
+              type: number
+              description: Budget burn rate percentage
+            paidMonthsCount:
+              type: integer
+              description: Number of months with paid payroll
+            riskFlagsCount:
+              type: integer
+              description: Number of projects with risk flags
+        projectsCount:
+          type: integer
+          description: Number of projects in scope
+
+    HubModPerformance:
+      type: object
+      required:
+        - scope
+        - currency
+        - asOf
+        - months
+      properties:
+        scope:
+          type: string
+        currency:
+          type: string
+        asOf:
+          type: string
+          format: date
+        months:
+          type: array
+          items:
+            type: object
+            required:
+              - month
+              - monthIndex
+              - allocations
+              - projectedAdjusted
+              - actualPayroll
+              - paid
+            properties:
+              month:
+                type: string
+                description: Month in YYYY-MM format
+              monthIndex:
+                type: integer
+                description: Month index (1-12)
+              allocations:
+                type: number
+                description: Allocated MOD amount
+              projectedAdjusted:
+                type: number
+                description: Projected adjusted MOD
+              actualPayroll:
+                type: number
+                description: Actual payroll amount
+              paid:
+                type: boolean
+                description: Whether payroll was paid for this month
+
+    HubCashflow:
+      type: object
+      required:
+        - scope
+        - currency
+        - asOf
+        - months
+      properties:
+        scope:
+          type: string
+        currency:
+          type: string
+        asOf:
+          type: string
+          format: date
+        months:
+          type: array
+          items:
+            type: object
+            required:
+              - month
+              - monthIndex
+              - forecastedOutflow
+              - actualOutflow
+              - variance
+              - topDrivers
+            properties:
+              month:
+                type: string
+              monthIndex:
+                type: integer
+              forecastedOutflow:
+                type: number
+              actualOutflow:
+                type: number
+              variance:
+                type: number
+              topDrivers:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - rubro
+                    - amount
+                  properties:
+                    rubro:
+                      type: string
+                    amount:
+                      type: number
+
+    HubRubrosBreakdown:
+      type: object
+      required:
+        - scope
+        - currency
+        - asOf
+        - modOnly
+        - byCategory
+        - byRubro
+        - total
+      properties:
+        scope:
+          type: string
+        currency:
+          type: string
+        asOf:
+          type: string
+          format: date
+        modOnly:
+          type: boolean
+        byCategory:
+          type: array
+          items:
+            type: object
+            required:
+              - category
+              - amount
+              - percentage
+            properties:
+              category:
+                type: string
+              amount:
+                type: number
+              percentage:
+                type: number
+        byRubro:
+          type: array
+          items:
+            type: object
+            required:
+              - rubro
+              - amount
+              - percentage
+            properties:
+              rubro:
+                type: string
+              amount:
+                type: number
+              percentage:
+                type: number
+        total:
+          type: number
+
+    HubExportRequest:
+      type: object
+      required:
+        - scope
+        - dateRange
+        - sections
+      properties:
+        scope:
+          type: string
+          description: Scope of the export (ALL or project code)
+        dateRange:
+          type: string
+          description: Date range for the export (e.g., "12months")
+        sections:
+          type: array
+          items:
+            type: string
+            enum: [summary, mod-performance, cashflow, rubros]
+          description: Sections to include in the export
+
+    HubExportResponse:
+      type: object
+      required:
+        - status
+        - message
+        - scope
+        - dateRange
+        - sections
+        - expiresIn
+      properties:
+        status:
+          type: string
+          enum: [initiated, processing, completed]
+        message:
+          type: string
+        scope:
+          type: string
+        dateRange:
+          type: string
+        sections:
+          type: array
+          items:
+            type: string
+        downloadUrl:
+          type: string
+          description: Presigned S3 URL for download (if completed)
+        expiresIn:
+          type: integer
+          description: URL expiration time in seconds
 
   responses:
     BadRequest:
