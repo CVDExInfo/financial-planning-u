@@ -67,6 +67,24 @@ describe("mapGroupsToRoles", () => {
     const roles = mapGroupsToRoles(["vendor"]);
     assert.deepEqual(asSet(roles), asSet(["VENDOR"]));
   });
+
+  it("SECURITY: does NOT grant EXEC_RO by default for empty groups", () => {
+    const roles = mapGroupsToRoles([]);
+    assert.deepEqual(roles, []);
+    assert.ok(!roles.includes("EXEC_RO"), "Should not include EXEC_RO for empty groups");
+  });
+
+  it("SECURITY: does NOT grant EXEC_RO for unrecognized groups", () => {
+    const roles = mapGroupsToRoles(["some-random-group", "another-unknown"]);
+    assert.deepEqual(roles, []);
+    assert.ok(!roles.includes("EXEC_RO"), "Should not include EXEC_RO for unrecognized groups");
+  });
+
+  it("SECURITY: does NOT grant EXEC_RO for system utility groups only", () => {
+    const roles = mapGroupsToRoles(["ikusi-acta-ui", "acta-ui"]);
+    assert.deepEqual(roles, []);
+    assert.ok(!roles.includes("EXEC_RO"), "Should not include EXEC_RO for system groups");
+  });
 });
 
 describe("resolveFinanzasRole", () => {

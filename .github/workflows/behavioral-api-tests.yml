@@ -1,0 +1,228 @@
+name: Behavioral API Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "services/finanzas-api/**"
+      - "tests/behavioral-api/**"
+      - ".github/workflows/behavioral-api-tests.yml"
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "API Base URL (optional override)"
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  behavioral-api-tests:
+    name: Behavioral API Tests
+    runs-on: ubuntu-latest
+
+    env:
+      # AWS Configuration
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+
+      # API Configuration
+      FINZ_API_BASE: ${{ inputs.api_base_url || vars.DEV_API_URL || 'https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev' }}
+      CF_DOMAIN: ${{ vars.CF_DOMAIN || 'https://d7t9x3j66yd8k.cloudfront.net' }}
+
+      # Cognito Configuration
+      COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID || 'us-east-2_FyHLtOhiY' }}
+      COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT || 'dshos5iou44tuach7ta3ici5m' }}
+      COGNITO_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+
+      # Role-based Test Credentials (from secrets)
+      E2E_PMO_EMAIL: ${{ secrets.E2E_PMO_EMAIL }}
+      E2E_PMO_PASSWORD: ${{ secrets.E2E_PMO_PASSWORD }}
+      E2E_SDM_FIN_EMAIL: ${{ secrets.E2E_SDM_FIN_EMAIL || secrets.E2E_SDMT_EMAIL }}
+      E2E_SDM_FIN_PASSWORD: ${{ secrets.E2E_SDM_FIN_PASSWORD || secrets.E2E_SDMT_PASSWORD }}
+      E2E_SDMT_EMAIL: ${{ secrets.E2E_SDMT_EMAIL }}
+      E2E_SDMT_PASSWORD: ${{ secrets.E2E_SDMT_PASSWORD }}
+      E2E_EXEC_EMAIL: ${{ secrets.E2E_EXEC_EMAIL }}
+      E2E_EXEC_PASSWORD: ${{ secrets.E2E_EXEC_PASSWORD }}
+      E2E_NO_GROUP_EMAIL: ${{ secrets.E2E_NO_GROUP_EMAIL }}
+      E2E_NO_GROUP_PASSWORD: ${{ secrets.E2E_NO_GROUP_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials (OIDC)
+        if: vars.OIDC_AWS_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.OIDC_AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate configuration
+        run: |
+          set -euo pipefail
+          
+          echo "═══════════════════════════════════════════════════"
+          echo "  Configuration Validation"
+          echo "═══════════════════════════════════════════════════"
+          echo ""
+          
+          # Sanitize URLs (remove trailing slashes and CR/LF)
+          FINZ_API_BASE="$(printf '%s' "$FINZ_API_BASE" | tr -d '\r\n' | sed 's:/*$::')"
+          CF_DOMAIN="$(printf '%s' "$CF_DOMAIN" | tr -d '\r\n' | sed 's:/*$::')"
+          
+          # Export cleaned values
+          echo "FINZ_API_BASE=${FINZ_API_BASE}" >> $GITHUB_ENV
+          echo "CF_DOMAIN=${CF_DOMAIN}" >> $GITHUB_ENV
+          
+          # Validate required environment variables
+          MISSING_VARS=()
+          
+          [[ -z "${AWS_REGION:-}" ]] && MISSING_VARS+=("AWS_REGION")
+          [[ -z "${FINZ_API_BASE:-}" ]] && MISSING_VARS+=("FINZ_API_BASE")
+          [[ -z "${COGNITO_USER_POOL_ID:-}" ]] && MISSING_VARS+=("COGNITO_USER_POOL_ID")
+          [[ -z "${COGNITO_WEB_CLIENT:-}" ]] && MISSING_VARS+=("COGNITO_WEB_CLIENT")
+          
+          if [[ ${#MISSING_VARS[@]} -gt 0 ]]; then
+            echo "❌ Missing required environment variables:"
+            printf '   - %s\n' "${MISSING_VARS[@]}"
+            exit 1
+          fi
+          
+          echo "✓ AWS Region:         ${AWS_REGION}"
+          echo "✓ API Base URL:       ${FINZ_API_BASE}"
+          echo "✓ CloudFront Domain:  ${CF_DOMAIN}"
+          echo "✓ Cognito Pool ID:    ${COGNITO_USER_POOL_ID}"
+          echo "✓ Cognito Client ID:  ${COGNITO_WEB_CLIENT}"
+          echo ""
+          
+          # Check which role credentials are configured
+          echo "Role Credentials Status:"
+          [[ -n "${E2E_PMO_EMAIL:-}" ]] && echo "  ✓ PMO" || echo "  ⚠️  PMO (not configured)"
+          [[ -n "${E2E_SDM_FIN_EMAIL:-}" ]] && echo "  ✓ SDM_FIN" || echo "  ⚠️  SDM_FIN (not configured)"
+          [[ -n "${E2E_SDMT_EMAIL:-}" ]] && echo "  ✓ SDMT" || echo "  ⚠️  SDMT (not configured)"
+          [[ -n "${E2E_EXEC_EMAIL:-}" ]] && echo "  ✓ EXEC_RO" || echo "  ⚠️  EXEC_RO (not configured)"
+          [[ -n "${E2E_NO_GROUP_EMAIL:-}" ]] && echo "  ✓ NO_GROUP" || echo "  ⚠️  NO_GROUP (not configured - SECURITY TEST)"
+          echo ""
+
+      - name: Run Behavioral API Tests
+        id: behavioral-tests
+        run: |
+          set -euo pipefail
+          
+          echo "═══════════════════════════════════════════════════"
+          echo "  Running Behavioral API Tests"
+          echo "═══════════════════════════════════════════════════"
+          echo ""
+          
+          # Run the behavioral test suite
+          npm run test:behavioral 2>&1 | tee /tmp/behavioral-test-output.txt
+          
+          # Capture exit code
+          TEST_EXIT_CODE=$?
+          
+          echo "TEST_EXIT_CODE=${TEST_EXIT_CODE}" >> $GITHUB_OUTPUT
+          
+          exit $TEST_EXIT_CODE
+
+      - name: Generate Evidence Summary
+        if: always()
+        run: |
+          set +e  # Don't fail on errors in summary generation
+          
+          {
+            echo "## 🧪 Behavioral API Test Results"
+            echo ""
+            echo "**Configuration:**"
+            echo "- API Base URL: \`${FINZ_API_BASE}\`"
+            echo "- CloudFront Origin: \`${CF_DOMAIN}\`"
+            echo "- AWS Region: \`${AWS_REGION}\`"
+            echo ""
+            
+            if [[ "${{ steps.behavioral-tests.outcome }}" == "success" ]]; then
+              echo "### ✅ All Behavioral Tests Passed"
+              echo ""
+              echo "**Test Coverage:**"
+              echo "- ✅ Health/Smoke: API reachability and authentication"
+              echo "- ✅ CORS: Preflight checks for CloudFront origin"
+              echo "- ✅ RBAC: Role-based access control enforcement"
+              echo "- ✅ Schema: Data-shape contracts without seeded data"
+              echo ""
+              echo "**Key Validations:**"
+              echo "- API responds to authenticated requests"
+              echo "- CORS headers correctly configured for SPA"
+              echo "- Role permissions enforced by backend"
+              echo "- NO_GROUP users denied access (security)"
+              echo "- Response shapes valid (no seed dependency)"
+            else
+              echo "### ❌ Behavioral Tests Failed"
+              echo ""
+              echo "Some behavioral tests failed. Please review the test output above for details."
+              echo ""
+              echo "**Common failure causes:**"
+              echo "- Missing or incorrect role credentials"
+              echo "- CORS headers not configured for CloudFront origin"
+              echo "- RBAC not properly enforced by backend"
+              echo "- API schema changes breaking contracts"
+            fi
+            
+            echo ""
+            echo "### 🔐 Security Validation"
+            if [[ -n "${E2E_NO_GROUP_EMAIL:-}" ]]; then
+              echo "- ✅ NO_GROUP user tested (prevents role leakage)"
+            else
+              echo "- ⚠️  NO_GROUP user NOT tested (missing credentials)"
+              echo "  - **IMPORTANT:** Configure E2E_NO_GROUP_EMAIL/PASSWORD for security validation"
+            fi
+            
+            echo ""
+            echo "### 📋 Test Evidence"
+            echo ""
+            echo "See test output above for detailed evidence including:"
+            echo "- Endpoint names and status codes"
+            echo "- CORS header validation results"
+            echo "- Role-specific access test results"
+            echo ""
+            
+            echo "### 📚 Next Steps"
+            if [[ "${{ steps.behavioral-tests.outcome }}" != "success" ]]; then
+              echo "1. Review test output for specific failures"
+              echo "2. Verify role credentials are configured correctly"
+              echo "3. Check API logs for authorization errors"
+              echo "4. Validate CORS configuration in API Gateway/CloudFront"
+            else
+              echo "- All behavioral validations passed"
+              echo "- API is ready for deployment"
+              echo "- RBAC and CORS are properly configured"
+            fi
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: behavioral-test-logs
+          path: |
+            /tmp/behavioral-test-output.txt
+          retention-days: 7
+          if-no-files-found: ignore

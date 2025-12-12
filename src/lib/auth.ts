@@ -163,34 +163,21 @@ export function getDefaultUserRole(user?: Partial<UserInfo> | null): UserRole {
 /**
  * Get all available roles for a user
  * Priority: 1) Use JWT roles if available, 2) Infer from user attributes
+ * 
+ * SECURITY: Users with no recognized Cognito groups get empty array.
+ * EXEC_RO is NOT automatically added as a fallback.
  */
 export function getAvailableRoles(user?: Partial<UserInfo> | null): UserRole[] {
-  // If user has JWT-provided roles (from Cognito groups), use them
+  // If user has JWT-provided roles (from Cognito groups), use them EXACTLY as-is
   if (user?.roles && user.roles.length > 0) {
     // User has explicit roles from JWT/Cognito groups
-    // Add EXEC_RO as option if not already present (for reporting)
-    const roles = [...user.roles];
-    if (!roles.includes("EXEC_RO")) {
-      roles.push("EXEC_RO");
-    }
-    return roles;
+    // SECURITY: Do NOT add EXEC_RO automatically - user must have it in Cognito groups
+    return [...user.roles];
   }
 
-  // Fallback: Owners and PMO users can switch to any role for demonstration
-  if (user?.isOwner || (user?.email ?? "").toLowerCase().includes("pmo")) {
-    return ["PMO", "SDMT", "VENDOR", "EXEC_RO"];
-  }
-
-  // Other users get their default role + read-only access
-  const defaultRole = getDefaultUserRole(user);
-  const roles: UserRole[] = [defaultRole];
-
-  // Add executive read-only as an option for most users
-  if (defaultRole !== "EXEC_RO") {
-    roles.push("EXEC_RO");
-  }
-
-  return roles;
+  // SECURITY: Users without any JWT roles should receive no roles
+  // The UI must show "no access" message for empty roles array
+  return [];
 }
 
 /**

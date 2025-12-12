@@ -610,12 +610,59 @@ The `scripts/build-guards-finanzas.sh` script validates:
 - `.github/workflows/deploy-ui.yml` - Deployment with comprehensive guards
 - `.github/workflows/smoke-only.yml` - Manual smoke testing
 
+## Testing
+
+### Behavioral Testing Protocol
+
+The application uses a comprehensive behavioral testing protocol that validates API, CORS, RBAC, and UI behavior:
+
+- **Behavioral API Tests** (blocking on PR):
+  - `npm run test:behavioral` → Run health, CORS, RBAC, and schema tests
+  - Tests authenticate with real Cognito users and validate live API behavior
+  - No seeded data required - tests discover and validate real data shapes
+
+- **Playwright UI Tests** (non-blocking, manual/nightly):
+  - `npm run test:ui` → Run routing RBAC and data state validation tests
+  - Validates role-based route visibility and access control
+  - Tests empty-state handling and chart rendering
+
+**📖 Testing Documentation:**
+- **[Behavioral Testing Guide](./docs/BEHAVIORAL_TESTING.md)** - Complete testing protocol documentation
+- **[Security: NO_GROUP Validation](./docs/BEHAVIORAL_TESTING.md#security-no_group-user-validation)** - Critical role leakage prevention
+
+**Setup Test Users**:
+```bash
+# Create Cognito test users (requires AWS credentials)
+./scripts/cognito/setup-test-users.sh
+```
+
+**Required Test Credentials** (environment variables):
+```bash
+# Configure for each role: PMO, SDMT, EXEC_RO, NO_GROUP
+E2E_PMO_EMAIL=e2e-pmo-test@ikusi.com
+E2E_PMO_PASSWORD=SecureTestPass2025!
+E2E_SDMT_EMAIL=e2e-sdmt-test@ikusi.com
+E2E_SDMT_PASSWORD=SecureTestPass2025!
+E2E_EXEC_EMAIL=e2e-exec-test@ikusi.com
+E2E_EXEC_PASSWORD=SecureTestPass2025!
+E2E_NO_GROUP_EMAIL=e2e-nogroup-test@ikusi.com  # CRITICAL for security testing
+E2E_NO_GROUP_PASSWORD=SecureTestPass2025!
+```
+
+**CI Workflows:**
+- `.github/workflows/behavioral-api-tests.yml` - Runs on PR (blocking)
+- `.github/workflows/ui-playwright.yml` - Manual/nightly UI tests
+- `.github/workflows/api-contract-tests.yml` - Legacy Newman tests (seed step now non-blocking)
+
 ## Useful scripts
 
 - `npm run dev` → start local dev server
 - `npm run build` → production build (dist/)
 - `npm run preview` → preview the built app
 - `npm run lint` → lint the workspace
+- `npm run test:behavioral` → **run behavioral API tests (health, CORS, RBAC, schema)**
+- `npm run test:ui` → **run Playwright UI behavioral tests**
+- `npm run test:unit` → run unit tests
 - `npm run generate-docs-pdf` → generate PDF versions of all documentation files (legacy)
 - `npm run render-docs` → generate bilingual PDF/DOCX documentation with corporate branding
 - `scripts/build-guards-finanzas.sh` → **validate Finanzas build artifacts (CI/CD quality gate)**

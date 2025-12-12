@@ -458,6 +458,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoggingOutRef.current = true;
 
     clearLocalTokens();
+    // SECURITY: Clear cached role to prevent role leakage between sessions
+    localStorage.removeItem(ACTIVE_ROLE_KEY);
     queryClient.clear();
     setUser(null);
     setGroups([]);
