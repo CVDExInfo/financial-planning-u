@@ -10,6 +10,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { ProjectProvider } from "@/contexts/ProjectContext";
 import LoginPage from "@/components/LoginPage";
+import NoAccess from "@/components/NoAccess";
 
 // PMO Features
 import PMOEstimatorWizard from "@/features/pmo/prefactura/Estimator/PMOEstimatorWizard";
@@ -86,7 +87,7 @@ function resolveLoginPaths() {
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading, routeConfigMissing, currentRole } = useAuth();
+  const { isAuthenticated, isLoading, routeConfigMissing, currentRole, availableRoles } = useAuth();
   useIdleLogout();
   const finanzasEnabled =
     import.meta.env.VITE_FINZ_ENABLED !== "false" ||
@@ -134,6 +135,16 @@ function AppContent() {
 
   if ([appLoginPath, browserLoginPath].includes(location.pathname)) {
     return <Navigate to={appHomePath} replace />;
+  }
+
+  // SECURITY: Users without any assigned roles cannot access the application
+  if (isAuthenticated && (!availableRoles || availableRoles.length === 0)) {
+    return (
+      <>
+        <NoAccess />
+        <Toaster position="top-right" />
+      </>
+    );
   }
 
   return (

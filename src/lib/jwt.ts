@@ -236,11 +236,14 @@ export function formatTokenExpiration(claims: JWTClaims): string {
 
 /**
  * Map Cognito groups to application UserRoles
- * Cognito groups: ADMIN, SDM, PM, SDT, FIN, AUD, admin, acta-ui-ikusi, etc.
+ * Cognito groups: ADMIN, SDM, PM, SDT, FIN, AUD, admin, EXEC_RO, etc.
  * Application roles: ADMIN, PMO, SDMT, SDM, PM, VENDOR, EXEC_RO
+ * 
+ * SECURITY: Users without any recognized Cognito groups will receive an empty array.
+ * The UI must handle this by showing a "no access" message.
  *
  * @param cognitoGroups Array of Cognito group names
- * @returns Array of application UserRole values
+ * @returns Array of application UserRole values (empty if no groups match)
  */
 export type FinanzasRole = "ADMIN" | "PMO" | "SDMT" | "SDM" | "PM" | "VENDOR" | "EXEC_RO";
 
@@ -313,11 +316,9 @@ export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
     }
   }
 
-  // Default to EXEC_RO if no roles inferred (read-only safest)
-  if (roles.size === 0) {
-    roles.add("EXEC_RO");
-  }
-
+  // SECURITY: Users without any recognized groups get no role (not EXEC_RO).
+  // This prevents ungrouped Cognito users from silently inheriting read access.
+  // The UI must show a "no access" message when roles array is empty.
   return Array.from(roles);
 }
 

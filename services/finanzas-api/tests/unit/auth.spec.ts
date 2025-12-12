@@ -72,9 +72,24 @@ describe("Auth Helper", () => {
       });
     });
 
-    it("allows authenticated users without groups to read as EXEC_RO", async () => {
+    it("denies authenticated users without groups (no default EXEC_RO)", async () => {
       const event: any = { __verifiedClaims: { email: "test@example.com" } };
+      await expect(ensureCanRead(event)).rejects.toEqual({
+        statusCode: 403,
+        body: "forbidden: valid group required",
+      });
+    });
+
+    it("allows users with explicit EXEC_RO group to read", async () => {
+      const event: any = { __verifiedClaims: { "cognito:groups": ["EXEC_RO"] } };
       await expect(ensureCanRead(event)).resolves.toBeUndefined();
+    });
+
+    it("allows users with EXEC-related groups to read as EXEC_RO", async () => {
+      for (const group of ["exec", "EXEC", "director", "manager"]) {
+        const event: any = { __verifiedClaims: { "cognito:groups": [group] } };
+        await expect(ensureCanRead(event)).resolves.toBeUndefined();
+      }
     });
   });
 });

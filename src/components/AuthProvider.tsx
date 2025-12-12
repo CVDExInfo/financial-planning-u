@@ -28,7 +28,7 @@ export type AuthSession = {
   groups: string[];
   avpDecisions: string[];
   availableRoles: UserRole[];
-  currentRole: UserRole;
+  currentRole: UserRole | null;
 };
 
 type AuthContextType = {
@@ -43,7 +43,7 @@ type AuthContextType = {
   isLoading: boolean;
   error: string | null;
 
-  currentRole: UserRole;
+  currentRole: UserRole | null;
   availableRoles: UserRole[];
   setRole: (role: UserRole) => void;
   routeConfigMissing: boolean;
@@ -64,7 +64,6 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 // Access token (finz_access_token) is preferred for Authorization headers and
 // will be discovered by the API client alongside these ID token keys.
 const TOKEN_KEYS = ["cv.jwt", "finz_jwt", "idToken", "cognitoIdToken"];
-const DEFAULT_ROLE = getDefaultUserRole(null);
 const ACTIVE_ROLE_KEY = "finz_active_role";
 
 const EMPTY_SESSION: AuthSession = {
@@ -74,7 +73,7 @@ const EMPTY_SESSION: AuthSession = {
   groups: [],
   avpDecisions: [],
   availableRoles: [],
-  currentRole: DEFAULT_ROLE,
+  currentRole: null,
 };
 
 function readTokenFromStorage(keys: string[]): string | null {
@@ -135,13 +134,9 @@ function buildSessionFromTokens(
     (role): role is UserRole =>
       ["PM", "PMO", "SDMT", "VENDOR", "EXEC_RO"].includes(role)
   );
-  const fallbackRole = mappedRoles[0] ?? getDefaultUserRole({
-    email,
-    login,
-    isOwner: cognitoGroups.includes("admin"),
-  });
-  const effectiveRoles = mappedRoles.length ? mappedRoles : [fallbackRole];
-  const defaultRole = effectiveRoles[0] ?? DEFAULT_ROLE;
+  // SECURITY: No fallback role. Users without recognized groups get empty roles array.
+  const effectiveRoles = mappedRoles;
+  const defaultRole = effectiveRoles[0] ?? null;
 
   const user: UserInfo = {
     id: claims?.sub ?? null,
@@ -173,7 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [avpDecisions, setAvpDecisions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [availableRoles, setAvailableRoles] = useState<UserRole[]>([]);
-  const [currentRole, setCurrentRole] = useState<UserRole>(DEFAULT_ROLE);
+  const [currentRole, setCurrentRole] = useState<UserRole | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [routeConfigMissing, setRouteConfigMissing] = useState(false);
   const [groupClaims, setGroupClaims] = useState<string[]>([]);
