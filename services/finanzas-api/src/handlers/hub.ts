@@ -13,7 +13,7 @@
  */
 
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
-import { ok, bad, serverError, unauthorized } from "../lib/http";
+import { ok, bad, serverError } from "../lib/http";
 import { getUserContext, ApiGwEvent } from "../lib/auth";
 import { ddb, tableName, QueryCommand, ScanCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
