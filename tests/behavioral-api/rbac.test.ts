@@ -11,6 +11,7 @@ import {
   getRoleCredentials,
   apiRequest,
   printEvidence,
+  skipTier1Test,
 } from "./utils/test-helpers.js";
 
 describe("RBAC Enforcement Tests", () => {
@@ -73,11 +74,11 @@ describe("RBAC Enforcement Tests", () => {
   };
 
   describe("PMO Role Access", () => {
-    it("PMO can access allowed endpoints", async () => {
+    it("PMO can access allowed endpoints (Tier-1)", async () => {
       const credentials = getRoleCredentials("PMO");
 
       if (!credentials) {
-        console.warn("⚠️  Skipping PMO tests: Credentials not configured");
+        skipTier1Test("PMO allowed endpoints", "PMO credentials not configured");
         return;
       }
 
@@ -104,11 +105,11 @@ describe("RBAC Enforcement Tests", () => {
       }
     });
 
-    it("PMO is denied access to forbidden endpoints", async () => {
+    it("PMO is denied access to forbidden endpoints (Tier-1)", async () => {
       const credentials = getRoleCredentials("PMO");
 
       if (!credentials) {
-        console.warn("⚠️  Skipping PMO denial tests: Credentials not configured");
+        skipTier1Test("PMO denied endpoints", "PMO credentials not configured");
         return;
       }
 
@@ -142,11 +143,11 @@ describe("RBAC Enforcement Tests", () => {
   });
 
   describe("SDM_FIN (SDMT) Role Access", () => {
-    it("SDM_FIN can access allowed endpoints", async () => {
+    it("SDM_FIN can access allowed endpoints (Tier-1)", async () => {
       const credentials = getRoleCredentials("SDM_FIN") || getRoleCredentials("SDMT");
 
       if (!credentials) {
-        console.warn("⚠️  Skipping SDM_FIN tests: Credentials not configured");
+        skipTier1Test("SDM_FIN allowed endpoints", "SDM_FIN/SDMT credentials not configured");
         return;
       }
 
@@ -175,11 +176,11 @@ describe("RBAC Enforcement Tests", () => {
   });
 
   describe("SDMT Role Access", () => {
-    it("SDMT can access allowed endpoints", async () => {
+    it("SDMT can access allowed endpoints (Tier-1)", async () => {
       const credentials = getRoleCredentials("SDMT");
 
       if (!credentials) {
-        console.warn("⚠️  Skipping SDMT tests: Credentials not configured");
+        skipTier1Test("SDMT allowed endpoints", "SDMT credentials not configured");
         return;
       }
 
@@ -208,11 +209,11 @@ describe("RBAC Enforcement Tests", () => {
   });
 
   describe("EXEC_RO Role Access", () => {
-    it("EXEC_RO can access read-only endpoints", async () => {
+    it("EXEC_RO can access read-only endpoints (Tier-1)", async () => {
       const credentials = getRoleCredentials("EXEC_RO");
 
       if (!credentials) {
-        console.warn("⚠️  Skipping EXEC_RO tests: Credentials not configured");
+        skipTier1Test("EXEC_RO read-only endpoints", "EXEC_RO credentials not configured");
         return;
       }
 
@@ -241,15 +242,13 @@ describe("RBAC Enforcement Tests", () => {
   });
 
   describe("NO_GROUP User Access (Security Critical)", () => {
-    it("Users with no Cognito group are denied all protected endpoints", async () => {
+    it("Users with no Cognito group are denied all protected endpoints (Tier-1)", async () => {
       const credentials = getRoleCredentials("NO_GROUP");
 
       if (!credentials) {
-        console.warn(
-          "⚠️  Skipping NO_GROUP tests: Credentials not configured (this is a critical security test)"
-        );
-        console.warn(
-          "   Configure E2E_NO_GROUP_EMAIL and E2E_NO_GROUP_PASSWORD for a user with no groups"
+        skipTier1Test(
+          "NO_GROUP security test",
+          "NO_GROUP credentials not configured (IMPORTANT: Configure for security validation)"
         );
         return;
       }

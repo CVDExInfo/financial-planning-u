@@ -20,7 +20,28 @@ const API_BASE_URL =
 const COGNITO_REGION = process.env.AWS_REGION || process.env.COGNITO_REGION || "us-east-2";
 const COGNITO_CLIENT_ID =
   process.env.COGNITO_WEB_CLIENT || process.env.COGNITO_CLIENT_ID;
-const CLOUDFRONT_ORIGIN = process.env.CF_DOMAIN;
+
+// Normalize CloudFront origin - prefer CF_ORIGIN, fallback to CF_DOMAIN with https:// prefix
+function normalizeOrigin(): string | undefined {
+  const cfOrigin = process.env.CF_ORIGIN;
+  const cfDomain = process.env.CF_DOMAIN;
+  
+  if (cfOrigin) {
+    return cfOrigin;
+  }
+  
+  if (cfDomain) {
+    // If CF_DOMAIN doesn't start with http, add https://
+    if (!cfDomain.startsWith("http://") && !cfDomain.startsWith("https://")) {
+      return `https://${cfDomain}`;
+    }
+    return cfDomain;
+  }
+  
+  return undefined;
+}
+
+const CLOUDFRONT_ORIGIN = normalizeOrigin();
 
 // Token cache to avoid rate limits
 const tokenCache: Record<string, { token: string; expiresAt: number }> = {};
@@ -57,9 +78,20 @@ export function getApiBaseUrl(): string {
  */
 export function getCloudFrontOrigin(): string {
   if (!CLOUDFRONT_ORIGIN) {
-    throw new Error("CF_DOMAIN environment variable must be set");
+    throw new Error("CF_ORIGIN or CF_DOMAIN environment variable must be set");
   }
-  return CLOUDFRONT_ORIGIN.replace(/\/$/, "");
+  
+  const origin = CLOUDFRONT_ORIGIN.replace(/\/$/, "");
+  
+  // Validate that origin starts with https://
+  if (!origin.startsWith("https://")) {
+    throw new Error(
+      `CloudFront origin must use HTTPS protocol. Got: ${origin}. ` +
+      `Please set CF_ORIGIN with full URL (e.g., https://d7t9x3j66yd8k.cloudfront.net)`
+    );
+  }
+  
+  return origin;
 }
 
 /**
@@ -118,7 +150,7 @@ export async function getCognitoToken(credentials: RoleCredentials): Promise<str
  * 
  * @param url - Full URL to test
  * @param method - HTTP method to request access for (GET, POST, PATCH, etc.)
- * @returns Response with CORS headers
+ * @returns Response with CORS headers and detailed diagnostics
  */
 export async function corsPreflight(
   url: string,
@@ -128,9 +160,16 @@ export async function corsPreflight(
   headers: CorsHeaders;
   passed: boolean;
   errors: string[];
+  diagnostics: {
+    requestOrigin: string;
+    requestMethod: string;
+    requestHeaders: string;
+    allResponseHeaders: Record<string, string>;
+  };
 }> {
   const origin = getCloudFrontOrigin();
   const errors: string[] = [];
+  const requestHeaders = "authorization,content-type";
 
   try {
     const response = await fetch(url, {
@@ -138,7 +177,7 @@ export async function corsPreflight(
       headers: {
         Origin: origin,
         "Access-Control-Request-Method": method,
-        "Access-Control-Request-Headers": "authorization,content-type",
+        "Access-Control-Request-Headers": requestHeaders,
       },
     });
 
@@ -150,25 +189,31 @@ export async function corsPreflight(
       "access-control-max-age": response.headers.get("access-control-max-age") || undefined,
     };
 
+    // Capture all response headers for diagnostics
+    const allResponseHeaders: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      allResponseHeaders[key] = value;
+    });
+
     // Validate CORS headers
     const allowOrigin = corsHeaders["access-control-allow-origin"];
     if (!allowOrigin || (allowOrigin !== "*" && allowOrigin !== origin)) {
       errors.push(
-        `access-control-allow-origin header missing or incorrect. Expected: ${origin} or *, Got: ${allowOrigin}`
+        `access-control-allow-origin header missing or incorrect. Expected: ${origin} or *, Got: ${allowOrigin || "(missing)"}`
       );
     }
 
     const allowMethods = corsHeaders["access-control-allow-methods"]?.toUpperCase() || "";
     if (!allowMethods.includes(method.toUpperCase())) {
       errors.push(
-        `access-control-allow-methods does not include ${method}. Got: ${allowMethods}`
+        `access-control-allow-methods does not include ${method}. Got: ${allowMethods || "(missing)"}`
       );
     }
 
     const allowHeaders = corsHeaders["access-control-allow-headers"]?.toLowerCase() || "";
     if (!allowHeaders.includes("authorization") || !allowHeaders.includes("content-type")) {
       errors.push(
-        `access-control-allow-headers missing required headers (authorization, content-type). Got: ${allowHeaders}`
+        `access-control-allow-headers missing required headers (authorization, content-type). Got: ${allowHeaders || "(missing)"}`
       );
     }
 
@@ -177,6 +222,12 @@ export async function corsPreflight(
       headers: corsHeaders,
       passed: errors.length === 0,
       errors,
+      diagnostics: {
+        requestOrigin: origin,
+        requestMethod: method,
+        requestHeaders,
+        allResponseHeaders,
+      },
     };
   } catch (error) {
     errors.push(`Failed to send preflight request: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -185,6 +236,12 @@ export async function corsPreflight(
       headers: {},
       passed: false,
       errors,
+      diagnostics: {
+        requestOrigin: origin,
+        requestMethod: method,
+        requestHeaders,
+        allResponseHeaders: {},
+      },
     };
   }
 }
@@ -293,12 +350,17 @@ export function pickProjectWithBaseline(projects: any[]): any | null {
  */
 export function getRoleCredentials(role: string): RoleCredentials | null {
   const envPrefix = `E2E_${role.toUpperCase().replace(/-/g, "_")}`;
-  const username = process.env[`${envPrefix}_EMAIL`] || process.env[`${envPrefix}_USERNAME`];
-  const password = process.env[`${envPrefix}_PASSWORD`];
+  let username = process.env[`${envPrefix}_EMAIL`] || process.env[`${envPrefix}_USERNAME`];
+  let password = process.env[`${envPrefix}_PASSWORD`];
+
+  // Special handling for EXEC role - check both EXEC and EXEC_RO variants
+  if (!username && role === "EXEC_RO") {
+    username = process.env.E2E_EXEC_EMAIL;
+    password = process.env.E2E_EXEC_PASSWORD;
+  }
 
   if (!username || !password) {
-    console.warn(`⚠️  Credentials not configured for role: ${role}`);
-    console.warn(`   Set ${envPrefix}_EMAIL and ${envPrefix}_PASSWORD environment variables`);
+    // Don't log warnings here - let tests decide whether to warn or skip
     return null;
   }
 
@@ -323,6 +385,30 @@ export function getTestCredentials(preferredRoles: string[]): RoleCredentials | 
     }
   }
   return null;
+}
+
+/**
+ * Check if any role credentials are configured
+ * Used to determine if Tier-1 tests should run
+ * 
+ * @returns true if at least one role is configured
+ */
+export function hasAnyCredentials(): boolean {
+  const roles = ["PMO", "SDM_FIN", "SDMT", "EXEC_RO"];
+  return roles.some((role) => getRoleCredentials(role) !== null);
+}
+
+/**
+ * Skip a test with appropriate logging if credentials are not available
+ * This is used for Tier-1 tests that require authentication
+ * 
+ * @param testName - Name of the test being skipped
+ * @param reason - Reason for skipping
+ */
+export function skipTier1Test(testName: string, reason: string): void {
+  console.log(`⏭️  SKIPPED (Tier-1): ${testName}`);
+  console.log(`   Reason: ${reason}`);
+  console.log(`   Configure E2E role credentials to enable this test`);
 }
 
 /**
