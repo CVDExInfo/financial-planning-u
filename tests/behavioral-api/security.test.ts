@@ -71,7 +71,6 @@ describe("Security Tests (Tier-0)", () => {
         console.log(`   Status: ${response.status}`);
 
         // Health endpoint should be accessible (200 or 404 if not implemented)
-        const isAccessible = response.status === 200 || response.status === 404;
 
         if (response.status === 200) {
           console.log(`   ✅ Health endpoint is public`);
