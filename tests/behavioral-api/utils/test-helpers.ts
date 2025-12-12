@@ -18,8 +18,6 @@ const API_BASE_URL =
   "https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev";
 
 const COGNITO_REGION = process.env.AWS_REGION || process.env.COGNITO_REGION || "us-east-2";
-const COGNITO_USER_POOL_ID =
-  process.env.COGNITO_USER_POOL_ID;
 const COGNITO_CLIENT_ID =
   process.env.COGNITO_WEB_CLIENT || process.env.COGNITO_CLIENT_ID;
 const CLOUDFRONT_ORIGIN = process.env.CF_DOMAIN;
