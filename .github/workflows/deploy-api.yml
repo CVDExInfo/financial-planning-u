@@ -221,36 +221,6 @@ PY
             echo "ℹ️  No required DEV policy ids configured; skipping policy-id guard"
           fi
 
-
-          # Validate FIN policy presence by policyId (stage-aware, optional)
-          STAGE_VAR="REQUIRED_POLICY_IDS_${DEPLOYMENT_ENV^^}"
-          REQUIRED_IDS=${!STAGE_VAR:-${REQUIRED_POLICY_IDS:-}}
-
-          # Support comma or whitespace separated lists
-          REQUIRED_IDS=$(echo "$REQUIRED_IDS" | tr ',' ' ' | xargs)
-
-          if [ -n "$REQUIRED_IDS" ]; then
-            echo "🔒 Verifying required AVP policies for stage '${DEPLOYMENT_ENV}': $REQUIRED_IDS"
-            POLICY_IDS=$(aws verifiedpermissions list-policies \
-              --policy-store-id "$POLICY_STORE_ID" \
-              --region "$AWS_REGION" \
-              --query 'policies[].policyId' --output text | tr '\t' '\n')
-
-            MISSING=()
-            for PID in $REQUIRED_IDS; do
-              echo "$POLICY_IDS" | tr '\t' '\n' | grep -q "^${PID}$" || MISSING+=("$PID")
-            done
-
-            if [ ${#MISSING[@]} -gt 0 ]; then
-              echo "❌ Missing required policy IDs: ${MISSING[*]}"
-              echo "Set the appropriate REQUIRED_POLICY_IDS_* env var for this stage or adjust validation inputs."
-              exit 1
-            fi
-            echo "✅ Required AVP policies present (${REQUIRED_IDS})"
-          else
-            echo "ℹ️  No required policy ids configured for stage '${DEPLOYMENT_ENV}'; skipping policy-id guard"
-          fi
-
       - name: Preflight - Check stack status (non-blocking deployment)
         run: |
           set -euo pipefail
