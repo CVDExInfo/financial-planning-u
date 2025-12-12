@@ -150,31 +150,37 @@ jobs:
             --region "$AWS_REGION" \
             --output json)
 
-          REMOTE_SCHEMA=$(echo "$REMOTE_SCHEMA_JSON" | jq -r '.schema.definition.cedarJson // .schema.cedarJson // .schema // empty')
+          # Handle both structured and plain-string schema responses
+          REMOTE_SCHEMA=$(echo "$REMOTE_SCHEMA_JSON" | jq -er '(
+              .schema.definition.cedarJson? //
+              .schema.cedarJson? //
+              (.schema? | select(type=="string")) //
+              empty
+            )') || true
+
           if [ -z "$REMOTE_SCHEMA" ]; then
             echo "❌ Unable to read Cedar schema from policy store $POLICY_STORE_ID"; exit 1
           fi
 
-            printf '%s' "$REMOTE_SCHEMA" > /tmp/remote-schema.cedar
+          printf '%s' "$REMOTE_SCHEMA" > /tmp/remote-schema.cedar
 
-            # Normalize and compare against repo schema
-            python - <<'PY'
-            import sys, pathlib
+          # Normalize and compare against repo schema
+          python - <<'PY'
+import sys, pathlib
 
-
-            remote = pathlib.Path('/tmp/remote-schema.cedar').read_text(encoding='utf-8')
-            local = pathlib.Path('avp/schema.cedar').read_text(encoding='utf-8')
-
-
-            def normalize(txt: str) -> str:
-                return ''.join(txt.split())
+remote = pathlib.Path('/tmp/remote-schema.cedar').read_text(encoding='utf-8')
+local = pathlib.Path('avp/schema.cedar').read_text(encoding='utf-8')
 
 
-            if normalize(remote) != normalize(local):
-                sys.exit('Schema drift detected between policy store and avp/schema.cedar')
+def normalize(txt: str) -> str:
+    return ''.join(txt.split())
 
-            print('✅ AVP schema matches repository version')
-            PY
+
+if normalize(remote) != normalize(local):
+    sys.exit('Schema drift detected between policy store and avp/schema.cedar')
+
+print('✅ AVP schema matches repository version')
+PY
 
           # Validate FIN policy presence by policyId (stage-aware, optional)
           STAGE_VAR="REQUIRED_POLICY_IDS_${DEPLOYMENT_ENV^^}"
