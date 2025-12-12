@@ -190,8 +190,13 @@ async function getSummary(event: ApiGwEvent): Promise<APIGatewayProxyResultV2> {
     ]);
     
     // Calculate KPIs
-    // Note: This is a simplified calculation. In production, you would aggregate
-    // from actual DynamoDB data structure
+    // TODO: Replace with actual DynamoDB data aggregation
+    // Current implementation uses stub values to demonstrate the structure.
+    // In production, aggregate from DynamoDB items:
+    // - Sum allocations.amount for totalAllocations
+    // - Sum adjustments.amount for totalAdjusted
+    // - Sum payrollActuals.amount for totalActualPayroll
+    // - Query project baseline_mod for totalBaseline
     const totalAllocations = allocations.length > 0 ? 1500000 : 0;
     const totalAdjusted = adjustments.length > 0 ? 1450000 : 0;
     const totalActualPayroll = payrollActuals.length > 0 ? 1420000 : 0;

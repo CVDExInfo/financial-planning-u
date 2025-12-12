@@ -41,7 +41,6 @@ import {
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { DonutChart } from "@/components/charts/DonutChart";
-import { LineChart } from "recharts";
 import { toast } from "sonner";
 
 interface HubSummary {
