@@ -525,7 +525,13 @@ export function Navigation() {
 
             {/* User Menu */}
             <div className="flex items-center gap-3 shrink-0">
-              {activeRole && <Badge variant="secondary">{activeRole}</Badge>}
+              {activeRole ? (
+                <Badge variant="secondary">{activeRole}</Badge>
+              ) : (
+                <Badge variant="outline" className="text-muted-foreground">
+                  Sin rol asignado
+                </Badge>
+              )}
 
               {user && (
                 <TooltipProvider>

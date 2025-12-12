@@ -143,8 +143,8 @@ async function verifyJwt(event: ApiGwEvent): Promise<VerifiedClaims> {
  * - SDT/SDMT/FIN/AUD → SDMT role (read + write)
  * - SDM → SDM role (read + write, but only to own projects)
  * - vendor/acta-ui patterns → VENDOR role (read)
- * - exec/director/manager → EXC_RO role (read-only, all projects)
- * - tokens without groups default to EXEC_RO (read-only) to mirror frontend mapper
+ * - EXEC/EXEC_RO/director/manager → EXEC_RO role (read-only, all projects)
+ * - tokens without recognized groups → no role (handlers must return 403)
  * Users that resolve to any role above can read; PMO or SDMT roles can write.
  */
 
@@ -187,23 +187,19 @@ function mapGroupsToRoles(groups: string[]): FinanzasRole[] {
       roles.add("VENDOR");
     }
 
-    // EXC_RO - Executive read-only
+    // EXEC_RO - Executive read-only
     if (
       normalized.includes("EXEC") ||
       normalized.includes("DIRECTOR") ||
       normalized.includes("MANAGER")
     ) {
-      roles.add("EXC_RO");
+      roles.add("EXEC_RO");
     }
   }
 
-  // Maintain parity with frontend role mapper: if no groups are present at all,
-  // treat the user as EXEC_RO (read-only) so authenticated but ungrouped users
-  // can still read catalog/project data.
-  if (!roles.size && !hasAnyGroup) {
-    roles.add("EXC_RO");
-  }
-
+  // SECURITY: Users without any recognized groups get no role (not EXEC_RO).
+  // This prevents ungrouped Cognito users from silently inheriting read access.
+  // Handlers must return 403 Forbidden when roles array is empty.
   return Array.from(roles);
 }
 
@@ -258,7 +254,7 @@ export async function getUserContext(event: ApiGwEvent): Promise<UserContext> {
     groups,
     roles,
     isAdmin: roles.includes("ADMIN"),
-    isExecRO: roles.includes("EXC_RO"),
+    isExecRO: roles.includes("EXEC_RO"),
     isSDM: roles.includes("SDM"),
     isPMO: roles.includes("PMO"),
     isSDMT: roles.includes("SDMT"),

@@ -1168,7 +1168,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     let rawProjects: ProjectRecord[] = [];
 
     // RBAC-aware querying:
-    // - ADMIN and EXC_RO: scan all projects
+    // - ADMIN and EXEC_RO: scan all projects
     // - SDM: only query projects where sdmManagerEmail matches user email
     // - Others: return empty list for now (future: implement user-project assignments)
     
