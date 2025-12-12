@@ -39,7 +39,8 @@ jobs:
 
       # API Configuration
       FINZ_API_BASE: ${{ inputs.api_base_url || vars.DEV_API_URL || 'https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev' }}
-      CF_DOMAIN: ${{ vars.CF_DOMAIN || 'https://d7t9x3j66yd8k.cloudfront.net' }}
+      CF_ORIGIN: ${{ vars.CF_ORIGIN || 'https://d7t9x3j66yd8k.cloudfront.net' }}
+      CF_DOMAIN: ${{ vars.CF_DOMAIN || 'd7t9x3j66yd8k.cloudfront.net' }}
 
       # Cognito Configuration
       COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID || 'us-east-2_FyHLtOhiY' }}
@@ -53,6 +54,10 @@ jobs:
       E2E_SDM_FIN_PASSWORD: ${{ secrets.E2E_SDM_FIN_PASSWORD || secrets.E2E_SDMT_PASSWORD }}
       E2E_SDMT_EMAIL: ${{ secrets.E2E_SDMT_EMAIL }}
       E2E_SDMT_PASSWORD: ${{ secrets.E2E_SDMT_PASSWORD }}
+      # EXEC_RO credentials - standardized naming
+      E2E_EXEC_RO_EMAIL: ${{ secrets.E2E_EXEC_RO_EMAIL || secrets.E2E_EXEC_EMAIL }}
+      E2E_EXEC_RO_PASSWORD: ${{ secrets.E2E_EXEC_RO_PASSWORD || secrets.E2E_EXEC_PASSWORD }}
+      # Legacy fallback for EXEC
       E2E_EXEC_EMAIL: ${{ secrets.E2E_EXEC_EMAIL }}
       E2E_EXEC_PASSWORD: ${{ secrets.E2E_EXEC_PASSWORD }}
       E2E_NO_GROUP_EMAIL: ${{ secrets.E2E_NO_GROUP_EMAIL }}
@@ -89,11 +94,19 @@ jobs:
           
           # Sanitize URLs (remove trailing slashes and CR/LF)
           FINZ_API_BASE="$(printf '%s' "$FINZ_API_BASE" | tr -d '\r\n' | sed 's:/*$::')"
+          CF_ORIGIN="$(printf '%s' "$CF_ORIGIN" | tr -d '\r\n' | sed 's:/*$::')"
           CF_DOMAIN="$(printf '%s' "$CF_DOMAIN" | tr -d '\r\n' | sed 's:/*$::')"
           
           # Export cleaned values
           echo "FINZ_API_BASE=${FINZ_API_BASE}" >> $GITHUB_ENV
+          echo "CF_ORIGIN=${CF_ORIGIN}" >> $GITHUB_ENV
           echo "CF_DOMAIN=${CF_DOMAIN}" >> $GITHUB_ENV
+          
+          # Validate CF_ORIGIN has https://
+          if [[ ! "$CF_ORIGIN" =~ ^https:// ]]; then
+            echo "❌ CF_ORIGIN must start with https://, got: ${CF_ORIGIN}"
+            exit 1
+          fi
           
           # Validate required environment variables
           MISSING_VARS=()
@@ -111,6 +124,7 @@ jobs:
           
           echo "✓ AWS Region:         ${AWS_REGION}"
           echo "✓ API Base URL:       ${FINZ_API_BASE}"
+          echo "✓ CloudFront Origin:  ${CF_ORIGIN}"
           echo "✓ CloudFront Domain:  ${CF_DOMAIN}"
           echo "✓ Cognito Pool ID:    ${COGNITO_USER_POOL_ID}"
           echo "✓ Cognito Client ID:  ${COGNITO_WEB_CLIENT}"
@@ -121,8 +135,25 @@ jobs:
           [[ -n "${E2E_PMO_EMAIL:-}" ]] && echo "  ✓ PMO" || echo "  ⚠️  PMO (not configured)"
           [[ -n "${E2E_SDM_FIN_EMAIL:-}" ]] && echo "  ✓ SDM_FIN" || echo "  ⚠️  SDM_FIN (not configured)"
           [[ -n "${E2E_SDMT_EMAIL:-}" ]] && echo "  ✓ SDMT" || echo "  ⚠️  SDMT (not configured)"
-          [[ -n "${E2E_EXEC_EMAIL:-}" ]] && echo "  ✓ EXEC_RO" || echo "  ⚠️  EXEC_RO (not configured)"
+          [[ -n "${E2E_EXEC_RO_EMAIL:-}" ]] && echo "  ✓ EXEC_RO" || echo "  ⚠️  EXEC_RO (not configured)"
           [[ -n "${E2E_NO_GROUP_EMAIL:-}" ]] && echo "  ✓ NO_GROUP" || echo "  ⚠️  NO_GROUP (not configured - SECURITY TEST)"
+          echo ""
+          
+          # Count configured credentials for tiered testing
+          CRED_COUNT=0
+          [[ -n "${E2E_PMO_EMAIL:-}" ]] && ((CRED_COUNT++))
+          [[ -n "${E2E_SDM_FIN_EMAIL:-}" ]] && ((CRED_COUNT++))
+          [[ -n "${E2E_SDMT_EMAIL:-}" ]] && ((CRED_COUNT++))
+          [[ -n "${E2E_EXEC_RO_EMAIL:-}" ]] && ((CRED_COUNT++))
+          [[ -n "${E2E_NO_GROUP_EMAIL:-}" ]] && ((CRED_COUNT++))
+          
+          echo "Test Tier Configuration:"
+          echo "  - Tier-0 (CORS, Security): Always runs (blocking)"
+          if [[ $CRED_COUNT -gt 0 ]]; then
+            echo "  - Tier-1 (Auth, RBAC, Schema): Will run ($CRED_COUNT role(s) configured)"
+          else
+            echo "  - Tier-1 (Auth, RBAC, Schema): Will be SKIPPED (no credentials)"
+          fi
           echo ""
 
       - name: Run Behavioral API Tests
@@ -155,7 +186,7 @@ jobs:
             echo ""
             echo "**Configuration:**"
             echo "- API Base URL: \`${FINZ_API_BASE}\`"
-            echo "- CloudFront Origin: \`${CF_DOMAIN}\`"
+            echo "- CloudFront Origin: \`${CF_ORIGIN}\`"
             echo "- AWS Region: \`${AWS_REGION}\`"
             echo ""
             

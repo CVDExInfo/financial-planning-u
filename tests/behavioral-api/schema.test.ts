@@ -12,15 +12,16 @@ import {
   apiRequest,
   validateShape,
   pickProjectWithBaseline,
+  skipTier1Test,
 } from "./utils/test-helpers.js";
 
 describe("Data-Shape Contract Tests", () => {
   describe("Projects Endpoint Schema", () => {
-    it("GET /projects returns correct shape with data array and total", async () => {
+    it("GET /projects returns correct shape with data array and total (Tier-1)", async () => {
       const credentials = getRoleCredentials("SDMT") || getRoleCredentials("PMO");
 
       if (!credentials) {
-        console.warn("⚠️  Skipping projects schema test: SDMT or PMO credentials not configured");
+        skipTier1Test("Projects schema validation", "SDMT or PMO credentials not configured");
         return;
       }
 
@@ -85,11 +86,11 @@ describe("Data-Shape Contract Tests", () => {
       }
     });
 
-    it("Projects endpoint handles empty results gracefully", async () => {
+    it("Projects endpoint handles empty results gracefully (Tier-1)", async () => {
       const credentials = getRoleCredentials("SDMT") || getRoleCredentials("PMO");
 
       if (!credentials) {
-        console.warn("⚠️  Skipping empty results test: SDMT or PMO credentials not configured");
+        skipTier1Test("Projects empty results test", "SDMT or PMO credentials not configured");
         return;
       }
 
@@ -116,11 +117,11 @@ describe("Data-Shape Contract Tests", () => {
   });
 
   describe("Forecast Endpoint Schema", () => {
-    it("GET /plan/forecast returns correct shape when project has data", async () => {
+    it("GET /plan/forecast returns correct shape when project has data (Tier-1)", async () => {
       const credentials = getRoleCredentials("SDMT") || getRoleCredentials("PMO");
 
       if (!credentials) {
-        console.warn("⚠️  Skipping forecast schema test: SDMT or PMO credentials not configured");
+        skipTier1Test("Forecast schema validation", "SDMT or PMO credentials not configured");
         return;
       }
 
@@ -201,13 +202,11 @@ describe("Data-Shape Contract Tests", () => {
       }
     });
 
-    it("Forecast endpoint returns 404 for non-existent projects (not 500)", async () => {
+    it("Forecast endpoint returns 404 for non-existent projects (not 500) (Tier-1)", async () => {
       const credentials = getRoleCredentials("SDMT") || getRoleCredentials("PMO");
 
       if (!credentials) {
-        console.warn(
-          "⚠️  Skipping forecast 404 test: SDMT or PMO credentials not configured"
-        );
+        skipTier1Test("Forecast 404 test", "SDMT or PMO credentials not configured");
         return;
       }
 
@@ -231,11 +230,11 @@ describe("Data-Shape Contract Tests", () => {
   });
 
   describe("Catalog/Rubros Endpoint Schema", () => {
-    it("GET /catalog/rubros returns array of rubros", async () => {
+    it("GET /catalog/rubros returns array of rubros (Tier-1)", async () => {
       const credentials = getRoleCredentials("SDMT") || getRoleCredentials("PMO");
 
       if (!credentials) {
-        console.warn("⚠️  Skipping rubros schema test: SDMT or PMO credentials not configured");
+        skipTier1Test("Rubros schema validation", "SDMT or PMO credentials not configured");
         return;
       }
 

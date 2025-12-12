@@ -39,7 +39,9 @@ describe("CORS Preflight Tests", () => {
 
           console.log(`\n📍 Testing: OPTIONS ${endpoint.path} (for ${method} request)`);
           console.log(`   Status: ${result.status}`);
-          console.log(`   Origin header sent: ${getCloudFrontOrigin()}`);
+          console.log(`   Request Origin: ${result.diagnostics.requestOrigin}`);
+          console.log(`   Request Method: ${result.diagnostics.requestMethod}`);
+          console.log(`   Request Headers: ${result.diagnostics.requestHeaders}`);
 
           if (result.headers["access-control-allow-origin"]) {
             console.log(
@@ -69,6 +71,10 @@ describe("CORS Preflight Tests", () => {
           if (result.errors.length > 0) {
             console.log(`   Errors:`);
             result.errors.forEach((err) => console.log(`     - ${err}`));
+            console.log(`   All Response Headers:`);
+            Object.entries(result.diagnostics.allResponseHeaders).forEach(([key, value]) => {
+              console.log(`     ${key}: ${value}`);
+            });
           }
 
           // Assert CORS preflight passes
