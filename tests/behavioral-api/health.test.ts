@@ -9,7 +9,6 @@ import assert from "node:assert/strict";
 import {
   getApiBaseUrl,
   getCognitoToken,
-  getRoleCredentials,
   getTestCredentials,
   apiRequest,
   printEvidence,
