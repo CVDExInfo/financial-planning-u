@@ -38,6 +38,14 @@ import { getProjectDisplay } from "@/lib/projects/display";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { getPayrollDashboard, type MODProjectionByMonth } from "@/api/finanzas";
 
+// Type for MOD chart data points
+export type ModChartPoint = {
+  month: string;
+  "Allocations MOD": number;
+  "Adjusted/Projected MOD": number;
+  "Actual Payroll MOD": number;
+};
+
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -258,6 +266,26 @@ export default function ProjectsManager() {
     // Safe fallback: no payroll data → empty array, chart renders without error
     return [];
   }, [viewMode, selectedProject, payrollDashboard]);
+
+  // MOD chart data for ProjectDetailsPanel
+  // Maps payroll dashboard data to the required format with Allocations, Adjusted/Projected, and Actual
+  const modChartDataForDetailsPanel = React.useMemo((): ModChartPoint[] => {
+    if (payrollDashboard.length === 0) {
+      return [];
+    }
+
+    // If a single project is selected, filter to that project's data
+    // Otherwise aggregate all projects
+    const chartData = payrollDashboard.map((entry) => ({
+      month: entry.month,
+      "Allocations MOD": entry.totalPlanMOD ?? 0,
+      "Adjusted/Projected MOD": entry.totalForecastMOD ?? entry.totalPlanMOD ?? 0,
+      "Actual Payroll MOD": entry.totalActualMOD ?? 0,
+    }));
+
+    // Sort by month ascending
+    return chartData.sort((a, b) => a.month.localeCompare(b.month));
+  }, [payrollDashboard]);
 
   const formatCurrency = React.useCallback(
     (value: number, currencyCode: string = "USD") =>
@@ -604,6 +632,7 @@ export default function ProjectsManager() {
           formatCurrency={formatCurrency}
           calculateDurationInMonths={calculateDurationInMonths}
           formatDate={formatDate}
+          modChartData={modChartDataForDetailsPanel}
         />
       )}
 
