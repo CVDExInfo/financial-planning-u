@@ -8,29 +8,15 @@ import finanzasClient, { Rubro, type RubroCreate } from "@/api/finanzasClient";
 import { API_BASE } from "@/config/env";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, RefreshCcw } from "lucide-react";
 import DataContainer from "@/components/DataContainer";
 import PageHeader from "@/components/PageHeader";
 import { TAXONOMY_BY_ID as taxonomyById } from "@/lib/rubros/canonical-taxonomy";
 import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
+import RubroFormModal from "@/components/finanzas/RubroFormModal";
+import { useRBACProjects } from "@/hooks/useRBACProjects";
+import type { RubroFormData } from "@/types/rubros";
 
 function Cell({ children }: { children: React.ReactNode }) {
   return (
@@ -48,11 +34,8 @@ export default function RubrosCatalog() {
   const [selectedRubro, setSelectedRubro] = React.useState<Rubro | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  // Form state for adding rubro to project
-  const [projectId, setProjectId] = React.useState("");
-  const [montoTotal, setMontoTotal] = React.useState("");
-  const [tipoEjecucion, setTipoEjecucion] = React.useState<"mensual" | "puntual" | "por_hito">("mensual");
-  const [notas, setNotas] = React.useState("");
+  // Get RBAC-filtered projects
+  const { projects: availableProjects } = useRBACProjects();
 
   const loadRubros = React.useCallback(async () => {
     try {
@@ -129,42 +112,43 @@ export default function RubrosCatalog() {
     setIsAddDialogOpen(true);
   };
 
-  const handleSubmitAddToProject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!selectedRubro || !projectId || !montoTotal) {
-      toast.error("Por favor completa todos los campos requeridos");
-      return;
-    }
-
-    const parsedMonto = Number.parseFloat(montoTotal);
-
-    if (!Number.isFinite(parsedMonto) || parsedMonto < 0) {
-      toast.error("El monto debe ser un número válido y mayor o igual a 0");
+  const handleSubmitAddToProject = async (formData: RubroFormData & { projectId: string }) => {
+    if (!selectedRubro) {
+      toast.error("No se ha seleccionado un rubro");
       return;
     }
 
     try {
       setIsSubmitting(true);
 
+      // Calculate total cost
+      const totalCost = formData.cantidad * formData.costo_unitario * formData.plazo_meses;
+
+      // Map to backend payload
       const payload: RubroCreate = {
-        rubro_id: selectedRubro.rubro_id,
-        monto_total: parsedMonto,
-        tipo_ejecucion: tipoEjecucion,
-        notas: notas || undefined,
+        rubro_id: formData.rubroId, // Use canonical ID
+        monto_total: totalCost,
+        tipo_ejecucion: formData.tipo === 'recurrente' ? 'mensual' : 'puntual',
+        notas: formData.notas,
+        // Include additional fields for better tracking
+        meses_programados: Array.from(
+          { length: formData.plazo_meses },
+          (_, i) => {
+            const month = ((formData.mes_inicio - 1 + i) % 12) + 1;
+            const year = new Date().getFullYear() + Math.floor((formData.mes_inicio - 1 + i) / 12);
+            return `${year}-${month.toString().padStart(2, '0')}`;
+          }
+        ),
       };
 
-      await finanzasClient.createProjectRubro(projectId, payload);
+      await finanzasClient.createProjectRubro(formData.projectId, payload);
       
       toast.success(`Rubro "${selectedRubro.nombre}" agregado al proyecto exitosamente`);
       setIsAddDialogOpen(false);
-      
-      // Reset form
-      setProjectId("");
-      setMontoTotal("");
-      setTipoEjecucion("mensual");
-      setNotas("");
       setSelectedRubro(null);
+      
+      // Reload catalog to show updated state
+      loadRubros();
     } catch (e: any) {
       console.error("Error adding rubro to project:", e);
       
@@ -219,8 +203,8 @@ export default function RubrosCatalog() {
             error={error}
             onRetry={loadRubros}
             loadingType="table"
-            emptyTitle="No hay rubros disponibles"
-            emptyMessage="Aún no hay rubros listos. Intenta refrescar o sincroniza el catálogo desde Finanzas."
+            emptyTitle="No hay rubros en el catálogo"
+            emptyMessage="El catálogo de rubros se carga desde la taxonomía canónica. Si ves este mensaje, verifica la conexión con la API o contacta a soporte."
           >
             {(items) => {
               const safeItems = Array.isArray(items) ? (items as Rubro[]) : [];
@@ -268,82 +252,27 @@ export default function RubrosCatalog() {
         </CardContent>
       </Card>
 
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Agregar Rubro a Proyecto</DialogTitle>
-            <DialogDescription>
-              Agrega "{selectedRubro?.nombre}" a un proyecto específico
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmitAddToProject}>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="projectId">ID del Proyecto *</Label>
-                <Input
-                  id="projectId"
-                  placeholder="proj_abc123..."
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Formato: proj_xxxxxxxxxx (10 caracteres alfanuméricos)
-                </p>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="montoTotal">Monto Total *</Label>
-                <Input
-                  id="montoTotal"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={montoTotal}
-                  onChange={(e) => setMontoTotal(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="tipoEjecucion">Tipo de Ejecución *</Label>
-                <Select value={tipoEjecucion} onValueChange={(v) => setTipoEjecucion(v as any)}>
-                  <SelectTrigger id="tipoEjecucion">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mensual">Mensual</SelectItem>
-                    <SelectItem value="puntual">Puntual</SelectItem>
-                    <SelectItem value="por_hito">Por Hito</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="notas">Notas (opcional)</Label>
-                <Input
-                  id="notas"
-                  placeholder="Notas adicionales..."
-                  value={notas}
-                  onChange={(e) => setNotas(e.target.value)}
-                  maxLength={1000}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsAddDialogOpen(false)}
-                disabled={isSubmitting}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Agregando..." : "Agregar Rubro"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <RubroFormModal
+        open={isAddDialogOpen}
+        onOpenChange={(open) => {
+          setIsAddDialogOpen(open);
+          if (!open) setSelectedRubro(null);
+        }}
+        onSubmit={handleSubmitAddToProject}
+        context="catalog"
+        availableProjects={availableProjects}
+        isSubmitting={isSubmitting}
+        initialRubro={selectedRubro ? {
+          categoria_codigo: selectedRubro.categoria_codigo || '',
+          rubroId: selectedRubro.rubro_id,
+          tipo: 'recurrente', // Default
+          mes_inicio: 1,
+          plazo_meses: 12,
+          cantidad: 1,
+          costo_unitario: 0,
+          moneda: 'USD',
+        } : undefined}
+      />
     </div>
   );
 }
