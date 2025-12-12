@@ -106,14 +106,14 @@ describe("MOD Chart Data Transformation", () => {
     assert.strictEqual(result1[0]["Adjusted/Projected MOD"], 0);
 
     // When totalForecastMOD is undefined/null, should fall back to totalPlanMOD
+    // Using Partial to create test data without type assertion
     const input2: MODProjectionByMonth[] = [
       {
         month: "2025-01",
         totalPlanMOD: 10000,
-        totalForecastMOD: undefined as any,
         totalActualMOD: 9500,
         projectCount: 1,
-      },
+      } as MODProjectionByMonth,
     ];
 
     const result2 = transformToModChartData(input2);

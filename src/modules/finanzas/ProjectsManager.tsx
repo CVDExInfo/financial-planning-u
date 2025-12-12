@@ -374,7 +374,7 @@ export default function ProjectsManager() {
       if (selectedProjectId) {
         try {
           const data = await getPayrollDashboardForProject(selectedProjectId);
-          setProjectPayrollData(data ?? []);
+          setProjectPayrollData(data);
         } catch (err) {
           console.error("Error loading project payroll data:", err);
           setProjectPayrollData([]);
