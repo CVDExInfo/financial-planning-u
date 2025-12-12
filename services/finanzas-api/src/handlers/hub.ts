@@ -67,7 +67,7 @@ function parseScope(queryParams: Record<string, string | undefined>): string {
  * Query all projects from DynamoDB
  */
 async function queryAllProjects() {
-  const projectsTable = tableName("TABLE_PROJECTS");
+  const projectsTable = tableName("projects");
   
   const result = await ddb.send(
     new ScanCommand({
@@ -83,7 +83,7 @@ async function queryAllProjects() {
  * Query allocations for scope (all or single project)
  */
 async function queryAllocations(scope: string) {
-  const allocationsTable = tableName("TABLE_ALLOCATIONS");
+  const allocationsTable = tableName("allocations");
   
   if (scope === "ALL") {
     const result = await ddb.send(
@@ -111,7 +111,7 @@ async function queryAllocations(scope: string) {
  * Query payroll actuals for scope
  */
 async function queryPayrollActuals(scope: string) {
-  const payrollTable = tableName("TABLE_PAYROLL_ACTUALS");
+  const payrollTable = tableName("payroll_actuals");
   
   if (scope === "ALL") {
     const result = await ddb.send(
@@ -138,7 +138,7 @@ async function queryPayrollActuals(scope: string) {
  * Query adjustments for scope
  */
 async function queryAdjustments(scope: string) {
-  const adjustmentsTable = tableName("TABLE_ADJUSTMENTS");
+  const adjustmentsTable = tableName("adjustments");
   
   if (scope === "ALL") {
     const result = await ddb.send(

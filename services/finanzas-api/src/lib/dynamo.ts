@@ -77,14 +77,14 @@ export {
  */
 
 import type { PayrollEntry, PayrollKind } from './types';
-import crypto from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 /**
  * Generate a unique payroll entry ID
  * Format: payroll_{kind}_{10-char-uuid}
  */
 export function generatePayrollId(kind: PayrollKind): string {
-  const uuid = crypto.randomUUID().replace(/-/g, '').slice(0, 10);
+  const uuid = randomUUID().replace(/-/g, '').slice(0, 10);
   return `payroll_${kind}_${uuid}`;
 }
 
