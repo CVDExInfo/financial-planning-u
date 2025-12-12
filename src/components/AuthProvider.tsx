@@ -132,7 +132,9 @@ function buildSessionFromTokens(
 
   const mappedRoles = mapGroupsToRoles(cognitoGroups).filter(
     (role): role is UserRole =>
-      ["PM", "PMO", "SDMT", "VENDOR", "EXEC_RO"].includes(role)
+      ["PM", "PMO", "SDMT", "SDM_FIN", "VENDOR", "EXEC_RO"].includes(
+        role
+      )
   );
   // SECURITY: No fallback role. Users without recognized groups get empty roles array.
   const effectiveRoles = mappedRoles;
