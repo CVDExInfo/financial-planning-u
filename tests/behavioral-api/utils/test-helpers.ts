@@ -353,7 +353,7 @@ export function getRoleCredentials(role: string): RoleCredentials | null {
   let username = process.env[`${envPrefix}_EMAIL`] || process.env[`${envPrefix}_USERNAME`];
   let password = process.env[`${envPrefix}_PASSWORD`];
 
-  // Special handling for EXEC role - check both EXEC and EXEC_RO variants
+  // Special handling for EXEC_RO role - fallback to legacy EXEC credentials if EXEC_RO not set
   if (!username && role === "EXEC_RO") {
     username = process.env.E2E_EXEC_EMAIL;
     password = process.env.E2E_EXEC_PASSWORD;

@@ -117,7 +117,7 @@ The script tests all critical endpoints and provides clear pass/fail results wit
 Tests included:
 - ✅ CORS preflight OPTIONS checks (all critical endpoints)
 - ✅ Origin validation (ensures https:// protocol)
-- ✅ Unauthenticated security checks (future: 401/403 on protected endpoints)
+- ✅ Unauthenticated security checks (401/403 on protected endpoints)
 
 ### Tier-1 Tests (Credential-Dependent)
 **Purpose**: Authenticated API behavior, RBAC, schema validation  
