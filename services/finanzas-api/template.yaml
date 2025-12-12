@@ -1494,6 +1494,83 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
+  HubFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/hub.ts
+        External:
+          - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+      SamResourceId: HubFn
+    Properties:
+      CodeUri: .
+      Handler: hub.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName:
+              Ref: ProjectsTable
+        - DynamoDBCrudPolicy:
+            TableName:
+              Ref: AllocationsTable
+        - DynamoDBCrudPolicy:
+            TableName:
+              Ref: PayrollActualsTable
+        - DynamoDBCrudPolicy:
+            TableName:
+              Ref: AdjustmentsTable
+      Events:
+        HubSummary:
+          Type: HttpApi
+          Properties:
+            Path: /finanzas/hub/summary
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        HubModPerformance:
+          Type: HttpApi
+          Properties:
+            Path: /finanzas/hub/mod-performance
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        HubCashflow:
+          Type: HttpApi
+          Properties:
+            Path: /finanzas/hub/cashflow
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        HubRubrosBreakdown:
+          Type: HttpApi
+          Properties:
+            Path: /finanzas/hub/rubros-breakdown
+            Method: GET
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+        HubExport:
+          Type: HttpApi
+          Properties:
+            Path: /finanzas/hub/export
+            Method: POST
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: CognitoJwt
+
   Pep3Rule:
     Type: AWS::Events::Rule
     Properties:

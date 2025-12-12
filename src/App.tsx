@@ -26,6 +26,7 @@ import AdjustmentsManager from "@/modules/finanzas/AdjustmentsManager";
 import ProvidersManager from "@/modules/finanzas/ProvidersManager";
 import CashflowDashboard from "@/modules/finanzas/CashflowDashboard";
 import ScenariosDashboard from "@/modules/finanzas/ScenariosDashboard";
+import HubDesempeno from "@/modules/finanzas/HubDesempeno";
 import SDMTForecast from "@/features/sdmt/cost/Forecast/SDMTForecast";
 import SDMTReconciliation from "@/features/sdmt/cost/Reconciliation/SDMTReconciliation";
 import SDMTCashflow from "@/features/sdmt/cost/Cashflow/SDMTCashflow";
@@ -260,6 +261,12 @@ function AppContent() {
                 path="/providers"
                 element={
                   finanzasEnabled ? <ProvidersManager /> : <Navigate to="/" replace />
+                }
+              />
+              <Route
+                path="/hub"
+                element={
+                  finanzasEnabled ? <HubDesempeno /> : <Navigate to="/" replace />
                 }
               />
 
