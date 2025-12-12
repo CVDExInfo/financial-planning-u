@@ -1,7 +1,22 @@
 import assert from "node:assert/strict";
 import { describe, it, beforeEach, afterEach } from "node:test";
 
-import { acceptBaseline } from "../finanzas";
+process.env.VITE_API_BASE_URL ||= "http://localhost";
+process.env.VITE_SKIP_AUTH = "true";
+
+const noopStorage = {
+  getItem: () => null,
+  setItem: () => undefined,
+  removeItem: () => undefined,
+};
+
+// Polyfill localStorage for auth helpers invoked by the API client
+// @ts-expect-error - Node test environment shim
+global.localStorage = global.localStorage || noopStorage;
+// @ts-expect-error - Node test environment shim
+global.sessionStorage = global.sessionStorage || noopStorage;
+
+const { acceptBaseline } = await import("../finanzas");
 
 const originalFetch = global.fetch;
 
