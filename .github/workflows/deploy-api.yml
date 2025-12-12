@@ -74,19 +74,19 @@ jobs:
           set -euo pipefail
           if [ -n "${POLICY_STORE_ID:-}" ]; then
             echo "Verifying AVP Policy Store: $POLICY_STORE_ID"
-            
+
             # Check if policy store exists
             if aws verifiedpermissions get-policy-store \
               --region "${AWS_REGION}" \
               --policy-store-id "$POLICY_STORE_ID" \
               --query 'policyStoreId' --output text >/dev/null 2>&1; then
-              
-              echo "✅ AVP Policy Store verified: $POLICY_STORE_ID"
-            echo "avp_enabled=true" >> $GITHUB_OUTPUT
 
-            # Optional: Verify schema exists
-            if aws verifiedpermissions get-schema \
-              --region "${AWS_REGION}" \
+              echo "✅ AVP Policy Store verified: $POLICY_STORE_ID"
+              echo "avp_enabled=true" >> $GITHUB_OUTPUT
+
+              # Optional: Verify schema exists
+              if aws verifiedpermissions get-schema \
+                --region "${AWS_REGION}" \
                 --policy-store-id "$POLICY_STORE_ID" \
                 --query 'schema' --output text >/dev/null 2>&1; then
                 echo "✅ AVP Schema verified"
@@ -144,72 +144,71 @@ jobs:
           set -euo pipefail
           echo "🔍 Validating AVP schema and FIN policy alignment against repo..."
 
-            REMOTE_SCHEMA_JSON="$(aws verifiedpermissions get-schema \
+          REMOTE_SCHEMA_JSON="$(aws verifiedpermissions get-schema \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --region "$AWS_REGION" \
+            --output json)"
+
+          REMOTE_SCHEMA="$(echo "$REMOTE_SCHEMA_JSON" | jq -er '
+            if (.schema | type) == "string" then .schema
+            elif (.schema | type) == "object" then
+              (.schema.definition.cedarJson? // .schema.cedarJson? // .schema.definition? // empty)
+            else empty end
+          ')" || true
+
+          if [ -z "${REMOTE_SCHEMA:-}" ]; then
+            echo "❌ Unable to read Cedar schema from policy store $POLICY_STORE_ID"
+            echo "$REMOTE_SCHEMA_JSON" | head -c 400 || true
+            exit 1
+          fi
+
+          printf '%s' "$REMOTE_SCHEMA" > /tmp/remote-schema.cedar
+
+          LOCAL_SCHEMA_PATH="../../avp/schema.cedar"
+          if [ ! -f "$LOCAL_SCHEMA_PATH" ]; then
+            echo "❌ Local schema file not found at: $LOCAL_SCHEMA_PATH"
+            exit 1
+          fi
+
+          python - <<'PY'
+import sys
+from pathlib import Path
+
+remote = Path("/tmp/remote-schema.cedar").read_text(encoding="utf-8")
+local  = Path("../../avp/schema.cedar").read_text(encoding="utf-8")
+
+def norm(s: str) -> str:
+    return "".join(s.split())
+
+if norm(remote) != norm(local):
+    sys.exit("Schema drift detected between policy store and ../../avp/schema.cedar")
+
+print("✅ AVP schema matches repository version")
+PY
+
+          REQUIRED_IDS="$(echo "${REQUIRED_POLICY_IDS_DEV:-}" | tr ',' ' ' | xargs)"
+          if [ -n "$REQUIRED_IDS" ]; then
+            echo "🔒 Verifying required AVP policies for DEV: $REQUIRED_IDS"
+            POLICY_IDS="$(aws verifiedpermissions list-policies \
               --policy-store-id "$POLICY_STORE_ID" \
               --region "$AWS_REGION" \
-              --output json)"
-  
-            REMOTE_SCHEMA="$(echo "$REMOTE_SCHEMA_JSON" | jq -er '
-              if (.schema | type) == "string" then .schema
-              elif (.schema | type) == "object" then
-                (.schema.definition.cedarJson? // .schema.cedarJson? // .schema.definition? // empty)
-              else empty end
-            ')" || true
-  
-            if [ -z "${REMOTE_SCHEMA:-}" ]; then
-              echo "❌ Unable to read Cedar schema from policy store $POLICY_STORE_ID"
-              echo "$REMOTE_SCHEMA_JSON" | head -c 400 || true
+              --query 'policies[].policyId' \
+              --output text | tr '\t' '\n')"
+
+            MISSING=()
+            for PID in $REQUIRED_IDS; do
+              echo "$POLICY_IDS" | grep -q "^${PID}$" || MISSING+=("$PID")
+            done
+
+            if [ ${#MISSING[@]} -gt 0 ]; then
+              echo "❌ Missing required policy IDs: ${MISSING[*]}"
               exit 1
-            fi
-  
-            printf '%s' "$REMOTE_SCHEMA" > /tmp/remote-schema.cedar
-  
-            LOCAL_SCHEMA_PATH="../../avp/schema.cedar"
-            if [ ! -f "$LOCAL_SCHEMA_PATH" ]; then
-              echo "❌ Local schema file not found at: $LOCAL_SCHEMA_PATH"
-              exit 1
-            fi
-  
-            python - <<'PY'
-  import sys
-  from pathlib import Path
-  
-  remote = Path("/tmp/remote-schema.cedar").read_text(encoding="utf-8")
-  local  = Path("../../avp/schema.cedar").read_text(encoding="utf-8")
-  
-  def norm(s: str) -> str:
-      return "".join(s.split())
-  
-  if norm(remote) != norm(local):
-      sys.exit("Schema drift detected between policy store and ../../avp/schema.cedar")
-  
-  print("✅ AVP schema matches repository version")
-  PY
-  
-            REQUIRED_IDS="$(echo "${REQUIRED_POLICY_IDS_DEV:-}" | tr ',' ' ' | xargs)"
-            if [ -n "$REQUIRED_IDS" ]; then
-              echo "🔒 Verifying required AVP policies for DEV: $REQUIRED_IDS"
-              POLICY_IDS="$(aws verifiedpermissions list-policies \
-                --policy-store-id "$POLICY_STORE_ID" \
-                --region "$AWS_REGION" \
-                --query 'policies[].policyId' \
-                --output text | tr '\t' '\n')"
-  
-              MISSING=()
-              for PID in $REQUIRED_IDS; do
-                echo "$POLICY_IDS" | grep -q "^${PID}$" || MISSING+=("$PID")
-              done
-  
-              if [ ${#MISSING[@]} -gt 0 ]; then
-                echo "❌ Missing required policy IDs: ${MISSING[*]}"
-                exit 1
-              fi
-  
-              echo "✅ Required DEV AVP policies present"
-            else
-              echo "ℹ️ No required DEV policy ids configured; skipping policy-id guard"
             fi
 
+            echo "✅ Required DEV AVP policies present"
+          else
+            echo "ℹ️ No required DEV policy ids configured; skipping policy-id guard"
+          fi
 
       - name: Preflight - Check stack status (non-blocking deployment)
         run: |
@@ -376,7 +375,7 @@ jobs:
           if [ -n "$FN" ]; then
             LOG="/aws/lambda/$FN"
             echo "### CloudWatch Logs (CatalogFn)" >> $GITHUB_STEP_SUMMARY
-            aws logs get-log-events --log-group-name "$LOG" --log-stream-name $(aws logs describe-log-streams --log-group-name "$LOG" --order-by LastEventTime --descending --max-items 1 --query 'logStreams[0].logStreamName' --output text) --limit 100 --query 'events[].message' --output text | tail -n 100 | sed 's/^/    /' >> $GITHUB_STEP_SUMMARY || true
+            aws logs get-log-events --log-group-name "$LOG" --log-stream-name $(aws logs describe-log-streams --log-group-name "$LOG" --order-by LastEventTime --descending --max-items 1 --query 'logStreams[0].logStreamName' --output text) --limit 100 --output text >> $GITHUB_STEP_SUMMARY || true
           else
             echo "Could not resolve CatalogFn physical id" | tee -a $GITHUB_STEP_SUMMARY
           fi
