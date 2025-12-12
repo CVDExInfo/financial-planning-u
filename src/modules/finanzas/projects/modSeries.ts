@@ -487,9 +487,9 @@ export function buildModPerformanceSeries(
   // Collect all unique months from all series
   const allMonths = new Set<string>();
   
-  for (const month of actualPayroll.keys()) allMonths.add(month);
-  for (const month of allocations.keys()) allMonths.add(month);
-  for (const month of adjustedProjected.keys()) allMonths.add(month);
+  Array.from(actualPayroll.keys()).forEach(month => allMonths.add(month));
+  Array.from(allocations.keys()).forEach(month => allMonths.add(month));
+  Array.from(adjustedProjected.keys()).forEach(month => allMonths.add(month));
 
   // If no months found in any series, return empty array
   if (allMonths.size === 0) {
