@@ -13,7 +13,7 @@ export type VarianceReason =
   | "vendor_delay"
   | "scope"
   | "other";
-export type UserRole = "PM" | "PMO" | "SDMT" | "VENDOR" | "EXEC_RO";
+export type UserRole = "PM" | "PMO" | "SDMT" | "SDM_FIN" | "VENDOR" | "EXEC_RO";
 export type ModuleType = "PMO" | "SDMT";
 export type InvoiceStatus = "Pending" | "Matched" | "Disputed";
 export type ApprovalDecision = "approve" | "reject";

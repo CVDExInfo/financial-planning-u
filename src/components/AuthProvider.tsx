@@ -132,7 +132,9 @@ function buildSessionFromTokens(
 
   const mappedRoles = mapGroupsToRoles(cognitoGroups).filter(
     (role): role is UserRole =>
-      ["PM", "PMO", "SDMT", "VENDOR", "EXEC_RO"].includes(role)
+      ["PM", "PMO", "SDMT", "SDM_FIN", "VENDOR", "EXEC_RO"].includes(
+        role
+      )
   );
   // SECURITY: No fallback role. Users without recognized groups get empty roles array.
   const effectiveRoles = mappedRoles;
@@ -207,6 +209,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Avoid emitting warnings while the auth layer is still resolving tokens/groups
+    if (isLoading) {
+      return;
+    }
+
     // If no currentRole, user has no access - don't check routes
     if (!currentRole) {
       setRouteConfigMissing(true);
@@ -238,7 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
     }
-  }, [availableRoles, currentRole, groupClaims, user]);
+  }, [availableRoles, currentRole, groupClaims, isLoading, user]);
 
   useEffect(() => {
     // Only suggest a role if user has available roles
