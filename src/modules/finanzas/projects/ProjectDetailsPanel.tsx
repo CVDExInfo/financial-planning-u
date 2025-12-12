@@ -138,7 +138,7 @@ export default function ProjectDetailsPanel({
       <Card className="border-border/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base font-semibold">
-            Desempeño de MOD (Allocations vs Adjusted/Projected vs Actual Payroll)
+            Desempeño de MOD (Asignaciones vs Proyectado/Ajustado vs Nómina Real)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -152,17 +152,17 @@ export default function ProjectDetailsPanel({
               lines={[
                 {
                   dataKey: "Allocations MOD",
-                  name: "Allocations (Plan)",
+                  name: "Asignaciones (Plan)",
                   color: "#8b5cf6",
                 },
                 {
                   dataKey: "Adjusted/Projected MOD",
-                  name: "Adjusted/Projected",
+                  name: "Proyectado/Ajustado",
                   color: "#3b82f6",
                 },
                 {
                   dataKey: "Actual Payroll MOD",
-                  name: "Actual Payroll",
+                  name: "Nómina Real",
                   color: "#10b981",
                 },
               ]}
