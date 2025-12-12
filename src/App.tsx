@@ -138,7 +138,7 @@ function AppContent() {
   }
 
   // SECURITY: Users without any assigned roles cannot access the application
-  if (isAuthenticated && (!availableRoles || availableRoles.length === 0)) {
+  if (!availableRoles || availableRoles.length === 0) {
     return (
       <>
         <NoAccess />
