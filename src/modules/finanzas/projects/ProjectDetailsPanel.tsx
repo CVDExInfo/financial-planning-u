@@ -1,12 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProjectDisplay } from "@/lib/projects/display";
 import { type ProjectForUI } from "./useProjects";
+import LineChartComponent from "@/components/charts/LineChart";
+
+export type ModChartPoint = {
+  month: string;
+  "Allocations MOD": number;
+  "Adjusted/Projected MOD": number;
+  "Actual Payroll MOD": number;
+};
 
 interface ProjectDetailsPanelProps {
   project: ProjectForUI;
   formatCurrency: (value: number, currencyCode?: string) => string;
   calculateDurationInMonths: (start?: string, end?: string) => number | null;
   formatDate: (value?: string | null) => string;
+  modChartData?: ModChartPoint[];
+  chartTitle?: string;
 }
 
 export default function ProjectDetailsPanel({
@@ -14,6 +24,8 @@ export default function ProjectDetailsPanel({
   formatCurrency,
   calculateDurationInMonths,
   formatDate,
+  modChartData = [],
+  chartTitle = "MOD Performance (Allocations vs Adjusted/Projected vs Actual Payroll)",
 }: ProjectDetailsPanelProps) {
   const display = getProjectDisplay(project);
   const durationMonths = calculateDurationInMonths(
@@ -26,13 +38,14 @@ export default function ProjectDetailsPanel({
       : null;
 
   return (
-    <Card className="border-border/80 shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-base font-semibold">
-          Detalles del proyecto seleccionado
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-3 md:grid-cols-2">
+    <>
+      <Card className="border-border/80 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">
+            Detalles del proyecto seleccionado
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">Código – Nombre</p>
           <p className="font-semibold">
@@ -128,5 +141,47 @@ export default function ProjectDetailsPanel({
         </div>
       </CardContent>
     </Card>
+
+    {/* MOD Performance Chart */}
+    <Card className="border-border/80 shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-base font-semibold">
+          {chartTitle}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {modChartData.length > 0 ? (
+          <LineChartComponent
+            data={modChartData}
+            lines={[
+              {
+                dataKey: "Allocations MOD",
+                name: "Allocations MOD",
+                color: "#8b5cf6",
+              },
+              {
+                dataKey: "Adjusted/Projected MOD",
+                name: "Adjusted/Projected MOD",
+                color: "#3b82f6",
+              },
+              {
+                dataKey: "Actual Payroll MOD",
+                name: "Actual Payroll MOD",
+                color: "#10b981",
+              },
+            ]}
+            labelPrefix="Month"
+            valueFormatter={formatCurrency}
+            xTickFormatter={(value) => String(value)}
+            className="h-full"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+            No data available
+          </div>
+        )}
+      </CardContent>
+    </Card>
+    </>
   );
 }

@@ -33,10 +33,11 @@ import LineChartComponent from "@/components/charts/LineChart";
 import { usePermissions } from "@/hooks/usePermissions";
 import useProjects, { type ProjectForUI } from "./projects/useProjects";
 import { Badge } from "@/components/ui/badge";
-import ProjectDetailsPanel from "./projects/ProjectDetailsPanel";
+import ProjectDetailsPanel, { type ModChartPoint } from "./projects/ProjectDetailsPanel";
 import { getProjectDisplay } from "@/lib/projects/display";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { getPayrollDashboard, type MODProjectionByMonth } from "@/api/finanzas";
+import { getPayrollDashboardForProject } from "@/api/payrollService";
 
 export default function ProjectsManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
@@ -62,6 +63,8 @@ export default function ProjectsManager() {
     null,
   );
   const [payrollDashboard, setPayrollDashboard] =
+    React.useState<MODProjectionByMonth[]>([]);
+  const [projectPayrollData, setProjectPayrollData] =
     React.useState<MODProjectionByMonth[]>([]);
   const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
@@ -259,6 +262,30 @@ export default function ProjectsManager() {
     return [];
   }, [viewMode, selectedProject, payrollDashboard]);
 
+  // Compute MOD chart data for ProjectDetailsPanel
+  const modChartDataForDetails = React.useMemo<ModChartPoint[]>(() => {
+    const dataSource =
+      viewMode === "project" && selectedProject && projectPayrollData.length > 0
+        ? projectPayrollData
+        : viewMode === "portfolio" && payrollDashboard.length > 0
+        ? payrollDashboard
+        : [];
+
+    if (dataSource.length === 0) {
+      return [];
+    }
+
+    // Map MODProjectionByMonth to ModChartPoint format
+    return dataSource
+      .map((entry) => ({
+        month: entry.month,
+        "Allocations MOD": entry.totalPlanMOD ?? 0,
+        "Adjusted/Projected MOD": entry.totalForecastMOD ?? entry.totalPlanMOD ?? 0,
+        "Actual Payroll MOD": entry.totalActualMOD ?? 0,
+      }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+  }, [viewMode, selectedProject, projectPayrollData, payrollDashboard]);
+
   const formatCurrency = React.useCallback(
     (value: number, currencyCode: string = "USD") =>
       new Intl.NumberFormat("es-MX", {
@@ -340,6 +367,24 @@ export default function ProjectsManager() {
   React.useEffect(() => {
     void loadPayrollDashboard();
   }, [loadPayrollDashboard]);
+
+  // Load project-specific payroll data when a project is selected
+  React.useEffect(() => {
+    async function loadProjectPayroll() {
+      if (selectedProjectId) {
+        try {
+          const data = await getPayrollDashboardForProject(selectedProjectId);
+          setProjectPayrollData(data ?? []);
+        } catch (err) {
+          console.error("Error loading project payroll data:", err);
+          setProjectPayrollData([]);
+        }
+      } else {
+        setProjectPayrollData([]);
+      }
+    }
+    void loadProjectPayroll();
+  }, [selectedProjectId]);
 
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -604,6 +649,12 @@ export default function ProjectsManager() {
           formatCurrency={formatCurrency}
           calculateDurationInMonths={calculateDurationInMonths}
           formatDate={formatDate}
+          modChartData={modChartDataForDetails}
+          chartTitle={
+            viewMode === "project"
+              ? "MOD Performance (Allocations vs Adjusted/Projected vs Actual Payroll)"
+              : "MOD Performance - All Projects"
+          }
         />
       )}
 
