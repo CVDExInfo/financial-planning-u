@@ -164,7 +164,7 @@ jobs:
 
           printf '%s' "$REMOTE_SCHEMA" > /tmp/remote-schema.cedar
 
-          LOCAL_SCHEMA_PATH="../../avp/schema.cedar"
+          LOCAL_SCHEMA_PATH="avp/schema.cedar"
           if [ ! -f "$LOCAL_SCHEMA_PATH" ]; then
             echo "❌ Local schema file not found at: $LOCAL_SCHEMA_PATH"
             exit 1
