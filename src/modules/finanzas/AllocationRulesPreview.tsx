@@ -7,19 +7,24 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCcw, Split } from "lucide-react";
+import { RefreshCcw, Split, Sparkles, ArrowRight } from "lucide-react";
 import DataContainer from "@/components/DataContainer";
 import PageHeader from "@/components/PageHeader";
 import finanzasClient, { AllocationRule } from "@/api/finanzasClient";
 import DonutChart from "@/components/charts/DonutChart";
 import { toast } from "sonner";
 import LoadingState from "@/components/LoadingState";
+import { ASSIGNMENT_RULE_TEMPLATES, type AssignmentRuleTemplate } from "@/types/assignment-rules";
+import { useFinanzasUser } from "@/hooks/useFinanzasUser";
 
 export default function AllocationRulesPreview() {
   const [rules, setRules] = useState<AllocationRule[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState<AssignmentRuleTemplate | null>(null);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
 
+  const { isFIN, isSDMT } = useFinanzasUser();
   const hasRules = rules.length > 0;
 
   const driverChartData = useMemo(
@@ -80,12 +85,23 @@ export default function AllocationRulesPreview() {
   useEffect(() => {
     loadRules();
   }, [loadRules]);
+  
+  const handleUseTemplate = (template: AssignmentRuleTemplate) => {
+    setSelectedTemplate(template);
+    setShowTemplateDialog(true);
+    
+    // For now, just show a toast - full implementation would open a form
+    toast.info(
+      `Plantilla "${template.name}" seleccionada. Próximamente: formulario para configurar la regla.`,
+      { duration: 4000 }
+    );
+  };
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <PageHeader
         title="Reglas de Asignación"
-        description="Vista previa MVP de reglas devueltas por la API. Muestra drivers percentuales, montos fijos y splits, con estados claros de carga y error."
+        description="Configura cómo se distribuyen los costos indirectos entre proyectos. Usa plantillas recomendadas como punto de partida."
         badge="Finanzas"
         icon={<Split className="h-5 w-5 text-white" />}
         actions={
@@ -112,6 +128,84 @@ export default function AllocationRulesPreview() {
           </AlertDescription>
         </Alert>
       )}
+      
+      {/* Assignment Rule Templates Section */}
+      <Card className="border-border/80 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <div className="flex-1">
+              <CardTitle className="text-base font-semibold">Plantillas Recomendadas</CardTitle>
+              <CardDescription>
+                Buenas prácticas para distribuir costos. {isFIN ? "Como FIN, " : isSDMT ? "Como SDMT, " : ""}
+                usa estas plantillas como punto de partida para crear reglas personalizadas.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {ASSIGNMENT_RULE_TEMPLATES.map((template) => (
+              <Card 
+                key={template.id} 
+                className={`border-border/80 hover:border-primary/50 transition-colors ${
+                  template.isRecommended ? 'ring-1 ring-primary/20' : ''
+                }`}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        {template.icon && <span className="text-2xl">{template.icon}</span>}
+                        <CardTitle className="text-sm font-semibold leading-tight">
+                          {template.name}
+                        </CardTitle>
+                      </div>
+                      {template.isRecommended && (
+                        <Badge variant="secondary" className="text-xs">
+                          Recomendada
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 pt-0">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {template.description}
+                  </p>
+                  
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-foreground">Casos de uso típicos:</p>
+                    <ul className="space-y-0.5">
+                      {template.typicalUseCases.slice(0, 2).map((useCase, i) => (
+                        <li key={i} className="text-xs text-muted-foreground flex items-start gap-1">
+                          <span className="text-primary mt-0.5">•</span>
+                          <span>{useCase}</span>
+                        </li>
+                      ))}
+                      {template.typicalUseCases.length > 2 && (
+                        <li className="text-xs text-muted-foreground">
+                          +{template.typicalUseCases.length - 2} más...
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                  
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="w-full gap-2"
+                    onClick={() => handleUseTemplate(template)}
+                  >
+                    Usar como base
+                    <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         {hasRules ? (
@@ -149,9 +243,15 @@ export default function AllocationRulesPreview() {
 
       <Card className="border-border/80 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Vista previa</CardTitle>
+          <CardTitle className="text-base font-semibold">
+            Reglas Configuradas
+            {hasRules && <Badge variant="secondary" className="ml-2">{rules.length}</Badge>}
+          </CardTitle>
           <CardDescription>
-            Las reglas muestran cómo se distribuyen los costos por driver. Cada tarjeta indica si la regla está activa e incluye los splits configurados.
+            {hasRules 
+              ? "Las reglas activas determinan cómo se distribuyen los costos por driver entre proyectos."
+              : "Aún no hay reglas configuradas. Usa las plantillas de arriba para comenzar."
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -161,8 +261,8 @@ export default function AllocationRulesPreview() {
             error={error}
             onRetry={loadRules}
             loadingType="grid"
-            emptyTitle="No hay reglas de asignación configuradas"
-            emptyMessage="Cuando se creen reglas para tu proyecto, aparecerán aquí y habilitarán las visualizaciones."
+            emptyTitle="No hay reglas configuradas todavía"
+            emptyMessage="Selecciona una de las plantillas recomendadas arriba para crear tu primera regla de asignación."
           >
             {(items) => {
               const safeRules = Array.isArray(items) ? (items as AllocationRule[]) : [];
