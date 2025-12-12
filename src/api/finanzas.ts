@@ -15,7 +15,11 @@ import {
 import { taxonomyByRubroId } from "@/modules/rubros.catalog.enriched";
 
 // ---------- Environment ----------
-const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS || "false") === "true";
+const envSource =
+  (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env) ||
+  (typeof process !== "undefined" ? (process.env as Record<string, string>) : {});
+
+const USE_MOCKS = String(envSource?.VITE_USE_MOCKS || "false") === "true";
 
 function requireApiBase(): string {
   if (!HAS_API_BASE) {
@@ -1251,7 +1255,7 @@ export async function handoffBaseline(
 }
 
 export interface AcceptBaselinePayload {
-  baseline_id: string;
+  baseline_id?: string;
   accepted_by?: string;
 }
 
@@ -1265,7 +1269,7 @@ export interface AcceptBaselineResponse {
 
 export async function acceptBaseline(
   projectId: string,
-  payload: AcceptBaselinePayload,
+  payload?: AcceptBaselinePayload,
 ): Promise<AcceptBaselineResponse> {
   ensureApiBase();
 
@@ -1280,7 +1284,10 @@ export async function acceptBaseline(
         ...buildAuthHeader(),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      // Backend currently expects an empty payload; only forward explicit audit fields
+      body: payload?.accepted_by
+        ? JSON.stringify({ accepted_by: payload.accepted_by })
+        : undefined,
     });
 
     // Return the response as-is from the server without adding fallback values

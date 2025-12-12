@@ -845,11 +845,18 @@ export class ApiService {
       }
     );
 
-    const cells = Array.isArray(payload)
-      ? payload
-      : Array.isArray(payload?.data)
-        ? payload.data
-        : [];
+    const coerceCells = (input: unknown): ForecastCell[] => {
+      if (Array.isArray(input)) return input as ForecastCell[];
+      if (input && Array.isArray((input as any).data)) return (input as any).data;
+      if (input && Array.isArray((input as any).items)) return (input as any).items;
+      if (input && Array.isArray((input as any).data?.items))
+        return (input as any).data.items;
+      if (input && Array.isArray((input as any).data?.data))
+        return (input as any).data.data;
+      return [];
+    };
+
+    const cells = coerceCells(payload);
 
     const responseMonths = Number(payload?.months) || months;
 

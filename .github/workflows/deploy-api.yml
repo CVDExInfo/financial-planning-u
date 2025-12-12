@@ -23,6 +23,11 @@ env:
   # API ID for guard validation (single dev environment)
   FINZ_API_ID_DEV: ${{ vars.FINZ_API_ID_DEV || 'm3g6am67aj' }}
   POLICY_STORE_ID: ${{ vars.POLICY_STORE_ID || '' }} # optional, from AVP deployment
+  # Optional, stage-aware FIN policy ids (whitespace or comma separated). Defaults keep dev parity.
+  REQUIRED_POLICY_IDS_DEV: ${{ vars.REQUIRED_POLICY_IDS_DEV || 'hhKNjToeFMfEtGyLuUjg6' }}
+  REQUIRED_POLICY_IDS_STG: ${{ vars.REQUIRED_POLICY_IDS_STG || '' }}
+  REQUIRED_POLICY_IDS_PROD: ${{ vars.REQUIRED_POLICY_IDS_PROD || '' }}
+  REQUIRED_POLICY_IDS: ${{ vars.REQUIRED_POLICY_IDS || '' }}
 
 jobs:
   deploy-api:
@@ -35,6 +40,11 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y dos2unix
           find .github/actions -type f -print0 | xargs -0 dos2unix || true
+
+      - name: Install CLI helpers
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
 
       - name: Preflight env
         run: |
@@ -73,11 +83,11 @@ jobs:
               --query 'policyStoreId' --output text >/dev/null 2>&1; then
               
               echo "✅ AVP Policy Store verified: $POLICY_STORE_ID"
-              echo "avp_enabled=true" >> $GITHUB_OUTPUT
-              
-              # Optional: Verify schema exists
-              if aws verifiedpermissions get-schema \
-                --region "${AWS_REGION}" \
+            echo "avp_enabled=true" >> $GITHUB_OUTPUT
+
+            # Optional: Verify schema exists
+            if aws verifiedpermissions get-schema \
+              --region "${AWS_REGION}" \
                 --policy-store-id "$POLICY_STORE_ID" \
                 --query 'schema' --output text >/dev/null 2>&1; then
                 echo "✅ AVP Schema verified"
@@ -123,6 +133,77 @@ jobs:
           npm install esbuild --no-save || true
           export PATH="$PWD/node_modules/.bin:$PATH"
           sam build
+
+      - name: Validate AVP schema/policies match repo (drift guard)
+        if: steps.avp_check.outputs.avp_enabled == 'true'
+        working-directory: services/finanzas-api
+        env:
+          POLICY_STORE_ID: ${{ env.POLICY_STORE_ID }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+        run: |
+          set -euo pipefail
+
+          echo "🔍 Validating AVP schema and FIN policy alignment against repo..."
+
+          REMOTE_SCHEMA_JSON=$(aws verifiedpermissions get-schema \
+            --policy-store-id "$POLICY_STORE_ID" \
+            --region "$AWS_REGION" \
+            --output json)
+
+          REMOTE_SCHEMA=$(echo "$REMOTE_SCHEMA_JSON" | jq -r '.schema.definition.cedarJson // .schema.cedarJson // .schema // empty')
+          if [ -z "$REMOTE_SCHEMA" ]; then
+            echo "❌ Unable to read Cedar schema from policy store $POLICY_STORE_ID"; exit 1
+          fi
+
+            printf '%s' "$REMOTE_SCHEMA" > /tmp/remote-schema.cedar
+
+            # Normalize and compare against repo schema
+            python - <<'PY'
+            import sys, pathlib
+
+
+            remote = pathlib.Path('/tmp/remote-schema.cedar').read_text(encoding='utf-8')
+            local = pathlib.Path('avp/schema.cedar').read_text(encoding='utf-8')
+
+
+            def normalize(txt: str) -> str:
+                return ''.join(txt.split())
+
+
+            if normalize(remote) != normalize(local):
+                sys.exit('Schema drift detected between policy store and avp/schema.cedar')
+
+            print('✅ AVP schema matches repository version')
+            PY
+
+          # Validate FIN policy presence by policyId (stage-aware, optional)
+          STAGE_VAR="REQUIRED_POLICY_IDS_${DEPLOYMENT_ENV^^}"
+          REQUIRED_IDS=${!STAGE_VAR:-${REQUIRED_POLICY_IDS:-}}
+
+          # Support comma or whitespace separated lists
+          REQUIRED_IDS=$(echo "$REQUIRED_IDS" | tr ',' ' ' | xargs)
+
+          if [ -n "$REQUIRED_IDS" ]; then
+            echo "🔒 Verifying required AVP policies for stage '${DEPLOYMENT_ENV}': $REQUIRED_IDS"
+            POLICY_IDS=$(aws verifiedpermissions list-policies \
+              --policy-store-id "$POLICY_STORE_ID" \
+              --region "$AWS_REGION" \
+              --query 'policies[].policyId' --output text | tr '\t' '\n')
+
+            MISSING=()
+            for PID in $REQUIRED_IDS; do
+              echo "$POLICY_IDS" | tr '\t' '\n' | grep -q "^${PID}$" || MISSING+=("$PID")
+            done
+
+            if [ ${#MISSING[@]} -gt 0 ]; then
+              echo "❌ Missing required policy IDs: ${MISSING[*]}"
+              echo "Set the appropriate REQUIRED_POLICY_IDS_* env var for this stage or adjust validation inputs."
+              exit 1
+            fi
+            echo "✅ Required AVP policies present (${REQUIRED_IDS})"
+          else
+            echo "ℹ️  No required policy ids configured for stage '${DEPLOYMENT_ENV}'; skipping policy-id guard"
+          fi
 
       - name: Preflight - Check stack status (non-blocking deployment)
         run: |
