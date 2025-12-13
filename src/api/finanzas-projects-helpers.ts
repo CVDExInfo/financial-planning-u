@@ -6,10 +6,20 @@ export type ProjectsResponse =
   | { data?: Json[]; items?: Json[] };
 
 export function normalizeProjectsPayload(payload: ProjectsResponse): Json[] {
-  if (Array.isArray((payload as any)?.data)) return (payload as any).data as Json[];
-  if (Array.isArray((payload as any)?.items)) return (payload as any).items as Json[];
-  if (Array.isArray(payload)) return payload as Json[];
-  if (Array.isArray((payload as any)?.data?.items))
-    return ((payload as any).data as any).items as Json[];
+  const candidates = [
+    (payload as any)?.data,
+    (payload as any)?.items,
+    payload,
+    (payload as any)?.data?.items,
+    (payload as any)?.projects,
+    (payload as any)?.Items,
+    (payload as any)?.results,
+    (payload as any)?.records,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate as Json[];
+  }
+
   return [];
 }

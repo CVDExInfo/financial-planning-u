@@ -30,4 +30,22 @@ describe("normalizeProjectsPayload", () => {
     assert.equal(result.length, 1);
     assert.deepEqual(result[0], { id: "P-4" });
   });
+
+  it("reads projects arrays from alternate keys", () => {
+    const payload = { projects: [{ id: "P-5" }], results: [{ id: "P-6" }] };
+
+    const result = normalizeProjectsPayload(payload);
+
+    assert.equal(result.length, 1);
+    assert.deepEqual(result[0], { id: "P-5" });
+  });
+
+  it("supports DynamoDB-style Items payloads", () => {
+    const payload = { Items: [{ id: "P-7" }, { id: "P-8" }] } as any;
+
+    const result = normalizeProjectsPayload(payload);
+
+    assert.equal(result.length, 2);
+    assert.deepEqual(result[0], { id: "P-7" });
+  });
 });
