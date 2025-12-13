@@ -5,6 +5,10 @@ import {
   computeLaborTotal,
   computeNonLaborTotal,
   computeMonthlyBreakdown,
+  getCostTypeBadgeVariant,
+  getCostTypeLabel,
+  isIndirectCost,
+  isMODCategory,
 } from "@/lib/cost-utils";
 
 describe("cost-utils", () => {
@@ -87,5 +91,14 @@ describe("cost-utils", () => {
     assert.equal(months[0].Labor, 8800);
     assert.equal(months[1].Labor + months[1]["Non-Labor"], 9800);
     assert.equal(months[2].Labor + months[2]["Non-Labor"], 0);
+  });
+
+  it("provides cost type helpers for MOD/indirect categories", () => {
+    assert.equal(isMODCategory("MOD"), true);
+    assert.equal(isIndirectCost("CAPEX"), true);
+    assert.equal(getCostTypeLabel("MOD"), "MOD");
+    assert.equal(getCostTypeLabel("OTROS"), "Indirecto");
+    assert.equal(getCostTypeBadgeVariant("MOD"), "default");
+    assert.equal(getCostTypeBadgeVariant("OTROS"), "secondary");
   });
 });
