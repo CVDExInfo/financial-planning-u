@@ -27,7 +27,9 @@ Standardized on `sk = "METADATA"` as the canonical sort key for project metadata
 
 #### 1. Seed Scripts Updated
 
-**File:** `src/seed/seed_canonical_projects.ts`
+> Legacy note: Canonical seeding has been removed from the platform. The details below are retained for historical context only.
+
+**File (legacy reference):** `src/seed/seed_canonical_projects.ts`
 
 Changed project metadata records from:
 ```typescript

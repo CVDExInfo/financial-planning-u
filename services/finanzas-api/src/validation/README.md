@@ -94,5 +94,4 @@ npm test
 ## References
 
 - OpenAPI Spec: `openapi/finanzas.yaml`
-- Documentation: `docs/data/finanzas-schemas-and-seeds.md`
-- Seed Script: `src/seed/seed_finanzas_golden_project.ts`
+- Seeding has been removed from the platform. Use real user flows to create data when validating schemas.
