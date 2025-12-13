@@ -24,10 +24,23 @@ export function normalizeProjectForUI(raw: Json): ProjectForUI {
     mod_total: Number((raw as any)?.modTotal ?? 0) || 0,
     currency: safeString((raw as any)?.currency || "USD"),
     status: safeString((raw as any)?.status || "active"),
-    baseline_id: safeString((raw as any)?.baselineId || "") || undefined,
-    baseline_status: safeString((raw as any)?.baselineStatus || "") || null,
-    accepted_by: safeString((raw as any)?.sdmManagerEmail || "") || null,
-    baseline_accepted_at: safeString((raw as any)?.baselineAcceptedAt || "") || null,
+    baseline_id:
+      safeString(
+        (raw as any)?.baselineId || (raw as any)?.baseline_id || "",
+      ) || undefined,
+    baseline_status:
+      safeString(
+        (raw as any)?.baselineStatus || (raw as any)?.baseline_status || "",
+      ) || null,
+    accepted_by:
+      safeString((raw as any)?.sdmManagerEmail || (raw as any)?.accepted_by || "") ||
+      null,
+    baseline_accepted_at:
+      safeString(
+        (raw as any)?.baselineAcceptedAt ||
+          (raw as any)?.baseline_accepted_at ||
+          "",
+      ) || null,
     rejected_by: null, // Not in canonical schema yet
     baseline_rejected_at: null, // Not in canonical schema yet
     rejection_comment: null, // Not in canonical schema yet
