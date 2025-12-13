@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "build": "echo 'TS build not required by SAM if using plain .ts via esbuild bundling later' && exit 0",
-    "test": "jest --runInBand",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
+    "test:unit": "SKIP_INTEGRATION_TESTS=true node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
+    "test:integration": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand tests/integration/dev-environment-validation.spec.ts",
     "sam:build": "sam build",
     "sam:local": "sam local start-api --warm-containers EAGER",
     "sam:deploy": "sam deploy --no-confirm-changeset --stack-name finanzas-sd-api-dev --resolve-s3 --capabilities CAPABILITY_IAM",

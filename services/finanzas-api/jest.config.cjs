@@ -13,9 +13,7 @@ module.exports = {
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
   },
-  globals: {
-    'ts-jest': {
-      useESM: true,
-    },
-  }
+  transform: {
+    "^.+\\.tsx?$": ["ts-jest", { useESM: true }]
+  },
 };

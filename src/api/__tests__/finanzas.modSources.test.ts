@@ -32,6 +32,7 @@ describe("finanzas MOD source clients", () => {
 
     await assert.rejects(() => finanzas.getPayroll("P-TEST"), /array response/i);
     assert.ok(capturedUrl.includes("projectId=P-TEST"));
+    assert.ok(capturedUrl.includes("project_id=P-TEST"));
   });
 
   it("returns parsed arrays for adjustments", async () => {

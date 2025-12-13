@@ -53,6 +53,14 @@ describe("buildModPerformanceSeries integration with Dynamo shapes", () => {
         amount: 5000,
         adjustmentType: "delta",
       },
+      {
+        pk: `PROJECT#${PROJECT_ID}`,
+        distribucion: [
+          { mes: "2025-01", monto: 10000 },
+          { mes: "2025-02", monto: 20000 },
+        ],
+        tipo: "delta",
+      },
     ];
 
     const payroll = rawPayroll.map(normalizeApiRowForMod);
@@ -79,10 +87,10 @@ describe("buildModPerformanceSeries integration with Dynamo shapes", () => {
 
     assert.equal(january?.["Actual Payroll MOD"], 212900);
     assert.equal(january?.["Allocations MOD"], 100000);
-    assert.equal(january?.["Adjusted/Projected MOD"], 200000);
+    assert.equal(january?.["Adjusted/Projected MOD"], 210000);
 
     assert.equal(february?.["Allocations MOD"], 100000);
-    assert.equal(february?.["Adjusted/Projected MOD"], 200000);
+    assert.equal(february?.["Adjusted/Projected MOD"], 220000);
     assert.equal(february?.["Actual Payroll MOD"], 0);
   });
 });
