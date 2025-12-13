@@ -1,61 +1,51 @@
-namespace Finanzas
+namespace finanzassd
 
-// === Entity types ===
-entity User            {}
-entity Group           {}  // e.g., SDT, FIN, AUD, PMO, EXEC_RO, VENDOR, SDM, ADMIN
-entity Project         { 
-  owner: User,
-  sdmManagerEmail: String?   // Key field for ABAC - SDM manager's email
-}
-entity Adjustment      { project: Project, owner: User }
-entity Allocation      { project: Project, owner: User }
-entity Provider        { project: Project, owner: User }
-entity PayrollFile     { project: Project, uploader: User }
-entity Prefactura      { project: Project, createdBy: User, status: String }
-entity Rule            { project: Project, createdBy: User }
-entity Rubro           { }   // catalog is organization-wide read
+// Entities reflected in policy store P3wQ5UBQ9YvLb4NaXmSTMG
+entity User {}
+entity UserGroup {}
+entity Application {}
 
-// === Relationships ===
-// A user can be a member of a group
-User in Group
+// Relationship: users are members of Cognito groups
+User in UserGroup
 
-// Users can be assigned to projects
-User in Project
+// Actions mapped 1:1 to API routes
+action "get /adjustments"        appliesTo (User, Application);
+action "post /adjustments"       appliesTo (User, Application);
+action "get /alerts"             appliesTo (User, Application);
+action "get /allocation-rules"   appliesTo (User, Application);
+action "get /catalog/rubros"     appliesTo (User, Application);
+action "get /health"             appliesTo (User, Application);
+action "get /prefacturas/webhook" appliesTo (User, Application);
+action "post /prefacturas/webhook" appliesTo (User, Application);
+action "get /projects"           appliesTo (User, Application);
+action "post /projects"          appliesTo (User, Application);
+action "get /projects/{id}/plan" appliesTo (User, Application);
+action "get /projects/{id}/rubros" appliesTo (User, Application);
+action "post /projects/{id}/rubros" appliesTo (User, Application);
+action "get /providers"          appliesTo (User, Application);
+action "post /providers"         appliesTo (User, Application);
+action "post /close-month"       appliesTo (User, Application);
+action "post /payroll/ingest"    appliesTo (User, Application);
+action "post /projects/{id}/handoff" appliesTo (User, Application);
+action "put /projects/{id}/allocations:bulk" appliesTo (User, Application);
+action "delete /projects/{projectId}/rubros/{rubroId}" appliesTo (User, Application);
+action "get /baseline/{baseline_id}" appliesTo (User, Application);
+action "post /baseline"          appliesTo (User, Application);
+action "get /plan/forecast"      appliesTo (User, Application);
+action "get /prefacturas"        appliesTo (User, Application);
+action "post /prefacturas"       appliesTo (User, Application);
+action "get /projects/{projectId}/billing" appliesTo (User, Application);
+action "get /projects/{projectId}/handoff" appliesTo (User, Application);
+action "post /projects/{projectId}/handoff" appliesTo (User, Application);
+action "get /projects/{projectId}/rubros" appliesTo (User, Application);
+action "post /projects/{projectId}/rubros" appliesTo (User, Application);
+action "post /uploads/docs"      appliesTo (User, Application);
+action "put /handoff/{handoffId}" appliesTo (User, Application);
+action "get /projects/{projectId}/invoices" appliesTo (User, Application);
+action "get /projects/{projectId}/invoices/{invoiceId}" appliesTo (User, Application);
+action "put /projects/{projectId}/invoices/{invoiceId}/status" appliesTo (User, Application);
 
-// === Actions (verbs we enforce in AVP) ===
-action ViewHealth       appliesTo (User, Project);
-action ViewRubros       appliesTo (User, Rubro);
-action ViewRules        appliesTo (User, Rule);
-action ModifyRules      appliesTo (User, Rule);
+// Action grouping anchor (FIN)
+action "FIN" appliesTo (UserGroup, Application);
 
-action ViewProviders    appliesTo (User, Provider);
-action UpsertProvider   appliesTo (User, Provider);
-
-action ViewAdjustments  appliesTo (User, Adjustment);
-action CreateAdjustment appliesTo (User, Adjustment);
-
-action ViewProjects     appliesTo (User, Project);
-action ListProjects     appliesTo (User, Project);
-action GetProject       appliesTo (User, Project);
-action CreateProject    appliesTo (User, Project);
-
-action BulkAllocate     appliesTo (User, Allocation);
-action ViewPlan         appliesTo (User, Project);
-
-action IngestPayroll    appliesTo (User, PayrollFile);
-action CloseMonth       appliesTo (User, Project);
-
-action ViewPrefactura   appliesTo (User, Prefactura);
-action SendPrefactura   appliesTo (User, Prefactura);
-action ApprovePrefactura appliesTo (User, Prefactura);
-
-// === Context schema (what Lambdas pass to AVP) ===
-context {
-  // copied from API/GW or Lambda:
-  jwt_groups: Set<String>,        // Cognito groups from the ID token
-  user_email: String?,            // User's email from JWT for ABAC comparisons
-  http_method: String,
-  route: String,                  // e.g. "/projects/{id}/allocations:bulk"
-  project_id: String?,            // from path param when applicable
-  env: String                     // "dev" | "stg" | "prod"
-}
+context {}

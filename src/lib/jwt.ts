@@ -245,7 +245,15 @@ export function formatTokenExpiration(claims: JWTClaims): string {
  * @param cognitoGroups Array of Cognito group names
  * @returns Array of application UserRole values (empty if no groups match)
  */
-export type FinanzasRole = "ADMIN" | "PMO" | "SDMT" | "SDM" | "PM" | "VENDOR" | "EXEC_RO";
+export type FinanzasRole =
+  | "ADMIN"
+  | "PMO"
+  | "SDMT"
+  | "SDM_FIN"
+  | "SDM"
+  | "PM"
+  | "VENDOR"
+  | "EXEC_RO";
 
 export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
   const roles: Set<FinanzasRole> = new Set();
@@ -289,6 +297,12 @@ export function mapGroupsToRoles(cognitoGroups: string[]): FinanzasRole[] {
       normalized.includes("fin") ||
       normalized.includes("aud")
     ) {
+      roles.add("SDMT");
+    }
+
+    // SDM_FIN cohort: finance-specific SDMT grouping
+    if (normalized.includes("sdm_fin")) {
+      roles.add("SDM_FIN");
       roles.add("SDMT");
     }
 

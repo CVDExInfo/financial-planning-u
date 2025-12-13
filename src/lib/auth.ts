@@ -9,6 +9,7 @@ const ROLE_HIERARCHY: Record<UserRole, number> = {
   VENDOR: 1,
   PM: 2,
   SDMT: 3,
+  SDM_FIN: 3,
   PMO: 4,
   EXEC_RO: 5,
 };
@@ -62,6 +63,26 @@ const ROLE_PERMISSIONS = {
     ],
     actions: ["create", "read", "update", "delete"],
     description: "Full access to SDMT cost management modules",
+  },
+  SDM_FIN: {
+    // SDM_FIN is an SDMT-aligned role used by finance cohorts
+    routes: [
+      "/",
+      "/profile",
+      "/sdmt/**",
+      "/projects",
+      "/projects/**",
+      "/catalog/**",
+      "/rules",
+      "/adjustments",
+      "/adjustments/**",
+      "/providers",
+      "/providers/**",
+      "/cashflow",
+      "/scenarios",
+    ],
+    actions: ["create", "read", "update", "delete"],
+    description: "Finance-aligned SDMT access with the same scope as SDMT",
   },
   VENDOR: {
     // Limited SDMT access and read to Finanzas catalog
@@ -279,6 +300,10 @@ export function getRoleForPath(
 
   if (normalizedPath.startsWith("/pmo") && availableRoles.includes("PMO")) {
     return "PMO";
+  }
+
+  if (normalizedPath.startsWith("/sdmt/") && availableRoles.includes("SDM_FIN")) {
+    return "SDM_FIN";
   }
 
   if (normalizedPath.startsWith("/sdmt/") && availableRoles.includes("SDMT")) {
