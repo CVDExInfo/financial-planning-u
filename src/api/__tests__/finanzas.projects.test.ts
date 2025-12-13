@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 
 import { normalizeProjectsPayload } from "../finanzas-projects-helpers";
 
@@ -65,5 +65,30 @@ describe("normalizeProjectsPayload", () => {
 
     assert.equal(result.length, 1);
     assert.deepEqual(result[0], { id: "P-10" });
+  });
+});
+
+describe("getProjects", () => {
+  it("returns alternate payload shapes untouched for normalization", async () => {
+    process.env.VITE_API_BASE_URL = "https://example.test";
+
+    const dynamoPayload = { Items: [{ id: "PX-1" }] } as const;
+
+    mock.module("@/lib/http-client", () => ({
+      default: {
+        get: async () => ({ data: dynamoPayload }),
+      },
+      HttpError: class MockHttpError extends Error {
+        constructor(public status?: number) {
+          super("mock http error");
+        }
+      },
+    }));
+
+    const { getProjects } = await import("../finanzas");
+
+    const response = await getProjects();
+
+    assert.deepEqual((response as any).Items, dynamoPayload.Items);
   });
 });

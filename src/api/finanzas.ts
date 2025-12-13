@@ -1265,9 +1265,19 @@ export async function getProjects(): Promise<ProjectsResponse> {
       return payload;
     }
 
-    const anyPayload = payload as { data?: Json[]; items?: Json[] };
+    const anyPayload = payload as ProjectsResponse | undefined;
 
-    if (Array.isArray(anyPayload.data) || Array.isArray(anyPayload.items)) {
+    if (
+      anyPayload &&
+      (Array.isArray((anyPayload as any).data) ||
+        Array.isArray((anyPayload as any).items))
+    ) {
+      return anyPayload;
+    }
+
+    // Preserve alternate shapes (Items/projects/results/records) so downstream
+    // normalization can extract project arrays instead of dropping the payload.
+    if (anyPayload && typeof anyPayload === "object") {
       return anyPayload;
     }
 
