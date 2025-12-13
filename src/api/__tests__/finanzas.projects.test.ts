@@ -48,4 +48,22 @@ describe("normalizeProjectsPayload", () => {
     assert.equal(result.length, 2);
     assert.deepEqual(result[0], { id: "P-7" });
   });
+
+  it("detects nested payloads under body wrappers", () => {
+    const payload = { body: { results: [{ id: "P-9" }] } } as any;
+
+    const result = normalizeProjectsPayload(payload);
+
+    assert.equal(result.length, 1);
+    assert.deepEqual(result[0], { id: "P-9" });
+  });
+
+  it("inspects nested data payloads within wrapped objects", () => {
+    const payload = { body: { data: { projects: [{ id: "P-10" }] } } } as any;
+
+    const result = normalizeProjectsPayload(payload);
+
+    assert.equal(result.length, 1);
+    assert.deepEqual(result[0], { id: "P-10" });
+  });
 });
