@@ -316,10 +316,19 @@ export default function ProjectsManager() {
 
   // Compute MOD chart data for ProjectDetailsPanel
   const modChartDataForDetails = React.useMemo<ModChartPoint[]>(() => {
-    const payrollRows =
-      viewMode === "project" && selectedProject && projectPayrollData.length > 0
-        ? projectPayrollData
-        : payrollDashboard;
+    const payrollRows = (() => {
+      if (viewMode !== "project") return payrollDashboard;
+
+      if (projectPayrollData.length > 0) return projectPayrollData;
+
+      // Avoid mixing unrelated portfolio payroll rows into a project view; only
+      // consider rows for the selected project when the project-specific call
+      // returns empty/403/404. If none exist, fall back to an empty array so the
+      // chart renders safely without misleading data.
+      return payrollDashboard.filter(
+        (row) => row.projectId && row.projectId === selectedProjectId,
+      );
+    })();
 
     if (
       payrollRows.length === 0 &&
@@ -343,7 +352,6 @@ export default function ProjectsManager() {
     baselineRows,
     payrollDashboard,
     projectPayrollData,
-    selectedProject,
     selectedProjectId,
     viewMode,
   ]);
