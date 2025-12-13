@@ -175,13 +175,9 @@ export async function getAllocations(projectId?: string): Promise<any[]> {
     return MOCK_ALLOCATIONS_ROWS;
   }
 
-  if (!projectId) {
-    throw new FinanzasApiError("projectId is required to load allocations");
-  }
-
-  const url = `${requireApiBase()}/projects/${encodeURIComponent(
-    projectId,
-  )}/allocations`;
+  const url = `${requireApiBase()}/allocations${
+    projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""
+  }`;
 
   try {
     return await fetchArraySource(url, "getAllocations");
