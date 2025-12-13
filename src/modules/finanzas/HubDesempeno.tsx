@@ -9,7 +9,7 @@
  * - Project health and attention needs
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ import {
 import PageHeader from "@/components/PageHeader";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { toast } from "sonner";
+import { useProject } from "@/contexts/ProjectContext";
 
 interface HubSummary {
   scope: string;
@@ -111,6 +112,7 @@ interface Cashflow {
 }
 
 export default function HubDesempeno() {
+  const { projects, selectedProject, selectProject } = useProject();
   const [scope, setScope] = useState<string>("ALL");
   const [summary, setSummary] = useState<HubSummary | null>(null);
   const [modPerformance, setModPerformance] = useState<ModPerformance | null>(null);
@@ -121,6 +123,30 @@ export default function HubDesempeno() {
   const [modOnly, setModOnly] = useState(true);
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+  useEffect(() => {
+    if (selectedProject?.id) {
+      setScope(selectedProject.id);
+    }
+  }, [selectedProject?.id]);
+
+  const projectOptions = useMemo(
+    () =>
+      projects.map((project) => ({
+        value: project.id,
+        label: project.name || project.id,
+        code: project.code,
+      })),
+    [projects]
+  );
+
+  const handleScopeChange = (value: string) => {
+    setScope(value);
+    const match = projects.find((project) => project.id === value);
+    if (match) {
+      selectProject(match);
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -248,14 +274,18 @@ export default function HubDesempeno() {
       {/* Controls */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Select value={scope} onValueChange={setScope}>
+          <Select value={scope} onValueChange={handleScopeChange}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Seleccionar alcance" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Todos los proyectos</SelectItem>
-              <SelectItem value="P-NOC-CLARO-BOG">P-NOC-CLARO-BOG</SelectItem>
-              <SelectItem value="P-SD-DIGITAL">P-SD-DIGITAL</SelectItem>
+              {projectOptions.map((project) => (
+                <SelectItem key={project.value} value={project.value}>
+                  {project.label}
+                  {project.code ? ` (${project.code})` : ""}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -457,15 +487,9 @@ export default function HubDesempeno() {
                 <TableBody>
                   {summary && summary.kpis.riskFlagsCount > 0 ? (
                     <TableRow>
-                      <TableCell className="font-medium">P-NOC-CLARO-BOG</TableCell>
-                      <TableCell>{formatCurrency(800000)}</TableCell>
-                      <TableCell>{formatCurrency(920000)}</TableCell>
-                      <TableCell className="text-red-600 font-semibold">+15%</TableCell>
-                      <TableCell>
-                        <Badge variant="destructive">Alto Riesgo</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        Sobrecosto en recursos senior no planificados
+                      <TableCell colSpan={6} className="text-sm text-muted-foreground">
+                        {summary.kpis.riskFlagsCount} proyecto(s) con banderas de riesgo. Revisa los
+                        tableros detallados para priorizar acciones.
                       </TableCell>
                     </TableRow>
                   ) : (

@@ -4,6 +4,8 @@
 
 Successfully fixed SDMT/PMO project visibility issue by standardizing project metadata sort key from `"META"` to `"METADATA"` across all seed scripts, handlers, and test fixtures.
 
+> Legacy note: Seeding workflows referenced below have been removed. The document is retained for historical context only.
+
 ## Problem Analysis
 
 ### Root Cause
