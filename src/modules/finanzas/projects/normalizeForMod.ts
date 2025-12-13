@@ -115,6 +115,28 @@ export function normalizeApiRowForMod(row: any): NormalizedModRow {
 
   const paymentDate = row?.paymentDate || row?.paidAt || row?.fecha || row?.date;
 
+  const rawDistribution = row?.distribucion || row?.distribution;
+  const normalizedDistribution = Array.isArray(rawDistribution)
+    ? rawDistribution
+        .map((entry: any) => {
+          const entryMonth = toMonthKey(
+            entry?.mes || entry?.month || entry?.fecha || entry?.period,
+          );
+          const entryAmount =
+            coerceNumber(entry?.monto ?? entry?.amount ?? entry?.valor ?? entry?.value) ??
+            undefined;
+
+          return {
+            ...entry,
+            mes: entryMonth || entry?.mes,
+            month: entryMonth || entry?.month,
+            monto: typeof entryAmount !== "undefined" ? entryAmount : entry?.monto,
+            amount: typeof entryAmount !== "undefined" ? entryAmount : entry?.amount,
+          };
+        })
+        .filter(Boolean)
+    : undefined;
+
   return {
     projectId,
     month: month || undefined,
@@ -129,6 +151,9 @@ export function normalizeApiRowForMod(row: any): NormalizedModRow {
     paymentDate,
     paidAt: paymentDate,
     kind: row?.kind || row?.tipo || row?.type,
+    ...(normalizedDistribution
+      ? { distribucion: normalizedDistribution, distribution: normalizedDistribution }
+      : {}),
     __orig: row,
   };
 }
