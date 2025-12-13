@@ -51,6 +51,14 @@ import {
   FinanzasApiError,
 } from "@/api/finanzas";
 
+import {
+  computeLaborTotal,
+  computeNonLaborTotal,
+  computeMonthlyBreakdown,
+  computeGrandTotal,
+  computeLaborPercentage,
+} from "@/lib/cost-utils";
+
 // Helper function to extract email from JWT token
 function extractEmailFromJWT(token: string): string {
   try {
@@ -105,9 +113,8 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
   const [supportingDocs, setSupportingDocs] = useState<
     SupportingDocumentMeta[]
   >([]);
-  const [uploadProgress, setUploadProgress] = useState<
-    Record<string, DocumentUploadStage>
-  >({});
+  const [uploadProgress, setUploadProgress] =
+    useState<Record<string, DocumentUploadStage>>({});
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const fallbackProjectIdRef = useRef(`PRJ-${Date.now().toString(36)}`);
   const supportingDocsInputId = "prefactura-supporting-docs";
@@ -131,69 +138,41 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
 
   const uploadProjectId = useMemo(
     () => selectedProjectId || derivedProjectId,
-    [derivedProjectId, selectedProjectId]
+    [derivedProjectId, selectedProjectId],
   );
 
-  // Calculate totals
-  const laborTotal = laborEstimates.reduce((sum, item) => {
-    const baseHours = item.hours_per_month * item.fte_count;
-    const baseCost = baseHours * item.hourly_rate;
-    const onCost = baseCost * (item.on_cost_percentage / 100);
-    const monthlyTotal = baseCost + onCost;
-    const duration = item.end_month - item.start_month + 1;
-    return sum + monthlyTotal * duration;
-  }, 0);
+  // Use shared cost utilities
+  const laborTotal = useMemo(
+    () => computeLaborTotal(laborEstimates),
+    [laborEstimates],
+  );
 
-  const nonLaborTotal = nonLaborEstimates.reduce((sum, item) => {
-    if (item.one_time) {
-      return sum + item.amount;
-    }
-    const duration = (item.end_month || 1) - (item.start_month || 1) + 1;
-    return sum + item.amount * duration;
-  }, 0);
+  const nonLaborTotal = useMemo(
+    () => computeNonLaborTotal(nonLaborEstimates),
+    [nonLaborEstimates],
+  );
 
-  const grandTotal = laborTotal + nonLaborTotal;
+  const grandTotal = useMemo(
+    () => computeGrandTotal(laborEstimates, nonLaborEstimates),
+    [laborEstimates, nonLaborEstimates],
+  );
 
-  // Generate chart data
-  const costMixData = [
-    { name: "Labor", value: laborTotal },
-    { name: "Non-Labor", value: nonLaborTotal },
-  ];
+  const costMixData = useMemo(
+    () => [
+      { name: "Labor", value: laborTotal },
+      { name: "Non-Labor", value: nonLaborTotal },
+    ],
+    [laborTotal, nonLaborTotal],
+  );
 
-  const monthlyBreakdown = Array.from(
-    { length: dealInputs?.duration_months || 12 },
-    (_, i) => {
-      const month = i + 1;
-      const laborCost = laborEstimates.reduce((sum, item) => {
-        if (month >= item.start_month && month <= item.end_month) {
-          const baseHours = item.hours_per_month * item.fte_count;
-          const baseCost = baseHours * item.hourly_rate;
-          const onCost = baseCost * (item.on_cost_percentage / 100);
-          return sum + baseCost + onCost;
-        }
-        return sum;
-      }, 0);
-
-      const nonLaborCost = nonLaborEstimates.reduce((sum, item) => {
-        if (item.one_time && month === 1) {
-          return sum + item.amount;
-        }
-        if (
-          !item.one_time &&
-          month >= (item.start_month || 1) &&
-          month <= (item.end_month || 1)
-        ) {
-          return sum + item.amount;
-        }
-        return sum;
-      }, 0);
-
-      return {
-        month,
-        Labor: laborCost,
-        "Non-Labor": nonLaborCost,
-      };
-    }
+  const monthlyBreakdown = useMemo(
+    () =>
+      computeMonthlyBreakdown(
+        dealInputs?.duration_months || 12,
+        laborEstimates,
+        nonLaborEstimates,
+      ),
+    [dealInputs?.duration_months, laborEstimates, nonLaborEstimates],
   );
 
   const handleDigitalSign = async () => {
@@ -204,7 +183,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
     }
     if (!dealInputs || !dealInputs.project_name) {
       toast.error(
-        "Missing project information. Please review the estimator inputs."
+        "Missing project information. Please review the estimator inputs.",
       );
       return;
     }
@@ -229,19 +208,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         createdBy: userEmail,
       });
 
-      // Baseline payload snapshot for backend signing & storage
-      // Shape includes:
-      // - Deal inputs: project_name, project_description, client_name, currency,
-      //   start_date, duration_months, contract_value, assumptions
-      // - Labor costs: labor_estimates[] with role, country, level, fte_count,
-      //   hourly_rate, hours_per_month, on_cost_percentage, start/end months
-      // - Non-labor: non_labor_estimates[] with category, description, amount,
-      //   one_time flag, capex_flag, start/end months, vendor
-      // - FX/indexation: fx_indexation object
-      // - Supporting documents: documentId/documentKey/originalName metadata
-      // - Signature metadata: signed_by/signed_role/signed_at (from user email)
       const baselineRequest: PrefacturaBaselinePayload = {
-        // Deal inputs
         project_id: uploadProjectId,
         project_name: dealInputs.project_name,
         project_description: dealInputs.project_description,
@@ -252,11 +219,9 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         contract_value: dealInputs.contract_value,
         sdm_manager_name: dealInputs.sdm_manager_name,
         assumptions: dealInputs.assumptions || [],
-        // Cost breakdowns
         labor_estimates: laborEstimates,
         non_labor_estimates: nonLaborEstimates,
         fx_indexation: fxIndexationData ?? undefined,
-        // Supporting docs are persisted alongside the baseline record
         supporting_documents: supportingDocs.map((doc) => ({
           document_id: doc.documentId || doc.document_id,
           document_key: doc.documentKey || doc.document_key || "",
@@ -266,7 +231,6 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
           content_type:
             doc.contentType || doc.content_type || "application/octet-stream",
         })),
-        // Signature metadata
         signed_by: userEmail,
         signed_role: "PMO",
         signed_at: new Date().toISOString(),
@@ -294,7 +258,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         toast.error(
           error.status && error.status >= 500
             ? "Hubo un problema al crear la línea base."
-            : error.message
+            : error.message,
         );
       } else {
         const message =
@@ -324,29 +288,14 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
     setIsHandingOff(true);
 
     try {
-      // Get project ID from deal inputs or generate one
       const projectId = derivedProjectId;
 
-      // Calculate labor percentage
-      const laborTotal = laborEstimates.reduce((sum, item) => {
-        const baseHours = item.hours_per_month * item.fte_count;
-        const baseCost = baseHours * item.hourly_rate;
-        const onCost = baseCost * (item.on_cost_percentage / 100);
-        const duration = item.end_month - item.start_month + 1;
-        return sum + (baseCost + onCost) * duration;
-      }, 0);
-
-      const nonLaborTotal = nonLaborEstimates.reduce((sum, item) => {
-        if (item.one_time) return sum + item.amount;
-        const duration = (item.end_month || 1) - (item.start_month || 1) + 1;
-        return sum + item.amount * duration;
-      }, 0);
-
-      const grandTotal = laborTotal + nonLaborTotal;
+      const laborTotalLocal = computeLaborTotal(laborEstimates);
+      const nonLaborTotalLocal = computeNonLaborTotal(nonLaborEstimates);
+      const grandTotalLocal = laborTotalLocal + nonLaborTotalLocal;
       const laborPercentage =
-        grandTotal > 0 ? (laborTotal / grandTotal) * 100 : 0;
+        grandTotalLocal > 0 ? (laborTotalLocal / grandTotalLocal) * 100 : 0;
 
-      // Get user email
       const authData =
         localStorage.getItem("cv.jwt") || localStorage.getItem("finz_jwt");
       const userEmail = authData
@@ -356,14 +305,13 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       console.log("🚀 Initiating handoff to SDMT:", {
         projectId,
         baselineId,
-        modTotal: grandTotal,
+        modTotal: grandTotalLocal,
         laborPercentage,
       });
 
-      // Call handoff API WITHOUT aceptado_por to prevent auto-acceptance
       await handoffBaseline(projectId, {
         baseline_id: baselineId,
-        mod_total: grandTotal,
+        mod_total: grandTotalLocal,
         pct_ingenieros: laborPercentage,
         pct_sdm: 100 - laborPercentage,
         project_name: dealInputs?.project_name,
@@ -372,7 +320,6 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
 
       toast.success("✓ Project successfully handed off to SDMT team!");
 
-      // If user chose to accept baseline, call acceptBaseline endpoint
       if (shouldAcceptBaseline) {
         try {
           await acceptBaseline(projectId, {
@@ -389,17 +336,11 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                 ? acceptError.message
                 : "Unknown error";
           toast.error(`Baseline acceptance failed: ${acceptMessage}`);
-          // Don't fail the whole flow if acceptance fails - handoff already succeeded
         }
       }
 
-      // Refresh projects to get the newly created project
       await refreshProject();
-
-      // Set the newly created project as selected
       setSelectedProjectId(projectId);
-
-      // Navigate to SDMT cost catalog after data refresh
       setTimeout(() => {
         navigate("/sdmt/cost/catalog");
       }, 500);
@@ -424,27 +365,16 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
     }
 
     try {
-      // Calculate total amount
-      const totalLaborCost = laborEstimates.reduce((sum, labor) => {
-        const baseHours = labor.hours_per_month * labor.fte_count * 12; // 12 months
-        const baseCost = baseHours * labor.hourly_rate;
-        const onCost = baseCost * (labor.on_cost_percentage / 100);
-        return sum + baseCost + onCost;
-      }, 0);
-
-      const totalNonLaborCost = nonLaborEstimates.reduce(
-        (sum, item) => sum + item.amount,
-        0
-      );
+      const totalLaborCost = computeLaborTotal(laborEstimates);
+      const totalNonLaborCost = computeNonLaborTotal(nonLaborEstimates);
       const totalAmount = totalLaborCost + totalNonLaborCost;
       const signatureHash = baselineMeta?.signatureHash || baselineId;
 
-      // Create baseline data structure for export
       const baselineData = {
         baseline_id: baselineId,
         project_id: dealInputs?.project_name || "Unknown Project",
         project_name: dealInputs?.project_name || "Unknown Project",
-        created_by: "Current User", // In real app, get from auth
+        created_by: "Current User",
         accepted_by: "Current User",
         accepted_ts: new Date().toISOString(),
         signature_hash: signatureHash,
@@ -523,27 +453,15 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
     }
 
     try {
-      const totalLaborCost = laborEstimates.reduce((sum, labor) => {
-        const baseHours = labor.hours_per_month * labor.fte_count * 12;
-        const baseCost = baseHours * labor.hourly_rate;
-        return sum + baseCost + (baseCost * labor.on_cost_percentage) / 100;
-      }, 0);
-
-      const totalNonLaborCost = nonLaborEstimates.reduce((sum, item) => {
-        const duration =
-          item.end_month && item.start_month
-            ? item.end_month - item.start_month + 1
-            : 1;
-        return sum + (item.one_time ? item.amount : item.amount * duration);
-      }, 0);
-
+      const totalLaborCost = computeLaborTotal(laborEstimates);
+      const totalNonLaborCost = computeNonLaborTotal(nonLaborEstimates);
       const totalAmount = totalLaborCost + totalNonLaborCost;
-      const laborPercentage = (totalLaborCost / totalAmount) * 100;
+      const laborPercentage = computeLaborPercentage(totalLaborCost, totalAmount);
 
       const reportData = {
         title: "Project Baseline Budget",
         subtitle: "PMO Pre-Factura Estimate Summary",
-        generated: new Date().toLocaleDateString('es-CO'),
+        generated: new Date().toLocaleDateString("es-CO"),
         metrics: [
           {
             label: "Total Project Cost",
@@ -568,7 +486,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
             label: "Team Size",
             value: `${laborEstimates.reduce(
               (sum, labor) => sum + labor.fte_count,
-              0
+              0,
             )} FTE`,
             change: `${laborEstimates.length} roles`,
             changeType: "positive" as const,
@@ -582,7 +500,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
             laborEstimates.length
           } roles, ${laborEstimates.reduce(
             (sum, labor) => sum + labor.fte_count,
-            0
+            0,
           )} FTE`,
           `Baseline ID: ${baselineId} (digitally signed)`,
         ],
@@ -591,6 +509,22 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
           "Validate vendor quotes before project commencement",
           "Establish change control process for scope modifications",
           "Monitor actual costs against baseline for variance analysis",
+        ],
+        charts: [
+          {
+            type: "donut" as const,
+            title: "Desglose de Mezcla de Costos",
+            data: costMixData,
+          },
+          {
+            type: "bar" as const,
+            title: "Distribución de Costos Mensual",
+            data: monthlyBreakdown,
+            stacks: [
+              { dataKey: "Labor", name: "Laboral", color: "#2BB673" },
+              { dataKey: "Non-Labor", name: "No Laboral", color: "#f59e0b" },
+            ],
+          },
         ],
       };
 
@@ -603,7 +537,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
   };
 
   const handleSupportingDocsSelected = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const files = event.target.files ? Array.from(event.target.files) : [];
     if (!files.length) {
@@ -646,7 +580,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                   return next;
                 });
               },
-            }
+            },
           );
 
           successfulUploads.push(uploaded);
@@ -673,7 +607,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         toast.success(
           successfulUploads.length > 1
             ? "Documentos cargados correctamente"
-            : "Documento cargado correctamente"
+            : "Documento cargado correctamente",
         );
       }
     } finally {
@@ -685,9 +619,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-2xl font-semibold mb-2">
-          Revisión y Firma Digital
-        </h2>
+        <h2 className="text-2xl font-semibold mb-2">Revisión y Firma Digital</h2>
         <p className="text-muted-foreground">
           Revise su estimación de línea base completa y firme digitalmente para la entrega a SDMT
         </p>
@@ -708,15 +640,11 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
               <p className="text-3xl font-bold text-primary">
                 ${grandTotal.toLocaleString()}
               </p>
-              <p className="text-sm text-muted-foreground">
-                Costo Total del Proyecto
-              </p>
+              <p className="text-sm text-muted-foreground">Costo Total del Proyecto</p>
             </div>
             <div className="text-center">
               <Clock className="mx-auto mb-2 text-muted-foreground" size={32} />
-              <p className="text-3xl font-bold">
-                {dealInputs?.duration_months || 0}
-              </p>
+              <p className="text-3xl font-bold">{dealInputs?.duration_months || 0}</p>
               <p className="text-sm text-muted-foreground">Meses de Duración</p>
             </div>
             <div className="text-center">
@@ -727,10 +655,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
               <p className="text-sm text-muted-foreground">FTEs Totales</p>
             </div>
             <div className="text-center">
-              <Server
-                className="mx-auto mb-2 text-muted-foreground"
-                size={32}
-              />
+              <Server className="mx-auto mb-2 text-muted-foreground" size={32} />
               <p className="text-3xl font-bold">{nonLaborEstimates.length}</p>
               <p className="text-sm text-muted-foreground">Elementos de Costo</p>
             </div>
@@ -748,9 +673,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
           <CardContent className="space-y-4">
             <div>
               <span className="font-medium">Nombre del Proyecto:</span>
-              <p className="text-muted-foreground">
-                {dealInputs?.project_name}
-              </p>
+              <p className="text-muted-foreground">{dealInputs?.project_name}</p>
             </div>
             <div>
               <span className="font-medium">Cliente:</span>
@@ -768,9 +691,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
             </div>
             <div>
               <span className="font-medium">Duración:</span>
-              <p className="text-muted-foreground">
-                {dealInputs?.duration_months} meses
-              </p>
+              <p className="text-muted-foreground">{dealInputs?.duration_months} meses</p>
             </div>
             {dealInputs?.contract_value && (
               <div>
@@ -795,16 +716,12 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
             </div>
             <div className="flex justify-between items-center">
               <span>Costos No Laborales:</span>
-              <span className="font-bold">
-                ${nonLaborTotal.toLocaleString()}
-              </span>
+              <span className="font-bold">${nonLaborTotal.toLocaleString()}</span>
             </div>
             <Separator />
             <div className="flex justify-between items-center text-lg">
               <span className="font-bold">Estimación Total:</span>
-              <span className="font-bold text-primary">
-                ${grandTotal.toLocaleString()}
-              </span>
+              <span className="font-bold text-primary">${grandTotal.toLocaleString()}</span>
             </div>
 
             <div className="pt-4">
@@ -823,15 +740,12 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm">
-                    No Laboral ({((nonLaborTotal / grandTotal) * 100).toFixed(1)}
-                    %)
+                    No Laboral ({((nonLaborTotal / grandTotal) * 100).toFixed(1)}%)
                   </span>
                   <div className="w-32 bg-muted rounded-full h-2">
                     <div
                       className="bg-accent h-2 rounded-full"
-                      style={{
-                        width: `${(nonLaborTotal / grandTotal) * 100}%`,
-                      }}
+                      style={{ width: `${(nonLaborTotal / grandTotal) * 100}%` }}
                     />
                   </div>
                 </div>
@@ -853,13 +767,10 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                 (assumption, index) =>
                   assumption.trim() && (
                     <li key={index} className="flex items-start gap-2">
-                      <CheckCircle2
-                        size={16}
-                        className="text-green-600 mt-0.5 shrink-0"
-                      />
+                      <CheckCircle2 size={16} className="text-green-600 mt-0.5 shrink-0" />
                       <span className="text-sm">{assumption}</span>
                     </li>
-                  )
+                  ),
               )}
             </ul>
           </CardContent>
@@ -870,11 +781,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       <ChartInsightsPanel
         title="Análisis de Costos e Insights"
         charts={[
-          <DonutChart
-            key="cost-mix"
-            data={costMixData}
-            title="Desglose de Mezcla de Costos"
-          />,
+          <DonutChart key="cost-mix" data={costMixData} title="Desglose de Mezcla de Costos" />,
           <StackedColumnsChart
             key="monthly-breakdown"
             data={monthlyBreakdown}
@@ -882,12 +789,12 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
               {
                 dataKey: "Labor",
                 name: "Laboral",
-                color: "oklch(0.61 0.15 160)",
+                color: "#2BB673",
               },
               {
                 dataKey: "Non-Labor",
                 name: "No Laboral",
-                color: "oklch(0.72 0.15 65)",
+                color: "#f59e0b",
               },
             ]}
             title="Distribución de Costos Mensual"
@@ -897,15 +804,14 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
           {
             title: "Laboral vs No Laboral",
             value: `${((laborTotal / grandTotal) * 100).toFixed(0)}% / ${(
-              (nonLaborTotal / grandTotal) *
-              100
+              (nonLaborTotal / grandTotal) * 100
             ).toFixed(0)}%`,
             type: laborTotal > nonLaborTotal ? "positive" : "neutral",
           },
           {
             title: "Costo Mensual Promedio",
             value: `$${Math.round(
-              grandTotal / (dealInputs?.duration_months || 1)
+              grandTotal / (dealInputs?.duration_months || 1),
             ).toLocaleString()}`,
             type: "neutral",
           },
@@ -913,7 +819,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
             title: "Tamaño del Equipo",
             value: `${laborEstimates.reduce(
               (sum, item) => sum + item.fte_count,
-              0
+              0,
             )} FTE`,
             type: "positive",
           },
@@ -927,10 +833,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Label
-            htmlFor={supportingDocsInputId}
-            className="text-sm font-medium text-foreground"
-          >
+          <Label htmlFor={supportingDocsInputId} className="text-sm font-medium text-foreground">
             Adjuntar documentos de soporte
           </Label>
           <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-4">
@@ -944,10 +847,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
               disabled={isUploadingDoc}
               aria-describedby={supportingDocsHelpId}
             />
-            <p
-              id={supportingDocsHelpId}
-              className="text-xs text-muted-foreground mt-2"
-            >
+            <p id={supportingDocsHelpId} className="text-xs text-muted-foreground mt-2">
               Los archivos se cargan a través del endpoint compartido `/uploads/docs` usando la etiqueta del módulo Prefactura para que SDMT pueda referenciarlos más tarde.
             </p>
           </div>
@@ -975,9 +875,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                   className="flex items-center justify-between gap-4 rounded border border-border p-3 text-sm"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">
-                      {doc.originalName}
-                    </div>
+                    <div className="font-medium truncate">{doc.originalName}</div>
                     <div
                       className="text-xs text-muted-foreground font-mono truncate"
                       title={doc.documentKey}
@@ -986,7 +884,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                     </div>
                   </div>
                   <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(doc.uploadedAt).toLocaleDateString('es-CO')}
+                    {new Date(doc.uploadedAt).toLocaleDateString("es-CO")}
                   </span>
                 </div>
               ))}
@@ -1030,36 +928,36 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
               </label>
             </div>
 
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-muted-foreground">
-                  Firmando como: {signedBy || "Usuario PMO"} • {new Date().toLocaleDateString('es-CO')}
-                </div>
-                <Button
-                  onClick={handleDigitalSign}
-                  disabled={!isReviewed || isSigning || hasUploadsInFlight}
-                  className="gap-2"
-                  size="lg"
-                >
-                  {isSigning ? (
-                    <>
-                      <Clock size={16} className="animate-spin" />
-                      Creando Línea Base...
-                    </>
-                  ) : (
-                    <>
-                      <PenTool size={16} />
-                      Firmar y Crear Línea Base
-                    </>
-                  )}
-                </Button>
-                {hasUploadsInFlight && (
-                  <p className="text-xs text-muted-foreground text-right">
-                    Subiendo documentos de respaldo...
-                  </p>
-                )}
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-muted-foreground">
+                Firmando como: {signedBy || "Usuario PMO"} • {new Date().toLocaleDateString("es-CO")}
               </div>
-            </CardContent>
-          </Card>
+              <Button
+                onClick={handleDigitalSign}
+                disabled={!isReviewed || isSigning || hasUploadsInFlight}
+                className="gap-2"
+                size="lg"
+              >
+                {isSigning ? (
+                  <>
+                    <Clock size={16} className="animate-spin" />
+                    Creando Línea Base...
+                  </>
+                ) : (
+                  <>
+                    <PenTool size={16} />
+                    Firmar y Crear Línea Base
+                  </>
+                )}
+              </Button>
+              {hasUploadsInFlight && (
+                <p className="text-xs text-muted-foreground text-right">
+                  Subiendo documentos de respaldo...
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         <Card className="border-green-500 bg-green-50">
           <CardHeader>
@@ -1084,36 +982,23 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Creado:</span>
-                  <p className="font-medium">{new Date().toLocaleString('es-CO')}</p>
+                  <p className="font-medium">{new Date().toLocaleString("es-CO")}</p>
                 </div>
               </div>
             </div>
 
             <div className="flex justify-between items-center">
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={handleExportBaseline}
-                >
+                <Button variant="outline" className="gap-2" onClick={handleExportBaseline}>
                   <FileSpreadsheet size={16} />
                   Exportar Excel
                 </Button>
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={handleExportPDFSummary}
-                >
+                <Button variant="outline" className="gap-2" onClick={handleExportPDFSummary}>
                   <FileText size={16} />
                   Compartir Reporte
                 </Button>
               </div>
-              <Button
-                onClick={handleComplete}
-                className="gap-2"
-                size="lg"
-                disabled={isHandingOff}
-              >
+              <Button onClick={handleComplete} className="gap-2" size="lg" disabled={isHandingOff}>
                 {isHandingOff ? (
                   <>
                     <Clock size={16} className="animate-spin" />
@@ -1132,28 +1017,20 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       )}
 
       {/* Handoff Confirmation Dialog */}
-      <AlertDialog
-        open={showHandoffConfirm}
-        onOpenChange={setShowHandoffConfirm}
-      >
+      <AlertDialog open={showHandoffConfirm} onOpenChange={setShowHandoffConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Entrega a SDMT</AlertDialogTitle>
             <AlertDialogDescription className="space-y-4">
               <div>
-                <p className="font-medium text-foreground mb-3">
-                  Revisar detalles de la entrega:
-                </p>
+                <p className="font-medium text-foreground mb-3">Revisar detalles de la entrega:</p>
                 <ul className="space-y-2 text-sm">
                   <li>
-                    <span className="font-medium">Proyecto:</span>{" "}
-                    {dealInputs?.project_name}
+                    <span className="font-medium">Proyecto:</span> {dealInputs?.project_name}
                   </li>
                   <li>
                     <span className="font-medium">ID de Línea Base:</span>{" "}
-                    <code className="bg-muted px-2 py-1 rounded">
-                      {baselineId}
-                    </code>
+                    <code className="bg-muted px-2 py-1 rounded">{baselineId}</code>
                   </li>
                   {signedBy && (
                     <li>
@@ -1162,22 +1039,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
                   )}
                   <li>
                     <span className="font-medium">Presupuesto Total:</span> $
-                    {(
-                      laborEstimates.reduce((sum, item) => {
-                        const baseHours = item.hours_per_month * item.fte_count;
-                        const baseCost = baseHours * item.hourly_rate;
-                        const onCost =
-                          baseCost * (item.on_cost_percentage / 100);
-                        const duration = item.end_month - item.start_month + 1;
-                        return sum + (baseCost + onCost) * duration;
-                      }, 0) +
-                      nonLaborEstimates.reduce((sum, item) => {
-                        if (item.one_time) return sum + item.amount;
-                        const duration =
-                          (item.end_month || 1) - (item.start_month || 1) + 1;
-                        return sum + item.amount * duration;
-                      }, 0)
-                    ).toLocaleString()}
+                    {(computeLaborTotal(laborEstimates) + computeNonLaborTotal(nonLaborEstimates)).toLocaleString()}
                   </li>
                 </ul>
               </div>

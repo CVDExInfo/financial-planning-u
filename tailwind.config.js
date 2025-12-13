@@ -16,6 +16,15 @@ const defaultTheme = {
   container: {
     center: true,
     padding: "2rem",
+    // Use fixed breakpoints for container widths to avoid invalid media queries
+    // when raw media screens (pointer, display-mode) are present elsewhere.
+    screens: {
+      sm: "640px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
+      "2xl": "1400px",
+    },
   },
   extend: {
     screens: {
