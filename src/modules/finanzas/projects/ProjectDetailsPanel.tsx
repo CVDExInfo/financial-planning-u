@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { getProjectDisplay } from "@/lib/projects/display";
 import { type ProjectForUI } from "./useProjects";
 import LineChartComponent from "@/components/charts/LineChart";
@@ -17,6 +18,9 @@ interface ProjectDetailsPanelProps {
   formatDate: (value?: string | null) => string;
   modChartData?: ModChartPoint[];
   chartTitle?: string;
+  debugModeEnabled?: boolean;
+  onOpenDebugPreview?: () => void;
+  modDataError?: string;
 }
 
 export default function ProjectDetailsPanel({
@@ -26,6 +30,9 @@ export default function ProjectDetailsPanel({
   formatDate,
   modChartData = [],
   chartTitle = "MOD Performance (Allocations vs Adjusted/Projected vs Actual Payroll)",
+  debugModeEnabled = false,
+  onOpenDebugPreview,
+  modDataError,
 }: ProjectDetailsPanelProps) {
   const display = getProjectDisplay(project);
   const durationMonths = calculateDurationInMonths(
@@ -176,8 +183,16 @@ export default function ProjectDetailsPanel({
             className="h-full"
           />
         ) : (
-          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-            No data available
+          <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+            <div>No data available</div>
+            {modDataError && (
+              <p className="text-xs text-destructive">{modDataError}</p>
+            )}
+            {debugModeEnabled && onOpenDebugPreview && (
+              <Button size="sm" variant="outline" onClick={onOpenDebugPreview}>
+                Abrir Developer Data Preview
+              </Button>
+            )}
           </div>
         )}
       </CardContent>

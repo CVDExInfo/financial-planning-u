@@ -36,8 +36,20 @@ import { Badge } from "@/components/ui/badge";
 import ProjectDetailsPanel, { type ModChartPoint } from "./projects/ProjectDetailsPanel";
 import { getProjectDisplay } from "@/lib/projects/display";
 import { ES_TEXTS } from "@/lib/i18n/es";
-import { getPayrollDashboard, type MODProjectionByMonth } from "@/api/finanzas";
-import { getPayrollDashboardForProject } from "@/api/payrollService";
+import {
+  getAdjustments,
+  getAllocations,
+  getBaseline,
+  getPayroll,
+  getPayrollDashboard,
+  type MODProjectionByMonth,
+} from "@/api/finanzas";
+import {
+  buildModPerformanceSeries,
+  isModRow,
+  type ModChartPoint as ModSeriesPoint,
+} from "./projects/modSeries";
+import { normalizeApiRowForMod } from "./projects/normalizeForMod";
 
 // Type for MOD chart data points
 export type ModChartPoint = {
@@ -72,8 +84,33 @@ export default function ProjectsManager() {
   );
   const [payrollDashboard, setPayrollDashboard] =
     React.useState<MODProjectionByMonth[]>([]);
-  const [projectPayrollData, setProjectPayrollData] =
-    React.useState<MODProjectionByMonth[]>([]);
+  const [modChartDataForProject, setModChartDataForProject] =
+    React.useState<ModSeriesPoint[]>([]);
+  const [modSources, setModSources] = React.useState({
+    payroll: [] as any[],
+    allocations: [] as any[],
+    baseline: [] as any[],
+    adjustments: [] as any[],
+    normalizedPayroll: [] as any[],
+    normalizedAllocations: [] as any[],
+    normalizedBaseline: [] as any[],
+    normalizedAdjustments: [] as any[],
+  });
+  const [isLoadingModSources, setIsLoadingModSources] = React.useState(false);
+  const [modSourcesError, setModSourcesError] = React.useState<string | null>(
+    null,
+  );
+  const developerPreviewEnabled = React.useMemo(() => {
+    const envValue =
+      (typeof import.meta !== "undefined" && (import.meta as any)?.env?.VITE_ENABLE_FIN_DEV_PREVIEW) ||
+      (typeof process !== "undefined" ? process.env?.VITE_ENABLE_FIN_DEV_PREVIEW : undefined);
+
+    return envValue === "true" ||
+      (typeof process !== "undefined" && process.env?.NODE_ENV === "development");
+  }, []);
+  const [showModDebugPreview, setShowModDebugPreview] = React.useState(
+    developerPreviewEnabled,
+  );
   const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
 
@@ -272,27 +309,62 @@ export default function ProjectsManager() {
 
   // Compute MOD chart data for ProjectDetailsPanel
   const modChartDataForDetails = React.useMemo<ModChartPoint[]>(() => {
-    const dataSource =
-      viewMode === "project" && selectedProject && projectPayrollData.length > 0
-        ? projectPayrollData
-        : viewMode === "portfolio" && payrollDashboard.length > 0
-        ? payrollDashboard
+    if (viewMode === "project") {
+      return modChartDataForProject.length > 0
+        ? [...modChartDataForProject].sort((a, b) => a.month.localeCompare(b.month))
         : [];
-
-    if (dataSource.length === 0) {
-      return [];
     }
 
-    // Map MODProjectionByMonth to ModChartPoint format
-    return dataSource
-      .map((entry) => ({
-        month: entry.month,
-        "Allocations MOD": entry.totalPlanMOD ?? 0,
-        "Adjusted/Projected MOD": entry.totalForecastMOD ?? entry.totalPlanMOD ?? 0,
-        "Actual Payroll MOD": entry.totalActualMOD ?? 0,
-      }))
-      .sort((a, b) => a.month.localeCompare(b.month));
-  }, [viewMode, selectedProject, projectPayrollData, payrollDashboard]);
+    if (viewMode === "portfolio" && payrollDashboard.length > 0) {
+      return payrollDashboard
+        .map((entry) => ({
+          month: entry.month,
+          "Allocations MOD": entry.totalPlanMOD ?? 0,
+          "Adjusted/Projected MOD": entry.totalForecastMOD ?? entry.totalPlanMOD ?? 0,
+          "Actual Payroll MOD": entry.totalActualMOD ?? 0,
+        }))
+        .sort((a, b) => a.month.localeCompare(b.month));
+    }
+
+    return [];
+  }, [viewMode, modChartDataForProject, payrollDashboard]);
+
+  const modDebugSources = React.useMemo(
+    () => [
+      {
+        key: "payroll",
+        label: "Payroll",
+        raw: modSources.payroll,
+        normalized: modSources.normalizedPayroll,
+      },
+      {
+        key: "allocations",
+        label: "Allocations",
+        raw: modSources.allocations,
+        normalized: modSources.normalizedAllocations,
+      },
+      {
+        key: "baseline",
+        label: "Baseline",
+        raw: modSources.baseline,
+        normalized: modSources.normalizedBaseline,
+      },
+      {
+        key: "adjustments",
+        label: "Adjustments",
+        raw: modSources.adjustments,
+        normalized: modSources.normalizedAdjustments,
+      },
+    ].map((source) => ({
+      ...source,
+      accepted: source.normalized.filter(isModRow).length,
+      sampleRaw: source.raw.slice(0, 3),
+      sampleNormalized: source.normalized.slice(0, 3),
+    })),
+    [modSources],
+  );
+
+  const isModDebugEnabled = developerPreviewEnabled && showModDebugPreview;
 
   const formatCurrency = React.useCallback(
     (value: number, currencyCode: string = "USD") =>
@@ -376,23 +448,139 @@ export default function ProjectsManager() {
     void loadPayrollDashboard();
   }, [loadPayrollDashboard]);
 
-  // Load project-specific payroll data when a project is selected
   React.useEffect(() => {
-    async function loadProjectPayroll() {
-      if (selectedProjectId) {
-        try {
-          const data = await getPayrollDashboardForProject(selectedProjectId);
-          setProjectPayrollData(data);
-        } catch (err) {
-          console.error("Error loading project payroll data:", err);
-          setProjectPayrollData([]);
+    let cancelled = false;
+
+    async function loadModSources() {
+      if (viewMode !== "project" || !selectedProjectId) {
+        if (!cancelled) {
+          setModChartDataForProject([]);
+          setModSources({
+            payroll: [],
+            allocations: [],
+            baseline: [],
+            adjustments: [],
+            normalizedPayroll: [],
+            normalizedAllocations: [],
+            normalizedBaseline: [],
+            normalizedAdjustments: [],
+          });
+          setModSourcesError(null);
+          setIsLoadingModSources(false);
         }
-      } else {
-        setProjectPayrollData([]);
+        return;
+      }
+
+      setIsLoadingModSources(true);
+      setModSourcesError(null);
+
+      try {
+        const loaders = [
+          { name: "payroll", loader: () => getPayroll(selectedProjectId) },
+          {
+            name: "allocations",
+            loader: () => getAllocations(selectedProjectId),
+          },
+          { name: "baseline", loader: () => getBaseline(selectedProjectId) },
+          {
+            name: "adjustments",
+            loader: () => getAdjustments(selectedProjectId),
+          },
+        ];
+
+        const settled = await Promise.allSettled(
+          loaders.map((item) => item.loader()),
+        );
+
+        const rawSources = {
+          payroll: [] as any[],
+          allocations: [] as any[],
+          baseline: [] as any[],
+          adjustments: [] as any[],
+        };
+        const failures: string[] = [];
+
+        settled.forEach((result, idx) => {
+          const key = loaders[idx].name as keyof typeof rawSources;
+          if (result.status === "fulfilled") {
+            rawSources[key] = result.value ?? [];
+          } else {
+            failures.push(
+              `${loaders[idx].name}: ${
+                (result.reason as Error)?.message || result.reason || "error"
+              }`,
+            );
+          }
+        });
+
+        const normalizedPayroll = rawSources.payroll.map(normalizeApiRowForMod);
+        const normalizedAllocations =
+          rawSources.allocations.map(normalizeApiRowForMod);
+        const normalizedBaseline = rawSources.baseline.map(normalizeApiRowForMod);
+        const normalizedAdjustments = rawSources.adjustments.map(
+          normalizeApiRowForMod,
+        );
+
+        const acceptedCounts = {
+          payroll: normalizedPayroll.filter(isModRow).length,
+          allocations: normalizedAllocations.filter(isModRow).length,
+          baseline: normalizedBaseline.filter(isModRow).length,
+          adjustments: normalizedAdjustments.filter(isModRow).length,
+        };
+
+        console.debug("[finanzas] MOD rows fetched", {
+          payroll: rawSources.payroll.length,
+          allocations: rawSources.allocations.length,
+          baseline: rawSources.baseline.length,
+          adjustments: rawSources.adjustments.length,
+          acceptedCounts,
+        });
+
+        const chartData = buildModPerformanceSeries({
+          selectedProjectId,
+          payrollDashboardRows: normalizedPayroll,
+          allocationsRows: normalizedAllocations,
+          adjustmentsRows: normalizedAdjustments,
+          baselineRows: normalizedBaseline,
+        });
+
+        if (!cancelled) {
+          setModSources({
+            ...rawSources,
+            normalizedPayroll,
+            normalizedAllocations,
+            normalizedBaseline,
+            normalizedAdjustments,
+          });
+          setModChartDataForProject(chartData);
+          if (failures.length > 0) {
+            setModSourcesError(failures.join("; "));
+            toast.error(
+              "Algunas fuentes de MOD no se pudieron cargar. Revisa la consola para más detalles.",
+            );
+          }
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setModSourcesError(err?.message || "Error al cargar datos de MOD");
+          setModChartDataForProject([]);
+          toast.error(
+            err?.message || "No se pudieron cargar los datos de desempeño MOD.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingModSources(false);
+        }
       }
     }
-    void loadProjectPayroll();
-  }, [selectedProjectId]);
+
+    void loadModSources();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectId, viewMode]);
 
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -651,6 +839,21 @@ export default function ProjectsManager() {
         />
       </div>
 
+      {developerPreviewEnabled && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowModDebugPreview((prev) => !prev)}
+            disabled={viewMode !== "project" || !selectedProject}
+          >
+            {showModDebugPreview
+              ? "Ocultar Developer Data Preview"
+              : "Mostrar Developer Data Preview"}
+          </Button>
+        </div>
+      )}
+
       {selectedProject && (
         <ProjectDetailsPanel
           project={selectedProject}
@@ -663,7 +866,50 @@ export default function ProjectsManager() {
               ? "MOD Performance (Allocations vs Adjusted/Projected vs Actual Payroll)"
               : "MOD Performance - All Projects"
           }
+          debugModeEnabled={isModDebugEnabled}
+          onOpenDebugPreview={() => setShowModDebugPreview(true)}
+          modDataError={modSourcesError ?? undefined}
         />
+      )}
+
+      {isModDebugEnabled && selectedProject && (
+        <Card className="border-dashed border-border/70">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">
+              Developer Data Preview (MOD)
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Fuentes crudas vs normalizadas para construir la serie MOD. Se muestran los primeros elementos para validar el shape.
+            </p>
+            {isLoadingModSources && (
+              <p className="text-xs text-muted-foreground">Cargando datos…</p>
+            )}
+            {modSourcesError && (
+              <p className="text-xs text-destructive">{modSourcesError}</p>
+            )}
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            {modDebugSources.map((source) => (
+              <div
+                key={source.key}
+                className="rounded-lg border bg-muted/40 p-3 text-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">{source.label}</span>
+                  <span className="text-muted-foreground">
+                    {source.raw.length} raw · {source.normalized.length} normalized · {source.accepted} MOD
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Ejemplo normalizado (máx 1):
+                </p>
+                <pre className="mt-1 overflow-auto rounded bg-background p-2 text-[11px]">
+                  {JSON.stringify(source.sampleNormalized[0] || source.sampleRaw[0] || {}, null, 2)}
+                </pre>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       <Card className="border-border/80 shadow-sm">

@@ -109,6 +109,134 @@ const logApiDebug = (
   }
 };
 
+// ---------- MOD sources ----------
+
+const MOCK_PAYROLL_ROWS = [
+  { month: "2025-01", totalActualMOD: 105000, projectId: "DEMO" },
+  { month: "2025-02", totalActualMOD: 95000, projectId: "DEMO" },
+];
+
+const MOCK_ALLOCATIONS_ROWS = [
+  {
+    month: "2025-01",
+    amount: 120000,
+    projectId: "DEMO",
+    rubro_type: "MOD",
+  },
+];
+
+const MOCK_BASELINE_ROWS = [
+  { month: "2025-01", totalPlanMOD: 110000, projectId: "DEMO" },
+];
+
+const MOCK_ADJUSTMENTS_ROWS = [
+  { month: "2025-01", amount: 5000, projectId: "DEMO", adjustmentType: "delta" },
+];
+
+async function fetchArraySource(
+  url: string,
+  label: string,
+): Promise<any[]> {
+  const response = await fetchJson<any[]>(url, {
+    headers: buildAuthHeader(),
+  });
+
+  const asArray = validateArrayResponse(response, label);
+  logApiDebug(`${label} rows`, { count: asArray.length, url });
+
+  return asArray;
+}
+
+export async function getPayroll(projectId?: string): Promise<any[]> {
+  ensureApiBase();
+
+  if (USE_MOCKS) {
+    logApiDebug("getPayroll (mock)", { count: MOCK_PAYROLL_ROWS.length });
+    return MOCK_PAYROLL_ROWS;
+  }
+
+  const url = `${requireApiBase()}/dev/payroll${
+    projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""
+  }`;
+
+  try {
+    return await fetchArraySource(url, "getPayroll");
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to load payroll rows");
+  }
+}
+
+export async function getAllocations(projectId?: string): Promise<any[]> {
+  ensureApiBase();
+
+  if (USE_MOCKS) {
+    logApiDebug("getAllocations (mock)", { count: MOCK_ALLOCATIONS_ROWS.length });
+    return MOCK_ALLOCATIONS_ROWS;
+  }
+
+  if (!projectId) {
+    throw new FinanzasApiError("projectId is required to load allocations");
+  }
+
+  const url = `${requireApiBase()}/projects/${encodeURIComponent(
+    projectId,
+  )}/allocations`;
+
+  try {
+    return await fetchArraySource(url, "getAllocations");
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to load allocations rows");
+  }
+}
+
+export async function getBaseline(projectId?: string): Promise<any[]> {
+  ensureApiBase();
+
+  if (USE_MOCKS) {
+    logApiDebug("getBaseline (mock)", { count: MOCK_BASELINE_ROWS.length });
+    return MOCK_BASELINE_ROWS;
+  }
+
+  const url = `${requireApiBase()}/baseline${
+    projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""
+  }`;
+
+  try {
+    return await fetchArraySource(url, "getBaseline");
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to load baseline rows");
+  }
+}
+
+export async function getAdjustments(projectId?: string): Promise<any[]> {
+  ensureApiBase();
+
+  if (USE_MOCKS) {
+    logApiDebug("getAdjustments (mock)", {
+      count: MOCK_ADJUSTMENTS_ROWS.length,
+    });
+    return MOCK_ADJUSTMENTS_ROWS;
+  }
+
+  const url = `${requireApiBase()}/adjustments${
+    projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""
+  }`;
+
+  try {
+    return await fetchArraySource(url, "getAdjustments");
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to load adjustments rows");
+  }
+}
+
+const validateArrayResponse = (value: unknown, label: string): any[] => {
+  if (Array.isArray(value)) return value;
+
+  throw new FinanzasApiError(
+    `${label} did not return an array response. Received ${typeof value}.`,
+  );
+};
+
 // ---------- Common DTOs ----------
 export type InvoiceStatus = "Pending" | "Matched" | "Disputed";
 
