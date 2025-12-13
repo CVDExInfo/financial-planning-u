@@ -7,11 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import StackedColumnsChart from "@/components/charts/StackedColumnsChart";
 import LineChartComponent from "@/components/charts/LineChart";
 import { useProject } from "@/contexts/ProjectContext";
-import ApiService from "@/lib/api";
 import { usePermissions } from "@/hooks/usePermissions";
+import { getCashflow, toCashflowSeries } from "./services/cashflow.service";
 
 export default function CashflowDashboard() {
-  const { selectedProjectId, selectedPeriod, currentProject } = useProject();
+  const { selectedProjectId, selectedPeriod, currentProject, projects } = useProject();
   const { isSDMT } = usePermissions();
   const [cashflowData, setCashflowData] = React.useState<Array<{ month: number; Ingresos: number; Egresos: number; Neto: number }>>([]);
   const [marginData, setMarginData] = React.useState<Array<{ month: number; "Margen %": number }>>([]);
@@ -20,6 +20,13 @@ export default function CashflowDashboard() {
   const isReadOnly = !isSDMT;
 
   const months = Math.max(parseInt(selectedPeriod || "12", 10), 1);
+  const mode = selectedProjectId ? "PROJECT" : "ALL";
+  
+  // Memoize project IDs to avoid recalculation on every render
+  const allProjectIds = React.useMemo(
+    () => projects.map((p) => p.id).filter(Boolean),
+    [projects]
+  );
 
   const currencyFormatter = React.useCallback(
     (value: number) =>
@@ -32,30 +39,37 @@ export default function CashflowDashboard() {
   );
 
   const loadCashflow = React.useCallback(async () => {
-    if (!selectedProjectId) return;
-
     try {
       setLoading(true);
       setError(null);
-      const data = await ApiService.getCashFlowData(selectedProjectId, months);
 
+      // Fetch cashflow data based on mode (ALL or PROJECT)
+      const response = await getCashflow(
+        mode,
+        selectedProjectId,
+        allProjectIds,
+        months
+      );
+
+      // Transform response to chart-ready format
+      const series = toCashflowSeries(response, months);
+
+      // Convert to component-expected format
       const merged = Array.from({ length: months }, (_, index) => {
         const month = index + 1;
-        const inflow = data.inflows.find((item) => item.month === month)?.amount || 0;
-        const outflow = data.outflows.find((item) => item.month === month)?.amount || 0;
         return {
           month,
-          Ingresos: inflow,
-          Egresos: outflow,
-          Neto: inflow - outflow,
+          Ingresos: series.ingresos[index] || 0,
+          Egresos: series.egresos[index] || 0,
+          Neto: series.neto[index] || 0,
         };
       });
 
       setCashflowData(merged);
       setMarginData(
-        data.margin.map((item) => ({
-          month: item.month,
-          "Margen %": parseFloat(item.percentage.toFixed(1)),
+        Array.from({ length: months }, (_, index) => ({
+          month: index + 1,
+          "Margen %": parseFloat((series.margen[index] || 0).toFixed(1)),
         }))
       );
     } catch (e: any) {
@@ -63,26 +77,13 @@ export default function CashflowDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [months, selectedProjectId]);
+  }, [months, mode, selectedProjectId, allProjectIds]);
 
   React.useEffect(() => {
     loadCashflow();
   }, [loadCashflow]);
 
-  if (!selectedProjectId) {
-    return (
-      <div className="max-w-6xl mx-auto p-6 space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Selecciona un proyecto</CardTitle>
-            <CardDescription>
-              Elige un proyecto en la barra superior para cargar datos de flujo de caja.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
+
 
   const totalIngresos = cashflowData.reduce((sum, row) => sum + row.Ingresos, 0);
   const totalEgresos = cashflowData.reduce((sum, row) => sum + row.Egresos, 0);
@@ -109,30 +110,33 @@ export default function CashflowDashboard() {
         }
       />
 
-      {currentProject && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Contexto del proyecto</CardTitle>
-            <CardDescription>
-              {currentProject.name} · Periodo seleccionado: {months} meses
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">Ingresos acumulados</p>
-              <p className="text-lg font-semibold text-emerald-700">{currencyFormatter(totalIngresos)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Egresos acumulados</p>
-              <p className="text-lg font-semibold text-red-600">{currencyFormatter(totalEgresos)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Neto</p>
-              <p className="text-lg font-semibold">{currencyFormatter(neto)}</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {currentProject ? "Contexto del proyecto" : "Vista consolidada"}
+          </CardTitle>
+          <CardDescription>
+            {currentProject 
+              ? `${currentProject.name} · Periodo seleccionado: ${months} meses`
+              : `Todos los proyectos · Periodo seleccionado: ${months} meses`
+            }
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <p className="text-muted-foreground">Ingresos acumulados</p>
+            <p className="text-lg font-semibold text-emerald-700">{currencyFormatter(totalIngresos)}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Egresos acumulados</p>
+            <p className="text-lg font-semibold text-red-600">{currencyFormatter(totalEgresos)}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Neto</p>
+            <p className="text-lg font-semibold">{currencyFormatter(neto)}</p>
+          </div>
+        </CardContent>
+      </Card>
 
       {error && (
         <Card>
