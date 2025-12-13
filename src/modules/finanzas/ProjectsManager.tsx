@@ -44,6 +44,7 @@ import {
   getPayrollDashboard,
   type MODProjectionByMonth,
 } from "@/api/finanzas";
+import { logoutWithHostedUI } from "@/config/aws";
 import {
   buildModPerformanceSeries,
   isModRow,
@@ -86,6 +87,12 @@ export default function ProjectsManager() {
     React.useState<MODProjectionByMonth[]>([]);
   const [modChartDataForProject, setModChartDataForProject] =
     React.useState<ModSeriesPoint[]>([]);
+  const [projectPayrollData, setProjectPayrollData] = React.useState<any[]>([]);
+  const [allocationsRows, setAllocationsRows] = React.useState<any[]>([]);
+  const [adjustmentsRows, setAdjustmentsRows] = React.useState<any[]>([]);
+  const [baselineRows, setBaselineRows] = React.useState<any[]>([]);
+  const [seriesLoading, setSeriesLoading] = React.useState(false);
+  const [seriesError, setSeriesError] = React.useState<string | null>(null);
   const [modSources, setModSources] = React.useState({
     payroll: [] as any[],
     allocations: [] as any[],
@@ -309,25 +316,37 @@ export default function ProjectsManager() {
 
   // Compute MOD chart data for ProjectDetailsPanel
   const modChartDataForDetails = React.useMemo<ModChartPoint[]>(() => {
-    if (viewMode === "project") {
-      return modChartDataForProject.length > 0
-        ? [...modChartDataForProject].sort((a, b) => a.month.localeCompare(b.month))
-        : [];
+    const payrollRows =
+      viewMode === "project" && selectedProject && projectPayrollData.length > 0
+        ? projectPayrollData
+        : payrollDashboard;
+
+    if (
+      payrollRows.length === 0 &&
+      allocationsRows.length === 0 &&
+      adjustmentsRows.length === 0 &&
+      baselineRows.length === 0
+    ) {
+      return [];
     }
 
-    if (viewMode === "portfolio" && payrollDashboard.length > 0) {
-      return payrollDashboard
-        .map((entry) => ({
-          month: entry.month,
-          "Allocations MOD": entry.totalPlanMOD ?? 0,
-          "Adjusted/Projected MOD": entry.totalForecastMOD ?? entry.totalPlanMOD ?? 0,
-          "Actual Payroll MOD": entry.totalActualMOD ?? 0,
-        }))
-        .sort((a, b) => a.month.localeCompare(b.month));
-    }
-
-    return [];
-  }, [viewMode, modChartDataForProject, payrollDashboard]);
+    return buildModPerformanceSeries({
+      selectedProjectId: viewMode === "project" ? selectedProjectId : null,
+      payrollDashboardRows: payrollRows || [],
+      allocationsRows: allocationsRows || [],
+      adjustmentsRows: adjustmentsRows || [],
+      baselineRows: baselineRows || [],
+    }).sort((a, b) => a.month.localeCompare(b.month));
+  }, [
+    allocationsRows,
+    adjustmentsRows,
+    baselineRows,
+    payrollDashboard,
+    projectPayrollData,
+    selectedProject,
+    selectedProjectId,
+    viewMode,
+  ]);
 
   const modDebugSources = React.useMemo(
     () => [
@@ -452,45 +471,26 @@ export default function ProjectsManager() {
     let cancelled = false;
 
     async function loadModSources() {
-      if (viewMode !== "project" || !selectedProjectId) {
-        if (!cancelled) {
-          setModChartDataForProject([]);
-          setModSources({
-            payroll: [],
-            allocations: [],
-            baseline: [],
-            adjustments: [],
-            normalizedPayroll: [],
-            normalizedAllocations: [],
-            normalizedBaseline: [],
-            normalizedAdjustments: [],
-          });
-          setModSourcesError(null);
-          setIsLoadingModSources(false);
-        }
-        return;
-      }
-
       setIsLoadingModSources(true);
+      setSeriesLoading(true);
       setModSourcesError(null);
+      setSeriesError(null);
+
+      const projectId =
+        viewMode === "project" && selectedProjectId ? selectedProjectId : undefined;
 
       try {
         const loaders = [
-          { name: "payroll", loader: () => getPayroll(selectedProjectId) },
-          {
-            name: "allocations",
-            loader: () => getAllocations(selectedProjectId),
-          },
-          { name: "baseline", loader: () => getBaseline(selectedProjectId) },
-          {
-            name: "adjustments",
-            loader: () => getAdjustments(selectedProjectId),
-          },
+          { name: "allocations", loader: () => getAllocations(projectId) },
+          { name: "baseline", loader: () => getBaseline(projectId) },
+          { name: "adjustments", loader: () => getAdjustments(projectId) },
         ];
 
-        const settled = await Promise.allSettled(
-          loaders.map((item) => item.loader()),
-        );
+        if (projectId) {
+          loaders.push({ name: "payroll", loader: () => getPayroll(projectId) });
+        }
+
+        const settled = await Promise.allSettled(loaders.map((item) => item.loader()));
 
         const rawSources = {
           payroll: [] as any[],
@@ -499,23 +499,33 @@ export default function ProjectsManager() {
           adjustments: [] as any[],
         };
         const failures: string[] = [];
+        let hadForbidden = false;
+        let hadUnauthorized = false;
 
         settled.forEach((result, idx) => {
           const key = loaders[idx].name as keyof typeof rawSources;
           if (result.status === "fulfilled") {
             rawSources[key] = result.value ?? [];
-          } else {
-            failures.push(
-              `${loaders[idx].name}: ${
-                (result.reason as Error)?.message || result.reason || "error"
-              }`,
-            );
+            return;
           }
+
+          const reason = result.reason as any;
+          const status = reason?.status ?? reason?.response?.status;
+          hadForbidden = hadForbidden || status === 403;
+          hadUnauthorized = hadUnauthorized || status === 401;
+          failures.push(
+            `${loaders[idx].name}: ${
+              (reason as Error)?.message || reason || "error"
+            }`,
+          );
         });
 
-        const normalizedPayroll = rawSources.payroll.map(normalizeApiRowForMod);
-        const normalizedAllocations =
-          rawSources.allocations.map(normalizeApiRowForMod);
+        const normalizedPayroll = (
+          projectId ? rawSources.payroll : payrollDashboard
+        ).map(normalizeApiRowForMod);
+        const normalizedAllocations = rawSources.allocations.map(
+          normalizeApiRowForMod,
+        );
         const normalizedBaseline = rawSources.baseline.map(normalizeApiRowForMod);
         const normalizedAdjustments = rawSources.adjustments.map(
           normalizeApiRowForMod,
@@ -529,22 +539,28 @@ export default function ProjectsManager() {
         };
 
         console.debug("[finanzas] MOD rows fetched", {
-          payroll: rawSources.payroll.length,
+          payroll: projectId ? rawSources.payroll.length : payrollDashboard.length,
           allocations: rawSources.allocations.length,
           baseline: rawSources.baseline.length,
           adjustments: rawSources.adjustments.length,
           acceptedCounts,
         });
 
-        const chartData = buildModPerformanceSeries({
-          selectedProjectId,
-          payrollDashboardRows: normalizedPayroll,
-          allocationsRows: normalizedAllocations,
-          adjustmentsRows: normalizedAdjustments,
-          baselineRows: normalizedBaseline,
-        });
+        const chartData = projectId
+          ? buildModPerformanceSeries({
+              selectedProjectId: projectId,
+              payrollDashboardRows: normalizedPayroll,
+              allocationsRows: normalizedAllocations,
+              adjustmentsRows: normalizedAdjustments,
+              baselineRows: normalizedBaseline,
+            })
+          : [];
 
         if (!cancelled) {
+          setProjectPayrollData(projectId ? normalizedPayroll : []);
+          setAllocationsRows(normalizedAllocations);
+          setAdjustmentsRows(normalizedAdjustments);
+          setBaselineRows(normalizedBaseline);
           setModSources({
             ...rawSources,
             normalizedPayroll,
@@ -553,24 +569,42 @@ export default function ProjectsManager() {
             normalizedAdjustments,
           });
           setModChartDataForProject(chartData);
+
           if (failures.length > 0) {
-            setModSourcesError(failures.join("; "));
-            toast.error(
-              "Algunas fuentes de MOD no se pudieron cargar. Revisa la consola para más detalles.",
-            );
+            const message = failures.join("; ");
+            setModSourcesError(message);
+            setSeriesError(message);
+            if (hadForbidden) {
+              toast.error(
+                "No tiene permisos para ver asignaciones/ajustes/linea base.",
+              );
+            } else {
+              toast.error(
+                "Algunas fuentes de MOD no se pudieron cargar. Revisa la consola para más detalles.",
+              );
+            }
+          }
+
+          if (hadUnauthorized) {
+            logoutWithHostedUI();
           }
         }
       } catch (err: any) {
         if (!cancelled) {
-          setModSourcesError(err?.message || "Error al cargar datos de MOD");
+          const message = err?.message || "Error al cargar datos de MOD";
+          setModSourcesError(message);
+          setSeriesError(message);
           setModChartDataForProject([]);
-          toast.error(
-            err?.message || "No se pudieron cargar los datos de desempeño MOD.",
-          );
+          setProjectPayrollData([]);
+          setAllocationsRows([]);
+          setAdjustmentsRows([]);
+          setBaselineRows([]);
+          toast.error(message);
         }
       } finally {
         if (!cancelled) {
           setIsLoadingModSources(false);
+          setSeriesLoading(false);
         }
       }
     }
@@ -580,7 +614,7 @@ export default function ProjectsManager() {
     return () => {
       cancelled = true;
     };
-  }, [selectedProjectId, viewMode]);
+  }, [selectedProjectId, viewMode, payrollDashboard]);
 
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -852,6 +886,15 @@ export default function ProjectsManager() {
               : "Mostrar Developer Data Preview"}
           </Button>
         </div>
+      )}
+
+      {seriesLoading && (
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          Cargando datos de asignaciones, ajustes y línea base…
+        </p>
+      )}
+      {seriesError && (
+        <p className="text-xs text-destructive">{seriesError}</p>
       )}
 
       {selectedProject && (
