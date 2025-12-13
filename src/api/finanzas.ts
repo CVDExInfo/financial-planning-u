@@ -155,9 +155,10 @@ export async function getPayroll(projectId?: string): Promise<any[]> {
     return MOCK_PAYROLL_ROWS;
   }
 
-  const url = `${requireApiBase()}/dev/payroll${
-    projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""
-  }`;
+  const query = projectId
+    ? `?projectId=${encodeURIComponent(projectId)}&project_id=${encodeURIComponent(projectId)}`
+    : "";
+  const url = `${requireApiBase()}/payroll${query}`;
 
   try {
     return await fetchArraySource(url, "getPayroll");
@@ -193,9 +194,10 @@ export async function getBaseline(projectId?: string): Promise<any[]> {
     return MOCK_BASELINE_ROWS;
   }
 
-  const url = `${requireApiBase()}/baseline${
-    projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""
-  }`;
+  const query = projectId
+    ? `?projectId=${encodeURIComponent(projectId)}&project_id=${encodeURIComponent(projectId)}`
+    : "";
+  const url = `${requireApiBase()}/baseline${query}`;
 
   try {
     return await fetchArraySource(url, "getBaseline");
@@ -214,9 +216,10 @@ export async function getAdjustments(projectId?: string): Promise<any[]> {
     return MOCK_ADJUSTMENTS_ROWS;
   }
 
-  const url = `${requireApiBase()}/adjustments${
-    projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""
-  }`;
+  const query = projectId
+    ? `?projectId=${encodeURIComponent(projectId)}&project_id=${encodeURIComponent(projectId)}`
+    : "";
+  const url = `${requireApiBase()}/adjustments${query}`;
 
   try {
     return await fetchArraySource(url, "getAdjustments");
