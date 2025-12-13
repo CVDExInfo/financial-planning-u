@@ -21,7 +21,7 @@ env:
   COGNITO_USER_POOL_ARN: ${{ vars.COGNITO_USER_POOL_ARN }} # required
   COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }} # required
   # API ID for guard validation (single dev environment)
-  FINZ_API_ID_DEV: ${{ vars.FINZ_API_ID_DEV || 'm3g6am67aj' }}
+  FINZ_API_ID_DEV: ${{ vars.FINZ_API_ID_DEV || '' }}
   POLICY_STORE_ID: ${{ vars.POLICY_STORE_ID || '' }} # optional, from AVP deployment
 
 jobs:
