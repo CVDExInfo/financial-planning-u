@@ -43,7 +43,7 @@ describe("Auth Helper", () => {
       };
       await expect(ensureCanWrite(event)).rejects.toEqual({
         statusCode: 403,
-        body: "forbidden: PM or SDT required",
+        body: "forbidden: PM, SDT, or SDM required",
       });
     });
   });
