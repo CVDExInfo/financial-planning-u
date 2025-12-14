@@ -15,6 +15,19 @@ import crypto from "node:crypto";
 import { mapToProjectDTO, type ProjectRecord, type ProjectDTO } from "../models/project";
 
 /**
+ * RBAC Filter Patterns for Project Visibility
+ * 
+ * - ADMIN/PMO/SDMT/EXEC_RO: See all tenant projects
+ * - SDM: See projects where ANY of these match their email:
+ *   1. sdm_manager_email (explicit assignment)
+ *   2. accepted_by / aceptado_por (baseline acceptor)
+ *   3. created_by (creator fallback for orphaned projects)
+ * 
+ * This prevents "orphaned" projects where SDM users created them but
+ * no sdm_manager_email was set, which was the root cause of the regression.
+ */
+
+/**
  * Generate a unique handoff ID
  * Format: handoff_<10-char-uuid>
  */
@@ -1106,8 +1119,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         created_at: now,
         updated_at: now,
         created_by: createdBy,
-        // Set SDM manager email for ABAC
-        ...(sdmManagerEmail ? { sdm_manager_email: sdmManagerEmail } : {}),
+        // CRITICAL: Always set SDM manager email for ABAC visibility
+        sdm_manager_email: sdmManagerEmail,
       };
 
       try {

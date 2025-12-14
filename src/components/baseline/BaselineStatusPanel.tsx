@@ -37,7 +37,7 @@ type BaselineStatus = "pending" | "handed_off" | "accepted" | "rejected";
 
 export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   const { currentProject, refreshProject } = useProject();
-  const { isSDMT } = usePermissions();
+  const { isSDMT, isPMO, isPM } = usePermissions();
   const { login } = useAuth();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
@@ -162,6 +162,9 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
 
   const showActions =
     isSDMT && (normalizedStatus === "pending" || normalizedStatus === "handed_off");
+  const showReadOnlyBanner = !isSDMT && (isPMO || isPM);
+  const contactEmail =
+    currentProject?.sdm_manager_email || currentProject?.accepted_by || undefined;
 
   return (
     <>
@@ -171,6 +174,43 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
         "border-l-red-600": normalizedStatus === "rejected",
       })}>
         <CardContent className="pt-4 pb-4">
+          {showReadOnlyBanner && (
+            <Alert
+              variant={normalizedStatus === "rejected" ? "destructive" : "default"}
+              className="mb-3"
+            >
+              {normalizedStatus === "accepted" && (
+                <AlertDescription className="text-xs">
+                  La SDMT aceptó la baseline. {contactEmail ? (
+                    <a className="underline" href={`mailto:${contactEmail}`}>
+                      Contactar SDM
+                    </a>
+                  ) : null}
+                </AlertDescription>
+              )}
+              {normalizedStatus === "rejected" && (
+                <AlertDescription className="text-xs">
+                  Baseline rechazada por SDMT.
+                  {currentProject?.rejection_comment
+                    ? ` Motivo: ${currentProject.rejection_comment}`
+                    : ""}
+                  {contactEmail ? (
+                    <>
+                      {" "}
+                      <a className="underline" href={`mailto:${contactEmail}`}>
+                        Contactar SDM
+                      </a>
+                    </>
+                  ) : null}
+                </AlertDescription>
+              )}
+              {normalizedStatus === "handed_off" && (
+                <AlertDescription className="text-xs">
+                  La baseline fue entregada a SDMT. En espera de aprobación.
+                </AlertDescription>
+              )}
+            </Alert>
+          )}
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 space-y-2">
               <div className="flex items-center gap-3">

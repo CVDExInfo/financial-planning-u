@@ -204,6 +204,11 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   const sdmManagerName =
     (body.fields as { sdm_manager_name?: string } | undefined)?.sdm_manager_name ||
     (body as { sdm_manager_name?: string }).sdm_manager_name;
+  const sdmManagerEmail = (
+    (body.fields as { sdm_manager_email?: string } | undefined)?.sdm_manager_email ||
+    (body as { sdm_manager_email?: string }).sdm_manager_email ||
+    baseline?.payload?.sdm_manager_email
+  )?.toLowerCase();
 
   // Create new handoff record
   const handoffId = `handoff_${uuidv4().replace(/-/g, "").substring(0, 10)}`;
@@ -274,6 +279,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     handed_off_at: now,
     handed_off_by: userEmail,
     sdm_manager_name: sdmManagerName,
+    sdm_manager_email: sdmManagerEmail,
   };
 
   // Store handoff record

@@ -189,6 +189,7 @@ export type Project = {
   description?: string;
   client?: string | null;
   sdm_manager_name?: string | null;
+  sdm_manager_email?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   baseline_id?: string;
@@ -293,6 +294,7 @@ export type DealInputs = {
   contract_value?: number;
   client_name?: string;
   sdm_manager_name: string;
+  sdm_manager_email: string;
   assumptions: string[];
 };
 
@@ -335,6 +337,7 @@ export type BaselineCreateRequest = {
   duration_months?: number;
   contract_value?: number;
   sdm_manager_name?: string;
+  sdm_manager_email?: string;
   assumptions?: string[];
   created_by: string;
   labor_estimates: LaborEstimate[];

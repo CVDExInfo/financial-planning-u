@@ -31,6 +31,7 @@ import PageHeader from "@/components/PageHeader";
 import DonutChart from "@/components/charts/DonutChart";
 import LineChartComponent from "@/components/charts/LineChart";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/hooks/useAuth";
 import useProjects, { type ProjectForUI } from "./projects/useProjects";
 import { Badge } from "@/components/ui/badge";
 import ProjectDetailsPanel, { type ModChartPoint } from "./projects/ProjectDetailsPanel";
@@ -120,6 +121,9 @@ export default function ProjectsManager() {
   );
   const { canCreateBaseline, isExecRO, canEdit, isSDM } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
+  
+  // Get current user email for SDM auto-fill
+  useAuth();
 
   // Form state
   const [name, setName] = React.useState("");

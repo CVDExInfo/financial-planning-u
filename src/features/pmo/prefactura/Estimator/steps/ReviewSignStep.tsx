@@ -218,6 +218,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         duration_months: dealInputs.duration_months,
         contract_value: dealInputs.contract_value,
         sdm_manager_name: dealInputs.sdm_manager_name,
+        sdm_manager_email: dealInputs.sdm_manager_email?.toLowerCase(),
         assumptions: dealInputs.assumptions || [],
         labor_estimates: laborEstimates,
         non_labor_estimates: nonLaborEstimates,

@@ -274,9 +274,10 @@ export async function ensureCanWrite(event: ApiGwEvent) {
   const claims = await verifyJwt(event);
   const groups = parseGroupsFromClaims(claims);
   const roles = mapGroupsToRoles(groups);
-  if (canWriteFromRoles(roles)) return;
+  // PMO, SDMT, and SDM can all write (SDM writes to their own projects)
+  if (roles.includes("PMO") || roles.includes("SDMT") || roles.includes("SDM")) return;
 
-  throw { statusCode: 403, body: "forbidden: PM or SDT required" };
+  throw { statusCode: 403, body: "forbidden: PM, SDT, or SDM required" };
 }
 
 export async function ensureCanRead(event: ApiGwEvent) {
