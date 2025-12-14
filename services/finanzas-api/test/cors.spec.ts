@@ -39,7 +39,7 @@ describe("CORS headers", () => {
   };
 
   beforeEach(() => {
-    process.env.ALLOWED_ORIGIN = origin;
+    process.env.CORS_ORIGIN = origin;
     sendMock.mockReset();
     sendMock.mockResolvedValue({});
   });
@@ -82,5 +82,6 @@ describe("CORS headers", () => {
 
     expect(response.statusCode).toBe(204);
     expect(response.headers?.["Access-Control-Allow-Origin"]).toBe(origin);
+    expect(response.headers?.["Access-Control-Allow-Methods"]).toContain("OPTIONS");
   });
 });

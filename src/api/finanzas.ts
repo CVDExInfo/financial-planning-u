@@ -13,6 +13,7 @@ import {
   byLineaCodigo as taxonomyByLineaCodigo,
 } from "@/modules/rubros.taxonomia";
 import { taxonomyByRubroId } from "@/modules/rubros.catalog.enriched";
+import { toast } from "sonner";
 
 // ---------- Environment ----------
 const envSource =
@@ -149,14 +150,24 @@ async function fetchArraySource(
   url: string,
   label: string,
 ): Promise<any[]> {
-  const response = await fetchJson<any[]>(url, {
-    headers: buildAuthHeader(),
-  });
+  try {
+    const response = await fetchJson<any[]>(url, {
+      headers: buildAuthHeader(),
+    });
 
-  const asArray = validateArrayResponse(response, label);
-  logApiDebug(`${label} rows`, { count: asArray.length, url });
+    const asArray = validateArrayResponse(response, label);
+    logApiDebug(`${label} rows`, { count: asArray.length, url });
 
-  return asArray;
+    return asArray;
+  } catch (err) {
+    console.error(`[finanzas-api] ${label} failed`, err);
+    if (typeof toast?.error === "function") {
+      toast.error("No se pudo cargar los datos", {
+        description: "Mostramos una vista vacía mientras se restablece la conexión",
+      });
+    }
+    return [];
+  }
 }
 
 export async function getPayroll(projectId?: string): Promise<any[]> {
