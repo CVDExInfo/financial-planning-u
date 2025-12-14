@@ -1174,7 +1174,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     let rawProjects: ProjectRecord[] = [];
 
     const scanProjects = async (
-      input: Parameters<typeof ScanCommand>[0],
+      input: ConstructorParameters<typeof ScanCommand>[0],
     ): Promise<ProjectRecord[]> => {
       let items: ProjectRecord[] = [];
       let lastEvaluatedKey: Record<string, unknown> | undefined;
