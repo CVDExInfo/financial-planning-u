@@ -242,6 +242,73 @@ describe("forecast handler", () => {
     expect(payload.error).toMatch(/Finanzas/i);
   });
 
+  it("returns allocations and payroll data linked to baseline-filtered rubros", async () => {
+    baselineSDMT.queryProjectRubros.mockResolvedValueOnce([
+      {
+        rubroId: "RB-PLAN-1",
+        nombre: "MOD Engineers",
+        category: "MOD",
+        qty: 2,
+        unit_cost: 50000,
+        start_month: 1,
+        end_month: 1,
+        currency: "USD",
+      },
+    ]);
+
+    dynamo.ddb.send
+      // allocations query
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            pk: "PROJECT#PROJ-1",
+            month: 1,
+            rubroId: "RB-PLAN-1",
+            planned: 50000,
+            forecast: 52000,
+            actual: 48000,
+          },
+        ],
+      })
+      // payroll query
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            pk: "PROJECT#PROJ-1",
+            month: 1,
+            salario_base: 48000,
+            salario_real: 48000,
+            empleado_id: "EMP-1",
+          },
+        ],
+      });
+
+    const response = (await forecastHandler(
+      baseEvent({
+        queryStringParameters: { projectId: "PROJ-1", months: "1" },
+      })
+    )) as ApiResult;
+
+    expect(response.statusCode).toBe(200);
+    const payload = JSON.parse(response.body);
+    expect(payload.data.length).toBeGreaterThanOrEqual(2);
+    expect(payload.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          line_item_id: "RB-PLAN-1",
+          planned: 50000,
+          forecast: 52000,
+          actual: 48000,
+        }),
+        expect.objectContaining({
+          line_item_id: expect.stringContaining("payroll-"),
+          actual: 48000,
+          planned: 48000,
+        }),
+      ]),
+    );
+  });
+
   it("derives forecast from rubros with top-level baselineId (legacy seed data)", async () => {
     // Mock queryProjectRubros to return rubro with top-level baselineId
     baselineSDMT.queryProjectRubros.mockResolvedValueOnce([

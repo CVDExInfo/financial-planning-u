@@ -130,6 +130,7 @@ export default function ProjectsManager() {
   const [currency, setCurrency] = React.useState<"USD" | "EUR" | "MXN">("USD");
   const [modTotal, setModTotal] = React.useState("");
   const [description, setDescription] = React.useState("");
+  const [sdmEmail, setSdmEmail] = React.useState("");
 
   const filteredProjects = React.useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -637,6 +638,11 @@ export default function ProjectsManager() {
       return;
     }
 
+    if (!sdmEmail) {
+      toast.error("Asigna el correo del responsable SDM para el proyecto.");
+      return;
+    }
+
     const parsedModTotal = Number.parseFloat(modTotal);
     if (!Number.isFinite(parsedModTotal) || parsedModTotal < 0) {
       toast.error("El monto MOD debe ser un número válido mayor o igual a 0");
@@ -655,6 +661,7 @@ export default function ProjectsManager() {
         currency,
         mod_total: parsedModTotal,
         description: description || undefined,
+        sdm_manager_email: sdmEmail.trim(),
       };
 
       const validatedPayload = ProjectCreateSchema.parse(payload);
@@ -681,6 +688,7 @@ export default function ProjectsManager() {
       setCurrency("USD");
       setModTotal("");
       setDescription("");
+      setSdmEmail("");
     } catch (e: any) {
       console.error("Error creating project:", e);
 
@@ -1196,6 +1204,23 @@ export default function ProjectsManager() {
                   maxLength={200}
                   autoComplete="organization"
                 />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="sdmEmail">Responsable SDM (correo) *</Label>
+                <Input
+                  id="sdmEmail"
+                  name="sdmEmail"
+                  type="email"
+                  placeholder="sdm@empresa.com"
+                  value={sdmEmail}
+                  onChange={(e) => setSdmEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este correo se usa para mostrar el proyecto al SDM asignado.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

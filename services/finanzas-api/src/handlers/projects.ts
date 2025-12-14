@@ -1058,18 +1058,26 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
       const id = "P-" + crypto.randomUUID();
       const now = new Date().toISOString();
-      const createdBy =
+      const userContext = await getUserContext(event);
+      const createdBy = userContext.email ||
         event.requestContext.authorizer?.jwt?.claims?.email || "system";
 
-      // Get user context to potentially set SDM manager
-      const userContext = await getUserContext(event);
-      
       // If user is SDM, set them as the project's SDM manager
-      // If user is SDMT/PMO, they can specify sdmManagerEmail in the payload
-      const sdmManagerEmail = userContext.isSDM 
+      // If user is SDMT/PMO/ADMIN, they must explicitly provide an SDM
+      const rawSdmManagerEmail =
+        (body.sdm_manager_email as string | undefined) ||
+        (body.sdmManagerEmail as string | undefined);
+
+      const sdmManagerEmail = userContext.isSDM
         ? userContext.email
-        : (body.sdm_manager_email as string | undefined) || 
-          (body.sdmManagerEmail as string | undefined);
+        : rawSdmManagerEmail?.trim();
+
+      if (!sdmManagerEmail) {
+        return bad(
+          "sdm_manager_email is required when creating a project (asignar responsable SDM)",
+          400,
+        );
+      }
 
       const item = {
         pk: `PROJECT#${id}`,
@@ -1204,10 +1212,10 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     };
 
     // RBAC-aware querying:
-    // - ADMIN and EXEC_RO: scan all projects
-    // - SDM: only query projects where sdmManagerEmail matches user email
+    // - ADMIN / EXEC_RO / PMO / SDMT: scan all projects
+    // - SDM: only query projects where SDM email or acceptance/creator matches user email
     // - Others: return empty list for now (future: implement user-project assignments)
-    
+
     if (userContext.isAdmin || userContext.isExecRO || userContext.isPMO || userContext.isSDMT) {
       // These roles see all projects
       // BACKWARD COMPATIBILITY SHIM: Accept both METADATA (new standard) and META (legacy)
@@ -1235,20 +1243,21 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         }
       });
     } else if (userContext.isSDM) {
-      // SDM users only see projects they manage
+      // SDM users only see projects they manage or have accepted
       // For now, use scan with filter until GSI is deployed
       // TODO: Once GSI on sdmManagerEmail is deployed, use Query instead of Scan
       rawProjects = await scanProjects({
         TableName: tableName("projects"),
         FilterExpression:
           "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta) AND " +
-          "(#sdmEmail = :userEmail OR #acceptedBy = :userEmail OR #aceptadoPor = :userEmail)",
+          "(#sdmEmail = :userEmail OR #acceptedBy = :userEmail OR #aceptadoPor = :userEmail OR #createdBy = :userEmail)",
         ExpressionAttributeNames: {
           "#pk": "pk",
           "#sk": "sk",
           "#sdmEmail": "sdm_manager_email",
           "#acceptedBy": "accepted_by",
           "#aceptadoPor": "aceptado_por",
+          "#createdBy": "created_by",
         },
         ExpressionAttributeValues: {
           ":pkPrefix": "PROJECT#",
@@ -1257,11 +1266,46 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           ":userEmail": userContext.email,
         },
       });
-      
+
       console.info("[projects] SDM filtered projects", {
         sdmEmail: userContext.email,
         projectCount: rawProjects.length,
       });
+
+      if (rawProjects.length === 0) {
+        const unassignedProjects = await scanProjects({
+          TableName: tableName("projects"),
+          FilterExpression:
+            "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta) AND " +
+            "((attribute_not_exists(#sdmEmail) OR #sdmEmail = :empty) AND " +
+            "(attribute_not_exists(#acceptedBy) OR #acceptedBy = :empty) AND " +
+            "(attribute_not_exists(#aceptadoPor) OR #aceptadoPor = :empty))",
+          ExpressionAttributeNames: {
+            "#pk": "pk",
+            "#sk": "sk",
+            "#sdmEmail": "sdm_manager_email",
+            "#acceptedBy": "accepted_by",
+            "#aceptadoPor": "aceptado_por",
+          },
+          ExpressionAttributeValues: {
+            ":pkPrefix": "PROJECT#",
+            ":metadata": "METADATA",
+            ":meta": "META",
+            ":empty": "",
+          },
+        });
+
+        if (unassignedProjects.length > 0) {
+          console.warn("[projects] SDM has zero visible projects but unassigned projects exist", {
+            sdmEmail: userContext.email,
+            unassignedCount: unassignedProjects.length,
+            sample: unassignedProjects.slice(0, 5).map((p) => ({
+              projectId: p.project_id || p.projectId,
+              code: (p as Record<string, unknown>).code,
+            })),
+          });
+        }
+      }
     } else {
       // Other users: return empty list
       // Future enhancement: check user-project assignments

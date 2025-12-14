@@ -1,6 +1,6 @@
 import { handler } from "../src/handlers/projects";
 import { ddb } from "../src/lib/dynamo";
-import { ensureCanWrite } from "../src/lib/auth";
+import { ensureCanWrite, getUserContext } from "../src/lib/auth";
 
 type Mutable<T> = { -readonly [P in keyof T]: Mutable<T[P]> };
 
@@ -32,6 +32,7 @@ jest.mock("../src/lib/dynamo", () => {
 
 const mockDdbSend = ddb.send as jest.Mock;
 const mockEnsureCanWrite = ensureCanWrite as jest.Mock;
+const mockGetUserContext = getUserContext as jest.Mock;
 
 describe("projects handler POST", () => {
   beforeEach(() => {
@@ -79,6 +80,7 @@ describe("projects handler POST", () => {
       currency: "USD",
       mod_total: "125000.50",
       description: "Proyecto de prueba",
+      sdm_manager_email: "sdm@example.com",
     };
 
     const response = await handler({
@@ -113,6 +115,7 @@ describe("projects handler POST", () => {
       end_date: "2025-03-01", // end before start
       currency: "USD",
       mod_total: -5,
+      sdm_manager_email: "sdm@example.com",
     };
 
     const response = await handler({
@@ -140,6 +143,7 @@ describe("projects handler POST", () => {
       currency: "USD",
       mod_total: "125000.50",
       description: "Proyecto de prueba",
+      sdm_manager_email: "sdm@example.com",
     };
 
     const response = await handler({
@@ -151,5 +155,59 @@ describe("projects handler POST", () => {
     const parsed = JSON.parse(response.body);
     expect(parsed.error).toMatch(/internal server error/i);
     expect(mockDdbSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires sdm_manager_email when creator is not an SDM", async () => {
+    mockGetUserContext.mockResolvedValueOnce({
+      email: "pmo@example.com",
+      groups: ["PMO"],
+      roles: ["PMO"],
+      isAdmin: false,
+      isExecRO: false,
+      isSDM: false,
+      isPMO: true,
+      isSDMT: false,
+    });
+
+    const response = await handler({
+      ...baseEvent,
+      body: JSON.stringify({ name: "Proyecto", code: "PROJ-2025-002", client: "Cliente", start_date: "2025-01-01", end_date: "2025-02-01", currency: "USD", mod_total: 10 }),
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).error).toMatch(/sdm_manager_email/i);
+    expect(mockDdbSend).not.toHaveBeenCalled();
+  });
+
+  it("auto-assigns sdm_manager_email to the SDM creator", async () => {
+    mockGetUserContext.mockResolvedValueOnce({
+      email: "sdm.creator@example.com",
+      groups: ["SDM"],
+      roles: ["SDM"],
+      isAdmin: false,
+      isExecRO: false,
+      isSDM: true,
+      isPMO: false,
+      isSDMT: false,
+    });
+    mockDdbSend.mockResolvedValue({});
+
+    const payload = {
+      name: "Proyecto Demo",
+      code: "PROJ-2025-003",
+      client: "Cliente Uno",
+      start_date: "2025-01-15",
+      end_date: "2025-06-30",
+      currency: "USD",
+      mod_total: "125000.50",
+    };
+
+    await handler({
+      ...baseEvent,
+      body: JSON.stringify(payload),
+    });
+
+    const putCall = mockDdbSend.mock.calls.find((call) => call?.[0]?.input?.TableName === "test-projects");
+    expect(putCall?.[0]?.input?.Item?.sdm_manager_email).toBe("sdm.creator@example.com");
   });
 });

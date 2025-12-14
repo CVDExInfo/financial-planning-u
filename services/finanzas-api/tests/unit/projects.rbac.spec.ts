@@ -74,6 +74,72 @@ describe("projects handler RBAC", () => {
     expect(payload.data[0].currency).toBe("USD");
   });
 
+  it("returns SDM-visible projects when accepted or created by the SDM", async () => {
+    dynamo.ddb.send.mockResolvedValueOnce({
+      Items: [
+        {
+          pk: "PROJECT#P-1",
+          sk: "METADATA",
+          project_id: "P-1",
+          nombre: "Proyecto Uno",
+          cliente: "Cliente",
+          fecha_inicio: "2024-01-01",
+          fecha_fin: "2024-12-31",
+          moneda: "USD",
+          presupuesto_total: 100,
+          accepted_by: "sdm.user@example.com",
+        },
+        {
+          pk: "PROJECT#P-2",
+          sk: "METADATA",
+          project_id: "P-2",
+          nombre: "Proyecto Dos",
+          cliente: "Cliente",
+          fecha_inicio: "2024-01-01",
+          fecha_fin: "2024-12-31",
+          moneda: "USD",
+          presupuesto_total: 100,
+          created_by: "sdm.user@example.com",
+        },
+      ],
+    });
+
+    const response = await projectsHandler(
+      baseEvent({ __verifiedClaims: { "cognito:groups": ["SDM"], email: "sdm.user@example.com" } } as any),
+    );
+
+    const filterExpression = dynamo.ddb.send.mock.calls[0]?.[0]?.input?.FilterExpression;
+    expect(filterExpression).toMatch(/#createdBy/);
+
+    const payload = JSON.parse(response.body as string);
+    expect(payload.data).toHaveLength(2);
+    expect(payload.data.map((p: any) => p.projectId)).toEqual(["P-1", "P-2"]);
+  });
+
+  it("scans for unassigned projects when SDM sees none", async () => {
+    dynamo.ddb.send
+      .mockResolvedValueOnce({ Items: [] })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            pk: "PROJECT#P-99",
+            sk: "METADATA",
+            project_id: "P-99",
+            nombre: "Sin SDM",
+          },
+        ],
+      });
+
+    const response = await projectsHandler(
+      baseEvent({ __verifiedClaims: { "cognito:groups": ["SDM"], email: "sdm.user@example.com" } } as any),
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(dynamo.ddb.send).toHaveBeenCalledTimes(2);
+    const secondCallFilter = dynamo.ddb.send.mock.calls[1]?.[0]?.input?.FilterExpression;
+    expect(secondCallFilter).toMatch(/attribute_not_exists/);
+  });
+
   it("paginates through all project pages and preserves totals", async () => {
     dynamo.ddb.send
       .mockResolvedValueOnce({
