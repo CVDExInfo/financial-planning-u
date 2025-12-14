@@ -1,6 +1,6 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureSDT } from "../lib/auth";
-import { bad, ok, noContent } from "../lib/http";
+import { bad, ok, noContent, notImplemented } from "../lib/http";
 
 // TODO: Implement bulk allocations update
 // R1 requirement: PUT /projects/{id}/allocations:bulk
@@ -26,11 +26,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     // TODO: Parse bulk allocation data and update DynamoDB allocations table
-    return ok({
-      data: [],
-      total: 0,
-      message: "PUT /projects/{id}/allocations:bulk - not implemented yet",
-    });
+    return notImplemented("PUT /projects/{id}/allocations:bulk - not implemented yet");
   }
 
   return bad(`Method ${method} not allowed`, 405);
