@@ -1,6 +1,6 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth.js";
-import { cors } from "../lib/http.js";
+import { bad, noContent, ok, serverError, fromAuthError } from "../lib/http.js";
 
 type Adjustment = {
   id: string;
@@ -46,14 +46,6 @@ const adjustmentStore: Adjustment[] = [
 
 function parseQueryParam(event: APIGatewayProxyEventV2, key: string): string | undefined {
   return event.queryStringParameters?.[key] || event.queryStringParameters?.[key.replace("_", "")] || undefined;
-}
-
-function jsonResponse(statusCode: number, payload: unknown) {
-  return {
-    statusCode,
-    headers: { "Content-Type": "application/json", ...cors },
-    body: JSON.stringify(payload),
-  };
 }
 
 function normalizeLimit(limit?: string | number | null): number {
