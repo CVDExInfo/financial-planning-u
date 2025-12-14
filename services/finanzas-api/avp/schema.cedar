@@ -1,51 +1,762 @@
-namespace finanzassd
+{
+  "finanzassd": {
+    "entityTypes": {
+      "User": {
+        "shape": {
+          "type": "Record",
+          "attributes": {}
+        },
+        "memberOfTypes": [
+          "UserGroup"
+        ]
+      },
+      "UserGroup": {
+        "shape": {
+          "type": "Record",
+          "attributes": {}
+        }
+      },
+      "Application": {
+        "shape": {
+          "type": "Record",
+          "attributes": {}
+        }
+      }
+    },
+    "actions": {
+      "get /adjustments": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /adjustments": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /alerts": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /allocation-rules": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /catalog/rubros": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /health": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /prefacturas/webhook": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /prefacturas/webhook": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /projects": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /projects": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /projects/{id}/plan": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /projects/{id}/rubros": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /projects/{id}/rubros": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /providers": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /providers": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /close-month": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /payroll/ingest": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /projects/{id}/handoff": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "put /projects/{id}/allocations:bulk": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "delete /projects/{projectId}/rubros/{rubroId}": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /baseline/{baseline_id}": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /baseline": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /plan/forecast": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /prefacturas": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /prefacturas": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /projects/{projectId}/billing": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /projects/{projectId}/handoff": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /projects/{projectId}/handoff": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /projects/{projectId}/rubros": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /projects/{projectId}/rubros": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "post /uploads/docs": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "put /handoff/{handoffId}": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /projects/{projectId}/invoices": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "get /projects/{projectId}/invoices/{invoiceId}": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
+      "put /projects/{projectId}/invoices/{invoiceId}/status": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
 
-// Entities reflected in policy store P3wQ5UBQ9YvLb4NaXmSTMG
-entity User {}
-entity UserGroup {}
-entity Application {}
+      "get /hub": {
+        "appliesTo": {
+          "principalTypes": [
+            "User"
+          ],
+          "resourceTypes": [
+            "Application"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          }
+        },
+        "memberOf": [
+          {
+            "id": "FIN",
+            "type": "finanzassd::Action"
+          }
+        ]
+      },
 
-// Relationship: users are members of Cognito groups
-User in UserGroup
-
-// Actions mapped 1:1 to API routes
-action "get /adjustments"        appliesTo (User, Application);
-action "post /adjustments"       appliesTo (User, Application);
-action "get /alerts"             appliesTo (User, Application);
-action "get /allocation-rules"   appliesTo (User, Application);
-action "get /catalog/rubros"     appliesTo (User, Application);
-action "get /health"             appliesTo (User, Application);
-action "get /prefacturas/webhook" appliesTo (User, Application);
-action "post /prefacturas/webhook" appliesTo (User, Application);
-action "get /projects"           appliesTo (User, Application);
-action "post /projects"          appliesTo (User, Application);
-action "get /projects/{id}/plan" appliesTo (User, Application);
-action "get /projects/{id}/rubros" appliesTo (User, Application);
-action "post /projects/{id}/rubros" appliesTo (User, Application);
-action "get /providers"          appliesTo (User, Application);
-action "post /providers"         appliesTo (User, Application);
-action "post /close-month"       appliesTo (User, Application);
-action "post /payroll/ingest"    appliesTo (User, Application);
-action "post /projects/{id}/handoff" appliesTo (User, Application);
-action "put /projects/{id}/allocations:bulk" appliesTo (User, Application);
-action "delete /projects/{projectId}/rubros/{rubroId}" appliesTo (User, Application);
-action "get /baseline/{baseline_id}" appliesTo (User, Application);
-action "post /baseline"          appliesTo (User, Application);
-action "get /plan/forecast"      appliesTo (User, Application);
-action "get /prefacturas"        appliesTo (User, Application);
-action "post /prefacturas"       appliesTo (User, Application);
-action "get /projects/{projectId}/billing" appliesTo (User, Application);
-action "get /projects/{projectId}/handoff" appliesTo (User, Application);
-action "post /projects/{projectId}/handoff" appliesTo (User, Application);
-action "get /projects/{projectId}/rubros" appliesTo (User, Application);
-action "post /projects/{projectId}/rubros" appliesTo (User, Application);
-action "post /uploads/docs"      appliesTo (User, Application);
-action "put /handoff/{handoffId}" appliesTo (User, Application);
-action "get /projects/{projectId}/invoices" appliesTo (User, Application);
-action "get /projects/{projectId}/invoices/{invoiceId}" appliesTo (User, Application);
-action "put /projects/{projectId}/invoices/{invoiceId}/status" appliesTo (User, Application);
-
-// Action grouping anchor (FIN)
-action "FIN" appliesTo (UserGroup, Application);
-
-context {}
+      "FIN": {
+        "memberOf": [],
+        "appliesTo": {
+          "context": {
+            "type": "Record",
+            "attributes": {}
+          },
+          "principalTypes": [],
+          "resourceTypes": []
+        }
+      }
+    }
+  }
+}
