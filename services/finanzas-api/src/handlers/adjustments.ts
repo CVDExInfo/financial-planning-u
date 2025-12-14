@@ -65,7 +65,7 @@ async function listAdjustments(event: APIGatewayProxyEventV2) {
     ? adjustmentStore.filter((item) => item.project_id === projectId)
     : adjustmentStore;
 
-  return ok({
+  return ok(event, {
     data: filtered.slice(0, limit),
     total: filtered.length,
   });
@@ -75,20 +75,20 @@ async function createAdjustment(event: APIGatewayProxyEventV2) {
   await ensureCanWrite(event as any);
 
   if (!event.body) {
-    return bad("Missing request body", 400);
+    return bad(event, "Missing request body", 400);
   }
 
   let payload: Partial<Adjustment> & { monto?: unknown };
   try {
     payload = typeof event.body === "string" ? JSON.parse(event.body) : (event.body as any);
   } catch (parseErr) {
-    return bad({ message: "Invalid JSON body", detail: String(parseErr) }, 400);
+    return bad(event, { message: "Invalid JSON body", detail: String(parseErr) }, 400);
   }
 
   const required = ["project_id", "tipo", "monto", "fecha_inicio", "solicitado_por"] as const;
   const missing = required.filter((field) => !(payload as any)?.[field]);
   if (missing.length) {
-    return bad({ message: `Missing fields: ${missing.join(", ")}` }, 400);
+    return bad(event, { message: `Missing fields: ${missing.join(", ")}` }, 400);
   }
 
   const now = new Date().toISOString();
@@ -114,7 +114,7 @@ async function createAdjustment(event: APIGatewayProxyEventV2) {
 
   adjustmentStore.unshift(newAdjustment);
 
-  return ok(newAdjustment, 201);
+  return ok(event, newAdjustment, 201);
 }
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
@@ -122,7 +122,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const method = event.requestContext.http.method;
 
     if (method === "OPTIONS") {
-      return noContent();
+      return noContent(event);
     }
 
     if (method === "POST") {
@@ -133,14 +133,14 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return await listAdjustments(event);
     }
 
-    return bad("Method not allowed", 405);
+    return bad(event, "Method not allowed", 405);
   } catch (err: unknown) {
-    const authResponse = fromAuthError(err);
+    const authResponse = fromAuthError(err, event as any);
     if (authResponse) {
       return authResponse;
     }
 
     console.error("/adjustments unhandled error", err);
-    return serverError("internal error");
+    return serverError(event as any, "internal error");
   }
 };
