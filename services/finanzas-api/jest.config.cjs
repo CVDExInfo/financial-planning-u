@@ -1,11 +1,10 @@
 module.exports = {
-  preset: "ts-jest/presets/default-esm",
+  preset: "ts-jest",
   testEnvironment: "node",
   roots: ["<rootDir>/tests"],
   verbose: true,
   testMatch: ["**/*.spec.ts"],
   clearMocks: true,
-  extensionsToTreatAsEsm: [".ts"],
   setupFiles: ["<rootDir>/tests/jest.env.setup.js"],
   transformIgnorePatterns: [
     "node_modules/(?!(uuid)/)"
@@ -14,6 +13,6 @@ module.exports = {
     "^(\\.{1,2}/.*)\\.js$": "$1",
   },
   transform: {
-    "^.+\\.tsx?$": ["ts-jest", { useESM: true }]
+    "^.+\\.tsx?$": ["ts-jest", { useESM: false, tsconfig: "tsconfig.json" }]
   },
 };

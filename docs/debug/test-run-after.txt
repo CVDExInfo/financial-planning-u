@@ -1,0 +1,1798 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> finanzas-sd-api@0.1.0 test
+> jest --runInBand
+
+PASS tests/unit/validation.payroll.spec.ts
+  PayrollKindSchema
+    ✓ should accept valid kind values (5 ms)
+    ✓ should reject invalid kind values (24 ms)
+  PayrollEntrySchema
+    ✓ should validate a complete valid entry (3 ms)
+    ✓ should accept proj_ format projectId (1 ms)
+    ✓ should accept all three kind values (3 ms)
+    ✓ should reject negative amount (2 ms)
+    ✓ should accept zero amount
+    ✓ should reject invalid period format (5 ms)
+    ✓ should reject invalid currency length (12 ms)
+    ✓ should convert currency to uppercase (1 ms)
+    ✓ should accept optional fields (2 ms)
+    ✓ should validate without optional fields (1 ms)
+    ✓ should reject invalid email format in uploadedBy
+    ✓ should reject notes exceeding 500 characters (1 ms)
+    ✓ should reject invalid resourceCount (non-integer) (1 ms)
+    ✓ should reject negative resourceCount (1 ms)
+  PayrollEntryCreateSchema
+    ✓ should validate a valid create payload
+    ✓ should omit id, pk, sk, and timestamps (1 ms)
+    ✓ should require all mandatory fields (3 ms)
+    ✓ should accept optional metadata fields (1 ms)
+  parsePayrollEntry
+    ✓ should parse valid data (1 ms)
+    ✓ should throw on invalid data (3 ms)
+  parsePayrollEntryCreate
+    ✓ should parse valid create data (1 ms)
+    ✓ should throw on invalid data (1 ms)
+  safeParsePayrollEntry
+    ✓ should return success for valid data
+    ✓ should return error for invalid data (1 ms)
+  safeParsePayrollEntryCreate
+    ✓ should return success for valid create data
+    ✓ should return error for invalid create data (1 ms)
+
+PASS tests/unit/validation.payroll.mod.spec.ts
+  Payroll MOD Roles Validation
+    PayrollIngestSchema with desglose_roles
+      ✓ Test A - should accept valid payload with only desglose_roles (3 ms)
+      ✓ should accept payload with all 6 MOD roles (1 ms)
+      ✓ Test B - should accept payload with both desglose_roles and legacy desglose (1 ms)
+      ✓ Test C - should reject invalid desglose_roles with non-numeric value (8 ms)
+      ✓ Test C - should reject negative amounts in desglose_roles (1 ms)
+      ✓ should accept zero amounts in desglose_roles (1 ms)
+      ✓ should accept payload with desglose_roles as optional field
+      ✓ should accept empty desglose_roles object (1 ms)
+      ✓ should validate that desglose_roles uses only valid MOD role keys
+    Backward compatibility with legacy desglose
+      ✓ should accept legacy payload with only desglose field (1 ms)
+      ✓ should accept payload without any breakdown fields (1 ms)
+    MOD_ROLES constant consistency
+      ✓ should use the centralized MOD_ROLES from constants module (1 ms)
+
+PASS tests/unit/validation.health.spec.ts
+  Health Validation
+    HealthResponseSchema
+      ✓ should validate a complete valid health response (1 ms)
+      ✓ should validate with only required field (ok) (1 ms)
+      ✓ should accept valid status values (1 ms)
+      ✓ should accept valid env values
+      ✓ should reject missing ok field (8 ms)
+      ✓ should reject non-boolean ok field (1 ms)
+      ✓ should reject invalid status value (1 ms)
+      ✓ should reject invalid env value (1 ms)
+    safe parse
+      ✓ should return success for valid data
+      ✓ should return failure for invalid data (1 ms)
+
+PASS tests/unit/validation.handoff.spec.ts
+  Handoff Validation
+    HandoffSchema
+      ✓ should validate a complete valid handoff (1 ms)
+      ✓ should allow omitting sdm_manager_name for backwards compatibility
+      ✓ should validate without optional notas field
+      ✓ should reject negative mod_total (7 ms)
+      ✓ should reject pct_ingenieros > 100 (1 ms)
+      ✓ should reject pct_ingenieros < 0 (1 ms)
+      ✓ should reject pct_sdm > 100 (1 ms)
+      ✓ should reject invalid email format (1 ms)
+      ✓ should reject invalid date format (1 ms)
+      ✓ should reject notas exceeding 2000 characters (1 ms)
+      ✓ should reject empty sdm_manager_name when provided (1 ms)
+      ✓ should accept 0% for percentages
+      ✓ should accept 100% for percentages (1 ms)
+
+PASS tests/unit/validation.handoff.mod-roles.spec.ts
+  MOD Roles Validation
+    MOD_ROLES constant
+      ✓ should contain exactly 6 approved roles (1 ms)
+      ✓ should include all client-approved roles (1 ms)
+    MODRolesSchema
+      ✓ should accept valid role percentages (1 ms)
+      ✓ should accept partial role allocation (1 ms)
+      ✓ should reject percentages over 100 (10 ms)
+      ✓ should reject negative percentages (1 ms)
+      ✓ should accept zero percentage (1 ms)
+    HandoffSchema with mod_roles
+      ✓ should accept handoff with new mod_roles structure
+      ✓ should accept handoff with legacy pct fields
+      ✓ should accept handoff with both new and legacy fields (1 ms)
+      ✓ should accept handoff without any role breakdown
+      ✓ should validate role percentages in mod_roles (1 ms)
+    Backward Compatibility
+      ✓ should maintain compatibility with existing handoff data (1 ms)
+
+PASS tests/unit/validation.estimator.spec.ts
+  Estimator Validation
+    EstimatorItemSchema
+      ✓ should validate a complete valid estimator item (2 ms)
+      ✓ should accept valid tier values (2 ms)
+      ✓ should reject invalid tier value (7 ms)
+      ✓ should reject negative quantity (1 ms)
+      ✓ should reject negative unitCost (1 ms)
+      ✓ should accept zero quantity
+      ✓ should reject invalid month format for startMonth (1 ms)
+      ✓ should reject invalid estimator ID pattern (1 ms)
+      ✓ should accept valid project ID patterns
+
+  console.info
+    upload-docs: received request {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      contentType: 'application/pdf',
+      originalName: 'invoice.pdf',
+      vendor: undefined,
+      amount: undefined,
+      invoiceDate: undefined
+    }
+
+      at handler (src/handlers/upload-docs.ts:95:13)
+
+  console.info
+    upload-docs: generating object key {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf'
+    }
+
+      at handler (src/handlers/upload-docs.ts:152:13)
+
+  console.info
+    upload-docs: received request {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'unknown',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      contentType: 'application/pdf',
+      originalName: 'invoice.pdf',
+      vendor: undefined,
+      amount: undefined,
+      invoiceDate: undefined
+    }
+
+      at handler (src/handlers/upload-docs.ts:95:13)
+
+  console.info
+    upload-docs: received request {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      contentType: 'application/pdf',
+      originalName: 'invoice.pdf',
+      vendor: undefined,
+      amount: undefined,
+      invoiceDate: undefined
+    }
+
+      at handler (src/handlers/upload-docs.ts:95:13)
+
+  console.info
+    upload-docs: generating object key {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf'
+    }
+
+      at handler (src/handlers/upload-docs.ts:152:13)
+
+  console.warn
+    upload-docs metadata write failed {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      moduleName: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf',
+      tableName: 'docs-table',
+      error: Error: ddb failure
+          at Object.<anonymous> (/workspace/financial-planning-u/services/finanzas-api/tests/unit/upload-docs.spec.ts:178:39)
+          at Promise.then.completed (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at run (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:444:34)
+    }
+
+      263 |           : "Metadata not recorded in docs table";
+      264 |       responseWarnings.push(warningMessage);
+    > 265 |       console.warn("upload-docs metadata write failed", failureContext);
+          |               ^
+      266 |     }
+      267 |
+      268 |     const responseBody = {
+
+      at handler (src/handlers/upload-docs.ts:265:15)
+      at Object.<anonymous> (tests/unit/upload-docs.spec.ts:180:23)
+
+  console.info
+    upload-docs: received request {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      contentType: 'application/pdf',
+      originalName: 'invoice.pdf',
+      vendor: undefined,
+      amount: undefined,
+      invoiceDate: undefined
+    }
+
+      at handler (src/handlers/upload-docs.ts:95:13)
+
+  console.info
+    upload-docs: generating object key {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf'
+    }
+
+      at handler (src/handlers/upload-docs.ts:152:13)
+
+  console.warn
+    upload-docs metadata table failure {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      moduleName: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf',
+      tableName: 'docs-table',
+      error: { name: 'ResourceNotFoundException' }
+    }
+
+      4 |   if (process.env.NODE_ENV === "test") {
+      5 |     // In tests, downgrade to warning to avoid noisy console.error output while still surfacing context.
+    > 6 |     console.warn(...args);
+        |             ^
+      7 |     return;
+      8 |   }
+      9 |
+
+      at logError (src/utils/logging.ts:6:13)
+      at handler (src/handlers/upload-docs.ts:256:17)
+      at Object.<anonymous> (tests/unit/upload-docs.spec.ts:194:23)
+
+  console.info
+    upload-docs: received request {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      contentType: 'application/pdf',
+      originalName: 'invoice.pdf',
+      vendor: undefined,
+      amount: undefined,
+      invoiceDate: undefined
+    }
+
+      at handler (src/handlers/upload-docs.ts:95:13)
+
+  console.info
+    upload-docs: generating object key {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf'
+    }
+
+      at handler (src/handlers/upload-docs.ts:152:13)
+
+  console.warn
+    upload-docs metadata table failure {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      moduleName: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf',
+      tableName: 'docs-table',
+      error: { name: 'AccessDeniedException' }
+    }
+
+      4 |   if (process.env.NODE_ENV === "test") {
+      5 |     // In tests, downgrade to warning to avoid noisy console.error output while still surfacing context.
+    > 6 |     console.warn(...args);
+        |             ^
+      7 |     return;
+      8 |   }
+      9 |
+
+      at logError (src/utils/logging.ts:6:13)
+      at handler (src/handlers/upload-docs.ts:256:17)
+      at Object.<anonymous> (tests/unit/upload-docs.spec.ts:205:23)
+
+  console.info
+    upload-docs: received request {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      contentType: 'application/pdf',
+      originalName: 'invoice.pdf',
+      vendor: undefined,
+      amount: undefined,
+      invoiceDate: undefined
+    }
+
+      at handler (src/handlers/upload-docs.ts:95:13)
+
+  console.info
+    upload-docs: generating object key {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf'
+    }
+
+      at handler (src/handlers/upload-docs.ts:152:13)
+
+  console.warn
+    upload-docs presign failed {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      moduleName: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf',
+      errorName: 'Error',
+      errorMessage: 's3 error'
+    }
+
+      4 |   if (process.env.NODE_ENV === "test") {
+      5 |     // In tests, downgrade to warning to avoid noisy console.error output while still surfacing context.
+    > 6 |     console.warn(...args);
+        |             ^
+      7 |     return;
+      8 |   }
+      9 |
+
+      at logError (src/utils/logging.ts:6:13)
+      at handler (src/handlers/upload-docs.ts:201:15)
+      at Object.<anonymous> (tests/unit/upload-docs.spec.ts:216:23)
+
+  console.info
+    upload-docs: received request {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      contentType: 'application/pdf',
+      originalName: 'invoice.pdf',
+      vendor: undefined,
+      amount: undefined,
+      invoiceDate: undefined
+    }
+
+      at handler (src/handlers/upload-docs.ts:95:13)
+
+  console.info
+    upload-docs: generating object key {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf'
+    }
+
+      at handler (src/handlers/upload-docs.ts:152:13)
+
+  console.error
+    upload-docs presign failed: bucket not found {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      moduleName: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf',
+      errorName: 'NoSuchBucket',
+      errorMessage: undefined
+    }
+
+      190 |
+      191 |       if (name === "NoSuchBucket" || code === "NoSuchBucket") {
+    > 192 |         console.error("upload-docs presign failed: bucket not found", s3ErrorContext);
+          |                 ^
+      193 |         return bad("Docs bucket not found or not configured", 503);
+      194 |       }
+      195 |
+
+      at handler (src/handlers/upload-docs.ts:192:17)
+      at Object.<anonymous> (tests/unit/upload-docs.spec.ts:228:23)
+
+  console.info
+    upload-docs: received request {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      contentType: 'application/pdf',
+      originalName: 'invoice.pdf',
+      vendor: undefined,
+      amount: undefined,
+      invoiceDate: undefined
+    }
+
+      at handler (src/handlers/upload-docs.ts:95:13)
+
+  console.info
+    upload-docs: generating object key {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf'
+    }
+
+      at handler (src/handlers/upload-docs.ts:152:13)
+
+  console.error
+    upload-docs presign failed: access denied {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      moduleName: 'prefactura',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/prefactura/LINE-22-12345678-invoice.pdf',
+      errorName: 'AccessDenied',
+      errorMessage: undefined
+    }
+
+      195 |
+      196 |       if (name === "AccessDenied" || code === "AccessDenied") {
+    > 197 |         console.error("upload-docs presign failed: access denied", s3ErrorContext);
+          |                 ^
+      198 |         return bad("Docs bucket access denied", 503);
+      199 |       }
+      200 |
+
+      at handler (src/handlers/upload-docs.ts:197:17)
+      at Object.<anonymous> (tests/unit/upload-docs.spec.ts:240:23)
+
+  console.info
+    upload-docs: received request {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'reconciliation',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      contentType: 'application/pdf',
+      originalName: 'invoice.pdf',
+      vendor: 'ACME',
+      amount: undefined,
+      invoiceDate: '2025-02-01'
+    }
+
+      at handler (src/handlers/upload-docs.ts:95:13)
+
+  console.info
+    upload-docs: received request {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'reconciliation',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      contentType: 'application/pdf',
+      originalName: 'invoice.pdf',
+      vendor: 'ACME',
+      amount: 1234.56,
+      invoiceDate: '2025-02-01'
+    }
+
+      at handler (src/handlers/upload-docs.ts:95:13)
+
+  console.info
+    upload-docs: generating object key {
+      requestId: 'id',
+      projectId: 'PROJ-123',
+      module: 'reconciliation',
+      lineItemId: 'LINE-22',
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/PROJ-123/reconciliation/LINE-22-12345678-invoice.pdf'
+    }
+
+      at handler (src/handlers/upload-docs.ts:152:13)
+
+PASS tests/unit/upload-docs.spec.ts
+  upload-docs handler
+    ✓ returns a presigned url and stores metadata (38 ms)
+    ✓ rejects requests with invalid module (3 ms)
+    ✓ fails when request body is missing
+    ✓ returns 201 with warnings when DynamoDB write fails (25 ms)
+    ✓ returns 503 when docs table is missing (5 ms)
+    ✓ returns 503 when docs table access is denied (3 ms)
+    ✓ returns server error when presign generation fails (3 ms)
+    ✓ surfaces NoSuchBucket presign failures as 503 (3 ms)
+    ✓ surfaces AccessDenied presign failures as 503 (3 ms)
+    ✓ requires reconciliation fields when module is reconciliation (3 ms)
+
+  console.info
+    upload-docs: received request {
+      requestId: undefined,
+      projectId: 'P-123',
+      module: 'changes',
+      lineItemId: undefined,
+      invoiceNumber: undefined,
+      contentType: 'application/pdf',
+      originalName: 'change.pdf',
+      vendor: undefined,
+      amount: undefined,
+      invoiceDate: undefined
+    }
+
+      at handler (src/handlers/upload-docs.ts:95:13)
+
+  console.info
+    upload-docs: generating object key {
+      requestId: undefined,
+      projectId: 'P-123',
+      module: 'changes',
+      lineItemId: undefined,
+      invoiceNumber: undefined,
+      bucket: 'docs-bucket',
+      objectKey: 'docs/P-123/changes/2025-12-14T01-50-09-242Z-0975feb1-change.pdf'
+    }
+
+      at handler (src/handlers/upload-docs.ts:152:13)
+
+PASS tests/unit/upload-docs.changes-module.spec.ts
+  upload docs handler (changes module)
+    ✓ accepts changes module payloads and returns 201 with upload URL (11 ms)
+
+  console.warn
+    attachRubros: rubro validation {
+      projectId: 'P-NOC-CLARO-BOG',
+      original: 'RB0002',
+      canonical: 'MOD-LEAD',
+      warning: "Legacy rubro_id 'RB0002' mapped to canonical 'MOD-LEAD'"
+    }
+
+      493 |     if (validation.warning) {
+      494 |       warnings.push(validation.warning);
+    > 495 |       console.warn("attachRubros: rubro validation", {
+          |               ^
+      496 |         projectId,
+      497 |         original: entry.rubroId,
+      498 |         canonical: validation.canonicalId,
+
+      at src/handlers/rubros.ts:495:15
+          at Array.map (<anonymous>)
+      at attachRubros (src/handlers/rubros.ts:490:46)
+      at handler (src/handlers/rubros.ts:733:14)
+      at Object.<anonymous> (tests/unit/rubros.spec.ts:170:22)
+
+  console.info
+    attachRubros: normalized request {
+      projectId: 'P-NOC-CLARO-BOG',
+      rubroCount: 1,
+      rubroIds: [ 'MOD-LEAD' ],
+      legacyCount: 1
+    }
+
+      at attachRubros (src/handlers/rubros.ts:512:11)
+
+  console.warn
+    attachRubros: rubro validation {
+      projectId: 'P-NOC-CLARO-BOG',
+      original: 'RB0003',
+      canonical: 'MOD-SDM',
+      warning: "Legacy rubro_id 'RB0003' mapped to canonical 'MOD-SDM'"
+    }
+
+      493 |     if (validation.warning) {
+      494 |       warnings.push(validation.warning);
+    > 495 |       console.warn("attachRubros: rubro validation", {
+          |               ^
+      496 |         projectId,
+      497 |         original: entry.rubroId,
+      498 |         canonical: validation.canonicalId,
+
+      at src/handlers/rubros.ts:495:15
+          at Array.map (<anonymous>)
+      at attachRubros (src/handlers/rubros.ts:490:46)
+      at handler (src/handlers/rubros.ts:733:14)
+      at Object.<anonymous> (tests/unit/rubros.spec.ts:233:22)
+
+  console.info
+    attachRubros: normalized request {
+      projectId: 'P-NOC-CLARO-BOG',
+      rubroCount: 1,
+      rubroIds: [ 'MOD-SDM' ],
+      legacyCount: 1
+    }
+
+      at attachRubros (src/handlers/rubros.ts:512:11)
+
+  console.warn
+    [canonical-taxonomy] Unknown rubro_id: R-300 - not in canonical taxonomy or legacy map
+
+      160 |   
+      161 |   // Unknown ID - log warning and return as-is
+    > 162 |   console.warn(`[canonical-taxonomy] Unknown rubro_id: ${legacyId} - not in canonical taxonomy or legacy map`);
+          |           ^
+      163 |   return legacyId;
+      164 | }
+      165 |
+
+      at getCanonicalRubroId (src/lib/canonical-taxonomy.ts:162:11)
+      at normalizeRubroId (src/lib/canonical-taxonomy.ts:201:23)
+      at src/handlers/rubros.ts:491:40
+          at Array.map (<anonymous>)
+      at attachRubros (src/handlers/rubros.ts:490:46)
+      at handler (src/handlers/rubros.ts:733:14)
+      at Object.<anonymous> (tests/unit/rubros.spec.ts:276:22)
+
+  console.warn
+    attachRubros: rubro validation {
+      projectId: 'PROJ-1',
+      original: 'R-300',
+      canonical: 'R-300',
+      warning: "Unknown rubro_id 'R-300' - not in canonical taxonomy"
+    }
+
+      493 |     if (validation.warning) {
+      494 |       warnings.push(validation.warning);
+    > 495 |       console.warn("attachRubros: rubro validation", {
+          |               ^
+      496 |         projectId,
+      497 |         original: entry.rubroId,
+      498 |         canonical: validation.canonicalId,
+
+      at src/handlers/rubros.ts:495:15
+          at Array.map (<anonymous>)
+      at attachRubros (src/handlers/rubros.ts:490:46)
+      at handler (src/handlers/rubros.ts:733:14)
+      at Object.<anonymous> (tests/unit/rubros.spec.ts:276:22)
+
+  console.info
+    attachRubros: normalized request {
+      projectId: 'PROJ-1',
+      rubroCount: 1,
+      rubroIds: [ 'R-300' ],
+      legacyCount: 0
+    }
+
+      at attachRubros (src/handlers/rubros.ts:512:11)
+
+  console.warn
+    [canonical-taxonomy] Unknown rubro_id: R-500 - not in canonical taxonomy or legacy map
+
+      160 |   
+      161 |   // Unknown ID - log warning and return as-is
+    > 162 |   console.warn(`[canonical-taxonomy] Unknown rubro_id: ${legacyId} - not in canonical taxonomy or legacy map`);
+          |           ^
+      163 |   return legacyId;
+      164 | }
+      165 |
+
+      at getCanonicalRubroId (src/lib/canonical-taxonomy.ts:162:11)
+      at normalizeRubroId (src/lib/canonical-taxonomy.ts:201:23)
+      at src/handlers/rubros.ts:491:40
+          at Array.map (<anonymous>)
+      at attachRubros (src/handlers/rubros.ts:490:46)
+      at handler (src/handlers/rubros.ts:733:14)
+      at Object.<anonymous> (tests/unit/rubros.spec.ts:333:22)
+
+  console.warn
+    attachRubros: rubro validation {
+      projectId: 'PROJ-1',
+      original: 'R-500',
+      canonical: 'R-500',
+      warning: "Unknown rubro_id 'R-500' - not in canonical taxonomy"
+    }
+
+      493 |     if (validation.warning) {
+      494 |       warnings.push(validation.warning);
+    > 495 |       console.warn("attachRubros: rubro validation", {
+          |               ^
+      496 |         projectId,
+      497 |         original: entry.rubroId,
+      498 |         canonical: validation.canonicalId,
+
+      at src/handlers/rubros.ts:495:15
+          at Array.map (<anonymous>)
+      at attachRubros (src/handlers/rubros.ts:490:46)
+      at handler (src/handlers/rubros.ts:733:14)
+      at Object.<anonymous> (tests/unit/rubros.spec.ts:333:22)
+
+  console.info
+    attachRubros: normalized request {
+      projectId: 'PROJ-1',
+      rubroCount: 1,
+      rubroIds: [ 'R-500' ],
+      legacyCount: 0
+    }
+
+      at attachRubros (src/handlers/rubros.ts:512:11)
+
+  console.warn
+    attachRubros: failed to mirror allocation {
+      projectId: 'PROJ-1',
+      rubroId: 'R-500',
+      monthValue: 1,
+      allocationCost: 200,
+      error: Error: allocations table missing
+          at Object.<anonymous> (/workspace/financial-planning-u/services/finanzas-api/tests/unit/rubros.spec.ts:330:30)
+          at Promise.then.completed (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at run (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:444:34)
+    }
+
+      4 |   if (process.env.NODE_ENV === "test") {
+      5 |     // In tests, downgrade to warning to avoid noisy console.error output while still surfacing context.
+    > 6 |     console.warn(...args);
+        |             ^
+      7 |     return;
+      8 |   }
+      9 |
+
+      at logError (src/utils/logging.ts:6:13)
+      at attachRubros (src/handlers/rubros.ts:597:17)
+      at handler (src/handlers/rubros.ts:733:14)
+      at Object.<anonymous> (tests/unit/rubros.spec.ts:333:22)
+
+PASS tests/unit/rubros.spec.ts
+  rubros handler
+    ✓ returns attached project rubros with catalog metadata (baseline-first flow) (4 ms)
+    ✓ validates project id
+    ✓ persists cost metadata and allocations when attaching a rubro (from baseline) (10 ms)
+    ✓ upserts an existing rubro when the same rubroId is provided (14 ms)
+    ✓ preserves shared payload fields when rubroIds is an array of strings (5 ms)
+    ✓ returns warnings when allocation mirroring fails but still attaches rubro (17 ms)
+    ✓ returns 400 when no rubro identifiers are provided
+    ✓ filters attachments without a rubro id
+    ✓ paginates the rubro attachment query (1 ms)
+    ✓ chunks BatchGetCommand when more than 100 rubros attached (3 ms)
+
+PASS tests/unit/rejectBaseline.spec.ts
+  RejectBaseline Handler
+    Baseline Rejection
+      ✓ should reject a baseline and update project metadata (3 ms)
+      ✓ should accept rejection without comment (1 ms)
+      ✓ should return 404 if project does not exist (1 ms)
+      ✓ should return 400 if baseline_id does not match project (1 ms)
+      ✓ should require baseline_id in request body (1 ms)
+
+  console.warn
+    [recon] No baseline rubros found { projectId: 'P-5ae50ace' }
+
+      100 |         // If no baseline or rubros found, return 501 (not configured)
+      101 |         if (!baselineRubros || baselineRubros.length === 0) {
+    > 102 |           console.warn("[recon] No baseline rubros found", { projectId });
+          |                   ^
+      103 |           return notImplemented("Reconciliation not configured: no baseline found for project");
+      104 |         }
+      105 |         
+
+      at handler (src/handlers/recon.ts:102:19)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:124:24)
+
+  console.error
+    [recon] Dynamo error {
+      projectId: 'P-5ae50ace',
+      month: undefined,
+      operation: 'getRecon',
+      errorName: 'ResourceNotFoundException',
+      errorMessage: 'Table not found',
+      error: ResourceNotFoundException: Table not found
+          at Object.<anonymous> (/workspace/financial-planning-u/services/finanzas-api/tests/unit/recon.handler.spec.ts:133:27)
+          at Promise.then.completed (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at run (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:444:34)
+    }
+
+      35 |   
+      36 |   // Log full error context
+    > 37 |   console.error("[recon] Dynamo error", { ...context, errorName: name, errorMessage: message, error });
+         |           ^
+      38 |   
+      39 |   // Map known Dynamo errors to 501 (not configured/not implemented)
+      40 |   if (name === "ResourceNotFoundException") {
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:37:11)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:141:24)
+
+  console.error
+    [recon] Dynamo error {
+      projectId: 'P-5ae50ace',
+      month: undefined,
+      operation: 'getRecon',
+      errorName: 'AccessDeniedException',
+      errorMessage: 'Access denied',
+      error: AccessDeniedException: Access denied
+          at Object.<anonymous> (/workspace/financial-planning-u/services/finanzas-api/tests/unit/recon.handler.spec.ts:150:27)
+          at Promise.then.completed (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at run (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:444:34)
+    }
+
+      35 |   
+      36 |   // Log full error context
+    > 37 |   console.error("[recon] Dynamo error", { ...context, errorName: name, errorMessage: message, error });
+         |           ^
+      38 |   
+      39 |   // Map known Dynamo errors to 501 (not configured/not implemented)
+      40 |   if (name === "ResourceNotFoundException") {
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:37:11)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:158:24)
+
+  console.error
+    [recon] Dynamo error {
+      projectId: 'P-5ae50ace',
+      month: undefined,
+      operation: 'getRecon',
+      errorName: 'ValidationException',
+      errorMessage: 'Requested resource not found',
+      error: ValidationException: Requested resource not found
+          at Object.<anonymous> (/workspace/financial-planning-u/services/finanzas-api/tests/unit/recon.handler.spec.ts:167:27)
+          at Promise.then.completed (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at run (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:444:34)
+    }
+
+      35 |   
+      36 |   // Log full error context
+    > 37 |   console.error("[recon] Dynamo error", { ...context, errorName: name, errorMessage: message, error });
+         |           ^
+      38 |   
+      39 |   // Map known Dynamo errors to 501 (not configured/not implemented)
+      40 |   if (name === "ResourceNotFoundException") {
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:37:11)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:175:24)
+
+  console.error
+    [recon] Dynamo error {
+      projectId: 'P-5ae50ace',
+      month: undefined,
+      operation: 'getRecon',
+      errorName: 'ThrottlingException',
+      errorMessage: 'Throttled',
+      error: ThrottlingException: Throttled
+          at Object.<anonymous> (/workspace/financial-planning-u/services/finanzas-api/tests/unit/recon.handler.spec.ts:184:27)
+          at Promise.then.completed (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at run (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:444:34)
+    }
+
+      35 |   
+      36 |   // Log full error context
+    > 37 |   console.error("[recon] Dynamo error", { ...context, errorName: name, errorMessage: message, error });
+         |           ^
+      38 |   
+      39 |   // Map known Dynamo errors to 501 (not configured/not implemented)
+      40 |   if (name === "ResourceNotFoundException") {
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:37:11)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:192:24)
+
+  console.warn
+    [recon] Dynamo throttled { projectId: 'P-5ae50ace', month: undefined, operation: 'getRecon' }
+
+      59 |     ["ThrottlingException", "ProvisionedThroughputExceededException"].includes(name)
+      60 |   ) {
+    > 61 |     console.warn("[recon] Dynamo throttled", context);
+         |             ^
+      62 |     return notImplemented("Reconciliation storage temporarily unavailable");
+      63 |   }
+      64 |   
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:61:13)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:192:24)
+
+  console.error
+    [recon] Dynamo error {
+      projectId: 'P-5ae50ace',
+      month: undefined,
+      operation: 'getRecon',
+      errorName: 'Error',
+      errorMessage: 'Unexpected database error',
+      error: Error: Unexpected database error
+          at Object.<anonymous> (/workspace/financial-planning-u/services/finanzas-api/tests/unit/recon.handler.spec.ts:202:9)
+          at Promise.then.completed (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at run (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:444:34)
+    }
+
+      35 |   
+      36 |   // Log full error context
+    > 37 |   console.error("[recon] Dynamo error", { ...context, errorName: name, errorMessage: message, error });
+         |           ^
+      38 |   
+      39 |   // Map known Dynamo errors to 501 (not configured/not implemented)
+      40 |   if (name === "ResourceNotFoundException") {
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:37:11)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:209:24)
+
+  console.error
+    [recon] Unexpected Dynamo error, mapping to 501 { projectId: 'P-5ae50ace', month: undefined, operation: 'getRecon' }
+
+      64 |   
+      65 |   // Any other unexpected error → 501 (per contract requirement)
+    > 66 |   console.error("[recon] Unexpected Dynamo error, mapping to 501", context);
+         |           ^
+      67 |   return notImplemented("Reconciliation not available for this project/environment");
+      68 | }
+      69 |
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:66:11)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:209:24)
+
+  console.warn
+    [recon] No baseline rubros found { projectId: 'P-5ae50ace' }
+
+      100 |         // If no baseline or rubros found, return 501 (not configured)
+      101 |         if (!baselineRubros || baselineRubros.length === 0) {
+    > 102 |           console.warn("[recon] No baseline rubros found", { projectId });
+          |                   ^
+      103 |           return notImplemented("Reconciliation not configured: no baseline found for project");
+      104 |         }
+      105 |         
+
+      at handler (src/handlers/recon.ts:102:19)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:302:24)
+
+  console.error
+    [recon] Dynamo error {
+      projectId: 'P-5ae50ace',
+      month: undefined,
+      operation: 'getRecon',
+      errorName: 'UnknownDynamoError',
+      errorMessage: 'Dynamo failure',
+      error: Error [UnknownDynamoError]: Dynamo failure
+          at Object.setup (/workspace/financial-planning-u/services/finanzas-api/tests/unit/recon.handler.spec.ts:348:27)
+          at Object.<anonymous> (/workspace/financial-planning-u/services/finanzas-api/tests/unit/recon.handler.spec.ts:372:18)
+          at Promise.then.completed (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at run (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:444:34)
+    }
+
+      35 |   
+      36 |   // Log full error context
+    > 37 |   console.error("[recon] Dynamo error", { ...context, errorName: name, errorMessage: message, error });
+         |           ^
+      38 |   
+      39 |   // Map known Dynamo errors to 501 (not configured/not implemented)
+      40 |   if (name === "ResourceNotFoundException") {
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:37:11)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:378:26)
+
+  console.error
+    [recon] Unexpected Dynamo error, mapping to 501 { projectId: 'P-5ae50ace', month: undefined, operation: 'getRecon' }
+
+      64 |   
+      65 |   // Any other unexpected error → 501 (per contract requirement)
+    > 66 |   console.error("[recon] Unexpected Dynamo error, mapping to 501", context);
+         |           ^
+      67 |   return notImplemented("Reconciliation not available for this project/environment");
+      68 | }
+      69 |
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:66:11)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:378:26)
+
+  console.error
+    [recon] Dynamo error {
+      projectId: 'P-5ae50ace',
+      month: undefined,
+      operation: 'getRecon',
+      errorName: 'Error',
+      errorMessage: 'Catastrophic failure',
+      error: Error: Catastrophic failure
+          at Object.setup (/workspace/financial-planning-u/services/finanzas-api/tests/unit/recon.handler.spec.ts:357:15)
+          at Object.<anonymous> (/workspace/financial-planning-u/services/finanzas-api/tests/unit/recon.handler.spec.ts:372:18)
+    }
+
+      35 |   
+      36 |   // Log full error context
+    > 37 |   console.error("[recon] Dynamo error", { ...context, errorName: name, errorMessage: message, error });
+         |           ^
+      38 |   
+      39 |   // Map known Dynamo errors to 501 (not configured/not implemented)
+      40 |   if (name === "ResourceNotFoundException") {
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:37:11)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:378:26)
+
+  console.error
+    [recon] Unexpected Dynamo error, mapping to 501 { projectId: 'P-5ae50ace', month: undefined, operation: 'getRecon' }
+
+      64 |   
+      65 |   // Any other unexpected error → 501 (per contract requirement)
+    > 66 |   console.error("[recon] Unexpected Dynamo error, mapping to 501", context);
+         |           ^
+      67 |   return notImplemented("Reconciliation not available for this project/environment");
+      68 | }
+      69 |
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:66:11)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:378:26)
+
+  console.error
+    [recon] Dynamo error {
+      projectId: 'P-5ae50ace',
+      month: undefined,
+      operation: 'getRecon',
+      errorName: 'TypeError',
+      errorMessage: 'Cannot read property of null',
+      error: TypeError: Cannot read property of null
+          at Object.setup (/workspace/financial-planning-u/services/finanzas-api/tests/unit/recon.handler.spec.ts:365:15)
+          at Object.<anonymous> (/workspace/financial-planning-u/services/finanzas-api/tests/unit/recon.handler.spec.ts:372:18)
+    }
+
+      35 |   
+      36 |   // Log full error context
+    > 37 |   console.error("[recon] Dynamo error", { ...context, errorName: name, errorMessage: message, error });
+         |           ^
+      38 |   
+      39 |   // Map known Dynamo errors to 501 (not configured/not implemented)
+      40 |   if (name === "ResourceNotFoundException") {
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:37:11)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:378:26)
+
+  console.error
+    [recon] Unexpected Dynamo error, mapping to 501 { projectId: 'P-5ae50ace', month: undefined, operation: 'getRecon' }
+
+      64 |   
+      65 |   // Any other unexpected error → 501 (per contract requirement)
+    > 66 |   console.error("[recon] Unexpected Dynamo error, mapping to 501", context);
+         |           ^
+      67 |   return notImplemented("Reconciliation not available for this project/environment");
+      68 | }
+      69 |
+
+      at mapDynamoErrorForRecon (src/handlers/recon.ts:66:11)
+      at handler (src/handlers/recon.ts:126:16)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:378:26)
+
+  console.warn
+    [recon] No baseline rubros found { projectId: 'P-5ae50ace' }
+
+      100 |         // If no baseline or rubros found, return 501 (not configured)
+      101 |         if (!baselineRubros || baselineRubros.length === 0) {
+    > 102 |           console.warn("[recon] No baseline rubros found", { projectId });
+          |                   ^
+      103 |           return notImplemented("Reconciliation not configured: no baseline found for project");
+      104 |         }
+      105 |         
+
+      at handler (src/handlers/recon.ts:102:19)
+      at Object.<anonymous> (tests/unit/recon.handler.spec.ts:396:24)
+
+PASS tests/unit/recon.handler.spec.ts
+  Recon Handler - Contract Tests
+    Input Validation (400 responses)
+      ✓ should return 400 when projectId is missing (2 ms)
+      ✓ should return 400 when projectId is empty string (1 ms)
+      ✓ should return 400 when month format is invalid
+      ✓ should return 405 for non-GET methods (1 ms)
+    Not Configured / Not Implemented (501 responses)
+      ✓ should return 501 when no baseline rubros are found (5 ms)
+      ✓ should return 501 when Dynamo ResourceNotFoundException occurs (13 ms)
+      ✓ should return 501 when Dynamo AccessDeniedException occurs (2 ms)
+      ✓ should return 501 when ValidationException with table error occurs (2 ms)
+      ✓ should return 501 when ThrottlingException occurs (2 ms)
+      ✓ should return 501 for unexpected errors (2 ms)
+    Success Cases (200 responses)
+      ✓ should return 200 with valid recon data when all data is present (4 ms)
+      ✓ should return 200 with empty data when project has baseline but no rubros yet (1 ms)
+      ✓ should accept project_id as alias for projectId (9 ms)
+      ✓ should handle custom months parameter (1 ms)
+    Contract Compliance
+      ✓ should NEVER return 500 status code (7 ms)
+      ✓ should return only allowed status codes: 200, 400, 401, 403, 405, or 501 (1 ms)
+
+PASS tests/unit/providers.handler.spec.ts
+  providers handler
+    ✓ returns providers from DynamoDB for FIN read-only role (2 ms)
+    ✓ rejects requests without a valid group
+    ✓ writes providers to the same Dynamo table used for reads (1 ms)
+
+PASS tests/unit/projects.spec.ts
+  Projects handler
+    ✓ derives id from pk and preserves fields (2 ms)
+    ✓ falls back to pk when no identifiers exist (1 ms)
+    Short code generation
+      ✓ should generate short code from long UUID projectId using baselineId
+      ✓ should generate short code from long UUID projectId without baselineId
+      ✓ should keep short projectId as-is (1 ms)
+      ✓ should preserve existing code field
+      ✓ should handle PROJ-YYYY-NNN format codes
+
+PASS tests/unit/projects.rbac.spec.ts
+  projects handler RBAC
+    ✓ allows SDMT/FIN users to list projects (3 ms)
+    ✓ rejects requests without valid groups (1 ms)
+
+PASS tests/unit/prefacturas.spec.ts
+  prefacturas handler
+    ✓ lists prefacturas for a project (2 ms)
+    ✓ requires projectId on GET (1 ms)
+    ✓ creates a prefactura when payload is valid (1 ms)
+    ✓ rejects invalid JSON payload (1 ms)
+    ✓ validates positive amount (1 ms)
+    ✓ requires documentKey
+
+PASS tests/unit/payroll.handler.spec.ts
+  Payroll Handler Tests
+    POST /payroll
+      ✓ should create a plan payroll entry (3 ms)
+      ✓ should reject invalid JSON (1 ms)
+      ✓ should reject missing required fields (11 ms)
+      ✓ should reject negative amount (1 ms)
+    GET /payroll
+      ✓ should return all payroll entries for a project (1 ms)
+      ✓ should filter by period (1 ms)
+      ✓ should require projectId
+      ✓ should reject invalid kind parameter
+    GET /payroll/summary
+      ✓ should return time series with breakdown (2 ms)
+      ✓ should require projectId (1 ms)
+    GET /payroll/dashboard
+      ✓ should return aggregated MOD projections (2 ms)
+      ✓ should include payrollTarget field based on plan MOD (3 ms)
+    Method routing
+      ✓ should reject unsupported methods (1 ms)
+      ✓ should reject wrong method for /payroll/summary
+
+PASS tests/unit/math.spec.ts
+  math basics
+    ✓ pro-rata forward split (1 ms)
+    ✓ pro-rata 3-month split with rounding (1 ms)
+    ✓ coverage vs payroll
+    ✓ coverage percentage calculation (7 ms)
+
+PASS tests/unit/metrics.spec.ts
+  calculateLaborVsIndirect
+    ✓ should calculate labor share correctly when both MOD and indirect costs exist (1 ms)
+    ✓ should return 1.0 (100%) when only MOD exists
+    ✓ should return 0.0 (0%) when only indirect costs exist (1 ms)
+    ✓ should return undefined when both MOD and indirect are missing or zero (1 ms)
+    ✓ should handle zero values correctly
+    ✓ should calculate all three kinds independently (1 ms)
+    ✓ should use plan indirect for forecast when forecast indirect is missing (1 ms)
+  aggregateLaborVsIndirect
+    ✓ should sum multiple metrics correctly (1 ms)
+    ✓ should handle empty array
+    ✓ should handle metrics with missing values (1 ms)
+    ✓ should aggregate across all three kinds (1 ms)
+
+  console.info
+    InvoicesFn validate line item { projectId: 'PROJ-1', lineItemId: 'LINE-1' }
+
+      at createInvoice (src/handlers/invoices/app.ts:254:11)
+
+  console.info
+    InvoicesFn creating invoice {
+      projectId: 'PROJ-1',
+      lineItemId: 'LINE-1',
+      invoiceId: 'INV-f4b8b6f2',
+      amount: 1500,
+      month: 3,
+      documentKey: 'docs/123'
+    }
+
+      at createInvoice (src/handlers/invoices/app.ts:321:11)
+
+  console.error
+    Invoices table not found {
+      projectId: 'PROJ-1',
+      operation: 'listInvoices',
+      tableName: 'prefacturas-table',
+      error: { name: 'ResourceNotFoundException' }
+    }
+
+      136 |
+      137 |   if (name === "ResourceNotFoundException") {
+    > 138 |     console.error("Invoices table not found", failureContext);
+          |             ^
+      139 |     return bad("Invoices table not found", 503);
+      140 |   }
+      141 |
+
+      at mapDynamoError (src/handlers/invoices/app.ts:138:13)
+      at listInvoices (src/handlers/invoices/app.ts:186:12)
+
+  console.info
+    InvoicesFn validate line item { projectId: 'PROJ-1', lineItemId: 'L-1' }
+
+      at createInvoice (src/handlers/invoices/app.ts:254:11)
+
+  console.error
+    Invoices table not found (validation) {
+      projectId: 'PROJ-1',
+      lineItemId: 'L-1',
+      operation: 'validateLineItem',
+      tableName: 'prefacturas-table',
+      error: {
+        name: 'ValidationException',
+        message: 'Requested resource not found: Table: finz_prefacturas not found'
+      }
+    }
+
+      150 |     /Requested resource not found|non-existent table/i.test(message)
+      151 |   ) {
+    > 152 |     console.error("Invoices table not found (validation)", failureContext);
+          |             ^
+      153 |     return bad("Invoices table not found", 503);
+      154 |   }
+      155 |
+
+      at mapDynamoError (src/handlers/invoices/app.ts:152:13)
+      at createInvoice (src/handlers/invoices/app.ts:272:12)
+
+PASS tests/unit/invoices-app.spec.ts
+  InvoicesFn handler
+    ✓ lists invoices for a project (3 ms)
+    ✓ fetches a single invoice (7 ms)
+    ✓ creates an invoice with validated payload (7 ms)
+    ✓ rejects invoices missing required fields (1 ms)
+    ✓ maps Dynamo access issues to 503 (2 ms)
+    ✓ maps Dynamo validation missing table errors to 503 (2 ms)
+    ✓ updates invoice status (2 ms)
+    ✓ validates project id (1 ms)
+
+PASS tests/unit/handoff.spec.ts
+  Handoff Handler
+    Auth and RBAC
+      ✓ should require authentication (1 ms)
+      ✓ should allow PM and SDT to write (1 ms)
+      ✓ should allow FIN and AUD to read (1 ms)
+    Idempotency
+      ✓ should require X-Idempotency-Key header for POST
+      ✓ should reject conflicting payload with same idempotency key (1 ms)
+    Version Management
+      ✓ should increment version on update
+      ✓ should return 412 on version mismatch
+    API Contract Compliance
+      ✓ should return handoffId in response body for successful handoff (201) (3 ms)
+      ✓ should set baseline_status to 'accepted' when force_accept is true (2 ms)
+
+PASS tests/unit/handoff-data-mapping.spec.ts
+  Handoff Data Mapping
+    Project name extraction from baseline
+      ✓ should extract project_name from baseline.payload.project_name (1 ms)
+      ✓ should extract from baseline top-level if payload is missing
+      ✓ should fallback to request body values when baseline is missing
+    Project code generation
+      ✓ should generate short code from baseline ID for long UUID projectId
+      ✓ should keep short projectId as-is
+      ✓ should not use long projectId as code
+    SDMT METADATA field mapping
+      ✓ should set both Spanish and English field names (1 ms)
+      ✓ should preserve empty client when not provided
+    Integration: Complete handoff data flow
+      ✓ should correctly map all fields from baseline to SDMT project (2 ms)
+    API Response Contract
+      ✓ should always include handoffId in response for POST /projects/{projectId}/handoff (1 ms)
+      ✓ should include handoffId even when project already exists with baseline
+
+  console.info
+    [forecast] params { projectId: 'PROJ-1', months: 1 }
+
+      at handler (src/handlers/forecast.ts:75:13)
+
+  console.warn
+    [forecast] No rubros found for project {
+      projectId: 'PROJ-1',
+      months: 1,
+      note: 'Project may not have an active baseline or rubros may not be seeded yet'
+    }
+
+      85 |       // Log baseline information for debugging
+      86 |       if (rubrosCount === 0) {
+    > 87 |         console.warn("[forecast] No rubros found for project", {
+         |                 ^
+      88 |           projectId,
+      89 |           months,
+      90 |           note: "Project may not have an active baseline or rubros may not be seeded yet"
+
+      at handler (src/handlers/forecast.ts:87:17)
+      at Object.<anonymous> (tests/unit/forecast.spec.ts:137:23)
+
+  console.info
+    [forecast] response stats {
+      projectId: 'PROJ-1',
+      months: 1,
+      allocationsCount: 2,
+      payrollCount: 1,
+      rubrosCount: 0,
+      forecastCount: 2
+    }
+
+      at handler (src/handlers/forecast.ts:274:13)
+
+  console.info
+    [forecast] params { projectId: 'PROJ-2', months: 2 }
+
+      at handler (src/handlers/forecast.ts:75:13)
+
+  console.info
+    [forecast] Rubros loaded { projectId: 'PROJ-2', rubrosCount: 1, months: 2 }
+
+      at handler (src/handlers/forecast.ts:93:17)
+
+  console.info
+    [forecast] response stats {
+      projectId: 'PROJ-2',
+      months: 2,
+      allocationsCount: 0,
+      payrollCount: 0,
+      rubrosCount: 1,
+      forecastCount: 2
+    }
+
+      at handler (src/handlers/forecast.ts:274:13)
+
+  console.info
+    [forecast] params { projectId: 'PROJ-EMPTY', months: 3 }
+
+      at handler (src/handlers/forecast.ts:75:13)
+
+  console.warn
+    [forecast] No rubros found for project {
+      projectId: 'PROJ-EMPTY',
+      months: 3,
+      note: 'Project may not have an active baseline or rubros may not be seeded yet'
+    }
+
+      85 |       // Log baseline information for debugging
+      86 |       if (rubrosCount === 0) {
+    > 87 |         console.warn("[forecast] No rubros found for project", {
+         |                 ^
+      88 |           projectId,
+      89 |           months,
+      90 |           note: "Project may not have an active baseline or rubros may not be seeded yet"
+
+      at handler (src/handlers/forecast.ts:87:17)
+      at Object.<anonymous> (tests/unit/forecast.spec.ts:219:23)
+
+  console.info
+    [forecast] response stats {
+      projectId: 'PROJ-EMPTY',
+      months: 3,
+      allocationsCount: 0,
+      payrollCount: 0,
+      rubrosCount: 0,
+      forecastCount: 0
+    }
+
+      at handler (src/handlers/forecast.ts:274:13)
+
+  console.info
+    [forecast] params { projectId: 'PROJ-1', months: 12 }
+
+      at handler (src/handlers/forecast.ts:75:13)
+
+  console.warn
+    [forecast] No rubros found for project {
+      projectId: 'PROJ-1',
+      months: 12,
+      note: 'Project may not have an active baseline or rubros may not be seeded yet'
+    }
+
+      85 |       // Log baseline information for debugging
+      86 |       if (rubrosCount === 0) {
+    > 87 |         console.warn("[forecast] No rubros found for project", {
+         |                 ^
+      88 |           projectId,
+      89 |           months,
+      90 |           note: "Project may not have an active baseline or rubros may not be seeded yet"
+
+      at handler (src/handlers/forecast.ts:87:17)
+      at Object.<anonymous> (tests/unit/forecast.spec.ts:238:23)
+
+  console.warn
+    [forecast] failed to query data {
+      projectId: 'PROJ-1',
+      months: 12,
+      error: Error: boom
+          at Object.<anonymous> (/workspace/financial-planning-u/services/finanzas-api/tests/unit/forecast.spec.ts:235:43)
+          at Promise.then.completed (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:121:9)
+          at run (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/workspace/financial-planning-u/services/finanzas-api/node_modules/jest-runner/build/runTest.js:444:34)
+    }
+
+      4 |   if (process.env.NODE_ENV === "test") {
+      5 |     // In tests, downgrade to warning to avoid noisy console.error output while still surfacing context.
+    > 6 |     console.warn(...args);
+        |             ^
+      7 |     return;
+      8 |   }
+      9 |
+
+      at logError (src/utils/logging.ts:6:13)
+      at handler (src/handlers/forecast.ts:134:15)
+      at Object.<anonymous> (tests/unit/forecast.spec.ts:238:23)
+
+  console.info
+    [forecast] params { projectId: 'PROJ-LEGACY', months: 2 }
+
+      at handler (src/handlers/forecast.ts:75:13)
+
+  console.info
+    [forecast] Rubros loaded { projectId: 'PROJ-LEGACY', rubrosCount: 1, months: 2 }
+
+      at handler (src/handlers/forecast.ts:93:17)
+
+  console.info
+    [forecast] response stats {
+      projectId: 'PROJ-LEGACY',
+      months: 2,
+      allocationsCount: 0,
+      payrollCount: 0,
+      rubrosCount: 1,
+      forecastCount: 2
+    }
+
+      at handler (src/handlers/forecast.ts:274:13)
+
+PASS tests/unit/forecast.spec.ts
+  forecast handler
+    ✓ rejects requests without projectId (2 ms)
+    ✓ validates months parameter (1 ms)
+    ✓ merges allocations and payroll into forecast cells (7 ms)
+    ✓ derives forecast amounts from rubro attachments when allocations are empty (3 ms)
+    ✓ returns an empty data array when no allocations or payroll exist (3 ms)
+    ✓ returns 500 when DynamoDB queries fail (11 ms)
+    ✓ derives forecast from rubros with top-level baselineId (legacy seed data) (2 ms)
+
+  console.info
+    Changes table resolved { table: 'changes-table' }
+
+      at listChanges (src/handlers/changes.ts:85:11)
+
+  console.info
+    Changes table resolved { table: 'changes-table' }
+
+      at createChange (src/handlers/changes.ts:191:11)
+
+  console.info
+    Changes table resolved { table: 'changes-table' }
+
+      at createChange (src/handlers/changes.ts:191:11)
+
+  console.info
+    Changes table resolved { table: 'changes-table' }
+
+      at listChanges (src/handlers/changes.ts:85:11)
+
+  console.warn
+    Changes table not found {
+      table: 'changes-table',
+      error: { name: 'ResourceNotFoundException' }
+    }
+
+      4 |   if (process.env.NODE_ENV === "test") {
+      5 |     // In tests, downgrade to warning to avoid noisy console.error output while still surfacing context.
+    > 6 |     console.warn(...args);
+        |             ^
+      7 |     return;
+      8 |   }
+      9 |
+
+      at logError (src/utils/logging.ts:6:13)
+      at listChanges (src/handlers/changes.ts:102:15)
+
+PASS tests/unit/changes.spec.ts
+  changes handler
+    ✓ requires projectId (2 ms)
+    ✓ lists changes for a project (5 ms)
+    ✓ validates JSON on create (1 ms)
+    ✓ validates required fields on create
+    ✓ creates a change request (1 ms)
+    ✓ returns 409 when a duplicate change is detected (1 ms)
+    ✓ approves a change request (2 ms)
+    ✓ rejects a change request with required comment (1 ms)
+    ✓ returns validation error for invalid approval payload
+    ✓ returns 404 for missing change on approval (1 ms)
+    ✓ surfaced missing table errors with a descriptive 500 (2 ms)
+
+PASS tests/unit/canonical-taxonomy.spec.ts
+  canonical-taxonomy
+    getCanonicalRubroId
+      ✓ should return canonical ID unchanged (1 ms)
+      ✓ should map legacy RUBRO-### format to canonical
+      ✓ should map legacy RB#### format to canonical (1 ms)
+      ✓ should map legacy seed format to canonical
+      ✓ should return unknown ID unchanged with warning (1 ms)
+    isValidRubroId
+      ✓ should validate canonical IDs (1 ms)
+      ✓ should validate legacy IDs
+      ✓ should reject unknown IDs
+    isLegacyRubroId
+      ✓ should identify legacy IDs
+      ✓ should not identify canonical IDs as legacy (1 ms)
+      ✓ should not identify unknown IDs as legacy
+    normalizeRubroId
+      ✓ should normalize canonical ID without warnings (1 ms)
+      ✓ should normalize legacy ID with warning
+      ✓ should handle unknown ID with warning (1 ms)
+    taxonomy completeness
+      ✓ should have 72 canonical IDs
+      ✓ should have all expected MOD rubros (1 ms)
+      ✓ should have legacy mapping for all RB#### entries (RB0001-RB0071 plus extended IDs) (11 ms)
+      ✓ should have legacy mapping for old RUBRO-### format (1 ms)
+      ✓ should have legacy mapping for seed format
+    category coverage
+      ✓ should include rubros from all expected categories (1 ms)
+
+PASS tests/unit/baseline-sdmt.spec.ts
+  Baseline → SDMT Alignment
+    filterRubrosByBaseline
+      ✓ should filter rubros by baseline_id in metadata (1 ms)
+      ✓ should return all rubros if baselineId is null (1 ms)
+      ✓ should exclude rubros without baseline_id
+      ✓ should support rubros with top-level baselineId (legacy seed data) (1 ms)
+      ✓ should prefer metadata.baseline_id over top-level baselineId
+    calculateRubrosTotalCost
+      ✓ should sum total_cost from all rubros (1 ms)
+      ✓ should handle zero and undefined costs
+      ✓ should return 0 for empty array
+    generateForecastGrid
+      ✓ should generate monthly grid for recurring items (1 ms)
+      ✓ should generate single entry for one-time items (1 ms)
+      ✓ should respect month boundaries
+      ✓ should handle multiple rubros (1 ms)
+    Integration: Multiple Baselines Scenario
+      ✓ should prevent baseline mixing in catalog totals (1 ms)
+
+PASS tests/unit/baseline-rubros-materialization.spec.ts
+  Baseline → Rubros Materialization with Canonical Taxonomy
+    Labor estimates → rubros
+      ✓ should materialize labor estimate with canonical MOD-LEAD rubroId (2 ms)
+      ✓ should materialize multiple labor estimates with different canonical codes (1 ms)
+      ✓ should handle labor estimate without rubroId (backward compatibility) (1 ms)
+    Non-labor estimates → rubros
+      ✓ should materialize non-labor estimate with canonical GSV-REU rubroId (1 ms)
+      ✓ should materialize one-time non-labor estimate (7 ms)
+      ✓ should materialize mixed recurring and one-time estimates (1 ms)
+    Combined labor + non-labor materialization
+      ✓ should materialize complete baseline with labor and non-labor (2 ms)
+
+PASS tests/unit/avp.spec.ts
+  AVP Helper Library
+    parseGroupsFromJWT
+      ✓ should parse groups from valid JWT token (1 ms)
+      ✓ should handle groups as comma-separated string (1 ms)
+      ✓ should return empty array for token without groups
+      ✓ should return empty array for invalid token format
+      ✓ should handle malformed JWT gracefully
+    extractIdToken
+      ✓ should extract token from Authorization header (1 ms)
+      ✓ should extract token from lowercase authorization header
+      ✓ should handle mixed case Bearer
+      ✓ should return null when no authorization header
+      ✓ should return null for empty authorization header
+      ✓ should handle authorization header without Bearer prefix
+    buildAVPContext
+      ✓ should build context with all required attributes
+      ✓ should omit project_id when not provided (1 ms)
+      ✓ should use STAGE_NAME environment variable if available
+      ✓ should use STAGE environment variable as fallback
+      ✓ should default to dev environment
+      ✓ should handle empty groups array
+
+PASS tests/unit/adjustments.handler.spec.ts
+  adjustments handler
+    ✓ returns seeded adjustments for FIN read-only role (2 ms)
+    ✓ allows SDT to create a new adjustment and returns it (1 ms)
+
+PASS tests/unit/auth.spec.ts
+  Auth Helper
+    Group Extraction
+      ✓ should extract groups from array format (1 ms)
+      ✓ should extract groups from comma-separated string (1 ms)
+      ✓ should normalize groups to uppercase
+    RBAC - Write Permissions
+      ✓ allows PM and PMO patterns to write (1 ms)
+      ✓ allows SDT/SDMT/FIN/AUD to write as SDMT role (1 ms)
+      ✓ blocks vendor-only groups from writing
+    RBAC - Read Permissions
+      ✓ allows PMO/SDMT/VENDOR/EXEC derived groups to read (1 ms)
+      ✓ denies unknown groups
+      ✓ denies authenticated users without groups (no default EXEC_RO)
+      ✓ allows users with explicit EXEC_RO group to read (1 ms)
+      ✓ allows users with EXEC-related groups to read as EXEC_RO (1 ms)
+
+PASS tests/unit/acceptBaseline.spec.ts
+  AcceptBaseline Handler
+    Baseline Acceptance
+      ✓ should accept a baseline and update project metadata (2 ms)
+      ✓ should return 404 if project does not exist (1 ms)
+      ✓ should return 400 if baseline_id does not match project (1 ms)
+      ✓ should require baseline_id in request body
+
+  console.warn
+    ProjectsFn put failed {
+      projectId: 'P-399bedd2-20f5-42f3-8826-42f88e30e772',
+      errorName: 'AccessDeniedException',
+      message: 'AccessDenied'
+    }
+
+      4 |   if (process.env.NODE_ENV === "test") {
+      5 |     // In tests, downgrade to warning to avoid noisy console.error output while still surfacing context.
+    > 6 |     console.warn(...args);
+        |             ^
+      7 |     return;
+      8 |   }
+      9 |
+
+      at logError (src/utils/logging.ts:6:13)
+      at handler (src/handlers/projects.ts:1145:17)
+      at Object.<anonymous> (tests/projects.spec.ts:145:22)
+
+  console.warn
+    DynamoDB access denied { table: 'test-projects', method: 'POST' }
+
+      4 |   if (process.env.NODE_ENV === "test") {
+      5 |     // In tests, downgrade to warning to avoid noisy console.error output while still surfacing context.
+    > 6 |     console.warn(...args);
+        |             ^
+      7 |     return;
+      8 |   }
+      9 |
+
+      at logError (src/utils/logging.ts:6:13)
+      at handler (src/handlers/projects.ts:1265:15)
+      at Object.<anonymous> (tests/projects.spec.ts:145:22)
+
+PASS tests/projects.spec.ts
+  projects handler POST
+    ✓ accepts the UI payload, normalizes it, and writes to Dynamo + audit log (3 ms)
+    ✓ returns a 422 with validation details for invalid payloads instead of a 500 (5 ms)
+    ✓ returns a 500 when DynamoDB rejects the write (e.g., IAM/AccessDenied) (8 ms)
+
+Test Suites: 31 passed, 31 total
+Tests:       297 passed, 297 total
+Snapshots:   0 total
+Time:        4.432 s
+Ran all test suites.

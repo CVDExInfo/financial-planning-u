@@ -9,6 +9,11 @@ sam build
 sam local start-api --env-vars env.dev.json
 ```
 
+## Ejecutar pruebas
+- Las pruebas de Jest se ejecutan en modo CommonJS usando `ts-jest` para evitar problemas de `exports is not defined` en entornos ESM.
+- Comando recomendado: `npm test` (internamente ejecuta `jest --runInBand`).
+- Para volver a probar el modo ESM en el futuro, cambie el preset en `jest.config.cjs` a `ts-jest/presets/default-esm` y habilite `useESM: true` en el transform, luego ejecute Jest con `node --experimental-vm-modules`.
+
 ## Contratos y referencias
 - Contratos de endpoints: consulte `docs/finanzas/api-contracts.md`.
 - Arquitectura y tablas: consulte `docs/finanzas/architecture.md`.
