@@ -1,7 +1,7 @@
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { ddb, tableName } from "../lib/dynamo";
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
-import { cors } from "../lib/http";
+import { cors, noContent } from "../lib/http";
 import { queryProjectRubros } from "../lib/baseline-sdmt";
 
 /**
@@ -50,6 +50,12 @@ function decodeNextToken(token: string | undefined) {
 }
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
+  const method = event.requestContext.http.method?.toUpperCase?.();
+
+  if (method === "OPTIONS") {
+    return noContent();
+  }
+
   // Minimal enriched fallback to avoid 500 while DDB/Tables are not ready
   const FALLBACK: RubroItem[] = [
     {

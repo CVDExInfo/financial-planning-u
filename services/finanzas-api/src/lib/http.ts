@@ -17,6 +17,33 @@ export const cors = {
 };
 
 /**
+ * Merge standard CORS headers with any existing headers on the response.
+ *
+ * This keeps caller-provided headers (e.g., Content-Type) while guaranteeing
+ * that the Access-Control-* headers are always present on the response.
+ */
+export function mergeCorsHeaders(
+  existingHeaders: Record<string, string> = {}
+): Record<string, string> {
+  return {
+    ...existingHeaders,
+    ...cors,
+  };
+}
+
+/**
+ * Attach CORS headers to an existing response object.
+ */
+export function withCors<T extends { headers?: Record<string, string> }>(
+  response: T
+): T {
+  return {
+    ...response,
+    headers: mergeCorsHeaders(response.headers ?? {}),
+  };
+}
+
+/**
  * Success response with CORS headers
  */
 export function ok<T>(data: T, statusCode = 200) {
