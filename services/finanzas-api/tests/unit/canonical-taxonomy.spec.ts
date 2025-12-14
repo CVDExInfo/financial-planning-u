@@ -37,6 +37,16 @@ describe("canonical-taxonomy", () => {
       expect(getCanonicalRubroId("RB0071")).toBe("INN-AUT");
     });
 
+    it("should map extended RB legacy IDs without warnings", () => {
+      const consoleSpy = jest.spyOn(console, "warn").mockImplementation();
+
+      expect(getCanonicalRubroId("RB0075")).toBe("INF-RACK");
+      expect(getCanonicalRubroId("RB0080")).toBe("INF-BCK");
+      expect(consoleSpy).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
     it("should map legacy seed format to canonical", () => {
       expect(getCanonicalRubroId("RUBRO-SENIOR-DEV")).toBe("MOD-LEAD");
       expect(getCanonicalRubroId("RUBRO-AWS-INFRA")).toBe("INF-CLOUD");
