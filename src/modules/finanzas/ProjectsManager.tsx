@@ -123,7 +123,7 @@ export default function ProjectsManager() {
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
   
   // Get current user email for SDM auto-fill
-  const { user } = useAuth();
+  useAuth();
 
   // Form state
   const [name, setName] = React.useState("");
