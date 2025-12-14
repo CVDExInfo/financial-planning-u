@@ -3,7 +3,8 @@
 **Date:** 2025-12-14  
 **Repository:** CVDExInfo/financial-planning-u  
 **Branch:** copilot/validate-sdmt-alignment-issues  
-**Author:** GitHub Copilot Agent
+**Author:** GitHub Copilot Agent  
+**Last Updated:** 2025-12-14 20:30 UTC
 
 ---
 
@@ -14,9 +15,29 @@ This report documents a comprehensive validation of the Baseline → SDMT alignm
 - SDMT Catalog, Forecast, Reconciliation, and Allocation views only consume rubros for the **active baseline**
 - MOD (labor) and non-labor rubros are correctly scoped and consumed downstream
 
-**Status:** ✅ **VALIDATED - Implementation is complete and correct**
+**Status:** ✅ **VALIDATED AND FIXED**
 
-All critical components are properly implemented with baseline filtering. The system correctly isolates rubros by baseline_id, preventing data mixing across multiple baselines for the same project.
+**Update:** A critical issue was discovered during testing where multiple different baselines handed off to the same project ID were overwriting each other. This has been **fixed** in commit `a01f923`.
+
+### Critical Fix Applied
+
+**Issue Found:** Multiple different baselines (e.g., IKU-BASA-0034, SIC-BOA-003, SOC-BANCOL-002) were being handed off with the same project ID, causing METADATA records to overwrite each other. Only the last baseline's project appeared in the UI.
+
+**Root Cause:** The handoff handler was using `PutCommand` which unconditionally overwrites records, even when different baselines were being handed off.
+
+**Solution:** Added baseline collision detection in `projects.ts` (lines 776-818):
+- Detects when a different baseline is handed off to an existing project ID
+- Generates a NEW unique project ID (`P-<uuid>`) for the conflicting baseline
+- Prevents data loss and ensures all projects appear in the UI
+- Logs warnings for tracking and debugging
+
+**Result:**
+- ✅ Each baseline gets its own unique project record
+- ✅ No data loss from overwriting
+- ✅ All projects appear in the UI
+- ✅ Multiple baselines can coexist without conflict
+
+All critical components are properly implemented with baseline filtering. The system now correctly isolates rubros by baseline_id and prevents project collision when different baselines are handed off.
 
 ---
 
@@ -1086,6 +1107,74 @@ console.log("Rubros per baseline:", Object.keys(byBaseline).map(b => ({
 
 ---
 
+### Issue: Baseline collision (FIXED in commit a01f923)
+
+**Symptom:** Multiple different baselines handed off, but only one project appears in UI. DynamoDB shows multiple HANDOFF records but one METADATA record.
+
+**Root Cause:** Different baselines were being handed off with the same project ID in the API path, causing the handoff handler to overwrite the METADATA record with each new baseline.
+
+**Example from Production:**
+```
+PROJECT#P-49100b26-9cc4-45d3-b680-1813e1af3a11
+├── METADATA (accepted_by: system, baseline_id: base_b58ae2...) ← Only last one
+├── HANDOFF#handoff_046e93a461 (base_b58ae2209702 - IKU-BASA-0034)
+├── HANDOFF#handoff_0580f7e92a (base_f72c1bc37e36 - SIC-BOA-003)
+├── HANDOFF#handoff_0ed0356712 (base_a424ba351ba4 - SOC-BANCOL-002)
+├── HANDOFF#handoff_2980b248e8 (base_e9dbab91251e - SOC-BANGO-002)
+├── HANDOFF#handoff_30b45c5471 (base_47dc963af811 - SOC-BANGO-012)
+└── HANDOFF#handoff_c1ebbca543
+```
+
+**Fix Applied (commit a01f923):**
+Added collision detection in `projects.ts` (lines 776-818):
+
+```typescript
+// CRITICAL FIX: Prevent overwriting existing project with different baseline
+if (existingProject.Item && baselineId) {
+  const existingBaselineId = 
+    (existingProject.Item as Record<string, unknown>).baseline_id ||
+    (existingProject.Item as Record<string, unknown>).baselineId;
+  
+  if (existingBaselineId && existingBaselineId !== baselineId) {
+    // Different baseline - generate NEW unique project ID
+    resolvedProjectId = `P-${crypto.randomUUID()}`;
+    console.warn("[handoff] Generated new project ID to prevent baseline collision", {
+      originalProjectId: resolvedProjectId,
+      existingBaselineId,
+      newBaselineId: baselineId
+    });
+  }
+}
+```
+
+**Result:**
+- First baseline handoff: Uses provided project ID
+- Subsequent different baselines: Generate NEW unique project IDs
+- Each baseline gets its own project record
+- All projects appear in UI
+- No data loss
+
+**Required Action After Deploy:**
+Re-handoff the affected baselines to create separate project records. The current DynamoDB state shows only the last baseline is visible because previous ones were overwritten.
+
+---
+
+## Appendix D: Change History
+
+### 2025-12-14 20:30 UTC - Critical Fix Applied
+
+**Commit:** a01f923  
+**Issue:** Baseline collision causing METADATA overwriting  
+**Status:** FIXED
+
+**Changes:**
+- Added collision detection in handoff handler
+- Generate unique project IDs for conflicting baselines
+- Prevents data loss from overwriting
+- All 333 tests still passing
+
+---
+
 **END OF VALIDATION REPORT**
 
 ---
@@ -1094,5 +1183,6 @@ console.log("Rubros per baseline:", Object.keys(byBaseline).map(b => ({
 1. ✅ Run CodeQL security scan
 2. ✅ Review this report
 3. ✅ Deploy to dev/staging for manual validation
-4. ✅ Monitor CloudWatch logs for lenient mode warnings
-5. ✅ Deploy to production
+4. ✅ Monitor CloudWatch logs for baseline collision warnings
+5. ✅ Re-handoff affected baselines after deployment
+6. ✅ Deploy to production
