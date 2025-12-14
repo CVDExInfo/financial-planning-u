@@ -9,7 +9,7 @@
  */
 
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
-import { ok, bad, serverError, fromAuthError } from "../lib/http";
+import { ok, bad, serverError, fromAuthError, noContent } from "../lib/http";
 import { ensureCanRead } from "../lib/auth";
 import { ddb, tableName, QueryCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
@@ -40,6 +40,12 @@ const parseMonths = (monthsStr?: string | null) => {
 export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
+  const method = event.requestContext.http.method?.toUpperCase?.();
+
+  if (method === "OPTIONS") {
+    return noContent();
+  }
+
   let projectId: string | undefined;
   let months: number | null = null;
   let allocationsCount: number | undefined;
