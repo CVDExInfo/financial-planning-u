@@ -8,7 +8,7 @@ import {
   ScanCommand,
 } from "../lib/dynamo";
 import { ensureCanWrite, ensureCanRead, getUserEmail } from "../lib/auth";
-import { bad, ok, serverError } from "../lib/http";
+import { bad, ok, serverError, noContent, mergeCorsHeaders } from "../lib/http";
 import { logError } from "../utils/logging";
 
 const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
@@ -300,9 +300,9 @@ export const createBaseline = async (
         statusCode,
         body:
           typeof body === "string" ? body : JSON.stringify(body || "Unauthorized"),
-        headers: {
+        headers: mergeCorsHeaders({
           "Content-Type": "application/json",
-        },
+        }),
       };
     }
 
@@ -381,14 +381,19 @@ export const listBaselines = async (
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  const routeKey =
-    (event as { requestContext?: { routeKey?: string } }).requestContext
-      ?.routeKey || "";
   const method =
     event.httpMethod?.toUpperCase() ||
     (event as { requestContext?: { http?: { method?: string } } }).requestContext
       ?.http?.method?.toUpperCase() ||
     "";
+
+  if (method === "OPTIONS") {
+    return noContent();
+  }
+
+  const routeKey =
+    (event as { requestContext?: { routeKey?: string } }).requestContext
+      ?.routeKey || "";
   const rawPath =
     (event as { rawPath?: string }).rawPath || event.path || event.resource || "";
 

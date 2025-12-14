@@ -1,5 +1,6 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth.js";
+import { bad, noContent, ok, serverError, fromAuthError } from "../lib/http.js";
 
 type Adjustment = {
   id: string;
@@ -47,14 +48,6 @@ function parseQueryParam(event: APIGatewayProxyEventV2, key: string): string | u
   return event.queryStringParameters?.[key] || event.queryStringParameters?.[key.replace("_", "")] || undefined;
 }
 
-function jsonResponse(statusCode: number, payload: unknown) {
-  return {
-    statusCode,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  };
-}
-
 function normalizeLimit(limit?: string | number | null): number {
   const parsed = typeof limit === "string" ? parseInt(limit, 10) : limit ?? 50;
   if (!parsed || Number.isNaN(parsed) || parsed <= 0) return 50;
@@ -72,7 +65,7 @@ async function listAdjustments(event: APIGatewayProxyEventV2) {
     ? adjustmentStore.filter((item) => item.project_id === projectId)
     : adjustmentStore;
 
-  return jsonResponse(200, {
+  return ok({
     data: filtered.slice(0, limit),
     total: filtered.length,
   });
@@ -82,20 +75,20 @@ async function createAdjustment(event: APIGatewayProxyEventV2) {
   await ensureCanWrite(event as any);
 
   if (!event.body) {
-    return jsonResponse(400, { message: "Missing request body" });
+    return bad("Missing request body", 400);
   }
 
   let payload: Partial<Adjustment> & { monto?: unknown };
   try {
     payload = typeof event.body === "string" ? JSON.parse(event.body) : (event.body as any);
   } catch (parseErr) {
-    return jsonResponse(400, { message: "Invalid JSON body", detail: String(parseErr) });
+    return bad({ message: "Invalid JSON body", detail: String(parseErr) }, 400);
   }
 
   const required = ["project_id", "tipo", "monto", "fecha_inicio", "solicitado_por"] as const;
   const missing = required.filter((field) => !(payload as any)?.[field]);
   if (missing.length) {
-    return jsonResponse(400, { message: `Missing fields: ${missing.join(", ")}` });
+    return bad({ message: `Missing fields: ${missing.join(", ")}` }, 400);
   }
 
   const now = new Date().toISOString();
@@ -121,12 +114,16 @@ async function createAdjustment(event: APIGatewayProxyEventV2) {
 
   adjustmentStore.unshift(newAdjustment);
 
-  return jsonResponse(201, newAdjustment);
+  return ok(newAdjustment, 201);
 }
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
     const method = event.requestContext.http.method;
+
+    if (method === "OPTIONS") {
+      return noContent();
+    }
 
     if (method === "POST") {
       return await createAdjustment(event);
@@ -136,15 +133,14 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return await listAdjustments(event);
     }
 
-    return jsonResponse(405, { message: "Method not allowed" });
+    return bad("Method not allowed", 405);
   } catch (err: unknown) {
-    if (err && typeof err === "object" && "statusCode" in err) {
-      const e = err as { statusCode?: number; body?: string };
-      return jsonResponse(e.statusCode || 500, {
-        error: e.body || "error",
-      });
+    const authResponse = fromAuthError(err);
+    if (authResponse) {
+      return authResponse;
     }
+
     console.error("/adjustments unhandled error", err);
-    return jsonResponse(500, { error: "internal error" });
+    return serverError("internal error");
   }
 };
