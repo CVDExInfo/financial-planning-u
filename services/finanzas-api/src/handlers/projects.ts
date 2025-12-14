@@ -1065,11 +1065,26 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       const userContext = await getUserContext(event);
       
       // If user is SDM, set them as the project's SDM manager
-      // If user is SDMT/PMO, they can specify sdmManagerEmail in the payload
-      const sdmManagerEmail = userContext.isSDM 
-        ? userContext.email
-        : (body.sdm_manager_email as string | undefined) || 
-          (body.sdmManagerEmail as string | undefined);
+      // If user is SDMT/PMO/ADMIN, they MUST specify sdmManagerEmail in the payload
+      let sdmManagerEmail: string | undefined;
+      
+      if (userContext.isSDM) {
+        sdmManagerEmail = userContext.email;
+      } else if (userContext.isPMO || userContext.isSDMT || userContext.isAdmin) {
+        sdmManagerEmail = (body.sdm_manager_email as string | undefined) || 
+                         (body.sdmManagerEmail as string | undefined);
+        
+        // REQUIREMENT: PMO/SDMT/ADMIN must specify SDM assignment
+        if (!sdmManagerEmail) {
+          return bad(
+            "sdm_manager_email is required when creating projects. Please specify which SDM will manage this project.",
+            400
+          );
+        }
+      } else {
+        // Other roles shouldn't reach here due to ensureCanWrite, but be defensive
+        return bad("Insufficient permissions to create projects", 403);
+      }
 
       const item = {
         pk: `PROJECT#${id}`,
@@ -1098,8 +1113,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         created_at: now,
         updated_at: now,
         created_by: createdBy,
-        // Set SDM manager email for ABAC
-        ...(sdmManagerEmail ? { sdm_manager_email: sdmManagerEmail } : {}),
+        // CRITICAL: Always set SDM manager email for ABAC visibility
+        sdm_manager_email: sdmManagerEmail,
       };
 
       try {
@@ -1236,19 +1251,22 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       });
     } else if (userContext.isSDM) {
       // SDM users only see projects they manage
+      // RBAC FIX: Include created_by as fallback to prevent "orphaned" projects
+      // Match on: sdm_manager_email OR accepted_by OR aceptado_por OR created_by
       // For now, use scan with filter until GSI is deployed
       // TODO: Once GSI on sdmManagerEmail is deployed, use Query instead of Scan
       rawProjects = await scanProjects({
         TableName: tableName("projects"),
         FilterExpression:
           "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta) AND " +
-          "(#sdmEmail = :userEmail OR #acceptedBy = :userEmail OR #aceptadoPor = :userEmail)",
+          "(#sdmEmail = :userEmail OR #acceptedBy = :userEmail OR #aceptadoPor = :userEmail OR #createdBy = :userEmail)",
         ExpressionAttributeNames: {
           "#pk": "pk",
           "#sk": "sk",
           "#sdmEmail": "sdm_manager_email",
           "#acceptedBy": "accepted_by",
           "#aceptadoPor": "aceptado_por",
+          "#createdBy": "created_by",
         },
         ExpressionAttributeValues: {
           ":pkPrefix": "PROJECT#",
@@ -1262,6 +1280,37 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         sdmEmail: userContext.email,
         projectCount: rawProjects.length,
       });
+      
+      // DIAGNOSTIC: If SDM gets 0 projects, check if there are tenant projects missing assignment
+      if (rawProjects.length === 0) {
+        // Query for any project without sdm_manager_email to help debugging
+        const allTenantProjects = await scanProjects({
+          TableName: tableName("projects"),
+          FilterExpression: "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta)",
+          ExpressionAttributeNames: {
+            "#pk": "pk",
+            "#sk": "sk",
+          },
+          ExpressionAttributeValues: {
+            ":pkPrefix": "PROJECT#",
+            ":metadata": "METADATA",
+            ":meta": "META",
+          },
+        });
+        
+        const unassignedProjects = allTenantProjects.filter(p => 
+          !p.sdm_manager_email && !p.accepted_by && !p.aceptado_por && p.created_by !== userContext.email
+        );
+        
+        if (unassignedProjects.length > 0) {
+          console.warn("[projects] SDM user sees 0 projects, but tenant has unassigned projects", {
+            sdmEmail: userContext.email,
+            unassignedCount: unassignedProjects.length,
+            unassignedProjectIds: unassignedProjects.map(p => p.project_id || p.projectId).slice(0, 5),
+            hint: "These projects may need sdm_manager_email backfill via migration script",
+          });
+        }
+      }
     } else {
       // Other users: return empty list
       // Future enhancement: check user-project assignments
