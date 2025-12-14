@@ -79,6 +79,7 @@ describe("projects handler POST", () => {
       currency: "USD",
       mod_total: "125000.50",
       description: "Proyecto de prueba",
+      sdm_manager_email: "sdm.test@example.com", // Required for PMO/SDMT
     };
 
     const response = await handler({
@@ -140,6 +141,7 @@ describe("projects handler POST", () => {
       currency: "USD",
       mod_total: "125000.50",
       description: "Proyecto de prueba",
+      sdm_manager_email: "sdm.test@example.com", // Required for PMO/SDMT
     };
 
     const response = await handler({

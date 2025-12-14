@@ -15,6 +15,19 @@ import crypto from "node:crypto";
 import { mapToProjectDTO, type ProjectRecord, type ProjectDTO } from "../models/project";
 
 /**
+ * RBAC Filter Patterns for Project Visibility
+ * 
+ * - ADMIN/PMO/SDMT/EXEC_RO: See all tenant projects
+ * - SDM: See projects where ANY of these match their email:
+ *   1. sdm_manager_email (explicit assignment)
+ *   2. accepted_by / aceptado_por (baseline acceptor)
+ *   3. created_by (creator fallback for orphaned projects)
+ * 
+ * This prevents "orphaned" projects where SDM users created them but
+ * no sdm_manager_email was set, which was the root cause of the regression.
+ */
+
+/**
  * Generate a unique handoff ID
  * Format: handoff_<10-char-uuid>
  */
@@ -1065,11 +1078,26 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       const userContext = await getUserContext(event);
       
       // If user is SDM, set them as the project's SDM manager
-      // If user is SDMT/PMO, they can specify sdmManagerEmail in the payload
-      const sdmManagerEmail = userContext.isSDM 
-        ? userContext.email
-        : (body.sdm_manager_email as string | undefined) || 
-          (body.sdmManagerEmail as string | undefined);
+      // If user is SDMT/PMO/ADMIN, they MUST specify sdmManagerEmail in the payload
+      let sdmManagerEmail: string | undefined;
+      
+      if (userContext.isSDM) {
+        sdmManagerEmail = userContext.email;
+      } else if (userContext.isPMO || userContext.isSDMT || userContext.isAdmin) {
+        sdmManagerEmail = (body.sdm_manager_email as string | undefined) || 
+                         (body.sdmManagerEmail as string | undefined);
+        
+        // REQUIREMENT: PMO/SDMT/ADMIN must specify SDM assignment
+        if (!sdmManagerEmail) {
+          return bad(
+            "sdm_manager_email is required for PMO/SDMT/ADMIN users when creating projects. Please specify which SDM will manage this project.",
+            400
+          );
+        }
+      } else {
+        // Other roles shouldn't reach here due to ensureCanWrite, but be defensive
+        return bad("Insufficient permissions to create projects", 403);
+      }
 
       const item = {
         pk: `PROJECT#${id}`,
@@ -1098,8 +1126,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         created_at: now,
         updated_at: now,
         created_by: createdBy,
-        // Set SDM manager email for ABAC
-        ...(sdmManagerEmail ? { sdm_manager_email: sdmManagerEmail } : {}),
+        // CRITICAL: Always set SDM manager email for ABAC visibility
+        sdm_manager_email: sdmManagerEmail,
       };
 
       try {
@@ -1236,19 +1264,22 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       });
     } else if (userContext.isSDM) {
       // SDM users only see projects they manage
+      // RBAC FIX: Include created_by as fallback to prevent "orphaned" projects
+      // Match on: sdm_manager_email OR accepted_by OR aceptado_por OR created_by
       // For now, use scan with filter until GSI is deployed
       // TODO: Once GSI on sdmManagerEmail is deployed, use Query instead of Scan
       rawProjects = await scanProjects({
         TableName: tableName("projects"),
         FilterExpression:
           "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta) AND " +
-          "(#sdmEmail = :userEmail OR #acceptedBy = :userEmail OR #aceptadoPor = :userEmail)",
+          "(#sdmEmail = :userEmail OR #acceptedBy = :userEmail OR #aceptadoPor = :userEmail OR #createdBy = :userEmail)",
         ExpressionAttributeNames: {
           "#pk": "pk",
           "#sk": "sk",
           "#sdmEmail": "sdm_manager_email",
           "#acceptedBy": "accepted_by",
           "#aceptadoPor": "aceptado_por",
+          "#createdBy": "created_by",
         },
         ExpressionAttributeValues: {
           ":pkPrefix": "PROJECT#",
@@ -1262,6 +1293,43 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         sdmEmail: userContext.email,
         projectCount: rawProjects.length,
       });
+      
+      // DIAGNOSTIC: If SDM gets 0 projects, optionally check for unassigned projects
+      // Gated behind env var to prevent performance impact in prod
+      const enableDebugScan = process.env.ENABLE_PROJECTS_DEBUG_SCAN === "true" || 
+                             process.env.STAGE === "dev" || 
+                             process.env.STAGE === "development" ||
+                             process.env.NODE_ENV === "test"; // Always enable in tests for debugging
+      
+      if (rawProjects.length === 0 && enableDebugScan) {
+        // Query for any project without sdm_manager_email to help debugging
+        const allTenantProjects = await scanProjects({
+          TableName: tableName("projects"),
+          FilterExpression: "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta)",
+          ExpressionAttributeNames: {
+            "#pk": "pk",
+            "#sk": "sk",
+          },
+          ExpressionAttributeValues: {
+            ":pkPrefix": "PROJECT#",
+            ":metadata": "METADATA",
+            ":meta": "META",
+          },
+        });
+        
+        const unassignedProjects = allTenantProjects.filter(p => 
+          !p.sdm_manager_email && !p.accepted_by && !p.aceptado_por && p.created_by !== userContext.email
+        );
+        
+        if (unassignedProjects.length > 0) {
+          console.warn("[projects] SDM user sees 0 projects, but tenant has unassigned projects", {
+            sdmEmail: userContext.email,
+            unassignedCount: unassignedProjects.length,
+            unassignedProjectIds: unassignedProjects.map(p => p.project_id || p.projectId).slice(0, 5),
+            hint: "These projects may need sdm_manager_email backfill via migration script",
+          });
+        }
+      }
     } else {
       // Other users: return empty list
       // Future enhancement: check user-project assignments
