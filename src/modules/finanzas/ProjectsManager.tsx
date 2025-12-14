@@ -130,6 +130,7 @@ export default function ProjectsManager() {
   const [currency, setCurrency] = React.useState<"USD" | "EUR" | "MXN">("USD");
   const [modTotal, setModTotal] = React.useState("");
   const [description, setDescription] = React.useState("");
+  const [sdmManagerEmail, setSdmManagerEmail] = React.useState("");
 
   const filteredProjects = React.useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -632,7 +633,7 @@ export default function ProjectsManager() {
       return;
     }
 
-    if (!name || !code || !client || !startDate || !endDate || !modTotal) {
+    if (!name || !code || !client || !startDate || !endDate || !modTotal || !sdmManagerEmail) {
       toast.error("Por favor completa todos los campos requeridos");
       return;
     }
@@ -655,6 +656,7 @@ export default function ProjectsManager() {
         currency,
         mod_total: parsedModTotal,
         description: description || undefined,
+        sdm_manager_email: sdmManagerEmail, // Required for RBAC visibility
       };
 
       const validatedPayload = ProjectCreateSchema.parse(payload);
@@ -681,6 +683,7 @@ export default function ProjectsManager() {
       setCurrency("USD");
       setModTotal("");
       setDescription("");
+      setSdmManagerEmail("");
     } catch (e: any) {
       console.error("Error creating project:", e);
 
@@ -1196,6 +1199,23 @@ export default function ProjectsManager() {
                   maxLength={200}
                   autoComplete="organization"
                 />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="sdmManagerEmail">SDM Manager (Email) *</Label>
+                <Input
+                  id="sdmManagerEmail"
+                  name="sdmManagerEmail"
+                  type="email"
+                  placeholder="Ej: sdm.manager@example.com"
+                  value={sdmManagerEmail}
+                  onChange={(e) => setSdmManagerEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+                <p className="text-xs text-muted-foreground">
+                  El SDM Manager tendrá visibilidad y acceso a este proyecto
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
