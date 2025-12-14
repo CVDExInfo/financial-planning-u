@@ -84,4 +84,14 @@ describe("CORS headers", () => {
     expect(response.headers?.["Access-Control-Allow-Origin"]).toBe(origin);
     expect(response.headers?.["Access-Control-Allow-Methods"]).toContain("OPTIONS");
   });
+
+  it("echoes matching origin when multiple origins are configured", async () => {
+    process.env.CORS_ORIGIN = `https://example-a.com, ${origin}, https://example-b.com`;
+
+    const response = await optionsHandler({
+      headers: { Origin: origin },
+    } as unknown as APIGatewayProxyEvent);
+
+    expect(response.headers?.["Access-Control-Allow-Origin"]).toBe(origin);
+  });
 });

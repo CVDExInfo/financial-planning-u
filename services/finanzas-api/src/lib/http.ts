@@ -4,16 +4,25 @@ const isEvent = (value: unknown): value is APIGatewayProxyEvent => {
   return typeof value === "object" && value !== null && "headers" in value;
 };
 
+const parseAllowedOrigins = () => {
+  const raw = process.env.CORS_ORIGIN || process.env.ALLOWED_ORIGIN || "*";
+  if (raw.trim() === "*") return ["*"];
+
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+};
+
 export function defaultCorsHeaders(event?: any): Record<string, string> {
-  const allowedOrigin =
-    process.env.CORS_ORIGIN || process.env.ALLOWED_ORIGIN || "*";
   const origin = event?.headers?.Origin || event?.headers?.origin;
-  const echoOrigin =
-    allowedOrigin === "*"
-      ? "*"
-      : origin === allowedOrigin
-        ? origin
-        : allowedOrigin;
+  const allowedOrigins = parseAllowedOrigins();
+  const allowAll = allowedOrigins.includes("*");
+  const echoOrigin = allowAll
+    ? "*"
+    : origin && allowedOrigins.includes(origin)
+      ? origin
+      : allowedOrigins[0] || "*";
   const headers: Record<string, string> = {
     Vary: "Origin",
     "Access-Control-Allow-Origin": echoOrigin,
