@@ -353,7 +353,9 @@ Resources:
         Ref: StageName
       CorsConfiguration:
         AllowOrigins:
-        - '*'
+        - Fn::Sub: https://${CloudFrontDomain}
+        - http://localhost:5173
+        - http://localhost:4173
         AllowHeaders:
         - Authorization
         - Content-Type
