@@ -13,7 +13,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
   const projectId = event.pathParameters?.id;
 
   if (!projectId) {
-    return bad('missing project id');
+    return bad(event, 'missing project id');
   }
 
   try {
@@ -101,24 +101,17 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       });
     });
 
-    return ok(forecastCells);
+    return ok(event, forecastCells);
   } catch (error) {
     console.error('Error generating plan:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://d7t9x3j66yd8k.cloudfront.net',
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers':
-          'Authorization, Content-Type, X-Amz-Date, X-Amz-Security-Token, X-Requested-With',
-      },
-      body: JSON.stringify({
+    return bad(
+      event,
+      {
         error: 'Internal server error',
         message: errorMessage,
-      }),
-    };
+      },
+      500,
+    );
   }
 };
