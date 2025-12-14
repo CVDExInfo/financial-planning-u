@@ -119,7 +119,7 @@ export default function ProjectsManager() {
   const [showModDebugPreview, setShowModDebugPreview] = React.useState(
     developerPreviewEnabled,
   );
-  const { canCreateBaseline, isExecRO, canEdit, isSDM, isPMO, isSDMT, isAdmin } = usePermissions();
+  const { canCreateBaseline, isExecRO, canEdit, isSDM, isPMO, isSDMT } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
   
   // Get current user email for SDM auto-fill
