@@ -60,3 +60,15 @@ permit (
     ],
     resource in finanzassd::Application::"finanzas-sd-api-dev"
 );
+
+// Hub visibility for SDM/PMO/SDMT/ADMIN cohorts
+permit (
+    principal in [
+        finanzassd::UserGroup::"us-east-2_FyHLtOhiY|SDM",
+        finanzassd::UserGroup::"us-east-2_FyHLtOhiY|PMO",
+        finanzassd::UserGroup::"us-east-2_FyHLtOhiY|SDMT",
+        finanzassd::UserGroup::"us-east-2_FyHLtOhiY|ADMIN",
+    ],
+    action == finanzassd::Action::"hub.view",
+    resource in finanzassd::Application::"finanzas-sd-api-dev"
+);

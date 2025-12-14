@@ -1,0 +1,365 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`Navigation hub visibility shows Hub link for PMO users with access 1`] = `
+<div>
+  <nav
+    class="border-b border-border bg-card/50 backdrop-blur"
+  >
+    <div
+      class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+    >
+      <div
+        class="flex items-center gap-3 py-3"
+      >
+        <a
+          class="flex items-center gap-2 lg:gap-3 shrink-0"
+          data-discover="true"
+          href="/"
+        >
+          <div
+            class="h-7 w-auto lg:h-8"
+            data-testid="logo"
+          />
+          <div
+            class="hidden sm:flex flex-col leading-tight"
+          >
+            <span
+              class="text-sm font-semibold text-foreground"
+            >
+              Planning
+            </span>
+            <span
+              class="text-[11px] font-medium tracking-wide text-emerald-700"
+            >
+              Finanzas SD
+            </span>
+          </div>
+        </a>
+        <div
+          class="flex-1 overflow-x-auto"
+        >
+          <div
+            class="flex items-center gap-2 min-w-fit"
+          >
+            <div
+              class="flex items-center gap-1 pl-2 border-l border-border/50"
+            >
+              <span
+                class="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mr-1"
+              >
+                PMO
+              </span>
+              <a
+                class="
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  border-transparent text-muted-foreground hover:bg-muted
+                                  
+                                "
+                data-discover="true"
+                href="/pmo/prefactura/estimator"
+              >
+                <span
+                  class=""
+                  data-icon="Calculator"
+                  size="16"
+                />
+                <span
+                  class=""
+                >
+                  Estimator
+                </span>
+              </a>
+            </div>
+            <div
+              class="flex items-center gap-1 pl-2 border-l border-border/50"
+            >
+              <span
+                class="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mr-1"
+              >
+                SDMT Costos
+              </span>
+              <a
+                class="
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  border-transparent text-muted-foreground hover:bg-muted
+                                  
+                                "
+                data-discover="true"
+                href="/sdmt/cost/catalog"
+              >
+                <span
+                  class=""
+                  data-icon="BookOpen"
+                  size="16"
+                />
+                <span
+                  class=""
+                >
+                  Estructura de Costos
+                </span>
+              </a>
+            </div>
+            <div
+              class="flex items-center gap-1 pl-2 border-l border-border/50"
+            >
+              <span
+                class="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mr-1"
+              >
+                Finanzas
+              </span>
+              <a
+                class="
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  border-emerald-500 bg-emerald-50 text-emerald-700
+                                  relative pl-4 before:absolute before:-left-2 before:top-1/2 before:h-4 before:-translate-y-1/2 before:border-l before:border-border/50
+                                "
+                data-discover="true"
+                href="/hub"
+              >
+                <span
+                  class=""
+                  data-icon="TrendingUp"
+                  size="16"
+                />
+                <span
+                  class=""
+                >
+                  Hub de Desempeño
+                </span>
+              </a>
+              <a
+                class="
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  border-transparent text-muted-foreground hover:bg-muted
+                                  
+                                "
+                data-discover="true"
+                href="/sdmt/cost/forecast"
+              >
+                <span
+                  class=""
+                  data-icon="TrendingUp"
+                  size="16"
+                />
+                <span
+                  class=""
+                >
+                  Gestión de Pronóstico
+                </span>
+              </a>
+              <a
+                class="
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  border-transparent text-muted-foreground hover:bg-muted
+                                  
+                                "
+                data-discover="true"
+                href="/sdmt/cost/reconciliation"
+              >
+                <span
+                  class=""
+                  data-icon="FileCheck"
+                  size="16"
+                />
+                <span
+                  class=""
+                >
+                  Conciliación de Facturas
+                </span>
+              </a>
+              <a
+                class="
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  border-transparent text-muted-foreground hover:bg-muted
+                                  
+                                "
+                data-discover="true"
+                href="/sdmt/cost/changes"
+              >
+                <span
+                  class=""
+                  data-icon="GitPullRequest"
+                  size="16"
+                />
+                <span
+                  class=""
+                >
+                  Cambios y Ajustes
+                </span>
+              </a>
+              <a
+                class="
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  border-transparent text-muted-foreground hover:bg-muted
+                                  
+                                "
+                data-discover="true"
+                href="/projects"
+              >
+                <span
+                  class=""
+                  data-icon="FolderKanban"
+                  size="16"
+                />
+                <span
+                  class=""
+                >
+                  Portafolio Financiero
+                </span>
+              </a>
+              <a
+                class="
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  border-transparent text-muted-foreground hover:bg-muted
+                                  
+                                "
+                data-discover="true"
+                href="/sdmt/cost/catalog"
+              >
+                <span
+                  class=""
+                  data-icon="BookOpen"
+                  size="16"
+                />
+                <span
+                  class=""
+                >
+                  Estructura de Costos
+                </span>
+              </a>
+              <a
+                class="
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  border-transparent text-muted-foreground hover:bg-muted
+                                  
+                                "
+                data-discover="true"
+                href="/catalog/rubros"
+              >
+                <span
+                  class=""
+                  data-icon="BookOpen"
+                  size="16"
+                />
+                <span
+                  class=""
+                >
+                  Catálogo de Rubros
+                </span>
+              </a>
+              <a
+                class="
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  border-transparent text-muted-foreground hover:bg-muted
+                                  
+                                "
+                data-discover="true"
+                href="/rules"
+              >
+                <span
+                  class=""
+                  data-icon="BookOpen"
+                  size="16"
+                />
+                <span
+                  class=""
+                >
+                  Reglas de Asignación
+                </span>
+              </a>
+              <a
+                class="
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  border-transparent text-muted-foreground hover:bg-muted
+                                  
+                                "
+                data-discover="true"
+                href="/adjustments"
+              >
+                <span
+                  class=""
+                  data-icon="Shield"
+                  size="16"
+                />
+                <span
+                  class=""
+                >
+                  Ajustes
+                </span>
+              </a>
+              <a
+                class="
+                                  inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
+                                  border-transparent text-muted-foreground hover:bg-muted
+                                  
+                                "
+                data-discover="true"
+                href="/providers"
+              >
+                <span
+                  class=""
+                  data-icon="Layers"
+                  size="16"
+                />
+                <span
+                  class=""
+                >
+                  Proveedores
+                </span>
+              </a>
+            </div>
+          </div>
+        </div>
+        <div
+          class="flex items-center gap-3 shrink-0"
+        >
+          <span
+            class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90"
+            data-slot="badge"
+          >
+            PMO
+          </span>
+          <button
+            aria-expanded="false"
+            aria-haspopup="menu"
+            class="justify-center whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive bg-secondary text-secondary-foreground hover:bg-secondary/80 py-2 has-[>svg]:px-3 h-11 px-3 flex items-center gap-3 border-border shadow-sm"
+            data-slot="tooltip-trigger"
+            data-state="closed"
+            id="radix-_r_0_"
+            type="button"
+          >
+            <div
+              class="h-10 w-10 rounded-full bg-primary/10 text-primary font-semibold flex items-center justify-center"
+            >
+              <span
+                aria-hidden="true"
+                class="h-5 w-5"
+                data-icon="UserRound"
+              />
+              <span
+                class="sr-only"
+              >
+                Menú de usuario
+              </span>
+            </div>
+            <div
+              class="hidden sm:flex flex-col items-start leading-tight"
+            >
+              <span
+                class="text-[11px] text-muted-foreground"
+              >
+                Cuenta
+              </span>
+              <span
+                class="text-sm font-semibold text-foreground line-clamp-1 max-w-[160px]"
+              >
+                Test User
+              </span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+</div>
+`;

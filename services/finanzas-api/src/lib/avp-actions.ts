@@ -22,6 +22,14 @@ export const ACTION_MAPPINGS: RouteActionMapping[] = [
     description: 'Public health check'
   },
   {
+    route: '/hub',
+    method: 'GET',
+    action: 'hub.view',
+    resourceType: 'Finanzas::Application',
+    resourceIdPattern: 'finanzas-sd',
+    description: 'View Finanzas Hub summary dashboards'
+  },
+  {
     route: '/catalog/rubros',
     method: 'GET',
     action: 'ViewRubros',

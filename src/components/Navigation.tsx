@@ -118,8 +118,20 @@ export function Navigation() {
 
   const [isRolesDialogOpen, setIsRolesDialogOpen] = useState(false);
 
+  const envSource =
+    (() => {
+      try {
+        return (0, eval)('import.meta.env') as Record<string, string>;
+      } catch (error) {
+        if (typeof process !== "undefined" && process.env) {
+          return process.env as Record<string, string>;
+        }
+        return {} as Record<string, string>;
+      }
+    })() || {};
+
   const finzEnabled =
-    import.meta.env.VITE_FINZ_ENABLED !== "false" ||
+    envSource.VITE_FINZ_ENABLED !== "false" ||
     (typeof window !== "undefined" &&
       window.location.pathname.startsWith("/finanzas"));
 
@@ -129,7 +141,7 @@ export function Navigation() {
       label: ES_TEXTS.nav.hubDesempeno,
       path: "/hub",
       icon: TrendingUp,
-      visibleFor: ["SDMT", "EXEC_RO"],
+      visibleFor: ["SDMT", "SDM", "PMO", "ADMIN", "EXEC_RO"],
       startGroup: true,
     },
     {

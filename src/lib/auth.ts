@@ -8,14 +8,25 @@ import { UserRole, UserInfo, ModuleType } from "@/types/domain";
 const ROLE_HIERARCHY: Record<UserRole, number> = {
   VENDOR: 1,
   PM: 2,
+  SDM: 2,
   SDMT: 3,
   SDM_FIN: 3,
   PMO: 4,
-  EXEC_RO: 5,
+  ADMIN: 5,
+  EXEC_RO: 6,
 };
 
 const envSource =
-  (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env) || {};
+  (() => {
+    try {
+      return (0, eval)('import.meta.env') as Record<string, string>;
+    } catch (error) {
+      if (typeof process !== "undefined" && process.env) {
+        return process.env as Record<string, string>;
+      }
+      return {} as Record<string, string>;
+    }
+  })() || {};
 
 const IS_FINZ_BUILD =
   envSource.VITE_FINZ_ENABLED === "true" ||
@@ -36,9 +47,30 @@ const ROLE_PERMISSIONS = {
   },
   PMO: {
     // PMO users are isolated to the PMO workspace
-    routes: ["/", "/profile", "/pmo/**", "/pmo/prefactura/**"],
+    routes: ["/", "/profile", "/pmo/**", "/pmo/prefactura/**", "/hub"],
     actions: ["create", "read", "update", "delete", "approve"],
     description: "Full access to PMO estimator and reporting",
+  },
+  SDM: {
+    // Project-scoped SDM users inherit SDMT navigation for hub visibility
+    routes: [
+      "/",
+      "/profile",
+      "/sdmt/**",
+      "/projects",
+      "/projects/**",
+      "/catalog/**",
+      "/rules",
+      "/adjustments",
+      "/adjustments/**",
+      "/providers",
+      "/providers/**",
+      "/cashflow",
+      "/scenarios",
+      "/hub",
+    ],
+    actions: ["create", "read", "update"],
+    description: "Project-scoped SDM with hub access",
   },
   SDMT: {
     // SDMT module plus Finanzas (feature) routes
@@ -60,6 +92,7 @@ const ROLE_PERMISSIONS = {
       "/providers/**",
       "/cashflow",
       "/scenarios",
+      "/hub",
     ],
     actions: ["create", "read", "update", "delete"],
     description: "Full access to SDMT cost management modules",
@@ -80,9 +113,31 @@ const ROLE_PERMISSIONS = {
       "/providers/**",
       "/cashflow",
       "/scenarios",
+      "/hub",
     ],
     actions: ["create", "read", "update", "delete"],
     description: "Finance-aligned SDMT access with the same scope as SDMT",
+  },
+  ADMIN: {
+    routes: [
+      "/",
+      "/profile",
+      "/sdmt/**",
+      "/projects",
+      "/projects/**",
+      "/catalog/**",
+      "/rules",
+      "/adjustments",
+      "/adjustments/**",
+      "/providers",
+      "/providers/**",
+      "/cashflow",
+      "/scenarios",
+      "/hub",
+      "/pmo/**",
+    ],
+    actions: ["create", "read", "update", "delete", "approve"],
+    description: "Administrator access across PMO and SDMT modules",
   },
   VENDOR: {
     // Limited SDMT access and read to Finanzas catalog

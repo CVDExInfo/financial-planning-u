@@ -44,6 +44,7 @@ action "put /handoff/{handoffId}" appliesTo (User, Application);
 action "get /projects/{projectId}/invoices" appliesTo (User, Application);
 action "get /projects/{projectId}/invoices/{invoiceId}" appliesTo (User, Application);
 action "put /projects/{projectId}/invoices/{invoiceId}/status" appliesTo (User, Application);
+action "hub.view" appliesTo (UserGroup, Application);
 
 // Action grouping anchor (FIN)
 action "FIN" appliesTo (UserGroup, Application);
