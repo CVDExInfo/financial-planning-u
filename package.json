@@ -79,7 +79,7 @@
     "exceljs": "^4.4.0",
     "framer-motion": "^12.23.26",
     "input-otp": "^1.4.2",
-    "lucide-react": "^0.560.0",
+    "lucide-react": "^0.561.0",
     "marked": "^17.0.1",
     "next-themes": "^0.4.6",
     "octokit": "^5.0.5",
