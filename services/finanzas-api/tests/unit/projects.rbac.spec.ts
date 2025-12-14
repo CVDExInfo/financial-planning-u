@@ -74,6 +74,49 @@ describe("projects handler RBAC", () => {
     expect(payload.data[0].currency).toBe("USD");
   });
 
+  it("paginates through all project pages and preserves totals", async () => {
+    dynamo.ddb.send
+      .mockResolvedValueOnce({
+        Items: Array.from({ length: 100 }).map((_, idx) => ({
+          pk: `PROJECT#P-${idx + 1}`,
+          sk: "METADATA",
+          project_id: `P-${idx + 1}`,
+          nombre: `Proyecto ${idx + 1}`,
+          cliente: "Cliente",
+          moneda: "USD",
+        })),
+        LastEvaluatedKey: { pk: "PROJECT#P-100", sk: "METADATA" },
+      })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            pk: "PROJECT#P-101",
+            sk: "METADATA",
+            project_id: "P-101",
+            nombre: "Proyecto 101",
+            cliente: "Cliente",
+            moneda: "USD",
+          },
+        ],
+      });
+
+    const response = await projectsHandler(
+      baseEvent({ __verifiedClaims: { "cognito:groups": ["FIN"], email: "fin.user@example.com" } } as any),
+    );
+
+    expect(dynamo.ddb.send).toHaveBeenCalledTimes(2);
+    expect(dynamo.ddb.send.mock.calls[1][0].input.ExclusiveStartKey).toEqual({
+      pk: "PROJECT#P-100",
+      sk: "METADATA",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = JSON.parse(response.body as string);
+    expect(payload.total).toBe(101);
+    expect(payload.data).toHaveLength(101);
+    expect(payload.data[100].projectId).toBe("P-101");
+  });
+
   it("rejects requests without valid groups", async () => {
     const response = await projectsHandler(
       baseEvent({ __verifiedClaims: { "cognito:groups": ["guest"] } } as any),

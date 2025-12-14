@@ -28,6 +28,7 @@ import {
   ValidationError,
 } from "@/lib/errors";
 import { createMockBaseline } from "@/mocks/baselineStore";
+import { normalizeProjectsPayload } from "@/api/finanzas-projects-helpers";
 
 const envSource =
   (typeof import.meta !== "undefined" && (import.meta as any)?.env) ||
@@ -153,15 +154,8 @@ export class ApiService {
 
       logger.info("Projects loaded from API:", payload);
 
-      const projectArray = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.data)
-          ? payload.data
-          : Array.isArray(payload?.items)
-            ? payload.items
-            : Array.isArray(payload?.data?.items)
-              ? payload.data.items
-              : [];
+      // Use canonical payload normalization to handle all response shapes
+      const projectArray = normalizeProjectsPayload(payload);
 
       if (!Array.isArray(projectArray)) {
         throw new Error("Invalid projects payload from API");
