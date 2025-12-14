@@ -1160,12 +1160,48 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     // Get user context for RBAC filtering
     const userContext = await getUserContext(event);
 
+    console.info("[projects] list request", {
+      email: userContext.email,
+      roles: userContext.roles,
+      queryLimit: event.queryStringParameters?.limit,
+    });
+
     // Support query parameter for limit, default to 100, max 100
     const queryParams = event.queryStringParameters || {};
     const requestedLimit = queryParams.limit ? parseInt(queryParams.limit, 10) : 100;
-    const limit = Math.min(Math.max(requestedLimit, 1), 100); // Clamp between 1 and 100
+    const pageLimit = Math.min(Math.max(requestedLimit, 1), 100); // Clamp between 1 and 100
 
     let rawProjects: ProjectRecord[] = [];
+
+    const scanProjects = async (
+      input: ConstructorParameters<typeof ScanCommand>[0],
+    ): Promise<ProjectRecord[]> => {
+      let items: ProjectRecord[] = [];
+      let lastEvaluatedKey: Record<string, unknown> | undefined;
+
+      do {
+        const result = await ddb.send(
+          new ScanCommand({
+            ...input,
+            Limit: pageLimit,
+            ExclusiveStartKey: lastEvaluatedKey,
+          }),
+        );
+
+        const pageItems = (result.Items ?? []) as ProjectRecord[];
+        items = items.concat(pageItems);
+
+        console.info("[projects] scan page", {
+          role: userContext.roles,
+          pageCount: pageItems.length,
+          hasNext: Boolean(result.LastEvaluatedKey),
+        });
+
+        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+      } while (lastEvaluatedKey);
+
+      return items;
+    };
 
     // RBAC-aware querying:
     // - ADMIN and EXEC_RO: scan all projects
@@ -1175,24 +1211,19 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     if (userContext.isAdmin || userContext.isExecRO || userContext.isPMO || userContext.isSDMT) {
       // These roles see all projects
       // BACKWARD COMPATIBILITY SHIM: Accept both METADATA (new standard) and META (legacy)
-      const result = await ddb.send(
-        new ScanCommand({
-          TableName: tableName("projects"),
-          Limit: limit,
-          FilterExpression: "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta)",
-          ExpressionAttributeNames: {
-            "#pk": "pk",
-            "#sk": "sk",
-          },
-          ExpressionAttributeValues: {
-            ":pkPrefix": "PROJECT#",
-            ":metadata": "METADATA",
-            ":meta": "META",
-          },
-        })
-      );
-
-      rawProjects = (result.Items ?? []) as ProjectRecord[];
+      rawProjects = await scanProjects({
+        TableName: tableName("projects"),
+        FilterExpression: "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta)",
+        ExpressionAttributeNames: {
+          "#pk": "pk",
+          "#sk": "sk",
+        },
+        ExpressionAttributeValues: {
+          ":pkPrefix": "PROJECT#",
+          ":metadata": "METADATA",
+          ":meta": "META",
+        },
+      });
       
       // Log warnings for legacy META keys
       rawProjects.forEach((record) => {
@@ -1207,29 +1238,25 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       // SDM users only see projects they manage
       // For now, use scan with filter until GSI is deployed
       // TODO: Once GSI on sdmManagerEmail is deployed, use Query instead of Scan
-      const result = await ddb.send(
-        new ScanCommand({
-          TableName: tableName("projects"),
-          FilterExpression: 
-            "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta) AND " +
-            "(#sdmEmail = :userEmail OR #acceptedBy = :userEmail OR #aceptadoPor = :userEmail)",
-          ExpressionAttributeNames: {
-            "#pk": "pk",
-            "#sk": "sk",
-            "#sdmEmail": "sdm_manager_email",
-            "#acceptedBy": "accepted_by",
-            "#aceptadoPor": "aceptado_por",
-          },
-          ExpressionAttributeValues: {
-            ":pkPrefix": "PROJECT#",
-            ":metadata": "METADATA",
-            ":meta": "META",
-            ":userEmail": userContext.email,
-          },
-        })
-      );
-
-      rawProjects = (result.Items ?? []) as ProjectRecord[];
+      rawProjects = await scanProjects({
+        TableName: tableName("projects"),
+        FilterExpression:
+          "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta) AND " +
+          "(#sdmEmail = :userEmail OR #acceptedBy = :userEmail OR #aceptadoPor = :userEmail)",
+        ExpressionAttributeNames: {
+          "#pk": "pk",
+          "#sk": "sk",
+          "#sdmEmail": "sdm_manager_email",
+          "#acceptedBy": "accepted_by",
+          "#aceptadoPor": "aceptado_por",
+        },
+        ExpressionAttributeValues: {
+          ":pkPrefix": "PROJECT#",
+          ":metadata": "METADATA",
+          ":meta": "META",
+          ":userEmail": userContext.email,
+        },
+      });
       
       console.info("[projects] SDM filtered projects", {
         sdmEmail: userContext.email,
@@ -1249,6 +1276,12 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     const projects: ProjectDTO[] = rawProjects
       .map((record) => mapToProjectDTO(record))
       .filter((dto) => dto.projectId); // Ensure valid projectId
+
+    console.info("[projects] list response", {
+      email: userContext.email,
+      roles: userContext.roles,
+      total: projects.length,
+    });
 
     return ok({ data: projects, total: projects.length });
   } catch (error) {

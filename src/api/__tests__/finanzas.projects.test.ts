@@ -30,4 +30,14 @@ describe("normalizeProjectsPayload", () => {
     assert.equal(result.length, 1);
     assert.deepEqual(result[0], { id: "P-4" });
   });
+
+  it("preserves large project lists without trimming", () => {
+    const payload = Array.from({ length: 120 }).map((_, idx) => ({ id: `P-${idx + 1}` }));
+
+    const result = normalizeProjectsPayload(payload);
+
+    assert.equal(result.length, 120);
+    assert.equal(result[0].id, "P-1");
+    assert.equal(result[119].id, "P-120");
+  });
 });
