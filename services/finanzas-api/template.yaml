@@ -353,7 +353,9 @@ Resources:
         Ref: StageName
       CorsConfiguration:
         AllowOrigins:
-        - '*'
+        - Fn::Sub: https://${CloudFrontDomain}
+        - http://localhost:5173
+        - http://localhost:4173
         AllowHeaders:
         - Authorization
         - Content-Type
@@ -388,6 +390,32 @@ Resources:
         DefaultAuthorizer: CognitoJwt
     Metadata:
       SamResourceId: Api
+  OptionsHandler:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+        - src/handlers/optionsHandler.ts
+        External:
+        - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+      SamResourceId: OptionsHandler
+    Properties:
+      CodeUri: .
+      Handler: optionsHandler.handler
+      Events:
+        OptionsProxy:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: OPTIONS
+            ApiId:
+              Ref: Api
+            Auth:
+              Authorizer: NONE
   HealthFn:
     Type: AWS::Serverless::Function
     Metadata:

@@ -8,7 +8,7 @@ import {
   ScanCommand,
 } from "../lib/dynamo";
 import { ensureCanWrite, ensureCanRead, getUserEmail } from "../lib/auth";
-import { bad, ok, serverError } from "../lib/http";
+import { bad, ok, serverError, withCors } from "../lib/http";
 import { logError } from "../utils/logging";
 
 const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
@@ -105,11 +105,11 @@ export const createBaseline = async (
       body = JSON.parse(event.body || "{}");
     } catch (parseError) {
       logError("Invalid JSON payload for baseline creation", parseError);
-      return bad("El cuerpo de la solicitud no es un JSON válido.");
+      return bad(event, "El cuerpo de la solicitud no es un JSON válido.");
     }
 
     if (!body.project_name) {
-      return bad("Falta el nombre del proyecto.");
+      return bad(event, "Falta el nombre del proyecto.");
     }
 
     const laborEstimates = Array.isArray(body.labor_estimates)
@@ -120,7 +120,7 @@ export const createBaseline = async (
       : [];
 
     if (!laborEstimates.length && !nonLaborEstimates.length) {
-      return bad(
+      return bad(event, 
         "Debe haber al menos un costo de mano de obra o no laboral para crear la línea base."
       );
     }
@@ -134,7 +134,7 @@ export const createBaseline = async (
     const durationMonths = body.duration_months ?? 12;
 
     if (!durationMonths || durationMonths <= 0) {
-      return bad("La duración del proyecto debe ser mayor a cero.");
+      return bad(event, "La duración del proyecto debe ser mayor a cero.");
     }
 
     const laborTotal = laborEstimates.reduce((sum, item) => {
@@ -272,15 +272,17 @@ export const createBaseline = async (
           error,
         });
         return serverError(
+          event,
           "El almacén de líneas base de prefacturas no está disponible o está mal configurado."
         );
       }
 
       logError("Unexpected DynamoDB error creating prefactura baseline", error);
-      return serverError("Unable to create baseline at this time.");
+      return serverError(event, "Unable to create baseline at this time.");
     }
 
     return ok(
+      event,
       {
         baselineId: baseline_id,
         projectId: project_id,
@@ -296,18 +298,22 @@ export const createBaseline = async (
     const body = (error as { body?: unknown } | undefined)?.body;
 
     if (statusCode) {
-      return {
-        statusCode,
-        body:
-          typeof body === "string" ? body : JSON.stringify(body || "Unauthorized"),
-        headers: {
-          "Content-Type": "application/json",
+      return withCors(
+        {
+          statusCode,
+          body:
+            typeof body === "string" ? body : JSON.stringify(body || "Unauthorized"),
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      };
+        event
+      );
     }
 
     logError("Error creating baseline:", error);
     return serverError(
+      event,
       error instanceof Error ? error.message : "Failed to create baseline"
     );
   }
@@ -369,10 +375,11 @@ export const listBaselines = async (
         return 0;
       });
 
-    return ok({ items });
+    return ok(event, { items });
   } catch (error) {
     logError("Error listing baselines:", error);
     return serverError(
+      event,
       error instanceof Error ? error.message : "Failed to list baselines"
     );
   }
@@ -410,7 +417,7 @@ export const handler = async (
     return listBaselines(event);
   }
 
-  return bad("Ruta no encontrada", 404);
+  return bad(event, "Ruta no encontrada", 404);
 };
 
 /**
@@ -423,7 +430,7 @@ export const getBaseline = async (
   try {
     const baselineId = event.pathParameters?.baseline_id;
     if (!baselineId) {
-      return bad("Missing baseline_id");
+      return bad(event, "Missing baseline_id");
     }
 
     const prefacturasTable = tableName("prefacturas");
@@ -435,13 +442,14 @@ export const getBaseline = async (
     );
 
     if (!lookup.Item) {
-      return bad("Baseline not found", 404);
+      return bad(event, "Baseline not found", 404);
     }
 
-    return ok(lookup.Item);
+    return ok(event, lookup.Item);
   } catch (error) {
     logError("Error getting baseline:", error);
     return serverError(
+      event,
       error instanceof Error ? error.message : "Failed to get baseline"
     );
   }
