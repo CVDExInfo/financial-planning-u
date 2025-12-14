@@ -31,6 +31,7 @@ import PageHeader from "@/components/PageHeader";
 import DonutChart from "@/components/charts/DonutChart";
 import LineChartComponent from "@/components/charts/LineChart";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/hooks/useAuth";
 import useProjects, { type ProjectForUI } from "./projects/useProjects";
 import { Badge } from "@/components/ui/badge";
 import ProjectDetailsPanel, { type ModChartPoint } from "./projects/ProjectDetailsPanel";
@@ -118,8 +119,11 @@ export default function ProjectsManager() {
   const [showModDebugPreview, setShowModDebugPreview] = React.useState(
     developerPreviewEnabled,
   );
-  const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
+  const { canCreateBaseline, isExecRO, canEdit, isSDM, isPMO, isSDMT, isAdmin } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
+  
+  // Get current user email for SDM auto-fill
+  const { user } = useAuth();
 
   // Form state
   const [name, setName] = React.useState("");
@@ -633,8 +637,14 @@ export default function ProjectsManager() {
       return;
     }
 
-    if (!name || !code || !client || !startDate || !endDate || !modTotal || !sdmManagerEmail) {
+    if (!name || !code || !client || !startDate || !endDate || !modTotal) {
       toast.error("Por favor completa todos los campos requeridos");
+      return;
+    }
+
+    // SDM field is required only for PMO/SDMT/ADMIN users (not for SDM users)
+    if (!isSDM && !sdmManagerEmail) {
+      toast.error("Asigna el correo del responsable SDM para el proyecto.");
       return;
     }
 
@@ -656,7 +666,8 @@ export default function ProjectsManager() {
         currency,
         mod_total: parsedModTotal,
         description: description || undefined,
-        sdm_manager_email: sdmManagerEmail, // Required for RBAC visibility
+        // Include sdm_manager_email only when provided (SDM users auto-assigned by backend)
+        ...(sdmManagerEmail ? { sdm_manager_email: sdmManagerEmail.trim() } : {}),
       };
 
       const validatedPayload = ProjectCreateSchema.parse(payload);
@@ -1201,22 +1212,24 @@ export default function ProjectsManager() {
                 />
               </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="sdmManagerEmail">SDM Manager (Email) *</Label>
-                <Input
-                  id="sdmManagerEmail"
-                  name="sdmManagerEmail"
-                  type="email"
-                  placeholder="Ej: sdm.manager@example.com"
-                  value={sdmManagerEmail}
-                  onChange={(e) => setSdmManagerEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
-                <p className="text-xs text-muted-foreground">
-                  El SDM Manager tendrá visibilidad y acceso a este proyecto
-                </p>
-              </div>
+              {!isSDM && (
+                <div className="grid gap-2">
+                  <Label htmlFor="sdmManagerEmail">SDM Manager (Email) *</Label>
+                  <Input
+                    id="sdmManagerEmail"
+                    name="sdmManagerEmail"
+                    type="email"
+                    placeholder="Ej: sdm.manager@example.com"
+                    value={sdmManagerEmail}
+                    onChange={(e) => setSdmManagerEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    El SDM Manager tendrá visibilidad y acceso a este proyecto
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">

@@ -1294,8 +1294,14 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         projectCount: rawProjects.length,
       });
       
-      // DIAGNOSTIC: If SDM gets 0 projects, check if there are tenant projects missing assignment
-      if (rawProjects.length === 0) {
+      // DIAGNOSTIC: If SDM gets 0 projects, optionally check for unassigned projects
+      // Gated behind env var to prevent performance impact in prod
+      const enableDebugScan = process.env.ENABLE_PROJECTS_DEBUG_SCAN === "true" || 
+                             process.env.STAGE === "dev" || 
+                             process.env.STAGE === "development" ||
+                             process.env.NODE_ENV === "test"; // Always enable in tests for debugging
+      
+      if (rawProjects.length === 0 && enableDebugScan) {
         // Query for any project without sdm_manager_email to help debugging
         const allTenantProjects = await scanProjects({
           TableName: tableName("projects"),
