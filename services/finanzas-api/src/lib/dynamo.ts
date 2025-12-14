@@ -8,6 +8,7 @@ import {
   UpdateCommand,
   DeleteCommand,
   BatchGetCommand,
+  BatchWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({
@@ -70,6 +71,7 @@ export {
   UpdateCommand,
   DeleteCommand,
   BatchGetCommand,
+  BatchWriteCommand,
 };
 
 /**
@@ -86,6 +88,11 @@ import { randomUUID } from 'node:crypto';
 export function generatePayrollId(kind: PayrollKind): string {
   const uuid = randomUUID().replace(/-/g, '').slice(0, 10);
   return `payroll_${kind}_${uuid}`;
+}
+
+export function generatePayrollActualId(): string {
+  const uuid = randomUUID().replace(/-/g, '').slice(0, 10);
+  return `payroll_${uuid}`;
 }
 
 /**
@@ -155,21 +162,38 @@ export async function queryPayrollByPeriod(
   period: string,
   kind?: PayrollKind
 ): Promise<PayrollEntry[]> {
-  const pk = `PROJECT#${projectId}#MONTH#${period}`;
   const skPrefix = kind ? `PAYROLL#${kind.toUpperCase()}#` : 'PAYROLL#';
-  
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: tableName('payroll_actuals'),
-      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :sk)',
-      ExpressionAttributeValues: {
-        ':pk': pk,
-        ':sk': skPrefix,
-      },
-    })
-  );
-  
-  return (result.Items || []) as PayrollEntry[];
+  const legacyPk = `PROJECT#${projectId}#MONTH#${period}`;
+
+  const [legacyResult, flatResult] = await Promise.all([
+    ddb.send(
+      new QueryCommand({
+        TableName: tableName('payroll_actuals'),
+        KeyConditionExpression: 'pk = :pk AND begins_with(sk, :sk)',
+        ExpressionAttributeValues: {
+          ':pk': legacyPk,
+          ':sk': skPrefix,
+        },
+      })
+    ),
+    ddb.send(
+      new ScanCommand({
+        TableName: tableName('payroll_actuals'),
+        FilterExpression: 'pk = :pk AND begins_with(sk, :sk)',
+        ExpressionAttributeValues: {
+          ':pk': `PROJECT#${projectId}`,
+          ':sk': `PAYROLL#${period}`,
+        },
+      })
+    ),
+  ]);
+
+  const combined = [
+    ...((legacyResult.Items || []) as PayrollEntry[]),
+    ...((flatResult.Items || []) as PayrollEntry[]),
+  ];
+
+  return combined;
 }
 
 /**
@@ -187,23 +211,23 @@ export async function queryPayrollByProject(
   kind?: PayrollKind
 ): Promise<PayrollEntry[]> {
   const skPrefix = kind ? `PAYROLL#${kind.toUpperCase()}#` : 'PAYROLL#';
-  
-  // Use Scan with filter since pk varies by month
+
+  // Use Scan with filter since pk may vary by month or be flat per project
   const result = await ddb.send(
     new ScanCommand({
       TableName: tableName('payroll_actuals'),
       FilterExpression: 'begins_with(pk, :pkPrefix) AND begins_with(sk, :sk)',
       ExpressionAttributeValues: {
-        ':pkPrefix': `PROJECT#${projectId}#MONTH#`,
+        ':pkPrefix': `PROJECT#${projectId}`,
         ':sk': skPrefix,
       },
     })
   );
-  
+
   const items = (result.Items || []) as PayrollEntry[];
-  
+
   // Sort by period
-  return items.sort((a, b) => a.period.localeCompare(b.period));
+  return items.sort((a, b) => (a.period || '').localeCompare(b.period || ''));
 }
 
 /**

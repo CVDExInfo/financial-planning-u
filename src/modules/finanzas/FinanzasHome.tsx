@@ -39,6 +39,12 @@ const tiles = [
     icon: <ShieldCheck className="h-5 w-5" />,
   },
   {
+    title: "Payroll Actual",
+    description: "Carga manual o masiva para actualizar dashboards de nómina.",
+    href: "/payroll/actuals",
+    icon: <BarChart3 className="h-5 w-5" />,
+  },
+  {
     title: "Flujo de Caja",
     description: "Monitorea ingresos, egresos y margen mensual usando datos existentes.",
     href: "/cashflow",

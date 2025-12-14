@@ -27,6 +27,7 @@ import ProvidersManager from "@/modules/finanzas/ProvidersManager";
 import CashflowDashboard from "@/modules/finanzas/CashflowDashboard";
 import ScenariosDashboard from "@/modules/finanzas/ScenariosDashboard";
 import HubDesempeno from "@/modules/finanzas/HubDesempeno";
+import PayrollPage from "@/modules/finanzas/payroll/PayrollPage";
 import SDMTForecast from "@/features/sdmt/cost/Forecast/SDMTForecast";
 import SDMTReconciliation from "@/features/sdmt/cost/Reconciliation/SDMTReconciliation";
 import SDMTCashflow from "@/features/sdmt/cost/Cashflow/SDMTCashflow";
@@ -232,6 +233,16 @@ function AppContent() {
                 element={
                   finanzasEnabled ? (
                     <AdjustmentsManager />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+              <Route
+                path="/payroll/actuals"
+                element={
+                  finanzasEnabled ? (
+                    <PayrollPage />
                   ) : (
                     <Navigate to="/" replace />
                   )

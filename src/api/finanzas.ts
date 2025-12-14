@@ -133,6 +133,18 @@ const MOCK_ADJUSTMENTS_ROWS = [
   { month: "2025-01", amount: 5000, projectId: "DEMO", adjustmentType: "delta" },
 ];
 
+export interface PayrollActualInput {
+  projectId: string;
+  month: string;
+  rubroId: string;
+  amount: number;
+  allocationId?: string;
+  resourceCount?: number;
+  source?: string;
+  uploadedBy?: string;
+  notes?: string;
+}
+
 async function fetchArraySource(
   url: string,
   label: string,
@@ -164,6 +176,40 @@ export async function getPayroll(projectId?: string): Promise<any[]> {
     return await fetchArraySource(url, "getPayroll");
   } catch (err) {
     throw toFinanzasError(err, "Unable to load payroll rows");
+  }
+}
+
+export async function createPayrollActual(row: PayrollActualInput) {
+  ensureApiBase();
+
+  try {
+    const headers = { ...buildAuthHeader(), "Content-Type": "application/json" };
+    return await fetchJson(`${requireApiBase()}/payroll/actuals`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(row),
+    });
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to upload payroll actual");
+  }
+}
+
+export async function bulkUploadPayrollActuals(payload: PayrollActualInput[] | FormData) {
+  ensureApiBase();
+
+  const isFormData = typeof FormData !== "undefined" && payload instanceof FormData;
+
+  try {
+    return await fetchJson<{ insertedCount: number; errors?: { index: number; message: string }[] }>(
+      `${requireApiBase()}/payroll/actuals/bulk`,
+      {
+        method: "POST",
+        headers: isFormData ? buildAuthHeader() : { ...buildAuthHeader(), "Content-Type": "application/json" },
+        body: isFormData ? (payload as FormData) : JSON.stringify(payload),
+      }
+    );
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to upload payroll actuals");
   }
 }
 
