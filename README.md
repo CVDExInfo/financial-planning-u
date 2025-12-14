@@ -8,6 +8,7 @@ The backend for this project lives under `services/finanzas-api` and is defined 
 
 - PM users now see only the baseline estimator and rubros/cost structure pages; forecast, reconciliation, and changes are hidden and blocked by route guards.
 - The prefactura/baseline flow now captures a manual **Service Delivery Manager (Nombre)** and persists it through the API payloads and Dynamo metadata.
+- `sdm_manager_email` is now persisted on prefactura and project items; no DynamoDB migration is required.
 
 ## 🔐 Authentication
 

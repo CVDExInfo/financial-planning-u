@@ -160,6 +160,11 @@ export const createBaseline = async (
       ? body.supporting_documents
       : [];
 
+    const sdmManagerEmail =
+      typeof body.sdm_manager_email === "string"
+        ? body.sdm_manager_email.trim().toLowerCase()
+        : undefined;
+
     const canonicalPayload = {
       project_id,
       project_name: body.project_name,
@@ -170,6 +175,7 @@ export const createBaseline = async (
       duration_months: durationMonths,
       contract_value: body.contract_value || total_amount,
       sdm_manager_name: body.sdm_manager_name,
+      sdm_manager_email: sdmManagerEmail,
       assumptions: body.assumptions || [],
       labor_estimates: laborEstimates,
       non_labor_estimates: nonLaborEstimates,
@@ -202,6 +208,7 @@ export const createBaseline = async (
       duration_months: durationMonths,
       contract_value: body.contract_value || total_amount,
       sdm_manager_name: body.sdm_manager_name,
+      sdm_manager_email: sdmManagerEmail,
       assumptions: body.assumptions || [],
       labor_estimates: laborEstimates,
       non_labor_estimates: nonLaborEstimates,
@@ -241,6 +248,7 @@ export const createBaseline = async (
             total_amount,
             created_at: timestamp,
             sdm_manager_name: body.sdm_manager_name,
+            sdm_manager_email: sdmManagerEmail,
             preview: {
               project_name: body.project_name,
               client_name: body.client_name || "",

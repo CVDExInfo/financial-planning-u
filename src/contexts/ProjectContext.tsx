@@ -20,6 +20,8 @@ export type ProjectSummary = {
   name: string;
   client?: string;
   description?: string;
+  sdm_manager_name?: string;
+  sdm_manager_email?: string;
   baselineId?: string;
   baselineAcceptedAt?: string;
   baseline_status?: string;
@@ -148,6 +150,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       name: display.name,
       client: display.client,
       description: project.description,
+      sdm_manager_email: project.sdm_manager_email || undefined,
+      sdm_manager_name: project.sdm_manager_name || undefined,
       baselineId: project.baseline_id,
       baselineAcceptedAt: project.baseline_accepted_at,
       baseline_status: project.baseline_status,

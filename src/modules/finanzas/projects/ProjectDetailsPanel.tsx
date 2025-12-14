@@ -63,6 +63,25 @@ export default function ProjectDetailsPanel({
           <p className="text-sm text-muted-foreground">Cliente</p>
           <p className="font-medium">{display.client || "—"}</p>
         </div>
+        {(project.sd_manager_name || project.sdm_manager_email) && (
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">Service Delivery Manager</p>
+            <p className="font-medium">
+              {project.sd_manager_name || "—"}
+              {project.sdm_manager_email && (
+                <>
+                  {" "}
+                  <a
+                    className="text-primary hover:underline text-xs"
+                    href={`mailto:${project.sdm_manager_email}`}
+                  >
+                    {project.sdm_manager_email}
+                  </a>
+                </>
+              )}
+            </p>
+          </div>
+        )}
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">Periodo</p>
           <p className="font-medium">
