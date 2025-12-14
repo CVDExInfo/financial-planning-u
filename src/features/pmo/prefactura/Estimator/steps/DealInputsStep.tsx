@@ -40,6 +40,11 @@ const dealInputsSchema: z.ZodType<DealInputs> = z.object({
     .trim()
     .min(1, "El nombre del Service Delivery Manager es requerido")
     .max(200, "El nombre no puede exceder 200 caracteres"),
+  sdm_manager_email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Ingrese un correo válido para el Service Delivery Manager"),
   assumptions: z.array(z.string()).default([]),
 }) as z.ZodType<DealInputs>;
 
@@ -56,7 +61,11 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
   const form = useForm<DealInputs>({
     resolver: zodResolver(dealInputsSchema),
     defaultValues: data
-      ? { ...data, sdm_manager_name: data.sdm_manager_name ?? "" }
+      ? {
+          ...data,
+          sdm_manager_name: data.sdm_manager_name ?? "",
+          sdm_manager_email: data.sdm_manager_email ?? "",
+        }
       : {
           project_name: "",
           project_description: "",
@@ -66,6 +75,7 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
           contract_value: undefined,
           client_name: "",
           sdm_manager_name: "",
+          sdm_manager_email: "",
           assumptions: [],
         },
   });
@@ -171,6 +181,27 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
                       placeholder="Laura Gómez"
                       {...field}
                       onChange={(event) => field.onChange(event.target.value)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="sdm_manager_email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Service Delivery Manager (Email) *</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="juan.perez@company.com"
+                      {...field}
+                      onChange={(event) =>
+                        field.onChange(event.target.value.toLowerCase())
+                      }
                     />
                   </FormControl>
                   <FormMessage />

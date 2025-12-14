@@ -34,12 +34,16 @@ describe("normalizeProjectForUI", () => {
       baseline_status: "accepted",
       accepted_by: "owner@example.com",
       baseline_accepted_at: "2024-01-02T00:00:00.000Z",
+      sdm_manager_email: "SDM@Example.com",
+      sdm_manager_name: "Pat Smith",
     });
 
     assert.equal(normalized.baseline_id, "base_abc");
     assert.equal(normalized.baseline_status, "accepted");
     assert.equal(normalized.accepted_by, "owner@example.com");
     assert.equal(normalized.baseline_accepted_at, "2024-01-02T00:00:00.000Z");
+    assert.equal(normalized.sdm_manager_email, "SDM@Example.com");
+    assert.equal(normalized.sd_manager_name, "Pat Smith");
   });
 
   it("maps baseline_status as 'handed_off' when present", () => {
@@ -61,5 +65,20 @@ describe("normalizeProjectForUI", () => {
     assert.equal(normalized.baseline_status, null);
     assert.equal(normalized.accepted_by, null);
     assert.equal(normalized.baseline_accepted_at, null);
+  });
+
+  it("maps rejection metadata and nulls when absent", () => {
+    const normalized = normalizeProjectForUI({
+      ...baseProject,
+      baseline_id: "base_rej",
+      baseline_status: "rejected",
+      rejected_by: "sdmt@example.com",
+      baseline_rejected_at: "2024-02-03T10:00:00.000Z",
+      rejection_comment: "Need updated scope",
+    });
+
+    assert.equal(normalized.rejected_by, "sdmt@example.com");
+    assert.equal(normalized.baseline_rejected_at, "2024-02-03T10:00:00.000Z");
+    assert.equal(normalized.rejection_comment, "Need updated scope");
   });
 });
