@@ -16,7 +16,6 @@ interface ProjectRecord {
 
 const DRY_RUN = !process.argv.includes("--apply");
 const SAMPLE_LIMIT = 10;
-const APPLY_CONCURRENCY = 4; // kept for future concurrency control
 const UPDATE_DELAY_MS = 250; // small delay to avoid DynamoDB throttling
 
 async function scanProjectsMissingAssignment(): Promise<ProjectRecord[]> {
