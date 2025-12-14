@@ -1,0 +1,1 @@
+Canonical project cleanup (Option B) not executed. Prerequisite backups and AWS credentials are required before running CONFIRM_CLEANUP=YES.

@@ -1,0 +1,1 @@
+Rubros migration dry-run was not executed. AWS credentials were unavailable, so prerequisite DynamoDB backups could not be created.
