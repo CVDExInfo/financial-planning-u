@@ -8,6 +8,8 @@ import {
   UpdateCommand,
 } from "../lib/dynamo";
 import { bad, fromAuthError, notFound, ok, serverError, withCors } from "../lib/http";
+import { materializeAllocationsForBaseline, materializeRubrosForBaseline } from "../lib/materializers";
+import { logError } from "../utils/logging";
 
 // Route: PATCH /projects/{projectId}/accept-baseline
 async function acceptBaseline(event: APIGatewayProxyEventV2) {
@@ -138,7 +140,40 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     ...normalizeProjectFields(updated.Attributes),
   };
 
-  return ok(event, result);
+  let materialized = false;
+  let materializationDetails: Record<string, unknown> | undefined;
+  try {
+    const baselineLookup = await ddb.send(
+      new GetCommand({
+        TableName: tableName("prefacturas"),
+        Key: { pk: `BASELINE#${baselineId}`, sk: "METADATA" },
+      })
+    );
+
+    const baselineRecord = baselineLookup.Item || { baseline_id: baselineId, project_id: projectId };
+
+    const [allocationsSummary, rubrosSummary] = await Promise.all([
+      materializeAllocationsForBaseline(baselineRecord as any, { dryRun: false }),
+      materializeRubrosForBaseline(baselineRecord as any, { dryRun: false }),
+    ]);
+
+    materializationDetails = { allocationsSummary, rubrosSummary };
+    materialized = true;
+  } catch (materializeError) {
+    logError("acceptBaseline: failed to materialize baseline", {
+      projectId,
+      baselineId,
+      error: materializeError,
+    });
+  }
+
+  const response = ok(event, { ...result, materialization: materializationDetails });
+  response.headers = {
+    ...(response.headers || {}),
+    "X-Materialized": materialized ? "true" : "false",
+  };
+
+  return response;
 }
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
