@@ -1,18 +1,21 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureSDT } from "../lib/auth";
-import { bad, ok } from "../lib/http";
+import { bad, ok, noContent } from "../lib/http";
 
 // TODO: Implement bulk allocations update
 // R1 requirement: PUT /projects/{id}/allocations:bulk
 export const handler = async (event: APIGatewayProxyEventV2) => {
-  await ensureSDT(event);
-
   const method = event.requestContext.http.method;
 
+  if (method === "OPTIONS") {
+    return noContent();
+  }
+
+  await ensureSDT(event);
+
   if (method === "GET") {
-    // Endpoint not implemented yet. Return a CORS-safe placeholder so contract
-    // tests see the expected 501 instead of API Gateway's default 404.
-    return ok({ message: "GET /allocations - not implemented yet" }, 501);
+    // Endpoint not implemented yet. Return an empty dataset to avoid noisy UI errors.
+    return ok({ data: [], total: 0, message: "GET /allocations - not implemented yet" });
   }
 
   if (method === "PUT") {
@@ -23,12 +26,11 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     }
 
     // TODO: Parse bulk allocation data and update DynamoDB allocations table
-    return ok(
-      {
-        message: "PUT /projects/{id}/allocations:bulk - not implemented yet",
-      },
-      501
-    );
+    return ok({
+      data: [],
+      total: 0,
+      message: "PUT /projects/{id}/allocations:bulk - not implemented yet",
+    });
   }
 
   return bad(`Method ${method} not allowed`, 405);

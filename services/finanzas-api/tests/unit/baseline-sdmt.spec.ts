@@ -195,9 +195,47 @@ describe("Baseline → SDMT Alignment", () => {
       ];
 
       const filtered = filterRubrosByBaseline(rubros, TEST_BASELINE_1);
-      
+
       expect(filtered).toHaveLength(1);
       expect(filtered[0].rubroId).toBe("RB0001");
+    });
+
+    it("should fall back to untagged rubros when no baseline match exists", () => {
+      const rubros: BaselineRubro[] = [
+        {
+          rubroId: "RB001",
+          nombre: "Tagged to other baseline",
+          category: "Labor",
+          qty: 1,
+          unit_cost: 1000,
+          currency: "USD",
+          recurring: true,
+          one_time: false,
+          start_month: 1,
+          end_month: 12,
+          total_cost: 12000,
+          metadata: { baseline_id: TEST_BASELINE_2 },
+        },
+        {
+          rubroId: "RB002",
+          nombre: "Untagged legacy",
+          category: "Labor",
+          qty: 1,
+          unit_cost: 2000,
+          currency: "USD",
+          recurring: true,
+          one_time: false,
+          start_month: 1,
+          end_month: 12,
+          total_cost: 24000,
+          metadata: {},
+        },
+      ];
+
+      const filtered = filterRubrosByBaseline(rubros, TEST_BASELINE_1);
+
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].rubroId).toBe("RB002");
     });
   });
 

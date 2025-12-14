@@ -388,14 +388,19 @@ export const listBaselines = async (
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  const routeKey =
-    (event as { requestContext?: { routeKey?: string } }).requestContext
-      ?.routeKey || "";
   const method =
     event.httpMethod?.toUpperCase() ||
     (event as { requestContext?: { http?: { method?: string } } }).requestContext
       ?.http?.method?.toUpperCase() ||
     "";
+
+  if (method === "OPTIONS") {
+    return noContent();
+  }
+
+  const routeKey =
+    (event as { requestContext?: { routeKey?: string } }).requestContext
+      ?.routeKey || "";
   const rawPath =
     (event as { rawPath?: string }).rawPath || event.path || event.resource || "";
 
