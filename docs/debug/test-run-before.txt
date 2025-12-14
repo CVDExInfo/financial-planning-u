@@ -1,0 +1,913 @@
+FAIL tests/unit/validation.payroll.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      3 |  */
+      4 |
+    > 5 | import {
+        |         ^
+      6 |   PayrollKindSchema,
+      7 |   PayrollEntrySchema,
+      8 |   PayrollEntryCreateSchema,
+
+      at tests/unit/validation.payroll.spec.ts:5:23
+
+FAIL tests/unit/validation.payroll.mod.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      4 |  */
+      5 |
+    > 6 | import { PayrollIngestSchema } from "../../src/validation/payroll";
+        |                       ^
+      7 | import { MOD_ROLES } from "../../src/constants/mod-roles";
+      8 |
+      9 | describe("Payroll MOD Roles Validation", () => {
+
+      at tests/unit/validation.payroll.mod.spec.ts:6:23
+
+FAIL tests/unit/validation.health.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      2 | // Since validation is done via zod, we'll test with actual validation logic
+      3 |
+    > 4 | import { z } from "zod";
+        |                       ^
+      5 |
+      6 | const HealthResponseSchema = z.object({
+      7 |   ok: z.boolean({
+
+      at tests/unit/validation.health.spec.ts:4:23
+
+FAIL tests/unit/validation.handoff.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | // Mock the zod validation functions for testing
+      2 |
+    > 3 | import { z } from "zod";
+        |                       ^
+      4 |
+      5 | const HandoffSchema = z.object({
+      6 |   mod_total: z.number().min(0, "mod_total must be non-negative"),
+
+      at tests/unit/validation.handoff.spec.ts:3:23
+
+FAIL tests/unit/validation.handoff.mod-roles.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      4 |  */
+      5 |
+    > 6 | import { HandoffSchema, MODRolesSchema } from "../../src/validation/handoff";
+        |                       ^
+      7 | import { MOD_ROLES } from "../../src/constants/mod-roles";
+      8 |
+      9 | describe("MOD Roles Validation", () => {
+
+      at tests/unit/validation.handoff.mod-roles.spec.ts:6:23
+
+FAIL tests/unit/validation.estimator.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | // Mock the zod validation functions for testing
+      2 |
+    > 3 | import { z } from "zod";
+        |                       ^
+      4 |
+      5 | const EstimatorItemSchema = z.object({
+      6 |   id: z.string().regex(/^est_[a-z0-9]{10}$/),
+
+      at tests/unit/validation.estimator.spec.ts:3:23
+
+FAIL tests/unit/upload-docs.changes-module.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | process.env.DOCS_BUCKET = process.env.DOCS_BUCKET || "docs-bucket";
+    > 2 | process.env.AWS_REGION = process.env.AWS_REGION || "us-east-2";
+        |                       ^
+      3 |
+      4 | import { APIGatewayProxyEventV2 } from "aws-lambda";
+      5 | import { handler as uploadDocsHandler } from "../../src/handlers/upload-docs";
+
+      at tests/unit/upload-docs.changes-module.spec.ts:2:23
+
+FAIL tests/unit/upload-docs.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      3 |   APIGatewayProxyStructuredResultV2,
+      4 | } from "aws-lambda";
+    > 5 | import crypto from "node:crypto";
+        |                       ^
+      6 |
+      7 | // Set environment variables before imports
+      8 | process.env.DOCS_BUCKET = "docs-bucket";
+
+      at tests/unit/upload-docs.spec.ts:5:23
+
+FAIL tests/unit/rubros.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import { APIGatewayProxyEventV2 } from "aws-lambda";
+    > 2 | import { CANONICAL_PROJECT_IDS, CANONICAL_BASELINE_IDS, CANONICAL_RUBROS } from "../fixtures/canonical-projects";
+        |                       ^
+      3 |
+      4 | jest.mock("../../src/lib/auth", () => ({
+      5 |   ensureCanRead: jest.fn(),
+
+      at tests/unit/rubros.spec.ts:2:23
+
+FAIL tests/unit/rejectBaseline.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import {
+    > 2 |   APIGatewayProxyEventV2,
+        |                       ^
+      3 | } from "aws-lambda";
+      4 |
+      5 | // Mock auth functions
+
+      at tests/unit/rejectBaseline.spec.ts:2:23
+
+FAIL tests/unit/recon.handler.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      39 |         method,
+      40 |         path,
+    > 41 |         protocol: 'HTTP/1.1',
+         |                       ^
+      42 |         sourceIp: '1.2.3.4',
+      43 |         userAgent: 'test-agent',
+      44 |       },
+
+      at tests/unit/recon.handler.spec.ts:41:23
+
+FAIL tests/unit/providers.handler.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | jest.mock("../../src/lib/dynamo", () => ({
+    > 2 |   ddb: { send: jest.fn() },
+        |                       ^
+      3 |   ScanCommand: jest.fn().mockImplementation((input) => ({ input })),
+      4 |   PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+      5 |   tableName: jest.fn(() => "providers-table"),
+
+      at tests/unit/providers.handler.spec.ts:2:23
+
+FAIL tests/unit/projects.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import { normalizeProjectItem } from "../../src/handlers/projects";
+    > 2 |
+        | ^
+      3 | describe("Projects handler", () => {
+      4 |   it("derives id from pk and preserves fields", () => {
+      5 |     const item = {
+
+      at tests/unit/projects.spec.ts:2:23
+
+FAIL tests/unit/projects.rbac.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import { APIGatewayProxyEventV2 } from "aws-lambda";
+    > 2 |
+        | ^
+      3 | jest.mock("../../src/lib/dynamo", () => ({
+      4 |   ddb: { send: jest.fn() },
+      5 |   tableName: jest.fn((name: string) => `${name}-table`),
+
+      at tests/unit/projects.rbac.spec.ts:2:23
+
+FAIL tests/unit/prefacturas.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      3 |   APIGatewayProxyStructuredResultV2,
+      4 | } from "aws-lambda";
+    > 5 | import crypto from "node:crypto";
+        |                       ^
+      6 |
+      7 | jest.mock("../../src/lib/auth", () => ({
+      8 |   ensureCanRead: jest.fn(),
+
+      at tests/unit/prefacturas.spec.ts:5:23
+
+FAIL tests/unit/payroll.handler.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      36 |     version: '2.0',
+      37 |     routeKey: `${method} ${path}`,
+    > 38 |     rawPath: path,
+         |                   ^
+      39 |     rawQueryString: '',
+      40 |     headers: {},
+      41 |     queryStringParameters: queryStringParameters || null,
+
+      at tests/unit/payroll.handler.spec.ts:38:23
+
+FAIL tests/unit/metrics.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      3 |  */
+      4 |
+    > 5 | import { calculateLaborVsIndirect, aggregateLaborVsIndirect } from '../../src/lib/metrics';
+        |                       ^
+      6 |
+      7 | describe('calculateLaborVsIndirect', () => {
+      8 |   it('should calculate labor share correctly when both MOD and indirect costs exist', () => {
+
+      at tests/unit/metrics.spec.ts:5:23
+
+FAIL tests/unit/math.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | describe('math basics', () => {
+    > 2 |   it('pro-rata forward split', () => {
+        |                       ^
+      3 |     const exceso = 1000000;
+      4 |     const mesesRestantes = 10;
+      5 |     const cuota = exceso / mesesRestantes;
+
+      at tests/unit/math.spec.ts:2:23
+
+FAIL tests/unit/invoices-app.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      3 |   APIGatewayProxyStructuredResultV2,
+      4 | } from "aws-lambda";
+    > 5 |
+        | ^
+      6 | jest.mock("../../src/lib/auth", () => ({
+      7 |   ensureCanRead: jest.fn(),
+      8 |   ensureCanWrite: jest.fn(),
+
+      at tests/unit/invoices-app.spec.ts:5:23
+
+FAIL tests/unit/handoff.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import {
+    > 2 |   APIGatewayProxyEventV2,
+        |                       ^
+      3 | } from "aws-lambda";
+      4 |
+      5 | // Mock uuid
+
+      at tests/unit/handoff.spec.ts:2:23
+
+FAIL tests/unit/handoff-data-mapping.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+       5 |  */
+       6 |
+    >  7 | describe("Handoff Data Mapping", () => {
+         |                       ^
+       8 |   describe("Project name extraction from baseline", () => {
+       9 |     it("should extract project_name from baseline.payload.project_name", () => {
+      10 |       const baseline = {
+
+      at tests/unit/handoff-data-mapping.spec.ts:7:23
+
+FAIL tests/unit/forecast.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import {
+    > 2 |   APIGatewayProxyEventV2,
+        |                       ^
+      3 |   APIGatewayProxyStructuredResultV2,
+      4 | } from "aws-lambda";
+      5 |
+
+      at tests/unit/forecast.spec.ts:2:23
+
+FAIL tests/unit/changes.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | // services/finanzas-api/tests/unit/changes.spec.ts
+      2 |
+    > 3 | import {
+        |         ^
+      4 |   APIGatewayProxyEventV2,
+      5 |   APIGatewayProxyStructuredResultV2,
+      6 | } from "aws-lambda";
+
+      at tests/unit/changes.spec.ts:3:23
+
+FAIL tests/unit/canonical-taxonomy.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+       9 |  */
+      10 |
+    > 11 | import {
+         |         ^
+      12 |   getCanonicalRubroId,
+      13 |   isValidRubroId,
+      14 |   isLegacyRubroId,
+
+      at tests/unit/canonical-taxonomy.spec.ts:11:23
+
+FAIL tests/unit/baseline-sdmt.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+       6 |  */
+       7 |
+    >  8 | import { describe, it, expect } from "@jest/globals";
+         |                       ^
+       9 | import {
+      10 |   filterRubrosByBaseline,
+      11 |   calculateRubrosTotalCost,
+
+      at tests/unit/baseline-sdmt.spec.ts:8:23
+
+FAIL tests/unit/baseline-rubros-materialization.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+       6 |  */
+       7 |
+    >  8 | import { describe, it, expect } from "@jest/globals";
+         |                       ^
+       9 |
+      10 | // Mock baseline data structures matching new schema
+      11 | type LaborEstimate = {
+
+      at tests/unit/baseline-rubros-materialization.spec.ts:8:23
+
+FAIL tests/unit/avp.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      3 | // we'll test the logic with inline implementations
+      4 |
+    > 5 | function parseGroupsFromJWT(idToken) {
+        |                       ^
+      6 |   try {
+      7 |     const parts = idToken.split('.');
+      8 |     if (parts.length !== 3) {
+
+      at tests/unit/avp.spec.ts:5:23
+
+FAIL tests/unit/auth.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import { ensureCanRead, ensureCanWrite } from "../../src/lib/auth";
+    > 2 |
+        | ^
+      3 | describe("Auth Helper", () => {
+      4 |   describe("Group Extraction", () => {
+      5 |     it("should extract groups from array format", () => {
+
+      at tests/unit/auth.spec.ts:2:23
+
+FAIL tests/unit/adjustments.handler.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import { handler as adjustmentsHandler } from "../../src/handlers/adjustments";
+    > 2 |
+        | ^
+      3 | const baseHeaders = { authorization: "Bearer test" };
+      4 |
+      5 | describe("adjustments handler", () => {
+
+      at tests/unit/adjustments.handler.spec.ts:2:23
+
+FAIL tests/unit/acceptBaseline.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import {
+    > 2 |   APIGatewayProxyEventV2,
+        |                       ^
+      3 | } from "aws-lambda";
+      4 |
+      5 | // Mock auth functions
+
+      at tests/unit/acceptBaseline.spec.ts:2:23
+
+FAIL tests/projects.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import { handler } from "../src/handlers/projects";
+    > 2 | import { ddb } from "../src/lib/dynamo";
+        |                       ^
+      3 | import { ensureCanWrite } from "../src/lib/auth";
+      4 |
+      5 | type Mutable<T> = { -readonly [P in keyof T]: Mutable<T[P]> };
+
+      at tests/projects.spec.ts:2:23
+
+Summary of all failing tests
+FAIL tests/unit/validation.payroll.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      3 |  */
+      4 |
+    > 5 | import {
+        |         ^
+      6 |   PayrollKindSchema,
+      7 |   PayrollEntrySchema,
+      8 |   PayrollEntryCreateSchema,
+
+      at tests/unit/validation.payroll.spec.ts:5:23
+
+FAIL tests/unit/validation.payroll.mod.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      4 |  */
+      5 |
+    > 6 | import { PayrollIngestSchema } from "../../src/validation/payroll";
+        |                       ^
+      7 | import { MOD_ROLES } from "../../src/constants/mod-roles";
+      8 |
+      9 | describe("Payroll MOD Roles Validation", () => {
+
+      at tests/unit/validation.payroll.mod.spec.ts:6:23
+
+FAIL tests/unit/validation.health.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      2 | // Since validation is done via zod, we'll test with actual validation logic
+      3 |
+    > 4 | import { z } from "zod";
+        |                       ^
+      5 |
+      6 | const HealthResponseSchema = z.object({
+      7 |   ok: z.boolean({
+
+      at tests/unit/validation.health.spec.ts:4:23
+
+FAIL tests/unit/validation.handoff.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | // Mock the zod validation functions for testing
+      2 |
+    > 3 | import { z } from "zod";
+        |                       ^
+      4 |
+      5 | const HandoffSchema = z.object({
+      6 |   mod_total: z.number().min(0, "mod_total must be non-negative"),
+
+      at tests/unit/validation.handoff.spec.ts:3:23
+
+FAIL tests/unit/validation.handoff.mod-roles.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      4 |  */
+      5 |
+    > 6 | import { HandoffSchema, MODRolesSchema } from "../../src/validation/handoff";
+        |                       ^
+      7 | import { MOD_ROLES } from "../../src/constants/mod-roles";
+      8 |
+      9 | describe("MOD Roles Validation", () => {
+
+      at tests/unit/validation.handoff.mod-roles.spec.ts:6:23
+
+FAIL tests/unit/validation.estimator.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | // Mock the zod validation functions for testing
+      2 |
+    > 3 | import { z } from "zod";
+        |                       ^
+      4 |
+      5 | const EstimatorItemSchema = z.object({
+      6 |   id: z.string().regex(/^est_[a-z0-9]{10}$/),
+
+      at tests/unit/validation.estimator.spec.ts:3:23
+
+FAIL tests/unit/upload-docs.changes-module.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | process.env.DOCS_BUCKET = process.env.DOCS_BUCKET || "docs-bucket";
+    > 2 | process.env.AWS_REGION = process.env.AWS_REGION || "us-east-2";
+        |                       ^
+      3 |
+      4 | import { APIGatewayProxyEventV2 } from "aws-lambda";
+      5 | import { handler as uploadDocsHandler } from "../../src/handlers/upload-docs";
+
+      at tests/unit/upload-docs.changes-module.spec.ts:2:23
+
+FAIL tests/unit/upload-docs.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      3 |   APIGatewayProxyStructuredResultV2,
+      4 | } from "aws-lambda";
+    > 5 | import crypto from "node:crypto";
+        |                       ^
+      6 |
+      7 | // Set environment variables before imports
+      8 | process.env.DOCS_BUCKET = "docs-bucket";
+
+      at tests/unit/upload-docs.spec.ts:5:23
+
+FAIL tests/unit/rubros.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import { APIGatewayProxyEventV2 } from "aws-lambda";
+    > 2 | import { CANONICAL_PROJECT_IDS, CANONICAL_BASELINE_IDS, CANONICAL_RUBROS } from "../fixtures/canonical-projects";
+        |                       ^
+      3 |
+      4 | jest.mock("../../src/lib/auth", () => ({
+      5 |   ensureCanRead: jest.fn(),
+
+      at tests/unit/rubros.spec.ts:2:23
+
+FAIL tests/unit/rejectBaseline.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import {
+    > 2 |   APIGatewayProxyEventV2,
+        |                       ^
+      3 | } from "aws-lambda";
+      4 |
+      5 | // Mock auth functions
+
+      at tests/unit/rejectBaseline.spec.ts:2:23
+
+FAIL tests/unit/recon.handler.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      39 |         method,
+      40 |         path,
+    > 41 |         protocol: 'HTTP/1.1',
+         |                       ^
+      42 |         sourceIp: '1.2.3.4',
+      43 |         userAgent: 'test-agent',
+      44 |       },
+
+      at tests/unit/recon.handler.spec.ts:41:23
+
+FAIL tests/unit/providers.handler.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | jest.mock("../../src/lib/dynamo", () => ({
+    > 2 |   ddb: { send: jest.fn() },
+        |                       ^
+      3 |   ScanCommand: jest.fn().mockImplementation((input) => ({ input })),
+      4 |   PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+      5 |   tableName: jest.fn(() => "providers-table"),
+
+      at tests/unit/providers.handler.spec.ts:2:23
+
+FAIL tests/unit/projects.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import { normalizeProjectItem } from "../../src/handlers/projects";
+    > 2 |
+        | ^
+      3 | describe("Projects handler", () => {
+      4 |   it("derives id from pk and preserves fields", () => {
+      5 |     const item = {
+
+      at tests/unit/projects.spec.ts:2:23
+
+FAIL tests/unit/projects.rbac.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import { APIGatewayProxyEventV2 } from "aws-lambda";
+    > 2 |
+        | ^
+      3 | jest.mock("../../src/lib/dynamo", () => ({
+      4 |   ddb: { send: jest.fn() },
+      5 |   tableName: jest.fn((name: string) => `${name}-table`),
+
+      at tests/unit/projects.rbac.spec.ts:2:23
+
+FAIL tests/unit/prefacturas.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      3 |   APIGatewayProxyStructuredResultV2,
+      4 | } from "aws-lambda";
+    > 5 | import crypto from "node:crypto";
+        |                       ^
+      6 |
+      7 | jest.mock("../../src/lib/auth", () => ({
+      8 |   ensureCanRead: jest.fn(),
+
+      at tests/unit/prefacturas.spec.ts:5:23
+
+FAIL tests/unit/payroll.handler.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      36 |     version: '2.0',
+      37 |     routeKey: `${method} ${path}`,
+    > 38 |     rawPath: path,
+         |                   ^
+      39 |     rawQueryString: '',
+      40 |     headers: {},
+      41 |     queryStringParameters: queryStringParameters || null,
+
+      at tests/unit/payroll.handler.spec.ts:38:23
+
+FAIL tests/unit/metrics.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      3 |  */
+      4 |
+    > 5 | import { calculateLaborVsIndirect, aggregateLaborVsIndirect } from '../../src/lib/metrics';
+        |                       ^
+      6 |
+      7 | describe('calculateLaborVsIndirect', () => {
+      8 |   it('should calculate labor share correctly when both MOD and indirect costs exist', () => {
+
+      at tests/unit/metrics.spec.ts:5:23
+
+FAIL tests/unit/math.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | describe('math basics', () => {
+    > 2 |   it('pro-rata forward split', () => {
+        |                       ^
+      3 |     const exceso = 1000000;
+      4 |     const mesesRestantes = 10;
+      5 |     const cuota = exceso / mesesRestantes;
+
+      at tests/unit/math.spec.ts:2:23
+
+FAIL tests/unit/invoices-app.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      3 |   APIGatewayProxyStructuredResultV2,
+      4 | } from "aws-lambda";
+    > 5 |
+        | ^
+      6 | jest.mock("../../src/lib/auth", () => ({
+      7 |   ensureCanRead: jest.fn(),
+      8 |   ensureCanWrite: jest.fn(),
+
+      at tests/unit/invoices-app.spec.ts:5:23
+
+FAIL tests/unit/handoff.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import {
+    > 2 |   APIGatewayProxyEventV2,
+        |                       ^
+      3 | } from "aws-lambda";
+      4 |
+      5 | // Mock uuid
+
+      at tests/unit/handoff.spec.ts:2:23
+
+FAIL tests/unit/handoff-data-mapping.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+       5 |  */
+       6 |
+    >  7 | describe("Handoff Data Mapping", () => {
+         |                       ^
+       8 |   describe("Project name extraction from baseline", () => {
+       9 |     it("should extract project_name from baseline.payload.project_name", () => {
+      10 |       const baseline = {
+
+      at tests/unit/handoff-data-mapping.spec.ts:7:23
+
+FAIL tests/unit/forecast.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import {
+    > 2 |   APIGatewayProxyEventV2,
+        |                       ^
+      3 |   APIGatewayProxyStructuredResultV2,
+      4 | } from "aws-lambda";
+      5 |
+
+      at tests/unit/forecast.spec.ts:2:23
+
+FAIL tests/unit/changes.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | // services/finanzas-api/tests/unit/changes.spec.ts
+      2 |
+    > 3 | import {
+        |         ^
+      4 |   APIGatewayProxyEventV2,
+      5 |   APIGatewayProxyStructuredResultV2,
+      6 | } from "aws-lambda";
+
+      at tests/unit/changes.spec.ts:3:23
+
+FAIL tests/unit/canonical-taxonomy.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+       9 |  */
+      10 |
+    > 11 | import {
+         |         ^
+      12 |   getCanonicalRubroId,
+      13 |   isValidRubroId,
+      14 |   isLegacyRubroId,
+
+      at tests/unit/canonical-taxonomy.spec.ts:11:23
+
+FAIL tests/unit/baseline-sdmt.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+       6 |  */
+       7 |
+    >  8 | import { describe, it, expect } from "@jest/globals";
+         |                       ^
+       9 | import {
+      10 |   filterRubrosByBaseline,
+      11 |   calculateRubrosTotalCost,
+
+      at tests/unit/baseline-sdmt.spec.ts:8:23
+
+FAIL tests/unit/baseline-rubros-materialization.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+       6 |  */
+       7 |
+    >  8 | import { describe, it, expect } from "@jest/globals";
+         |                       ^
+       9 |
+      10 | // Mock baseline data structures matching new schema
+      11 | type LaborEstimate = {
+
+      at tests/unit/baseline-rubros-materialization.spec.ts:8:23
+
+FAIL tests/unit/avp.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      3 | // we'll test the logic with inline implementations
+      4 |
+    > 5 | function parseGroupsFromJWT(idToken) {
+        |                       ^
+      6 |   try {
+      7 |     const parts = idToken.split('.');
+      8 |     if (parts.length !== 3) {
+
+      at tests/unit/avp.spec.ts:5:23
+
+FAIL tests/unit/auth.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import { ensureCanRead, ensureCanWrite } from "../../src/lib/auth";
+    > 2 |
+        | ^
+      3 | describe("Auth Helper", () => {
+      4 |   describe("Group Extraction", () => {
+      5 |     it("should extract groups from array format", () => {
+
+      at tests/unit/auth.spec.ts:2:23
+
+FAIL tests/unit/adjustments.handler.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import { handler as adjustmentsHandler } from "../../src/handlers/adjustments";
+    > 2 |
+        | ^
+      3 | const baseHeaders = { authorization: "Bearer test" };
+      4 |
+      5 | describe("adjustments handler", () => {
+
+      at tests/unit/adjustments.handler.spec.ts:2:23
+
+FAIL tests/unit/acceptBaseline.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import {
+    > 2 |   APIGatewayProxyEventV2,
+        |                       ^
+      3 | } from "aws-lambda";
+      4 |
+      5 | // Mock auth functions
+
+      at tests/unit/acceptBaseline.spec.ts:2:23
+
+FAIL tests/projects.spec.ts
+  ● Test suite failed to run
+
+    ReferenceError: exports is not defined
+
+      1 | import { handler } from "../src/handlers/projects";
+    > 2 | import { ddb } from "../src/lib/dynamo";
+        |                       ^
+      3 | import { ensureCanWrite } from "../src/lib/auth";
+      4 |
+      5 | type Mutable<T> = { -readonly [P in keyof T]: Mutable<T[P]> };
+
+      at tests/projects.spec.ts:2:23
+
+
+Test Suites: 31 failed, 31 total
+Tests:       0 total
+Snapshots:   0 total
+Time:        4.739 s
+Ran all test suites.
+(node:4736) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
