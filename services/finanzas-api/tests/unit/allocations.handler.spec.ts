@@ -6,7 +6,7 @@ jest.mock("../../src/lib/auth", () => ({
 }));
 
 describe("allocations handler", () => {
-  it("returns 501 for unimplemented PUT /projects/{id}/allocations:bulk", async () => {
+  it("returns 200 for unimplemented PUT /projects/{id}/allocations:bulk with stubbed response", async () => {
     const event = {
       requestContext: {
         http: {
@@ -21,11 +21,12 @@ describe("allocations handler", () => {
 
     const response = await handler(event);
 
-    expect(response.statusCode).toBe(501);
+    expect(response.statusCode).toBe(200);
     expect(response.headers).toHaveProperty("Access-Control-Allow-Origin");
-    expect(JSON.parse(response.body)).toEqual({
-      error: "PUT /projects/{id}/allocations:bulk - not implemented yet",
-    });
+    const body = JSON.parse(response.body);
+    expect(body.data).toEqual([]);
+    expect(body.total).toBe(0);
+    expect(body.message).toBe("PUT /projects/{id}/allocations:bulk - not implemented yet");
   });
 
   it("returns 400 for PUT without project id", async () => {
