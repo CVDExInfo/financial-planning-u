@@ -1,1 +1,17 @@
-Rubros migration dry-run was not executed. AWS credentials were unavailable, so prerequisite DynamoDB backups could not be created.
+Using proxy for HTTP(S): http://proxy:8080
+
+🔍 Scanning table: finz_rubros
+📋 Mode: DRY-RUN (no changes)
+🌍 Region: us-east-2
+
+
+📊 Migration Summary:
+   Scanned: 4
+   Already canonical: 4
+   Mapped (legacy → canonical): 0
+   Updated: 0
+   Unmapped: 0
+   Errors: 0
+
+✅ Dry-run complete. Run without --dry-run to apply changes.
+Done!

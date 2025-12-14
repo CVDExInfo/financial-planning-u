@@ -6,6 +6,8 @@ import {
   QueryCommandInput,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 
 const AWS_REGION = process.env.AWS_REGION || "us-east-2";
 const STAGE = (process.env.STAGE || process.env.ENV || "dev").toLowerCase();
@@ -38,7 +40,15 @@ const CANONICAL_BASELINE_IDS = [
   "BL-DATACENTER-ETB-001",
 ];
 
-const ddb = new DynamoDBClient({ region: AWS_REGION });
+const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.GLOBAL_AGENT_HTTP_PROXY;
+const httpHandler = proxyUrl
+  ? new NodeHttpHandler({ httpsAgent: new HttpsProxyAgent(proxyUrl), httpAgent: new HttpsProxyAgent(proxyUrl) })
+  : undefined;
+
+const ddb = new DynamoDBClient({
+  region: AWS_REGION,
+  ...(httpHandler ? { requestHandler: httpHandler } : {}),
+});
 
 type Key = { pk: string; sk: string };
 

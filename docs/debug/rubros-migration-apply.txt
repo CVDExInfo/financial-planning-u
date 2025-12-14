@@ -1,1 +1,17 @@
-Rubros migration apply step not executed. Awaiting successful backups and available AWS credentials.
+Using proxy for HTTP(S): http://proxy:8080
+
+🔍 Scanning table: finz_rubros
+📋 Mode: APPLY CHANGES
+🌍 Region: us-east-2
+
+
+📊 Migration Summary:
+   Scanned: 4
+   Already canonical: 4
+   Mapped (legacy → canonical): 0
+   Updated: 0
+   Unmapped: 0
+   Errors: 0
+
+✅ Migration complete!
+Done!

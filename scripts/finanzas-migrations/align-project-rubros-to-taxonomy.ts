@@ -19,6 +19,8 @@
 
 import { DynamoDBClient, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { unmarshall, marshall } from "@aws-sdk/util-dynamodb";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 
 // Legacy mapping - maps old rubro_ids to canonical linea_codigo
 const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
@@ -157,7 +159,15 @@ async function alignProjectRubros(
   dryRun: boolean = true
 ): Promise<void> {
   const region = process.env.AWS_REGION || "us-east-2";
-  const client = new DynamoDBClient({ region });
+  const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.GLOBAL_AGENT_HTTP_PROXY;
+  const httpHandler = proxyUrl
+    ? new NodeHttpHandler({ httpsAgent: new HttpsProxyAgent(proxyUrl), httpAgent: new HttpsProxyAgent(proxyUrl) })
+    : undefined;
+
+  const client = new DynamoDBClient({
+    region,
+    ...(httpHandler ? { requestHandler: httpHandler } : {}),
+  });
 
   console.log(`\n🔍 Scanning table: ${tableName}`);
   console.log(`📋 Mode: ${dryRun ? "DRY-RUN (no changes)" : "APPLY CHANGES"}`);
