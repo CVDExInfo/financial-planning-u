@@ -1,3 +1,4 @@
+import { APIGatewayProxyEvent } from "aws-lambda";
 import { ok, bad } from "../lib/http";
 import { ddb } from "../lib/dynamo";
 import { DescribeTableCommand } from "@aws-sdk/client-dynamodb";
@@ -96,7 +97,7 @@ async function deepHealthCheck() {
   };
 }
 
-export const handler = async (event?: { queryStringParameters?: { deep?: string } }) => {
+export const handler = async (event?: APIGatewayProxyEvent) => {
   const env = process.env.STAGE_NAME || process.env.STAGE || "dev";
   const version = process.env.GIT_SHA || process.env.API_VERSION || "1.0.0";
   const timestamp = new Date().toISOString();
@@ -117,6 +118,7 @@ export const handler = async (event?: { queryStringParameters?: { deep?: string 
           problems.push("Docs bucket missing or inaccessible");
         }
         return bad(
+          event as APIGatewayProxyEvent,
           {
             status: "unhealthy",
             message: problems.join("; ") || "Infrastructure check failed",
@@ -131,7 +133,7 @@ export const handler = async (event?: { queryStringParameters?: { deep?: string 
         );
       }
 
-      return ok({
+      return ok(event as APIGatewayProxyEvent, {
         ok: true,
         status: "ok",
         infrastructure: {
@@ -154,6 +156,7 @@ export const handler = async (event?: { queryStringParameters?: { deep?: string 
         errorMessage: error instanceof Error ? error.message : String(error),
       });
       return bad(
+        event as APIGatewayProxyEvent,
         {
           status: "error",
           message: "Health check failed",
@@ -168,7 +171,7 @@ export const handler = async (event?: { queryStringParameters?: { deep?: string 
   }
 
   // Basic health check (fast, no infrastructure validation)
-  return ok({
+  return ok(event as APIGatewayProxyEvent, {
     ok: true,
     status: "ok",
     env,

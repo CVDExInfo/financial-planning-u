@@ -7,26 +7,26 @@ import {
   GetCommand,
   UpdateCommand,
 } from "../lib/dynamo";
-import { bad, fromAuthError, notFound, ok, serverError } from "../lib/http";
+import { bad, fromAuthError, notFound, ok, serverError, withCors } from "../lib/http";
 
 // Route: PATCH /projects/{projectId}/accept-baseline
 async function acceptBaseline(event: APIGatewayProxyEventV2) {
   await ensureCanWrite(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
-    return bad("missing project id");
+    return bad(event, "missing project id");
   }
 
   let body: Record<string, unknown>;
   try {
     body = JSON.parse(event.body ?? "{}");
   } catch {
-    return bad("Invalid JSON in request body");
+    return bad(event, "Invalid JSON in request body");
   }
 
   const baselineId = body.baseline_id as string | undefined;
   if (!baselineId) {
-    return bad("baseline_id is required");
+    return bad(event, "baseline_id is required");
   }
 
   const userEmail = await getUserEmail(event);
@@ -45,13 +45,14 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
   );
 
   if (!projectResult.Item) {
-    return notFound("project not found");
+    return notFound(event, "project not found");
   }
 
   // Verify that the baseline matches
   const currentBaselineId = projectResult.Item.baseline_id;
   if (currentBaselineId !== baselineId) {
     return bad(
+      event,
       `baseline_id mismatch: expected ${currentBaselineId}, got ${baselineId}`,
       400
     );
@@ -137,7 +138,7 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     ...normalizeProjectFields(updated.Attributes),
   };
 
-  return ok(result);
+  return ok(event, result);
 }
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
@@ -149,18 +150,21 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     if (method === "PATCH" && path.includes("/projects/")) {
       return await acceptBaseline(event);
     } else {
-      return {
-        statusCode: 405,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "Method not allowed" }),
-      };
+      return withCors(
+        {
+          statusCode: 405,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ error: "Method not allowed" }),
+        },
+        event
+      );
     }
   } catch (err: unknown) {
     // Handle auth errors
-    const authError = fromAuthError(err);
+    const authError = fromAuthError(err, event);
     if (authError) return authError;
 
     console.error("Accept baseline handler error:", err);
-    return serverError();
+    return serverError(event);
   }
 };

@@ -1,116 +1,180 @@
-/**
- * HTTP response helpers with CORS headers
- * All Lambda responses (success & error) must include CORS headers
- */
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
-/**
- * Standard CORS headers for all responses
- * Using wildcard origin (*) for maximum compatibility with any frontend domain
- * Note: We don't use AllowCredentials since authentication is via JWT in Authorization header
- */
-export const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-  "Access-Control-Allow-Headers":
-    "Content-Type,Authorization,X-Requested-With,X-Idempotency-Key,X-Amz-Date,X-Amz-Security-Token,X-Api-Key",
-  "Access-Control-Max-Age": "86400",
+const isDevEnvironment =
+  process.env.NODE_ENV === "development" ||
+  process.env.STAGE_NAME === "local" ||
+  process.env.STAGE_NAME === "dev";
+
+const parseAllowedOrigins = () => {
+  const envValue = process.env.ALLOWED_ORIGIN || "";
+  return envValue
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
 };
 
-/**
- * Merge standard CORS headers with any existing headers on the response.
- *
- * This keeps caller-provided headers (e.g., Content-Type) while guaranteeing
- * that the Access-Control-* headers are always present on the response.
- */
-export function mergeCorsHeaders(
-  existingHeaders: Record<string, string> = {}
-): Record<string, string> {
-  return {
-    ...existingHeaders,
-    ...cors,
+const isEvent = (value: unknown): value is APIGatewayProxyEvent => {
+  return typeof value === "object" && value !== null && "headers" in value;
+};
+
+export function defaultCorsHeaders(event?: Pick<APIGatewayProxyEvent, "headers">) {
+  const originHeader = event?.headers?.Origin || event?.headers?.origin;
+  const allowedOrigins = parseAllowedOrigins();
+  const isAllowedOrigin =
+    !!originHeader && allowedOrigins.some((allowed) => allowed === originHeader);
+  const allowOrigin =
+    (isAllowedOrigin && originHeader) ||
+    allowedOrigins[0] ||
+    (isDevEnvironment ? "*" : "*");
+
+  const headers: Record<string, string> = {
+    Vary: "Origin",
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+    "Access-Control-Allow-Headers":
+      "Content-Type,Authorization,X-Idempotency-Key,X-Amz-Date,X-Amz-Security-Token,X-Requested-With,X-Api-Key",
+    "Access-Control-Max-Age": "86400",
   };
+
+  if (String(process.env.ALLOW_CREDENTIALS).toLowerCase() === "true") {
+    headers["Access-Control-Allow-Credentials"] = "true";
+  }
+
+  return headers;
 }
 
-/**
- * Attach CORS headers to an existing response object.
- */
-export function withCors<T extends { headers?: Record<string, string> }>(
-  response: T
-): T {
+export function withCors(
+  response: APIGatewayProxyResult,
+  event?: Pick<APIGatewayProxyEvent, "headers">
+): APIGatewayProxyResult {
   return {
     ...response,
-    headers: mergeCorsHeaders(response.headers ?? {}),
+    headers: {
+      ...defaultCorsHeaders(event),
+      ...(response.headers || {}),
+    },
   };
 }
 
-/**
- * Success response with CORS headers
- */
-export function ok<T>(data: T, statusCode = 200) {
-  return {
-    statusCode,
-    headers: cors,
-    body: JSON.stringify(data),
-  };
+export function ok<T>(
+  eventOrData: APIGatewayProxyEvent | T,
+  dataOrStatus?: T | number,
+  statusCode?: number
+): APIGatewayProxyResult {
+  const event = isEvent(eventOrData) ? eventOrData : undefined;
+  const data = isEvent(eventOrData)
+    ? (dataOrStatus as T)
+    : (eventOrData as T);
+  const status =
+    typeof statusCode === "number"
+      ? statusCode
+      : typeof dataOrStatus === "number" && !isEvent(eventOrData)
+        ? dataOrStatus
+        : 200;
+
+  return withCors(
+    {
+      statusCode: status,
+      headers: {},
+      body: JSON.stringify(data),
+    },
+    event
+  );
 }
 
-/**
- * Empty success response for CORS preflight handling
- */
-export function noContent(statusCode = 204) {
-  return {
-    statusCode,
-    headers: cors,
-    body: "",
-  };
+export function noContent(
+  eventOrStatus?: APIGatewayProxyEvent | number,
+  maybeStatus?: number
+): APIGatewayProxyResult {
+  const event = isEvent(eventOrStatus) ? eventOrStatus : undefined;
+  const status =
+    typeof maybeStatus === "number"
+      ? maybeStatus
+      : typeof eventOrStatus === "number"
+        ? eventOrStatus
+        : 204;
+
+  return withCors(
+    {
+      statusCode: status,
+      headers: {},
+      body: "",
+    },
+    event
+  );
 }
 
-/**
- * Error response with CORS headers
- * Accepts either a string message or an object with error details
- */
-export function bad(message: string | Record<string, unknown>, statusCode = 400) {
-  return {
-    statusCode,
-    headers: cors,
-    body: typeof message === "string"
-      ? JSON.stringify({ error: message })
-      : JSON.stringify(message),
-  };
+export function bad(
+  eventOrMessage: APIGatewayProxyEvent | string | Record<string, unknown>,
+  messageOrStatus?: string | Record<string, unknown> | number,
+  statusCode?: number
+): APIGatewayProxyResult {
+  const event = isEvent(eventOrMessage) ? eventOrMessage : undefined;
+  const message = isEvent(eventOrMessage)
+    ? (messageOrStatus as string | Record<string, unknown>)
+    : (eventOrMessage as string | Record<string, unknown>);
+  const status =
+    typeof statusCode === "number"
+      ? statusCode
+      : typeof messageOrStatus === "number" && isEvent(eventOrMessage)
+        ? messageOrStatus
+        : typeof messageOrStatus === "number"
+          ? messageOrStatus
+          : 400;
+
+  return withCors(
+    {
+      statusCode: status,
+      headers: {},
+      body:
+        typeof message === "string"
+          ? JSON.stringify({ error: message })
+          : JSON.stringify(message),
+    },
+    event
+  );
 }
 
-/**
- * Not found response with CORS headers
- */
-export function notFound(message = "Resource not found") {
-  return bad(message, 404);
+export function notFound(
+  eventOrMessage: APIGatewayProxyEvent | string,
+  message = "Resource not found"
+) {
+  return isEvent(eventOrMessage)
+    ? bad(eventOrMessage, message, 404)
+    : bad(eventOrMessage || message, 404);
 }
 
-/**
- * Server error response with CORS headers
- */
-export function serverError(message = "Internal server error") {
-  return bad(message, 500);
+export function serverError(
+  eventOrMessage?: APIGatewayProxyEvent | string,
+  message = "Internal server error"
+) {
+  if (isEvent(eventOrMessage)) {
+    return bad(eventOrMessage, message, 500);
+  }
+
+  const body = typeof eventOrMessage === "string" ? eventOrMessage : message;
+  return bad(body, 500);
 }
 
-/**
- * Not implemented response with CORS headers
- */
-export function notImplemented(message = "Not implemented") {
-  return bad(message, 501);
+export function notImplemented(
+  eventOrMessage: APIGatewayProxyEvent | string,
+  message = "Not implemented"
+) {
+  return isEvent(eventOrMessage)
+    ? bad(eventOrMessage, message, 501)
+    : bad(eventOrMessage || message, 501);
 }
 
-/**
- * Unauthorized response with CORS headers
- */
-export function unauthorized(message = "Unauthorized") {
-  return bad(message, 401);
+export function unauthorized(
+  eventOrMessage: APIGatewayProxyEvent | string,
+  message = "Unauthorized"
+) {
+  return isEvent(eventOrMessage)
+    ? bad(eventOrMessage, message, 401)
+    : bad(eventOrMessage || message, 401);
 }
 
-/**
- * Convert auth errors thrown by ensure* helpers into proper HTTP responses
- */
-export function fromAuthError(error: unknown) {
+export function fromAuthError(error: unknown, event?: APIGatewayProxyEvent) {
   if (
     typeof error === "object" &&
     error !== null &&
@@ -119,7 +183,7 @@ export function fromAuthError(error: unknown) {
   ) {
     const statusCode = Number((error as { statusCode: number }).statusCode) || 403;
     const message = String((error as { body: string }).body || "Access denied");
-    return bad(message, statusCode);
+    return event ? bad(event, message, statusCode) : bad(message, statusCode);
   }
   return null;
 }
