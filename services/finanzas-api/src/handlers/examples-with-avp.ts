@@ -7,6 +7,7 @@
 
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { ensureAuthorized, checkAuthFromEvent } from '../lib/avp';
+import { ok, bad, unauthorized } from '../lib/http';
 
 /**
  * Example 1: Simple authorization check with ensureAuthorized
@@ -17,7 +18,7 @@ export const bulkAllocationsHandler = async (event: APIGatewayProxyEventV2) => {
   const projectId = event.pathParameters?.id;
 
   if (!projectId) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'missing project id' }) };
+    return bad('missing project id');
   }
 
   // Check authorization - throws 403 if not authorized
@@ -30,10 +31,7 @@ export const bulkAllocationsHandler = async (event: APIGatewayProxyEventV2) => {
 
   // If we reach here, user is authorized
   // TODO: Implement bulk allocation logic
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: 'Bulk allocations updated' })
-  };
+  return ok({ message: 'Bulk allocations updated' });
 };
 
 /**
@@ -45,7 +43,7 @@ export const viewPlanHandler = async (event: APIGatewayProxyEventV2) => {
   const projectId = event.pathParameters?.id;
 
   if (!projectId) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'missing project id' }) };
+    return bad('missing project id');
   }
 
   // Check authorization manually
@@ -57,21 +55,12 @@ export const viewPlanHandler = async (event: APIGatewayProxyEventV2) => {
   );
 
   if (!authorized) {
-    return {
-      statusCode: 403,
-      body: JSON.stringify({
-        error: 'Forbidden',
-        message: `You do not have permission to view plan for project ${projectId}`
-      })
-    };
+    return unauthorized(`You do not have permission to view plan for project ${projectId}`);
   }
 
   // If we reach here, user is authorized
   // TODO: Fetch and return plan data
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ projectId, plan: [] })
-  };
+  return ok({ projectId, plan: [] });
 };
 
 /**
@@ -95,16 +84,12 @@ export const healthHandler = async (event: APIGatewayProxyEventV2) => {
   }
 
   const stage = process.env.STAGE_NAME || process.env.STAGE || 'dev';
-  return {
-    statusCode: 200,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ok: true,
-      service: 'finanzas-sd-api',
-      stage,
-      time: new Date().toISOString()
-    })
-  };
+  return ok({
+    ok: true,
+    service: 'finanzas-sd-api',
+    stage,
+    time: new Date().toISOString()
+  });
 };
 
 /**
@@ -122,23 +107,17 @@ export const createAdjustmentHandler = async (event: APIGatewayProxyEventV2) => 
   try {
     body = JSON.parse(event.body ?? '{}');
   } catch {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'Invalid JSON in request body' })
-    };
+    return bad('Invalid JSON in request body');
   }
   
   // TODO: Validate and create adjustment
   const adjustmentId = 'ADJ-' + Date.now();
 
-  return {
-    statusCode: 201,
-    body: JSON.stringify({
-      id: adjustmentId,
-      message: 'Adjustment created',
-      data: body
-    })
-  };
+  return ok({
+    id: adjustmentId,
+    message: 'Adjustment created',
+    data: body
+  }, 201);
 };
 
 /**
@@ -155,10 +134,7 @@ export const listProvidersHandler = async (event: APIGatewayProxyEventV2) => {
   // TODO: Fetch providers from database
   const providers = [];
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ providers })
-  };
+  return ok({ providers });
 };
 
 /**
@@ -169,16 +145,13 @@ export const closeMonthHandler = async (event: APIGatewayProxyEventV2) => {
   try {
     body = JSON.parse(event.body ?? '{}');
   } catch {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'Invalid JSON in request body' })
-    };
+    return bad('Invalid JSON in request body');
   }
 
   const projectId = body.projectId;
 
   if (!projectId) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'missing projectId' }) };
+    return bad('missing projectId');
   }
 
   // Check authorization for closing month on this project
@@ -190,10 +163,7 @@ export const closeMonthHandler = async (event: APIGatewayProxyEventV2) => {
   );
 
   // TODO: Close month logic
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: `Month closed for project ${projectId}` })
-  };
+  return ok({ message: `Month closed for project ${projectId}` });
 };
 
 /**

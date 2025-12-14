@@ -1,6 +1,6 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth.js";
-import { bad, noContent, ok, serverError, fromAuthError } from "../lib/http.js";
+import { cors, bad, noContent, ok, serverError, fromAuthError } from "../lib/http.js";
 
 type Adjustment = {
   id: string;

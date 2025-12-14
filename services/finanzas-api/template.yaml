@@ -353,7 +353,7 @@ Resources:
         Ref: StageName
       CorsConfiguration:
         AllowOrigins:
-        - Fn::Sub: https://${CloudFrontDomain}
+        - '*'
         AllowHeaders:
         - Authorization
         - Content-Type
@@ -369,7 +369,6 @@ Resources:
         - PATCH
         - DELETE
         - OPTIONS
-        AllowCredentials: true
         MaxAge: 86400
       AccessLogSettings:
         DestinationArn:
