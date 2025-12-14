@@ -118,7 +118,7 @@ export default function ProjectsManager() {
   const [showModDebugPreview, setShowModDebugPreview] = React.useState(
     developerPreviewEnabled,
   );
-  const { canCreateBaseline, isExecRO, canEdit } = usePermissions();
+  const { canCreateBaseline, isExecRO, canEdit, isSDM } = usePermissions();
   const canCreateProject = canCreateBaseline && canEdit && !isExecRO;
 
   // Form state
@@ -638,7 +638,7 @@ export default function ProjectsManager() {
       return;
     }
 
-    if (!sdmEmail) {
+    if (!isSDM && !sdmEmail) {
       toast.error("Asigna el correo del responsable SDM para el proyecto.");
       return;
     }
@@ -661,7 +661,7 @@ export default function ProjectsManager() {
         currency,
         mod_total: parsedModTotal,
         description: description || undefined,
-        sdm_manager_email: sdmEmail.trim(),
+        ...(sdmEmail ? { sdm_manager_email: sdmEmail.trim() } : {}),
       };
 
       const validatedPayload = ProjectCreateSchema.parse(payload);
@@ -1206,22 +1206,24 @@ export default function ProjectsManager() {
                 />
               </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="sdmEmail">Responsable SDM (correo) *</Label>
-                <Input
-                  id="sdmEmail"
-                  name="sdmEmail"
-                  type="email"
-                  placeholder="sdm@empresa.com"
-                  value={sdmEmail}
-                  onChange={(e) => setSdmEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Este correo se usa para mostrar el proyecto al SDM asignado.
-                </p>
-              </div>
+              {!isSDM && (
+                <div className="grid gap-2">
+                  <Label htmlFor="sdmEmail">Responsable SDM (correo) *</Label>
+                  <Input
+                    id="sdmEmail"
+                    name="sdmEmail"
+                    type="email"
+                    placeholder="sdm@empresa.com"
+                    value={sdmEmail}
+                    onChange={(e) => setSdmEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Este correo se usa para mostrar el proyecto al SDM asignado.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">

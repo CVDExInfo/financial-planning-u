@@ -16,6 +16,8 @@ interface ProjectRecord {
 
 const DRY_RUN = !process.argv.includes("--apply");
 const SAMPLE_LIMIT = 10;
+const APPLY_CONCURRENCY = 4; // kept for future concurrency control
+const UPDATE_DELAY_MS = 250; // small delay to avoid DynamoDB throttling
 
 async function scanProjectsMissingAssignment(): Promise<ProjectRecord[]> {
   let items: ProjectRecord[] = [];
@@ -89,36 +91,51 @@ async function backfill() {
     return;
   }
 
-  for (const { record, sdmEmail } of derived) {
+  console.info(`[backfill] applying updates with delay ${UPDATE_DELAY_MS}ms`);
+
+  for (let idx = 0; idx < derived.length; idx++) {
+    const { record, sdmEmail } = derived[idx];
     const projectId = record.project_id || record.projectId || record.id;
     if (!projectId) continue;
 
-    await ddb.send(
-      new UpdateCommand({
-        TableName: tableName("projects"),
-        Key: { pk: `PROJECT#${projectId}`, sk: record.sk || "METADATA" },
-        UpdateExpression: "SET #sdmEmail = :sdmEmail",
-        ConditionExpression:
-          "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta) AND (attribute_not_exists(#sdmEmail) OR #sdmEmail = :empty)",
-        ExpressionAttributeNames: {
-          "#pk": "pk",
-          "#sk": "sk",
-          "#sdmEmail": "sdm_manager_email",
-        },
-        ExpressionAttributeValues: {
-          ":sdmEmail": sdmEmail,
-          ":pkPrefix": "PROJECT#",
-          ":metadata": "METADATA",
-          ":meta": "META",
-          ":empty": "",
-        },
-      }),
-    );
+    try {
+      await ddb.send(
+        new UpdateCommand({
+          TableName: tableName("projects"),
+          Key: { pk: `PROJECT#${projectId}`, sk: record.sk || "METADATA" },
+          UpdateExpression: "SET #sdmEmail = :sdmEmail",
+          ConditionExpression:
+            "begins_with(#pk, :pkPrefix) AND (#sk = :metadata OR #sk = :meta) AND (attribute_not_exists(#sdmEmail) OR #sdmEmail = :empty)",
+          ExpressionAttributeNames: {
+            "#pk": "pk",
+            "#sk": "sk",
+            "#sdmEmail": "sdm_manager_email",
+          },
+          ExpressionAttributeValues: {
+            ":sdmEmail": sdmEmail,
+            ":pkPrefix": "PROJECT#",
+            ":metadata": "METADATA",
+            ":meta": "META",
+            ":empty": "",
+          },
+        }),
+      );
 
-    console.info("[backfill] updated project", {
-      projectId,
-      sdmEmail,
-    });
+      console.info("[backfill] updated project", {
+        projectId,
+        sdmEmail,
+        idx: idx + 1,
+        total: derived.length,
+      });
+    } catch (err: any) {
+      console.error("[backfill] update failed for project", {
+        projectId,
+        sdmEmail,
+        error: err?.message || err,
+      });
+    }
+
+    await new Promise((res) => setTimeout(res, UPDATE_DELAY_MS));
   }
 
   console.info("[backfill] completed", {

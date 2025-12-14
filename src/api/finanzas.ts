@@ -1244,7 +1244,7 @@ export type CreateProjectPayload = {
   currency: string; // e.g. "USD"
   mod_total: number | string;
   description?: string;
-  sdm_manager_email: string;
+  sdm_manager_email?: string;
 };
 
 // Optional helpers used by tests/smokes
