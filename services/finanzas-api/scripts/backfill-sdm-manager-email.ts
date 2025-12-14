@@ -87,6 +87,10 @@ interface MigrationSummary {
 }
 
 function extractProjectId(record: ProjectRecord): string {
+  // Support multiple field name formats for backward compatibility:
+  // - projectId (camelCase, newer records)
+  // - project_id (snake_case, legacy records)
+  // - pk extraction (fallback for very old records)
   return (
     record.projectId ||
     record.project_id ||
@@ -100,6 +104,11 @@ function extractExistingSdmEmail(record: ProjectRecord): string | undefined {
 }
 
 function deriveSDMEmail(record: ProjectRecord): string | undefined {
+  // Support multiple field name formats for backward compatibility:
+  // - accepted_by, acceptedBy (camelCase/snake_case variants)
+  // - aceptado_por (Spanish legacy field)
+  // - created_by, createdBy (fallback fields)
+  
   // Priority 1: accepted_by (most reliable indicator of SDM)
   const acceptedBy = record.accepted_by || record.acceptedBy || record.aceptado_por;
   if (acceptedBy && typeof acceptedBy === "string") {

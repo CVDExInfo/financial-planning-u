@@ -203,7 +203,7 @@ export const ProjectCreateSchema = z.object({
   currency: z.enum(["USD", "EUR", "MXN", "COP"]),
   mod_total: z.number().min(0),
   description: z.string().max(1000).optional(),
-  sdm_manager_email: z.string().email().optional(), // Required for PMO/SDMT, auto-set for SDM
+  sdm_manager_email: z.string().email().optional(), // Optional in schema (SDM auto-assigned, PMO/SDMT provide explicitly)
 });
 
 export type ProjectCreate = z.infer<typeof ProjectCreateSchema>;
