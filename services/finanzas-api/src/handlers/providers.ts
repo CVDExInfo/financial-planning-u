@@ -8,6 +8,7 @@ import {
 } from "../lib/dynamo";
 import crypto from "node:crypto";
 import { logError } from "../utils/logging";
+import { cors } from "../lib/http";
 
 type Provider = {
   id: string;
@@ -30,7 +31,7 @@ const providersTable = tableName("providers");
 function jsonResponse(statusCode: number, payload: unknown) {
   return {
     statusCode,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...cors },
     body: JSON.stringify(payload),
   };
 }

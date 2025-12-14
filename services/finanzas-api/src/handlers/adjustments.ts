@@ -1,5 +1,6 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth.js";
+import { cors } from "../lib/http.js";
 
 type Adjustment = {
   id: string;
@@ -50,7 +51,7 @@ function parseQueryParam(event: APIGatewayProxyEventV2, key: string): string | u
 function jsonResponse(statusCode: number, payload: unknown) {
   return {
     statusCode,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...cors },
     body: JSON.stringify(payload),
   };
 }

@@ -3,19 +3,16 @@
  * All Lambda responses (success & error) must include CORS headers
  */
 
-// Get CORS origin from environment or use default
-const ALLOWED_ORIGIN =
-  process.env.ALLOWED_ORIGIN || "https://d7t9x3j66yd8k.cloudfront.net";
-
 /**
  * Standard CORS headers for all responses
+ * Using wildcard origin (*) for maximum compatibility with any frontend domain
+ * Note: We don't use AllowCredentials since authentication is via JWT in Authorization header
  */
 export const cors = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-  "Access-Control-Allow-Credentials": "true",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
   "Access-Control-Allow-Headers":
-    "Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Requested-With,authorization,content-type,x-amz-date,x-amz-security-token,x-requested-with",
+    "Content-Type,Authorization,X-Requested-With,X-Idempotency-Key,X-Amz-Date,X-Amz-Security-Token,X-Api-Key",
   "Access-Control-Max-Age": "86400",
 };
 
