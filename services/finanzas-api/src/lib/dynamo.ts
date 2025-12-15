@@ -279,3 +279,66 @@ export async function queryPayrollByPeriodAllProjects(
   
   return (result.Items || []) as PayrollEntry[];
 }
+
+/**
+ * Validation helpers for payroll entries
+ */
+
+/**
+ * Check if a project exists in DynamoDB
+ * @param projectId The project ID to check
+ * @returns true if project exists, false otherwise
+ */
+export async function projectExists(projectId: string): Promise<boolean> {
+  try {
+    const result = await sendDdb(
+      new GetCommand({
+        TableName: tableName('projects'),
+        Key: {
+          pk: `PROJECT#${projectId}`,
+          sk: 'META',
+        },
+      })
+    );
+    return !!result.Item;
+  } catch (error) {
+    console.error('Error checking if project exists:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if a rubro exists in DynamoDB and return its taxonomy data
+ * @param rubroId The rubro ID to check (e.g., "MOD-ING", "MOD-SDM")
+ * @returns The rubro taxonomy data if found, null otherwise
+ */
+export async function getRubroTaxonomy(rubroId: string): Promise<{
+  code: string;
+  description: string;
+  category: string;
+} | null> {
+  try {
+    const result = await sendDdb(
+      new GetCommand({
+        TableName: tableName('rubros_taxonomia'),
+        Key: {
+          pk: 'TAXONOMY',
+          sk: `RUBRO#${rubroId}`,
+        },
+      })
+    );
+    
+    if (!result.Item) {
+      return null;
+    }
+    
+    return {
+      code: (result.Item as any).linea_codigo || rubroId,
+      description: (result.Item as any).linea_gasto || (result.Item as any).descripcion || '',
+      category: (result.Item as any).categoria || '',
+    };
+  } catch (error) {
+    console.error('Error fetching rubro taxonomy:', error);
+    return null;
+  }
+}
