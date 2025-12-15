@@ -206,6 +206,46 @@ describe("resolveProjectForHandoff", () => {
       expect(result.baselineId).toBe("base_new456");
     });
 
+    it("should create new projectId when existing project metadata lacks baseline", async () => {
+      const getKeys: Array<Record<string, unknown>> = [];
+
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          const key = (command as any).input.Key;
+          getKeys.push(key);
+
+          if (key?.pk === "IDEMPOTENCY#HANDOFF") {
+            return Promise.resolve({ Item: undefined });
+          }
+
+          if (key?.pk === "PROJECT#P-existing" && key?.sk === "METADATA") {
+            return Promise.resolve({ Item: { name: "no baseline" } });
+          }
+
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (command instanceof ScanCommand) {
+          return Promise.resolve({ Items: [] });
+        }
+
+        throw new Error("Unexpected command");
+      });
+
+      const result = await resolveProjectForHandoff({
+        ddb: mockDdb,
+        tableName: mockTableName,
+        incomingProjectId: "P-existing",
+        baselineId: "base_new456",
+        idempotencyKey: "key-4b",
+      });
+
+      expect(getKeys).toContainEqual({ pk: "PROJECT#P-existing", sk: "METADATA" });
+      expect(result.resolvedProjectId).toBe("P-generated-uuid");
+      expect(result.isNewProject).toBe(true);
+      expect(result.baselineId).toBe("base_new456");
+    });
+
     it("should find and reuse project when different baseline already has project", async () => {
       const existingMetadataNew = {
         pk: "PROJECT#P-baseline-new",

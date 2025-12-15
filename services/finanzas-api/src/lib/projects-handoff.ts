@@ -260,7 +260,7 @@ export async function resolveProjectForHandoff(
 
     if (incomingMetadata) {
       const existingBaseline = normalizeBaselineId(incomingMetadata);
-      if (existingBaseline && existingBaseline !== normalizedBaselineId) {
+      if (!existingBaseline || existingBaseline !== normalizedBaselineId) {
         resolvedProjectId = `P-${crypto.randomUUID()}`;
       } else {
         existingProjectMetadata = incomingMetadata;
