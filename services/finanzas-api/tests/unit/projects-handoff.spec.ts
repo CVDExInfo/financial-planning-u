@@ -3,7 +3,7 @@
  */
 
 import { resolveProjectForHandoff } from "../../src/lib/projects-handoff";
-import { DynamoDBDocumentClient, GetCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
 // Mock DynamoDB client
 const mockSend = jest.fn();
