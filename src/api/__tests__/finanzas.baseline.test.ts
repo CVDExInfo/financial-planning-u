@@ -123,7 +123,6 @@ describe("baseline flow - DynamoDB overwrite prevention", () => {
 
       // Mock createPrefacturaBaseline response with unique projectId
       if (url.includes("/baseline") && init?.method === "POST") {
-        const projectName = body?.project_name || "Test Project";
         // Backend returns unique UUID-based projectId regardless of project name
         const uniqueProjectId = `P-${Math.random().toString(36).substring(2, 10)}`;
         return {
