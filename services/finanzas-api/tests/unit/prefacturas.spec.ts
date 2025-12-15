@@ -10,12 +10,16 @@ jest.mock("../../src/lib/auth", () => ({
   getUserEmail: jest.fn().mockReturnValue("prefa@tester.com"),
 }));
 
-jest.mock("../../src/lib/dynamo", () => ({
-  ddb: { send: jest.fn() },
-  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
-  QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
-  tableName: jest.fn(() => "prefacturas-table"),
-}));
+jest.mock("../../src/lib/dynamo", () => {
+  const sendDdb = jest.fn();
+  return {
+    ddb: { send: sendDdb },
+    sendDdb,
+    PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+    QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
+    tableName: jest.fn(() => "prefacturas-table"),
+  };
+});
 
 import { handler as prefacturasHandler } from "../../src/handlers/prefacturas.js";
 

@@ -9,14 +9,18 @@ jest.mock("../../src/lib/auth", () => ({
   getUserEmail: jest.fn().mockResolvedValue("tester@example.com"),
 }));
 
-jest.mock("../../src/lib/dynamo", () => ({
-  ddb: { send: jest.fn() },
-  GetCommand: jest.fn().mockImplementation((input) => ({ input })),
-  QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
-  UpdateCommand: jest.fn().mockImplementation((input) => ({ input })),
-  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
-  tableName: jest.fn(() => "prefacturas-table"),
-}));
+jest.mock("../../src/lib/dynamo", () => {
+  const sendDdb = jest.fn();
+  return {
+    ddb: { send: sendDdb },
+    sendDdb,
+    GetCommand: jest.fn().mockImplementation((input) => ({ input })),
+    QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
+    UpdateCommand: jest.fn().mockImplementation((input) => ({ input })),
+    PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+    tableName: jest.fn(() => "prefacturas-table"),
+  };
+});
 
 import { handler as invoicesHandler } from "../../src/handlers/invoices/app.js";
 import crypto from "node:crypto";

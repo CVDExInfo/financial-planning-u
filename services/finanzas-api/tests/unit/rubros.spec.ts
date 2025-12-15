@@ -7,15 +7,19 @@ jest.mock("../../src/lib/auth", () => ({
   getUserEmail: jest.fn(),
 }));
 
-jest.mock("../../src/lib/dynamo", () => ({
-  ddb: { send: jest.fn() },
-  QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
-  BatchGetCommand: jest.fn().mockImplementation((input) => ({ input })),
-  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
-  DeleteCommand: jest.fn().mockImplementation((input) => ({ input })),
-  GetCommand: jest.fn().mockImplementation((input) => ({ input })),
-  tableName: jest.fn((name: string) => `${name}-table`),
-}));
+jest.mock("../../src/lib/dynamo", () => {
+  const sendDdb = jest.fn();
+  return {
+    ddb: { send: sendDdb },
+    sendDdb,
+    QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
+    BatchGetCommand: jest.fn().mockImplementation((input) => ({ input })),
+    PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+    DeleteCommand: jest.fn().mockImplementation((input) => ({ input })),
+    GetCommand: jest.fn().mockImplementation((input) => ({ input })),
+    tableName: jest.fn((name: string) => `${name}-table`),
+  };
+});
 
 jest.mock("../../src/lib/baseline-sdmt", () => ({
   queryProjectRubros: jest.fn(() => Promise.resolve([])),

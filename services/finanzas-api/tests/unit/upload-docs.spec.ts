@@ -19,11 +19,15 @@ jest.mock("../../src/lib/auth", () => ({
   getUserEmail: jest.fn().mockReturnValue("tester@example.com"),
 }));
 
-jest.mock("../../src/lib/dynamo", () => ({
-  ddb: { send: jest.fn() },
-  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
-  tableName: jest.fn(() => "docs-table"),
-}));
+jest.mock("../../src/lib/dynamo", () => {
+  const sendDdb = jest.fn();
+  return {
+    ddb: { send: sendDdb },
+    sendDdb,
+    PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+    tableName: jest.fn(() => "docs-table"),
+  };
+});
 
 jest.mock("@aws-sdk/s3-request-presigner", () => ({
   getSignedUrl: jest.fn().mockResolvedValue(mockSignedUrl),

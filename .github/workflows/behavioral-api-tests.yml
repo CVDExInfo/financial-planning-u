@@ -47,6 +47,9 @@ jobs:
       COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT || 'dshos5iou44tuach7ta3ici5m' }}
       COGNITO_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
 
+      # Make CI calls skip DynamoDB writes in dev
+      DDB_DRY_RUN: "true"
+
       # Role-based Test Credentials (from secrets)
       E2E_PMO_EMAIL: ${{ secrets.E2E_PMO_EMAIL }}
       E2E_PMO_PASSWORD: ${{ secrets.E2E_PMO_PASSWORD }}

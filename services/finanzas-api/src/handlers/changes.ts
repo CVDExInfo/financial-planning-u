@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 import { ensureCanRead, ensureCanWrite, getUserEmail } from "../lib/auth.js";
 import { fromAuthError, ok, bad, serverError } from "../lib/http.js";
 import {
-  ddb,
+  sendDdb,
   PutCommand,
   QueryCommand,
   GetCommand,
@@ -85,7 +85,7 @@ async function listChanges(projectId: string) {
   console.info("Changes table resolved", { table: changesTable });
 
   try {
-    const result = await ddb.send(
+    const result = await sendDdb(
       new QueryCommand({
         TableName: changesTable,
         KeyConditionExpression: "pk = :pk",
@@ -110,7 +110,7 @@ async function findChangeItem(projectId: string, changeId: string) {
   const changesTable = tableName("changes");
   const key = { pk: `PROJECT#${projectId}`, sk: `CHANGE#${changeId}` };
 
-  const result = await ddb.send(
+  const result = await sendDdb(
     new GetCommand({
       TableName: changesTable,
       Key: key,
@@ -191,7 +191,7 @@ async function createChange(
   console.info("Changes table resolved", { table: changesTable });
 
   try {
-    await ddb.send(
+    await sendDdb(
       new PutCommand({
         TableName: changesTable,
         Item: item,
@@ -286,7 +286,7 @@ async function approveOrRejectChange(
   };
 
   try {
-    await ddb.send(
+    await sendDdb(
       new PutCommand({
         TableName: changesTable,
         Item: updatedItem,
