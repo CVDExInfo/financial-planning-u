@@ -127,7 +127,7 @@ export const createBaseline = async (
 
     const project_id =
       body.project_id?.trim() ||
-      `PRJ-${body.project_name.toUpperCase().replace(/[^A-Z0-9]+/g, "-")}`;
+      `P-${randomUUID().replace(/-/g, "")}`;
     const baseline_id = `base_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 
     const currency = body.currency?.trim() || "USD";
@@ -242,6 +242,7 @@ export const createBaseline = async (
         new PutCommand({
           TableName: prefacturasTable,
           Item: prefacturaItem,
+          ConditionExpression: "attribute_not_exists(pk) AND attribute_not_exists(sk)",
         })
       );
 
@@ -276,6 +277,7 @@ export const createBaseline = async (
             },
             payload: canonicalPayload,
           },
+          ConditionExpression: "attribute_not_exists(pk) AND attribute_not_exists(sk)",
         })
       );
     } catch (error) {

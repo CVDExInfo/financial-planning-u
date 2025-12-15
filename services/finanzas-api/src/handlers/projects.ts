@@ -1185,6 +1185,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           new PutCommand({
             TableName: tableName("projects"),
             Item: item,
+            ConditionExpression: "attribute_not_exists(pk) AND attribute_not_exists(sk)",
           })
         );
 
