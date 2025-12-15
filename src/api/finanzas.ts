@@ -287,11 +287,20 @@ export async function getAdjustments(projectId?: string): Promise<any[]> {
 }
 
 const validateArrayResponse = (value: unknown, label: string): any[] => {
+  // Handle direct array response
   if (Array.isArray(value)) return value;
-
-  throw new FinanzasApiError(
-    `${label} did not return an array response. Received ${typeof value}.`,
-  );
+  
+  // Handle wrapped responses: {data: []}, {items: []}, {Data: []}
+  if (value && typeof value === "object") {
+    const candidate = value as Record<string, unknown>;
+    if (Array.isArray(candidate.data)) return candidate.data;
+    if (Array.isArray(candidate.items)) return candidate.items;
+    if (Array.isArray(candidate.Data)) return candidate.Data;
+  }
+  
+  // Log warning but return empty array instead of throwing
+  console.warn(`[finanzas-api] ${label} returned unexpected shape:`, typeof value);
+  return [];
 };
 
 // ---------- Common DTOs ----------

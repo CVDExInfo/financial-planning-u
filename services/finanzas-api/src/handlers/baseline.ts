@@ -8,7 +8,7 @@ import {
   ScanCommand,
 } from "../lib/dynamo";
 import { ensureCanWrite, ensureCanRead, getUserEmail } from "../lib/auth";
-import { bad, ok, serverError, withCors } from "../lib/http";
+import { bad, ok, serverError, withCors, noContent } from "../lib/http";
 import { logError } from "../utils/logging";
 
 const adaptAuthContext = (event: APIGatewayProxyEvent) => ({

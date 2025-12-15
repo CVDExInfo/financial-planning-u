@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from "@jest/globals";
-import { createBaseline } from "../../src/handlers/baseline";
+import { createBaseline, handler } from "../../src/handlers/baseline";
 import { ensureCanWrite } from "../../src/lib/auth";
 
 jest.mock("../../src/lib/auth");
@@ -30,5 +30,22 @@ describe("baseline handler CORS", () => {
     expect(response.headers).toBeDefined();
     expect(response.headers["Access-Control-Allow-Origin"]).toBeDefined();
     expect(response.headers["Access-Control-Allow-Methods"]).toContain("OPTIONS");
+  });
+
+  it("handles OPTIONS preflight request without crashing", async () => {
+    const response = await handler({
+      headers: { Origin: "https://example.com" },
+      requestContext: {
+        authorizer: { jwt: { claims: {} } },
+      },
+      httpMethod: "OPTIONS",
+      path: "/baseline",
+    } as any);
+
+    expect(response.statusCode).toBe(204);
+    expect(response.headers).toBeDefined();
+    expect(response.headers["Access-Control-Allow-Origin"]).toBeDefined();
+    expect(response.headers["Access-Control-Allow-Methods"]).toBeDefined();
+    expect(response.body).toBe("");
   });
 });

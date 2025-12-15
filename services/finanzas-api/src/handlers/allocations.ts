@@ -1,6 +1,64 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ensureSDT } from "../lib/auth";
-import { bad, ok, noContent } from "../lib/http";
+import { ensureSDT, ensureCanRead } from "../lib/auth";
+import { bad, ok, noContent, serverError } from "../lib/http";
+import { ddb, tableName, QueryCommand } from "../lib/dynamo";
+import { logError } from "../utils/logging";
+
+/**
+ * GET /allocations
+ * Returns allocations from DynamoDB, optionally filtered by projectId
+ * Always returns an array (never {data: []}) for frontend compatibility
+ */
+async function getAllocations(event: APIGatewayProxyEventV2) {
+  try {
+    await ensureCanRead(event as any);
+    
+    const projectId = 
+      event.queryStringParameters?.projectId || 
+      event.queryStringParameters?.project_id;
+    
+    const allocationsTable = tableName("allocations");
+    
+    // If projectId is provided, query for that project's allocations
+    if (projectId) {
+      const queryResult = await ddb.send(
+        new QueryCommand({
+          TableName: allocationsTable,
+          KeyConditionExpression: "#pk = :pk",
+          ExpressionAttributeNames: {
+            "#pk": "pk",
+          },
+          ExpressionAttributeValues: {
+            ":pk": `PROJECT#${projectId}`,
+          },
+        })
+      );
+      
+      const items = queryResult.Items || [];
+      console.log(`[allocations] GET query for project ${projectId}: ${items.length} items`);
+      
+      // Return bare array for frontend compatibility
+      return ok(event, items);
+    }
+    
+    // No projectId - return all allocations (could be expensive, consider pagination)
+    const { ScanCommand } = await import("../lib/dynamo");
+    const scanResult = await ddb.send(
+      new ScanCommand({
+        TableName: allocationsTable,
+      })
+    );
+    
+    const items = scanResult.Items || [];
+    console.log(`[allocations] GET scan (all projects): ${items.length} items`);
+    
+    // Return bare array for frontend compatibility
+    return ok(event, items);
+  } catch (error) {
+    logError("Error fetching allocations", error);
+    return serverError(event as any, "Failed to fetch allocations");
+  }
+}
 
 // TODO: Implement bulk allocations update
 // R1 requirement: PUT /projects/{id}/allocations:bulk
@@ -11,12 +69,11 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     return noContent(event);
   }
 
-  await ensureSDT(event);
-
   if (method === "GET") {
-    // Endpoint not implemented yet. Return an empty dataset to avoid noisy UI errors.
-    return ok(event, { data: [], total: 0, message: "GET /allocations - not implemented yet" });
+    return await getAllocations(event);
   }
+
+  await ensureSDT(event);
 
   if (method === "PUT") {
     const projectId = event.pathParameters?.id;
