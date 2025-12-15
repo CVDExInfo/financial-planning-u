@@ -774,11 +774,11 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           resolvedProjectId = baselineProjectId;
         }
         
-        // Use baseline-aware project resolution to prevent cross-baseline overwrites
-        // This replaces the simple collision detection with comprehensive resolution
-        if (baselineId) {
-          try {
-            const resolution = await resolveProjectForHandoff({
+          // Use baseline-aware project resolution to prevent cross-baseline overwrites
+          // This replaces the simple collision detection with comprehensive resolution
+          if (baselineId) {
+            try {
+              const resolution = await resolveProjectForHandoff({
               ddb,
               tableName,
               incomingProjectId: resolvedProjectId,
@@ -786,15 +786,49 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
               idempotencyKey,
             });
 
-            resolvedProjectId = resolution.resolvedProjectId;
-            
-            console.info("[handoff-projects] Project resolved via baseline-aware helper", {
-              incomingProjectId: projectIdFromPath,
-              resolvedProjectId,
-              baselineId,
-              isNewProject: resolution.isNewProject,
-            });
-          } catch (error) {
+              resolvedProjectId = resolution.resolvedProjectId;
+
+              // Prefer the metadata returned by the resolver (which is aware of baseline collisions)
+              let resolvedProjectMetadata =
+                (resolution.existingProjectMetadata as Record<string, unknown> | undefined) ||
+                (resolvedProjectId === projectIdFromPath
+                  ? ((existingProject.Item as Record<string, unknown> | undefined) || undefined)
+                  : undefined);
+
+              // If the resolver picked a different projectId and we don't have metadata yet,
+              // fetch it to avoid overwriting created_by/created_at or SDM ownership.
+              if (!resolvedProjectMetadata && resolvedProjectId !== projectIdFromPath) {
+                const resolvedProjectLookup = await ddb.send(
+                  new GetCommand({
+                    TableName: tableName("projects"),
+                    Key: {
+                      pk: `PROJECT#${resolvedProjectId}`,
+                      sk: "METADATA",
+                    },
+                  })
+                );
+
+                resolvedProjectMetadata = resolvedProjectLookup.Item as
+                  | Record<string, unknown>
+                  | undefined;
+              }
+
+              console.info("[handoff-projects] Project resolved via baseline-aware helper", {
+                incomingProjectId: projectIdFromPath,
+                resolvedProjectId,
+                baselineId,
+                isNewProject: resolution.isNewProject,
+              });
+
+              // Replace existingProject.Item references with the resolved metadata so downstream
+              // fields (created_by, created_at, sdm_manager_name) are preserved instead of being
+              // overwritten by the current request context ("system").
+              if (resolvedProjectMetadata) {
+                existingProject.Item = resolvedProjectMetadata as never;
+              } else {
+                existingProject.Item = undefined as never;
+              }
+            } catch (error) {
             // Handle idempotency conflicts from helper
             if (error instanceof IdempotencyConflictError) {
               return bad(error.message, 409);
