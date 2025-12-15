@@ -37,6 +37,7 @@ interface PDFReportData {
     roleCount?: number;
     totalLabor?: string;
     totalNonLabor?: string;
+    contractValue?: string;
     currency?: string;
   };
 }
@@ -100,10 +101,10 @@ export class PDFExporter {
       height = 280,
     ) => {
       const total = dataPoints.reduce((s, d) => s + (d.value || 0), 0);
-      const radius = Math.min(width, height) / 2 - 32;
+      const radius = Math.min(width, height) / 2 - 48;
       const innerRadius = radius * 0.62;
       const cx = width / 2;
-      const cy = height / 2;
+      const cy = height / 2 - 10;
       let startAngle = -90;
       const colors = dataPoints.map((d, i) => d.color || getDefaultColor(i));
 
@@ -144,7 +145,7 @@ export class PDFExporter {
       });
 
       let currentX = 20;
-      let currentY = height - 50;
+      let currentY = Math.min(height - 34, cy + radius + 26);
       const legendMaxWidth = width - 40;
       const legendItems = dataPoints
         .map((d, i) => {
@@ -152,7 +153,7 @@ export class PDFExporter {
           const labelText = `${escapeHtml(
             d.name.length > 28 ? `${d.name.slice(0, 25)}…` : d.name,
           )} - ${formatCurrency(d.value || 0)}`;
-          const estimatedWidth = Math.min(labelText.length * 7, 220);
+          const estimatedWidth = Math.min(labelText.length * 7, 240);
           if (currentX + estimatedWidth > legendMaxWidth) {
             currentX = 20;
             currentY += 22;
@@ -473,6 +474,7 @@ export class PDFExporter {
                         { label: "Role Count", value: baselineDetails.roleCount?.toString() || "N/A" },
                         { label: "Total Labor", value: baselineDetails.totalLabor || "N/A" },
                         { label: "Total Non-Labor", value: baselineDetails.totalNonLabor || "N/A" },
+                        { label: "Valor del contrato", value: baselineDetails.contractValue || "-" },
                         { label: "Currency", value: baselineDetails.currency || metadata?.currency || "N/A" },
                       ]
                         .map(

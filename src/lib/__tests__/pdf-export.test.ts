@@ -48,4 +48,20 @@ describe("PDFExporter", () => {
     assert.ok(html.includes("user@example.com"));
     assert.ok(html.includes("USD"));
   });
+
+  it("renders contract value in baseline details when provided", () => {
+    const html = PDFExporter.generateHTMLReport({
+      title: "Baseline",
+      generated: "02/02/2025",
+      metrics: [],
+      summary: [],
+      baselineDetails: {
+        baselineId: "BL-100",
+        contractValue: "$1,234,000",
+      },
+    });
+
+    assert.ok(html.includes("Valor del contrato"));
+    assert.ok(html.includes("$1,234,000"));
+  });
 });
