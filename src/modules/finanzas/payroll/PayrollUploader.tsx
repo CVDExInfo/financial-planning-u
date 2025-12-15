@@ -1,11 +1,21 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createPayrollActual, bulkUploadPayrollActuals, type PayrollActualInput } from "@/api/finanzas";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { createPayrollActual, bulkUploadPayrollActuals, type PayrollActualInput, fetchProjects, fetchRubros } from "@/api/finanzas";
+import CurrencySelector, { formatCurrency } from "@/components/shared/CurrencySelector";
+import type { Currency } from "@/types/domain";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 interface PayrollUploaderProps {
   onUploaded?: () => void;
@@ -65,16 +75,64 @@ function validateRow(row: PayrollActualInput): string[] {
 }
 
 export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
-  const [manual, setManual] = React.useState<PayrollActualInput>({
+  const [manual, setManual] = React.useState<PayrollActualInput & { currency: Currency }>({
     projectId: "",
     month: "",
     rubroId: "",
     amount: 0,
+    currency: "USD",
     notes: "",
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [preview, setPreview] = React.useState<PayrollActualInput[]>([]);
   const [previewErrors, setPreviewErrors] = React.useState<Record<number, string[]>>({});
+  
+  // State for projects and rubros dropdowns
+  const [projects, setProjects] = React.useState<Array<{
+    projectId: string;
+    code: string;
+    name: string;
+    client?: string;
+  }>>([]);
+  const [rubros, setRubros] = React.useState<Array<{
+    rubroId: string;
+    code: string;
+    description: string;
+    category: string;
+  }>>([]);
+  const [loadingProjects, setLoadingProjects] = React.useState(false);
+  const [loadingRubros, setLoadingRubros] = React.useState(false);
+
+  // Selected rubro details for display
+  const selectedRubro = React.useMemo(() => {
+    return rubros.find((r) => r.rubroId === manual.rubroId);
+  }, [rubros, manual.rubroId]);
+
+  // Fetch projects and rubros on mount
+  useEffect(() => {
+    const loadData = async () => {
+      setLoadingProjects(true);
+      setLoadingRubros(true);
+      
+      try {
+        const [projectsData, rubrosData] = await Promise.all([
+          fetchProjects(),
+          fetchRubros(),
+        ]);
+        
+        setProjects(projectsData);
+        setRubros(rubrosData);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast.error("Error al cargar proyectos y rubros");
+      } finally {
+        setLoadingProjects(false);
+        setLoadingRubros(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const handleDownloadTemplate = () => {
     const blob = new Blob([buildCsvTemplate()], { type: "text/csv;charset=utf-8;" });
@@ -145,43 +203,87 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
         <CardContent>
           <form onSubmit={handleManualSubmit} className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="projectId">Proyecto</Label>
-              <Input
-                id="projectId"
+              <Label htmlFor="projectId">Proyecto *</Label>
+              <Select
                 value={manual.projectId}
-                onChange={(e) => setManual((prev) => ({ ...prev, projectId: e.target.value }))}
-                placeholder="P-XXXXX"
+                onValueChange={(value) => setManual((prev) => ({ ...prev, projectId: value }))}
+                disabled={loadingProjects}
                 required
-              />
+              >
+                <SelectTrigger id="projectId">
+                  <SelectValue placeholder={loadingProjects ? "Cargando..." : "Selecciona proyecto"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.projectId} value={project.projectId}>
+                      {project.code} - {project.name}
+                      {project.client && ` (${project.client})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="month">Mes (YYYY-MM)</Label>
+              <Label htmlFor="month">Mes (YYYY-MM) *</Label>
               <Input
                 id="month"
                 value={manual.month}
                 onChange={(e) => setManual((prev) => ({ ...prev, month: e.target.value }))}
                 placeholder="2025-01"
+                pattern="^\d{4}-(0[1-9]|1[0-2])$"
+                title="Formato: YYYY-MM (ejemplo: 2025-01)"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="rubroId">Rubro</Label>
-              <Input
-                id="rubroId"
+              <Label htmlFor="rubroId">Rubro *</Label>
+              <Select
                 value={manual.rubroId}
-                onChange={(e) => setManual((prev) => ({ ...prev, rubroId: e.target.value }))}
-                placeholder="rubro_mod"
+                onValueChange={(value) => setManual((prev) => ({ ...prev, rubroId: value }))}
+                disabled={loadingRubros}
                 required
-              />
+              >
+                <SelectTrigger id="rubroId">
+                  <SelectValue placeholder={loadingRubros ? "Cargando..." : "Selecciona rubro"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {rubros.map((rubro) => (
+                    <SelectItem key={rubro.rubroId} value={rubro.rubroId}>
+                      {rubro.code} - {rubro.description}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedRubro && (
+                <div className="text-sm text-muted-foreground">
+                  <Badge variant="outline" className="mr-2">
+                    {selectedRubro.category}
+                  </Badge>
+                  {selectedRubro.description}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="amount">Monto (MOD)</Label>
+              <Label htmlFor="amount">Monto (MOD) *</Label>
               <Input
                 id="amount"
                 type="number"
+                step="0.01"
                 value={manual.amount}
                 onChange={(e) => setManual((prev) => ({ ...prev, amount: Number(e.target.value) }))}
                 min={0}
+                required
+              />
+              {manual.amount > 0 && manual.currency && (
+                <div className="text-sm text-muted-foreground">
+                  {formatCurrency(manual.amount, manual.currency)}
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <CurrencySelector
+                value={manual.currency}
+                onChange={(currency) => setManual((prev) => ({ ...prev, currency }))}
                 required
               />
             </div>
@@ -250,7 +352,7 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
               {Object.keys(previewErrors).length > 0 && (
                 <ul className="text-xs text-destructive space-y-1">
                   {Object.entries(previewErrors).map(([index, messages]) => (
-                    <li key={index}>{`Fila ${Number(index) + 2}: ${messages.join(', ')}`}</li>
+                    <li key={index}>{`Fila ${Number(index) + 2}: ${(messages as string[]).join(', ')}`}</li>
                   ))}
                 </ul>
               )}

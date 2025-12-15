@@ -25,7 +25,9 @@ export const PayrollEntrySchema = z.object({
   period: z.string().regex(periodRegex, 'period must be in YYYY-MM format with valid month (01-12)'),
   kind: PayrollKindSchema,
   amount: z.number().min(0, 'amount must be non-negative'),
-  currency: z.string().min(3).max(3).toUpperCase(),
+  currency: z.enum(['USD', 'COP', 'EUR', 'MXN'], {
+    errorMap: () => ({ message: 'currency must be one of USD, COP, EUR, MXN' })
+  }),
   
   // Optional fields
   allocationId: z.string().regex(/^alloc_[a-z0-9]{10}$/).optional(),

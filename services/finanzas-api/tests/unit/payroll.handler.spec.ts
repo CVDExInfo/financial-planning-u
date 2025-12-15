@@ -481,3 +481,98 @@ describe('Payroll Handler Tests', () => {
     });
   });
 });
+
+  describe('POST /payroll with validation', () => {
+    it('should reject when project does not exist', async () => {
+      // Mock projectExists to return false
+      const mockProjectExists = jest.fn().mockResolvedValue(false);
+      jest.mock('../../src/lib/dynamo', () => ({
+        ...jest.requireActual('../../src/lib/dynamo'),
+        projectExists: mockProjectExists,
+      }));
+
+      const event = createEvent('POST', '/payroll', {
+        projectId: 'P-NONEXISTENT',
+        period: testPeriod,
+        kind: 'actual',
+        amount: 5000,
+        currency: 'USD',
+      });
+
+      const response = await handler(event);
+      const body = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(400);
+      expect(body.error).toContain('does not exist');
+    });
+
+    it('should reject when rubro does not exist', async () => {
+      // Mock projectExists to return true but getRubroTaxonomy to return null
+      const mockProjectExists = jest.fn().mockResolvedValue(true);
+      const mockGetRubroTaxonomy = jest.fn().mockResolvedValue(null);
+      jest.mock('../../src/lib/dynamo', () => ({
+        ...jest.requireActual('../../src/lib/dynamo'),
+        projectExists: mockProjectExists,
+        getRubroTaxonomy: mockGetRubroTaxonomy,
+      }));
+
+      const event = createEvent('POST', '/payroll', {
+        projectId: testProjectId,
+        period: testPeriod,
+        kind: 'actual',
+        amount: 5000,
+        currency: 'USD',
+        rubroId: 'INVALID-RUBRO',
+      });
+
+      const response = await handler(event);
+      const body = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(400);
+      expect(body.error).toContain('does not exist');
+    });
+
+    it('should accept valid currency codes', async () => {
+      const mockEntry = {
+        id: 'payroll_actual_test123',
+        projectId: testProjectId,
+        period: testPeriod,
+        kind: 'actual' as const,
+        amount: 50000,
+        currency: 'COP',
+      };
+
+      (dynamo.putPayrollEntry as jest.Mock).mockResolvedValue(mockEntry);
+
+      const event = createEvent('POST', '/payroll', {
+        projectId: testProjectId,
+        period: testPeriod,
+        kind: 'actual',
+        amount: 50000,
+        currency: 'COP',
+      });
+
+      const response = await handler(event);
+      const body = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(201);
+      expect(body.currency).toBe('COP');
+    });
+
+    it('should reject invalid currency codes', async () => {
+      const event = createEvent('POST', '/payroll', {
+        projectId: testProjectId,
+        period: testPeriod,
+        kind: 'actual',
+        amount: 5000,
+        currency: 'INVALID',
+      });
+
+      const response = await handler(event);
+      const body = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(400);
+      expect(body.error).toContain('Validation failed');
+    });
+  });
+});
