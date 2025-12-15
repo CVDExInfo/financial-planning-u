@@ -1048,6 +1048,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             (currentMetadata?.baseline_id as string | undefined) ||
             (currentMetadata?.baselineId as string | undefined);
 
+          // Refuse write if: metadata exists AND has a baseline AND baselines differ
           if (currentMetadata && currentBaselineId && baselineId && currentBaselineId !== baselineId) {
             logError("[projects.handoff] Refusing to overwrite METADATA for different baseline", {
               resolvedProjectId,

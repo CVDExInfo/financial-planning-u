@@ -273,9 +273,11 @@ export async function resolveProjectForHandoff(
         });
         resolvedProjectId = `P-${crypto.randomUUID()}`;
       } else if (!existingBaseline) {
-        // QA project scenario: project exists but has no baseline yet
-        // We can assign this baseline to it (first baseline wins)
-        console.info("[resolveProject] Assigning baseline to QA project", {
+        // Project exists but has no baseline yet (e.g., QA project)
+        // Assign this baseline to the project. Note: This does not verify
+        // if other baselines were previously assigned and then removed; it only
+        // checks that no baseline currently exists in METADATA.
+        console.info("[resolveProject] Assigning baseline to project with no existing baseline", {
           incomingProjectId,
           baseline: normalizedBaselineId,
         });
