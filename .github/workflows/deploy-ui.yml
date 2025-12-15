@@ -216,7 +216,7 @@ jobs:
 
           BUILD_TARGET=finanzas npm run build || {
             echo "❌ Finanzas build failed"
-            echo "   Most likely cause: VITE_API_BASE_URL not properly configured"
+            echo "   Build failed — see errors above (TypeScript/esbuild). This is usually a code compile error, not VITE_API_BASE_URL."
             exit 1
           }
           echo "✅ Finanzas Portal built → dist-finanzas/"

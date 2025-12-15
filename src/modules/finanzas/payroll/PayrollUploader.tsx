@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,11 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createPayrollActual, bulkUploadPayrollActuals, type PayrollActualInput } from "@/api/finanzas";
+import finanzasClient, { type Rubro } from "@/api/finanzasClient";
 import useProjects, { type ProjectForUI } from "../projects/useProjects";
 import { useAuth } from "@/hooks/useAuth";
 import { useRubrosTaxonomy } from "@/hooks/useRubrosTaxonomy";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 
 interface PayrollUploaderProps {
   onUploaded?: () => void;
@@ -74,7 +74,7 @@ const CURRENCY_OPTIONS = ["USD", "COP", "MXN", "EUR"] as const;
 export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
   const { user } = useAuth();
   const { projects } = useProjects();
-  const { categories, getRubrosByCategory, getRubroById } = useRubrosTaxonomy();
+  const { categories, getRubrosByCategory } = useRubrosTaxonomy();
   const [manual, setManual] = React.useState<PayrollActualInput>({
     projectId: "",
     month: "",
@@ -87,59 +87,16 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [preview, setPreview] = React.useState<PayrollActualInput[]>([]);
   const [previewErrors, setPreviewErrors] = React.useState<Record<number, string[]>>({});
-  
-  // State for projects and rubros dropdowns
-  const [rubros, setRubros] = React.useState<Array<{
-    rubroId: string;
-    code: string;
-    description: string;
-    category: string;
-  }>>([]);
-  const [loadingProjects, setLoadingProjects] = React.useState(false);
-  const [loadingRubros, setLoadingRubros] = React.useState(false);
-
-  // Selected rubro details for display
-  const selectedRubro = React.useMemo(() => {
-    return rubros.find((r) => r.rubroId === manual.rubroId);
-  }, [rubros, manual.rubroId]);
-
-  // Fetch projects and rubros on mount
-  useEffect(() => {
-    const loadData = async () => {
-      setLoadingProjects(true);
-      setLoadingRubros(true);
-      
-      try {
-        const [projectsData, rubrosData] = await Promise.all([
-          fetchProjects(),
-          fetchRubros(),
-        ]);
-        
-        setProjects(projectsData);
-        setRubros(rubrosData);
-      } catch (error) {
-        console.error("Error loading data:", error);
-        toast.error("Error al cargar proyectos y rubros");
-      } finally {
-        setLoadingProjects(false);
-        setLoadingRubros(false);
-      }
-    };
-
-    loadData();
-  }, []);
+  const [rubros, setRubros] = React.useState<Rubro[]>([]);
 
   React.useEffect(() => {
     const fetchRubros = async () => {
-      setIsLoadingRubros(true);
       try {
         const catalog = await finanzasClient.getRubros();
         setRubros(catalog);
       } catch (error) {
         console.error("No se pudieron cargar los rubros", error);
         toast.error("No pudimos cargar los rubros desde Finanzas");
-      } finally {
-        setIsLoadingRubros(false);
       }
     };
 
@@ -153,39 +110,13 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
     }
   }, [manual.projectId, projects]);
 
-  const groupedRubros = React.useMemo(() => {
-    const map = new Map<string, Rubro[]>();
-    rubros.forEach((rubro) => {
-      const category = rubro.categoria || "Otros";
-      const existing = map.get(category) || [];
-      existing.push(rubro);
-      map.set(category, existing);
-    });
-    return map;
-  }, [rubros]);
-
   const selectedRubro = React.useMemo(() => {
     return (
       rubros.find(
-        (r) => r.linea_codigo === manual.rubroId || r.rubro_id === manual.rubroId,
+        (rubro) => rubro.linea_codigo === manual.rubroId || rubro.rubro_id === manual.rubroId,
       ) || null
     );
   }, [manual.rubroId, rubros]);
-
-  const selectedProject = React.useMemo<ProjectForUI | undefined>(() => {
-    return projects.find((proj) => proj.id === manual.projectId);
-  }, [manual.projectId, projects]);
-
-  React.useEffect(() => {
-    const selectedProject = projects.find((proj) => proj.id === manual.projectId);
-    if (selectedProject?.currency && CURRENCY_OPTIONS.includes(selectedProject.currency as any)) {
-      setCurrency(selectedProject.currency as (typeof CURRENCY_OPTIONS)[number]);
-    }
-  }, [manual.projectId, projects]);
-
-  const selectedRubro = React.useMemo(() => {
-    return manual.rubroId ? getRubroById(manual.rubroId) || null : null;
-  }, [getRubroById, manual.rubroId]);
 
   const selectedProject = React.useMemo<ProjectForUI | undefined>(() => {
     return projects.find((proj) => proj.id === manual.projectId);
