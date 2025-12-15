@@ -13,7 +13,7 @@
  */
 
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
-import { ok, bad, serverError } from "../lib/http";
+import { ok, bad, serverError, defaultCorsHeaders } from "../lib/http";
 import { getUserContext, ApiGwEvent } from "../lib/auth";
 import { ddb, tableName, QueryCommand, ScanCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
@@ -484,6 +484,14 @@ async function exportHub(event: ApiGwEvent): Promise<APIGatewayProxyResultV2> {
 export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
+  if (event.requestContext.http.method === "OPTIONS") {
+    return {
+      statusCode: 204,
+      headers: defaultCorsHeaders(event),
+      body: "",
+    };
+  }
+
   const path = event.rawPath || event.requestContext.http.path;
   const method = event.requestContext.http.method;
   

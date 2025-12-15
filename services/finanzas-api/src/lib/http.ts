@@ -14,6 +14,18 @@ const parseAllowedOrigins = () => {
     .filter(Boolean);
 };
 
+const ALLOW_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
+const ALLOW_HEADERS = [
+  "authorization",
+  "content-type",
+  "x-amz-date",
+  "x-amz-security-token",
+  "x-api-key",
+  "x-requested-with",
+  "x-idempotency-key",
+  "X-Idempotency-Key",
+].join(",");
+
 export function defaultCorsHeaders(event?: any): Record<string, string> {
   const origin = event?.headers?.Origin || event?.headers?.origin;
   const allowedOrigins = parseAllowedOrigins();
@@ -26,9 +38,8 @@ export function defaultCorsHeaders(event?: any): Record<string, string> {
   const headers: Record<string, string> = {
     Vary: "Origin",
     "Access-Control-Allow-Origin": echoOrigin,
-    "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers":
-      "Content-Type, Authorization, X-Requested-With, X-Idempotency-Key",
+    "Access-Control-Allow-Methods": ALLOW_METHODS,
+    "Access-Control-Allow-Headers": ALLOW_HEADERS,
     "Access-Control-Max-Age": "86400",
   };
   if (process.env.ALLOW_CREDENTIALS === "true") {
