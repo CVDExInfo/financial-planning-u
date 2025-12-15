@@ -37,7 +37,7 @@
 // =================================================================
 
 import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ensureSDT, ensureCanWrite, ApiGwEvent } from "../lib/auth";
+import { ApiGwEvent, ensureCanWrite, ensureSDT } from "../lib/auth";
 import { bad, ok } from "../lib/http";
 import {
   safeParsePayrollEntryCreate,
@@ -50,6 +50,7 @@ import {
   queryPayrollByPeriod,
   ddb,
   PutCommand,
+  GetCommand,
   QueryCommand,
   ScanCommand,
   tableName,
@@ -61,6 +62,7 @@ import {
 import { PayrollEntry, PayrollTimeSeries, MODProjectionByMonth } from "../lib/types";
 import { calculateLaborVsIndirect } from "../lib/metrics";
 import * as XLSX from "xlsx";
+import { normalizeRubroId } from "../lib/canonical-taxonomy";
 
 /**
  * POST /payroll
@@ -234,16 +236,110 @@ async function handleGetActuals(event: APIGatewayProxyEventV2) {
   }
 }
 
-function buildPayrollActualItem(data: Record<string, unknown>) {
+async function getProjectMetadata(projectId: string) {
+  const result = await ddb.send(
+    new GetCommand({
+      TableName: tableName("projects"),
+      Key: { pk: `PROJECT#${projectId}`, sk: "METADATA" },
+    })
+  );
+
+  if (!result.Item) {
+    throw new Error(`Proyecto ${projectId} no existe`);
+  }
+
+  return result.Item as Record<string, unknown>;
+}
+
+async function getRubroTaxonomy(rubroId: string) {
+  const normalized = normalizeRubroId(rubroId);
+
+  if (!normalized.isValid) {
+    throw new Error(`Rubro ${rubroId} no existe en taxonomía`);
+  }
+
+  const canonicalId = normalized.canonicalId;
+
+  const rubroMetadata = await ddb.send(
+    new GetCommand({
+      TableName: tableName("rubros"),
+      Key: { pk: `RUBRO#${canonicalId}`, sk: "METADATA" },
+    })
+  );
+
+  if (!rubroMetadata.Item && !normalized.isValid) {
+    throw new Error(`Rubro ${canonicalId} no existe`);
+  }
+
+  const taxonomyQuery = await ddb.send(
+    new QueryCommand({
+      TableName: tableName("rubros_taxonomia"),
+      KeyConditionExpression: "pk = :pk",
+      ExpressionAttributeValues: {
+        ":pk": `LINEA#${canonicalId}`,
+      },
+      Limit: 1,
+    })
+  );
+
+  let taxonomy = (taxonomyQuery.Items?.[0] as Record<string, unknown> | undefined) || undefined;
+
+  if (!taxonomy) {
+    const scan = await ddb.send(
+      new ScanCommand({
+        TableName: tableName("rubros_taxonomia"),
+        ProjectionExpression:
+          "linea_codigo, categoria, categoria_codigo, linea_gasto, tipo_costo, tipo_ejecucion, descripcion",
+      })
+    );
+
+    taxonomy = ((scan.Items || []) as Record<string, unknown>[]).find(
+      (entry) => entry.linea_codigo === canonicalId,
+    );
+  }
+
+  if (!taxonomy && !rubroMetadata.Item) {
+    throw new Error(`Rubro ${canonicalId} no existe en taxonomía`);
+  }
+
+  const lineaCodigo = (rubroMetadata.Item as any)?.linea_codigo || canonicalId;
+
+  return {
+    canonicalId,
+    metadata: rubroMetadata.Item,
+    taxonomy,
+    lineaCodigo,
+  };
+}
+
+async function buildPayrollActualItem(
+  data: Record<string, unknown>,
+  event: APIGatewayProxyEventV2,
+) {
   const projectId = data.projectId as string | undefined;
   const month = data.month as string | undefined;
   const id = (data.id as string | undefined) || generatePayrollActualId();
   const amount = data.amount !== undefined ? Number(data.amount) : undefined;
   const resourceCount = data.resourceCount !== undefined ? Number(data.resourceCount) : undefined;
+  const userEmail = (event.requestContext as any).authorizer?.jwt?.claims?.email as string | undefined;
 
   if (!projectId || !month) {
     throw new Error("projectId and month are required");
   }
+
+  if (!data.rubroId) {
+    throw new Error("rubroId is required");
+  }
+
+  const projectMetadata = await getProjectMetadata(projectId);
+  const rubro = await getRubroTaxonomy((data.rubroId as string) || "");
+
+  const currency =
+    typeof data.currency === "string" && data.currency.trim()
+      ? (data.currency as string)
+      : ((projectMetadata as any)?.currency as string | undefined) || "USD";
+
+  const now = new Date().toISOString();
 
   const item = {
     ...data,
@@ -256,7 +352,19 @@ function buildPayrollActualItem(data: Record<string, unknown>) {
     kind: (data as any).kind || 'actual',
     pk: `PROJECT#${projectId}`,
     sk: `PAYROLL#${month}#${id}`,
-    uploadedAt: new Date().toISOString(),
+    uploadedAt: now,
+    uploadedBy: (data as any).uploadedBy || userEmail,
+    currency,
+    linea_codigo: rubro.lineaCodigo,
+    linea_gasto: (rubro.taxonomy as any)?.linea_gasto,
+    categoria: (rubro.taxonomy as any)?.categoria,
+    categoria_codigo: (rubro.taxonomy as any)?.categoria_codigo,
+    descripcion: (rubro.taxonomy as any)?.descripcion,
+    createdAt: now,
+    createdBy: userEmail,
+    updatedAt: now,
+    updatedBy: userEmail,
+    rubroId: rubro.canonicalId,
   };
 
   const validation = PayrollActualSchema.safeParse(item);
@@ -357,29 +465,7 @@ async function handlePostActual(event: APIGatewayProxyEventV2) {
   }
 
   try {
-    // Validate that project exists in DynamoDB
-    const projExists = await projectExists(payload.projectId);
-    if (!projExists) {
-      return bad(event, `Project ${payload.projectId} does not exist in DynamoDB`, 400);
-    }
-
-    // If rubroId provided, validate it exists
-    if (payload.rubroId) {
-      const taxonomyData = await getRubroTaxonomy(payload.rubroId);
-      if (!taxonomyData) {
-        return bad(event, `Rubro ${payload.rubroId} does not exist in taxonomy`, 400);
-      }
-    }
-
-    const userId = (event.requestContext as any).authorizer?.jwt?.claims?.email as string | undefined;
-    const item = buildPayrollActualItem(payload);
-    
-    // Add user attribution
-    if (userId) {
-      (item as any).createdBy = userId;
-      (item as any).updatedBy = userId;
-    }
-    
+    const item = await buildPayrollActualItem(payload, event);
     await ddb.send(
       new PutCommand({
         TableName: tableName('payroll_actuals'),
@@ -399,30 +485,33 @@ async function handlePostActualsBulk(event: APIGatewayProxyEventV2) {
   const validItems: any[] = [];
   const errors: { index: number; message: string }[] = [];
 
-  rows.forEach((row, index) => {
+  for (const [index, row] of rows.entries()) {
     try {
-      const item = buildPayrollActualItem({
-        ...row,
-        id: (row as any).id || generatePayrollActualId(),
-        projectId: (row as any).projectId || (row as any).project_id,
-        allocationId: (row as any).allocationId || (row as any).allocation_id,
-        rubroId: (row as any).rubroId || (row as any).rubro_id,
-        month: (row as any).month || (row as any).period,
-        amount:
-          (row as any).amount !== undefined
-            ? Number((row as any).amount)
-            : (row as any).monto !== undefined
-              ? Number((row as any).monto)
-              : undefined,
-        resourceCount: (row as any).resourceCount || (row as any).resource_count,
-        uploadedBy: (row as any).uploadedBy || (row as any).uploaded_by,
-      });
+      const item = await buildPayrollActualItem(
+        {
+          ...row,
+          id: (row as any).id || generatePayrollActualId(),
+          projectId: (row as any).projectId || (row as any).project_id,
+          allocationId: (row as any).allocationId || (row as any).allocation_id,
+          rubroId: (row as any).rubroId || (row as any).rubro_id,
+          month: (row as any).month || (row as any).period,
+          amount:
+            (row as any).amount !== undefined
+              ? Number((row as any).amount)
+              : (row as any).monto !== undefined
+                ? Number((row as any).monto)
+                : undefined,
+          resourceCount: (row as any).resourceCount || (row as any).resource_count,
+          uploadedBy: (row as any).uploadedBy || (row as any).uploaded_by,
+        },
+        event,
+      );
       validItems.push(item);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push({ index, message });
     }
-  });
+  }
 
   let insertedCount = 0;
 
