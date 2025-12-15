@@ -209,13 +209,16 @@ jobs:
           
           FAILED=0
           for ROUTE in "${HUB_ROUTES[@]}"; do
-            STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$ROUTE" 2>/dev/null || echo "000")
+            STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$ROUTE" 2>/dev/null || echo "CURL_ERROR")
             echo "   $ROUTE -> HTTP $STATUS"
             
             # Accept 200 (public), 401/403 (auth required but route exists)
             # Fail on 404 (route missing)
             if [ "$STATUS" = "404" ]; then
               echo "   ❌ Route returns 404 - not deployed in this API stage"
+              FAILED=1
+            elif [ "$STATUS" = "CURL_ERROR" ]; then
+              echo "   ❌ Network error - failed to reach endpoint"
               FAILED=1
             elif [ "$STATUS" = "200" ] || [ "$STATUS" = "401" ] || [ "$STATUS" = "403" ]; then
               echo "   ✅ Route exists (status $STATUS acceptable)"

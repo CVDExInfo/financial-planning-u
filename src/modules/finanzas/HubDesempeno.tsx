@@ -178,7 +178,7 @@ export default function HubDesempeno() {
         if (!modPerfRes.ok) failures.push(`mod-performance (${modPerfRes.status})`);
         if (!rubrosRes.ok) failures.push(`rubros-breakdown (${rubrosRes.status})`);
         if (!cashflowRes.ok) failures.push(`cashflow (${cashflowRes.status})`);
-        
+
         console.error(`[HubDesempeno] Failed endpoints: ${failures.join(", ")}`);
         throw new Error(`Failed to fetch hub data: ${failures.join(", ")}`);
       }
