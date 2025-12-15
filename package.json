@@ -106,7 +106,7 @@
     "@aws-sdk/client-dynamodb": "^3.939.0",
     "@aws-sdk/lib-dynamodb": "^3.948.0",
     "@aws-sdk/util-dynamodb": "^3.946.0",
-    "@eslint/js": "^9.21.0",
+    "@eslint/js": "^9.39.2",
     "@mermaid-js/mermaid-cli": "^11.4.0",
     "@playwright/test": "^1.57.0",
     "@stoplight/spectral-cli": "^6.15.0",
