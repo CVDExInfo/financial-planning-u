@@ -173,8 +173,9 @@ async function fetchArraySource(
     }
     
     // For real network errors (TypeError/Failed to fetch), downgrade severity
-    const isNetworkError = err instanceof TypeError || 
-                          (err instanceof Error && /Failed to fetch/i.test(err.message));
+    const isNetworkError = 
+      err instanceof TypeError || 
+      (err instanceof Error && /Failed to fetch/i.test(err.message));
     
     if (isNetworkError) {
       console.warn(`[finanzas-api] ${label} network error`, err);

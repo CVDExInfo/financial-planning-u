@@ -564,15 +564,22 @@ export default function ProjectsManager() {
             baselineRows: normalizedBaseline.length 
           });
           
+          // Create derived allocations in a format that normalizeApiRowForMod expects
           normalizedAllocations = normalizedBaseline
             .filter(isModRow)
-            .map((row) => ({
-              month: row.month,
-              amount: row.totalPlanMOD || 0,
-              rubro_type: "MOD",
-              projectId: projectId || row.projectId,
-            }))
-            .map(normalizeApiRowForMod);
+            .map((baselineRow) => {
+              // Create a raw allocation object that normalizeApiRowForMod can process
+              const derivedAllocation = {
+                month: baselineRow.month,
+                amount: baselineRow.totalPlanMOD || 0,
+                rubro_type: "MOD",
+                projectId: projectId || baselineRow.projectId,
+                // Add fields that help normalizeApiRowForMod identify this correctly
+                totalPlanMOD: baselineRow.totalPlanMOD || 0,
+                kind: "derived_allocation",
+              };
+              return normalizeApiRowForMod(derivedAllocation);
+            });
         }
 
         const acceptedCounts = {
