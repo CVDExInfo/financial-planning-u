@@ -142,15 +142,36 @@ const batchWriteAll = async (table: string, items: Record<string, any>[]) => {
 
   for (const batch of batches) {
     let pending: BatchWriteCommandInput | undefined = batch;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
     // eslint-disable-next-line no-constant-condition
-    while (pending) {
-      const response = await ddb.send(new BatchWriteCommand(pending));
-      const unprocessed = response.UnprocessedItems?.[table];
-      if (unprocessed && unprocessed.length > 0) {
-        pending = { RequestItems: { [table]: unprocessed } };
-      } else {
-        pending = undefined;
+    while (pending && retryCount < maxRetries) {
+      try {
+        const response = await ddb.send(new BatchWriteCommand(pending));
+        const unprocessed = response.UnprocessedItems?.[table];
+        if (unprocessed && unprocessed.length > 0) {
+          pending = { RequestItems: { [table]: unprocessed } };
+          retryCount++;
+          // Exponential backoff for retries
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)));
+          }
+        } else {
+          pending = undefined;
+        }
+      } catch (error) {
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          throw error;
+        }
+        // Exponential backoff for errors
+        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)));
       }
+    }
+    
+    if (pending && retryCount >= maxRetries) {
+      throw new Error(`Failed to write batch after ${maxRetries} retries`);
     }
   }
 };

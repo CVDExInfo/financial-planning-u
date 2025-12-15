@@ -227,6 +227,16 @@ export const createBaseline = async (
 
     const prefacturasTable = tableName("prefacturas");
 
+    // Add diagnostic logging
+    console.info("Creating baseline - diagnostic log", {
+      level: "INFO",
+      msg: "Writing baseline-project link",
+      projectId: project_id,
+      baselineId: baseline_id,
+      pk: `PROJECT#${project_id}`,
+      sk: `BASELINE#${baseline_id}`,
+    });
+
     try {
       await ddb.send(
         new PutCommand({
@@ -234,6 +244,16 @@ export const createBaseline = async (
           Item: prefacturaItem,
         })
       );
+
+      // Add diagnostic logging for metadata write
+      console.info("Creating baseline metadata - diagnostic log", {
+        level: "INFO",
+        msg: "Writing baseline metadata",
+        projectId: project_id,
+        baselineId: baseline_id,
+        pk: `BASELINE#${baseline_id}`,
+        sk: "METADATA",
+      });
 
       await ddb.send(
         new PutCommand({

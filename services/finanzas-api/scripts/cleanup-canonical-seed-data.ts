@@ -18,6 +18,14 @@ const TABLE_ADJUSTMENTS = process.env.TABLE_ADJ || "finz_adjustments";
 
 const PROTECTED_STAGES = new Set(["prod", "production", "stg", "staging", "prd"]);
 
+/**
+ * IMPORTANT: This script now uses the `canonical` flag to isolate seed data.
+ * It ONLY deletes items where canonical = true, ensuring real user data is never touched.
+ * 
+ * Canonical projects are marked with: canonical: true
+ * Regular user projects do NOT have this flag.
+ */
+
 const CANONICAL_PROJECT_IDS = [
   "P-NOC-CLARO-BOG",
   "P-SOC-BANCOL-MED",
@@ -56,7 +64,11 @@ function assertSafeEnvironment() {
   console.log(`✓ Safety checks passed (stage=${STAGE})`);
 }
 
-async function queryAllItems(tableName: string, pk: string): Promise<Key[]> {
+/**
+ * Query all items with canonical flag set to true
+ * This ensures we ONLY delete seed data, never user data
+ */
+async function queryCanonicalItems(tableName: string, pk: string): Promise<Key[]> {
   const keys: Key[] = [];
   let startKey: Record<string, any> | undefined;
 
@@ -64,7 +76,15 @@ async function queryAllItems(tableName: string, pk: string): Promise<Key[]> {
     const params: QueryCommandInput = {
       TableName: tableName,
       KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: marshall({ ":pk": pk }),
+      // CRITICAL: Only query items marked as canonical
+      FilterExpression: "#canonical = :canonicalTrue",
+      ExpressionAttributeNames: {
+        "#canonical": "canonical",
+      },
+      ExpressionAttributeValues: marshall({
+        ":pk": pk,
+        ":canonicalTrue": true,
+      }),
       ExclusiveStartKey: startKey,
     };
 
@@ -83,7 +103,7 @@ async function queryAllItems(tableName: string, pk: string): Promise<Key[]> {
 async function deleteKeys(tableName: string, keys: Key[]) {
   if (!keys.length) return;
 
-  console.log(`\nDeleting ${keys.length} items from ${tableName}`);
+  console.log(`\nDeleting ${keys.length} canonical items from ${tableName}`);
   keys.forEach((key) => console.log(` - ${key.pk} :: ${key.sk}`));
 
   for (let i = 0; i < keys.length; i += 25) {
@@ -101,25 +121,35 @@ async function deleteKeys(tableName: string, keys: Key[]) {
 async function cleanupProjects() {
   const allDeletes: { table: string; keys: Key[] }[] = [];
 
+  console.log("\n🔍 Searching for canonical items (items with canonical=true flag)...");
+
   for (const projectId of CANONICAL_PROJECT_IDS) {
     const partitionKey = `PROJECT#${projectId}`;
-    const projectItems = await queryAllItems(TABLE_PROJECTS, partitionKey);
+    const projectItems = await queryCanonicalItems(TABLE_PROJECTS, partitionKey);
     allDeletes.push({ table: TABLE_PROJECTS, keys: projectItems });
 
-    const allocationItems = await queryAllItems(TABLE_ALLOCATIONS, partitionKey);
+    const allocationItems = await queryCanonicalItems(TABLE_ALLOCATIONS, partitionKey);
     allDeletes.push({ table: TABLE_ALLOCATIONS, keys: allocationItems });
 
-    const payrollItems = await queryAllItems(TABLE_PAYROLL, partitionKey);
+    const payrollItems = await queryCanonicalItems(TABLE_PAYROLL, partitionKey);
     allDeletes.push({ table: TABLE_PAYROLL, keys: payrollItems });
 
-    const adjustmentItems = await queryAllItems(TABLE_ADJUSTMENTS, partitionKey);
+    const adjustmentItems = await queryCanonicalItems(TABLE_ADJUSTMENTS, partitionKey);
     allDeletes.push({ table: TABLE_ADJUSTMENTS, keys: adjustmentItems });
   }
 
   for (const baselineId of CANONICAL_BASELINE_IDS) {
     const baselineKey = `BASELINE#${baselineId}`;
-    const baselineItems = await queryAllItems(TABLE_PROJECTS, baselineKey);
+    const baselineItems = await queryCanonicalItems(TABLE_PROJECTS, baselineKey);
     allDeletes.push({ table: TABLE_PROJECTS, keys: baselineItems });
+  }
+
+  const totalItems = allDeletes.reduce((sum, entry) => sum + entry.keys.length, 0);
+  console.log(`\n📊 Found ${totalItems} canonical items to delete`);
+
+  if (totalItems === 0) {
+    console.log("✓ No canonical items found. Nothing to clean up.");
+    return;
   }
 
   for (const entry of allDeletes) {
@@ -130,6 +160,7 @@ async function cleanupProjects() {
 async function main() {
   assertSafeEnvironment();
   console.log("Starting canonical seed cleanup...");
+  console.log("⚠️  This script ONLY deletes items with canonical=true flag");
   await cleanupProjects();
   console.log("\n✅ Cleanup completed successfully");
 }

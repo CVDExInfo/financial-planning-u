@@ -9,6 +9,7 @@ import {
   DeleteCommand,
   BatchGetCommand,
   BatchWriteCommand,
+  TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({
@@ -29,7 +30,8 @@ export async function sendDdb(command: any) {
     (command instanceof PutCommand ||
       command instanceof UpdateCommand ||
       command instanceof DeleteCommand ||
-      command instanceof BatchWriteCommand)
+      command instanceof BatchWriteCommand ||
+      command instanceof TransactWriteCommand)
   ) {
     console.info("[DDB_DRY_RUN] Skipping write", {
       commandName: command.constructor?.name,
@@ -92,6 +94,7 @@ export {
   DeleteCommand,
   BatchGetCommand,
   BatchWriteCommand,
+  TransactWriteCommand,
 };
 
 /**
