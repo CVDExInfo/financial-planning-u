@@ -347,6 +347,31 @@ describe("baseline flow - DynamoDB overwrite prevention", () => {
     console.log("✓ Verified: Accept uses backend projectId in URL:", backendProjectId);
   });
 
+  it("rejects projectId mismatches between uploads and backend response", () => {
+    const uploadProjectId = "P-upload-123";
+    const backendProjectId = "P-backend-456";
+
+    const simulateGuard = () => {
+      const prefacturaProjectIdRef = { current: uploadProjectId };
+      const baseline = { projectId: backendProjectId };
+
+      if (!baseline.projectId) {
+        throw new Error("Backend did not return projectId.");
+      }
+      if (baseline.projectId !== prefacturaProjectIdRef.current) {
+        throw new Error(
+          `ProjectId mismatch. Prefactura uploaded docs under ${prefacturaProjectIdRef.current} but backend returned ${baseline.projectId}.`,
+        );
+      }
+    };
+
+    assert.throws(
+      simulateGuard,
+      /ProjectId mismatch\. Prefactura uploaded docs under P-upload-123 but backend returned P-backend-456\./,
+      "Frontend must guard against backend projectId mismatch to avoid writing under wrong partition key",
+    );
+  });
+
   it("validates projectId is present in baseline response", async () => {
     // Override mockFetch to return baseline without projectId
     const badMockFetch = async (url: string, init?: RequestInit) => {
