@@ -352,7 +352,7 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
               {Object.keys(previewErrors).length > 0 && (
                 <ul className="text-xs text-destructive space-y-1">
                   {Object.entries(previewErrors).map(([index, messages]) => (
-                    <li key={index}>{`Fila ${Number(index) + 2}: ${messages.join(', ')}`}</li>
+                    <li key={index}>{`Fila ${Number(index) + 2}: ${(messages as string[]).join(', ')}`}</li>
                   ))}
                 </ul>
               )}

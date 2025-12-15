@@ -147,7 +147,7 @@ function aggregatePayrollByMonth(
   >();
 
   for (const entry of entries) {
-    const month = entry.period || entry.month;
+    const month = entry.period || (entry as any).month;
     const kind = entry.kind || "actual";
     const amount = Number(entry.amount || 0);
 
