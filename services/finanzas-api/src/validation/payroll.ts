@@ -77,10 +77,20 @@ export const PayrollActualSchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/),
   amount: z.number().min(0),
   resourceCount: z.number().int().min(0).optional(),
+  currency: z.string().min(1).optional(),
   source: z.string().optional(),
   uploadedBy: z.string().email().optional(),
   uploadedAt: z.string().datetime().optional(),
   notes: z.string().max(500).optional(),
+  linea_codigo: z.string().optional(),
+  linea_gasto: z.string().optional(),
+  categoria: z.string().optional(),
+  categoria_codigo: z.string().optional(),
+  descripcion: z.string().optional(),
+  createdAt: z.string().datetime().optional(),
+  createdBy: z.string().optional(),
+  updatedAt: z.string().datetime().optional(),
+  updatedBy: z.string().optional(),
 });
 
 export type PayrollActual = z.infer<typeof PayrollActualSchema>;
