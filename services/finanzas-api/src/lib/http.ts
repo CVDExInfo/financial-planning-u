@@ -48,6 +48,8 @@ export function defaultCorsHeaders(event?: any): Record<string, string> {
   return headers;
 }
 
+export const cors = defaultCorsHeaders();
+
 export function withCors(
   response: APIGatewayProxyResult,
   event?: Pick<APIGatewayProxyEvent, "headers">
