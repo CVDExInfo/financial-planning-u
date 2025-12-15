@@ -984,13 +984,11 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
               baselineId,
               idempotencyKey,
             });
-            projectIdForWrite = `P-${crypto.randomUUID()}`;
-            projectItem = buildProjectItem(projectIdForWrite, undefined);
-            existingProject.Item = undefined;
-            await putProjectMetadata(projectItem, false);
-          } else {
-            throw error;
+
+            return bad("baseline_collision_detected", 409);
           }
+
+          throw error;
         }
 
         const handoffId = generateHandoffId();

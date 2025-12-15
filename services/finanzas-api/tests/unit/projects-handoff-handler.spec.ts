@@ -66,26 +66,53 @@ const makeEvent = (baselineId: string, idempotencyKey: string): APIGatewayProxyE
 describe("projects handler handoff collision prevention", () => {
   const makeKey = (table: string, pk: string, sk: string) => `${table}|${pk}|${sk}`;
   let store: Map<string, Record<string, unknown>>;
+  let forceProjectMetadataMiss = false;
 
   beforeEach(() => {
     jest.clearAllMocks();
     store = new Map();
+    forceProjectMetadataMiss = false;
 
     mockSendDdb.mockImplementation(async (command: any) => {
-      const { TableName, Key, Item, ConditionExpression } = command.input || {};
+      const { TableName, Key, Item, ConditionExpression, ExpressionAttributeValues } =
+        command.input || {};
 
       if (Key) {
         const key = makeKey(TableName, Key.pk, Key.sk);
+        const isProjectMetadataLookup =
+          Key.pk && Key.sk && String(Key.pk).startsWith("PROJECT#") && Key.sk === "METADATA";
+
+        if (isProjectMetadataLookup && forceProjectMetadataMiss) {
+          return { Item: undefined };
+        }
+
         const found = store.get(key);
         return { Item: found };
       }
 
       if (Item) {
         const key = makeKey(TableName, Item.pk, Item.sk);
-        if (ConditionExpression?.includes("attribute_not_exists") && store.has(key)) {
-          const error = new Error("ConditionalCheckFailedException");
-          (error as any).name = "ConditionalCheckFailedException";
-          throw error;
+        const existing = store.get(key);
+
+        if (ConditionExpression?.includes("attribute_not_exists")) {
+          if (existing) {
+            const error = new Error("ConditionalCheckFailedException");
+            (error as any).name = "ConditionalCheckFailedException";
+            throw error;
+          }
+        }
+
+        if (ConditionExpression?.includes("#baseline_id")) {
+          const expectedBaseline = ExpressionAttributeValues?.[":baselineId"];
+          const existingBaseline =
+            (existing as Record<string, unknown> | undefined)?.baseline_id ||
+            (existing as Record<string, unknown> | undefined)?.baselineId;
+
+          if (existingBaseline && existingBaseline !== expectedBaseline) {
+            const error = new Error("ConditionalCheckFailedException");
+            (error as any).name = "ConditionalCheckFailedException";
+            throw error;
+          }
         }
 
         store.set(key, Item);
@@ -180,5 +207,33 @@ describe("projects handler handoff collision prevention", () => {
       makeKey(projectsTable, "PROJECT#P-canonical", "METADATA")
     );
     expect(unchangedMetadata?.baseline_id).toBe("base_a");
+  });
+
+  it("returns 409 when conditional write detects a late baseline collision", async () => {
+    const projectsTable = tableName("projects");
+    store.set(makeKey(projectsTable, "PROJECT#P-canonical", "METADATA"), {
+      pk: "PROJECT#P-canonical",
+      sk: "METADATA",
+      baseline_id: "base_a",
+    });
+
+    forceProjectMetadataMiss = true;
+
+    mockResolve.mockResolvedValue({
+      resolvedProjectId: "P-canonical",
+      baselineId: "base_b",
+      isNewProject: true,
+    });
+
+    const response = await handler(makeEvent("base_b", "key-race"));
+
+    expect(response.statusCode).toBe(409);
+    expect(response.body).toContain("baseline_collision_detected");
+
+    const existingMetadata = store.get(
+      makeKey(projectsTable, "PROJECT#P-canonical", "METADATA")
+    );
+    expect(existingMetadata?.baseline_id).toBe("base_a");
+    expect(Array.from(store.keys()).filter((key) => key.includes("HANDOFF#")).length).toBe(0);
   });
 });
