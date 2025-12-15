@@ -832,7 +832,13 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             } catch (error) {
             // Handle idempotency conflicts from helper
             if (error instanceof IdempotencyConflictError) {
-              return bad(error.message, 409);
+              return bad(
+                {
+                  error: "idempotency conflict",
+                  message: error.message,
+                },
+                409
+              );
             }
 
             console.error("[handoff-projects] Project resolution failed", error);
@@ -1022,6 +1028,45 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             createdBy: createdBy,
             sdm_manager_name: normalizedBaseline.sdm_manager_name,
           };
+
+          // DEFENSIVE CHECK: Prevent cross-baseline METADATA overwrites
+          // Before writing the METADATA, verify that if there's an existing baseline,
+          // it matches the incoming baseline. This is a safety net in case the
+          // resolveProjectForHandoff routing has any edge cases.
+          const currentMetadataResult = await sendDdb(
+            new GetCommand({
+              TableName: tableName("projects"),
+              Key: {
+                pk: `PROJECT#${resolvedProjectId}`,
+                sk: "METADATA",
+              },
+            })
+          );
+
+          const currentMetadata = currentMetadataResult.Item as Record<string, unknown> | undefined;
+          const currentBaselineId =
+            (currentMetadata?.baseline_id as string | undefined) ||
+            (currentMetadata?.baselineId as string | undefined);
+
+          // Refuse write if: metadata exists AND has a baseline AND baselines differ
+          if (currentMetadata && currentBaselineId && baselineId && currentBaselineId !== baselineId) {
+            logError("[projects.handoff] Refusing to overwrite METADATA for different baseline", {
+              resolvedProjectId,
+              existingBaselineId: currentBaselineId,
+              newBaselineId: baselineId,
+              idempotencyKey,
+            });
+
+            return bad(
+              {
+                error: "baseline collision detected: metadata already exists for a different baseline",
+                projectId: resolvedProjectId,
+                existingBaselineId: currentBaselineId,
+                newBaselineId: baselineId,
+              },
+              409
+            );
+          }
 
           await sendDdb(
             new PutCommand({

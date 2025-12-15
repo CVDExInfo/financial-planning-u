@@ -5,7 +5,7 @@
 import { handler } from '../../src/handlers/payroll';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import * as dynamo from '../../src/lib/dynamo';
-import { BatchWriteCommand, PutCommand, QueryCommand, ScanCommand } from '../../src/lib/dynamo';
+import { BatchWriteCommand, GetCommand, PutCommand, QueryCommand, ScanCommand } from '../../src/lib/dynamo';
 
 // Mock auth
 jest.mock('../../src/lib/auth', () => ({
@@ -77,6 +77,56 @@ describe('Payroll Handler Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    const projectMetadata = {
+      pk: `PROJECT#${testProjectId}`,
+      sk: 'METADATA',
+      currency: 'USD',
+    };
+
+    const rubroMetadata = {
+      pk: 'RUBRO#MOD-ING',
+      sk: 'METADATA',
+      linea_codigo: 'MOD-ING',
+      categoria: 'MOD',
+      descripcion: 'Ingenieros de soporte (mensual)',
+    };
+
+    const rubroTaxonomy = {
+      pk: 'LINEA#MOD-ING',
+      linea_codigo: 'MOD-ING',
+      categoria: 'MOD',
+      categoria_codigo: 'MOD',
+      linea_gasto: 'Ingenieros de soporte (mensual)',
+      descripcion: 'Ingenieros de soporte (mensual)',
+    };
+
+    (dynamo.ddb.send as jest.Mock).mockImplementation((command) => {
+      const table = (command as any).input?.TableName || '';
+
+      if (command instanceof GetCommand) {
+        if (table.includes('projects')) {
+          return Promise.resolve({ Item: projectMetadata });
+        }
+        if (table.includes('rubros')) {
+          return Promise.resolve({ Item: rubroMetadata });
+        }
+        return Promise.resolve({ Item: undefined });
+      }
+
+      if (command instanceof QueryCommand) {
+        if (table.includes('rubros_taxonomia')) {
+          return Promise.resolve({ Items: [rubroTaxonomy] });
+        }
+        return Promise.resolve({ Items: [] });
+      }
+
+      if (command instanceof ScanCommand) {
+        return Promise.resolve({ Items: [] });
+      }
+
+      return Promise.resolve({ Items: [] });
+    });
   });
 
   describe('POST /payroll', () => {
@@ -243,6 +293,18 @@ describe('Payroll Handler Tests', () => {
   describe('POST /payroll/actuals/bulk', () => {
     it('returns partial success when some rows fail validation', async () => {
       (dynamo.ddb.send as jest.Mock).mockImplementation((command) => {
+        const table = (command as any).input?.TableName || '';
+        if (command instanceof GetCommand) {
+          if (table.includes('projects')) {
+            return Promise.resolve({ Item: { pk: `PROJECT#${testProjectId}`, sk: 'METADATA' } });
+          }
+          if (table.includes('rubros')) {
+            return Promise.resolve({ Item: { pk: 'RUBRO#MOD-ING', sk: 'METADATA', linea_codigo: 'MOD-ING' } });
+          }
+        }
+        if (command instanceof QueryCommand && table.includes('rubros_taxonomia')) {
+          return Promise.resolve({ Items: [{ pk: 'LINEA#MOD-ING', linea_codigo: 'MOD-ING', categoria: 'MOD' }] });
+        }
         if (command instanceof BatchWriteCommand) {
           return Promise.resolve({});
         }
@@ -250,7 +312,7 @@ describe('Payroll Handler Tests', () => {
       });
 
       const rows = [
-        { projectId: testProjectId, rubroId: 'rubro_mod', month: testPeriod, amount: 5000 },
+        { projectId: testProjectId, rubroId: 'MOD-ING', month: testPeriod, amount: 5000 },
         { projectId: testProjectId, month: testPeriod, amount: -10 },
       ];
 
@@ -273,6 +335,41 @@ describe('Payroll Handler Tests', () => {
     beforeEach(() => {
       payrollStore.length = 0;
       (dynamo.ddb.send as jest.Mock).mockImplementation((command) => {
+        const table = (command as any).input?.TableName || '';
+        const projectMetadata = {
+          pk: `PROJECT#${testProjectId}`,
+          sk: 'METADATA',
+          currency: 'USD',
+        };
+        const rubroMetadata = {
+          pk: 'RUBRO#MOD-ING',
+          sk: 'METADATA',
+          linea_codigo: 'MOD-ING',
+          categoria: 'MOD',
+          descripcion: 'Ingenieros de soporte (mensual)',
+        };
+        const rubroTaxonomy = {
+          pk: 'LINEA#MOD-ING',
+          linea_codigo: 'MOD-ING',
+          categoria: 'MOD',
+          categoria_codigo: 'MOD',
+          linea_gasto: 'Ingenieros de soporte (mensual)',
+          descripcion: 'Ingenieros de soporte (mensual)',
+        };
+
+        if (command instanceof GetCommand) {
+          if (table.includes('projects')) {
+            return Promise.resolve({ Item: projectMetadata });
+          }
+          if (table.includes('rubros')) {
+            return Promise.resolve({ Item: rubroMetadata });
+          }
+        }
+
+        if (command instanceof QueryCommand && table.includes('rubros_taxonomia')) {
+          return Promise.resolve({ Items: [rubroTaxonomy] });
+        }
+
         if (command instanceof PutCommand) {
           payrollStore.push((command as any).input.Item);
           return Promise.resolve({});
@@ -285,7 +382,6 @@ describe('Payroll Handler Tests', () => {
         }
 
         if (command instanceof QueryCommand) {
-          const table = (command as any).input.TableName || '';
           if (table.includes('allocations')) {
             return Promise.resolve({ Items: [] });
           }
@@ -319,7 +415,7 @@ describe('Payroll Handler Tests', () => {
     it('surfaces new actual amounts in payroll summary', async () => {
       const postEvent = createEvent('POST', '/payroll/actuals', {
         projectId: testProjectId,
-        rubroId: 'rubro_mod',
+        rubroId: 'MOD-ING',
         month: testPeriod,
         amount: 7500,
       });
