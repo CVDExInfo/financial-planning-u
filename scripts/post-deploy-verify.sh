@@ -293,60 +293,6 @@ esac
 
 echo ""
 
-# Test payroll actuals CORS and routing
-echo "Test 3: OPTIONS /payroll/actuals (CORS preflight)"
-PAYROLL_ACTUALS_OPTIONS_RESP=$(curl -sS -i -X OPTIONS --max-time 15 "${API_BASE_URL}/payroll/actuals" || true)
-PAYROLL_ACTUALS_OPTIONS_CODE=$(echo "$PAYROLL_ACTUALS_OPTIONS_RESP" | awk 'NR==1 {print $2}')
-
-if [ "$PAYROLL_ACTUALS_OPTIONS_CODE" = "200" ] || [ "$PAYROLL_ACTUALS_OPTIONS_CODE" = "204" ]; then
-  if echo "$PAYROLL_ACTUALS_OPTIONS_RESP" | grep -qi "access-control-allow-origin"; then
-    echo -e "${GREEN}✅ OPTIONS /payroll/actuals → HTTP ${PAYROLL_ACTUALS_OPTIONS_CODE} with CORS${NC}"
-  else
-    echo -e "${RED}❌ OPTIONS /payroll/actuals missing Access-Control-Allow-Origin header${NC}"
-    ERRORS=$((ERRORS + 1))
-  fi
-else
-  echo -e "${RED}❌ OPTIONS /payroll/actuals → HTTP ${PAYROLL_ACTUALS_OPTIONS_CODE:-"n/a"}${NC}"
-  ERRORS=$((ERRORS + 1))
-fi
-
-echo ""
-echo "Test 4: POST /payroll/actuals (CORS)"
-PAYROLL_ACTUALS_POST_RESP=$(curl -sS -i -X POST --max-time 15 -H "Content-Type: application/json" -d '{}' "${API_BASE_URL}/payroll/actuals" || true)
-PAYROLL_ACTUALS_POST_CODE=$(echo "$PAYROLL_ACTUALS_POST_RESP" | awk 'NR==1 {print $2}')
-
-case "$PAYROLL_ACTUALS_POST_CODE" in
-  200|201|400|401|403)
-    if echo "$PAYROLL_ACTUALS_POST_RESP" | grep -qi "access-control-allow-origin"; then
-      echo -e "${GREEN}✅ POST /payroll/actuals → HTTP ${PAYROLL_ACTUALS_POST_CODE} with CORS${NC}"
-    else
-      echo -e "${RED}❌ POST /payroll/actuals missing Access-Control-Allow-Origin header${NC}"
-      ERRORS=$((ERRORS + 1))
-    fi
-    ;;
-  *)
-    echo -e "${RED}❌ POST /payroll/actuals → HTTP ${PAYROLL_ACTUALS_POST_CODE:-"n/a"}${NC}"
-    ERRORS=$((ERRORS + 1))
-    ;;
-esac
-
-echo ""
-echo "Test 5: OPTIONS /payroll/actuals/bulk (CORS preflight)"
-PAYROLL_BULK_OPTIONS_RESP=$(curl -sS -i -X OPTIONS --max-time 15 "${API_BASE_URL}/payroll/actuals/bulk" || true)
-PAYROLL_BULK_OPTIONS_CODE=$(echo "$PAYROLL_BULK_OPTIONS_RESP" | awk 'NR==1 {print $2}')
-
-if [ "$PAYROLL_BULK_OPTIONS_CODE" = "200" ] || [ "$PAYROLL_BULK_OPTIONS_CODE" = "204" ]; then
-  if echo "$PAYROLL_BULK_OPTIONS_RESP" | grep -qi "access-control-allow-origin"; then
-    echo -e "${GREEN}✅ OPTIONS /payroll/actuals/bulk → HTTP ${PAYROLL_BULK_OPTIONS_CODE} with CORS${NC}"
-  else
-    echo -e "${RED}❌ OPTIONS /payroll/actuals/bulk missing Access-Control-Allow-Origin header${NC}"
-    ERRORS=$((ERRORS + 1))
-  fi
-else
-  echo -e "${RED}❌ OPTIONS /payroll/actuals/bulk → HTTP ${PAYROLL_BULK_OPTIONS_CODE:-"n/a"}${NC}"
-  ERRORS=$((ERRORS + 1))
-fi
-
 # ============================================================================
 # SECTION 6: End-to-End Connectivity Test
 # ============================================================================

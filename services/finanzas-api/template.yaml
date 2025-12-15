@@ -359,13 +359,10 @@ Resources:
         AllowHeaders:
         - authorization
         - content-type
-        - Authorization
-        - Content-Type
         - x-idempotency-key
         - x-amz-date
         - x-amz-security-token
         - x-requested-with
-        - X-Requested-With
         - x-api-key
         AllowMethods:
         - GET
@@ -1044,24 +1041,6 @@ Resources:
           Properties:
             Path: /payroll/actuals
             Method: GET
-            ApiId:
-              Ref: Api
-            Auth:
-              Authorizer: CognitoJwt
-        CreatePayrollActual:
-          Type: HttpApi
-          Properties:
-            Path: /payroll/actuals
-            Method: POST
-            ApiId:
-              Ref: Api
-            Auth:
-              Authorizer: CognitoJwt
-        IngestPayrollActualsBulk:
-          Type: HttpApi
-          Properties:
-            Path: /payroll/actuals/bulk
-            Method: POST
             ApiId:
               Ref: Api
             Auth:
