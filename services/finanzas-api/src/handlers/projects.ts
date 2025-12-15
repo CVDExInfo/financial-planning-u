@@ -919,6 +919,45 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             ? "(attribute_not_exists(pk) AND attribute_not_exists(sk)) OR #baseline_id = :baselineId OR #baselineId = :baselineId"
             : "attribute_not_exists(pk) AND attribute_not_exists(sk)";
 
+          // DEFENSIVE CHECK: Prevent cross-baseline METADATA overwrites
+          // Before writing the METADATA, verify that if there's an existing baseline,
+          // it matches the incoming baseline. This is a safety net in case the
+          // resolveProjectForHandoff routing has any edge cases.
+          const currentMetadataResult = await sendDdb(
+            new GetCommand({
+              TableName: tableName("projects"),
+              Key: {
+                pk: `PROJECT#${resolvedProjectId}`,
+                sk: "METADATA",
+              },
+            })
+          );
+
+          const currentMetadata = currentMetadataResult.Item as Record<string, unknown> | undefined;
+          const currentBaselineId =
+            (currentMetadata?.baseline_id as string | undefined) ||
+            (currentMetadata?.baselineId as string | undefined);
+
+          // Refuse write if: metadata exists AND has a baseline AND baselines differ
+          if (currentMetadata && currentBaselineId && baselineId && currentBaselineId !== baselineId) {
+            logError("[projects.handoff] Refusing to overwrite METADATA for different baseline", {
+              resolvedProjectId,
+              existingBaselineId: currentBaselineId,
+              newBaselineId: baselineId,
+              idempotencyKey,
+            });
+
+            return bad(
+              {
+                error: "baseline collision detected: metadata already exists for a different baseline",
+                projectId: resolvedProjectId,
+                existingBaselineId: currentBaselineId,
+                newBaselineId: baselineId,
+              },
+              409
+            );
+          }
+
           await sendDdb(
             new PutCommand({
               TableName: tableName("projects"),

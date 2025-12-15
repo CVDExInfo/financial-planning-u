@@ -44,3 +44,55 @@ Historically the handoff endpoint trusted the `projectId` provided in the path e
 
 - `npm run test:unit` (tsx) – validates auth role resolution, API service coercion, baseline creation error handling, cost utilities, role routing, and project normalization logic relevant to SDMT handoff flows.
 
+
+## Defensive measures against baseline collisions
+
+### Pre-write METADATA baseline check
+
+As an additional safety layer, `projects.ts` includes a defensive check immediately before writing `PROJECT#…/METADATA`:
+
+1. Read the current METADATA record for the resolved project ID
+2. Extract any existing `baseline_id` or `baselineId` field
+3. If an existing baseline is present and differs from the incoming baseline:
+   - **Refuse the write with HTTP 409 Conflict**
+   - Return error details: `{ error: "baseline collision detected", existingBaselineId, newBaselineId, projectId }`
+
+This prevents cross-baseline overwrites even if the resolution logic has edge cases or receives incorrectly routed requests.
+
+### Idempotency conflict detection
+
+The `resolveProjectForHandoff` helper enforces baseline-scoped idempotency:
+
+- If an idempotency key was previously used with a different baseline, it throws `IdempotencyConflictError`
+- The handler catches this error and returns HTTP 409 Conflict with: `{ error: "idempotency conflict", message }`
+- This ensures the same idempotency key cannot be reused across different baselines
+
+### QA project handling
+
+When a project exists without a baseline (e.g., a QA test project):
+
+- The **first** baseline handoff can claim that project
+- Subsequent handoffs with **different** baselines will create new project IDs
+- This prevents multiple baselines from accidentally sharing a single QA project
+
+## Error responses
+
+### 409 Conflict: Baseline collision
+
+```json
+{
+  "error": "baseline collision detected: metadata already exists for a different baseline",
+  "projectId": "P-1b6309be-bf75-4994-a332-097bdfc63ae4",
+  "existingBaselineId": "base_eac8ddf69dbb",
+  "newBaselineId": "base_b8566fa19c08"
+}
+```
+
+### 409 Conflict: Idempotency conflict
+
+```json
+{
+  "error": "idempotency conflict",
+  "message": "Idempotency key \"key-123\" was previously used with baseline \"base_old\" but is now being used with baseline \"base_new\""
+}
+```
