@@ -534,7 +534,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         ],
         baselineDetails: {
           baselineId,
-          signatureStatus: signatureComplete ? "Signed" : "Pending",
+          signatureStatus: "Signed",
           durationMonths: dealInputs?.duration_months || undefined,
           teamSize: `${totalFte} FTE`,
           roleCount: laborEstimates.length,
