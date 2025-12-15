@@ -1,7 +1,8 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   BarChart3,
   Building2,
+  Gauge,
   FolderKanban,
   Layers,
   Settings2,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PageHeader from "@/components/PageHeader";
+import usePermissions from "@/hooks/usePermissions";
 
 const tiles = [
   {
@@ -71,6 +73,10 @@ const tiles = [
 ];
 
 export default function FinanzasHome() {
+  const navigate = useNavigate();
+  const { isSDMT, isExecRO } = usePermissions();
+  const canAccessHub = isSDMT || isExecRO;
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       <PageHeader
@@ -105,6 +111,30 @@ export default function FinanzasHome() {
             </Card>
           </Link>
         ))}
+
+        {canAccessHub && (
+          <Card
+            className="h-full cursor-pointer border-border/80 hover:border-primary/60 transition-colors shadow-sm"
+            onClick={() => navigate("/hub")}
+          >
+            <CardHeader className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Gauge className="h-5 w-5" />
+                </div>
+                <CardTitle className="text-sm font-semibold transition-colors">Hub de Desempeño</CardTitle>
+              </div>
+              <CardDescription className="text-xs leading-relaxed">
+                Tablero ejecutivo con KPIs de desempeño financiero, cashflow y riesgos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Accede al hub para ver la salud financiera consolidada del portafolio.
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Card className="border-dashed border-border/80 bg-muted/30">
