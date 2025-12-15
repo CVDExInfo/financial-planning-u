@@ -543,6 +543,9 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
             totalNonLaborCost,
             dealInputs?.currency,
           ),
+          contractValue: dealInputs?.contract_value
+            ? formatReportCurrency(dealInputs.contract_value, dealInputs?.currency)
+            : undefined,
           currency: dealInputs?.currency,
         },
       };
