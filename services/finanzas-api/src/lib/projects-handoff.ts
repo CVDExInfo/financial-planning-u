@@ -30,6 +30,10 @@ export interface ResolveProjectResult {
   existingProjectMetadata?: Record<string, unknown>;
   isNewProject: boolean;
   baselineId: string;
+  strategy:
+    | "reuse-idempotent"
+    | "reuse-existing-baseline"
+    | "create-new-project";
 }
 
 /**
@@ -220,6 +224,7 @@ export async function resolveProjectForHandoff(
         existingProjectMetadata: metadata || undefined,
         isNewProject: false,
         baselineId: normalizedBaselineId,
+        strategy: "reuse-idempotent",
       };
     }
 
@@ -248,6 +253,7 @@ export async function resolveProjectForHandoff(
       existingProjectMetadata: projectWithBaseline.metadata,
       isNewProject: false,
       baselineId: normalizedBaselineId,
+      strategy: "reuse-existing-baseline",
     };
   }
 
@@ -306,5 +312,6 @@ export async function resolveProjectForHandoff(
     existingProjectMetadata,
     isNewProject: !existingProjectMetadata,
     baselineId: normalizedBaselineId,
+    strategy,
   };
 }

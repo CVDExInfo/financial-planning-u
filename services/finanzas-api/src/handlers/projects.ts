@@ -1,5 +1,6 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { z } from "zod";
+import type { PutCommandInput } from "@aws-sdk/lib-dynamodb";
 import { ensureCanRead, ensureCanWrite, getUserContext } from "../lib/auth";
 import { ok, bad, serverError, fromAuthError } from "../lib/http";
 import {
@@ -604,29 +605,26 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         return bad("Invalid JSON in request body");
       }
 
-        const handoffFields =
-          handoffBody && typeof handoffBody.fields === "object"
-            ? (handoffBody.fields as Record<string, unknown>)
-            : undefined;
+      const handoffFields = (
+        handoffBody && typeof handoffBody.fields === "object"
+          ? (handoffBody.fields as Record<string, unknown>)
+          : undefined
+      ) as Record<string, unknown> | undefined;
 
-        let baselineId =
-          (handoffBody.baseline_id as string) ||
-          (handoffBody.baselineId as string) ||
-          (handoffFields?.baseline_id as string) ||
-          (handoffFields?.baselineId as string);
+      const baselineId =
+        (handoffBody.baseline_id as string) ||
+        (handoffBody.baselineId as string) ||
+        (handoffFields?.baseline_id as string) ||
+        (handoffFields?.baselineId as string);
+
+      if (!baselineId) {
+        return bad("baselineId is required for handoff", 400);
+      }
 
       try {
         let resolvedProjectId = projectIdFromPath;
-
-        const existingProject = await sendDdb(
-          new GetCommand({
-            TableName: tableName("projects"),
-            Key: {
-              pk: `PROJECT#${resolvedProjectId}`,
-              sk: "METADATA",
-            },
-          })
-        );
+        let resolvedProjectMetadata: Record<string, unknown> | undefined;
+        let resolutionStrategy;
 
         const idempotencyCheck = await sendDdb(
           new GetCommand({
@@ -655,29 +653,76 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           return ok(idempotencyCheck.Item.result || idempotencyCheck.Item);
         }
 
-        const baselineFromProject = (existingProject.Item as
-          | Record<string, unknown>
-          | undefined)?.baseline_id as string | undefined;
+        try {
+          const resolution = await resolveProjectForHandoff({
+            ddb,
+            tableName,
+            incomingProjectId: resolvedProjectId,
+            baselineId,
+            idempotencyKey,
+          });
 
-        if (!baselineId && baselineFromProject) {
-          baselineId = baselineFromProject;
-        }
+          resolvedProjectId = resolution.resolvedProjectId;
+          resolvedProjectMetadata = resolution.existingProjectMetadata as
+            | Record<string, unknown>
+            | undefined;
+          resolutionStrategy = resolution.strategy;
 
-        const baselineLookup = baselineId
-          ? await sendDdb(
+          if (!resolvedProjectMetadata && resolvedProjectId !== projectIdFromPath) {
+            const resolvedProjectLookup = await sendDdb(
               new GetCommand({
-                TableName: tableName("prefacturas"),
+                TableName: tableName("projects"),
                 Key: {
                   pk: `PROJECT#${resolvedProjectId}`,
-                  sk: `BASELINE#${baselineId}`,
+                  sk: "METADATA",
                 },
               })
-            )
-          : { Item: undefined };
+            );
+
+            resolvedProjectMetadata = resolvedProjectLookup.Item as
+              | Record<string, unknown>
+              | undefined;
+          }
+        } catch (error) {
+          if (error instanceof IdempotencyConflictError) {
+            return bad(error.message, 409);
+          }
+
+          console.error("[handoff-projects] Project resolution failed", error);
+          return serverError();
+        }
+
+        const existingProjectMetadataLookup = resolvedProjectMetadata
+          ? { Item: resolvedProjectMetadata }
+          : await sendDdb(
+              new GetCommand({
+                TableName: tableName("projects"),
+                Key: {
+                  pk: `PROJECT#${resolvedProjectId}`,
+                  sk: "METADATA",
+                },
+              })
+            );
+
+        const existingProject = {
+          Item: existingProjectMetadataLookup.Item as
+            | Record<string, unknown>
+            | undefined,
+        };
+
+        const baselineLookup = await sendDdb(
+          new GetCommand({
+            TableName: tableName("prefacturas"),
+            Key: {
+              pk: `PROJECT#${resolvedProjectId}`,
+              sk: `BASELINE#${baselineId}`,
+            },
+          })
+        );
 
         let baseline = baselineLookup.Item as Record<string, unknown> | undefined;
 
-        if (!baseline && baselineId) {
+        if (!baseline) {
           const baselineById = await sendDdb(
             new GetCommand({
               TableName: tableName("prefacturas"),
@@ -704,148 +749,35 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           }
         }
 
-        if (!baseline && !baselineId) {
-          const baselineQuery = await sendDdb(
-            new QueryCommand({
-              TableName: tableName("prefacturas"),
-              KeyConditionExpression: "#pk = :pk AND begins_with(#sk, :sk)",
-              ExpressionAttributeNames: {
-                "#pk": "pk",
-                "#sk": "sk",
-              },
-              ExpressionAttributeValues: {
-                ":pk": `PROJECT#${resolvedProjectId}`,
-                ":sk": "BASELINE#",
-              },
-              ScanIndexForward: false,
-              Limit: 1,
-            })
-          );
-
-          if (baselineQuery.Items && baselineQuery.Items.length > 0) {
-            baseline = baselineQuery.Items[0] as Record<string, unknown>;
-            const skValue = baseline.sk as string | undefined;
-            if (skValue?.startsWith("BASELINE#")) {
-              baselineId = skValue.replace("BASELINE#", "");
-            }
-          }
-        }
+        console.info("[handoff-projects] baseline resolution", {
+          projectIdFromPath,
+          resolvedProjectId,
+          baselineId,
+          idempotencyKey,
+          strategy: resolutionStrategy,
+        });
 
         if (
-          existingProject.Item &&
-          ((existingProject.Item as Record<string, unknown>).baseline_id ===
-            baselineId ||
-            (existingProject.Item as Record<string, unknown>).baselineId ===
-              baselineId)
+          resolvedProjectId &&
+          (!existingProject.Item ||
+            (existingProject.Item as Record<string, unknown>)?.pk !==
+              `PROJECT#${resolvedProjectId}`)
         ) {
-          // Project already handed off with this baseline - return existing handoff
-          // Query for the most recent handoff record to get handoffId
-          const existingHandoffQuery = await sendDdb(
-            new QueryCommand({
+          const refreshedProject = await sendDdb(
+            new GetCommand({
               TableName: tableName("projects"),
-              KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-              ExpressionAttributeValues: {
-                ":pk": `PROJECT#${resolvedProjectId}`,
-                ":sk": "HANDOFF#",
+              Key: {
+                pk: `PROJECT#${resolvedProjectId}`,
+                sk: "METADATA",
               },
-              ScanIndexForward: false, // Get most recent first
-              Limit: 1,
             })
           );
 
-          const existingHandoffId = existingHandoffQuery.Items?.[0]?.handoffId || 
-            generateHandoffId();
-
-          return ok({
-            handoffId: existingHandoffId,
-            projectId: resolvedProjectId,
-            baselineId,
-            status: "HandoffComplete",
-          }, 201);
+          existingProject.Item = refreshedProject.Item as
+            | Record<string, unknown>
+            | undefined;
         }
 
-        if (!baseline) {
-          baseline = {};
-        }
-
-        const baselineProjectId =
-          (baseline.project_id as string) || (baseline.projectId as string);
-
-        if (baselineProjectId && baselineProjectId !== resolvedProjectId) {
-          resolvedProjectId = baselineProjectId;
-        }
-        
-          // Use baseline-aware project resolution to prevent cross-baseline overwrites
-          // This replaces the simple collision detection with comprehensive resolution
-          if (baselineId) {
-            try {
-              const resolution = await resolveProjectForHandoff({
-              ddb,
-              tableName,
-              incomingProjectId: resolvedProjectId,
-              baselineId,
-              idempotencyKey,
-            });
-
-              resolvedProjectId = resolution.resolvedProjectId;
-
-              // Prefer the metadata returned by the resolver (which is aware of baseline collisions)
-              let resolvedProjectMetadata =
-                (resolution.existingProjectMetadata as Record<string, unknown> | undefined) ||
-                (resolvedProjectId === projectIdFromPath
-                  ? ((existingProject.Item as Record<string, unknown> | undefined) || undefined)
-                  : undefined);
-
-              // If the resolver picked a different projectId and we don't have metadata yet,
-              // fetch it to avoid overwriting created_by/created_at or SDM ownership.
-              if (!resolvedProjectMetadata && resolvedProjectId !== projectIdFromPath) {
-                const resolvedProjectLookup = await sendDdb(
-                  new GetCommand({
-                    TableName: tableName("projects"),
-                    Key: {
-                      pk: `PROJECT#${resolvedProjectId}`,
-                      sk: "METADATA",
-                    },
-                  })
-                );
-
-                resolvedProjectMetadata = resolvedProjectLookup.Item as
-                  | Record<string, unknown>
-                  | undefined;
-              }
-
-              console.info("[handoff-projects] Project resolved via baseline-aware helper", {
-                incomingProjectId: projectIdFromPath,
-                resolvedProjectId,
-                baselineId,
-                isNewProject: resolution.isNewProject,
-              });
-
-              // Replace existingProject.Item references with the resolved metadata so downstream
-              // fields (created_by, created_at, sdm_manager_name) are preserved instead of being
-              // overwritten by the current request context ("system").
-              if (resolvedProjectMetadata) {
-                existingProject.Item = resolvedProjectMetadata as never;
-              } else {
-                existingProject.Item = undefined as never;
-              }
-            } catch (error) {
-            // Handle idempotency conflicts from helper
-            if (error instanceof IdempotencyConflictError) {
-              return bad(
-                {
-                  error: "idempotency conflict",
-                  message: error.message,
-                },
-                409
-              );
-            }
-
-            console.error("[handoff-projects] Project resolution failed", error);
-            return serverError();
-          }
-        }
-        
         const now = new Date().toISOString();
         const createdBy =
           event.requestContext.authorizer?.jwt?.claims?.email || "system";
@@ -853,7 +785,6 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         const normalizedBaseline = normalizeBaseline(
           baseline as Record<string, unknown> | undefined
         );
-
         const modTotalFromPayload = Number(
           handoffBody.mod_total ??
             handoffFields?.mod_total ??
@@ -865,20 +796,19 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             ? modTotalFromPayload
             : Number(
                 normalizedBaseline.contract_value ||
-                  baseline.total_amount ||
-                  baseline.mod_total ||
+                  (baseline as Record<string, unknown> | undefined)?.total_amount ||
+                  (baseline as Record<string, unknown> | undefined)?.mod_total ||
                   0
               );
 
         const durationMonths =
-          normalizedBaseline.duration_months &&
-          normalizedBaseline.duration_months > 0
+          normalizedBaseline.duration_months && normalizedBaseline.duration_months > 0
             ? normalizedBaseline.duration_months
             : undefined;
         const startDate =
           normalizedBaseline.start_date ||
           normalizedBaseline.deal_inputs?.start_date ||
-          (baseline.start_date as string | undefined);
+          ((baseline as Record<string, unknown> | undefined)?.start_date as string | undefined);
         const endDate = deriveEndDate(
           startDate,
           durationMonths,
@@ -890,260 +820,237 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           (existingProject.Item as Record<string, unknown> | undefined)?.currency ||
           "USD";
 
-        // Extract project name and client from normalized baseline (which looks in payload, deal_inputs, etc.)
-        const projectName = 
+        const projectName =
           normalizedBaseline.project_name ||
           (existingProject.Item as Record<string, unknown> | undefined)?.nombre ||
           (existingProject.Item as Record<string, unknown> | undefined)?.name ||
           `Project ${resolvedProjectId}`;
-        
-        const clientName = 
+
+        const clientName =
           normalizedBaseline.client_name ||
           (existingProject.Item as Record<string, unknown> | undefined)?.cliente ||
           (existingProject.Item as Record<string, unknown> | undefined)?.client ||
           "";
 
-        // Generate a clean project code for handoff projects
-        // For handoff projects, we want a short, human-readable code like "P-8charHash"
-        // NOT the long UUID-based projectId
         const MAX_CLEAN_CODE_LENGTH = 20;
         const CODE_SUFFIX_LENGTH = 8;
-        let projectCode = 
+        let projectCode =
           (existingProject.Item as Record<string, unknown> | undefined)?.code ||
           (existingProject.Item as Record<string, unknown> | undefined)?.codigo ||
           resolvedProjectId;
-        
-        // If projectId is a long UUID, generate a shorter code based on baseline ID
+
         if (
           baselineId &&
-          (resolvedProjectId.length > MAX_CLEAN_CODE_LENGTH || 
-           /^P-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedProjectId))
+          (resolvedProjectId.length > MAX_CLEAN_CODE_LENGTH ||
+            /^P-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+              resolvedProjectId
+            ))
         ) {
-          const baselineIdShort = baselineId.replace(/^base_/, '').substring(0, CODE_SUFFIX_LENGTH);
+          const baselineIdShort = baselineId.replace(/^base_/, "").substring(0, CODE_SUFFIX_LENGTH);
           projectCode = `P-${baselineIdShort}`;
         }
 
-        const projectItem = {
-          pk: `PROJECT#${resolvedProjectId}`,
+        const buildProjectItem = (
+          targetProjectId: string,
+          existingMetadata?: Record<string, unknown>
+        ) => ({
+          pk: `PROJECT#${targetProjectId}`,
           sk: "METADATA",
-          id: resolvedProjectId,
-          project_id: resolvedProjectId,
-          projectId: resolvedProjectId,
+          id: targetProjectId,
+          project_id: targetProjectId,
+          projectId: targetProjectId,
           nombre: projectName,
           name: projectName,
           cliente: clientName,
           client: clientName,
           code: projectCode,
           codigo: projectCode,
-          moneda:
-            resolvedCurrency,
-          currency:
-            resolvedCurrency,
+          moneda: resolvedCurrency,
+          currency: resolvedCurrency,
           fecha_inicio:
-            startDate ||
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.fecha_inicio ||
-            null,
+            startDate || (existingMetadata as Record<string, unknown> | undefined)?.fecha_inicio || null,
           start_date:
-            startDate ||
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.start_date ||
-            null,
+            startDate || (existingMetadata as Record<string, unknown> | undefined)?.start_date || null,
           fecha_fin:
-            endDate ||
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.fecha_fin ||
-            null,
+            endDate || (existingMetadata as Record<string, unknown> | undefined)?.fecha_fin || null,
           end_date:
-            endDate ||
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.end_date ||
-            null,
+            endDate || (existingMetadata as Record<string, unknown> | undefined)?.end_date || null,
           duration_months: durationMonths,
           presupuesto_total: resolvedBudget,
           mod_total: resolvedBudget,
           descripcion:
-            (baseline.project_description as string) ||
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.descripcion ||
+            (baseline as Record<string, unknown> | undefined)?.project_description ||
+            (existingMetadata as Record<string, unknown> | undefined)?.descripcion ||
             "",
           description:
-            (baseline.project_description as string) ||
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.description ||
+            (baseline as Record<string, unknown> | undefined)?.project_description ||
+            (existingMetadata as Record<string, unknown> | undefined)?.description ||
             "",
           sdm_manager_name:
             normalizedBaseline.sdm_manager_name ||
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.sdm_manager_name ||
+            (existingMetadata as Record<string, unknown> | undefined)?.sdm_manager_name ||
             undefined,
           baseline_id: baselineId,
           baselineId,
           baseline_status: "accepted",
           baseline_accepted_at: now,
-          status:
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.status || "active",
-          estado:
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.estado || "active",
-          module:
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.module || "SDMT",
+          status: (existingMetadata as Record<string, unknown> | undefined)?.status || "active",
+          estado: (existingMetadata as Record<string, unknown> | undefined)?.estado || "active",
+          module: (existingMetadata as Record<string, unknown> | undefined)?.module || "SDMT",
           source: "prefactura",
-          created_at:
-            (existingProject.Item as Record<string, unknown> | undefined)
-              ?.created_at || now,
+          created_at: (existingMetadata as Record<string, unknown> | undefined)?.created_at || now,
           updated_at: now,
-            created_by:
-              (existingProject.Item as Record<string, unknown> | undefined)
-                ?.created_by || createdBy,
-            accepted_by:
-              (handoffBody.aceptado_por as string) ||
-              (handoffBody.owner as string) ||
-              createdBy,
-            pct_ingenieros: Number(
-              handoffBody.pct_ingenieros ?? handoffFields?.pct_ingenieros ?? 0
-            ),
-            pct_sdm: Number(handoffBody.pct_sdm ?? handoffFields?.pct_sdm ?? 0),
-            last_handoff_key: idempotencyKey,
+          created_by: (existingMetadata as Record<string, unknown> | undefined)?.created_by || createdBy,
+          accepted_by:
+            (handoffBody.aceptado_por as string) ||
+            (handoffBody.owner as string) ||
+            createdBy,
+          pct_ingenieros: Number(
+            handoffBody.pct_ingenieros ?? handoffFields?.pct_ingenieros ?? 0
+          ),
+          pct_sdm: Number(handoffBody.pct_sdm ?? handoffFields?.pct_sdm ?? 0),
+          last_handoff_key: idempotencyKey,
+        });
+
+        const putProjectMetadata = async (
+          projectItem: Record<string, unknown>,
+          allowExistingMetadata?: boolean
+        ) => {
+          const condition = allowExistingMetadata
+            ? "(attribute_not_exists(pk) AND attribute_not_exists(sk)) OR #baseline_id = :baselineId OR #baselineId = :baselineId"
+            : "attribute_not_exists(pk) AND attribute_not_exists(sk)";
+
+          const putCommandInput: PutCommandInput = {
+            TableName: tableName("projects"),
+            Item: projectItem,
+            ConditionExpression: condition,
           };
 
-          const handoffId = generateHandoffId();
-
-          const handoffOwner =
-            (handoffBody.owner as string) || createdBy || "unknown@unknown";
-
-          const handoffRecord = {
-            pk: `PROJECT#${resolvedProjectId}`,
-            sk: `HANDOFF#${handoffId}`,
-            handoffId,
-            projectId: resolvedProjectId,
-            baselineId: baselineId || (projectItem.baseline_id as string),
-            owner: handoffOwner,
-            fields: handoffFields || handoffBody,
-            version: 1,
-            createdAt: now,
-            updatedAt: now,
-            createdBy: createdBy,
-            sdm_manager_name: normalizedBaseline.sdm_manager_name,
-          };
-
-          // DEFENSIVE CHECK: Prevent cross-baseline METADATA overwrites
-          // Before writing the METADATA, verify that if there's an existing baseline,
-          // it matches the incoming baseline. This is a safety net in case the
-          // resolveProjectForHandoff routing has any edge cases.
-          const currentMetadataResult = await sendDdb(
-            new GetCommand({
-              TableName: tableName("projects"),
-              Key: {
-                pk: `PROJECT#${resolvedProjectId}`,
-                sk: "METADATA",
-              },
-            })
-          );
-
-          const currentMetadata = currentMetadataResult.Item as Record<string, unknown> | undefined;
-          const currentBaselineId =
-            (currentMetadata?.baseline_id as string | undefined) ||
-            (currentMetadata?.baselineId as string | undefined);
-
-          // Refuse write if: metadata exists AND has a baseline AND baselines differ
-          if (currentMetadata && currentBaselineId && baselineId && currentBaselineId !== baselineId) {
-            logError("[projects.handoff] Refusing to overwrite METADATA for different baseline", {
-              resolvedProjectId,
-              existingBaselineId: currentBaselineId,
-              newBaselineId: baselineId,
-              idempotencyKey,
-            });
-
-            return bad(
-              {
-                error: "baseline collision detected: metadata already exists for a different baseline",
-                projectId: resolvedProjectId,
-                existingBaselineId: currentBaselineId,
-                newBaselineId: baselineId,
-              },
-              409
-            );
+          if (allowExistingMetadata) {
+            putCommandInput.ExpressionAttributeNames = {
+              "#baseline_id": "baseline_id",
+              "#baselineId": "baselineId",
+            };
+            putCommandInput.ExpressionAttributeValues = {
+              ":baselineId": baselineId,
+            };
           }
 
-          await sendDdb(
-            new PutCommand({
-              TableName: tableName("projects"),
-              Item: projectItem,
-            })
-          );
+          await sendDdb(new PutCommand(putCommandInput));
+        };
 
-          await sendDdb(
-            new PutCommand({
-              TableName: tableName("projects"),
-              Item: handoffRecord,
-            })
-          );
+        let projectIdForWrite = resolvedProjectId;
+        let projectItem = buildProjectItem(projectIdForWrite, existingProject.Item);
 
-          await seedLineItemsFromBaseline(
-            resolvedProjectId,
-            normalizedBaseline,
-            baselineId
-          );
-
-          const auditEntry = {
-            pk: `ENTITY#PROJECT#${resolvedProjectId}`,
-            sk: `TS#${now}`,
-            action: "HANDOFF_UPDATE",
-            resource_type: "project_handoff",
-            resource_id: handoffId,
-            user: createdBy,
-            timestamp: now,
-            before: existingProject.Item || null,
-            after: {
-              project: projectItem,
-              handoff: handoffRecord,
-            },
-            source: "API",
-            ip_address: event.requestContext.http?.sourceIp,
-            user_agent: event.requestContext.http?.userAgent,
-          };
-
-          await sendDdb(
-            new PutCommand({
-              TableName: tableName("audit_log"),
-              Item: auditEntry,
-            })
-          );
-
-          const ttl = Math.floor(Date.now() / 1000) + 86400;
-
-          const idempotencyRecord = {
-            pk: "IDEMPOTENCY#HANDOFF",
-            sk: idempotencyKey,
-            payload: { projectId: projectIdFromPath, body: handoffBody },
-            result: {
-              handoffId,
-              projectId: resolvedProjectId,
+        try {
+          await putProjectMetadata(projectItem, Boolean(existingProject.Item));
+        } catch (error) {
+          const errorName = (error as { name?: string }).name;
+          if (errorName === "ConditionalCheckFailedException") {
+            console.error("[handoff-projects] baseline collision prevented", {
+              projectIdFromPath,
+              resolvedProjectId,
               baselineId,
-              status: "HandoffComplete",
-            },
-            ttl,
-          };
+              idempotencyKey,
+            });
+            projectIdForWrite = `P-${crypto.randomUUID()}`;
+            projectItem = buildProjectItem(projectIdForWrite, undefined);
+            existingProject.Item = undefined;
+            await putProjectMetadata(projectItem, false);
+          } else {
+            throw error;
+          }
+        }
 
-          await sendDdb(
-            new PutCommand({
-              TableName: tableName("projects"),
-              Item: idempotencyRecord,
-            })
-          );
+        const handoffId = generateHandoffId();
 
-          return ok(
-            {
-              handoffId,
-              projectId: resolvedProjectId,
-              baselineId,
-              status: "HandoffComplete",
-            },
-            201
-          );
+        const handoffOwner =
+          (handoffBody.owner as string) || createdBy || "unknown@unknown";
+
+        const handoffRecord = {
+          pk: `PROJECT#${projectIdForWrite}`,
+          sk: `HANDOFF#${handoffId}`,
+          handoffId,
+          projectId: projectIdForWrite,
+          baselineId,
+          owner: handoffOwner,
+          fields: handoffFields || handoffBody,
+          version: 1,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: createdBy,
+          sdm_manager_name: normalizedBaseline.sdm_manager_name,
+        };
+
+        await sendDdb(
+          new PutCommand({
+            TableName: tableName("projects"),
+            Item: handoffRecord,
+          })
+        );
+
+        await seedLineItemsFromBaseline(
+          projectIdForWrite,
+          normalizedBaseline,
+          baselineId
+        );
+
+        const auditEntry = {
+          pk: `ENTITY#PROJECT#${projectIdForWrite}`,
+          sk: `TS#${now}`,
+          action: "HANDOFF_UPDATE",
+          resource_type: "project_handoff",
+          resource_id: handoffId,
+          user: createdBy,
+          timestamp: now,
+          before: existingProject.Item || null,
+          after: {
+            project: projectItem,
+            handoff: handoffRecord,
+          },
+          source: "API",
+          ip_address: event.requestContext.http?.sourceIp,
+          user_agent: event.requestContext.http?.userAgent,
+        };
+
+        await sendDdb(
+          new PutCommand({
+            TableName: tableName("audit_log"),
+            Item: auditEntry,
+          })
+        );
+
+        const ttl = Math.floor(Date.now() / 1000) + 86400;
+
+        const idempotencyRecord = {
+          pk: "IDEMPOTENCY#HANDOFF",
+          sk: idempotencyKey,
+          payload: { projectId: projectIdFromPath, body: handoffBody },
+          result: {
+            handoffId,
+            projectId: projectIdForWrite,
+            baselineId,
+            status: "HandoffComplete",
+          },
+          ttl,
+        };
+
+        await sendDdb(
+          new PutCommand({
+            TableName: tableName("projects"),
+            Item: idempotencyRecord,
+          })
+        );
+
+        return ok(
+          {
+            handoffId,
+            projectId: projectIdForWrite,
+            baselineId,
+            status: "HandoffComplete",
+          },
+          201
+        );
       } catch (error) {
         const authError = fromAuthError(error);
         if (authError) return authError;
@@ -1151,6 +1058,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         logError("Error during handoff", error);
         return serverError();
       }
+
     }
 
     if (method === "POST") {
