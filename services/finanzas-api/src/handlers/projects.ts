@@ -13,6 +13,7 @@ import {
 import { logError } from "../utils/logging";
 import crypto from "node:crypto";
 import { mapToProjectDTO, type ProjectRecord, type ProjectDTO } from "../models/project";
+import { resolveProjectForHandoff } from "../lib/projects-handoff";
 
 /**
  * RBAC Filter Patterns for Project Visibility
@@ -614,53 +615,55 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           (handoffFields?.baselineId as string);
 
       try {
-        let resolvedProjectId = projectIdFromPath;
+        // Extract baseline ID from handoff body
+        if (!baselineId) {
+          return bad("baseline_id is required in handoff request", 400);
+        }
 
-        const existingProject = await ddb.send(
-          new GetCommand({
-            TableName: tableName("projects"),
-            Key: {
-              pk: `PROJECT#${resolvedProjectId}`,
-              sk: "METADATA",
-            },
-          })
-        );
-
-        const idempotencyCheck = await ddb.send(
-          new GetCommand({
-            TableName: tableName("projects"),
-            Key: {
-              pk: "IDEMPOTENCY#HANDOFF",
-              sk: idempotencyKey,
-            },
-          })
-        );
-
-        if (idempotencyCheck.Item) {
-          const existingPayload = JSON.stringify(idempotencyCheck.Item.payload);
-          const currentPayload = JSON.stringify({
+        // Use the baseline-aware project resolution helper
+        // This ensures each baseline gets its own project and prevents overwriting
+        const resolutionResult = await resolveProjectForHandoff({
+          ddb,
+          tableName,
+          incomingProjectId: projectIdFromPath,
+          baselineId,
+          idempotencyKey,
+          idempotencyPayload: {
             projectId: projectIdFromPath,
             body: handoffBody,
-          });
+          },
+        });
 
-          if (existingPayload !== currentPayload) {
-            return bad(
-              "Conflict: idempotency key used with different payload",
-              409
-            );
-          }
-
-          return ok(idempotencyCheck.Item.result || idempotencyCheck.Item);
+        // Handle idempotency conflict (same key, different payload)
+        if (!resolutionResult) {
+          return bad(
+            "Conflict: idempotency key used with different payload",
+            409
+          );
         }
 
-        const baselineFromProject = (existingProject.Item as
-          | Record<string, unknown>
-          | undefined)?.baseline_id as string | undefined;
-
-        if (!baselineId && baselineFromProject) {
-          baselineId = baselineFromProject;
+        // If this was an idempotent request, return cached result
+        if (resolutionResult.wasIdempotent) {
+          return ok(resolutionResult.existingProjectMetadata || {
+            handoffId: generateHandoffId(),
+            projectId: resolutionResult.resolvedProjectId,
+            baselineId: resolutionResult.baselineId,
+            status: "HandoffComplete",
+          }, 201);
         }
 
+        // Use the resolved project ID
+        const resolvedProjectId = resolutionResult.resolvedProjectId;
+        baselineId = resolutionResult.baselineId;
+
+        console.info("[handoff] Resolved project for handoff", {
+          incomingProjectId: projectIdFromPath,
+          resolvedProjectId,
+          baselineId,
+          isNewProject: resolutionResult.isNewProject,
+        });
+
+        // Fetch baseline data to get project details
         const baselineLookup = baselineId
           ? await ddb.send(
               new GetCommand({
@@ -675,6 +678,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
         let baseline = baselineLookup.Item as Record<string, unknown> | undefined;
 
+        // Try fallback lookup by baseline ID alone
         if (!baseline && baselineId) {
           const baselineById = await ddb.send(
             new GetCommand({
@@ -685,23 +689,10 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
               },
             })
           );
-
-          const fallbackBaseline = baselineById.Item as
-            | Record<string, unknown>
-            | undefined;
-
-          if (fallbackBaseline) {
-            baseline = fallbackBaseline;
-            const baselineProjectId =
-              (fallbackBaseline.project_id as string) ||
-              (fallbackBaseline.projectId as string);
-
-            if (baselineProjectId) {
-              resolvedProjectId = baselineProjectId;
-            }
-          }
+          baseline = baselineById.Item as Record<string, unknown> | undefined;
         }
 
+        // If still no baseline, query for any baseline under this project
         if (!baseline && !baselineId) {
           const baselineQuery = await ddb.send(
             new QueryCommand({
@@ -729,92 +720,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           }
         }
 
-        if (
-          existingProject.Item &&
-          ((existingProject.Item as Record<string, unknown>).baseline_id ===
-            baselineId ||
-            (existingProject.Item as Record<string, unknown>).baselineId ===
-              baselineId)
-        ) {
-          // Project already handed off with this baseline - return existing handoff
-          // Query for the most recent handoff record to get handoffId
-          const existingHandoffQuery = await ddb.send(
-            new QueryCommand({
-              TableName: tableName("projects"),
-              KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-              ExpressionAttributeValues: {
-                ":pk": `PROJECT#${resolvedProjectId}`,
-                ":sk": "HANDOFF#",
-              },
-              ScanIndexForward: false, // Get most recent first
-              Limit: 1,
-            })
-          );
-
-          const existingHandoffId = existingHandoffQuery.Items?.[0]?.handoffId || 
-            generateHandoffId();
-
-          return ok({
-            handoffId: existingHandoffId,
-            projectId: resolvedProjectId,
-            baselineId,
-            status: "HandoffComplete",
-          }, 201);
-        }
-
         if (!baseline) {
           baseline = {};
-        }
-
-        const baselineProjectId =
-          (baseline.project_id as string) || (baseline.projectId as string);
-
-        if (baselineProjectId && baselineProjectId !== resolvedProjectId) {
-          resolvedProjectId = baselineProjectId;
-        }
-        
-        // CRITICAL FIX: Prevent overwriting existing project with different baseline
-        // If project exists with a DIFFERENT baseline_id, generate a NEW unique project ID
-        // This ensures each baseline creates its own project record and appears in the UI
-        if (existingProject.Item && baselineId) {
-          const existingBaselineId = 
-            (existingProject.Item as Record<string, unknown>).baseline_id ||
-            (existingProject.Item as Record<string, unknown>).baselineId;
-          
-          if (existingBaselineId && existingBaselineId !== baselineId) {
-            // Different baseline attempting to use same project ID - generate new one
-            console.warn("[handoff] Project exists with different baseline, generating new project ID to prevent overwrite", {
-              originalProjectId: resolvedProjectId,
-              existingBaselineId,
-              newBaselineId: baselineId,
-              existingProjectName: (existingProject.Item as Record<string, unknown>).nombre || 
-                                    (existingProject.Item as Record<string, unknown>).name
-            });
-            
-            // Generate a NEW unique project ID to prevent overwriting
-            resolvedProjectId = `P-${crypto.randomUUID()}`;
-            
-            // Re-check if this NEW project ID already exists (extremely unlikely but safe)
-            const newProjectCheck = await ddb.send(
-              new GetCommand({
-                TableName: tableName("projects"),
-                Key: {
-                  pk: `PROJECT#${resolvedProjectId}`,
-                  sk: "METADATA",
-                },
-              })
-            );
-            
-            // If by some chance it exists, generate another one
-            if (newProjectCheck.Item) {
-              resolvedProjectId = `P-${crypto.randomUUID()}`;
-            }
-            
-            console.info("[handoff] Generated new project ID to prevent baseline collision", {
-              newProjectId: resolvedProjectId,
-              baselineId
-            });
-          }
         }
         
         const now = new Date().toISOString();
