@@ -781,6 +781,14 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     return bad(event as any, `Method ${method} not allowed for /payroll/dashboard`, 405);
   }
 
+  if (rawPath.includes("/payroll/ingest")) {
+    if (method === "POST") {
+      await ensureCanWrite(event as ApiGwEvent);
+      return handlePostActualsBulk(event);
+    }
+    return bad(event as any, `Method ${method} not allowed for /payroll/ingest`, 405);
+  }
+
   if (rawPath.includes("/payroll/actuals/bulk")) {
     if (method === "POST") {
       await ensureCanWrite(event as ApiGwEvent);
