@@ -22,6 +22,23 @@ interface PDFReportData {
   }>;
   summary?: string[];
   recommendations?: string[];
+  metadata?: {
+    projectName?: string;
+    projectId?: string;
+    baselineId?: string;
+    preparedBy?: string;
+    currency?: string;
+  };
+  baselineDetails?: {
+    baselineId?: string;
+    signatureStatus?: string;
+    durationMonths?: number;
+    teamSize?: string;
+    roleCount?: number;
+    totalLabor?: string;
+    totalNonLabor?: string;
+    currency?: string;
+  };
 }
 
 export class PDFExporter {
@@ -37,6 +54,8 @@ export class PDFExporter {
       charts,
       summary,
       recommendations,
+      metadata,
+      baselineDetails,
     } = data;
 
     const getDefaultColor = (i: number) => {
@@ -115,15 +134,26 @@ export class PDFExporter {
         return { path, label };
       });
 
+      let currentX = 20;
+      let currentY = height - 50;
+      const legendMaxWidth = width - 40;
       const legendItems = dataPoints
         .map((d, i) => {
           const color = colors[i];
-          return `<g transform="translate(${20 + i * 170}, ${height - 30})">
+          const labelText = `${escapeHtml(
+            d.name.length > 28 ? `${d.name.slice(0, 25)}…` : d.name,
+          )} - ${formatCurrency(d.value || 0)}`;
+          const estimatedWidth = Math.min(labelText.length * 7, 220);
+          if (currentX + estimatedWidth > legendMaxWidth) {
+            currentX = 20;
+            currentY += 22;
+          }
+          const legend = `<g transform="translate(${currentX}, ${currentY})">
           <rect x="0" y="-12" width="14" height="14" rx="3" fill="${color}" />
-          <text x="22" y="0" font-size="12" fill="#1a1a1a">${escapeHtml(d.name)} - ${formatCurrency(
-            d.value || 0,
-          )}</text>
+          <text x="22" y="0" font-size="12" fill="#1a1a1a">${labelText}</text>
         </g>`;
+          currentX += estimatedWidth + 18;
+          return legend;
         })
         .join("");
 
@@ -146,7 +176,13 @@ export class PDFExporter {
       width = 520,
       height = 300,
     ) => {
-      const padding = { top: 20, right: 20, bottom: 40, left: 60 };
+      const rotateLabels = monthlyData.length > 8;
+      const padding = {
+        top: 50,
+        right: 24,
+        bottom: rotateLabels ? 60 : 40,
+        left: 70,
+      };
       const innerWidth = width - padding.left - padding.right;
       const innerHeight = height - padding.top - padding.bottom;
 
@@ -158,6 +194,7 @@ export class PDFExporter {
 
       const barW = innerWidth / Math.max(1, monthlyData.length);
       const palette = stacks.map((s, i) => s.color || getDefaultColor(i));
+      const labelStep = rotateLabels ? Math.ceil(monthlyData.length / 8) : 1;
 
       const bars = monthlyData
         .map((row, idx) => {
@@ -165,12 +202,18 @@ export class PDFExporter {
           let yAcc = padding.top + innerHeight;
           const parts = stacks.map((st, sIdx) => {
             const val = row[st.dataKey] || 0;
-            const h = (val / maxVal) * innerHeight;
+            const h = Math.min((val / maxVal) * innerHeight, innerHeight);
             yAcc -= h;
             const rect = `<rect x="${x + 4}" y="${yAcc}" width="${barW - 8}" height="${h}" fill="${palette[sIdx]}" rx="2" />`;
             return { rect };
           });
-          const xLabel = `<text x="${x + barW / 2}" y="${padding.top + innerHeight + 18}" font-size="11" text-anchor="middle">M${row.month}</text>`;
+          const shouldRenderLabel = idx % labelStep === 0;
+          const labelY = padding.top + innerHeight + 22;
+          const xLabel = shouldRenderLabel
+            ? `<text transform="translate(${x + barW / 2}, ${labelY}) rotate(-35)" font-size="11" text-anchor="end">M${
+                row.month
+              }</text>`
+            : "";
           return parts.map((p) => p.rect).join("") + xLabel;
         })
         .join("");
@@ -186,10 +229,11 @@ export class PDFExporter {
         })
         .join("");
 
+      const legendSpacing = 150;
       const legend = stacks
         .map((st, i) => {
-          const x = padding.left + i * 140;
-          return `<g transform="translate(${x}, ${padding.top - 6})"><rect x="0" y="0" width="14" height="14" fill="${
+          const x = padding.left + i * legendSpacing;
+          return `<g transform="translate(${x}, ${padding.top - 20})"><rect x="0" y="0" width="14" height="14" fill="${
             st.color || getDefaultColor(i)
           }" rx="3"/><text x="20" y="12" font-size="12" fill="#1a1a1a">${escapeHtml(
             st.name,
@@ -221,60 +265,102 @@ export class PDFExporter {
               font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
               line-height: 1.6;
               color: #1a1a1a;
-              background: linear-gradient(135deg, #f8fffe 0%, #f0f9ff 100%);
+              background: #f6f8fb;
               min-height: 100vh;
-              padding: 40px;
+              padding: 24px;
             }
             .report-container {
-              max-width: 1200px;
+              width: 100%;
+              max-width: 100%;
               margin: 0 auto;
               background: white;
-              border-radius: 16px;
-              box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+              border-radius: 12px;
+              box-shadow: 0 16px 30px rgba(0,0,0,0.08);
               overflow: hidden;
             }
             .header {
               background: linear-gradient(135deg, #2BB673 0%, #22a066 100%);
               color: white;
-              padding: 60px 40px;
-              text-align: center;
+              padding: 36px 40px 28px;
+              text-align: left;
               position: relative;
               overflow: hidden;
             }
-            .header h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-            .header .subtitle { font-size: 1.2rem; opacity: 0.9; font-weight: 400; }
-            .header .generated { margin-top: 20px; font-size: 0.9rem; opacity: 0.8; }
-            .content { padding: 50px 40px; }
-            .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 50px; }
-            .metric-card { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 32px; text-align: center; position: relative; border: 1px solid #e2e8f0; transition: transform 0.3s ease, box-shadow 0.3s ease; }
-            .metric-value { font-size: 2.2rem; font-weight: 700; margin-bottom: 8px; }
-            .metric-label { font-size: 1rem; color: #64748b; font-weight: 500; }
-            .metric-change { margin-top: 8px; font-size: 0.85rem; font-weight: 600; padding: 4px 12px; border-radius: 20px; display: inline-block; }
+            .env-label { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; background: rgba(255,255,255,0.16); border-radius: 999px; font-size: 0.9rem; margin-bottom: 12px; }
+            .header h1 { font-size: 2.4rem; font-weight: 700; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+            .header .subtitle { font-size: 1.1rem; opacity: 0.92; font-weight: 400; }
+            .header .generated { margin-top: 10px; font-size: 0.95rem; opacity: 0.9; }
+            .metadata-grid { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+            .metadata-pill { background: rgba(255,255,255,0.14); padding: 10px 14px; border-radius: 12px; backdrop-filter: blur(2px); border: 1px solid rgba(255,255,255,0.18); }
+            .metadata-label { font-size: 0.8rem; letter-spacing: 0.02em; opacity: 0.85; }
+            .metadata-value { font-weight: 600; font-size: 1rem; margin-top: 4px; }
+            .content { padding: 32px 32px 42px; background: #f6f8fb; }
+            .section { margin-bottom: 36px; break-inside: avoid; }
+            .metrics-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 28px; }
+            .metric-card { background: white; border-radius: 12px; padding: 18px; text-align: left; position: relative; border: 1px solid #e2e8f0; display: grid; gap: 6px; min-height: 120px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
+            .metric-value { font-size: 1.8rem; font-weight: 700; margin-bottom: 2px; }
+            .metric-label { font-size: 0.95rem; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+            .metric-change { margin-top: 2px; font-size: 0.85rem; font-weight: 600; padding: 4px 10px; border-radius: 10px; display: inline-flex; width: fit-content; }
             .metric-change.positive { color: #059669; background: #d1fae5; }
             .metric-change.negative { color: #dc2626; background: #fee2e2; }
             .metric-change.neutral { color: #6b7280; background: #f3f4f6; }
-            .section { margin-bottom: 50px; }
-            .section-title { font-size: 1.8rem; font-weight: 600; color: #1e293b; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #2BB673; position: relative; }
+            .section-title { font-size: 1.5rem; font-weight: 700; color: #0f172a; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+            .section-title::after { content: ""; flex: 1; height: 2px; background: linear-gradient(90deg, #2BB673, transparent); }
             .summary-list, .recommendations-list { list-style: none; padding: 0; }
             .summary-list li, .recommendations-list li { background: white; margin-bottom: 12px; padding: 20px; border-radius: 8px; border-left: 4px solid #2BB673; box-shadow: 0 2px 8px rgba(0,0,0,0.05); font-size: 1.05rem; line-height: 1.7; }
             .summary-list li::before { content: '✓'; color: #2BB673; font-weight: bold; margin-right: 12px; }
             .recommendations-list li::before { content: '→'; color: #2BB673; font-weight: bold; margin-right: 12px; }
-            .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px; }
-            .chart-card { background: #fff; border: 1px solid #eef2f7; padding: 16px; border-radius: 12px; text-align: center; }
-            .footer { background: #f8fafc; padding: 30px 40px; text-align: center; color: #64748b; font-size: 0.9rem; border-top: 1px solid #e2e8f0; }
-            .logo { width: 32px; height: 32px; background: #2BB673; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: bold; margin-right: 12px; vertical-align: middle; }
+            .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 12px; }
+            .chart-card { background: #fff; border: 1px solid #e2e8f0; padding: 14px; border-radius: 12px; text-align: center; break-inside: avoid; }
+            .chart-card h4 { font-size: 1.05rem; margin-bottom: 10px; text-align: left; color: #0f172a; }
+            .details-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+            .detail-item { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; display: grid; gap: 6px; }
+            .detail-label { font-size: 0.85rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+            .detail-value { font-size: 1.05rem; font-weight: 700; color: #111827; }
+            .details-section { page-break-before: always; }
+            .footer { background: #0b1625; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; color: #e2e8f0; font-size: 0.95rem; letter-spacing: 0.01em; }
             @media print {
+              @page { size: Letter; margin: 12mm; }
               body { background: white; padding: 0; }
-              .report-container { box-shadow: none; border-radius: 0; }
+              .report-container { width: 100%; max-width: none; box-shadow: none; border-radius: 0; }
+              .content { padding: 24px 16px 30px; }
+              .header { padding: 28px 28px 18px; }
+              .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+              .section { page-break-inside: avoid; }
             }
           </style>
         </head>
         <body>
           <div class="report-container">
             <div class="header">
+              <div class="env-label">PMO • Baseline Summary</div>
               <h1>${escapeHtml(title)}</h1>
               ${subtitle ? `<div class="subtitle">${escapeHtml(subtitle)}</div>` : ""}
-              <div class="generated">Generated on ${escapeHtml(generated)}</div>
+              <div class="metadata-grid">
+                <div class="metadata-pill">
+                  <div class="metadata-label">Project Name</div>
+                  <div class="metadata-value">${escapeHtml(metadata?.projectName || "N/A")}</div>
+                </div>
+                <div class="metadata-pill">
+                  <div class="metadata-label">Project ID</div>
+                  <div class="metadata-value">${escapeHtml(metadata?.projectId || "N/A")}</div>
+                </div>
+                <div class="metadata-pill">
+                  <div class="metadata-label">Baseline ID</div>
+                  <div class="metadata-value">${escapeHtml(metadata?.baselineId || "N/A")}</div>
+                </div>
+                <div class="metadata-pill">
+                  <div class="metadata-label">Generated</div>
+                  <div class="metadata-value">${escapeHtml(generated)}</div>
+                </div>
+                ${metadata?.preparedBy
+                  ? `<div class="metadata-pill"><div class="metadata-label">Prepared by</div><div class="metadata-value">${escapeHtml(metadata.preparedBy)}</div></div>`
+                  : ""}
+                ${metadata?.currency
+                  ? `<div class="metadata-pill"><div class="metadata-label">Currency</div><div class="metadata-value">${escapeHtml(metadata.currency)}</div></div>`
+                  : ""}
+              </div>
+              <div class="generated">Executive-ready baseline summary</div>
             </div>
 
             <div class="content">
@@ -360,11 +446,44 @@ export class PDFExporter {
                   : ""
               }
 
+              ${
+                baselineDetails
+                  ? `
+                <div class="section details-section">
+                  <div class="section-title">Baseline Details</div>
+                  <div class="details-grid">
+                    ${
+                      [
+                        { label: "Baseline ID", value: baselineDetails.baselineId || "N/A" },
+                        { label: "Signature Status", value: baselineDetails.signatureStatus || "Pending" },
+                        { label: "Duration (months)", value: baselineDetails.durationMonths?.toString() || "N/A" },
+                        { label: "Team Size", value: baselineDetails.teamSize || "N/A" },
+                        { label: "Role Count", value: baselineDetails.roleCount?.toString() || "N/A" },
+                        { label: "Total Labor", value: baselineDetails.totalLabor || "N/A" },
+                        { label: "Total Non-Labor", value: baselineDetails.totalNonLabor || "N/A" },
+                        { label: "Currency", value: baselineDetails.currency || metadata?.currency || "N/A" },
+                      ]
+                        .map(
+                          (detail) => `
+                        <div class="detail-item">
+                          <div class="detail-label">${escapeHtml(detail.label)}</div>
+                          <div class="detail-value">${escapeHtml(detail.value || "N/A")}</div>
+                        </div>
+                      `,
+                        )
+                        .join("")
+                    }
+                  </div>
+                </div>
+              `
+                  : ""
+              }
+
             </div>
 
             <div class="footer">
-              <div class="logo">I</div>
-              Professional Financial Planning & Management Platform
+              <div>Ikusi • Finanzas SD</div>
+              <div>Confidential • Generated ${escapeHtml(generated)}</div>
             </div>
           </div>
         </body>
