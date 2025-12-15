@@ -3,7 +3,6 @@
  */
 
 import { projectExists, getRubroTaxonomy } from '../../src/lib/dynamo';
-import { GetCommand, ddb } from '../../src/lib/dynamo';
 
 // Mock DynamoDB send method
 jest.mock('../../src/lib/dynamo', () => {
