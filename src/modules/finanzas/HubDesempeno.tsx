@@ -165,8 +165,22 @@ export default function HubDesempeno() {
         fetch(`${apiBaseUrl}/finanzas/hub/cashflow?scope=${scope}`, { headers }),
       ]);
 
+      // Log each response status for debugging
+      console.log(`[HubDesempeno] summary: ${summaryRes.status} - ${apiBaseUrl}/finanzas/hub/summary?scope=${scope}`);
+      console.log(`[HubDesempeno] mod-performance: ${modPerfRes.status} - ${apiBaseUrl}/finanzas/hub/mod-performance?scope=${scope}`);
+      console.log(`[HubDesempeno] rubros-breakdown: ${rubrosRes.status} - ${apiBaseUrl}/finanzas/hub/rubros-breakdown?scope=${scope}&modOnly=${modOnly}`);
+      console.log(`[HubDesempeno] cashflow: ${cashflowRes.status} - ${apiBaseUrl}/finanzas/hub/cashflow?scope=${scope}`);
+
       if (!summaryRes.ok || !modPerfRes.ok || !rubrosRes.ok || !cashflowRes.ok) {
-        throw new Error("Failed to fetch hub data");
+        // Log which endpoint(s) failed with their status codes
+        const failures = [];
+        if (!summaryRes.ok) failures.push(`summary (${summaryRes.status})`);
+        if (!modPerfRes.ok) failures.push(`mod-performance (${modPerfRes.status})`);
+        if (!rubrosRes.ok) failures.push(`rubros-breakdown (${rubrosRes.status})`);
+        if (!cashflowRes.ok) failures.push(`cashflow (${cashflowRes.status})`);
+        
+        console.error(`[HubDesempeno] Failed endpoints: ${failures.join(", ")}`);
+        throw new Error(`Failed to fetch hub data: ${failures.join(", ")}`);
       }
 
       const [summaryData, modPerfData, rubrosData, cashflowData] = await Promise.all([

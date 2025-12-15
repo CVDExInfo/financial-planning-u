@@ -111,7 +111,20 @@ jobs:
         run: |
           set -euo pipefail
 
+          ALLOW_DEV_API_OVERRIDE="${{ vars.ALLOW_DEV_API_OVERRIDE || 'false' }}"
+
           if [ -n "${DEV_API_URL}" ]; then
+            # Guard: prevent DEV_API_URL from overriding prod unless explicitly allowed
+            if [ "${DEPLOYMENT_ENV}" = "prod" ] && [ "${ALLOW_DEV_API_OVERRIDE}" != "true" ]; then
+              echo "❌ CRITICAL: DEV_API_URL is set but DEPLOYMENT_ENV=prod"
+              echo "   This would deploy production UI pointing to a potentially wrong API stage"
+              echo "   DEV_API_URL: ${DEV_API_URL}"
+              echo ""
+              echo "🔧 To fix:"
+              echo "   1. Remove DEV_API_URL from repository variables for prod deployments"
+              echo "   2. Or set ALLOW_DEV_API_OVERRIDE=true to explicitly allow this override"
+              exit 1
+            fi
             BASE="${DEV_API_URL%/}"
             echo "✅ Using DEV_API_URL override: $BASE"
           else
@@ -176,6 +189,54 @@ jobs:
             exit 1
           fi
           echo "✅ API /health preflight ok"
+
+      - name: Validate Hub routes exist in API stage
+        run: |
+          set -euo pipefail
+          : ${VITE_API_BASE_URL:?VITE_API_BASE_URL missing after compute step}
+          BASE="${VITE_API_BASE_URL%/}"
+          
+          echo "🔍 Validating Hub routes are deployed in API stage..."
+          echo "   API Base: $BASE"
+          
+          # Define Hub routes to check (no auth header, so expect 401/403 if route exists)
+          declare -a HUB_ROUTES=(
+            "${BASE}/finanzas/hub/summary?scope=ALL"
+            "${BASE}/finanzas/hub/mod-performance?scope=ALL"
+            "${BASE}/finanzas/hub/rubros-breakdown?scope=ALL&modOnly=true"
+            "${BASE}/finanzas/hub/cashflow?scope=ALL"
+          )
+          
+          FAILED=0
+          for ROUTE in "${HUB_ROUTES[@]}"; do
+            STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$ROUTE" 2>/dev/null || echo "000")
+            echo "   $ROUTE -> HTTP $STATUS"
+            
+            # Accept 200 (public), 401/403 (auth required but route exists)
+            # Fail on 404 (route missing)
+            if [ "$STATUS" = "404" ]; then
+              echo "   ❌ Route returns 404 - not deployed in this API stage"
+              FAILED=1
+            elif [ "$STATUS" = "200" ] || [ "$STATUS" = "401" ] || [ "$STATUS" = "403" ]; then
+              echo "   ✅ Route exists (status $STATUS acceptable)"
+            else
+              echo "   ⚠️  Unexpected status $STATUS (not blocking)"
+            fi
+          done
+          
+          if [ $FAILED -eq 1 ]; then
+            echo ""
+            echo "❌ CRITICAL: Hub routes missing in API stage"
+            echo "   The UI build will succeed but Hub page will show 'Failed to fetch' errors"
+            echo ""
+            echo "🔧 To fix:"
+            echo "   1. Deploy finanzas-api to the ${FINZ_API_STAGE} stage"
+            echo "   2. Ensure Hub routes are included in the API deployment"
+            echo "   3. Re-run this workflow after API deployment completes"
+            exit 1
+          fi
+          
+          echo "✅ All Hub routes validated successfully"
 
       - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
