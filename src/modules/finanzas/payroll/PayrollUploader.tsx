@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { finanzasClient, type Rubro } from "@/api/finanzasClient";
 import useProjects, { type ProjectForUI } from "../projects/useProjects";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 interface PayrollUploaderProps {
   onUploaded?: () => void;
@@ -80,12 +81,60 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
     month: "",
     rubroId: "",
     amount: 0,
+    currency: "USD",
     notes: "",
   });
   const [currency, setCurrency] = React.useState<(typeof CURRENCY_OPTIONS)[number]>("USD");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [preview, setPreview] = React.useState<PayrollActualInput[]>([]);
   const [previewErrors, setPreviewErrors] = React.useState<Record<number, string[]>>({});
+  
+  // State for projects and rubros dropdowns
+  const [projects, setProjects] = React.useState<Array<{
+    projectId: string;
+    code: string;
+    name: string;
+    client?: string;
+  }>>([]);
+  const [rubros, setRubros] = React.useState<Array<{
+    rubroId: string;
+    code: string;
+    description: string;
+    category: string;
+  }>>([]);
+  const [loadingProjects, setLoadingProjects] = React.useState(false);
+  const [loadingRubros, setLoadingRubros] = React.useState(false);
+
+  // Selected rubro details for display
+  const selectedRubro = React.useMemo(() => {
+    return rubros.find((r) => r.rubroId === manual.rubroId);
+  }, [rubros, manual.rubroId]);
+
+  // Fetch projects and rubros on mount
+  useEffect(() => {
+    const loadData = async () => {
+      setLoadingProjects(true);
+      setLoadingRubros(true);
+      
+      try {
+        const [projectsData, rubrosData] = await Promise.all([
+          fetchProjects(),
+          fetchRubros(),
+        ]);
+        
+        setProjects(projectsData);
+        setRubros(rubrosData);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast.error("Error al cargar proyectos y rubros");
+      } finally {
+        setLoadingProjects(false);
+        setLoadingRubros(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   React.useEffect(() => {
     const fetchRubros = async () => {
@@ -235,7 +284,7 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="month">Mes (YYYY-MM)</Label>
+              <Label htmlFor="month">Mes (YYYY-MM) *</Label>
               <Input
                 id="month"
                 type="month"
@@ -378,7 +427,7 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
               {Object.keys(previewErrors).length > 0 && (
                 <ul className="text-xs text-destructive space-y-1">
                   {Object.entries(previewErrors).map(([index, messages]) => (
-                    <li key={index}>{`Fila ${Number(index) + 2}: ${messages.join(', ')}`}</li>
+                    <li key={index}>{`Fila ${Number(index) + 2}: ${(messages as string[]).join(', ')}`}</li>
                   ))}
                 </ul>
               )}

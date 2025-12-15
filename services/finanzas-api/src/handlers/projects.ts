@@ -4,6 +4,7 @@ import { ensureCanRead, ensureCanWrite, getUserContext } from "../lib/auth";
 import { ok, bad, serverError, fromAuthError } from "../lib/http";
 import {
   ddb,
+  sendDdb,
   tableName,
   PutCommand,
   ScanCommand,
@@ -506,7 +507,7 @@ const seedLineItemsFromBaseline = async (
     // Query pattern: begins_with(sk, "RUBRO#${baselineId}") will match
     // any rubroId that starts with the baselineId (e.g., "RUBRO#base_123-labor-1")
     if (baselineId) {
-      const existing = await ddb.send(
+      const existing = await sendDdb(
         new QueryCommand({
           TableName: tableName("rubros"),
           KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
@@ -534,7 +535,7 @@ const seedLineItemsFromBaseline = async (
     }
 
     for (const item of seedItems) {
-      await ddb.send(
+      await sendDdb(
         new PutCommand({
           TableName: tableName("rubros"),
           Item: {
@@ -617,7 +618,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       try {
         let resolvedProjectId = projectIdFromPath;
 
-        const existingProject = await ddb.send(
+        const existingProject = await sendDdb(
           new GetCommand({
             TableName: tableName("projects"),
             Key: {
@@ -627,7 +628,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           })
         );
 
-        const idempotencyCheck = await ddb.send(
+        const idempotencyCheck = await sendDdb(
           new GetCommand({
             TableName: tableName("projects"),
             Key: {
@@ -663,7 +664,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         }
 
         const baselineLookup = baselineId
-          ? await ddb.send(
+          ? await sendDdb(
               new GetCommand({
                 TableName: tableName("prefacturas"),
                 Key: {
@@ -677,7 +678,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         let baseline = baselineLookup.Item as Record<string, unknown> | undefined;
 
         if (!baseline && baselineId) {
-          const baselineById = await ddb.send(
+          const baselineById = await sendDdb(
             new GetCommand({
               TableName: tableName("prefacturas"),
               Key: {
@@ -704,7 +705,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         }
 
         if (!baseline && !baselineId) {
-          const baselineQuery = await ddb.send(
+          const baselineQuery = await sendDdb(
             new QueryCommand({
               TableName: tableName("prefacturas"),
               KeyConditionExpression: "#pk = :pk AND begins_with(#sk, :sk)",
@@ -739,7 +740,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         ) {
           // Project already handed off with this baseline - return existing handoff
           // Query for the most recent handoff record to get handoffId
-          const existingHandoffQuery = await ddb.send(
+          const existingHandoffQuery = await sendDdb(
             new QueryCommand({
               TableName: tableName("projects"),
               KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
@@ -774,11 +775,11 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           resolvedProjectId = baselineProjectId;
         }
         
-        // Use baseline-aware project resolution to prevent cross-baseline overwrites
-        // This replaces the simple collision detection with comprehensive resolution
-        if (baselineId) {
-          try {
-            const resolution = await resolveProjectForHandoff({
+          // Use baseline-aware project resolution to prevent cross-baseline overwrites
+          // This replaces the simple collision detection with comprehensive resolution
+          if (baselineId) {
+            try {
+              const resolution = await resolveProjectForHandoff({
               ddb,
               tableName,
               incomingProjectId: resolvedProjectId,
@@ -786,15 +787,49 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
               idempotencyKey,
             });
 
-            resolvedProjectId = resolution.resolvedProjectId;
-            
-            console.info("[handoff-projects] Project resolved via baseline-aware helper", {
-              incomingProjectId: projectIdFromPath,
-              resolvedProjectId,
-              baselineId,
-              isNewProject: resolution.isNewProject,
-            });
-          } catch (error) {
+              resolvedProjectId = resolution.resolvedProjectId;
+
+              // Prefer the metadata returned by the resolver (which is aware of baseline collisions)
+              let resolvedProjectMetadata =
+                (resolution.existingProjectMetadata as Record<string, unknown> | undefined) ||
+                (resolvedProjectId === projectIdFromPath
+                  ? ((existingProject.Item as Record<string, unknown> | undefined) || undefined)
+                  : undefined);
+
+              // If the resolver picked a different projectId and we don't have metadata yet,
+              // fetch it to avoid overwriting created_by/created_at or SDM ownership.
+              if (!resolvedProjectMetadata && resolvedProjectId !== projectIdFromPath) {
+                const resolvedProjectLookup = await sendDdb(
+                  new GetCommand({
+                    TableName: tableName("projects"),
+                    Key: {
+                      pk: `PROJECT#${resolvedProjectId}`,
+                      sk: "METADATA",
+                    },
+                  })
+                );
+
+                resolvedProjectMetadata = resolvedProjectLookup.Item as
+                  | Record<string, unknown>
+                  | undefined;
+              }
+
+              console.info("[handoff-projects] Project resolved via baseline-aware helper", {
+                incomingProjectId: projectIdFromPath,
+                resolvedProjectId,
+                baselineId,
+                isNewProject: resolution.isNewProject,
+              });
+
+              // Replace existingProject.Item references with the resolved metadata so downstream
+              // fields (created_by, created_at, sdm_manager_name) are preserved instead of being
+              // overwritten by the current request context ("system").
+              if (resolvedProjectMetadata) {
+                existingProject.Item = resolvedProjectMetadata as never;
+              } else {
+                existingProject.Item = undefined as never;
+              }
+            } catch (error) {
             // Handle idempotency conflicts from helper
             if (error instanceof IdempotencyConflictError) {
               return bad(error.message, 409);
@@ -988,14 +1023,14 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             sdm_manager_name: normalizedBaseline.sdm_manager_name,
           };
 
-          await ddb.send(
+          await sendDdb(
             new PutCommand({
               TableName: tableName("projects"),
               Item: projectItem,
             })
           );
 
-          await ddb.send(
+          await sendDdb(
             new PutCommand({
               TableName: tableName("projects"),
               Item: handoffRecord,
@@ -1026,7 +1061,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             user_agent: event.requestContext.http?.userAgent,
           };
 
-          await ddb.send(
+          await sendDdb(
             new PutCommand({
               TableName: tableName("audit_log"),
               Item: auditEntry,
@@ -1048,7 +1083,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             ttl,
           };
 
-          await ddb.send(
+          await sendDdb(
             new PutCommand({
               TableName: tableName("projects"),
               Item: idempotencyRecord,
@@ -1164,7 +1199,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       };
 
       try {
-        await ddb.send(
+        await sendDdb(
           new PutCommand({
             TableName: tableName("projects"),
             Item: item,
@@ -1195,7 +1230,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           user_agent: event.requestContext.http?.userAgent,
         };
 
-        await ddb.send(
+        await sendDdb(
           new PutCommand({
             TableName: tableName("audit_log"),
             Item: auditEntry,
@@ -1241,7 +1276,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       let lastEvaluatedKey: Record<string, unknown> | undefined;
 
       do {
-        const result = await ddb.send(
+        const result = await sendDdb(
           new ScanCommand({
             ...input,
             Limit: pageLimit,

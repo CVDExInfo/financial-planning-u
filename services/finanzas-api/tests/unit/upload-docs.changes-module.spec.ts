@@ -18,11 +18,15 @@ jest.mock("../../src/lib/auth", () => ({
   getUserEmail: jest.fn().mockResolvedValue("tester@example.com"),
 }));
 
-jest.mock("../../src/lib/dynamo", () => ({
-  ddb: { send: jest.fn(async () => undefined) },
-  PutCommand: jest.fn((input) => ({ input })),
-  tableName: jest.fn(() => "docs-table"),
-}));
+jest.mock("../../src/lib/dynamo", () => {
+  const sendDdb = jest.fn(async () => undefined);
+  return {
+    ddb: { send: sendDdb },
+    sendDdb,
+    PutCommand: jest.fn((input) => ({ input })),
+    tableName: jest.fn(() => "docs-table"),
+  };
+});
 
 const ORIGINAL_ENV = { ...process.env };
 

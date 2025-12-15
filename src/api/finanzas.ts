@@ -1669,3 +1669,55 @@ export async function getInvoices(projectId: string): Promise<InvoiceDoc[]> {
     }
   }
 }
+
+/**
+ * Fetch all projects from DynamoDB (for dropdowns)
+ */
+export async function fetchProjects(): Promise<Array<{
+  projectId: string;
+  code: string;
+  name: string;
+  client?: string;
+}>> {
+  ensureApiBase();
+  const headers = buildAuthHeader();
+
+  try {
+    const response = await fetchJson<{ projects: any[] }>(`${requireApiBase()}/projects`, {
+      method: "GET",
+      headers,
+    });
+
+    return (response.projects || []).map((p: any) => ({
+      projectId: p.project_id || p.projectId,
+      code: p.code || p.project_code || p.projectId,
+      name: p.name || p.project_name || "Sin nombre",
+      client: p.client || p.client_name,
+    }));
+  } catch (error) {
+    console.error("Error fetching projects:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch all rubros from taxonomy (for dropdowns)
+ */
+export async function fetchRubros(): Promise<Array<{
+  rubroId: string;
+  code: string;
+  description: string;
+  category: string;
+}>> {
+  // Use client-side taxonomy for now
+  // This can be replaced with a backend call if needed
+  const { CATALOGO_RUBROS } = await import("@/modules/rubros.taxonomia");
+  
+  return CATALOGO_RUBROS.map((r) => ({
+    rubroId: r.linea_codigo,
+    code: r.linea_codigo,
+    description: r.linea_gasto,
+    category: r.categoria,
+  }));
+}
+

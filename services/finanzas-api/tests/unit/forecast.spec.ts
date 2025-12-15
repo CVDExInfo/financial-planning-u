@@ -7,11 +7,15 @@ type ApiResult = APIGatewayProxyStructuredResultV2;
 
 // --- Mocks -------------------------------------------------------------------
 
-jest.mock("../../src/lib/dynamo", () => ({
-  ddb: { send: jest.fn() },
-  QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
-  tableName: jest.fn((name: string) => `${name}-table`),
-}));
+jest.mock("../../src/lib/dynamo", () => {
+  const sendDdb = jest.fn();
+  return {
+    ddb: { send: sendDdb },
+    sendDdb,
+    QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
+    tableName: jest.fn((name: string) => `${name}-table`),
+  };
+});
 
 jest.mock("../../src/lib/auth", () => ({
   ensureCanRead: jest.fn(() => Promise.resolve()),

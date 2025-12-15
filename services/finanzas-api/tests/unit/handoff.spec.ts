@@ -15,16 +15,25 @@ jest.mock("../../src/lib/auth", () => ({
 }));
 
 // Mock DynamoDB
-jest.mock("../../src/lib/dynamo", () => ({
-  ddb: { send: jest.fn() },
-  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
-  GetCommand: jest.fn().mockImplementation((input) => ({ input })),
-  QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
-  UpdateCommand: jest.fn().mockImplementation((input) => ({ input })),
-  tableName: jest.fn((table) => `test-${table}`),
+jest.mock("../../src/lib/dynamo", () => {
+  const sendDdb = jest.fn();
+  return {
+    ddb: { send: sendDdb },
+    sendDdb,
+    PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+    GetCommand: jest.fn().mockImplementation((input) => ({ input })),
+    QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
+    UpdateCommand: jest.fn().mockImplementation((input) => ({ input })),
+    tableName: jest.fn((table) => `test-${table}`),
+  };
+});
+
+jest.mock("../../src/lib/projects-handoff", () => ({
+  resolveProjectForHandoff: jest.fn(),
 }));
 
 import { handler as handoffHandler } from "../../src/handlers/handoff";
+import { resolveProjectForHandoff } from "../../src/lib/projects-handoff";
 
 const dynamo = jest.requireMock("../../src/lib/dynamo") as {
   ddb: { send: jest.Mock };
@@ -34,6 +43,8 @@ const dynamo = jest.requireMock("../../src/lib/dynamo") as {
   UpdateCommand: jest.Mock;
   tableName: jest.Mock;
 };
+
+const mockedResolver = resolveProjectForHandoff as jest.MockedFunction<typeof resolveProjectForHandoff>;
 
 const baseEvent = (
   overrides: Partial<APIGatewayProxyEventV2> = {}
@@ -73,6 +84,7 @@ const baseEvent = (
 describe("Handoff Handler", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedResolver.mockReset();
   });
 
   describe("Auth and RBAC", () => {
@@ -119,11 +131,65 @@ describe("Handoff Handler", () => {
   });
 
   describe("API Contract Compliance", () => {
+    it("should reject requests without baselineId", async () => {
+      const response = await handoffHandler(
+        baseEvent({
+          body: JSON.stringify({}),
+        })
+      );
+
+      expect(response.statusCode).toBe(400);
+      expect(mockedResolver).not.toHaveBeenCalled();
+      expect(dynamo.ddb.send).not.toHaveBeenCalled();
+    });
+
+    it("should reject metadata overwrite when baseline differs", async () => {
+      mockedResolver.mockResolvedValue({
+        baselineId: "base_new",
+        isNewProject: false,
+        resolvedProjectId: "P-collision",
+      });
+
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const key = command.input?.Key;
+
+        if (key?.sk === "METADATA") {
+          return Promise.resolve({ Item: { baseline_id: "base_old" } });
+        }
+
+        if (key?.pk === "IDEMPOTENCY#HANDOFF") {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        return Promise.resolve({});
+      });
+
+      const response = await handoffHandler(
+        baseEvent({
+          body: JSON.stringify({ baseline_id: "base_new" }),
+        })
+      );
+
+      expect(response.statusCode).toBe(409);
+      expect(dynamo.ddb.send).toHaveBeenCalledTimes(1);
+    });
+
     it("should return handoffId in response body for successful handoff (201)", async () => {
+      mockedResolver.mockResolvedValue({
+        resolvedProjectId: "P-test123",
+        baselineId: "base_test123",
+        isNewProject: true,
+      });
+
       // Mock DynamoDB responses
       dynamo.ddb.send.mockImplementation((command: any) => {
         const commandName = command.constructor.name || command.input?.constructor?.name;
-        
+
+        // Defensive metadata check
+        if (commandName === 'GetCommand' && command.input?.Key?.sk === 'METADATA') {
+          return Promise.resolve({ Item: undefined });
+        }
+
         // GetCommand for idempotency check - return no existing record
         if (commandName === 'GetCommand' && command.input?.Key?.pk === 'IDEMPOTENCY#HANDOFF') {
           return Promise.resolve({ Item: undefined });
@@ -194,11 +260,57 @@ describe("Handoff Handler", () => {
       expect(body.baseline_accepted_at).toBeUndefined();
     });
 
+    it("should accept camelCase baselineId in payload", async () => {
+      mockedResolver.mockResolvedValue({
+        resolvedProjectId: "P-test123",
+        baselineId: "base_test123",
+        isNewProject: true,
+      });
+
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const commandName = command.constructor.name || command.input?.constructor?.name;
+
+        if (commandName === 'GetCommand' && command.input?.Key?.sk === 'METADATA') {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (commandName === 'GetCommand' && command.input?.Key?.pk === 'IDEMPOTENCY#HANDOFF') {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (commandName === 'GetCommand' && command.input?.Key?.pk?.startsWith('BASELINE#')) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        return Promise.resolve({});
+      });
+
+      const response = await handoffHandler(
+        baseEvent({
+          body: JSON.stringify({ baselineId: "base_test123" }),
+        })
+      );
+
+      expect(response.statusCode).toBe(201);
+      const body = JSON.parse(response.body);
+      expect(body.baselineId).toBe("base_test123");
+    });
+
     it("should set baseline_status to 'accepted' when force_accept is true", async () => {
+      mockedResolver.mockResolvedValue({
+        resolvedProjectId: "P-test456",
+        baselineId: "base_test456",
+        isNewProject: true,
+      });
+
       // Mock DynamoDB responses
       dynamo.ddb.send.mockImplementation((command: any) => {
         const commandName = command.constructor.name || command.input?.constructor?.name;
-        
+
+        if (commandName === 'GetCommand' && command.input?.Key?.sk === 'METADATA') {
+          return Promise.resolve({ Item: undefined });
+        }
+
         if (commandName === 'GetCommand' && command.input?.Key?.pk === 'IDEMPOTENCY#HANDOFF') {
           return Promise.resolve({ Item: undefined });
         }

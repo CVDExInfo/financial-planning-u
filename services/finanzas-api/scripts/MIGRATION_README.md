@@ -76,6 +76,10 @@ pk = PROJECT#P-<new-uuid-2>
 
 ## Usage
 
+### Run in Every Stage (dev/qa/prod)
+
+Historical collisions have appeared in multiple environments. Run this migration anywhere legacy data may exist: `dev`, `qa`, **and** `prod`. The script is idempotent; re-running it after code changes will not move already-corrected handoffs.
+
 ### Dry Run (Recommended First)
 
 Test the migration without making any changes:
@@ -112,6 +116,16 @@ npm run migrate:handoff-baselines -- --stage dev
 # Production
 npm run migrate:handoff-baselines -- --stage prod
 ```
+
+### Quick Diagnostics
+
+Before or after a migration, you can surface any remaining collisions without making writes:
+
+```bash
+npm run diagnose:handoff-baselines -- --stage <stage>
+```
+
+If no issues are found, the command prints `No baseline collisions detected.`. Otherwise, it emits a JSON list of offending project IDs and their baseline sets.
 
 ## Environment Variables
 

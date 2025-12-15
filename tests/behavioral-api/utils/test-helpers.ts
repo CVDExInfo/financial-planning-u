@@ -154,7 +154,8 @@ export async function getCognitoToken(credentials: RoleCredentials): Promise<str
  */
 export async function corsPreflight(
   url: string,
-  method: string = "GET"
+  method: string = "GET",
+  requestHeaders = "authorization,content-type"
 ): Promise<{
   status: number;
   headers: CorsHeaders;
@@ -169,7 +170,10 @@ export async function corsPreflight(
 }> {
   const origin = getCloudFrontOrigin();
   const errors: string[] = [];
-  const requestHeaders = "authorization,content-type";
+  const requestedHeadersList = requestHeaders
+    .split(",")
+    .map((header) => header.trim().toLowerCase())
+    .filter(Boolean);
 
   try {
     const response = await fetch(url, {
@@ -211,9 +215,13 @@ export async function corsPreflight(
     }
 
     const allowHeaders = corsHeaders["access-control-allow-headers"]?.toLowerCase() || "";
-    if (!allowHeaders.includes("authorization") || !allowHeaders.includes("content-type")) {
+    const missingHeaders = requestedHeadersList.filter(
+      (header) => !allowHeaders.includes(header)
+    );
+
+    if (missingHeaders.length > 0) {
       errors.push(
-        `access-control-allow-headers missing required headers (authorization, content-type). Got: ${allowHeaders || "(missing)"}`
+        `access-control-allow-headers missing required headers (${requestedHeadersList.join(",")}). Got: ${allowHeaders || "(missing)"}`
       );
     }
 
