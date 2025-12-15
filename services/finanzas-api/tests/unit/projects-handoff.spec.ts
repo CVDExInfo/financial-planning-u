@@ -2,6 +2,13 @@
  * Unit tests for baseline-aware project resolution helper
  */
 
+jest.mock("node:crypto", () => ({
+  __esModule: true,
+  default: { randomUUID: jest.fn(() => "generated-uuid") },
+  randomUUID: jest.fn(() => "generated-uuid"),
+}));
+
+import { GetCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { resolveProjectForHandoff } from "../../src/lib/projects-handoff";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
@@ -11,22 +18,44 @@ const mockDdb = {
   send: mockSend,
 } as unknown as DynamoDBDocumentClient;
 
+const cryptoMock = jest.requireMock("node:crypto") as { randomUUID: jest.Mock; default: { randomUUID: jest.Mock } };
+
 const mockTableName = jest.fn((name: string) => `test-${name}`);
 
 describe("resolveProjectForHandoff", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSend.mockReset();
+    cryptoMock.randomUUID.mockReturnValue("generated-uuid");
+    cryptoMock.default.randomUUID.mockReturnValue("generated-uuid");
   });
 
   describe("First handoff for a baseline", () => {
     it("should return new projectId when baseline has no existing project", async () => {
-      // Mock: no idempotency record
-      mockSend.mockResolvedValueOnce({ Item: undefined });
-      // Mock: no existing project with incoming ID
-      mockSend.mockResolvedValueOnce({ Item: undefined });
-      // Mock: scan for baseline finds nothing
-      mockSend.mockResolvedValueOnce({ Items: [] });
+      const getKeys: Array<Record<string, unknown>> = [];
+
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          const key = (command as any).input.Key;
+          getKeys.push(key);
+
+          if (key?.pk === "IDEMPOTENCY#HANDOFF") {
+            return Promise.resolve({ Item: undefined });
+          }
+
+          if (key?.pk === "PROJECT#P-existing" && key?.sk === "METADATA") {
+            return Promise.resolve({ Item: { baseline_id: "base_old123" } });
+          }
+
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (command instanceof ScanCommand) {
+          return Promise.resolve({ Items: [] });
+        }
+
+        throw new Error("Unexpected command");
+      });
 
       const result = await resolveProjectForHandoff({
         ddb: mockDdb,
@@ -43,19 +72,26 @@ describe("resolveProjectForHandoff", () => {
     });
 
     it("should generate new projectId when no incoming projectId provided", async () => {
-      // Mock: no idempotency record
-      mockSend.mockResolvedValueOnce({ Item: undefined });
-      // Mock: scan for baseline finds nothing
-      mockSend.mockResolvedValueOnce({ Items: [] });
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          return Promise.resolve({ Item: undefined });
+        }
 
-      const result = await resolveProjectForHandoff({
-        ddb: mockDdb,
-        tableName: mockTableName,
-        baselineId: "base_abc123",
-        idempotencyKey: "key-1",
+        if (command instanceof ScanCommand) {
+          return Promise.resolve({ Items: [] });
+        }
+
+        throw new Error("Unexpected command");
       });
 
-      expect(result.resolvedProjectId).toMatch(/^P-[0-9a-f-]+$/);
+    const result = await resolveProjectForHandoff({
+      ddb: mockDdb,
+      tableName: mockTableName,
+      baselineId: "base_abc123",
+      idempotencyKey: "key-1",
+    });
+
+      expect(result.resolvedProjectId).toBe("P-generated-uuid");
       expect(result.isNewProject).toBe(true);
       expect(result.baselineId).toBe("base_abc123");
     });
@@ -70,10 +106,17 @@ describe("resolveProjectForHandoff", () => {
         name: "Existing Project",
       };
 
-      // Mock: no idempotency record
-      mockSend.mockResolvedValueOnce({ Item: undefined });
-      // Mock: existing project with matching baseline
-      mockSend.mockResolvedValueOnce({ Item: existingMetadata });
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (command instanceof ScanCommand) {
+          return Promise.resolve({ Items: [existingMetadata] });
+        }
+
+        throw new Error("Unexpected command");
+      });
 
       const result = await resolveProjectForHandoff({
         ddb: mockDdb,
@@ -96,11 +139,16 @@ describe("resolveProjectForHandoff", () => {
         name: "Found Project",
       };
 
-      // Mock: no idempotency record
-      mockSend.mockResolvedValueOnce({ Item: undefined });
-      // Mock: scan finds existing project
-      mockSend.mockResolvedValueOnce({
-        Items: [existingMetadata],
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (command instanceof ScanCommand) {
+          return Promise.resolve({ Items: [existingMetadata] });
+        }
+
+        throw new Error("Unexpected command");
       });
 
       const result = await resolveProjectForHandoff({
@@ -118,19 +166,30 @@ describe("resolveProjectForHandoff", () => {
 
   describe("Handoff for different baseline (collision prevention)", () => {
     it("should create new projectId when existing project has different baseline", async () => {
-      const existingMetadata = {
-        pk: "PROJECT#P-existing",
-        sk: "METADATA",
-        baseline_id: "base_old123",
-        name: "Existing Project",
-      };
+      const getKeys: Array<Record<string, unknown>> = [];
 
-      // Mock: no idempotency record
-      mockSend.mockResolvedValueOnce({ Item: undefined });
-      // Mock: existing project with DIFFERENT baseline
-      mockSend.mockResolvedValueOnce({ Item: existingMetadata });
-      // Mock: scan for new baseline finds nothing
-      mockSend.mockResolvedValueOnce({ Items: [] });
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          const key = (command as any).input.Key;
+          getKeys.push(key);
+
+          if (key?.pk === "IDEMPOTENCY#HANDOFF") {
+            return Promise.resolve({ Item: undefined });
+          }
+
+          if (key?.pk === "PROJECT#P-existing" && key?.sk === "METADATA") {
+            return Promise.resolve({ Item: { baseline_id: "base_old123" } });
+          }
+
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (command instanceof ScanCommand) {
+          return Promise.resolve({ Items: [] });
+        }
+
+        throw new Error("Unexpected command");
+      });
 
       const result = await resolveProjectForHandoff({
         ddb: mockDdb,
@@ -140,19 +199,14 @@ describe("resolveProjectForHandoff", () => {
         idempotencyKey: "key-4",
       });
 
+      expect(getKeys).toContainEqual({ pk: "PROJECT#P-existing", sk: "METADATA" });
       expect(result.resolvedProjectId).not.toBe("P-existing");
-      expect(result.resolvedProjectId).toMatch(/^P-[0-9a-f-]+$/);
+      expect(result.resolvedProjectId).toBe("P-generated-uuid");
       expect(result.isNewProject).toBe(true);
       expect(result.baselineId).toBe("base_new456");
     });
 
     it("should find and reuse project when different baseline already has project", async () => {
-      const existingMetadataOld = {
-        pk: "PROJECT#P-existing",
-        sk: "METADATA",
-        baseline_id: "base_old123",
-      };
-
       const existingMetadataNew = {
         pk: "PROJECT#P-baseline-new",
         sk: "METADATA",
@@ -160,13 +214,16 @@ describe("resolveProjectForHandoff", () => {
         name: "Project for New Baseline",
       };
 
-      // Mock: no idempotency record
-      mockSend.mockResolvedValueOnce({ Item: undefined });
-      // Mock: existing project with DIFFERENT baseline
-      mockSend.mockResolvedValueOnce({ Item: existingMetadataOld });
-      // Mock: scan finds project with NEW baseline
-      mockSend.mockResolvedValueOnce({
-        Items: [existingMetadataNew],
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (command instanceof ScanCommand) {
+          return Promise.resolve({ Items: [existingMetadataNew] });
+        }
+
+        throw new Error("Unexpected command");
       });
 
       const result = await resolveProjectForHandoff({
@@ -196,16 +253,23 @@ describe("resolveProjectForHandoff", () => {
         baseline_id: "base_abc123",
       };
 
-      // Mock: idempotency record exists
-      mockSend.mockResolvedValueOnce({
-        Item: {
-          pk: "IDEMPOTENCY#HANDOFF",
-          sk: "key-6",
-          result: cachedResult,
-        },
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          if ((command as any).input.Key.pk === "IDEMPOTENCY#HANDOFF") {
+            return Promise.resolve({
+              Item: {
+                pk: "IDEMPOTENCY#HANDOFF",
+                sk: "key-6",
+                result: cachedResult,
+              },
+            });
+          }
+
+          return Promise.resolve({ Item: existingMetadata });
+        }
+
+        throw new Error("Unexpected command");
       });
-      // Mock: get metadata
-      mockSend.mockResolvedValueOnce({ Item: existingMetadata });
 
       const result = await resolveProjectForHandoff({
         ddb: mockDdb,
@@ -225,13 +289,18 @@ describe("resolveProjectForHandoff", () => {
         baselineId: "base_old123",
       };
 
-      // Mock: idempotency record exists with DIFFERENT baseline
-      mockSend.mockResolvedValueOnce({
-        Item: {
-          pk: "IDEMPOTENCY#HANDOFF",
-          sk: "key-7",
-          result: cachedResult,
-        },
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          return Promise.resolve({
+            Item: {
+              pk: "IDEMPOTENCY#HANDOFF",
+              sk: "key-7",
+              result: cachedResult,
+            },
+          });
+        }
+
+        throw new Error("Unexpected command");
       });
 
       await expect(
@@ -269,10 +338,17 @@ describe("resolveProjectForHandoff", () => {
         name: "Project with camelCase",
       };
 
-      // Mock: no idempotency record
-      mockSend.mockResolvedValueOnce({ Item: undefined });
-      // Mock: existing project with camelCase baselineId
-      mockSend.mockResolvedValueOnce({ Item: existingMetadataWithCamelCase });
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (command instanceof ScanCommand) {
+          return Promise.resolve({ Items: [existingMetadataWithCamelCase] });
+        }
+
+        throw new Error("Unexpected command");
+      });
 
       const result = await resolveProjectForHandoff({
         ddb: mockDdb,
