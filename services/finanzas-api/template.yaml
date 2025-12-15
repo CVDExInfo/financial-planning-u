@@ -8,7 +8,7 @@ Parameters:
     Description: Existing Cognito User Pool ARN (from acta-ui)
   CognitoUserPoolId:
     Type: String
-    Description: Existing Cognito User Pool ID (from acta-ui) - e.g., us-east-2_FyHLtOhiY
+    Description: Existing Cognito User Pool ID (from acta-ui)
     Default: us-east-2_FyHLtOhiY
   CognitoUserPoolClientId:
     Type: String
@@ -41,16 +41,8 @@ Parameters:
     Description: Optional email address for CloudWatch alarm notifications
 
 Conditions:
-  HasPolicyStore:
-    Fn::Not:
-      - Fn::Equals:
-          - Ref: PolicyStoreId
-          - ''
-  HasAlarmEmail:
-    Fn::Not:
-      - Fn::Equals:
-          - Ref: AlarmEmail
-          - ''
+  HasPolicyStore: !Not [!Equals [!Ref PolicyStoreId, '']]
+  HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, '']]
 
 Globals:
   Function:
@@ -63,6 +55,8 @@ Globals:
     Environment:
       Variables:
         NODE_OPTIONS: --enable-source-maps
+
+        # Canonical table env vars
         TABLE_PROJECTS: !Sub '${TablePrefix}projects'
         TABLE_RUBROS: !Sub '${TablePrefix}rubros'
         TABLE_RUBROS_TAXONOMIA: !Sub '${TablePrefix}rubros_taxonomia'
@@ -71,21 +65,29 @@ Globals:
         TABLE_ADJUSTMENTS: !Sub '${TablePrefix}adjustments'
         TABLE_ALERTS: !Sub '${TablePrefix}alerts'
         TABLE_PROVIDERS: !Sub '${TablePrefix}providers'
-        TABLE_AUDIT: !Sub '${TablePrefix}audit_log'
+        TABLE_AUDIT_LOG: !Sub '${TablePrefix}audit_log'
         TABLE_DOCS: !Sub '${TablePrefix}docs'
         TABLE_PREFACTURAS: !Sub '${TablePrefix}prefacturas'
         TABLE_CHANGES: !Sub '${TablePrefix}changes'
+
+        # Back-compat aliases (do not remove without code audit)
+        TABLE_ALLOC: !Sub '${TablePrefix}allocations'
+        TABLE_PAYROLL: !Sub '${TablePrefix}payroll_actuals'
+        TABLE_ADJ: !Sub '${TablePrefix}adjustments'
+        TABLE_AUDIT: !Sub '${TablePrefix}audit_log'
+
         STAGE_NAME: !Ref StageName
-        POLICY_STORE_ID:
-          Fn::If:
-            - HasPolicyStore
-            - Ref: PolicyStoreId
-            - ''
         DOCS_BUCKET: !Ref DocsBucketName
         ALLOWED_ORIGIN: !Sub 'https://${CloudFrontDomain}'
+
+        # Cognito
+        COGNITO_USER_POOL_ARN: !Ref CognitoUserPoolArn
         COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
         COGNITO_CLIENT_ID: !Ref CognitoUserPoolClientId
         COGNITO_ISSUER: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}'
+
+        # Verified Permissions (optional)
+        POLICY_STORE_ID: !If [HasPolicyStore, !Ref PolicyStoreId, '']
 
 Resources:
   ApiAccessLogs:
@@ -93,10 +95,10 @@ Resources:
     Properties:
       LogGroupName: !Sub '/aws/http-api/${StageName}/finz-access'
       RetentionInDays: 14
-    Metadata:
-      SamResourceId: ApiAccessLogs
 
-  # DynamoDB tables (canonical)
+  # -------------------
+  # DynamoDB Tables
+  # -------------------
   ProjectsTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -123,8 +125,6 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
-    Metadata:
-      SamResourceId: ProjectsTable
 
   RubrosTable:
     Type: AWS::DynamoDB::Table
@@ -141,8 +141,6 @@ Resources:
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
-    Metadata:
-      SamResourceId: RubrosTable
 
   RubrosTaxonomiaTable:
     Type: AWS::DynamoDB::Table
@@ -159,8 +157,6 @@ Resources:
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
-    Metadata:
-      SamResourceId: RubrosTaxonomiaTable
 
   AllocationsTable:
     Type: AWS::DynamoDB::Table
@@ -177,8 +173,6 @@ Resources:
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
-    Metadata:
-      SamResourceId: AllocationsTable
 
   PayrollTable:
     Type: AWS::DynamoDB::Table
@@ -195,8 +189,6 @@ Resources:
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
-    Metadata:
-      SamResourceId: PayrollTable
 
   AdjustmentsTable:
     Type: AWS::DynamoDB::Table
@@ -213,8 +205,6 @@ Resources:
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
-    Metadata:
-      SamResourceId: AdjustmentsTable
 
   ChangesTable:
     Type: AWS::DynamoDB::Table
@@ -231,8 +221,6 @@ Resources:
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
-    Metadata:
-      SamResourceId: ChangesTable
 
   AlertsTable:
     Type: AWS::DynamoDB::Table
@@ -249,8 +237,6 @@ Resources:
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
-    Metadata:
-      SamResourceId: AlertsTable
 
   ProvidersTable:
     Type: AWS::DynamoDB::Table
@@ -267,8 +253,6 @@ Resources:
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
-    Metadata:
-      SamResourceId: ProvidersTable
 
   AuditTable:
     Type: AWS::DynamoDB::Table
@@ -285,8 +269,6 @@ Resources:
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
-    Metadata:
-      SamResourceId: AuditTable
 
   DocsTable:
     Type: AWS::DynamoDB::Table
@@ -303,8 +285,6 @@ Resources:
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
-    Metadata:
-      SamResourceId: DocsTable
 
   PrefacturasTable:
     Type: AWS::DynamoDB::Table
@@ -321,10 +301,10 @@ Resources:
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
-    Metadata:
-      SamResourceId: PrefacturasTable
 
-  # HTTP API + Cognito configuration
+  # -------------------
+  # HTTP API
+  # -------------------
   Api:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -332,8 +312,8 @@ Resources:
       CorsConfiguration:
         AllowOrigins:
           - !Sub 'https://${CloudFrontDomain}'
-          - 'http://localhost:5173'
-          - 'http://localhost:4173'
+          - http://localhost:5173
+          - http://localhost:4173
         AllowHeaders:
           - Authorization
           - Content-Type
@@ -363,10 +343,10 @@ Resources:
               Issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}'
             IdentitySource: $request.header.Authorization
         DefaultAuthorizer: CognitoJwt
-    Metadata:
-      SamResourceId: Api
 
-  # Small utilities & core functions (CodeUri=".") — use sam build/deploy locally or replace CodeUri with S3 asset URIs if you prefer
+  # -------------------
+  # Functions
+  # -------------------
   OptionsHandler:
     Type: AWS::Serverless::Function
     Metadata:
@@ -379,10 +359,11 @@ Resources:
         Minify: true
         Sourcemap: true
         Target: node20
-      SamResourceId: OptionsHandler
     Properties:
       CodeUri: .
       Handler: optionsHandler.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
       Events:
         OptionsProxy:
           Type: HttpApi
@@ -405,7 +386,6 @@ Resources:
         Minify: true
         Sourcemap: true
         Target: node20
-      SamResourceId: HealthFn
     Properties:
       CodeUri: .
       Handler: health.handler
@@ -421,9 +401,6 @@ Resources:
             Auth:
               Authorizer: NONE
 
-  # (snip) -- For brevity we will include the following core handlers with CodeUri '.' (local build).
-  # Keep the same event definitions as in the original system. Replace CodeUri '.' for handlers you package differently.
-
   ProjectsFn:
     Type: AWS::Serverless::Function
     Metadata:
@@ -435,8 +412,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: ProjectsFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: projects.handler
@@ -448,16 +424,16 @@ Resources:
             TableName: !Ref AuditTable
         - DynamoDBReadPolicy:
             TableName: !Ref PrefacturasTable
-        - Fn::If:
-            - HasPolicyStore
-            - Version: '2012-10-17'
-              Statement:
-                - Sid: AllowAVPIsAuthorizedWithToken
-                  Effect: Allow
-                  Action:
-                    - verifiedpermissions:IsAuthorizedWithToken
-                  Resource: !Sub 'arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}'
-            - Ref: AWS::NoValue
+        - !If
+          - HasPolicyStore
+          - Version: '2012-10-17'
+            Statement:
+              - Sid: AllowAVPIsAuthorizedWithToken
+                Effect: Allow
+                Action:
+                  - verifiedpermissions:IsAuthorizedWithToken
+                Resource: !Sub 'arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}'
+          - !Ref AWS::NoValue
       Events:
         CreateProject:
           Type: HttpApi
@@ -495,8 +471,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: BaselineFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: baseline.handler
@@ -541,12 +516,9 @@ Resources:
       BuildProperties:
         EntryPoints:
           - src/handlers/catalog.ts
-        External:
-          - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: CatalogFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: catalog.handler
@@ -578,7 +550,6 @@ Resources:
         Minify: true
         Sourcemap: true
         Target: node20
-      SamResourceId: LineItemsFn
     Properties:
       CodeUri: .
       Handler: line-items.handler
@@ -607,8 +578,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: AllocationRulesGet
+        Target: node20
     Properties:
       CodeUri: .
       Handler: allocationRules.handler
@@ -638,8 +608,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: HandoffFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: handoff.handler
@@ -680,8 +649,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: AcceptBaselineFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: acceptBaseline.handler
@@ -712,8 +680,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: RejectBaselineFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: rejectBaseline.handler
@@ -745,7 +712,6 @@ Resources:
         Minify: true
         Sourcemap: true
         Target: node20
-      SamResourceId: UploadDocumentFunction
     Properties:
       CodeUri: .
       Handler: upload-docs.handler
@@ -770,6 +736,27 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
+  # Scheduled (Pep3) function — REQUIRED because Pep3Rule targets it
+  AlertsPep3Fn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        # NOTE: keep this pointed at a file that exists in repo.
+        # If you later create src/handlers/alerts-pep3.ts, update EntryPoints + Handler accordingly.
+        EntryPoints:
+          - src/handlers/health.ts
+        External:
+          - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+    Properties:
+      CodeUri: .
+      Handler: health.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+
   RubrosFn:
     Type: AWS::Serverless::Function
     Metadata:
@@ -781,8 +768,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: RubrosFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: rubros.handler
@@ -830,7 +816,6 @@ Resources:
         Minify: true
         Sourcemap: true
         Target: node20
-      SamResourceId: BillingFn
     Properties:
       CodeUri: .
       Handler: billing.handler
@@ -859,8 +844,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: AllocationsFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: allocations.handler
@@ -868,16 +852,16 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:
             TableName: !Ref AllocationsTable
-        - Fn::If:
-            - HasPolicyStore
-            - Version: '2012-10-17'
-              Statement:
-                - Sid: AllowAVPIsAuthorizedWithToken
-                  Effect: Allow
-                  Action:
-                    - verifiedpermissions:IsAuthorizedWithToken
-                  Resource: !Sub 'arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}'
-            - Ref: AWS::NoValue
+        - !If
+          - HasPolicyStore
+          - Version: '2012-10-17'
+            Statement:
+              - Sid: AllowAVPIsAuthorizedWithToken
+                Effect: Allow
+                Action:
+                  - verifiedpermissions:IsAuthorizedWithToken
+                Resource: !Sub 'arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}'
+          - !Ref AWS::NoValue
       Events:
         ListAllocations:
           Type: HttpApi
@@ -907,8 +891,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: PlanFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: plan.handler
@@ -945,8 +928,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: PayrollFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: payroll.handler
@@ -1008,7 +990,7 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
-  # PayrollUploadFn (optional larger uploads)
+  # Optional/large uploads endpoint — included for Payroll module completeness
   PayrollUploadFn:
     Type: AWS::Serverless::Function
     Metadata:
@@ -1020,8 +1002,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: PayrollUploadFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: payroll-upload.handler
@@ -1052,8 +1033,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: CloseMonthFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: close-month.handler
@@ -1063,16 +1043,16 @@ Resources:
             TableName: !Ref ProjectsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref AllocationsTable
-        - Fn::If:
-            - HasPolicyStore
-            - Version: '2012-10-17'
-              Statement:
-                - Sid: AllowAVPIsAuthorizedWithToken
-                  Effect: Allow
-                  Action:
-                    - verifiedpermissions:IsAuthorizedWithToken
-                  Resource: !Sub 'arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}'
-            - Ref: AWS::NoValue
+        - !If
+          - HasPolicyStore
+          - Version: '2012-10-17'
+            Statement:
+              - Sid: AllowAVPIsAuthorizedWithToken
+                Effect: Allow
+                Action:
+                  - verifiedpermissions:IsAuthorizedWithToken
+                Resource: !Sub 'arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}'
+          - !Ref AWS::NoValue
       Events:
         CloseMonth:
           Type: HttpApi
@@ -1094,8 +1074,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: ReconFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: recon.handler
@@ -1122,8 +1101,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: AdjustmentsFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: adjustments.handler
@@ -1131,16 +1109,16 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:
             TableName: !Ref AdjustmentsTable
-        - Fn::If:
-            - HasPolicyStore
-            - Version: '2012-10-17'
-              Statement:
-                - Sid: AllowAVPIsAuthorizedWithToken
-                  Effect: Allow
-                  Action:
-                    - verifiedpermissions:IsAuthorizedWithToken
-                  Resource: !Sub 'arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}'
-            - Ref: AWS::NoValue
+        - !If
+          - HasPolicyStore
+          - Version: '2012-10-17'
+            Statement:
+              - Sid: AllowAVPIsAuthorizedWithToken
+                Effect: Allow
+                Action:
+                  - verifiedpermissions:IsAuthorizedWithToken
+                Resource: !Sub 'arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}'
+          - !Ref AWS::NoValue
       Events:
         CreateAdjustment:
           Type: HttpApi
@@ -1170,8 +1148,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: AlertsFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: alerts.handler
@@ -1200,8 +1177,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: ProvidersFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: providers.handler
@@ -1239,7 +1215,6 @@ Resources:
         Minify: true
         Sourcemap: true
         Target: node20
-      SamResourceId: ForecastFn
     Properties:
       CodeUri: .
       Handler: forecast.handler
@@ -1277,7 +1252,6 @@ Resources:
         Minify: true
         Sourcemap: true
         Target: node20
-      SamResourceId: PrefacturasFn
     Properties:
       CodeUri: .
       Handler: prefacturas.handler
@@ -1315,7 +1289,6 @@ Resources:
         Minify: true
         Sourcemap: true
         Target: node20
-      SamResourceId: InvoicesFn
     Properties:
       CodeUri: .
       Handler: app.handler
@@ -1371,7 +1344,6 @@ Resources:
         Minify: true
         Sourcemap: true
         Target: node20
-      SamResourceId: ChangesFn
     Properties:
       CodeUri: .
       Handler: changes.handler
@@ -1405,40 +1377,7 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
-  Pep3Rule:
-    Type: AWS::Events::Rule
-    Properties:
-      ScheduleExpression: cron(0 8 1 * ? *)
-      State: ENABLED
-      Targets:
-        - Arn: !GetAtt AlertsPep3Fn.Arn
-          Id: pep3-target
-    Metadata:
-      SamResourceId: Pep3Rule
-
-  Pep3Permission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref AlertsPep3Fn
-      Principal: events.amazonaws.com
-      SourceArn: !GetAtt Pep3Rule.Arn
-    Metadata:
-      SamResourceId: Pep3Permission
-
-  AlarmSNSTopic:
-    Type: AWS::SNS::Topic
-    Condition: HasAlarmEmail
-    Properties:
-      TopicName: !Sub 'finanzas-api-alarms-${StageName}'
-      DisplayName: Finanzas API Alarms
-      Subscription:
-        - Endpoint: !Ref AlarmEmail
-          Protocol: email
-    Metadata:
-      SamResourceId: AlarmSNSTopic
-
-  # Hub handler and routes
+  # Hub Function (Module)
   HubFn:
     Type: AWS::Serverless::Function
     Metadata:
@@ -1450,8 +1389,7 @@ Resources:
           - aws-sdk
         Minify: true
         Sourcemap: true
-        Target: node18
-      SamResourceId: HubFn
+        Target: node20
     Properties:
       CodeUri: .
       Handler: hub.handler
@@ -1467,16 +1405,16 @@ Resources:
             TableName: !Ref AdjustmentsTable
         - DynamoDBReadPolicy:
             TableName: !Ref RubrosTable
-        - Fn::If:
-            - HasPolicyStore
-            - Version: '2012-10-17'
-              Statement:
-                - Sid: AllowAVPIsAuthorizedWithToken
-                  Effect: Allow
-                  Action:
-                    - verifiedpermissions:IsAuthorizedWithToken
-                  Resource: !Sub 'arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}'
-            - Ref: AWS::NoValue
+        - !If
+          - HasPolicyStore
+          - Version: '2012-10-17'
+            Statement:
+              - Sid: AllowAVPIsAuthorizedWithToken
+                Effect: Allow
+                Action:
+                  - verifiedpermissions:IsAuthorizedWithToken
+                Resource: !Sub 'arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}'
+          - !Ref AWS::NoValue
       Events:
         HubSummary:
           Type: HttpApi
@@ -1519,25 +1457,127 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
+  # -------------------
+  # EventBridge (Pep3) schedule
+  # -------------------
+  Pep3Rule:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: cron(0 8 1 * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt AlertsPep3Fn.Arn
+          Id: pep3-target
+
+  Pep3Permission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref AlertsPep3Fn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt Pep3Rule.Arn
+
+  # -------------------
+  # Observability (optional)
+  # -------------------
+  AlarmSNSTopic:
+    Type: AWS::SNS::Topic
+    Condition: HasAlarmEmail
+    Properties:
+      TopicName: !Sub 'finanzas-api-alarms-${StageName}'
+      DisplayName: Finanzas API Alarms
+      Subscription:
+        - Endpoint: !Ref AlarmEmail
+          Protocol: email
+
+  Api5xxErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasAlarmEmail
+    Properties:
+      AlarmName: !Sub 'finanzas-api-5xx-errors-${StageName}'
+      AlarmDescription: Alert when API Gateway returns 5xx errors
+      MetricName: 5XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref Api
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  Api4xxErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasAlarmEmail
+    Properties:
+      AlarmName: !Sub 'finanzas-api-4xx-errors-${StageName}'
+      AlarmDescription: Alert when API Gateway returns excessive 4xx errors
+      MetricName: 4XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 100
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref Api
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  ApiLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasAlarmEmail
+    Properties:
+      AlarmName: !Sub 'finanzas-api-high-latency-${StageName}'
+      AlarmDescription: Alert when API latency exceeds 3 seconds
+      MetricName: Latency
+      Namespace: AWS/ApiGateway
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 3000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref Api
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
 Outputs:
   ApiEndpoint:
     Description: API Gateway endpoint URL for the Finanzas SD API
     Value: !Sub 'https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}'
     Export:
       Name: !Sub 'finanzas-sd-api-endpoint-${StageName}'
+
   FinzApiId:
     Description: HTTP API ID
     Value: !Ref Api
     Export:
       Name: !Sub 'finz-api-id-${StageName}'
+
   FinzApiUrl:
     Description: HTTP API URL
     Value: !Sub 'https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}'
     Export:
       Name: !Sub 'finz-api-url-${StageName}'
+
+  CognitoUserPoolArnOut:
+    Description: Cognito User Pool ARN used by this stack
+    Value: !Ref CognitoUserPoolArn
+    Export:
+      Name: !Sub 'finz-cognito-userpool-arn-${StageName}'
+
   AlarmTopicArn:
-    Condition: HasAlarmEmail
     Description: SNS Topic ARN for CloudWatch alarms (if configured)
+    Condition: HasAlarmEmail
     Value: !Ref AlarmSNSTopic
     Export:
       Name: !Sub 'finanzas-api-alarm-topic-${StageName}'
