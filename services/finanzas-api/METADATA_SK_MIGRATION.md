@@ -100,7 +100,8 @@ This provides:
 
 2. **Re-seed with corrected data:**
    ```bash
-   npm run seed:canonical-projects
+   # TODO: seed:canonical-projects script has been removed.
+   # Create test projects through the application UI.
    ```
 
 3. **Verify:**

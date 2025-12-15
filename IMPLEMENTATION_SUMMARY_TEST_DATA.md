@@ -44,7 +44,7 @@ Successfully redesigned the Finanzas SD test data architecture, replacing ad-hoc
 - Baseline-first flow (rubros match baselines)
 - Environment safety guards (dev/test only)
 - Idempotent operation
-- **Command**: `npm run seed:canonical-projects`
+- **Status**: Script has been removed. Projects should be created through the application UI.
 
 #### reset-dev-projects.ts
 - Safe cleanup of non-canonical projects
@@ -220,10 +220,10 @@ PASS tests/unit/rubros.spec.ts
 ```bash
 cd services/finanzas-api
 
-# 1. Seed canonical projects
-npm run seed:canonical-projects
+# TODO: seed:canonical-projects script has been removed.
+# Projects should be created through the application UI or alternative means.
 
-# 2. Verify seeding
+# 2. Verify data setup
 npm run verify:canonical-projects
 
 # 3. Run tests
@@ -237,8 +237,8 @@ npm test
 npm run reset:dev-projects -- --dry-run   # Preview
 npm run reset:dev-projects                # Execute
 
-# Re-seed canonical projects
-npm run seed:canonical-projects
+# TODO: seed:canonical-projects script has been removed.
+# Create projects through the application UI instead.
 
 # Run tests with consistent data
 npm test
@@ -247,11 +247,12 @@ npm test
 ### CI/CD Pipeline Example
 
 ```yaml
+# TODO: seed:canonical-projects script has been removed.
+# Projects should be created through the UI before running tests.
 - name: Setup test data
   run: |
     cd services/finanzas-api
     npm run reset:dev-projects -- --force
-    npm run seed:canonical-projects
     npm run verify:canonical-projects
   env:
     AWS_REGION: us-east-2

@@ -73,7 +73,12 @@ return bad({ error: 'Internal server error', message: errorMessage }, 500);
 
 ## Seed Data Structure
 
-The canonical projects seed script (`services/finanzas-api/src/seed/seed_canonical_projects.ts`) creates:
+<!-- TODO: The canonical projects seed script has been removed. 
+     This section describes the expected data structure but the automated
+     seed script (services/finanzas-api/src/seed/seed_canonical_projects.ts)
+     is no longer available. -->
+
+**Note:** The canonical projects seed script has been removed as part of a refactoring effort. The data structure below documents what the expected format was, but projects should now be created through the application UI or alternative means.
 
 ### Project Record
 ```typescript
@@ -144,16 +149,12 @@ npm run verify:dev-environment
 
 If verification fails, proceed to Step 2.
 
-### Step 2: Seed Canonical Projects
-```bash
-cd services/finanzas-api
-AWS_REGION=us-east-2 TABLE_PREFIX=finz_ npm run seed:canonical-projects
-```
+### Step 2: Create Test Projects (if needed)
 
-This creates 7 canonical projects including:
-- P-CLOUD-ECOPETROL (challenged margin)
-- P-SOC-BANCOL-MED (on-target margin)
-- Plus 5 others for comprehensive testing
+<!-- TODO: The seed:canonical-projects script has been removed. 
+     Projects should be created through the application UI or alternative means. -->
+
+**Note:** The `seed:canonical-projects` script has been removed. If test projects are needed, create them through the application UI or contact the development team for alternative data setup approaches.
 
 ### Step 3: Re-verify Environment
 ```bash

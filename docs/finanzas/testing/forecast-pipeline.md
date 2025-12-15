@@ -23,7 +23,8 @@ cd services/finanzas-api
 
 # Reset and reseed
 npm run reset:dev-projects -- --force
-npm run seed:canonical-projects
+# TODO: seed:canonical-projects script has been removed.
+# Create test projects through the application UI before validation.
 
 # Validate
 npm run verify:allocations
