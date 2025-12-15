@@ -17,6 +17,7 @@ jest.mock('../../src/lib/dynamo', () => {
 });
 
 import { projectExists, getRubroTaxonomy } from '../../src/lib/dynamo';
+import * as dynamo from '../../src/lib/dynamo';
 
 describe('DynamoDB Validation Helpers', () => {
   beforeEach(() => {
@@ -25,7 +26,6 @@ describe('DynamoDB Validation Helpers', () => {
 
   describe('projectExists', () => {
     it('should return true when project exists', async () => {
-      const dynamo = await import('../../src/lib/dynamo');
       const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
       mockSendDdb.mockResolvedValueOnce({
         Item: {
@@ -52,7 +52,6 @@ describe('DynamoDB Validation Helpers', () => {
     });
 
     it('should return false when project does not exist', async () => {
-      const dynamo = await import('../../src/lib/dynamo');
       const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
       mockSendDdb.mockResolvedValueOnce({ Item: undefined } as any);
 
@@ -62,7 +61,6 @@ describe('DynamoDB Validation Helpers', () => {
     });
 
     it('should return false when DynamoDB query fails', async () => {
-      const dynamo = await import('../../src/lib/dynamo');
       const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
       mockSendDdb.mockRejectedValueOnce(new Error('DynamoDB error'));
 
@@ -79,7 +77,6 @@ describe('DynamoDB Validation Helpers', () => {
 
   describe('getRubroTaxonomy', () => {
     it('should return taxonomy data when rubro exists', async () => {
-      const dynamo = await import('../../src/lib/dynamo');
       const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
       mockSendDdb.mockResolvedValueOnce({
         Item: {
@@ -112,7 +109,6 @@ describe('DynamoDB Validation Helpers', () => {
     });
 
     it('should return null when rubro does not exist', async () => {
-      const dynamo = await import('../../src/lib/dynamo');
       const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
       mockSendDdb.mockResolvedValueOnce({ Item: undefined } as any);
 
@@ -122,7 +118,6 @@ describe('DynamoDB Validation Helpers', () => {
     });
 
     it('should return null when DynamoDB query fails', async () => {
-      const dynamo = await import('../../src/lib/dynamo');
       const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
       mockSendDdb.mockRejectedValueOnce(new Error('DynamoDB error'));
 
@@ -137,7 +132,6 @@ describe('DynamoDB Validation Helpers', () => {
     });
 
     it('should handle missing optional fields', async () => {
-      const dynamo = await import('../../src/lib/dynamo');
       const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
       mockSendDdb.mockResolvedValueOnce({
         Item: {
