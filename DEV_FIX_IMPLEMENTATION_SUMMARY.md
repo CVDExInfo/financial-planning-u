@@ -222,7 +222,8 @@ npm run verify:dev-environment
 ```bash
 cd services/finanzas-api
 npm install
-npm run seed:canonical-projects
+# TODO: seed:canonical-projects script has been removed. 
+# Projects should be created through the application UI or alternative means.
 npm run verify:dev-environment
 ```
 
@@ -422,7 +423,7 @@ git checkout HEAD~1 services/finanzas-api/src/handlers/payroll.ts
 
 ### Immediate (Requires Dev Access)
 1. ✅ Code merged to branch `copilot/fix-portfolio-graphs-forecast-grid`
-2. 🔄 Run `npm run seed:canonical-projects` in dev
+2. 🔄 Create test projects through UI (seed:canonical-projects script has been removed)
 3. 🔄 Run `npm run verify:dev-environment`
 4. 🔄 Test frontend endpoints in browser
 5. 🔄 Verify portfolio graphs display

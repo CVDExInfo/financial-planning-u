@@ -8,30 +8,30 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
   const method = event.requestContext.http.method;
 
   if (method === "OPTIONS") {
-    return noContent();
+    return noContent(event);
   }
 
   await ensureSDT(event);
 
   if (method === "GET") {
     // Endpoint not implemented yet. Return an empty dataset to avoid noisy UI errors.
-    return ok({ data: [], total: 0, message: "GET /allocations - not implemented yet" });
+    return ok(event, { data: [], total: 0, message: "GET /allocations - not implemented yet" });
   }
 
   if (method === "PUT") {
     const projectId = event.pathParameters?.id;
 
     if (!projectId) {
-      return bad("Missing project id");
+      return bad(event, "Missing project id");
     }
 
     // TODO: Parse bulk allocation data and update DynamoDB allocations table
-    return ok({
+    return ok(event, {
       data: [],
       total: 0,
       message: "PUT /projects/{id}/allocations:bulk - not implemented yet",
     });
   }
 
-  return bad(`Method ${method} not allowed`, 405);
+  return bad(event, `Method ${method} not allowed`, 405);
 };

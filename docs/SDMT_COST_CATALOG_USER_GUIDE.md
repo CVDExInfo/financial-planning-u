@@ -358,8 +358,9 @@ cd services/finanzas-api
 npm run reset:dev-projects -- --dry-run   # Preview first
 npm run reset:dev-projects                # Execute with confirmation
 
-# Step 2: Seed canonical projects
-npm run seed:canonical-projects
+# Step 2: Create test projects
+# TODO: seed:canonical-projects script has been removed.
+# Create test projects through the application UI before verification.
 ```
 
 **Safety**: The reset script never deletes canonical projects and will abort if run in production.

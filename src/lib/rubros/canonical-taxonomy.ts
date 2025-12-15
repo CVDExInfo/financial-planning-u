@@ -998,7 +998,11 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'RB0069': 'CTR-OLA',
   'RB0070': 'INN-POC',
   'RB0071': 'INN-AUT',
-  
+
+  // Extended RB legacy IDs observed in production seeds/logs
+  'RB0075': 'INF-RACK',  // Racks y espacio de co-location
+  'RB0080': 'INF-BCK',   // Backup y disaster recovery
+
   // Old seed format (from seed_project_rubros.ts)
   'RUBRO-SENIOR-DEV': 'MOD-LEAD',
   'RUBRO-AWS-INFRA': 'INF-CLOUD',

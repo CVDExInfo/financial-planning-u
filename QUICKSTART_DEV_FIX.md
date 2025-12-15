@@ -30,20 +30,12 @@ npm run verify:dev-environment
 
 ## Option 2: Full Seed (If Projects Don't Exist)
 
-If the projects don't exist at all:
+<!-- TODO: The seed:canonical-projects script has been removed. 
+     If projects don't exist, they should be created through the application UI
+     or via a different data setup mechanism. This section is kept for reference
+     but the npm script is no longer available. -->
 
-```bash
-cd services/finanzas-api
-
-# Install dependencies (if not already done)
-npm install
-
-# Seed all 7 canonical projects
-AWS_REGION=us-east-2 TABLE_PREFIX=finz_ npm run seed:canonical-projects
-
-# Verify seed
-npm run verify:dev-environment
-```
+**Note:** The `seed:canonical-projects` script has been removed. If you need to create test projects, please use the application UI or contact the development team for alternative data setup approaches.
 
 ## Option 3: Manual Verification Only
 

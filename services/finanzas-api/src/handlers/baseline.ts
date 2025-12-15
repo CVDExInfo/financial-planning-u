@@ -395,7 +395,7 @@ export const handler = async (
     "";
 
   if (method === "OPTIONS") {
-    return noContent();
+    return noContent(event);
   }
 
   const routeKey =

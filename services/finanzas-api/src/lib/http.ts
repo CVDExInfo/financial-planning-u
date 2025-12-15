@@ -1,45 +1,39 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
-const isDevEnvironment =
-  process.env.NODE_ENV === "development" ||
-  process.env.STAGE_NAME === "local" ||
-  process.env.STAGE_NAME === "dev";
+const isEvent = (value: unknown): value is APIGatewayProxyEvent => {
+  return typeof value === "object" && value !== null && "headers" in value;
+};
 
 const parseAllowedOrigins = () => {
-  const envValue = process.env.ALLOWED_ORIGIN || "";
-  return envValue
+  const raw = process.env.CORS_ORIGIN || process.env.ALLOWED_ORIGIN || "*";
+  if (raw.trim() === "*") return ["*"];
+
+  return raw
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
 };
 
-const isEvent = (value: unknown): value is APIGatewayProxyEvent => {
-  return typeof value === "object" && value !== null && "headers" in value;
-};
-
-export function defaultCorsHeaders(event?: Pick<APIGatewayProxyEvent, "headers">) {
-  const originHeader = event?.headers?.Origin || event?.headers?.origin;
+export function defaultCorsHeaders(event?: any): Record<string, string> {
+  const origin = event?.headers?.Origin || event?.headers?.origin;
   const allowedOrigins = parseAllowedOrigins();
-  const isAllowedOrigin =
-    !!originHeader && allowedOrigins.some((allowed) => allowed === originHeader);
-  const allowOrigin =
-    (isAllowedOrigin && originHeader) ||
-    allowedOrigins[0] ||
-    (isDevEnvironment ? "*" : "*");
-
+  const allowAll = allowedOrigins.includes("*");
+  const echoOrigin = allowAll
+    ? "*"
+    : origin && allowedOrigins.includes(origin)
+      ? origin
+      : allowedOrigins[0] || "*";
   const headers: Record<string, string> = {
     Vary: "Origin",
-    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Origin": echoOrigin,
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "Access-Control-Allow-Headers":
-      "Content-Type,Authorization,X-Idempotency-Key,X-Amz-Date,X-Amz-Security-Token,X-Requested-With,X-Api-Key",
+      "Content-Type, Authorization, X-Requested-With, X-Idempotency-Key",
     "Access-Control-Max-Age": "86400",
   };
-
-  if (String(process.env.ALLOW_CREDENTIALS).toLowerCase() === "true") {
+  if (process.env.ALLOW_CREDENTIALS === "true") {
     headers["Access-Control-Allow-Credentials"] = "true";
   }
-
   return headers;
 }
 
@@ -47,11 +41,13 @@ export function withCors(
   response: APIGatewayProxyResult,
   event?: Pick<APIGatewayProxyEvent, "headers">
 ): APIGatewayProxyResult {
+  const cors = defaultCorsHeaders(event);
+  response.headers = response.headers || {};
   return {
     ...response,
     headers: {
-      ...defaultCorsHeaders(event),
-      ...(response.headers || {}),
+      ...cors,
+      ...response.headers,
     },
   };
 }

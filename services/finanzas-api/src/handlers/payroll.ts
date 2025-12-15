@@ -42,18 +42,23 @@ import { bad, ok } from "../lib/http";
 import {
   safeParsePayrollEntryCreate,
   PayrollKind,
+  PayrollActualSchema,
 } from "../validation/payroll";
 import {
   putPayrollEntry,
   queryPayrollByProject,
   queryPayrollByPeriod,
   ddb,
+  PutCommand,
   QueryCommand,
   ScanCommand,
   tableName,
+  BatchWriteCommand,
+  generatePayrollActualId,
 } from "../lib/dynamo";
 import { PayrollEntry, PayrollTimeSeries, MODProjectionByMonth } from "../lib/types";
 import { calculateLaborVsIndirect } from "../lib/metrics";
+import * as XLSX from "xlsx";
 
 /**
  * POST /payroll
@@ -80,12 +85,12 @@ async function handlePost(event: APIGatewayProxyEventV2) {
   try {
     body = JSON.parse(event.body || "{}");
   } catch {
-    return bad("Invalid JSON in request body");
+    return bad(event as any, "Invalid JSON in request body");
   }
 
   const validation = safeParsePayrollEntryCreate(body);
   if (!validation.success) {
-    return bad(`Validation failed: ${validation.error.message}`, 400);
+    return bad(event as any, `Validation failed: ${validation.error.message}`, 400);
   }
 
   const data = validation.data;
@@ -108,11 +113,11 @@ async function handlePost(event: APIGatewayProxyEventV2) {
       createdBy: data.createdBy,
       updatedBy: data.updatedBy,
     }, userId);
-    return ok(entry, 201);
+    return ok(event as any, entry, 201);
   } catch (error) {
     console.error("Error creating payroll entry:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return bad({ error: 'Internal server error', message: errorMessage }, 500);
+    return bad(event as any, { error: 'Internal server error', message: errorMessage }, 500);
   }
 }
 
@@ -133,17 +138,17 @@ async function handleGet(event: APIGatewayProxyEventV2) {
   const kind = event.queryStringParameters?.kind as PayrollKind | undefined;
 
   if (!projectId) {
-    return bad("Missing required query parameter: projectId", 400);
+    return bad(event as any, "Missing required query parameter: projectId", 400);
   }
 
   // Validate kind if provided
   if (kind && !['plan', 'forecast', 'actual'].includes(kind)) {
-    return bad("Invalid kind parameter. Must be one of: plan, forecast, actual", 400);
+    return bad(event as any, "Invalid kind parameter. Must be one of: plan, forecast, actual", 400);
   }
 
   // Validate period format if provided
   if (period && !/^\d{4}-\d{2}$/.test(period)) {
-    return bad("Invalid period format. Must be YYYY-MM", 400);
+    return bad(event as any, "Invalid period format. Must be YYYY-MM", 400);
   }
 
   try {
@@ -155,11 +160,11 @@ async function handleGet(event: APIGatewayProxyEventV2) {
       entries = await queryPayrollByProject(projectId, kind);
     }
 
-    return ok(entries);
+    return ok(event as any, entries);
   } catch (error) {
     console.error("Error querying payroll:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return bad({ error: 'Internal server error', message: errorMessage }, 500);
+    return bad(event as any, { error: 'Internal server error', message: errorMessage }, 500);
   }
 }
 
@@ -178,23 +183,23 @@ async function handleGetActuals(event: APIGatewayProxyEventV2) {
   const month = event.queryStringParameters?.month;
 
   if (!projectId) {
-    return bad("Missing required query parameter: projectId", 400);
+    return bad(event as any, "Missing required query parameter: projectId", 400);
   }
 
   if (!month) {
-    return bad("Missing required query parameter: month", 400);
+    return bad(event as any, "Missing required query parameter: month", 400);
   }
 
   // Validate month format
   if (!/^\d{4}-\d{2}$/.test(month)) {
-    return bad("Invalid month format. Must be YYYY-MM", 400);
+    return bad(event as any, "Invalid month format. Must be YYYY-MM", 400);
   }
 
   try {
     // Query payroll actuals for the specified project and month
     const entries = await queryPayrollByPeriod(projectId, month, 'actual');
 
-    return ok({
+    return ok(event as any, {
       projectId,
       month,
       data: entries,
@@ -202,8 +207,199 @@ async function handleGetActuals(event: APIGatewayProxyEventV2) {
   } catch (error) {
     console.error("Error querying payroll actuals:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return bad({ error: 'Internal server error', message: errorMessage }, 500);
+    return bad(event as any, { error: 'Internal server error', message: errorMessage }, 500);
   }
+}
+
+function buildPayrollActualItem(data: Record<string, unknown>) {
+  const projectId = data.projectId as string | undefined;
+  const month = data.month as string | undefined;
+  const id = (data.id as string | undefined) || generatePayrollActualId();
+  const amount = data.amount !== undefined ? Number(data.amount) : undefined;
+  const resourceCount = data.resourceCount !== undefined ? Number(data.resourceCount) : undefined;
+
+  if (!projectId || !month) {
+    throw new Error("projectId and month are required");
+  }
+
+  const item = {
+    ...data,
+    id,
+    projectId,
+    month,
+    period: month,
+    amount,
+    resourceCount,
+    kind: (data as any).kind || 'actual',
+    pk: `PROJECT#${projectId}`,
+    sk: `PAYROLL#${month}#${id}`,
+    uploadedAt: new Date().toISOString(),
+  };
+
+  const validation = PayrollActualSchema.safeParse(item);
+  if (!validation.success) {
+    throw new Error(validation.error.message);
+  }
+
+  return {
+    ...validation.data,
+    pk: `PROJECT#${projectId}`,
+    sk: `PAYROLL#${month}#${id}`,
+    period: month,
+    kind: 'actual',
+  };
+}
+
+function parseCsv(content: string): Record<string, unknown>[] {
+  const lines = content.trim().split(/\r?\n/);
+  if (lines.length === 0) return [];
+
+  const headers = lines[0].split(",").map((h) => h.trim());
+
+  return lines.slice(1).filter(Boolean).map((line) => {
+    const cells = line.split(",");
+    const row: Record<string, unknown> = {};
+    headers.forEach((header, idx) => {
+      row[header] = cells[idx]?.trim();
+    });
+    return row;
+  });
+}
+
+function parseMultipart(event: APIGatewayProxyEventV2): Buffer | null {
+  const contentType = event.headers?.["content-type"] || event.headers?.["Content-Type"];
+  if (!contentType || !contentType.includes("multipart/form-data")) return null;
+
+  const boundaryMatch = contentType.match(/boundary=([^;]+)/i);
+  if (!boundaryMatch) return null;
+  const boundary = boundaryMatch[1];
+  const bodyBuffer = Buffer.from(event.body || "", event.isBase64Encoded ? "base64" : "utf8");
+  const parts = bodyBuffer.toString("binary").split(`--${boundary}`);
+
+  for (const part of parts) {
+    const [rawHeaders, rawBody] = part.split("\r\n\r\n");
+    if (!rawHeaders || !rawBody) continue;
+    if (/filename=/i.test(rawHeaders)) {
+      const cleaned = rawBody.replace(/\r\n--$/, "");
+      return Buffer.from(cleaned, "binary");
+    }
+  }
+
+  return null;
+}
+
+function parseBulkPayload(event: APIGatewayProxyEventV2): Record<string, unknown>[] {
+  const contentType = event.headers?.["content-type"] || event.headers?.["Content-Type"] || "";
+  const bodyBuffer = Buffer.from(event.body || "", event.isBase64Encoded ? "base64" : "utf8");
+
+  if (contentType.includes("application/json")) {
+    try {
+      const parsed = JSON.parse(bodyBuffer.toString("utf8"));
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      console.error("Error parsing JSON bulk payload", err);
+      return [];
+    }
+  }
+
+  if (contentType.includes("multipart/form-data")) {
+    const fileBuffer = parseMultipart(event);
+    if (!fileBuffer) return [];
+    const workbookTypes = ["xlsx", "spreadsheet", "excel"];
+    if (workbookTypes.some((t) => contentType.includes(t))) {
+      const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+    }
+    return parseCsv(fileBuffer.toString("utf8"));
+  }
+
+  if (contentType.includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
+    const workbook = XLSX.read(bodyBuffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+  }
+
+  return parseCsv(bodyBuffer.toString("utf8"));
+}
+
+async function handlePostActual(event: APIGatewayProxyEventV2) {
+  let payload: any;
+  try {
+    payload = JSON.parse(event.body || "{}");
+  } catch (err) {
+    return bad(event, "Invalid JSON in request body", 400);
+  }
+
+  try {
+    const item = buildPayrollActualItem(payload);
+    await ddb.send(
+      new PutCommand({
+        TableName: tableName('payroll_actuals'),
+        Item: item,
+      })
+    );
+    return ok(event, item, 201);
+  } catch (error) {
+    console.error("Error creating payroll actual entry:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    return bad(event, { error: "Validation failed", message }, 400);
+  }
+}
+
+async function handlePostActualsBulk(event: APIGatewayProxyEventV2) {
+  const rows = parseBulkPayload(event);
+  const validItems: any[] = [];
+  const errors: { index: number; message: string }[] = [];
+
+  rows.forEach((row, index) => {
+    try {
+      const item = buildPayrollActualItem({
+        ...row,
+        id: (row as any).id || generatePayrollActualId(),
+        projectId: (row as any).projectId || (row as any).project_id,
+        allocationId: (row as any).allocationId || (row as any).allocation_id,
+        rubroId: (row as any).rubroId || (row as any).rubro_id,
+        month: (row as any).month || (row as any).period,
+        amount:
+          (row as any).amount !== undefined
+            ? Number((row as any).amount)
+            : (row as any).monto !== undefined
+              ? Number((row as any).monto)
+              : undefined,
+        resourceCount: (row as any).resourceCount || (row as any).resource_count,
+        uploadedBy: (row as any).uploadedBy || (row as any).uploaded_by,
+      });
+      validItems.push(item);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push({ index, message });
+    }
+  });
+
+  let insertedCount = 0;
+
+  if (validItems.length > 0) {
+    for (let i = 0; i < validItems.length; i += 25) {
+      const chunk = validItems.slice(i, i + 25);
+      const requestItems = chunk.map((Item) => ({ PutRequest: { Item } }));
+      await ddb.send(
+        new BatchWriteCommand({
+          RequestItems: {
+            [tableName('payroll_actuals')]: requestItems,
+          },
+        })
+      );
+      insertedCount += chunk.length;
+    }
+  }
+
+  return ok(event, {
+    insertedCount,
+    errors,
+  });
 }
 
 /**
@@ -222,7 +418,7 @@ async function handleGetSummary(event: APIGatewayProxyEventV2) {
   const projectId = event.queryStringParameters?.projectId;
 
   if (!projectId) {
-    return bad("Missing required query parameter: projectId", 400);
+    return bad(event as any, "Missing required query parameter: projectId", 400);
   }
 
   try {
@@ -251,7 +447,7 @@ async function handleGetSummary(event: APIGatewayProxyEventV2) {
         existing.plan = (existing.plan || 0) + entry.amount;
       } else if (entry.kind === 'forecast') {
         existing.forecast = (existing.forecast || 0) + entry.amount;
-      } else if (entry.kind === 'actual') {
+      } else {
         existing.actual = (existing.actual || 0) + entry.amount;
       }
       
@@ -313,11 +509,11 @@ async function handleGetSummary(event: APIGatewayProxyEventV2) {
       });
     }
 
-    return ok(timeSeries);
+    return ok(event as any, timeSeries);
   } catch (error) {
     console.error("Error generating payroll summary:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return bad({ error: 'Internal server error', message: errorMessage }, 500);
+    return bad(event as any, { error: 'Internal server error', message: errorMessage }, 500);
   }
 }
 
@@ -332,7 +528,7 @@ async function handleGetSummary(event: APIGatewayProxyEventV2) {
  * 
  * Response: Array of MODProjectionByMonth
  */
-async function handleGetDashboard(_event: APIGatewayProxyEventV2) {
+async function handleGetDashboard(event: APIGatewayProxyEventV2) {
   try {
     // Get all projects with their start dates
     // Note: This uses begins_with with sk filter to scan projects
@@ -421,11 +617,11 @@ async function handleGetDashboard(_event: APIGatewayProxyEventV2) {
       });
     }
 
-    return ok(dashboard);
+    return ok(event as any, dashboard);
   } catch (error) {
     console.error("Error generating dashboard data:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return bad({ error: 'Internal server error', message: errorMessage }, 500);
+    return bad(event as any, { error: 'Internal server error', message: errorMessage }, 500);
   }
 }
 
@@ -441,21 +637,31 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     if (method === "GET") {
       return handleGetSummary(event);
     }
-    return bad(`Method ${method} not allowed for /payroll/summary`, 405);
+    return bad(event as any, `Method ${method} not allowed for /payroll/summary`, 405);
   }
 
   if (rawPath.includes("/payroll/dashboard")) {
     if (method === "GET") {
       return handleGetDashboard(event);
     }
-    return bad(`Method ${method} not allowed for /payroll/dashboard`, 405);
+    return bad(event as any, `Method ${method} not allowed for /payroll/dashboard`, 405);
+  }
+
+  if (rawPath.includes("/payroll/actuals/bulk")) {
+    if (method === "POST") {
+      return handlePostActualsBulk(event);
+    }
+    return bad(event as any, `Method ${method} not allowed for /payroll/actuals/bulk`, 405);
   }
 
   if (rawPath.includes("/payroll/actuals")) {
     if (method === "GET") {
       return handleGetActuals(event);
     }
-    return bad(`Method ${method} not allowed for /payroll/actuals`, 405);
+    if (method === "POST") {
+      return handlePostActual(event);
+    }
+    return bad(event as any, `Method ${method} not allowed for /payroll/actuals`, 405);
   }
 
   if (method === "GET") {
@@ -466,5 +672,5 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     return handlePost(event);
   }
 
-  return bad(`Method ${method} not allowed`, 405);
+  return bad(event as any, `Method ${method} not allowed`, 405);
 };

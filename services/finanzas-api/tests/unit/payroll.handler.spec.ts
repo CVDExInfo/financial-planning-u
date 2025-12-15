@@ -5,6 +5,7 @@
 import { handler } from '../../src/handlers/payroll';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import * as dynamo from '../../src/lib/dynamo';
+import { BatchWriteCommand, PutCommand, QueryCommand, ScanCommand } from '../../src/lib/dynamo';
 
 // Mock auth
 jest.mock('../../src/lib/auth', () => ({
@@ -235,6 +236,106 @@ describe('Payroll Handler Tests', () => {
 
       expect(response.statusCode).toBe(400);
       expect(body.error).toContain('Invalid kind parameter');
+    });
+  });
+
+  describe('POST /payroll/actuals/bulk', () => {
+    it('returns partial success when some rows fail validation', async () => {
+      (dynamo.ddb.send as jest.Mock).mockImplementation((command) => {
+        if (command instanceof BatchWriteCommand) {
+          return Promise.resolve({});
+        }
+        return Promise.resolve({ Items: [] });
+      });
+
+      const rows = [
+        { projectId: testProjectId, rubroId: 'rubro_mod', month: testPeriod, amount: 5000 },
+        { projectId: testProjectId, month: testPeriod, amount: -10 },
+      ];
+
+      const event = createEvent('POST', '/payroll/actuals/bulk', rows);
+      event.headers = { 'content-type': 'application/json' } as any;
+
+      const response = await handler(event);
+      const body = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(body.insertedCount).toBe(1);
+      expect(body.errors).toHaveLength(1);
+      expect(body.errors[0].index).toBe(1);
+    });
+  });
+
+  describe('Payroll actuals integration', () => {
+    const payrollStore: any[] = [];
+
+    beforeEach(() => {
+      payrollStore.length = 0;
+      (dynamo.ddb.send as jest.Mock).mockImplementation((command) => {
+        if (command instanceof PutCommand) {
+          payrollStore.push((command as any).input.Item);
+          return Promise.resolve({});
+        }
+
+        if (command instanceof BatchWriteCommand) {
+          const items = (command as any).input.RequestItems?.[dynamo.tableName('payroll_actuals')] || [];
+          items.forEach((req: any) => payrollStore.push(req.PutRequest.Item));
+          return Promise.resolve({ UnprocessedItems: {} });
+        }
+
+        if (command instanceof QueryCommand) {
+          const table = (command as any).input.TableName || '';
+          if (table.includes('allocations')) {
+            return Promise.resolve({ Items: [] });
+          }
+          const pk = (command as any).input.ExpressionAttributeValues?.[':pk'];
+          const sk = (command as any).input.ExpressionAttributeValues?.[':sk'];
+          const Items = payrollStore.filter((item) => item.pk === pk && (!sk || item.sk?.startsWith(sk)));
+          return Promise.resolve({ Items });
+        }
+
+        if (command instanceof ScanCommand) {
+          const pkPrefix = (command as any).input.ExpressionAttributeValues?.[':pkPrefix'];
+          const skPrefix = (command as any).input.ExpressionAttributeValues?.[':sk'];
+          const Items = payrollStore.filter(
+            (item) => item.pk?.startsWith(pkPrefix) && (!skPrefix || item.sk?.startsWith(skPrefix))
+          );
+          return Promise.resolve({ Items });
+        }
+
+        return Promise.resolve({ Items: [] });
+      });
+
+      (dynamo.queryPayrollByProject as jest.Mock).mockImplementation(async (projectId: string) =>
+        payrollStore.filter((item) => item.pk?.startsWith(`PROJECT#${projectId}`))
+      );
+
+      (dynamo.queryPayrollByPeriod as jest.Mock).mockImplementation(async (projectId: string, period: string) =>
+        payrollStore.filter((item) => item.pk === `PROJECT#${projectId}` && item.sk?.startsWith(`PAYROLL#${period}`))
+      );
+    });
+
+    it('surfaces new actual amounts in payroll summary', async () => {
+      const postEvent = createEvent('POST', '/payroll/actuals', {
+        projectId: testProjectId,
+        rubroId: 'rubro_mod',
+        month: testPeriod,
+        amount: 7500,
+      });
+      postEvent.headers = { 'content-type': 'application/json' } as any;
+      const postResponse = await handler(postEvent);
+      expect(postResponse.statusCode).toBe(201);
+
+      const summaryEvent = createEvent('GET', '/payroll/summary', undefined, {
+        projectId: testProjectId,
+      });
+      const response = await handler(summaryEvent);
+      const body = JSON.parse(response.body);
+      expect(response.statusCode).toBe(200);
+      expect(Array.isArray(body)).toBe(true);
+      const summaryRow = body.find((row: any) => row.period === testPeriod);
+      expect(summaryRow).toBeDefined();
+      expect(summaryRow.actualMOD).toBe(7500);
     });
   });
 

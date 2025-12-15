@@ -165,7 +165,8 @@ cd services/finanzas-api
 **Option B: Manual**
 ```bash
 npm run reset:dev-projects
-npm run seed:canonical-projects
+# TODO: seed:canonical-projects script has been removed.
+# Create test projects through the application UI before verification.
 npm run verify:canonical-projects
 ```
 
