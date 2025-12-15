@@ -91,13 +91,17 @@ export class PDFExporter {
       }).format(amount);
     };
 
+    // NOTE: We render a slightly smaller donut for PDF to avoid label collisions
+    // while keeping the on-screen charts unchanged. These dimensions are scoped
+    // to the PDF export path only.
     const generateDonutSVG = (
       dataPoints: Array<{ name: string; value: number; color?: string }>,
-      width = 520,
-      height = 300,
+      width = 480,
+      height = 280,
     ) => {
       const total = dataPoints.reduce((s, d) => s + (d.value || 0), 0);
-      const radius = Math.min(width, height) / 2 - 20;
+      const radius = Math.min(width, height) / 2 - 32;
+      const innerRadius = radius * 0.62;
       const cx = width / 2;
       const cy = height / 2;
       let startAngle = -90;
@@ -109,18 +113,23 @@ export class PDFExporter {
         const endAngle = startAngle + angle;
         const largeArcFlag = angle > 180 ? 1 : 0;
 
-        const sx = cx + radius * Math.cos((Math.PI * startAngle) / 180);
-        const sy = cy + radius * Math.sin((Math.PI * startAngle) / 180);
-        const ex = cx + radius * Math.cos((Math.PI * endAngle) / 180);
-        const ey = cy + radius * Math.sin((Math.PI * endAngle) / 180);
+        const outerStartX = cx + radius * Math.cos((Math.PI * startAngle) / 180);
+        const outerStartY = cy + radius * Math.sin((Math.PI * startAngle) / 180);
+        const outerEndX = cx + radius * Math.cos((Math.PI * endAngle) / 180);
+        const outerEndY = cy + radius * Math.sin((Math.PI * endAngle) / 180);
+
+        const innerStartX = cx + innerRadius * Math.cos((Math.PI * startAngle) / 180);
+        const innerStartY = cy + innerRadius * Math.sin((Math.PI * startAngle) / 180);
+        const innerEndX = cx + innerRadius * Math.cos((Math.PI * endAngle) / 180);
+        const innerEndY = cy + innerRadius * Math.sin((Math.PI * endAngle) / 180);
 
         const path =
           angle === 0
             ? ""
-            : `<path d="M ${cx} ${cy} L ${sx} ${sy} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${ex} ${ey} Z" fill="${colors[i]}" />`;
+            : `<path d="M ${outerStartX} ${outerStartY} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${outerEndX} ${outerEndY} L ${innerEndX} ${innerEndY} A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${innerStartX} ${innerStartY} Z" fill="${colors[i]}" />`;
 
         const midAngle = startAngle + angle / 2;
-        const labelRadius = radius * 0.6;
+        const labelRadius = (radius + innerRadius) / 2;
         const lx = cx + labelRadius * Math.cos((Math.PI * midAngle) / 180);
         const ly = cy + labelRadius * Math.sin((Math.PI * midAngle) / 180);
 
@@ -166,22 +175,24 @@ export class PDFExporter {
           </style>
         </defs>
         ${svgPaths}
+        <circle cx="${cx}" cy="${cy}" r="${innerRadius * 0.82}" fill="white" />
         ${legendItems}
       </svg>`;
     };
 
+    // NOTE: PDF charts get tighter padding to keep bars visible even with many months.
     const generateStackedBarSVG = (
       monthlyData: Array<any>,
       stacks: Array<{ dataKey: string; name: string; color?: string }>,
-      width = 520,
+      width = 560,
       height = 300,
     ) => {
       const rotateLabels = monthlyData.length > 8;
       const padding = {
         top: 50,
-        right: 24,
-        bottom: rotateLabels ? 60 : 40,
-        left: 70,
+        right: 18,
+        bottom: rotateLabels ? 64 : 42,
+        left: 66,
       };
       const innerWidth = width - padding.left - padding.right;
       const innerHeight = height - padding.top - padding.bottom;
@@ -204,7 +215,8 @@ export class PDFExporter {
             const val = row[st.dataKey] || 0;
             const h = Math.min((val / maxVal) * innerHeight, innerHeight);
             yAcc -= h;
-            const rect = `<rect x="${x + 4}" y="${yAcc}" width="${barW - 8}" height="${h}" fill="${palette[sIdx]}" rx="2" />`;
+            const widthAdjusted = Math.max(barW - 4, 2);
+            const rect = `<rect x="${x + (barW - widthAdjusted) / 2}" y="${yAcc}" width="${widthAdjusted}" height="${h}" fill="${palette[sIdx]}" rx="2" />`;
             return { rect };
           });
           const shouldRenderLabel = idx % labelStep === 0;
@@ -425,8 +437,8 @@ export class PDFExporter {
                         if (chart.type === "donut") {
                           return `<div class="chart-card"><h4 style="text-align:left;margin-bottom:8px;">${escapeHtml(chart.title)}</h4>${generateDonutSVG(
                             chart.data,
-                            520,
-                            300,
+                            460,
+                            280,
                           )}</div>`;
                         }
                         if (chart.type === "bar") {
