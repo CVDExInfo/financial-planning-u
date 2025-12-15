@@ -103,7 +103,6 @@ const mockAcceptBaseline = async (
   return text ? JSON.parse(text) : {};
 };
 
-const originalFetch = global.fetch;
 
 describe("baseline flow - DynamoDB overwrite prevention", () => {
   let capturedRequests: Array<{ url: string; method: string; body: any }> = [];
