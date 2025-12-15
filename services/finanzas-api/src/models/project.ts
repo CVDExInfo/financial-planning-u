@@ -199,8 +199,15 @@ function extractPMEmail(record: ProjectRecord): string | undefined {
 }
 
 /**
- * Generate a short, human-friendly project code from projectId
- * Handles UUID-based projectIds by creating shorter codes
+ * Generate a short, human-friendly project code from projectId.
+ *
+ * Notes on baseline handoff safety:
+ * - This helper ONLY derives a display code; it does not influence the
+ *   persisted projectId or any handoff collision safeguards.
+ * - When a long/UUID-style projectId is encountered (e.g., when a new
+ *   projectId is minted to avoid a baseline collision), we derive a short
+ *   code from the baselineId or projectId to keep the UI readable without
+ *   affecting the stored identifiers.
  */
 function generateProjectCode(projectId: string, baselineId?: string): string {
   const MAX_CLEAN_CODE_LENGTH = 20;
