@@ -51,7 +51,8 @@ async function main() {
 
   if (!projectResult.Item) {
     console.log(`   ❌ Project ${TEST_PROJECT_ID} not found!`);
-    console.log(`   💡 Run seed script first: npm run seed:canonical-projects`);
+    console.log(`   💡 Create the project through the application UI first.`);
+    console.log(`   Note: The seed:canonical-projects script has been removed.`);
     process.exit(1);
   }
 
@@ -209,8 +210,8 @@ async function main() {
     console.log("\n⚠️  Forecast pipeline validation has warnings.");
     console.log("   Some data may be missing. Check the details above.");
     if (!checks.hasAllocations && !checks.hasPayroll) {
-      console.log("\n💡 Tip: Run seed script to populate data:");
-      console.log("   cd services/finanzas-api && npm run seed:canonical-projects");
+      console.log("\n💡 Tip: Create test data through the application UI.");
+      console.log("   Note: The seed:canonical-projects script has been removed.");
     }
   }
 }

@@ -118,8 +118,8 @@ cd services/finanzas-api
 # Remove old data with wrong pk format
 npm run reset:dev-projects -- --force
 
-# Seed with corrected data structure
-npm run seed:canonical-projects
+# TODO: seed:canonical-projects script has been removed.
+# Create test projects through the application UI or alternative means.
 ```
 
 Expected output:
@@ -216,9 +216,10 @@ Each project has:
 
 To prevent this issue in the future:
 
-1. **Always run validation scripts** after seeding:
+1. **Always run validation scripts** after setting up projects:
    ```bash
-   npm run seed:canonical-projects
+   # TODO: seed:canonical-projects script has been removed.
+   # Create projects through the UI before running validations.
    npm run verify:allocations
    npm run verify:payroll
    npm run verify:forecast-pipeline P-CLOUD-ECOPETROL

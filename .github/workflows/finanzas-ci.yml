@@ -37,53 +37,8 @@ jobs:
           name: finanzas-unit-test-logs
           path: services/finanzas-api/jest*.log
 
-  test-integration:
-    name: Integration tests (seed & verify)
-    runs-on: ubuntu-latest
-    needs: test-unit
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v3
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION || 'us-east-2' }}
-
-      - name: Install dependencies
-        working-directory: services/finanzas-api
-        run: npm ci
-
-      - name: Seed canonical projects (dev)
-        working-directory: services/finanzas-api
-        env:
-          NODE_OPTIONS: --experimental-vm-modules
-          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-2' }}
-          TABLE_PREFIX: finz_
-        run: |
-          # Ensure we seed canonical projects into the dev DynamoDB (assumes AWS credentials are correct)
-          npm run seed:canonical-projects
-
-      - name: Run integration validation spec
-        working-directory: services/finanzas-api
-        env:
-          NODE_OPTIONS: --experimental-vm-modules
-          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-2' }}
-          TABLE_PREFIX: finz_
-        run: |
-          # Run only the dev environment validation test
-          npm run test:integration
-
-      - name: Upload integration test artifacts (optional)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: finanzas-integration-test-logs
-          path: services/finanzas-api/jest*.log
+  # TODO: Integration tests previously depended on seeded canonical projects data.
+  # This job has been removed as part of removing seed:canonical-projects script.
+  # If integration tests are needed in the future, they should be reworked to use
+  # explicit test fixtures or a new data setup approach that doesn't rely on
+  # the canonical-projects seed script.
