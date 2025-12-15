@@ -624,7 +624,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       try {
         let resolvedProjectId = projectIdFromPath;
         let resolvedProjectMetadata: Record<string, unknown> | undefined;
-        let resolutionStrategy = "path-reuse";
+        let resolutionStrategy;
 
         const idempotencyCheck = await sendDdb(
           new GetCommand({
