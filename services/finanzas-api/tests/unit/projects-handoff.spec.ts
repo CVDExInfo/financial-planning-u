@@ -16,6 +16,7 @@ const mockTableName = jest.fn((name: string) => `test-${name}`);
 describe("resolveProjectForHandoff", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSend.mockReset();
   });
 
   describe("First handoff for a baseline", () => {
