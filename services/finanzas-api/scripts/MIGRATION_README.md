@@ -76,6 +76,10 @@ pk = PROJECT#P-<new-uuid-2>
 
 ## Usage
 
+### Run in Every Stage (dev/qa/prod)
+
+Historical collisions have appeared in multiple environments. Run this migration anywhere legacy data may exist: `dev`, `qa`, **and** `prod`. The script is idempotent; re-running it after code changes will not move already-corrected handoffs.
+
 ### Dry Run (Recommended First)
 
 Test the migration without making any changes:
@@ -112,6 +116,16 @@ npm run migrate:handoff-baselines -- --stage dev
 # Production
 npm run migrate:handoff-baselines -- --stage prod
 ```
+
+### Quick Diagnostics
+
+Before or after a migration, you can surface any remaining collisions without making writes:
+
+```bash
+npm run diagnose:handoff-baselines -- --stage <stage>
+```
+
+If no issues are found, the command prints `No baseline collisions detected.`. Otherwise, it emits a JSON list of offending project IDs and their baseline sets.
 
 ## Environment Variables
 
@@ -280,3 +294,84 @@ If you encounter issues:
 - [HANDOFF_API_CONTRACT_FIX.md](../../HANDOFF_API_CONTRACT_FIX.md)
 - [IMPLEMENTATION_SUMMARY_RUBROS_HANDOFF.md](../../IMPLEMENTATION_SUMMARY_RUBROS_HANDOFF.md)
 - [METADATA_SK_MIGRATION.md](../METADATA_SK_MIGRATION.md)
+
+## New in PR #640+: Defensive Baseline Collision Prevention
+
+After this migration script repairs existing collisions, the handoff API now includes **defensive measures** to prevent future collisions:
+
+### Automatic Prevention in Code
+
+1. **Pre-write METADATA check** in `projects.ts`:
+   - Before writing `PROJECT#…/METADATA`, the handler reads the current record
+   - If an existing baseline differs from the incoming baseline: **refuse with 409 Conflict**
+   - This is a safety net even if routing logic has edge cases
+
+2. **Enhanced resolution logic** in `projects-handoff.ts`:
+   - QA projects (no baseline) can be assigned the **first** baseline only
+   - Subsequent different baselines get new project IDs automatically
+   - Idempotency keys are baseline-scoped: reusing a key with a different baseline throws 409
+
+3. **Idempotency conflict detection**:
+   - If an idempotency key was previously used with a different baseline: **409 Conflict**
+   - Prevents accidental reuse of idempotency keys across baselines
+
+### When to Run This Migration
+
+Run the migration script in these scenarios:
+
+1. **After upgrading to PR #640+**: Repair any historical collisions that occurred before the defensive checks were added
+2. **After detecting collisions**: Use `diagnose:handoff-baselines` to check for issues
+3. **Before major baseline imports**: Ensure a clean slate before importing SDMT baselines
+
+### Example: Detecting and Repairing Collisions
+
+```bash
+# 1. Diagnose existing collisions in dev
+cd services/finanzas-api
+npm run diagnose:handoff-baselines -- --stage dev
+
+# Output:
+# [
+#   {
+#     "projectId": "P-1b6309be-bf75-4994-a332-097bdfc63ae4",
+#     "metadataBaseline": "base_eac8ddf69dbb",
+#     "handoffBaselines": [
+#       "base_eac8ddf69dbb",
+#       "base_b8566fa19c08",
+#       "base_85894e2d29dd"
+#     ]
+#   }
+# ]
+
+# 2. Test migration in dry-run mode
+npm run migrate:handoff-baselines -- --stage dev --dry-run
+
+# 3. Run the actual migration
+npm run migrate:handoff-baselines -- --stage dev
+
+# 4. Verify repair
+npm run diagnose:handoff-baselines -- --stage dev
+# Expected: "No baseline collisions detected."
+```
+
+### What Happens After Migration
+
+Once the migration completes and the new code is deployed:
+
+- ✅ Future handoffs will **automatically** create new projects when needed
+- ✅ Attempts to overwrite METADATA with a different baseline will **fail with 409**
+- ✅ The SDMT Portfolio UI will show all baselines as separate projects
+- ✅ No more "disappearing projects" when new baselines are handed off
+
+### Migration + Prevention = Complete Fix
+
+```
+Historical Data (Before PR #640)
+  └─ Migration script repairs collisions
+     └─ Creates separate projects for each baseline
+     
+Future Handoffs (After PR #640)
+  └─ Defensive checks prevent new collisions
+     └─ 409 Conflict if baseline mismatch detected
+     └─ Automatic new project creation for different baselines
+```

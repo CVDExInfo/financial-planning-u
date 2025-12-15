@@ -21,6 +21,26 @@ export const ddb = DynamoDBDocumentClient.from(client, {
   },
 });
 
+const DDB_DRY_RUN = process.env.DDB_DRY_RUN === "true";
+
+export async function sendDdb(command: any) {
+  if (
+    DDB_DRY_RUN &&
+    (command instanceof PutCommand ||
+      command instanceof UpdateCommand ||
+      command instanceof DeleteCommand ||
+      command instanceof BatchWriteCommand)
+  ) {
+    console.info("[DDB_DRY_RUN] Skipping write", {
+      commandName: command.constructor?.name,
+      input: command.input,
+    });
+    return { $metadata: { httpStatusCode: 200 } };
+  }
+
+  return ddb.send(command);
+}
+
 const env = process.env;
 
 type TableKey =
@@ -139,7 +159,7 @@ export async function putPayrollEntry(
     updatedBy: userId,
   };
   
-  await ddb.send(
+  await sendDdb(
     new PutCommand({
       TableName: tableName('payroll_actuals'),
       Item: item,
@@ -166,7 +186,7 @@ export async function queryPayrollByPeriod(
   const legacyPk = `PROJECT#${projectId}#MONTH#${period}`;
 
   const [legacyResult, flatResult] = await Promise.all([
-    ddb.send(
+    sendDdb(
       new QueryCommand({
         TableName: tableName('payroll_actuals'),
         KeyConditionExpression: 'pk = :pk AND begins_with(sk, :sk)',
@@ -176,7 +196,7 @@ export async function queryPayrollByPeriod(
         },
       })
     ),
-    ddb.send(
+    sendDdb(
       new ScanCommand({
         TableName: tableName('payroll_actuals'),
         FilterExpression: 'pk = :pk AND begins_with(sk, :sk)',
@@ -213,7 +233,7 @@ export async function queryPayrollByProject(
   const skPrefix = kind ? `PAYROLL#${kind.toUpperCase()}#` : 'PAYROLL#';
 
   // Use Scan with filter since pk may vary by month or be flat per project
-  const result = await ddb.send(
+  const result = await sendDdb(
     new ScanCommand({
       TableName: tableName('payroll_actuals'),
       FilterExpression: 'begins_with(pk, :pkPrefix) AND begins_with(sk, :sk)',
@@ -246,7 +266,7 @@ export async function queryPayrollByPeriodAllProjects(
   
   // This requires a scan since we're filtering across multiple projects
   // Consider adding a GSI on period+kind if this becomes performance-critical
-  const result = await ddb.send(
+  const result = await sendDdb(
     new ScanCommand({
       TableName: tableName('payroll_actuals'),
       FilterExpression: 'contains(pk, :period) AND begins_with(sk, :sk)',
@@ -258,4 +278,82 @@ export async function queryPayrollByPeriodAllProjects(
   );
   
   return (result.Items || []) as PayrollEntry[];
+}
+
+/**
+ * Validation helpers for payroll entries
+ */
+
+/**
+ * Check if a project exists in DynamoDB
+ * @param projectId The project ID to check
+ * @returns true if project exists, false otherwise
+ */
+export async function projectExists(projectId: string): Promise<boolean> {
+  try {
+    const result = await sendDdb(
+      new GetCommand({
+        TableName: tableName('projects'),
+        Key: {
+          pk: `PROJECT#${projectId}`,
+          sk: 'META',
+        },
+      })
+    );
+    return !!result.Item;
+  } catch (error) {
+    console.error('Error checking if project exists:', error);
+    return false;
+  }
+}
+
+/**
+ * Interface for Rubro Taxonomy DynamoDB item
+ */
+interface RubroTaxonomyItem {
+  pk: string;
+  sk: string;
+  linea_codigo?: string;
+  linea_gasto?: string;
+  descripcion?: string;
+  categoria?: string;
+  categoria_codigo?: string;
+}
+
+/**
+ * Check if a rubro exists in DynamoDB and return its taxonomy data
+ * @param rubroId The rubro ID to check (e.g., "MOD-ING", "MOD-SDM")
+ * @returns The rubro taxonomy data if found, null otherwise
+ */
+export async function getRubroTaxonomy(rubroId: string): Promise<{
+  code: string;
+  description: string;
+  category: string;
+} | null> {
+  try {
+    const result = await sendDdb(
+      new GetCommand({
+        TableName: tableName('rubros_taxonomia'),
+        Key: {
+          pk: 'TAXONOMY',
+          sk: `RUBRO#${rubroId}`,
+        },
+      })
+    );
+    
+    if (!result.Item) {
+      return null;
+    }
+    
+    const item = result.Item as RubroTaxonomyItem;
+    
+    return {
+      code: item.linea_codigo || rubroId,
+      description: item.linea_gasto || item.descripcion || '',
+      category: item.categoria || '',
+    };
+  } catch (error) {
+    console.error('Error fetching rubro taxonomy:', error);
+    return null;
+  }
 }

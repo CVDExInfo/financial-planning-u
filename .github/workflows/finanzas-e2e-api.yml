@@ -46,12 +46,15 @@ jobs:
       # Cognito Configuration
       COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
       COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
-      
+
       # Test User Credentials (from secrets)
       USERNAME: ${{ secrets.USERNAME }}
       PASSWORD: ${{ secrets.PASSWORD }}
       COGNITO_TESTER_USERNAME: ${{ secrets.USERNAME }}
       COGNITO_TESTER_PASSWORD: ${{ secrets.PASSWORD }}
+
+      # Make CI runs read-only for DynamoDB writes
+      DDB_DRY_RUN: "true"
 
     steps:
       - name: Checkout repository

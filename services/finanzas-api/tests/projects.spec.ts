@@ -23,9 +23,11 @@ jest.mock("../src/lib/auth", () => ({
 
 jest.mock("../src/lib/dynamo", () => {
   const actual = jest.requireActual("../src/lib/dynamo");
+  const sendDdb = jest.fn();
   return {
     ...actual,
-    ddb: { send: jest.fn() },
+    sendDdb,
+    ddb: { send: sendDdb },
     tableName: jest.fn((key: string) => `test-${key}`),
   };
 });

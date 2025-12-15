@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import useProjects, { type ProjectForUI } from "../projects/useProjects";
 import { useAuth } from "@/hooks/useAuth";
 import { useRubrosTaxonomy } from "@/hooks/useRubrosTaxonomy";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 interface PayrollUploaderProps {
   onUploaded?: () => void;
@@ -79,12 +80,101 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
     month: "",
     rubroId: "",
     amount: 0,
+    currency: "USD",
     notes: "",
   });
   const [currency, setCurrency] = React.useState<(typeof CURRENCY_OPTIONS)[number]>("USD");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [preview, setPreview] = React.useState<PayrollActualInput[]>([]);
   const [previewErrors, setPreviewErrors] = React.useState<Record<number, string[]>>({});
+  
+  // State for projects and rubros dropdowns
+  const [rubros, setRubros] = React.useState<Array<{
+    rubroId: string;
+    code: string;
+    description: string;
+    category: string;
+  }>>([]);
+  const [loadingProjects, setLoadingProjects] = React.useState(false);
+  const [loadingRubros, setLoadingRubros] = React.useState(false);
+
+  // Selected rubro details for display
+  const selectedRubro = React.useMemo(() => {
+    return rubros.find((r) => r.rubroId === manual.rubroId);
+  }, [rubros, manual.rubroId]);
+
+  // Fetch projects and rubros on mount
+  useEffect(() => {
+    const loadData = async () => {
+      setLoadingProjects(true);
+      setLoadingRubros(true);
+      
+      try {
+        const [projectsData, rubrosData] = await Promise.all([
+          fetchProjects(),
+          fetchRubros(),
+        ]);
+        
+        setProjects(projectsData);
+        setRubros(rubrosData);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast.error("Error al cargar proyectos y rubros");
+      } finally {
+        setLoadingProjects(false);
+        setLoadingRubros(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  React.useEffect(() => {
+    const fetchRubros = async () => {
+      setIsLoadingRubros(true);
+      try {
+        const catalog = await finanzasClient.getRubros();
+        setRubros(catalog);
+      } catch (error) {
+        console.error("No se pudieron cargar los rubros", error);
+        toast.error("No pudimos cargar los rubros desde Finanzas");
+      } finally {
+        setIsLoadingRubros(false);
+      }
+    };
+
+    void fetchRubros();
+  }, []);
+
+  React.useEffect(() => {
+    const selectedProject = projects.find((proj) => proj.id === manual.projectId);
+    if (selectedProject?.currency && CURRENCY_OPTIONS.includes(selectedProject.currency as any)) {
+      setCurrency(selectedProject.currency as (typeof CURRENCY_OPTIONS)[number]);
+    }
+  }, [manual.projectId, projects]);
+
+  const groupedRubros = React.useMemo(() => {
+    const map = new Map<string, Rubro[]>();
+    rubros.forEach((rubro) => {
+      const category = rubro.categoria || "Otros";
+      const existing = map.get(category) || [];
+      existing.push(rubro);
+      map.set(category, existing);
+    });
+    return map;
+  }, [rubros]);
+
+  const selectedRubro = React.useMemo(() => {
+    return (
+      rubros.find(
+        (r) => r.linea_codigo === manual.rubroId || r.rubro_id === manual.rubroId,
+      ) || null
+    );
+  }, [manual.rubroId, rubros]);
+
+  const selectedProject = React.useMemo<ProjectForUI | undefined>(() => {
+    return projects.find((proj) => proj.id === manual.projectId);
+  }, [manual.projectId, projects]);
 
   React.useEffect(() => {
     const selectedProject = projects.find((proj) => proj.id === manual.projectId);
@@ -202,7 +292,7 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="month">Mes (YYYY-MM)</Label>
+              <Label htmlFor="month">Mes (YYYY-MM) *</Label>
               <Input
                 id="month"
                 type="month"
@@ -351,7 +441,7 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
               {Object.keys(previewErrors).length > 0 && (
                 <ul className="text-xs text-destructive space-y-1">
                   {Object.entries(previewErrors).map(([index, messages]) => (
-                    <li key={index}>{`Fila ${Number(index) + 2}: ${messages.join(', ')}`}</li>
+                    <li key={index}>{`Fila ${Number(index) + 2}: ${(messages as string[]).join(', ')}`}</li>
                   ))}
                 </ul>
               )}

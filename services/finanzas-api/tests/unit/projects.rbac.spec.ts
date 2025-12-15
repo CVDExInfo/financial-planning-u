@@ -1,11 +1,15 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 
-jest.mock("../../src/lib/dynamo", () => ({
-  ddb: { send: jest.fn() },
-  tableName: jest.fn((name: string) => `${name}-table`),
-  ScanCommand: jest.fn().mockImplementation((input) => ({ input })),
-  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
-}));
+jest.mock("../../src/lib/dynamo", () => {
+  const sendDdb = jest.fn();
+  return {
+    ddb: { send: sendDdb },
+    sendDdb,
+    tableName: jest.fn((name: string) => `${name}-table`),
+    ScanCommand: jest.fn().mockImplementation((input) => ({ input })),
+    PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+  };
+});
 
 import { handler as projectsHandler } from "../../src/handlers/projects";
 

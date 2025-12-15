@@ -56,6 +56,8 @@ import {
   tableName,
   BatchWriteCommand,
   generatePayrollActualId,
+  projectExists,
+  getRubroTaxonomy,
 } from "../lib/dynamo";
 import { PayrollEntry, PayrollTimeSeries, MODProjectionByMonth } from "../lib/types";
 import { calculateLaborVsIndirect } from "../lib/metrics";
@@ -99,6 +101,21 @@ async function handlePost(event: APIGatewayProxyEventV2) {
   const userId = (event.requestContext as any).authorizer?.jwt?.claims?.email as string | undefined;
 
   try {
+    // Validate that project exists in DynamoDB
+    const projExists = await projectExists(data.projectId);
+    if (!projExists) {
+      return bad(event as any, `Project ${data.projectId} does not exist in DynamoDB`, 400);
+    }
+
+    // If rubroId provided, validate it exists and fetch taxonomy data
+    let taxonomyData = null;
+    if (data.rubroId) {
+      taxonomyData = await getRubroTaxonomy(data.rubroId);
+      if (!taxonomyData) {
+        return bad(event as any, `Rubro ${data.rubroId} does not exist in taxonomy`, 400);
+      }
+    }
+
     // Validated data has all required fields for putPayrollEntry
     const entry = await putPayrollEntry({
       projectId: data.projectId,
@@ -115,7 +132,13 @@ async function handlePost(event: APIGatewayProxyEventV2) {
       createdBy: data.createdBy,
       updatedBy: data.updatedBy,
     }, userId);
-    return ok(event as any, entry, 201);
+    
+    // Include taxonomy data in response if available
+    const response = taxonomyData
+      ? { ...entry, taxonomy: taxonomyData }
+      : entry;
+    
+    return ok(event as any, response, 201);
   } catch (error) {
     console.error("Error creating payroll entry:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);

@@ -458,6 +458,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       const totalNonLaborCost = computeNonLaborTotal(nonLaborEstimates);
       const totalAmount = totalLaborCost + totalNonLaborCost;
       const laborPercentage = computeLaborPercentage(totalLaborCost, totalAmount);
+      const totalFte = laborEstimates.reduce((sum, labor) => sum + labor.fte_count, 0);
 
       const reportData = {
         title: "Project Baseline Budget",
@@ -485,15 +486,19 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
           },
           {
             label: "Team Size",
-            value: `${laborEstimates.reduce(
-              (sum, labor) => sum + labor.fte_count,
-              0,
-            )} FTE`,
+            value: `${totalFte} FTE`,
             change: `${laborEstimates.length} roles`,
             changeType: "positive" as const,
             color: "#6366f1",
           },
         ],
+        metadata: {
+          projectName: dealInputs?.project_name,
+          projectId: derivedProjectId,
+          baselineId,
+          preparedBy: signedBy || undefined,
+          currency: dealInputs?.currency,
+        },
         summary: [
           `Project: ${dealInputs?.project_name || "Unnamed Project"}`,
           `Duration: ${dealInputs?.duration_months || 12} months`,
@@ -527,6 +532,22 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
             ],
           },
         ],
+        baselineDetails: {
+          baselineId,
+          signatureStatus: "Signed",
+          durationMonths: dealInputs?.duration_months || undefined,
+          teamSize: `${totalFte} FTE`,
+          roleCount: laborEstimates.length,
+          totalLabor: formatReportCurrency(totalLaborCost, dealInputs?.currency),
+          totalNonLabor: formatReportCurrency(
+            totalNonLaborCost,
+            dealInputs?.currency,
+          ),
+          contractValue: dealInputs?.contract_value
+            ? formatReportCurrency(dealInputs.contract_value, dealInputs?.currency)
+            : undefined,
+          currency: dealInputs?.currency,
+        },
       };
 
       await PDFExporter.exportToPDF(reportData);
