@@ -251,21 +251,43 @@ export async function resolveProjectForHandoff(
     };
   }
 
-  // Step 3: No project owns this baseline yet - create one
+  // Step 3: No project owns this baseline yet - decide what to do with incomingProjectId
   let resolvedProjectId = incomingProjectId ?? `P-${crypto.randomUUID()}`;
   let existingProjectMetadata: Record<string, unknown> | undefined;
 
+  // If a projectId was provided in the path (e.g., QA project or existing project),
+  // check if it can be reused for this baseline
   if (incomingProjectId) {
     const incomingMetadata = await getProjectMetadata(ddb, projectsTable, incomingProjectId);
 
     if (incomingMetadata) {
       const existingBaseline = normalizeBaselineId(incomingMetadata);
-      if (!existingBaseline || existingBaseline !== normalizedBaselineId) {
+      
+      // CRITICAL: Never reuse a project that already has a DIFFERENT baseline
+      // This prevents cross-baseline METADATA overwrites
+      if (existingBaseline && existingBaseline !== normalizedBaselineId) {
+        console.info("[resolveProject] Incoming project has different baseline, creating new project", {
+          incomingProjectId,
+          existingBaseline,
+          newBaseline: normalizedBaselineId,
+        });
         resolvedProjectId = `P-${crypto.randomUUID()}`;
+      } else if (!existingBaseline) {
+        // QA project scenario: project exists but has no baseline yet
+        // We can assign this baseline to it (first baseline wins)
+        console.info("[resolveProject] Assigning baseline to QA project", {
+          incomingProjectId,
+          baseline: normalizedBaselineId,
+        });
+        resolvedProjectId = incomingProjectId;
+        existingProjectMetadata = incomingMetadata;
       } else {
+        // existingBaseline === normalizedBaselineId
+        // This project already owns this baseline, reuse it
         existingProjectMetadata = incomingMetadata;
       }
     }
+    // else: incomingProjectId doesn't exist yet, so we can use it as-is
   }
 
   const strategy = existingProjectMetadata ? "reuse-existing-baseline" : "create-new-project";
