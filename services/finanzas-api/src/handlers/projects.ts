@@ -13,6 +13,7 @@ import {
 import { logError } from "../utils/logging";
 import crypto from "node:crypto";
 import { mapToProjectDTO, type ProjectRecord, type ProjectDTO } from "../models/project";
+import { resolveProjectForHandoff, IdempotencyConflictError } from "../lib/projects-handoff";
 
 /**
  * RBAC Filter Patterns for Project Visibility
@@ -773,47 +774,34 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           resolvedProjectId = baselineProjectId;
         }
         
-        // CRITICAL FIX: Prevent overwriting existing project with different baseline
-        // If project exists with a DIFFERENT baseline_id, generate a NEW unique project ID
-        // This ensures each baseline creates its own project record and appears in the UI
-        if (existingProject.Item && baselineId) {
-          const existingBaselineId = 
-            (existingProject.Item as Record<string, unknown>).baseline_id ||
-            (existingProject.Item as Record<string, unknown>).baselineId;
-          
-          if (existingBaselineId && existingBaselineId !== baselineId) {
-            // Different baseline attempting to use same project ID - generate new one
-            console.warn("[handoff] Project exists with different baseline, generating new project ID to prevent overwrite", {
-              originalProjectId: resolvedProjectId,
-              existingBaselineId,
-              newBaselineId: baselineId,
-              existingProjectName: (existingProject.Item as Record<string, unknown>).nombre || 
-                                    (existingProject.Item as Record<string, unknown>).name
+        // Use baseline-aware project resolution to prevent cross-baseline overwrites
+        // This replaces the simple collision detection with comprehensive resolution
+        if (baselineId) {
+          try {
+            const resolution = await resolveProjectForHandoff({
+              ddb,
+              tableName,
+              incomingProjectId: resolvedProjectId,
+              baselineId,
+              idempotencyKey,
             });
+
+            resolvedProjectId = resolution.resolvedProjectId;
             
-            // Generate a NEW unique project ID to prevent overwriting
-            resolvedProjectId = `P-${crypto.randomUUID()}`;
-            
-            // Re-check if this NEW project ID already exists (extremely unlikely but safe)
-            const newProjectCheck = await ddb.send(
-              new GetCommand({
-                TableName: tableName("projects"),
-                Key: {
-                  pk: `PROJECT#${resolvedProjectId}`,
-                  sk: "METADATA",
-                },
-              })
-            );
-            
-            // If by some chance it exists, generate another one
-            if (newProjectCheck.Item) {
-              resolvedProjectId = `P-${crypto.randomUUID()}`;
+            console.info("[handoff-projects] Project resolved via baseline-aware helper", {
+              incomingProjectId: projectIdFromPath,
+              resolvedProjectId,
+              baselineId,
+              isNewProject: resolution.isNewProject,
+            });
+          } catch (error) {
+            // Handle idempotency conflicts from helper
+            if (error instanceof IdempotencyConflictError) {
+              return bad(error.message, 409);
             }
-            
-            console.info("[handoff] Generated new project ID to prevent baseline collision", {
-              newProjectId: resolvedProjectId,
-              baselineId
-            });
+
+            console.error("[handoff-projects] Project resolution failed", error);
+            return serverError();
           }
         }
         
