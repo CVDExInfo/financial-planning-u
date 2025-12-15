@@ -23,17 +23,17 @@ dynamoClientMock.onAnyCommand().resolves({});
 const originalProjectExists = dynamo.projectExists;
 const originalGetRubroTaxonomy = dynamo.getRubroTaxonomy;
 
-const projectExistsMock = jest
-  .spyOn(dynamo, 'projectExists')
-  .mockResolvedValue(true);
+const projectExistsMock = jest.spyOn(dynamo, 'projectExists');
+const getRubroTaxonomyMock = jest.spyOn(dynamo, 'getRubroTaxonomy');
 
-const getRubroTaxonomyMock = jest
-  .spyOn(dynamo, 'getRubroTaxonomy')
-  .mockImplementation(async rubroId => ({
+beforeEach(() => {
+  projectExistsMock.mockResolvedValue(true);
+  getRubroTaxonomyMock.mockImplementation(async rubroId => ({
     code: rubroId,
     description: '',
     category: '',
   }));
+});
 
 export {
   projectExistsMock,
