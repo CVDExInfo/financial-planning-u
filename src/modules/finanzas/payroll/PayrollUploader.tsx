@@ -90,12 +90,6 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
   const [previewErrors, setPreviewErrors] = React.useState<Record<number, string[]>>({});
   
   // State for projects and rubros dropdowns
-  const [dropdownProjects, setDropdownProjects] = React.useState<Array<{
-    projectId: string;
-    code: string;
-    name: string;
-    client?: string;
-  }>>([]);
   const [rubros, setRubros] = React.useState<Array<{
     rubroId: string;
     code: string;
