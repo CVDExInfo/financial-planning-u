@@ -32,7 +32,9 @@
     "generate-docs-pdf": "node scripts/generate-docs-pdf.cjs",
     "generate-testing-report-pdf": "bash scripts/generate-testing-report-pdf.sh",
     "render-docs": "node --loader ts-node/esm scripts/docs/render-docs.ts",
-    "test:finanzas-ui-diagnostic": "node tests/finanzas-ui-diagnostic/smoke-test.mjs"
+    "test:finanzas-ui-diagnostic": "node tests/finanzas-ui-diagnostic/smoke-test.mjs",
+    "migrate:handoff-baselines": "node --loader ts-node/esm services/finanzas-api/scripts/migrate-handoff-baseline-projects.ts",
+    "diagnose:handoff-baselines": "node --loader ts-node/esm services/finanzas-api/scripts/diagnose-handoff-baseline-collisions.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

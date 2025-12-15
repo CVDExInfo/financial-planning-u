@@ -4,6 +4,8 @@
 
 Successfully implemented a comprehensive solution to prevent multiple baselines from overwriting a single project's METADATA in production. The solution ensures that each baseline gets its own distinct `PROJECT#.../METADATA` record, making all projects visible in the SDMT Portfolio UI.
 
+**Design contract:** one SDMT project per baseline. The runtime resolver (`resolveProjectForHandoff`) must always map a handoff to the project that already owns that `baseline_id`, or mint a fresh project if none exists, and must never overwrite METADATA for another baseline. The migration and diagnostic scripts exist to repair and confirm that guarantee on legacy data.
+
 ## Problem Statement
 
 ### Original Issue

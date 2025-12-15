@@ -183,14 +183,15 @@ export async function resolveProjectForHandoff(
     idempotencyKey,
   } = params;
 
-  // Validate baseline ID
-  if (!baselineId) {
+  const normalizedBaselineId = baselineId?.trim();
+
+  if (!normalizedBaselineId) {
     throw new Error("baselineId is required for handoff project resolution");
   }
 
   console.info("[resolveProject] Starting project resolution", {
     incomingProjectId,
-    baselineId,
+    baselineId: normalizedBaselineId,
     idempotencyKey,
   });
 
@@ -198,154 +199,88 @@ export async function resolveProjectForHandoff(
 
   // Step 1: Check idempotency first
   const idempotencyCheck = await checkIdempotency(ddb, projectsTable, idempotencyKey);
-  
+
   if (idempotencyCheck.exists && idempotencyCheck.result) {
     const cachedProjectId = idempotencyCheck.result.projectId as string;
-    const cachedBaselineId = idempotencyCheck.result.baselineId as string;
+    const cachedBaselineId = (idempotencyCheck.result.baselineId as string) || undefined;
 
-    console.info("[resolveProject] Idempotency cache hit", {
-      cachedProjectId,
-      cachedBaselineId,
+    console.info("[resolveProject] strategy", {
+      baselineId: normalizedBaselineId,
       idempotencyKey,
+      strategy: "reuse-idempotent" as const,
+      resolvedProjectId: cachedProjectId,
     });
 
     // Verify the cached result matches the current baseline
-    if (cachedBaselineId === baselineId) {
+    if (cachedBaselineId === normalizedBaselineId) {
       const metadata = await getProjectMetadata(ddb, projectsTable, cachedProjectId);
-      
+
       return {
         resolvedProjectId: cachedProjectId,
         existingProjectMetadata: metadata || undefined,
         isNewProject: false,
-        baselineId,
-      };
-    } else {
-      // Idempotency key exists but with different baseline - this is a conflict
-      console.warn("[resolveProject] Idempotency conflict: same key, different baseline", {
-        cachedBaselineId,
-        newBaselineId: baselineId,
-        idempotencyKey,
-      });
-      throw new IdempotencyConflictError(
-        `Idempotency key "${idempotencyKey}" was previously used with baseline "${cachedBaselineId}" but is now being used with baseline "${baselineId}"`
-      );
-    }
-  }
-
-  // Step 2: If incomingProjectId provided, check if it exists
-  if (incomingProjectId) {
-    const existingMetadata = await getProjectMetadata(ddb, projectsTable, incomingProjectId);
-
-    if (existingMetadata) {
-      const existingBaselineId = normalizeBaselineId(existingMetadata);
-
-      console.info("[resolveProject] Found existing project", {
-        incomingProjectId,
-        existingBaselineId,
-        newBaselineId: baselineId,
-      });
-
-      // Check if baselines match
-      // If existing project has no baseline, treat it as a different baseline
-      if (existingBaselineId && existingBaselineId === baselineId) {
-        // Same baseline - reuse existing project
-        console.info("[resolveProject] Reusing existing project (same baseline)", {
-          projectId: incomingProjectId,
-          baselineId,
-        });
-
-        return {
-          resolvedProjectId: incomingProjectId,
-          existingProjectMetadata: existingMetadata,
-          isNewProject: false,
-          baselineId,
-        };
-      } else {
-        // Different baseline or no baseline - need to find or create a different project
-        console.warn("[resolveProject] Baseline collision detected", {
-          incomingProjectId,
-          existingBaselineId,
-          newBaselineId: baselineId,
-        });
-
-        // Search for a project with the new baseline
-        const projectWithBaseline = await findProjectByBaseline(ddb, projectsTable, baselineId);
-
-        if (projectWithBaseline) {
-          console.info("[resolveProject] Found existing project for new baseline", {
-            projectId: projectWithBaseline.projectId,
-            baselineId,
-          });
-
-          return {
-            resolvedProjectId: projectWithBaseline.projectId,
-            existingProjectMetadata: projectWithBaseline.metadata,
-            isNewProject: false,
-            baselineId,
-          };
-        }
-
-        // No project found for this baseline - generate new project ID
-        const newProjectId = `P-${crypto.randomUUID()}`;
-        
-        console.info("[resolveProject] Generated new project ID to prevent baseline collision", {
-          oldProjectId: incomingProjectId,
-          newProjectId,
-          baselineId,
-        });
-
-        return {
-          resolvedProjectId: newProjectId,
-          existingProjectMetadata: undefined,
-          isNewProject: true,
-          baselineId,
-        };
-      }
-    } else {
-      // Project doesn't exist yet - use the incoming project ID
-      console.info("[resolveProject] Using incoming project ID (new project)", {
-        projectId: incomingProjectId,
-        baselineId,
-      });
-
-      return {
-        resolvedProjectId: incomingProjectId,
-        existingProjectMetadata: undefined,
-        isNewProject: true,
-        baselineId,
+        baselineId: normalizedBaselineId,
       };
     }
+
+    console.warn("[resolveProject] Idempotency conflict: same key, different baseline", {
+      cachedBaselineId,
+      newBaselineId: normalizedBaselineId,
+      idempotencyKey,
+    });
+    throw new IdempotencyConflictError(
+      `Idempotency key "${idempotencyKey}" was previously used with baseline "${cachedBaselineId}" but is now being used with baseline "${normalizedBaselineId}"`
+    );
   }
 
-  // Step 3: No incoming project ID - search for existing project with this baseline
-  const projectWithBaseline = await findProjectByBaseline(ddb, projectsTable, baselineId);
-
+  // Step 2: Find an existing project that already owns this baseline
+  const projectWithBaseline = await findProjectByBaseline(ddb, projectsTable, normalizedBaselineId);
   if (projectWithBaseline) {
-    console.info("[resolveProject] Found existing project for baseline (no incoming ID)", {
-      projectId: projectWithBaseline.projectId,
-      baselineId,
+    console.info("[resolveProject] strategy", {
+      baselineId: normalizedBaselineId,
+      idempotencyKey,
+      strategy: "reuse-existing-baseline" as const,
+      resolvedProjectId: projectWithBaseline.projectId,
     });
 
     return {
       resolvedProjectId: projectWithBaseline.projectId,
       existingProjectMetadata: projectWithBaseline.metadata,
       isNewProject: false,
-      baselineId,
+      baselineId: normalizedBaselineId,
     };
   }
 
-  // Step 4: No project found anywhere - generate new project ID
-  const newProjectId = `P-${crypto.randomUUID()}`;
-  
-  console.info("[resolveProject] Generated new project ID (no existing project)", {
-    newProjectId,
-    baselineId,
+  // Step 3: No project owns this baseline yet - create one
+  let resolvedProjectId = incomingProjectId ?? `P-${crypto.randomUUID()}`;
+  let existingProjectMetadata: Record<string, unknown> | undefined;
+
+  if (incomingProjectId) {
+    const incomingMetadata = await getProjectMetadata(ddb, projectsTable, incomingProjectId);
+
+    if (incomingMetadata) {
+      const existingBaseline = normalizeBaselineId(incomingMetadata);
+      if (!existingBaseline || existingBaseline !== normalizedBaselineId) {
+        resolvedProjectId = `P-${crypto.randomUUID()}`;
+      } else {
+        existingProjectMetadata = incomingMetadata;
+      }
+    }
+  }
+
+  const strategy = existingProjectMetadata ? "reuse-existing-baseline" : "create-new-project";
+
+  console.info("[resolveProject] strategy", {
+    baselineId: normalizedBaselineId,
+    idempotencyKey,
+    strategy,
+    resolvedProjectId,
   });
 
   return {
-    resolvedProjectId: newProjectId,
-    existingProjectMetadata: undefined,
-    isNewProject: true,
-    baselineId,
+    resolvedProjectId,
+    existingProjectMetadata,
+    isNewProject: !existingProjectMetadata,
+    baselineId: normalizedBaselineId,
   };
 }

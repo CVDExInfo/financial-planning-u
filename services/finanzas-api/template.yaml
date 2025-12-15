@@ -357,13 +357,13 @@ Resources:
         - http://localhost:5173
         - http://localhost:4173
         AllowHeaders:
-        - Authorization
-        - Content-Type
-        - X-Idempotency-Key
-        - X-Amz-Date
-        - X-Amz-Security-Token
-        - X-Requested-With
-        - X-Api-Key
+        - authorization
+        - content-type
+        - x-idempotency-key
+        - x-amz-date
+        - x-amz-security-token
+        - x-requested-with
+        - x-api-key
         AllowMethods:
         - GET
         - POST

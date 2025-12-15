@@ -101,12 +101,12 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   const now = new Date().toISOString();
 
   // Extract baseline_id from payload early - needed for project resolution
-  const baselineId = (body.baseline_id || body.baselineId) as string | undefined;
+  const baselineId = ((body.baseline_id || body.baselineId) as string | undefined)?.trim();
   if (!baselineId) {
     return {
       statusCode: 400,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "baseline_id is required" }),
+      body: JSON.stringify({ error: "baselineId required for handoff" }),
     };
   }
 
@@ -155,6 +155,38 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         error: "Failed to resolve project for handoff",
+      }),
+    };
+  }
+
+  // Defensive read: if metadata already exists with a different baseline, bail out
+  const currentMetadata = await ddb.send(
+    new GetCommand({
+      TableName: tableName("projects"),
+      Key: {
+        pk: `PROJECT#${resolvedProjectId}`,
+        sk: "METADATA",
+      },
+    })
+  );
+
+  const currentBaselineId = (currentMetadata.Item?.baseline_id || currentMetadata.Item?.baselineId) as
+    | string
+    | undefined;
+
+  if (currentMetadata.Item && currentBaselineId && currentBaselineId !== baselineId) {
+    console.error("[handoff] Refusing to overwrite METADATA for different baseline", {
+      projectId: resolvedProjectId,
+      existingBaselineId: currentBaselineId,
+      newBaselineId: baselineId,
+      idempotencyKey,
+    });
+
+    return {
+      statusCode: 409,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        error: "baseline collision detected: metadata already exists for a different baseline",
       }),
     };
   }
