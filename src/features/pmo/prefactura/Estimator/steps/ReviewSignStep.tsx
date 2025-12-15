@@ -239,6 +239,14 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
 
       const baseline = await createPrefacturaBaseline(baselineRequest);
 
+      // CRITICAL FIX: Backend returns unique projectId to prevent DynamoDB overwrites
+      // Store this projectId and use it for all subsequent API calls (handoff, accept)
+      if (!baseline.projectId) {
+        throw new Error(
+          "Backend did not return projectId. Cannot proceed with handoff."
+        );
+      }
+
       setBaselineId(baseline.baselineId);
       setBaselineMeta(baseline);
       setSignatureComplete(true);
@@ -289,7 +297,14 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
     setIsHandingOff(true);
 
     try {
-      const projectId = derivedProjectId;
+      // CRITICAL FIX: Use backend-issued projectId from baseline response
+      // to prevent DynamoDB METADATA overwrites when multiple baselines share same name
+      if (!baselineMeta?.projectId) {
+        throw new Error(
+          "Backend projectId not found. Please sign the baseline first."
+        );
+      }
+      const projectId = baselineMeta.projectId;
 
       const laborTotalLocal = computeLaborTotal(laborEstimates);
       const nonLaborTotalLocal = computeNonLaborTotal(nonLaborEstimates);
