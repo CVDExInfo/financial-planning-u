@@ -11,9 +11,19 @@ export type PayrollKind = z.infer<typeof PayrollKindSchema>;
  */
 const periodRegex = /^\d{4}-(0[1-9]|1[0-2])$/;
 
+const ALLOWED_CURRENCIES = ['USD', 'COP', 'EUR', 'MXN'] as const;
+
+const CurrencySchema = z
+  .string()
+  .transform(v => v.toUpperCase())
+  .refine(
+    value => ALLOWED_CURRENCIES.includes(value as (typeof ALLOWED_CURRENCIES)[number]),
+    { errorMap: () => ({ message: 'currency must be one of USD, COP, EUR, MXN' }) }
+  );
+
 /**
  * Payroll Entry Schema - unified schema supporting plan/forecast/actual
- * 
+ *
  * This extends the original PayrollActual schema to support MOD projections:
  * - plan: MOD from caso de negocio / initial budget
  * - forecast: Projected payroll (SD/Finanzas estimates)
@@ -25,9 +35,7 @@ export const PayrollEntrySchema = z.object({
   period: z.string().regex(periodRegex, 'period must be in YYYY-MM format with valid month (01-12)'),
   kind: PayrollKindSchema,
   amount: z.number().min(0, 'amount must be non-negative'),
-  currency: z.enum(['USD', 'COP', 'EUR', 'MXN'], {
-    errorMap: () => ({ message: 'currency must be one of USD, COP, EUR, MXN' })
-  }),
+  currency: CurrencySchema,
   
   // Optional fields
   allocationId: z.string().regex(/^alloc_[a-z0-9]{10}$/).optional(),

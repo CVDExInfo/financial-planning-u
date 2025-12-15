@@ -6,6 +6,7 @@ module.exports = {
   testMatch: ["**/*.spec.ts"],
   clearMocks: true,
   setupFiles: ["<rootDir>/tests/jest.env.setup.js"],
+  setupFilesAfterEnv: ["<rootDir>/tests/jest.setup.ts"],
   transformIgnorePatterns: [
     "node_modules/(?!(uuid)/)"
   ],
