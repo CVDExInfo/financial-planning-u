@@ -33,6 +33,22 @@ export interface ResolveProjectResult {
 }
 
 /**
+ * Configuration constants
+ */
+const MAX_SCAN_ITERATIONS = 20; // Safety limit for DynamoDB scans
+const DEFAULT_PAGINATION_LIMIT = 100; // Items per scan page
+
+/**
+ * Custom error for idempotency conflicts
+ */
+export class IdempotencyConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "IdempotencyConflictError";
+  }
+}
+
+/**
  * Normalize baseline ID from various field names
  */
 function normalizeBaselineId(obj: Record<string, unknown> | undefined): string | null {
@@ -99,7 +115,6 @@ async function findProjectByBaseline(
 
   let lastEvaluatedKey: Record<string, unknown> | undefined;
   let iterations = 0;
-  const MAX_ITERATIONS = 20; // Safety limit
 
   do {
     const result = await ddb.send(
@@ -118,7 +133,7 @@ async function findProjectByBaseline(
           ":metadata": "METADATA",
           ":baseline": baselineId,
         },
-        Limit: 100,
+        Limit: DEFAULT_PAGINATION_LIMIT,
         ExclusiveStartKey: lastEvaluatedKey,
       })
     );
@@ -139,7 +154,7 @@ async function findProjectByBaseline(
     lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
     iterations++;
 
-    if (iterations >= MAX_ITERATIONS) {
+    if (iterations >= MAX_SCAN_ITERATIONS) {
       console.warn("[resolveProject] Reached max scan iterations", { baselineId });
       break;
     }
@@ -211,7 +226,7 @@ export async function resolveProjectForHandoff(
         newBaselineId: baselineId,
         idempotencyKey,
       });
-      throw new Error(
+      throw new IdempotencyConflictError(
         `Idempotency key "${idempotencyKey}" was previously used with baseline "${cachedBaselineId}" but is now being used with baseline "${baselineId}"`
       );
     }

@@ -40,6 +40,7 @@ import crypto from "node:crypto";
 const STAGE = process.env.STAGE || process.argv.find(arg => arg.startsWith("--stage="))?.split("=")[1] || "dev";
 const DRY_RUN = process.argv.includes("--dry-run");
 const TABLE_NAME = process.env.TABLE_PROJECTS || `finz_projects_${STAGE}`;
+const MAX_SCAN_ITERATIONS = parseInt(process.env.MAX_SCAN_ITERATIONS || "1000", 10);
 
 console.log("=".repeat(80));
 console.log("Handoff Baseline Migration Script");
@@ -108,7 +109,6 @@ async function scanProjectsForCollisions(): Promise<Map<string, { metadata: Proj
   
   let lastEvaluatedKey: Record<string, unknown> | undefined;
   let iterations = 0;
-  const MAX_ITERATIONS = 1000;
 
   console.log("Scanning projects table for baseline collisions...");
 
@@ -162,8 +162,8 @@ async function scanProjectsForCollisions(): Promise<Map<string, { metadata: Proj
     lastEvaluatedKey = scanResult.LastEvaluatedKey as Record<string, unknown> | undefined;
     iterations++;
 
-    if (iterations >= MAX_ITERATIONS) {
-      console.warn(`Reached max scan iterations (${MAX_ITERATIONS})`);
+    if (iterations >= MAX_SCAN_ITERATIONS) {
+      console.warn(`Reached max scan iterations (${MAX_SCAN_ITERATIONS})`);
       break;
     }
 

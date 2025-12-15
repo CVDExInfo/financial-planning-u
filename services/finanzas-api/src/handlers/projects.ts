@@ -13,7 +13,7 @@ import {
 import { logError } from "../utils/logging";
 import crypto from "node:crypto";
 import { mapToProjectDTO, type ProjectRecord, type ProjectDTO } from "../models/project";
-import { resolveProjectForHandoff } from "../lib/projects-handoff";
+import { resolveProjectForHandoff, IdempotencyConflictError } from "../lib/projects-handoff";
 
 /**
  * RBAC Filter Patterns for Project Visibility
@@ -796,10 +796,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             });
           } catch (error) {
             // Handle idempotency conflicts from helper
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            
-            if (errorMessage.includes("Idempotency key")) {
-              return bad(errorMessage, 409);
+            if (error instanceof IdempotencyConflictError) {
+              return bad(error.message, 409);
             }
 
             console.error("[handoff-projects] Project resolution failed", error);
