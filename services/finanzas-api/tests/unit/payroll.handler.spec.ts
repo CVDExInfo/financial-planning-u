@@ -10,6 +10,7 @@ import { BatchWriteCommand, PutCommand, QueryCommand, ScanCommand } from '../../
 // Mock auth
 jest.mock('../../src/lib/auth', () => ({
   ensureSDT: jest.fn().mockResolvedValue(undefined),
+  ensureCanWrite: jest.fn().mockResolvedValue(undefined),
 }));
 
 // Mock DynamoDB operations
