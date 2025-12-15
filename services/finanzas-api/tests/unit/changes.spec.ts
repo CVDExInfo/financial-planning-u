@@ -15,13 +15,17 @@ jest.mock("../../src/lib/auth", () => ({
 }));
 
 // Mock Dynamo layer
-jest.mock("../../src/lib/dynamo", () => ({
-  ddb: { send: jest.fn() },
-  QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
-  GetCommand: jest.fn().mockImplementation((input) => ({ input })),
-  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
-  tableName: jest.fn(() => "changes-table"),
-}));
+jest.mock("../../src/lib/dynamo", () => {
+  const sendDdb = jest.fn();
+  return {
+    ddb: { send: sendDdb },
+    sendDdb,
+    QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
+    GetCommand: jest.fn().mockImplementation((input) => ({ input })),
+    PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+    tableName: jest.fn(() => "changes-table"),
+  };
+});
 
 const auth = jest.requireMock("../../src/lib/auth") as jest.Mocked<
   typeof import("../../src/lib/auth")

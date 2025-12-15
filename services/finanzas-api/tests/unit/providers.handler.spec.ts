@@ -1,9 +1,13 @@
-jest.mock("../../src/lib/dynamo", () => ({
-  ddb: { send: jest.fn() },
-  ScanCommand: jest.fn().mockImplementation((input) => ({ input })),
-  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
-  tableName: jest.fn(() => "providers-table"),
-}));
+jest.mock("../../src/lib/dynamo", () => {
+  const sendDdb = jest.fn();
+  return {
+    ddb: { send: sendDdb },
+    sendDdb,
+    ScanCommand: jest.fn().mockImplementation((input) => ({ input })),
+    PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+    tableName: jest.fn(() => "providers-table"),
+  };
+});
 
 import { handler as providersHandler } from "../../src/handlers/providers";
 

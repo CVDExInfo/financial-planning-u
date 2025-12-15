@@ -21,6 +21,26 @@ export const ddb = DynamoDBDocumentClient.from(client, {
   },
 });
 
+const DDB_DRY_RUN = process.env.DDB_DRY_RUN === "true";
+
+export async function sendDdb(command: any) {
+  if (
+    DDB_DRY_RUN &&
+    (command instanceof PutCommand ||
+      command instanceof UpdateCommand ||
+      command instanceof DeleteCommand ||
+      command instanceof BatchWriteCommand)
+  ) {
+    console.info("[DDB_DRY_RUN] Skipping write", {
+      commandName: command.constructor?.name,
+      input: command.input,
+    });
+    return { $metadata: { httpStatusCode: 200 } };
+  }
+
+  return ddb.send(command);
+}
+
 const env = process.env;
 
 type TableKey =
@@ -139,7 +159,7 @@ export async function putPayrollEntry(
     updatedBy: userId,
   };
   
-  await ddb.send(
+  await sendDdb(
     new PutCommand({
       TableName: tableName('payroll_actuals'),
       Item: item,
@@ -166,7 +186,7 @@ export async function queryPayrollByPeriod(
   const legacyPk = `PROJECT#${projectId}#MONTH#${period}`;
 
   const [legacyResult, flatResult] = await Promise.all([
-    ddb.send(
+    sendDdb(
       new QueryCommand({
         TableName: tableName('payroll_actuals'),
         KeyConditionExpression: 'pk = :pk AND begins_with(sk, :sk)',
@@ -176,7 +196,7 @@ export async function queryPayrollByPeriod(
         },
       })
     ),
-    ddb.send(
+    sendDdb(
       new ScanCommand({
         TableName: tableName('payroll_actuals'),
         FilterExpression: 'pk = :pk AND begins_with(sk, :sk)',
@@ -213,7 +233,7 @@ export async function queryPayrollByProject(
   const skPrefix = kind ? `PAYROLL#${kind.toUpperCase()}#` : 'PAYROLL#';
 
   // Use Scan with filter since pk may vary by month or be flat per project
-  const result = await ddb.send(
+  const result = await sendDdb(
     new ScanCommand({
       TableName: tableName('payroll_actuals'),
       FilterExpression: 'begins_with(pk, :pkPrefix) AND begins_with(sk, :sk)',
@@ -246,7 +266,7 @@ export async function queryPayrollByPeriodAllProjects(
   
   // This requires a scan since we're filtering across multiple projects
   // Consider adding a GSI on period+kind if this becomes performance-critical
-  const result = await ddb.send(
+  const result = await sendDdb(
     new ScanCommand({
       TableName: tableName('payroll_actuals'),
       FilterExpression: 'contains(pk, :period) AND begins_with(sk, :sk)',

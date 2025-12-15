@@ -9,13 +9,17 @@ jest.mock("../../src/lib/auth", () => ({
 }));
 
 // Mock DynamoDB
-jest.mock("../../src/lib/dynamo", () => ({
-  ddb: { send: jest.fn() },
-  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
-  GetCommand: jest.fn().mockImplementation((input) => ({ input })),
-  UpdateCommand: jest.fn().mockImplementation((input) => ({ input })),
-  tableName: jest.fn((table) => `test-${table}`),
-}));
+jest.mock("../../src/lib/dynamo", () => {
+  const sendDdb = jest.fn();
+  return {
+    ddb: { send: sendDdb },
+    sendDdb,
+    PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+    GetCommand: jest.fn().mockImplementation((input) => ({ input })),
+    UpdateCommand: jest.fn().mockImplementation((input) => ({ input })),
+    tableName: jest.fn((table) => `test-${table}`),
+  };
+});
 
 import { handler as acceptBaselineHandler } from "../../src/handlers/acceptBaseline";
 

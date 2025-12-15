@@ -2,6 +2,7 @@ import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureCanWrite, ensureCanRead, getUserEmail } from "../lib/auth";
 import {
   ddb,
+  sendDdb,
   tableName,
   PutCommand,
   GetCommand,
@@ -27,7 +28,7 @@ async function getHandoff(event: APIGatewayProxyEventV2) {
   }
 
   // Query for the handoff record for this project
-  const result = await ddb.send(
+  const result = await sendDdb(
     new QueryCommand({
       TableName: tableName("projects"),
       KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
@@ -159,7 +160,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   }
 
   // Check if idempotency key has been used (for returning cached result)
-  const idempotencyCheck = await ddb.send(
+  const idempotencyCheck = await sendDdb(
     new GetCommand({
       TableName: tableName("projects"),
       Key: {
@@ -193,7 +194,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   }
 
   // Fetch baseline data from prefacturas table to get project details
-  const baselineResult = await ddb.send(
+  const baselineResult = await sendDdb(
     new GetCommand({
       TableName: tableName("prefacturas"),
       Key: {
@@ -334,7 +335,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   };
 
   // Store handoff record
-  await ddb.send(
+  await sendDdb(
     new PutCommand({
       TableName: tableName("projects"),
       Item: handoff,
@@ -342,7 +343,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   );
 
   // Store or update project metadata for SDMT
-  await ddb.send(
+  await sendDdb(
     new PutCommand({
       TableName: tableName("projects"),
       Item: projectMetadata,
@@ -388,7 +389,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     ttl,
   };
 
-  await ddb.send(
+  await sendDdb(
     new PutCommand({
       TableName: tableName("projects"),
       Item: idempotencyRecord,
@@ -414,7 +415,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     user_agent: event.requestContext.http.userAgent,
   };
 
-  await ddb.send(
+  await sendDdb(
     new PutCommand({
       TableName: tableName("audit_log"),
       Item: audit,
@@ -453,7 +454,7 @@ async function updateHandoff(event: APIGatewayProxyEventV2) {
     }
 
     // Lookup the handoff first so nonexistent IDs return 404 instead of validation errors
-    const existing = await ddb.send(
+    const existing = await sendDdb(
       new GetCommand({
         TableName: tableName("projects"),
         Key: {
@@ -487,7 +488,7 @@ async function updateHandoff(event: APIGatewayProxyEventV2) {
     const newVersion = currentVersion + 1;
 
     // Update handoff
-    const updated = await ddb.send(
+    const updated = await sendDdb(
       new UpdateCommand({
         TableName: tableName("projects"),
         Key: {
@@ -534,7 +535,7 @@ async function updateHandoff(event: APIGatewayProxyEventV2) {
       user_agent: event.requestContext.http.userAgent,
     };
 
-    await ddb.send(
+    await sendDdb(
       new PutCommand({
         TableName: tableName("audit_log"),
         Item: audit,

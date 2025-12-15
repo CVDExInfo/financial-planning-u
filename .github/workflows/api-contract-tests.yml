@@ -30,6 +30,7 @@ jobs:
       HAS_USERNAME: ${{ vars.COGNITO_TESTER_USERNAME != '' }}
       HAS_PASSWORD: ${{ vars.COGNITO_TESTER_PASSWORD != '' }}
       HAS_OIDC_ROLE: ${{ vars.OIDC_AWS_ROLE_ARN != '' }}
+      DDB_DRY_RUN: "true"
 
     steps:
       - uses: actions/checkout@v4
