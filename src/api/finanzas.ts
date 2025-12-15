@@ -161,6 +161,28 @@ async function fetchArraySource(
 
     return asArray;
   } catch (err) {
+    // Handle expected "not implemented" or "not found" status codes silently
+    if (err instanceof FinanzasApiError && err.status) {
+      const isExpectedUnavailable = [404, 405, 501].includes(err.status);
+      
+      if (isExpectedUnavailable) {
+        // Silently return empty array for unimplemented/missing endpoints
+        logApiDebug(`${label} endpoint unavailable (${err.status}), returning empty array`, { url });
+        return [];
+      }
+    }
+    
+    // For real network errors (TypeError/Failed to fetch), downgrade severity
+    const isNetworkError = err instanceof TypeError || 
+                          (err instanceof Error && /Failed to fetch/i.test(err.message));
+    
+    if (isNetworkError) {
+      console.warn(`[finanzas-api] ${label} network error`, err);
+      // Don't show toast for network errors to avoid spam
+      return [];
+    }
+    
+    // For other errors, log and show minimal toast
     console.error(`[finanzas-api] ${label} failed`, err);
     if (typeof toast?.error === "function") {
       toast.error("No se pudo cargar los datos", {
@@ -287,11 +309,22 @@ export async function getAdjustments(projectId?: string): Promise<any[]> {
 }
 
 const validateArrayResponse = (value: unknown, label: string): any[] => {
+  // Direct array response
   if (Array.isArray(value)) return value;
-
-  throw new FinanzasApiError(
-    `${label} did not return an array response. Received ${typeof value}.`,
-  );
+  
+  // Envelope with data array
+  if (value && typeof value === 'object' && Array.isArray((value as any).data)) {
+    return (value as any).data;
+  }
+  
+  // Envelope with items array
+  if (value && typeof value === 'object' && Array.isArray((value as any).items)) {
+    return (value as any).items;
+  }
+  
+  // Return empty array for other shapes to avoid crashes
+  logApiDebug(`${label} returned unexpected shape, using empty array`, { received: typeof value });
+  return [];
 };
 
 // ---------- Common DTOs ----------
