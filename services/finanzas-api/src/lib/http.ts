@@ -23,6 +23,7 @@ const ALLOW_HEADERS = [
   "x-api-key",
   "x-requested-with",
   "x-idempotency-key",
+  "X-Idempotency-Key",
 ].join(",");
 
 export function defaultCorsHeaders(event?: any): Record<string, string> {
