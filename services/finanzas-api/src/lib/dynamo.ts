@@ -308,6 +308,19 @@ export async function projectExists(projectId: string): Promise<boolean> {
 }
 
 /**
+ * Interface for Rubro Taxonomy DynamoDB item
+ */
+interface RubroTaxonomyItem {
+  pk: string;
+  sk: string;
+  linea_codigo?: string;
+  linea_gasto?: string;
+  descripcion?: string;
+  categoria?: string;
+  categoria_codigo?: string;
+}
+
+/**
  * Check if a rubro exists in DynamoDB and return its taxonomy data
  * @param rubroId The rubro ID to check (e.g., "MOD-ING", "MOD-SDM")
  * @returns The rubro taxonomy data if found, null otherwise
@@ -332,10 +345,12 @@ export async function getRubroTaxonomy(rubroId: string): Promise<{
       return null;
     }
     
+    const item = result.Item as RubroTaxonomyItem;
+    
     return {
-      code: (result.Item as any).linea_codigo || rubroId,
-      description: (result.Item as any).linea_gasto || (result.Item as any).descripcion || '',
-      category: (result.Item as any).categoria || '',
+      code: item.linea_codigo || rubroId,
+      description: item.linea_gasto || item.descripcion || '',
+      category: item.categoria || '',
     };
   } catch (error) {
     console.error('Error fetching rubro taxonomy:', error);

@@ -55,6 +55,8 @@ import {
   tableName,
   BatchWriteCommand,
   generatePayrollActualId,
+  projectExists,
+  getRubroTaxonomy,
 } from "../lib/dynamo";
 import { PayrollEntry, PayrollTimeSeries, MODProjectionByMonth } from "../lib/types";
 import { calculateLaborVsIndirect } from "../lib/metrics";
@@ -98,7 +100,6 @@ async function handlePost(event: APIGatewayProxyEventV2) {
 
   try {
     // Validate that project exists in DynamoDB
-    const { projectExists, getRubroTaxonomy } = await import("../lib/dynamo");
     const projExists = await projectExists(data.projectId);
     if (!projExists) {
       return bad(event as any, `Project ${data.projectId} does not exist in DynamoDB`, 400);
@@ -357,7 +358,6 @@ async function handlePostActual(event: APIGatewayProxyEventV2) {
 
   try {
     // Validate that project exists in DynamoDB
-    const { projectExists, getRubroTaxonomy } = await import("../lib/dynamo");
     const projExists = await projectExists(payload.projectId);
     if (!projExists) {
       return bad(event, `Project ${payload.projectId} does not exist in DynamoDB`, 400);
