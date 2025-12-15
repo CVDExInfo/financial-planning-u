@@ -13,7 +13,7 @@
     "build:pmo": "tsc -b --noCheck && BUILD_TARGET=pmo vite build",
     "build:finanzas": "bash scripts/pre-build-validate.sh && tsc -b --noCheck && BUILD_TARGET=finanzas vite build",
     "lint": "eslint .",
-    "test:unit": "tsx --test src/lib/__tests__/*.test.ts",
+    "test:unit": "VITE_API_BASE_URL=http://localhost tsx --test src/lib/__tests__/*.test.ts",
     "test:behavioral": "tsx --test tests/behavioral-api/*.test.ts",
     "test:ui": "playwright test tests/e2e/behavioral",
     "contract-tests": "BASE=\"${FINZ_API_BASE:-${DEV_API_URL:-}}\"; if [ -z \"$BASE\" ]; then echo \"❌ DEV_API_URL or FINZ_API_BASE must be set (e.g. https://.../dev)\"; exit 1; fi; BASE=\"${BASE%/}\"; TOKEN=$(scripts/cognito/get-jwt.sh); npx --yes newman run postman/finanzas-sd-api-collection.json --environment postman/finanzas-sd-dev.postman_environment.json --env-var baseUrl=$BASE --env-var access_token=$TOKEN --env-var username=${COGNITO_TESTER_USERNAME:-$USERNAME} --env-var password=${COGNITO_TESTER_PASSWORD:-$PASSWORD} --env-var cognito_client_id=${COGNITO_WEB_CLIENT} --timeout-request 10000 --timeout-script 5000 --bail",
