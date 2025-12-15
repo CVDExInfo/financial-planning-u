@@ -138,13 +138,18 @@ async function handlePost(event: APIGatewayProxyEventV2) {
       ? { ...entry, taxonomy: taxonomyData }
       : entry;
     
-    return ok(event as any, response, 201);
-  } catch (error) {
-    console.error("Error creating payroll entry:", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return bad(event as any, { error: 'Internal server error', message: errorMessage }, 500);
+      return ok(event as any, response, 201);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      if (/no existe en taxonom[ií]a/i.test(errorMessage) || /does not exist in taxonomy/i.test(errorMessage)) {
+        return bad(event as any, { error: 'Rubro does not exist in taxonomy', message: errorMessage }, 400);
+      }
+
+      console.error("Error creating payroll entry:", error);
+      return bad(event as any, { error: 'Internal server error', message: errorMessage }, 500);
+    }
   }
-}
 
 /**
  * GET /payroll?projectId={id}&period={YYYY-MM}
