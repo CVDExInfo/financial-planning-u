@@ -13,11 +13,19 @@ try {
   console.error('failed to parse custom styles', err)
 }
 const defaultTheme = {
+  // Define base screens at top level (without raw media queries)
+  screens: {
+    sm: "640px",
+    md: "768px",
+    lg: "1024px",
+    xl: "1280px",
+    "2xl": "1400px",
+  },
   container: {
     center: true,
     padding: "2rem",
-    // Use fixed breakpoints for container widths to avoid invalid media queries
-    // when raw media screens (pointer, display-mode) are present elsewhere.
+    // Explicitly set container screens to prevent raw media queries from being used
+    // This ensures container only responds to width-based breakpoints, not pointer/display-mode
     screens: {
       sm: "640px",
       md: "768px",
@@ -27,11 +35,10 @@ const defaultTheme = {
     },
   },
   extend: {
-    screens: {
-      coarse: { raw: "(pointer: coarse)" },
-      fine: { raw: "(pointer: fine)" },
-      pwa: { raw: "(display-mode: standalone)" },
-    },
+    // NOTE: Raw media queries removed from screens to prevent container plugin issues
+    // in Tailwind CSS v4. Use @media (pointer: coarse) etc. directly in CSS instead,
+    // or use the utility classes that may be generated elsewhere.
+    // Previously had: coarse, fine, pwa raw media queries here
     colors: {
       neutral: {
         1: "var(--color-neutral-1)",
@@ -152,5 +159,32 @@ const defaultTheme = {
 
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
-  theme: { ...defaultTheme, ...theme },
+  theme: {
+    ...defaultTheme,
+    // Explicitly set base screens (without raw media queries) to prevent them from leaking into container
+    screens: defaultTheme.screens,
+    // Spacing must be at theme root level for Tailwind v4
+    spacing: defaultTheme.spacing,
+    // Dark mode config
+    darkMode: defaultTheme.darkMode,
+    // Deep merge container to always preserve safe defaultTheme.container.screens
+    container: {
+      ...defaultTheme.container,
+      ...(theme.container ?? {}),
+      // ALWAYS use defaultTheme.container.screens to avoid invalid media query warnings
+      // This prevents raw media queries from extend.screens from being used
+      screens: defaultTheme.container.screens,
+    },
+    // Deep merge extend to preserve custom screen definitions
+    extend: {
+      ...defaultTheme.extend,
+      ...(theme.extend ?? {}),
+      // Ensure extend.screens is preserved with raw media query definitions
+      // These should NOT be used by the container plugin
+      screens: {
+        ...(defaultTheme.extend?.screens ?? {}),
+        ...(theme.extend?.screens ?? {}),
+      },
+    },
+  },
 };
