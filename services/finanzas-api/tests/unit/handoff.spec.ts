@@ -24,6 +24,7 @@ jest.mock("../../src/lib/dynamo", () => {
     GetCommand: jest.fn().mockImplementation((input) => ({ input })),
     QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
     UpdateCommand: jest.fn().mockImplementation((input) => ({ input })),
+    TransactWriteCommand: jest.fn().mockImplementation((input) => ({ input })),
     tableName: jest.fn((table) => `test-${table}`),
   };
 });
@@ -41,6 +42,7 @@ const dynamo = jest.requireMock("../../src/lib/dynamo") as {
   GetCommand: jest.Mock;
   QueryCommand: jest.Mock;
   UpdateCommand: jest.Mock;
+  TransactWriteCommand: jest.Mock;
   tableName: jest.Mock;
 };
 

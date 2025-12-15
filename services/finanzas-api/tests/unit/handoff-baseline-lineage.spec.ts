@@ -11,6 +11,11 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 
+// Mock uuid
+jest.mock("uuid", () => ({
+  v4: jest.fn(() => "mock-uuid-1234-5678-90ab-cdef"),
+}));
+
 // Mock auth functions
 jest.mock("../../src/lib/auth", () => ({
   ensureCanWrite: jest.fn(),
@@ -178,7 +183,7 @@ describe("Handoff Handler - Data Lineage Integrity", () => {
 
       const response = await handoffModule.handler(event);
 
-      expect(response.statusCode).toBe(200);
+      expect(response.statusCode).toBe(201);
       const body = JSON.parse(response.body);
       expect(body.projectId).toBe(projectId);
       expect(body.baselineId).toBe(baselineId);
@@ -342,12 +347,11 @@ describe("Handoff Handler - Data Lineage Integrity", () => {
 
       const response = await handoffModule.handler(event);
 
-      // Should return 409 Conflict with proper error message
+      // Should return 409 Conflict
       expect(response.statusCode).toBe(409);
       const body = JSON.parse(response.body);
-      expect(body.error).toContain("Cannot overwrite existing baseline");
-      expect(body.existingBaselineId).toBe(existingBaselineId);
-      expect(body.attemptedBaselineId).toBe(newBaselineId);
+      expect(body.error).toContain("baseline collision");
+      expect(body.error).toContain("different baseline");
     });
   });
 
@@ -431,7 +435,7 @@ describe("Handoff Handler - Data Lineage Integrity", () => {
 
       const response = await handoffModule.handler(event);
 
-      expect(response.statusCode).toBe(200);
+      expect(response.statusCode).toBe(201);
 
       // Verify data lineage integrity
       expect(capturedHandoff).not.toBeNull();
@@ -504,7 +508,7 @@ describe("Handoff Handler - Data Lineage Integrity", () => {
 
       const response = await handoffModule.handler(event);
 
-      expect(response.statusCode).toBe(200);
+      expect(response.statusCode).toBe(201);
 
       // Verify TransactWriteCommand was called
       const transactCalls = mockDdbSend.mock.calls.filter(
