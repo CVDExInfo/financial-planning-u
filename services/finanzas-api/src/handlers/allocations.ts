@@ -1,7 +1,7 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureSDT, ensureCanRead } from "../lib/auth";
 import { bad, ok, noContent, serverError } from "../lib/http";
-import { ddb, tableName, QueryCommand } from "../lib/dynamo";
+import { ddb, tableName, QueryCommand, ScanCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
 
 /**
@@ -41,16 +41,17 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
       return ok(event, items);
     }
     
-    // No projectId - return all allocations (could be expensive, consider pagination)
-    const { ScanCommand } = await import("../lib/dynamo");
+    // No projectId - return all allocations with pagination limit
+    const limit = 1000; // Reasonable limit to avoid timeouts
     const scanResult = await ddb.send(
       new ScanCommand({
         TableName: allocationsTable,
+        Limit: limit,
       })
     );
     
     const items = scanResult.Items || [];
-    console.log(`[allocations] GET scan (all projects): ${items.length} items`);
+    console.log(`[allocations] GET scan (all projects): ${items.length} items (limit: ${limit})`);
     
     // Return bare array for frontend compatibility
     return ok(event, items);
