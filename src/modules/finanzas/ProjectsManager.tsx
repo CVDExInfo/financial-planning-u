@@ -524,25 +524,63 @@ export default function ProjectsManager() {
 
           const reason = result.reason as any;
           const status = reason?.status ?? reason?.response?.status;
-          hadForbidden = hadForbidden || status === 403;
-          hadUnauthorized = hadUnauthorized || status === 401;
-          failures.push(
-            `${loaders[idx].name}: ${
-              (reason as Error)?.message || reason || "error"
-            }`,
-          );
+          
+          // Only track auth failures as real failures
+          if (status === 401 || status === 403) {
+            hadForbidden = hadForbidden || status === 403;
+            hadUnauthorized = hadUnauthorized || status === 401;
+            failures.push(
+              `${loaders[idx].name}: ${
+                (reason as Error)?.message || reason || "error"
+              }`,
+            );
+          } else if (status && ![404, 405, 501].includes(status)) {
+            // Track unexpected errors (not 404/405/501)
+            failures.push(
+              `${loaders[idx].name}: ${
+                (reason as Error)?.message || reason || "error"
+              }`,
+            );
+          }
+          // 404/405/501 are silently ignored (already handled by fetchArraySource)
         });
 
         const normalizedPayroll = (
           projectId ? rawSources.payroll : payrollDashboard
         ).map(normalizeApiRowForMod);
-        const normalizedAllocations = rawSources.allocations.map(
+        
+        let normalizedAllocations = rawSources.allocations.map(
           normalizeApiRowForMod,
         );
+        
         const normalizedBaseline = rawSources.baseline.map(normalizeApiRowForMod);
         const normalizedAdjustments = rawSources.adjustments.map(
           normalizeApiRowForMod,
         );
+        
+        // Derive allocations from baseline when allocations are empty/unavailable
+        if (normalizedAllocations.length === 0 && normalizedBaseline.length > 0) {
+          logApiDebug("Deriving allocations from baseline", { 
+            baselineRows: normalizedBaseline.length 
+          });
+          
+          // Create derived allocations in a format that normalizeApiRowForMod expects
+          normalizedAllocations = normalizedBaseline
+            .filter(isModRow)
+            .map((baselineRow) => {
+              // Create a raw allocation object that normalizeApiRowForMod can process
+              const derivedAllocation = {
+                month: baselineRow.month,
+                amount: baselineRow.totalPlanMOD || 0,
+                rubro_type: "MOD",
+                projectId: projectId || baselineRow.projectId,
+                // Add fields that help normalizeApiRowForMod identify this correctly
+                totalPlanMOD: baselineRow.totalPlanMOD || 0,
+                kind: "derived_allocation",
+              };
+              return normalizeApiRowForMod(derivedAllocation);
+            });
+        }
 
         const acceptedCounts = {
           payroll: normalizedPayroll.filter(isModRow).length,
@@ -583,6 +621,7 @@ export default function ProjectsManager() {
           });
           setModChartDataForProject(chartData);
 
+          // Only show errors for auth failures or unexpected server errors
           if (failures.length > 0) {
             const message = failures.join("; ");
             setModSourcesError(message);
@@ -591,7 +630,10 @@ export default function ProjectsManager() {
               toast.error(
                 "No tiene permisos para ver asignaciones/ajustes/linea base.",
               );
+            } else if (hadUnauthorized) {
+              // Will be handled below
             } else {
+              // Only show toast for unexpected errors
               toast.error(
                 "Algunas fuentes de MOD no se pudieron cargar. Revisa la consola para más detalles.",
               );
