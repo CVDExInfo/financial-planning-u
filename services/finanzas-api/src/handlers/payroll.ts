@@ -37,7 +37,7 @@
 // =================================================================
 
 import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ApiGwEvent, ensureCanWrite, ensureSDT } from "../lib/auth";
+import { ensureSDT, ensureCanWrite, ApiGwEvent } from "../lib/auth";
 import { bad, ok } from "../lib/http";
 import {
   safeParsePayrollEntryCreate,

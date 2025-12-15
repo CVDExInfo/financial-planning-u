@@ -86,6 +86,7 @@ describe("SDMT role route visibility", () => {
     "/providers/view/789",
     "/cashflow",
     "/scenarios",
+    "/payroll/actuals",
   ];
   const blocked = [
     "/pmo/prefactura/estimator", // PMO-only route
@@ -152,6 +153,7 @@ describe("PMO role route visibility", () => {
     "/sdmt/cost/forecast",
     "/sdmt/cost/reconciliation",
     "/catalog/rubros", // Finanzas routes blocked for PMO
+    "/payroll/actuals", // Payroll actuals blocked for PMO
   ];
 
   it("restricts PMO users to PMO workspace only", () => {
@@ -174,5 +176,47 @@ describe("PMO role route visibility", () => {
 
   it("defaults PMO users to the estimator route", () => {
     assert.equal(getDefaultRouteForRole(role), "/pmo/prefactura/estimator");
+  });
+});
+
+describe("SDM_FIN role route visibility", () => {
+  const role: UserRole = "SDM_FIN";
+  const allowed = [
+    "/",
+    "/profile",
+    "/sdmt/cost/catalog",
+    "/sdmt/cost/forecast",
+    "/sdmt/cost/reconciliation",
+    "/sdmt/cost/changes",
+    "/catalog/rubros",
+    "/rules",
+    "/projects",
+    "/projects/123",
+    "/adjustments",
+    "/providers",
+    "/cashflow",
+    "/scenarios",
+    "/payroll/actuals",
+  ];
+  const blocked = [
+    "/pmo/prefactura/estimator", // PMO-only route
+  ];
+
+  it("allows SDM_FIN users full access to SDMT and payroll routes", () => {
+    allowed.forEach((route) => {
+      assert.equal(
+        canAccessRoute(normalizeAppPath(route), role),
+        true,
+        `${route} should be allowed for SDM_FIN`,
+      );
+    });
+
+    blocked.forEach((route) => {
+      assert.equal(
+        canAccessRoute(normalizeAppPath(route), role),
+        false,
+        `${route} should be blocked for SDM_FIN`,
+      );
+    });
   });
 });
