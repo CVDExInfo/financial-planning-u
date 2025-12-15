@@ -576,16 +576,10 @@ describe('Payroll Handler Tests', () => {
       expect(response.statusCode).toBe(405);
     });
   });
-});
 
   describe('POST /payroll with validation', () => {
     it('should reject when project does not exist', async () => {
-      // Mock projectExists to return false
-      const mockProjectExists = jest.fn().mockResolvedValue(false);
-      jest.mock('../../src/lib/dynamo', () => ({
-        ...jest.requireActual('../../src/lib/dynamo'),
-        projectExists: mockProjectExists,
-      }));
+      (dynamo.projectExists as jest.MockedFunction<typeof dynamo.projectExists>).mockResolvedValueOnce(false);
 
       const event = createEvent('POST', '/payroll', {
         projectId: 'P-NONEXISTENT',
@@ -603,14 +597,8 @@ describe('Payroll Handler Tests', () => {
     });
 
     it('should reject when rubro does not exist', async () => {
-      // Mock projectExists to return true but getRubroTaxonomy to return null
-      const mockProjectExists = jest.fn().mockResolvedValue(true);
-      const mockGetRubroTaxonomy = jest.fn().mockResolvedValue(null);
-      jest.mock('../../src/lib/dynamo', () => ({
-        ...jest.requireActual('../../src/lib/dynamo'),
-        projectExists: mockProjectExists,
-        getRubroTaxonomy: mockGetRubroTaxonomy,
-      }));
+      (dynamo.projectExists as jest.MockedFunction<typeof dynamo.projectExists>).mockResolvedValueOnce(true);
+      (dynamo.getRubroTaxonomy as jest.MockedFunction<typeof dynamo.getRubroTaxonomy>).mockResolvedValueOnce(null);
 
       const event = createEvent('POST', '/payroll', {
         projectId: testProjectId,
