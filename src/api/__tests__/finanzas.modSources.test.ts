@@ -23,14 +23,33 @@ afterEach(() => {
 });
 
 describe("finanzas MOD source clients", () => {
-  it("validates array responses and includes projectId", async () => {
+  it("validates array responses and accepts wrapped arrays", async () => {
+    // Test that wrapped response {data: []} is now accepted
+    global.fetch = (async () => buildFetchResponse({ data: [{ month: "2025-01" }] })) as any;
+
+    const rows = await finanzas.getPayroll("P-TEST");
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0], { month: "2025-01" });
+  });
+
+  it("validates array responses and accepts bare arrays", async () => {
+    // Test that bare array [] is accepted
+    global.fetch = (async () => buildFetchResponse([{ month: "2025-01" }])) as any;
+
+    const rows = await finanzas.getPayroll("P-TEST");
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0], { month: "2025-01" });
+  });
+
+  it("gracefully handles non-array responses by returning empty array", async () => {
     let capturedUrl = "";
     global.fetch = (async (url: string) => {
       capturedUrl = url;
       return buildFetchResponse({ not: "an array" });
     }) as any;
 
-    await assert.rejects(() => finanzas.getPayroll("P-TEST"), /array response/i);
+    const rows = await finanzas.getPayroll("P-TEST");
+    assert.equal(rows.length, 0);
     assert.ok(capturedUrl.includes("projectId=P-TEST"));
     assert.ok(capturedUrl.includes("project_id=P-TEST"));
   });

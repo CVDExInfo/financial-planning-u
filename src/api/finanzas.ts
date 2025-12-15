@@ -310,21 +310,19 @@ export async function getAdjustments(projectId?: string): Promise<any[]> {
 }
 
 const validateArrayResponse = (value: unknown, label: string): any[] => {
-  // Direct array response
+  // Handle direct array response
   if (Array.isArray(value)) return value;
   
-  // Envelope with data array
-  if (value && typeof value === 'object' && Array.isArray((value as any).data)) {
-    return (value as any).data;
+  // Handle wrapped responses: {data: []}, {items: []}, {Data: []}
+  if (value && typeof value === "object") {
+    const candidate = value as Record<string, unknown>;
+    if (Array.isArray(candidate.data)) return candidate.data;
+    if (Array.isArray(candidate.items)) return candidate.items;
+    if (Array.isArray(candidate.Data)) return candidate.Data;
   }
   
-  // Envelope with items array
-  if (value && typeof value === 'object' && Array.isArray((value as any).items)) {
-    return (value as any).items;
-  }
-  
-  // Return empty array for other shapes to avoid crashes
-  logApiDebug(`${label} returned unexpected shape, using empty array`, { received: typeof value });
+  // Log warning but return empty array instead of throwing
+  console.warn(`[finanzas-api] ${label} returned unexpected shape:`, typeof value);
   return [];
 };
 
