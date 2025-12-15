@@ -139,6 +139,7 @@ export interface PayrollActualInput {
   month: string;
   rubroId: string;
   amount: number;
+  currency?: string;
   allocationId?: string;
   resourceCount?: number;
   source?: string;

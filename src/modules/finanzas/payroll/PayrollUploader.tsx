@@ -4,7 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createPayrollActual, bulkUploadPayrollActuals, type PayrollActualInput } from "@/api/finanzas";
+import useProjects, { type ProjectForUI } from "../projects/useProjects";
+import { useAuth } from "@/hooks/useAuth";
+import { useRubrosTaxonomy } from "@/hooks/useRubrosTaxonomy";
 import { toast } from "sonner";
 
 interface PayrollUploaderProps {
@@ -24,7 +28,7 @@ const TEMPLATE_HEADERS = [
 ];
 
 function buildCsvTemplate(): string {
-  return `${TEMPLATE_HEADERS.join(",")}` + "\n" + "proj_xxxxxx,2025-01,rubro_mod,10000,,,excel,user@example.com,Optional note";
+  return `${TEMPLATE_HEADERS.join(",")}` + "\n" + "proj_xxxxxx,2025-01,MOD-ING,10000,,,excel,user@example.com,Optional note";
 }
 
 function parseCsv(content: string): PayrollActualInput[] {
@@ -64,7 +68,12 @@ function validateRow(row: PayrollActualInput): string[] {
   return errors;
 }
 
+const CURRENCY_OPTIONS = ["USD", "COP", "MXN", "EUR"] as const;
+
 export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
+  const { user } = useAuth();
+  const { projects } = useProjects();
+  const { categories, getRubrosByCategory, getRubroById } = useRubrosTaxonomy();
   const [manual, setManual] = React.useState<PayrollActualInput>({
     projectId: "",
     month: "",
@@ -72,9 +81,25 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
     amount: 0,
     notes: "",
   });
+  const [currency, setCurrency] = React.useState<(typeof CURRENCY_OPTIONS)[number]>("USD");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [preview, setPreview] = React.useState<PayrollActualInput[]>([]);
   const [previewErrors, setPreviewErrors] = React.useState<Record<number, string[]>>({});
+
+  React.useEffect(() => {
+    const selectedProject = projects.find((proj) => proj.id === manual.projectId);
+    if (selectedProject?.currency && CURRENCY_OPTIONS.includes(selectedProject.currency as any)) {
+      setCurrency(selectedProject.currency as (typeof CURRENCY_OPTIONS)[number]);
+    }
+  }, [manual.projectId, projects]);
+
+  const selectedRubro = React.useMemo(() => {
+    return manual.rubroId ? getRubroById(manual.rubroId) || null : null;
+  }, [getRubroById, manual.rubroId]);
+
+  const selectedProject = React.useMemo<ProjectForUI | undefined>(() => {
+    return projects.find((proj) => proj.id === manual.projectId);
+  }, [manual.projectId, projects]);
 
   const handleDownloadTemplate = () => {
     const blob = new Blob([buildCsvTemplate()], { type: "text/csv;charset=utf-8;" });
@@ -86,9 +111,18 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
 
   const handleManualSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!manual.projectId || !manual.rubroId || !manual.month) {
+      toast.error("Completa los campos obligatorios antes de guardar");
+      return;
+    }
     setIsSubmitting(true);
     try {
-      await createPayrollActual({ ...manual, amount: Number(manual.amount) });
+      await createPayrollActual({
+        ...manual,
+        amount: Number(manual.amount),
+        currency,
+        uploadedBy: user?.email || user?.login,
+      });
       toast.success("Nómina registrada correctamente");
       onUploaded?.();
     } catch (err) {
@@ -146,44 +180,111 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
           <form onSubmit={handleManualSubmit} className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="projectId">Proyecto</Label>
-              <Input
-                id="projectId"
+              <Select
                 value={manual.projectId}
-                onChange={(e) => setManual((prev) => ({ ...prev, projectId: e.target.value }))}
-                placeholder="P-XXXXX"
+                onValueChange={(value) => setManual((prev) => ({ ...prev, projectId: value }))}
+                disabled={!projects.length}
                 required
-              />
+              >
+                <SelectTrigger id="projectId">
+                  <SelectValue placeholder="Selecciona un proyecto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      <span className="font-medium">{project.code}</span>
+                      {" · "}
+                      {project.name}
+                      {project.client && <span className="text-muted-foreground"> · {project.client}</span>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="month">Mes (YYYY-MM)</Label>
               <Input
                 id="month"
+                type="month"
                 value={manual.month}
                 onChange={(e) => setManual((prev) => ({ ...prev, month: e.target.value }))}
-                placeholder="2025-01"
                 required
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="rubroId">Rubro</Label>
-              <Input
-                id="rubroId"
+              <Select
                 value={manual.rubroId}
-                onChange={(e) => setManual((prev) => ({ ...prev, rubroId: e.target.value }))}
-                placeholder="rubro_mod"
+                onValueChange={(value) => setManual((prev) => ({ ...prev, rubroId: value }))}
                 required
-              />
+              >
+                <SelectTrigger id="rubroId">
+                  <SelectValue placeholder="Selecciona un rubro" />
+                </SelectTrigger>
+                <SelectContent className="max-h-80">
+                  {categories.map((category) => {
+                    const items = getRubrosByCategory(category.codigo);
+                    return (
+                      <React.Fragment key={category.codigo}>
+                        <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">
+                          {category.nombre}
+                        </div>
+                        {items.map((rubro) => (
+                          <SelectItem key={rubro.linea_codigo} value={rubro.linea_codigo}>
+                            <div className="flex flex-col text-left">
+                              <span className="font-medium">{rubro.linea_codigo}</span>
+                              <span className="text-xs text-muted-foreground">{rubro.linea_gasto}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </React.Fragment>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {selectedRubro ? (
+                <div className="space-y-1 rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
+                  <div className="font-medium text-foreground">{selectedRubro.linea_gasto}</div>
+                  <div className="text-muted-foreground/80">{selectedRubro.descripcion}</div>
+                  <div className="text-[11px] uppercase tracking-wide text-primary">
+                    {selectedRubro.categoria} • {selectedRubro.linea_codigo}
+                  </div>
+                </div>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="amount">Monto (MOD)</Label>
-              <Input
-                id="amount"
-                type="number"
-                value={manual.amount}
-                onChange={(e) => setManual((prev) => ({ ...prev, amount: Number(e.target.value) }))}
-                min={0}
-                required
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="amount"
+                  type="number"
+                  value={manual.amount}
+                  onChange={(e) => setManual((prev) => ({ ...prev, amount: Number(e.target.value) }))}
+                  min={0}
+                  step="0.01"
+                  required
+                />
+                <Select value={currency} onValueChange={(value) => setCurrency(value as (typeof CURRENCY_OPTIONS)[number])}>
+                  <SelectTrigger className="w-28">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCY_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(Number(manual.amount) || 0)}
+              </p>
+              {selectedProject?.currency && selectedProject.currency !== currency ? (
+                <p className="text-[11px] text-amber-600">
+                  Moneda del proyecto: {selectedProject.currency}. Ajusta si tu carga debe usar otra divisa.
+                </p>
+              ) : null}
             </div>
             <div className="md:col-span-2 space-y-2">
               <Label htmlFor="notes">Notas</Label>
