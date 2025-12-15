@@ -32,6 +32,7 @@ export interface ResolveProjectResult {
   isNewProject: boolean;
   baselineId: string;
   wasIdempotent: boolean;
+  cachedResult?: Record<string, unknown>; // Full cached result for idempotent requests
 }
 
 /**
@@ -150,6 +151,7 @@ async function checkIdempotency(
           baselineId: cachedBaselineId,
           isNewProject: false,
           wasIdempotent: true,
+          cachedResult, // Return full cached result for handler to use
         };
       } else {
         // Payload mismatch - caller should return 409 Conflict

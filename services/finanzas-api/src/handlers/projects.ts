@@ -643,13 +643,9 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         }
 
         // If this was an idempotent request, return cached result
-        if (resolutionResult.wasIdempotent) {
-          return ok(resolutionResult.existingProjectMetadata || {
-            handoffId: generateHandoffId(),
-            projectId: resolutionResult.resolvedProjectId,
-            baselineId: resolutionResult.baselineId,
-            status: "HandoffComplete",
-          }, 201);
+        if (resolutionResult.wasIdempotent && resolutionResult.cachedResult) {
+          // Return the exact cached result to maintain idempotency (same handoffId)
+          return ok(resolutionResult.cachedResult, 201);
         }
 
         // Use the resolved project ID

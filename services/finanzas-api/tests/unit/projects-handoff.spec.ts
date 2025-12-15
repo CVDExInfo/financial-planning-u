@@ -69,17 +69,24 @@ describe("projects-handoff", () => {
           result: {
             projectId: "P-cached-123",
             baselineId: "base_abc123",
+            handoffId: "handoff_cached_abc",
+            status: "HandoffComplete",
           },
         },
       });
 
       const result = await resolveProjectForHandoff(baseParams);
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         resolvedProjectId: "P-cached-123",
         baselineId: "base_abc123",
         isNewProject: false,
         wasIdempotent: true,
+      });
+      expect(result?.cachedResult).toMatchObject({
+        projectId: "P-cached-123",
+        baselineId: "base_abc123",
+        handoffId: "handoff_cached_abc",
       });
     });
 
