@@ -37,7 +37,7 @@
 // =================================================================
 
 import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ensureSDT } from "../lib/auth";
+import { ensureSDT, ensureCanWrite, ApiGwEvent } from "../lib/auth";
 import { bad, ok } from "../lib/http";
 import {
   safeParsePayrollEntryCreate,
@@ -649,6 +649,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
   if (rawPath.includes("/payroll/actuals/bulk")) {
     if (method === "POST") {
+      await ensureCanWrite(event as ApiGwEvent);
       return handlePostActualsBulk(event);
     }
     return bad(event as any, `Method ${method} not allowed for /payroll/actuals/bulk`, 405);
@@ -659,6 +660,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return handleGetActuals(event);
     }
     if (method === "POST") {
+      await ensureCanWrite(event as ApiGwEvent);
       return handlePostActual(event);
     }
     return bad(event as any, `Method ${method} not allowed for /payroll/actuals`, 405);
