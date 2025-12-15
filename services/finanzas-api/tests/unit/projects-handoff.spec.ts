@@ -206,7 +206,7 @@ describe("resolveProjectForHandoff", () => {
       expect(result.baselineId).toBe("base_new456");
     });
 
-    it("should create new projectId when existing project metadata lacks baseline", async () => {
+    it("should reuse existing project when it has no baseline (QA project first baseline)", async () => {
       const getKeys: Array<Record<string, unknown>> = [];
 
       mockSend.mockImplementation((command) => {
@@ -219,7 +219,7 @@ describe("resolveProjectForHandoff", () => {
           }
 
           if (key?.pk === "PROJECT#P-existing" && key?.sk === "METADATA") {
-            return Promise.resolve({ Item: { name: "no baseline" } });
+            return Promise.resolve({ Item: { name: "QA Project no baseline" } });
           }
 
           return Promise.resolve({ Item: undefined });
@@ -241,8 +241,9 @@ describe("resolveProjectForHandoff", () => {
       });
 
       expect(getKeys).toContainEqual({ pk: "PROJECT#P-existing", sk: "METADATA" });
-      expect(result.resolvedProjectId).toBe("P-generated-uuid");
-      expect(result.isNewProject).toBe(true);
+      // QA project with no baseline should be assigned the first baseline
+      expect(result.resolvedProjectId).toBe("P-existing");
+      expect(result.isNewProject).toBe(false);
       expect(result.baselineId).toBe("base_new456");
     });
 
@@ -400,6 +401,142 @@ describe("resolveProjectForHandoff", () => {
 
       expect(result.resolvedProjectId).toBe("P-camel");
       expect(result.isNewProject).toBe(false);
+    });
+  });
+
+  describe("QA Project scenario", () => {
+    it("should allow first baseline to be assigned to QA project with no baseline", async () => {
+      const qaProjectMetadata = {
+        pk: "PROJECT#P-QA",
+        sk: "METADATA",
+        name: "QA Project",
+        // No baseline_id or baselineId
+      };
+
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          const key = (command as any).input.Key;
+
+          if (key?.pk === "IDEMPOTENCY#HANDOFF") {
+            return Promise.resolve({ Item: undefined });
+          }
+
+          if (key?.pk === "PROJECT#P-QA" && key?.sk === "METADATA") {
+            return Promise.resolve({ Item: qaProjectMetadata });
+          }
+
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (command instanceof ScanCommand) {
+          return Promise.resolve({ Items: [] });
+        }
+
+        throw new Error("Unexpected command");
+      });
+
+      const result = await resolveProjectForHandoff({
+        ddb: mockDdb,
+        tableName: mockTableName,
+        incomingProjectId: "P-QA",
+        baselineId: "base_first123",
+        idempotencyKey: "key-qa-1",
+      });
+
+      // QA project should be assigned the first baseline
+      expect(result.resolvedProjectId).toBe("P-QA");
+      expect(result.isNewProject).toBe(false);
+      expect(result.existingProjectMetadata).toEqual(qaProjectMetadata);
+      expect(result.baselineId).toBe("base_first123");
+    });
+
+    it("should create new project when QA project already has different baseline", async () => {
+      const qaProjectMetadata = {
+        pk: "PROJECT#P-QA",
+        sk: "METADATA",
+        name: "QA Project",
+        baseline_id: "base_first123",
+      };
+
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          const key = (command as any).input.Key;
+
+          if (key?.pk === "IDEMPOTENCY#HANDOFF") {
+            return Promise.resolve({ Item: undefined });
+          }
+
+          if (key?.pk === "PROJECT#P-QA" && key?.sk === "METADATA") {
+            return Promise.resolve({ Item: qaProjectMetadata });
+          }
+
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (command instanceof ScanCommand) {
+          return Promise.resolve({ Items: [] });
+        }
+
+        throw new Error("Unexpected command");
+      });
+
+      const result = await resolveProjectForHandoff({
+        ddb: mockDdb,
+        tableName: mockTableName,
+        incomingProjectId: "P-QA",
+        baselineId: "base_second456",
+        idempotencyKey: "key-qa-2",
+      });
+
+      // Should create a new project, not reuse P-QA
+      expect(result.resolvedProjectId).not.toBe("P-QA");
+      expect(result.resolvedProjectId).toBe("P-generated-uuid");
+      expect(result.isNewProject).toBe(true);
+      expect(result.baselineId).toBe("base_second456");
+    });
+
+    it("should prevent third baseline from reusing same QA project", async () => {
+      const qaProjectMetadata = {
+        pk: "PROJECT#P-QA",
+        sk: "METADATA",
+        name: "QA Project",
+        baseline_id: "base_first123",
+      };
+
+      mockSend.mockImplementation((command) => {
+        if (command instanceof GetCommand) {
+          const key = (command as any).input.Key;
+
+          if (key?.pk === "IDEMPOTENCY#HANDOFF") {
+            return Promise.resolve({ Item: undefined });
+          }
+
+          if (key?.pk === "PROJECT#P-QA" && key?.sk === "METADATA") {
+            return Promise.resolve({ Item: qaProjectMetadata });
+          }
+
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (command instanceof ScanCommand) {
+          return Promise.resolve({ Items: [] });
+        }
+
+        throw new Error("Unexpected command");
+      });
+
+      const result = await resolveProjectForHandoff({
+        ddb: mockDdb,
+        tableName: mockTableName,
+        incomingProjectId: "P-QA",
+        baselineId: "base_third789",
+        idempotencyKey: "key-qa-3",
+      });
+
+      // Should create a new project
+      expect(result.resolvedProjectId).not.toBe("P-QA");
+      expect(result.resolvedProjectId).toBe("P-generated-uuid");
+      expect(result.isNewProject).toBe(true);
     });
   });
 });
