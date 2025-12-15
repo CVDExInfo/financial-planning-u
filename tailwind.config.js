@@ -1,4 +1,5 @@
 import fs from "fs";
+import plugin from "tailwindcss/plugin";
 
 /** @type {import('tailwindcss').Config} */
 
@@ -150,7 +151,69 @@ const defaultTheme = {
   darkMode: ["selector", '[data-appearance="dark"]'],
 }
 
+const safeScreens = Object.fromEntries(
+  Object.entries({ ...(theme.screens ?? {}), ...defaultTheme.container.screens }).filter(
+    ([, value]) => typeof value === "string",
+  ),
+);
+
+const pointerScreens = {
+  ...defaultTheme.extend?.screens,
+  ...(theme.extend?.screens ?? {}),
+};
+
+const mergedTheme = {
+  ...defaultTheme,
+  ...theme,
+  screens: safeScreens,
+  container: {
+    ...defaultTheme.container,
+    ...(theme.container ?? {}),
+    screens: defaultTheme.container.screens,
+  },
+  extend: {
+    ...defaultTheme.extend,
+    ...(theme.extend ?? {}),
+    screens: {},
+  },
+};
+
+const safeContainerPlugin = plugin(({ addBase, theme }) => {
+  const padding = theme("container.padding");
+  const screens = defaultTheme.container.screens;
+
+  const baseStyles = {
+    ".container": {
+      width: "100%",
+      marginInline: "auto",
+      paddingInline: padding,
+    },
+  };
+
+  const mediaQueries = Object.entries(screens).map(([, size]) => ({
+    [`@media (min-width: ${size})`]: {
+      ".container": {
+        maxWidth: size,
+      },
+    },
+  }));
+
+  addBase([baseStyles, ...mediaQueries]);
+});
+
+const pointerVariantsPlugin = plugin(({ addVariant }) => {
+  Object.entries(pointerScreens).forEach(([name, value]) => {
+    if (value && typeof value === "object" && "raw" in value) {
+      addVariant(name, `@media ${value.raw}`);
+    }
+  });
+});
+
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
-  theme: { ...defaultTheme, ...theme },
+  theme: mergedTheme,
+  corePlugins: {
+    container: false,
+  },
+  plugins: [safeContainerPlugin, pointerVariantsPlugin],
 };
