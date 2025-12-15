@@ -49,6 +49,7 @@ const ROLE_PERMISSIONS = {
     routes: [
       "/",
       "/profile",
+      "/hub",
       "/sdmt/**",
       "/projects",
       "/projects/**",
@@ -98,7 +99,7 @@ const ROLE_PERMISSIONS = {
   },
   EXEC_RO: {
     // Read-only across PMO/SDMT and Finanzas routes
-    routes: ["/", "/profile", "/pmo/**", "/sdmt/**", "/catalog/**", "/rules"],
+    routes: ["/", "/profile", "/hub", "/pmo/**", "/sdmt/**", "/catalog/**", "/rules"],
     actions: ["read"],
     description: "Read-only access to all modules for executive reporting",
   },
