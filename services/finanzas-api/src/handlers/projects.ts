@@ -625,6 +625,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         let resolvedProjectId = projectIdFromPath;
         let resolvedProjectMetadata: Record<string, unknown> | undefined;
         let resolutionStrategy;
+        let baselineSourceProjectId: string | undefined;
 
         const idempotencyCheck = await sendDdb(
           new GetCommand({
@@ -721,6 +722,10 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         );
 
         let baseline = baselineLookup.Item as Record<string, unknown> | undefined;
+        baselineSourceProjectId =
+          (baseline?.project_id as string | undefined) ||
+          (baseline?.projectId as string | undefined) ||
+          baselineSourceProjectId;
 
         if (!baseline) {
           const baselineById = await sendDdb(
@@ -743,15 +748,14 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
               (fallbackBaseline.project_id as string) ||
               (fallbackBaseline.projectId as string);
 
-            if (baselineProjectId) {
-              resolvedProjectId = baselineProjectId;
-            }
+            baselineSourceProjectId = baselineSourceProjectId || baselineProjectId;
           }
         }
 
         console.info("[handoff-projects] baseline resolution", {
           projectIdFromPath,
           resolvedProjectId,
+          baselineSourceProjectId,
           baselineId,
           idempotencyKey,
           strategy: resolutionStrategy,
@@ -776,6 +780,29 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           existingProject.Item = refreshedProject.Item as
             | Record<string, unknown>
             | undefined;
+        }
+
+        const existingBaselineId =
+          (existingProject.Item as Record<string, unknown> | undefined)?.baseline_id ||
+          (existingProject.Item as Record<string, unknown> | undefined)?.baselineId;
+
+        if (
+          existingProject.Item &&
+          existingBaselineId &&
+          baselineId &&
+          existingBaselineId !== baselineId
+        ) {
+          const errorMessage =
+            "baseline collision detected: metadata already exists for a different baseline";
+          console.error("[handoff-projects] baseline collision detected", {
+            projectIdFromPath,
+            resolvedProjectId,
+            existingBaselineId,
+            newBaselineId: baselineId,
+            idempotencyKey,
+          });
+
+          return bad(errorMessage, 409);
         }
 
         const now = new Date().toISOString();
@@ -894,6 +921,10 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           baselineId,
           baseline_status: "accepted",
           baseline_accepted_at: now,
+          baseline_source_project_id:
+            baselineSourceProjectId ||
+            (existingMetadata as Record<string, unknown> | undefined)
+              ?.baseline_source_project_id,
           status: (existingMetadata as Record<string, unknown> | undefined)?.status || "active",
           estado: (existingMetadata as Record<string, unknown> | undefined)?.estado || "active",
           module: (existingMetadata as Record<string, unknown> | undefined)?.module || "SDMT",
