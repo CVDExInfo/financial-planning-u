@@ -8,6 +8,7 @@ import {
   GetCommand,
   QueryCommand,
   UpdateCommand,
+  TransactWriteCommand,
 } from "../lib/dynamo";
 import { v4 as uuidv4 } from "uuid";
 import { safeParseHandoff } from "../validation/handoff";
@@ -366,21 +367,88 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     sdm_manager_email: sdmManagerEmail,
   };
 
-  // Store handoff record
-  await sendDdb(
-    new PutCommand({
-      TableName: tableName("projects"),
-      Item: handoff,
-    })
-  );
+  // Store handoff record and project metadata atomically
+  // Use TransactWriteCommand to ensure both records are written together
+  // This prevents partial writes and ensures data consistency
+  
+  // Add diagnostic logging for the write operation
+  console.info("[handoff] Writing baseline-project link", {
+    level: "INFO",
+    msg: "Writing baseline-project link",
+    projectId: resolvedProjectId,
+    baselineId,
+    pk: `PROJECT#${resolvedProjectId}`,
+    sk: "METADATA",
+  });
 
-  // Store or update project metadata for SDMT
-  await sendDdb(
-    new PutCommand({
-      TableName: tableName("projects"),
-      Item: projectMetadata,
-    })
-  );
+  try {
+    // Use a transaction to write both the handoff and metadata records atomically
+    // This ensures that if one write fails, both fail, maintaining data consistency
+    await sendDdb(
+      new TransactWriteCommand({
+        TransactItems: [
+          // Write handoff record
+          {
+            Put: {
+              TableName: tableName("projects"),
+              Item: handoff,
+            },
+          },
+          // Write or update project metadata
+          // CRITICAL: Use ConditionExpression to prevent overwriting existing baseline_id
+          // This safeguards against data lineage corruption
+          {
+            Put: {
+              TableName: tableName("projects"),
+              Item: projectMetadata,
+              // Only write if:
+              // 1. The record doesn't exist yet (attribute_not_exists), OR
+              // 2. The existing baseline_id matches what we're trying to write
+              // This prevents accidental overwrite of a different baseline
+              ConditionExpression:
+                "attribute_not_exists(pk) OR attribute_not_exists(baseline_id) OR baseline_id = :baselineId",
+              ExpressionAttributeValues: {
+                ":baselineId": baselineId,
+              },
+            },
+          },
+        ],
+      })
+    );
+  } catch (error) {
+    // Handle conditional check failures
+    const errorName = (error as { name?: string })?.name;
+    if (errorName === "TransactionCanceledException") {
+      // Check if it was due to our condition
+      const reasons = (error as { CancellationReasons?: Array<{ Code?: string }> })
+        ?.CancellationReasons;
+      const conditionFailed = reasons?.some((r) => r.Code === "ConditionalCheckFailed");
+
+      if (conditionFailed) {
+        console.error("[handoff] Baseline overwrite prevented", {
+          projectId: resolvedProjectId,
+          attemptedBaselineId: baselineId,
+          existingBaselineId: currentMetadata.Item?.baseline_id,
+        });
+
+        return {
+          statusCode: 409,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            error:
+              "Cannot overwrite existing baseline for this project. A different baseline is already linked.",
+            projectId: resolvedProjectId,
+            existingBaselineId: currentMetadata.Item?.baseline_id,
+            attemptedBaselineId: baselineId,
+          }),
+        };
+      }
+    }
+
+    // Re-throw other errors
+    console.error("[handoff] Failed to write handoff and metadata", error);
+    throw error;
+  }
 
   // Store idempotency record (with 24h TTL)
   const ttl = Math.floor(Date.now() / 1000) + 86400; // 24 hours
