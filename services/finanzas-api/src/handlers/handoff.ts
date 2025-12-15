@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from "uuid";
 import { safeParseHandoff } from "../validation/handoff";
 import { ZodError } from "zod";
 import { bad, fromAuthError, notFound, ok, serverError } from "../lib/http";
+import { resolveProjectForHandoff } from "../lib/projects-handoff";
 
 // Route: GET /projects/{projectId}/handoff
 async function getHandoff(event: APIGatewayProxyEventV2) {
@@ -98,7 +99,66 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   const userEmail = await getUserEmail(event);
   const now = new Date().toISOString();
 
-  // Check if this idempotency key has been used before
+  // Extract baseline_id from payload early - needed for project resolution
+  const baselineId = (body.baseline_id || body.baselineId) as string | undefined;
+  if (!baselineId) {
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "baseline_id is required" }),
+    };
+  }
+
+  // Resolve which project to use for this handoff
+  // This function handles idempotency, baseline collision detection, and project search
+  let resolvedProjectId: string;
+  let existingProjectMetadata: Record<string, unknown> | undefined;
+  let isNewProject: boolean;
+
+  try {
+    const resolution = await resolveProjectForHandoff({
+      ddb,
+      tableName,
+      incomingProjectId: projectId,
+      baselineId,
+      idempotencyKey,
+    });
+
+    resolvedProjectId = resolution.resolvedProjectId;
+    existingProjectMetadata = resolution.existingProjectMetadata;
+    isNewProject = resolution.isNewProject;
+
+    console.info("[handoff] Project resolved", {
+      incomingProjectId: projectId,
+      resolvedProjectId,
+      baselineId,
+      isNewProject,
+    });
+  } catch (error) {
+    // Handle idempotency conflicts or other resolution errors
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    if (errorMessage.includes("Idempotency key")) {
+      return {
+        statusCode: 409,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          error: errorMessage,
+        }),
+      };
+    }
+
+    console.error("[handoff] Project resolution failed", error);
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        error: "Failed to resolve project for handoff",
+      }),
+    };
+  }
+
+  // Check if idempotency key has been used (for returning cached result)
   const idempotencyCheck = await ddb.send(
     new GetCommand({
       TableName: tableName("projects"),
@@ -129,16 +189,6 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(idempotencyCheck.Item.result),
-    };
-  }
-
-  // Extract baseline_id from payload
-  const baselineId = (body.baseline_id || body.baselineId) as string | undefined;
-  if (!baselineId) {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "baseline_id is required" }),
     };
   }
 
@@ -210,13 +260,13 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     baseline?.payload?.sdm_manager_email
   )?.toLowerCase();
 
-  // Create new handoff record
+  // Create new handoff record with resolved project ID
   const handoffId = `handoff_${uuidv4().replace(/-/g, "").substring(0, 10)}`;
   const handoff = {
-    pk: `PROJECT#${projectId}`,
+    pk: `PROJECT#${resolvedProjectId}`,
     sk: `HANDOFF#${handoffId}`,
     handoffId,
-    projectId,
+    projectId: resolvedProjectId,
     baselineId,
     owner: body.owner || userEmail,
     fields: body.fields || body, // Support both structured and flat formats
@@ -227,28 +277,29 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     sdm_manager_name: sdmManagerName,
   };
 
-  // Generate a clean project code from baseline or projectId
+  // Generate a clean project code from baseline or resolvedProjectId
   // For handoff projects, we want a short, human-readable code like "P-8charHash"
   // NOT the long UUID-based projectId like "P-e3f6647d-3b01-492d-8e54-28bcedcf8919"
   const MAX_CLEAN_CODE_LENGTH = 20;
   const CODE_SUFFIX_LENGTH = 8;
-  let projectCode = projectId;
+  let projectCode = resolvedProjectId;
   
-  // If projectId is a long UUID (contains hyphens and is long), generate a shorter code
+  // If resolvedProjectId is a long UUID (contains hyphens and is long), generate a shorter code
   // based on the baseline ID to ensure consistency
-  if (projectId.length > MAX_CLEAN_CODE_LENGTH || /^P-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)) {
+  if (resolvedProjectId.length > MAX_CLEAN_CODE_LENGTH || /^P-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedProjectId)) {
     // Generate a short code from baseline ID
     const baselineIdShort = baselineId.replace(/^base_/, '').substring(0, CODE_SUFFIX_LENGTH);
     projectCode = `P-${baselineIdShort}`;
   }
 
   // Create/update SDMT-ready project in projects table
+  // If we have existing metadata, preserve important fields
   const projectMetadata = {
-    pk: `PROJECT#${projectId}`,
+    pk: `PROJECT#${resolvedProjectId}`,
     sk: "METADATA",
-    id: projectId,
-    project_id: projectId,
-    projectId,
+    id: resolvedProjectId,
+    project_id: resolvedProjectId,
+    projectId: resolvedProjectId,
     name: projectName,
     nombre: projectName,
     client: clientName || "",
@@ -273,9 +324,9 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     duration_months: durationMonths,
     mod_total: totalAmount,
     presupuesto_total: totalAmount,
-    created_at: now,
+    created_at: existingProjectMetadata?.created_at || now,
     updated_at: now,
-    created_by: userEmail,
+    created_by: existingProjectMetadata?.created_by || userEmail,
     handed_off_at: now,
     handed_off_by: userEmail,
     sdm_manager_name: sdmManagerName,
@@ -306,7 +357,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   // handoffId format: handoff_<10-char-uuid>
   const result = {
     handoffId,              // REQUIRED: API contract for POST /projects/{projectId}/handoff
-    projectId,
+    projectId: resolvedProjectId,
     baselineId,
     status: "HandoffComplete",
     baseline_status: baselineStatus,
@@ -346,14 +397,14 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
 
   // Audit log
   const audit = {
-    pk: `ENTITY#PROJECT#${projectId}`,
+    pk: `ENTITY#PROJECT#${resolvedProjectId}`,
     sk: `TS#${now}`,
     action: "HANDOFF_CREATE",
     resource_type: "handoff",
     resource_id: handoffId,
     user: userEmail,
     timestamp: now,
-    before: null,
+    before: existingProjectMetadata || null,
     after: {
       handoff,
       project: projectMetadata,
