@@ -2,11 +2,11 @@
  * Unit tests for DynamoDB validation helpers
  */
 
-import { projectExists, getRubroTaxonomy } from '../../src/lib/dynamo';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
-// Mock DynamoDB send method
+// Mock DynamoDB send method before importing the functions
 jest.mock('../../src/lib/dynamo', () => {
-  const actual = jest.requireActual('../../src/lib/dynamo');
+  const actual = jest.requireActual('../../src/lib/dynamo') as any;
   return {
     ...actual,
     ddb: {
@@ -16,6 +16,8 @@ jest.mock('../../src/lib/dynamo', () => {
   };
 });
 
+import { projectExists, getRubroTaxonomy } from '../../src/lib/dynamo';
+
 describe('DynamoDB Validation Helpers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -23,7 +25,8 @@ describe('DynamoDB Validation Helpers', () => {
 
   describe('projectExists', () => {
     it('should return true when project exists', async () => {
-      const mockSendDdb = require('../../src/lib/dynamo').sendDdb;
+      const dynamo = await import('../../src/lib/dynamo');
+      const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
       mockSendDdb.mockResolvedValueOnce({
         Item: {
           pk: 'PROJECT#P-TEST-001',
@@ -31,7 +34,7 @@ describe('DynamoDB Validation Helpers', () => {
           projectId: 'P-TEST-001',
           name: 'Test Project',
         },
-      });
+      } as any);
 
       const result = await projectExists('P-TEST-001');
       
@@ -49,8 +52,9 @@ describe('DynamoDB Validation Helpers', () => {
     });
 
     it('should return false when project does not exist', async () => {
-      const mockSendDdb = require('../../src/lib/dynamo').sendDdb;
-      mockSendDdb.mockResolvedValueOnce({ Item: undefined });
+      const dynamo = await import('../../src/lib/dynamo');
+      const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
+      mockSendDdb.mockResolvedValueOnce({ Item: undefined } as any);
 
       const result = await projectExists('P-NONEXISTENT');
       
@@ -58,7 +62,8 @@ describe('DynamoDB Validation Helpers', () => {
     });
 
     it('should return false when DynamoDB query fails', async () => {
-      const mockSendDdb = require('../../src/lib/dynamo').sendDdb;
+      const dynamo = await import('../../src/lib/dynamo');
+      const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
       mockSendDdb.mockRejectedValueOnce(new Error('DynamoDB error'));
 
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
@@ -74,7 +79,8 @@ describe('DynamoDB Validation Helpers', () => {
 
   describe('getRubroTaxonomy', () => {
     it('should return taxonomy data when rubro exists', async () => {
-      const mockSendDdb = require('../../src/lib/dynamo').sendDdb;
+      const dynamo = await import('../../src/lib/dynamo');
+      const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
       mockSendDdb.mockResolvedValueOnce({
         Item: {
           pk: 'TAXONOMY',
@@ -84,7 +90,7 @@ describe('DynamoDB Validation Helpers', () => {
           categoria: 'Mano de Obra Directa',
           descripcion: 'Costo mensual de ingenieros asignados al servicio',
         },
-      });
+      } as any);
 
       const result = await getRubroTaxonomy('MOD-ING');
       
@@ -106,8 +112,9 @@ describe('DynamoDB Validation Helpers', () => {
     });
 
     it('should return null when rubro does not exist', async () => {
-      const mockSendDdb = require('../../src/lib/dynamo').sendDdb;
-      mockSendDdb.mockResolvedValueOnce({ Item: undefined });
+      const dynamo = await import('../../src/lib/dynamo');
+      const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
+      mockSendDdb.mockResolvedValueOnce({ Item: undefined } as any);
 
       const result = await getRubroTaxonomy('NONEXISTENT');
       
@@ -115,7 +122,8 @@ describe('DynamoDB Validation Helpers', () => {
     });
 
     it('should return null when DynamoDB query fails', async () => {
-      const mockSendDdb = require('../../src/lib/dynamo').sendDdb;
+      const dynamo = await import('../../src/lib/dynamo');
+      const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
       mockSendDdb.mockRejectedValueOnce(new Error('DynamoDB error'));
 
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
@@ -129,14 +137,15 @@ describe('DynamoDB Validation Helpers', () => {
     });
 
     it('should handle missing optional fields', async () => {
-      const mockSendDdb = require('../../src/lib/dynamo').sendDdb;
+      const dynamo = await import('../../src/lib/dynamo');
+      const mockSendDdb = dynamo.sendDdb as jest.MockedFunction<typeof dynamo.sendDdb>;
       mockSendDdb.mockResolvedValueOnce({
         Item: {
           pk: 'TAXONOMY',
           sk: 'RUBRO#TEST',
           linea_codigo: 'TEST',
         },
-      });
+      } as any);
 
       const result = await getRubroTaxonomy('TEST');
       
