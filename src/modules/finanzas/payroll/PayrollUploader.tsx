@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,11 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createPayrollActual, bulkUploadPayrollActuals, type PayrollActualInput } from "@/api/finanzas";
-import { finanzasClient, type Rubro } from "@/api/finanzasClient";
+import finanzasClient, { type Rubro } from "@/api/finanzasClient";
 import useProjects, { type ProjectForUI } from "../projects/useProjects";
 import { useAuth } from "@/hooks/useAuth";
+import { useRubrosTaxonomy } from "@/hooks/useRubrosTaxonomy";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 
 interface PayrollUploaderProps {
   onUploaded?: () => void;
@@ -74,8 +74,7 @@ const CURRENCY_OPTIONS = ["USD", "COP", "MXN", "EUR"] as const;
 export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
   const { user } = useAuth();
   const { projects } = useProjects();
-  const [rubros, setRubros] = React.useState<Rubro[]>([]);
-  const [isLoadingRubros, setIsLoadingRubros] = React.useState(false);
+  const { categories, getRubrosByCategory } = useRubrosTaxonomy();
   const [manual, setManual] = React.useState<PayrollActualInput>({
     projectId: "",
     month: "",
@@ -88,59 +87,16 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [preview, setPreview] = React.useState<PayrollActualInput[]>([]);
   const [previewErrors, setPreviewErrors] = React.useState<Record<number, string[]>>({});
-  
-  // State for projects and rubros dropdowns
-  const [rubros, setRubros] = React.useState<Array<{
-    rubroId: string;
-    code: string;
-    description: string;
-    category: string;
-  }>>([]);
-  const [loadingProjects, setLoadingProjects] = React.useState(false);
-  const [loadingRubros, setLoadingRubros] = React.useState(false);
-
-  // Selected rubro details for display
-  const selectedRubro = React.useMemo(() => {
-    return rubros.find((r) => r.rubroId === manual.rubroId);
-  }, [rubros, manual.rubroId]);
-
-  // Fetch projects and rubros on mount
-  useEffect(() => {
-    const loadData = async () => {
-      setLoadingProjects(true);
-      setLoadingRubros(true);
-      
-      try {
-        const [projectsData, rubrosData] = await Promise.all([
-          fetchProjects(),
-          fetchRubros(),
-        ]);
-        
-        setProjects(projectsData);
-        setRubros(rubrosData);
-      } catch (error) {
-        console.error("Error loading data:", error);
-        toast.error("Error al cargar proyectos y rubros");
-      } finally {
-        setLoadingProjects(false);
-        setLoadingRubros(false);
-      }
-    };
-
-    loadData();
-  }, []);
+  const [rubros, setRubros] = React.useState<Rubro[]>([]);
 
   React.useEffect(() => {
     const fetchRubros = async () => {
-      setIsLoadingRubros(true);
       try {
         const catalog = await finanzasClient.getRubros();
         setRubros(catalog);
       } catch (error) {
         console.error("No se pudieron cargar los rubros", error);
         toast.error("No pudimos cargar los rubros desde Finanzas");
-      } finally {
-        setIsLoadingRubros(false);
       }
     };
 
@@ -154,21 +110,10 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
     }
   }, [manual.projectId, projects]);
 
-  const groupedRubros = React.useMemo(() => {
-    const map = new Map<string, Rubro[]>();
-    rubros.forEach((rubro) => {
-      const category = rubro.categoria || "Otros";
-      const existing = map.get(category) || [];
-      existing.push(rubro);
-      map.set(category, existing);
-    });
-    return map;
-  }, [rubros]);
-
   const selectedRubro = React.useMemo(() => {
     return (
       rubros.find(
-        (r) => r.linea_codigo === manual.rubroId || r.rubro_id === manual.rubroId,
+        (rubro) => rubro.linea_codigo === manual.rubroId || rubro.rubro_id === manual.rubroId,
       ) || null
     );
   }, [manual.rubroId, rubros]);
@@ -292,34 +237,40 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
               <Select
                 value={manual.rubroId}
                 onValueChange={(value) => setManual((prev) => ({ ...prev, rubroId: value }))}
-                disabled={isLoadingRubros}
                 required
               >
                 <SelectTrigger id="rubroId">
-                  <SelectValue placeholder={isLoadingRubros ? "Cargando rubros…" : "Selecciona un rubro"} />
+                  <SelectValue placeholder="Selecciona un rubro" />
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
-                  {Array.from(groupedRubros.entries()).map(([category, items]) => (
-                    <React.Fragment key={category}>
-                      <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">
-                        {category}
-                      </div>
-                      {items.map((rubro) => (
-                        <SelectItem key={rubro.linea_codigo} value={rubro.linea_codigo || rubro.rubro_id}>
-                          <div className="flex flex-col text-left">
-                            <span className="font-medium">{rubro.linea_codigo}</span>
-                            <span className="text-xs text-muted-foreground">{rubro.nombre}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </React.Fragment>
-                  ))}
+                  {categories.map((category) => {
+                    const items = getRubrosByCategory(category.codigo);
+                    return (
+                      <React.Fragment key={category.codigo}>
+                        <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">
+                          {category.nombre}
+                        </div>
+                        {items.map((rubro) => (
+                          <SelectItem key={rubro.linea_codigo} value={rubro.linea_codigo}>
+                            <div className="flex flex-col text-left">
+                              <span className="font-medium">{rubro.linea_codigo}</span>
+                              <span className="text-xs text-muted-foreground">{rubro.linea_gasto}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               {selectedRubro ? (
-                <p className="text-xs text-muted-foreground">
-                  {selectedRubro.nombre} · {selectedRubro.categoria}
-                </p>
+                <div className="space-y-1 rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
+                  <div className="font-medium text-foreground">{selectedRubro.linea_gasto}</div>
+                  <div className="text-muted-foreground/80">{selectedRubro.descripcion}</div>
+                  <div className="text-[11px] uppercase tracking-wide text-primary">
+                    {selectedRubro.categoria} • {selectedRubro.linea_codigo}
+                  </div>
+                </div>
               ) : null}
             </div>
             <div className="space-y-2">
