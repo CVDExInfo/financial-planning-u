@@ -43,6 +43,20 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
 
+  // Shared function to invalidate all project-dependent queries
+  const invalidateProjectQueries = async () => {
+    if (!currentProject?.id) return;
+    
+    // Run all invalidations concurrently for better performance
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["lineItems", currentProject.id] }),
+      queryClient.invalidateQueries({ queryKey: ["forecast", currentProject.id] }),
+    ]);
+    
+    // Force UI components to re-render with new data
+    invalidateProjectData();
+  };
+
   const acceptMutation = useMutation({
     mutationFn: async () => {
       if (!currentProject?.id || !currentProject?.baselineId) {
@@ -56,18 +70,8 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
       // Refresh project metadata first
       await refreshProject();
       
-      // Invalidate all project-dependent queries to force refresh of catalog, forecast, etc.
-      if (currentProject?.id) {
-        await queryClient.invalidateQueries({ 
-          queryKey: ["lineItems", currentProject.id] 
-        });
-        await queryClient.invalidateQueries({ 
-          queryKey: ["forecast", currentProject.id] 
-        });
-      }
-      
-      // Force UI components to re-render with new data
-      invalidateProjectData();
+      // Invalidate all project-dependent queries
+      await invalidateProjectQueries();
       
       toast.info("Catalog and forecast data will now reflect the accepted baseline");
     },
@@ -98,18 +102,8 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
       // Refresh project metadata
       await refreshProject();
       
-      // Invalidate project-dependent queries
-      if (currentProject?.id) {
-        await queryClient.invalidateQueries({ 
-          queryKey: ["lineItems", currentProject.id] 
-        });
-        await queryClient.invalidateQueries({ 
-          queryKey: ["forecast", currentProject.id] 
-        });
-      }
-      
-      // Force UI refresh
-      invalidateProjectData();
+      // Invalidate all project-dependent queries
+      await invalidateProjectQueries();
     },
     onError: (error) => {
       const message = handleFinanzasApiError(error, {
