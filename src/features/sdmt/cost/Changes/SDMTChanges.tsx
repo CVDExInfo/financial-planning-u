@@ -200,6 +200,34 @@ export function SDMTChanges() {
     [lineItemOptions],
   );
 
+  useEffect(() => {
+    setSelectedLineItemIds([]);
+    setForm({
+      ...defaultForm,
+      currency: currentProject?.currency ?? defaultForm.currency,
+      baseline_id: currentProject?.baseline_id ?? "",
+    });
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    if (!currentProject?.baseline_id) return;
+
+    setForm((prev) => {
+      if (prev.baseline_id.trim()) return prev;
+      return { ...prev, baseline_id: currentProject.baseline_id };
+    });
+  }, [currentProject?.baseline_id]);
+
+  useEffect(() => {
+    if (!currentProject?.currency) return;
+
+    setForm((prev) => {
+      if (prev.currency === currentProject.currency) return prev;
+      if (prev.currency !== defaultForm.currency) return prev;
+      return { ...prev, currency: currentProject.currency };
+    });
+  }, [currentProject?.currency]);
+
   const selectedLineItemLabels = useMemo(
     () => selectedLineItemIds.map((id) => lineItemLabelMap.get(id) || id),
     [lineItemLabelMap, selectedLineItemIds],
@@ -493,6 +521,11 @@ export function SDMTChanges() {
                 {currentProject.name}
               </span>
             )}
+            {selectedProjectId && (
+              <span className="ml-2 text-xs text-muted-foreground">
+                ID: {selectedProjectId}
+              </span>
+            )}
           </p>
         </div>
         <ModuleBadge />
@@ -703,6 +736,11 @@ export function SDMTChanges() {
                     setForm((prev) => ({ ...prev, baseline_id: e.target.value }))
                   }
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {currentProject?.baseline_id
+                    ? `Auto-relleno desde la línea base del proyecto (${currentProject.baseline_id}).`
+                    : "Se vinculará automáticamente cuando el proyecto tenga una línea base."}
+                </p>
               </div>
             </div>
             <div>
@@ -754,6 +792,11 @@ export function SDMTChanges() {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {currentProject?.currency
+                    ? `Moneda predeterminada del proyecto (${currentProject.currency}).`
+                    : "Se usa la moneda definida en el proyecto o USD por defecto."}
+                </p>
                 {formErrors.currency && (
                   <p className="text-sm text-destructive mt-1">{formErrors.currency}</p>
                 )}
@@ -767,6 +810,10 @@ export function SDMTChanges() {
                     setForm((prev) => ({ ...prev, justification: e.target.value }))
                   }
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Describe el fundamento del cambio para que el flujo de aprobación lo vincule
+                  con la línea base y el presupuesto del proyecto.
+                </p>
                 {formErrors.justification && (
                   <p className="text-sm text-destructive mt-1">
                     {formErrors.justification}
@@ -783,6 +830,9 @@ export function SDMTChanges() {
                   </span>
                 )}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Catálogo conectado al proyecto ({selectedProjectId}) y su taxonomía de rubros.
+              </p>
               <Popover open={lineItemSelectorOpen} onOpenChange={setLineItemSelectorOpen}>
                 <PopoverTrigger asChild>
                   <Button
