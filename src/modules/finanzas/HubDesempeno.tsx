@@ -157,20 +157,18 @@ export default function HubDesempeno() {
         "Content-Type": "application/json",
       };
 
+      // Helper to fetch and reject on error
+      const fetchEndpoint = (endpoint: string, url: string) => 
+        fetch(url, { headers }).then(res => 
+          res.ok ? res.json() : Promise.reject({ endpoint, status: res.status })
+        );
+
       // Fetch all data in parallel with allSettled to handle partial failures
       const results = await Promise.allSettled([
-        fetch(`${apiBaseUrl}/finanzas/hub/summary?scope=${scope}`, { headers }).then(res => 
-          res.ok ? res.json() : Promise.reject({ endpoint: 'summary', status: res.status })
-        ),
-        fetch(`${apiBaseUrl}/finanzas/hub/mod-performance?scope=${scope}`, { headers }).then(res => 
-          res.ok ? res.json() : Promise.reject({ endpoint: 'mod-performance', status: res.status })
-        ),
-        fetch(`${apiBaseUrl}/finanzas/hub/rubros-breakdown?scope=${scope}&modOnly=${modOnly}`, { headers }).then(res => 
-          res.ok ? res.json() : Promise.reject({ endpoint: 'rubros-breakdown', status: res.status })
-        ),
-        fetch(`${apiBaseUrl}/finanzas/hub/cashflow?scope=${scope}`, { headers }).then(res => 
-          res.ok ? res.json() : Promise.reject({ endpoint: 'cashflow', status: res.status })
-        ),
+        fetchEndpoint('summary', `${apiBaseUrl}/finanzas/hub/summary?scope=${scope}`),
+        fetchEndpoint('mod-performance', `${apiBaseUrl}/finanzas/hub/mod-performance?scope=${scope}`),
+        fetchEndpoint('rubros-breakdown', `${apiBaseUrl}/finanzas/hub/rubros-breakdown?scope=${scope}&modOnly=${modOnly}`),
+        fetchEndpoint('cashflow', `${apiBaseUrl}/finanzas/hub/cashflow?scope=${scope}`),
       ]);
 
       // Process results and set available data
@@ -208,7 +206,7 @@ export default function HubDesempeno() {
       const failures = results.filter(r => r.status === 'rejected');
       if (failures.length > 0) {
         const failedEndpoints = failures
-          .map(f => f.reason?.endpoint ? f.reason.endpoint : 'unknown')
+          .map(f => f.reason?.endpoint ?? 'unknown')
           .join(', ');
         toast.warning(`Algunos datos no están disponibles: ${failedEndpoints}`, {
           description: "Mostrando datos parciales disponibles"
