@@ -26,21 +26,25 @@ import LineChartComponent from '@/components/charts/LineChart';
 import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
 import ModuleBadge from '@/components/ModuleBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import type { ForecastCell } from '@/types/domain';
+import type { ForecastCell, LineItem } from '@/types/domain';
 import { useAuth } from '@/hooks/useAuth';
-import { useProject } from '@/contexts/ProjectContext';
+import { ALL_PROJECTS_ID, useProject } from '@/contexts/ProjectContext';
 import { handleFinanzasApiError } from '@/features/sdmt/cost/utils/errorHandling';
 import { useNavigate } from 'react-router-dom';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
+import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros } from '@/api/finanzas';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
 
+type ForecastRow = ForecastCell & { projectId?: string; projectName?: string };
+type ProjectLineItem = LineItem & { projectId?: string; projectName?: string };
+
 export function SDMTForecast() {
-  const [forecastData, setForecastData] = useState<ForecastCell[]>([]);
+  const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [forecastError, setForecastError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
@@ -48,8 +52,11 @@ export function SDMTForecast() {
   const [editValue, setEditValue] = useState('');
   const [dataSource, setDataSource] = useState<'api' | 'mock'>('api');
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [portfolioLineItems, setPortfolioLineItems] = useState<ProjectLineItem[]>([]);
+  const [dirtyActuals, setDirtyActuals] = useState<Record<string, ForecastRow>>({});
+  const [savingActuals, setSavingActuals] = useState(false);
   const { user, login } = useAuth();
-  const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount } = useProject();
+  const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
   const navigate = useNavigate();
   const {
     lineItems,
@@ -60,6 +67,8 @@ export function SDMTForecast() {
     () => (Array.isArray(lineItems) ? lineItems : []),
     [lineItems]
   );
+  const isPortfolioView = selectedProjectId === ALL_PROJECTS_ID;
+  const lineItemsForGrid = isPortfolioView ? portfolioLineItems : safeLineItems;
 
   // Load data when project or period changes
   useEffect(() => {
@@ -67,6 +76,7 @@ export function SDMTForecast() {
       console.log('🔄 Forecast: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
       // Reset state before loading new data
       setForecastData([]);
+      setPortfolioLineItems([]);
       loadForecastData();
     }
   }, [selectedProjectId, selectedPeriod, projectChangeCount]);
@@ -90,59 +100,17 @@ export function SDMTForecast() {
     try {
       setLoading(true);
       setForecastError(null);
+      setDirtyActuals({});
       const months = parseInt(selectedPeriod);
       if (import.meta.env.DEV) {
         console.debug('[Forecast] Loading data', { projectId: selectedProjectId, months });
       }
 
-      const payload = await getForecastPayload(selectedProjectId, months);
-      const normalized = normalizeForecastCells(payload.data);
-      setDataSource(payload.source);
-      setGeneratedAt(payload.generatedAt);
-
-      // Get matched invoices and sync with actuals
-      const invoices = await getProjectInvoices(selectedProjectId);
-      const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
-
-      // Update forecast data with actual amounts from matched invoices
-      const updatedData = normalized.map(cell => {
-        const matchedInvoice = matchedInvoices.find(inv =>
-          inv.line_item_id === cell.line_item_id && inv.month === cell.month
-        );
-
-        if (matchedInvoice) {
-          return {
-            ...cell,
-            actual: matchedInvoice.amount || 0,
-            variance: cell.forecast - cell.planned // Keep forecast-based variance
-          };
-        }
-
-        return cell;
-      });
-
-      if (import.meta.env.DEV) {
-        console.debug('[Forecast] data pipeline', {
-          projectId: selectedProjectId,
-          rawCells: Array.isArray(payload.data) ? payload.data.length : 0,
-          normalizedCells: normalized.length,
-          invoices: invoices.length,
-          matchedInvoices: matchedInvoices.length,
-          lineItems: safeLineItems.length,
-          generatedAt: payload.generatedAt,
-        });
+      if (isPortfolioView) {
+        await loadPortfolioForecast(months);
+      } else {
+        await loadSingleProjectForecast(selectedProjectId, months);
       }
-
-      setForecastData(updatedData);
-
-      if (import.meta.env.DEV) {
-        console.debug('[Forecast] Data loaded', {
-          projectId: selectedProjectId,
-          source: payload.source,
-          records: updatedData.length,
-        });
-      }
-
     } catch (error) {
       console.error('❌ Failed to load forecast data for project:', selectedProjectId, error);
       const message = handleFinanzasApiError(error, {
@@ -156,6 +124,123 @@ export function SDMTForecast() {
     }
   };
 
+  const loadSingleProjectForecast = async (projectId: string, months: number) => {
+    const payload = await getForecastPayload(projectId, months);
+    const normalized = normalizeForecastCells(payload.data);
+    setDataSource(payload.source);
+    setGeneratedAt(payload.generatedAt);
+    setPortfolioLineItems([]);
+
+    // Get matched invoices and sync with actuals
+    const invoices = await getProjectInvoices(projectId);
+    const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
+
+    const updatedData: ForecastRow[] = normalized.map(cell => {
+      const matchedInvoice = matchedInvoices.find(inv =>
+        inv.line_item_id === cell.line_item_id && inv.month === cell.month
+      );
+
+      const withActuals = matchedInvoice
+        ? {
+            ...cell,
+            actual: matchedInvoice.amount || 0,
+            variance: cell.forecast - cell.planned // Keep forecast-based variance
+          }
+        : cell;
+
+      return {
+        ...withActuals,
+        projectId,
+        projectName: currentProject?.name,
+      };
+    });
+
+    if (import.meta.env.DEV) {
+      console.debug('[Forecast] data pipeline', {
+        projectId,
+        rawCells: Array.isArray(payload.data) ? payload.data.length : 0,
+        normalizedCells: normalized.length,
+        invoices: invoices.length,
+        matchedInvoices: matchedInvoices.length,
+        lineItems: safeLineItems.length,
+        generatedAt: payload.generatedAt,
+      });
+    }
+
+    setForecastData(updatedData);
+
+    if (import.meta.env.DEV) {
+      console.debug('[Forecast] Data loaded', {
+        projectId,
+        source: payload.source,
+        records: updatedData.length,
+      });
+    }
+  };
+
+  const loadPortfolioForecast = async (months: number) => {
+    const candidateProjects = projects.filter(project => project.id && project.id !== ALL_PROJECTS_ID);
+
+    if (candidateProjects.length === 0) {
+      setForecastError('No hay proyectos disponibles para consolidar.');
+      setForecastData([]);
+      return;
+    }
+
+    const portfolioResults = await Promise.all(
+      candidateProjects.map(async project => {
+        const [payload, invoices, projectLineItems] = await Promise.all([
+          getForecastPayload(project.id, months),
+          getProjectInvoices(project.id),
+          getProjectRubros(project.id).catch(() => [] as LineItem[]),
+        ]);
+
+        const normalized = normalizeForecastCells(payload.data);
+        const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
+
+        const projectData: ForecastRow[] = normalized.map(cell => {
+          const matchedInvoice = matchedInvoices.find(inv =>
+            inv.line_item_id === cell.line_item_id && inv.month === cell.month
+          );
+
+          const withActuals = matchedInvoice
+            ? { ...cell, actual: matchedInvoice.amount || 0, variance: cell.forecast - cell.planned }
+            : cell;
+
+          return {
+            ...withActuals,
+            projectId: project.id,
+            projectName: project.name,
+          };
+        });
+
+        return {
+          project,
+          data: projectData,
+          lineItems: projectLineItems.map(item => ({ ...item, projectId: project.id, projectName: project.name })),
+          generatedAt: payload.generatedAt,
+        };
+      })
+    );
+
+    const aggregatedData = portfolioResults.flatMap(result => result.data);
+    const aggregatedLineItems = portfolioResults.flatMap(result => result.lineItems);
+    const firstGeneratedAt = portfolioResults.find(result => result.generatedAt)?.generatedAt;
+
+    setDataSource('api');
+    setGeneratedAt(firstGeneratedAt || new Date().toISOString());
+    setPortfolioLineItems(aggregatedLineItems);
+    setForecastData(aggregatedData);
+
+    if (import.meta.env.DEV) {
+      console.debug('[Forecast] Portfolio data loaded', {
+        projects: candidateProjects.length,
+        records: aggregatedData.length,
+        lineItems: aggregatedLineItems.length,
+      });
+    }
+  };
+
   const handleCellEdit = (line_item_id: string, month: number, type: 'forecast' | 'actual') => {
     const cell = forecastData.find(c => c.line_item_id === line_item_id && c.month === month);
     setEditingCell({ line_item_id, month, type });
@@ -165,25 +250,88 @@ export function SDMTForecast() {
 
   const handleCellSave = () => {
     if (editingCell) {
+      let pendingChange: ForecastRow | null = null;
       const updatedData = forecastData.map(cell => {
         if (cell.line_item_id === editingCell.line_item_id && cell.month === editingCell.month) {
           const newValue = parseFloat(editValue) || 0;
-          const updates = editingCell.type === 'forecast' 
+          const updates = editingCell.type === 'forecast'
             ? { forecast: newValue, variance: newValue - cell.planned }
             : { actual: newValue };
-          
-          return {
+
+          const nextCell: ForecastRow = {
             ...cell,
             ...updates,
             last_updated: new Date().toISOString(),
             updated_by: user?.login || 'current-user'
           };
+          if (editingCell.type === 'actual') {
+            pendingChange = nextCell;
+          }
+          return nextCell;
         }
         return cell;
       });
       setForecastData(updatedData);
+      if (pendingChange) {
+        const changeKey = `${pendingChange.projectId || selectedProjectId}-${pendingChange.line_item_id}-${pendingChange.month}`;
+        setDirtyActuals(prev => ({ ...prev, [changeKey]: pendingChange as ForecastRow }));
+      }
       setEditingCell(null);
       toast.success(`${editingCell.type === 'forecast' ? 'Pronóstico' : 'Real'} actualizado correctamente`);
+    }
+  };
+
+  const handlePersistActuals = async () => {
+    const entries = Object.values(dirtyActuals);
+    if (entries.length === 0) {
+      toast.info('No hay cambios de valores reales para guardar');
+      return;
+    }
+
+    setSavingActuals(true);
+    try {
+      const currentYear = new Date().getFullYear();
+      const payload: PayrollActualInput[] = entries
+        .map(cell => {
+          const projectId = cell.projectId || selectedProjectId;
+          const matchedLineItem = lineItemsForGrid.find(item =>
+            item.id === cell.line_item_id && (!item.projectId || item.projectId === projectId)
+          );
+          const monthKey = `${currentYear}-${String(cell.month).padStart(2, '0')}`;
+
+          if (!projectId) return null;
+
+          return {
+            projectId,
+            month: monthKey,
+            rubroId: cell.line_item_id,
+            amount: Number(cell.actual) || 0,
+            currency: matchedLineItem?.currency || 'USD',
+            resourceCount: matchedLineItem?.qty ? Number(matchedLineItem.qty) : undefined,
+            notes: cell.notes,
+            uploadedBy: user?.email || user?.login,
+            source: 'sdmt-forecast',
+          } satisfies PayrollActualInput;
+        })
+        .filter((row): row is PayrollActualInput => Boolean(row));
+
+      if (payload.length === 0) {
+        toast.error('No pudimos construir los datos para guardar en nómina.');
+        return;
+      }
+
+      await bulkUploadPayrollActuals(payload);
+      toast.success('Valores reales enviados a Nómina (DynamoDB)');
+      setDirtyActuals({});
+    } catch (error) {
+      console.error('❌ Error al guardar valores reales', error);
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: 'No pudimos guardar los valores reales.',
+      });
+      setForecastError(prev => prev || message);
+    } finally {
+      setSavingActuals(false);
     }
   };
 
@@ -201,10 +349,12 @@ export function SDMTForecast() {
 
   // Group forecast data by line item and month for display
   const forecastGrid = useMemo(() => {
-    const grid = safeLineItems.map(lineItem => {
-      const itemForecasts = forecastData.filter(f => f.line_item_id === lineItem.id);
+    const grid = lineItemsForGrid.map(lineItem => {
+      const itemForecasts = forecastData.filter(f =>
+        f.line_item_id === lineItem.id && (!lineItem.projectId || f.projectId === lineItem.projectId)
+      );
       const months = Array.from({ length: 12 }, (_, i) => i + 1);
-      
+
       const monthlyData = months.map(month => {
         const cell = itemForecasts.find(f => f.month === month);
         return cell || {
@@ -215,7 +365,9 @@ export function SDMTForecast() {
           actual: 0,
           variance: 0,
           last_updated: '',
-          updated_by: ''
+          updated_by: '',
+          projectId: lineItem.projectId,
+          projectName: lineItem.projectName,
         };
       });
 
@@ -236,7 +388,11 @@ export function SDMTForecast() {
     }
 
     return grid;
-  }, [safeLineItems, forecastData, selectedProjectId]);
+  }, [lineItemsForGrid, forecastData, selectedProjectId]);
+
+  const totalFTE = useMemo(() => {
+    return lineItemsForGrid.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+  }, [lineItemsForGrid]);
 
   // Calculate totals and metrics - using useMemo to ensure it updates when data changes
   const metrics = useMemo(() => {
@@ -287,6 +443,7 @@ export function SDMTForecast() {
     actualVariance,
     actualVariancePercentage
   } = metrics;
+  const dirtyActualCount = useMemo(() => Object.keys(dirtyActuals).length, [dirtyActuals]);
 
   const isLoadingState = loading || isLineItemsLoading;
   const hasGridData = forecastGrid.length > 0;
@@ -349,7 +506,7 @@ export function SDMTForecast() {
     try {
       setExporting('excel');
       const exporter = excelExporter;
-      const buffer = await exporter.exportForecastGrid(forecastData, safeLineItems);
+      const buffer = await exporter.exportForecastGrid(forecastData, lineItemsForGrid);
       const filename = `forecast-data-${new Date().toISOString().split('T')[0]}.xlsx`;
       downloadExcelFile(buffer, filename);
       toast.success('Reporte Excel exportado exitosamente');
@@ -440,7 +597,7 @@ export function SDMTForecast() {
           <div className="mt-2 text-xs text-muted-foreground space-x-4">
             <span>Project: {selectedProjectId}</span>
             <span>Data points: {forecastData.length}</span>
-            <span>Line items: {safeLineItems.length}</span>
+            <span>Line items: {lineItemsForGrid.length}</span>
             <span>Grid rows: {forecastGrid.length}</span>
             <Badge variant={dataSource === 'mock' ? 'outline' : 'secondary'}>
               {dataSource === 'mock' ? 'Datos de prueba' : 'Datos de API'}
@@ -457,7 +614,7 @@ export function SDMTForecast() {
       <BaselineStatusPanel />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{formatCurrency(totalPlanned)}</div>
@@ -477,6 +634,13 @@ export function SDMTForecast() {
             <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalActual)}</div>
             <p className="text-sm text-muted-foreground">Total Real</p>
             <p className="text-xs text-muted-foreground">Seguimiento SDMT</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold">{totalFTE.toLocaleString()}</div>
+            <p className="text-sm text-muted-foreground">Total FTE</p>
+            <p className="text-xs text-muted-foreground">Basado en rubros de baseline</p>
           </CardContent>
         </Card>
         <Card>
@@ -509,6 +673,17 @@ export function SDMTForecast() {
       <Card>
         <CardContent className="flex items-center justify-between p-4">
           <div className="flex items-center gap-4">
+            <Button
+              onClick={handlePersistActuals}
+              disabled={savingActuals || dirtyActualCount === 0}
+              className="gap-2"
+            >
+              {savingActuals ? <LoadingSpinner size="sm" /> : null}
+              Guardar
+              <Badge variant="secondary" className="ml-2">
+                {dirtyActualCount} pendientes
+              </Badge>
+            </Button>
             <Dialog>
               <DialogTrigger asChild>
                 <Button className="gap-2">
@@ -646,8 +821,15 @@ export function SDMTForecast() {
                   {forecastGrid.map(({ lineItem, monthlyData }) => (
                     <TableRow key={lineItem.id}>
                       <TableCell className="sticky left-0 bg-background">
-                        <div>
-                          <div className="font-medium">{lineItem.description}</div>
+                        <div className="space-y-1">
+                          <div className="font-medium flex items-center gap-2">
+                            {lineItem.description}
+                            {lineItem.projectName && (
+                              <Badge variant="outline" className="text-[10px]">
+                                {lineItem.projectName}
+                              </Badge>
+                            )}
+                          </div>
                           <div className="text-sm text-muted-foreground">{lineItem.category}</div>
                         </div>
                       </TableCell>
