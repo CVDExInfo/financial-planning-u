@@ -786,6 +786,10 @@ Resources:
             TableName: !Ref RubrosTable
         - DynamoDBCrudPolicy:
             TableName: !Ref AuditTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AllocationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref RubrosTaxonomiaTable
       Events:
         AttachRubro:
           Type: HttpApi
