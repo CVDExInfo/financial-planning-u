@@ -32,7 +32,13 @@ function requireApiBase(): string {
 }
 
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+  const res = await fetch(url, {
+    // Default to CORS-friendly settings so CloudFront/API Gateway consistently allow requests
+    mode: "cors",
+    credentials: "include",
+    cache: "no-store",
+    ...init,
+  });
   const text = await res.text().catch(() => "");
 
   if (!res.ok) {
