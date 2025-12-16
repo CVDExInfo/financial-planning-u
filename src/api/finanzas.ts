@@ -32,23 +32,13 @@ function requireApiBase(): string {
 }
 
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(url, init);
-  } catch (err) {
-    // Network layer errors (often surfaced as TypeError in browsers) usually
-    // indicate CORS/preflight failures or connectivity issues. Provide a
-    // clearer error to the UI so we can surface an actionable message.
-    if (err instanceof TypeError && /Failed to fetch/i.test(err.message)) {
-      throw new FinanzasApiError(
-        `No se pudo contactar ${url}. Posible bloqueo CORS o problema de red.`,
-        0,
-      );
-    }
-
-    throw toFinanzasError(err, `Network error calling ${url}`);
-  }
-
+  const res = await fetch(url, {
+    // Default to CORS-friendly settings so CloudFront/API Gateway consistently allow requests
+    mode: "cors",
+    credentials: "include",
+    cache: "no-store",
+    ...init,
+  });
   const text = await res.text().catch(() => "");
 
   if (!res.ok) {
