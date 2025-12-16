@@ -15,6 +15,299 @@ import { safeParseHandoff } from "../validation/handoff";
 import { ZodError } from "zod";
 import { bad, fromAuthError, notFound, ok, serverError } from "../lib/http";
 import { resolveProjectForHandoff } from "../lib/projects-handoff";
+import { logError } from "../utils/logging";
+
+type BaselineDealInputs = {
+  project_name?: string;
+  client_name?: string;
+  contract_value?: number;
+  duration_months?: number;
+  start_date?: string;
+  end_date?: string;
+  currency?: string;
+  sdm_manager_name?: string;
+};
+
+// Default rubro codes for fallback scenarios
+const DEFAULT_LABOR_RUBRO = "MOD-ING";
+const DEFAULT_NON_LABOR_RUBRO = "GSV-OTHER";
+
+type BaselineLaborEstimate = {
+  rubroId?: string; // Canonical rubro ID from taxonomy (e.g., "MOD-ING", "MOD-LEAD")
+  role?: string;
+  level?: string;
+  hours_per_month?: number;
+  fte_count?: number;
+  hourly_rate?: number;
+  rate?: number;
+  on_cost_percentage?: number;
+  start_month?: number;
+  end_month?: number;
+};
+
+type BaselineNonLaborEstimate = {
+  rubroId?: string; // Canonical rubro ID from taxonomy (e.g., "GSV-REU", "SOI-AWS")
+  category?: string;
+  description?: string;
+  amount?: number;
+  vendor?: string;
+  one_time?: boolean;
+  start_month?: number;
+  end_month?: number;
+};
+
+type BaselinePayload = {
+  project_id?: string;
+  project_name?: string;
+  client_name?: string;
+  currency?: string;
+  start_date?: string;
+  end_date?: string;
+  duration_months?: number;
+  contract_value?: number;
+  sdm_manager_name?: string;
+  labor_estimates?: BaselineLaborEstimate[];
+  non_labor_estimates?: BaselineNonLaborEstimate[];
+  deal_inputs?: BaselineDealInputs;
+};
+
+type SeededLineItem = {
+  rubroId: string;
+  nombre: string;
+  descripcion?: string;
+  category?: string;
+  qty: number;
+  unit_cost: number;
+  currency: string;
+  recurring: boolean;
+  one_time: boolean;
+  start_month: number;
+  end_month: number;
+  total_cost: number;
+  metadata?: Record<string, unknown>;
+};
+
+type RubroSeedDeps = {
+  send: typeof sendDdb;
+  tableName: typeof tableName;
+};
+
+const normalizeBaseline = (
+  baseline: Record<string, unknown> | undefined
+): BaselinePayload => {
+  const payload = (baseline?.payload as BaselinePayload | undefined) || {};
+  const dealInputs = (payload?.deal_inputs as BaselineDealInputs | undefined) || {};
+
+  const labor_estimates =
+    (baseline?.labor_estimates as BaselineLaborEstimate[] | undefined) ||
+    payload.labor_estimates ||
+    [];
+  const non_labor_estimates =
+    (baseline?.non_labor_estimates as BaselineNonLaborEstimate[] | undefined) ||
+    payload.non_labor_estimates ||
+    [];
+
+  return {
+    project_id:
+      (baseline?.project_id as string | undefined) ||
+      (payload?.project_id as string | undefined),
+    project_name:
+      (baseline?.project_name as string | undefined) ||
+      (payload?.project_name as string | undefined) ||
+      dealInputs.project_name,
+    client_name:
+      (baseline?.client_name as string | undefined) ||
+      (payload?.client_name as string | undefined) ||
+      dealInputs.client_name,
+    currency:
+      (baseline?.currency as string | undefined) ||
+      (payload?.currency as string | undefined) ||
+      dealInputs.currency,
+    sdm_manager_name:
+      (baseline as { sdm_manager_name?: string } | undefined)?.sdm_manager_name ||
+      (payload as { sdm_manager_name?: string } | undefined)?.sdm_manager_name ||
+      (dealInputs as { sdm_manager_name?: string }).sdm_manager_name,
+    start_date:
+      (baseline?.start_date as string | undefined) ||
+      (payload?.start_date as string | undefined) ||
+      dealInputs.start_date,
+    end_date:
+      (baseline as { end_date?: string } | undefined)?.end_date ||
+      (payload as { end_date?: string } | undefined)?.end_date ||
+      dealInputs.end_date,
+    duration_months:
+      (baseline?.duration_months as number | undefined) ||
+      (payload?.duration_months as number | undefined) ||
+      dealInputs.duration_months,
+    contract_value:
+      (baseline?.contract_value as number | undefined) ||
+      (payload?.contract_value as number | undefined) ||
+      dealInputs.contract_value,
+    labor_estimates,
+    non_labor_estimates,
+    deal_inputs: dealInputs,
+  };
+};
+
+const buildSeedLineItems = (
+  baseline: BaselinePayload,
+  projectId: string,
+  baselineId?: string
+): SeededLineItem[] => {
+  const items: SeededLineItem[] = [];
+  const currency = baseline.currency || "USD";
+
+  (baseline.labor_estimates || []).forEach((estimate, index) => {
+    const hoursPerMonth = Number(estimate.hours_per_month || 0);
+    const fteCount = Number(estimate.fte_count || 0);
+    const hourlyRate = Number(estimate.hourly_rate || estimate.rate || 0);
+    const onCostPct = Number(estimate.on_cost_percentage || 0);
+    const baseCost = hoursPerMonth * fteCount * hourlyRate;
+    const onCost = baseCost * (onCostPct / 100);
+    const monthlyCost = baseCost + onCost;
+    const startMonth = Math.max(Number(estimate.start_month || 1), 1);
+    const endMonth = Math.max(Number(estimate.end_month || startMonth), startMonth);
+    const months = endMonth - startMonth + 1;
+    const totalCost = monthlyCost * months;
+
+    const canonicalRubroId = estimate.rubroId || DEFAULT_LABOR_RUBRO;
+    const rubroSK = baselineId
+      ? `${canonicalRubroId}#${baselineId}#${index + 1}`
+      : `${canonicalRubroId}#baseline#${index + 1}`;
+
+    items.push({
+      rubroId: rubroSK,
+      nombre: estimate.role || canonicalRubroId,
+      descripcion: estimate.level ? `${estimate.role ?? "Role"} (${estimate.level})` : estimate.role,
+      category: "Labor",
+      qty: 1,
+      unit_cost: monthlyCost,
+      currency,
+      recurring: true,
+      one_time: false,
+      start_month: startMonth,
+      end_month: endMonth,
+      total_cost: totalCost,
+      metadata: {
+        source: "baseline",
+        baseline_id: baselineId,
+        project_id: projectId,
+        role: estimate.role,
+        linea_codigo: canonicalRubroId,
+      },
+    });
+  });
+
+  (baseline.non_labor_estimates || []).forEach((estimate, index) => {
+    const amount = Number(estimate.amount || 0);
+    const recurring = !estimate.one_time;
+    const startMonth = Math.max(Number(estimate.start_month || 1), 1);
+    const endMonth = recurring
+      ? Math.max(Number(estimate.end_month || startMonth), startMonth)
+      : startMonth;
+    const months = recurring ? endMonth - startMonth + 1 : 1;
+    const totalCost = recurring ? amount * months : amount;
+
+    const canonicalRubroId = estimate.rubroId || DEFAULT_NON_LABOR_RUBRO;
+    const rubroSK = baselineId
+      ? `${canonicalRubroId}#${baselineId}#${index + 1}`
+      : `${canonicalRubroId}#baseline#${index + 1}`;
+
+    items.push({
+      rubroId: rubroSK,
+      nombre: estimate.description || estimate.category || canonicalRubroId,
+      descripcion: estimate.description,
+      category: estimate.category || "Non-labor",
+      qty: 1,
+      unit_cost: amount,
+      currency,
+      recurring,
+      one_time: !recurring,
+      start_month: startMonth,
+      end_month: endMonth,
+      total_cost: totalCost,
+      metadata: {
+        source: "baseline",
+        baseline_id: baselineId,
+        project_id: projectId,
+        vendor: estimate.vendor,
+        linea_codigo: canonicalRubroId,
+      },
+    });
+  });
+
+  return items;
+};
+
+const seedLineItemsFromBaseline = async (
+  projectId: string,
+  baseline: BaselinePayload,
+  baselineId?: string,
+  deps: RubroSeedDeps = { send: sendDdb, tableName }
+) => {
+  try {
+    if (baselineId) {
+      const existing = await deps.send(
+        new QueryCommand({
+          TableName: deps.tableName("rubros"),
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+          ExpressionAttributeValues: {
+            ":pk": `PROJECT#${projectId}`,
+            ":sk": `RUBRO#${baselineId}`,
+          },
+          Limit: 1,
+        })
+      );
+
+      if ((existing.Items?.length || 0) > 0) {
+        console.info("[seedLineItems] Baseline already seeded, skipping", {
+          projectId,
+          baselineId,
+        });
+        return { seeded: 0, skipped: true };
+      }
+    }
+
+    const seedItems = buildSeedLineItems(baseline, projectId, baselineId);
+
+    if (!seedItems.length) {
+      return { seeded: 0, skipped: true };
+    }
+
+    for (const item of seedItems) {
+      await deps.send(
+        new PutCommand({
+          TableName: deps.tableName("rubros"),
+          Item: {
+            pk: `PROJECT#${projectId}`,
+            sk: `RUBRO#${item.rubroId}`,
+            projectId,
+            rubroId: item.rubroId,
+            nombre: item.nombre,
+            descripcion: item.descripcion,
+            category: item.category,
+            qty: item.qty,
+            unit_cost: item.unit_cost,
+            currency: item.currency,
+            recurring: item.recurring,
+            one_time: item.one_time,
+            start_month: item.start_month,
+            end_month: item.end_month,
+            total_cost: item.total_cost,
+            metadata: item.metadata,
+            createdAt: new Date().toISOString(),
+            createdBy: "prefactura-handoff",
+          },
+        })
+      );
+    }
+
+    return { seeded: seedItems.length, skipped: false };
+  } catch (error) {
+    logError("Failed to seed baseline line items", { projectId, baselineId, error });
+    return { seeded: 0, skipped: true, error };
+  }
+};
 
 // Route: GET /projects/{projectId}/handoff
 async function getHandoff(event: APIGatewayProxyEventV2) {
@@ -450,6 +743,20 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     throw error;
   }
 
+  const normalizedBaseline = normalizeBaseline(baseline);
+  const seedResult = await seedLineItemsFromBaseline(
+    resolvedProjectId,
+    normalizedBaseline,
+    baselineId
+  );
+
+  console.info("[handoff] Seeded baseline rubros", {
+    projectId: resolvedProjectId,
+    baselineId,
+    seeded: seedResult.seeded,
+    skipped: seedResult.skipped,
+  });
+
   // Store idempotency record (with 24h TTL)
   const ttl = Math.floor(Date.now() / 1000) + 86400; // 24 hours
   
@@ -479,6 +786,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     currency,
     modTotal: totalAmount,
     sdm_manager_name: sdmManagerName,
+    seededRubros: seedResult.seeded,
   };
 
   const idempotencyRecord = {
@@ -715,3 +1023,5 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     };
   }
 };
+
+export { normalizeBaseline, buildSeedLineItems, seedLineItemsFromBaseline };
