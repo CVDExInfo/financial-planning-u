@@ -157,29 +157,64 @@ export default function HubDesempeno() {
         "Content-Type": "application/json",
       };
 
-      // Fetch all data in parallel
-      const [summaryRes, modPerfRes, rubrosRes, cashflowRes] = await Promise.all([
-        fetch(`${apiBaseUrl}/finanzas/hub/summary?scope=${scope}`, { headers }),
-        fetch(`${apiBaseUrl}/finanzas/hub/mod-performance?scope=${scope}`, { headers }),
-        fetch(`${apiBaseUrl}/finanzas/hub/rubros-breakdown?scope=${scope}&modOnly=${modOnly}`, { headers }),
-        fetch(`${apiBaseUrl}/finanzas/hub/cashflow?scope=${scope}`, { headers }),
+      // Fetch all data in parallel with allSettled to handle partial failures
+      const results = await Promise.allSettled([
+        fetch(`${apiBaseUrl}/finanzas/hub/summary?scope=${scope}`, { headers }).then(res => 
+          res.ok ? res.json() : Promise.reject({ endpoint: 'summary', status: res.status })
+        ),
+        fetch(`${apiBaseUrl}/finanzas/hub/mod-performance?scope=${scope}`, { headers }).then(res => 
+          res.ok ? res.json() : Promise.reject({ endpoint: 'mod-performance', status: res.status })
+        ),
+        fetch(`${apiBaseUrl}/finanzas/hub/rubros-breakdown?scope=${scope}&modOnly=${modOnly}`, { headers }).then(res => 
+          res.ok ? res.json() : Promise.reject({ endpoint: 'rubros-breakdown', status: res.status })
+        ),
+        fetch(`${apiBaseUrl}/finanzas/hub/cashflow?scope=${scope}`, { headers }).then(res => 
+          res.ok ? res.json() : Promise.reject({ endpoint: 'cashflow', status: res.status })
+        ),
       ]);
 
-      if (!summaryRes.ok || !modPerfRes.ok || !rubrosRes.ok || !cashflowRes.ok) {
-        throw new Error("Failed to fetch hub data");
+      // Process results and set available data
+      const [summaryResult, modPerfResult, rubrosResult, cashflowResult] = results;
+
+      if (summaryResult.status === 'fulfilled') {
+        setSummary(summaryResult.value);
+      } else {
+        console.error('Failed to fetch summary:', summaryResult.reason);
+        setSummary(null);
       }
 
-      const [summaryData, modPerfData, rubrosData, cashflowData] = await Promise.all([
-        summaryRes.json(),
-        modPerfRes.json(),
-        rubrosRes.json(),
-        cashflowRes.json(),
-      ]);
+      if (modPerfResult.status === 'fulfilled') {
+        setModPerformance(modPerfResult.value);
+      } else {
+        console.error('Failed to fetch mod-performance:', modPerfResult.reason);
+        setModPerformance(null);
+      }
 
-      setSummary(summaryData);
-      setModPerformance(modPerfData);
-      setRubrosBreakdown(rubrosData);
-      setCashflow(cashflowData);
+      if (rubrosResult.status === 'fulfilled') {
+        setRubrosBreakdown(rubrosResult.value);
+      } else {
+        console.error('Failed to fetch rubros-breakdown:', rubrosResult.reason);
+        setRubrosBreakdown(null);
+      }
+
+      if (cashflowResult.status === 'fulfilled') {
+        setCashflow(cashflowResult.value);
+      } else {
+        console.error('Failed to fetch cashflow:', cashflowResult.reason);
+        setCashflow(null);
+      }
+
+      // Report failures to user if any
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        const failedEndpoints = failures
+          .map(f => f.status === 'rejected' && f.reason?.endpoint ? f.reason.endpoint : 'unknown')
+          .join(', ');
+        toast.warning(`Algunos datos no están disponibles: ${failedEndpoints}`, {
+          description: "Mostrando datos parciales disponibles"
+        });
+      }
+
       setLastUpdate(new Date());
     } catch (error) {
       console.error("Error fetching hub data:", error);

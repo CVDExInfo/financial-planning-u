@@ -329,7 +329,9 @@ Resources:
           - PATCH
           - DELETE
           - OPTIONS
-        AllowCredentials: true
+        # Credentials disabled to satisfy ApiGatewayV2 CORS rules when using wildcard origins.
+        # Authentication uses Bearer tokens in Authorization header, so credentials are not needed.
+        AllowCredentials: false
         MaxAge: 86400
       AccessLogSettings:
         DestinationArn: !GetAtt ApiAccessLogs.Arn
