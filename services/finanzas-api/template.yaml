@@ -661,6 +661,12 @@ Resources:
             TableName: !Ref ProjectsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref AuditTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PrefacturasTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RubrosTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AllocationsTable
       Events:
         AcceptBaseline:
           Type: HttpApi
@@ -988,6 +994,14 @@ Resources:
           Properties:
             Path: /payroll/dashboard
             Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+        BulkUploadPayrollActuals:
+          Type: HttpApi
+          Properties:
+            Path: /payroll/actuals/bulk
+            Method: POST
             ApiId: !Ref Api
             Auth:
               Authorizer: CognitoJwt

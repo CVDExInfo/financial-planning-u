@@ -24,6 +24,12 @@ jest.mock('../../src/lib/dynamo', () => {
     putPayrollEntry: jest.fn(),
     queryPayrollByProject: jest.fn(),
     queryPayrollByPeriod: jest.fn(),
+    projectExists: jest.fn().mockResolvedValue(true),
+    getRubroTaxonomy: jest.fn().mockResolvedValue({
+      code: 'MOD-DEV-SR',
+      description: 'Developer Senior',
+      category: 'MOD',
+    }),
   };
 });
 
@@ -200,6 +206,22 @@ describe('Payroll Handler Tests', () => {
 
       expect(response.statusCode).toBe(400);
       expect(body.error).toContain('Validation failed');
+    });
+  });
+
+  describe('POST /payroll/actuals/bulk', () => {
+    it('should exist and accept bulk payroll actuals', async () => {
+      // We're testing that the endpoint exists and handles requests properly
+      // The detailed validation is tested in the existing "returns partial success" test
+      const event = createEvent('POST', '/payroll/actuals/bulk', []);
+
+      const response = await handler(event);
+      const body = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(body).toHaveProperty('insertedCount');
+      expect(body).toHaveProperty('errors');
+      expect(Array.isArray(body.errors)).toBe(true);
     });
   });
 

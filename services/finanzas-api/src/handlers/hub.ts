@@ -99,7 +99,7 @@ async function queryAllocations(scope: string) {
         TableName: allocationsTable,
         KeyConditionExpression: "pk = :pk",
         ExpressionAttributeValues: {
-          ":pk": { S: `PROJECT#${scope}` },
+          ":pk": `PROJECT#${scope}`,
         },
       })
     );
@@ -126,7 +126,7 @@ async function queryPayrollActuals(scope: string) {
         TableName: payrollTable,
         KeyConditionExpression: "pk = :pk",
         ExpressionAttributeValues: {
-          ":pk": { S: `PROJECT#${scope}` },
+          ":pk": `PROJECT#${scope}`,
         },
       })
     );
@@ -153,7 +153,7 @@ async function queryAdjustments(scope: string) {
         TableName: adjustmentsTable,
         KeyConditionExpression: "pk = :pk",
         ExpressionAttributeValues: {
-          ":pk": { S: `PROJECT#${scope}` },
+          ":pk": `PROJECT#${scope}`,
         },
       })
     );
