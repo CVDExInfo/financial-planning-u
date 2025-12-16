@@ -72,8 +72,6 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
       
       // Invalidate all project-dependent queries
       await invalidateProjectQueries();
-      
-      toast.info("Catalog and forecast data will now reflect the accepted baseline");
     },
     onError: (error) => {
       const message = handleFinanzasApiError(error, {

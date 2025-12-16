@@ -202,7 +202,7 @@ export function SDMTCatalog() {
         );
       }
     }
-  }, [lineItemsError, queryLineItems, selectedProjectId, projectChangeCount, currentProject]);
+  }, [lineItemsError, queryLineItems, selectedProjectId, projectChangeCount, currentProject?.baselineId]);
 
   useEffect(() => {
     if (!lineItemsError) {
