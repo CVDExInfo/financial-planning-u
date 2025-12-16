@@ -1,0 +1,70 @@
+name: Prefactura PK/SK Validation (Ad-hoc)
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "Override API base URL (defaults to repo variable DEV_API_URL)"
+        required: false
+        type: string
+      projects_table:
+        description: "Override DynamoDB projects table (defaults to finz_projects)"
+        required: false
+        type: string
+      prefacturas_table:
+        description: "Override DynamoDB prefacturas table (defaults to finz_prefacturas)"
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate-prefactura-pk-sk:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+      FINZ_API_BASE: ${{ inputs.api_base_url || vars.DEV_API_URL || vars.VITE_API_BASE_URL }}
+      TABLE_PROJECTS: ${{ inputs.projects_table || 'finz_projects' }}
+      TABLE_PREFACTURAS: ${{ inputs.prefacturas_table || 'finz_prefacturas' }}
+      COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
+      COGNITO_TESTER_USERNAME: ${{ secrets.USERNAME }}
+      COGNITO_TESTER_PASSWORD: ${{ secrets.PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install boto3 requests
+
+      - name: Validate PK/SK uniqueness
+        env:
+          FINZ_API_BASE: ${{ env.FINZ_API_BASE }}
+          DEV_API_URL: ${{ env.FINZ_API_BASE }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          COGNITO_WEB_CLIENT: ${{ env.COGNITO_WEB_CLIENT }}
+          COGNITO_TESTER_USERNAME: ${{ env.COGNITO_TESTER_USERNAME }}
+          COGNITO_TESTER_PASSWORD: ${{ env.COGNITO_TESTER_PASSWORD }}
+          TABLE_PROJECTS: ${{ env.TABLE_PROJECTS }}
+          TABLE_PREFACTURAS: ${{ env.TABLE_PREFACTURAS }}
+        run: |
+          set -euo pipefail
+          echo "Using API base: ${FINZ_API_BASE:-}" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Projects table: ${TABLE_PROJECTS}" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Prefacturas table: ${TABLE_PREFACTURAS}" | tee -a "$GITHUB_STEP_SUMMARY"
+          python tools/validate_project_pk_sk_uniqueness.py | tee -a "$GITHUB_STEP_SUMMARY"

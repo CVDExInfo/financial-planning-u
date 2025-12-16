@@ -99,7 +99,7 @@ const uploadStageText: Record<DocumentUploadStage, string> = {
 
 export function ReviewSignStep({ data }: ReviewSignStepProps) {
   const navigate = useNavigate();
-  const { refreshProject, selectedProjectId, setSelectedProjectId } = useProject();
+  const { refreshProject, setSelectedProjectId } = useProject();
   const [isReviewed, setIsReviewed] = useState(false);
   const [shouldAcceptBaseline, setShouldAcceptBaseline] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
@@ -117,6 +117,17 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
     useState<Record<string, DocumentUploadStage>>({});
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const fallbackProjectIdRef = useRef(`PRJ-${Date.now().toString(36)}`);
+  // Prefactura MUST NOT use SDMT selectedProjectId.
+  // Create a unique project id per estimator session so baselines don’t collide.
+  const prefacturaProjectIdRef = useRef(
+    `P-${
+      globalThis.crypto?.randomUUID?.() ??
+      `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+    }`,
+  );
+  // If backend returns a projectId, it becomes authoritative (should match ref).
+  const prefacturaProjectId =
+    baselineMeta?.projectId ?? prefacturaProjectIdRef.current;
   const supportingDocsInputId = "prefactura-supporting-docs";
   const supportingDocsHelpId = `${supportingDocsInputId}-help`;
 
@@ -135,11 +146,6 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
     }
     return fallbackProjectIdRef.current;
   }, [dealInputs?.project_name]);
-
-  const uploadProjectId = useMemo(
-    () => selectedProjectId || derivedProjectId,
-    [derivedProjectId, selectedProjectId],
-  );
 
   // Use shared cost utilities
   const laborTotal = useMemo(
@@ -209,7 +215,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       });
 
       const baselineRequest: PrefacturaBaselinePayload = {
-        project_id: uploadProjectId,
+        project_id: prefacturaProjectId,
         project_name: dealInputs.project_name,
         project_description: dealInputs.project_description,
         client_name: dealInputs.client_name,
@@ -244,6 +250,11 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       if (!baseline.projectId) {
         throw new Error(
           "Backend did not return projectId. Cannot proceed with handoff."
+        );
+      }
+      if (baseline.projectId !== prefacturaProjectIdRef.current) {
+        throw new Error(
+          `ProjectId mismatch. Prefactura uploaded docs under ${prefacturaProjectIdRef.current} but backend returned ${baseline.projectId}.`
         );
       }
 
@@ -596,7 +607,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
       for (const file of files) {
         try {
           const uploaded = await uploadDocument(
-            { projectId: uploadProjectId, module: "prefactura", file },
+            { projectId: prefacturaProjectId, module: "prefactura", file },
             {
               onStageChange: (stage) => {
                 setUploadProgress((prev) => ({ ...prev, [file.name]: stage }));
