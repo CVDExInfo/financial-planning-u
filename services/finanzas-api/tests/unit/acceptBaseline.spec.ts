@@ -218,5 +218,85 @@ describe("AcceptBaseline Handler", () => {
       expect(body).toHaveProperty("error");
       expect(body.error).toContain("baseline_id is required");
     });
+
+    it("should materialize allocations and rubros during baseline acceptance", async () => {
+      // Mock DynamoDB responses for project and baseline
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const input = command.input;
+        
+        if (input?.Key?.pk === 'PROJECT#P-test123' && input?.Key?.sk === 'METADATA') {
+          return Promise.resolve({
+            Item: {
+              pk: 'PROJECT#P-test123',
+              sk: 'METADATA',
+              baseline_id: 'BL-test456',
+              baseline_status: 'pending',
+            },
+          });
+        }
+
+        if (input?.Key?.pk === 'BASELINE#BL-test456' && input?.Key?.sk === 'METADATA') {
+          return Promise.resolve({
+            Item: {
+              pk: 'BASELINE#BL-test456',
+              sk: 'METADATA',
+              baseline_id: 'BL-test456',
+              project_id: 'P-test123',
+              start_date: '2025-01-01',
+              duration_months: 12,
+              currency: 'USD',
+              labor_estimates: [
+                {
+                  rubroId: 'MOD-DEV-SR',
+                  name: 'Developer Senior',
+                  qty: 2,
+                  unit_cost: 5000,
+                  periodic: 'recurring',
+                },
+              ],
+            },
+          });
+        }
+
+        if (input?.UpdateExpression) {
+          return Promise.resolve({
+            Attributes: {
+              pk: 'PROJECT#P-test123',
+              sk: 'METADATA',
+              baseline_id: 'BL-test456',
+              baseline_status: 'accepted',
+            },
+          });
+        }
+
+        // Mock BatchWriteCommand for materialization
+        if (input?.RequestItems) {
+          return Promise.resolve({});
+        }
+
+        return Promise.resolve({});
+      });
+
+      const event = baseEvent({
+        body: JSON.stringify({
+          baseline_id: 'BL-test456',
+        }),
+      });
+
+      const response = await acceptBaselineHandler(event);
+
+      expect(response.statusCode).toBe(200);
+      
+      const body = JSON.parse(response.body);
+      expect(body.baseline_status).toBe('accepted');
+      expect(body).toHaveProperty('materialization');
+      
+      // Verify materialization was attempted (BatchWriteCommand called)
+      const batchWriteCalls = dynamo.ddb.send.mock.calls.filter(
+        (call) => call[0]?.input?.RequestItems
+      );
+      // Should have calls for allocations and rubros batches
+      expect(batchWriteCalls.length).toBeGreaterThan(0);
+    });
   });
 });
