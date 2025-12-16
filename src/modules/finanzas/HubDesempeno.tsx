@@ -208,7 +208,7 @@ export default function HubDesempeno() {
       const failures = results.filter(r => r.status === 'rejected');
       if (failures.length > 0) {
         const failedEndpoints = failures
-          .map(f => f.status === 'rejected' && f.reason?.endpoint ? f.reason.endpoint : 'unknown')
+          .map(f => f.reason?.endpoint ? f.reason.endpoint : 'unknown')
           .join(', ');
         toast.warning(`Algunos datos no están disponibles: ${failedEndpoints}`, {
           description: "Mostrando datos parciales disponibles"
