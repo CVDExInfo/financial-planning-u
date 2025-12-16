@@ -970,8 +970,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           await sendDdb(new PutCommand(putCommandInput));
         };
 
-        let projectIdForWrite = resolvedProjectId;
-        let projectItem = buildProjectItem(projectIdForWrite, existingProject.Item);
+        const projectIdForWrite = resolvedProjectId;
+        const projectItem = buildProjectItem(projectIdForWrite, existingProject.Item);
 
         try {
           await putProjectMetadata(projectItem, Boolean(existingProject.Item));
