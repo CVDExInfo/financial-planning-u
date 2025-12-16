@@ -155,7 +155,10 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
       onUploaded?.();
     } catch (err) {
       console.error(err);
-      toast.error("No se pudo registrar la nómina");
+      const message = err instanceof Error ? err.message : "No se pudo registrar la nómina";
+      toast.error("No se pudo registrar la nómina", {
+        description: message,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -194,7 +197,10 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
       onUploaded?.();
     } catch (err) {
       console.error(err);
-      toast.error("Error al cargar nómina en bloque");
+      const message = err instanceof Error ? err.message : "Error al cargar nómina en bloque";
+      toast.error("Error al cargar nómina en bloque", {
+        description: message,
+      });
     } finally {
       setIsSubmitting(false);
     }
