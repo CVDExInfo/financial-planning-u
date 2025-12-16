@@ -145,7 +145,6 @@ const batchWriteAll = async (table: string, items: Record<string, any>[]) => {
     let retryCount = 0;
     const maxRetries = 3;
     
-    // eslint-disable-next-line no-constant-condition
     while (pending && retryCount < maxRetries) {
       try {
         const response = await ddb.send(new BatchWriteCommand(pending));
