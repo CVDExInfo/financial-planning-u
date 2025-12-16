@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getProjectRubros } from "@/api/finanzas";
-import { useProject } from "@/contexts/ProjectContext";
+import { ALL_PROJECTS_ID, useProject } from "@/contexts/ProjectContext";
 import type { LineItem } from "@/types/domain";
 
 const lineItemsKey = (projectId?: string) =>
@@ -15,12 +15,12 @@ export function useProjectLineItems() {
   const query = useQuery<LineItem[]>({
     queryKey: lineItemsKey(projectId),
     queryFn: () => {
-      if (!projectId) {
+      if (!projectId || projectId === ALL_PROJECTS_ID) {
         throw new Error("Project is required before loading line items");
       }
       return getProjectRubros(projectId);
     },
-    enabled: !!projectId,
+    enabled: !!projectId && projectId !== ALL_PROJECTS_ID,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
     refetchOnWindowFocus: false,
