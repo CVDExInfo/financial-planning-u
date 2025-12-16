@@ -521,11 +521,9 @@ export function SDMTChanges() {
                 {currentProject.name}
               </span>
             )}
-            {selectedProjectId && (
-              <span className="ml-2 text-xs text-muted-foreground">
-                ID: {selectedProjectId}
-              </span>
-            )}
+            <span className="ml-2 text-xs text-muted-foreground">
+              ID: {selectedProjectId}
+            </span>
           </p>
         </div>
         <ModuleBadge />
