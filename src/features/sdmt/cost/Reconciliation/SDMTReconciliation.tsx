@@ -148,6 +148,19 @@ const isSelectedLineItemMOD = (lineItemId: string, lineItems: LineItem[]): boole
   return isMODCategory(categoryCode);
 };
 
+/**
+ * Helper to format upload error messages consistently
+ */
+const formatUploadError = (err: unknown): string => {
+  if (err instanceof FinanzasApiError) {
+    return err.message;
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return "Error inesperado al subir factura. Por favor intenta nuevamente o contacta soporte.";
+};
+
 /** --------- Component --------- */
 
 export default function SDMTReconciliation() {
@@ -327,20 +340,11 @@ export default function SDMTReconciliation() {
   const uploadMutation = useMutation({
     mutationFn: (payload: UploadInvoicePayload & { projectId: string }) =>
       uploadInvoice(payload.projectId, payload),
-    onSuccess: async () => {
-      // Success handling is now done in handleInvoiceSubmit for better multi-month support
-      // Don't show toast or reset form here since we handle it centrally
-    },
+    // Note: Success handling is done in handleInvoiceSubmit for multi-month support
     onError: (err: unknown) => {
-      let message = "Error inesperado al subir factura. Por favor intenta nuevamente o contacta soporte.";
-      if (err instanceof FinanzasApiError) {
-        message = err.message;
-      } else if (err instanceof Error) {
-        message = err.message;
-      }
-      toast.error(message);
+      // Only log here; handleInvoiceSubmit handles user-facing error messages
       if (import.meta.env.DEV) {
-        console.error("[SDMTReconciliation] Invoice upload failed", { projectId, payload: uploadFormData, err });
+        console.error("[SDMTReconciliation] Invoice upload mutation error", err);
       }
     },
   });
@@ -514,12 +518,7 @@ export default function SDMTReconciliation() {
       await invalidateInvoices();
     } catch (err) {
       toast.dismiss();
-      let message = "Error inesperado al subir factura. Por favor intenta nuevamente o contacta soporte.";
-      if (err instanceof FinanzasApiError) {
-        message = err.message;
-      } else if (err instanceof Error) {
-        message = err.message;
-      }
+      const message = formatUploadError(err);
       toast.error(message);
       if (import.meta.env.DEV) {
         console.error("[SDMTReconciliation] Invoice upload failed", { projectId, payload: uploadFormData, err });
