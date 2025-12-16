@@ -205,18 +205,18 @@ export function SDMTChanges() {
     setForm({
       ...defaultForm,
       currency: currentProject?.currency ?? defaultForm.currency,
-      baseline_id: currentProject?.baseline_id ?? "",
+      baseline_id: currentProject?.baselineId ?? "",
     });
   }, [selectedProjectId]);
 
   useEffect(() => {
-    if (!currentProject?.baseline_id) return;
+    if (!currentProject?.baselineId) return;
 
     setForm((prev) => {
       if (prev.baseline_id.trim()) return prev;
-      return { ...prev, baseline_id: currentProject.baseline_id };
+      return { ...prev, baseline_id: currentProject.baselineId };
     });
-  }, [currentProject?.baseline_id]);
+  }, [currentProject?.baselineId]);
 
   useEffect(() => {
     if (!currentProject?.currency) return;
@@ -735,8 +735,8 @@ export function SDMTChanges() {
                   }
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  {currentProject?.baseline_id
-                    ? `Auto-relleno desde la línea base del proyecto (${currentProject.baseline_id}).`
+                  {currentProject?.baselineId
+                    ? `Auto-relleno desde la línea base del proyecto (${currentProject.baselineId}).`
                     : "Se vinculará automáticamente cuando el proyecto tenga una línea base."}
                 </p>
               </div>
