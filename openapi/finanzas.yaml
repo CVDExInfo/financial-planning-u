@@ -54,6 +54,10 @@ tags:
     description: Provider/vendor management
   - name: Webhooks
     description: External webhook integrations
+  - name: Cost Forecast Manual
+    description: Manual overrides for SDMT cost forecast per project and rubro
+  - name: Annual Budget
+    description: Annual budget analog form for SDM executive tracking
 
 security:
   - CognitoJWT: []
@@ -1663,6 +1667,184 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /finanzas/cost/forecast/manual:
+    get:
+      tags:
+        - Cost Forecast Manual
+      summary: Get manual cost forecast overrides
+      description: Retrieves saved manual overrides for a given project and year, grouped by rubro.
+      operationId: getCostForecastManualOverrides
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Project identifier
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int32
+          description: Year for the forecast overrides
+      responses:
+        "200":
+          description: Manual cost forecast overrides retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostForecastManualListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    put:
+      tags:
+        - Cost Forecast Manual
+      summary: Upsert manual cost forecast override
+      description: Creates or updates a single rubro manual override for the specified project and year.
+      operationId: upsertCostForecastManualOverride
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CostForecastManualUpsertRequest"
+      responses:
+        "200":
+          description: Manual override saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostForecastManualEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      tags:
+        - Cost Forecast Manual
+      summary: Bulk upload manual cost forecast overrides
+      description: Processes a CSV or JSON payload to upsert multiple manual overrides for a project and year.
+      operationId: bulkUpsertCostForecastManualOverrides
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CostForecastManualBulkRequest"
+          text/csv:
+            schema:
+              type: string
+              format: binary
+              description: CSV file containing manual override rows
+      responses:
+        "200":
+          description: Manual overrides processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostForecastManualBulkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /finanzas/budget/annual:
+    get:
+      tags:
+        - Annual Budget
+      summary: Get annual budget entries
+      description: Returns annual budget totals for each rubro for the specified year.
+      operationId: getAnnualBudget
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int32
+          description: Year to retrieve
+      responses:
+        "200":
+          description: Annual budget entries retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnualBudgetListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    put:
+      tags:
+        - Annual Budget
+      summary: Upsert annual budget entry
+      description: Creates or updates a single rubro entry for the annual budget.
+      operationId: upsertAnnualBudget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnualBudgetUpsertRequest"
+      responses:
+        "200":
+          description: Annual budget entry saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnualBudgetEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      tags:
+        - Annual Budget
+      summary: Bulk upload annual budget entries
+      description: Processes a CSV or JSON payload with annual budget entries for a year.
+      operationId: bulkUpsertAnnualBudget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnualBudgetBulkRequest"
+          text/csv:
+            schema:
+              type: string
+              format: binary
+              description: CSV file with annual budget rows
+      responses:
+        "200":
+          description: Annual budget entries processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnualBudgetBulkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     CognitoJWT:
@@ -2968,6 +3150,202 @@ components:
         expiresIn:
           type: integer
           description: URL expiration time in seconds
+
+    CostForecastManualEntry:
+      type: object
+      required:
+        - project_id
+        - year
+        - rubro_id
+        - manual_value
+      properties:
+        project_id:
+          type: string
+          description: Project identifier
+        year:
+          type: integer
+          format: int32
+          description: Year of the manual override
+        rubro_id:
+          type: string
+          description: Rubro identifier
+        manual_value:
+          type: number
+          format: double
+          description: Manual adjustment value for the rubro
+        currency:
+          type: string
+          description: Currency code (default USD)
+          default: USD
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+          description: Cognito user or email that performed the change
+        source:
+          type: string
+          enum: [manual, bulk]
+
+    CostForecastManualUpsertRequest:
+      allOf:
+        - $ref: "#/components/schemas/CostForecastManualEntry"
+      required:
+        - project_id
+        - year
+        - rubro_id
+        - manual_value
+
+    CostForecastManualBulkRequest:
+      type: object
+      required:
+        - project_id
+        - year
+        - entries
+      properties:
+        project_id:
+          type: string
+        year:
+          type: integer
+          format: int32
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CostForecastManualEntry"
+
+    CostForecastManualListResponse:
+      type: object
+      required:
+        - project_id
+        - year
+        - items
+      properties:
+        project_id:
+          type: string
+        year:
+          type: integer
+          format: int32
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CostForecastManualEntry"
+
+    CostForecastManualBulkResponse:
+      type: object
+      required:
+        - project_id
+        - year
+        - processed
+      properties:
+        project_id:
+          type: string
+        year:
+          type: integer
+          format: int32
+        processed:
+          type: integer
+          description: Number of rows processed successfully
+        failed:
+          type: integer
+          description: Number of rows that failed validation
+        errors:
+          type: array
+          description: Optional validation errors for failed records
+          items:
+            $ref: "#/components/schemas/Error"
+
+    AnnualBudgetEntry:
+      type: object
+      required:
+        - year
+        - rubro_id
+      properties:
+        year:
+          type: integer
+          format: int32
+        rubro_id:
+          type: string
+        contracted_total:
+          type: number
+          format: double
+          description: Total contracted value for the rubro
+        projected_mod_total:
+          type: number
+          format: double
+          description: MOD projected total for the rubro
+        actual_total:
+          type: number
+          format: double
+          description: Actual spend recorded for the rubro
+        currency:
+          type: string
+          description: Currency code (default USD)
+          default: USD
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+          description: Cognito user or email that performed the change
+        source:
+          type: string
+          enum: [manual, bulk]
+
+    AnnualBudgetUpsertRequest:
+      allOf:
+        - $ref: "#/components/schemas/AnnualBudgetEntry"
+      required:
+        - year
+        - rubro_id
+
+    AnnualBudgetBulkRequest:
+      type: object
+      required:
+        - year
+        - entries
+      properties:
+        year:
+          type: integer
+          format: int32
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnnualBudgetEntry"
+
+    AnnualBudgetListResponse:
+      type: object
+      required:
+        - year
+        - items
+      properties:
+        year:
+          type: integer
+          format: int32
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnnualBudgetEntry"
+
+    AnnualBudgetBulkResponse:
+      type: object
+      required:
+        - year
+        - processed
+      properties:
+        year:
+          type: integer
+          format: int32
+        processed:
+          type: integer
+          description: Number of rows processed successfully
+        failed:
+          type: integer
+          description: Number of rows that failed validation
+        errors:
+          type: array
+          description: Optional validation errors for failed records
+          items:
+            $ref: "#/components/schemas/Error"
 
   responses:
     BadRequest:
