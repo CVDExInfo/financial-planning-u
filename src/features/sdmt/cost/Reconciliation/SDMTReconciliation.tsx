@@ -859,7 +859,8 @@ export default function SDMTReconciliation() {
                     setUploadFormData((prev) => ({
                       ...prev,
                       start_month: parseInt(value, 10),
-                      // Update legacy month field for backward compatibility
+                      // Sync legacy month field for backward compatibility with existing invoice API
+                      // The API still uses single 'month' field, but UI now supports ranges
                       month: parseInt(value, 10),
                     }))
                   }
