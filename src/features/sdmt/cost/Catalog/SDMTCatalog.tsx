@@ -185,10 +185,24 @@ export function SDMTCatalog() {
         "Catalog: received",
         queryLineItems.length,
         "items for",
-        selectedProjectId
+        selectedProjectId,
+        "change #",
+        projectChangeCount
       );
+      
+      // Log if we got no data despite having a project
+      if (queryLineItems.length === 0 && currentProject?.baselineId) {
+        logger.warn(
+          "Catalog: No line items found for project with baseline",
+          {
+            projectId: selectedProjectId,
+            baselineId: currentProject.baselineId,
+            baselineStatus: currentProject.baseline_status,
+          }
+        );
+      }
     }
-  }, [lineItemsError, queryLineItems, selectedProjectId]);
+  }, [lineItemsError, queryLineItems, selectedProjectId, projectChangeCount, currentProject]);
 
   useEffect(() => {
     if (!lineItemsError) {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,9 +36,10 @@ interface BaselineStatusPanelProps {
 type BaselineStatus = "pending" | "handed_off" | "accepted" | "rejected";
 
 export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
-  const { currentProject, refreshProject } = useProject();
+  const { currentProject, refreshProject, invalidateProjectData } = useProject();
   const { isSDMT, isPMO, isPM } = usePermissions();
   const { login } = useAuth();
+  const queryClient = useQueryClient();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
 
@@ -51,7 +52,24 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     },
     onSuccess: async () => {
       toast.success("Baseline accepted successfully");
+      
+      // Refresh project metadata first
       await refreshProject();
+      
+      // Invalidate all project-dependent queries to force refresh of catalog, forecast, etc.
+      if (currentProject?.id) {
+        await queryClient.invalidateQueries({ 
+          queryKey: ["lineItems", currentProject.id] 
+        });
+        await queryClient.invalidateQueries({ 
+          queryKey: ["forecast", currentProject.id] 
+        });
+      }
+      
+      // Force UI components to re-render with new data
+      invalidateProjectData();
+      
+      toast.info("Catalog and forecast data will now reflect the accepted baseline");
     },
     onError: (error) => {
       const message = handleFinanzasApiError(error, {
@@ -76,7 +94,22 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
       toast.success("Baseline rejected");
       setRejectDialogOpen(false);
       setRejectComment("");
+      
+      // Refresh project metadata
       await refreshProject();
+      
+      // Invalidate project-dependent queries
+      if (currentProject?.id) {
+        await queryClient.invalidateQueries({ 
+          queryKey: ["lineItems", currentProject.id] 
+        });
+        await queryClient.invalidateQueries({ 
+          queryKey: ["forecast", currentProject.id] 
+        });
+      }
+      
+      // Force UI refresh
+      invalidateProjectData();
     },
     onError: (error) => {
       const message = handleFinanzasApiError(error, {

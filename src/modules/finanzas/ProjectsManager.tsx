@@ -53,6 +53,13 @@ import {
 } from "./projects/modSeries";
 import { normalizeApiRowForMod } from "./projects/normalizeForMod";
 
+// Debug logging helper (only in dev mode)
+const logApiDebug = (message: string, payload?: Record<string, unknown>) => {
+  if (import.meta.env.DEV) {
+    console.info(`[finanzas-projects] ${message}`, payload ?? "");
+  }
+};
+
 // Type for MOD chart data points
 export type ModChartPoint = {
   month: string;
