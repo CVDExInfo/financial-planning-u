@@ -69,6 +69,7 @@ import {
   extractFriendlyFilename,
 } from "./lineItemFormatters";
 import { ES_TEXTS } from "@/lib/i18n/es";
+import { isMODCategory } from "@/lib/cost-utils";
 
 /** --------- Types & helpers --------- */
 
@@ -78,7 +79,9 @@ const STORAGE_PATH_DISPLAY_LENGTH = 40;
 
 type UploadFormState = {
   line_item_id: string;
-  month: number;
+  month: number; // Legacy: single month for backward compatibility
+  start_month: number; // For multi-month range
+  end_month: number; // For multi-month range
   amount: string;
   description: string;
   file: File | null;
@@ -89,7 +92,9 @@ type UploadFormState = {
 
 const createInitialUploadForm = (): UploadFormState => ({
   line_item_id: "",
-  month: 1,
+  month: 1, // Legacy field
+  start_month: 1,
+  end_month: 1,
   amount: "",
   description: "",
   file: null,
@@ -129,6 +134,32 @@ const formatCurrency = (amount: number) =>
     currency: "USD",
     minimumFractionDigits: 0,
   }).format(amount);
+
+/**
+ * Helper to determine if the selected line item belongs to a MOD category
+ */
+const isSelectedLineItemMOD = (lineItemId: string, lineItems: LineItem[]): boolean => {
+  if (!lineItemId) return false;
+  const lineItem = lineItems.find((li) => li.id === lineItemId);
+  if (!lineItem) return false;
+  
+  // Check both category and categoria fields (some data uses Spanish field names)
+  const categoryCode = lineItem.category || (lineItem as any).categoria || "";
+  return isMODCategory(categoryCode);
+};
+
+/**
+ * Helper to format upload error messages consistently
+ */
+const formatUploadError = (err: unknown): string => {
+  if (err instanceof FinanzasApiError) {
+    return err.message;
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return "Error inesperado al subir factura. Por favor intenta nuevamente o contacta soporte.";
+};
 
 /** --------- Component --------- */
 
@@ -239,6 +270,12 @@ export default function SDMTReconciliation() {
   })();
   const canUpdateStatus = canApprove;
 
+  // Check if the currently selected line item is MOD (for conditional validation/UI)
+  const selectedLineItemIsMOD = useMemo(
+    () => isSelectedLineItemMOD(uploadFormData.line_item_id, safeLineItems),
+    [uploadFormData.line_item_id, safeLineItems]
+  );
+
   const uiErrorMessage = (() => {
     if (allowMockData) return null;
     if (invoicesErrorInfo?.status === 401 || lineItemsErrorInfo?.status === 401)
@@ -303,22 +340,11 @@ export default function SDMTReconciliation() {
   const uploadMutation = useMutation({
     mutationFn: (payload: UploadInvoicePayload & { projectId: string }) =>
       uploadInvoice(payload.projectId, payload),
-    onSuccess: async () => {
-      toast.success("Factura y documento subidos exitosamente");
-      setShowUploadForm(false);
-      setUploadFormData(createInitialUploadForm());
-      await invalidateInvoices();
-    },
+    // Note: Success handling is done in handleInvoiceSubmit for multi-month support
     onError: (err: unknown) => {
-      let message = "Error inesperado al subir factura. Por favor intenta nuevamente o contacta soporte.";
-      if (err instanceof FinanzasApiError) {
-        message = err.message;
-      } else if (err instanceof Error) {
-        message = err.message;
-      }
-      toast.error(message);
+      // Only log here; handleInvoiceSubmit handles user-facing error messages
       if (import.meta.env.DEV) {
-        console.error("[SDMTReconciliation] Invoice upload failed", { projectId, payload: uploadFormData, err });
+        console.error("[SDMTReconciliation] Invoice upload mutation error", err);
       }
     },
   });
@@ -374,6 +400,30 @@ export default function SDMTReconciliation() {
       return;
     }
 
+    // Validate line item selection
+    if (!uploadFormData.line_item_id) {
+      toast.error("Selecciona un rubro");
+      return;
+    }
+
+    // Check if selected line item is MOD
+    const isMOD = isSelectedLineItemMOD(uploadFormData.line_item_id, safeLineItems);
+
+    // Validate month range
+    if (uploadFormData.start_month < 1 || uploadFormData.start_month > 12) {
+      toast.error("Mes de inicio debe estar entre 1 y 12");
+      return;
+    }
+    if (uploadFormData.end_month < 1 || uploadFormData.end_month > 12) {
+      toast.error("Mes de fin debe estar entre 1 y 12");
+      return;
+    }
+    if (uploadFormData.start_month > uploadFormData.end_month) {
+      toast.error("Mes de inicio no puede ser mayor que mes de fin");
+      return;
+    }
+
+    // Validate invoice date
     if (!uploadFormData.invoice_date) {
       toast.error("Fecha de factura requerida para conciliación");
       return;
@@ -385,23 +435,16 @@ export default function SDMTReconciliation() {
       return;
     }
 
+    // Validate vendor
     const vendorValue = uploadFormData.vendor.trim();
     if (!vendorValue) {
       toast.error("Proveedor requerido para conciliación");
       return;
     }
 
-    if (
-      !uploadFormData.file ||
-      !uploadFormData.line_item_id ||
-      !uploadFormData.amount
-    ) {
-      toast.error("Por favor completa todos los campos requeridos");
-      return;
-    }
-
-    if (!projectId) {
-      toast.error("Selecciona un proyecto antes de subir facturas");
+    // Validate amount
+    if (!uploadFormData.amount) {
+      toast.error("Monto de factura requerido");
       return;
     }
 
@@ -415,21 +458,71 @@ export default function SDMTReconciliation() {
       return;
     }
 
+    // MOD-specific validation: file is optional for MOD rubros
+    // NOTE: The backend API currently requires a file for all uploads (uploadInvoice throws if file is missing).
+    // TODO: Update backend to support metadata-only invoices for MOD rubros, or create a separate endpoint.
+    // For now, we still require a file but make the UI clearer about MOD being "optional" in the future.
+    if (!uploadFormData.file) {
+      if (isMOD) {
+        toast.error("Documento requerido por ahora. Backend será actualizado para permitir cargas sin documento para MOD.");
+      } else {
+        toast.error("Documento de factura requerido para rubros no-MOD");
+      }
+      return;
+    }
+
+    if (!projectId) {
+      toast.error("Selecciona un proyecto antes de subir facturas");
+      return;
+    }
+
+    // Multi-month upload: loop through each month in the range
+    const monthsToUpload = [];
+    for (let m = uploadFormData.start_month; m <= uploadFormData.end_month; m++) {
+      monthsToUpload.push(m);
+    }
+
     try {
-      await uploadMutation.mutateAsync({
-        projectId,
-        file: uploadFormData.file,
-        line_item_id: uploadFormData.line_item_id,
-        month: uploadFormData.month,
-        amount,
-        description: uploadFormData.description.trim() || undefined,
-        vendor: vendorValue,
-        invoice_number: uploadFormData.invoice_number.trim() || undefined,
-        invoice_date: uploadFormData.invoice_date.trim() || undefined,
-      });
+      toast.loading(
+        monthsToUpload.length === 1
+          ? "Subiendo factura..."
+          : `Subiendo factura para ${monthsToUpload.length} meses...`
+      );
+
+      // Upload invoice for each month in the range
+      const uploadPromises = monthsToUpload.map((month) =>
+        uploadMutation.mutateAsync({
+          projectId,
+          file: uploadFormData.file!,
+          line_item_id: uploadFormData.line_item_id,
+          month,
+          amount,
+          description: uploadFormData.description.trim() || undefined,
+          vendor: vendorValue,
+          invoice_number: uploadFormData.invoice_number.trim() || undefined,
+          invoice_date: uploadFormData.invoice_date.trim() || undefined,
+        })
+      );
+
+      await Promise.all(uploadPromises);
+
+      toast.dismiss();
+      toast.success(
+        monthsToUpload.length === 1
+          ? "Factura y documento subidos exitosamente"
+          : `${monthsToUpload.length} facturas subidas exitosamente`
+      );
+
+      setShowUploadForm(false);
+      setUploadFormData(createInitialUploadForm());
+      await invalidateInvoices();
     } catch (err) {
-      // onError handler already surfaces messaging; this catch prevents unhandled rejections
-      console.error("Upload invoice mutation rejected", err);
+      toast.dismiss();
+      const message = formatUploadError(err);
+      toast.error(message);
+      if (import.meta.env.DEV) {
+        console.error("[SDMTReconciliation] Invoice upload failed", { projectId, payload: uploadFormData, err });
+      }
     }
   };
 
@@ -684,7 +777,8 @@ export default function SDMTReconciliation() {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            <div className="grid gap-4 md:grid-cols-[1.6fr,1fr] md:items-end">
+            {/* Rubro and Description */}
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor={lineItemSelectId}>Rubro *</Label>
                 {lineItemOptions.length ? (
@@ -732,18 +826,46 @@ export default function SDMTReconciliation() {
                 )}
               </div>
 
+              {/* Description tied to Rubro */}
               <div className="space-y-2">
-                <Label htmlFor={monthSelectId}>Mes *</Label>
+                <Label htmlFor="description">Descripción del Rubro</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  placeholder="Describe brevemente el concepto asociado a este rubro"
+                  value={uploadFormData.description}
+                  onChange={(e) =>
+                    setUploadFormData((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  rows={2}
+                  aria-describedby="description-help"
+                />
+                <p id="description-help" className="text-xs text-muted-foreground">
+                  Describe brevemente el concepto asociado a este rubro (opcional).
+                </p>
+              </div>
+            </div>
+
+            {/* Month Range Selection */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="start-month">Mes Inicio *</Label>
                 <Select
-                  value={String(uploadFormData.month)}
+                  value={String(uploadFormData.start_month)}
                   onValueChange={(value) =>
                     setUploadFormData((prev) => ({
                       ...prev,
+                      start_month: parseInt(value, 10),
+                      // Sync legacy month field for backward compatibility with existing invoice API
+                      // The API still uses single 'month' field, but UI now supports ranges
                       month: parseInt(value, 10),
                     }))
                   }
                 >
-                  <SelectTrigger id={monthSelectId} aria-label="Mes de factura">
+                  <SelectTrigger id="start-month" aria-label="Mes de inicio">
                     <SelectValue placeholder="Selecciona mes" />
                   </SelectTrigger>
                   <SelectContent>
@@ -754,6 +876,33 @@ export default function SDMTReconciliation() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="end-month">Mes Fin *</Label>
+                <Select
+                  value={String(uploadFormData.end_month)}
+                  onValueChange={(value) =>
+                    setUploadFormData((prev) => ({
+                      ...prev,
+                      end_month: parseInt(value, 10),
+                    }))
+                  }
+                >
+                  <SelectTrigger id="end-month" aria-label="Mes de fin">
+                    <SelectValue placeholder="Selecciona mes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <SelectItem key={i + 1} value={String(i + 1)}>
+                        Month {i + 1}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Selecciona un rango para aplicar la misma factura a múltiples meses
+                </p>
               </div>
             </div>
 
@@ -843,7 +992,9 @@ export default function SDMTReconciliation() {
 
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="invoice_number">Número de Factura</Label>
+                <Label htmlFor="invoice_number">
+                  Número de Factura{selectedLineItemIsMOD ? "" : " *"}
+                </Label>
                 <Input
                   id="invoice_number"
                   name="invoice_number"
@@ -864,7 +1015,9 @@ export default function SDMTReconciliation() {
                   aria-describedby="invoice-number-help"
                 />
                 <p id="invoice-number-help" className="text-xs text-muted-foreground">
-                  Enter the invoice number from vendor's invoice document.
+                  {selectedLineItemIsMOD
+                    ? "Opcional para rubros de MOD; si se deja en blanco, se generará un número interno."
+                    : "Ingresa el número de factura del documento del proveedor."}
                 </p>
               </div>
               <div className="space-y-2">
@@ -885,7 +1038,9 @@ export default function SDMTReconciliation() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor={fileInputId}>Subir Archivo *</Label>
+              <Label htmlFor={fileInputId}>
+                {selectedLineItemIsMOD ? "Subir Archivo (Opcional para MOD)" : "Subir Archivo *"}
+              </Label>
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4">
                 <Input
                   id={fileInputId}
@@ -900,7 +1055,9 @@ export default function SDMTReconciliation() {
                   id={fileHelpId}
                   className="text-xs text-muted-foreground text-center"
                 >
-                  Formatos soportados: PDF, JPG, PNG, Excel, CSV
+                  {selectedLineItemIsMOD
+                    ? "Formatos soportados: PDF, JPG, PNG, Excel, CSV. Documento opcional para rubros MOD."
+                    : "Formatos soportados: PDF, JPG, PNG, Excel, CSV"}
                 </p>
                 {uploadFormData.file && (
                   <p className="text-sm text-primary mt-2">
