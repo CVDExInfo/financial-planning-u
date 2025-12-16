@@ -21,6 +21,7 @@ const TEMPLATE_HEADERS = [
   "month",
   "rubroId",
   "amount",
+  "currency",
   "allocationId",
   "resourceCount",
   "source",
@@ -29,7 +30,11 @@ const TEMPLATE_HEADERS = [
 ];
 
 function buildCsvTemplate(): string {
-  return `${TEMPLATE_HEADERS.join(",")}` + "\n" + "proj_xxxxxx,2025-01,MOD-ING,10000,,,excel,user@example.com,Optional note";
+  return (
+    `${TEMPLATE_HEADERS.join(",")}` +
+    "\n" +
+    "proj_xxxxxx,2025-01,MOD-ING,10000,USD,,,'excel',user@example.com,Optional note"
+  );
 }
 
 function parseCsv(content: string): PayrollActualInput[] {
@@ -51,6 +56,7 @@ function parseCsv(content: string): PayrollActualInput[] {
         month: row.month,
         rubroId: row.rubroId,
         amount: Number(row.amount || 0),
+        currency: row.currency,
         allocationId: row.allocationId,
         resourceCount: row.resourceCount ? Number(row.resourceCount) : undefined,
         source: row.source,
@@ -65,6 +71,7 @@ function validateRow(row: PayrollActualInput): string[] {
   if (!row.projectId) errors.push("Falta projectId");
   if (!row.month) errors.push("Falta month (YYYY-MM)");
   if (!row.rubroId) errors.push("Falta rubroId");
+  if (!row.currency) errors.push("Falta currency");
   if (row.amount === undefined || Number.isNaN(row.amount)) errors.push("Monto inválido");
   return errors;
 }
@@ -148,7 +155,10 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
       onUploaded?.();
     } catch (err) {
       console.error(err);
-      toast.error("No se pudo registrar la nómina");
+      const message = err instanceof Error ? err.message : "No se pudo registrar la nómina";
+      toast.error("No se pudo registrar la nómina", {
+        description: message,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -159,7 +169,10 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
     if (!file) return;
 
     const content = await file.text();
-    const rows = parseCsv(content);
+    const rows = parseCsv(content).map((row) => ({
+      ...row,
+      currency: row.currency || currency,
+    }));
     const rowErrors: Record<number, string[]> = {};
     rows.forEach((row, idx) => {
       const errors = validateRow(row);
@@ -184,7 +197,10 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
       onUploaded?.();
     } catch (err) {
       console.error(err);
-      toast.error("Error al cargar nómina en bloque");
+      const message = err instanceof Error ? err.message : "Error al cargar nómina en bloque";
+      toast.error("Error al cargar nómina en bloque", {
+        description: message,
+      });
     } finally {
       setIsSubmitting(false);
     }
