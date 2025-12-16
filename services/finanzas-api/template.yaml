@@ -1005,7 +1005,8 @@ Resources:
         Target: node20
     Properties:
       CodeUri: .
-      Handler: payroll-upload.handler
+      # Keep handler path aligned with the source tree so esbuild can always resolve it.
+      Handler: src/handlers/payroll-upload.handler
       Policies:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:
