@@ -73,13 +73,13 @@ export function SDMTForecast() {
   // Load data when project or period changes
   useEffect(() => {
     if (selectedProjectId) {
-      console.log('🔄 Forecast: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
+      console.log('🔄 Forecast: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount, 'baseline:', currentProject?.baselineId);
       // Reset state before loading new data
       setForecastData([]);
       setPortfolioLineItems([]);
       loadForecastData();
     }
-  }, [selectedProjectId, selectedPeriod, projectChangeCount]);
+  }, [selectedProjectId, selectedPeriod, projectChangeCount, currentProject?.baselineId]);
 
   useEffect(() => {
     if (!lineItemsError) return;
