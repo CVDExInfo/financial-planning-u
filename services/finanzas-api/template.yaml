@@ -314,6 +314,7 @@ Resources:
           - !Sub 'https://${CloudFrontDomain}'
           - http://localhost:5173
           - http://localhost:4173
+          - '*'
         AllowHeaders:
           - Authorization
           - Content-Type
@@ -329,7 +330,9 @@ Resources:
           - PATCH
           - DELETE
           - OPTIONS
-        AllowCredentials: true
+        # Use wildcard origins to avoid CORS breakage when CloudFront domains rotate.
+        # Credentials are disabled to align with the wildcard origin.
+        AllowCredentials: false
         MaxAge: 86400
       AccessLogSettings:
         DestinationArn: !GetAtt ApiAccessLogs.Arn
