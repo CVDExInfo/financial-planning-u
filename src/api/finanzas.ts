@@ -32,7 +32,14 @@ function requireApiBase(): string {
 }
 
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+  const res = await fetch(url, {
+    // Default to CORS-friendly settings so CloudFront/API Gateway consistently allow requests
+    mode: init.mode ?? "cors",
+    cache: init.cache ?? "no-store",
+    // Do NOT force credentials; some API Gateway deployments reject credentialed requests
+    // unless they explicitly set Access-Control-Allow-Credentials. Allow callers to opt in.
+    ...init,
+  });
   const text = await res.text().catch(() => "");
 
   if (!res.ok) {

@@ -52,6 +52,8 @@ interface ProjectContextType {
   clearProjectError: () => void;
 }
 
+export const ALL_PROJECTS_ID = "ALL_PROJECTS";
+
 export const ProjectContext = createContext<ProjectContextType | undefined>(
   undefined
 );
@@ -175,21 +177,31 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
           a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
         );
 
-      setProjects(normalized);
+      const withPortfolioOption = [
+        {
+          id: ALL_PROJECTS_ID,
+          name: "TODOS (Todos los proyectos)",
+          description: "Visión consolidada del portafolio",
+          status: "active" as Project["status"],
+        },
+        ...normalized,
+      ];
+
+      setProjects(withPortfolioOption);
 
       // Auto-select first project if needed or if the current selection disappeared
-      if (!selectedProjectId && normalized.length > 0) {
-        logger.info("Auto-selecting first project:", normalized[0].id);
-        selectProject(normalized[0]);
+      if (!selectedProjectId && withPortfolioOption.length > 0) {
+        logger.info("Auto-selecting first project:", withPortfolioOption[0].id);
+        selectProject(withPortfolioOption[0]);
       } else if (
         selectedProjectId &&
-        normalized.every((project) => project.id !== selectedProjectId) &&
-        normalized.length > 0
+        withPortfolioOption.every((project) => project.id !== selectedProjectId) &&
+        withPortfolioOption.length > 0
       ) {
         logger.warn(
           "Previously selected project missing; selecting first entry"
         );
-        selectProject(normalized[0]);
+        selectProject(withPortfolioOption[0]);
       }
     } catch (error) {
       const message = handleFinanzasApiError(error, {
