@@ -512,7 +512,7 @@ export const finanzasClient = {
    */
   async bulkUpsertForecast(
     projectId: string,
-    items: Array<{ rubroId: string; month: string; forecast: number }>
+    items: Array<{ rubroId: string; month: number; forecast: number }>
   ): Promise<{ success: boolean; updated: number; skipped: number; total: number }> {
     checkAuth();
     const data = await http<{ success: boolean; updated: number; skipped: number; total: number }>(

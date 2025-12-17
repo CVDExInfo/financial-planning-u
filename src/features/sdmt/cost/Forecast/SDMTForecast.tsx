@@ -116,6 +116,24 @@ export function SDMTForecast() {
   const isPortfolioView = selectedProjectId === ALL_PROJECTS_ID;
   const lineItemsForGrid = isPortfolioView ? portfolioLineItems : safeLineItems;
 
+  // Helper function to compute calendar month from monthIndex and project start date
+  const getCalendarMonth = (monthIndex: number): string => {
+    if (!currentProject?.start_date) {
+      // Fallback: display just the month name without year for consistency
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return monthNames[monthIndex - 1] || `M${monthIndex}`;
+    }
+    
+    const startDate = new Date(currentProject.start_date);
+    startDate.setUTCMonth(startDate.getUTCMonth() + (monthIndex - 1));
+    const year = startDate.getUTCFullYear();
+    const month = startDate.getUTCMonth() + 1;
+    
+    // Return month name for display (e.g., "May 2025")
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${monthNames[month - 1]} ${year}`;
+  };
+
   // Load data when project or period changes
   useEffect(() => {
     if (selectedProjectId) {
@@ -419,8 +437,6 @@ export function SDMTForecast() {
 
     setSavingForecasts(true);
     try {
-      const currentYear = new Date().getFullYear();
-      
       // Group by project for API calls
       const byProject = new Map<string, ForecastRow[]>();
       entries.forEach(cell => {
@@ -433,16 +449,16 @@ export function SDMTForecast() {
         byProject.get(projectId)!.push(cell);
       });
 
-      // Send updates per project using bulkUpsertForecast with correct payload format
-      // This replaces the old bulkUpdateAllocations call which used {allocations} wrapper
-      // New format uses {items: [{rubroId, month, forecast}]} as required by the API
+      // Send updates per project using bulkUpsertForecast with monthIndex format
+      // The API expects: {items: [{rubroId, month: number (1-12), forecast}]}
+      // We send monthIndex as a number, and the backend will compute the calendar month
       for (const [projectId, projectCells] of byProject.entries()) {
         const items = projectCells.map(cell => {
           // Validate month is in valid range (1-12)
-          const month = Math.max(1, Math.min(12, cell.month));
+          const monthIndex = Math.max(1, Math.min(12, cell.month));
           return {
             rubroId: cell.line_item_id,
-            month: `${currentYear}-${String(month).padStart(2, '0')}`,
+            month: monthIndex, // Send as numeric monthIndex (1-12)
             forecast: Number(cell.forecast) || 0,
           };
         });
@@ -840,6 +856,15 @@ export function SDMTForecast() {
             {currentProject && (
               <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                 {currentProject.name} | Change #{projectChangeCount}
+              </span>
+            )}
+            {/* Show contract start date for single project view */}
+            {!isPortfolioView && currentProject?.start_date && (
+              <span className="ml-2 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">
+                📅 Inicio contrato: {new Date(currentProject.start_date).toLocaleDateString('es-ES', { 
+                  month: 'long', 
+                  year: 'numeric' 
+                })}
               </span>
             )}
           </p>
@@ -1259,7 +1284,12 @@ export function SDMTForecast() {
                     <TableHead className="sticky left-0 bg-background min-w-[300px]">Rubro</TableHead>
                     {Array.from({ length: 12 }, (_, i) => (
                       <TableHead key={i + 1} className="text-center min-w-[140px]">
-                        M{i + 1}
+                        <div className="font-semibold">M{i + 1}</div>
+                        {!isPortfolioView && currentProject?.start_date && (
+                          <div className="text-xs font-normal text-muted-foreground mt-1">
+                            {getCalendarMonth(i + 1)}
+                          </div>
+                        )}
                         <div className="text-xs font-normal text-muted-foreground mt-1">
                           P / F / A
                         </div>

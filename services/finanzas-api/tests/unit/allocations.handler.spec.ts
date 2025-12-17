@@ -40,6 +40,18 @@ jest.mock("../../src/validation/allocations", () => ({
 
 const baseHeaders = { authorization: "Bearer test" };
 
+/**
+ * Helper to create a mock project with start date
+ * Both start_date and fecha_inicio are set for compatibility with different
+ * parts of the codebase that may use either field name
+ */
+const mockProjectWithStartDate = (startDate: string) => ({
+  pk: "PROJECT#P-123",
+  baseline_id: "base_001",
+  start_date: startDate,
+  fecha_inicio: startDate, // Legacy field for backward compatibility
+});
+
 describe("allocations handler", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -141,10 +153,10 @@ describe("allocations handler", () => {
 
   describe("bulk allocations update", () => {
     it("creates planned allocations with type=planned", async () => {
-      // Mock project lookup
+      // Mock project lookup with start date
       (dynamo.ddb.send as jest.Mock)
         .mockResolvedValueOnce({
-          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+          Item: mockProjectWithStartDate("2025-01-01"),
         })
         // Mock existing allocation check (not found)
         .mockResolvedValueOnce({ Item: undefined })
@@ -179,10 +191,10 @@ describe("allocations handler", () => {
     });
 
     it("creates forecast allocations with type=forecast", async () => {
-      // Mock project lookup
+      // Mock project lookup with start date
       (dynamo.ddb.send as jest.Mock)
         .mockResolvedValueOnce({
-          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+          Item: mockProjectWithStartDate("2025-01-01"),
         })
         // Mock existing allocation check (not found)
         .mockResolvedValueOnce({ Item: undefined })
@@ -229,10 +241,10 @@ describe("allocations handler", () => {
         planned: 50000,
       };
 
-      // Mock project lookup
+      // Mock project lookup with start date
       (dynamo.ddb.send as jest.Mock)
         .mockResolvedValueOnce({
-          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+          Item: mockProjectWithStartDate("2025-01-01"),
         })
         // Mock existing allocation check (found)
         .mockResolvedValueOnce({ Item: existingAllocation })
@@ -305,10 +317,10 @@ describe("allocations handler", () => {
     });
 
     it("processes multiple allocations in bulk", async () => {
-      // Mock project lookup
+      // Mock project lookup with start date
       (dynamo.ddb.send as jest.Mock)
         .mockResolvedValueOnce({
-          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+          Item: mockProjectWithStartDate("2025-01-01"),
         })
         // Mock existing allocation checks (not found for both)
         .mockResolvedValueOnce({ Item: undefined })
@@ -347,10 +359,10 @@ describe("allocations handler", () => {
     });
 
     it("accepts new items format for forecast updates", async () => {
-      // Mock project lookup
+      // Mock project lookup with start date
       (dynamo.ddb.send as jest.Mock)
         .mockResolvedValueOnce({
-          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+          Item: mockProjectWithStartDate("2025-01-01"),
         })
         // Mock existing allocation check (not found)
         .mockResolvedValueOnce({ Item: undefined })
@@ -381,6 +393,108 @@ describe("allocations handler", () => {
       expect(payload.updated_count).toBe(1);
       expect(payload.type).toBe("forecast");
       expect(payload.allocations[0].status).toBe("created");
+    });
+
+    it("accepts numeric monthIndex (1-12) and computes calendar month", async () => {
+      // Mock project lookup with May start date
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: mockProjectWithStartDate("2025-05-01"),
+        })
+        // Mock existing allocation check (not found)
+        .mockResolvedValueOnce({ Item: undefined })
+        // Mock put command
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" }, requestId: "test-123" },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: 1, // M1 should map to May 2025
+              forecast: 32000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.updated_count).toBe(1);
+      expect(payload.allocations[0].calendarMonthKey).toBe("2025-05");
+      expect(payload.allocations[0].monthIndex).toBe(1);
+    });
+
+    it("handles M-notation (M1, M2, etc.)", async () => {
+      // Mock project lookup with June start date
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: mockProjectWithStartDate("2025-06-15"),
+        })
+        // Mock existing allocation check (not found)
+        .mockResolvedValueOnce({ Item: undefined })
+        // Mock put command
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" }, requestId: "test-124" },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "M3", // M3 should map to August 2025 (Jun + 2 months)
+              forecast: 40000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.allocations[0].calendarMonthKey).toBe("2025-08");
+      expect(payload.allocations[0].monthIndex).toBe(3);
+    });
+
+    it("rejects invalid month values", async () => {
+      // Mock project lookup
+      (dynamo.ddb.send as jest.Mock).mockResolvedValueOnce({
+        Item: mockProjectWithStartDate("2025-01-01"),
+      });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" }, requestId: "test-125" },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: 13, // Invalid - must be 1-12
+              forecast: 32000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toContain("Month index must be between 1 and 12");
     });
 
     it("rejects forecast updates from non-SDMT users", async () => {
@@ -428,10 +542,10 @@ describe("allocations handler", () => {
         roles: ["ADMIN"],
       });
 
-      // Mock project lookup
+      // Mock project lookup with start date
       (dynamo.ddb.send as jest.Mock)
         .mockResolvedValueOnce({
-          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+          Item: mockProjectWithStartDate("2025-01-01"),
         })
         // Mock existing allocation check (not found)
         .mockResolvedValueOnce({ Item: undefined })
@@ -474,10 +588,10 @@ describe("allocations handler", () => {
         roles: ["EXEC_RO"],
       });
 
-      // Mock project lookup
+      // Mock project lookup with start date
       (dynamo.ddb.send as jest.Mock)
         .mockResolvedValueOnce({
-          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+          Item: mockProjectWithStartDate("2025-01-01"),
         })
         // Mock existing allocation check (not found)
         .mockResolvedValueOnce({ Item: undefined })
