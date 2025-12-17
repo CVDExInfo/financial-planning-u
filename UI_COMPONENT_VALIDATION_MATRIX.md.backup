@@ -167,72 +167,44 @@ Risk Level: 🟡 MEDIUM – UI is much stronger; approval persistence and full A
 
 Risk Level: 🟡 MEDIUM – Good shape, but must be tested against real approval API.
 
-### 7. SDMTForecast ✅ (with caveat)
-### 6. SDMTReconciliation ✅ ENHANCED
+### 6. SDMTReconciliation ⚠️
 
 **File:** `src/features/sdmt/cost/Reconciliation/SDMTReconciliation.tsx`
 
-**Status:** ✅ SIGNIFICANTLY IMPROVED WITH NEW FEATURES (December 2025)
+**Status:** ⚠️ UI IMPROVED; BACKEND INVOICE UPLOAD STILL FAILS
 
-**Recent improvements (December 2025)**
-
-1. **Upload Modal UX**
-   - Dialog content is now scrollable with `max-h-[90vh]` constraint
-   - Header and footer sections are pinned (non-scrolling)
-   - Submit button ("Subir Factura") is always reachable
-   - Improved responsive layout with flex column structure
-
-2. **Taxonomy-Driven Rubro Description**
-   - Rubro description now read-only and derived from catalog taxonomy
-   - Shows category, description, and tipo_costo from selected line item
-   - Fallback message: "Sin descripción configurada para este rubro"
-   - Added separate optional "Notas de Conciliación" field for user-specific notes
-   - No longer requires manual description entry
-
-3. **Correction/Deletion Workflow**
-   - New invoice statuses: `PendingDeletionApproval`, `PendingCorrectionApproval`
-   - "Solicitar Corrección" action available for reconciled (`Matched`) invoices
-   - Request dialog with optional reason/comment field
-   - Second-person approval enforcement: deletion must be approved by different user than reconciler
-   - Approval/rejection actions with proper user validation
-   - Clear UI feedback when user cannot approve their own reconciliation
-
-**Previous improvements**
+**Recent improvements**
 
 - Uses canonical rubro labels (Category / Subtype — Description) for line items, matching the catalog.
 - Line-item dropdown options now derived from `useProjectLineItems`.
 - When no rubros available:
   - Replaces disabled dropdown with a manual `line_item_id` input.
-  - Shows contextual message (session expired, no permissions, or "no rubros configured") instead of blocking silently.
+  - Shows contextual message (session expired, no permissions, or “no rubros configured”) instead of blocking silently.
+
+**Current issue**
+
+- Invoice upload (`POST /uploads/docs`) returns **500 Internal Server Error** in dev.
+- Likely tied to missing/misconfigured `finz_docs` table or DOCS_BUCKET permissions.
+- UI is sending sensible payload; error is backend/infra.
 
 **Validation Checklist (UI)**
 
-- [ ] Upload modal fits viewport and submit button is reachable
-- [ ] Modal content scrolls while header/footer remain fixed
-- [ ] Rubro description field shows taxonomy data (read-only)
-- [ ] Optional notes field allows user input
-- [ ] Invoices load and display id, line_item_id, month, amount, status
-- [ ] New statuses (PendingDeletionApproval) display correctly
-- [ ] "Solicitar Corrección" button appears for Matched invoices
-- [ ] Correction request dialog opens and allows submission
-- [ ] Same user cannot approve their own deletion request
-- [ ] Different user can see and approve/reject deletion requests
-- [ ] Status badges display correctly for all invoice states
-- [ ] Line-item dropdown options match Catalog for same project
-- [ ] When rubros absent, manual ID input is available and clearly explained
-- [ ] No client-side errors when submitting
+- [ ] Invoices load and display id, line_item_id, month, amount, status.
+- [ ] Upload form opens and allows selecting line item and month.
+- [ ] Line-item dropdown options match Catalog for same project.
+- [ ] When rubros absent, manual ID input is available and clearly explained.
+- [ ] No client-side errors when submitting.
 
 **E2E Checklist (backend)**
 
-- [ ] `POST /uploads/docs` succeeds for a small test file
-- [ ] New invoice appears in list with correct metadata
-- [ ] Status update actions (match/dispute/resolve) work and persist
-- [ ] New status values (PendingDeletionApproval) accepted by backend
-- [ ] Backend enforces second-person approval rule
-- [ ] Exports (Excel/PDF) generate correctly for reconciled invoices
-- [ ] Audit trail captures deletion requests and approvals
+- [ ] `POST /uploads/docs` succeeds for a small test file.
+- [ ] New invoice appears in list with correct metadata.
+- [ ] Status update actions (match/dispute/resolve) work and persist.
+- [ ] Exports (Excel/PDF) generate correctly for reconciled invoices.
 
-Risk Level: 🟢 LOW-MEDIUM – UI significantly improved; backend support for new statuses may need verification.
+Risk Level: 🟠 MEDIUM-HIGH – Users can see UI, but core upload flow fails until backend/infra is corrected.
+
+### 7. SDMTForecast ✅ (with caveat)
 
 **File:** `src/features/sdmt/cost/Forecast/SDMTForecast.tsx`
 

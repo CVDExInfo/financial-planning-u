@@ -334,7 +334,7 @@ const validateArrayResponse = (value: unknown, label: string): any[] => {
 };
 
 // ---------- Common DTOs ----------
-export type InvoiceStatus = "Pending" | "Matched" | "Disputed";
+export type InvoiceStatus = "Pending" | "Matched" | "Disputed" | "PendingDeletionApproval" | "PendingCorrectionApproval";
 
 export type UploadInvoicePayload = {
   file: File;

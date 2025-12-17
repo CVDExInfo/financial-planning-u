@@ -15,7 +15,7 @@ export type VarianceReason =
   | "other";
 export type UserRole = "PM" | "PMO" | "SDMT" | "SDM_FIN" | "VENDOR" | "EXEC_RO";
 export type ModuleType = "PMO" | "SDMT";
-export type InvoiceStatus = "Pending" | "Matched" | "Disputed";
+export type InvoiceStatus = "Pending" | "Matched" | "Disputed" | "PendingDeletionApproval" | "PendingCorrectionApproval";
 export type ApprovalDecision = "approve" | "reject";
 
 // Line Item represents individual cost components
@@ -131,6 +131,9 @@ export type InvoiceDoc = {
   uploaded_at: string;
   matched_at?: string;
   matched_by?: string;
+  reconciled_by?: string; // User who reconciled/matched the invoice
+  deletion_requested_by?: string; // User who requested deletion
+  deletion_requested_at?: string; // When deletion was requested
 };
 
 // Scenario modeling

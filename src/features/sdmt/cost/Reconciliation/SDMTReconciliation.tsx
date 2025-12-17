@@ -41,6 +41,8 @@ import {
   Share2,
   Upload,
   X,
+  Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,6 +59,7 @@ import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import { useProjectInvoices } from "@/hooks/useProjectInvoices";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useProviders } from "@/hooks/useProviders";
+import { useCurrentUser } from "@/hooks/useAuth";
 import {
   uploadInvoice,
   updateInvoiceStatus,
@@ -83,7 +86,7 @@ type UploadFormState = {
   start_month: number; // For multi-month range
   end_month: number; // For multi-month range
   amount: string;
-  description: string;
+  description: string; // User-provided notes (optional)
   file: File | null;
   vendor: string;
   invoice_number: string;
@@ -170,12 +173,18 @@ export default function SDMTReconciliation() {
   const [uploadFormData, setUploadFormData] = useState<UploadFormState>(
     createInitialUploadForm
   );
+  
+  // Correction/deletion dialog state
+  const [showCorrectionDialog, setShowCorrectionDialog] = useState(false);
+  const [selectedInvoiceForCorrection, setSelectedInvoiceForCorrection] = useState<any>(null);
+  const [correctionComment, setCorrectionComment] = useState("");
 
   // Routing/context
   const location = useLocation();
   const navigate = useNavigate();
   const { currentProject, projectChangeCount } = useProject();
   const { canUploadInvoices, canApprove } = usePermissions();
+  const currentUser = useCurrentUser();
 
   // Server data
   const {
@@ -534,6 +543,80 @@ export default function SDMTReconciliation() {
     await statusMutation.mutateAsync({ invoiceId, status, comment });
   };
 
+  const handleRequestCorrection = (invoice: any) => {
+    setSelectedInvoiceForCorrection(invoice);
+    setCorrectionComment("");
+    setShowCorrectionDialog(true);
+  };
+
+  const handleSubmitCorrectionRequest = async () => {
+    if (!selectedInvoiceForCorrection) return;
+    
+    const comment = correctionComment.trim() || "Solicitud de corrección/eliminación";
+    
+    try {
+      await statusMutation.mutateAsync({
+        invoiceId: selectedInvoiceForCorrection.id,
+        status: "PendingDeletionApproval",
+        comment,
+      });
+      
+      if (import.meta.env.DEV) {
+        console.log("[SDMTReconciliation] Deletion request submitted", {
+          projectId,
+          invoiceId: selectedInvoiceForCorrection.id,
+          requestedBy: currentUser?.login || currentUser?.email,
+          comment,
+        });
+      }
+      
+      setShowCorrectionDialog(false);
+      setSelectedInvoiceForCorrection(null);
+      setCorrectionComment("");
+    } catch (err) {
+      // Error is already handled by statusMutation.onError
+      console.error("[SDMTReconciliation] Failed to request correction", err);
+    }
+  };
+
+  const handleApproveDeletion = async (invoiceId: string) => {
+    // Note: Backend should mark as deleted or remove the record
+    // For now, we'll update status to indicate approval
+    await statusMutation.mutateAsync({
+      invoiceId,
+      status: "Disputed", // Use Disputed as a temporary "deleted" state
+      comment: "Eliminación aprobada",
+    });
+  };
+
+  const handleRejectDeletion = async (invoiceId: string) => {
+    // Revert back to Matched status
+    await statusMutation.mutateAsync({
+      invoiceId,
+      status: "Matched",
+      comment: "Solicitud de eliminación rechazada",
+    });
+  };
+
+  const canApproveDeletion = (invoice: any): boolean => {
+    // User can approve deletion if:
+    // 1. They have approval permissions (canApprove)
+    // 2. They are NOT the user who reconciled the invoice
+    if (!canApprove) return false;
+    
+    const reconciledBy = invoice.reconciled_by || invoice.matched_by || invoice.uploaded_by;
+    const currentUserId = currentUser?.login || currentUser?.email;
+    
+    if (!reconciledBy || !currentUserId) {
+      // If we can't determine the reconciler or current user, allow by default
+      // Backend should enforce this rule
+      return true;
+    }
+    
+    // Different user can approve
+    return reconciledBy !== currentUserId;
+  };
+
   const navigateToForecast = (line_item_id: string, month?: number) => {
     const params = new URLSearchParams();
     if (month) params.set("month", String(month));
@@ -768,15 +851,15 @@ export default function SDMTReconciliation() {
           setShowUploadForm(canUploadInvoices ? open : false)
         }
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Subir Factura</DialogTitle>
             <DialogDescription>
               Sube documentos de factura y vincúlalos a rubros específicos de costos y períodos de tiempo.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 py-4">
+          <div className="space-y-6 py-4 overflow-y-auto flex-1">
             {/* Rubro and Description */}
             <div className="space-y-4">
               <div className="space-y-2">
@@ -828,11 +911,49 @@ export default function SDMTReconciliation() {
 
               {/* Description tied to Rubro */}
               <div className="space-y-2">
-                <Label htmlFor="description">Descripción del Rubro</Label>
+                <Label htmlFor="taxonomy-description">Descripción del Rubro (Taxonomía)</Label>
+                <Textarea
+                  id="taxonomy-description"
+                  name="taxonomy-description"
+                  value={(() => {
+                    // Get taxonomy description from selected line item
+                    const selectedItem = safeLineItems.find(
+                      (item) => item.id === uploadFormData.line_item_id
+                    );
+                    if (!selectedItem) return "";
+                    
+                    // Build taxonomy description from line item properties
+                    const category = (selectedItem as any).categoria?.trim() || selectedItem.category?.trim();
+                    const description = selectedItem.description?.trim();
+                    const tipoCosto = (selectedItem as any).tipo_costo?.trim();
+                    
+                    const parts: string[] = [];
+                    if (category) parts.push(category);
+                    if (description) parts.push(description);
+                    if (tipoCosto) parts.push(`Tipo: ${tipoCosto}`);
+                    
+                    return parts.length > 0
+                      ? parts.join(" — ")
+                      : "Sin descripción configurada para este rubro";
+                  })()}
+                  rows={2}
+                  readOnly
+                  disabled
+                  className="bg-muted cursor-not-allowed"
+                  aria-describedby="taxonomy-description-help"
+                />
+                <p id="taxonomy-description-help" className="text-xs text-muted-foreground">
+                  Esta descripción proviene del catálogo de rubros y no se puede editar.
+                </p>
+              </div>
+
+              {/* Optional user notes */}
+              <div className="space-y-2">
+                <Label htmlFor="description">Notas de Conciliación (Opcional)</Label>
                 <Textarea
                   id="description"
                   name="description"
-                  placeholder="Describe brevemente el concepto asociado a este rubro"
+                  placeholder="Agrega notas adicionales sobre esta factura (opcional)"
                   value={uploadFormData.description}
                   onChange={(e) =>
                     setUploadFormData((prev) => ({
@@ -844,7 +965,7 @@ export default function SDMTReconciliation() {
                   aria-describedby="description-help"
                 />
                 <p id="description-help" className="text-xs text-muted-foreground">
-                  Describe brevemente el concepto asociado a este rubro (opcional).
+                  Campo opcional para agregar contexto o notas específicas de esta factura.
                 </p>
               </div>
             </div>
@@ -1068,7 +1189,7 @@ export default function SDMTReconciliation() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 flex-shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setShowUploadForm(false)}>
               Cancelar
             </Button>
@@ -1077,6 +1198,82 @@ export default function SDMTReconciliation() {
               disabled={uploadMutation.isPending || !canUploadInvoices}
             >
               {uploadMutation.isPending ? "Subiendo..." : "Subir Factura"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Correction/Deletion Request Dialog */}
+      <Dialog
+        open={showCorrectionDialog}
+        onOpenChange={setShowCorrectionDialog}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Solicitar Corrección o Eliminación</DialogTitle>
+            <DialogDescription>
+              Esta factura fue conciliada. Para corregirla o eliminarla, debe ser aprobado por un usuario diferente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {selectedInvoiceForCorrection && (
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Factura:</span>
+                  <span className="font-medium">{selectedInvoiceForCorrection.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Monto:</span>
+                  <span className="font-medium">{formatCurrency(selectedInvoiceForCorrection.amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Mes:</span>
+                  <span className="font-medium">Month {selectedInvoiceForCorrection.month}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="correction-comment">
+                Razón de la solicitud (opcional)
+              </Label>
+              <Textarea
+                id="correction-comment"
+                placeholder="Describe por qué se necesita corregir o eliminar esta factura..."
+                value={correctionComment}
+                onChange={(e) => setCorrectionComment(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-sm text-amber-900">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+                <p>
+                  Esta solicitud quedará pendiente hasta que sea aprobada por un usuario diferente al que concilió la factura.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCorrectionDialog(false);
+                setSelectedInvoiceForCorrection(null);
+                setCorrectionComment("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSubmitCorrectionRequest}
+              disabled={statusMutation.isPending}
+              variant="destructive"
+            >
+              {statusMutation.isPending ? "Enviando..." : "Solicitar"}
             </Button>
           </div>
         </DialogContent>
@@ -1166,10 +1363,16 @@ export default function SDMTReconciliation() {
                               ? "default"
                               : inv.status === "Disputed"
                               ? "destructive"
+                              : inv.status === "PendingDeletionApproval" || inv.status === "PendingCorrectionApproval"
+                              ? "secondary"
                               : "secondary"
                           }
                         >
-                          {inv.status}
+                          {inv.status === "PendingDeletionApproval"
+                            ? "Pendiente Eliminación"
+                            : inv.status === "PendingCorrectionApproval"
+                            ? "Pendiente Corrección"
+                            : inv.status}
                         </Badge>
                       </TableCell>
 
@@ -1247,6 +1450,19 @@ export default function SDMTReconciliation() {
                                 </Button>
                               </>
                             )}
+                            {inv.status === "Matched" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRequestCorrection(inv)}
+                                disabled={statusMutation.isPending}
+                                className="gap-1"
+                                title="Solicitar corrección o eliminación"
+                              >
+                                <AlertCircle size={14} />
+                                Solicitar Corrección
+                              </Button>
+                            )}
                             {inv.status === "Disputed" && (
                               <Button
                                 size="sm"
@@ -1256,6 +1472,38 @@ export default function SDMTReconciliation() {
                               >
                                 Resolver
                               </Button>
+                            )}
+                            {inv.status === "PendingDeletionApproval" && (
+                              <>
+                                {canApproveDeletion(inv) ? (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => handleApproveDeletion(inv.id)}
+                                      disabled={statusMutation.isPending}
+                                      className="gap-1"
+                                      title="Aprobar eliminación"
+                                    >
+                                      <Trash2 size={14} />
+                                      Aprobar
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleRejectDeletion(inv.id)}
+                                      disabled={statusMutation.isPending}
+                                      title="Rechazar eliminación"
+                                    >
+                                      Rechazar
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <div className="text-xs text-muted-foreground max-w-[180px]" title="La eliminación debe ser aprobada por un usuario diferente al que concilió esta factura">
+                                    Pendiente aprobación (requiere otro usuario)
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         ) : (
