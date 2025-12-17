@@ -119,9 +119,9 @@ export function SDMTForecast() {
   // Helper function to compute calendar month from monthIndex and project start date
   const getCalendarMonth = (monthIndex: number): string => {
     if (!currentProject?.start_date) {
-      // Fallback: use current year
-      const currentYear = new Date().getFullYear();
-      return `${currentYear}-${String(monthIndex).padStart(2, '0')}`;
+      // Fallback: display just the month name without year for consistency
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return monthNames[monthIndex - 1] || `M${monthIndex}`;
     }
     
     const startDate = new Date(currentProject.start_date);

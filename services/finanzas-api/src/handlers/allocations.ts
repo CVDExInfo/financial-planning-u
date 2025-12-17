@@ -8,27 +8,37 @@ import { parseForecastBulkUpdate } from "../validation/allocations";
 /**
  * Normalize month input to monthIndex (1-12) and compute calendarMonthKey (YYYY-MM)
  * Accepts:
- * - number 1-12 (monthIndex)
- * - "YYYY-MM" string (extract MM as monthIndex)
- * - "M1", "M2", etc. (extract number as monthIndex)
+ * - number 1-12 (monthIndex) - treated as contract month offset
+ * - "YYYY-MM" string (calendar month key) - preserved as-is for backward compatibility
+ * - "M1", "M2", etc. (M-notation) - treated as contract month offset
+ * 
+ * For numeric monthIndex and M-notation:
+ *   - Computes calendarMonthKey by adding (monthIndex - 1) months to project start date
+ *   - Example: project starts May 2025, monthIndex=1 → 2025-05, monthIndex=2 → 2025-06
+ * 
+ * For YYYY-MM format:
+ *   - Preserved for backward compatibility with existing data
+ *   - Extracts month number as monthIndex for internal consistency
  */
 function normalizeMonth(
   monthInput: string | number,
   projectStartDate: string | undefined
 ): { monthIndex: number; calendarMonthKey: string } {
   let monthIndex: number;
+  let isExplicitCalendarMonth = false;
 
   if (typeof monthInput === "number") {
-    // Already a number, use as monthIndex
+    // Already a number, use as monthIndex (contract month)
     monthIndex = monthInput;
   } else if (typeof monthInput === "string") {
-    // Check if it's in YYYY-MM format
+    // Check if it's in YYYY-MM format (explicit calendar month)
     if (/^\d{4}-\d{2}$/.test(monthInput)) {
-      // Extract month part as monthIndex (treat as calendar month, not contract month)
-      // For now, we'll use the month as-is and calculate the calendarMonthKey
-      // This maintains backward compatibility
+      // For backward compatibility: preserve the calendar month as-is
+      // Extract the month number to use as monthIndex
+      const month = parseInt(monthInput.substring(5, 7), 10);
+      isExplicitCalendarMonth = true;
       return {
-        monthIndex: parseInt(monthInput.substring(5, 7), 10),
+        monthIndex: month,
         calendarMonthKey: monthInput,
       };
     }
@@ -63,12 +73,14 @@ function normalizeMonth(
     const month = String(startDate.getUTCMonth() + 1).padStart(2, "0");
     calendarMonthKey = `${year}-${month}`;
   } else {
-    // Fallback: use current year with monthIndex
+    // If no valid project start date, this is an error condition
+    // Log warning and use monthIndex as fallback for development
+    console.warn(
+      `[allocations] Missing or invalid project start date: ${projectStartDate}. Using monthIndex ${monthIndex} without calendar computation.`
+    );
+    // Use current year as emergency fallback - this should be rare in production
     const currentYear = new Date().getUTCFullYear();
     calendarMonthKey = `${currentYear}-${String(monthIndex).padStart(2, "0")}`;
-    console.warn(
-      `[allocations] No valid project start date, using fallback: ${calendarMonthKey}`
-    );
   }
 
   return { monthIndex, calendarMonthKey };

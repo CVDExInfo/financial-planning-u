@@ -40,12 +40,16 @@ jest.mock("../../src/validation/allocations", () => ({
 
 const baseHeaders = { authorization: "Bearer test" };
 
-// Helper to create a mock project with start date
+/**
+ * Helper to create a mock project with start date
+ * Both start_date and fecha_inicio are set for compatibility with different
+ * parts of the codebase that may use either field name
+ */
 const mockProjectWithStartDate = (startDate: string) => ({
   pk: "PROJECT#P-123",
   baseline_id: "base_001",
   start_date: startDate,
-  fecha_inicio: startDate,
+  fecha_inicio: startDate, // Legacy field for backward compatibility
 });
 
 describe("allocations handler", () => {
