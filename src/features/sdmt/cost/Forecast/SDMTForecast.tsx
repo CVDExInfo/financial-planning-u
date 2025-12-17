@@ -498,7 +498,7 @@ export function SDMTForecast() {
   // Check if user can edit forecast (SDMT only) or actuals (SDMT role)
   const canEditForecast = user?.current_role === 'SDMT';
   const canEditActual = user?.current_role === 'SDMT';
-  const canEditBudget = user?.current_role === 'SDMT' || user?.current_role === 'ADMIN';
+  const canEditBudget = user?.current_role === 'SDMT';
 
   // Function to navigate to reconciliation with filters
   const navigateToReconciliation = (line_item_id: string, month?: number) => {
