@@ -363,7 +363,7 @@ export function SDMTForecast() {
   };
 
   const handlePersistForecasts = async () => {
-    const entries = Object.values(dirtyForecasts);
+    const entries: ForecastRow[] = Object.values(dirtyForecasts);
     if (entries.length === 0) {
       toast.info('No hay cambios de pronóstico para guardar');
       return;
@@ -374,7 +374,7 @@ export function SDMTForecast() {
       const currentYear = new Date().getFullYear();
       
       // Group by project for API calls
-      const byProject = new Map<string, typeof entries>();
+      const byProject = new Map<string, ForecastRow[]>();
       entries.forEach(cell => {
         const projectId = cell.projectId || selectedProjectId;
         if (!projectId) return;
@@ -387,11 +387,15 @@ export function SDMTForecast() {
 
       // Send updates per project
       for (const [projectId, projectCells] of byProject.entries()) {
-        const allocations = projectCells.map(cell => ({
-          rubro_id: cell.line_item_id,
-          mes: `${currentYear}-${String(cell.month).padStart(2, '0')}`,
-          monto_proyectado: Number(cell.forecast) || 0,
-        }));
+        const allocations = projectCells.map(cell => {
+          // Validate month is in valid range (1-12)
+          const month = Math.max(1, Math.min(12, cell.month));
+          return {
+            rubro_id: cell.line_item_id,
+            mes: `${currentYear}-${String(month).padStart(2, '0')}`,
+            monto_proyectado: Number(cell.forecast) || 0,
+          };
+        });
 
         await bulkUpdateAllocations(projectId, allocations, 'forecast');
       }
