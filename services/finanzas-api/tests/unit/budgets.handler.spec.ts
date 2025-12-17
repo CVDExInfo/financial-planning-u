@@ -1,6 +1,7 @@
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
 import { handler as budgetsHandler } from "../../src/handlers/budgets";
 import * as dynamo from "../../src/lib/dynamo";
+import * as auth from "../../src/lib/auth";
 
 // Mock DynamoDB
 jest.mock("../../src/lib/dynamo", () => ({
@@ -126,8 +127,7 @@ describe("budgets handler", () => {
     });
 
     it("returns 403 when user is not PMO or ADMIN", async () => {
-      const auth = require("../../src/lib/auth");
-      auth.getUserContext.mockResolvedValueOnce({
+      (auth.getUserContext as jest.Mock).mockResolvedValueOnce({
         email: "sdmt@example.com",
         roles: ["SDMT"],
         isPMO: false,

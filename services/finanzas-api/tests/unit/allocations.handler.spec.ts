@@ -1,6 +1,7 @@
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
 import { handler as allocationsHandler } from "../../src/handlers/allocations";
 import * as dynamo from "../../src/lib/dynamo";
+import * as auth from "../../src/lib/auth";
 
 // Mock DynamoDB
 jest.mock("../../src/lib/dynamo", () => ({
@@ -209,8 +210,7 @@ describe("allocations handler", () => {
     });
 
     it("returns 403 if user is not PMO", async () => {
-      const auth = require("../../src/lib/auth");
-      auth.ensurePMO.mockRejectedValueOnce({
+      (auth.ensurePMO as jest.Mock).mockRejectedValueOnce({
         statusCode: 403,
         body: "forbidden: PMO required",
       });
