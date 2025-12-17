@@ -461,5 +461,87 @@ describe("allocations handler", () => {
       expect(response.statusCode).toBe(200);
       expect(payload.updated_count).toBe(1);
     });
+
+    it("allows EXEC_RO users to update forecasts", async () => {
+      // Mock getUserContext to return EXEC_RO user
+      const auth = require("../../src/lib/auth");
+      auth.getUserContext.mockReturnValueOnce({
+        email: "exec@example.com",
+        sub: "exec-id",
+        isSDMT: false,
+        isAdmin: false,
+        isExecRO: true,
+        roles: ["EXEC_RO"],
+      });
+
+      // Mock project lookup
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+        })
+        // Mock existing allocation check (not found)
+        .mockResolvedValueOnce({ Item: undefined })
+        // Mock put command
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "2025-01",
+              forecast: 32000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["EXEC_RO"], email: "exec@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.updated_count).toBe(1);
+    });
+
+    it("rejects forecast updates from PMO users", async () => {
+      // Mock getUserContext to return PMO user (who should NOT have forecast access)
+      const auth = require("../../src/lib/auth");
+      auth.getUserContext.mockReturnValueOnce({
+        email: "pmo@example.com",
+        sub: "pmo-id",
+        isSDMT: false,
+        isAdmin: false,
+        isExecRO: false,
+        isPMO: true,
+        roles: ["PMO"],
+      });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "2025-01",
+              forecast: 32000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["PMO"], email: "pmo@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+
+      expect(response.statusCode).toBe(403);
+      expect(response.body).toContain("Forbidden");
+    });
   });
 });

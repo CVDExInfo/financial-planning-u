@@ -72,6 +72,8 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
  * - forecast: Requires SDMT or ADMIN role
  */
 async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
+  const requestId = event.requestContext?.requestId || 'unknown';
+  
   try {
     const projectId = event.pathParameters?.id;
     if (!projectId) {
@@ -81,20 +83,22 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
     // Get allocation type from query parameter (default to 'planned')
     const allocationType = event.queryStringParameters?.type || "planned";
     
+    console.log(`[allocations] ${requestId} - ${allocationType} bulk update for project ${projectId}`);
+    
     if (allocationType !== "planned" && allocationType !== "forecast") {
       return bad(event, "Invalid type parameter. Must be 'planned' or 'forecast'");
     }
 
     // Authorization check based on type
     if (allocationType === "forecast") {
-      // Forecast updates require SDMT or ADMIN role
+      // Forecast updates require SDMT, EXEC_RO, or ADMIN role
       const userContext = await getUserContext(event as any);
-      const hasAccess = userContext.isSDMT || userContext.isAdmin;
+      const hasAccess = userContext.isSDMT || userContext.isExecRO || userContext.isAdmin;
       
       if (!hasAccess) {
         return {
           statusCode: 403,
-          body: JSON.stringify({ message: "Forbidden: SDMT or ADMIN role required for forecast updates" }),
+          body: JSON.stringify({ message: "Forbidden: SDMT, EXEC_RO, or ADMIN role required for forecast updates" }),
           headers: { "Content-Type": "application/json" },
         };
       }
@@ -236,6 +240,8 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
       console.log(`[allocations] ${allocationType} ${existing.pk ? "updated" : "created"}: ${projectId} / ${rubro_id} / ${mes} = ${amount}`);
     }
 
+    console.log(`[allocations] ${requestId} - Successfully processed ${results.length} ${allocationType} allocations for project ${projectId}`);
+
     return ok(event, {
       updated_count: results.length,
       type: allocationType,
@@ -244,12 +250,22 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
   } catch (error: any) {
     // Handle authorization errors specifically
     if (error?.statusCode === 403) {
+      console.log(`[allocations] 403 Forbidden - ${allocationType} update rejected for user`);
       return {
         statusCode: 403,
         body: JSON.stringify({ message: error.body || "Forbidden" }),
         headers: { "Content-Type": "application/json" },
       };
     }
+    
+    // Handle validation errors (should already be caught above, but be defensive)
+    if (error?.statusCode === 400 || error.message?.includes("invalid") || error.message?.includes("Invalid")) {
+      console.log(`[allocations] 400 Bad Request - ${error.message || "Invalid payload"}`);
+      return bad(event, error.message || "Invalid allocation data");
+    }
+    
+    // Log unexpected errors with context
+    console.error(`[allocations] Unexpected error during ${allocationType} bulk update for project ${event.pathParameters?.id}:`, error);
     logError("Error bulk updating allocations", error);
     return serverError(event as any, "Failed to update allocations");
   }

@@ -11,11 +11,11 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { ok, bad, serverError, noContent, notFound } from "../lib/http";
 import { getUserContext, ApiGwEvent } from "../lib/auth";
-import { ddb, tableName, PutCommand, GetCommand } from "../lib/dynamo";
+import { ddb, tableName, PutCommand, GetCommand, ScanCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
 
 /**
- * Enforce SDMT or EXEC_RO access only
+ * Enforce SDMT, EXEC_RO, or ADMIN access for reads
  */
 async function ensureHubAccess(event: ApiGwEvent): Promise<void> {
   const userContext = await getUserContext(event);
@@ -24,21 +24,21 @@ async function ensureHubAccess(event: ApiGwEvent): Promise<void> {
     throw { statusCode: 403, body: "forbidden: no role assigned" };
   }
   
-  const hasAccess = userContext.isSDMT || userContext.isExecRO;
+  const hasAccess = userContext.isSDMT || userContext.isExecRO || userContext.isAdmin;
   
   if (!hasAccess) {
-    throw { statusCode: 403, body: "forbidden: SDMT or EXEC_RO required for budget access" };
+    throw { statusCode: 403, body: "forbidden: SDMT, EXEC_RO, or ADMIN required for budget access" };
   }
 }
 
 /**
- * Enforce SDMT access only for writes
+ * Enforce SDMT or ADMIN access for writes
  */
 async function ensureSDMTAccess(event: ApiGwEvent): Promise<void> {
   const userContext = await getUserContext(event);
   
-  if (!userContext.isSDMT) {
-    throw { statusCode: 403, body: "forbidden: SDMT role required for budget updates" };
+  if (!userContext.isSDMT && !userContext.isAdmin) {
+    throw { statusCode: 403, body: "forbidden: SDMT or ADMIN role required for budget updates" };
   }
 }
 
@@ -61,7 +61,8 @@ async function getAnnualBudget(event: APIGatewayProxyEventV2): Promise<APIGatewa
     }
 
     // Query DynamoDB for the budget
-    // We'll create a simple table with pk = "BUDGET#ANNUAL" and sk = "YEAR#{year}"
+    // Note: Budgets are stored in the allocations table with pk="BUDGET#ANNUAL" 
+    // for simplicity and to avoid creating a separate table for this small dataset
     const budgetsTable = tableName("allocations"); // Reuse allocations table for simplicity
     const result = await ddb.send(
       new GetCommand({
@@ -174,11 +175,116 @@ async function setAnnualBudget(event: APIGatewayProxyEventV2): Promise<APIGatewa
   }
 }
 
+/**
+ * GET /budgets/all-in/overview?year=YYYY
+ * Returns annual budget with cross-project totals for KPI calculations
+ */
+async function getBudgetOverview(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
+  try {
+    await ensureHubAccess(event as any);
+
+    const year = event.queryStringParameters?.year;
+    
+    if (!year) {
+      return bad("Missing required parameter: year");
+    }
+
+    const yearNum = parseInt(year, 10);
+    if (isNaN(yearNum) || yearNum < 2020 || yearNum > 2100) {
+      return bad("Invalid year parameter. Must be between 2020 and 2100");
+    }
+
+    // Get the annual budget
+    const budgetsTable = tableName("allocations");
+    const budgetResult = await ddb.send(
+      new GetCommand({
+        TableName: budgetsTable,
+        Key: {
+          pk: "BUDGET#ANNUAL",
+          sk: `YEAR#${yearNum}`,
+        },
+      })
+    );
+
+    const budgetAllIn = budgetResult.Item
+      ? { amount: budgetResult.Item.amount, currency: budgetResult.Item.currency || "USD" }
+      : null;
+
+    // Get all allocations for the year to calculate totals
+    const allocationsTable = tableName("allocations");
+    const allocationsResult = await ddb.send(
+      new ScanCommand({
+        TableName: allocationsTable,
+        FilterExpression: "begins_with(#month, :year)",
+        ExpressionAttributeNames: {
+          "#month": "month",
+        },
+        ExpressionAttributeValues: {
+          ":year": `${yearNum}-`,
+        },
+      })
+    );
+
+    const allocations = allocationsResult.Items || [];
+
+    // Calculate totals across all projects for the year
+    let totalPlanned = 0;
+    let totalForecast = 0;
+    let totalActual = 0;
+
+    for (const allocation of allocations) {
+      totalPlanned += Number(allocation.planned || allocation.monto_planeado || 0);
+      totalForecast += Number(allocation.forecast || allocation.monto_proyectado || 0);
+      totalActual += Number(allocation.actual || allocation.monto_real || 0);
+    }
+
+    // Calculate variances
+    const budgetAmount = budgetAllIn?.amount || 0;
+    const varianceBudgetVsForecast = budgetAmount - totalForecast;
+    const varianceBudgetVsActual = budgetAmount - totalActual;
+    const percentBudgetConsumedActual = budgetAmount > 0 ? (totalActual / budgetAmount) * 100 : null;
+    const percentBudgetConsumedForecast = budgetAmount > 0 ? (totalForecast / budgetAmount) * 100 : null;
+
+    const overview = {
+      year: yearNum,
+      budgetAllIn,
+      totals: {
+        planned: totalPlanned,
+        forecast: totalForecast,
+        actual: totalActual,
+        varianceBudgetVsForecast,
+        varianceBudgetVsActual,
+        percentBudgetConsumedActual,
+        percentBudgetConsumedForecast,
+      },
+    };
+
+    console.log(`[budgets] GET overview for ${yearNum}:`, overview.totals);
+    return ok(event, overview);
+  } catch (error: any) {
+    if (error?.statusCode) {
+      return {
+        statusCode: error.statusCode,
+        body: JSON.stringify({ message: error.body }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
+    logError("Error fetching budget overview", error);
+    return serverError(event as any, "Failed to fetch budget overview");
+  }
+}
+
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const method = event.requestContext.http.method?.toUpperCase();
+  const path = event.requestContext.http.path || event.rawPath || "";
 
   if (method === "OPTIONS") {
     return noContent();
+  }
+
+  // Check if this is the overview endpoint
+  if (method === "GET" && path.includes("/overview")) {
+    return await getBudgetOverview(event);
   }
 
   if (method === "GET") {
