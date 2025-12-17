@@ -31,12 +31,14 @@ export function BudgetSimulatorCard({
   onSimulationChange,
 }: BudgetSimulatorCardProps) {
   const [displayBudget, setDisplayBudget] = useState<string>(
-    simulationState.budgetTotal === '' ? '' : simulationState.budgetTotal.toString()
+    typeof simulationState.budgetTotal === 'number' 
+      ? simulationState.budgetTotal.toString() 
+      : ''
   );
   const [displayEstimated, setDisplayEstimated] = useState<string>(
-    simulationState.estimatedOverride === '' || simulationState.estimatedOverride === undefined
-      ? ''
-      : simulationState.estimatedOverride.toString()
+    typeof simulationState.estimatedOverride === 'number'
+      ? simulationState.estimatedOverride.toString()
+      : ''
   );
 
   const handleBudgetChange = (value: string) => {

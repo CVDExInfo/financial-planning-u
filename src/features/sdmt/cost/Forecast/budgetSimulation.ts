@@ -40,6 +40,9 @@ export interface SimulatedMonthlyTrend extends MonthlyTrend {
   Budget: number; // flat budget line distributed across months
 }
 
+// Constants
+const MONTHS_PER_YEAR = 12;
+
 /**
  * Sanitize numeric input from user input fields
  * Accepts: "1,000", "1 000", "$1000", etc.
@@ -100,7 +103,7 @@ export function applyBudgetToTrends(
   budgetTotal: number
 ): SimulatedMonthlyTrend[] {
   // Distribute budget evenly across months
-  const budgetPerMonth = budgetTotal / 12;
+  const budgetPerMonth = budgetTotal / MONTHS_PER_YEAR;
   
   return monthlyTrends.map(trend => ({
     ...trend,
