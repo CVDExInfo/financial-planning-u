@@ -35,10 +35,11 @@ import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
-import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros } from '@/api/finanzas';
+import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros, bulkUpdateAllocations } from '@/api/finanzas';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
+import { AnnualBudgetPanel } from './AnnualBudgetPanel';
 
 type ForecastRow = ForecastCell & { projectId?: string; projectName?: string };
 type ProjectLineItem = LineItem & { projectId?: string; projectName?: string };
@@ -55,6 +56,10 @@ export function SDMTForecast() {
   const [portfolioLineItems, setPortfolioLineItems] = useState<ProjectLineItem[]>([]);
   const [dirtyActuals, setDirtyActuals] = useState<Record<string, ForecastRow>>({});
   const [savingActuals, setSavingActuals] = useState(false);
+  const [dirtyForecasts, setDirtyForecasts] = useState<
+    Record<string, { line_item_id: string; month: number; forecast: number }>
+  >({});
+  const [savingForecasts, setSavingForecasts] = useState(false);
   const { user, login } = useAuth();
   const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
   const navigate = useNavigate();
@@ -114,6 +119,7 @@ export function SDMTForecast() {
       setLoading(true);
       setForecastError(null);
       setDirtyActuals({});
+      setDirtyForecasts({});
       const months = parseInt(selectedPeriod);
       if (import.meta.env.DEV) {
         console.debug('[Forecast] Loading data', { projectId: selectedProjectId, months });
@@ -285,9 +291,25 @@ export function SDMTForecast() {
         return cell;
       });
       setForecastData(updatedData);
+      
+      // Track dirty actuals
       if (pendingChange) {
         const changeKey = `${pendingChange.projectId || selectedProjectId}-${pendingChange.line_item_id}-${pendingChange.month}`;
         setDirtyActuals(prev => ({ ...prev, [changeKey]: pendingChange as ForecastRow }));
+      }
+      
+      // Track dirty forecasts
+      if (editingCell.type === 'forecast') {
+        const key = `${editingCell.line_item_id}:${editingCell.month}`;
+        const newValue = parseFloat(editValue) || 0;
+        setDirtyForecasts(prev => ({
+          ...prev,
+          [key]: {
+            line_item_id: editingCell.line_item_id,
+            month: editingCell.month,
+            forecast: newValue,
+          },
+        }));
       }
       setEditingCell(null);
       toast.success(`${editingCell.type === 'forecast' ? 'Pronóstico' : 'Real'} actualizado correctamente`);
@@ -347,6 +369,77 @@ export function SDMTForecast() {
       setSavingActuals(false);
     }
   };
+
+  // Helper: convert the grid's month index to "YYYY-MM"
+  const monthIndexToYearMonth = (monthIndex: number): string => {
+    // Get the current year - this should ideally be based on the project's baseline start date
+    // For now, using current year as a baseline
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+    
+    // Calculate the target month based on the forecast horizon
+    // monthIndex is 1-based (1-12)
+    const targetMonth = monthIndex;
+    
+    // Format as YYYY-MM
+    const year = currentYear;
+    const month = String(targetMonth).padStart(2, '0');
+    return `${year}-${month}`;
+  };
+
+  // Build forecast allocations payload for bulk update
+  const buildForecastAllocationsPayload = (): Array<{
+    rubro_id: string;
+    mes: string;
+    monto_proyectado: number;
+  }> => {
+    const allocations: Array<{
+      rubro_id: string;
+      mes: string;
+      monto_proyectado: number;
+    }> = [];
+
+    Object.values(dirtyForecasts).forEach(({ line_item_id, month, forecast }) => {
+      const mes = monthIndexToYearMonth(month);
+      allocations.push({
+        rubro_id: line_item_id,
+        mes,
+        monto_proyectado: forecast,
+      });
+    });
+
+    return allocations;
+  };
+
+  // Save forecast overrides (PMO only)
+  const handleSaveForecastOverrides = async () => {
+    if (!selectedProjectId || !hasDirtyForecasts) return;
+
+    try {
+      setSavingForecasts(true);
+      const allocations = buildForecastAllocationsPayload();
+
+      if (allocations.length === 0) return;
+
+      await bulkUpdateAllocations(selectedProjectId, allocations, 'forecast');
+
+      toast.success('Pronósticos PMO guardados correctamente');
+      setDirtyForecasts({});
+      await loadForecastData();
+    } catch (error) {
+      console.error('Failed to save forecast overrides', error);
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: 'No se pudieron guardar los ajustes de pronóstico PMO',
+      });
+      toast.error(message);
+    } finally {
+      setSavingForecasts(false);
+    }
+  };
+
+  const hasDirtyForecasts = Object.keys(dirtyForecasts).length > 0;
 
   // Check if user can edit forecast (PMO role) or actuals (SDMT role)
   const canEditForecast = user?.current_role === 'PMO' || user?.current_role === 'SDMT';
@@ -697,11 +790,22 @@ export function SDMTForecast() {
               className="gap-2"
             >
               {savingActuals ? <LoadingSpinner size="sm" /> : null}
-              Guardar
+              Guardar Reales
               <Badge variant="secondary" className="ml-2">
                 {dirtyActualCount} pendientes
               </Badge>
             </Button>
+            {canEditForecast && hasDirtyForecasts && (
+              <Button
+                variant="default"
+                onClick={handleSaveForecastOverrides}
+                disabled={savingForecasts}
+                className="gap-2"
+              >
+                {savingForecasts ? <LoadingSpinner size="sm" /> : null}
+                {savingForecasts ? 'Guardando pronóstico...' : 'Guardar pronóstico PMO'}
+              </Button>
+            )}
             <Dialog>
               <DialogTrigger asChild>
                 <Button className="gap-2">
@@ -1005,6 +1109,13 @@ export function SDMTForecast() {
           ]}
           onExport={handleExcelExport}
         />
+      )}
+
+      {/* Annual Budget Panel (Portfolio View Only) */}
+      {isPortfolioView && (
+        <div className="mt-6">
+          <AnnualBudgetPanel />
+        </div>
       )}
     </div>
   );
