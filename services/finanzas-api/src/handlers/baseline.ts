@@ -168,7 +168,7 @@ export const createBaseline = async (
 
     const laborTotal = laborEstimates.reduce((sum, item) => {
       const baseHours = (item.hours_per_month || 0) * (item.fte_count || 0);
-      const baseCost = baseHours * (item.hourly_rate || 0);
+      const baseCost = baseHours * (item.hourly_rate || item.rate || 0);
       const onCost = baseCost * ((item.on_cost_percentage || 0) / 100);
       const duration = (item.end_month || 1) - (item.start_month || 1) + 1;
       return sum + (baseCost + onCost) * duration;
