@@ -1,7 +1,7 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ensureSDT, ensureCanRead, ensurePMO, getUserContext } from "../lib/auth";
+import { ensureCanRead, getUserContext } from "../lib/auth";
 import { bad, ok, noContent, serverError } from "../lib/http";
-import { ddb, tableName, QueryCommand, ScanCommand, UpdateCommand, GetCommand } from "../lib/dynamo";
+import { ddb, tableName, QueryCommand, ScanCommand, PutCommand, GetCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
 import { parseForecastBulkUpdate } from "../validation/allocations";
 
@@ -63,94 +63,138 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
 }
 
 /**
- * PUT /projects/{id}/allocations:bulk?type=forecast
- * Bulk update forecast values for allocations (PMO only)
+ * PUT /projects/{id}/allocations:bulk?type=planned|forecast
+ * Bulk update allocations for a project
+ * Supports both planned and forecast allocations via type query parameter
  */
-async function bulkUpdateForecast(event: APIGatewayProxyEventV2) {
+async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
   try {
-    // PMO-only access for forecast updates
-    await ensurePMO(event);
-    
     const projectId = event.pathParameters?.id;
     if (!projectId) {
       return bad(event, "Missing project id");
     }
+
+    // Get allocation type from query parameter (default to 'planned')
+    const allocationType = event.queryStringParameters?.type || "planned";
     
-    // Parse and validate request body
+    if (allocationType !== "planned" && allocationType !== "forecast") {
+      return bad(event, "Invalid type parameter. Must be 'planned' or 'forecast'");
+    }
+
+    // Parse request body
     const body = event.body ? JSON.parse(event.body) : {};
-    const validation = parseForecastBulkUpdate({
-      ...body,
-      projectId,
-    });
-    
-    const userContext = await getUserContext(event as any);
-    const updatedBy = userContext.email || "system";
-    const allocationsTable = tableName("allocations");
-    const timestamp = new Date().toISOString();
-    
-    const results = {
-      updated: 0,
-      created: 0,
-      skipped: 0,
-      errors: [] as string[],
-    };
-    
-    // Process each forecast item
-    for (const item of validation.items) {
-      try {
-        const sk = `MONTH#${item.month}#RUBRO#${item.rubroId}`;
-        const pk = `PROJECT#${projectId}`;
-        
-        // Check if allocation exists
-        const getResult = await ddb.send(
-          new GetCommand({
-            TableName: allocationsTable,
-            Key: { pk, sk },
-          })
-        );
-        
-        if (getResult.Item) {
-          // Update existing allocation's forecast value
-          await ddb.send(
-            new UpdateCommand({
-              TableName: allocationsTable,
-              Key: { pk, sk },
-              UpdateExpression: "SET forecast = :forecast, updated_at = :updated_at, updated_by = :updated_by",
-              ExpressionAttributeValues: {
-                ":forecast": item.forecast,
-                ":updated_at": timestamp,
-                ":updated_by": updatedBy,
-              },
-            })
-          );
-          results.updated++;
-        } else {
-          // Allocation doesn't exist - skip (don't create new allocations)
-          results.skipped++;
-          console.warn(`[allocations] Skipping forecast update for non-existent allocation: ${pk} ${sk}`);
-        }
-      } catch (itemError) {
-        logError(`Error updating forecast for ${item.rubroId}/${item.month}`, itemError);
-        results.errors.push(`${item.rubroId}/${item.month}: ${itemError}`);
+    const allocations = body.allocations;
+
+    if (!allocations || !Array.isArray(allocations) || allocations.length === 0) {
+      return bad(event, "Missing or invalid allocations array");
+    }
+
+    // Validate allocation items
+    for (const allocation of allocations) {
+      if (!allocation.rubro_id || !allocation.mes) {
+        return bad(event, "Each allocation must have rubro_id and mes");
+      }
+      
+      // Check for the appropriate amount field based on type
+      const amountField = allocationType === "planned" ? "monto_planeado" : "monto_proyectado";
+      if (typeof allocation[amountField] !== "number" || allocation[amountField] < 0) {
+        return bad(event, `Each allocation must have a valid ${amountField} >= 0`);
       }
     }
-    
-    console.log(`[allocations] Bulk forecast update completed:`, results);
-    
+
+    // Get user context for audit
+    const userContext = await getUserContext(event as any);
+    const updatedBy = userContext.email || userContext.sub || "system";
+    const timestamp = new Date().toISOString();
+
+    // Get project baseline_id
+    const projectsTable = tableName("projects");
+    const projectResult = await ddb.send(
+      new GetCommand({
+        TableName: projectsTable,
+        Key: { pk: `PROJECT#${projectId}` },
+      })
+    );
+
+    const baselineId = projectResult.Item?.baseline_id || projectResult.Item?.baselineId || "default";
+
+    // Process each allocation (idempotent writes)
+    const allocationsTable = tableName("allocations");
+    const results = [];
+
+    for (const allocation of allocations) {
+      const { rubro_id, mes } = allocation;
+      const amountField = allocationType === "planned" ? "monto_planeado" : "monto_proyectado";
+      const amount = allocation[amountField];
+
+      // Create composite sort key: ALLOCATION#{baselineId}#{month}#{rubroId}
+      const sk = `ALLOCATION#${baselineId}#${mes}#${rubro_id}`;
+      const pk = `PROJECT#${projectId}`;
+
+      // Check if allocation exists
+      const existingResult = await ddb.send(
+        new GetCommand({
+          TableName: allocationsTable,
+          Key: { pk, sk },
+        })
+      );
+
+      const existing = existingResult.Item || {};
+
+      // Merge with existing data to preserve other fields
+      const item = {
+        ...existing,
+        pk,
+        sk,
+        projectId,
+        baselineId,
+        rubroId: rubro_id,
+        month: mes,
+        mes,
+        // Update the appropriate field based on type
+        ...(allocationType === "planned" 
+          ? { 
+              monto_planeado: amount,
+              planned: amount, // Also set the English field for compatibility
+            }
+          : { 
+              monto_proyectado: amount,
+              forecast: amount, // Also set the English field for compatibility
+            }
+        ),
+        lastUpdated: timestamp,
+        updatedBy,
+        // Preserve other fields if they exist
+        actual: existing.actual,
+        monto_real: existing.monto_real,
+      };
+
+      // Write to DynamoDB (idempotent)
+      await ddb.send(
+        new PutCommand({
+          TableName: allocationsTable,
+          Item: item,
+        })
+      );
+
+      results.push({
+        rubro_id,
+        mes,
+        [amountField]: amount,
+        status: existing.pk ? "updated" : "created",
+      });
+
+      console.log(`[allocations] ${allocationType} ${existing.pk ? "updated" : "created"}: ${projectId} / ${rubro_id} / ${mes} = ${amount}`);
+    }
+
     return ok(event, {
-      success: true,
-      updated: results.updated,
-      created: results.created,
-      skipped: results.skipped,
-      total: validation.items.length,
-      errors: results.errors.length > 0 ? results.errors : undefined,
+      updated_count: results.length,
+      type: allocationType,
+      allocations: results,
     });
   } catch (error) {
-    if ((error as any).statusCode === 403) {
-      return { statusCode: 403, body: JSON.stringify({ error: "PMO role required for forecast updates" }) };
-    }
-    logError("Error in bulk forecast update", error);
-    return serverError(event as any, "Failed to update forecast values");
+    logError("Error bulk updating allocations", error);
+    return serverError(event as any, "Failed to update allocations");
   }
 }
 
@@ -166,25 +210,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
   }
 
   if (method === "PUT") {
-    const projectId = event.pathParameters?.id;
-    const updateType = event.queryStringParameters?.type;
-
-    if (!projectId) {
-      return bad(event, "Missing project id");
-    }
-
-    // Route to forecast bulk update if type=forecast
-    if (updateType === "forecast") {
-      return await bulkUpdateForecast(event);
-    }
-
-    // Default bulk allocations update (requires SDMT)
-    await ensureSDT(event);
-    return ok(event, {
-      data: [],
-      total: 0,
-      message: "PUT /projects/{id}/allocations:bulk - not implemented yet (use ?type=forecast for forecast updates)",
-    });
+    return await bulkUpdateAllocations(event);
   }
 
   return bad(event, `Method ${method} not allowed`, 405);

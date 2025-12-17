@@ -15,7 +15,7 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { ok, bad, serverError, defaultCorsHeaders } from "../lib/http";
 import { getUserContext, ApiGwEvent } from "../lib/auth";
-import { ddb, tableName, QueryCommand, ScanCommand } from "../lib/dynamo";
+import { ddb, tableName, QueryCommand, ScanCommand, GetCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
 
 // In-memory cache for warm containers (15 min TTL)
@@ -164,6 +164,11 @@ async function queryAdjustments(scope: string) {
 /**
  * GET /finanzas/hub/summary?scope=ALL|<projectCode>
  * Returns KPI tiles + high-level portfolio metrics
+ * Now includes:
+ * - Total Planeado De Planview (sum of planned)
+ * - Pronóstico Total Ajustado PMO (sum of forecast if exists, else sum of planned)
+ * - Variación de Pronóstico (adjustedForecast - planned)
+ * - Annual budget comparison (if year is provided)
  */
 async function getSummary(event: ApiGwEvent): Promise<APIGatewayProxyResultV2> {
   try {
@@ -171,7 +176,20 @@ async function getSummary(event: ApiGwEvent): Promise<APIGatewayProxyResultV2> {
     
     const queryParams = event.queryStringParameters || {};
     const scope = parseScope(queryParams);
-    const cacheKey = `summary:${scope}`;
+    
+    // Validate and parse year parameter
+    const yearStr = queryParams.year;
+    let year: number;
+    if (yearStr) {
+      year = parseInt(yearStr, 10);
+      if (isNaN(year) || year < 2020 || year > 2100) {
+        return bad("Invalid year parameter. Must be between 2020 and 2100");
+      }
+    } else {
+      year = new Date().getFullYear();
+    }
+    
+    const cacheKey = `summary:${scope}:${year}`;
     
     // Check cache
     const cached = getCached<unknown>(cacheKey);
@@ -179,7 +197,7 @@ async function getSummary(event: ApiGwEvent): Promise<APIGatewayProxyResultV2> {
       return ok(cached);
     }
     
-    console.info("[hub/summary]", { scope });
+    console.info("[hub/summary]", { scope, year });
     
     // Query data in parallel
     const [allocations, payrollActuals, adjustments, projects] = await Promise.all([
@@ -189,18 +207,73 @@ async function getSummary(event: ApiGwEvent): Promise<APIGatewayProxyResultV2> {
       scope === "ALL" ? queryAllProjects() : [],
     ]);
     
-    // Calculate KPIs
-    // TODO: Replace with actual DynamoDB data aggregation
-    // Current implementation uses stub values to demonstrate the structure.
-    // In production, aggregate from DynamoDB items:
-    // - Sum allocations.amount for totalAllocations
-    // - Sum adjustments.amount for totalAdjusted
-    // - Sum payrollActuals.amount for totalActualPayroll
-    // - Query project baseline_mod for totalBaseline
-    const totalAllocations = allocations.length > 0 ? 1500000 : 0;
-    const totalAdjusted = adjustments.length > 0 ? 1450000 : 0;
-    const totalActualPayroll = payrollActuals.length > 0 ? 1420000 : 0;
-    const totalBaseline = 1600000;
+    // Calculate forecast totals from allocations
+    let totalPlanned = 0;
+    let totalForecast = 0;
+    let hasForecastAdjustments = false;
+    
+    for (const allocation of allocations) {
+      const planned = Number(allocation.planned || allocation.monto_planeado || 0);
+      const forecastValue = allocation.forecast ?? allocation.monto_proyectado;
+      const forecast = forecastValue !== undefined ? Number(forecastValue) : planned;
+      
+      totalPlanned += planned;
+      totalForecast += forecast;
+      
+      // Check if any forecast differs from planned (PMO adjustment exists)
+      if (forecastValue !== undefined && forecast !== planned) {
+        hasForecastAdjustments = true;
+      }
+    }
+    
+    // If no forecast adjustments exist, totalForecast equals totalPlanned
+    const adjustedForecast = hasForecastAdjustments ? totalForecast : totalPlanned;
+    const forecastVariance = adjustedForecast - totalPlanned;
+    
+    // Get annual budget for comparison (if available)
+    let annualBudget = null;
+    try {
+      const budgetResult = await ddb.send(
+        new GetCommand({
+          TableName: tableName("allocations"),
+          Key: {
+            pk: "BUDGET#ANNUAL",
+            sk: `YEAR#${year}`,
+          },
+        })
+      );
+      
+      if (budgetResult.Item) {
+        const budgetAmount = Number(budgetResult.Item.amount || 0);
+        const budgetConsumed = adjustedForecast;
+        const budgetRemaining = budgetAmount - budgetConsumed;
+        const budgetConsumedPercent = budgetAmount > 0 ? (budgetConsumed / budgetAmount) * 100 : 0;
+        
+        annualBudget = {
+          year,
+          amount: budgetAmount,
+          currency: budgetResult.Item.currency || "USD",
+          consumed: budgetConsumed,
+          remaining: budgetRemaining,
+          consumedPercent: budgetConsumedPercent,
+        };
+      }
+    } catch (budgetError) {
+      console.warn("[hub/summary] Failed to fetch annual budget", budgetError);
+      // Continue without budget data
+    }
+    
+    // Calculate other KPIs
+    const totalActualPayroll = payrollActuals.reduce(
+      (sum, p) => sum + Number(p.amount || p.monto_real || 0),
+      0
+    );
+    const totalAdjustments = adjustments.reduce(
+      (sum, a) => sum + Number(a.amount || a.monto || 0),
+      0
+    );
+    
+    const totalBaseline = totalPlanned; // Using planned as baseline
     const variance = totalActualPayroll - totalBaseline;
     const burnRate = totalBaseline > 0 ? (totalActualPayroll / totalBaseline) * 100 : 0;
     const paidMonthsCount = payrollActuals.length;
@@ -209,11 +282,12 @@ async function getSummary(event: ApiGwEvent): Promise<APIGatewayProxyResultV2> {
     const summary = {
       scope,
       currency: "USD",
+      year,
       asOf: new Date().toISOString().split("T")[0],
       kpis: {
         baselineMOD: totalBaseline,
-        allocations: totalAllocations,
-        adjustedMOD: totalAdjusted,
+        allocations: totalPlanned,
+        adjustedMOD: totalAdjustments,
         actualPayroll: totalActualPayroll,
         variance,
         variancePercent: totalBaseline > 0 ? (variance / totalBaseline) * 100 : 0,
@@ -221,6 +295,16 @@ async function getSummary(event: ApiGwEvent): Promise<APIGatewayProxyResultV2> {
         paidMonthsCount,
         riskFlagsCount,
       },
+      // New forecast KPIs
+      forecast: {
+        totalPlannedFromPlanview: totalPlanned,
+        totalAdjustedForecastPMO: adjustedForecast,
+        forecastVariance,
+        forecastVariancePercent: totalPlanned > 0 ? (forecastVariance / totalPlanned) * 100 : 0,
+        hasPMOAdjustments: hasForecastAdjustments,
+      },
+      // Annual budget comparison
+      ...(annualBudget && { annualBudget }),
       projectsCount: scope === "ALL" ? projects.length : 1,
     };
     

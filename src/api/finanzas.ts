@@ -1760,3 +1760,87 @@ export async function fetchRubros(): Promise<Array<{
   }));
 }
 
+/**
+ * Bulk update allocations with forecast adjustments
+ * @param projectId - Project ID
+ * @param allocations - Array of allocations to update
+ * @param type - Type of allocation: "planned" or "forecast"
+ */
+export async function bulkUpdateAllocations(
+  projectId: string,
+  allocations: Array<{
+    rubro_id: string;
+    mes: string;
+    monto_planeado?: number;
+    monto_proyectado?: number;
+  }>,
+  type: "planned" | "forecast" = "planned"
+): Promise<{
+  updated_count: number;
+  type: string;
+  allocations: Array<{
+    rubro_id: string;
+    mes: string;
+    status: string;
+  }>;
+}> {
+  const client = getFinanzasClient();
+  const endpoint = `/projects/${projectId}/allocations:bulk?type=${type}`;
+  
+  return client.mutate(endpoint, {
+    method: "PUT",
+    body: JSON.stringify({ allocations }),
+  });
+}
+
+/**
+ * Get annual all-in budget for a specific year
+ * @param year - Year to get budget for
+ */
+export async function getAnnualBudget(year: number): Promise<{
+  year: number;
+  amount: number;
+  currency: string;
+  lastUpdated: string;
+  updatedBy: string;
+} | null> {
+  try {
+    const client = getFinanzasClient();
+    const endpoint = `/budgets/all-in?year=${year}`;
+    
+    return await client.get(endpoint);
+  } catch (error: any) {
+    // Return null if budget not found (404)
+    if (error?.status === 404 || error?.statusCode === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Set or update annual all-in budget
+ * @param year - Year to set budget for
+ * @param amount - Budget amount
+ * @param currency - Currency (USD, EUR, MXN)
+ */
+export async function setAnnualBudget(
+  year: number,
+  amount: number,
+  currency: string = "USD"
+): Promise<{
+  year: number;
+  amount: number;
+  currency: string;
+  lastUpdated: string;
+  updatedBy: string;
+}> {
+  const client = getFinanzasClient();
+  const endpoint = "/budgets/all-in";
+  
+  return client.mutate(endpoint, {
+    method: "PUT",
+    body: JSON.stringify({ year, amount, currency }),
+  });
+}
+

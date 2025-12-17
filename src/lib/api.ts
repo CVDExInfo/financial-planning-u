@@ -1001,6 +1001,70 @@ export class ApiService {
       file_url: `/uploads/${filename}`,
     };
   }
+
+  // Bulk Allocations - PMO Forecast Adjustments
+  static async bulkUpdateAllocations(
+    projectId: string,
+    allocations: Array<{
+      rubro_id: string;
+      mes: string;
+      monto_planeado?: number;
+      monto_proyectado?: number;
+    }>,
+    type: "planned" | "forecast" = "planned"
+  ): Promise<{
+    updated_count: number;
+    type: string;
+    allocations: Array<{
+      rubro_id: string;
+      mes: string;
+      status: string;
+    }>;
+  }> {
+    const endpoint = `/projects/${projectId}/allocations:bulk?type=${type}`;
+    return this.request(endpoint, {
+      method: "PUT",
+      body: JSON.stringify({ allocations }),
+    });
+  }
+
+  // Annual All-In Budget
+  static async getAnnualBudget(year: number): Promise<{
+    year: number;
+    amount: number;
+    currency: string;
+    lastUpdated: string;
+    updatedBy: string;
+  } | null> {
+    try {
+      const endpoint = `/budgets/all-in?year=${year}`;
+      return await this.request(endpoint, { method: "GET" });
+    } catch (error: any) {
+      // Return null if budget not found (404)
+      if (error?.statusCode === 404 || error?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  static async setAnnualBudget(
+    year: number,
+    amount: number,
+    currency: string = "USD"
+  ): Promise<{
+    year: number;
+    amount: number;
+    currency: string;
+    lastUpdated: string;
+    updatedBy: string;
+  }> {
+    const endpoint = "/budgets/all-in";
+    return this.request(endpoint, {
+      method: "PUT",
+      body: JSON.stringify({ year, amount, currency }),
+    });
+  }
 }
 
 export default ApiService;
