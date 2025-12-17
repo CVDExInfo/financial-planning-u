@@ -533,8 +533,9 @@ export default function SDMTReconciliation() {
       
       // Navigate back to Forecast if returnUrl was provided, with a timestamp to force refresh
       if (returnUrl) {
-        const separator = returnUrl.includes('?') ? '&' : '?';
-        navigate(`${returnUrl}${separator}_refresh=${Date.now()}`);
+        const url = new URL(returnUrl, window.location.origin);
+        url.searchParams.set('_refresh', Date.now().toString());
+        navigate(`${url.pathname}${url.search}`);
       }
     } catch (err) {
       toast.dismiss();
