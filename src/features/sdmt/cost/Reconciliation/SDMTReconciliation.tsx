@@ -43,6 +43,7 @@ import {
   X,
   Trash2,
   AlertCircle,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -226,13 +227,17 @@ export default function SDMTReconciliation() {
   const urlParams = new URLSearchParams(location.search);
   const filterLineItem = urlParams.get("line_item");
   const filterMonth = urlParams.get("month");
+  const returnUrl = urlParams.get("returnUrl");
 
   useEffect(() => {
     if (filterLineItem) {
+      const parsedMonth = filterMonth ? parseInt(filterMonth, 10) || 1 : 1;
       setUploadFormData((prev) => ({
         ...prev,
         line_item_id: filterLineItem,
-        month: filterMonth ? parseInt(filterMonth, 10) || 1 : 1,
+        month: parsedMonth,
+        start_month: parsedMonth,
+        end_month: parsedMonth,
       }));
       setShowUploadForm(true);
     }
@@ -525,6 +530,13 @@ export default function SDMTReconciliation() {
       setShowUploadForm(false);
       setUploadFormData(createInitialUploadForm());
       await invalidateInvoices();
+      
+      // Navigate back to Forecast if returnUrl was provided, with a timestamp to force refresh
+      if (returnUrl) {
+        const url = new URL(returnUrl, window.location.origin);
+        url.searchParams.set('_refresh', Date.now().toString());
+        navigate(`${url.pathname}${url.search}`);
+      }
     } catch (err) {
       toast.dismiss();
       const message = formatUploadError(err);
@@ -622,6 +634,14 @@ export default function SDMTReconciliation() {
     if (month) params.set("month", String(month));
     params.set("line_item", line_item_id);
     navigate(`/sdmt/cost/forecast?${params.toString()}`);
+  };
+
+  const handleCancelUpload = () => {
+    setShowUploadForm(false);
+    // If returnUrl is present, navigate back to Forecast
+    if (returnUrl) {
+      navigate(returnUrl);
+    }
   };
 
   const handleExportVarianceReport = async () => {
@@ -771,6 +791,16 @@ export default function SDMTReconciliation() {
               >
                 <X size={14} className="mr-1" /> Limpiar Filtro
               </Button>
+              {returnUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(returnUrl)}
+                  className="gap-1"
+                >
+                  <ArrowLeft size={14} /> Volver a Pronóstico
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -1190,7 +1220,7 @@ export default function SDMTReconciliation() {
           </div>
 
           <div className="flex justify-end gap-2 flex-shrink-0 pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowUploadForm(false)}>
+            <Button variant="outline" onClick={handleCancelUpload}>
               Cancelar
             </Button>
             <Button

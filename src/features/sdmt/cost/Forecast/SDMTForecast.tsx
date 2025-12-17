@@ -30,7 +30,7 @@ import type { ForecastCell, LineItem } from '@/types/domain';
 import { useAuth } from '@/hooks/useAuth';
 import { ALL_PROJECTS_ID, useProject } from '@/contexts/ProjectContext';
 import { handleFinanzasApiError } from '@/features/sdmt/cost/utils/errorHandling';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
@@ -58,6 +58,7 @@ export function SDMTForecast() {
   const { user, login } = useAuth();
   const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     lineItems,
     isLoading: isLineItemsLoading,
@@ -80,6 +81,18 @@ export function SDMTForecast() {
       loadForecastData();
     }
   }, [selectedProjectId, selectedPeriod, projectChangeCount, currentProject?.baselineId]);
+
+  // Reload data when returning from reconciliation with refresh parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const refreshParam = urlParams.get('_refresh');
+    if (refreshParam && selectedProjectId) {
+      if (import.meta.env.DEV) {
+        console.log('🔄 Forecast: Refreshing after reconciliation');
+      }
+      loadForecastData();
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (!lineItemsError) return;
@@ -344,6 +357,11 @@ export function SDMTForecast() {
     const params = new URLSearchParams();
     params.set('line_item', line_item_id);
     if (month) params.set('month', month.toString());
+    
+    // Add returnUrl so user can navigate back to Forecast
+    const currentPath = location.pathname + location.search;
+    params.set('returnUrl', currentPath);
+    
     navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
   };
 
@@ -906,17 +924,16 @@ export function SDMTForecast() {
                                     >
                                       A: {formatGridCurrency(cell.actual)}
                                     </div>
-                                    {cell.actual > 0 && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-5 w-5 p-0 hover:bg-blue-100"
-                                        onClick={() => navigateToReconciliation(cell.line_item_id, cell.month)}
-                                        title="View related invoices"
-                                      >
-                                        <ExternalLink size={12} />
-                                      </Button>
-                                    )}
+                                    {/* Always show reconciliation icon for organic actuals entry */}
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-5 w-5 p-0 hover:bg-blue-100"
+                                      onClick={() => navigateToReconciliation(cell.line_item_id, cell.month)}
+                                      title={cell.actual > 0 ? 'View/Edit Factura' : 'Add Factura / Enter Actuals'}
+                                    >
+                                      <ExternalLink size={12} />
+                                    </Button>
                                   </div>
                                 )}
                               </div>
