@@ -47,11 +47,6 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   const canViewStatus = isSDMT || isPMO || isPM || isExecRO || isVendor;
   const canActOnBaseline = isSDMT; // Only SDMT can accept/reject
 
-  // If user cannot view status at all, render nothing
-  if (!canViewStatus) {
-    return null;
-  }
-
   // Shared function to invalidate all project-dependent queries
   const invalidateProjectQueries = async () => {
     if (!currentProject?.id) return;
@@ -66,10 +61,14 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     invalidateProjectData();
   };
 
+  // Hooks must be called unconditionally before any early returns
   const acceptMutation = useMutation({
     mutationFn: async () => {
       if (!currentProject?.id || !currentProject?.baselineId) {
         throw new Error("Project or baseline ID missing");
+      }
+      if (!canActOnBaseline) {
+        throw new Error("User is not allowed to accept baselines");
       }
       return acceptBaseline(currentProject.id);
     },
@@ -96,6 +95,9 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
       if (!currentProject?.id || !currentProject?.baselineId) {
         throw new Error("Project or baseline ID missing");
       }
+      if (!canActOnBaseline) {
+        throw new Error("User is not allowed to reject baselines");
+      }
       return rejectBaseline(currentProject.id, {
         baseline_id: currentProject.baselineId,
         comment: rejectComment.trim(),
@@ -120,6 +122,11 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
       toast.error(message);
     },
   });
+
+  // If user cannot view status at all, render nothing
+  if (!canViewStatus) {
+    return null;
+  }
 
   const handleAccept = () => {
     if (!currentProject?.baselineId) {
