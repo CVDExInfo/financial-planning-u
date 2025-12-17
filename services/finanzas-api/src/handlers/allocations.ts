@@ -66,6 +66,10 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
  * PUT /projects/{id}/allocations:bulk?type=planned|forecast
  * Bulk update allocations for a project
  * Supports both planned and forecast allocations via type query parameter
+ * 
+ * Authorization:
+ * - planned: Requires write access (PMO, SDMT, SDM)
+ * - forecast: Requires SDMT or ADMIN role
  */
 async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
   try {
@@ -81,26 +85,60 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
       return bad(event, "Invalid type parameter. Must be 'planned' or 'forecast'");
     }
 
-    // Parse request body
+    // Authorization check based on type
+    if (allocationType === "forecast") {
+      // Forecast updates require SDMT or ADMIN role
+      const userContext = await getUserContext(event as any);
+      const hasAccess = userContext.isSDMT || userContext.isAdmin;
+      
+      if (!hasAccess) {
+        return {
+          statusCode: 403,
+          body: JSON.stringify({ message: "Forbidden: SDMT or ADMIN role required for forecast updates" }),
+          headers: { "Content-Type": "application/json" },
+        };
+      }
+    } else {
+      // Planned allocations require standard write access
+      await ensureCanWrite(event as any);
+    }
+
+    // Parse request body - support both old "allocations" and new "items" formats
     const body = event.body ? JSON.parse(event.body) : {};
-    const allocations = body.allocations;
+    const allocations = body.allocations || body.items;
 
     if (!allocations || !Array.isArray(allocations) || allocations.length === 0) {
-      return bad(event, "Missing or invalid allocations array");
+      return bad(event, "Missing or invalid allocations/items array");
     }
 
-    // Validate allocation items
-    for (const allocation of allocations) {
-      if (!allocation.rubro_id || !allocation.mes) {
-        return bad(event, "Each allocation must have rubro_id and mes");
+    // Normalize allocation items to handle both formats
+    const normalizedAllocations = allocations.map((item: any) => {
+      // Support both formats: {rubro_id, mes, monto_*} and {rubroId, month, forecast}
+      const rubroId = item.rubro_id || item.rubroId;
+      const month = item.mes || item.month;
+      
+      if (!rubroId || !month) {
+        throw new Error("Each allocation must have rubro_id/rubroId and mes/month");
       }
       
-      // Check for the appropriate amount field based on type
-      const amountField = allocationType === "planned" ? "monto_planeado" : "monto_proyectado";
-      if (typeof allocation[amountField] !== "number" || allocation[amountField] < 0) {
-        return bad(event, `Each allocation must have a valid ${amountField} >= 0`);
+      // Get amount based on type and format
+      let amount: number;
+      if (allocationType === "forecast") {
+        amount = item.monto_proyectado ?? item.forecast;
+      } else {
+        amount = item.monto_planeado ?? item.planned;
       }
-    }
+      
+      if (typeof amount !== "number" || amount < 0) {
+        throw new Error(`Each allocation must have a valid amount >= 0`);
+      }
+      
+      return {
+        rubro_id: rubroId,
+        mes: month,
+        amount,
+      };
+    });
 
     // Get user context for audit
     const userContext = await getUserContext(event as any);
@@ -122,10 +160,8 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
     const allocationsTable = tableName("allocations");
     const results = [];
 
-    for (const allocation of allocations) {
-      const { rubro_id, mes } = allocation;
-      const amountField = allocationType === "planned" ? "monto_planeado" : "monto_proyectado";
-      const amount = allocation[amountField];
+    for (const allocation of normalizedAllocations) {
+      const { rubro_id, mes, amount } = allocation;
 
       // Create composite sort key: ALLOCATION#{baselineId}#{month}#{rubroId}
       const sk = `ALLOCATION#${baselineId}#${mes}#${rubro_id}`;
@@ -180,7 +216,7 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
       results.push({
         rubro_id,
         mes,
-        [amountField]: amount,
+        amount,
         status: existing.pk ? "updated" : "created",
       });
 
@@ -192,7 +228,15 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
       type: allocationType,
       allocations: results,
     });
-  } catch (error) {
+  } catch (error: any) {
+    // Handle authorization errors specifically
+    if (error?.statusCode === 403) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ message: error.body || "Forbidden" }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
     logError("Error bulk updating allocations", error);
     return serverError(event as any, "Failed to update allocations");
   }
