@@ -43,6 +43,8 @@ import PageHeader from "@/components/PageHeader";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { toast } from "sonner";
 import { useProject } from "@/contexts/ProjectContext";
+import { useAuth } from "@/hooks/useAuth";
+import { AnnualBudgetWidget } from "@/components/budget/AnnualBudgetWidget";
 
 interface HubSummary {
   scope: string;
@@ -122,6 +124,7 @@ export default function HubDesempeno() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [modOnly, setModOnly] = useState(true);
 
+  const { user } = useAuth();
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
@@ -434,6 +437,13 @@ export default function HubDesempeno() {
                 </ul>
               </AlertDescription>
             </Alert>
+          )}
+
+          {/* Annual Budget Widget - only show for ALL scope and EXEC_RO */}
+          {scope === "ALL" && user?.current_role === 'EXEC_RO' && (
+            <AnnualBudgetWidget
+              totalAdjustedForecast={summary?.kpis.adjustedMOD || 0}
+            />
           )}
 
           {/* Charts Row */}

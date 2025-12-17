@@ -35,7 +35,7 @@ import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
-import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros } from '@/api/finanzas';
+import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros, bulkUpdateAllocations } from '@/api/finanzas';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
@@ -55,6 +55,8 @@ export function SDMTForecast() {
   const [portfolioLineItems, setPortfolioLineItems] = useState<ProjectLineItem[]>([]);
   const [dirtyActuals, setDirtyActuals] = useState<Record<string, ForecastRow>>({});
   const [savingActuals, setSavingActuals] = useState(false);
+  const [dirtyForecasts, setDirtyForecasts] = useState<Record<string, ForecastRow>>({});
+  const [savingForecasts, setSavingForecasts] = useState(false);
   const { user, login } = useAuth();
   const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
   const navigate = useNavigate();
@@ -114,6 +116,7 @@ export function SDMTForecast() {
       setLoading(true);
       setForecastError(null);
       setDirtyActuals({});
+      setDirtyForecasts({});
       const months = parseInt(selectedPeriod);
       if (import.meta.env.DEV) {
         console.debug('[Forecast] Loading data', { projectId: selectedProjectId, months });
@@ -277,18 +280,29 @@ export function SDMTForecast() {
             last_updated: new Date().toISOString(),
             updated_by: user?.login || 'current-user'
           };
+          
+          // Track the pending change
           if (editingCell.type === 'actual') {
             pendingChange = nextCell;
+          } else if (editingCell.type === 'forecast') {
+            pendingChange = nextCell;
           }
+          
           return nextCell;
         }
         return cell;
       });
       setForecastData(updatedData);
+      
       if (pendingChange) {
         const changeKey = `${pendingChange.projectId || selectedProjectId}-${pendingChange.line_item_id}-${pendingChange.month}`;
-        setDirtyActuals(prev => ({ ...prev, [changeKey]: pendingChange as ForecastRow }));
+        if (editingCell.type === 'actual') {
+          setDirtyActuals(prev => ({ ...prev, [changeKey]: pendingChange as ForecastRow }));
+        } else if (editingCell.type === 'forecast') {
+          setDirtyForecasts(prev => ({ ...prev, [changeKey]: pendingChange as ForecastRow }));
+        }
       }
+      
       setEditingCell(null);
       toast.success(`${editingCell.type === 'forecast' ? 'Pronóstico' : 'Real'} actualizado correctamente`);
     }
@@ -348,8 +362,68 @@ export function SDMTForecast() {
     }
   };
 
-  // Check if user can edit forecast (PMO role) or actuals (SDMT role)
-  const canEditForecast = user?.current_role === 'PMO' || user?.current_role === 'SDMT';
+  const handlePersistForecasts = async () => {
+    const entries: ForecastRow[] = Object.values(dirtyForecasts);
+    if (entries.length === 0) {
+      toast.info('No hay cambios de pronóstico para guardar');
+      return;
+    }
+
+    // Prevent duplicate submissions
+    if (savingForecasts) {
+      return;
+    }
+
+    setSavingForecasts(true);
+    try {
+      const currentYear = new Date().getFullYear();
+      
+      // Group by project for API calls
+      const byProject = new Map<string, ForecastRow[]>();
+      entries.forEach(cell => {
+        const projectId = cell.projectId || selectedProjectId;
+        if (!projectId) return;
+        
+        if (!byProject.has(projectId)) {
+          byProject.set(projectId, []);
+        }
+        byProject.get(projectId)!.push(cell);
+      });
+
+      // Send updates per project
+      for (const [projectId, projectCells] of byProject.entries()) {
+        const allocations = projectCells.map(cell => {
+          // Validate month is in valid range (1-12)
+          const month = Math.max(1, Math.min(12, cell.month));
+          return {
+            rubro_id: cell.line_item_id,
+            mes: `${currentYear}-${String(month).padStart(2, '0')}`,
+            monto_proyectado: Number(cell.forecast) || 0,
+          };
+        });
+
+        await bulkUpdateAllocations(projectId, allocations, 'forecast');
+      }
+
+      toast.success('Pronósticos ajustados guardados exitosamente');
+      setDirtyForecasts({});
+      
+      // Reload forecast data to show persisted values
+      await loadForecastData();
+    } catch (error) {
+      console.error('❌ Error al guardar pronósticos', error);
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: 'No pudimos guardar los pronósticos ajustados.',
+      });
+      setForecastError(prev => prev || message);
+    } finally {
+      setSavingForecasts(false);
+    }
+  };
+
+  // Check if user can edit forecast (SDMT only) or actuals (SDMT role)
+  const canEditForecast = user?.current_role === 'SDMT';
   const canEditActual = user?.current_role === 'SDMT';
 
   // Function to navigate to reconciliation with filters
@@ -462,6 +536,7 @@ export function SDMTForecast() {
     actualVariancePercentage
   } = metrics;
   const dirtyActualCount = useMemo(() => Object.keys(dirtyActuals).length, [dirtyActuals]);
+  const dirtyForecastCount = useMemo(() => Object.keys(dirtyForecasts).length, [dirtyForecasts]);
 
   const isLoadingState = loading || isLineItemsLoading;
   const hasGridData = forecastGrid.length > 0;
@@ -644,7 +719,7 @@ export function SDMTForecast() {
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{formatCurrency(totalForecast)}</div>
             <p className="text-sm text-muted-foreground">Pronóstico Total</p>
-            <p className="text-xs text-muted-foreground">Ajustado PMO</p>
+            <p className="text-xs text-muted-foreground">Pronóstico Ajustado</p>
           </CardContent>
         </Card>
         <Card>
@@ -700,6 +775,18 @@ export function SDMTForecast() {
               Guardar
               <Badge variant="secondary" className="ml-2">
                 {dirtyActualCount} pendientes
+              </Badge>
+            </Button>
+            <Button
+              onClick={handlePersistForecasts}
+              disabled={savingForecasts || dirtyForecastCount === 0 || !canEditForecast}
+              className="gap-2"
+              variant="outline"
+            >
+              {savingForecasts ? <LoadingSpinner size="sm" /> : null}
+              Guardar Pronóstico
+              <Badge variant="secondary" className="ml-2">
+                {dirtyForecastCount} pendientes
               </Badge>
             </Button>
             <Dialog>
@@ -876,17 +963,24 @@ export function SDMTForecast() {
                                     id={`forecast-input-${cell.line_item_id}-${cell.month}`}
                                     name={`forecast-${cell.line_item_id}-${cell.month}`}
                                     aria-label={`Forecast value for ${cell.line_item_id} month ${cell.month}`}
+                                    disabled={savingForecasts}
                                     autoFocus
                                   />
                                 ) : (
                                   <div
                                     className={`px-2 py-1 rounded transition-colors ${
-                                      canEditForecast 
+                                      canEditForecast && !savingForecasts
                                         ? 'cursor-pointer hover:bg-primary/10 bg-primary/5 text-primary font-medium'
                                         : 'cursor-default bg-muted/10 text-muted-foreground'
                                     }`}
-                                    onClick={() => canEditForecast && handleCellEdit(cell.line_item_id, cell.month, 'forecast')}
-                                    title={canEditForecast ? 'Click to edit forecast' : 'No permission to edit forecast'}
+                                    onClick={() => canEditForecast && !savingForecasts && handleCellEdit(cell.line_item_id, cell.month, 'forecast')}
+                                    title={
+                                      savingForecasts 
+                                        ? 'Guardando pronósticos...' 
+                                        : canEditForecast 
+                                          ? 'Click to edit forecast' 
+                                          : 'No permission to edit forecast'
+                                    }
                                   >
                                     F: {formatGridCurrency(cell.forecast)}
                                   </div>

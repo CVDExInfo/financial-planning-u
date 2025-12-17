@@ -19,6 +19,7 @@ import {
 import { DollarSign, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { getAnnualBudget, setAnnualBudget } from "@/api/finanzas";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AnnualBudgetWidgetProps {
   year?: number;
@@ -35,6 +36,7 @@ export function AnnualBudgetWidget({
   totalAdjustedForecast = 0,
   onBudgetUpdate,
 }: AnnualBudgetWidgetProps) {
+  const { user } = useAuth();
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(initialYear || currentYear);
   const [budgetAmount, setBudgetAmount] = useState<string>("");
@@ -48,6 +50,9 @@ export function AnnualBudgetWidget({
     lastUpdated: string;
     updatedBy: string;
   } | null>(null);
+
+  // Only EXEC_RO can edit (not PMO or other roles)
+  const canEdit = user?.current_role === 'EXEC_RO';
 
   // Load existing budget for the selected year
   useEffect(() => {
@@ -153,12 +158,16 @@ export function AnnualBudgetWidget({
               placeholder="5000000"
               value={budgetAmount}
               onChange={(e) => setBudgetAmount(e.target.value)}
-              disabled={loading || saving}
+              disabled={loading || saving || !canEdit}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="currency">Moneda</Label>
-            <Select value={currency} onValueChange={(v) => setCurrency(v as any)}>
+            <Select 
+              value={currency} 
+              onValueChange={(v) => setCurrency(v as any)}
+              disabled={!canEdit}
+            >
               <SelectTrigger id="currency">
                 <SelectValue />
               </SelectTrigger>
@@ -173,7 +182,7 @@ export function AnnualBudgetWidget({
 
         <Button
           onClick={handleSave}
-          disabled={loading || saving || !budgetAmount}
+          disabled={loading || saving || !budgetAmount || !canEdit}
           className="w-full"
         >
           <Save className="mr-2 h-4 w-4" />
@@ -199,9 +208,14 @@ export function AnnualBudgetWidget({
                 <span className="text-sm font-medium">
                   {isOverBudget ? "Excedente" : "Disponible"}
                 </span>
-                <span className={`text-sm font-bold ${isOverBudget ? "text-red-600" : "text-green-600"}`}>
-                  {formatCurrency(Math.abs(remaining))}
-                </span>
+                <div className="text-right">
+                  <span className={`text-sm font-bold ${isOverBudget ? "text-red-600" : "text-green-600"}`}>
+                    {formatCurrency(Math.abs(remaining))}
+                  </span>
+                  <span className={`text-xs ml-1 ${isOverBudget ? "text-red-600" : "text-green-600"}`}>
+                    ({Math.abs((remaining / budgetValue) * 100).toFixed(1)}%)
+                  </span>
+                </div>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div

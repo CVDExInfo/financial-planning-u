@@ -1761,6 +1761,30 @@ export async function fetchRubros(): Promise<Array<{
 }
 
 /**
+ * Simple client helper for finanzas API calls
+ */
+function getFinanzasClient() {
+  const base = requireApiBase();
+  return {
+    async get<T>(endpoint: string): Promise<T> {
+      const url = `${base}${endpoint}`;
+      return fetchJson<T>(url, {
+        method: "GET",
+        headers: buildAuthHeader(),
+      });
+    },
+    async mutate<T>(endpoint: string, options: { method: string; body: string }): Promise<T> {
+      const url = `${base}${endpoint}`;
+      return fetchJson<T>(url, {
+        method: options.method,
+        headers: { ...buildAuthHeader(), "Content-Type": "application/json" },
+        body: options.body,
+      });
+    },
+  };
+}
+
+/**
  * Bulk update allocations with forecast adjustments
  * @param projectId - Project ID
  * @param allocations - Array of allocations to update
