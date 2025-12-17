@@ -10,6 +10,10 @@ import {
 import { ensureCanWrite, ensureCanRead, getUserEmail } from "../lib/auth";
 import { bad, ok, serverError, withCors, noContent } from "../lib/http";
 import { logError } from "../utils/logging";
+import {
+  normalizeLaborEstimate,
+  normalizeNonLaborEstimate,
+} from "../lib/rubros-taxonomy";
 
 const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
   headers: event.headers,
@@ -112,23 +116,48 @@ export const createBaseline = async (
       return bad(event, "Falta el nombre del proyecto.");
     }
 
-    const laborEstimates = Array.isArray(body.labor_estimates)
+    // Normalize estimates to ensure canonical rubroIds are assigned
+    // This ensures consistent taxonomy mapping from baseline creation forward
+    const rawLaborEstimates = Array.isArray(body.labor_estimates)
       ? body.labor_estimates
       : [];
-    const nonLaborEstimates = Array.isArray(body.non_labor_estimates)
+    const rawNonLaborEstimates = Array.isArray(body.non_labor_estimates)
       ? body.non_labor_estimates
       : [];
 
-    if (!laborEstimates.length && !nonLaborEstimates.length) {
+    if (!rawLaborEstimates.length && !rawNonLaborEstimates.length) {
       return bad(event, 
         "Debe haber al menos un costo de mano de obra o no laboral para crear la línea base."
       );
     }
 
+    // Apply taxonomy mapping during baseline creation
+    // This ensures all estimates have canonical rubroIds from the start
+    const laborEstimates = rawLaborEstimates.map(normalizeLaborEstimate);
+    const nonLaborEstimates = rawNonLaborEstimates.map(normalizeNonLaborEstimate);
+
     const project_id =
       body.project_id?.trim() ||
       `PRJ-${body.project_name.toUpperCase().replace(/[^A-Z0-9]+/g, "-")}`;
     const baseline_id = `base_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+    
+    // Log diagnostic info about taxonomy mapping
+    console.info("[baseline.create] Applied taxonomy mapping to estimates", {
+      baselineId: baseline_id,
+      projectId: project_id,
+      laborCount: laborEstimates.length,
+      nonLaborCount: nonLaborEstimates.length,
+      laborSample: laborEstimates.slice(0, 2).map(e => ({
+        rubroId: e.rubroId,
+        role: e.role,
+        rate: e.hourly_rate || e.rate || 0,
+      })),
+      nonLaborSample: nonLaborEstimates.slice(0, 2).map(e => ({
+        rubroId: e.rubroId,
+        description: e.description,
+        amount: e.amount,
+      })),
+    });
 
     const currency = body.currency?.trim() || "USD";
     const durationMonths = body.duration_months ?? 12;

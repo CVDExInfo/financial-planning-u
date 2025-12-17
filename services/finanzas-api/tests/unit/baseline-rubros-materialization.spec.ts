@@ -118,7 +118,7 @@ function generateLineItems(
     const totalCost = recurring ? amount * months : amount;
 
     // Use canonical rubroId from taxonomy
-    const canonicalRubroId = estimate.rubroId || "GSV-OTHER";
+    const canonicalRubroId = estimate.rubroId || "GSV-REU";
     const rubroSK = `${canonicalRubroId}#${baselineId}#${index + 1}`;
 
     items.push({
