@@ -231,12 +231,13 @@ export default function SDMTReconciliation() {
 
   useEffect(() => {
     if (filterLineItem) {
+      const parsedMonth = filterMonth ? parseInt(filterMonth, 10) || 1 : 1;
       setUploadFormData((prev) => ({
         ...prev,
         line_item_id: filterLineItem,
-        month: filterMonth ? parseInt(filterMonth, 10) || 1 : 1,
-        start_month: filterMonth ? parseInt(filterMonth, 10) || 1 : 1,
-        end_month: filterMonth ? parseInt(filterMonth, 10) || 1 : 1,
+        month: parsedMonth,
+        start_month: parsedMonth,
+        end_month: parsedMonth,
       }));
       setShowUploadForm(true);
     }

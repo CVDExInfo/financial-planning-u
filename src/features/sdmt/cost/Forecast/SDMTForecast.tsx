@@ -87,7 +87,9 @@ export function SDMTForecast() {
     const urlParams = new URLSearchParams(location.search);
     const refreshParam = urlParams.get('_refresh');
     if (refreshParam && selectedProjectId) {
-      console.log('🔄 Forecast: Refreshing after reconciliation');
+      if (import.meta.env.DEV) {
+        console.log('🔄 Forecast: Refreshing after reconciliation');
+      }
       loadForecastData();
     }
   }, [location.search]);
