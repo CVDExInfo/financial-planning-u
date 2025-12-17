@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DollarSign, TrendingUp, TrendingDown, Save, AlertTriangle } from "lucide-react";
+import { DollarSign, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { getAnnualBudget, setAnnualBudget } from "@/api/finanzas";
 
