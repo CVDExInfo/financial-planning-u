@@ -30,13 +30,14 @@ const ROLE_PERMISSIONS = {
       "/profile",
       "/pmo/**",
       "/pmo/prefactura/**",
+      "/pmo/projects/**",
     ],
     actions: ["read"],
     description: "Acceso limitado solo al estimador PMO",
   },
   PMO: {
     // PMO users are isolated to the PMO workspace
-    routes: ["/", "/profile", "/pmo/**", "/pmo/prefactura/**"],
+    routes: ["/", "/profile", "/pmo/**", "/pmo/prefactura/**", "/pmo/projects/**"],
     actions: ["create", "read", "update", "delete", "approve"],
     description: "Full access to PMO estimator and reporting",
   },
