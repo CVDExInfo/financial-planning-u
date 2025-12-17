@@ -86,6 +86,20 @@ export function SDMTForecast() {
   const [budgetLastUpdated, setBudgetLastUpdated] = useState<string | null>(null);
   const [loadingBudget, setLoadingBudget] = useState(false);
   const [savingBudget, setSavingBudget] = useState(false);
+  // Budget Overview state for KPIs
+  const [budgetOverview, setBudgetOverview] = useState<{
+    year: number;
+    budgetAllIn: { amount: number; currency: string } | null;
+    totals: {
+      planned: number;
+      forecast: number;
+      actual: number;
+      varianceBudgetVsForecast: number;
+      varianceBudgetVsActual: number;
+      percentBudgetConsumedActual: number | null;
+      percentBudgetConsumedForecast: number | null;
+    };
+  } | null>(null);
   const { user, login } = useAuth();
   const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
   const navigate = useNavigate();
@@ -486,6 +500,21 @@ export function SDMTForecast() {
     }
   };
 
+  // Load Budget Overview for KPIs (only in portfolio view)
+  const loadBudgetOverview = async (year: number) => {
+    if (!isPortfolioView) return;
+    
+    try {
+      const overview = await finanzasClient.getAllInBudgetOverview(year);
+      setBudgetOverview(overview);
+      console.log('[SDMTForecast] Budget overview loaded:', overview);
+    } catch (error: any) {
+      // Don't show error to user, just log it - this is optional enhancement
+      console.error('Error loading budget overview:', error);
+      setBudgetOverview(null);
+    }
+  };
+
   // Save Annual Budget
   const handleSaveAnnualBudget = async () => {
     const amount = parseFloat(budgetAmount);
@@ -499,6 +528,9 @@ export function SDMTForecast() {
       const result = await finanzasClient.putAllInBudget(budgetYear, amount, budgetCurrency);
       setBudgetLastUpdated(result.updated_at);
       toast.success('Presupuesto anual guardado exitosamente');
+      
+      // Reload budget overview to update KPIs
+      await loadBudgetOverview(budgetYear);
     } catch (error) {
       console.error('Error saving annual budget:', error);
       const message = handleFinanzasApiError(error, {
@@ -514,7 +546,11 @@ export function SDMTForecast() {
   // Load budget when year changes
   useEffect(() => {
     loadAnnualBudget(budgetYear);
-  }, [budgetYear]);
+    // Also load overview if in portfolio view
+    if (isPortfolioView) {
+      loadBudgetOverview(budgetYear);
+    }
+  }, [budgetYear, isPortfolioView]);
 
   // Check if user can edit forecast (SDMT only) or actuals (SDMT role)
   const canEditForecast = user?.current_role === 'SDMT';
@@ -936,156 +972,224 @@ export function SDMTForecast() {
         </div>
       )}
 
-      {/* Actions */}
-      <Card>
-        <CardContent className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={handlePersistActuals}
-              disabled={savingActuals || dirtyActualCount === 0}
-              className="gap-2"
-            >
-              {savingActuals ? <LoadingSpinner size="sm" /> : null}
-              Guardar
-              <Badge variant="secondary" className="ml-2">
-                {dirtyActualCount} pendientes
-              </Badge>
-            </Button>
-            <Button
-              onClick={handlePersistForecasts}
-              disabled={savingForecasts || dirtyForecastCount === 0 || !canEditForecast}
-              className="gap-2"
-              variant="outline"
-            >
-              {savingForecasts ? <LoadingSpinner size="sm" /> : null}
-              Guardar Pronóstico
-              <Badge variant="secondary" className="ml-2">
-                {dirtyForecastCount} pendientes
-              </Badge>
-            </Button>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Share2 size={16} />
-                  Share
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Compartir Datos de Pronóstico</DialogTitle>
-                  <DialogDescription>
-                    Exportar y compartir datos de pronóstico en múltiples formatos para interesados y reportes.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="py-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button 
-                      variant="outline" 
-                      className="h-20 flex flex-col gap-2"
-                      onClick={handleExcelExport}
-                      disabled={exporting !== null}
-                    >
-                      {exporting === 'excel' ? (
-                        <LoadingSpinner size="sm" />
-                      ) : (
-                        <FileSpreadsheet size={24} />
-                      )}
-                      <span>Reporte Excel</span>
-                      <span className="text-xs text-muted-foreground">
-                        {exporting === 'excel' ? 'Generando...' : 'Pronóstico detallado con fórmulas'}
-                      </span>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="h-20 flex flex-col gap-2"
-                      onClick={handlePDFExport}
-                      disabled={exporting !== null}
-                    >
-                      {exporting === 'pdf' ? (
-                        <LoadingSpinner size="sm" />
-                      ) : (
-                        <Share2 size={24} />
-                      )}
-                      <span>Resumen PDF</span>
-                      <span className="text-xs text-muted-foreground">
-                        {exporting === 'pdf' ? 'Generando...' : 'Formato de resumen ejecutivo'}
-                      </span>
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            Last updated: {new Date().toLocaleDateString()}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Real Annual Budget KPIs - Show when budget is set and portfolio view (not simulation) */}
+      {isPortfolioView && !budgetSimulation.enabled && budgetOverview?.budgetAllIn && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="border-blue-500/30">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-blue-600">
+                {formatCurrency(budgetOverview.budgetAllIn.amount)}
+              </div>
+              <p className="text-sm text-muted-foreground">Presupuesto Anual All-In</p>
+              <p className="text-xs text-muted-foreground">
+                {budgetOverview.budgetAllIn.currency} · {budgetOverview.year}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-blue-500/30">
+            <CardContent className="p-4">
+              <div className={`text-2xl font-bold ${
+                budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {formatCurrency(Math.abs(budgetOverview.totals.varianceBudgetVsForecast))}
+              </div>
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                {getVarianceIcon(-budgetOverview.totals.varianceBudgetVsForecast)}
+                Over/Under Budget
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-blue-500/30">
+            <CardContent className="p-4">
+              <div className={`text-2xl font-bold ${
+                (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 100 
+                  ? 'text-red-600' 
+                  : (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 90 
+                    ? 'text-yellow-600' 
+                    : 'text-green-600'
+              }`}>
+                {budgetOverview.totals.percentBudgetConsumedForecast?.toFixed(1) || '0.0'}%
+              </div>
+              <p className="text-sm text-muted-foreground">% Consumo Pronóstico</p>
+              <p className="text-xs text-muted-foreground">Forecast / Budget</p>
+            </CardContent>
+          </Card>
+          <Card className="border-blue-500/30">
+            <CardContent className="p-4">
+              <div className={`text-2xl font-bold ${
+                (budgetOverview.totals.percentBudgetConsumedActual || 0) > 100 
+                  ? 'text-red-600' 
+                  : (budgetOverview.totals.percentBudgetConsumedActual || 0) > 90 
+                    ? 'text-yellow-600' 
+                    : 'text-blue-600'
+              }`}>
+                {budgetOverview.totals.percentBudgetConsumedActual?.toFixed(1) || '0.0'}%
+              </div>
+              <p className="text-sm text-muted-foreground">% Consumo Real</p>
+              <p className="text-xs text-muted-foreground">Actual / Budget</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      {/* Annual All-In Budget Panel */}
+      {/* Actions and Budget Editor */}
       <Card>
-        <CardHeader>
-          <CardTitle>Presupuesto Anual All-In</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Año</label>
-              <Input
-                type="number"
-                value={budgetYear}
-                onChange={(e) => setBudgetYear(parseInt(e.target.value))}
-                min={2020}
-                max={2100}
-                disabled={loadingBudget || savingBudget || !canEditBudget}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Monto</label>
-              <Input
-                type="number"
-                value={budgetAmount}
-                onChange={(e) => setBudgetAmount(e.target.value)}
-                placeholder="0"
-                disabled={loadingBudget || savingBudget || !canEditBudget}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Moneda</label>
-              <select
-                value={budgetCurrency}
-                onChange={(e) => setBudgetCurrency(e.target.value)}
-                disabled={loadingBudget || savingBudget || !canEditBudget}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        <CardContent className="p-4 space-y-4">
+          {/* Action Buttons Row */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-4">
+              <Button
+                onClick={handlePersistActuals}
+                disabled={savingActuals || dirtyActualCount === 0}
+                className="gap-2"
               >
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="MXN">MXN</option>
-              </select>
+                {savingActuals ? <LoadingSpinner size="sm" /> : null}
+                Guardar
+                <Badge variant="secondary" className="ml-2">
+                  {dirtyActualCount} pendientes
+                </Badge>
+              </Button>
+              <Button
+                onClick={handlePersistForecasts}
+                disabled={savingForecasts || dirtyForecastCount === 0 || !canEditForecast}
+                className="gap-2"
+                variant="outline"
+              >
+                {savingForecasts ? <LoadingSpinner size="sm" /> : null}
+                Guardar Pronóstico
+                <Badge variant="secondary" className="ml-2">
+                  {dirtyForecastCount} pendientes
+                </Badge>
+              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Share2 size={16} />
+                    Share
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Compartir Datos de Pronóstico</DialogTitle>
+                    <DialogDescription>
+                      Exportar y compartir datos de pronóstico en múltiples formatos para interesados y reportes.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col gap-2"
+                        onClick={handleExcelExport}
+                        disabled={exporting !== null}
+                      >
+                        {exporting === 'excel' ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <FileSpreadsheet size={24} />
+                        )}
+                        <span>Reporte Excel</span>
+                        <span className="text-xs text-muted-foreground">
+                          {exporting === 'excel' ? 'Generando...' : 'Pronóstico detallado con fórmulas'}
+                        </span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col gap-2"
+                        onClick={handlePDFExport}
+                        disabled={exporting !== null}
+                      >
+                        {exporting === 'pdf' ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <Share2 size={24} />
+                        )}
+                        <span>Resumen PDF</span>
+                        <span className="text-xs text-muted-foreground">
+                          {exporting === 'pdf' ? 'Generando...' : 'Formato de resumen ejecutivo'}
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
-            <div className="flex items-end">
+            <div className="text-sm text-muted-foreground">
+              Last updated: {new Date().toLocaleDateString()}
+            </div>
+          </div>
+
+          {/* Compact Budget Editor - Inline */}
+          <div className="border-t pt-4">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium whitespace-nowrap">Presupuesto Anual All-In:</span>
+              </div>
+              <div className="flex-shrink-0 w-24">
+                <label className="text-xs text-muted-foreground block mb-1">Año</label>
+                <Input
+                  type="number"
+                  value={budgetYear}
+                  onChange={(e) => setBudgetYear(parseInt(e.target.value))}
+                  min={2020}
+                  max={2100}
+                  disabled={loadingBudget || savingBudget || !canEditBudget}
+                  className="h-9"
+                />
+              </div>
+              <div className="flex-grow min-w-[150px] max-w-[200px]">
+                <label className="text-xs text-muted-foreground block mb-1">Monto</label>
+                <Input
+                  type="number"
+                  value={budgetAmount}
+                  onChange={(e) => setBudgetAmount(e.target.value)}
+                  placeholder="0"
+                  disabled={loadingBudget || savingBudget || !canEditBudget}
+                  className="h-9"
+                />
+              </div>
+              <div className="flex-shrink-0 w-24">
+                <label className="text-xs text-muted-foreground block mb-1">Moneda</label>
+                <select
+                  value={budgetCurrency}
+                  onChange={(e) => setBudgetCurrency(e.target.value)}
+                  disabled={loadingBudget || savingBudget || !canEditBudget}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="MXN">MXN</option>
+                </select>
+              </div>
               <Button
                 onClick={handleSaveAnnualBudget}
                 disabled={savingBudget || loadingBudget || !canEditBudget || !budgetAmount}
-                className="w-full gap-2"
+                className="gap-2 h-9"
+                size="sm"
               >
                 {savingBudget ? <LoadingSpinner size="sm" /> : null}
                 Guardar Presupuesto
               </Button>
+              {budgetLastUpdated && (
+                <div className="text-xs text-muted-foreground ml-2 self-center">
+                  Actualizado: {new Date(budgetLastUpdated).toLocaleDateString()}
+                </div>
+              )}
             </div>
+            {!canEditBudget && (
+              <div className="text-xs text-muted-foreground mt-2 text-amber-600">
+                Solo usuarios SDMT pueden editar el presupuesto anual
+              </div>
+            )}
+            {!isPortfolioView && budgetAmount && (
+              <div className="text-xs text-muted-foreground mt-2">
+                ℹ️ Presupuesto All-In aplica a todos los proyectos; seleccione "TODOS" para ver consumo total.
+              </div>
+            )}
           </div>
-          {budgetLastUpdated && (
-            <div className="text-xs text-muted-foreground mt-4">
-              Última actualización: {new Date(budgetLastUpdated).toLocaleString()}
-            </div>
-          )}
-          {!canEditBudget && (
-            <div className="text-xs text-muted-foreground mt-2 text-amber-600">
-              Solo usuarios SDMT pueden editar el presupuesto anual
-            </div>
-          )}
         </CardContent>
       </Card>
 
