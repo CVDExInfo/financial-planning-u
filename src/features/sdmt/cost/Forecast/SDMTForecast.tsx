@@ -642,7 +642,6 @@ export function SDMTForecast() {
     budgetTotal,
     budgetUtilization,
     budgetVarianceProjected,
-    budgetVariancePlanned,
     pctUsedActual,
   } = metrics;
   const dirtyActualCount = useMemo(() => Object.keys(dirtyActuals).length, [dirtyActuals]);
