@@ -547,39 +547,72 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
 
   let baseline = baselineResult.Item;
   
-  // FALLBACK: If METADATA record doesn't have payload with estimates, try project-scoped record
+  // FALLBACK: If METADATA record doesn't have estimates, try project-scoped record
   // The project-scoped record has labor_estimates and non_labor_estimates at top level
-  if (baseline && baseline.payload) {
-    const hasEstimates = 
-      (Array.isArray(baseline.payload.labor_estimates) && baseline.payload.labor_estimates.length > 0) ||
-      (Array.isArray(baseline.payload.non_labor_estimates) && baseline.payload.non_labor_estimates.length > 0);
+  let shouldTryFallback = false;
+  
+  if (!baseline) {
+    // No METADATA record found at all
+    shouldTryFallback = true;
+    console.warn("[handoff] No METADATA baseline found, will try project-scoped record", {
+      baselineId,
+      projectId: resolvedProjectId,
+    });
+  } else if (!baseline.payload) {
+    // METADATA exists but has no payload
+    shouldTryFallback = true;
+    console.warn("[handoff] METADATA baseline has no payload, will try project-scoped record", {
+      baselineId,
+      projectId: resolvedProjectId,
+    });
+  } else {
+    // Check if payload has estimates
+    const hasLaborEstimates = Array.isArray(baseline.payload.labor_estimates) && baseline.payload.labor_estimates.length > 0;
+    const hasNonLaborEstimates = Array.isArray(baseline.payload.non_labor_estimates) && baseline.payload.non_labor_estimates.length > 0;
     
-    if (!hasEstimates && resolvedProjectId) {
-      console.warn("[handoff] METADATA payload missing estimates, trying project-scoped baseline", {
+    if (!hasLaborEstimates && !hasNonLaborEstimates) {
+      // Payload exists but no estimates
+      shouldTryFallback = true;
+      console.warn("[handoff] METADATA payload missing estimates, will try project-scoped record", {
+        baselineId,
+        projectId: resolvedProjectId,
+        payloadKeys: Object.keys(baseline.payload),
+      });
+    }
+  }
+  
+  // Try project-scoped fallback if needed
+  if (shouldTryFallback && resolvedProjectId) {
+    const projectBaselineResult = await sendDdb(
+      new GetCommand({
+        TableName: tableName("prefacturas"),
+        Key: {
+          pk: `PROJECT#${resolvedProjectId}`,
+          sk: `BASELINE#${baselineId}`,
+        },
+      })
+    );
+    
+    if (projectBaselineResult.Item) {
+      const hasLaborEstimates = Array.isArray(projectBaselineResult.Item.labor_estimates) && projectBaselineResult.Item.labor_estimates.length > 0;
+      const hasNonLaborEstimates = Array.isArray(projectBaselineResult.Item.non_labor_estimates) && projectBaselineResult.Item.non_labor_estimates.length > 0;
+      
+      console.info("[handoff] Found project-scoped baseline", {
+        baselineId,
+        projectId: resolvedProjectId,
+        hasLaborEstimates,
+        laborCount: Array.isArray(projectBaselineResult.Item.labor_estimates) ? projectBaselineResult.Item.labor_estimates.length : 0,
+        hasNonLaborEstimates,
+        nonLaborCount: Array.isArray(projectBaselineResult.Item.non_labor_estimates) ? projectBaselineResult.Item.non_labor_estimates.length : 0,
+      });
+      
+      // Use the project-scoped record
+      baseline = projectBaselineResult.Item;
+    } else {
+      console.error("[handoff] Project-scoped baseline not found either", {
         baselineId,
         projectId: resolvedProjectId,
       });
-      
-      // Try to fetch from project-scoped record
-      const projectBaselineResult = await sendDdb(
-        new GetCommand({
-          TableName: tableName("prefacturas"),
-          Key: {
-            pk: `PROJECT#${resolvedProjectId}`,
-            sk: `BASELINE#${baselineId}`,
-          },
-        })
-      );
-      
-      if (projectBaselineResult.Item) {
-        console.info("[handoff] Found project-scoped baseline with estimates", {
-          baselineId,
-          projectId: resolvedProjectId,
-          hasLaborEstimates: !!projectBaselineResult.Item.labor_estimates,
-          hasNonLaborEstimates: !!projectBaselineResult.Item.non_labor_estimates,
-        });
-        baseline = projectBaselineResult.Item;
-      }
     }
   }
   
