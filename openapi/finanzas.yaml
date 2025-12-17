@@ -652,12 +652,7 @@ paths:
       tags:
         - Allocations
       summary: Bulk update allocations
-      description: |
-        Updates budget allocations for multiple rubros in a single operation. Supports both planned and forecast allocations via type parameter.
-        
-        **Authorization:**
-        - `planned` type: Requires write access (PMO, SDMT, or SDM roles)
-        - `forecast` type: Requires SDMT or ADMIN role
+      description: Updates budget allocations for multiple rubros in a single operation. Supports both planned and forecast allocations via type parameter.
       operationId: bulkUpdateAllocations
       parameters:
         - name: id
@@ -695,7 +690,7 @@ paths:
                       mes: "2025-12"
                       monto_planeado: 32000
               forecast:
-                summary: Update forecast values (SDMT or ADMIN only)
+                summary: Update forecast values (PMO only)
                 value:
                   items:
                     - rubroId: "MOD-ING"
@@ -1751,7 +1746,7 @@ paths:
       summary: Set Annual All-In Budget
       description: |
         Sets or updates the organization-wide annual all-in budget for a specific year.
-        Only accessible to SDMT or ADMIN roles.
+        Only accessible to SDMT role.
       operationId: setAnnualBudget
       requestBody:
         required: true
