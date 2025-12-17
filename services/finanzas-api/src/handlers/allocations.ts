@@ -1,8 +1,9 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ensureSDT, ensureCanRead } from "../lib/auth";
+import { ensureSDT, ensureCanRead, ensurePMO, getUserContext } from "../lib/auth";
 import { bad, ok, noContent, serverError } from "../lib/http";
-import { ddb, tableName, QueryCommand, ScanCommand } from "../lib/dynamo";
+import { ddb, tableName, QueryCommand, ScanCommand, UpdateCommand, GetCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
+import { parseForecastBulkUpdate } from "../validation/allocations";
 
 /**
  * GET /allocations
@@ -61,8 +62,98 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
   }
 }
 
-// TODO: Implement bulk allocations update
-// R1 requirement: PUT /projects/{id}/allocations:bulk
+/**
+ * PUT /projects/{id}/allocations:bulk?type=forecast
+ * Bulk update forecast values for allocations (PMO only)
+ */
+async function bulkUpdateForecast(event: APIGatewayProxyEventV2) {
+  try {
+    // PMO-only access for forecast updates
+    await ensurePMO(event);
+    
+    const projectId = event.pathParameters?.id;
+    if (!projectId) {
+      return bad(event, "Missing project id");
+    }
+    
+    // Parse and validate request body
+    const body = event.body ? JSON.parse(event.body) : {};
+    const validation = parseForecastBulkUpdate({
+      ...body,
+      projectId,
+    });
+    
+    const userContext = await getUserContext(event as any);
+    const updatedBy = userContext.email || "system";
+    const allocationsTable = tableName("allocations");
+    const timestamp = new Date().toISOString();
+    
+    const results = {
+      updated: 0,
+      created: 0,
+      skipped: 0,
+      errors: [] as string[],
+    };
+    
+    // Process each forecast item
+    for (const item of validation.items) {
+      try {
+        const sk = `MONTH#${item.month}#RUBRO#${item.rubroId}`;
+        const pk = `PROJECT#${projectId}`;
+        
+        // Check if allocation exists
+        const getResult = await ddb.send(
+          new GetCommand({
+            TableName: allocationsTable,
+            Key: { pk, sk },
+          })
+        );
+        
+        if (getResult.Item) {
+          // Update existing allocation's forecast value
+          await ddb.send(
+            new UpdateCommand({
+              TableName: allocationsTable,
+              Key: { pk, sk },
+              UpdateExpression: "SET forecast = :forecast, updated_at = :updated_at, updated_by = :updated_by",
+              ExpressionAttributeValues: {
+                ":forecast": item.forecast,
+                ":updated_at": timestamp,
+                ":updated_by": updatedBy,
+              },
+            })
+          );
+          results.updated++;
+        } else {
+          // Allocation doesn't exist - skip (don't create new allocations)
+          results.skipped++;
+          console.warn(`[allocations] Skipping forecast update for non-existent allocation: ${pk} ${sk}`);
+        }
+      } catch (itemError) {
+        logError(`Error updating forecast for ${item.rubroId}/${item.month}`, itemError);
+        results.errors.push(`${item.rubroId}/${item.month}: ${itemError}`);
+      }
+    }
+    
+    console.log(`[allocations] Bulk forecast update completed:`, results);
+    
+    return ok(event, {
+      success: true,
+      updated: results.updated,
+      created: results.created,
+      skipped: results.skipped,
+      total: validation.items.length,
+      errors: results.errors.length > 0 ? results.errors : undefined,
+    });
+  } catch (error) {
+    if ((error as any).statusCode === 403) {
+      return { statusCode: 403, body: JSON.stringify({ error: "PMO role required for forecast updates" }) };
+    }
+    logError("Error in bulk forecast update", error);
+    return serverError(event as any, "Failed to update forecast values");
+  }
+}
+
 export const handler = async (event: APIGatewayProxyEventV2) => {
   const method = event.requestContext.http.method;
 
@@ -74,20 +165,25 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     return await getAllocations(event);
   }
 
-  await ensureSDT(event);
-
   if (method === "PUT") {
     const projectId = event.pathParameters?.id;
+    const updateType = event.queryStringParameters?.type;
 
     if (!projectId) {
       return bad(event, "Missing project id");
     }
 
-    // TODO: Parse bulk allocation data and update DynamoDB allocations table
+    // Route to forecast bulk update if type=forecast
+    if (updateType === "forecast") {
+      return await bulkUpdateForecast(event);
+    }
+
+    // Default bulk allocations update (requires SDMT)
+    await ensureSDT(event);
     return ok(event, {
       data: [],
       total: 0,
-      message: "PUT /projects/{id}/allocations:bulk - not implemented yet",
+      message: "PUT /projects/{id}/allocations:bulk - not implemented yet (use ?type=forecast for forecast updates)",
     });
   }
 
