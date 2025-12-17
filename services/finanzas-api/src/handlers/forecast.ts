@@ -163,12 +163,12 @@ export const handler = async (
           const planned = Number(
             allocation.planned || allocation.monto_planeado || 0
           );
-          const forecast = Number(
-            allocation.forecast ||
-              allocation.monto_proyectado ||
-              allocation.planned ||
-              0
-          );
+          // Use forecast if explicitly set, otherwise default to planned
+          // This ensures PMO adjustments are visible
+          const forecastValue = allocation.forecast || allocation.monto_proyectado;
+          const forecast = forecastValue !== undefined && forecastValue !== null
+            ? Number(forecastValue)
+            : planned;
           const actual = Number(
             allocation.actual || allocation.monto_real || 0
           );

@@ -10,12 +10,20 @@ jest.mock("../../src/lib/dynamo", () => ({
   tableName: jest.fn((name: string) => `test_${name}`),
   QueryCommand: jest.fn(),
   ScanCommand: jest.fn(),
+  PutCommand: jest.fn(),
+  GetCommand: jest.fn(),
 }));
 
 // Mock auth
 jest.mock("../../src/lib/auth", () => ({
   ensureCanRead: jest.fn(),
   ensureSDT: jest.fn(),
+  getUserContext: jest.fn(() => ({
+    email: "test@example.com",
+    sub: "test-user-id",
+    isSDMT: true,
+    roles: ["SDMT"],
+  })),
 }));
 
 // Mock logging
@@ -122,5 +130,213 @@ describe("allocations handler", () => {
     expect(Array.isArray(payload)).toBe(true);
     expect(payload.data).toBeUndefined();
     expect(payload.total).toBeUndefined();
+  });
+
+  describe("bulk allocations update", () => {
+    it("creates planned allocations with type=planned", async () => {
+      // Mock project lookup
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+        })
+        // Mock existing allocation check (not found)
+        .mockResolvedValueOnce({ Item: undefined })
+        // Mock put command
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "planned" },
+        body: JSON.stringify({
+          allocations: [
+            {
+              rubro_id: "rubro_test123",
+              mes: "2025-01",
+              monto_planeado: 50000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.updated_count).toBe(1);
+      expect(payload.type).toBe("planned");
+      expect(payload.allocations[0].status).toBe("created");
+      expect(payload.allocations[0].monto_planeado).toBe(50000);
+    });
+
+    it("creates forecast allocations with type=forecast", async () => {
+      // Mock project lookup
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+        })
+        // Mock existing allocation check (not found)
+        .mockResolvedValueOnce({ Item: undefined })
+        // Mock put command
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          allocations: [
+            {
+              rubro_id: "rubro_test123",
+              mes: "2025-01",
+              monto_proyectado: 55000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.updated_count).toBe(1);
+      expect(payload.type).toBe("forecast");
+      expect(payload.allocations[0].status).toBe("created");
+      expect(payload.allocations[0].monto_proyectado).toBe(55000);
+    });
+
+    it("updates existing allocation with forecast value", async () => {
+      const existingAllocation = {
+        pk: "PROJECT#P-123",
+        sk: "ALLOCATION#base_001#2025-01#rubro_test123",
+        projectId: "P-123",
+        baselineId: "base_001",
+        rubroId: "rubro_test123",
+        month: "2025-01",
+        mes: "2025-01",
+        monto_planeado: 50000,
+        planned: 50000,
+      };
+
+      // Mock project lookup
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+        })
+        // Mock existing allocation check (found)
+        .mockResolvedValueOnce({ Item: existingAllocation })
+        // Mock put command
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          allocations: [
+            {
+              rubro_id: "rubro_test123",
+              mes: "2025-01",
+              monto_proyectado: 55000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.updated_count).toBe(1);
+      expect(payload.allocations[0].status).toBe("updated");
+    });
+
+    it("rejects invalid type parameter", async () => {
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "invalid" },
+        body: JSON.stringify({
+          allocations: [
+            {
+              rubro_id: "rubro_test123",
+              mes: "2025-01",
+              monto_planeado: 50000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toContain("Invalid type parameter");
+    });
+
+    it("rejects missing allocations array", async () => {
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "planned" },
+        body: JSON.stringify({}),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toContain("Missing or invalid allocations array");
+    });
+
+    it("processes multiple allocations in bulk", async () => {
+      // Mock project lookup
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+        })
+        // Mock existing allocation checks (not found for both)
+        .mockResolvedValueOnce({ Item: undefined })
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({ Item: undefined })
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          allocations: [
+            {
+              rubro_id: "rubro_test123",
+              mes: "2025-01",
+              monto_proyectado: 55000,
+            },
+            {
+              rubro_id: "rubro_test456",
+              mes: "2025-01",
+              monto_proyectado: 35000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.updated_count).toBe(2);
+      expect(payload.allocations).toHaveLength(2);
+    });
   });
 });
