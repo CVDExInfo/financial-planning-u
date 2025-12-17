@@ -439,8 +439,8 @@ export default function HubDesempeno() {
             </Alert>
           )}
 
-          {/* Annual Budget Widget - only show for ALL scope and ADMIN/EXEC_RO */}
-          {scope === "ALL" && (user?.current_role === 'ADMIN' || user?.current_role === 'EXEC_RO') && (
+          {/* Annual Budget Widget - only show for ALL scope and EXEC_RO */}
+          {scope === "ALL" && user?.current_role === 'EXEC_RO' && (
             <AnnualBudgetWidget
               totalAdjustedForecast={summary?.kpis.adjustedMOD || 0}
             />

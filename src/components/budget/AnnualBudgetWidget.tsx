@@ -51,8 +51,8 @@ export function AnnualBudgetWidget({
     updatedBy: string;
   } | null>(null);
 
-  // Only ADMIN and EXEC_RO can edit (not PMO)
-  const canEdit = user?.current_role === 'ADMIN' || user?.current_role === 'EXEC_RO';
+  // Only EXEC_RO can edit (not PMO or other roles)
+  const canEdit = user?.current_role === 'EXEC_RO';
 
   // Load existing budget for the selected year
   useEffect(() => {
