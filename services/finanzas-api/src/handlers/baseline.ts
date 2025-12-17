@@ -150,7 +150,7 @@ export const createBaseline = async (
       laborSample: laborEstimates.slice(0, 2).map(e => ({
         rubroId: e.rubroId,
         role: e.role,
-        rate: e.hourly_rate || e.rate,
+        rate: e.hourly_rate || e.rate || 0,
       })),
       nonLaborSample: nonLaborEstimates.slice(0, 2).map(e => ({
         rubroId: e.rubroId,
