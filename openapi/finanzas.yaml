@@ -650,7 +650,7 @@ paths:
       tags:
         - Allocations
       summary: Bulk update allocations
-      description: Updates budget allocations for multiple rubros in a single operation
+      description: Updates budget allocations for multiple rubros in a single operation. Supports both planned and forecast allocations via type parameter.
       operationId: bulkUpdateAllocations
       parameters:
         - name: id
@@ -660,6 +660,14 @@ paths:
           schema:
             type: string
             pattern: "^proj_[a-z0-9]{10}$"
+        - name: type
+          in: query
+          required: false
+          description: Type of allocation to update (planned or forecast). Defaults to planned.
+          schema:
+            type: string
+            enum: [planned, forecast]
+            default: planned
       requestBody:
         required: true
         content:
@@ -1663,6 +1671,90 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /budgets/all-in:
+    get:
+      tags:
+        - Hub
+      summary: Get Annual All-In Budget
+      description: |
+        Returns the organization-wide annual all-in budget for a specific year.
+        Only accessible to SDMT and EXEC_RO roles.
+      operationId: getAnnualBudget
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 2020
+            maximum: 2100
+          description: Year for the budget (e.g., 2025)
+      responses:
+        "200":
+          description: Annual budget retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnualBudget"
+              example:
+                year: 2025
+                amount: 5000000
+                currency: USD
+                lastUpdated: "2025-01-15T10:30:00Z"
+                updatedBy: "user@example.com"
+        "404":
+          description: No budget found for the specified year
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: "No budget found for year 2025"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags:
+        - Hub
+      summary: Set Annual All-In Budget
+      description: |
+        Sets or updates the organization-wide annual all-in budget for a specific year.
+        Only accessible to SDMT role.
+      operationId: setAnnualBudget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnualBudgetInput"
+            example:
+              year: 2025
+              amount: 5000000
+              currency: USD
+      responses:
+        "200":
+          description: Annual budget set successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnualBudget"
+              example:
+                year: 2025
+                amount: 5000000
+                currency: USD
+                lastUpdated: "2025-01-15T10:30:00Z"
+                updatedBy: "user@example.com"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     CognitoJWT:
@@ -2230,7 +2322,6 @@ components:
             required:
               - rubro_id
               - mes
-              - monto_planeado
             properties:
               rubro_id:
                 type: string
@@ -2241,6 +2332,11 @@ components:
               monto_planeado:
                 type: number
                 minimum: 0
+                description: Planned amount (used when type=planned)
+              monto_proyectado:
+                type: number
+                minimum: 0
+                description: Forecast amount (used when type=forecast)
 
     PlanMes:
       type: object
@@ -2968,6 +3064,53 @@ components:
         expiresIn:
           type: integer
           description: URL expiration time in seconds
+
+    AnnualBudget:
+      type: object
+      required:
+        - year
+        - amount
+        - currency
+      properties:
+        year:
+          type: integer
+          description: Budget year
+        amount:
+          type: number
+          minimum: 0
+          description: Total annual budget amount
+        currency:
+          type: string
+          enum: [USD, EUR, MXN]
+          description: Budget currency
+        lastUpdated:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        updatedBy:
+          type: string
+          description: User who last updated the budget
+
+    AnnualBudgetInput:
+      type: object
+      required:
+        - year
+        - amount
+      properties:
+        year:
+          type: integer
+          minimum: 2020
+          maximum: 2100
+          description: Budget year
+        amount:
+          type: number
+          minimum: 0
+          description: Total annual budget amount
+        currency:
+          type: string
+          enum: [USD, EUR, MXN]
+          default: USD
+          description: Budget currency
 
   responses:
     BadRequest:

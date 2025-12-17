@@ -864,6 +864,8 @@ Resources:
         - AWSLambdaBasicExecutionRole
         - DynamoDBCrudPolicy:
             TableName: !Ref AllocationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProjectsTable
         - !If
           - HasPolicyStore
           - Version: '2012-10-17'
@@ -887,6 +889,53 @@ Resources:
           Type: HttpApi
           Properties:
             Path: /projects/{id}/allocations:bulk
+            Method: PUT
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+
+  BudgetsFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/budgets.ts
+        External:
+          - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+    Properties:
+      CodeUri: .
+      Handler: budgets.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AllocationsTable
+        - !If
+          - HasPolicyStore
+          - Version: '2012-10-17'
+            Statement:
+              - Sid: AllowAVPIsAuthorizedWithToken
+                Effect: Allow
+                Action:
+                  - verifiedpermissions:IsAuthorizedWithToken
+                Resource: !Sub 'arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStoreId}'
+          - !Ref AWS::NoValue
+      Events:
+        GetAnnualBudget:
+          Type: HttpApi
+          Properties:
+            Path: /budgets/all-in
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+        SetAnnualBudget:
+          Type: HttpApi
+          Properties:
+            Path: /budgets/all-in
             Method: PUT
             ApiId: !Ref Api
             Auth:
