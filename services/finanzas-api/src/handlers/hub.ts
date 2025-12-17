@@ -176,7 +176,19 @@ async function getSummary(event: ApiGwEvent): Promise<APIGatewayProxyResultV2> {
     
     const queryParams = event.queryStringParameters || {};
     const scope = parseScope(queryParams);
-    const year = queryParams.year ? parseInt(queryParams.year, 10) : new Date().getFullYear();
+    
+    // Validate and parse year parameter
+    const yearStr = queryParams.year;
+    let year: number;
+    if (yearStr) {
+      year = parseInt(yearStr, 10);
+      if (isNaN(year) || year < 2020 || year > 2100) {
+        return bad("Invalid year parameter. Must be between 2020 and 2100");
+      }
+    } else {
+      year = new Date().getFullYear();
+    }
+    
     const cacheKey = `summary:${scope}:${year}`;
     
     // Check cache
@@ -203,15 +215,13 @@ async function getSummary(event: ApiGwEvent): Promise<APIGatewayProxyResultV2> {
     for (const allocation of allocations) {
       const planned = Number(allocation.planned || allocation.monto_planeado || 0);
       const forecastValue = allocation.forecast ?? allocation.monto_proyectado;
-      const forecast = forecastValue !== undefined && forecastValue !== null
-        ? Number(forecastValue)
-        : planned;
+      const forecast = forecastValue !== undefined ? Number(forecastValue) : planned;
       
       totalPlanned += planned;
       totalForecast += forecast;
       
       // Check if any forecast differs from planned (PMO adjustment exists)
-      if (forecastValue !== undefined && forecastValue !== null && forecast !== planned) {
+      if (forecastValue !== undefined && forecast !== planned) {
         hasForecastAdjustments = true;
       }
     }
