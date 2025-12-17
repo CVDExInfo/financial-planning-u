@@ -10,6 +10,7 @@ jest.mock("../../src/lib/dynamo", () => ({
   tableName: jest.fn((name: string) => `test_${name}`),
   PutCommand: jest.fn(),
   GetCommand: jest.fn(),
+  ScanCommand: jest.fn(),
 }));
 
 // Mock auth
@@ -252,6 +253,146 @@ describe("budgets handler", () => {
 
       expect(response.statusCode).toBe(400);
       expect(response.body).toContain("Year must be between 2020 and 2100");
+    });
+  });
+
+  describe("GET /budgets/all-in/overview", () => {
+    it("returns budget overview with totals when budget exists", async () => {
+      // Mock budget lookup
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: {
+            pk: "BUDGET#ANNUAL",
+            sk: "YEAR#2025",
+            year: 2025,
+            amount: 10000000,
+            currency: "USD",
+          },
+        })
+        // Mock allocations scan
+        .mockResolvedValueOnce({
+          Items: [
+            {
+              month: "2025-01",
+              planned: 500000,
+              forecast: 550000,
+              actual: 480000,
+            },
+            {
+              month: "2025-02",
+              planned: 500000,
+              forecast: 530000,
+              actual: 490000,
+            },
+          ],
+        });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { 
+          http: { 
+            method: "GET", 
+            path: "/budgets/all-in/overview" 
+          } 
+        },
+        queryStringParameters: { year: "2025" },
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await budgetsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.year).toBe(2025);
+      expect(payload.budgetAllIn).toEqual({ amount: 10000000, currency: "USD" });
+      expect(payload.totals.planned).toBe(1000000);
+      expect(payload.totals.forecast).toBe(1080000);
+      expect(payload.totals.actual).toBe(970000);
+      expect(payload.totals.varianceBudgetVsForecast).toBe(8920000); // 10M - 1.08M
+      expect(payload.totals.percentBudgetConsumedForecast).toBeCloseTo(10.8, 1);
+    });
+
+    it("returns overview with null budget when no budget set", async () => {
+      // Mock budget lookup (not found)
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: undefined,
+        })
+        // Mock allocations scan
+        .mockResolvedValueOnce({
+          Items: [
+            {
+              month: "2025-01",
+              planned: 500000,
+              forecast: 550000,
+              actual: 480000,
+            },
+          ],
+        });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { 
+          http: { 
+            method: "GET", 
+            path: "/budgets/all-in/overview" 
+          } 
+        },
+        queryStringParameters: { year: "2025" },
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await budgetsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.budgetAllIn).toBeNull();
+      expect(payload.totals.percentBudgetConsumedForecast).toBeNull();
+    });
+
+    it("allows ADMIN users to access budget overview", async () => {
+      // Mock getUserContext to return ADMIN user
+      const auth = require("../../src/lib/auth");
+      auth.getUserContext.mockReturnValueOnce({
+        email: "admin@example.com",
+        sub: "admin-id",
+        isSDMT: false,
+        isAdmin: true,
+        isExecRO: false,
+        roles: ["ADMIN"],
+      });
+
+      // Mock budget lookup
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: {
+            pk: "BUDGET#ANNUAL",
+            sk: "YEAR#2025",
+            year: 2025,
+            amount: 5000000,
+            currency: "USD",
+          },
+        })
+        // Mock allocations scan
+        .mockResolvedValueOnce({
+          Items: [],
+        });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { 
+          http: { 
+            method: "GET", 
+            path: "/budgets/all-in/overview" 
+          } 
+        },
+        queryStringParameters: { year: "2025" },
+        __verifiedClaims: { "cognito:groups": ["ADMIN"], email: "admin@example.com" },
+      };
+
+      const response = await budgetsHandler(event);
+
+      expect(response.statusCode).toBe(200);
     });
   });
 });
