@@ -10,8 +10,8 @@
 
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { ok, bad, serverError, fromAuthError, noContent } from "../lib/http";
-import { ensureCanRead } from "../lib/auth";
-import { ddb, tableName, QueryCommand } from "../lib/dynamo";
+import { ensureCanRead, getUserContext } from "../lib/auth";
+import { ddb, tableName, QueryCommand, BatchWriteCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
 import { queryProjectRubros } from "../lib/baseline-sdmt";
 
@@ -37,6 +37,89 @@ const parseMonths = (monthsStr?: string | null) => {
   return value;
 };
 
+/**
+ * PUT /plan/forecast - Update forecast adjustments
+ * Allows SDMT users to adjust forecast values
+ */
+async function updateForecastAdjustments(
+  event: APIGatewayProxyEventV2
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    // Auth: Only SDMT can update forecasts
+    const userContext = await getUserContext(event as never);
+    if (!userContext.isSDMT && !userContext.isPMO) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ message: "Only SDMT or PMO can update forecast adjustments" }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
+
+    if (!event.body) {
+      return bad("Missing request body");
+    }
+
+    const body = JSON.parse(event.body);
+    const { projectId, adjustments } = body;
+
+    if (!projectId || !Array.isArray(adjustments)) {
+      return bad("Invalid request: projectId and adjustments array required");
+    }
+
+    // Validate adjustment format
+    for (const adj of adjustments) {
+      if (!adj.line_item_id || typeof adj.month !== 'number' || typeof adj.forecast !== 'number') {
+        return bad("Invalid adjustment format: line_item_id, month, and forecast required");
+      }
+    }
+
+    // Store adjustments in DynamoDB
+    const table = tableName("allocations");
+    const timestamp = new Date().toISOString();
+    const updatedBy = userContext.email || userContext.sub || "system";
+
+    // Batch write adjustments
+    const putCommands = adjustments.map((adj: any) => ({
+      PutRequest: {
+        Item: {
+          pk: `FORECAST#${projectId}`,
+          sk: `ADJUST#${adj.line_item_id}#${adj.month}`,
+          line_item_id: adj.line_item_id,
+          month: adj.month,
+          forecast: adj.forecast,
+          notes: adj.notes || "",
+          last_updated: timestamp,
+          updated_by: updatedBy,
+        },
+      },
+    }));
+
+    // Write in batches of 25 (DynamoDB limit)
+    for (let i = 0; i < putCommands.length; i += 25) {
+      const batch = putCommands.slice(i, i + 25);
+      await ddb.send(
+        new BatchWriteCommand({
+          RequestItems: {
+            [table]: batch,
+          },
+        })
+      );
+    }
+
+    console.info(`[forecast] Saved ${adjustments.length} forecast adjustments for project ${projectId}`);
+
+    return ok({
+      message: "Forecast adjustments saved successfully",
+      count: adjustments.length,
+      projectId,
+      updatedAt: timestamp,
+    });
+  } catch (error) {
+    logError("[forecast] Error saving adjustments", error);
+    return serverError("Failed to save forecast adjustments");
+  }
+}
+
 export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
@@ -44,6 +127,10 @@ export const handler = async (
 
   if (method === "OPTIONS") {
     return noContent();
+  }
+
+  if (method === "PUT") {
+    return await updateForecastAdjustments(event);
   }
 
   let projectId: string | undefined;

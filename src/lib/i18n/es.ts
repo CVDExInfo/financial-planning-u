@@ -79,6 +79,9 @@ export const ES_TEXTS = {
     noData: "No hay datos disponibles",
     forecastVariance: "Variación de Pronóstico",
     realVariance: "Variación Real",
+    plannedFromPlanview: "Total Planeado De Planview",
+    adjustedForecastSDMT: "Pronóstico Ajustado (SDMT)",
+    adjustForecast: "Ajustar Pronóstico",
   },
 
   // Reconciliation

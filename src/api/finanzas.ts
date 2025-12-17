@@ -1844,3 +1844,31 @@ export async function setAnnualBudget(
   });
 }
 
+/**
+ * Save forecast adjustments (SDMT/PMO only)
+ * @param projectId - Project ID
+ * @param adjustments - Array of forecast adjustments
+ */
+export async function saveForecastAdjustments(
+  projectId: string,
+  adjustments: Array<{
+    line_item_id: string;
+    month: number;
+    forecast: number;
+    notes?: string;
+  }>
+): Promise<{
+  message: string;
+  count: number;
+  projectId: string;
+  updatedAt: string;
+}> {
+  const client = getFinanzasClient();
+  const endpoint = "/plan/forecast";
+  
+  return client.mutate(endpoint, {
+    method: "PUT",
+    body: JSON.stringify({ projectId, adjustments }),
+  });
+}
+

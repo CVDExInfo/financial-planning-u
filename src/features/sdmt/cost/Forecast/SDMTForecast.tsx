@@ -35,7 +35,7 @@ import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
-import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros } from '@/api/finanzas';
+import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros, saveForecastAdjustments } from '@/api/finanzas';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
@@ -54,7 +54,9 @@ export function SDMTForecast() {
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [portfolioLineItems, setPortfolioLineItems] = useState<ProjectLineItem[]>([]);
   const [dirtyActuals, setDirtyActuals] = useState<Record<string, ForecastRow>>({});
+  const [dirtyForecasts, setDirtyForecasts] = useState<Record<string, ForecastRow>>({});
   const [savingActuals, setSavingActuals] = useState(false);
+  const [savingForecasts, setSavingForecasts] = useState(false);
   const { user, login } = useAuth();
   const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
   const navigate = useNavigate();
@@ -114,6 +116,7 @@ export function SDMTForecast() {
       setLoading(true);
       setForecastError(null);
       setDirtyActuals({});
+      setDirtyForecasts({});
       const months = parseInt(selectedPeriod);
       if (import.meta.env.DEV) {
         console.debug('[Forecast] Loading data', { projectId: selectedProjectId, months });
@@ -277,9 +280,7 @@ export function SDMTForecast() {
             last_updated: new Date().toISOString(),
             updated_by: user?.login || 'current-user'
           };
-          if (editingCell.type === 'actual') {
-            pendingChange = nextCell;
-          }
+          pendingChange = nextCell;
           return nextCell;
         }
         return cell;
@@ -287,10 +288,14 @@ export function SDMTForecast() {
       setForecastData(updatedData);
       if (pendingChange) {
         const changeKey = `${pendingChange.projectId || selectedProjectId}-${pendingChange.line_item_id}-${pendingChange.month}`;
-        setDirtyActuals(prev => ({ ...prev, [changeKey]: pendingChange as ForecastRow }));
+        if (editingCell.type === 'forecast') {
+          setDirtyForecasts(prev => ({ ...prev, [changeKey]: pendingChange as ForecastRow }));
+        } else {
+          setDirtyActuals(prev => ({ ...prev, [changeKey]: pendingChange as ForecastRow }));
+        }
       }
       setEditingCell(null);
-      toast.success(`${editingCell.type === 'forecast' ? 'Pronóstico' : 'Real'} actualizado correctamente`);
+      toast.success(`${editingCell.type === 'forecast' ? ES_TEXTS.forecast.adjustedForecastSDMT : 'Real'} actualizado correctamente`);
     }
   };
 
@@ -345,6 +350,45 @@ export function SDMTForecast() {
       setForecastError(prev => prev || message);
     } finally {
       setSavingActuals(false);
+    }
+  };
+
+  const handlePersistForecasts = async () => {
+    const entries = Object.values(dirtyForecasts);
+    if (entries.length === 0) {
+      toast.info('No hay cambios de pronóstico para guardar');
+      return;
+    }
+
+    if (!selectedProjectId) {
+      toast.error('No se ha seleccionado un proyecto');
+      return;
+    }
+
+    setSavingForecasts(true);
+    try {
+      const adjustments = entries.map(cell => ({
+        line_item_id: cell.line_item_id,
+        month: cell.month,
+        forecast: cell.forecast,
+        notes: cell.notes || '',
+      }));
+
+      await saveForecastAdjustments(selectedProjectId, adjustments);
+      toast.success(`${adjustments.length} ajustes de pronóstico guardados correctamente`);
+      setDirtyForecasts({});
+      
+      // Reload data to ensure consistency
+      await loadForecastData();
+    } catch (error) {
+      console.error('❌ Error al guardar ajustes de pronóstico', error);
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: 'No pudimos guardar los ajustes de pronóstico.',
+      });
+      toast.error(message);
+    } finally {
+      setSavingForecasts(false);
     }
   };
 
@@ -462,6 +506,7 @@ export function SDMTForecast() {
     actualVariancePercentage
   } = metrics;
   const dirtyActualCount = useMemo(() => Object.keys(dirtyActuals).length, [dirtyActuals]);
+  const dirtyForecastCount = useMemo(() => Object.keys(dirtyForecasts).length, [dirtyForecasts]);
 
   const isLoadingState = loading || isLineItemsLoading;
   const hasGridData = forecastGrid.length > 0;
@@ -636,15 +681,15 @@ export function SDMTForecast() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{formatCurrency(totalPlanned)}</div>
-            <p className="text-sm text-muted-foreground">Total Planeado</p>
-            <p className="text-xs text-muted-foreground">De Planview</p>
+            <p className="text-sm text-muted-foreground">{ES_TEXTS.forecast.plannedFromPlanview}</p>
+            <p className="text-xs text-muted-foreground">(Read-only)</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{formatCurrency(totalForecast)}</div>
-            <p className="text-sm text-muted-foreground">Pronóstico Total</p>
-            <p className="text-xs text-muted-foreground">Ajustado PMO</p>
+            <p className="text-sm text-muted-foreground">{ES_TEXTS.forecast.adjustedForecastSDMT}</p>
+            <p className="text-xs text-muted-foreground">(Editable)</p>
           </CardContent>
         </Card>
         <Card>
@@ -692,19 +737,32 @@ export function SDMTForecast() {
         <CardContent className="flex items-center justify-between p-4">
           <div className="flex items-center gap-4">
             <Button
+              onClick={handlePersistForecasts}
+              disabled={savingForecasts || dirtyForecastCount === 0}
+              className="gap-2"
+              variant="default"
+            >
+              {savingForecasts ? <LoadingSpinner size="sm" /> : null}
+              {ES_TEXTS.forecast.adjustForecast}
+              <Badge variant="secondary" className="ml-2">
+                {dirtyForecastCount} ajustes
+              </Badge>
+            </Button>
+            <Button
               onClick={handlePersistActuals}
               disabled={savingActuals || dirtyActualCount === 0}
               className="gap-2"
+              variant="outline"
             >
               {savingActuals ? <LoadingSpinner size="sm" /> : null}
-              Guardar
+              Guardar Reales
               <Badge variant="secondary" className="ml-2">
                 {dirtyActualCount} pendientes
               </Badge>
             </Button>
             <Dialog>
               <DialogTrigger asChild>
-                <Button className="gap-2">
+                <Button className="gap-2" variant="outline">
                   <Share2 size={16} />
                   Share
                 </Button>
