@@ -173,6 +173,16 @@ export type ChangeRequest = {
   requested_at: string;
   status: "pending" | "approved" | "rejected";
   approvals: Approval[];
+  // Time distribution fields for baseline-aware changes
+  start_month_index?: number; // 1-based month index within project period
+  duration_months?: number; // Number of months to apply the impact
+  allocation_mode?: "one_time" | "spread_evenly"; // How to distribute the impact
+  // New line item request for unexpected expenses
+  new_line_item_request?: {
+    name: string; // Name of the new rubro
+    type: string; // OPEX, CAPEX, etc.
+    description: string; // Operational description
+  };
 };
 
 export type Approval = {
