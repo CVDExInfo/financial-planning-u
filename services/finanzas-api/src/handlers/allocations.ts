@@ -204,17 +204,30 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
     const timestamp = new Date().toISOString();
 
     // Get project metadata (baseline_id and start_date)
+    // Use composite key with sk: 'METADATA' for proper data access
     const projectsTable = tableName("projects");
-    const projectResult = await ddb.send(
+    let projectResult = await ddb.send(
       new GetCommand({
         TableName: projectsTable,
-        Key: { pk: `PROJECT#${projectId}` },
+        Key: { pk: `PROJECT#${projectId}`, sk: "METADATA" },
       })
     );
 
+    // Fallback to legacy sk: 'META' for backward compatibility
     if (!projectResult.Item) {
-      console.error(`[allocations] Project ${projectId} not found in projects table`);
-      return bad(event, `Project ${projectId} not found`);
+      console.warn(`[allocations] Project ${projectId} not found with sk=METADATA, trying legacy sk=META`);
+      projectResult = await ddb.send(
+        new GetCommand({
+          TableName: projectsTable,
+          Key: { pk: `PROJECT#${projectId}`, sk: "META" },
+        })
+      );
+    }
+
+    // Return 400 (Bad Request) instead of generic error if project not found
+    if (!projectResult.Item) {
+      console.error(`[allocations] Project ${projectId} metadata not found in projects table`);
+      return bad(event, `Project metadata not found for project ${projectId}. Ensure the project exists and has been properly initialized.`);
     }
 
     const project = projectResult.Item;

@@ -657,5 +657,115 @@ describe("allocations handler", () => {
       expect(response.statusCode).toBe(403);
       expect(response.body).toContain("Forbidden");
     });
+
+    describe("project metadata lookup", () => {
+      it("uses composite key with sk=METADATA for project lookup", async () => {
+        const mockProject = {
+          pk: "PROJECT#P-123",
+          sk: "METADATA",
+          baseline_id: "base_001",
+          start_date: "2025-01-01",
+        };
+
+        (dynamo.ddb.send as jest.Mock)
+          .mockResolvedValueOnce({
+            Item: mockProject,
+          })
+          .mockResolvedValueOnce({ Item: undefined })
+          .mockResolvedValueOnce({});
+
+        const event: any = {
+          headers: baseHeaders,
+          requestContext: { http: { method: "PUT" } },
+          pathParameters: { id: "P-123" },
+          queryStringParameters: { type: "planned" },
+          body: JSON.stringify({
+            allocations: [
+              {
+                rubro_id: "MOD-ING",
+                mes: "2025-01",
+                monto_planeado: 10000,
+              },
+            ],
+          }),
+          __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+        };
+
+        const response = await allocationsHandler(event);
+
+        expect(response.statusCode).toBe(200);
+        // Verify ddb.send was called (at least once for project lookup)
+        expect(dynamo.ddb.send).toHaveBeenCalled();
+      });
+
+      it("falls back to sk=META for legacy projects", async () => {
+        const mockLegacyProject = {
+          pk: "PROJECT#P-123",
+          sk: "META",
+          baseline_id: "base_001",
+          start_date: "2025-01-01",
+        };
+
+        // First call returns nothing (METADATA not found)
+        // Second call returns legacy META record
+        (dynamo.ddb.send as jest.Mock)
+          .mockResolvedValueOnce({ Item: undefined })
+          .mockResolvedValueOnce({ Item: mockLegacyProject })
+          .mockResolvedValueOnce({ Item: undefined })
+          .mockResolvedValueOnce({});
+
+        const event: any = {
+          headers: baseHeaders,
+          requestContext: { http: { method: "PUT" } },
+          pathParameters: { id: "P-123" },
+          queryStringParameters: { type: "planned" },
+          body: JSON.stringify({
+            allocations: [
+              {
+                rubro_id: "MOD-ING",
+                mes: "2025-01",
+                monto_planeado: 10000,
+              },
+            ],
+          }),
+          __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+        };
+
+        const response = await allocationsHandler(event);
+
+        expect(response.statusCode).toBe(200);
+        // Verify ddb.send was called multiple times (at least twice for project lookups)
+        expect(dynamo.ddb.send).toHaveBeenCalledTimes(4); // 2 for project lookup, 1 for allocation check, 1 for put
+      });
+
+      it("returns 400 when project metadata not found", async () => {
+        // Both METADATA and META lookups return nothing
+        (dynamo.ddb.send as jest.Mock)
+          .mockResolvedValueOnce({ Item: undefined })
+          .mockResolvedValueOnce({ Item: undefined });
+
+        const event: any = {
+          headers: baseHeaders,
+          requestContext: { http: { method: "PUT" } },
+          pathParameters: { id: "P-NONEXISTENT" },
+          queryStringParameters: { type: "planned" },
+          body: JSON.stringify({
+            allocations: [
+              {
+                rubro_id: "MOD-ING",
+                mes: "2025-01",
+                monto_planeado: 10000,
+              },
+            ],
+          }),
+          __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+        };
+
+        const response = await allocationsHandler(event);
+
+        expect(response.statusCode).toBe(400);
+        expect(response.body).toContain("Project metadata not found");
+      });
+    });
   });
 });
