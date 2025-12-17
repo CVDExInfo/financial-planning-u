@@ -40,6 +40,9 @@ import { getForecastPayload, getProjectInvoices } from './forecastService';
 import finanzasClient from '@/api/finanzasClient';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
+import { BudgetSimulatorCard } from './BudgetSimulatorCard';
+import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
+import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
 
 // TODO: Backend Integration for Change Request Impact on Forecast
 // When a change request is approved in SDMTChanges, the backend should:
@@ -70,15 +73,12 @@ export function SDMTForecast() {
   const [savingActuals, setSavingActuals] = useState(false);
   const [dirtyForecasts, setDirtyForecasts] = useState<Record<string, ForecastRow>>({});
   const [savingForecasts, setSavingForecasts] = useState(false);
-  
-  // Annual Budget state
-  const [budgetYear, setBudgetYear] = useState<number>(new Date().getFullYear());
-  const [budgetAmount, setBudgetAmount] = useState<string>('');
-  const [budgetCurrency, setBudgetCurrency] = useState<string>('USD');
-  const [loadingBudget, setLoadingBudget] = useState(false);
-  const [savingBudget, setSavingBudget] = useState(false);
-  const [budgetLastUpdated, setBudgetLastUpdated] = useState<string | null>(null);
-  
+  const [budgetSimulation, setBudgetSimulation] = useState<BudgetSimulationState>({
+    enabled: false,
+    budgetTotal: '',
+    factor: 1.0,
+    estimatedOverride: '',
+  });
   const { user, login } = useAuth();
   const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
   const navigate = useNavigate();
@@ -575,7 +575,7 @@ export function SDMTForecast() {
   }, [lineItemsForGrid]);
 
   // Calculate totals and metrics - using useMemo to ensure it updates when data changes
-  const metrics = useMemo(() => {
+  const baseMetrics = useMemo(() => {
     const totalPlanned = forecastData.reduce((sum, cell) => sum + (cell.planned || 0), 0);
     const totalForecast = forecastData.reduce((sum, cell) => sum + (cell.forecast || 0), 0);
     const totalActual = forecastData.reduce((sum, cell) => sum + (cell.actual || 0), 0);
@@ -614,6 +614,23 @@ export function SDMTForecast() {
     };
   }, [forecastData, selectedProjectId]);
 
+  // Apply budget simulation overlay to base metrics
+  const metrics = useMemo(() => {
+    // Only apply simulation in portfolio view when enabled
+    if (isPortfolioView && budgetSimulation.enabled) {
+      return applyBudgetSimulation(baseMetrics, budgetSimulation);
+    }
+    // For non-portfolio view or disabled simulation, return base metrics with zero budget fields
+    return {
+      ...baseMetrics,
+      budgetTotal: 0,
+      budgetUtilization: 0,
+      budgetVarianceProjected: 0,
+      budgetVariancePlanned: 0,
+      pctUsedActual: 0,
+    } as SimulatedMetrics;
+  }, [baseMetrics, budgetSimulation, isPortfolioView]);
+
   const {
     totalVariance,
     totalPlanned,
@@ -621,7 +638,11 @@ export function SDMTForecast() {
     totalActual,
     variancePercentage,
     actualVariance,
-    actualVariancePercentage
+    actualVariancePercentage,
+    budgetTotal,
+    budgetUtilization,
+    budgetVarianceProjected,
+    pctUsedActual,
   } = metrics;
   const dirtyActualCount = useMemo(() => Object.keys(dirtyActuals).length, [dirtyActuals]);
   const dirtyForecastCount = useMemo(() => Object.keys(dirtyForecasts).length, [dirtyForecasts]);
@@ -632,7 +653,7 @@ export function SDMTForecast() {
 
   // Chart data - recalculate when forecastData changes
   const monthlyTrends = useMemo(() => {
-    const trends = Array.from({ length: 12 }, (_, i) => {
+    const baseTrends = Array.from({ length: 12 }, (_, i) => {
       const month = i + 1;
       const monthData = forecastData.filter(cell => cell.month === month);
       return {
@@ -647,8 +668,13 @@ export function SDMTForecast() {
       console.debug('[Forecast] Chart trends recalculated', { projectId: selectedProjectId });
     }
     
-    return trends;
-  }, [forecastData, selectedProjectId]);
+    // Apply budget line when simulation is enabled in portfolio view
+    if (isPortfolioView && budgetSimulation.enabled && budgetTotal > 0) {
+      return applyBudgetToTrends(baseTrends, budgetTotal);
+    }
+    
+    return baseTrends;
+  }, [forecastData, selectedProjectId, isPortfolioView, budgetSimulation.enabled, budgetTotal]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -794,6 +820,14 @@ export function SDMTForecast() {
       {/* Baseline Status Panel */}
       <BaselineStatusPanel />
 
+      {/* Budget Simulator - Only show in Portfolio View (TODOS LOS PROYECTOS) */}
+      {isPortfolioView && (
+        <BudgetSimulatorCard
+          simulationState={budgetSimulation}
+          onSimulationChange={setBudgetSimulation}
+        />
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <Card>
@@ -849,6 +883,51 @@ export function SDMTForecast() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Budget Simulation KPIs - Only show when simulation is enabled */}
+      {isPortfolioView && budgetSimulation.enabled && budgetTotal > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="border-primary/30">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-primary">{formatCurrency(budgetTotal)}</div>
+              <p className="text-sm text-muted-foreground">Presupuesto Total</p>
+              <p className="text-xs text-muted-foreground">Simulación activa</p>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/30">
+            <CardContent className="p-4">
+              <div className={`text-2xl font-bold ${budgetVarianceProjected >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatCurrency(Math.abs(budgetVarianceProjected))}
+              </div>
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                {getVarianceIcon(-budgetVarianceProjected)}
+                Variación vs Presupuesto
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {budgetVarianceProjected >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/30">
+            <CardContent className="p-4">
+              <div className={`text-2xl font-bold ${budgetUtilization > 100 ? 'text-red-600' : budgetUtilization > 90 ? 'text-yellow-600' : 'text-green-600'}`}>
+                {budgetUtilization.toFixed(1)}%
+              </div>
+              <p className="text-sm text-muted-foreground">Utilización de Presupuesto</p>
+              <p className="text-xs text-muted-foreground">Pronóstico / Presupuesto</p>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/30">
+            <CardContent className="p-4">
+              <div className={`text-2xl font-bold ${pctUsedActual > 100 ? 'text-red-600' : pctUsedActual > 90 ? 'text-yellow-600' : 'text-blue-600'}`}>
+                {pctUsedActual.toFixed(1)}%
+              </div>
+              <p className="text-sm text-muted-foreground">Real vs Presupuesto</p>
+              <p className="text-xs text-muted-foreground">Gastos reales / Presupuesto</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Actions */}
       <Card>
@@ -1225,7 +1304,11 @@ export function SDMTForecast() {
               lines={[
                 { dataKey: 'Planned', name: 'Planned', color: 'oklch(0.45 0.12 200)', strokeDasharray: '5 5' },
                 { dataKey: 'Forecast', name: 'Forecast', color: 'oklch(0.61 0.15 160)', strokeWidth: 3 },
-                { dataKey: 'Actual', name: 'Actual', color: 'oklch(0.72 0.15 65)' }
+                { dataKey: 'Actual', name: 'Actual', color: 'oklch(0.72 0.15 65)' },
+                // Add Budget line when simulation is enabled
+                ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
+                  ? [{ dataKey: 'Budget', name: 'Budget', color: 'oklch(0.5 0.2 350)', strokeDasharray: '8 4', strokeWidth: 2 }]
+                  : [])
               ]}
               title="Monthly Forecast Trends"
             />,
@@ -1258,7 +1341,15 @@ export function SDMTForecast() {
               title: "Forecast vs Planned",
               value: totalForecast > totalPlanned ? 'Over Budget' : totalForecast < totalPlanned ? 'Under Budget' : 'On Target',
               type: totalForecast > totalPlanned ? 'negative' : totalForecast < totalPlanned ? 'positive' : 'neutral'
-            }
+            },
+            // Add budget insights when simulation is enabled
+            ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
+              ? [{
+                  title: "Budget Utilization",
+                  value: `${budgetUtilization.toFixed(1)}%`,
+                  type: budgetUtilization > 100 ? 'negative' : budgetUtilization > 90 ? 'neutral' : 'positive'
+                }]
+              : [])
           ]}
           onExport={handleExcelExport}
         />
