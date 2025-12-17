@@ -39,6 +39,7 @@ import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros, sa
 import { getForecastPayload, getProjectInvoices } from './forecastService';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
+import { AnnualBudgetWidget } from '@/components/budget/AnnualBudgetWidget';
 
 type ForecastRow = ForecastCell & { projectId?: string; projectName?: string };
 type ProjectLineItem = LineItem & { projectId?: string; projectName?: string };
@@ -675,6 +676,20 @@ export function SDMTForecast() {
 
       {/* Baseline Status Panel */}
       <BaselineStatusPanel />
+
+      {/* Annual Budget Widget - Feature B */}
+      {(user?.current_role === 'SDMT' || user?.current_role === 'EXEC_RO') && (
+        <AnnualBudgetWidget
+          year={new Date().getFullYear()}
+          totalAdjustedForecast={totalForecast}
+          onBudgetUpdate={(budget) => {
+            if (import.meta.env.DEV) {
+              console.log('Budget updated:', budget);
+            }
+            toast.success(`Presupuesto ${budget.year} actualizado`);
+          }}
+        />
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
