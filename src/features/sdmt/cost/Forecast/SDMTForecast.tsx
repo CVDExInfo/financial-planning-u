@@ -79,6 +79,13 @@ export function SDMTForecast() {
     factor: 1.0,
     estimatedOverride: '',
   });
+  // Annual Budget state
+  const [budgetYear, setBudgetYear] = useState<number>(new Date().getFullYear());
+  const [budgetAmount, setBudgetAmount] = useState<string>('');
+  const [budgetCurrency, setBudgetCurrency] = useState<string>('USD');
+  const [budgetLastUpdated, setBudgetLastUpdated] = useState<string | null>(null);
+  const [loadingBudget, setLoadingBudget] = useState(false);
+  const [savingBudget, setSavingBudget] = useState(false);
   const { user, login } = useAuth();
   const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
   const navigate = useNavigate();
