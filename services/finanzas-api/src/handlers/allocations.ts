@@ -1,9 +1,49 @@
-import { APIGatewayProxyEventV2 } from "aws-lambda";
+import { APIGatewayProxyEventV2, Context } from "aws-lambda";
 import { ensureCanRead, ensureCanWrite, getUserContext } from "../lib/auth";
 import { bad, ok, noContent, serverError } from "../lib/http";
 import { ddb, tableName, QueryCommand, ScanCommand, PutCommand, GetCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
 import { parseForecastBulkUpdate } from "../validation/allocations";
+
+/**
+ * Get project metadata from DynamoDB with composite key
+ * Tries sk="METADATA" first, then falls back to sk="META" for legacy tables
+ */
+async function getMetadata(
+  id: string,
+  projectsTable: string,
+  context?: { awsRequestId?: string }
+): Promise<any> {
+  try {
+    // Try modern METADATA key first
+    const item = await ddb.send(
+      new GetCommand({
+        TableName: projectsTable,
+        Key: { pk: `PROJECT#${id}`, sk: 'METADATA' },
+      })
+    );
+    if (item.Item) return item.Item;
+    
+    // Legacy fallback for older tables
+    const legacy = await ddb.send(
+      new GetCommand({
+        TableName: projectsTable,
+        Key: { pk: `PROJECT#${id}`, sk: 'META' },
+      })
+    );
+    return legacy.Item ?? null;
+  } catch (err: any) {
+    console.error('Get project metadata failed', {
+      requestId: context?.awsRequestId || 'unknown',
+      projectId: id,
+      table: projectsTable,
+      error: err.name,
+      message: err.message,
+    });
+    // Rethrow so caller can handle as 500/400
+    throw err;
+  }
+}
 
 /**
  * Normalize month input to monthIndex (1-12) and compute calendarMonthKey (YYYY-MM)
@@ -203,21 +243,31 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
     const updatedBy = userContext.email || userContext.sub || "system";
     const timestamp = new Date().toISOString();
 
-    // Get project metadata (baseline_id and start_date)
+    // Get project metadata (baseline_id and start_date) using composite key
     const projectsTable = tableName("projects");
-    const projectResult = await ddb.send(
-      new GetCommand({
-        TableName: projectsTable,
-        Key: { pk: `PROJECT#${projectId}` },
-      })
-    );
+    let project: any;
+    
+    try {
+      project = await getMetadata(projectId, projectsTable, event.requestContext);
+    } catch (error: any) {
+      // Handle DynamoDB ValidationException (wrong key schema)
+      if (error.name === 'ValidationException') {
+        console.error(`[allocations] ${requestId} - ValidationException: invalid key schema for projects table`, {
+          projectId,
+          table: projectsTable,
+          error: error.message,
+        });
+        return serverError(event as any, "Server configuration error: invalid key schema for projects table");
+      }
+      // Rethrow other errors to be handled by outer catch
+      throw error;
+    }
 
-    if (!projectResult.Item) {
-      console.error(`[allocations] Project ${projectId} not found in projects table`);
+    if (!project) {
+      console.error(`[allocations] ${requestId} - Project ${projectId} not found in projects table`);
       return bad(event, `Project ${projectId} not found`);
     }
 
-    const project = projectResult.Item;
     const baselineId = project.baseline_id || project.baselineId || "default";
     const projectStartDate = 
       project.start_date || 
@@ -387,7 +437,7 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
   }
 }
 
-export const handler = async (event: APIGatewayProxyEventV2) => {
+export const handler = async (event: APIGatewayProxyEventV2, context?: Context) => {
   const method = event.requestContext.http.method;
 
   if (method === "OPTIONS") {
