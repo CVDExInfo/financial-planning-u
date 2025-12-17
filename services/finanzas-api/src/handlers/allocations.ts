@@ -112,33 +112,38 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
     }
 
     // Normalize allocation items to handle both formats
-    const normalizedAllocations = allocations.map((item: any) => {
-      // Support both formats: {rubro_id, mes, monto_*} and {rubroId, month, forecast}
-      const rubroId = item.rubro_id || item.rubroId;
-      const month = item.mes || item.month;
-      
-      if (!rubroId || !month) {
-        throw new Error("Each allocation must have rubro_id/rubroId and mes/month");
-      }
-      
-      // Get amount based on type and format
-      let amount: number;
-      if (allocationType === "forecast") {
-        amount = item.monto_proyectado ?? item.forecast;
-      } else {
-        amount = item.monto_planeado ?? item.planned;
-      }
-      
-      if (typeof amount !== "number" || amount < 0) {
-        throw new Error(`Each allocation must have a valid amount >= 0`);
-      }
-      
-      return {
-        rubro_id: rubroId,
-        mes: month,
-        amount,
-      };
-    });
+    let normalizedAllocations: Array<{ rubro_id: string; mes: string; amount: number }>;
+    try {
+      normalizedAllocations = allocations.map((item: any) => {
+        // Support both formats: {rubro_id, mes, monto_*} and {rubroId, month, forecast}
+        const rubroId = item.rubro_id || item.rubroId;
+        const month = item.mes || item.month;
+        
+        if (!rubroId || !month) {
+          throw new Error("Each allocation must have rubro_id/rubroId and mes/month");
+        }
+        
+        // Get amount based on type and format
+        let amount: number;
+        if (allocationType === "forecast") {
+          amount = item.monto_proyectado ?? item.forecast;
+        } else {
+          amount = item.monto_planeado ?? item.planned;
+        }
+        
+        if (typeof amount !== "number" || amount < 0) {
+          throw new Error(`Each allocation must have a valid amount >= 0`);
+        }
+        
+        return {
+          rubro_id: rubroId,
+          mes: month,
+          amount,
+        };
+      });
+    } catch (error: any) {
+      return bad(event, error.message || "Invalid allocation format");
+    }
 
     // Get user context for audit
     const userContext = await getUserContext(event as any);
@@ -216,7 +221,11 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
       results.push({
         rubro_id,
         mes,
-        amount,
+        // Include both the amount and the specific field for backward compatibility
+        ...(allocationType === "forecast" 
+          ? { monto_proyectado: amount, forecast: amount }
+          : { monto_planeado: amount, planned: amount }
+        ),
         status: existing.pk ? "updated" : "created",
       });
 
