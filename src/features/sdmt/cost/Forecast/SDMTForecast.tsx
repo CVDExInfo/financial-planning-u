@@ -419,8 +419,6 @@ export function SDMTForecast() {
 
     setSavingForecasts(true);
     try {
-      const currentYear = new Date().getFullYear();
-      
       // Group by project for API calls
       const byProject = new Map<string, ForecastRow[]>();
       entries.forEach(cell => {
@@ -433,16 +431,16 @@ export function SDMTForecast() {
         byProject.get(projectId)!.push(cell);
       });
 
-      // Send updates per project using bulkUpsertForecast with correct payload format
-      // This replaces the old bulkUpdateAllocations call which used {allocations} wrapper
-      // New format uses {items: [{rubroId, month, forecast}]} as required by the API
+      // Send updates per project using bulkUpsertForecast with monthIndex format
+      // The API expects: {items: [{rubroId, month: number (1-12), forecast}]}
+      // We send monthIndex as a number, and the backend will compute the calendar month
       for (const [projectId, projectCells] of byProject.entries()) {
         const items = projectCells.map(cell => {
           // Validate month is in valid range (1-12)
-          const month = Math.max(1, Math.min(12, cell.month));
+          const monthIndex = Math.max(1, Math.min(12, cell.month));
           return {
             rubroId: cell.line_item_id,
-            month: `${currentYear}-${String(month).padStart(2, '0')}`,
+            month: monthIndex, // Send as numeric monthIndex (1-12)
             forecast: Number(cell.forecast) || 0,
           };
         });

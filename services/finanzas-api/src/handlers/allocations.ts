@@ -6,6 +6,75 @@ import { logError } from "../utils/logging";
 import { parseForecastBulkUpdate } from "../validation/allocations";
 
 /**
+ * Normalize month input to monthIndex (1-12) and compute calendarMonthKey (YYYY-MM)
+ * Accepts:
+ * - number 1-12 (monthIndex)
+ * - "YYYY-MM" string (extract MM as monthIndex)
+ * - "M1", "M2", etc. (extract number as monthIndex)
+ */
+function normalizeMonth(
+  monthInput: string | number,
+  projectStartDate: string | undefined
+): { monthIndex: number; calendarMonthKey: string } {
+  let monthIndex: number;
+
+  if (typeof monthInput === "number") {
+    // Already a number, use as monthIndex
+    monthIndex = monthInput;
+  } else if (typeof monthInput === "string") {
+    // Check if it's in YYYY-MM format
+    if (/^\d{4}-\d{2}$/.test(monthInput)) {
+      // Extract month part as monthIndex (treat as calendar month, not contract month)
+      // For now, we'll use the month as-is and calculate the calendarMonthKey
+      // This maintains backward compatibility
+      return {
+        monthIndex: parseInt(monthInput.substring(5, 7), 10),
+        calendarMonthKey: monthInput,
+      };
+    }
+    
+    // Check if it's in "M1", "M2", etc. format
+    const mMatch = monthInput.match(/^M(\d+)$/i);
+    if (mMatch) {
+      monthIndex = parseInt(mMatch[1], 10);
+    } else {
+      // Try to parse as number
+      const parsed = parseInt(monthInput, 10);
+      if (isNaN(parsed)) {
+        throw new Error(`Invalid month format: ${monthInput}`);
+      }
+      monthIndex = parsed;
+    }
+  } else {
+    throw new Error(`Invalid month type: ${typeof monthInput}`);
+  }
+
+  // Validate monthIndex is in valid range
+  if (monthIndex < 1 || monthIndex > 12) {
+    throw new Error(`Month index must be between 1 and 12, got: ${monthIndex}`);
+  }
+
+  // Compute calendarMonthKey from projectStartDate + (monthIndex - 1) months
+  let calendarMonthKey: string;
+  if (projectStartDate && /^\d{4}-\d{2}-\d{2}$/.test(projectStartDate)) {
+    const startDate = new Date(projectStartDate);
+    startDate.setUTCMonth(startDate.getUTCMonth() + (monthIndex - 1));
+    const year = startDate.getUTCFullYear();
+    const month = String(startDate.getUTCMonth() + 1).padStart(2, "0");
+    calendarMonthKey = `${year}-${month}`;
+  } else {
+    // Fallback: use current year with monthIndex
+    const currentYear = new Date().getUTCFullYear();
+    calendarMonthKey = `${currentYear}-${String(monthIndex).padStart(2, "0")}`;
+    console.warn(
+      `[allocations] No valid project start date, using fallback: ${calendarMonthKey}`
+    );
+  }
+
+  return { monthIndex, calendarMonthKey };
+}
+
+/**
  * GET /allocations
  * Returns allocations from DynamoDB, optionally filtered by projectId
  * Always returns an array (never {data: []}) for frontend compatibility
@@ -117,18 +186,57 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
       return bad(event, "Missing or invalid allocations/items array");
     }
 
-    // Normalize allocation items to handle both formats
-    let normalizedAllocations: Array<{ rubro_id: string; mes: string; amount: number }>;
+    // Get user context for audit
+    const userContext = await getUserContext(event as any);
+    const updatedBy = userContext.email || userContext.sub || "system";
+    const timestamp = new Date().toISOString();
+
+    // Get project metadata (baseline_id and start_date)
+    const projectsTable = tableName("projects");
+    const projectResult = await ddb.send(
+      new GetCommand({
+        TableName: projectsTable,
+        Key: { pk: `PROJECT#${projectId}` },
+      })
+    );
+
+    if (!projectResult.Item) {
+      console.error(`[allocations] Project ${projectId} not found in projects table`);
+      return bad(event, `Project ${projectId} not found`);
+    }
+
+    const project = projectResult.Item;
+    const baselineId = project.baseline_id || project.baselineId || "default";
+    const projectStartDate = 
+      project.start_date || 
+      project.fecha_inicio || 
+      project.startDate;
+
+    console.log(
+      `[allocations] ${requestId} - Project metadata: baselineId=${baselineId}, startDate=${projectStartDate}`
+    );
+
+    // Normalize allocation items to handle both formats and compute calendar months
+    let normalizedAllocations: Array<{ 
+      rubro_id: string; 
+      monthIndex: number;
+      calendarMonthKey: string;
+      amount: number;
+    }>;
     try {
-      normalizedAllocations = allocations.map((item: any) => {
+      normalizedAllocations = allocations.map((item: any, index: number) => {
         // Support both formats:
         // - Legacy: {rubro_id, mes, monto_planeado/monto_proyectado}
         // - New: {rubroId, month, forecast/planned}
         const rubroId = item.rubro_id || item.rubroId;
-        const month = item.mes || item.month;
+        const monthInput = item.mes || item.month;
         
-        if (!rubroId || !month) {
-          throw new Error("Each allocation must have rubro_id/rubroId and mes/month");
+        if (!rubroId) {
+          throw new Error(`Allocation at index ${index}: missing rubro_id/rubroId`);
+        }
+        
+        if (monthInput === undefined || monthInput === null) {
+          throw new Error(`Allocation at index ${index}: missing mes/month`);
         }
         
         // Get amount based on type and format
@@ -140,44 +248,34 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
         }
         
         if (typeof amount !== "number" || amount < 0) {
-          throw new Error(`Each allocation must have a valid amount >= 0`);
+          throw new Error(`Allocation at index ${index}: invalid amount (must be >= 0)`);
         }
+
+        // Normalize month to monthIndex and compute calendarMonthKey
+        const { monthIndex, calendarMonthKey } = normalizeMonth(monthInput, projectStartDate);
         
         return {
           rubro_id: rubroId,
-          mes: month,
+          monthIndex,
+          calendarMonthKey,
           amount,
         };
       });
     } catch (error: any) {
+      console.error(`[allocations] ${requestId} - Validation error:`, error.message);
       return bad(event, error.message || "Invalid allocation format");
     }
-
-    // Get user context for audit
-    const userContext = await getUserContext(event as any);
-    const updatedBy = userContext.email || userContext.sub || "system";
-    const timestamp = new Date().toISOString();
-
-    // Get project baseline_id
-    const projectsTable = tableName("projects");
-    const projectResult = await ddb.send(
-      new GetCommand({
-        TableName: projectsTable,
-        Key: { pk: `PROJECT#${projectId}` },
-      })
-    );
-
-    const baselineId = projectResult.Item?.baseline_id || projectResult.Item?.baselineId || "default";
 
     // Process each allocation (idempotent writes)
     const allocationsTable = tableName("allocations");
     const results = [];
 
     for (const allocation of normalizedAllocations) {
-      const { rubro_id, mes, amount } = allocation;
+      const { rubro_id, monthIndex, calendarMonthKey, amount } = allocation;
 
-      // Create composite sort key: ALLOCATION#{baselineId}#{month}#{rubroId}
-      const sk = `ALLOCATION#${baselineId}#${mes}#${rubro_id}`;
+      // Create composite sort key: ALLOCATION#{baselineId}#{calendarMonthKey}#{rubroId}
+      // Using calendarMonthKey (YYYY-MM) in the key ensures proper ordering and grouping
+      const sk = `ALLOCATION#${baselineId}#${calendarMonthKey}#${rubro_id}`;
       const pk = `PROJECT#${projectId}`;
 
       // Check if allocation exists
@@ -198,8 +296,10 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
         projectId,
         baselineId,
         rubroId: rubro_id,
-        month: mes,
-        mes,
+        monthIndex, // Store numeric month index (1-12)
+        month: calendarMonthKey, // Store calendar month key (YYYY-MM)
+        mes: calendarMonthKey, // Legacy field compatibility
+        calendarMonthKey, // Explicit field for clarity
         // Update the appropriate field based on type
         ...(allocationType === "planned" 
           ? { 
@@ -228,7 +328,9 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
 
       results.push({
         rubro_id,
-        mes,
+        monthIndex,
+        calendarMonthKey,
+        mes: calendarMonthKey, // For backward compatibility
         // Include both the amount and the specific field for backward compatibility
         ...(allocationType === "forecast" 
           ? { monto_proyectado: amount, forecast: amount }
@@ -237,7 +339,9 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
         status: existing.pk ? "updated" : "created",
       });
 
-      console.log(`[allocations] ${allocationType} ${existing.pk ? "updated" : "created"}: ${projectId} / ${rubro_id} / ${mes} = ${amount}`);
+      console.log(
+        `[allocations] ${allocationType} ${existing.pk ? "updated" : "created"}: ${projectId} / ${rubro_id} / M${monthIndex} (${calendarMonthKey}) = ${amount}`
+      );
     }
 
     console.log(`[allocations] ${requestId} - Successfully processed ${results.length} ${allocationType} allocations for project ${projectId}`);
