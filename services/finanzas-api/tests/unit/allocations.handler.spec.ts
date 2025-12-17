@@ -31,6 +31,11 @@ jest.mock("../../src/utils/logging", () => ({
   logError: jest.fn(),
 }));
 
+// Mock validation
+jest.mock("../../src/validation/allocations", () => ({
+  parseForecastBulkUpdate: jest.fn((data) => data),
+}));
+
 const baseHeaders = { authorization: "Bearer test" };
 
 describe("allocations handler", () => {

@@ -3,6 +3,7 @@ import { ensureSDT, ensureCanRead, getUserContext } from "../lib/auth";
 import { bad, ok, noContent, serverError } from "../lib/http";
 import { ddb, tableName, QueryCommand, ScanCommand, PutCommand, GetCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
+import { parseForecastBulkUpdate } from "../validation/allocations";
 
 /**
  * GET /allocations
@@ -207,8 +208,6 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
   if (method === "GET") {
     return await getAllocations(event);
   }
-
-  await ensureSDT(event);
 
   if (method === "PUT") {
     return await bulkUpdateAllocations(event);

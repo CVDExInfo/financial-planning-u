@@ -74,3 +74,40 @@ export function parseAllocationBulk(data: unknown): AllocationBulk {
 export function safeParseAllocation(data: unknown) {
   return AllocationSchema.safeParse(data);
 }
+
+/**
+ * Forecast Bulk Update Item Schema
+ * For PMO forecast adjustments per rubro + month
+ */
+export const ForecastBulkItemSchema = z.object({
+  rubroId: z.string(),
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  forecast: z.number().min(0),
+});
+
+/**
+ * Forecast Bulk Update Schema
+ */
+export const ForecastBulkUpdateSchema = z.object({
+  projectId: z.string(),
+  baselineId: z.string().optional(),
+  items: z.array(ForecastBulkItemSchema).min(1),
+  updatedBy: z.string().email().optional(),
+});
+
+export type ForecastBulkItem = z.infer<typeof ForecastBulkItemSchema>;
+export type ForecastBulkUpdate = z.infer<typeof ForecastBulkUpdateSchema>;
+
+/**
+ * Parse and validate forecast bulk update data
+ */
+export function parseForecastBulkUpdate(data: unknown): ForecastBulkUpdate {
+  return ForecastBulkUpdateSchema.parse(data);
+}
+
+/**
+ * Safe parse forecast bulk update
+ */
+export function safeParseForecastBulkUpdate(data: unknown) {
+  return ForecastBulkUpdateSchema.safeParse(data);
+}

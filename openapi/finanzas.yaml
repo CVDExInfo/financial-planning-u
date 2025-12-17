@@ -42,6 +42,8 @@ tags:
     description: Budget rubros (line items) catalog management
   - name: Allocations
     description: Budget allocation and financial planning
+  - name: Budgets
+    description: Annual all-in budget management and cross-project overview
   - name: Payroll
     description: Payroll integration and monthly closing
   - name: Adjustments
@@ -673,18 +675,30 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AllocationBulk"
-            example:
-              allocations:
-                - rubro_id: "rubro_1a2b3c4d5e"
-                  mes: "2025-11"
-                  monto_planeado: 30000
-                - rubro_id: "rubro_1a2b3c4d5e"
-                  mes: "2025-12"
-                  monto_planeado: 32000
-                - rubro_id: "rubro_6f7g8h9i0j"
-                  mes: "2025-11"
-                  monto_planeado: 15000
+              oneOf:
+                - $ref: "#/components/schemas/AllocationBulk"
+                - $ref: "#/components/schemas/ForecastBulkUpdate"
+            examples:
+              planned:
+                summary: Update planned allocations
+                value:
+                  allocations:
+                    - rubro_id: "rubro_1a2b3c4d5e"
+                      mes: "2025-11"
+                      monto_planeado: 30000
+                    - rubro_id: "rubro_1a2b3c4d5e"
+                      mes: "2025-12"
+                      monto_planeado: 32000
+              forecast:
+                summary: Update forecast values (PMO only)
+                value:
+                  items:
+                    - rubroId: "MOD-ING"
+                      month: "2025-11"
+                      forecast: 32000
+                    - rubroId: "MOD-ING"
+                      month: "2025-12"
+                      forecast: 34000
       responses:
         "200":
           description: Allocations updated successfully

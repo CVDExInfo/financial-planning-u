@@ -270,6 +270,15 @@ export async function ensureSDT(event: ApiGwEvent) {
   }
 }
 
+export async function ensurePMO(event: ApiGwEvent) {
+  const claims = await verifyJwt(event);
+  const groups = parseGroupsFromClaims(claims);
+  const roles = mapGroupsToRoles(groups);
+  if (!roles.includes("PMO")) {
+    throw { statusCode: 403, body: "forbidden: PMO required" };
+  }
+}
+
 export async function ensureCanWrite(event: ApiGwEvent) {
   const claims = await verifyJwt(event);
   const groups = parseGroupsFromClaims(claims);
