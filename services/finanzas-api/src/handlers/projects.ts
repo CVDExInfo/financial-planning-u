@@ -711,6 +711,17 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             | undefined,
         };
 
+        // ENHANCED BASELINE LOADING WITH COMPREHENSIVE DIAGNOSTICS
+        // Fetch baseline from prefacturas table
+        // Strategy: Try both sources and prefer the one with estimates
+        
+        console.info("[handoff-projects] Starting baseline data fetch", {
+          baselineId,
+          projectId: resolvedProjectId,
+          step: "baseline_fetch_start",
+        });
+
+        // Try project-scoped baseline first (has estimates at top level)
         const baselineLookup = await sendDdb(
           new GetCommand({
             TableName: tableName("prefacturas"),
@@ -721,35 +732,136 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           })
         );
 
-        let baseline = baselineLookup.Item as Record<string, unknown> | undefined;
+        let projectBaseline = baselineLookup.Item as Record<string, unknown> | undefined;
+        
+        // Log what we found in project-scoped baseline
+        console.info("[handoff-projects] Project-scoped baseline query result", {
+          baselineId,
+          projectId: resolvedProjectId,
+          found: !!projectBaseline,
+          hasTopLevelLaborEstimates: Array.isArray(projectBaseline?.labor_estimates),
+          topLevelLaborCount: Array.isArray(projectBaseline?.labor_estimates) 
+            ? projectBaseline.labor_estimates.length 
+            : 0,
+          hasTopLevelNonLaborEstimates: Array.isArray(projectBaseline?.non_labor_estimates),
+          topLevelNonLaborCount: Array.isArray(projectBaseline?.non_labor_estimates) 
+            ? projectBaseline.non_labor_estimates.length 
+            : 0,
+        });
+
         baselineSourceProjectId =
-          (baseline?.project_id as string | undefined) ||
-          (baseline?.projectId as string | undefined) ||
+          (projectBaseline?.project_id as string | undefined) ||
+          (projectBaseline?.projectId as string | undefined) ||
           baselineSourceProjectId;
 
-        if (!baseline) {
-          const baselineById = await sendDdb(
-            new GetCommand({
-              TableName: tableName("prefacturas"),
-              Key: {
-                pk: `BASELINE#${baselineId}`,
-                sk: "METADATA",
-              },
-            })
-          );
+        // Try METADATA baseline as fallback
+        const baselineById = await sendDdb(
+          new GetCommand({
+            TableName: tableName("prefacturas"),
+            Key: {
+              pk: `BASELINE#${baselineId}`,
+              sk: "METADATA",
+            },
+          })
+        );
 
-          const fallbackBaseline = baselineById.Item as
-            | Record<string, unknown>
-            | undefined;
+        const metadataBaseline = baselineById.Item as
+          | Record<string, unknown>
+          | undefined;
+        
+        // Log what we found in METADATA
+        console.info("[handoff-projects] METADATA baseline query result", {
+          baselineId,
+          projectId: resolvedProjectId,
+          found: !!metadataBaseline,
+          hasPayload: !!metadataBaseline?.payload,
+          payloadKeys: metadataBaseline?.payload ? Object.keys(metadataBaseline.payload) : [],
+          hasPayloadLaborEstimates: Array.isArray((metadataBaseline?.payload as any)?.labor_estimates),
+          payloadLaborCount: Array.isArray((metadataBaseline?.payload as any)?.labor_estimates) 
+            ? (metadataBaseline.payload as any).labor_estimates.length 
+            : 0,
+          hasPayloadNonLaborEstimates: Array.isArray((metadataBaseline?.payload as any)?.non_labor_estimates),
+          payloadNonLaborCount: Array.isArray((metadataBaseline?.payload as any)?.non_labor_estimates)
+            ? (metadataBaseline.payload as any).non_labor_estimates.length
+            : 0,
+        });
 
-          if (fallbackBaseline) {
-            baseline = fallbackBaseline;
-            const baselineProjectId =
-              (fallbackBaseline.project_id as string) ||
-              (fallbackBaseline.projectId as string);
+        // Determine which baseline to use based on presence of estimates
+        let baseline: Record<string, unknown> | undefined;
+        let baselineSource: string;
 
-            baselineSourceProjectId = baselineSourceProjectId || baselineProjectId;
-          }
+        // Check project-scoped baseline for estimates
+        const projectHasLaborEstimates = 
+          Array.isArray(projectBaseline?.labor_estimates) && 
+          projectBaseline.labor_estimates.length > 0;
+        const projectHasNonLaborEstimates = 
+          Array.isArray(projectBaseline?.non_labor_estimates) && 
+          projectBaseline.non_labor_estimates.length > 0;
+
+        // Check METADATA baseline for estimates
+        const metadataHasLaborEstimates = 
+          Array.isArray((metadataBaseline?.payload as any)?.labor_estimates) && 
+          (metadataBaseline.payload as any).labor_estimates.length > 0;
+        const metadataHasNonLaborEstimates = 
+          Array.isArray((metadataBaseline?.payload as any)?.non_labor_estimates) && 
+          (metadataBaseline.payload as any).non_labor_estimates.length > 0;
+
+        // Prefer baseline with estimates
+        if ((projectHasLaborEstimates || projectHasNonLaborEstimates) && projectBaseline) {
+          baseline = projectBaseline;
+          baselineSource = "PROJECT_SCOPED";
+          console.info("[handoff-projects] Using project-scoped baseline (has estimates)", {
+            baselineId,
+            projectId: resolvedProjectId,
+            laborCount: projectHasLaborEstimates ? projectBaseline.labor_estimates.length : 0,
+            nonLaborCount: projectHasNonLaborEstimates ? projectBaseline.non_labor_estimates.length : 0,
+          });
+        } else if ((metadataHasLaborEstimates || metadataHasNonLaborEstimates) && metadataBaseline) {
+          baseline = metadataBaseline;
+          baselineSource = "METADATA";
+          console.info("[handoff-projects] Using METADATA baseline (has estimates)", {
+            baselineId,
+            projectId: resolvedProjectId,
+            laborCount: metadataHasLaborEstimates ? (metadataBaseline.payload as any).labor_estimates.length : 0,
+            nonLaborCount: metadataHasNonLaborEstimates ? (metadataBaseline.payload as any).non_labor_estimates.length : 0,
+          });
+        } else if (projectBaseline) {
+          // Fallback to project-scoped even without estimates
+          baseline = projectBaseline;
+          baselineSource = "PROJECT_SCOPED_NO_ESTIMATES";
+          console.warn("[handoff-projects] Using project-scoped baseline but NO ESTIMATES FOUND", {
+            baselineId,
+            projectId: resolvedProjectId,
+            warning: "Baseline exists but contains no labor_estimates or non_labor_estimates",
+          });
+        } else if (metadataBaseline) {
+          // Fallback to METADATA even without estimates
+          baseline = metadataBaseline;
+          baselineSource = "METADATA_NO_ESTIMATES";
+          
+          const baselineProjectId =
+            (metadataBaseline.project_id as string) ||
+            (metadataBaseline.projectId as string);
+          baselineSourceProjectId = baselineSourceProjectId || baselineProjectId;
+          
+          console.warn("[handoff-projects] Using METADATA baseline but NO ESTIMATES FOUND", {
+            baselineId,
+            projectId: resolvedProjectId,
+            warning: "Baseline exists but contains no labor_estimates or non_labor_estimates",
+          });
+        } else {
+          // No baseline found anywhere
+          baseline = undefined;
+          baselineSource = "NOT_FOUND";
+          console.error("[handoff-projects] CRITICAL: No baseline found in any location", {
+            baselineId,
+            projectId: resolvedProjectId,
+            error: "Baseline not found in METADATA or project-scoped records",
+            checkedKeys: [
+              `pk: PROJECT#${resolvedProjectId}, sk: BASELINE#${baselineId}`,
+              `pk: BASELINE#${baselineId}, sk: METADATA`,
+            ],
+          });
         }
 
         console.info("[handoff-projects] baseline resolution", {
@@ -757,6 +869,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           resolvedProjectId,
           baselineSourceProjectId,
           baselineId,
+          baselineSource,
           idempotencyKey,
           strategy: resolutionStrategy,
         });
@@ -1018,11 +1131,61 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           })
         );
 
-        await seedLineItemsFromBaseline(
+        // DIAGNOSTIC: Log normalized baseline before seeding
+        const hasLaborEstimates = normalizedBaseline.labor_estimates && normalizedBaseline.labor_estimates.length > 0;
+        const hasNonLaborEstimates = normalizedBaseline.non_labor_estimates && normalizedBaseline.non_labor_estimates.length > 0;
+        
+        console.info("[handoff-projects] Normalized baseline for rubros seeding", {
+          projectId: projectIdForWrite,
+          baselineId,
+          baselineSource,
+          hasLaborEstimates,
+          laborCount: normalizedBaseline.labor_estimates?.length || 0,
+          hasNonLaborEstimates,
+          nonLaborCount: normalizedBaseline.non_labor_estimates?.length || 0,
+          laborSample: normalizedBaseline.labor_estimates?.slice(0, 2).map(e => ({
+            rubroId: e.rubroId,
+            role: e.role,
+            hourlyRate: e.hourly_rate || e.rate,
+            fteCount: e.fte_count,
+          })),
+          nonLaborSample: normalizedBaseline.non_labor_estimates?.slice(0, 2).map(e => ({
+            rubroId: e.rubroId,
+            description: e.description,
+            amount: e.amount,
+          })),
+        });
+
+        // VALIDATION: Warn if no estimates found anywhere
+        if (!hasLaborEstimates && !hasNonLaborEstimates) {
+          console.error("[handoff-projects] CRITICAL: No baseline estimates found for project/baseline", {
+            projectId: projectIdForWrite,
+            baselineId,
+            baselineSource,
+            error: "Cannot materialize rubros without labor_estimates or non_labor_estimates",
+            handoffBody: {
+              hasBodyLaborEstimates: Array.isArray(handoffBody.labor_estimates),
+              hasBodyNonLaborEstimates: Array.isArray(handoffBody.non_labor_estimates),
+              bodyKeys: Object.keys(handoffBody),
+            },
+            recommendation: "Check that the baseline was created with estimates in the prefactura API, or ensure the handoff body includes estimates arrays",
+          });
+        }
+
+        const seedResult = await seedLineItemsFromBaseline(
           projectIdForWrite,
           normalizedBaseline,
           baselineId
         );
+
+        console.info("[handoff-projects] Seeded baseline rubros", {
+          projectId: projectIdForWrite,
+          baselineId,
+          baselineSource,
+          seeded: seedResult.seeded,
+          skipped: seedResult.skipped,
+          hasEstimates: hasLaborEstimates || hasNonLaborEstimates,
+        });
 
         const auditEntry = {
           pk: `ENTITY#PROJECT#${projectIdForWrite}`,
