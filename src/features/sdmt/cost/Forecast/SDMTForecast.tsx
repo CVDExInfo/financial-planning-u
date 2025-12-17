@@ -1024,7 +1024,7 @@ export function SDMTForecast() {
                   ? 'text-red-600' 
                   : (budgetOverview.totals.percentBudgetConsumedActual || 0) > 90 
                     ? 'text-yellow-600' 
-                    : 'text-blue-600'
+                    : 'text-green-600'
               }`}>
                 {budgetOverview.totals.percentBudgetConsumedActual?.toFixed(1) || '0.0'}%
               </div>

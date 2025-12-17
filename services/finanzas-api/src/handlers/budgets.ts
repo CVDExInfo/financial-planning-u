@@ -61,7 +61,8 @@ async function getAnnualBudget(event: APIGatewayProxyEventV2): Promise<APIGatewa
     }
 
     // Query DynamoDB for the budget
-    // We'll create a simple table with pk = "BUDGET#ANNUAL" and sk = "YEAR#{year}"
+    // Note: Budgets are stored in the allocations table with pk="BUDGET#ANNUAL" 
+    // for simplicity and to avoid creating a separate table for this small dataset
     const budgetsTable = tableName("allocations"); // Reuse allocations table for simplicity
     const result = await ddb.send(
       new GetCommand({
