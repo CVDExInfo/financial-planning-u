@@ -400,7 +400,9 @@ export function SDMTForecast() {
         byProject.get(projectId)!.push(cell);
       });
 
-      // Send updates per project using correct bulk forecast endpoint
+      // Send updates per project using bulkUpsertForecast with correct payload format
+      // This replaces the old bulkUpdateAllocations call which used {allocations} wrapper
+      // New format uses {items: [{rubroId, month, forecast}]} as required by the API
       for (const [projectId, projectCells] of byProject.entries()) {
         const items = projectCells.map(cell => {
           // Validate month is in valid range (1-12)

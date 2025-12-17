@@ -169,8 +169,6 @@ describe("allocations handler", () => {
       };
 
       const response = await allocationsHandler(event);
-      console.log("Planned test - Response status:", response.statusCode);
-      console.log("Planned test - Response body:", response.body);
       const payload = JSON.parse(response.body);
 
       expect(response.statusCode).toBe(200);

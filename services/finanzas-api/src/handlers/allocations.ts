@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ensureCanRead, getUserContext } from "../lib/auth";
+import { ensureCanRead, ensureCanWrite, getUserContext } from "../lib/auth";
 import { bad, ok, noContent, serverError } from "../lib/http";
 import { ddb, tableName, QueryCommand, ScanCommand, PutCommand, GetCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
@@ -104,6 +104,8 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
     }
 
     // Parse request body - support both old "allocations" and new "items" formats
+    // Old format: {allocations: [{rubro_id, mes, monto_planeado/monto_proyectado}]}
+    // New format: {items: [{rubroId, month, forecast/planned}]}
     const body = event.body ? JSON.parse(event.body) : {};
     const allocations = body.allocations || body.items;
 
@@ -115,7 +117,9 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
     let normalizedAllocations: Array<{ rubro_id: string; mes: string; amount: number }>;
     try {
       normalizedAllocations = allocations.map((item: any) => {
-        // Support both formats: {rubro_id, mes, monto_*} and {rubroId, month, forecast}
+        // Support both formats:
+        // - Legacy: {rubro_id, mes, monto_planeado/monto_proyectado}
+        // - New: {rubroId, month, forecast/planned}
         const rubroId = item.rubro_id || item.rubroId;
         const month = item.mes || item.month;
         
