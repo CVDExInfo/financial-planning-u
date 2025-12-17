@@ -182,7 +182,7 @@ export default function PMOProjectDetailsPage() {
       </Card>
 
       {/* Baseline Status Panel */}
-      {currentProject?.baselineId && (
+      {currentProject?.baselineId && currentProject?.baseline_status && (
         <div className="mb-6">
           <h2 className="text-xl font-semibold mb-4">Baseline Status</h2>
           <BaselineStatusPanel />
@@ -190,7 +190,7 @@ export default function PMOProjectDetailsPage() {
       )}
 
       {/* No Baseline Message */}
-      {!currentProject?.baselineId && (
+      {(!currentProject?.baselineId || !currentProject?.baseline_status) && (
         <Alert>
           <AlertTitle>No Baseline</AlertTitle>
           <AlertDescription>
