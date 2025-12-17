@@ -506,6 +506,124 @@ export const finanzasClient = {
 
     return parsed.data;
   },
+
+  /**
+   * Bulk update forecast values for allocations (PMO only)
+   */
+  async bulkUpsertForecast(
+    projectId: string,
+    items: Array<{ rubroId: string; month: string; forecast: number }>
+  ): Promise<{ success: boolean; updated: number; skipped: number; total: number }> {
+    checkAuth();
+    const data = await http<{ success: boolean; updated: number; skipped: number; total: number }>(
+      `/projects/${projectId}/allocations:bulk?type=forecast`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ items }),
+      }
+    );
+    return data;
+  },
+
+  /**
+   * Get annual all-in budget for a specific year
+   */
+  async getAllInBudget(year: number): Promise<{
+    year: number;
+    amount: number | null;
+    currency: string;
+    updated_at?: string;
+    updated_by?: string;
+  }> {
+    checkAuth();
+    const data = await http<{
+      year: number;
+      amount: number | null;
+      currency: string;
+      updated_at?: string;
+      updated_by?: string;
+    }>(`/budgets/all-in?year=${year}`, {
+      method: "GET",
+    });
+    return data;
+  },
+
+  /**
+   * Set or update annual all-in budget (PMO/ADMIN only)
+   */
+  async putAllInBudget(
+    year: number,
+    amount: number,
+    currency: string = "USD"
+  ): Promise<{
+    year: number;
+    amount: number;
+    currency: string;
+    updated_at: string;
+    updated_by: string;
+  }> {
+    checkAuth();
+    const data = await http<{
+      year: number;
+      amount: number;
+      currency: string;
+      updated_at: string;
+      updated_by: string;
+    }>(`/budgets/all-in?year=${year}`, {
+      method: "PUT",
+      body: JSON.stringify({ amount, currency }),
+    });
+    return data;
+  },
+
+  /**
+   * Get annual budget overview with cross-project totals
+   */
+  async getAllInBudgetOverview(year: number): Promise<{
+    year: number;
+    budgetAllIn: { amount: number; currency: string } | null;
+    totals: {
+      planned: number;
+      forecast: number;
+      actual: number;
+      varianceBudgetVsForecast: number;
+      varianceBudgetVsActual: number;
+      percentBudgetConsumedActual: number | null;
+      percentBudgetConsumedForecast: number | null;
+    };
+    byProject?: Array<{
+      projectId: string;
+      projectCode?: string;
+      planned: number;
+      forecast: number;
+      actual: number;
+    }>;
+  }> {
+    checkAuth();
+    const data = await http<{
+      year: number;
+      budgetAllIn: { amount: number; currency: string } | null;
+      totals: {
+        planned: number;
+        forecast: number;
+        actual: number;
+        varianceBudgetVsForecast: number;
+        varianceBudgetVsActual: number;
+        percentBudgetConsumedActual: number | null;
+        percentBudgetConsumedForecast: number | null;
+      };
+      byProject?: Array<{
+        projectId: string;
+        projectCode?: string;
+        planned: number;
+        forecast: number;
+        actual: number;
+      }>;
+    }>(`/budgets/all-in/overview?year=${year}`, {
+      method: "GET",
+    });
+    return data;
+  },
 };
 
 export default finanzasClient;
