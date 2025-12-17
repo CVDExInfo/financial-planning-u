@@ -135,10 +135,16 @@ export const createBaseline = async (
     // This ensures all estimates have canonical rubroIds from the start
     const laborEstimates = rawLaborEstimates.map(normalizeLaborEstimate);
     const nonLaborEstimates = rawNonLaborEstimates.map(normalizeNonLaborEstimate);
+
+    const project_id =
+      body.project_id?.trim() ||
+      `PRJ-${body.project_name.toUpperCase().replace(/[^A-Z0-9]+/g, "-")}`;
+    const baseline_id = `base_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
     
     // Log diagnostic info about taxonomy mapping
     console.info("[baseline.create] Applied taxonomy mapping to estimates", {
       baselineId: baseline_id,
+      projectId: project_id,
       laborCount: laborEstimates.length,
       nonLaborCount: nonLaborEstimates.length,
       laborSample: laborEstimates.slice(0, 2).map(e => ({
@@ -152,11 +158,6 @@ export const createBaseline = async (
         amount: e.amount,
       })),
     });
-
-    const project_id =
-      body.project_id?.trim() ||
-      `PRJ-${body.project_name.toUpperCase().replace(/[^A-Z0-9]+/g, "-")}`;
-    const baseline_id = `base_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 
     const currency = body.currency?.trim() || "USD";
     const durationMonths = body.duration_months ?? 12;
