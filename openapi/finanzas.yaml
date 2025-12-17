@@ -1528,6 +1528,7 @@ paths:
       summary: Hub de Desempeño Summary
       description: |
         Returns KPI tiles and high-level portfolio metrics for the Financial Performance Hub.
+        Includes PMO forecast adjustments and annual budget comparison.
         Only accessible to SDMT and EXEC_RO roles.
       operationId: getHubSummary
       parameters:
@@ -1538,6 +1539,14 @@ paths:
             type: string
             default: "ALL"
           description: "Scope filter: 'ALL' for all projects or specific project code"
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 2020
+            maximum: 2100
+          description: "Year for annual budget comparison (defaults to current year)"
       responses:
         "200":
           description: Hub summary data retrieved successfully
@@ -2811,6 +2820,7 @@ components:
         - currency
         - asOf
         - kpis
+        - forecast
       properties:
         scope:
           type: string
@@ -2818,6 +2828,9 @@ components:
         currency:
           type: string
           description: Currency code (e.g., USD)
+        year:
+          type: integer
+          description: Year for budget comparison
         asOf:
           type: string
           format: date
@@ -2862,6 +2875,52 @@ components:
             riskFlagsCount:
               type: integer
               description: Number of projects with risk flags
+        forecast:
+          type: object
+          required:
+            - totalPlannedFromPlanview
+            - totalAdjustedForecastPMO
+            - forecastVariance
+            - forecastVariancePercent
+            - hasPMOAdjustments
+          properties:
+            totalPlannedFromPlanview:
+              type: number
+              description: Total Planeado De Planview (sum of planned allocations)
+            totalAdjustedForecastPMO:
+              type: number
+              description: Pronóstico Total Ajustado PMO (sum of forecast allocations with PMO adjustments)
+            forecastVariance:
+              type: number
+              description: Variación de Pronóstico (adjusted forecast - planned)
+            forecastVariancePercent:
+              type: number
+              description: Forecast variance as percentage
+            hasPMOAdjustments:
+              type: boolean
+              description: Whether any PMO forecast adjustments exist
+        annualBudget:
+          type: object
+          description: Annual all-in budget comparison (optional, only if budget exists for year)
+          properties:
+            year:
+              type: integer
+              description: Budget year
+            amount:
+              type: number
+              description: Total annual budget
+            currency:
+              type: string
+              description: Budget currency
+            consumed:
+              type: number
+              description: Amount consumed (total adjusted forecast)
+            remaining:
+              type: number
+              description: Budget remaining
+            consumedPercent:
+              type: number
+              description: Percentage of budget consumed
         projectsCount:
           type: integer
           description: Number of projects in scope
