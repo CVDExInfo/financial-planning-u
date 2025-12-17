@@ -195,14 +195,15 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
 async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
   const requestId = event.requestContext?.requestId || 'unknown';
   
+  // Get allocation type from query parameter (default to 'planned')
+  // Declare outside try block so it's accessible in catch block for logging
+  const allocationType = event.queryStringParameters?.type || "planned";
+  
   try {
     const projectId = event.pathParameters?.id;
     if (!projectId) {
       return bad(event, "Missing project id");
     }
-
-    // Get allocation type from query parameter (default to 'planned')
-    const allocationType = event.queryStringParameters?.type || "planned";
     
     console.log(`[allocations] ${requestId} - ${allocationType} bulk update for project ${projectId}`);
     
@@ -270,6 +271,7 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
       return bad(event, `Project metadata not found for project ${projectId}. Ensure the project exists and has been properly initialized.`);
     }
 
+    const project = projectResult.Item;
     const baselineId = project.baseline_id || project.baselineId || "default";
     const projectStartDate = 
       project.start_date || 
