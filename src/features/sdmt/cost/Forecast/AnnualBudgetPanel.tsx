@@ -49,7 +49,8 @@ export function AnnualBudgetPanel() {
       year={widgetYear}
       totalAdjustedForecast={totalAdjustedForecast}
       onBudgetUpdate={() => {
-        // Optionally reload summary or show toast
+        // Reload summary when budget is updated to refresh variance calculations
+        loadSummary(widgetYear);
       }}
     />
   );

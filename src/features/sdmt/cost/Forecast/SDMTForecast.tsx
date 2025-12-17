@@ -372,19 +372,15 @@ export function SDMTForecast() {
 
   // Helper: convert the grid's month index to "YYYY-MM"
   const monthIndexToYearMonth = (monthIndex: number): string => {
-    // Get the current year - this should ideally be based on the project's baseline start date
-    // For now, using current year as a baseline
+    // monthIndex is 1-based (1-12) representing months in the forecast grid
+    // We use the current year as baseline and calculate forward from current month
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
     
-    // Calculate the target month based on the forecast horizon
-    // monthIndex is 1-based (1-12)
-    const targetMonth = monthIndex;
-    
-    // Format as YYYY-MM
+    // Assume months are relative to current calendar year
+    // In a real implementation, this should be based on project baseline start date
     const year = currentYear;
-    const month = String(targetMonth).padStart(2, '0');
+    const month = String(monthIndex).padStart(2, '0');
     return `${year}-${month}`;
   };
 
