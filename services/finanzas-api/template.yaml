@@ -1478,6 +1478,56 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
+  # Budgets Function
+  BudgetsFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/budgets.ts
+        External:
+          - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+    Properties:
+      CodeUri: .
+      Handler: budgets.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref AllocationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref PayrollTable
+      Events:
+        GetBudgetAllIn:
+          Type: HttpApi
+          Properties:
+            Path: /budgets/all-in
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+        PutBudgetAllIn:
+          Type: HttpApi
+          Properties:
+            Path: /budgets/all-in
+            Method: PUT
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+        GetBudgetAllInOverview:
+          Type: HttpApi
+          Properties:
+            Path: /budgets/all-in/overview
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+
   # -------------------
   # EventBridge (Pep3) schedule
   # -------------------

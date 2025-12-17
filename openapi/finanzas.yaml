@@ -42,6 +42,8 @@ tags:
     description: Budget rubros (line items) catalog management
   - name: Allocations
     description: Budget allocation and financial planning
+  - name: Budgets
+    description: Annual all-in budget management and cross-project overview
   - name: Payroll
     description: Payroll integration and monthly closing
   - name: Adjustments
@@ -649,8 +651,11 @@ paths:
     put:
       tags:
         - Allocations
-      summary: Bulk update allocations
-      description: Updates budget allocations for multiple rubros in a single operation
+      summary: Bulk update allocations or forecast values
+      description: |
+        Updates budget allocations or forecast values for multiple rubros in a single operation.
+        - Use ?type=forecast to update forecast values (PMO only)
+        - Without query parameter, updates planned allocations (SDMT)
       operationId: bulkUpdateAllocations
       parameters:
         - name: id
@@ -660,23 +665,42 @@ paths:
           schema:
             type: string
             pattern: "^proj_[a-z0-9]{10}$"
+        - name: type
+          in: query
+          required: false
+          description: Update type - "forecast" for PMO forecast adjustments
+          schema:
+            type: string
+            enum: [forecast]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AllocationBulk"
-            example:
-              allocations:
-                - rubro_id: "rubro_1a2b3c4d5e"
-                  mes: "2025-11"
-                  monto_planeado: 30000
-                - rubro_id: "rubro_1a2b3c4d5e"
-                  mes: "2025-12"
-                  monto_planeado: 32000
-                - rubro_id: "rubro_6f7g8h9i0j"
-                  mes: "2025-11"
-                  monto_planeado: 15000
+              oneOf:
+                - $ref: "#/components/schemas/AllocationBulk"
+                - $ref: "#/components/schemas/ForecastBulkUpdate"
+            examples:
+              planned:
+                summary: Update planned allocations
+                value:
+                  allocations:
+                    - rubro_id: "rubro_1a2b3c4d5e"
+                      mes: "2025-11"
+                      monto_planeado: 30000
+                    - rubro_id: "rubro_1a2b3c4d5e"
+                      mes: "2025-12"
+                      monto_planeado: 32000
+              forecast:
+                summary: Update forecast values (PMO only)
+                value:
+                  items:
+                    - rubroId: "MOD-ING"
+                      month: "2025-11"
+                      forecast: 32000
+                    - rubroId: "MOD-ING"
+                      month: "2025-12"
+                      forecast: 34000
       responses:
         "200":
           description: Allocations updated successfully
@@ -1662,6 +1686,155 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /budgets/all-in:
+    get:
+      tags:
+        - Budgets
+      summary: Get annual all-in budget
+      description: |
+        Returns the annual all-in budget for the specified year.
+        Returns null if no budget is set for that year.
+      operationId: getAllInBudget
+      parameters:
+        - name: year
+          in: query
+          required: true
+          description: Year for the budget (e.g., 2026)
+          schema:
+            type: integer
+            minimum: 2020
+            maximum: 2100
+          example: 2026
+      responses:
+        "200":
+          description: Budget retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnualBudget"
+              examples:
+                withBudget:
+                  summary: Budget exists
+                  value:
+                    year: 2026
+                    amount: 5000000
+                    currency: "USD"
+                    updated_at: "2024-12-17T00:00:00Z"
+                    updated_by: "pmo@example.com"
+                noBudget:
+                  summary: Budget not set
+                  value:
+                    year: 2026
+                    amount: null
+                    currency: "USD"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    
+    put:
+      tags:
+        - Budgets
+      summary: Set annual all-in budget
+      description: |
+        Creates or updates the annual all-in budget for the specified year.
+        Only accessible to PMO and ADMIN roles.
+      operationId: putAllInBudget
+      parameters:
+        - name: year
+          in: query
+          required: true
+          description: Year for the budget (e.g., 2026)
+          schema:
+            type: integer
+            minimum: 2020
+            maximum: 2100
+          example: 2026
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnualBudgetUpsert"
+            example:
+              amount: 5000000
+              currency: "USD"
+      responses:
+        "200":
+          description: Budget updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnualBudget"
+              example:
+                year: 2026
+                amount: 5000000
+                currency: "USD"
+                updated_at: "2024-12-17T00:00:00Z"
+                updated_by: "pmo@example.com"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /budgets/all-in/overview:
+    get:
+      tags:
+        - Budgets
+      summary: Get annual budget overview with cross-project totals
+      description: |
+        Returns budget overview with aggregated planned, forecast, and actual totals
+        across all projects for the specified year. Includes variance calculations
+        and optional per-project breakdown.
+      operationId: getAllInBudgetOverview
+      parameters:
+        - name: year
+          in: query
+          required: true
+          description: Year for the budget overview (e.g., 2026)
+          schema:
+            type: integer
+            minimum: 2020
+            maximum: 2100
+          example: 2026
+      responses:
+        "200":
+          description: Budget overview retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnualBudgetOverview"
+              example:
+                year: 2026
+                budgetAllIn:
+                  amount: 5000000
+                  currency: "USD"
+                totals:
+                  planned: 3500000
+                  forecast: 3850000
+                  actual: 2700000
+                  varianceBudgetVsForecast: -1150000
+                  varianceBudgetVsActual: -2300000
+                  percentBudgetConsumedActual: 54.0
+                  percentBudgetConsumedForecast: 77.0
+                byProject:
+                  - projectId: "P-001"
+                    projectCode: "FINTECH-2026"
+                    planned: 1500000
+                    forecast: 1650000
+                    actual: 900000
+                  - projectId: "P-002"
+                    projectCode: "RETAIL-2026"
+                    planned: 2000000
+                    forecast: 2200000
+                    actual: 1800000
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
 components:
   securitySchemes:
@@ -2968,6 +3141,143 @@ components:
         expiresIn:
           type: integer
           description: URL expiration time in seconds
+
+    ForecastBulkUpdate:
+      type: object
+      required:
+        - items
+      properties:
+        projectId:
+          type: string
+          description: Project ID (can also be provided in path)
+        baselineId:
+          type: string
+          description: Optional baseline ID for context
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - rubroId
+              - month
+              - forecast
+            properties:
+              rubroId:
+                type: string
+                description: Rubro/line item ID
+              month:
+                type: string
+                pattern: '^\d{4}-\d{2}$'
+                description: Month in YYYY-MM format
+              forecast:
+                type: number
+                minimum: 0
+                description: Forecast amount
+        updatedBy:
+          type: string
+          format: email
+          description: Email of user making the update
+
+    AnnualBudget:
+      type: object
+      required:
+        - year
+        - currency
+      properties:
+        year:
+          type: integer
+          minimum: 2020
+          maximum: 2100
+        amount:
+          type: number
+          minimum: 0
+          nullable: true
+        currency:
+          type: string
+          default: USD
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+          format: email
+
+    AnnualBudgetUpsert:
+      type: object
+      required:
+        - amount
+      properties:
+        amount:
+          type: number
+          minimum: 0
+        currency:
+          type: string
+          default: USD
+
+    AnnualBudgetOverview:
+      type: object
+      required:
+        - year
+        - totals
+      properties:
+        year:
+          type: integer
+        budgetAllIn:
+          type: object
+          nullable: true
+          properties:
+            amount:
+              type: number
+            currency:
+              type: string
+        totals:
+          type: object
+          required:
+            - planned
+            - forecast
+            - actual
+            - varianceBudgetVsForecast
+            - varianceBudgetVsActual
+            - percentBudgetConsumedActual
+            - percentBudgetConsumedForecast
+          properties:
+            planned:
+              type: number
+            forecast:
+              type: number
+            actual:
+              type: number
+            varianceBudgetVsForecast:
+              type: number
+            varianceBudgetVsActual:
+              type: number
+            percentBudgetConsumedActual:
+              type: number
+              nullable: true
+            percentBudgetConsumedForecast:
+              type: number
+              nullable: true
+        byProject:
+          type: array
+          items:
+            type: object
+            required:
+              - projectId
+              - planned
+              - forecast
+              - actual
+            properties:
+              projectId:
+                type: string
+              projectCode:
+                type: string
+              planned:
+                type: number
+              forecast:
+                type: number
+              actual:
+                type: number
 
   responses:
     BadRequest:

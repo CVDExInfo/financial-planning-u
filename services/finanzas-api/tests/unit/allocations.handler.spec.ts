@@ -10,17 +10,29 @@ jest.mock("../../src/lib/dynamo", () => ({
   tableName: jest.fn((name: string) => `test_${name}`),
   QueryCommand: jest.fn(),
   ScanCommand: jest.fn(),
+  GetCommand: jest.fn(),
+  UpdateCommand: jest.fn(),
 }));
 
 // Mock auth
 jest.mock("../../src/lib/auth", () => ({
   ensureCanRead: jest.fn(),
   ensureSDT: jest.fn(),
+  ensurePMO: jest.fn(),
+  getUserContext: jest.fn().mockResolvedValue({
+    email: "pmo@example.com",
+    roles: ["PMO"],
+  }),
 }));
 
 // Mock logging
 jest.mock("../../src/utils/logging", () => ({
   logError: jest.fn(),
+}));
+
+// Mock validation
+jest.mock("../../src/validation/allocations", () => ({
+  parseForecastBulkUpdate: jest.fn((data) => data),
 }));
 
 const baseHeaders = { authorization: "Bearer test" };
@@ -122,5 +134,107 @@ describe("allocations handler", () => {
     expect(Array.isArray(payload)).toBe(true);
     expect(payload.data).toBeUndefined();
     expect(payload.total).toBeUndefined();
+  });
+
+  describe("bulk forecast update", () => {
+    it("updates forecast values for existing allocations", async () => {
+      // Mock GetCommand to return existing allocation
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: {
+            pk: "PROJECT#P-123",
+            sk: "MONTH#2025-01#RUBRO#MOD-ING",
+            planned: 10000,
+            forecast: 10000,
+          },
+        })
+        .mockResolvedValueOnce({}); // UpdateCommand
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "2025-01",
+              forecast: 12000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["PMO"], email: "pmo@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.success).toBe(true);
+      expect(payload.updated).toBe(1);
+      expect(payload.skipped).toBe(0);
+    });
+
+    it("skips forecast update for non-existent allocations", async () => {
+      // Mock GetCommand to return no item
+      (dynamo.ddb.send as jest.Mock).mockResolvedValue({
+        Item: undefined,
+      });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "2025-01",
+              forecast: 12000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["PMO"], email: "pmo@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.success).toBe(true);
+      expect(payload.updated).toBe(0);
+      expect(payload.skipped).toBe(1);
+    });
+
+    it("returns 403 if user is not PMO", async () => {
+      const auth = require("../../src/lib/auth");
+      auth.ensurePMO.mockRejectedValueOnce({
+        statusCode: 403,
+        body: "forbidden: PMO required",
+      });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "2025-01",
+              forecast: 12000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "sdmt@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+
+      expect(response.statusCode).toBe(403);
+    });
   });
 });
