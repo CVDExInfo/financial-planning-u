@@ -520,6 +520,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   }
 
   // Fetch baseline data from prefacturas table to get project details
+  // Try METADATA record first (has payload), then fallback to project-scoped baseline
   const baselineResult = await sendDdb(
     new GetCommand({
       TableName: tableName("prefacturas"),
@@ -544,7 +545,66 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     };
   };
 
-  const baseline = baselineResult.Item;
+  let baseline = baselineResult.Item;
+  
+  // FALLBACK: If METADATA record doesn't have payload with estimates, try project-scoped record
+  // The project-scoped record has labor_estimates and non_labor_estimates at top level
+  if (baseline && baseline.payload) {
+    const hasEstimates = 
+      (Array.isArray(baseline.payload.labor_estimates) && baseline.payload.labor_estimates.length > 0) ||
+      (Array.isArray(baseline.payload.non_labor_estimates) && baseline.payload.non_labor_estimates.length > 0);
+    
+    if (!hasEstimates && resolvedProjectId) {
+      console.warn("[handoff] METADATA payload missing estimates, trying project-scoped baseline", {
+        baselineId,
+        projectId: resolvedProjectId,
+      });
+      
+      // Try to fetch from project-scoped record
+      const projectBaselineResult = await sendDdb(
+        new GetCommand({
+          TableName: tableName("prefacturas"),
+          Key: {
+            pk: `PROJECT#${resolvedProjectId}`,
+            sk: `BASELINE#${baselineId}`,
+          },
+        })
+      );
+      
+      if (projectBaselineResult.Item) {
+        console.info("[handoff] Found project-scoped baseline with estimates", {
+          baselineId,
+          projectId: resolvedProjectId,
+          hasLaborEstimates: !!projectBaselineResult.Item.labor_estimates,
+          hasNonLaborEstimates: !!projectBaselineResult.Item.non_labor_estimates,
+        });
+        baseline = projectBaselineResult.Item;
+      }
+    }
+  }
+  
+  // DIAGNOSTIC: Log baseline structure to identify missing estimates
+  console.warn("[handoff] DIAGNOSTIC - Baseline structure", {
+    projectId: resolvedProjectId,
+    baselineId,
+    hasBaseline: !!baseline,
+    hasPayload: !!baseline?.payload,
+    payloadKeys: baseline?.payload ? Object.keys(baseline.payload) : [],
+    hasTopLevelLaborEstimates: !!baseline?.labor_estimates,
+    topLevelLaborCount: Array.isArray(baseline?.labor_estimates) ? baseline.labor_estimates.length : 0,
+    hasTopLevelNonLaborEstimates: !!baseline?.non_labor_estimates,
+    topLevelNonLaborCount: Array.isArray(baseline?.non_labor_estimates) ? baseline.non_labor_estimates.length : 0,
+    hasPayloadLaborEstimates: !!(baseline?.payload as any)?.labor_estimates,
+    payloadLaborCount: Array.isArray((baseline?.payload as any)?.labor_estimates) 
+      ? (baseline.payload as any).labor_estimates.length 
+      : 0,
+    hasPayloadNonLaborEstimates: !!(baseline?.payload as any)?.non_labor_estimates,
+    payloadNonLaborCount: Array.isArray((baseline?.payload as any)?.non_labor_estimates)
+      ? (baseline.payload as any).non_labor_estimates.length
+      : 0,
+    baselineTotalAmount: baseline?.total_amount,
+  });
+  
   const { projectName, clientName, currency, startDate, durationMonths, totalAmount } = extractProjectData(baseline, body);
 
   // Calculate end_date from start_date + duration_months
@@ -744,6 +804,28 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   }
 
   const normalizedBaseline = normalizeBaseline(baseline);
+  
+  // DIAGNOSTIC: Log normalized baseline to see what estimates we extracted
+  console.warn("[handoff] DIAGNOSTIC - Normalized baseline for rubros seeding", {
+    projectId: resolvedProjectId,
+    baselineId,
+    hasLaborEstimates: normalizedBaseline.labor_estimates && normalizedBaseline.labor_estimates.length > 0,
+    laborCount: normalizedBaseline.labor_estimates?.length || 0,
+    hasNonLaborEstimates: normalizedBaseline.non_labor_estimates && normalizedBaseline.non_labor_estimates.length > 0,
+    nonLaborCount: normalizedBaseline.non_labor_estimates?.length || 0,
+    laborSample: normalizedBaseline.labor_estimates?.slice(0, 2).map(e => ({
+      rubroId: e.rubroId,
+      role: e.role,
+      hourlyRate: e.hourly_rate || e.rate,
+      fteCount: e.fte_count,
+    })),
+    nonLaborSample: normalizedBaseline.non_labor_estimates?.slice(0, 2).map(e => ({
+      rubroId: e.rubroId,
+      description: e.description,
+      amount: e.amount,
+    })),
+  });
+  
   const seedResult = await seedLineItemsFromBaseline(
     resolvedProjectId,
     normalizedBaseline,
