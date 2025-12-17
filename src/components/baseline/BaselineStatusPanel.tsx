@@ -37,11 +37,20 @@ type BaselineStatus = "pending" | "handed_off" | "accepted" | "rejected";
 
 export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   const { currentProject, refreshProject, invalidateProjectData } = useProject();
-  const { isSDMT, isPMO, isPM } = usePermissions();
+  const { isSDMT, isPMO, isPM, isExecRO, isVendor } = usePermissions();
   const { login } = useAuth();
   const queryClient = useQueryClient();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
+
+  // Role-based visibility control
+  const canViewStatus = isSDMT || isPMO || isPM || isExecRO || isVendor;
+  const canActOnBaseline = isSDMT; // Only SDMT can accept/reject
+
+  // If user cannot view status at all, render nothing
+  if (!canViewStatus) {
+    return null;
+  }
 
   // Shared function to invalidate all project-dependent queries
   const invalidateProjectQueries = async () => {
@@ -186,8 +195,8 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   };
 
   const showActions =
-    isSDMT && (normalizedStatus === "pending" || normalizedStatus === "handed_off");
-  const showReadOnlyBanner = !isSDMT && (isPMO || isPM);
+    canActOnBaseline && (normalizedStatus === "pending" || normalizedStatus === "handed_off");
+  const showReadOnlyBanner = !canActOnBaseline && (isPMO || isPM);
   const contactEmail =
     currentProject?.sdm_manager_email || currentProject?.accepted_by || undefined;
 

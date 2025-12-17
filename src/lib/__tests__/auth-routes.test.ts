@@ -26,6 +26,7 @@ describe("PM role route visibility", () => {
     "/",
     "/profile",
     "/pmo/prefactura/estimator",
+    "/pmo/projects/123",
   ];
   const blocked = [
     "/catalog/rubros",
@@ -147,13 +148,16 @@ describe("PMO role route visibility", () => {
   const role: UserRole = "PMO";
   const allowed = [
     "/pmo/prefactura/estimator",
+    "/pmo/projects/123",
   ];
   const blocked = [
     "/sdmt/cost/catalog",
     "/sdmt/cost/forecast",
     "/sdmt/cost/reconciliation",
+    "/sdmt/cost/changes",
     "/catalog/rubros", // Finanzas routes blocked for PMO
     "/payroll/actuals", // Payroll actuals blocked for PMO
+    "/projects", // SDMT projects route blocked for PMO
   ];
 
   it("restricts PMO users to PMO workspace only", () => {
