@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ensureCanRead, getUserContext } from "../lib/auth";
+import { ensureCanRead, ensureCanWrite, getUserContext } from "../lib/auth";
 import { bad, ok, noContent, serverError } from "../lib/http";
 import { ddb, tableName, QueryCommand, ScanCommand, PutCommand, GetCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
@@ -66,6 +66,10 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
  * PUT /projects/{id}/allocations:bulk?type=planned|forecast
  * Bulk update allocations for a project
  * Supports both planned and forecast allocations via type query parameter
+ * 
+ * Authorization:
+ * - planned: Requires write access (PMO, SDMT, SDM)
+ * - forecast: Requires SDMT or ADMIN role
  */
 async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
   try {
@@ -81,25 +85,68 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
       return bad(event, "Invalid type parameter. Must be 'planned' or 'forecast'");
     }
 
-    // Parse request body
-    const body = event.body ? JSON.parse(event.body) : {};
-    const allocations = body.allocations;
-
-    if (!allocations || !Array.isArray(allocations) || allocations.length === 0) {
-      return bad(event, "Missing or invalid allocations array");
+    // Authorization check based on type
+    if (allocationType === "forecast") {
+      // Forecast updates require SDMT or ADMIN role
+      const userContext = await getUserContext(event as any);
+      const hasAccess = userContext.isSDMT || userContext.isAdmin;
+      
+      if (!hasAccess) {
+        return {
+          statusCode: 403,
+          body: JSON.stringify({ message: "Forbidden: SDMT or ADMIN role required for forecast updates" }),
+          headers: { "Content-Type": "application/json" },
+        };
+      }
+    } else {
+      // Planned allocations require standard write access
+      await ensureCanWrite(event as any);
     }
 
-    // Validate allocation items
-    for (const allocation of allocations) {
-      if (!allocation.rubro_id || !allocation.mes) {
-        return bad(event, "Each allocation must have rubro_id and mes");
-      }
-      
-      // Check for the appropriate amount field based on type
-      const amountField = allocationType === "planned" ? "monto_planeado" : "monto_proyectado";
-      if (typeof allocation[amountField] !== "number" || allocation[amountField] < 0) {
-        return bad(event, `Each allocation must have a valid ${amountField} >= 0`);
-      }
+    // Parse request body - support both old "allocations" and new "items" formats
+    // Old format: {allocations: [{rubro_id, mes, monto_planeado/monto_proyectado}]}
+    // New format: {items: [{rubroId, month, forecast/planned}]}
+    const body = event.body ? JSON.parse(event.body) : {};
+    const allocations = body.allocations || body.items;
+
+    if (!allocations || !Array.isArray(allocations) || allocations.length === 0) {
+      return bad(event, "Missing or invalid allocations/items array");
+    }
+
+    // Normalize allocation items to handle both formats
+    let normalizedAllocations: Array<{ rubro_id: string; mes: string; amount: number }>;
+    try {
+      normalizedAllocations = allocations.map((item: any) => {
+        // Support both formats:
+        // - Legacy: {rubro_id, mes, monto_planeado/monto_proyectado}
+        // - New: {rubroId, month, forecast/planned}
+        const rubroId = item.rubro_id || item.rubroId;
+        const month = item.mes || item.month;
+        
+        if (!rubroId || !month) {
+          throw new Error("Each allocation must have rubro_id/rubroId and mes/month");
+        }
+        
+        // Get amount based on type and format
+        let amount: number;
+        if (allocationType === "forecast") {
+          amount = item.monto_proyectado ?? item.forecast;
+        } else {
+          amount = item.monto_planeado ?? item.planned;
+        }
+        
+        if (typeof amount !== "number" || amount < 0) {
+          throw new Error(`Each allocation must have a valid amount >= 0`);
+        }
+        
+        return {
+          rubro_id: rubroId,
+          mes: month,
+          amount,
+        };
+      });
+    } catch (error: any) {
+      return bad(event, error.message || "Invalid allocation format");
     }
 
     // Get user context for audit
@@ -122,10 +169,8 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
     const allocationsTable = tableName("allocations");
     const results = [];
 
-    for (const allocation of allocations) {
-      const { rubro_id, mes } = allocation;
-      const amountField = allocationType === "planned" ? "monto_planeado" : "monto_proyectado";
-      const amount = allocation[amountField];
+    for (const allocation of normalizedAllocations) {
+      const { rubro_id, mes, amount } = allocation;
 
       // Create composite sort key: ALLOCATION#{baselineId}#{month}#{rubroId}
       const sk = `ALLOCATION#${baselineId}#${mes}#${rubro_id}`;
@@ -180,7 +225,11 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
       results.push({
         rubro_id,
         mes,
-        [amountField]: amount,
+        // Include both the amount and the specific field for backward compatibility
+        ...(allocationType === "forecast" 
+          ? { monto_proyectado: amount, forecast: amount }
+          : { monto_planeado: amount, planned: amount }
+        ),
         status: existing.pk ? "updated" : "created",
       });
 
@@ -192,7 +241,15 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
       type: allocationType,
       allocations: results,
     });
-  } catch (error) {
+  } catch (error: any) {
+    // Handle authorization errors specifically
+    if (error?.statusCode === 403) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ message: error.body || "Forbidden" }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
     logError("Error bulk updating allocations", error);
     return serverError(event as any, "Failed to update allocations");
   }

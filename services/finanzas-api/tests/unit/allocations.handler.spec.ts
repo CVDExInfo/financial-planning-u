@@ -16,12 +16,14 @@ jest.mock("../../src/lib/dynamo", () => ({
 
 // Mock auth
 jest.mock("../../src/lib/auth", () => ({
-  ensureCanRead: jest.fn(),
-  ensureSDT: jest.fn(),
+  ensureCanRead: jest.fn().mockResolvedValue(undefined),
+  ensureCanWrite: jest.fn().mockResolvedValue(undefined),
+  ensureSDT: jest.fn().mockResolvedValue(undefined),
   getUserContext: jest.fn(() => ({
     email: "test@example.com",
     sub: "test-user-id",
     isSDMT: true,
+    isAdmin: false,
     roles: ["SDMT"],
   })),
 }));
@@ -291,7 +293,7 @@ describe("allocations handler", () => {
         headers: baseHeaders,
         requestContext: { http: { method: "PUT" } },
         pathParameters: { id: "P-123" },
-        queryStringParameters: { type: "planned" },
+        queryStringParameters: { type: "forecast" }, // Use forecast to test the new auth path
         body: JSON.stringify({}),
         __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
       };
@@ -299,7 +301,7 @@ describe("allocations handler", () => {
       const response = await allocationsHandler(event);
 
       expect(response.statusCode).toBe(400);
-      expect(response.body).toContain("Missing or invalid allocations array");
+      expect(response.body).toContain("Missing or invalid allocations");
     });
 
     it("processes multiple allocations in bulk", async () => {
@@ -342,6 +344,122 @@ describe("allocations handler", () => {
       expect(response.statusCode).toBe(200);
       expect(payload.updated_count).toBe(2);
       expect(payload.allocations).toHaveLength(2);
+    });
+
+    it("accepts new items format for forecast updates", async () => {
+      // Mock project lookup
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+        })
+        // Mock existing allocation check (not found)
+        .mockResolvedValueOnce({ Item: undefined })
+        // Mock put command
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "2025-01",
+              forecast: 32000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.updated_count).toBe(1);
+      expect(payload.type).toBe("forecast");
+      expect(payload.allocations[0].status).toBe("created");
+    });
+
+    it("rejects forecast updates from non-SDMT users", async () => {
+      // Mock getUserContext to return non-SDMT user
+      const auth = require("../../src/lib/auth");
+      auth.getUserContext.mockReturnValueOnce({
+        email: "user@example.com",
+        sub: "user-id",
+        isSDMT: false,
+        isAdmin: false,
+        roles: ["SDM"],
+      });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "2025-01",
+              forecast: 32000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDM"], email: "user@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+
+      expect(response.statusCode).toBe(403);
+      expect(response.body).toContain("Forbidden");
+    });
+
+    it("allows ADMIN users to update forecasts", async () => {
+      // Mock getUserContext to return ADMIN user
+      const auth = require("../../src/lib/auth");
+      auth.getUserContext.mockReturnValueOnce({
+        email: "admin@example.com",
+        sub: "admin-id",
+        isSDMT: false,
+        isAdmin: true,
+        roles: ["ADMIN"],
+      });
+
+      // Mock project lookup
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: { pk: "PROJECT#P-123", baseline_id: "base_001" },
+        })
+        // Mock existing allocation check (not found)
+        .mockResolvedValueOnce({ Item: undefined })
+        // Mock put command
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" } },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "2025-01",
+              forecast: 32000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["ADMIN"], email: "admin@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.updated_count).toBe(1);
     });
   });
 });
