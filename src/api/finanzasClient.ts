@@ -569,9 +569,9 @@ export const finanzasClient = {
       currency: string;
       updated_at: string;
       updated_by: string;
-    }>(`/budgets/all-in?year=${year}`, {
+    }>(`/budgets/all-in`, {
       method: "PUT",
-      body: JSON.stringify({ amount, currency }),
+      body: JSON.stringify({ year, amount, currency }),
     });
     return data;
   },

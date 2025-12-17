@@ -35,8 +35,9 @@ import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
-import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros, bulkUpdateAllocations } from '@/api/finanzas';
+import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros } from '@/api/finanzas';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
+import finanzasClient from '@/api/finanzasClient';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
 import { BudgetSimulatorCard } from './BudgetSimulatorCard';
@@ -411,19 +412,21 @@ export function SDMTForecast() {
         byProject.get(projectId)!.push(cell);
       });
 
-      // Send updates per project
+      // Send updates per project using bulkUpsertForecast with correct payload format
+      // This replaces the old bulkUpdateAllocations call which used {allocations} wrapper
+      // New format uses {items: [{rubroId, month, forecast}]} as required by the API
       for (const [projectId, projectCells] of byProject.entries()) {
-        const allocations = projectCells.map(cell => {
+        const items = projectCells.map(cell => {
           // Validate month is in valid range (1-12)
           const month = Math.max(1, Math.min(12, cell.month));
           return {
-            rubro_id: cell.line_item_id,
-            mes: `${currentYear}-${String(month).padStart(2, '0')}`,
-            monto_proyectado: Number(cell.forecast) || 0,
+            rubroId: cell.line_item_id,
+            month: `${currentYear}-${String(month).padStart(2, '0')}`,
+            forecast: Number(cell.forecast) || 0,
           };
         });
 
-        await bulkUpdateAllocations(projectId, allocations, 'forecast');
+        await finanzasClient.bulkUpsertForecast(projectId, items);
       }
 
       toast.success('Pronósticos ajustados guardados exitosamente');
@@ -443,9 +446,73 @@ export function SDMTForecast() {
     }
   };
 
+  // Load Annual Budget
+  const loadAnnualBudget = async (year: number) => {
+    setLoadingBudget(true);
+    try {
+      const budget = await finanzasClient.getAllInBudget(year);
+      if (budget && budget.amount !== null) {
+        setBudgetAmount(budget.amount.toString());
+        setBudgetCurrency(budget.currency || 'USD');
+        setBudgetLastUpdated(budget.updated_at || null);
+      } else {
+        setBudgetAmount('');
+        setBudgetCurrency('USD');
+        setBudgetLastUpdated(null);
+      }
+    } catch (error: any) {
+      // If 404, it means no budget is set for this year - that's okay
+      if (error?.status === 404 || error?.statusCode === 404) {
+        setBudgetAmount('');
+        setBudgetCurrency('USD');
+        setBudgetLastUpdated(null);
+      } else {
+        console.error('Error loading annual budget:', error);
+        const message = handleFinanzasApiError(error, {
+          onAuthError: login,
+          fallback: 'No pudimos cargar el presupuesto anual.',
+        });
+        toast.error(message);
+      }
+    } finally {
+      setLoadingBudget(false);
+    }
+  };
+
+  // Save Annual Budget
+  const handleSaveAnnualBudget = async () => {
+    const amount = parseFloat(budgetAmount);
+    if (isNaN(amount) || amount < 0) {
+      toast.error('Por favor ingrese un monto válido');
+      return;
+    }
+
+    setSavingBudget(true);
+    try {
+      const result = await finanzasClient.putAllInBudget(budgetYear, amount, budgetCurrency);
+      setBudgetLastUpdated(result.updated_at);
+      toast.success('Presupuesto anual guardado exitosamente');
+    } catch (error) {
+      console.error('Error saving annual budget:', error);
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: 'No pudimos guardar el presupuesto anual.',
+      });
+      toast.error(message);
+    } finally {
+      setSavingBudget(false);
+    }
+  };
+
+  // Load budget when year changes
+  useEffect(() => {
+    loadAnnualBudget(budgetYear);
+  }, [budgetYear]);
+
   // Check if user can edit forecast (SDMT only) or actuals (SDMT role)
   const canEditForecast = user?.current_role === 'SDMT';
   const canEditActual = user?.current_role === 'SDMT';
+  const canEditBudget = user?.current_role === 'SDMT';
 
   // Function to navigate to reconciliation with filters
   const navigateToReconciliation = (line_item_id: string, month?: number) => {
@@ -946,6 +1013,73 @@ export function SDMTForecast() {
           <div className="text-sm text-muted-foreground">
             Last updated: {new Date().toLocaleDateString()}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Annual All-In Budget Panel */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Presupuesto Anual All-In</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Año</label>
+              <Input
+                type="number"
+                value={budgetYear}
+                onChange={(e) => setBudgetYear(parseInt(e.target.value))}
+                min={2020}
+                max={2100}
+                disabled={loadingBudget || savingBudget || !canEditBudget}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Monto</label>
+              <Input
+                type="number"
+                value={budgetAmount}
+                onChange={(e) => setBudgetAmount(e.target.value)}
+                placeholder="0"
+                disabled={loadingBudget || savingBudget || !canEditBudget}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Moneda</label>
+              <select
+                value={budgetCurrency}
+                onChange={(e) => setBudgetCurrency(e.target.value)}
+                disabled={loadingBudget || savingBudget || !canEditBudget}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="MXN">MXN</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                onClick={handleSaveAnnualBudget}
+                disabled={savingBudget || loadingBudget || !canEditBudget || !budgetAmount}
+                className="w-full gap-2"
+              >
+                {savingBudget ? <LoadingSpinner size="sm" /> : null}
+                Guardar Presupuesto
+              </Button>
+            </div>
+          </div>
+          {budgetLastUpdated && (
+            <div className="text-xs text-muted-foreground mt-4">
+              Última actualización: {new Date(budgetLastUpdated).toLocaleString()}
+            </div>
+          )}
+          {!canEditBudget && (
+            <div className="text-xs text-muted-foreground mt-2 text-amber-600">
+              Solo usuarios SDMT pueden editar el presupuesto anual
+            </div>
+          )}
         </CardContent>
       </Card>
 

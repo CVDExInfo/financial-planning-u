@@ -372,4 +372,551 @@ describe("Handoff Handler", () => {
       expect(typeof body.baseline_accepted_at).toBe("string");
     });
   });
+
+  describe("Summary-only Handoff Payload (Real-world Pattern)", () => {
+    /**
+     * This test suite covers the production scenario where:
+     * - The UI sends a handoff payload with only summary fields (mod_total, percentages)
+     * - NO labor_estimates or non_labor_estimates in the request body
+     * - The backend must fetch full baseline with estimates from prefacturas table
+     * - Rubros should be materialized from the stored baseline data
+     */
+
+    it("should materialize rubros from METADATA baseline when handoff body has no estimates", async () => {
+      const projectId = "P-summary-test-1";
+      const baselineId = "base_summary_test_1";
+
+      mockedResolver.mockResolvedValue({
+        resolvedProjectId: projectId,
+        baselineId: baselineId,
+        isNewProject: true,
+      });
+
+      // Mock handoff body: summary-only (matches production payload)
+      const handoffBody = {
+        baseline_id: baselineId,
+        project_name: "BL-TEST-SUMMARY-001",
+        client_name: "Test Client Corp",
+        mod_total: 500000,
+        pct_ingenieros: 75.5,
+        pct_sdm: 24.5,
+        // NOTE: No labor_estimates or non_labor_estimates here
+      };
+
+      // Mock baseline in prefacturas table with FULL estimates
+      const fullBaseline = {
+        pk: `BASELINE#${baselineId}`,
+        sk: "METADATA",
+        project_id: projectId,
+        project_name: "BL-TEST-SUMMARY-001",
+        client_name: "Test Client Corp",
+        currency: "USD",
+        start_date: "2025-01-01",
+        duration_months: 12,
+        total_amount: 500000,
+        payload: {
+          project_name: "BL-TEST-SUMMARY-001",
+          client_name: "Test Client Corp",
+          currency: "USD",
+          start_date: "2025-01-01",
+          duration_months: 12,
+          labor_estimates: [
+            {
+              rubroId: "MOD-ING",
+              role: "Senior Developer",
+              level: "Senior",
+              hours_per_month: 160,
+              fte_count: 2,
+              hourly_rate: 100,
+              on_cost_percentage: 20,
+              start_month: 1,
+              end_month: 12,
+            },
+            {
+              rubroId: "MOD-LEAD",
+              role: "Tech Lead",
+              level: "Lead",
+              hours_per_month: 160,
+              fte_count: 1,
+              hourly_rate: 150,
+              on_cost_percentage: 20,
+              start_month: 1,
+              end_month: 12,
+            },
+          ],
+          non_labor_estimates: [
+            {
+              rubroId: "SOI-AWS",
+              category: "Infrastructure",
+              description: "AWS Cloud Services",
+              amount: 5000,
+              vendor: "AWS",
+              one_time: false,
+              start_month: 1,
+              end_month: 12,
+            },
+          ],
+        },
+      };
+
+      const rubrosWritten: any[] = [];
+
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        // Better command detection
+        const input = command.input || command;
+
+        // Idempotency check - no existing record
+        if (input?.Key?.pk === "IDEMPOTENCY#HANDOFF") {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        // Baseline METADATA query - return full baseline with estimates
+        if (
+          input?.Key?.pk === `BASELINE#${baselineId}` &&
+          input?.Key?.sk === "METADATA"
+        ) {
+          return Promise.resolve({ Item: fullBaseline });
+        }
+
+        // Project-scoped baseline query - return undefined (not found)
+        if (
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === `BASELINE#${baselineId}`
+        ) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        // Project metadata check - no existing project
+        if (
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === "METADATA"
+        ) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        // QueryCommand for checking if rubros already exist - return empty
+        if (input?.KeyConditionExpression || input?.ExpressionAttributeValues) {
+          return Promise.resolve({ Items: [] });
+        }
+
+        // PutCommand for rubros - capture them
+        if (input?.Item && input?.TableName?.includes("rubros")) {
+          rubrosWritten.push(input.Item);
+          return Promise.resolve({});
+        }
+
+        // Other PutCommands (handoff, metadata, audit, idempotency)
+        if (input?.Item) {
+          return Promise.resolve({});
+        }
+
+        // TransactWriteCommand for handoff + metadata
+        if (input?.TransactItems) {
+          return Promise.resolve({});
+        }
+
+        return Promise.resolve({});
+      });
+
+      const event = baseEvent({
+        body: JSON.stringify(handoffBody),
+        pathParameters: { projectId },
+        headers: { "x-idempotency-key": "test-summary-only-key-1" },
+      });
+
+      const response = await handoffHandler(event);
+
+      // Verify successful handoff
+      expect(response.statusCode).toBe(201);
+
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty("handoffId");
+      expect(body).toHaveProperty("projectId", projectId);
+      expect(body).toHaveProperty("baselineId", baselineId);
+      expect(body).toHaveProperty("seededRubros");
+
+      // CRITICAL: Verify rubros were seeded from baseline estimates
+      // Expected: 2 labor + 1 non-labor = 3 rubros
+      expect(body.seededRubros).toBe(3);
+      expect(rubrosWritten).toHaveLength(3);
+
+      // Verify rubro structure includes canonical taxonomy IDs
+      const laborRubros = rubrosWritten.filter((r) => r.category === "Labor");
+      const nonLaborRubros = rubrosWritten.filter((r) => r.category !== "Labor");
+
+      expect(laborRubros).toHaveLength(2);
+      expect(nonLaborRubros).toHaveLength(1);
+
+      // Verify canonical rubroId format: {CANONICAL_ID}#{baselineId}#{index}
+      expect(laborRubros[0].rubroId).toMatch(/^MOD-ING#base_summary_test_1#\d+$/);
+      expect(laborRubros[1].rubroId).toMatch(/^MOD-LEAD#base_summary_test_1#\d+$/);
+      expect(nonLaborRubros[0].rubroId).toMatch(/^SOI-AWS#base_summary_test_1#\d+$/);
+    });
+
+    it("should materialize rubros from PROJECT-scoped baseline when METADATA has no estimates", async () => {
+      const projectId = "P-summary-test-2";
+      const baselineId = "base_summary_test_2";
+
+      mockedResolver.mockResolvedValue({
+        resolvedProjectId: projectId,
+        baselineId: baselineId,
+        isNewProject: true,
+      });
+
+      // Mock handoff body: summary-only
+      const handoffBody = {
+        baseline_id: baselineId,
+        project_name: "BL-TEST-SUMMARY-002",
+        client_name: "Another Client",
+        mod_total: 300000,
+        pct_ingenieros: 80.0,
+        pct_sdm: 20.0,
+      };
+
+      // Mock METADATA baseline WITHOUT estimates
+      const metadataBaseline = {
+        pk: `BASELINE#${baselineId}`,
+        sk: "METADATA",
+        project_id: projectId,
+        project_name: "BL-TEST-SUMMARY-002",
+        client_name: "Another Client",
+        currency: "USD",
+        payload: {
+          project_name: "BL-TEST-SUMMARY-002",
+          client_name: "Another Client",
+          currency: "USD",
+          // NOTE: No labor_estimates or non_labor_estimates in payload
+        },
+      };
+
+      // Mock PROJECT-scoped baseline WITH estimates at top level
+      const projectBaseline = {
+        pk: `PROJECT#${projectId}`,
+        sk: `BASELINE#${baselineId}`,
+        project_id: projectId,
+        project_name: "BL-TEST-SUMMARY-002",
+        client_name: "Another Client",
+        currency: "USD",
+        start_date: "2025-02-01",
+        duration_months: 6,
+        labor_estimates: [
+          {
+            rubroId: "MOD-ING",
+            role: "Developer",
+            hours_per_month: 160,
+            fte_count: 1,
+            hourly_rate: 80,
+            on_cost_percentage: 15,
+            start_month: 1,
+            end_month: 6,
+          },
+        ],
+        non_labor_estimates: [],
+      };
+
+      const rubrosWritten: any[] = [];
+
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const input = command.input || command;
+
+        if (input?.Key?.pk === "IDEMPOTENCY#HANDOFF") {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        // Baseline METADATA query - return baseline WITHOUT estimates
+        if (
+          input?.Key?.pk === `BASELINE#${baselineId}` &&
+          input?.Key?.sk === "METADATA"
+        ) {
+          return Promise.resolve({ Item: metadataBaseline });
+        }
+
+        // Project-scoped baseline query - return baseline WITH estimates
+        if (
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === `BASELINE#${baselineId}`
+        ) {
+          return Promise.resolve({ Item: projectBaseline });
+        }
+
+        // Project metadata check - no existing project
+        if (
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === "METADATA"
+        ) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (input?.KeyConditionExpression || input?.ExpressionAttributeValues) {
+          return Promise.resolve({ Items: [] });
+        }
+
+        if (input?.Item && input?.TableName?.includes("rubros")) {
+          rubrosWritten.push(input.Item);
+          return Promise.resolve({});
+        }
+
+        if (input?.Item) {
+          return Promise.resolve({});
+        }
+
+        if (input?.TransactItems) {
+          return Promise.resolve({});
+        }
+
+        return Promise.resolve({});
+      });
+
+      const event = baseEvent({
+        body: JSON.stringify(handoffBody),
+        pathParameters: { projectId },
+        headers: { "x-idempotency-key": "test-summary-only-key-2" },
+      });
+
+      const response = await handoffHandler(event);
+
+      expect(response.statusCode).toBe(201);
+
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty("seededRubros");
+
+      // CRITICAL: Verify rubros were seeded from PROJECT-scoped baseline
+      expect(body.seededRubros).toBe(1);
+      expect(rubrosWritten).toHaveLength(1);
+
+      // Verify it used the project-scoped baseline (which had 1 labor estimate)
+      expect(rubrosWritten[0].category).toBe("Labor");
+      expect(rubrosWritten[0].rubroId).toMatch(/^MOD-ING#base_summary_test_2#\d+$/);
+    });
+
+    it("should log clear error and seed 0 rubros when no estimates found anywhere", async () => {
+      const projectId = "P-summary-test-3";
+      const baselineId = "base_summary_test_3";
+
+      mockedResolver.mockResolvedValue({
+        resolvedProjectId: projectId,
+        baselineId: baselineId,
+        isNewProject: true,
+      });
+
+      // Mock handoff body: summary-only (no estimates)
+      const handoffBody = {
+        baseline_id: baselineId,
+        project_name: "BL-TEST-NO-ESTIMATES",
+        client_name: "Client Without Data",
+        mod_total: 100000,
+        pct_ingenieros: 70.0,
+        pct_sdm: 30.0,
+      };
+
+      // Mock METADATA baseline WITHOUT estimates
+      const metadataBaseline = {
+        pk: `BASELINE#${baselineId}`,
+        sk: "METADATA",
+        project_id: projectId,
+        project_name: "BL-TEST-NO-ESTIMATES",
+        currency: "USD",
+        payload: {
+          project_name: "BL-TEST-NO-ESTIMATES",
+          currency: "USD",
+          // NO estimates
+        },
+      };
+
+      // Mock PROJECT-scoped baseline also WITHOUT estimates
+      const projectBaseline = {
+        pk: `PROJECT#${projectId}`,
+        sk: `BASELINE#${baselineId}`,
+        project_id: projectId,
+        project_name: "BL-TEST-NO-ESTIMATES",
+        currency: "USD",
+        // NO labor_estimates or non_labor_estimates
+      };
+
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
+
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const input = command.input || command;
+
+        if (input?.Key?.pk === "IDEMPOTENCY#HANDOFF") {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (
+          input?.Key?.pk === `BASELINE#${baselineId}` &&
+          input?.Key?.sk === "METADATA"
+        ) {
+          return Promise.resolve({ Item: metadataBaseline });
+        }
+
+        if (
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === `BASELINE#${baselineId}`
+        ) {
+          return Promise.resolve({ Item: projectBaseline });
+        }
+
+        // Project metadata check - no existing project
+        if (
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === "METADATA"
+        ) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (input?.KeyConditionExpression || input?.ExpressionAttributeValues) {
+          return Promise.resolve({ Items: [] });
+        }
+
+        if (input?.Item) {
+          return Promise.resolve({});
+        }
+
+        if (input?.TransactItems) {
+          return Promise.resolve({});
+        }
+
+        return Promise.resolve({});
+      });
+
+      const event = baseEvent({
+        body: JSON.stringify(handoffBody),
+        pathParameters: { projectId },
+        headers: { "x-idempotency-key": "test-summary-only-key-3" },
+      });
+
+      const response = await handoffHandler(event);
+
+      // Handoff should still complete (201) but with 0 rubros
+      expect(response.statusCode).toBe(201);
+
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty("seededRubros", 0);
+
+      // CRITICAL: Verify error was logged with clear diagnostic message
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[handoff] CRITICAL: No baseline estimates found"),
+        expect.objectContaining({
+          projectId,
+          baselineId,
+          error: "Cannot materialize rubros without labor_estimates or non_labor_estimates",
+        })
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("should prefer METADATA baseline with estimates over PROJECT-scoped without", async () => {
+      const projectId = "P-summary-test-4";
+      const baselineId = "base_summary_test_4";
+
+      mockedResolver.mockResolvedValue({
+        resolvedProjectId: projectId,
+        baselineId: baselineId,
+        isNewProject: true,
+      });
+
+      const handoffBody = {
+        baseline_id: baselineId,
+        project_name: "BL-TEST-PREFERENCE",
+        mod_total: 200000,
+      };
+
+      // METADATA has estimates
+      const metadataBaseline = {
+        pk: `BASELINE#${baselineId}`,
+        sk: "METADATA",
+        payload: {
+          project_name: "BL-TEST-PREFERENCE",
+          labor_estimates: [
+            {
+              rubroId: "MOD-ING",
+              role: "Developer",
+              hours_per_month: 160,
+              fte_count: 1,
+              hourly_rate: 90,
+              start_month: 1,
+              end_month: 12,
+            },
+          ],
+          non_labor_estimates: [],
+        },
+      };
+
+      // PROJECT-scoped has NO estimates
+      const projectBaseline = {
+        pk: `PROJECT#${projectId}`,
+        sk: `BASELINE#${baselineId}`,
+        project_name: "BL-TEST-PREFERENCE",
+        // NO estimates
+      };
+
+      const rubrosWritten: any[] = [];
+
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const input = command.input || command;
+
+        if (input?.Key?.pk === "IDEMPOTENCY#HANDOFF") {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (
+          input?.Key?.pk === `BASELINE#${baselineId}` &&
+          input?.Key?.sk === "METADATA"
+        ) {
+          return Promise.resolve({ Item: metadataBaseline });
+        }
+
+        if (
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === `BASELINE#${baselineId}`
+        ) {
+          return Promise.resolve({ Item: projectBaseline });
+        }
+
+        // Project metadata check - no existing project
+        if (
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === "METADATA"
+        ) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (input?.KeyConditionExpression || input?.ExpressionAttributeValues) {
+          return Promise.resolve({ Items: [] });
+        }
+
+        if (input?.Item && input?.TableName?.includes("rubros")) {
+          rubrosWritten.push(input.Item);
+          return Promise.resolve({});
+        }
+
+        if (input?.Item) {
+          return Promise.resolve({});
+        }
+
+        if (input?.TransactItems) {
+          return Promise.resolve({});
+        }
+
+        return Promise.resolve({});
+      });
+
+      const event = baseEvent({
+        body: JSON.stringify(handoffBody),
+        pathParameters: { projectId },
+        headers: { "x-idempotency-key": "test-summary-only-key-4" },
+      });
+
+      const response = await handoffHandler(event);
+
+      expect(response.statusCode).toBe(201);
+
+      const body = JSON.parse(response.body);
+
+      // Should use METADATA baseline (has estimates) not PROJECT-scoped (no estimates)
+      expect(body.seededRubros).toBe(1);
+      expect(rubrosWritten).toHaveLength(1);
+    });
+  });
 });
