@@ -24,7 +24,7 @@ export default function PMOProjectDetailsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { projects, loading, selectedProjectId, setSelectedProjectId, currentProject } = useProject();
-  const { isPMO, isPM, isSDMT } = usePermissions();
+  const { isPMO, isSDMT } = usePermissions();
 
   // Find the project from the loaded projects
   const project = useMemo(() => {
