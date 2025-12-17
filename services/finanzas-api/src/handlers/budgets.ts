@@ -15,7 +15,7 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { ok, bad, serverError, noContent } from "../lib/http";
 import { getUserContext } from "../lib/auth";
-import { ddb, tableName, GetCommand, PutCommand, QueryCommand, ScanCommand } from "../lib/dynamo";
+import { ddb, tableName, GetCommand, PutCommand, QueryCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
 import { parseAnnualBudgetUpsert } from "../validation/budgets";
 
