@@ -369,6 +369,11 @@ export function SDMTForecast() {
       return;
     }
 
+    // Prevent duplicate submissions
+    if (savingForecasts) {
+      return;
+    }
+
     setSavingForecasts(true);
     try {
       const currentYear = new Date().getFullYear();
@@ -958,17 +963,24 @@ export function SDMTForecast() {
                                     id={`forecast-input-${cell.line_item_id}-${cell.month}`}
                                     name={`forecast-${cell.line_item_id}-${cell.month}`}
                                     aria-label={`Forecast value for ${cell.line_item_id} month ${cell.month}`}
+                                    disabled={savingForecasts}
                                     autoFocus
                                   />
                                 ) : (
                                   <div
                                     className={`px-2 py-1 rounded transition-colors ${
-                                      canEditForecast 
+                                      canEditForecast && !savingForecasts
                                         ? 'cursor-pointer hover:bg-primary/10 bg-primary/5 text-primary font-medium'
                                         : 'cursor-default bg-muted/10 text-muted-foreground'
                                     }`}
-                                    onClick={() => canEditForecast && handleCellEdit(cell.line_item_id, cell.month, 'forecast')}
-                                    title={canEditForecast ? 'Click to edit forecast' : 'No permission to edit forecast'}
+                                    onClick={() => canEditForecast && !savingForecasts && handleCellEdit(cell.line_item_id, cell.month, 'forecast')}
+                                    title={
+                                      savingForecasts 
+                                        ? 'Guardando pronósticos...' 
+                                        : canEditForecast 
+                                          ? 'Click to edit forecast' 
+                                          : 'No permission to edit forecast'
+                                    }
                                   >
                                     F: {formatGridCurrency(cell.forecast)}
                                   </div>

@@ -208,9 +208,14 @@ export function AnnualBudgetWidget({
                 <span className="text-sm font-medium">
                   {isOverBudget ? "Excedente" : "Disponible"}
                 </span>
-                <span className={`text-sm font-bold ${isOverBudget ? "text-red-600" : "text-green-600"}`}>
-                  {formatCurrency(Math.abs(remaining))}
-                </span>
+                <div className="text-right">
+                  <span className={`text-sm font-bold ${isOverBudget ? "text-red-600" : "text-green-600"}`}>
+                    {formatCurrency(Math.abs(remaining))}
+                  </span>
+                  <span className={`text-xs ml-1 ${isOverBudget ? "text-red-600" : "text-green-600"}`}>
+                    ({Math.abs((remaining / budgetValue) * 100).toFixed(1)}%)
+                  </span>
+                </div>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div
