@@ -17,9 +17,8 @@ import { bad, fromAuthError, notFound, ok, serverError } from "../lib/http";
 import { resolveProjectForHandoff } from "../lib/projects-handoff";
 import { logError } from "../utils/logging";
 import {
-  mapModRoleToRubroId,
-  mapNonLaborCategoryToRubroId,
-  getCanonicalRubroId,
+  normalizeLaborEstimate,
+  normalizeNonLaborEstimate,
   DEFAULT_LABOR_RUBRO,
   DEFAULT_NON_LABOR_RUBRO,
 } from "../lib/rubros-taxonomy";
@@ -118,74 +117,9 @@ const normalizeBaseline = (
     (payload as any)?.nonLaborEstimates ||
     [];
 
-  // Normalize labor estimates: handle camelCase fields + map roles to canonical rubroIds
-  const labor_estimates: BaselineLaborEstimate[] = rawLaborEstimates.map((estimate: any) => {
-    // Determine canonical rubroId
-    let canonicalRubroId = estimate.rubroId || estimate.rubro_id;
-    
-    // If no rubroId provided, derive from role using taxonomy
-    if (!canonicalRubroId && estimate.role) {
-      canonicalRubroId = mapModRoleToRubroId(estimate.role);
-    }
-    
-    // Normalize to canonical format if needed
-    if (canonicalRubroId) {
-      canonicalRubroId = getCanonicalRubroId(canonicalRubroId) || canonicalRubroId;
-    }
-    
-    // Use default if still no rubroId
-    if (!canonicalRubroId) {
-      canonicalRubroId = DEFAULT_LABOR_RUBRO;
-    }
-
-    return {
-      rubroId: canonicalRubroId,
-      role: estimate.role,
-      level: estimate.level,
-      // Handle both camelCase and snake_case
-      hours_per_month: estimate.hours_per_month ?? estimate.hoursPerMonth ?? estimate.hours,
-      fte_count: estimate.fte_count ?? estimate.fteCount ?? 1,
-      hourly_rate: estimate.hourly_rate ?? estimate.hourlyRate ?? estimate.rate,
-      rate: estimate.rate ?? estimate.hourly_rate ?? estimate.hourlyRate,
-      on_cost_percentage: estimate.on_cost_percentage ?? estimate.onCostPercentage ?? 0,
-      start_month: estimate.start_month ?? estimate.startMonth ?? 1,
-      end_month: estimate.end_month ?? estimate.endMonth ?? estimate.start_month ?? estimate.startMonth ?? 1,
-    };
-  });
-
-  // Normalize non-labor estimates: handle camelCase fields + map categories to canonical rubroIds
-  const non_labor_estimates: BaselineNonLaborEstimate[] = rawNonLaborEstimates.map((estimate: any) => {
-    // Determine canonical rubroId
-    let canonicalRubroId = estimate.rubroId || estimate.rubro_id;
-    
-    // If no rubroId provided, try to derive from category/description
-    if (!canonicalRubroId) {
-      canonicalRubroId = 
-        mapNonLaborCategoryToRubroId(estimate.category) ||
-        mapNonLaborCategoryToRubroId(estimate.description);
-    }
-    
-    // Normalize to canonical format if needed
-    if (canonicalRubroId) {
-      canonicalRubroId = getCanonicalRubroId(canonicalRubroId) || canonicalRubroId;
-    }
-    
-    // Use default if still no rubroId
-    if (!canonicalRubroId) {
-      canonicalRubroId = DEFAULT_NON_LABOR_RUBRO;
-    }
-
-    return {
-      rubroId: canonicalRubroId,
-      category: estimate.category,
-      description: estimate.description ?? estimate.descripcion,
-      amount: estimate.amount ?? estimate.cost ?? estimate.total ?? 0,
-      vendor: estimate.vendor ?? estimate.proveedor,
-      one_time: estimate.one_time ?? estimate.oneTime ?? false,
-      start_month: estimate.start_month ?? estimate.startMonth ?? 1,
-      end_month: estimate.end_month ?? estimate.endMonth ?? estimate.start_month ?? estimate.startMonth ?? 1,
-    };
-  });
+  // Use shared normalization functions from taxonomy module
+  const labor_estimates: BaselineLaborEstimate[] = rawLaborEstimates.map(normalizeLaborEstimate);
+  const non_labor_estimates: BaselineNonLaborEstimate[] = rawNonLaborEstimates.map(normalizeNonLaborEstimate);
 
   return {
     project_id:

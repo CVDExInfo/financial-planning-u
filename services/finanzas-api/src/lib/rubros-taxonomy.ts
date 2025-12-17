@@ -138,10 +138,12 @@ export function mapNonLaborCategoryToRubroId(category: string | undefined): stri
     return NON_LABOR_CATEGORY_MAP[normalized];
   }
   
-  // Try partial match (contains)
-  for (const [key, value] of Object.entries(NON_LABOR_CATEGORY_MAP)) {
-    if (normalized.includes(key) || key.includes(normalized)) {
-      return value;
+  // Try partial match (contains) - only check if not too short to avoid false positives
+  if (normalized.length >= 3) {
+    for (const [key, value] of Object.entries(NON_LABOR_CATEGORY_MAP)) {
+      if (normalized.includes(key) || key.includes(normalized)) {
+        return value;
+      }
     }
   }
   
@@ -177,4 +179,105 @@ export function getCanonicalRubroId(rubroId: string | undefined): string | undef
 export function isCanonicalRubroId(rubroId: string | undefined): boolean {
   if (!rubroId) return false;
   return /^[A-Z]{2,4}-[A-Z0-9-]+$/.test(rubroId);
+}
+
+/**
+ * Normalize a labor estimate from any format to canonical format
+ * Handles both camelCase (Estimator) and snake_case (standard) fields
+ * 
+ * @param estimate - Raw labor estimate from baseline
+ * @returns Normalized labor estimate with canonical rubroId
+ */
+export function normalizeLaborEstimate(estimate: any): {
+  rubroId: string;
+  role?: string;
+  level?: string;
+  hours_per_month: number;
+  fte_count: number;
+  hourly_rate: number;
+  rate: number;
+  on_cost_percentage: number;
+  start_month: number;
+  end_month: number;
+} {
+  // Determine canonical rubroId
+  let canonicalRubroId = estimate.rubroId || estimate.rubro_id;
+  
+  // If no rubroId provided, derive from role using taxonomy
+  if (!canonicalRubroId && estimate.role) {
+    canonicalRubroId = mapModRoleToRubroId(estimate.role);
+  }
+  
+  // Normalize to canonical format if needed
+  if (canonicalRubroId) {
+    canonicalRubroId = getCanonicalRubroId(canonicalRubroId) || canonicalRubroId;
+  }
+  
+  // Use default if still no rubroId
+  if (!canonicalRubroId) {
+    canonicalRubroId = DEFAULT_LABOR_RUBRO;
+  }
+
+  return {
+    rubroId: canonicalRubroId,
+    role: estimate.role,
+    level: estimate.level,
+    // Handle both camelCase and snake_case
+    hours_per_month: estimate.hours_per_month ?? estimate.hoursPerMonth ?? estimate.hours ?? 0,
+    fte_count: estimate.fte_count ?? estimate.fteCount ?? 1,
+    hourly_rate: estimate.hourly_rate ?? estimate.hourlyRate ?? estimate.rate ?? 0,
+    rate: estimate.rate ?? estimate.hourly_rate ?? estimate.hourlyRate ?? 0,
+    on_cost_percentage: estimate.on_cost_percentage ?? estimate.onCostPercentage ?? 0,
+    start_month: estimate.start_month ?? estimate.startMonth ?? 1,
+    end_month: estimate.end_month ?? estimate.endMonth ?? estimate.start_month ?? estimate.startMonth ?? 1,
+  };
+}
+
+/**
+ * Normalize a non-labor estimate from any format to canonical format
+ * Handles both camelCase (Estimator) and snake_case (standard) fields
+ * 
+ * @param estimate - Raw non-labor estimate from baseline
+ * @returns Normalized non-labor estimate with canonical rubroId
+ */
+export function normalizeNonLaborEstimate(estimate: any): {
+  rubroId: string;
+  category?: string;
+  description?: string;
+  amount: number;
+  vendor?: string;
+  one_time: boolean;
+  start_month: number;
+  end_month: number;
+} {
+  // Determine canonical rubroId
+  let canonicalRubroId = estimate.rubroId || estimate.rubro_id;
+  
+  // If no rubroId provided, try to derive from category/description
+  if (!canonicalRubroId) {
+    canonicalRubroId = 
+      mapNonLaborCategoryToRubroId(estimate.category) ||
+      mapNonLaborCategoryToRubroId(estimate.description);
+  }
+  
+  // Normalize to canonical format if needed
+  if (canonicalRubroId) {
+    canonicalRubroId = getCanonicalRubroId(canonicalRubroId) || canonicalRubroId;
+  }
+  
+  // Use default if still no rubroId
+  if (!canonicalRubroId) {
+    canonicalRubroId = DEFAULT_NON_LABOR_RUBRO;
+  }
+
+  return {
+    rubroId: canonicalRubroId,
+    category: estimate.category,
+    description: estimate.description ?? estimate.descripcion,
+    amount: estimate.amount ?? estimate.cost ?? estimate.total ?? 0,
+    vendor: estimate.vendor ?? estimate.proveedor,
+    one_time: estimate.one_time ?? estimate.oneTime ?? false,
+    start_month: estimate.start_month ?? estimate.startMonth ?? 1,
+    end_month: estimate.end_month ?? estimate.endMonth ?? estimate.start_month ?? estimate.startMonth ?? 1,
+  };
 }
