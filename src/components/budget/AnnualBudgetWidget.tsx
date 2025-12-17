@@ -19,6 +19,7 @@ import {
 import { DollarSign, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { getAnnualBudget, setAnnualBudget } from "@/api/finanzas";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AnnualBudgetWidgetProps {
   year?: number;
@@ -35,6 +36,7 @@ export function AnnualBudgetWidget({
   totalAdjustedForecast = 0,
   onBudgetUpdate,
 }: AnnualBudgetWidgetProps) {
+  const { user } = useAuth();
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(initialYear || currentYear);
   const [budgetAmount, setBudgetAmount] = useState<string>("");
@@ -48,6 +50,9 @@ export function AnnualBudgetWidget({
     lastUpdated: string;
     updatedBy: string;
   } | null>(null);
+
+  // Only ADMIN and EXEC_RO can edit (not PMO)
+  const canEdit = user?.current_role === 'ADMIN' || user?.current_role === 'EXEC_RO';
 
   // Load existing budget for the selected year
   useEffect(() => {
@@ -153,12 +158,16 @@ export function AnnualBudgetWidget({
               placeholder="5000000"
               value={budgetAmount}
               onChange={(e) => setBudgetAmount(e.target.value)}
-              disabled={loading || saving}
+              disabled={loading || saving || !canEdit}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="currency">Moneda</Label>
-            <Select value={currency} onValueChange={(v) => setCurrency(v as any)}>
+            <Select 
+              value={currency} 
+              onValueChange={(v) => setCurrency(v as any)}
+              disabled={!canEdit}
+            >
               <SelectTrigger id="currency">
                 <SelectValue />
               </SelectTrigger>
@@ -173,7 +182,7 @@ export function AnnualBudgetWidget({
 
         <Button
           onClick={handleSave}
-          disabled={loading || saving || !budgetAmount}
+          disabled={loading || saving || !budgetAmount || !canEdit}
           className="w-full"
         >
           <Save className="mr-2 h-4 w-4" />
