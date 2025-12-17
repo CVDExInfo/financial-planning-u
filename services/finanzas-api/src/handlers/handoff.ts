@@ -16,6 +16,13 @@ import { ZodError } from "zod";
 import { bad, fromAuthError, notFound, ok, serverError } from "../lib/http";
 import { resolveProjectForHandoff } from "../lib/projects-handoff";
 import { logError } from "../utils/logging";
+import {
+  mapModRoleToRubroId,
+  mapNonLaborCategoryToRubroId,
+  getCanonicalRubroId,
+  DEFAULT_LABOR_RUBRO,
+  DEFAULT_NON_LABOR_RUBRO,
+} from "../lib/rubros-taxonomy";
 
 type BaselineDealInputs = {
   project_name?: string;
@@ -27,10 +34,6 @@ type BaselineDealInputs = {
   currency?: string;
   sdm_manager_name?: string;
 };
-
-// Default rubro codes for fallback scenarios
-const DEFAULT_LABOR_RUBRO = "MOD-ING";
-const DEFAULT_NON_LABOR_RUBRO = "GSV-OTHER";
 
 type BaselineLaborEstimate = {
   rubroId?: string; // Canonical rubro ID from taxonomy (e.g., "MOD-ING", "MOD-LEAD")
@@ -98,14 +101,91 @@ const normalizeBaseline = (
   const payload = (baseline?.payload as BaselinePayload | undefined) || {};
   const dealInputs = (payload?.deal_inputs as BaselineDealInputs | undefined) || {};
 
-  const labor_estimates =
-    (baseline?.labor_estimates as BaselineLaborEstimate[] | undefined) ||
+  // Extract labor estimates from either payload or top-level
+  // Support both snake_case (standard) and camelCase (from Estimator)
+  const rawLaborEstimates =
+    (baseline?.labor_estimates as any[] | undefined) ||
+    (baseline?.laborEstimates as any[] | undefined) ||
     payload.labor_estimates ||
+    (payload as any)?.laborEstimates ||
     [];
-  const non_labor_estimates =
-    (baseline?.non_labor_estimates as BaselineNonLaborEstimate[] | undefined) ||
+
+  // Extract non-labor estimates from either payload or top-level
+  const rawNonLaborEstimates =
+    (baseline?.non_labor_estimates as any[] | undefined) ||
+    (baseline?.nonLaborEstimates as any[] | undefined) ||
     payload.non_labor_estimates ||
+    (payload as any)?.nonLaborEstimates ||
     [];
+
+  // Normalize labor estimates: handle camelCase fields + map roles to canonical rubroIds
+  const labor_estimates: BaselineLaborEstimate[] = rawLaborEstimates.map((estimate: any) => {
+    // Determine canonical rubroId
+    let canonicalRubroId = estimate.rubroId || estimate.rubro_id;
+    
+    // If no rubroId provided, derive from role using taxonomy
+    if (!canonicalRubroId && estimate.role) {
+      canonicalRubroId = mapModRoleToRubroId(estimate.role);
+    }
+    
+    // Normalize to canonical format if needed
+    if (canonicalRubroId) {
+      canonicalRubroId = getCanonicalRubroId(canonicalRubroId) || canonicalRubroId;
+    }
+    
+    // Use default if still no rubroId
+    if (!canonicalRubroId) {
+      canonicalRubroId = DEFAULT_LABOR_RUBRO;
+    }
+
+    return {
+      rubroId: canonicalRubroId,
+      role: estimate.role,
+      level: estimate.level,
+      // Handle both camelCase and snake_case
+      hours_per_month: estimate.hours_per_month ?? estimate.hoursPerMonth ?? estimate.hours,
+      fte_count: estimate.fte_count ?? estimate.fteCount ?? 1,
+      hourly_rate: estimate.hourly_rate ?? estimate.hourlyRate ?? estimate.rate,
+      rate: estimate.rate ?? estimate.hourly_rate ?? estimate.hourlyRate,
+      on_cost_percentage: estimate.on_cost_percentage ?? estimate.onCostPercentage ?? 0,
+      start_month: estimate.start_month ?? estimate.startMonth ?? 1,
+      end_month: estimate.end_month ?? estimate.endMonth ?? estimate.start_month ?? estimate.startMonth ?? 1,
+    };
+  });
+
+  // Normalize non-labor estimates: handle camelCase fields + map categories to canonical rubroIds
+  const non_labor_estimates: BaselineNonLaborEstimate[] = rawNonLaborEstimates.map((estimate: any) => {
+    // Determine canonical rubroId
+    let canonicalRubroId = estimate.rubroId || estimate.rubro_id;
+    
+    // If no rubroId provided, try to derive from category/description
+    if (!canonicalRubroId) {
+      canonicalRubroId = 
+        mapNonLaborCategoryToRubroId(estimate.category) ||
+        mapNonLaborCategoryToRubroId(estimate.description);
+    }
+    
+    // Normalize to canonical format if needed
+    if (canonicalRubroId) {
+      canonicalRubroId = getCanonicalRubroId(canonicalRubroId) || canonicalRubroId;
+    }
+    
+    // Use default if still no rubroId
+    if (!canonicalRubroId) {
+      canonicalRubroId = DEFAULT_NON_LABOR_RUBRO;
+    }
+
+    return {
+      rubroId: canonicalRubroId,
+      category: estimate.category,
+      description: estimate.description ?? estimate.descripcion,
+      amount: estimate.amount ?? estimate.cost ?? estimate.total ?? 0,
+      vendor: estimate.vendor ?? estimate.proveedor,
+      one_time: estimate.one_time ?? estimate.oneTime ?? false,
+      start_month: estimate.start_month ?? estimate.startMonth ?? 1,
+      end_month: estimate.end_month ?? estimate.endMonth ?? estimate.start_month ?? estimate.startMonth ?? 1,
+    };
+  });
 
   return {
     project_id:
@@ -246,6 +326,18 @@ const seedLineItemsFromBaseline = async (
   deps: RubroSeedDeps = { send: sendDdb, tableName }
 ) => {
   try {
+    // VALIDATION: Check if baseline has any estimates
+    const { labor_estimates = [], non_labor_estimates = [] } = baseline;
+    if (!labor_estimates.length && !non_labor_estimates.length) {
+      console.error("[seedLineItems] No estimates found in baseline; cannot seed rubros", {
+        projectId,
+        baselineId,
+      });
+      return { seeded: 0, skipped: true, error: "no_estimates" as const };
+    }
+
+    // Check if this baseline has already been seeded
+    // Query all rubros for this project and filter by baseline_id in code
     if (baselineId) {
       const existing = await deps.send(
         new QueryCommand({
@@ -253,13 +345,19 @@ const seedLineItemsFromBaseline = async (
           KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
           ExpressionAttributeValues: {
             ":pk": `PROJECT#${projectId}`,
-            ":sk": `RUBRO#${baselineId}`,
+            ":sk": "RUBRO#",
           },
-          Limit: 1,
         })
       );
 
-      if ((existing.Items?.length || 0) > 0) {
+      // Filter in code by metadata.baseline_id or baselineId
+      const alreadySeededForBaseline = (existing.Items || []).some(
+        (item: any) =>
+          item.metadata?.baseline_id === baselineId ||
+          item.baselineId === baselineId
+      );
+
+      if (alreadySeededForBaseline) {
         console.info("[seedLineItems] Baseline already seeded, skipping", {
           projectId,
           baselineId,
