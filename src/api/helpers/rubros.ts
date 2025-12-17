@@ -107,9 +107,10 @@ export async function fetchNonLaborRubros(): Promise<RubroMeta[]> {
  */
 /**
  * Default rubro codes for fallback scenarios
+ * GSV-REU is used as default for non-labor since it's a common service management category
  */
 export const DEFAULT_LABOR_RUBRO = "MOD-ING";
-export const DEFAULT_NON_LABOR_RUBRO = "GSV-OTHER";
+export const DEFAULT_NON_LABOR_RUBRO = "GSV-REU";
 
 export function mapModRoleToRubroId(role: MODRole): string | undefined {
   return MOD_ROLE_TO_LINEA_CODIGO[role];
