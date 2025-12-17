@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ensureSDT, ensureCanRead, getUserContext } from "../lib/auth";
+import { ensureCanRead, getUserContext } from "../lib/auth";
 import { bad, ok, noContent, serverError } from "../lib/http";
 import { ddb, tableName, QueryCommand, ScanCommand, PutCommand, GetCommand } from "../lib/dynamo";
 import { logError } from "../utils/logging";
