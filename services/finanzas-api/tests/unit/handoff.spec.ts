@@ -462,54 +462,56 @@ describe("Handoff Handler", () => {
       const rubrosWritten: any[] = [];
 
       dynamo.ddb.send.mockImplementation((command: any) => {
-        const commandName = command.constructor.name || command.input?.constructor?.name;
-
-        // Metadata check - no existing project
-        if (commandName === "GetCommand" && command.input?.Key?.sk === "METADATA") {
-          return Promise.resolve({ Item: undefined });
-        }
+        // Better command detection
+        const input = command.input || command;
 
         // Idempotency check - no existing record
-        if (commandName === "GetCommand" && command.input?.Key?.pk === "IDEMPOTENCY#HANDOFF") {
+        if (input?.Key?.pk === "IDEMPOTENCY#HANDOFF") {
           return Promise.resolve({ Item: undefined });
         }
 
         // Baseline METADATA query - return full baseline with estimates
         if (
-          commandName === "GetCommand" &&
-          command.input?.Key?.pk === `BASELINE#${baselineId}` &&
-          command.input?.Key?.sk === "METADATA"
+          input?.Key?.pk === `BASELINE#${baselineId}` &&
+          input?.Key?.sk === "METADATA"
         ) {
           return Promise.resolve({ Item: fullBaseline });
         }
 
         // Project-scoped baseline query - return undefined (not found)
         if (
-          commandName === "GetCommand" &&
-          command.input?.Key?.pk === `PROJECT#${projectId}` &&
-          command.input?.Key?.sk === `BASELINE#${baselineId}`
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === `BASELINE#${baselineId}`
         ) {
           return Promise.resolve({ Item: undefined });
         }
 
-        // QueryCommand for checking if rubros already exist
-        if (commandName === "QueryCommand" && command.input?.TableName?.includes("rubros")) {
-          return Promise.resolve({ Items: [] }); // No existing rubros
+        // Project metadata check - no existing project
+        if (
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === "METADATA"
+        ) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        // QueryCommand for checking if rubros already exist - return empty
+        if (input?.KeyConditionExpression || input?.ExpressionAttributeValues) {
+          return Promise.resolve({ Items: [] });
         }
 
         // PutCommand for rubros - capture them
-        if (commandName === "PutCommand" && command.input?.TableName?.includes("rubros")) {
-          rubrosWritten.push(command.input.Item);
+        if (input?.Item && input?.TableName?.includes("rubros")) {
+          rubrosWritten.push(input.Item);
           return Promise.resolve({});
         }
 
         // Other PutCommands (handoff, metadata, audit, idempotency)
-        if (commandName === "PutCommand") {
+        if (input?.Item) {
           return Promise.resolve({});
         }
 
         // TransactWriteCommand for handoff + metadata
-        if (commandName === "TransactWriteCommand") {
+        if (input?.TransactItems) {
           return Promise.resolve({});
         }
 
@@ -615,48 +617,50 @@ describe("Handoff Handler", () => {
       const rubrosWritten: any[] = [];
 
       dynamo.ddb.send.mockImplementation((command: any) => {
-        const commandName = command.constructor.name || command.input?.constructor?.name;
+        const input = command.input || command;
 
-        if (commandName === "GetCommand" && command.input?.Key?.sk === "METADATA") {
-          return Promise.resolve({ Item: undefined });
-        }
-
-        if (commandName === "GetCommand" && command.input?.Key?.pk === "IDEMPOTENCY#HANDOFF") {
+        if (input?.Key?.pk === "IDEMPOTENCY#HANDOFF") {
           return Promise.resolve({ Item: undefined });
         }
 
         // Baseline METADATA query - return baseline WITHOUT estimates
         if (
-          commandName === "GetCommand" &&
-          command.input?.Key?.pk === `BASELINE#${baselineId}` &&
-          command.input?.Key?.sk === "METADATA"
+          input?.Key?.pk === `BASELINE#${baselineId}` &&
+          input?.Key?.sk === "METADATA"
         ) {
           return Promise.resolve({ Item: metadataBaseline });
         }
 
         // Project-scoped baseline query - return baseline WITH estimates
         if (
-          commandName === "GetCommand" &&
-          command.input?.Key?.pk === `PROJECT#${projectId}` &&
-          command.input?.Key?.sk === `BASELINE#${baselineId}`
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === `BASELINE#${baselineId}`
         ) {
           return Promise.resolve({ Item: projectBaseline });
         }
 
-        if (commandName === "QueryCommand" && command.input?.TableName?.includes("rubros")) {
+        // Project metadata check - no existing project
+        if (
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === "METADATA"
+        ) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (input?.KeyConditionExpression || input?.ExpressionAttributeValues) {
           return Promise.resolve({ Items: [] });
         }
 
-        if (commandName === "PutCommand" && command.input?.TableName?.includes("rubros")) {
-          rubrosWritten.push(command.input.Item);
+        if (input?.Item && input?.TableName?.includes("rubros")) {
+          rubrosWritten.push(input.Item);
           return Promise.resolve({});
         }
 
-        if (commandName === "PutCommand") {
+        if (input?.Item) {
           return Promise.resolve({});
         }
 
-        if (commandName === "TransactWriteCommand") {
+        if (input?.TransactItems) {
           return Promise.resolve({});
         }
 
@@ -732,41 +736,43 @@ describe("Handoff Handler", () => {
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
 
       dynamo.ddb.send.mockImplementation((command: any) => {
-        const commandName = command.constructor.name || command.input?.constructor?.name;
+        const input = command.input || command;
 
-        if (commandName === "GetCommand" && command.input?.Key?.sk === "METADATA") {
-          return Promise.resolve({ Item: undefined });
-        }
-
-        if (commandName === "GetCommand" && command.input?.Key?.pk === "IDEMPOTENCY#HANDOFF") {
+        if (input?.Key?.pk === "IDEMPOTENCY#HANDOFF") {
           return Promise.resolve({ Item: undefined });
         }
 
         if (
-          commandName === "GetCommand" &&
-          command.input?.Key?.pk === `BASELINE#${baselineId}` &&
-          command.input?.Key?.sk === "METADATA"
+          input?.Key?.pk === `BASELINE#${baselineId}` &&
+          input?.Key?.sk === "METADATA"
         ) {
           return Promise.resolve({ Item: metadataBaseline });
         }
 
         if (
-          commandName === "GetCommand" &&
-          command.input?.Key?.pk === `PROJECT#${projectId}` &&
-          command.input?.Key?.sk === `BASELINE#${baselineId}`
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === `BASELINE#${baselineId}`
         ) {
           return Promise.resolve({ Item: projectBaseline });
         }
 
-        if (commandName === "QueryCommand" && command.input?.TableName?.includes("rubros")) {
+        // Project metadata check - no existing project
+        if (
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === "METADATA"
+        ) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (input?.KeyConditionExpression || input?.ExpressionAttributeValues) {
           return Promise.resolve({ Items: [] });
         }
 
-        if (commandName === "PutCommand") {
+        if (input?.Item) {
           return Promise.resolve({});
         }
 
-        if (commandName === "TransactWriteCommand") {
+        if (input?.TransactItems) {
           return Promise.resolve({});
         }
 
@@ -848,46 +854,48 @@ describe("Handoff Handler", () => {
       const rubrosWritten: any[] = [];
 
       dynamo.ddb.send.mockImplementation((command: any) => {
-        const commandName = command.constructor.name || command.input?.constructor?.name;
+        const input = command.input || command;
 
-        if (commandName === "GetCommand" && command.input?.Key?.sk === "METADATA") {
-          return Promise.resolve({ Item: undefined });
-        }
-
-        if (commandName === "GetCommand" && command.input?.Key?.pk === "IDEMPOTENCY#HANDOFF") {
+        if (input?.Key?.pk === "IDEMPOTENCY#HANDOFF") {
           return Promise.resolve({ Item: undefined });
         }
 
         if (
-          commandName === "GetCommand" &&
-          command.input?.Key?.pk === `BASELINE#${baselineId}` &&
-          command.input?.Key?.sk === "METADATA"
+          input?.Key?.pk === `BASELINE#${baselineId}` &&
+          input?.Key?.sk === "METADATA"
         ) {
           return Promise.resolve({ Item: metadataBaseline });
         }
 
         if (
-          commandName === "GetCommand" &&
-          command.input?.Key?.pk === `PROJECT#${projectId}` &&
-          command.input?.Key?.sk === `BASELINE#${baselineId}`
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === `BASELINE#${baselineId}`
         ) {
           return Promise.resolve({ Item: projectBaseline });
         }
 
-        if (commandName === "QueryCommand" && command.input?.TableName?.includes("rubros")) {
+        // Project metadata check - no existing project
+        if (
+          input?.Key?.pk === `PROJECT#${projectId}` &&
+          input?.Key?.sk === "METADATA"
+        ) {
+          return Promise.resolve({ Item: undefined });
+        }
+
+        if (input?.KeyConditionExpression || input?.ExpressionAttributeValues) {
           return Promise.resolve({ Items: [] });
         }
 
-        if (commandName === "PutCommand" && command.input?.TableName?.includes("rubros")) {
-          rubrosWritten.push(command.input.Item);
+        if (input?.Item && input?.TableName?.includes("rubros")) {
+          rubrosWritten.push(input.Item);
           return Promise.resolve({});
         }
 
-        if (commandName === "PutCommand") {
+        if (input?.Item) {
           return Promise.resolve({});
         }
 
-        if (commandName === "TransactWriteCommand") {
+        if (input?.TransactItems) {
           return Promise.resolve({});
         }
 
