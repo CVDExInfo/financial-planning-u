@@ -40,6 +40,18 @@ import { getForecastPayload, getProjectInvoices } from './forecastService';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
 
+// TODO: Backend Integration for Change Request Impact on Forecast
+// When a change request is approved in SDMTChanges, the backend should:
+// 1. Parse the change's start_month_index, duration_months, and allocation_mode
+// 2. Create or update forecast entries for each affected_line_items (or new_line_item_request)
+// 3. Distribute the impact_amount across months according to allocation_mode:
+//    - "one_time": Add full amount to start_month_index only
+//    - "spread_evenly": Divide amount equally across duration_months starting from start_month_index
+// 4. Return forecast cells with metadata linking them to the change request ID
+// 5. This component will then display change indicators (e.g., "Change #123" chip) on affected cells
+// Expected API response enhancement: ForecastCell should include optional field:
+//   - change_request_id?: string (to link forecast cells to their source change)
+
 type ForecastRow = ForecastCell & { projectId?: string; projectName?: string };
 type ProjectLineItem = LineItem & { projectId?: string; projectName?: string };
 
@@ -1039,6 +1051,14 @@ export function SDMTForecast() {
                                 {cell.variance > 0 ? '+' : ''}{formatGridCurrency(cell.variance)}
                               </div>
                             )}
+                            
+                            {/* TODO: Show change request indicator when backend provides change_request_id
+                            {cell.change_request_id && (
+                              <Badge variant="outline" className="text-[10px] mt-1">
+                                Change #{cell.change_request_id.slice(0, 8)}
+                              </Badge>
+                            )}
+                            */}
                           </div>
                         </TableCell>
                       ))}

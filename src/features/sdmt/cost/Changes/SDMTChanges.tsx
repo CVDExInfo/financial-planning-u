@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import {
   Plus,
   Clock,
@@ -75,6 +78,15 @@ const defaultForm = {
   baseline_id: "",
   justification: "",
   affected_line_items: [] as string[],
+  // Time distribution fields
+  start_month_index: 1,
+  duration_months: 1,
+  allocation_mode: "one_time" as "one_time" | "spread_evenly",
+  // New line item request
+  requires_new_rubro: false,
+  new_rubro_name: "",
+  new_rubro_type: "OPEX",
+  new_rubro_description: "",
 };
 
 type ChangeRequestForm = typeof defaultForm;
@@ -82,6 +94,7 @@ type ChangeRequestForm = typeof defaultForm;
 type ChangeStatus = DomainChangeRequest["status"];
 
 const currencyOptions = ["USD", "EUR", "MXN", "COP"] as const;
+const expenseTypeOptions = ["OPEX", "CAPEX", "OTHER"] as const;
 
 const statusIcon = (status: ChangeStatus) => {
   switch (status) {
@@ -121,9 +134,11 @@ const formatRubroLabel = (item?: { category?: string; subtype?: string; descript
 };
 
 export function SDMTChanges() {
-  const { selectedProjectId, currentProject } = useProject();
+  const { selectedProjectId, currentProject, selectedPeriod } = useProject();
   const { login } = useAuth();
   const { canApprove } = usePermissions();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [changeRequests, setChangeRequests] = useState<DomainChangeRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -236,6 +251,7 @@ export function SDMTChanges() {
   const computedFormErrors = useMemo(() => {
     const errors: Record<string, string> = {};
     const impact = Number(form.impact_amount);
+    const projectPeriod = parseInt(selectedPeriod) || 60; // Default to 60 months
 
     if (!form.title.trim()) errors.title = "El título es obligatorio.";
     if (!form.description.trim()) errors.description = "La descripción es obligatoria.";
@@ -243,11 +259,28 @@ export function SDMTChanges() {
     if (Number.isNaN(impact) || impact <= 0)
       errors.impact_amount = "El impacto debe ser un número mayor a 0.";
     if (!form.currency) errors.currency = "Selecciona una moneda.";
-    if (selectedLineItemIds.length === 0)
-      errors.affected_line_items = "Selecciona al menos un rubro afectado.";
+    
+    // Validate time distribution
+    if (form.duration_months < 1) 
+      errors.duration_months = "La duración debe ser al menos 1 mes.";
+    if (form.start_month_index < 1) 
+      errors.start_month_index = "El mes de inicio debe ser al menos 1.";
+    if (form.start_month_index + form.duration_months - 1 > projectPeriod)
+      errors.duration_months = `La duración excede el período del proyecto (${projectPeriod} meses).`;
+    
+    // Validate line items or new rubro request
+    if (form.requires_new_rubro) {
+      if (!form.new_rubro_name.trim()) 
+        errors.new_rubro_name = "El nombre del nuevo rubro es obligatorio.";
+      if (!form.new_rubro_description.trim())
+        errors.new_rubro_description = "La descripción del nuevo rubro es obligatoria.";
+    } else {
+      if (selectedLineItemIds.length === 0)
+        errors.affected_line_items = "Selecciona al menos un rubro afectado.";
+    }
 
     return errors;
-  }, [form.currency, form.description, form.impact_amount, form.justification, form.title, selectedLineItemIds.length]);
+  }, [form, selectedLineItemIds.length, selectedPeriod]);
 
   const isFormValid = useMemo(
     () => Object.keys(computedFormErrors).length === 0,
@@ -304,6 +337,21 @@ export function SDMTChanges() {
         action,
         comment,
       });
+    },
+    onSuccess: async (data, variables) => {
+      // TODO: Backend should update forecast entries based on:
+      // - start_month_index, duration_months, allocation_mode
+      // - impact_amount and affected_line_items
+      // - For new_line_item_request, create the new rubro first
+      // Expected: Forecast API should return cells with change metadata
+      
+      // Invalidate forecast cache so SDMTForecast refreshes with new data
+      if (selectedProjectId && variables.action === "approve") {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["forecast", selectedProjectId] }),
+          queryClient.invalidateQueries({ queryKey: ["lineItems", selectedProjectId] }),
+        ]);
+      }
     },
   });
 
@@ -364,6 +412,16 @@ export function SDMTChanges() {
       currency: form.currency || currentProject?.currency || "USD",
       justification: form.justification.trim(),
       affected_line_items: selectedLineItemIds,
+      // Time distribution fields
+      start_month_index: form.start_month_index,
+      duration_months: form.duration_months,
+      allocation_mode: form.allocation_mode,
+      // New line item request (if applicable)
+      new_line_item_request: form.requires_new_rubro ? {
+        name: form.new_rubro_name.trim(),
+        type: form.new_rubro_type,
+        description: form.new_rubro_description.trim(),
+      } : undefined,
     };
 
     try {
@@ -412,6 +470,8 @@ export function SDMTChanges() {
     comments: string,
   ) => {
     const trimmedComment = comments.trim();
+    const changeBeingApproved = changeRequests.find((c) => c.id === requestId);
+    
     try {
       setApprovalError(null);
       const updated = await approvalMutation.mutateAsync({
@@ -436,7 +496,25 @@ export function SDMTChanges() {
         }),
       );
 
-      toast.success(action === "approve" ? "Cambio aprobado" : "Cambio rechazado");
+      if (action === "approve") {
+        const affectedRubrosCount = changeBeingApproved?.affected_line_items?.length || 0;
+        const newRubroRequested = changeBeingApproved?.new_line_item_request ? 1 : 0;
+        const totalRubros = affectedRubrosCount + newRubroRequested;
+        
+        toast.success(
+          `Cambio aprobado. Pronóstico actualizado para ${totalRubros} rubro${totalRubros !== 1 ? 's' : ''}`,
+          {
+            action: {
+              label: "Ver Pronóstico",
+              onClick: () => navigate("/sdmt/cost/forecast"),
+            },
+            duration: 5000,
+          }
+        );
+      } else {
+        toast.success("Cambio rechazado");
+      }
+      
       setIsWorkflowDialogOpen(false);
       setWorkflowChange(null);
     } catch (err) {
@@ -485,6 +563,12 @@ export function SDMTChanges() {
       currentStep: pendingIndex === -1 ? approvalSteps.length : pendingIndex,
       businessJustification: change.justification,
       affectedLineItems: change.affected_line_items || [],
+      // Time distribution fields
+      startMonthIndex: change.start_month_index,
+      durationMonths: change.duration_months,
+      allocationMode: change.allocation_mode,
+      // New line item request
+      newLineItemRequest: change.new_line_item_request,
     };
   };
 
@@ -570,11 +654,25 @@ export function SDMTChanges() {
 
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Solicitudes de Cambio</h2>
-        <Button className="gap-2" onClick={() => setCreateOpen(true)}>
+        <Button 
+          className="gap-2" 
+          onClick={() => setCreateOpen(true)}
+          disabled={!currentProject?.baseline_id}
+          title={!currentProject?.baseline_id ? "Debes aceptar una línea base antes de crear cambios" : ""}
+        >
           <Plus size={16} />
           Nueva Solicitud de Cambio
         </Button>
       </div>
+
+      {!currentProject?.baseline_id && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Este proyecto no tiene una línea base aceptada. Debes aceptar una línea base antes de registrar cambios.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {error && (
         <Alert variant="destructive">
@@ -726,19 +824,24 @@ export function SDMTChanges() {
                 )}
               </div>
               <div>
-                <Label htmlFor="baseline">ID de Línea Base (opcional)</Label>
+                <Label htmlFor="baseline">Línea Base</Label>
                 <Input
                   id="baseline"
-                  value={form.baseline_id}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, baseline_id: e.target.value }))
-                  }
+                  value={form.baseline_id || "Sin línea base"}
+                  readOnly
+                  disabled
+                  className="bg-muted"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   {currentProject?.baseline_id
-                    ? `Auto-relleno desde la línea base del proyecto (${currentProject.baseline_id}).`
-                    : "Se vinculará automáticamente cuando el proyecto tenga una línea base."}
+                    ? `Vinculado automáticamente a la línea base aceptada del proyecto.`
+                    : "⚠️ Este proyecto no tiene una línea base aceptada."}
                 </p>
+                {!currentProject?.baseline_id && (
+                  <p className="text-xs text-destructive mt-1">
+                    Debes aceptar una línea base antes de crear cambios.
+                  </p>
+                )}
               </div>
             </div>
             <div>
@@ -819,6 +922,147 @@ export function SDMTChanges() {
                 )}
               </div>
             </div>
+            
+            {/* Time Distribution Section */}
+            <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+              <h3 className="font-semibold text-sm">Distribución Temporal del Impacto</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="start_month">Aplicar desde (Mes)</Label>
+                  <Input
+                    id="start_month"
+                    type="number"
+                    min="1"
+                    max={parseInt(currentProject?.period || "60")}
+                    value={form.start_month_index}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, start_month_index: parseInt(e.target.value) || 1 }))
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Mes inicial (1-{parseInt(currentProject?.period || "60")})
+                  </p>
+                  {formErrors.start_month_index && (
+                    <p className="text-sm text-destructive mt-1">{formErrors.start_month_index}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="duration">Duración (meses)</Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    min="1"
+                    value={form.duration_months}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, duration_months: parseInt(e.target.value) || 1 }))
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Número de meses para aplicar el impacto
+                  </p>
+                  {formErrors.duration_months && (
+                    <p className="text-sm text-destructive mt-1">{formErrors.duration_months}</p>
+                  )}
+                </div>
+                <div>
+                  <Label>Modo de Aplicación</Label>
+                  <RadioGroup
+                    value={form.allocation_mode}
+                    onValueChange={(value: "one_time" | "spread_evenly") =>
+                      setForm((prev) => ({ ...prev, allocation_mode: value }))
+                    }
+                    className="mt-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="one_time" id="one_time" />
+                      <Label htmlFor="one_time" className="font-normal cursor-pointer">
+                        Aplicar todo en el mes inicial
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="spread_evenly" id="spread_evenly" />
+                      <Label htmlFor="spread_evenly" className="font-normal cursor-pointer">
+                        Distribuir en partes iguales
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </div>
+            </div>
+            
+            {/* New Rubro Section */}
+            <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="requires_new_rubro">Este cambio requiere un rubro nuevo</Label>
+                <Switch
+                  id="requires_new_rubro"
+                  checked={form.requires_new_rubro}
+                  onCheckedChange={(checked) =>
+                    setForm((prev) => ({ ...prev, requires_new_rubro: checked }))
+                  }
+                />
+              </div>
+              
+              {form.requires_new_rubro && (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Especifica los detalles del nuevo rubro que se creará al aprobar este cambio.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="new_rubro_name">Nombre del Nuevo Rubro</Label>
+                      <Input
+                        id="new_rubro_name"
+                        value={form.new_rubro_name}
+                        onChange={(e) =>
+                          setForm((prev) => ({ ...prev, new_rubro_name: e.target.value }))
+                        }
+                        placeholder="Ej: Consultoría de seguridad"
+                      />
+                      {formErrors.new_rubro_name && (
+                        <p className="text-sm text-destructive mt-1">{formErrors.new_rubro_name}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="new_rubro_type">Tipo de Gasto</Label>
+                      <Select
+                        value={form.new_rubro_type}
+                        onValueChange={(value) =>
+                          setForm((prev) => ({ ...prev, new_rubro_type: value }))
+                        }
+                      >
+                        <SelectTrigger id="new_rubro_type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {expenseTypeOptions.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="new_rubro_description">Descripción Operativa</Label>
+                    <Textarea
+                      id="new_rubro_description"
+                      value={form.new_rubro_description}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, new_rubro_description: e.target.value }))
+                      }
+                      placeholder="Describe el propósito y alcance del nuevo rubro..."
+                      rows={3}
+                    />
+                    {formErrors.new_rubro_description && (
+                      <p className="text-sm text-destructive mt-1">{formErrors.new_rubro_description}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="line-items">Rubros afectados</Label>
@@ -839,9 +1083,12 @@ export function SDMTChanges() {
                     aria-expanded={lineItemSelectorOpen}
                     className="w-full justify-between"
                     id="line-items"
+                    disabled={form.requires_new_rubro}
                   >
                     <span className="truncate text-left">
-                      {lineItemsLoading
+                      {form.requires_new_rubro
+                        ? "Deshabilitado: usando nuevo rubro"
+                        : lineItemsLoading
                         ? "Cargando rubros..."
                         : selectedLineItemLabels[0] || "Selecciona rubros afectados"}
                       {selectedLineItemIds.length > 1 && (
@@ -900,6 +1147,36 @@ export function SDMTChanges() {
                 </div>
               )}
             </div>
+            
+            {/* Impact Summary */}
+            {isFormValid && (
+              <div className="space-y-2 p-4 border rounded-lg bg-primary/5">
+                <h3 className="font-semibold text-sm">Resumen de Impacto</h3>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Línea Base:</span>
+                    <span className="font-mono">{form.baseline_id || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Rubros Afectados:</span>
+                    <span>
+                      {form.requires_new_rubro
+                        ? `Nuevo: ${form.new_rubro_name || "Sin nombre"}`
+                        : `${selectedLineItemIds.length} rubro${selectedLineItemIds.length !== 1 ? 's' : ''}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Distribución:</span>
+                    <span>
+                      {form.allocation_mode === "one_time"
+                        ? `${form.impact_amount ? `+${Number(form.impact_amount).toLocaleString()}` : "0"} ${form.currency} en el mes ${form.start_month_index}`
+                        : `${form.impact_amount ? `+${Number(form.impact_amount).toLocaleString()}` : "0"} ${form.currency} distribuidos en ${form.duration_months} mes${form.duration_months !== 1 ? 'es' : ''} desde el mes ${form.start_month_index}`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 variant="outline"
@@ -910,7 +1187,7 @@ export function SDMTChanges() {
               </Button>
               <Button
                 onClick={onSubmit}
-                disabled={!isFormValid || createChangeMutation.isPending}
+                disabled={!isFormValid || createChangeMutation.isPending || !currentProject?.baseline_id}
               >
                 {createChangeMutation.isPending && (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

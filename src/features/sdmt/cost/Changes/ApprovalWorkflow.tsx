@@ -45,6 +45,16 @@ interface ChangeRequest {
   currentStep: number;
   businessJustification: string;
   affectedLineItems: string[];
+  // Time distribution fields
+  startMonthIndex?: number;
+  durationMonths?: number;
+  allocationMode?: "one_time" | "spread_evenly";
+  // New line item request
+  newLineItemRequest?: {
+    name: string;
+    type: string;
+    description: string;
+  };
 }
 
 interface ApprovalStep {
@@ -211,6 +221,52 @@ export function ApprovalWorkflow({
               </p>
             </div>
           </div>
+
+          {/* Time Distribution Info */}
+          {(changeRequest.startMonthIndex || changeRequest.durationMonths) && (
+            <div className="p-3 bg-muted/50 rounded-md">
+              <Label className="text-sm font-medium">Time Distribution</Label>
+              <div className="grid grid-cols-3 gap-4 mt-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Start Month:</span>
+                  <span className="ml-2 font-medium">{changeRequest.startMonthIndex || 1}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Duration:</span>
+                  <span className="ml-2 font-medium">{changeRequest.durationMonths || 1} months</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Mode:</span>
+                  <span className="ml-2 font-medium">
+                    {changeRequest.allocationMode === "one_time" ? "One-time" : "Spread evenly"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* New Line Item Request */}
+          {changeRequest.newLineItemRequest && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
+              <Label className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                New Line Item Request
+              </Label>
+              <div className="space-y-2 mt-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Name:</span>
+                  <span className="ml-2 font-medium">{changeRequest.newLineItemRequest.name}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Type:</span>
+                  <span className="ml-2 font-medium">{changeRequest.newLineItemRequest.type}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Description:</span>
+                  <p className="mt-1 text-muted-foreground">{changeRequest.newLineItemRequest.description}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <Label className="text-sm font-medium">Affected Line Items</Label>
