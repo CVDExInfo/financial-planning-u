@@ -302,6 +302,22 @@ Resources:
         - AttributeName: sk
           KeyType: RANGE
 
+  ProjectNotificationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${TablePrefix}project_notifications'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+
   # -------------------
   # HTTP API
   # -------------------
@@ -667,6 +683,8 @@ Resources:
             TableName: !Ref RubrosTable
         - DynamoDBCrudPolicy:
             TableName: !Ref AllocationsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectNotificationsTable
       Events:
         AcceptBaseline:
           Type: HttpApi
@@ -698,12 +716,43 @@ Resources:
             TableName: !Ref ProjectsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref AuditTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectNotificationsTable
       Events:
         RejectBaseline:
           Type: HttpApi
           Properties:
             Path: /projects/{projectId}/reject-baseline
             Method: PATCH
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+
+  NotificationsFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/notifications.ts
+        External:
+          - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+    Properties:
+      CodeUri: .
+      Handler: notifications.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectNotificationsTable
+      Events:
+        GetNotifications:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/notifications
+            Method: GET
             ApiId: !Ref Api
             Auth:
               Authorizer: CognitoJwt

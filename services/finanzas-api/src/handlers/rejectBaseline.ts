@@ -7,26 +7,26 @@ import {
   GetCommand,
   UpdateCommand,
 } from "../lib/dynamo";
-import { bad, fromAuthError, notFound, ok, serverError } from "../lib/http";
+import { bad, fromAuthError, notFound, ok, serverError, withCors } from "../lib/http";
 
 // Route: PATCH /projects/{projectId}/reject-baseline
 async function rejectBaseline(event: APIGatewayProxyEventV2) {
   await ensureCanWrite(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
-    return bad("missing project id");
+    return bad(event, "missing project id");
   }
 
   let body: Record<string, unknown>;
   try {
     body = JSON.parse(event.body ?? "{}");
   } catch {
-    return bad("Invalid JSON in request body");
+    return bad(event, "Invalid JSON in request body");
   }
 
   const baselineId = body.baseline_id as string | undefined;
   if (!baselineId) {
-    return bad("baseline_id is required");
+    return bad(event, "baseline_id is required");
   }
 
   const userEmail = await getUserEmail(event);
@@ -46,13 +46,14 @@ async function rejectBaseline(event: APIGatewayProxyEventV2) {
   );
 
   if (!projectResult.Item) {
-    return notFound("project not found");
+    return notFound(event, "project not found");
   }
 
   // Verify that the baseline matches
   const currentBaselineId = projectResult.Item.baseline_id;
   if (currentBaselineId !== baselineId) {
     return bad(
+      event,
       `baseline_id mismatch: expected ${currentBaselineId}, got ${baselineId}`,
       400
     );
@@ -119,28 +120,41 @@ async function rejectBaseline(event: APIGatewayProxyEventV2) {
     })
   );
 
-  // TODO: PM Notification Extension Point
-  // When a baseline is rejected, notify the PM via:
-  // 1. Email lambda (if configured)
-  // 2. Notifications table entry (for in-app notifications)
-  // 
-  // Example notification entry:
-  // await ddb.send(
-  //   new PutCommand({
-  //     TableName: tableName("project_notifications"),
-  //     Item: {
-  //       pk: `PROJECT#${projectId}`,
-  //       sk: `NOTIFICATION#${now}`,
-  //       type: "baseline_rejected",
-  //       recipient: projectResult.Item.pm_email,
-  //       message: `SDMT has rejected the baseline for project ${projectResult.Item.name}`,
-  //       comment: comment,
-  //       rejected_by: rejectedBy,
-  //       timestamp: now,
-  //       read: false,
-  //     },
-  //   })
-  // );
+  // PM Notification: Write to project_notifications table for PMO to see
+  try {
+    const recipient = projectResult.Item.sdm_manager_email || projectResult.Item.pm_email || "unknown";
+    await ddb.send(
+      new PutCommand({
+        TableName: tableName("project_notifications"),
+        Item: {
+          pk: `PROJECT#${projectId}`,
+          sk: `NOTIFICATION#${now}`,
+          type: "baseline_rejected",
+          recipient,
+          message: `SDMT rejected baseline ${baselineId} for ${projectResult.Item.name || projectId}`,
+          comment,
+          baseline_id: baselineId,
+          actioned_by: rejectedBy,
+          rejected_by: rejectedBy,
+          timestamp: now,
+          read: false,
+        },
+      })
+    );
+    console.info("[rejectBaseline] Notification created for PM", {
+      projectId,
+      baselineId,
+      recipient,
+      comment,
+    });
+  } catch (notificationError) {
+    // Log error but don't fail the reject operation
+    logError("rejectBaseline: failed to create PM notification", {
+      projectId,
+      baselineId,
+      error: notificationError,
+    });
+  }
 
   // Helper to normalize project fields (handles both English and Spanish field names)
   const normalizeProjectFields = (attrs: any) => ({
@@ -166,7 +180,7 @@ async function rejectBaseline(event: APIGatewayProxyEventV2) {
     ...normalizeProjectFields(updated.Attributes),
   };
 
-  return ok(result);
+  return ok(event, result);
 }
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
@@ -178,18 +192,21 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
     if (method === "PATCH" && path.includes("/projects/")) {
       return await rejectBaseline(event);
     } else {
-      return {
-        statusCode: 405,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "Method not allowed" }),
-      };
+      return withCors(
+        {
+          statusCode: 405,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ error: "Method not allowed" }),
+        },
+        event
+      );
     }
   } catch (err: unknown) {
     // Handle auth errors
-    const authError = fromAuthError(err);
+    const authError = fromAuthError(err, event);
     if (authError) return authError;
 
     console.error("Reject baseline handler error:", err);
-    return serverError();
+    return serverError(event);
   }
 };

@@ -26,11 +26,6 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     return bad(event, "Invalid JSON in request body");
   }
 
-  const baselineId = body.baseline_id as string | undefined;
-  if (!baselineId) {
-    return bad(event, "baseline_id is required");
-  }
-
   const userEmail = await getUserEmail(event);
   const acceptedBy = (body.accepted_by || userEmail) as string;
   const now = new Date().toISOString();
@@ -50,12 +45,33 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     return notFound(event, "project not found");
   }
 
-  // Verify that the baseline matches
-  const currentBaselineId = projectResult.Item.baseline_id;
-  if (currentBaselineId !== baselineId) {
+  // ROBUSTNESS FIX: Allow baseline_id to be omitted in request body
+  // If not provided, read from project metadata (makes frontend contract more flexible)
+  let baselineId = body.baseline_id as string | undefined;
+  const metadataBaselineId = projectResult.Item.baseline_id as string | undefined;
+
+  if (!baselineId && !metadataBaselineId) {
     return bad(
       event,
-      `baseline_id mismatch: expected ${currentBaselineId}, got ${baselineId}`,
+      "project metadata missing baseline_id: run handoff first",
+      400
+    );
+  }
+
+  // If baselineId not provided, use the one from metadata
+  if (!baselineId) {
+    baselineId = metadataBaselineId;
+    console.info("[acceptBaseline] Using baseline_id from project metadata", {
+      projectId,
+      baselineId,
+    });
+  }
+
+  // Verify that the baseline matches (if both are provided)
+  if (baselineId && metadataBaselineId && metadataBaselineId !== baselineId) {
+    return bad(
+      event,
+      `baseline_id mismatch: expected ${metadataBaselineId}, got ${baselineId}`,
       400
     );
   }
@@ -116,6 +132,39 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
       Item: audit,
     })
   );
+
+  // PM Notification: Write to project_notifications table for PMO to see
+  try {
+    const recipient = projectResult.Item.sdm_manager_email || projectResult.Item.pm_email || "unknown";
+    await ddb.send(
+      new PutCommand({
+        TableName: tableName("project_notifications"),
+        Item: {
+          pk: `PROJECT#${projectId}`,
+          sk: `NOTIFICATION#${now}`,
+          type: "baseline_accepted",
+          recipient,
+          message: `SDMT accepted baseline ${baselineId} for ${projectResult.Item.name || projectId}`,
+          baseline_id: baselineId,
+          actioned_by: acceptedBy,
+          timestamp: now,
+          read: false,
+        },
+      })
+    );
+    console.info("[acceptBaseline] Notification created for PM", {
+      projectId,
+      baselineId,
+      recipient,
+    });
+  } catch (notificationError) {
+    // Log error but don't fail the accept operation
+    logError("acceptBaseline: failed to create PM notification", {
+      projectId,
+      baselineId,
+      error: notificationError,
+    });
+  }
 
   // Helper to normalize project fields (handles both English and Spanish field names)
   const normalizeProjectFields = (attrs: any) => ({

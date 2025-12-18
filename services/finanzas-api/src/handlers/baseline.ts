@@ -410,6 +410,7 @@ export const listBaselines = async (
           item.project_name || item.preview?.project_name || item.payload?.project_name,
         client_name:
           item.client_name || item.preview?.client_name || item.payload?.client_name,
+        sdm_manager_email: item.sdm_manager_email || item.payload?.sdm_manager_email,
         status: item.status,
         total_amount: item.total_amount || item.payload?.contract_value,
         created_at: item.created_at,
