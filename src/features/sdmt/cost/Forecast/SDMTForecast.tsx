@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -48,10 +49,19 @@ import finanzasClient from '@/api/finanzasClient';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
 import { BudgetSimulatorCard } from './BudgetSimulatorCard';
+import { MonthlyBudgetCard } from './MonthlyBudgetCard';
 import { PortfolioSummaryView } from './PortfolioSummaryView';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
-import { allocateBudgetMonthly, aggregateMonthlyTotals, type MonthlyAllocation } from './budgetAllocation';
+import { 
+  allocateBudgetMonthly, 
+  aggregateMonthlyTotals, 
+  allocateBudgetWithMonthlyInputs,
+  calculateRunwayMetrics,
+  type MonthlyAllocation,
+  type MonthlyBudgetInput,
+  type RunwayMetrics,
+} from './budgetAllocation';
 
 // TODO: Backend Integration for Change Request Impact on Forecast
 // When a change request is approved in SDMTChanges, the backend should:
@@ -98,6 +108,9 @@ export function SDMTForecast() {
   const [budgetLastUpdated, setBudgetLastUpdated] = useState<string | null>(null);
   const [loadingBudget, setLoadingBudget] = useState(false);
   const [savingBudget, setSavingBudget] = useState(false);
+  // Monthly Budget state (new - per user request)
+  const [monthlyBudgets, setMonthlyBudgets] = useState<MonthlyBudgetInput[]>([]);
+  const [useMonthlyBudget, setUseMonthlyBudget] = useState(false);
   // Budget Overview state for KPIs
   const [budgetOverview, setBudgetOverview] = useState<{
     year: number;
@@ -759,9 +772,23 @@ export function SDMTForecast() {
     // Aggregate monthly totals from forecast data
     const monthlyTotals = aggregateMonthlyTotals(forecastData);
     
-    // Allocate annual budget proportionally across months
+    // NEW: If monthly budgets are provided, use those with auto-fill
+    if (useMonthlyBudget && monthlyBudgets.length > 0) {
+      return allocateBudgetWithMonthlyInputs(annualBudget, monthlyBudgets, monthlyTotals);
+    }
+    
+    // Otherwise, allocate annual budget proportionally across months
     return allocateBudgetMonthly(annualBudget, monthlyTotals);
-  }, [budgetAmount, isPortfolioView, forecastData]);
+  }, [budgetAmount, isPortfolioView, forecastData, useMonthlyBudget, monthlyBudgets]);
+
+  // Calculate runway metrics for month-by-month tracking
+  const runwayMetrics = useMemo<RunwayMetrics[]>(() => {
+    const annualBudget = parseFloat(budgetAmount);
+    if (!annualBudget || annualBudget <= 0 || monthlyBudgetAllocations.length === 0) {
+      return [];
+    }
+    return calculateRunwayMetrics(annualBudget, monthlyBudgetAllocations);
+  }, [budgetAmount, monthlyBudgetAllocations]);
 
   // Check if we have a valid budget for variance analysis
   const hasBudgetForVariance = useMemo(() => {
@@ -1406,6 +1433,42 @@ export function SDMTForecast() {
                 )}
               </div>
               
+              {/* Monthly Budget Input - Only in Portfolio View when annual budget is set */}
+              {isPortfolioView && budgetAmount && parseFloat(budgetAmount) > 0 && (
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-sm font-medium">Modo: Presupuesto Mensual</div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="use-monthly-budget" className="text-sm text-muted-foreground">
+                        Habilitar entrada mensual
+                      </Label>
+                      <input
+                        type="checkbox"
+                        id="use-monthly-budget"
+                        checked={useMonthlyBudget}
+                        onChange={(e) => setUseMonthlyBudget(e.target.checked)}
+                        disabled={!canEditBudget}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                    </div>
+                  </div>
+                  {useMonthlyBudget && (
+                    <MonthlyBudgetCard
+                      monthlyBudgets={monthlyBudgets}
+                      annualBudgetReference={parseFloat(budgetAmount)}
+                      onMonthlyBudgetsChange={setMonthlyBudgets}
+                      disabled={!canEditBudget}
+                    />
+                  )}
+                  {!useMonthlyBudget && (
+                    <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded">
+                      💡 Presupuesto se distribuye automáticamente por mes basado en costos planificados.
+                      Habilite "entrada mensual" arriba para ingresar presupuestos específicos por mes.
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {/* Budget Simulator - Only in Portfolio View */}
               {isPortfolioView && (
                 <>
@@ -1430,6 +1493,7 @@ export function SDMTForecast() {
           lineItems={portfolioLineItems}
           formatCurrency={formatCurrency}
           monthlyBudgetAllocations={monthlyBudgetAllocations}
+          runwayMetrics={runwayMetrics}
           onViewProject={(projectId) => {
             // TODO: Navigate to single project view with selected project
             console.log('View project:', projectId);

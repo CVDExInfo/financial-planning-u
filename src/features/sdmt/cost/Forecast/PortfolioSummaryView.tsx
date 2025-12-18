@@ -19,7 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { ForecastCell, LineItem } from '@/types/domain';
-import type { MonthlyAllocation } from './budgetAllocation';
+import type { MonthlyAllocation, RunwayMetrics } from './budgetAllocation';
 import { calculateVariances } from './budgetAllocation';
 
 // Budget consumption thresholds
@@ -35,6 +35,7 @@ interface PortfolioSummaryViewProps {
   formatCurrency: (amount: number) => string;
   onViewProject?: (projectId: string) => void;
   monthlyBudgetAllocations?: MonthlyAllocation[];
+  runwayMetrics?: RunwayMetrics[];
 }
 
 interface ProjectSummary {
@@ -53,10 +54,14 @@ export function PortfolioSummaryView({
   formatCurrency,
   onViewProject,
   monthlyBudgetAllocations,
+  runwayMetrics,
 }: PortfolioSummaryViewProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [showMonthlyBreakdown, setShowMonthlyBreakdown] = useState(false);
+
+  // Check if we have runway metrics to display
+  const hasRunwayMetrics = runwayMetrics && runwayMetrics.length > 0;
 
   // Calculate overall portfolio summary
   const portfolioSummary = {
