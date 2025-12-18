@@ -210,7 +210,7 @@ export function PortfolioSummaryView({
                         <div className="text-right min-w-[100px]">
                           <div className="text-xs text-muted-foreground">Variación</div>
                           <div className={`font-medium ${getVarianceColor(project.totalVariance)}`}>
-                            {project.totalVariance > 0 ? '+' : ''}
+                            {project.totalVariance >= 0 ? '+' : '-'}
                             {formatCurrency(Math.abs(project.totalVariance))}
                           </div>
                         </div>
