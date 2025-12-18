@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -48,9 +49,19 @@ import finanzasClient from '@/api/finanzasClient';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
 import { BudgetSimulatorCard } from './BudgetSimulatorCard';
+import { MonthlyBudgetCard } from './MonthlyBudgetCard';
 import { PortfolioSummaryView } from './PortfolioSummaryView';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
+import { 
+  allocateBudgetMonthly, 
+  aggregateMonthlyTotals, 
+  allocateBudgetWithMonthlyInputs,
+  calculateRunwayMetrics,
+  type MonthlyAllocation,
+  type MonthlyBudgetInput,
+  type RunwayMetrics,
+} from './budgetAllocation';
 
 // TODO: Backend Integration for Change Request Impact on Forecast
 // When a change request is approved in SDMTChanges, the backend should:
@@ -66,6 +77,9 @@ import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
 
 type ForecastRow = ForecastCell & { projectId?: string; projectName?: string };
 type ProjectLineItem = LineItem & { projectId?: string; projectName?: string };
+
+// Constants
+const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real project
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
@@ -94,6 +108,9 @@ export function SDMTForecast() {
   const [budgetLastUpdated, setBudgetLastUpdated] = useState<string | null>(null);
   const [loadingBudget, setLoadingBudget] = useState(false);
   const [savingBudget, setSavingBudget] = useState(false);
+  // Monthly Budget state (new - per user request)
+  const [monthlyBudgets, setMonthlyBudgets] = useState<MonthlyBudgetInput[]>([]);
+  const [useMonthlyBudget, setUseMonthlyBudget] = useState(false);
   // Budget Overview state for KPIs
   const [budgetOverview, setBudgetOverview] = useState<{
     year: number;
@@ -266,7 +283,19 @@ export function SDMTForecast() {
   const loadPortfolioForecast = async (months: number) => {
     const candidateProjects = projects.filter(project => project.id && project.id !== ALL_PROJECTS_ID);
 
+    // Guard: Don't error out if projects haven't loaded yet
+    // Only show error after we're sure the list is definitively empty
     if (candidateProjects.length === 0) {
+      // Check if we're still in initial load state (only ALL_PROJECTS exists)
+      if (projects.length < MINIMUM_PROJECTS_FOR_PORTFOLIO) {
+        // Projects might still be loading; don't set error yet
+        if (import.meta.env.DEV) {
+          console.debug('[Forecast] Portfolio: Waiting for projects to load...');
+        }
+        setForecastData([]);
+        return;
+      }
+      // If we have projects but they're all filtered out, that's a real empty state
       setForecastError('No hay proyectos disponibles para consolidar.');
       setForecastData([]);
       return;
@@ -721,7 +750,51 @@ export function SDMTForecast() {
   const isEmptyState = !isLoadingState && !forecastError && forecastData.length === 0;
   
   // Special case: TODOS mode with only the ALL_PROJECTS placeholder (no real projects)
-  const isTodosEmptyState = isPortfolioView && !isLoadingState && !forecastError && projects.length <= 1;
+  const isTodosEmptyState = isPortfolioView && !isLoadingState && !forecastError && projects.length < MINIMUM_PROJECTS_FOR_PORTFOLIO;
+
+  // Calculate monthly budget allocations when annual budget is set
+  // Must be computed BEFORE monthlyTrends since trends may reference it
+  const monthlyBudgetAllocations = useMemo<MonthlyAllocation[]>(() => {
+    // Only calculate if we have annual budget and are in portfolio view
+    const annualBudget = parseFloat(budgetAmount);
+    
+    if (!isPortfolioView || !annualBudget || annualBudget <= 0) {
+      // Return empty allocations (zero budget per month)
+      return Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        budgetAllocated: 0,
+        planned: 0,
+        forecast: 0,
+        actual: 0,
+      }));
+    }
+
+    // Aggregate monthly totals from forecast data
+    const monthlyTotals = aggregateMonthlyTotals(forecastData);
+    
+    // NEW: If monthly budgets are provided, use those with auto-fill
+    if (useMonthlyBudget && monthlyBudgets.length > 0) {
+      return allocateBudgetWithMonthlyInputs(annualBudget, monthlyBudgets, monthlyTotals);
+    }
+    
+    // Otherwise, allocate annual budget proportionally across months
+    return allocateBudgetMonthly(annualBudget, monthlyTotals);
+  }, [budgetAmount, isPortfolioView, forecastData, useMonthlyBudget, monthlyBudgets]);
+
+  // Calculate runway metrics for month-by-month tracking
+  const runwayMetrics = useMemo<RunwayMetrics[]>(() => {
+    const annualBudget = parseFloat(budgetAmount);
+    if (!annualBudget || annualBudget <= 0 || monthlyBudgetAllocations.length === 0) {
+      return [];
+    }
+    return calculateRunwayMetrics(annualBudget, monthlyBudgetAllocations);
+  }, [budgetAmount, monthlyBudgetAllocations]);
+
+  // Check if we have a valid budget for variance analysis
+  const hasBudgetForVariance = useMemo(() => {
+    const annualBudget = parseFloat(budgetAmount);
+    return annualBudget > 0;
+  }, [budgetAmount]);
 
   // Chart data - recalculate when forecastData changes
   const monthlyTrends = useMemo(() => {
@@ -740,13 +813,24 @@ export function SDMTForecast() {
       console.debug('[Forecast] Chart trends recalculated', { projectId: selectedProjectId });
     }
     
-    // Apply budget line when simulation is enabled in portfolio view
+    // Apply budget line when simulation is enabled OR when annual budget is set
     if (isPortfolioView && budgetSimulation.enabled && budgetTotal > 0) {
+      // Use simulation budget (even distribution)
       return applyBudgetToTrends(baseTrends, budgetTotal);
     }
     
+    // When annual budget is set (not simulation), use allocated budget per month
+    const annualBudget = parseFloat(budgetAmount);
+    if (isPortfolioView && annualBudget > 0) {
+      // Use the monthly allocations we computed
+      return baseTrends.map((trend, idx) => ({
+        ...trend,
+        Budget: monthlyBudgetAllocations[idx]?.budgetAllocated || 0,
+      }));
+    }
+    
     return baseTrends;
-  }, [forecastData, selectedProjectId, isPortfolioView, budgetSimulation.enabled, budgetTotal]);
+  }, [forecastData, selectedProjectId, isPortfolioView, budgetSimulation.enabled, budgetTotal, budgetAmount, monthlyBudgetAllocations]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -1349,6 +1433,42 @@ export function SDMTForecast() {
                 )}
               </div>
               
+              {/* Monthly Budget Input - Only in Portfolio View when annual budget is set */}
+              {isPortfolioView && budgetAmount && parseFloat(budgetAmount) > 0 && (
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-sm font-medium">Modo: Presupuesto Mensual</div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="use-monthly-budget" className="text-sm text-muted-foreground">
+                        Habilitar entrada mensual
+                      </Label>
+                      <input
+                        type="checkbox"
+                        id="use-monthly-budget"
+                        checked={useMonthlyBudget}
+                        onChange={(e) => setUseMonthlyBudget(e.target.checked)}
+                        disabled={!canEditBudget}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                    </div>
+                  </div>
+                  {useMonthlyBudget && (
+                    <MonthlyBudgetCard
+                      monthlyBudgets={monthlyBudgets}
+                      annualBudgetReference={parseFloat(budgetAmount)}
+                      onMonthlyBudgetsChange={setMonthlyBudgets}
+                      disabled={!canEditBudget}
+                    />
+                  )}
+                  {!useMonthlyBudget && (
+                    <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded">
+                      💡 Presupuesto se distribuye automáticamente por mes basado en costos planificados.
+                      Habilite "entrada mensual" arriba para ingresar presupuestos específicos por mes.
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {/* Budget Simulator - Only in Portfolio View */}
               {isPortfolioView && (
                 <>
@@ -1372,6 +1492,8 @@ export function SDMTForecast() {
           forecastData={forecastData}
           lineItems={portfolioLineItems}
           formatCurrency={formatCurrency}
+          monthlyBudgetAllocations={monthlyBudgetAllocations}
+          runwayMetrics={runwayMetrics}
           onViewProject={(projectId) => {
             // TODO: Navigate to single project view with selected project
             console.log('View project:', projectId);
@@ -1622,11 +1744,6 @@ export function SDMTForecast() {
 
       {/* Charts and Analytics */}
       {!loading && forecastData.length > 0 && (() => {
-        // Check if there's meaningful variance data to show
-        const hasVarianceData = monthlyTrends.some(month => 
-          Math.abs(month.Forecast - month.Planned) > 100 // At least $100 variance
-        );
-
         const charts = [
           <LineChartComponent
             key={`forecast-trends-${selectedProjectId}`}
@@ -1635,8 +1752,10 @@ export function SDMTForecast() {
               { dataKey: 'Planned', name: 'Planned', color: 'oklch(0.45 0.12 200)', strokeDasharray: '5 5' },
               { dataKey: 'Forecast', name: 'Forecast', color: 'oklch(0.61 0.15 160)', strokeWidth: 3 },
               { dataKey: 'Actual', name: 'Actual', color: 'oklch(0.72 0.15 65)' },
-              // Add Budget line when simulation is enabled
-              ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
+              // Add Budget line when simulation is enabled OR when annual budget is set
+              ...(isPortfolioView && (
+                (budgetSimulation.enabled && budgetTotal > 0) || hasBudgetForVariance
+              )
                 ? [{ dataKey: 'Budget', name: 'Budget', color: 'oklch(0.5 0.2 350)', strokeDasharray: '8 4', strokeWidth: 2 }]
                 : [])
             ]}
@@ -1644,22 +1763,52 @@ export function SDMTForecast() {
           />
         ];
 
-        // Only add variance analysis chart if there's meaningful data
-        if (hasVarianceData) {
+        // ALWAYS add variance analysis chart (required by specs)
+        // Show placeholder if no budget, variance vs budget if budget exists
+        if (hasBudgetForVariance) {
+          // Show variance vs allocated budget
           charts.push(
             <StackedColumnsChart
               key={`variance-analysis-${selectedProjectId}`}
-              data={monthlyTrends.map(month => ({
-                month: month.month,
-                'Over Budget': Math.max(0, month.Forecast - month.Planned),
-                'Under Budget': Math.min(0, month.Forecast - month.Planned)
-              }))}
+              data={monthlyBudgetAllocations.map(allocation => {
+                const forecastVariance = allocation.forecast - allocation.budgetAllocated;
+                const actualVariance = allocation.actual - allocation.budgetAllocated;
+                return {
+                  month: allocation.month,
+                  'Forecast Over Budget': Math.max(0, forecastVariance),
+                  'Forecast Under Budget': Math.abs(Math.min(0, forecastVariance)),
+                  'Actual Over Budget': Math.max(0, actualVariance),
+                  'Actual Under Budget': Math.abs(Math.min(0, actualVariance)),
+                };
+              })}
               stacks={[
-                { dataKey: 'Over Budget', name: 'Over Budget', color: 'oklch(0.65 0.2 30)' },
-                { dataKey: 'Under Budget', name: 'Under Budget', color: 'oklch(0.55 0.15 140)' }
+                { dataKey: 'Forecast Over Budget', name: 'Forecast Over', color: 'oklch(0.65 0.2 30)' },
+                { dataKey: 'Forecast Under Budget', name: 'Forecast Under', color: 'oklch(0.55 0.15 140)' },
+                { dataKey: 'Actual Over Budget', name: 'Actual Over', color: 'oklch(0.70 0.25 25)' },
+                { dataKey: 'Actual Under Budget', name: 'Actual Under', color: 'oklch(0.60 0.18 150)' },
               ]}
-              title="Variance Analysis"
+              title="Variance Analysis vs Budget"
             />
+          );
+        } else {
+          // Show placeholder card prompting to set budget
+          charts.push(
+            <Card key="variance-placeholder" className="border-2 border-dashed border-muted">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Variance Analysis</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center justify-center h-[300px] text-center">
+                <div className="w-16 h-16 bg-muted/50 rounded-lg flex items-center justify-center mb-4">
+                  <Calculator className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-foreground mb-2">
+                  Análisis de Variación No Disponible
+                </p>
+                <p className="text-xs text-muted-foreground max-w-xs">
+                  Define el Presupuesto Anual All-In arriba para ver la variación mensual vs presupuesto asignado.
+                </p>
+              </CardContent>
+            </Card>
           );
         }
 
