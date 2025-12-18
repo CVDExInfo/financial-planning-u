@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -50,6 +52,7 @@ import { BudgetSimulatorCard } from './BudgetSimulatorCard';
 import { PortfolioSummaryView } from './PortfolioSummaryView';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
+import { calculateMonthlyBudgets, type AllocationStrategy } from './budgetAllocation';
 
 // TODO: Backend Integration for Change Request Impact on Forecast
 // When a change request is approved in SDMTChanges, the backend should:
@@ -93,6 +96,8 @@ export function SDMTForecast() {
   const [budgetLastUpdated, setBudgetLastUpdated] = useState<string | null>(null);
   const [loadingBudget, setLoadingBudget] = useState(false);
   const [savingBudget, setSavingBudget] = useState(false);
+  // Budget Allocation Strategy
+  const [allocationStrategy, setAllocationStrategy] = useState<AllocationStrategy>('equal');
   // Budget Overview state for KPIs
   const [budgetOverview, setBudgetOverview] = useState<{
     year: number;
@@ -742,6 +747,19 @@ export function SDMTForecast() {
     return baseTrends;
   }, [forecastData, selectedProjectId, isPortfolioView, budgetSimulation.enabled, budgetTotal]);
 
+  // Calculate monthly budget allocation based on strategy
+  const budgetAllocation = useMemo(() => {
+    const budgetValue = parseFloat(budgetAmount);
+    if (!budgetValue || budgetValue <= 0) {
+      return null;
+    }
+
+    const monthlyPlanned = monthlyTrends.map(t => t.Planned);
+    const monthlyForecast = monthlyTrends.map(t => t.Forecast);
+    
+    return calculateMonthlyBudgets(budgetValue, allocationStrategy, monthlyPlanned, monthlyForecast);
+  }, [budgetAmount, allocationStrategy, monthlyTrends]);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -1015,170 +1033,6 @@ export function SDMTForecast() {
         </Card>
       </div>
 
-      {/* Budget Simulation KPIs - Only show when simulation is enabled */}
-      {isPortfolioView && budgetSimulation.enabled && budgetTotal > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
-          <Card className="border-primary/30">
-            <CardContent className="p-3">
-              <div className="text-2xl font-bold text-primary">{formatCurrency(budgetTotal)}</div>
-              <div className="flex items-center gap-1">
-                <p className="text-sm text-muted-foreground">Presupuesto Total</p>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs max-w-xs">Presupuesto anual simulado distribuido proporcionalmente por mes</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <p className="text-xs text-muted-foreground">Simulación activa</p>
-            </CardContent>
-          </Card>
-          <Card className="border-primary/30">
-            <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${budgetVarianceProjected >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatCurrency(Math.abs(budgetVarianceProjected))}
-              </div>
-              <div className="flex items-center gap-1">
-                {getVarianceIcon(-budgetVarianceProjected)}
-                <p className="text-sm text-muted-foreground">Variación vs Presupuesto</p>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs max-w-xs">Diferencia entre presupuesto y pronóstico (Budget - Forecast)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {budgetVarianceProjected >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-primary/30">
-            <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${budgetUtilization > 100 ? 'text-red-600' : budgetUtilization > 90 ? 'text-yellow-600' : 'text-green-600'}`}>
-                {budgetUtilization.toFixed(1)}%
-              </div>
-              <div className="flex items-center gap-1">
-                <p className="text-sm text-muted-foreground">Utilización de Presupuesto</p>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs max-w-xs">Porcentaje del presupuesto utilizado según pronóstico (Forecast / Budget × 100)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <p className="text-xs text-muted-foreground">Pronóstico / Presupuesto</p>
-            </CardContent>
-          </Card>
-          <Card className="border-primary/30">
-            <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${pctUsedActual > 100 ? 'text-red-600' : pctUsedActual > 90 ? 'text-yellow-600' : 'text-blue-600'}`}>
-                {pctUsedActual.toFixed(1)}%
-              </div>
-              <div className="flex items-center gap-1">
-                <p className="text-sm text-muted-foreground">Real vs Presupuesto</p>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs max-w-xs">Porcentaje del presupuesto consumido por gastos reales (Actual / Budget × 100)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <p className="text-xs text-muted-foreground">Gastos reales / Presupuesto</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Real Annual Budget KPIs - Show when budget is set and portfolio view (not simulation) */}
-      {isPortfolioView && !budgetSimulation.enabled && budgetOverview?.budgetAllIn && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
-          <Card className="border-blue-500/30">
-            <CardContent className="p-3">
-              <div className="text-2xl font-bold text-blue-600">
-                {formatCurrency(budgetOverview.budgetAllIn.amount)}
-              </div>
-              <p className="text-sm text-muted-foreground">Presupuesto Anual All-In</p>
-              <p className="text-xs text-muted-foreground">
-                {budgetOverview.budgetAllIn.currency} · {budgetOverview.year}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-blue-500/30">
-            <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${
-                budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {formatCurrency(Math.abs(budgetOverview.totals.varianceBudgetVsForecast))}
-              </div>
-              <div className="flex items-center gap-1">
-                {getVarianceIcon(-budgetOverview.totals.varianceBudgetVsForecast)}
-                <p className="text-sm text-muted-foreground">Over/Under Budget</p>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs max-w-xs">Diferencia entre presupuesto anual y pronóstico total (Budget - Forecast)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-blue-500/30">
-            <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${
-                (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 100 
-                  ? 'text-red-600' 
-                  : (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 90 
-                    ? 'text-yellow-600' 
-                    : 'text-green-600'
-              }`}>
-                {budgetOverview.totals.percentBudgetConsumedForecast?.toFixed(1) || '0.0'}%
-              </div>
-              <p className="text-sm text-muted-foreground">% Consumo Pronóstico</p>
-              <p className="text-xs text-muted-foreground">Forecast / Budget</p>
-            </CardContent>
-          </Card>
-          <Card className="border-blue-500/30">
-            <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${
-                (budgetOverview.totals.percentBudgetConsumedActual || 0) > 100 
-                  ? 'text-red-600' 
-                  : (budgetOverview.totals.percentBudgetConsumedActual || 0) > 90 
-                    ? 'text-yellow-600' 
-                    : 'text-green-600'
-              }`}>
-                {budgetOverview.totals.percentBudgetConsumedActual?.toFixed(1) || '0.0'}%
-              </div>
-              <p className="text-sm text-muted-foreground">% Consumo Real</p>
-              <p className="text-xs text-muted-foreground">Actual / Budget</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       {/* Actions and Budget Editor */}
       <Card className="mt-4">
         <CardContent className="p-3 space-y-3">
@@ -1345,9 +1199,222 @@ export function SDMTForecast() {
                 ℹ️ Presupuesto All-In aplica a todos los proyectos; seleccione "TODOS" para ver consumo total.
               </div>
             )}
+            
+            {/* Allocation Strategy Selector */}
+            {budgetAmount && parseFloat(budgetAmount) > 0 && (
+              <div className="pt-3 border-t mt-3 space-y-3">
+                <Label className="text-sm font-medium">Distribución Mensual:</Label>
+                <RadioGroup
+                  value={allocationStrategy}
+                  onValueChange={(value) => setAllocationStrategy(value as AllocationStrategy)}
+                  className="flex flex-wrap gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="equal" id="strategy-equal" />
+                    <Label htmlFor="strategy-equal" className="text-sm font-normal cursor-pointer">
+                      Igual (12 meses)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="by_planned" id="strategy-planned" />
+                    <Label htmlFor="strategy-planned" className="text-sm font-normal cursor-pointer">
+                      Según Planeado
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="by_forecast" id="strategy-forecast" />
+                    <Label htmlFor="strategy-forecast" className="text-sm font-normal cursor-pointer">
+                      Según Pronóstico
+                    </Label>
+                  </div>
+                </RadioGroup>
+                
+                {/* Computed Outputs */}
+                {budgetAllocation && (
+                  <div className="pt-2 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Presupuesto mensual promedio:</span>
+                      <span className="font-medium">{formatCurrency(budgetAllocation.average)}</span>
+                    </div>
+                    {budgetAllocation.maxPressureMonth && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Mayor presión:</span>
+                        <span className="font-medium text-amber-600">
+                          Mes {budgetAllocation.maxPressureMonth.month} ({budgetAllocation.maxPressureMonth.pressure.toFixed(1)}%)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
+
+      {/* Budget Simulation KPIs - Only show when simulation is enabled */}
+      {isPortfolioView && budgetSimulation.enabled && budgetTotal > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <Card className="border-primary/30">
+            <CardContent className="p-3">
+              <div className="text-xl font-bold text-primary">{formatCurrency(budgetTotal)}</div>
+              <div className="flex items-center gap-1">
+                <p className="text-sm text-muted-foreground">Presupuesto Total</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-xs">Presupuesto anual simulado distribuido proporcionalmente por mes</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <p className="text-xs text-muted-foreground">Simulación activa</p>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/30">
+            <CardContent className="p-3">
+              <div className={`text-xl font-bold ${budgetVarianceProjected >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatCurrency(Math.abs(budgetVarianceProjected))}
+              </div>
+              <div className="flex items-center gap-1">
+                {getVarianceIcon(-budgetVarianceProjected)}
+                <p className="text-sm text-muted-foreground">Variación vs Presupuesto</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-xs">Diferencia entre presupuesto y pronóstico (Budget - Forecast)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {budgetVarianceProjected >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/30">
+            <CardContent className="p-3">
+              <div className={`text-xl font-bold ${budgetUtilization > 100 ? 'text-red-600' : budgetUtilization > 90 ? 'text-yellow-600' : 'text-green-600'}`}>
+                {budgetUtilization.toFixed(1)}%
+              </div>
+              <div className="flex items-center gap-1">
+                <p className="text-sm text-muted-foreground">Utilización de Presupuesto</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-xs">Porcentaje del presupuesto utilizado según pronóstico (Forecast / Budget × 100)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <p className="text-xs text-muted-foreground">Pronóstico / Presupuesto</p>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/30">
+            <CardContent className="p-3">
+              <div className={`text-xl font-bold ${pctUsedActual > 100 ? 'text-red-600' : pctUsedActual > 90 ? 'text-yellow-600' : 'text-blue-600'}`}>
+                {pctUsedActual.toFixed(1)}%
+              </div>
+              <div className="flex items-center gap-1">
+                <p className="text-sm text-muted-foreground">Real vs Presupuesto</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-xs">Porcentaje del presupuesto consumido por gastos reales (Actual / Budget × 100)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <p className="text-xs text-muted-foreground">Gastos reales / Presupuesto</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Real Annual Budget KPIs - Show when budget is set and portfolio view (not simulation) */}
+      {isPortfolioView && !budgetSimulation.enabled && budgetOverview?.budgetAllIn && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <Card className="border-blue-500/30">
+            <CardContent className="p-3">
+              <div className="text-xl font-bold text-blue-600">
+                {formatCurrency(budgetOverview.budgetAllIn.amount)}
+              </div>
+              <p className="text-sm text-muted-foreground">Presupuesto Anual All-In</p>
+              <p className="text-xs text-muted-foreground">
+                {budgetOverview.budgetAllIn.currency} · {budgetOverview.year}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-blue-500/30">
+            <CardContent className="p-3">
+              <div className={`text-xl font-bold ${
+                budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {formatCurrency(Math.abs(budgetOverview.totals.varianceBudgetVsForecast))}
+              </div>
+              <div className="flex items-center gap-1">
+                {getVarianceIcon(-budgetOverview.totals.varianceBudgetVsForecast)}
+                <p className="text-sm text-muted-foreground">Over/Under Budget</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-xs">Diferencia entre presupuesto anual y pronóstico total (Budget - Forecast)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-blue-500/30">
+            <CardContent className="p-3">
+              <div className={`text-xl font-bold ${
+                (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 100 
+                  ? 'text-red-600' 
+                  : (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 90 
+                    ? 'text-yellow-600' 
+                    : 'text-green-600'
+              }`}>
+                {budgetOverview.totals.percentBudgetConsumedForecast?.toFixed(1) || '0.0'}%
+              </div>
+              <p className="text-sm text-muted-foreground">% Consumo Pronóstico</p>
+              <p className="text-xs text-muted-foreground">Forecast / Budget</p>
+            </CardContent>
+          </Card>
+          <Card className="border-blue-500/30">
+            <CardContent className="p-3">
+              <div className={`text-xl font-bold ${
+                (budgetOverview.totals.percentBudgetConsumedActual || 0) > 100 
+                  ? 'text-red-600' 
+                  : (budgetOverview.totals.percentBudgetConsumedActual || 0) > 90 
+                    ? 'text-yellow-600' 
+                    : 'text-green-600'
+              }`}>
+                {budgetOverview.totals.percentBudgetConsumedActual?.toFixed(1) || '0.0'}%
+              </div>
+              <p className="text-sm text-muted-foreground">% Consumo Real</p>
+              <p className="text-xs text-muted-foreground">Actual / Budget</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Portfolio Summary View - Only show in portfolio mode */}
       {isPortfolioView && !loading && forecastData.length > 0 && (
