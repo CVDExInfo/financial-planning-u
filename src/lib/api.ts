@@ -869,6 +869,19 @@ export class ApiService {
   }
 
   // Changes
+  
+  // Helper function to parse new_line_item_request from various API response formats
+  private static parseNewLineItemRequest(item: any): ChangeRequest["new_line_item_request"] {
+    const newLineItemRequest = item?.new_line_item_request || item?.newLineItemRequest;
+    if (!newLineItemRequest) return undefined;
+    
+    return {
+      name: newLineItemRequest.name || "",
+      type: newLineItemRequest.type || "OPEX",
+      description: newLineItemRequest.description || "",
+    };
+  }
+
   static async getChangeRequests(project_id: string): Promise<ChangeRequest[]> {
     const endpoint = `/projects/${project_id}/changes`;
 
@@ -905,6 +918,12 @@ export class ApiService {
           item?.requested_at || item?.requestedAt || item?.created_at || new Date().toISOString(),
         status: (item?.status as ChangeRequest["status"]) || "pending",
         approvals: Array.isArray(item?.approvals) ? item.approvals : [],
+        // Time distribution fields
+        start_month_index: item?.start_month_index ?? item?.startMonthIndex,
+        duration_months: item?.duration_months ?? item?.durationMonths,
+        allocation_mode: item?.allocation_mode ?? item?.allocationMode,
+        // New line item request
+        new_line_item_request: this.parseNewLineItemRequest(item),
       };
     };
 
@@ -918,7 +937,7 @@ export class ApiService {
     change: Omit<ChangeRequest, "id" | "requested_at" | "status" | "approvals">,
   ): Promise<ChangeRequest> {
     const endpoint = `/projects/${project_id}/changes`;
-    const body = {
+    const body: any = {
       baseline_id: change.baseline_id,
       title: change.title,
       description: change.description,
@@ -928,11 +947,32 @@ export class ApiService {
       affected_line_items: change.affected_line_items,
     };
 
-    const payload = await this.request(endpoint, {
+    // Include time distribution fields if provided
+    if (change.start_month_index !== undefined) {
+      body.start_month_index = change.start_month_index;
+    }
+    if (change.duration_months !== undefined) {
+      body.duration_months = change.duration_months;
+    }
+    if (change.allocation_mode !== undefined) {
+      body.allocation_mode = change.allocation_mode;
+    }
+
+    // Include new line item request if provided
+    if (change.new_line_item_request) {
+      body.new_line_item_request = {
+        name: change.new_line_item_request.name,
+        type: change.new_line_item_request.type,
+        description: change.new_line_item_request.description,
+      };
+    }
+
+    const payload: any = await this.request(endpoint, {
       method: "POST",
       headers: this.buildRequestHeaders(),
       body: JSON.stringify(body),
     });
+
     return {
       id: payload.id || payload.changeId,
       baseline_id: payload.baseline_id || payload.baselineId || "",
@@ -953,6 +993,12 @@ export class ApiService {
         payload.requested_at || payload.requestedAt || payload.created_at || new Date().toISOString(),
       status: (payload.status as ChangeRequest["status"]) || "pending",
       approvals: Array.isArray(payload.approvals) ? payload.approvals : [],
+      // Time distribution fields
+      start_month_index: payload?.start_month_index ?? payload?.startMonthIndex,
+      duration_months: payload?.duration_months ?? payload?.durationMonths,
+      allocation_mode: payload?.allocation_mode ?? payload?.allocationMode,
+      // New line item request
+      new_line_item_request: this.parseNewLineItemRequest(payload),
     };
   }
 
@@ -962,7 +1008,7 @@ export class ApiService {
     data: { action: "approve" | "reject"; comment?: string },
   ): Promise<ChangeRequest> {
     const endpoint = `/projects/${project_id}/changes/${change_id}/approval`;
-    const payload = await this.request(endpoint, {
+    const payload: any = await this.request(endpoint, {
       method: "POST",
       headers: this.buildRequestHeaders(),
       body: JSON.stringify(data),
@@ -988,6 +1034,12 @@ export class ApiService {
         payload.requested_at || payload.requestedAt || payload.created_at || new Date().toISOString(),
       status: (payload.status as ChangeRequest["status"]) || "pending",
       approvals: Array.isArray(payload.approvals) ? payload.approvals : [],
+      // Time distribution fields
+      start_month_index: payload?.start_month_index ?? payload?.startMonthIndex,
+      duration_months: payload?.duration_months ?? payload?.durationMonths,
+      allocation_mode: payload?.allocation_mode ?? payload?.allocationMode,
+      // New line item request
+      new_line_item_request: this.parseNewLineItemRequest(payload),
     };
   }
 

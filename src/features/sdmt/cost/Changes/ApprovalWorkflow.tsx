@@ -45,12 +45,12 @@ interface ChangeRequest {
   currentStep: number;
   businessJustification: string;
   affectedLineItems: string[];
-  // Time distribution fields
-  startMonthIndex?: number;
-  durationMonths?: number;
-  allocationMode?: "one_time" | "spread_evenly";
+  // Time distribution fields - using snake_case to match domain type
+  start_month_index?: number;
+  duration_months?: number;
+  allocation_mode?: "one_time" | "spread_evenly";
   // New line item request
-  newLineItemRequest?: {
+  new_line_item_request?: {
     name: string;
     type: string;
     description: string;
@@ -223,30 +223,38 @@ export function ApprovalWorkflow({
           </div>
 
           {/* Time Distribution Info */}
-          {(changeRequest.startMonthIndex || changeRequest.durationMonths) && (
+          {(changeRequest.start_month_index !== undefined || changeRequest.duration_months !== undefined) && (
             <div className="p-3 bg-muted/50 rounded-md">
               <Label className="text-sm font-medium">Time Distribution</Label>
               <div className="grid grid-cols-3 gap-4 mt-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Start Month:</span>
-                  <span className="ml-2 font-medium">{changeRequest.startMonthIndex || 1}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Duration:</span>
-                  <span className="ml-2 font-medium">{changeRequest.durationMonths || 1} months</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Mode:</span>
-                  <span className="ml-2 font-medium">
-                    {changeRequest.allocationMode === "one_time" ? "One-time" : "Spread evenly"}
-                  </span>
-                </div>
+                {changeRequest.start_month_index !== undefined && (
+                  <div>
+                    <span className="text-muted-foreground">Start Month:</span>
+                    <span className="ml-2 font-medium">{changeRequest.start_month_index}</span>
+                  </div>
+                )}
+                {changeRequest.duration_months !== undefined && (
+                  <div>
+                    <span className="text-muted-foreground">Duration:</span>
+                    <span className="ml-2 font-medium">
+                      {changeRequest.duration_months} month{changeRequest.duration_months !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                )}
+                {changeRequest.allocation_mode && (
+                  <div>
+                    <span className="text-muted-foreground">Mode:</span>
+                    <span className="ml-2 font-medium">
+                      {changeRequest.allocation_mode === "one_time" ? "One-time" : "Spread evenly"}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           {/* New Line Item Request */}
-          {changeRequest.newLineItemRequest && (
+          {changeRequest.new_line_item_request && (
             <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
               <Label className="text-sm font-medium text-amber-900 dark:text-amber-100">
                 New Line Item Request
@@ -254,15 +262,15 @@ export function ApprovalWorkflow({
               <div className="space-y-2 mt-2 text-sm">
                 <div>
                   <span className="text-muted-foreground">Name:</span>
-                  <span className="ml-2 font-medium">{changeRequest.newLineItemRequest.name}</span>
+                  <span className="ml-2 font-medium">{changeRequest.new_line_item_request.name}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Type:</span>
-                  <span className="ml-2 font-medium">{changeRequest.newLineItemRequest.type}</span>
+                  <span className="ml-2 font-medium">{changeRequest.new_line_item_request.type}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Description:</span>
-                  <p className="mt-1 text-muted-foreground">{changeRequest.newLineItemRequest.description}</p>
+                  <p className="mt-1 text-muted-foreground">{changeRequest.new_line_item_request.description}</p>
                 </div>
               </div>
             </div>
