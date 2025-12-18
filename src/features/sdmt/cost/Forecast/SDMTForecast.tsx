@@ -266,7 +266,19 @@ export function SDMTForecast() {
   const loadPortfolioForecast = async (months: number) => {
     const candidateProjects = projects.filter(project => project.id && project.id !== ALL_PROJECTS_ID);
 
+    // Guard: Don't error out if projects haven't loaded yet
+    // Only show error after we're sure the list is definitively empty
     if (candidateProjects.length === 0) {
+      // Check if we're still in initial load state (only ALL_PROJECTS exists)
+      if (projects.length <= 1) {
+        // Projects might still be loading; don't set error yet
+        if (import.meta.env.DEV) {
+          console.debug('[Forecast] Portfolio: Waiting for projects to load...');
+        }
+        setForecastData([]);
+        return;
+      }
+      // If we have projects but they're all filtered out, that's a real empty state
       setForecastError('No hay proyectos disponibles para consolidar.');
       setForecastData([]);
       return;
