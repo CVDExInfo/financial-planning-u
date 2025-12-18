@@ -175,6 +175,75 @@ export function PortfolioSummaryView({
             </div>
           </div>
 
+          {/* Runway Metrics Summary - Only show if runway metrics are available */}
+          {hasRunwayMetrics && runwayMetrics.length > 0 && (() => {
+            // Get latest month with actuals
+            const latestWithActuals = [...runwayMetrics].reverse().find(r => r.actualForMonth > 0);
+            const latestMetrics = latestWithActuals || runwayMetrics[runwayMetrics.length - 1];
+            const monthsWithOverspend = runwayMetrics.filter(r => r.isOverBudget).length;
+            
+            return (
+              <div className="p-4 bg-blue-50/50 border-2 border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-blue-900">
+                    📊 Runway & Control Presupuestario
+                  </h4>
+                  {monthsWithOverspend > 0 && (
+                    <Badge variant="destructive">
+                      {monthsWithOverspend} {monthsWithOverspend === 1 ? 'mes' : 'meses'} sobre presupuesto
+                    </Badge>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <div className="text-xs text-blue-700 mb-1">Presupuesto Anual Restante</div>
+                    <div className={`text-2xl font-bold ${
+                      latestMetrics.remainingAnnualBudget <= 0 
+                        ? 'text-red-600' 
+                        : latestMetrics.percentConsumed > 80 
+                          ? 'text-yellow-600' 
+                          : 'text-green-600'
+                    }`}>
+                      {formatCurrency(latestMetrics.remainingAnnualBudget)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-blue-700 mb-1">% Consumido (Anual)</div>
+                    <div className="text-2xl font-bold text-blue-900">
+                      {latestMetrics.percentConsumed.toFixed(1)}%
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-blue-700 mb-1">Consumido hasta M{latestMetrics.month}</div>
+                    <div className="text-2xl font-bold text-blue-900">
+                      {formatCurrency(
+                        runwayMetrics
+                          .filter(r => r.month <= latestMetrics.month)
+                          .reduce((sum, r) => sum + r.actualForMonth, 0)
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-blue-700 mb-1">Presupuesto Meses Restantes</div>
+                    <div className="text-2xl font-bold text-blue-900">
+                      {formatCurrency(latestMetrics.remainingMonthlyBudget)}
+                    </div>
+                  </div>
+                </div>
+                {latestMetrics.remainingAnnualBudget <= 0 && (
+                  <div className="mt-3 text-sm text-red-900 font-medium">
+                    ⚠️ Presupuesto anual agotado. Gastos futuros excederán el presupuesto.
+                  </div>
+                )}
+                {latestMetrics.percentConsumed > 80 && latestMetrics.remainingAnnualBudget > 0 && (
+                  <div className="mt-3 text-sm text-yellow-900 font-medium">
+                    ⚠️ Más del 80% del presupuesto anual consumido. Monitorear gastos restantes.
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Expandable Project List */}
           <CollapsibleContent>
             <div className="space-y-2 mt-4 pt-4 border-t">
@@ -322,14 +391,33 @@ export function PortfolioSummaryView({
                       <TableHead className="text-right">Var Pron vs Pres</TableHead>
                       <TableHead className="text-right">Var Real vs Pres</TableHead>
                       <TableHead className="text-right">% Consumo Real</TableHead>
+                      {hasRunwayMetrics && (
+                        <TableHead className="text-right">Runway Restante</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {monthlyBudgetAllocations.map((allocation) => {
                       const variances = calculateVariances(allocation);
+                      const runway = hasRunwayMetrics 
+                        ? runwayMetrics.find(r => r.month === allocation.month)
+                        : null;
+                      
                       return (
-                        <TableRow key={allocation.month}>
-                          <TableCell className="font-medium">M{allocation.month}</TableCell>
+                        <TableRow key={allocation.month} className={runway?.isOverBudget ? 'bg-red-50/50' : ''}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              M{allocation.month}
+                              {allocation.isEstimated && (
+                                <Badge variant="outline" className="text-[9px] py-0 px-1">
+                                  Est.
+                                </Badge>
+                              )}
+                              {runway?.isOverBudget && (
+                                <span className="text-red-600 text-xs">⚠️</span>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-right font-medium text-primary">
                             {formatCurrency(allocation.budgetAllocated)}
                           </TableCell>
@@ -371,6 +459,24 @@ export function PortfolioSummaryView({
                           }`}>
                             {variances.percentConsumedActual.toFixed(1)}%
                           </TableCell>
+                          {hasRunwayMetrics && runway && (
+                            <TableCell className="text-right">
+                              <div className="text-sm">
+                                <div className={`font-medium ${
+                                  runway.remainingAnnualBudget <= 0 
+                                    ? 'text-red-600' 
+                                    : runway.percentConsumed > 80 
+                                      ? 'text-yellow-600' 
+                                      : 'text-green-600'
+                                }`}>
+                                  {formatCurrency(runway.remainingAnnualBudget)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {runway.percentConsumed.toFixed(0)}% usado
+                                </div>
+                              </div>
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })}
