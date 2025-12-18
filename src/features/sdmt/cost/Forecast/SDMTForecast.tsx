@@ -12,6 +12,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -19,7 +25,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Share2, Download, TrendingUp, TrendingDown, AlertTriangle, ExternalLink, FileSpreadsheet } from 'lucide-react';
+import { Share2, TrendingUp, TrendingDown, ExternalLink, FileSpreadsheet, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import LineChartComponent from '@/components/charts/LineChart';
@@ -41,6 +47,7 @@ import finanzasClient from '@/api/finanzasClient';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
 import { BudgetSimulatorCard } from './BudgetSimulatorCard';
+import { PortfolioSummaryView } from './PortfolioSummaryView';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
 
@@ -846,7 +853,7 @@ export function SDMTForecast() {
   };
 
   return (
-    <div className="max-w-full mx-auto p-6 space-y-6">
+    <div className="max-w-full mx-auto p-6 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -897,56 +904,112 @@ export function SDMTForecast() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="text-2xl font-bold">{formatCurrency(totalPlanned)}</div>
-            <p className="text-sm text-muted-foreground">Total Planeado</p>
+            <div className="flex items-center gap-1">
+              <p className="text-sm text-muted-foreground">Total Planeado</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-xs">Suma de costos planificados importados desde Planview baseline</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <p className="text-xs text-muted-foreground">De Planview</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="text-2xl font-bold">{formatCurrency(totalForecast)}</div>
-            <p className="text-sm text-muted-foreground">Pronóstico Total</p>
+            <div className="flex items-center gap-1">
+              <p className="text-sm text-muted-foreground">Pronóstico Total</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-xs">Pronóstico ajustado por SDMT basado en tendencias y factores de riesgo</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <p className="text-xs text-muted-foreground">Pronóstico Ajustado</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalActual)}</div>
-            <p className="text-sm text-muted-foreground">Total Real</p>
+            <div className="flex items-center gap-1">
+              <p className="text-sm text-muted-foreground">Total Real</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-xs">Gastos reales registrados en el sistema desde facturas conciliadas</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <p className="text-xs text-muted-foreground">Seguimiento SDMT</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="text-2xl font-bold">{totalFTE.toLocaleString()}</div>
             <p className="text-sm text-muted-foreground">Total FTE</p>
             <p className="text-xs text-muted-foreground">Basado en rubros de baseline</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className={`text-2xl font-bold ${totalVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
               {formatCurrency(Math.abs(totalVariance))}
             </div>
-            <p className="text-sm text-muted-foreground flex items-center gap-1">
+            <div className="flex items-center gap-1">
               {getVarianceIcon(totalVariance)}
-              Variación de Pronóstico
-            </p>
+              <p className="text-sm text-muted-foreground">Variación de Pronóstico</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-xs">Diferencia entre pronóstico y planificado (Forecast - Planned)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <p className="text-xs text-muted-foreground">{Math.abs(variancePercentage).toFixed(1)}%</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className={`text-2xl font-bold ${actualVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
               {formatCurrency(Math.abs(actualVariance))}
             </div>
-            <p className="text-sm text-muted-foreground flex items-center gap-1">
+            <div className="flex items-center gap-1">
               {getVarianceIcon(actualVariance)}
-              Variación Real
-            </p>
+              <p className="text-sm text-muted-foreground">Variación Real</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-xs">Diferencia entre gastos reales y planificado (Actual - Planned)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <p className="text-xs text-muted-foreground">{Math.abs(actualVariancePercentage).toFixed(1)}%</p>
           </CardContent>
         </Card>
@@ -954,43 +1017,89 @@ export function SDMTForecast() {
 
       {/* Budget Simulation KPIs - Only show when simulation is enabled */}
       {isPortfolioView && budgetSimulation.enabled && budgetTotal > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
           <Card className="border-primary/30">
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <div className="text-2xl font-bold text-primary">{formatCurrency(budgetTotal)}</div>
-              <p className="text-sm text-muted-foreground">Presupuesto Total</p>
+              <div className="flex items-center gap-1">
+                <p className="text-sm text-muted-foreground">Presupuesto Total</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-xs">Presupuesto anual simulado distribuido proporcionalmente por mes</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <p className="text-xs text-muted-foreground">Simulación activa</p>
             </CardContent>
           </Card>
           <Card className="border-primary/30">
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <div className={`text-2xl font-bold ${budgetVarianceProjected >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {formatCurrency(Math.abs(budgetVarianceProjected))}
               </div>
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
+              <div className="flex items-center gap-1">
                 {getVarianceIcon(-budgetVarianceProjected)}
-                Variación vs Presupuesto
-              </p>
+                <p className="text-sm text-muted-foreground">Variación vs Presupuesto</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-xs">Diferencia entre presupuesto y pronóstico (Budget - Forecast)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <p className="text-xs text-muted-foreground">
                 {budgetVarianceProjected >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
               </p>
             </CardContent>
           </Card>
           <Card className="border-primary/30">
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <div className={`text-2xl font-bold ${budgetUtilization > 100 ? 'text-red-600' : budgetUtilization > 90 ? 'text-yellow-600' : 'text-green-600'}`}>
                 {budgetUtilization.toFixed(1)}%
               </div>
-              <p className="text-sm text-muted-foreground">Utilización de Presupuesto</p>
+              <div className="flex items-center gap-1">
+                <p className="text-sm text-muted-foreground">Utilización de Presupuesto</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-xs">Porcentaje del presupuesto utilizado según pronóstico (Forecast / Budget × 100)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <p className="text-xs text-muted-foreground">Pronóstico / Presupuesto</p>
             </CardContent>
           </Card>
           <Card className="border-primary/30">
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <div className={`text-2xl font-bold ${pctUsedActual > 100 ? 'text-red-600' : pctUsedActual > 90 ? 'text-yellow-600' : 'text-blue-600'}`}>
                 {pctUsedActual.toFixed(1)}%
               </div>
-              <p className="text-sm text-muted-foreground">Real vs Presupuesto</p>
+              <div className="flex items-center gap-1">
+                <p className="text-sm text-muted-foreground">Real vs Presupuesto</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-xs">Porcentaje del presupuesto consumido por gastos reales (Actual / Budget × 100)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <p className="text-xs text-muted-foreground">Gastos reales / Presupuesto</p>
             </CardContent>
           </Card>
@@ -999,9 +1108,9 @@ export function SDMTForecast() {
 
       {/* Real Annual Budget KPIs - Show when budget is set and portfolio view (not simulation) */}
       {isPortfolioView && !budgetSimulation.enabled && budgetOverview?.budgetAllIn && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
           <Card className="border-blue-500/30">
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <div className="text-2xl font-bold text-blue-600">
                 {formatCurrency(budgetOverview.budgetAllIn.amount)}
               </div>
@@ -1012,23 +1121,33 @@ export function SDMTForecast() {
             </CardContent>
           </Card>
           <Card className="border-blue-500/30">
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <div className={`text-2xl font-bold ${
                 budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'text-green-600' : 'text-red-600'
               }`}>
                 {formatCurrency(Math.abs(budgetOverview.totals.varianceBudgetVsForecast))}
               </div>
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
+              <div className="flex items-center gap-1">
                 {getVarianceIcon(-budgetOverview.totals.varianceBudgetVsForecast)}
-                Over/Under Budget
-              </p>
+                <p className="text-sm text-muted-foreground">Over/Under Budget</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-xs">Diferencia entre presupuesto anual y pronóstico total (Budget - Forecast)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <p className="text-xs text-muted-foreground">
                 {budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
               </p>
             </CardContent>
           </Card>
           <Card className="border-blue-500/30">
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <div className={`text-2xl font-bold ${
                 (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 100 
                   ? 'text-red-600' 
@@ -1043,7 +1162,7 @@ export function SDMTForecast() {
             </CardContent>
           </Card>
           <Card className="border-blue-500/30">
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <div className={`text-2xl font-bold ${
                 (budgetOverview.totals.percentBudgetConsumedActual || 0) > 100 
                   ? 'text-red-600' 
@@ -1061,37 +1180,43 @@ export function SDMTForecast() {
       )}
 
       {/* Actions and Budget Editor */}
-      <Card>
-        <CardContent className="p-4 space-y-4">
+      <Card className="mt-4">
+        <CardContent className="p-3 space-y-3">
           {/* Action Buttons Row */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 onClick={handlePersistActuals}
                 disabled={savingActuals || dirtyActualCount === 0}
-                className="gap-2"
+                className="gap-2 h-9"
+                size="sm"
               >
                 {savingActuals ? <LoadingSpinner size="sm" /> : null}
                 Guardar
-                <Badge variant="secondary" className="ml-2">
-                  {dirtyActualCount} pendientes
-                </Badge>
+                {dirtyActualCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {dirtyActualCount}
+                  </Badge>
+                )}
               </Button>
               <Button
                 onClick={handlePersistForecasts}
                 disabled={savingForecasts || dirtyForecastCount === 0 || !canEditForecast}
-                className="gap-2"
+                className="gap-2 h-9"
                 variant="outline"
+                size="sm"
               >
                 {savingForecasts ? <LoadingSpinner size="sm" /> : null}
                 Guardar Pronóstico
-                <Badge variant="secondary" className="ml-2">
-                  {dirtyForecastCount} pendientes
-                </Badge>
+                {dirtyForecastCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {dirtyForecastCount}
+                  </Badge>
+                )}
               </Button>
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button className="gap-2">
+                  <Button className="gap-2 h-9" size="sm">
                     <Share2 size={16} />
                     Share
                   </Button>
@@ -1142,47 +1267,53 @@ export function SDMTForecast() {
                 </DialogContent>
               </Dialog>
             </div>
-            <div className="text-sm text-muted-foreground">
-              Last updated: {new Date().toLocaleDateString()}
+            <div className="text-xs text-muted-foreground">
+              Última actualización: {new Date().toLocaleDateString()}
             </div>
           </div>
 
           {/* Compact Budget Editor - Inline */}
-          <div className="border-t pt-4">
-            <div className="flex flex-wrap items-end gap-3">
+          <div className="border-t pt-3">
+            <div className="flex flex-wrap items-end gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium whitespace-nowrap">Presupuesto Anual All-In:</span>
               </div>
-              <div className="flex-shrink-0 w-24">
-                <label className="text-xs text-muted-foreground block mb-1">Año</label>
+              <div className="flex-shrink-0 w-20">
+                <label htmlFor="budget-year" className="text-xs text-muted-foreground block mb-1">Año</label>
                 <Input
+                  id="budget-year"
                   type="number"
                   value={budgetYear}
                   onChange={(e) => setBudgetYear(parseInt(e.target.value))}
                   min={2020}
                   max={2100}
                   disabled={loadingBudget || savingBudget || !canEditBudget}
-                  className="h-9"
+                  className="h-8 text-sm"
+                  aria-label="Año del presupuesto"
                 />
               </div>
-              <div className="flex-grow min-w-[150px] max-w-[200px]">
-                <label className="text-xs text-muted-foreground block mb-1">Monto</label>
+              <div className="flex-grow min-w-[140px] max-w-[180px]">
+                <label htmlFor="budget-amount" className="text-xs text-muted-foreground block mb-1">Monto</label>
                 <Input
+                  id="budget-amount"
                   type="number"
                   value={budgetAmount}
                   onChange={(e) => setBudgetAmount(e.target.value)}
                   placeholder="0"
                   disabled={loadingBudget || savingBudget || !canEditBudget}
-                  className="h-9"
+                  className="h-8 text-sm"
+                  aria-label="Monto del presupuesto"
                 />
               </div>
-              <div className="flex-shrink-0 w-24">
-                <label className="text-xs text-muted-foreground block mb-1">Moneda</label>
+              <div className="flex-shrink-0 w-20">
+                <label htmlFor="budget-currency" className="text-xs text-muted-foreground block mb-1">Moneda</label>
                 <select
+                  id="budget-currency"
                   value={budgetCurrency}
                   onChange={(e) => setBudgetCurrency(e.target.value)}
                   disabled={loadingBudget || savingBudget || !canEditBudget}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Moneda del presupuesto"
                 >
                   <option value="USD">USD</option>
                   <option value="EUR">EUR</option>
@@ -1192,7 +1323,7 @@ export function SDMTForecast() {
               <Button
                 onClick={handleSaveAnnualBudget}
                 disabled={savingBudget || loadingBudget || !canEditBudget || !budgetAmount}
-                className="gap-2 h-9"
+                className="gap-2 h-8"
                 size="sm"
               >
                 {savingBudget ? <LoadingSpinner size="sm" /> : null}
@@ -1217,6 +1348,19 @@ export function SDMTForecast() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Portfolio Summary View - Only show in portfolio mode */}
+      {isPortfolioView && !loading && forecastData.length > 0 && (
+        <PortfolioSummaryView
+          forecastData={forecastData}
+          lineItems={portfolioLineItems}
+          formatCurrency={formatCurrency}
+          onViewProject={(projectId) => {
+            // TODO: Navigate to single project view with selected project
+            console.log('View project:', projectId);
+          }}
+        />
+      )}
 
       {/* Forecast Grid */}
       <Card>
