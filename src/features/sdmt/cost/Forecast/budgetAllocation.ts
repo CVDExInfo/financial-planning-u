@@ -13,6 +13,14 @@ export interface MonthlyAllocation {
   actual: number;
 }
 
+// Input type for functions that compute allocations
+export interface MonthlyData {
+  month: number;
+  planned: number;
+  forecast: number;
+  actual: number;
+}
+
 export interface ProjectBudgetAllocation {
   projectId: string;
   projectName: string;
@@ -35,7 +43,7 @@ export interface ProjectBudgetAllocation {
  */
 export function allocateBudgetMonthly(
   annualBudget: number,
-  monthlyTotals: Array<{ month: number; planned: number; forecast: number; actual: number }>
+  monthlyTotals: MonthlyData[]
 ): MonthlyAllocation[] {
   // Validate inputs
   if (annualBudget <= 0) {
@@ -87,7 +95,7 @@ export function allocateBudgetMonthly(
  */
 export function allocateBudgetByProject(
   annualBudget: number,
-  projectMonthlyData: Map<string, Array<{ month: number; planned: number; forecast: number; actual: number }>>
+  projectMonthlyData: Map<string, MonthlyData[]>
 ): Map<string, number> {
   const allocations = new Map<string, number>();
 
@@ -136,7 +144,7 @@ export function allocateBudgetByProject(
  */
 export function calculatePortfolioBudgetAllocation(
   annualBudget: number,
-  projectMonthlyData: Map<string, Array<{ month: number; planned: number; forecast: number; actual: number }>>,
+  projectMonthlyData: Map<string, MonthlyData[]>,
   projectNames: Map<string, string>
 ): ProjectBudgetAllocation[] {
   // First allocate budget to each project
@@ -190,7 +198,7 @@ export function calculateVariances(allocation: MonthlyAllocation): {
  */
 export function aggregateMonthlyTotals(
   forecastCells: Array<{ month: number; planned: number; forecast: number; actual: number }>
-): Array<{ month: number; planned: number; forecast: number; actual: number }> {
+): MonthlyData[] {
   const monthlyMap = new Map<number, { planned: number; forecast: number; actual: number }>();
 
   // Initialize all 12 months

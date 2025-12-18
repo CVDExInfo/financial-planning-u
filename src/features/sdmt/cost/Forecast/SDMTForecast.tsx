@@ -68,6 +68,9 @@ import { allocateBudgetMonthly, aggregateMonthlyTotals, type MonthlyAllocation }
 type ForecastRow = ForecastCell & { projectId?: string; projectName?: string };
 type ProjectLineItem = LineItem & { projectId?: string; projectName?: string };
 
+// Constants
+const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real project
+
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -271,7 +274,7 @@ export function SDMTForecast() {
     // Only show error after we're sure the list is definitively empty
     if (candidateProjects.length === 0) {
       // Check if we're still in initial load state (only ALL_PROJECTS exists)
-      if (projects.length <= 1) {
+      if (projects.length < MINIMUM_PROJECTS_FOR_PORTFOLIO) {
         // Projects might still be loading; don't set error yet
         if (import.meta.env.DEV) {
           console.debug('[Forecast] Portfolio: Waiting for projects to load...');
@@ -734,7 +737,7 @@ export function SDMTForecast() {
   const isEmptyState = !isLoadingState && !forecastError && forecastData.length === 0;
   
   // Special case: TODOS mode with only the ALL_PROJECTS placeholder (no real projects)
-  const isTodosEmptyState = isPortfolioView && !isLoadingState && !forecastError && projects.length <= 1;
+  const isTodosEmptyState = isPortfolioView && !isLoadingState && !forecastError && projects.length < MINIMUM_PROJECTS_FOR_PORTFOLIO;
 
   // Calculate monthly budget allocations when annual budget is set
   // Must be computed BEFORE monthlyTrends since trends may reference it

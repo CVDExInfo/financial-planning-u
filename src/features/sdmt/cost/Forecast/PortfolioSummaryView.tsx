@@ -22,6 +22,10 @@ import type { ForecastCell, LineItem } from '@/types/domain';
 import type { MonthlyAllocation } from './budgetAllocation';
 import { calculateVariances } from './budgetAllocation';
 
+// Budget consumption thresholds
+const OVER_BUDGET_THRESHOLD = 100; // Percentage
+const WARNING_THRESHOLD = 90; // Percentage
+
 type ForecastRow = ForecastCell & { projectId?: string; projectName?: string };
 type ProjectLineItem = LineItem & { projectId?: string; projectName?: string };
 
@@ -354,9 +358,9 @@ export function PortfolioSummaryView({
                             {formatCurrency(variances.varianceActualVsBudget)}
                           </TableCell>
                           <TableCell className={`text-right font-medium ${
-                            variances.percentConsumedActual > 100 
+                            variances.percentConsumedActual > OVER_BUDGET_THRESHOLD 
                               ? 'text-red-600' 
-                              : variances.percentConsumedActual > 90 
+                              : variances.percentConsumedActual > WARNING_THRESHOLD 
                                 ? 'text-yellow-600' 
                                 : 'text-green-600'
                           }`}>
