@@ -11,7 +11,10 @@ import {
   calculatePortfolioBudgetAllocation,
   calculateVariances,
   aggregateMonthlyTotals,
+  allocateBudgetWithMonthlyInputs,
+  calculateRunwayMetrics,
   type MonthlyAllocation,
+  type MonthlyBudgetInput,
 } from '../budgetAllocation';
 
 describe('Budget Allocation Utils', () => {
@@ -438,6 +441,140 @@ describe('Budget Allocation Utils', () => {
       assert.strictEqual(result[0].planned, 1000);
       assert.strictEqual(result[0].forecast, 1100);
       assert.strictEqual(result[0].actual, 900);
+    });
+  });
+
+  describe('allocateBudgetWithMonthlyInputs', () => {
+    it('should use entered budgets and auto-fill remaining months', () => {
+      const annualBudget = 120000;
+      const monthlyBudgetInputs = [
+        { month: 1, budget: 15000 },
+        { month: 2, budget: 12000 },
+        { month: 3, budget: 10000 },
+      ];
+      const monthlyTotals = Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        planned: 10000,
+        forecast: 10000,
+        actual: 0,
+      }));
+
+      const result = allocateBudgetWithMonthlyInputs(annualBudget, monthlyBudgetInputs, monthlyTotals);
+
+      // First 3 months should use entered budgets
+      assert.strictEqual(result[0].budgetAllocated, 15000);
+      assert.strictEqual(result[0].budgetEntered, 15000);
+      assert.strictEqual(result[0].isEstimated, false);
+      
+      assert.strictEqual(result[1].budgetAllocated, 12000);
+      assert.strictEqual(result[1].isEstimated, false);
+      
+      assert.strictEqual(result[2].budgetAllocated, 10000);
+      assert.strictEqual(result[2].isEstimated, false);
+
+      // Remaining months should be auto-filled
+      // Total entered = 37000, remaining = 83000, 9 months left
+      assert.ok(result[3].isEstimated);
+      assert.strictEqual(result[3].budgetEntered, undefined);
+      // Should be roughly 83000/9 ≈ 9222 (or proportional)
+      assert.ok(result[3].budgetAllocated > 0);
+    });
+
+    it('should handle all months entered', () => {
+      const annualBudget = 120000;
+      const monthlyBudgetInputs = Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        budget: 10000,
+      }));
+      const monthlyTotals = Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        planned: 10000,
+        forecast: 10000,
+        actual: 0,
+      }));
+
+      const result = allocateBudgetWithMonthlyInputs(annualBudget, monthlyBudgetInputs, monthlyTotals);
+
+      // All months should be entered, not estimated
+      result.forEach((m, idx) => {
+        assert.strictEqual(m.budgetAllocated, 10000);
+        assert.strictEqual(m.budgetEntered, 10000);
+        assert.strictEqual(m.isEstimated, false);
+      });
+    });
+
+    it('should handle no entered budgets (fall back to auto-allocation)', () => {
+      const annualBudget = 120000;
+      const monthlyBudgetInputs: MonthlyBudgetInput[] = [];
+      const monthlyTotals = Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        planned: 10000,
+        forecast: 10000,
+        actual: 0,
+      }));
+
+      const result = allocateBudgetWithMonthlyInputs(annualBudget, monthlyBudgetInputs, monthlyTotals);
+
+      // All months should be estimated with equal distribution
+      result.forEach(m => {
+        assert.strictEqual(m.budgetAllocated, 10000); // 120000 / 12
+        assert.strictEqual(m.budgetEntered, undefined);
+        assert.strictEqual(m.isEstimated, true);
+      });
+    });
+  });
+
+  describe('calculateRunwayMetrics', () => {
+    it('should calculate runway metrics correctly', () => {
+      const annualBudget = 120000;
+      const monthlyAllocations: MonthlyAllocation[] = [
+        { month: 1, budgetAllocated: 10000, planned: 10000, forecast: 10000, actual: 9000 },
+        { month: 2, budgetAllocated: 10000, planned: 10000, forecast: 10000, actual: 11000 },
+        { month: 3, budgetAllocated: 10000, planned: 10000, forecast: 10000, actual: 10000 },
+        ...Array.from({ length: 9 }, (_, i) => ({
+          month: i + 4,
+          budgetAllocated: 10000,
+          planned: 10000,
+          forecast: 10000,
+          actual: 0,
+        })),
+      ];
+
+      const result = calculateRunwayMetrics(annualBudget, monthlyAllocations);
+
+      // Month 1: under budget
+      assert.strictEqual(result[0].budgetForMonth, 10000);
+      assert.strictEqual(result[0].actualForMonth, 9000);
+      assert.strictEqual(result[0].varianceForMonth, -1000); // 9000 - 10000
+      assert.strictEqual(result[0].isOverBudget, false);
+      assert.strictEqual(result[0].remainingAnnualBudget, 111000); // 120000 - 9000
+
+      // Month 2: over budget
+      assert.strictEqual(result[1].budgetForMonth, 10000);
+      assert.strictEqual(result[1].actualForMonth, 11000);
+      assert.strictEqual(result[1].varianceForMonth, 1000); // 11000 - 10000
+      assert.strictEqual(result[1].isOverBudget, true);
+      assert.strictEqual(result[1].remainingAnnualBudget, 100000); // 120000 - 20000
+
+      // Month 3: on budget
+      assert.strictEqual(result[2].varianceForMonth, 0);
+      assert.strictEqual(result[2].remainingAnnualBudget, 90000); // 120000 - 30000
+      
+      // Percent consumed should increase
+      assert.ok(result[0].percentConsumed < result[1].percentConsumed);
+      assert.ok(result[1].percentConsumed < result[2].percentConsumed);
+    });
+
+    it('should handle zero budget gracefully', () => {
+      const annualBudget = 0;
+      const monthlyAllocations: MonthlyAllocation[] = [
+        { month: 1, budgetAllocated: 0, planned: 10000, forecast: 10000, actual: 5000 },
+      ];
+
+      const result = calculateRunwayMetrics(annualBudget, monthlyAllocations);
+
+      assert.strictEqual(result[0].remainingAnnualBudget, 0);
+      assert.strictEqual(result[0].percentConsumed, 0);
     });
   });
 });
