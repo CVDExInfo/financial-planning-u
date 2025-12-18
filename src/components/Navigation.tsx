@@ -274,6 +274,13 @@ export function Navigation() {
           stack: "pmo",
           allowedRoles: ["PM", "PMO"],
         },
+        {
+          path: "/pmo/baselines",
+          label: "Baselines Queue",
+          icon: BookOpen,
+          stack: "pmo",
+          allowedRoles: ["PM", "PMO"],
+        },
       ],
     },
     {
