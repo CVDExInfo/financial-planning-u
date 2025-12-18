@@ -303,39 +303,91 @@ const seedLineItemsFromBaseline = async (
     const seedItems = buildSeedLineItems(baseline, projectId, baselineId);
 
     if (!seedItems.length) {
+      console.warn("[seedLineItems] No line items generated from baseline", {
+        projectId,
+        baselineId,
+        laborEstimatesCount: labor_estimates.length,
+        nonLaborEstimatesCount: non_labor_estimates.length,
+      });
       return { seeded: 0, skipped: true };
     }
 
+    console.info("[seedLineItems] Starting rubros creation", {
+      projectId,
+      baselineId,
+      totalItems: seedItems.length,
+      laborItems: seedItems.filter(i => i.category === 'Labor').length,
+      nonLaborItems: seedItems.filter(i => i.category !== 'Labor').length,
+    });
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: Array<{ item: string; error: string }> = [];
+
     for (const item of seedItems) {
-      await deps.send(
-        new PutCommand({
-          TableName: deps.tableName("rubros"),
-          Item: {
-            pk: `PROJECT#${projectId}`,
-            sk: `RUBRO#${item.rubroId}`,
-            projectId,
-            rubroId: item.rubroId,
-            nombre: item.nombre,
-            descripcion: item.descripcion,
-            category: item.category,
-            qty: item.qty,
-            unit_cost: item.unit_cost,
-            currency: item.currency,
-            recurring: item.recurring,
-            one_time: item.one_time,
-            start_month: item.start_month,
-            end_month: item.end_month,
-            total_cost: item.total_cost,
-            metadata: item.metadata,
-            createdAt: new Date().toISOString(),
-            createdBy: "prefactura-handoff",
-          },
-        })
-      );
+      try {
+        await deps.send(
+          new PutCommand({
+            TableName: deps.tableName("rubros"),
+            Item: {
+              pk: `PROJECT#${projectId}`,
+              sk: `RUBRO#${item.rubroId}`,
+              projectId,
+              rubroId: item.rubroId,
+              nombre: item.nombre,
+              descripcion: item.descripcion,
+              category: item.category,
+              qty: item.qty,
+              unit_cost: item.unit_cost,
+              currency: item.currency,
+              recurring: item.recurring,
+              one_time: item.one_time,
+              start_month: item.start_month,
+              end_month: item.end_month,
+              total_cost: item.total_cost,
+              metadata: item.metadata,
+              createdAt: new Date().toISOString(),
+              createdBy: "prefactura-handoff",
+            },
+          })
+        );
+        successCount++;
+      } catch (dynamoError) {
+        errorCount++;
+        const errorMessage = dynamoError instanceof Error ? dynamoError.message : String(dynamoError);
+        errors.push({ item: item.rubroId, error: errorMessage });
+        console.error("[seedLineItems] DynamoDB error creating rubro", {
+          projectId,
+          baselineId,
+          rubroId: item.rubroId,
+          error: errorMessage,
+        });
+      }
     }
 
-    return { seeded: seedItems.length, skipped: false };
+    // Log final summary
+    console.info("[seedLineItems] Rubros creation completed", {
+      projectId,
+      baselineId,
+      totalItems: seedItems.length,
+      successCount,
+      errorCount,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+
+    // Return success even if some items failed (partial success)
+    return { 
+      seeded: successCount, 
+      skipped: false,
+      errors: errors.length > 0 ? errors : undefined,
+    };
   } catch (error) {
+    console.error("[seedLineItems] Fatal error seeding baseline line items", {
+      projectId,
+      baselineId,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     logError("Failed to seed baseline line items", { projectId, baselineId, error });
     return { seeded: 0, skipped: true, error };
   }

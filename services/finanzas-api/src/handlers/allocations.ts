@@ -195,14 +195,15 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
 async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
   const requestId = event.requestContext?.requestId || 'unknown';
   
+  // Get allocation type from query parameter (default to 'planned')
+  // Declare outside try block so it's accessible in catch block for logging
+  const allocationType = event.queryStringParameters?.type || "planned";
+  
   try {
     const projectId = event.pathParameters?.id;
     if (!projectId) {
       return bad(event, "Missing project id");
     }
-
-    // Get allocation type from query parameter (default to 'planned')
-    const allocationType = event.queryStringParameters?.type || "planned";
     
     console.log(`[allocations] ${requestId} - ${allocationType} bulk update for project ${projectId}`);
     
@@ -243,31 +244,34 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
     const updatedBy = userContext.email || userContext.sub || "system";
     const timestamp = new Date().toISOString();
 
-    // Get project metadata (baseline_id and start_date) using composite key
+    // Get project metadata (baseline_id and start_date)
+    // Use composite key with sk: 'METADATA' for proper data access
     const projectsTable = tableName("projects");
-    let project: any;
-    
-    try {
-      project = await getMetadata(projectId, projectsTable, event.requestContext);
-    } catch (error: any) {
-      // Handle DynamoDB ValidationException (wrong key schema)
-      if (error.name === 'ValidationException') {
-        console.error(`[allocations] ${requestId} - ValidationException: invalid key schema for projects table`, {
-          projectId,
-          table: projectsTable,
-          error: error.message,
-        });
-        return serverError(event as any, "Server configuration error: invalid key schema for projects table");
-      }
-      // Rethrow other errors to be handled by outer catch
-      throw error;
+    let projectResult = await ddb.send(
+      new GetCommand({
+        TableName: projectsTable,
+        Key: { pk: `PROJECT#${projectId}`, sk: "METADATA" },
+      })
+    );
+
+    // Fallback to legacy sk: 'META' for backward compatibility
+    if (!projectResult.Item) {
+      console.warn(`[allocations] Project ${projectId} not found with sk=METADATA, trying legacy sk=META`);
+      projectResult = await ddb.send(
+        new GetCommand({
+          TableName: projectsTable,
+          Key: { pk: `PROJECT#${projectId}`, sk: "META" },
+        })
+      );
     }
 
-    if (!project) {
-      console.error(`[allocations] ${requestId} - Project ${projectId} not found in projects table`);
-      return bad(event, `Project ${projectId} not found`);
+    // Return 400 (Bad Request) instead of generic error if project not found
+    if (!projectResult.Item) {
+      console.error(`[allocations] Project ${projectId} metadata not found in projects table`);
+      return bad(event, `Project metadata not found for project ${projectId}. Ensure the project exists and has been properly initialized.`);
     }
 
+    const project = projectResult.Item;
     const baselineId = project.baseline_id || project.baselineId || "default";
     const projectStartDate = 
       project.start_date || 
