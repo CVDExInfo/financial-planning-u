@@ -102,6 +102,10 @@ export function PMOBaselinesQueuePage() {
 
   const filteredProjects = projects?.filter((p) => {
     if (selectedStatus === "all") return true;
+    // For "handed_off" filter, show both pending and handed_off statuses
+    if (selectedStatus === "handed_off") {
+      return p.baseline_status === "pending" || p.baseline_status === "handed_off";
+    }
     return p.baseline_status === selectedStatus;
   });
 
