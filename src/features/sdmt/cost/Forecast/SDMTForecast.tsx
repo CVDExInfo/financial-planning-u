@@ -25,7 +25,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Share2, Download, TrendingUp, TrendingDown, AlertTriangle, ExternalLink, FileSpreadsheet, Info } from 'lucide-react';
+import { Share2, TrendingUp, TrendingDown, ExternalLink, FileSpreadsheet, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import LineChartComponent from '@/components/charts/LineChart';
