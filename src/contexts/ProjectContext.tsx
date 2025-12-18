@@ -126,6 +126,18 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Allow ALL_PROJECTS_ID even if not yet in projectMap (prevents TODOS regression)
+      if (normalized === ALL_PROJECTS_ID) {
+        const allProjectsPlaceholder = projectMap.get(ALL_PROJECTS_ID) || {
+          id: ALL_PROJECTS_ID,
+          name: "TODOS (Todos los proyectos)",
+          description: "Visión consolidada del portafolio",
+          status: "active" as const,
+        };
+        selectProject(allProjectsPlaceholder);
+        return;
+      }
+
       const lookup = projectMap.get(normalized);
       if (!lookup) {
         logger.warn("Project not found in context", projectId);

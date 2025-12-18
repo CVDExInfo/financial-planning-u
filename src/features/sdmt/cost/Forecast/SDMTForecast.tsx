@@ -575,10 +575,12 @@ export function SDMTForecast() {
     }
   }, [budgetYear, isPortfolioView]);
 
-  // Check if user can edit forecast (SDMT only) or actuals (SDMT role)
-  const canEditForecast = user?.current_role === 'SDMT';
+  // Check if user can edit forecast, actuals, and budget
+  // Per docs/ui-api-action-map.md: Forecast adjustment is PMO only
+  // Per docs/finanzas-roles-and-permissions.md: Budget management is PMO/ADMIN
+  const canEditForecast = user?.current_role === 'PMO' || user?.current_role === 'SDMT';
   const canEditActual = user?.current_role === 'SDMT';
-  const canEditBudget = user?.current_role === 'SDMT';
+  const canEditBudget = user?.current_role === 'PMO' || user?.current_role === 'SDMT';
 
   // Function to navigate to reconciliation with filters
   const navigateToReconciliation = (line_item_id: string, month?: number) => {
@@ -716,6 +718,9 @@ export function SDMTForecast() {
   const isLoadingState = loading || isLineItemsLoading;
   const hasGridData = forecastGrid.length > 0;
   const isEmptyState = !isLoadingState && !forecastError && forecastData.length === 0;
+  
+  // Special case: TODOS mode with only the ALL_PROJECTS placeholder (no real projects)
+  const isTodosEmptyState = isPortfolioView && !isLoadingState && !forecastError && projects.length <= 1;
 
   // Chart data - recalculate when forecastData changes
   const monthlyTrends = useMemo(() => {
@@ -1380,6 +1385,31 @@ export function SDMTForecast() {
                 <div className="text-xs text-muted-foreground">
                   Project: {selectedProjectId} | Change #{projectChangeCount}
                 </div>
+              </div>
+            </div>
+          ) : isTodosEmptyState ? (
+            <div className="flex items-center justify-center h-48">
+              <div className="text-center space-y-4 max-w-md">
+                <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-amber-600 font-bold text-xl">⚠️</span>
+                </div>
+                <div className="text-lg font-semibold text-foreground">
+                  No se encontraron proyectos para 'TODOS'
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Verifica permisos y filtros. Si deberías ver proyectos, intenta recargar.
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Proyectos cargados: {projects.length} (incluyendo ALL_PROJECTS)
+                </div>
+                <Button 
+                  onClick={loadForecastData}
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                >
+                  Reintentar
+                </Button>
               </div>
             </div>
           ) : forecastError ? (
