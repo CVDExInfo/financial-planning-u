@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { BaselineStatusPanel } from "@/components/baseline/BaselineStatusPanel";
+import { NotificationsBanner } from "@/components/baseline/NotificationsBanner";
 import { useProject } from "@/contexts/ProjectContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ArrowLeft, Loader2, Building2, Calendar, DollarSign, User } from "lucide-react";
@@ -99,6 +100,9 @@ export default function PMOProjectDetailsPage() {
           View project information and baseline status
         </p>
       </div>
+
+      {/* Notifications Banner */}
+      {projectId && <NotificationsBanner projectId={projectId} />}
 
       {/* Project Information Card */}
       <Card className="mb-6">
