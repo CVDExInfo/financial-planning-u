@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -50,12 +52,7 @@ import { BudgetSimulatorCard } from './BudgetSimulatorCard';
 import { PortfolioSummaryView } from './PortfolioSummaryView';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
-import { ForecastPageHeader } from './components/ForecastPageHeader';
-import { ForecastActionBarSticky } from './components/ForecastActionBarSticky';
-import { KpiGrid } from './components/KpiGrid';
-import { BudgetAndSimulatorPanel, type AllocationStrategy } from './components/BudgetAndSimulatorPanel';
-import { ForecastAnalytics } from './components/ForecastAnalytics';
-import { calculateMonthlyBudgets, calculateBudgetConsumption } from './budgetAllocation';
+import { calculateMonthlyBudgets, type AllocationStrategy } from './budgetAllocation';
 
 // TODO: Backend Integration for Change Request Impact on Forecast
 // When a change request is approved in SDMTChanges, the backend should:
@@ -874,53 +871,393 @@ export function SDMTForecast() {
   };
 
   return (
-    <div className="max-w-full mx-auto p-6 space-y-6">
-      {/* Sticky Page Header */}
-      <ForecastPageHeader
-        projectName={currentProject?.name}
-        projectChangeCount={projectChangeCount}
-        startDate={currentProject?.start_date}
-        isPortfolioView={isPortfolioView}
-        dataSource={dataSource}
-        lastUpdated={generatedAt}
-      />
+    <div className="max-w-full mx-auto p-6 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">{ES_TEXTS.forecast.title}</h1>
+          <p className="text-muted-foreground">
+            {ES_TEXTS.forecast.description}
+            {currentProject && (
+              <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                {currentProject.name} | Change #{projectChangeCount}
+              </span>
+            )}
+            {/* Show contract start date for single project view */}
+            {!isPortfolioView && currentProject?.start_date && (
+              <span className="ml-2 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">
+                📅 Inicio contrato: {new Date(currentProject.start_date).toLocaleDateString('es-ES', { 
+                  month: 'long', 
+                  year: 'numeric' 
+                })}
+              </span>
+            )}
+          </p>
+          {/* Debug info */}
+          <div className="mt-2 text-xs text-muted-foreground space-x-4">
+            <span>Project: {selectedProjectId}</span>
+            <span>Data points: {forecastData.length}</span>
+            <span>Line items: {lineItemsForGrid.length}</span>
+            <span>Grid rows: {forecastGrid.length}</span>
+            <Badge variant={dataSource === 'mock' ? 'outline' : 'secondary'}>
+              {dataSource === 'mock' ? 'Datos de prueba' : 'Datos de API'}
+            </Badge>
+            {generatedAt && (
+              <span>Last updated: {new Date(generatedAt).toLocaleString()}</span>
+            )}
+          </div>
+        </div>
+        <ModuleBadge />
+      </div>
 
       {/* Baseline Status Panel */}
       <BaselineStatusPanel />
 
-      {/* Sticky Action Bar */}
-      <ForecastActionBarSticky
-        dirtyActualCount={dirtyActualCount}
-        dirtyForecastCount={dirtyForecastCount}
-        savingActuals={savingActuals}
-        savingForecasts={savingForecasts}
-        canEditForecast={canEditForecast}
-        exporting={exporting}
-        onSaveActuals={handlePersistActuals}
-        onSaveForecasts={handlePersistForecasts}
-        onExportExcel={handleExcelExport}
-        onExportPDF={handlePDFExport}
-      />
+      {/* Budget Simulator - Only show in Portfolio View (TODOS LOS PROYECTOS) */}
+      {isPortfolioView && (
+        <BudgetSimulatorCard
+          simulationState={budgetSimulation}
+          onSimulationChange={setBudgetSimulation}
+        />
+      )}
 
-      {/* Unified KPI Grid */}
-      <KpiGrid
-        totalPlanned={totalPlanned}
-        totalForecast={totalForecast}
-        totalActual={totalActual}
-        totalFTE={totalFTE}
-        totalVariance={totalVariance}
-        variancePercentage={variancePercentage}
-        actualVariance={actualVariance}
-        actualVariancePercentage={actualVariancePercentage}
-        formatCurrency={formatCurrency}
-      />
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+        <Card>
+          <CardContent className="p-3">
+            <div className="text-2xl font-bold">{formatCurrency(totalPlanned)}</div>
+            <div className="flex items-center gap-1">
+              <p className="text-sm text-muted-foreground">Total Planeado</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-xs">Suma de costos planificados importados desde Planview baseline</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <p className="text-xs text-muted-foreground">De Planview</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <div className="text-2xl font-bold">{formatCurrency(totalForecast)}</div>
+            <div className="flex items-center gap-1">
+              <p className="text-sm text-muted-foreground">Pronóstico Total</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-xs">Pronóstico ajustado por SDMT basado en tendencias y factores de riesgo</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <p className="text-xs text-muted-foreground">Pronóstico Ajustado</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalActual)}</div>
+            <div className="flex items-center gap-1">
+              <p className="text-sm text-muted-foreground">Total Real</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-xs">Gastos reales registrados en el sistema desde facturas conciliadas</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <p className="text-xs text-muted-foreground">Seguimiento SDMT</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <div className="text-2xl font-bold">{totalFTE.toLocaleString()}</div>
+            <p className="text-sm text-muted-foreground">Total FTE</p>
+            <p className="text-xs text-muted-foreground">Basado en rubros de baseline</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <div className={`text-2xl font-bold ${totalVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {formatCurrency(Math.abs(totalVariance))}
+            </div>
+            <div className="flex items-center gap-1">
+              {getVarianceIcon(totalVariance)}
+              <p className="text-sm text-muted-foreground">Variación de Pronóstico</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-xs">Diferencia entre pronóstico y planificado (Forecast - Planned)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <p className="text-xs text-muted-foreground">{Math.abs(variancePercentage).toFixed(1)}%</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <div className={`text-2xl font-bold ${actualVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {formatCurrency(Math.abs(actualVariance))}
+            </div>
+            <div className="flex items-center gap-1">
+              {getVarianceIcon(actualVariance)}
+              <p className="text-sm text-muted-foreground">Variación Real</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-xs">Diferencia entre gastos reales y planificado (Actual - Planned)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <p className="text-xs text-muted-foreground">{Math.abs(actualVariancePercentage).toFixed(1)}%</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Actions and Budget Editor */}
+      <Card className="mt-4">
+        <CardContent className="p-3 space-y-3">
+          {/* Action Buttons Row */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={handlePersistActuals}
+                disabled={savingActuals || dirtyActualCount === 0}
+                className="gap-2 h-9"
+                size="sm"
+              >
+                {savingActuals ? <LoadingSpinner size="sm" /> : null}
+                Guardar
+                {dirtyActualCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {dirtyActualCount}
+                  </Badge>
+                )}
+              </Button>
+              <Button
+                onClick={handlePersistForecasts}
+                disabled={savingForecasts || dirtyForecastCount === 0 || !canEditForecast}
+                className="gap-2 h-9"
+                variant="outline"
+                size="sm"
+              >
+                {savingForecasts ? <LoadingSpinner size="sm" /> : null}
+                Guardar Pronóstico
+                {dirtyForecastCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {dirtyForecastCount}
+                  </Badge>
+                )}
+              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button className="gap-2 h-9" size="sm">
+                    <Share2 size={16} />
+                    Share
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Compartir Datos de Pronóstico</DialogTitle>
+                    <DialogDescription>
+                      Exportar y compartir datos de pronóstico en múltiples formatos para interesados y reportes.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col gap-2"
+                        onClick={handleExcelExport}
+                        disabled={exporting !== null}
+                      >
+                        {exporting === 'excel' ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <FileSpreadsheet size={24} />
+                        )}
+                        <span>Reporte Excel</span>
+                        <span className="text-xs text-muted-foreground">
+                          {exporting === 'excel' ? 'Generando...' : 'Pronóstico detallado con fórmulas'}
+                        </span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col gap-2"
+                        onClick={handlePDFExport}
+                        disabled={exporting !== null}
+                      >
+                        {exporting === 'pdf' ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <Share2 size={24} />
+                        )}
+                        <span>Resumen PDF</span>
+                        <span className="text-xs text-muted-foreground">
+                          {exporting === 'pdf' ? 'Generando...' : 'Formato de resumen ejecutivo'}
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Última actualización: {new Date().toLocaleDateString()}
+            </div>
+          </div>
+
+          {/* Compact Budget Editor - Inline */}
+          <div className="border-t pt-3">
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium whitespace-nowrap">Presupuesto Anual All-In:</span>
+              </div>
+              <div className="flex-shrink-0 w-20">
+                <label htmlFor="budget-year" className="text-xs text-muted-foreground block mb-1">Año</label>
+                <Input
+                  id="budget-year"
+                  type="number"
+                  value={budgetYear}
+                  onChange={(e) => setBudgetYear(parseInt(e.target.value))}
+                  min={2020}
+                  max={2100}
+                  disabled={loadingBudget || savingBudget || !canEditBudget}
+                  className="h-8 text-sm"
+                  aria-label="Año del presupuesto"
+                />
+              </div>
+              <div className="flex-grow min-w-[140px] max-w-[180px]">
+                <label htmlFor="budget-amount" className="text-xs text-muted-foreground block mb-1">Monto</label>
+                <Input
+                  id="budget-amount"
+                  type="number"
+                  value={budgetAmount}
+                  onChange={(e) => setBudgetAmount(e.target.value)}
+                  placeholder="0"
+                  disabled={loadingBudget || savingBudget || !canEditBudget}
+                  className="h-8 text-sm"
+                  aria-label="Monto del presupuesto"
+                />
+              </div>
+              <div className="flex-shrink-0 w-20">
+                <label htmlFor="budget-currency" className="text-xs text-muted-foreground block mb-1">Moneda</label>
+                <select
+                  id="budget-currency"
+                  value={budgetCurrency}
+                  onChange={(e) => setBudgetCurrency(e.target.value)}
+                  disabled={loadingBudget || savingBudget || !canEditBudget}
+                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Moneda del presupuesto"
+                >
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="MXN">MXN</option>
+                </select>
+              </div>
+              <Button
+                onClick={handleSaveAnnualBudget}
+                disabled={savingBudget || loadingBudget || !canEditBudget || !budgetAmount}
+                className="gap-2 h-8"
+                size="sm"
+              >
+                {savingBudget ? <LoadingSpinner size="sm" /> : null}
+                Guardar Presupuesto
+              </Button>
+              {budgetLastUpdated && (
+                <div className="text-xs text-muted-foreground ml-2 self-center">
+                  Actualizado: {new Date(budgetLastUpdated).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+            {!canEditBudget && (
+              <div className="text-xs text-muted-foreground mt-2 text-amber-600">
+                Solo usuarios SDMT pueden editar el presupuesto anual
+              </div>
+            )}
+            {!isPortfolioView && budgetAmount && (
+              <div className="text-xs text-muted-foreground mt-2">
+                ℹ️ Presupuesto All-In aplica a todos los proyectos; seleccione "TODOS" para ver consumo total.
+              </div>
+            )}
+            
+            {/* Allocation Strategy Selector */}
+            {budgetAmount && parseFloat(budgetAmount) > 0 && (
+              <div className="pt-3 border-t mt-3 space-y-3">
+                <Label className="text-sm font-medium">Distribución Mensual:</Label>
+                <RadioGroup
+                  value={allocationStrategy}
+                  onValueChange={(value) => setAllocationStrategy(value as AllocationStrategy)}
+                  className="flex flex-wrap gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="equal" id="strategy-equal" />
+                    <Label htmlFor="strategy-equal" className="text-sm font-normal cursor-pointer">
+                      Igual (12 meses)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="by_planned" id="strategy-planned" />
+                    <Label htmlFor="strategy-planned" className="text-sm font-normal cursor-pointer">
+                      Según Planeado
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="by_forecast" id="strategy-forecast" />
+                    <Label htmlFor="strategy-forecast" className="text-sm font-normal cursor-pointer">
+                      Según Pronóstico
+                    </Label>
+                  </div>
+                </RadioGroup>
+                
+                {/* Computed Outputs */}
+                {budgetAllocation && (
+                  <div className="pt-2 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Presupuesto mensual promedio:</span>
+                      <span className="font-medium">{formatCurrency(budgetAllocation.average)}</span>
+                    </div>
+                    {budgetAllocation.maxPressureMonth && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Mayor presión:</span>
+                        <span className="font-medium text-amber-600">
+                          Mes {budgetAllocation.maxPressureMonth.month} ({budgetAllocation.maxPressureMonth.pressure.toFixed(1)}%)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Budget Simulation KPIs - Only show when simulation is enabled */}
       {isPortfolioView && budgetSimulation.enabled && budgetTotal > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <Card className="border-primary/30">
             <CardContent className="p-3">
-              <div className="text-2xl font-bold text-primary">{formatCurrency(budgetTotal)}</div>
+              <div className="text-xl font-bold text-primary">{formatCurrency(budgetTotal)}</div>
               <div className="flex items-center gap-1">
                 <p className="text-sm text-muted-foreground">Presupuesto Total</p>
                 <TooltipProvider>
@@ -939,7 +1276,7 @@ export function SDMTForecast() {
           </Card>
           <Card className="border-primary/30">
             <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${budgetVarianceProjected >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <div className={`text-xl font-bold ${budgetVarianceProjected >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {formatCurrency(Math.abs(budgetVarianceProjected))}
               </div>
               <div className="flex items-center gap-1">
@@ -963,7 +1300,7 @@ export function SDMTForecast() {
           </Card>
           <Card className="border-primary/30">
             <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${budgetUtilization > 100 ? 'text-red-600' : budgetUtilization > 90 ? 'text-yellow-600' : 'text-green-600'}`}>
+              <div className={`text-xl font-bold ${budgetUtilization > 100 ? 'text-red-600' : budgetUtilization > 90 ? 'text-yellow-600' : 'text-green-600'}`}>
                 {budgetUtilization.toFixed(1)}%
               </div>
               <div className="flex items-center gap-1">
@@ -984,7 +1321,7 @@ export function SDMTForecast() {
           </Card>
           <Card className="border-primary/30">
             <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${pctUsedActual > 100 ? 'text-red-600' : pctUsedActual > 90 ? 'text-yellow-600' : 'text-blue-600'}`}>
+              <div className={`text-xl font-bold ${pctUsedActual > 100 ? 'text-red-600' : pctUsedActual > 90 ? 'text-yellow-600' : 'text-blue-600'}`}>
                 {pctUsedActual.toFixed(1)}%
               </div>
               <div className="flex items-center gap-1">
@@ -1008,10 +1345,10 @@ export function SDMTForecast() {
 
       {/* Real Annual Budget KPIs - Show when budget is set and portfolio view (not simulation) */}
       {isPortfolioView && !budgetSimulation.enabled && budgetOverview?.budgetAllIn && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-xl font-bold text-blue-600">
                 {formatCurrency(budgetOverview.budgetAllIn.amount)}
               </div>
               <p className="text-sm text-muted-foreground">Presupuesto Anual All-In</p>
@@ -1022,7 +1359,7 @@ export function SDMTForecast() {
           </Card>
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${
+              <div className={`text-xl font-bold ${
                 budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'text-green-600' : 'text-red-600'
               }`}>
                 {formatCurrency(Math.abs(budgetOverview.totals.varianceBudgetVsForecast))}
@@ -1048,7 +1385,7 @@ export function SDMTForecast() {
           </Card>
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${
+              <div className={`text-xl font-bold ${
                 (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 100 
                   ? 'text-red-600' 
                   : (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 90 
@@ -1063,7 +1400,7 @@ export function SDMTForecast() {
           </Card>
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${
+              <div className={`text-xl font-bold ${
                 (budgetOverview.totals.percentBudgetConsumedActual || 0) > 100 
                   ? 'text-red-600' 
                   : (budgetOverview.totals.percentBudgetConsumedActual || 0) > 90 
@@ -1078,29 +1415,6 @@ export function SDMTForecast() {
           </Card>
         </div>
       )}
-
-      {/* Budget & Simulator Panel */}
-      <BudgetAndSimulatorPanel
-        budgetYear={budgetYear}
-        budgetAmount={budgetAmount}
-        budgetCurrency={budgetCurrency}
-        budgetLastUpdated={budgetLastUpdated}
-        loadingBudget={loadingBudget}
-        savingBudget={savingBudget}
-        canEditBudget={canEditBudget}
-        onBudgetYearChange={setBudgetYear}
-        onBudgetAmountChange={setBudgetAmount}
-        onBudgetCurrencyChange={setBudgetCurrency}
-        onSaveBudget={handleSaveAnnualBudget}
-        allocationStrategy={allocationStrategy}
-        onAllocationStrategyChange={setAllocationStrategy}
-        monthlyBudgetAverage={budgetAllocation?.average}
-        maxPressureMonth={budgetAllocation?.maxPressureMonth}
-        formatCurrency={formatCurrency}
-        isPortfolioView={isPortfolioView}
-        simulationState={budgetSimulation}
-        onSimulationChange={setBudgetSimulation}
-      />
 
       {/* Portfolio Summary View - Only show in portfolio mode */}
       {isPortfolioView && !loading && forecastData.length > 0 && (
@@ -1332,9 +1646,38 @@ export function SDMTForecast() {
       </Card>
 
       {/* Charts and Analytics */}
-      {!loading && (
-        <ForecastAnalytics
-          monthlyTrends={monthlyTrends}
+      {!loading && forecastData.length > 0 && (
+        <ChartInsightsPanel
+          title="Forecast Analytics & Trends"
+          charts={[
+            <LineChartComponent
+              key={`forecast-trends-${selectedProjectId}`}
+              data={monthlyTrends}
+              lines={[
+                { dataKey: 'Planned', name: 'Planned', color: 'oklch(0.45 0.12 200)', strokeDasharray: '5 5' },
+                { dataKey: 'Forecast', name: 'Forecast', color: 'oklch(0.61 0.15 160)', strokeWidth: 3 },
+                { dataKey: 'Actual', name: 'Actual', color: 'oklch(0.72 0.15 65)' },
+                // Add Budget line when simulation is enabled
+                ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
+                  ? [{ dataKey: 'Budget', name: 'Budget', color: 'oklch(0.5 0.2 350)', strokeDasharray: '8 4', strokeWidth: 2 }]
+                  : [])
+              ]}
+              title="Monthly Forecast Trends"
+            />,
+            <StackedColumnsChart
+              key={`variance-analysis-${selectedProjectId}`}
+              data={monthlyTrends.map(month => ({
+                month: month.month,
+                'Over Budget': Math.max(0, month.Forecast - month.Planned),
+                'Under Budget': Math.min(0, month.Forecast - month.Planned)
+              }))}
+              stacks={[
+                { dataKey: 'Over Budget', name: 'Over Budget', color: 'oklch(0.65 0.2 30)' },
+                { dataKey: 'Under Budget', name: 'Under Budget', color: 'oklch(0.55 0.15 140)' }
+              ]}
+              title="Variance Analysis"
+            />
+          ]}
           insights={[
             {
               title: "Forecast Accuracy",
@@ -1343,7 +1686,7 @@ export function SDMTForecast() {
             },
             {
               title: "Largest Variance",
-              value: formatCurrency(Math.max(...forecastData.map(c => Math.abs(c.variance || 0)), 0)),
+              value: formatCurrency(Math.max(...forecastData.map(c => Math.abs(c.variance || 0)))),
               type: 'neutral'
             },
             {
@@ -1356,14 +1699,10 @@ export function SDMTForecast() {
               ? [{
                   title: "Budget Utilization",
                   value: `${budgetUtilization.toFixed(1)}%`,
-                  type: (budgetUtilization > 100 ? 'negative' : budgetUtilization > 90 ? 'neutral' : 'positive') as 'positive' | 'negative' | 'neutral'
+                  type: budgetUtilization > 100 ? 'negative' : budgetUtilization > 90 ? 'neutral' : 'positive'
                 }]
               : [])
           ]}
-          variancePercentage={variancePercentage}
-          isPortfolioView={isPortfolioView}
-          budgetSimulationEnabled={budgetSimulation.enabled}
-          budgetTotal={budgetTotal}
           onExport={handleExcelExport}
         />
       )}
