@@ -1119,4 +1119,7 @@ export class ApiService {
   }
 }
 
+// Named export wrappers for backward compatibility
+export const getProjects = (): Promise<Project[]> => ApiService.getProjects();
+
 export default ApiService;

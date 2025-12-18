@@ -1756,7 +1756,7 @@ export function SDMTForecast() {
               ...(isPortfolioView && (
                 (budgetSimulation.enabled && budgetTotal > 0) || hasBudgetForVariance
               )
-                ? [{ dataKey: 'Budget', name: 'Budget', color: 'oklch(0.5 0.2 350)', strokeDasharray: '8 4', strokeWidth: 2 }]
+                ? [{ dataKey: 'Budget', name: 'Nómina Servicios', color: 'oklch(0.5 0.2 350)', strokeDasharray: '8 4', strokeWidth: 2 }]
                 : [])
             ]}
             title="Monthly Forecast Trends"
@@ -1782,12 +1782,12 @@ export function SDMTForecast() {
                 };
               })}
               stacks={[
-                { dataKey: 'Forecast Over Budget', name: 'Forecast Over', color: 'oklch(0.65 0.2 30)' },
-                { dataKey: 'Forecast Under Budget', name: 'Forecast Under', color: 'oklch(0.55 0.15 140)' },
-                { dataKey: 'Actual Over Budget', name: 'Actual Over', color: 'oklch(0.70 0.25 25)' },
-                { dataKey: 'Actual Under Budget', name: 'Actual Under', color: 'oklch(0.60 0.18 150)' },
+                { dataKey: 'Forecast Over Budget', name: 'Forecast Over Nómina', color: 'oklch(0.65 0.2 30)' },
+                { dataKey: 'Forecast Under Budget', name: 'Forecast Under Nómina', color: 'oklch(0.55 0.15 140)' },
+                { dataKey: 'Actual Over Budget', name: 'Actual Over Nómina', color: 'oklch(0.70 0.25 25)' },
+                { dataKey: 'Actual Under Budget', name: 'Actual Under Nómina', color: 'oklch(0.60 0.18 150)' },
               ]}
-              title="Variance Analysis vs Budget"
+              title="Variance Analysis vs Nómina Servicios"
             />
           );
         } else {
