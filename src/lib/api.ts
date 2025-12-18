@@ -890,6 +890,16 @@ export class ApiService {
           ? item.affectedLineItems
           : [];
 
+      // Parse new line item request if present
+      const newLineItemRequest = item?.new_line_item_request || item?.newLineItemRequest;
+      const parsedNewLineItem = newLineItemRequest
+        ? {
+            name: newLineItemRequest.name || "",
+            type: newLineItemRequest.type || "OPEX",
+            description: newLineItemRequest.description || "",
+          }
+        : undefined;
+
       return {
         id: item?.id || item?.changeId || (item?.sk || "").replace(/^CHANGE#/, ""),
         baseline_id: item?.baseline_id || item?.baselineId || "",
@@ -905,6 +915,12 @@ export class ApiService {
           item?.requested_at || item?.requestedAt || item?.created_at || new Date().toISOString(),
         status: (item?.status as ChangeRequest["status"]) || "pending",
         approvals: Array.isArray(item?.approvals) ? item.approvals : [],
+        // Time distribution fields
+        start_month_index: item?.start_month_index ?? item?.startMonthIndex,
+        duration_months: item?.duration_months ?? item?.durationMonths,
+        allocation_mode: item?.allocation_mode ?? item?.allocationMode,
+        // New line item request
+        new_line_item_request: parsedNewLineItem,
       };
     };
 
@@ -918,7 +934,7 @@ export class ApiService {
     change: Omit<ChangeRequest, "id" | "requested_at" | "status" | "approvals">,
   ): Promise<ChangeRequest> {
     const endpoint = `/projects/${project_id}/changes`;
-    const body = {
+    const body: any = {
       baseline_id: change.baseline_id,
       title: change.title,
       description: change.description,
@@ -928,11 +944,42 @@ export class ApiService {
       affected_line_items: change.affected_line_items,
     };
 
+    // Include time distribution fields if provided
+    if (change.start_month_index !== undefined) {
+      body.start_month_index = change.start_month_index;
+    }
+    if (change.duration_months !== undefined) {
+      body.duration_months = change.duration_months;
+    }
+    if (change.allocation_mode !== undefined) {
+      body.allocation_mode = change.allocation_mode;
+    }
+
+    // Include new line item request if provided
+    if (change.new_line_item_request) {
+      body.new_line_item_request = {
+        name: change.new_line_item_request.name,
+        type: change.new_line_item_request.type,
+        description: change.new_line_item_request.description,
+      };
+    }
+
     const payload = await this.request(endpoint, {
       method: "POST",
       headers: this.buildRequestHeaders(),
       body: JSON.stringify(body),
     });
+
+    // Parse new line item request from response
+    const newLineItemRequest = payload?.new_line_item_request || payload?.newLineItemRequest;
+    const parsedNewLineItem = newLineItemRequest
+      ? {
+          name: newLineItemRequest.name || "",
+          type: newLineItemRequest.type || "OPEX",
+          description: newLineItemRequest.description || "",
+        }
+      : undefined;
+
     return {
       id: payload.id || payload.changeId,
       baseline_id: payload.baseline_id || payload.baselineId || "",
@@ -953,6 +1000,12 @@ export class ApiService {
         payload.requested_at || payload.requestedAt || payload.created_at || new Date().toISOString(),
       status: (payload.status as ChangeRequest["status"]) || "pending",
       approvals: Array.isArray(payload.approvals) ? payload.approvals : [],
+      // Time distribution fields
+      start_month_index: payload?.start_month_index ?? payload?.startMonthIndex,
+      duration_months: payload?.duration_months ?? payload?.durationMonths,
+      allocation_mode: payload?.allocation_mode ?? payload?.allocationMode,
+      // New line item request
+      new_line_item_request: parsedNewLineItem,
     };
   }
 
@@ -967,6 +1020,16 @@ export class ApiService {
       headers: this.buildRequestHeaders(),
       body: JSON.stringify(data),
     });
+
+    // Parse new line item request from response
+    const newLineItemRequest = payload?.new_line_item_request || payload?.newLineItemRequest;
+    const parsedNewLineItem = newLineItemRequest
+      ? {
+          name: newLineItemRequest.name || "",
+          type: newLineItemRequest.type || "OPEX",
+          description: newLineItemRequest.description || "",
+        }
+      : undefined;
 
     return {
       id: payload.id || payload.changeId || change_id,
@@ -988,6 +1051,12 @@ export class ApiService {
         payload.requested_at || payload.requestedAt || payload.created_at || new Date().toISOString(),
       status: (payload.status as ChangeRequest["status"]) || "pending",
       approvals: Array.isArray(payload.approvals) ? payload.approvals : [],
+      // Time distribution fields
+      start_month_index: payload?.start_month_index ?? payload?.startMonthIndex,
+      duration_months: payload?.duration_months ?? payload?.durationMonths,
+      allocation_mode: payload?.allocation_mode ?? payload?.allocationMode,
+      // New line item request
+      new_line_item_request: parsedNewLineItem,
     };
   }
 

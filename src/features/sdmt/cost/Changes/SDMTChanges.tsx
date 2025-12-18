@@ -44,7 +44,7 @@ import {
   Check,
 } from "lucide-react";
 import ModuleBadge from "@/components/ModuleBadge";
-import { useProject } from "@/contexts/ProjectContext";
+import { useProject, ALL_PROJECTS_ID } from "@/contexts/ProjectContext";
 import ApiService from "@/lib/api";
 import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
 import { useAuth } from "@/hooks/useAuth";
@@ -302,10 +302,7 @@ export function SDMTChanges() {
 
   const createChangeMutation = useMutation({
     mutationFn: async (
-      payload: Pick<
-        DomainChangeRequest,
-        "baseline_id" | "title" | "description" | "impact_amount" | "currency" | "justification" | "affected_line_items"
-      >,
+      payload: Omit<DomainChangeRequest, "id" | "requested_at" | "requested_by" | "status" | "approvals">,
     ) => {
       if (!selectedProjectId) {
         throw new FinanzasApiError(
@@ -563,12 +560,12 @@ export function SDMTChanges() {
       currentStep: pendingIndex === -1 ? approvalSteps.length : pendingIndex,
       businessJustification: change.justification,
       affectedLineItems: change.affected_line_items || [],
-      // Time distribution fields
-      startMonthIndex: change.start_month_index,
-      durationMonths: change.duration_months,
-      allocationMode: change.allocation_mode,
+      // Time distribution fields - keep snake_case to match domain and ApprovalWorkflow
+      start_month_index: change.start_month_index,
+      duration_months: change.duration_months,
+      allocation_mode: change.allocation_mode,
       // New line item request
-      newLineItemRequest: change.new_line_item_request,
+      new_line_item_request: change.new_line_item_request,
     };
   };
 
@@ -587,6 +584,30 @@ export function SDMTChanges() {
         <Alert>
           <AlertDescription>
             No hay proyecto seleccionado. Usa la barra superior para elegir uno.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Check if ALL_PROJECTS context is selected
+  if (selectedProjectId === ALL_PROJECTS_ID) {
+    return (
+      <div className="max-w-4xl mx-auto p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">{ES_TEXTS.changes.title}</h1>
+            <p className="text-muted-foreground">
+              Las solicitudes de cambio requieren un proyecto específico.
+            </p>
+          </div>
+          <ModuleBadge />
+        </div>
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Las solicitudes de cambio solo están disponibles cuando seleccionas un proyecto específico.
+            Por favor, selecciona un proyecto individual desde la barra superior para gestionar cambios.
           </AlertDescription>
         </Alert>
       </div>
