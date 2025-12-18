@@ -1,147 +1,174 @@
-# PMO Baseline Visibility Implementation
+# PMO/SDMT Baseline Visibility & Notifications - Implementation Summary
 
 ## Overview
-This implementation enables PMO and PM users to view baseline status and acceptance/rejection details for their projects in a read-only mode, without granting them access to SDMT cost management routes.
 
-## Key Changes
+This implementation adds end-to-end support for SDM manager email propagation, baseline visibility queues, and PM notifications for baseline acceptance/rejection events.
 
-### 1. Route Permissions (`src/lib/auth.ts`)
-Added `/pmo/projects/**` to PM and PMO role permissions:
-```typescript
-PM: {
-  routes: ["/", "/profile", "/pmo/**", "/pmo/prefactura/**", "/pmo/projects/**"],
-  actions: ["read"],
-}
-PMO: {
-  routes: ["/", "/profile", "/pmo/**", "/pmo/prefactura/**", "/pmo/projects/**"],
-  actions: ["create", "read", "update", "delete", "approve"],
-}
-```
+## Changes Implemented
 
-### 2. BaselineStatusPanel Hardening (`src/components/baseline/BaselineStatusPanel.tsx`)
-Added explicit role-based visibility:
-```typescript
-const canViewStatus = isSDMT || isPMO || isPM || isExecRO || isVendor;
-const canActOnBaseline = isSDMT; // Only SDMT can accept/reject
+### Backend Changes
 
-if (!canViewStatus) {
-  return null;
-}
+#### 1. AcceptBaseline Handler Enhancement (`services/finanzas-api/src/handlers/acceptBaseline.ts`)
 
-const showActions = canActOnBaseline && (status === "pending" || status === "handed_off");
-```
+**Robustness Improvements:**
+- Modified to accept baseline acceptance without requiring `baseline_id` in the request body
+- If `baseline_id` is omitted, the handler reads it from project metadata (`project.METADATA.baseline_id`)
+- Returns clear error message if project metadata is missing `baseline_id`: "project metadata missing baseline_id: run handoff first"
+- Validates that provided `baseline_id` matches project metadata to prevent accepting wrong baseline
 
-### 3. PMO Project Details Page (`src/features/pmo/projects/PMOProjectDetailsPage.tsx`)
-New page at `/pmo/projects/:projectId` that:
-- Reads projectId from route params
-- Uses existing `useProject()` hook to fetch project data
-- Displays project information (name, code, client, status, SDM manager)
-- Embeds `BaselineStatusPanel` for baseline status
-- Shows "No Baseline" message if project lacks baseline
-- Provides back navigation to PMO estimator
+**Notification System:**
+- After successful acceptance, writes a notification entry to `project_notifications` table
+- Notification includes:
+  - `type`: "baseline_accepted"
+  - `recipient`: SDM manager email or PM email from project metadata
+  - `message`: Descriptive message about the acceptance
+  - `baseline_id`: The accepted baseline ID
+  - `actioned_by`: Email of the user who accepted
+  - `timestamp`: ISO timestamp
+  - `read`: false (initially unread)
 
-### 4. Route Wiring (`src/App.tsx`)
-```typescript
-<Route path="/pmo/projects/:projectId" element={<PMOProjectDetailsPage />} />
-```
+#### 2. RejectBaseline Handler Enhancement (`services/finanzas-api/src/handlers/rejectBaseline.ts`)
 
-## Access Control Matrix
+**Notification System:**
+- After successful rejection, writes a notification entry to `project_notifications` table
+- Notification includes:
+  - `type`: "baseline_rejected"
+  - `recipient`: SDM manager email or PM email from project metadata
+  - `message`: Descriptive message about the rejection
+  - `comment`: Rejection reason provided by SDMT user
+  - `baseline_id`: The rejected baseline ID
+  - `actioned_by`: Email of the user who rejected
+  - `timestamp`: ISO timestamp
+  - `read`: false (initially unread)
 
-| Role | Route | Access | Actions |
-|------|-------|--------|---------|
-| PMO | `/pmo/projects/:projectId` | ✅ Allowed | View only |
-| PMO | `/sdmt/cost/catalog` | ❌ Blocked | None |
-| PMO | `/sdmt/cost/forecast` | ❌ Blocked | None |
-| SDMT | `/pmo/projects/:projectId` | ✅ Allowed | View only |
-| SDMT | `/sdmt/cost/catalog` | ✅ Allowed | Full access |
-| PM | `/pmo/projects/:projectId` | ✅ Allowed | View only |
+#### 3. Notifications Handler (NEW: `services/finanzas-api/src/handlers/notifications.ts`)
 
-## Baseline Status Panel Behavior by Role
+**New Endpoint:** `GET /projects/{projectId}/notifications`
+- Returns project-specific notifications (baseline acceptance/rejection events)
+- Supports optional `?unread=true` query parameter to filter to unread notifications only
+- Returns most recent notifications first (up to 50)
 
-### PMO/PM View (Read-Only)
-- ✅ Sees baseline status badge (Accepted, Rejected, Pending)
-- ✅ Sees accepted_by/rejected_by metadata
-- ✅ Sees rejection comments
-- ✅ Sees informational banners
-- ❌ Cannot accept baseline
-- ❌ Cannot reject baseline
+#### 4. Baseline List Enhancement (`services/finanzas-api/src/handlers/baseline.ts`)
 
-### SDMT View (Full Control)
-- ✅ All of the above
-- ✅ Can accept baseline (when status is pending/handed_off)
-- ✅ Can reject baseline with comment
+**Improvement:**
+- Modified `listBaselines` function to include `sdm_manager_email` in the response
+- Extracts email from both top-level item and nested payload
 
-## Testing
+#### 5. Infrastructure (`services/finanzas-api/template.yaml`)
 
-### Auth Route Tests
-All tests passing (9/9):
+**New DynamoDB Table:**
+- `ProjectNotificationsTable` with pk/sk pattern for efficient querying
+
+**Updated Lambda Permissions:**
+- `AcceptBaselineFn`: Added DynamoDB access to `ProjectNotificationsTable`
+- `RejectBaselineFn`: Added DynamoDB access to `ProjectNotificationsTable`
+- `NotificationsFn`: New function with GET /projects/{projectId}/notifications endpoint
+
+### Frontend Changes
+
+#### 1. BaselineVisibilityQueue Component (NEW)
+
+**Purpose:** Displays a queue of pending baselines for PMO and SDMT users
+
+**Features:**
+- Calls `GET /baseline?status=PendingSDMT` to fetch pending baselines
+- Shows table with columns: Project Name, SDM Email (mailto link), Amount, Date, Actions
+- Configurable via props for different use cases
+- Auto-refreshes every 60 seconds
+
+#### 2. NotificationsBanner Component (NEW)
+
+**Purpose:** Displays inline notifications for baseline acceptance/rejection on project pages
+
+**Features:**
+- Calls `GET /projects/{projectId}/notifications` to fetch notifications
+- Shows acceptance notifications with green styling and checkmark icon
+- Shows rejection notifications with red styling and X icon
+- Auto-refreshes every 30 seconds
+
+#### 3. PMO Project Details Page Enhancement
+
+**Modified:** `src/features/pmo/projects/PMOProjectDetailsPage.tsx`
+- Integrated NotificationsBanner below page header
+- Automatically shows notifications when project has baseline activity
+
+#### 4. Frontend Data Flow Verification
+
+- ✅ DealInputsStep.tsx captures `sdm_manager_email` in form
+- ✅ ReviewSignStep.tsx includes `sdm_manager_email` in handoff payload
+- ✅ BaselineStatusPanel.tsx calls `acceptBaseline` without `baseline_id` parameter
+
+## Verification Steps
+
+### 1. Backend Verification
+
 ```bash
-npm run test:unit
-# ✔ PM role route visibility (allows /pmo/projects/123)
-# ✔ PMO role route visibility (allows /pmo/projects/123, blocks /sdmt/*)
-# ✔ SDMT role route visibility (unchanged)
+# Test accept baseline without baseline_id in body
+curl -X PATCH "https://api.example.com/projects/P-123/accept-baseline" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Expected: Success if project has baseline_id in metadata
+
+# Test notifications endpoint
+curl -X GET "https://api.example.com/projects/P-123/notifications" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Expected: Array of notifications
+
+# Test baseline list includes sdm_manager_email
+curl -X GET "https://api.example.com/baseline?status=PendingSDMT" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-### Security Scan
-CodeQL scan: **0 vulnerabilities found** ✅
+### 2. DynamoDB Verification
 
-## Usage Example
+```bash
+# Check project metadata
+aws dynamodb get-item \
+  --table-name finz_projects \
+  --key '{"pk":{"S":"PROJECT#P-xxx"},"sk":{"S":"METADATA"}}' \
+  --query 'Item.{baseline_id:baseline_id.S,sdm_manager_email:sdm_manager_email.S}'
 
-After a PMO user creates a baseline via the estimator:
-
-1. PMO user creates baseline in `/pmo/prefactura/estimator`
-2. Baseline is handed off to SDMT
-3. PMO can now navigate to `/pmo/projects/P-abc123` to check status
-4. PMO sees:
-   - "Pending Review" badge
-   - Message: "La baseline fue entregada a SDMT. En espera de aprobación."
-   - No action buttons
-5. SDMT reviews on `/sdmt/cost/forecast` and accepts/rejects
-6. PMO refreshes `/pmo/projects/P-abc123` and sees:
-   - "Accepted" badge (green) or "Rejected" badge (red)
-   - Accepted by: email@example.com on Dec 17, 2025
-   - Or: Rejection reason with contact link
-
-## Data Flow
-
-```
-PMO Estimator
-    ↓
-Create Baseline → Backend API
-    ↓
-Handoff to SDMT
-    ↓
-PMO views /pmo/projects/:projectId
-    ↓
-useProject() hook → getProjects() API
-    ↓
-normalizeProjectForUI() maps baseline fields
-    ↓
-BaselineStatusPanel renders (read-only for PMO)
+# Check notification was created
+aws dynamodb query \
+  --table-name finz_project_notifications \
+  --key-condition-expression 'pk = :pk' \
+  --expression-attribute-values '{":pk":{"S":"PROJECT#P-xxx"}}'
 ```
 
-## No Backend Changes Required
+### 3. End-to-End Flow
 
-All baseline metadata is already present in the project API responses:
-- `baseline_id`
-- `baseline_status`
-- `accepted_by`
-- `baseline_accepted_at`
-- `rejected_by`
-- `baseline_rejected_at`
-- `rejection_comment`
+1. Create Baseline → Verify sdm_manager_email in baseline record
+2. Handoff to SDMT → Verify project METADATA has baseline_id and sdm_manager_email
+3. View Pending Baselines → Verify baseline in queue with SDM email mailto
+4. Accept Baseline → Verify notification created
+5. View Notification → Verify green banner shows acceptance
 
-These fields are mapped by `normalizeProjectForUI()` in `src/modules/finanzas/projects/normalizeProject.ts`.
+## Deployment Checklist
 
-## Future Enhancements (Optional)
+- [x] Backend changes committed
+- [x] Frontend changes committed
+- [x] DynamoDB table added to template.yaml
+- [x] Lambda permissions updated in template.yaml
+- [ ] Backend unit tests added
+- [ ] Frontend unit tests added
+- [ ] SAM build and deploy to staging
+- [ ] Run backfill script in staging
+- [ ] Manual QA in staging
+- [ ] Deploy to production
 
-1. Add link from PMO Estimator to project details after handoff
-2. Show list of all projects for PMO with their baseline statuses
-3. Add filtering/search for projects by baseline status
-4. Email notifications when baseline is accepted/rejected
+## Known Limitations
 
-## Related Documentation
+1. **Notification Read Status:** No endpoint to mark notifications as read (future enhancement)
+2. **BaselineVisibilityQueue Placement:** Component created but needs product decision on landing page placement
+3. **Email Notifications:** System writes in-app notifications only (no email alerts)
 
-- `docs/baseline-acceptance-flow.md` - Original baseline flow design
-- `docs/baseline-acceptance-integration.md` - Integration details
-- `src/lib/__tests__/auth-routes.test.ts` - Route permission tests
+## Future Enhancements
+
+1. Mark notifications as read endpoint
+2. Email notification integration
+3. Real-time notification updates
+4. Notification history page
+5. BaselineVisibilityQueue integration on dedicated dashboards
