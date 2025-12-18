@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { useProject } from "@/contexts/ProjectContext";
+import { BaselineStatusPanel } from "@/components/baseline/BaselineStatusPanel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -710,6 +711,11 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Baseline Status Panel - Read-only view for PMO */}
+      {currentProject?.baselineId && currentProject?.baseline_status && (
+        <BaselineStatusPanel className="mb-6" />
+      )}
 
       {/* Detailed Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

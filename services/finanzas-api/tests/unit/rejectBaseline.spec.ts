@@ -4,7 +4,7 @@ import {
 
 // Mock auth functions
 jest.mock("../../src/lib/auth", () => ({
-  ensureCanWrite: jest.fn(),
+  ensureSDMT: jest.fn(),
   getUserEmail: jest.fn().mockReturnValue("sdmt@example.com"),
 }));
 

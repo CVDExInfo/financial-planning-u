@@ -15,6 +15,7 @@ import NoAccess from "@/components/NoAccess";
 // PMO Features
 import PMOEstimatorWizard from "@/features/pmo/prefactura/Estimator/PMOEstimatorWizard";
 import PMOProjectDetailsPage from "@/features/pmo/projects/PMOProjectDetailsPage";
+import PMOBaselinesQueuePage from "@/features/pmo/baselines/PMOBaselinesQueuePage";
 
 // SDMT Features - We'll create these placeholders for now
 import SDMTCatalog from "@/features/sdmt/cost/Catalog/SDMTCatalog";
@@ -185,6 +186,10 @@ function AppContent() {
               <Route
                 path="/pmo/prefactura/estimator"
                 element={<PMOEstimatorWizard />}
+              />
+              <Route
+                path="/pmo/baselines"
+                element={<PMOBaselinesQueuePage />}
               />
               <Route
                 path="/pmo/projects/:projectId"

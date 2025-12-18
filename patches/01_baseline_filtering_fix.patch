@@ -1,0 +1,32 @@
+From 335788a8900821a18777cc6d7d75a018454d4ff2 Mon Sep 17 00:00:00 2001
+From: "copilot-swe-agent[bot]" <198982749+Copilot@users.noreply.github.com>
+Date: Thu, 18 Dec 2025 07:46:32 +0000
+Subject: [PATCH] Fix baseline status filtering logic in PMO Baselines Queue
+
+- Updated filtering to show both 'pending' and 'handed_off' when 'handed_off' filter is selected
+- This matches the count logic and provides consistent behavior
+- Addresses code review feedback
+
+Co-authored-by: valencia94 <201395626+valencia94@users.noreply.github.com>
+---
+ src/features/pmo/baselines/PMOBaselinesQueuePage.tsx | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/features/pmo/baselines/PMOBaselinesQueuePage.tsx b/src/features/pmo/baselines/PMOBaselinesQueuePage.tsx
+index c81b783..a6a3e13 100644
+--- a/src/features/pmo/baselines/PMOBaselinesQueuePage.tsx
++++ b/src/features/pmo/baselines/PMOBaselinesQueuePage.tsx
+@@ -102,6 +102,10 @@ export function PMOBaselinesQueuePage() {
+ 
+   const filteredProjects = projects?.filter((p) => {
+     if (selectedStatus === "all") return true;
++    // For "handed_off" filter, show both pending and handed_off statuses
++    if (selectedStatus === "handed_off") {
++      return p.baseline_status === "pending" || p.baseline_status === "handed_off";
++    }
+     return p.baseline_status === selectedStatus;
+   });
+ 
+-- 
+2.52.0
+
