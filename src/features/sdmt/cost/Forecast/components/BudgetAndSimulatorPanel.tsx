@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Calculator, DollarSign, TrendingUp } from 'lucide-react';
+import { DollarSign } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { BudgetSimulatorCard } from '../BudgetSimulatorCard';
 import type { BudgetSimulationState } from '../budgetSimulation';
