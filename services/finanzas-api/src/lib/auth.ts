@@ -289,6 +289,19 @@ export async function ensureCanWrite(event: ApiGwEvent) {
   throw { statusCode: 403, body: "forbidden: PM, SDT, or SDM required" };
 }
 
+/**
+ * Ensure user has SDMT role for baseline accept/reject operations
+ * PMO users can view baselines but cannot accept/reject them
+ */
+export async function ensureSDMT(event: ApiGwEvent) {
+  const claims = await verifyJwt(event);
+  const groups = parseGroupsFromClaims(claims);
+  const roles = mapGroupsToRoles(groups);
+  if (!roles.includes("SDMT")) {
+    throw { statusCode: 403, body: "forbidden: SDMT role required for baseline accept/reject operations" };
+  }
+}
+
 export async function ensureCanRead(event: ApiGwEvent) {
   const claims = await verifyJwt(event);
   const groups = parseGroupsFromClaims(claims);

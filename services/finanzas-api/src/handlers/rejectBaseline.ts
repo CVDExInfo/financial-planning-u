@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { ensureCanWrite, getUserEmail } from "../lib/auth";
+import { ensureSDMT, getUserEmail } from "../lib/auth";
 import {
   ddb,
   tableName,
@@ -11,7 +11,7 @@ import { bad, fromAuthError, notFound, ok, serverError } from "../lib/http";
 
 // Route: PATCH /projects/{projectId}/reject-baseline
 async function rejectBaseline(event: APIGatewayProxyEventV2) {
-  await ensureCanWrite(event);
+  await ensureSDMT(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
     return bad("missing project id");
