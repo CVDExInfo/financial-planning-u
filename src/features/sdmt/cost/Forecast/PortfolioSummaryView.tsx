@@ -124,7 +124,7 @@ export function PortfolioSummaryView({
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Portfolio-level Summary Row */}
-          <div className="grid grid-cols-5 gap-4 p-4 bg-muted/50 rounded-lg border-2 border-primary/20">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 p-4 bg-muted/50 rounded-lg border-2 border-primary/20">
             <div>
               <div className="text-sm text-muted-foreground mb-1">Total Planificado</div>
               <div className="text-xl font-bold">{formatCurrency(portfolioSummary.totalPlanned)}</div>

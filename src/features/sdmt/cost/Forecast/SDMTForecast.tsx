@@ -25,7 +25,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Share2, TrendingUp, TrendingDown, ExternalLink, FileSpreadsheet, Info } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Share2, TrendingUp, TrendingDown, ExternalLink, FileSpreadsheet, Info, Calculator, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
 import LineChartComponent from '@/components/charts/LineChart';
@@ -575,10 +576,12 @@ export function SDMTForecast() {
     }
   }, [budgetYear, isPortfolioView]);
 
-  // Check if user can edit forecast (SDMT only) or actuals (SDMT role)
-  const canEditForecast = user?.current_role === 'SDMT';
+  // Check if user can edit forecast, actuals, and budget
+  // Per docs/ui-api-action-map.md: Forecast adjustment is PMO only
+  // Per docs/finanzas-roles-and-permissions.md: Budget management is PMO/ADMIN
+  const canEditForecast = ['PMO', 'SDMT'].includes(user?.current_role || '');
   const canEditActual = user?.current_role === 'SDMT';
-  const canEditBudget = user?.current_role === 'SDMT';
+  const canEditBudget = ['PMO', 'SDMT'].includes(user?.current_role || '');
 
   // Function to navigate to reconciliation with filters
   const navigateToReconciliation = (line_item_id: string, month?: number) => {
@@ -716,6 +719,9 @@ export function SDMTForecast() {
   const isLoadingState = loading || isLineItemsLoading;
   const hasGridData = forecastGrid.length > 0;
   const isEmptyState = !isLoadingState && !forecastError && forecastData.length === 0;
+  
+  // Special case: TODOS mode with only the ALL_PROJECTS placeholder (no real projects)
+  const isTodosEmptyState = isPortfolioView && !isLoadingState && !forecastError && projects.length <= 1;
 
   // Chart data - recalculate when forecastData changes
   const monthlyTrends = useMemo(() => {
@@ -853,63 +859,135 @@ export function SDMTForecast() {
   };
 
   return (
-    <div className="max-w-full mx-auto p-6 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">{ES_TEXTS.forecast.title}</h1>
-          <p className="text-muted-foreground">
-            {ES_TEXTS.forecast.description}
+    <div className="max-w-full mx-auto p-6 space-y-3">
+      {/* Compact Header Row with Title, Subtitle, and Actions */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold">{ES_TEXTS.forecast.title}</h1>
+              <ModuleBadge />
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              {ES_TEXTS.forecast.description}
+            </p>
             {currentProject && (
-              <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                {currentProject.name} | Change #{projectChangeCount}
-              </span>
-            )}
-            {/* Show contract start date for single project view */}
-            {!isPortfolioView && currentProject?.start_date && (
-              <span className="ml-2 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">
-                📅 Inicio contrato: {new Date(currentProject.start_date).toLocaleDateString('es-ES', { 
-                  month: 'long', 
-                  year: 'numeric' 
-                })}
-              </span>
-            )}
-          </p>
-          {/* Debug info */}
-          <div className="mt-2 text-xs text-muted-foreground space-x-4">
-            <span>Project: {selectedProjectId}</span>
-            <span>Data points: {forecastData.length}</span>
-            <span>Line items: {lineItemsForGrid.length}</span>
-            <span>Grid rows: {forecastGrid.length}</span>
-            <Badge variant={dataSource === 'mock' ? 'outline' : 'secondary'}>
-              {dataSource === 'mock' ? 'Datos de prueba' : 'Datos de API'}
-            </Badge>
-            {generatedAt && (
-              <span>Last updated: {new Date(generatedAt).toLocaleString()}</span>
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant="outline" className="text-xs">
+                  {currentProject.name}
+                </Badge>
+                {!isPortfolioView && currentProject?.start_date && (
+                  <span className="text-xs text-muted-foreground">
+                    📅 Inicio: {new Date(currentProject.start_date).toLocaleDateString('es-ES', { 
+                      month: 'short', 
+                      year: 'numeric' 
+                    })}
+                  </span>
+                )}
+                <Badge variant={dataSource === 'mock' ? 'outline' : 'secondary'} className="text-xs">
+                  {dataSource === 'mock' ? 'Datos de prueba' : 'Datos de API'}
+                </Badge>
+              </div>
             )}
           </div>
+          
+          {/* Primary Actions - Right Side */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={handlePersistForecasts}
+              disabled={savingForecasts || dirtyForecastCount === 0 || !canEditForecast}
+              className="gap-2 h-9"
+              size="sm"
+            >
+              {savingForecasts ? <LoadingSpinner size="sm" /> : null}
+              Guardar Pronóstico
+              {dirtyForecastCount > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {dirtyForecastCount}
+                </Badge>
+              )}
+            </Button>
+            <Button
+              onClick={handlePersistActuals}
+              disabled={savingActuals || dirtyActualCount === 0}
+              className="gap-2 h-9"
+              variant="outline"
+              size="sm"
+            >
+              {savingActuals ? <LoadingSpinner size="sm" /> : null}
+              Guardar
+              {dirtyActualCount > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {dirtyActualCount}
+                </Badge>
+              )}
+            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2 h-9" size="sm">
+                  <Share2 size={16} />
+                  Export
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Compartir Datos de Pronóstico</DialogTitle>
+                  <DialogDescription>
+                    Exportar y compartir datos de pronóstico en múltiples formatos para interesados y reportes.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex flex-col gap-2"
+                      onClick={handleExcelExport}
+                      disabled={exporting !== null}
+                    >
+                      {exporting === 'excel' ? (
+                        <LoadingSpinner size="sm" />
+                      ) : (
+                        <FileSpreadsheet size={24} />
+                      )}
+                      <span>Reporte Excel</span>
+                      <span className="text-xs text-muted-foreground">
+                        {exporting === 'excel' ? 'Generando...' : 'Pronóstico detallado con fórmulas'}
+                      </span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="h-20 flex flex-col gap-2"
+                      onClick={handlePDFExport}
+                      disabled={exporting !== null}
+                    >
+                      {exporting === 'pdf' ? (
+                        <LoadingSpinner size="sm" />
+                      ) : (
+                        <Share2 size={24} />
+                      )}
+                      <span>Resumen PDF</span>
+                      <span className="text-xs text-muted-foreground">
+                        {exporting === 'pdf' ? 'Generando...' : 'Formato de resumen ejecutivo'}
+                      </span>
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
-        <ModuleBadge />
       </div>
 
       {/* Baseline Status Panel */}
       <BaselineStatusPanel />
 
-      {/* Budget Simulator - Only show in Portfolio View (TODOS LOS PROYECTOS) */}
-      {isPortfolioView && (
-        <BudgetSimulatorCard
-          simulationState={budgetSimulation}
-          onSimulationChange={setBudgetSimulation}
-        />
-      )}
-
-      {/* Summary Cards */}
+      {/* KPI Summary - Standardized & Compact */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-        <Card>
+        <Card className="h-full">
           <CardContent className="p-3">
-            <div className="text-2xl font-bold">{formatCurrency(totalPlanned)}</div>
-            <div className="flex items-center gap-1">
-              <p className="text-sm text-muted-foreground">Total Planeado</p>
+            <div className="text-xl font-bold">{formatCurrency(totalPlanned)}</div>
+            <div className="flex items-center gap-1 mt-1">
+              <p className="text-xs text-muted-foreground">Total Planeado</p>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -921,14 +999,13 @@ export function SDMTForecast() {
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <p className="text-xs text-muted-foreground">De Planview</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="h-full">
           <CardContent className="p-3">
-            <div className="text-2xl font-bold">{formatCurrency(totalForecast)}</div>
-            <div className="flex items-center gap-1">
-              <p className="text-sm text-muted-foreground">Pronóstico Total</p>
+            <div className="text-xl font-bold">{formatCurrency(totalForecast)}</div>
+            <div className="flex items-center gap-1 mt-1">
+              <p className="text-xs text-muted-foreground">Pronóstico Total</p>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -940,14 +1017,13 @@ export function SDMTForecast() {
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <p className="text-xs text-muted-foreground">Pronóstico Ajustado</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="h-full">
           <CardContent className="p-3">
-            <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalActual)}</div>
-            <div className="flex items-center gap-1">
-              <p className="text-sm text-muted-foreground">Total Real</p>
+            <div className="text-xl font-bold text-blue-600">{formatCurrency(totalActual)}</div>
+            <div className="flex items-center gap-1 mt-1">
+              <p className="text-xs text-muted-foreground">Total Real</p>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -959,24 +1035,22 @@ export function SDMTForecast() {
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <p className="text-xs text-muted-foreground">Seguimiento SDMT</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="h-full">
           <CardContent className="p-3">
-            <div className="text-2xl font-bold">{totalFTE.toLocaleString()}</div>
-            <p className="text-sm text-muted-foreground">Total FTE</p>
-            <p className="text-xs text-muted-foreground">Basado en rubros de baseline</p>
+            <div className="text-xl font-bold">{totalFTE.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">Total FTE</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="h-full">
           <CardContent className="p-3">
-            <div className={`text-2xl font-bold ${totalVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <div className={`text-xl font-bold ${totalVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
               {formatCurrency(Math.abs(totalVariance))}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 mt-1">
               {getVarianceIcon(totalVariance)}
-              <p className="text-sm text-muted-foreground">Variación de Pronóstico</p>
+              <p className="text-xs text-muted-foreground">Variación Pronóstico</p>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -991,14 +1065,14 @@ export function SDMTForecast() {
             <p className="text-xs text-muted-foreground">{Math.abs(variancePercentage).toFixed(1)}%</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="h-full">
           <CardContent className="p-3">
-            <div className={`text-2xl font-bold ${actualVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <div className={`text-xl font-bold ${actualVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
               {formatCurrency(Math.abs(actualVariance))}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 mt-1">
               {getVarianceIcon(actualVariance)}
-              <p className="text-sm text-muted-foreground">Variación Real</p>
+              <p className="text-xs text-muted-foreground">Variación Real</p>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1179,175 +1253,118 @@ export function SDMTForecast() {
         </div>
       )}
 
-      {/* Actions and Budget Editor */}
-      <Card className="mt-4">
-        <CardContent className="p-3 space-y-3">
-          {/* Action Buttons Row */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                onClick={handlePersistActuals}
-                disabled={savingActuals || dirtyActualCount === 0}
-                className="gap-2 h-9"
-                size="sm"
-              >
-                {savingActuals ? <LoadingSpinner size="sm" /> : null}
-                Guardar
-                {dirtyActualCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 text-xs">
-                    {dirtyActualCount}
-                  </Badge>
-                )}
-              </Button>
-              <Button
-                onClick={handlePersistForecasts}
-                disabled={savingForecasts || dirtyForecastCount === 0 || !canEditForecast}
-                className="gap-2 h-9"
-                variant="outline"
-                size="sm"
-              >
-                {savingForecasts ? <LoadingSpinner size="sm" /> : null}
-                Guardar Pronóstico
-                {dirtyForecastCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 text-xs">
-                    {dirtyForecastCount}
-                  </Badge>
-                )}
-              </Button>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="gap-2 h-9" size="sm">
-                    <Share2 size={16} />
-                    Share
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Compartir Datos de Pronóstico</DialogTitle>
-                    <DialogDescription>
-                      Exportar y compartir datos de pronóstico en múltiples formatos para interesados y reportes.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="py-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Button 
-                        variant="outline" 
-                        className="h-20 flex flex-col gap-2"
-                        onClick={handleExcelExport}
-                        disabled={exporting !== null}
-                      >
-                        {exporting === 'excel' ? (
-                          <LoadingSpinner size="sm" />
-                        ) : (
-                          <FileSpreadsheet size={24} />
-                        )}
-                        <span>Reporte Excel</span>
-                        <span className="text-xs text-muted-foreground">
-                          {exporting === 'excel' ? 'Generando...' : 'Pronóstico detallado con fórmulas'}
-                        </span>
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="h-20 flex flex-col gap-2"
-                        onClick={handlePDFExport}
-                        disabled={exporting !== null}
-                      >
-                        {exporting === 'pdf' ? (
-                          <LoadingSpinner size="sm" />
-                        ) : (
-                          <Share2 size={24} />
-                        )}
-                        <span>Resumen PDF</span>
-                        <span className="text-xs text-muted-foreground">
-                          {exporting === 'pdf' ? 'Generando...' : 'Formato de resumen ejecutivo'}
-                        </span>
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Última actualización: {new Date().toLocaleDateString()}
-            </div>
-          </div>
-
-          {/* Compact Budget Editor - Inline */}
-          <div className="border-t pt-3">
-            <div className="flex flex-wrap items-end gap-2">
+      {/* Budget & Simulation Panel - Collapsible */}
+      <Collapsible>
+        <Card className="border-2 border-primary/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium whitespace-nowrap">Presupuesto Anual All-In:</span>
+                <Calculator className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Presupuesto & Simulación</CardTitle>
               </div>
-              <div className="flex-shrink-0 w-20">
-                <label htmlFor="budget-year" className="text-xs text-muted-foreground block mb-1">Año</label>
-                <Input
-                  id="budget-year"
-                  type="number"
-                  value={budgetYear}
-                  onChange={(e) => setBudgetYear(parseInt(e.target.value))}
-                  min={2020}
-                  max={2100}
-                  disabled={loadingBudget || savingBudget || !canEditBudget}
-                  className="h-8 text-sm"
-                  aria-label="Año del presupuesto"
-                />
-              </div>
-              <div className="flex-grow min-w-[140px] max-w-[180px]">
-                <label htmlFor="budget-amount" className="text-xs text-muted-foreground block mb-1">Monto</label>
-                <Input
-                  id="budget-amount"
-                  type="number"
-                  value={budgetAmount}
-                  onChange={(e) => setBudgetAmount(e.target.value)}
-                  placeholder="0"
-                  disabled={loadingBudget || savingBudget || !canEditBudget}
-                  className="h-8 text-sm"
-                  aria-label="Monto del presupuesto"
-                />
-              </div>
-              <div className="flex-shrink-0 w-20">
-                <label htmlFor="budget-currency" className="text-xs text-muted-foreground block mb-1">Moneda</label>
-                <select
-                  id="budget-currency"
-                  value={budgetCurrency}
-                  onChange={(e) => setBudgetCurrency(e.target.value)}
-                  disabled={loadingBudget || savingBudget || !canEditBudget}
-                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label="Moneda del presupuesto"
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  aria-label="Expandir/Colapsar panel de presupuesto"
                 >
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="MXN">MXN</option>
-                </select>
-              </div>
-              <Button
-                onClick={handleSaveAnnualBudget}
-                disabled={savingBudget || loadingBudget || !canEditBudget || !budgetAmount}
-                className="gap-2 h-8"
-                size="sm"
-              >
-                {savingBudget ? <LoadingSpinner size="sm" /> : null}
-                Guardar Presupuesto
-              </Button>
-              {budgetLastUpdated && (
-                <div className="text-xs text-muted-foreground ml-2 self-center">
-                  Actualizado: {new Date(budgetLastUpdated).toLocaleDateString()}
-                </div>
-              )}
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </CollapsibleTrigger>
             </div>
-            {!canEditBudget && (
-              <div className="text-xs text-muted-foreground mt-2 text-amber-600">
-                Solo usuarios SDMT pueden editar el presupuesto anual
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="space-y-4 pt-0">
+              {/* Annual Budget Editor */}
+              <div className="space-y-3">
+                <div className="text-sm font-medium">Presupuesto Anual All-In</div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="flex-shrink-0 w-20">
+                    <label htmlFor="budget-year" className="text-xs text-muted-foreground block mb-1">Año</label>
+                    <Input
+                      id="budget-year"
+                      type="number"
+                      value={budgetYear}
+                      onChange={(e) => setBudgetYear(parseInt(e.target.value))}
+                      min={2020}
+                      max={2100}
+                      disabled={loadingBudget || savingBudget || !canEditBudget}
+                      className="h-8 text-sm"
+                      aria-label="Año del presupuesto"
+                    />
+                  </div>
+                  <div className="flex-grow min-w-[140px] max-w-[200px]">
+                    <label htmlFor="budget-amount" className="text-xs text-muted-foreground block mb-1">Monto</label>
+                    <Input
+                      id="budget-amount"
+                      type="number"
+                      value={budgetAmount}
+                      onChange={(e) => setBudgetAmount(e.target.value)}
+                      placeholder="0"
+                      disabled={loadingBudget || savingBudget || !canEditBudget}
+                      className="h-8 text-sm"
+                      aria-label="Monto del presupuesto"
+                    />
+                  </div>
+                  <div className="flex-shrink-0 w-20">
+                    <label htmlFor="budget-currency" className="text-xs text-muted-foreground block mb-1">Moneda</label>
+                    <select
+                      id="budget-currency"
+                      value={budgetCurrency}
+                      onChange={(e) => setBudgetCurrency(e.target.value)}
+                      disabled={loadingBudget || savingBudget || !canEditBudget}
+                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label="Moneda del presupuesto"
+                    >
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="MXN">MXN</option>
+                    </select>
+                  </div>
+                  <Button
+                    onClick={handleSaveAnnualBudget}
+                    disabled={savingBudget || loadingBudget || !canEditBudget || !budgetAmount}
+                    className="gap-2 h-8"
+                    size="sm"
+                  >
+                    {savingBudget ? <LoadingSpinner size="sm" /> : null}
+                    Guardar
+                  </Button>
+                  {budgetLastUpdated && (
+                    <div className="text-xs text-muted-foreground ml-2 self-center">
+                      Actualizado: {new Date(budgetLastUpdated).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+                {!canEditBudget && (
+                  <div className="text-xs text-amber-600 mt-2">
+                    Solo usuarios PMO/ADMIN pueden editar el presupuesto anual
+                  </div>
+                )}
+                {!isPortfolioView && budgetAmount && (
+                  <div className="text-xs text-muted-foreground mt-2">
+                    ℹ️ Presupuesto All-In aplica a todos los proyectos; seleccione "TODOS" para ver consumo total.
+                  </div>
+                )}
               </div>
-            )}
-            {!isPortfolioView && budgetAmount && (
-              <div className="text-xs text-muted-foreground mt-2">
-                ℹ️ Presupuesto All-In aplica a todos los proyectos; seleccione "TODOS" para ver consumo total.
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              
+              {/* Budget Simulator - Only in Portfolio View */}
+              {isPortfolioView && (
+                <>
+                  <div className="border-t pt-4">
+                    <div className="text-sm font-medium mb-3">Simulador de Presupuesto (solo vista)</div>
+                    <BudgetSimulatorCard
+                      simulationState={budgetSimulation}
+                      onSimulationChange={setBudgetSimulation}
+                    />
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Portfolio Summary View - Only show in portfolio mode */}
       {isPortfolioView && !loading && forecastData.length > 0 && (
@@ -1380,6 +1397,31 @@ export function SDMTForecast() {
                 <div className="text-xs text-muted-foreground">
                   Project: {selectedProjectId} | Change #{projectChangeCount}
                 </div>
+              </div>
+            </div>
+          ) : isTodosEmptyState ? (
+            <div className="flex items-center justify-center h-48">
+              <div className="text-center space-y-4 max-w-md">
+                <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-amber-600 font-bold text-xl">⚠️</span>
+                </div>
+                <div className="text-lg font-semibold text-foreground">
+                  No se encontraron proyectos para 'TODOS'
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Verifica permisos y filtros. Si deberías ver proyectos, intenta recargar.
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Proyectos cargados: {projects.length} (incluyendo ALL_PROJECTS)
+                </div>
+                <Button 
+                  onClick={loadForecastData}
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                >
+                  Reintentar
+                </Button>
               </div>
             </div>
           ) : forecastError ? (
@@ -1579,24 +1621,32 @@ export function SDMTForecast() {
       </Card>
 
       {/* Charts and Analytics */}
-      {!loading && forecastData.length > 0 && (
-        <ChartInsightsPanel
-          title="Forecast Analytics & Trends"
-          charts={[
-            <LineChartComponent
-              key={`forecast-trends-${selectedProjectId}`}
-              data={monthlyTrends}
-              lines={[
-                { dataKey: 'Planned', name: 'Planned', color: 'oklch(0.45 0.12 200)', strokeDasharray: '5 5' },
-                { dataKey: 'Forecast', name: 'Forecast', color: 'oklch(0.61 0.15 160)', strokeWidth: 3 },
-                { dataKey: 'Actual', name: 'Actual', color: 'oklch(0.72 0.15 65)' },
-                // Add Budget line when simulation is enabled
-                ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
-                  ? [{ dataKey: 'Budget', name: 'Budget', color: 'oklch(0.5 0.2 350)', strokeDasharray: '8 4', strokeWidth: 2 }]
-                  : [])
-              ]}
-              title="Monthly Forecast Trends"
-            />,
+      {!loading && forecastData.length > 0 && (() => {
+        // Check if there's meaningful variance data to show
+        const hasVarianceData = monthlyTrends.some(month => 
+          Math.abs(month.Forecast - month.Planned) > 100 // At least $100 variance
+        );
+
+        const charts = [
+          <LineChartComponent
+            key={`forecast-trends-${selectedProjectId}`}
+            data={monthlyTrends}
+            lines={[
+              { dataKey: 'Planned', name: 'Planned', color: 'oklch(0.45 0.12 200)', strokeDasharray: '5 5' },
+              { dataKey: 'Forecast', name: 'Forecast', color: 'oklch(0.61 0.15 160)', strokeWidth: 3 },
+              { dataKey: 'Actual', name: 'Actual', color: 'oklch(0.72 0.15 65)' },
+              // Add Budget line when simulation is enabled
+              ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
+                ? [{ dataKey: 'Budget', name: 'Budget', color: 'oklch(0.5 0.2 350)', strokeDasharray: '8 4', strokeWidth: 2 }]
+                : [])
+            ]}
+            title="Monthly Forecast Trends"
+          />
+        ];
+
+        // Only add variance analysis chart if there's meaningful data
+        if (hasVarianceData) {
+          charts.push(
             <StackedColumnsChart
               key={`variance-analysis-${selectedProjectId}`}
               data={monthlyTrends.map(month => ({
@@ -1610,35 +1660,42 @@ export function SDMTForecast() {
               ]}
               title="Variance Analysis"
             />
-          ]}
-          insights={[
-            {
-              title: "Forecast Accuracy",
-              value: `${(100 - Math.abs(variancePercentage)).toFixed(1)}%`,
-              type: variancePercentage < 5 ? 'positive' : variancePercentage > 15 ? 'negative' : 'neutral'
-            },
-            {
-              title: "Largest Variance",
-              value: formatCurrency(Math.max(...forecastData.map(c => Math.abs(c.variance || 0)))),
-              type: 'neutral'
-            },
-            {
-              title: "Forecast vs Planned",
-              value: totalForecast > totalPlanned ? 'Over Budget' : totalForecast < totalPlanned ? 'Under Budget' : 'On Target',
-              type: totalForecast > totalPlanned ? 'negative' : totalForecast < totalPlanned ? 'positive' : 'neutral'
-            },
-            // Add budget insights when simulation is enabled
-            ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
-              ? [{
-                  title: "Budget Utilization",
-                  value: `${budgetUtilization.toFixed(1)}%`,
-                  type: budgetUtilization > 100 ? 'negative' : budgetUtilization > 90 ? 'neutral' : 'positive'
-                }]
-              : [])
-          ]}
-          onExport={handleExcelExport}
-        />
-      )}
+          );
+        }
+
+        return (
+          <ChartInsightsPanel
+            title="Forecast Analytics & Trends"
+            charts={charts}
+            insights={[
+              {
+                title: "Forecast Accuracy",
+                value: `${(100 - Math.abs(variancePercentage)).toFixed(1)}%`,
+                type: variancePercentage < 5 ? 'positive' : variancePercentage > 15 ? 'negative' : 'neutral'
+              },
+              {
+                title: "Largest Variance",
+                value: formatCurrency(Math.max(...forecastData.map(c => Math.abs(c.variance || 0)))),
+                type: 'neutral'
+              },
+              {
+                title: "Forecast vs Planned",
+                value: totalForecast > totalPlanned ? 'Over Budget' : totalForecast < totalPlanned ? 'Under Budget' : 'On Target',
+                type: totalForecast > totalPlanned ? 'negative' : totalForecast < totalPlanned ? 'positive' : 'neutral'
+              },
+              // Add budget insights when simulation is enabled
+              ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
+                ? [{
+                    title: "Budget Utilization",
+                    value: `${budgetUtilization.toFixed(1)}%`,
+                    type: budgetUtilization > 100 ? 'negative' : budgetUtilization > 90 ? 'neutral' : 'positive'
+                  }]
+                : [])
+            ]}
+            onExport={handleExcelExport}
+          />
+        );
+      })()}
     </div>
   );
 }
