@@ -48,8 +48,20 @@ export function NotificationsBanner({ projectId, showAll = false }: Notification
         throw new Error(`Failed to fetch notifications: ${response.statusText}`);
       }
 
-      const data = await response.json() as { notifications: Notification[] };
-      return data.notifications;
+      const data = await response.json();
+      
+      // Runtime validation: ensure response has notifications array
+      if (!data || typeof data !== 'object') {
+        console.error('Invalid response format from notifications API:', data);
+        return [];
+      }
+      
+      if (!Array.isArray(data.notifications)) {
+        console.error('Expected notifications array in response:', data);
+        return [];
+      }
+      
+      return data.notifications as Notification[];
     },
     refetchInterval: 30000, // Refetch every 30 seconds
   });

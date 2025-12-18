@@ -122,7 +122,16 @@ async function rejectBaseline(event: APIGatewayProxyEventV2) {
 
   // PM Notification: Write to project_notifications table for PMO to see
   try {
-    const recipient = projectResult.Item.sdm_manager_email || projectResult.Item.pm_email || "unknown";
+    const recipient = projectResult.Item.sdm_manager_email || projectResult.Item.pm_email;
+    if (!recipient) {
+      console.warn("[rejectBaseline] No recipient email found for notification", {
+        projectId,
+        baselineId,
+      });
+      // Skip notification creation if no recipient
+      return;
+    }
+    
     await ddb.send(
       new PutCommand({
         TableName: tableName("project_notifications"),

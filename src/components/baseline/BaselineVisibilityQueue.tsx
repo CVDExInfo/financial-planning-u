@@ -64,8 +64,20 @@ export function BaselineVisibilityQueue({
         throw new Error(`Failed to fetch baselines: ${response.statusText}`);
       }
 
-      const data = await response.json() as { items: BaselineQueueItem[] };
-      return data;
+      const data = await response.json();
+      
+      // Runtime validation: ensure response has items array
+      if (!data || typeof data !== 'object') {
+        console.error('Invalid response format from baseline API:', data);
+        return { items: [] };
+      }
+      
+      if (!Array.isArray(data.items)) {
+        console.error('Expected items array in baseline response:', data);
+        return { items: [] };
+      }
+      
+      return data as { items: BaselineQueueItem[] };
     },
     refetchInterval: 60000, // Refetch every minute
   });

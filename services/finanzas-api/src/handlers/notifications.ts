@@ -34,15 +34,15 @@ async function getProjectNotifications(event: APIGatewayProxyEventV2) {
     );
 
     const notifications = (result.Items || []).map((item) => ({
-      id: item.sk,
-      type: item.type,
-      recipient: item.recipient,
-      message: item.message,
+      id: item.sk || "",
+      type: item.type || "",
+      recipient: item.recipient || "",
+      message: item.message || "",
       baseline_id: item.baseline_id,
       actioned_by: item.actioned_by,
-      timestamp: item.timestamp,
-      read: item.read || false,
-      comment: item.comment, // For rejection comments
+      timestamp: item.timestamp || new Date().toISOString(),
+      read: Boolean(item.read),
+      comment: item.comment,
     }));
 
     // Filter to unread notifications only (optional query param)
