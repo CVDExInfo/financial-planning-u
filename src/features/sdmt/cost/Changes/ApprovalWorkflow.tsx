@@ -223,8 +223,7 @@ export function ApprovalWorkflow({
           </div>
 
           {/* Time Distribution Info */}
-          {(changeRequest.start_month_index !== undefined || 
-            changeRequest.duration_months !== undefined) && (
+          {(changeRequest.start_month_index !== undefined || changeRequest.duration_months !== undefined) && (
             <div className="p-3 bg-muted/50 rounded-md">
               <Label className="text-sm font-medium">Time Distribution</Label>
               <div className="grid grid-cols-3 gap-4 mt-2 text-sm">
