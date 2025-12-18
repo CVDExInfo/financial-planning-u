@@ -220,18 +220,18 @@ export function SDMTChanges() {
     setForm({
       ...defaultForm,
       currency: currentProject?.currency ?? defaultForm.currency,
-      baseline_id: currentProject?.baseline_id ?? "",
+      baseline_id: currentProject?.baselineId ?? "",
     });
   }, [selectedProjectId]);
 
   useEffect(() => {
-    if (!currentProject?.baseline_id) return;
+    if (!currentProject?.baselineId) return;
 
     setForm((prev) => {
       if (prev.baseline_id.trim()) return prev;
-      return { ...prev, baseline_id: currentProject.baseline_id };
+      return { ...prev, baseline_id: currentProject.baselineId };
     });
-  }, [currentProject?.baseline_id]);
+  }, [currentProject?.baselineId]);
 
   useEffect(() => {
     if (!currentProject?.currency) return;
@@ -678,15 +678,15 @@ export function SDMTChanges() {
         <Button 
           className="gap-2" 
           onClick={() => setCreateOpen(true)}
-          disabled={!currentProject?.baseline_id}
-          title={!currentProject?.baseline_id ? "Debes aceptar una línea base antes de crear cambios" : ""}
+          disabled={!currentProject?.baselineId}
+          title={!currentProject?.baselineId ? "Debes aceptar una línea base antes de crear cambios" : ""}
         >
           <Plus size={16} />
           Nueva Solicitud de Cambio
         </Button>
       </div>
 
-      {!currentProject?.baseline_id && (
+      {!currentProject?.baselineId && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -854,11 +854,11 @@ export function SDMTChanges() {
                   className="bg-muted"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  {currentProject?.baseline_id
+                  {currentProject?.baselineId
                     ? `Vinculado automáticamente a la línea base aceptada del proyecto.`
                     : "⚠️ Este proyecto no tiene una línea base aceptada."}
                 </p>
-                {!currentProject?.baseline_id && (
+                {!currentProject?.baselineId && (
                   <p className="text-xs text-destructive mt-1">
                     Debes aceptar una línea base antes de crear cambios.
                   </p>
@@ -1208,7 +1208,7 @@ export function SDMTChanges() {
               </Button>
               <Button
                 onClick={onSubmit}
-                disabled={!isFormValid || createChangeMutation.isPending || !currentProject?.baseline_id}
+                disabled={!isFormValid || createChangeMutation.isPending || !currentProject?.baselineId}
               >
                 {createChangeMutation.isPending && (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
