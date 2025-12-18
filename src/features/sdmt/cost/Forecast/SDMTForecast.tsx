@@ -763,16 +763,6 @@ export function SDMTForecast() {
     return calculateMonthlyBudgets(budgetValue, allocationStrategy, monthlyPlanned, monthlyForecast);
   }, [budgetAmount, allocationStrategy, monthlyTrends]);
 
-  // Calculate budget consumption KPIs
-  const budgetConsumptionKPIs = useMemo(() => {
-    const budgetValue = parseFloat(budgetAmount);
-    if (!budgetValue || budgetValue <= 0) {
-      return null;
-    }
-
-    return calculateBudgetConsumption(budgetValue, totalForecast, totalActual);
-  }, [budgetAmount, totalForecast, totalActual]);
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
