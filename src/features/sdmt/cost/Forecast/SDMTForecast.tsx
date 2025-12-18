@@ -1621,24 +1621,32 @@ export function SDMTForecast() {
       </Card>
 
       {/* Charts and Analytics */}
-      {!loading && forecastData.length > 0 && (
-        <ChartInsightsPanel
-          title="Forecast Analytics & Trends"
-          charts={[
-            <LineChartComponent
-              key={`forecast-trends-${selectedProjectId}`}
-              data={monthlyTrends}
-              lines={[
-                { dataKey: 'Planned', name: 'Planned', color: 'oklch(0.45 0.12 200)', strokeDasharray: '5 5' },
-                { dataKey: 'Forecast', name: 'Forecast', color: 'oklch(0.61 0.15 160)', strokeWidth: 3 },
-                { dataKey: 'Actual', name: 'Actual', color: 'oklch(0.72 0.15 65)' },
-                // Add Budget line when simulation is enabled
-                ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
-                  ? [{ dataKey: 'Budget', name: 'Budget', color: 'oklch(0.5 0.2 350)', strokeDasharray: '8 4', strokeWidth: 2 }]
-                  : [])
-              ]}
-              title="Monthly Forecast Trends"
-            />,
+      {!loading && forecastData.length > 0 && (() => {
+        // Check if there's meaningful variance data to show
+        const hasVarianceData = monthlyTrends.some(month => 
+          Math.abs(month.Forecast - month.Planned) > 100 // At least $100 variance
+        );
+
+        const charts = [
+          <LineChartComponent
+            key={`forecast-trends-${selectedProjectId}`}
+            data={monthlyTrends}
+            lines={[
+              { dataKey: 'Planned', name: 'Planned', color: 'oklch(0.45 0.12 200)', strokeDasharray: '5 5' },
+              { dataKey: 'Forecast', name: 'Forecast', color: 'oklch(0.61 0.15 160)', strokeWidth: 3 },
+              { dataKey: 'Actual', name: 'Actual', color: 'oklch(0.72 0.15 65)' },
+              // Add Budget line when simulation is enabled
+              ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
+                ? [{ dataKey: 'Budget', name: 'Budget', color: 'oklch(0.5 0.2 350)', strokeDasharray: '8 4', strokeWidth: 2 }]
+                : [])
+            ]}
+            title="Monthly Forecast Trends"
+          />
+        ];
+
+        // Only add variance analysis chart if there's meaningful data
+        if (hasVarianceData) {
+          charts.push(
             <StackedColumnsChart
               key={`variance-analysis-${selectedProjectId}`}
               data={monthlyTrends.map(month => ({
@@ -1652,35 +1660,42 @@ export function SDMTForecast() {
               ]}
               title="Variance Analysis"
             />
-          ]}
-          insights={[
-            {
-              title: "Forecast Accuracy",
-              value: `${(100 - Math.abs(variancePercentage)).toFixed(1)}%`,
-              type: variancePercentage < 5 ? 'positive' : variancePercentage > 15 ? 'negative' : 'neutral'
-            },
-            {
-              title: "Largest Variance",
-              value: formatCurrency(Math.max(...forecastData.map(c => Math.abs(c.variance || 0)))),
-              type: 'neutral'
-            },
-            {
-              title: "Forecast vs Planned",
-              value: totalForecast > totalPlanned ? 'Over Budget' : totalForecast < totalPlanned ? 'Under Budget' : 'On Target',
-              type: totalForecast > totalPlanned ? 'negative' : totalForecast < totalPlanned ? 'positive' : 'neutral'
-            },
-            // Add budget insights when simulation is enabled
-            ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
-              ? [{
-                  title: "Budget Utilization",
-                  value: `${budgetUtilization.toFixed(1)}%`,
-                  type: budgetUtilization > 100 ? 'negative' : budgetUtilization > 90 ? 'neutral' : 'positive'
-                }]
-              : [])
-          ]}
-          onExport={handleExcelExport}
-        />
-      )}
+          );
+        }
+
+        return (
+          <ChartInsightsPanel
+            title="Forecast Analytics & Trends"
+            charts={charts}
+            insights={[
+              {
+                title: "Forecast Accuracy",
+                value: `${(100 - Math.abs(variancePercentage)).toFixed(1)}%`,
+                type: variancePercentage < 5 ? 'positive' : variancePercentage > 15 ? 'negative' : 'neutral'
+              },
+              {
+                title: "Largest Variance",
+                value: formatCurrency(Math.max(...forecastData.map(c => Math.abs(c.variance || 0)))),
+                type: 'neutral'
+              },
+              {
+                title: "Forecast vs Planned",
+                value: totalForecast > totalPlanned ? 'Over Budget' : totalForecast < totalPlanned ? 'Under Budget' : 'On Target',
+                type: totalForecast > totalPlanned ? 'negative' : totalForecast < totalPlanned ? 'positive' : 'neutral'
+              },
+              // Add budget insights when simulation is enabled
+              ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
+                ? [{
+                    title: "Budget Utilization",
+                    value: `${budgetUtilization.toFixed(1)}%`,
+                    type: budgetUtilization > 100 ? 'negative' : budgetUtilization > 90 ? 'neutral' : 'positive'
+                  }]
+                : [])
+            ]}
+            onExport={handleExcelExport}
+          />
+        );
+      })()}
     </div>
   );
 }
