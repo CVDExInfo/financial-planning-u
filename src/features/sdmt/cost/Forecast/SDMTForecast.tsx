@@ -47,6 +47,7 @@ import finanzasClient from '@/api/finanzasClient';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
 import { BudgetSimulatorCard } from './BudgetSimulatorCard';
+import { PortfolioSummaryView } from './PortfolioSummaryView';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
 
@@ -1347,6 +1348,19 @@ export function SDMTForecast() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Portfolio Summary View - Only show in portfolio mode */}
+      {isPortfolioView && !loading && forecastData.length > 0 && (
+        <PortfolioSummaryView
+          forecastData={forecastData}
+          lineItems={portfolioLineItems}
+          formatCurrency={formatCurrency}
+          onViewProject={(projectId) => {
+            // TODO: Navigate to single project view with selected project
+            console.log('View project:', projectId);
+          }}
+        />
+      )}
 
       {/* Forecast Grid */}
       <Card>
