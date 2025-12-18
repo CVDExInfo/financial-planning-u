@@ -579,9 +579,9 @@ export function SDMTForecast() {
   // Check if user can edit forecast, actuals, and budget
   // Per docs/ui-api-action-map.md: Forecast adjustment is PMO only
   // Per docs/finanzas-roles-and-permissions.md: Budget management is PMO/ADMIN
-  const canEditForecast = user?.current_role === 'PMO' || user?.current_role === 'SDMT';
+  const canEditForecast = ['PMO', 'SDMT'].includes(user?.current_role || '');
   const canEditActual = user?.current_role === 'SDMT';
-  const canEditBudget = user?.current_role === 'PMO' || user?.current_role === 'SDMT';
+  const canEditBudget = ['PMO', 'SDMT'].includes(user?.current_role || '');
 
   // Function to navigate to reconciliation with filters
   const navigateToReconciliation = (line_item_id: string, month?: number) => {
@@ -1339,7 +1339,7 @@ export function SDMTForecast() {
                 </div>
                 {!canEditBudget && (
                   <div className="text-xs text-amber-600 mt-2">
-                    Solo usuarios PMO/SDMT pueden editar el presupuesto anual
+                    Solo usuarios PMO/ADMIN pueden editar el presupuesto anual
                   </div>
                 )}
                 {!isPortfolioView && budgetAmount && (
