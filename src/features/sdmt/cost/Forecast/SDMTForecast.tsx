@@ -1426,6 +1426,7 @@ export function SDMTForecast() {
           forecastData={forecastData}
           lineItems={portfolioLineItems}
           formatCurrency={formatCurrency}
+          monthlyBudgetAllocations={monthlyBudgetAllocations}
           onViewProject={(projectId) => {
             // TODO: Navigate to single project view with selected project
             console.log('View project:', projectId);

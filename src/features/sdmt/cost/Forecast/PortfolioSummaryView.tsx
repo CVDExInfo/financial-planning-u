@@ -8,9 +8,19 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronUp, Folder, FolderOpen } from 'lucide-react';
+import { ChevronDown, ChevronUp, Folder, FolderOpen, Calendar } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import type { ForecastCell, LineItem } from '@/types/domain';
+import type { MonthlyAllocation } from './budgetAllocation';
+import { calculateVariances } from './budgetAllocation';
 
 type ForecastRow = ForecastCell & { projectId?: string; projectName?: string };
 type ProjectLineItem = LineItem & { projectId?: string; projectName?: string };
@@ -20,6 +30,7 @@ interface PortfolioSummaryViewProps {
   lineItems: ProjectLineItem[];
   formatCurrency: (amount: number) => string;
   onViewProject?: (projectId: string) => void;
+  monthlyBudgetAllocations?: MonthlyAllocation[];
 }
 
 interface ProjectSummary {
@@ -37,9 +48,11 @@ export function PortfolioSummaryView({
   lineItems,
   formatCurrency,
   onViewProject,
+  monthlyBudgetAllocations,
 }: PortfolioSummaryViewProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [showMonthlyBreakdown, setShowMonthlyBreakdown] = useState(false);
 
   // Calculate overall portfolio summary
   const portfolioSummary = {
@@ -255,6 +268,157 @@ export function PortfolioSummaryView({
           </CollapsibleContent>
         </CardContent>
       </Card>
+
+      {/* Monthly Breakdown Table - Only show if budget allocations are available */}
+      {monthlyBudgetAllocations && monthlyBudgetAllocations.some(m => m.budgetAllocated > 0) && (
+        <Card className="mt-3">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Desglose Mensual vs Presupuesto</CardTitle>
+                <Badge variant="secondary" className="ml-2">
+                  M1-M12
+                </Badge>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-2"
+                onClick={() => setShowMonthlyBreakdown(!showMonthlyBreakdown)}
+                aria-label={showMonthlyBreakdown ? "Ocultar desglose mensual" : "Mostrar desglose mensual"}
+              >
+                <span className="text-sm">
+                  {showMonthlyBreakdown ? 'Ocultar' : 'Ver desglose'}
+                </span>
+                {showMonthlyBreakdown ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          {showMonthlyBreakdown && (
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Mes</TableHead>
+                      <TableHead className="text-right">Presupuesto</TableHead>
+                      <TableHead className="text-right">Planificado</TableHead>
+                      <TableHead className="text-right">Pronóstico</TableHead>
+                      <TableHead className="text-right">Real</TableHead>
+                      <TableHead className="text-right">Var Pron vs Pres</TableHead>
+                      <TableHead className="text-right">Var Real vs Pres</TableHead>
+                      <TableHead className="text-right">% Consumo Real</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {monthlyBudgetAllocations.map((allocation) => {
+                      const variances = calculateVariances(allocation);
+                      return (
+                        <TableRow key={allocation.month}>
+                          <TableCell className="font-medium">M{allocation.month}</TableCell>
+                          <TableCell className="text-right font-medium text-primary">
+                            {formatCurrency(allocation.budgetAllocated)}
+                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground">
+                            {formatCurrency(allocation.planned)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(allocation.forecast)}
+                          </TableCell>
+                          <TableCell className="text-right text-blue-600 font-medium">
+                            {formatCurrency(allocation.actual)}
+                          </TableCell>
+                          <TableCell className={`text-right font-medium ${
+                            variances.varianceForecastVsBudget > 0 
+                              ? 'text-red-600' 
+                              : variances.varianceForecastVsBudget < 0 
+                                ? 'text-green-600' 
+                                : 'text-muted-foreground'
+                          }`}>
+                            {variances.varianceForecastVsBudget >= 0 ? '+' : ''}
+                            {formatCurrency(variances.varianceForecastVsBudget)}
+                          </TableCell>
+                          <TableCell className={`text-right font-medium ${
+                            variances.varianceActualVsBudget > 0 
+                              ? 'text-red-600' 
+                              : variances.varianceActualVsBudget < 0 
+                                ? 'text-green-600' 
+                                : 'text-muted-foreground'
+                          }`}>
+                            {variances.varianceActualVsBudget >= 0 ? '+' : ''}
+                            {formatCurrency(variances.varianceActualVsBudget)}
+                          </TableCell>
+                          <TableCell className={`text-right font-medium ${
+                            variances.percentConsumedActual > 100 
+                              ? 'text-red-600' 
+                              : variances.percentConsumedActual > 90 
+                                ? 'text-yellow-600' 
+                                : 'text-green-600'
+                          }`}>
+                            {variances.percentConsumedActual.toFixed(1)}%
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {/* Totals Row */}
+                    <TableRow className="bg-muted/50 font-bold border-t-2">
+                      <TableCell>Total</TableCell>
+                      <TableCell className="text-right text-primary">
+                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.budgetAllocated, 0))}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.planned, 0))}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.forecast, 0))}
+                      </TableCell>
+                      <TableCell className="text-right text-blue-600">
+                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.actual, 0))}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(
+                          monthlyBudgetAllocations.reduce((sum, m) => {
+                            const v = calculateVariances(m);
+                            return sum + v.varianceForecastVsBudget;
+                          }, 0)
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(
+                          monthlyBudgetAllocations.reduce((sum, m) => {
+                            const v = calculateVariances(m);
+                            return sum + v.varianceActualVsBudget;
+                          }, 0)
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {(() => {
+                          const totalBudget = monthlyBudgetAllocations.reduce((sum, m) => sum + m.budgetAllocated, 0);
+                          const totalActual = monthlyBudgetAllocations.reduce((sum, m) => sum + m.actual, 0);
+                          return totalBudget > 0 ? ((totalActual / totalBudget) * 100).toFixed(1) : '0.0';
+                        })()}%
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="mt-4 text-xs text-muted-foreground space-y-1">
+                <p>
+                  <strong>Presupuesto Asignado:</strong> Distribuido proporcionalmente según costos planificados mensuales.
+                </p>
+                <p>
+                  <strong>Variación Positiva (+):</strong> Sobre presupuesto | <strong>Variación Negativa (-):</strong> Bajo presupuesto
+                </p>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
     </Collapsible>
   );
 }
