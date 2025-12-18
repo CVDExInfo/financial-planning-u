@@ -964,7 +964,7 @@ export class ApiService {
       };
     }
 
-    const payload = await this.request(endpoint, {
+    const payload: any = await this.request(endpoint, {
       method: "POST",
       headers: this.buildRequestHeaders(),
       body: JSON.stringify(body),
@@ -1015,7 +1015,7 @@ export class ApiService {
     data: { action: "approve" | "reject"; comment?: string },
   ): Promise<ChangeRequest> {
     const endpoint = `/projects/${project_id}/changes/${change_id}/approval`;
-    const payload = await this.request(endpoint, {
+    const payload: any = await this.request(endpoint, {
       method: "POST",
       headers: this.buildRequestHeaders(),
       body: JSON.stringify(data),
