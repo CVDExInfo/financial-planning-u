@@ -100,7 +100,7 @@ const uploadStageText: Record<DocumentUploadStage, string> = {
 
 export function ReviewSignStep({ data }: ReviewSignStepProps) {
   const navigate = useNavigate();
-  const { refreshProject, setSelectedProjectId } = useProject();
+  const { refreshProject, setSelectedProjectId, currentProject } = useProject();
   const [isReviewed, setIsReviewed] = useState(false);
   const [shouldAcceptBaseline, setShouldAcceptBaseline] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
