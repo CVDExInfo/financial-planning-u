@@ -347,7 +347,7 @@ export function PortfolioSummaryView({
         </CardContent>
       </Card>
 
-      {/* Monthly Breakdown Table - Only show if budget allocations are available */}
+      {/* Monthly Breakdown Table - TRANSPOSED: Months as Columns */}
       {monthlyBudgetAllocations && monthlyBudgetAllocations.some(m => m.budgetAllocated > 0) && (
         <Card className="mt-3">
           <CardHeader className="pb-3">
@@ -383,119 +383,117 @@ export function PortfolioSummaryView({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-16">Mes</TableHead>
-                      <TableHead className="text-right">Presupuesto</TableHead>
-                      <TableHead className="text-right">Planificado</TableHead>
-                      <TableHead className="text-right">Pronóstico</TableHead>
-                      <TableHead className="text-right">Real</TableHead>
-                      <TableHead className="text-right">Var Pron vs Pres</TableHead>
-                      <TableHead className="text-right">Var Real vs Pres</TableHead>
-                      <TableHead className="text-right">% Consumo Real</TableHead>
-                      {hasRunwayMetrics && (
-                        <TableHead className="text-right">Runway Restante</TableHead>
-                      )}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {monthlyBudgetAllocations.map((allocation) => {
-                      const variances = calculateVariances(allocation);
-                      const runway = hasRunwayMetrics 
-                        ? runwayMetrics.find(r => r.month === allocation.month)
-                        : null;
-                      
-                      return (
-                        <TableRow key={allocation.month} className={runway?.isOverBudget ? 'bg-red-50/50' : ''}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              M{allocation.month}
+                      <TableHead className="sticky left-0 bg-background min-w-[180px]">Concepto</TableHead>
+                      {monthlyBudgetAllocations.map((allocation) => {
+                        const runway = hasRunwayMetrics 
+                          ? runwayMetrics.find(r => r.month === allocation.month)
+                          : null;
+                        return (
+                          <TableHead key={allocation.month} className="text-center min-w-[100px]">
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="font-semibold flex items-center gap-1">
+                                M{allocation.month}
+                                {runway?.isOverBudget && (
+                                  <span className="text-red-600 text-xs">⚠️</span>
+                                )}
+                              </div>
                               {allocation.isEstimated && (
                                 <Badge variant="outline" className="text-[9px] py-0 px-1">
                                   Est.
                                 </Badge>
                               )}
-                              {runway?.isOverBudget && (
-                                <span className="text-red-600 text-xs">⚠️</span>
-                              )}
                             </div>
-                          </TableCell>
-                          <TableCell className="text-right font-medium text-primary">
-                            {formatCurrency(allocation.budgetAllocated)}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {formatCurrency(allocation.planned)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(allocation.forecast)}
-                          </TableCell>
-                          <TableCell className="text-right text-blue-600 font-medium">
-                            {formatCurrency(allocation.actual)}
-                          </TableCell>
-                          <TableCell className={`text-right font-medium ${
-                            variances.varianceForecastVsBudget > 0 
-                              ? 'text-red-600' 
-                              : variances.varianceForecastVsBudget < 0 
-                                ? 'text-green-600' 
-                                : 'text-muted-foreground'
-                          }`}>
+                          </TableHead>
+                        );
+                      })}
+                      <TableHead className="text-center font-bold min-w-[120px] bg-muted/50">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {/* Row 1: Presupuesto */}
+                    <TableRow>
+                      <TableCell className="sticky left-0 bg-background font-medium">
+                        Presupuesto
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => (
+                        <TableCell key={allocation.month} className="text-center text-primary font-medium">
+                          {formatCurrency(allocation.budgetAllocated)}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-center font-bold bg-muted/50 text-primary">
+                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.budgetAllocated, 0))}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Row 2: Planificado */}
+                    <TableRow>
+                      <TableCell className="sticky left-0 bg-background font-medium">
+                        Planificado
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => (
+                        <TableCell key={allocation.month} className="text-center text-muted-foreground">
+                          {formatCurrency(allocation.planned)}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-center font-bold bg-muted/50">
+                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.planned, 0))}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Row 3: Pronóstico */}
+                    <TableRow>
+                      <TableCell className="sticky left-0 bg-background font-medium">
+                        Pronóstico
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => (
+                        <TableCell key={allocation.month} className="text-center">
+                          {formatCurrency(allocation.forecast)}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-center font-bold bg-muted/50">
+                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.forecast, 0))}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Row 4: Real */}
+                    <TableRow>
+                      <TableCell className="sticky left-0 bg-background font-medium">
+                        Real
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => (
+                        <TableCell key={allocation.month} className="text-center text-blue-600 font-medium">
+                          {formatCurrency(allocation.actual)}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-center font-bold bg-muted/50 text-blue-600">
+                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.actual, 0))}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Row 5: Variación vs Presupuesto (Pronóstico) */}
+                    <TableRow className="border-t-2">
+                      <TableCell className="sticky left-0 bg-background font-medium">
+                        Variación Pron vs Pres
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => {
+                        const variances = calculateVariances(allocation);
+                        return (
+                          <TableCell 
+                            key={allocation.month} 
+                            className={`text-center font-medium ${
+                              variances.varianceForecastVsBudget > 0 
+                                ? 'text-red-600 bg-red-50/50' 
+                                : variances.varianceForecastVsBudget < 0 
+                                  ? 'text-green-600 bg-green-50/50' 
+                                  : 'text-muted-foreground'
+                            }`}
+                          >
                             {variances.varianceForecastVsBudget >= 0 ? '+' : ''}
                             {formatCurrency(variances.varianceForecastVsBudget)}
                           </TableCell>
-                          <TableCell className={`text-right font-medium ${
-                            variances.varianceActualVsBudget > 0 
-                              ? 'text-red-600' 
-                              : variances.varianceActualVsBudget < 0 
-                                ? 'text-green-600' 
-                                : 'text-muted-foreground'
-                          }`}>
-                            {variances.varianceActualVsBudget >= 0 ? '+' : ''}
-                            {formatCurrency(variances.varianceActualVsBudget)}
-                          </TableCell>
-                          <TableCell className={`text-right font-medium ${
-                            variances.percentConsumedActual > OVER_BUDGET_THRESHOLD 
-                              ? 'text-red-600' 
-                              : variances.percentConsumedActual > WARNING_THRESHOLD 
-                                ? 'text-yellow-600' 
-                                : 'text-green-600'
-                          }`}>
-                            {variances.percentConsumedActual.toFixed(1)}%
-                          </TableCell>
-                          {hasRunwayMetrics && runway && (
-                            <TableCell className="text-right">
-                              <div className="text-sm">
-                                <div className={`font-medium ${
-                                  runway.remainingAnnualBudget <= 0 
-                                    ? 'text-red-600' 
-                                    : runway.percentConsumed > 80 
-                                      ? 'text-yellow-600' 
-                                      : 'text-green-600'
-                                }`}>
-                                  {formatCurrency(runway.remainingAnnualBudget)}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {runway.percentConsumed.toFixed(0)}% usado
-                                </div>
-                              </div>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      );
-                    })}
-                    {/* Totals Row */}
-                    <TableRow className="bg-muted/50 font-bold border-t-2">
-                      <TableCell>Total</TableCell>
-                      <TableCell className="text-right text-primary">
-                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.budgetAllocated, 0))}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.planned, 0))}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.forecast, 0))}
-                      </TableCell>
-                      <TableCell className="text-right text-blue-600">
-                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.actual, 0))}
-                      </TableCell>
-                      <TableCell className="text-right">
+                        );
+                      })}
+                      <TableCell className="text-center font-bold bg-muted/50">
                         {formatCurrency(
                           monthlyBudgetAllocations.reduce((sum, m) => {
                             const v = calculateVariances(m);
@@ -503,7 +501,32 @@ export function PortfolioSummaryView({
                           }, 0)
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
+                    </TableRow>
+
+                    {/* Row 6: Variación Real vs Presupuesto */}
+                    <TableRow>
+                      <TableCell className="sticky left-0 bg-background font-medium">
+                        Variación Real vs Pres
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => {
+                        const variances = calculateVariances(allocation);
+                        return (
+                          <TableCell 
+                            key={allocation.month} 
+                            className={`text-center font-medium ${
+                              variances.varianceActualVsBudget > 0 
+                                ? 'text-red-600 bg-red-50/50' 
+                                : variances.varianceActualVsBudget < 0 
+                                  ? 'text-green-600 bg-green-50/50' 
+                                  : 'text-muted-foreground'
+                            }`}
+                          >
+                            {variances.varianceActualVsBudget >= 0 ? '+' : ''}
+                            {formatCurrency(variances.varianceActualVsBudget)}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-center font-bold bg-muted/50">
                         {formatCurrency(
                           monthlyBudgetAllocations.reduce((sum, m) => {
                             const v = calculateVariances(m);
@@ -511,7 +534,31 @@ export function PortfolioSummaryView({
                           }, 0)
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
+                    </TableRow>
+
+                    {/* Row 7: % Consumo Real */}
+                    <TableRow>
+                      <TableCell className="sticky left-0 bg-background font-medium">
+                        % Consumo Real
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => {
+                        const variances = calculateVariances(allocation);
+                        return (
+                          <TableCell 
+                            key={allocation.month} 
+                            className={`text-center font-medium ${
+                              variances.percentConsumedActual > OVER_BUDGET_THRESHOLD 
+                                ? 'text-red-600' 
+                                : variances.percentConsumedActual > WARNING_THRESHOLD 
+                                  ? 'text-yellow-600' 
+                                  : 'text-green-600'
+                            }`}
+                          >
+                            {variances.percentConsumedActual.toFixed(1)}%
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-center font-bold bg-muted/50">
                         {(() => {
                           const totalBudget = monthlyBudgetAllocations.reduce((sum, m) => sum + m.budgetAllocated, 0);
                           const totalActual = monthlyBudgetAllocations.reduce((sum, m) => sum + m.actual, 0);
@@ -519,6 +566,59 @@ export function PortfolioSummaryView({
                         })()}%
                       </TableCell>
                     </TableRow>
+
+                    {/* Row 8: Runway Restante (only if runway metrics available) */}
+                    {hasRunwayMetrics && (
+                      <TableRow className="border-t-2">
+                        <TableCell className="sticky left-0 bg-background font-medium">
+                          Runway Restante
+                        </TableCell>
+                        {monthlyBudgetAllocations.map((allocation) => {
+                          const runway = runwayMetrics.find(r => r.month === allocation.month);
+                          return (
+                            <TableCell key={allocation.month} className="text-center">
+                              {runway && (
+                                <div className="text-sm">
+                                  <div className={`font-medium ${
+                                    runway.remainingAnnualBudget <= 0 
+                                      ? 'text-red-600' 
+                                      : runway.percentConsumed > 80 
+                                        ? 'text-yellow-600' 
+                                        : 'text-green-600'
+                                  }`}>
+                                    {formatCurrency(runway.remainingAnnualBudget)}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {runway.percentConsumed.toFixed(0)}% usado
+                                  </div>
+                                </div>
+                              )}
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="text-center font-bold bg-muted/50">
+                          {hasRunwayMetrics && runwayMetrics.length > 0 && (() => {
+                            const lastRunway = runwayMetrics[runwayMetrics.length - 1];
+                            return (
+                              <div className="text-sm">
+                                <div className={`font-medium ${
+                                  lastRunway.remainingAnnualBudget <= 0 
+                                    ? 'text-red-600' 
+                                    : lastRunway.percentConsumed > 80 
+                                      ? 'text-yellow-600' 
+                                      : 'text-green-600'
+                                }`}>
+                                  {formatCurrency(lastRunway.remainingAnnualBudget)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Final
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -528,6 +628,9 @@ export function PortfolioSummaryView({
                 </p>
                 <p>
                   <strong>Variación Positiva (+):</strong> Sobre presupuesto | <strong>Variación Negativa (-):</strong> Bajo presupuesto
+                </p>
+                <p>
+                  <strong>Verde:</strong> Bajo presupuesto | <strong>Amarillo:</strong> Advertencia (&gt;90%) | <strong>Rojo:</strong> Sobre presupuesto (&gt;100%)
                 </p>
               </div>
             </CardContent>
