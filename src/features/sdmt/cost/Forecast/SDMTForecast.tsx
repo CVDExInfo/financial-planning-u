@@ -141,6 +141,29 @@ export function SDMTForecast() {
   const isPortfolioView = selectedProjectId === ALL_PROJECTS_ID;
   const lineItemsForGrid = isPortfolioView ? portfolioLineItems : safeLineItems;
 
+  // Helper function to get current month index (1-12) based on today's date and project start
+  const getCurrentMonthIndex = (): number => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1; // 1-12
+    
+    // For portfolio view or when no project start date, use calendar month (1-12)
+    if (!currentProject?.start_date || isPortfolioView) {
+      return currentMonth;
+    }
+    
+    // Calculate month index relative to project start date
+    const startDate = new Date(currentProject.start_date);
+    const startYear = startDate.getFullYear();
+    const startMonth = startDate.getMonth() + 1; // 1-12
+    
+    // Calculate months elapsed since project start
+    const monthsElapsed = (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1;
+    
+    // Clamp to 1-12 range (project month index)
+    return Math.max(1, Math.min(12, monthsElapsed));
+  };
+
   // Helper function to compute calendar month from monthIndex and project start date
   const getCalendarMonth = (monthIndex: number): string => {
     if (!currentProject?.start_date) {
@@ -203,9 +226,18 @@ export function SDMTForecast() {
       setForecastError(null);
       setDirtyActuals({});
       setDirtyForecasts({});
-      const months = parseInt(selectedPeriod);
+      
+      // Handle CURRENT_MONTH period - always load 12 months but filter to current month later
+      const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
+      const months = isCurrentMonthMode ? 12 : parseInt(selectedPeriod);
+      
       if (import.meta.env.DEV) {
-        console.debug('[Forecast] Loading data', { projectId: selectedProjectId, months });
+        console.debug('[Forecast] Loading data', { 
+          projectId: selectedProjectId, 
+          months,
+          isCurrentMonthMode,
+          selectedPeriod 
+        });
       }
 
       if (isPortfolioView) {
@@ -625,13 +657,40 @@ export function SDMTForecast() {
     navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
   };
 
+  // Filter forecast data to current month when CURRENT_MONTH period is selected
+  const filteredForecastData = useMemo(() => {
+    if (selectedPeriod !== 'CURRENT_MONTH') {
+      return forecastData;
+    }
+    
+    const currentMonthIndex = getCurrentMonthIndex();
+    const filtered = forecastData.filter(cell => cell.month === currentMonthIndex);
+    
+    if (import.meta.env.DEV) {
+      console.debug('[Forecast] Current month filtering', {
+        currentMonthIndex,
+        totalCells: forecastData.length,
+        filteredCells: filtered.length,
+      });
+    }
+    
+    return filtered;
+  }, [forecastData, selectedPeriod]);
+
   // Group forecast data by line item and month for display
   const forecastGrid = useMemo(() => {
+    const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
+    const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
+    
     const grid = lineItemsForGrid.map(lineItem => {
-      const itemForecasts = forecastData.filter(f =>
+      const itemForecasts = filteredForecastData.filter(f =>
         f.line_item_id === lineItem.id && (!lineItem.projectId || f.projectId === lineItem.projectId)
       );
-      const months = Array.from({ length: 12 }, (_, i) => i + 1);
+      
+      // In current month mode, only show the current month; otherwise show all 12 months
+      const months = isCurrentMonthMode 
+        ? [currentMonthIndex] 
+        : Array.from({ length: 12 }, (_, i) => i + 1);
 
       const monthlyData = months.map(month => {
         const cell = itemForecasts.find(f => f.month === month);
@@ -666,7 +725,7 @@ export function SDMTForecast() {
     }
 
     return grid;
-  }, [lineItemsForGrid, forecastData, selectedProjectId]);
+  }, [lineItemsForGrid, filteredForecastData, selectedProjectId, selectedPeriod]);
 
   const totalFTE = useMemo(() => {
     return lineItemsForGrid.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
@@ -674,9 +733,9 @@ export function SDMTForecast() {
 
   // Calculate totals and metrics - using useMemo to ensure it updates when data changes
   const baseMetrics = useMemo(() => {
-    const totalPlanned = forecastData.reduce((sum, cell) => sum + (cell.planned || 0), 0);
-    const totalForecast = forecastData.reduce((sum, cell) => sum + (cell.forecast || 0), 0);
-    const totalActual = forecastData.reduce((sum, cell) => sum + (cell.actual || 0), 0);
+    const totalPlanned = filteredForecastData.reduce((sum, cell) => sum + (cell.planned || 0), 0);
+    const totalForecast = filteredForecastData.reduce((sum, cell) => sum + (cell.forecast || 0), 0);
+    const totalActual = filteredForecastData.reduce((sum, cell) => sum + (cell.actual || 0), 0);
     
     // SDMT ALIGNMENT FIX: Calculate variances at aggregate level, not sum of cell variances
     // Variación de Pronóstico = difference between total forecast and total planned
@@ -690,9 +749,10 @@ export function SDMTForecast() {
     const actualVariance = totalActual - totalPlanned;
     const actualVariancePercentage = totalPlanned > 0 ? (actualVariance / totalPlanned) * 100 : 0;
 
-    if (import.meta.env.DEV && forecastData.length > 0) {
+    if (import.meta.env.DEV && filteredForecastData.length > 0) {
       console.debug('[Forecast] Metrics recalculated', {
         projectId: selectedProjectId,
+        selectedPeriod,
         totalPlanned,
         totalForecast,
         totalActual,
@@ -710,7 +770,7 @@ export function SDMTForecast() {
       actualVariance,
       actualVariancePercentage
     };
-  }, [forecastData, selectedProjectId]);
+  }, [filteredForecastData, selectedProjectId, selectedPeriod]);
 
   // Apply budget simulation overlay to base metrics
   const metrics = useMemo(() => {
@@ -798,8 +858,13 @@ export function SDMTForecast() {
 
   // Chart data - recalculate when forecastData changes
   const monthlyTrends = useMemo(() => {
-    const baseTrends = Array.from({ length: 12 }, (_, i) => {
-      const month = i + 1;
+    const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
+    const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
+    
+    // In current month mode, show only current month; otherwise show all 12
+    const monthsToShow = isCurrentMonthMode ? [currentMonthIndex] : Array.from({ length: 12 }, (_, i) => i + 1);
+    
+    const baseTrends = monthsToShow.map((month) => {
       const monthData = forecastData.filter(cell => cell.month === month);
       return {
         month,
@@ -810,7 +875,12 @@ export function SDMTForecast() {
     });
 
     if (import.meta.env.DEV && forecastData.length > 0) {
-      console.debug('[Forecast] Chart trends recalculated', { projectId: selectedProjectId });
+      console.debug('[Forecast] Chart trends recalculated', { 
+        projectId: selectedProjectId,
+        isCurrentMonthMode,
+        currentMonthIndex,
+        monthsShown: monthsToShow.length
+      });
     }
     
     // Apply budget line when simulation is enabled OR when annual budget is set
@@ -822,15 +892,18 @@ export function SDMTForecast() {
     // When annual budget is set (not simulation), use allocated budget per month
     const annualBudget = parseFloat(budgetAmount);
     if (isPortfolioView && annualBudget > 0) {
-      // Use the monthly allocations we computed
-      return baseTrends.map((trend, idx) => ({
-        ...trend,
-        Budget: monthlyBudgetAllocations[idx]?.budgetAllocated || 0,
-      }));
+      // Use the monthly allocations we computed (filter to current month if needed)
+      return baseTrends.map((trend) => {
+        const allocation = monthlyBudgetAllocations.find(a => a.month === trend.month);
+        return {
+          ...trend,
+          Budget: allocation?.budgetAllocated || 0,
+        };
+      });
     }
     
     return baseTrends;
-  }, [forecastData, selectedProjectId, isPortfolioView, budgetSimulation.enabled, budgetTotal, budgetAmount, monthlyBudgetAllocations]);
+  }, [forecastData, selectedProjectId, selectedPeriod, isPortfolioView, budgetSimulation.enabled, budgetTotal, budgetAmount, monthlyBudgetAllocations]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -1494,6 +1567,8 @@ export function SDMTForecast() {
           formatCurrency={formatCurrency}
           monthlyBudgetAllocations={monthlyBudgetAllocations}
           runwayMetrics={runwayMetrics}
+          selectedPeriod={selectedPeriod}
+          getCurrentMonthIndex={getCurrentMonthIndex}
           onViewProject={(projectId) => {
             // TODO: Navigate to single project view with selected project
             console.log('View project:', projectId);
