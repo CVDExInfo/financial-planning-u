@@ -1579,9 +1579,18 @@ export function SDMTForecast() {
       {/* Forecast Grid */}
       <Card>
         <CardHeader>
-          <CardTitle>Cuadrícula de Pronóstico 12 Meses</CardTitle>
+          <CardTitle>
+            {selectedPeriod === 'CURRENT_MONTH' 
+              ? `Cuadrícula de Pronóstico - Mes Actual (M${getCurrentMonthIndex()})`
+              : 'Cuadrícula de Pronóstico 12 Meses'}
+          </CardTitle>
         </CardHeader>
         <CardContent>
+          {selectedPeriod === 'CURRENT_MONTH' && !isLoadingState && (
+            <div className="mb-3 p-2 bg-blue-50 rounded text-sm text-blue-900">
+              📅 Mostrando solo el mes en curso (M{getCurrentMonthIndex()}) - {getCalendarMonth(getCurrentMonthIndex())}
+            </div>
+          )}
           {isLoadingState ? (
             <div className="flex items-center justify-center h-32">
               <div className="text-center space-y-3">
@@ -1665,19 +1674,25 @@ export function SDMTForecast() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="sticky left-0 bg-background min-w-[300px]">Rubro</TableHead>
-                    {Array.from({ length: 12 }, (_, i) => (
-                      <TableHead key={i + 1} className="text-center min-w-[140px]">
-                        <div className="font-semibold">M{i + 1}</div>
-                        {!isPortfolioView && currentProject?.start_date && (
+                    {(() => {
+                      const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
+                      const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
+                      const monthsToShow = isCurrentMonthMode ? [currentMonthIndex] : Array.from({ length: 12 }, (_, i) => i + 1);
+                      
+                      return monthsToShow.map((monthNum) => (
+                        <TableHead key={monthNum} className="text-center min-w-[140px]">
+                          <div className="font-semibold">M{monthNum}</div>
+                          {!isPortfolioView && currentProject?.start_date && (
+                            <div className="text-xs font-normal text-muted-foreground mt-1">
+                              {getCalendarMonth(monthNum)}
+                            </div>
+                          )}
                           <div className="text-xs font-normal text-muted-foreground mt-1">
-                            {getCalendarMonth(i + 1)}
+                            P / F / A
                           </div>
-                        )}
-                        <div className="text-xs font-normal text-muted-foreground mt-1">
-                          P / F / A
-                        </div>
-                      </TableHead>
-                    ))}
+                        </TableHead>
+                      ));
+                    })()}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
