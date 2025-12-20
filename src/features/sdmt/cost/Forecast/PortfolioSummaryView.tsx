@@ -630,7 +630,7 @@ export function PortfolioSummaryView({
                   <strong>Variación Positiva (+):</strong> Sobre presupuesto | <strong>Variación Negativa (-):</strong> Bajo presupuesto
                 </p>
                 <p>
-                  <strong>Verde:</strong> Bajo presupuesto | <strong>Amarillo:</strong> Advertencia (&gt;90%) | <strong>Rojo:</strong> Sobre presupuesto (&gt;100%)
+                  <strong>🟢 Verde:</strong> Bajo presupuesto | <strong>🟡 Amarillo:</strong> Advertencia (&gt;90%) | <strong>🔴 Rojo:</strong> Sobre presupuesto (&gt;100%)
                 </p>
               </div>
             </CardContent>
