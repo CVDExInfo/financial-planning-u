@@ -759,7 +759,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           })
         );
 
-        let projectBaseline = baselineLookup.Item as Record<string, unknown> | undefined;
+        const projectBaseline = baselineLookup.Item as Record<string, unknown> | undefined;
         
         // Log what we found in project-scoped baseline
         console.info("[handoff-projects] Project-scoped baseline query result", {
