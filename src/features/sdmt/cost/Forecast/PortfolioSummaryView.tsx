@@ -42,6 +42,8 @@ interface PortfolioSummaryViewProps {
   onViewProject?: (projectId: string) => void;
   monthlyBudgetAllocations?: MonthlyAllocation[];
   runwayMetrics?: RunwayMetrics[];
+  selectedPeriod?: string;
+  getCurrentMonthIndex?: () => number;
 }
 
 interface ProjectSummary {
@@ -61,6 +63,8 @@ export function PortfolioSummaryView({
   onViewProject,
   monthlyBudgetAllocations,
   runwayMetrics,
+  selectedPeriod = '12',
+  getCurrentMonthIndex = () => new Date().getMonth() + 1,
 }: PortfolioSummaryViewProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
@@ -570,17 +574,17 @@ export function PortfolioSummaryView({
                             {variances.varianceForecastVsBudget >= 0 ? '+' : ''}
                             {formatCurrency(variances.varianceForecastVsBudget)}
                           </TableCell>
-                        );
-                      })}
-                      <TableCell className="text-center font-bold bg-muted/50">
-                        {formatCurrency(
-                          monthlyBudgetAllocations.reduce((sum, m) => {
-                            const v = calculateVariances(m);
-                            return sum + v.varianceForecastVsBudget;
-                          }, 0)
-                        )}
-                      </TableCell>
-                    </TableRow>
+                          {allocationsToShow.map((allocation) => (
+                            <TableCell key={allocation.month} className="text-center">
+                              {formatCurrency(allocation.forecast)}
+                            </TableCell>
+                          ))}
+                          {!isCurrentMonthMode && (
+                            <TableCell className="text-center font-bold bg-muted/50">
+                              {formatCurrency(allocationsToShow.reduce((sum, m) => sum + m.forecast, 0))}
+                            </TableCell>
+                          )}
+                        </TableRow>
 
                     {/* Row 6: Variación Real vs Presupuesto */}
                     <TableRow className="bg-yellow-50/30">
@@ -606,17 +610,17 @@ export function PortfolioSummaryView({
                             {variances.varianceActualVsBudget >= 0 ? '+' : ''}
                             {formatCurrency(variances.varianceActualVsBudget)}
                           </TableCell>
-                        );
-                      })}
-                      <TableCell className="text-center font-bold bg-muted/50">
-                        {formatCurrency(
-                          monthlyBudgetAllocations.reduce((sum, m) => {
-                            const v = calculateVariances(m);
-                            return sum + v.varianceActualVsBudget;
-                          }, 0)
-                        )}
-                      </TableCell>
-                    </TableRow>
+                          {allocationsToShow.map((allocation) => (
+                            <TableCell key={allocation.month} className="text-center text-blue-600 font-medium">
+                              {formatCurrency(allocation.actual)}
+                            </TableCell>
+                          ))}
+                          {!isCurrentMonthMode && (
+                            <TableCell className="text-center font-bold bg-muted/50 text-blue-600">
+                              {formatCurrency(allocationsToShow.reduce((sum, m) => sum + m.actual, 0))}
+                            </TableCell>
+                          )}
+                        </TableRow>
 
                     {/* Row 7: % Consumo Real */}
                     <TableRow className="bg-yellow-50/30">
@@ -641,16 +645,35 @@ export function PortfolioSummaryView({
                           >
                             {variances.percentConsumedActual.toFixed(1)}%
                           </TableCell>
-                        );
-                      })}
-                      <TableCell className="text-center font-bold bg-muted/50">
-                        {(() => {
-                          const totalBudget = monthlyBudgetAllocations.reduce((sum, m) => sum + m.budgetAllocated, 0);
-                          const totalActual = monthlyBudgetAllocations.reduce((sum, m) => sum + m.actual, 0);
-                          return totalBudget > 0 ? ((totalActual / totalBudget) * 100).toFixed(1) : '0.0';
-                        })()}%
-                      </TableCell>
-                    </TableRow>
+                          {allocationsToShow.map((allocation) => {
+                            const variances = calculateVariances(allocation);
+                            return (
+                              <TableCell 
+                                key={allocation.month} 
+                                className={`text-center font-medium ${
+                                  variances.varianceForecastVsBudget > 0 
+                                    ? 'text-red-600 bg-red-50/50' 
+                                    : variances.varianceForecastVsBudget < 0 
+                                      ? 'text-green-600 bg-green-50/50' 
+                                      : 'text-muted-foreground'
+                                }`}
+                              >
+                                {variances.varianceForecastVsBudget >= 0 ? '+' : ''}
+                                {formatCurrency(variances.varianceForecastVsBudget)}
+                              </TableCell>
+                            );
+                          })}
+                          {!isCurrentMonthMode && (
+                            <TableCell className="text-center font-bold bg-muted/50">
+                              {formatCurrency(
+                                allocationsToShow.reduce((sum, m) => {
+                                  const v = calculateVariances(m);
+                                  return sum + v.varianceForecastVsBudget;
+                                }, 0)
+                              )}
+                            </TableCell>
+                          )}
+                        </TableRow>
 
                     {/* GROUP C: STRATEGIC */}
                     {/* Row 8: Runway Restante (only if runway metrics available) */}
@@ -683,26 +706,29 @@ export function PortfolioSummaryView({
                                 </div>
                               )}
                             </TableCell>
-                          );
-                        })}
-                        <TableCell className="text-center font-bold bg-muted/50">
-                          {hasRunwayMetrics && runwayMetrics.length > 0 && (() => {
-                            const lastRunway = runwayMetrics[runwayMetrics.length - 1];
+                          )}
+                        </TableRow>
+
+                        {/* Row 7: % Consumo Real */}
+                        <TableRow>
+                          <TableCell className="sticky left-0 bg-background font-medium">
+                            % Consumo Real
+                          </TableCell>
+                          {allocationsToShow.map((allocation) => {
+                            const variances = calculateVariances(allocation);
                             return (
-                              <div className="text-sm">
-                                <div className={`font-medium ${
-                                  lastRunway.remainingAnnualBudget <= 0 
+                              <TableCell 
+                                key={allocation.month} 
+                                className={`text-center font-medium ${
+                                  variances.percentConsumedActual > OVER_BUDGET_THRESHOLD 
                                     ? 'text-red-600' 
-                                    : lastRunway.percentConsumed > 80 
+                                    : variances.percentConsumedActual > WARNING_THRESHOLD 
                                       ? 'text-yellow-600' 
                                       : 'text-green-600'
-                                }`}>
-                                  {formatCurrency(lastRunway.remainingAnnualBudget)}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  Final
-                                </div>
-                              </div>
+                                }`}
+                              >
+                                {variances.percentConsumedActual.toFixed(1)}%
+                              </TableCell>
                             );
                           })()}
                         </TableCell>
@@ -725,8 +751,6 @@ export function PortfolioSummaryView({
               </div>
             </CardContent>
           )}
-        </Card>
-      )}
-    </Collapsible>
-  );
-}
+        </Collapsible>
+      );
+    }
