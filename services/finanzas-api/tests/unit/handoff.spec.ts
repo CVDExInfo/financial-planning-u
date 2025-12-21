@@ -298,7 +298,7 @@ describe("Handoff Handler", () => {
       expect(body.baselineId).toBe("base_test123");
     });
 
-    it("should set baseline_status to 'accepted' when force_accept is true", async () => {
+    it("should ignore force_accept flag and always set baseline_status to 'handed_off'", async () => {
       mockedResolver.mockResolvedValue({
         resolvedProjectId: "P-test456",
         baselineId: "base_test456",
@@ -343,7 +343,7 @@ describe("Handoff Handler", () => {
         body: JSON.stringify({
           baseline_id: "base_test456",
           owner: "test@example.com",
-          force_accept: true,
+          force_accept: true, // This flag should now be ignored
           aceptado_por: "approver@example.com",
           project_name: "Test Project",
           client_name: "Test Client",
@@ -365,11 +365,13 @@ describe("Handoff Handler", () => {
 
       const body = JSON.parse(response.body);
 
-      // When force_accept is true, baseline should be accepted
-      expect(body).toHaveProperty("baseline_status", "accepted");
-      expect(body).toHaveProperty("accepted_by", "approver@example.com");
-      expect(body).toHaveProperty("baseline_accepted_at");
-      expect(typeof body.baseline_accepted_at).toBe("string");
+      // CRITICAL: force_accept should be ignored - baseline should be handed_off, not accepted
+      expect(body).toHaveProperty("baseline_status", "handed_off");
+      expect(body).toHaveProperty("handed_off_by"); // Changed from accepted_by
+      expect(body).toHaveProperty("handed_off_at"); // Changed from baseline_accepted_at
+      // Acceptance fields should be undefined
+      expect(body.accepted_by).toBeUndefined();
+      expect(body.baseline_accepted_at).toBeUndefined();
     });
   });
 
