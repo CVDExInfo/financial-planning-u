@@ -60,6 +60,25 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     );
   }
 
+  // Defensive check: prevent re-acceptance of already accepted baselines
+  const currentStatus = projectResult.Item.baseline_status;
+  if (currentStatus === "accepted") {
+    return bad(
+      event,
+      "Baseline is already accepted. Cannot accept again.",
+      409
+    );
+  }
+
+  // Only allow acceptance from "handed_off" or "pending" status
+  if (currentStatus !== "handed_off" && currentStatus !== "pending") {
+    return bad(
+      event,
+      `Cannot accept baseline with status "${currentStatus}". Expected "handed_off" or "pending".`,
+      409
+    );
+  }
+
   // Update project metadata with acceptance information
   const updated = await ddb.send(
     new UpdateCommand({

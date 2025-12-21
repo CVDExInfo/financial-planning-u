@@ -58,6 +58,23 @@ async function rejectBaseline(event: APIGatewayProxyEventV2) {
     );
   }
 
+  // Defensive check: prevent re-rejection of already rejected baselines
+  const currentStatus = projectResult.Item.baseline_status;
+  if (currentStatus === "rejected") {
+    return bad(
+      "Baseline is already rejected. Cannot reject again.",
+      409
+    );
+  }
+
+  // Only allow rejection from "handed_off" or "pending" status
+  if (currentStatus !== "handed_off" && currentStatus !== "pending") {
+    return bad(
+      `Cannot reject baseline with status "${currentStatus}". Expected "handed_off" or "pending".`,
+      409
+    );
+  }
+
   // Update project metadata with rejection information
   const updated = await ddb.send(
     new UpdateCommand({

@@ -128,6 +128,11 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     return null;
   }
 
+  // Safety check: If no current project context, render nothing (prevents crash)
+  if (!currentProject) {
+    return null;
+  }
+
   const handleAccept = () => {
     if (!currentProject?.baselineId) {
       toast.error("No baseline found to accept");
