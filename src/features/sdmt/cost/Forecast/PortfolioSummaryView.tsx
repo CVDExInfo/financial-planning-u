@@ -8,8 +8,14 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronUp, Folder, FolderOpen, Calendar } from 'lucide-react';
+import { ChevronDown, ChevronUp, Folder, FolderOpen, Calendar, Info } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   Table,
   TableBody,
@@ -113,6 +119,51 @@ export function PortfolioSummaryView({
     if (variance < 0) return 'text-green-600';
     return 'text-muted-foreground';
   };
+
+  /**
+   * Get month status badge based on consumption percentage
+   * 🟢 On Budget (< 90%)
+   * 🟡 Risk (90-100%)
+   * 🔴 Over Budget (> 100%)
+   */
+  const getMonthStatusBadge = (percentConsumed: number) => {
+    if (percentConsumed > OVER_BUDGET_THRESHOLD) {
+      return {
+        variant: 'destructive' as const,
+        label: '🔴 Over Budget',
+        className: 'bg-red-600 text-white'
+      };
+    } else if (percentConsumed > WARNING_THRESHOLD) {
+      return {
+        variant: 'default' as const,
+        label: '🟡 Risk',
+        className: 'bg-yellow-500 text-white'
+      };
+    } else {
+      return {
+        variant: 'default' as const,
+        label: '🟢 On Budget',
+        className: 'bg-green-600 text-white'
+      };
+    }
+  };
+
+  /**
+   * Helper component to render a row label with an info tooltip
+   */
+  const RowLabelWithTooltip = ({ label, tooltip }: { label: string; tooltip: string }) => (
+    <div className="flex items-center gap-2">
+      <span className="font-medium">{label}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <p className="text-sm">{tooltip}</p>
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
 
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
@@ -383,91 +434,145 @@ export function PortfolioSummaryView({
           </CardHeader>
           {showMonthlyBreakdown && (
             <CardContent>
-              {(() => {
-                // Filter to current month when in CURRENT_MONTH mode
-                const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
-                const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
-                const allocationsToShow = isCurrentMonthMode && monthlyBudgetAllocations
-                  ? monthlyBudgetAllocations.filter(a => a.month === currentMonthIndex)
-                  : monthlyBudgetAllocations;
-                
-                return (
-                  <div className="overflow-x-auto">
-                    {isCurrentMonthMode && (
-                      <div className="mb-3 p-2 bg-blue-50 rounded text-sm text-blue-900">
-                        📅 Mostrando solo el mes actual (M{currentMonthIndex})
-                      </div>
-                    )}
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="sticky left-0 bg-background min-w-[180px]">Concepto</TableHead>
-                          {allocationsToShow.map((allocation) => {
-                            const runway = hasRunwayMetrics 
-                              ? runwayMetrics.find(r => r.month === allocation.month)
-                              : null;
-                            return (
-                              <TableHead key={allocation.month} className="text-center min-w-[100px]">
-                                <div className="flex flex-col items-center gap-1">
-                                  <div className="font-semibold flex items-center gap-1">
-                                    M{allocation.month}
-                                    {runway?.isOverBudget && (
-                                      <span className="text-red-600 text-xs">⚠️</span>
-                                    )}
-                                  </div>
-                                  {allocation.isEstimated && (
-                                    <Badge variant="outline" className="text-[9px] py-0 px-1">
-                                      Est.
-                                    </Badge>
-                                  )}
-                                </div>
-                              </TableHead>
-                            );
-                          })}
-                          {!isCurrentMonthMode && (
-                            <TableHead className="text-center font-bold min-w-[120px] bg-muted/50">Total</TableHead>
-                          )}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {/* Row 1: Presupuesto */}
-                        <TableRow>
-                          <TableCell className="sticky left-0 bg-background font-medium">
-                            Presupuesto
-                          </TableCell>
-                          {allocationsToShow.map((allocation) => (
-                            <TableCell key={allocation.month} className="text-center text-primary font-medium">
-                              {formatCurrency(allocation.budgetAllocated)}
-                            </TableCell>
-                          ))}
-                          {!isCurrentMonthMode && (
-                            <TableCell className="text-center font-bold bg-muted/50 text-primary">
-                              {formatCurrency(allocationsToShow.reduce((sum, m) => sum + m.budgetAllocated, 0))}
-                            </TableCell>
-                          )}
-                        </TableRow>
+              <div className="overflow-x-auto">
+                <TooltipProvider>
+                  <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-background min-w-[180px]">Concepto</TableHead>
+                      {monthlyBudgetAllocations.map((allocation) => {
+                        const runway = hasRunwayMetrics 
+                          ? runwayMetrics.find(r => r.month === allocation.month)
+                          : null;
+                        const variances = calculateVariances(allocation);
+                        const statusBadge = getMonthStatusBadge(variances.percentConsumedActual);
+                        
+                        return (
+                          <TableHead key={allocation.month} className="text-center min-w-[100px]">
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="font-semibold flex items-center gap-1">
+                                M{allocation.month}
+                                {runway?.isOverBudget && (
+                                  <span className="text-red-600 text-xs">⚠️</span>
+                                )}
+                              </div>
+                              {/* Month Status Badge */}
+                              <Badge 
+                                variant={statusBadge.variant}
+                                className={`text-[9px] py-0 px-1.5 ${statusBadge.className}`}
+                              >
+                                {statusBadge.label}
+                              </Badge>
+                              {allocation.isEstimated && (
+                                <Badge variant="outline" className="text-[9px] py-0 px-1">
+                                  Est.
+                                </Badge>
+                              )}
+                            </div>
+                          </TableHead>
+                        );
+                      })}
+                      <TableHead className="text-center font-bold min-w-[120px] bg-muted/50">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {/* GROUP A: INPUTS */}
+                    {/* Row 1: Presupuesto */}
+                    <TableRow className="bg-blue-50/30">
+                      <TableCell className="sticky left-0 bg-blue-50/30">
+                        <RowLabelWithTooltip 
+                          label="Presupuesto" 
+                          tooltip="Presupuesto mensual asignado. Es el límite de gasto para el mes." 
+                        />
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => (
+                        <TableCell key={allocation.month} className="text-center text-primary font-medium bg-blue-50/30">
+                          {formatCurrency(allocation.budgetAllocated)}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-center font-bold bg-muted/50 text-primary">
+                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.budgetAllocated, 0))}
+                      </TableCell>
+                    </TableRow>
 
-                        {/* Row 2: Planificado */}
-                        <TableRow>
-                          <TableCell className="sticky left-0 bg-background font-medium">
-                            Planificado
-                          </TableCell>
-                          {allocationsToShow.map((allocation) => (
-                            <TableCell key={allocation.month} className="text-center text-muted-foreground">
-                              {formatCurrency(allocation.planned)}
-                            </TableCell>
-                          ))}
-                          {!isCurrentMonthMode && (
-                            <TableCell className="text-center font-bold bg-muted/50">
-                              {formatCurrency(allocationsToShow.reduce((sum, m) => sum + m.planned, 0))}
-                            </TableCell>
-                          )}
-                        </TableRow>
+                    {/* Row 2: Planificado */}
+                    <TableRow className="bg-blue-50/30">
+                      <TableCell className="sticky left-0 bg-blue-50/30">
+                        <RowLabelWithTooltip 
+                          label="Planificado" 
+                          tooltip="Gasto planificado según baseline y distribución mensual de rubros. Es lo que se debería gastar basado en la planificación." 
+                        />
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => (
+                        <TableCell key={allocation.month} className="text-center text-muted-foreground bg-blue-50/30">
+                          {formatCurrency(allocation.planned)}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-center font-bold bg-muted/50">
+                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.planned, 0))}
+                      </TableCell>
+                    </TableRow>
 
-                        {/* Row 3: Pronóstico */}
-                        <TableRow>
-                          <TableCell className="sticky left-0 bg-background font-medium">
-                            Pronóstico
+                    {/* Row 3: Pronóstico */}
+                    <TableRow className="bg-blue-50/30">
+                      <TableCell className="sticky left-0 bg-blue-50/30">
+                        <RowLabelWithTooltip 
+                          label="Pronóstico" 
+                          tooltip="Pronóstico ajustado por el SDM mes a mes. Inicialmente igual al Planificado, luego se ajusta según la realidad del proyecto." 
+                        />
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => (
+                        <TableCell key={allocation.month} className="text-center bg-blue-50/30">
+                          {formatCurrency(allocation.forecast)}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-center font-bold bg-muted/50">
+                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.forecast, 0))}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Row 4: Real */}
+                    <TableRow className="bg-blue-50/30">
+                      <TableCell className="sticky left-0 bg-blue-50/30">
+                        <RowLabelWithTooltip 
+                          label="Real" 
+                          tooltip="Gastos reales del mes. Se obtiene de nómina, prefacturas y entradas MOD." 
+                        />
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => (
+                        <TableCell key={allocation.month} className="text-center text-blue-600 font-medium bg-blue-50/30">
+                          {formatCurrency(allocation.actual)}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-center font-bold bg-muted/50 text-blue-600">
+                        {formatCurrency(monthlyBudgetAllocations.reduce((sum, m) => sum + m.actual, 0))}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* GROUP B: CONTROL */}
+                    {/* Row 5: Variación Pron vs Pres */}
+                    <TableRow className="border-t-2 bg-yellow-50/30">
+                      <TableCell className="sticky left-0 bg-yellow-50/30">
+                        <RowLabelWithTooltip 
+                          label="Variación Pron vs Pres" 
+                          tooltip="Pronóstico - Presupuesto. Negativo = bajo presupuesto, Positivo = sobre presupuesto. Responde: '¿Si seguimos el pronóstico, respetamos el presupuesto del mes?'" 
+                        />
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => {
+                        const variances = calculateVariances(allocation);
+                        return (
+                          <TableCell 
+                            key={allocation.month} 
+                            className={`text-center font-medium bg-yellow-50/30 ${
+                              variances.varianceForecastVsBudget > 0 
+                                ? 'text-red-600' 
+                                : variances.varianceForecastVsBudget < 0 
+                                  ? 'text-green-600' 
+                                  : 'text-muted-foreground'
+                            }`}
+                          >
+                            {variances.varianceForecastVsBudget >= 0 ? '+' : ''}
+                            {formatCurrency(variances.varianceForecastVsBudget)}
                           </TableCell>
                           {allocationsToShow.map((allocation) => (
                             <TableCell key={allocation.month} className="text-center">
@@ -481,10 +586,29 @@ export function PortfolioSummaryView({
                           )}
                         </TableRow>
 
-                        {/* Row 4: Real */}
-                        <TableRow>
-                          <TableCell className="sticky left-0 bg-background font-medium">
-                            Real
+                    {/* Row 6: Variación Real vs Presupuesto */}
+                    <TableRow className="bg-yellow-50/30">
+                      <TableCell className="sticky left-0 bg-yellow-50/30">
+                        <RowLabelWithTooltip 
+                          label="Variación Real vs Pres" 
+                          tooltip="Real - Presupuesto. Positivo = presupuesto rebasado, Negativo = presupuesto seguro. Este es el KPI más importante de Finanzas." 
+                        />
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => {
+                        const variances = calculateVariances(allocation);
+                        return (
+                          <TableCell 
+                            key={allocation.month} 
+                            className={`text-center font-medium bg-yellow-50/30 ${
+                              variances.varianceActualVsBudget > 0 
+                                ? 'text-red-600' 
+                                : variances.varianceActualVsBudget < 0 
+                                  ? 'text-green-600' 
+                                  : 'text-muted-foreground'
+                            }`}
+                          >
+                            {variances.varianceActualVsBudget >= 0 ? '+' : ''}
+                            {formatCurrency(variances.varianceActualVsBudget)}
                           </TableCell>
                           {allocationsToShow.map((allocation) => (
                             <TableCell key={allocation.month} className="text-center text-blue-600 font-medium">
@@ -498,10 +622,28 @@ export function PortfolioSummaryView({
                           )}
                         </TableRow>
 
-                        {/* Row 5: Variación vs Presupuesto (Pronóstico) */}
-                        <TableRow className="border-t-2">
-                          <TableCell className="sticky left-0 bg-background font-medium">
-                            Variación Pron vs Pres
+                    {/* Row 7: % Consumo Real */}
+                    <TableRow className="bg-yellow-50/30">
+                      <TableCell className="sticky left-0 bg-yellow-50/30">
+                        <RowLabelWithTooltip 
+                          label="% Consumo Real" 
+                          tooltip="(Real ÷ Presupuesto) × 100. Indica qué porcentaje del presupuesto mensual fue realmente consumido. 🟢 <90% OK, 🟡 90-100% Riesgo, 🔴 >100% Sobre presupuesto." 
+                        />
+                      </TableCell>
+                      {monthlyBudgetAllocations.map((allocation) => {
+                        const variances = calculateVariances(allocation);
+                        return (
+                          <TableCell 
+                            key={allocation.month} 
+                            className={`text-center font-medium bg-yellow-50/30 ${
+                              variances.percentConsumedActual > OVER_BUDGET_THRESHOLD 
+                                ? 'text-red-600' 
+                                : variances.percentConsumedActual > WARNING_THRESHOLD 
+                                  ? 'text-yellow-600' 
+                                  : 'text-green-600'
+                            }`}
+                          >
+                            {variances.percentConsumedActual.toFixed(1)}%
                           </TableCell>
                           {allocationsToShow.map((allocation) => {
                             const variances = calculateVariances(allocation);
@@ -533,36 +675,35 @@ export function PortfolioSummaryView({
                           )}
                         </TableRow>
 
-                        {/* Row 6: Variación Real vs Presupuesto */}
-                        <TableRow>
-                          <TableCell className="sticky left-0 bg-background font-medium">
-                            Variación Real vs Pres
-                          </TableCell>
-                          {allocationsToShow.map((allocation) => {
-                            const variances = calculateVariances(allocation);
-                            return (
-                              <TableCell 
-                                key={allocation.month} 
-                                className={`text-center font-medium ${
-                                  variances.varianceActualVsBudget > 0 
-                                    ? 'text-red-600 bg-red-50/50' 
-                                    : variances.varianceActualVsBudget < 0 
-                                      ? 'text-green-600 bg-green-50/50' 
-                                      : 'text-muted-foreground'
-                                }`}
-                              >
-                                {variances.varianceActualVsBudget >= 0 ? '+' : ''}
-                                {formatCurrency(variances.varianceActualVsBudget)}
-                              </TableCell>
-                            );
-                          })}
-                          {!isCurrentMonthMode && (
-                            <TableCell className="text-center font-bold bg-muted/50">
-                              {formatCurrency(
-                                allocationsToShow.reduce((sum, m) => {
-                                  const v = calculateVariances(m);
-                                  return sum + v.varianceActualVsBudget;
-                                }, 0)
+                    {/* GROUP C: STRATEGIC */}
+                    {/* Row 8: Runway Restante (only if runway metrics available) */}
+                    {hasRunwayMetrics && (
+                      <TableRow className="border-t-2 bg-green-50/30">
+                        <TableCell className="sticky left-0 bg-green-50/30">
+                          <RowLabelWithTooltip 
+                            label="Runway Restante" 
+                            tooltip="Presupuesto Anual - Real Acumulado. Muestra el presupuesto anual restante después de este mes. El pequeño texto '10% usado' indica: Real Acumulado ÷ Presupuesto Anual." 
+                          />
+                        </TableCell>
+                        {monthlyBudgetAllocations.map((allocation) => {
+                          const runway = runwayMetrics.find(r => r.month === allocation.month);
+                          return (
+                            <TableCell key={allocation.month} className="text-center bg-green-50/30">
+                              {runway && (
+                                <div className="text-sm">
+                                  <div className={`font-medium ${
+                                    runway.remainingAnnualBudget <= 0 
+                                      ? 'text-red-600' 
+                                      : runway.percentConsumed > 80 
+                                        ? 'text-yellow-600' 
+                                        : 'text-green-600'
+                                  }`}>
+                                    {formatCurrency(runway.remainingAnnualBudget)}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {runway.percentConsumed.toFixed(0)}% usado
+                                  </div>
+                                </div>
                               )}
                             </TableCell>
                           )}
@@ -589,91 +730,26 @@ export function PortfolioSummaryView({
                                 {variances.percentConsumedActual.toFixed(1)}%
                               </TableCell>
                             );
-                              })}
-                          {!isCurrentMonthMode && (
-                            <TableCell className="text-center font-bold bg-muted/50">
-                              {(() => {
-                                const totalBudget = allocationsToShow.reduce((sum, m) => sum + m.budgetAllocated, 0);
-                                const totalActual = allocationsToShow.reduce((sum, m) => sum + m.actual, 0);
-                                return totalBudget > 0 ? ((totalActual / totalBudget) * 100).toFixed(1) : '0.0';
-                              })()}%
-                            </TableCell>
-                          )}
-                        </TableRow>
-
-                        {/* Row 8: Runway Restante (only if runway metrics available) */}
-                        {hasRunwayMetrics && (
-                          <TableRow className="border-t-2">
-                            <TableCell className="sticky left-0 bg-background font-medium">
-                              Runway Restante
-                            </TableCell>
-                            {allocationsToShow.map((allocation) => {
-                              const runway = runwayMetrics.find(r => r.month === allocation.month);
-                              return (
-                                <TableCell key={allocation.month} className="text-center">
-                                  {runway && (
-                                    <div className="text-sm">
-                                      <div className={`font-medium ${
-                                        runway.remainingAnnualBudget <= 0 
-                                          ? 'text-red-600' 
-                                          : runway.percentConsumed > 80 
-                                            ? 'text-yellow-600' 
-                                            : 'text-green-600'
-                                      }`}>
-                                        {formatCurrency(runway.remainingAnnualBudget)}
-                                      </div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {runway.percentConsumed.toFixed(0)}% usado
-                                      </div>
-                                    </div>
-                                  )}
-                                </TableCell>
-                              );
-                            })}
-                                {!isCurrentMonthMode && (
-                                  <TableCell className="text-center font-bold bg-muted/50">
-                                    {hasRunwayMetrics && runwayMetrics.length > 0 && (() => {
-                                      const lastRunway = runwayMetrics[runwayMetrics.length - 1];
-                                      return (
-                                        <div className="text-sm">
-                                          <div className={`font-medium ${
-                                            lastRunway.remainingAnnualBudget <= 0 
-                                              ? 'text-red-600' 
-                                              : lastRunway.percentConsumed > 80 
-                                                ? 'text-yellow-600' 
-                                                : 'text-green-600'
-                                          }`}>
-                                            {formatCurrency(lastRunway.remainingAnnualBudget)}
-                                          </div>
-                                          <div className="text-xs text-muted-foreground">
-                                            Final
-                                          </div>
-                                        </div>
-                                      );
-                                    })()}
-                                  </TableCell>
-                                )}
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    );
-                  })()}
-                  <div className="mt-4 text-xs text-muted-foreground space-y-1">
-                    <p>
-                      <strong>Presupuesto Asignado:</strong> Distribuido proporcionalmente según costos planificados mensuales.
-                    </p>
-                    <p>
-                      <strong>Variación Positiva (+):</strong> Sobre presupuesto | <strong>Variación Negativa (-):</strong> Bajo presupuesto
-                    </p>
-                    <p>
-                      <strong>🟢 Verde:</strong> Bajo presupuesto | <strong>🟡 Amarillo:</strong> Advertencia (&gt;90%) | <strong>🔴 Rojo:</strong> Sobre presupuesto (&gt;100%)
-                    </p>
-                  </div>
-                </CardContent>
-              )}
-            </Card>
+                          })()}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TooltipProvider>
+              </div>
+              <div className="mt-4 text-xs text-muted-foreground space-y-1">
+                <p>
+                  <strong>Presupuesto Asignado:</strong> Distribuido proporcionalmente según costos planificados mensuales.
+                </p>
+                <p>
+                  <strong>Variación Positiva (+):</strong> Sobre presupuesto | <strong>Variación Negativa (-):</strong> Bajo presupuesto
+                </p>
+                <p>
+                  <strong>🟢 Verde:</strong> Bajo presupuesto | <strong>🟡 Amarillo:</strong> Advertencia (&gt;90%) | <strong>🔴 Rojo:</strong> Sobre presupuesto (&gt;100%)
+                </p>
+              </div>
+            </CardContent>
           )}
         </Collapsible>
       );
