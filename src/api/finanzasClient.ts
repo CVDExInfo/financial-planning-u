@@ -624,6 +624,57 @@ export const finanzasClient = {
     });
     return data;
   },
+
+  /**
+   * Get monthly budget allocations for a specific year
+   */
+  async getAllInBudgetMonthly(year: number): Promise<{
+    year: number;
+    currency: string;
+    months: Array<{ month: string; amount: number }>;
+    updated_at?: string;
+    updated_by?: string;
+  }> {
+    checkAuth();
+    const data = await http<{
+      year: number;
+      currency: string;
+      months: Array<{ month: string; amount: number }>;
+      updated_at?: string;
+      updated_by?: string;
+    }>(`/budgets/all-in/monthly?year=${year}`, {
+      method: "GET",
+    });
+    return data;
+  },
+
+  /**
+   * Set or update monthly budget allocations (PMO/ADMIN only)
+   */
+  async putAllInBudgetMonthly(
+    year: number,
+    currency: string,
+    months: Array<{ month: string; amount: number }>
+  ): Promise<{
+    year: number;
+    currency: string;
+    months: Array<{ month: string; amount: number }>;
+    updated_at: string;
+    updated_by: string;
+  }> {
+    checkAuth();
+    const data = await http<{
+      year: number;
+      currency: string;
+      months: Array<{ month: string; amount: number }>;
+      updated_at: string;
+      updated_by: string;
+    }>(`/budgets/all-in/monthly`, {
+      method: "PUT",
+      body: JSON.stringify({ year, currency, months }),
+    });
+    return data;
+  },
 };
 
 export default finanzasClient;

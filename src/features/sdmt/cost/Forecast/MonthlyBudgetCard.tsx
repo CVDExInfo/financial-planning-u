@@ -4,12 +4,13 @@
  * Supports both full manual entry and hybrid (some months manual, rest auto-filled)
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Info, AlertTriangle } from 'lucide-react';
+import { Calendar, Info, AlertTriangle, Save, RotateCcw } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -22,14 +23,24 @@ interface MonthlyBudgetCardProps {
   monthlyBudgets: MonthlyBudgetInput[];
   annualBudgetReference: number; // Annual budget for comparison
   onMonthlyBudgetsChange: (budgets: MonthlyBudgetInput[]) => void;
+  onSave?: () => void; // Callback to save monthly budgets
+  onReset?: () => void; // Callback to reset to auto-distribution
   disabled?: boolean;
+  saving?: boolean;
+  lastUpdated?: string | null;
+  updatedBy?: string | null;
 }
 
 export function MonthlyBudgetCard({
   monthlyBudgets,
   annualBudgetReference,
   onMonthlyBudgetsChange,
+  onSave,
+  onReset,
   disabled = false,
+  saving = false,
+  lastUpdated = null,
+  updatedBy = null,
 }: MonthlyBudgetCardProps) {
   const [localBudgets, setLocalBudgets] = useState<Record<number, string>>(() => {
     // Initialize from props
@@ -41,6 +52,17 @@ export function MonthlyBudgetCard({
     });
     return initial;
   });
+
+  // Update local budgets when props change (e.g., after load from server)
+  useEffect(() => {
+    const initial: Record<number, string> = {};
+    monthlyBudgets.forEach(mb => {
+      if (mb.budget > 0) {
+        initial[mb.month] = mb.budget.toString();
+      }
+    });
+    setLocalBudgets(initial);
+  }, [monthlyBudgets]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -76,6 +98,14 @@ export function MonthlyBudgetCard({
       .filter(b => b.budget > 0);
 
     onMonthlyBudgetsChange(budgets);
+  };
+
+  const handleResetAll = () => {
+    setLocalBudgets({});
+    onMonthlyBudgetsChange([]);
+    if (onReset) {
+      onReset();
+    }
   };
 
   // Calculate totals and warnings
@@ -216,7 +246,42 @@ export function MonthlyBudgetCard({
           <p>
             <strong>Porcentaje usado:</strong> {percentUsed.toFixed(1)}% del presupuesto anual
           </p>
+          {lastUpdated && (
+            <p className="pt-1 border-t mt-2">
+              <strong>Última actualización:</strong> {new Date(lastUpdated).toLocaleString('es-MX')}
+              {updatedBy && ` por ${updatedBy}`}
+            </p>
+          )}
         </div>
+
+        {/* Action Buttons */}
+        {(onSave || onReset) && (
+          <div className="flex items-center gap-2 pt-2 border-t">
+            {onSave && (
+              <Button
+                onClick={onSave}
+                disabled={disabled || saving || enteredCount === 0}
+                className="gap-2"
+                size="sm"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? 'Guardando...' : 'Guardar Presupuesto Mensual'}
+              </Button>
+            )}
+            {onReset && (
+              <Button
+                onClick={handleResetAll}
+                disabled={disabled || saving || enteredCount === 0}
+                variant="outline"
+                className="gap-2"
+                size="sm"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Restablecer Distribución
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

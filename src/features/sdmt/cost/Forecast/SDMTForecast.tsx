@@ -111,6 +111,10 @@ export function SDMTForecast() {
   // Monthly Budget state (new - per user request)
   const [monthlyBudgets, setMonthlyBudgets] = useState<MonthlyBudgetInput[]>([]);
   const [useMonthlyBudget, setUseMonthlyBudget] = useState(false);
+  const [loadingMonthlyBudget, setLoadingMonthlyBudget] = useState(false);
+  const [savingMonthlyBudget, setSavingMonthlyBudget] = useState(false);
+  const [monthlyBudgetLastUpdated, setMonthlyBudgetLastUpdated] = useState<string | null>(null);
+  const [monthlyBudgetUpdatedBy, setMonthlyBudgetUpdatedBy] = useState<string | null>(null);
   // Budget Overview state for KPIs
   const [budgetOverview, setBudgetOverview] = useState<{
     year: number;
@@ -614,7 +618,8 @@ export function SDMTForecast() {
       setBudgetLastUpdated(result.updated_at);
       toast.success('Presupuesto anual guardado exitosamente');
       
-      // Reload budget overview to update KPIs
+      // Reload budget and budget overview to update KPIs
+      await loadAnnualBudget(budgetYear);
       await loadBudgetOverview(budgetYear);
     } catch (error) {
       console.error('Error saving annual budget:', error);
@@ -628,12 +633,101 @@ export function SDMTForecast() {
     }
   };
 
+  // Load Monthly Budget
+  const loadMonthlyBudget = async (year: number) => {
+    if (!isPortfolioView) return; // Monthly budgets only in portfolio view
+    
+    setLoadingMonthlyBudget(true);
+    try {
+      const monthlyBudget = await finanzasClient.getAllInBudgetMonthly(year);
+      if (monthlyBudget && monthlyBudget.months) {
+        // Convert from API format (month: "YYYY-MM", amount) to internal format (month: 1-12, budget)
+        const budgets: MonthlyBudgetInput[] = monthlyBudget.months.map(m => {
+          const monthMatch = m.month.match(/^\d{4}-(\d{2})$/);
+          const monthNum = monthMatch ? parseInt(monthMatch[1], 10) : 0;
+          return {
+            month: monthNum,
+            budget: m.amount,
+          };
+        }).filter(b => b.month >= 1 && b.month <= 12);
+        
+        setMonthlyBudgets(budgets);
+        setMonthlyBudgetLastUpdated(monthlyBudget.updated_at || null);
+        setMonthlyBudgetUpdatedBy(monthlyBudget.updated_by || null);
+        
+        // If we have saved monthly budgets, enable the monthly budget mode
+        if (budgets.length > 0) {
+          setUseMonthlyBudget(true);
+        }
+      } else {
+        setMonthlyBudgets([]);
+        setMonthlyBudgetLastUpdated(null);
+        setMonthlyBudgetUpdatedBy(null);
+      }
+    } catch (error: any) {
+      // If 404, it means no monthly budgets are set for this year - that's okay
+      if (error?.status === 404 || error?.statusCode === 404) {
+        setMonthlyBudgets([]);
+        setMonthlyBudgetLastUpdated(null);
+        setMonthlyBudgetUpdatedBy(null);
+      } else {
+        console.error('Error loading monthly budget:', error);
+        // Don't show error to user for monthly budgets (optional feature)
+      }
+    } finally {
+      setLoadingMonthlyBudget(false);
+    }
+  };
+
+  // Save Monthly Budget
+  const handleSaveMonthlyBudget = async () => {
+    if (monthlyBudgets.length === 0) {
+      toast.error('Ingrese al menos un presupuesto mensual');
+      return;
+    }
+
+    setSavingMonthlyBudget(true);
+    try {
+      // Convert from internal format (month: 1-12, budget) to API format (month: "YYYY-MM", amount)
+      const months = monthlyBudgets.map(mb => ({
+        month: `${budgetYear}-${String(mb.month).padStart(2, '0')}`,
+        amount: mb.budget,
+      }));
+
+      const result = await finanzasClient.putAllInBudgetMonthly(budgetYear, budgetCurrency, months);
+      setMonthlyBudgetLastUpdated(result.updated_at);
+      setMonthlyBudgetUpdatedBy(result.updated_by);
+      toast.success('Presupuesto mensual guardado exitosamente');
+      
+      // Reload monthly budget and budget overview to update KPIs and grid
+      await loadMonthlyBudget(budgetYear);
+      await loadBudgetOverview(budgetYear);
+    } catch (error) {
+      console.error('Error saving monthly budget:', error);
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: 'No pudimos guardar el presupuesto mensual.',
+      });
+      toast.error(message);
+    } finally {
+      setSavingMonthlyBudget(false);
+    }
+  };
+
+  // Reset monthly budget to auto-distribution
+  const handleResetMonthlyBudget = () => {
+    setMonthlyBudgets([]);
+    setUseMonthlyBudget(false);
+    toast.info('Presupuesto mensual restablecido a distribución automática');
+  };
+
   // Load budget when year changes
   useEffect(() => {
     loadAnnualBudget(budgetYear);
-    // Also load overview if in portfolio view
+    // Also load overview and monthly budget if in portfolio view
     if (isPortfolioView) {
       loadBudgetOverview(budgetYear);
+      loadMonthlyBudget(budgetYear);
     }
   }, [budgetYear, isPortfolioView]);
 
@@ -1083,7 +1177,7 @@ export function SDMTForecast() {
               <DialogTrigger asChild>
                 <Button variant="outline" className="gap-2 h-9" size="sm">
                   <Share2 size={16} />
-                  Export
+                  Exportar
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
@@ -1486,17 +1580,17 @@ export function SDMTForecast() {
                     size="sm"
                   >
                     {savingBudget ? <LoadingSpinner size="sm" /> : null}
-                    Guardar
+                    {savingBudget ? 'Guardando...' : 'Guardar Presupuesto'}
                   </Button>
-                  {budgetLastUpdated && (
-                    <div className="text-xs text-muted-foreground ml-2 self-center">
-                      Actualizado: {new Date(budgetLastUpdated).toLocaleDateString()}
-                    </div>
-                  )}
                 </div>
+                {budgetLastUpdated && (
+                  <div className="text-xs text-muted-foreground mt-2">
+                    📅 Última actualización: {new Date(budgetLastUpdated).toLocaleString('es-MX')}
+                  </div>
+                )}
                 {!canEditBudget && (
                   <div className="text-xs text-amber-600 mt-2">
-                    Solo usuarios PMO/ADMIN pueden editar el presupuesto anual
+                    ⚠️ Solo usuarios PMO/SDMT pueden editar el presupuesto anual
                   </div>
                 )}
                 {!isPortfolioView && budgetAmount && (
@@ -1530,7 +1624,12 @@ export function SDMTForecast() {
                       monthlyBudgets={monthlyBudgets}
                       annualBudgetReference={parseFloat(budgetAmount)}
                       onMonthlyBudgetsChange={setMonthlyBudgets}
-                      disabled={!canEditBudget}
+                      onSave={handleSaveMonthlyBudget}
+                      onReset={handleResetMonthlyBudget}
+                      disabled={!canEditBudget || loadingMonthlyBudget}
+                      saving={savingMonthlyBudget}
+                      lastUpdated={monthlyBudgetLastUpdated}
+                      updatedBy={monthlyBudgetUpdatedBy}
                     />
                   )}
                   {!useMonthlyBudget && (
