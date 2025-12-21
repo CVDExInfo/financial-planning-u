@@ -574,17 +574,9 @@ export function PortfolioSummaryView({
                             {variances.varianceForecastVsBudget >= 0 ? '+' : ''}
                             {formatCurrency(variances.varianceForecastVsBudget)}
                           </TableCell>
-                          {allocationsToShow.map((allocation) => (
-                            <TableCell key={allocation.month} className="text-center">
-                              {formatCurrency(allocation.forecast)}
-                            </TableCell>
-                          ))}
-                          {!isCurrentMonthMode && (
-                            <TableCell className="text-center font-bold bg-muted/50">
-                              {formatCurrency(allocationsToShow.reduce((sum, m) => sum + m.forecast, 0))}
-                            </TableCell>
-                          )}
-                        </TableRow>
+                        );
+                      })}
+                    </TableRow>
 
                     {/* Row 6: Variación Real vs Presupuesto */}
                     <TableRow className="bg-yellow-50/30">
@@ -610,17 +602,9 @@ export function PortfolioSummaryView({
                             {variances.varianceActualVsBudget >= 0 ? '+' : ''}
                             {formatCurrency(variances.varianceActualVsBudget)}
                           </TableCell>
-                          {allocationsToShow.map((allocation) => (
-                            <TableCell key={allocation.month} className="text-center text-blue-600 font-medium">
-                              {formatCurrency(allocation.actual)}
-                            </TableCell>
-                          ))}
-                          {!isCurrentMonthMode && (
-                            <TableCell className="text-center font-bold bg-muted/50 text-blue-600">
-                              {formatCurrency(allocationsToShow.reduce((sum, m) => sum + m.actual, 0))}
-                            </TableCell>
-                          )}
-                        </TableRow>
+                        );
+                      })}
+                    </TableRow>
 
                     {/* Row 7: % Consumo Real */}
                     <TableRow className="bg-yellow-50/30">
@@ -645,35 +629,9 @@ export function PortfolioSummaryView({
                           >
                             {variances.percentConsumedActual.toFixed(1)}%
                           </TableCell>
-                          {allocationsToShow.map((allocation) => {
-                            const variances = calculateVariances(allocation);
-                            return (
-                              <TableCell 
-                                key={allocation.month} 
-                                className={`text-center font-medium ${
-                                  variances.varianceForecastVsBudget > 0 
-                                    ? 'text-red-600 bg-red-50/50' 
-                                    : variances.varianceForecastVsBudget < 0 
-                                      ? 'text-green-600 bg-green-50/50' 
-                                      : 'text-muted-foreground'
-                                }`}
-                              >
-                                {variances.varianceForecastVsBudget >= 0 ? '+' : ''}
-                                {formatCurrency(variances.varianceForecastVsBudget)}
-                              </TableCell>
-                            );
-                          })}
-                          {!isCurrentMonthMode && (
-                            <TableCell className="text-center font-bold bg-muted/50">
-                              {formatCurrency(
-                                allocationsToShow.reduce((sum, m) => {
-                                  const v = calculateVariances(m);
-                                  return sum + v.varianceForecastVsBudget;
-                                }, 0)
-                              )}
-                            </TableCell>
-                          )}
-                        </TableRow>
+                        );
+                      })}
+                    </TableRow>
 
                     {/* GROUP C: STRATEGIC */}
                     {/* Row 8: Runway Restante (only if runway metrics available) */}
@@ -706,32 +664,8 @@ export function PortfolioSummaryView({
                                 </div>
                               )}
                             </TableCell>
-                          )}
-                        </TableRow>
-
-                        {/* Row 7: % Consumo Real */}
-                        <TableRow>
-                          <TableCell className="sticky left-0 bg-background font-medium">
-                            % Consumo Real
-                          </TableCell>
-                          {allocationsToShow.map((allocation) => {
-                            const variances = calculateVariances(allocation);
-                            return (
-                              <TableCell 
-                                key={allocation.month} 
-                                className={`text-center font-medium ${
-                                  variances.percentConsumedActual > OVER_BUDGET_THRESHOLD 
-                                    ? 'text-red-600' 
-                                    : variances.percentConsumedActual > WARNING_THRESHOLD 
-                                      ? 'text-yellow-600' 
-                                      : 'text-green-600'
-                                }`}
-                              >
-                                {variances.percentConsumedActual.toFixed(1)}%
-                              </TableCell>
-                            );
-                          })()}
-                        </TableCell>
+                          );
+                        })}
                       </TableRow>
                     )}
                   </TableBody>
@@ -751,6 +685,8 @@ export function PortfolioSummaryView({
               </div>
             </CardContent>
           )}
-        </Collapsible>
-      );
-    }
+        </Card>
+      )}
+    </Collapsible>
+  );
+}
