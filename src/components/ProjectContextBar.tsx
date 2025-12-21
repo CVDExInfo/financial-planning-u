@@ -23,6 +23,12 @@ import {
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Check, ChevronDown, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProject } from "@/contexts/ProjectContext";
@@ -66,6 +72,11 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
   };
 
   const periodOptions = [
+    { 
+      value: "CURRENT_MONTH", 
+      label: "Mes actual",
+      tooltip: "Muestra únicamente el mes en curso para seguimiento operativo."
+    },
     { value: "3", label: "3 months" },
     { value: "6", label: "6 months" },
     { value: "12", label: "12 months" },
@@ -276,18 +287,33 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
             <label className="text-sm font-medium text-foreground">
               Period:
             </label>
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {periodOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {periodOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TooltipTrigger>
+                {selectedPeriod === "CURRENT_MONTH" && (
+                  <TooltipContent>
+                    <p className="text-xs max-w-xs">
+                      Muestra únicamente el mes en curso para seguimiento operativo.
+                    </p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
 
