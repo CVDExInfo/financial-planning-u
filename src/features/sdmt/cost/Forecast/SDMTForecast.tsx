@@ -1432,72 +1432,114 @@ export function SDMTForecast() {
       )}
 
       {/* Real Annual Budget KPIs - Show when budget is set and portfolio view (not simulation) */}
-      {isPortfolioView && !budgetSimulation.enabled && budgetOverview?.budgetAllIn && (
+      {isPortfolioView && !budgetSimulation.enabled && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
               <div className="text-2xl font-bold text-blue-600">
-                {formatCurrency(budgetOverview.budgetAllIn.amount)}
+                {budgetOverview?.budgetAllIn ? formatCurrency(budgetOverview.budgetAllIn.amount) : '—'}
               </div>
               <p className="text-sm text-muted-foreground">Presupuesto Anual All-In</p>
               <p className="text-xs text-muted-foreground">
-                {budgetOverview.budgetAllIn.currency} · {budgetOverview.year}
+                {budgetOverview?.budgetAllIn ? `${budgetOverview.budgetAllIn.currency} · ${budgetOverview.year}` : 'No configurado'}
               </p>
             </CardContent>
           </Card>
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
+              {budgetOverview?.budgetAllIn ? (
+                <>
+                  <div className={`text-2xl font-bold ${
+                    budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {formatCurrency(Math.abs(budgetOverview.totals.varianceBudgetVsForecast))}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {getVarianceIcon(-budgetOverview.totals.varianceBudgetVsForecast)}
+                    <p className="text-sm text-muted-foreground">{ES_TEXTS.forecast.overUnderBudget}</p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs max-w-xs">Diferencia entre presupuesto anual y pronóstico total (Budget - Forecast)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-muted-foreground">—</div>
+                  <p className="text-sm text-muted-foreground">{ES_TEXTS.forecast.overUnderBudget}</p>
+                  <p className="text-xs text-muted-foreground">No hay presupuesto</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="border-blue-500/30">
+            <CardContent className="p-3">
               <div className={`text-2xl font-bold ${
-                budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'text-green-600' : 'text-red-600'
+                budgetOverview?.totals.percentBudgetConsumedForecast !== null && budgetOverview?.totals.percentBudgetConsumedForecast !== undefined
+                  ? (budgetOverview.totals.percentBudgetConsumedForecast > 100 
+                      ? 'text-red-600' 
+                      : budgetOverview.totals.percentBudgetConsumedForecast > 90 
+                        ? 'text-yellow-600' 
+                        : 'text-green-600')
+                  : 'text-muted-foreground'
               }`}>
-                {formatCurrency(Math.abs(budgetOverview.totals.varianceBudgetVsForecast))}
+                {budgetOverview?.totals.percentBudgetConsumedForecast !== null && budgetOverview?.totals.percentBudgetConsumedForecast !== undefined
+                  ? `${budgetOverview.totals.percentBudgetConsumedForecast.toFixed(1)}%`
+                  : '—'}
               </div>
               <div className="flex items-center gap-1">
-                {getVarianceIcon(-budgetOverview.totals.varianceBudgetVsForecast)}
-                <p className="text-sm text-muted-foreground">{ES_TEXTS.forecast.overUnderBudget}</p>
+                <p className="text-sm text-muted-foreground">% Consumo Pronóstico</p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="text-xs max-w-xs">Diferencia entre presupuesto anual y pronóstico total (Budget - Forecast)</p>
+                      <p className="text-xs max-w-xs">Porcentaje del presupuesto consumido según pronóstico (Forecast / Budget × 100)</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-blue-500/30">
-            <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${
-                (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 100 
-                  ? 'text-red-600' 
-                  : (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 90 
-                    ? 'text-yellow-600' 
-                    : 'text-green-600'
-              }`}>
-                {budgetOverview.totals.percentBudgetConsumedForecast?.toFixed(1) || '0.0'}%
-              </div>
-              <p className="text-sm text-muted-foreground">% Consumo Pronóstico</p>
               <p className="text-xs text-muted-foreground">Forecast / Budget</p>
             </CardContent>
           </Card>
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
               <div className={`text-2xl font-bold ${
-                (budgetOverview.totals.percentBudgetConsumedActual || 0) > 100 
-                  ? 'text-red-600' 
-                  : (budgetOverview.totals.percentBudgetConsumedActual || 0) > 90 
-                    ? 'text-yellow-600' 
-                    : 'text-green-600'
+                budgetOverview?.totals.percentBudgetConsumedActual !== null && budgetOverview?.totals.percentBudgetConsumedActual !== undefined
+                  ? (budgetOverview.totals.percentBudgetConsumedActual > 100 
+                      ? 'text-red-600' 
+                      : budgetOverview.totals.percentBudgetConsumedActual > 90 
+                        ? 'text-yellow-600' 
+                        : 'text-green-600')
+                  : 'text-muted-foreground'
               }`}>
-                {budgetOverview.totals.percentBudgetConsumedActual?.toFixed(1) || '0.0'}%
+                {budgetOverview?.totals.percentBudgetConsumedActual !== null && budgetOverview?.totals.percentBudgetConsumedActual !== undefined
+                  ? `${budgetOverview.totals.percentBudgetConsumedActual.toFixed(1)}%`
+                  : '—'}
               </div>
-              <p className="text-sm text-muted-foreground">% Consumo Real</p>
+              <div className="flex items-center gap-1">
+                <p className="text-sm text-muted-foreground">% Consumo Real</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-xs">Porcentaje del presupuesto consumido por gastos reales (Actual / Budget × 100)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <p className="text-xs text-muted-foreground">Actual / Budget</p>
             </CardContent>
           </Card>
