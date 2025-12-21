@@ -150,16 +150,14 @@ export function PortfolioSummaryView({
   const RowLabelWithTooltip = ({ label, tooltip }: { label: string; tooltip: string }) => (
     <div className="flex items-center gap-2">
       <span className="font-medium">{label}</span>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">{tooltip}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <p className="text-sm">{tooltip}</p>
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 
@@ -433,7 +431,8 @@ export function PortfolioSummaryView({
           {showMonthlyBreakdown && (
             <CardContent>
               <div className="overflow-x-auto">
-                <Table>
+                <TooltipProvider>
+                  <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="sticky left-0 bg-background min-w-[180px]">Concepto</TableHead>
@@ -562,9 +561,9 @@ export function PortfolioSummaryView({
                             key={allocation.month} 
                             className={`text-center font-medium bg-yellow-50/30 ${
                               variances.varianceForecastVsBudget > 0 
-                                ? 'text-red-600 bg-red-50/50' 
+                                ? 'text-red-600' 
                                 : variances.varianceForecastVsBudget < 0 
-                                  ? 'text-green-600 bg-green-50/50' 
+                                  ? 'text-green-600' 
                                   : 'text-muted-foreground'
                             }`}
                           >
@@ -598,9 +597,9 @@ export function PortfolioSummaryView({
                             key={allocation.month} 
                             className={`text-center font-medium bg-yellow-50/30 ${
                               variances.varianceActualVsBudget > 0 
-                                ? 'text-red-600 bg-red-50/50' 
+                                ? 'text-red-600' 
                                 : variances.varianceActualVsBudget < 0 
-                                  ? 'text-green-600 bg-green-50/50' 
+                                  ? 'text-green-600' 
                                   : 'text-muted-foreground'
                             }`}
                           >
@@ -711,6 +710,7 @@ export function PortfolioSummaryView({
                     )}
                   </TableBody>
                 </Table>
+              </TooltipProvider>
               </div>
               <div className="mt-4 text-xs text-muted-foreground space-y-1">
                 <p>
