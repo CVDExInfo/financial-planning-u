@@ -82,8 +82,8 @@ async function getAnnualBudget(event: APIGatewayProxyEventV2): Promise<APIGatewa
       year: result.Item.year,
       amount: result.Item.amount,
       currency: result.Item.currency || "USD",
-      lastUpdated: result.Item.lastUpdated,
-      updatedBy: result.Item.updatedBy,
+      updated_at: result.Item.lastUpdated || result.Item.updated_at,
+      updated_by: result.Item.updatedBy || result.Item.updated_by,
     };
 
     console.log(`[budgets] GET annual budget for ${yearNum}:`, budget);
@@ -142,6 +142,9 @@ async function setAnnualBudget(event: APIGatewayProxyEventV2): Promise<APIGatewa
       year,
       amount,
       currency: budgetCurrency,
+      updated_at: timestamp,
+      updated_by: updatedBy,
+      // Keep legacy fields for backward compatibility
       lastUpdated: timestamp,
       updatedBy,
     };
@@ -159,8 +162,8 @@ async function setAnnualBudget(event: APIGatewayProxyEventV2): Promise<APIGatewa
       year,
       amount,
       currency: budgetCurrency,
-      lastUpdated: timestamp,
-      updatedBy,
+      updated_at: timestamp,
+      updated_by: updatedBy,
     });
   } catch (error: any) {
     if (error?.statusCode) {
