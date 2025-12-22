@@ -44,6 +44,7 @@ interface PortfolioSummaryViewProps {
   runwayMetrics?: RunwayMetrics[];
   selectedPeriod?: string;
   getCurrentMonthIndex?: () => number;
+  allProjects?: Array<{ id: string; name: string }>; // All projects from context, including those with zero data
 }
 
 interface ProjectSummary {
@@ -65,6 +66,7 @@ export function PortfolioSummaryView({
   runwayMetrics,
   selectedPeriod = '12',
   getCurrentMonthIndex = () => new Date().getMonth() + 1,
+  allProjects = [],
 }: PortfolioSummaryViewProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
@@ -83,24 +85,40 @@ export function PortfolioSummaryView({
     lineItemCount: lineItems.length,
   };
 
-  // Group forecast data by project
-  const projectSummaries: ProjectSummary[] = Array.from(
-    new Set(forecastData.map(cell => cell.projectId).filter(Boolean))
-  ).map(projectId => {
-    const projectData = forecastData.filter(cell => cell.projectId === projectId);
-    const projectLineItems = lineItems.filter(item => item.projectId === projectId);
-    const projectName = projectData[0]?.projectName || 'Unknown Project';
+  // Group forecast data by project - include all projects from allProjects list
+  const projectSummaries: ProjectSummary[] = allProjects.length > 0
+    ? allProjects.map(project => {
+        const projectData = forecastData.filter(cell => cell.projectId === project.id);
+        const projectLineItems = lineItems.filter(item => item.projectId === project.id);
+        
+        return {
+          projectId: project.id,
+          projectName: project.name,
+          totalPlanned: projectData.reduce((sum, cell) => sum + (cell.planned || 0), 0),
+          totalForecast: projectData.reduce((sum, cell) => sum + (cell.forecast || 0), 0),
+          totalActual: projectData.reduce((sum, cell) => sum + (cell.actual || 0), 0),
+          totalVariance: projectData.reduce((sum, cell) => sum + (cell.variance || 0), 0),
+          lineItemCount: projectLineItems.length,
+        };
+      })
+    : // Fallback: if allProjects not provided, derive from forecastData only
+      Array.from(
+        new Set(forecastData.map(cell => cell.projectId).filter(Boolean))
+      ).map(projectId => {
+        const projectData = forecastData.filter(cell => cell.projectId === projectId);
+        const projectLineItems = lineItems.filter(item => item.projectId === projectId);
+        const projectName = projectData[0]?.projectName || 'Unknown Project';
 
-    return {
-      projectId: projectId!,
-      projectName,
-      totalPlanned: projectData.reduce((sum, cell) => sum + (cell.planned || 0), 0),
-      totalForecast: projectData.reduce((sum, cell) => sum + (cell.forecast || 0), 0),
-      totalActual: projectData.reduce((sum, cell) => sum + (cell.actual || 0), 0),
-      totalVariance: projectData.reduce((sum, cell) => sum + (cell.variance || 0), 0),
-      lineItemCount: projectLineItems.length,
-    };
-  });
+        return {
+          projectId: projectId!,
+          projectName,
+          totalPlanned: projectData.reduce((sum, cell) => sum + (cell.planned || 0), 0),
+          totalForecast: projectData.reduce((sum, cell) => sum + (cell.forecast || 0), 0),
+          totalActual: projectData.reduce((sum, cell) => sum + (cell.actual || 0), 0),
+          totalVariance: projectData.reduce((sum, cell) => sum + (cell.variance || 0), 0),
+          lineItemCount: projectLineItems.length,
+        };
+      });
 
   const toggleProjectExpanded = (projectId: string) => {
     setExpandedProjects(prev => {
@@ -334,9 +352,16 @@ export function PortfolioSummaryView({
                         </CollapsibleTrigger>
                         <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{project.projectName}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-medium truncate">{project.projectName}</div>
+                            {project.totalPlanned === 0 && project.totalForecast === 0 && project.totalActual === 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                Sin datos
+                              </Badge>
+                            )}
+                          </div>
                           <div className="text-xs text-muted-foreground">
-                            {project.lineItemCount} rubros
+                            {project.lineItemCount > 0 ? `${project.lineItemCount} rubros` : 'No hay datos de pronóstico disponibles'}
                           </div>
                         </div>
                       </div>

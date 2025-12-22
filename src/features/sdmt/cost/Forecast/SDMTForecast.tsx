@@ -1783,7 +1783,7 @@ export function SDMTForecast() {
       </Collapsible>
 
       {/* Portfolio Summary View - Only show in portfolio mode */}
-      {isPortfolioView && !loading && forecastData.length > 0 && (
+      {isPortfolioView && !loading && (
         <PortfolioSummaryView
           forecastData={forecastData}
           lineItems={portfolioLineItems}
@@ -1792,6 +1792,7 @@ export function SDMTForecast() {
           runwayMetrics={runwayMetrics}
           selectedPeriod={selectedPeriod}
           getCurrentMonthIndex={getCurrentMonthIndex}
+          allProjects={projects.filter(p => p.id !== ALL_PROJECTS_ID).map(p => ({ id: p.id, name: p.name }))}
           onViewProject={(projectId) => {
             // TODO: Navigate to single project view with selected project
             console.log('View project:', projectId);
