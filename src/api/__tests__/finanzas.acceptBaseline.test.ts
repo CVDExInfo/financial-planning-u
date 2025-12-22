@@ -42,7 +42,7 @@ describe("acceptBaseline request contract", () => {
     delete (global as any).__lastAcceptBaselineBody;
   });
 
-  it("omits baseline_id from the payload", async () => {
+  it("includes baseline_id in the payload when provided", async () => {
     await acceptBaseline("P-123", {
       baseline_id: "BL-123",
       accepted_by: "tester@example.com",
@@ -51,11 +51,25 @@ describe("acceptBaseline request contract", () => {
     const body = (global as any).__lastAcceptBaselineBody?.();
     assert.equal(typeof body, "string");
     const parsed = JSON.parse(body as string);
-    assert.deepEqual(parsed, { accepted_by: "tester@example.com" });
+    assert.deepEqual(parsed, {
+      baseline_id: "BL-123",
+      accepted_by: "tester@example.com",
+    });
   });
 
-  it("sends no body when no audit fields are provided", async () => {
-    await acceptBaseline("P-456");
+  it("sends only baseline_id when accepted_by is not provided", async () => {
+    await acceptBaseline("P-456", {
+      baseline_id: "BL-456",
+    });
+
+    const body = (global as any).__lastAcceptBaselineBody?.();
+    assert.equal(typeof body, "string");
+    const parsed = JSON.parse(body as string);
+    assert.deepEqual(parsed, { baseline_id: "BL-456" });
+  });
+
+  it("sends no body when no payload is provided", async () => {
+    await acceptBaseline("P-789");
 
     const body = (global as any).__lastAcceptBaselineBody?.();
     assert.equal(body, undefined);

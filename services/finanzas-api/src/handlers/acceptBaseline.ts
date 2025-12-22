@@ -26,15 +26,6 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     return bad(event, "Invalid JSON in request body");
   }
 
-  const baselineId = body.baseline_id as string | undefined;
-  if (!baselineId) {
-    return bad(event, "baseline_id is required");
-  }
-
-  const userEmail = await getUserEmail(event);
-  const acceptedBy = (body.accepted_by || userEmail) as string;
-  const now = new Date().toISOString();
-
   // Fetch the current project metadata to ensure it exists and has the baseline
   const projectResult = await ddb.send(
     new GetCommand({
@@ -50,15 +41,33 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     return notFound(event, "project not found");
   }
 
-  // Verify that the baseline matches
-  const currentBaselineId = projectResult.Item.baseline_id;
-  if (currentBaselineId !== baselineId) {
-    return bad(
-      event,
-      `baseline_id mismatch: expected ${currentBaselineId}, got ${baselineId}`,
-      400
-    );
+  // Get baseline_id from request body or fall back to project metadata
+  const requestBaselineId = body.baseline_id as string | undefined;
+  const projectBaselineId = projectResult.Item.baseline_id as string | undefined;
+  
+  // Determine which baseline_id to use with explicit logic
+  let baselineId: string;
+  if (requestBaselineId) {
+    // Request provides baseline_id - validate it matches project if project has one
+    if (projectBaselineId && requestBaselineId !== projectBaselineId) {
+      return bad(
+        event,
+        `baseline_id mismatch: expected ${projectBaselineId}, got ${requestBaselineId}`,
+        400
+      );
+    }
+    baselineId = requestBaselineId;
+  } else if (projectBaselineId) {
+    // Fall back to project's baseline_id
+    baselineId = projectBaselineId;
+  } else {
+    // Neither request nor project has baseline_id
+    return bad(event, "baseline_id is required (provide in request body or ensure project has baseline_id)");
   }
+
+  const userEmail = await getUserEmail(event);
+  const acceptedBy = (body.accepted_by || userEmail) as string;
+  const now = new Date().toISOString();
 
   // Defensive check: prevent re-acceptance of already accepted baselines
   const currentStatus = projectResult.Item.baseline_status;

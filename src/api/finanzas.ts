@@ -1518,10 +1518,11 @@ export async function acceptBaseline(
         ...buildAuthHeader(),
         "Content-Type": "application/json",
       },
-      // Backend currently expects an empty payload; only forward explicit audit fields
-      body: payload?.accepted_by
-        ? JSON.stringify({ accepted_by: payload.accepted_by })
-        : undefined,
+      // Send baseline_id and optional accepted_by in request body
+      body: payload ? JSON.stringify({
+        baseline_id: payload.baseline_id,
+        ...(payload.accepted_by && { accepted_by: payload.accepted_by }),
+      }) : undefined,
     });
 
     // Return the response as-is from the server without adding fallback values
