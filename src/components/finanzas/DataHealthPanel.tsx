@@ -133,17 +133,15 @@ export function DataHealthPanel() {
         const health = await checkProjectHealth(project);
         metrics.set(project.id, health);
         
-        // Log diagnostic info (dev only, no sensitive data exposed)
-        if (import.meta.env.DEV) {
-          logger.info('[DataHealth] Project metrics:', {
-            projectId: health.projectId.length > 8 ? health.projectId.substring(0, 8) + '...' : health.projectId,
-            baselineId: health.baselineId && health.baselineId.length > 12 ? health.baselineId.substring(0, 12) + '...' : health.baselineId,
-            baselineStatus: health.baselineStatus,
-            rubrosCount: health.rubrosCount,
-            lineItemsCount: health.lineItemsCount,
-            hasError: health.hasError,
-          });
-        }
+        // Log diagnostic info (component only renders in dev mode)
+        logger.info('[DataHealth] Project metrics:', {
+          projectId: health.projectId.length > 8 ? health.projectId.substring(0, 8) + '...' : health.projectId,
+          baselineId: health.baselineId && health.baselineId.length > 12 ? health.baselineId.substring(0, 12) + '...' : health.baselineId,
+          baselineStatus: health.baselineStatus,
+          rubrosCount: health.rubrosCount,
+          lineItemsCount: health.lineItemsCount,
+          hasError: health.hasError,
+        });
       }
       setProjectMetrics(metrics);
 

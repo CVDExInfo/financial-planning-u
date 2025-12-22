@@ -1709,7 +1709,13 @@ export function SDMTCatalog() {
                           Proyecto con baseline pero sin rubros / line items
                         </p>
                         <div className="text-sm text-muted-foreground space-y-1">
-                          <p>Baseline ID: <code className="text-xs bg-muted px-1 py-0.5 rounded">{currentProject.baselineId}</code></p>
+                          <p>
+                            Baseline ID: <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                              {currentProject.baselineId && currentProject.baselineId.length > 20 
+                                ? currentProject.baselineId.substring(0, 20) + '...'
+                                : currentProject.baselineId}
+                            </code>
+                          </p>
                           <p>Estado: <Badge variant="outline" className="text-xs">{currentProject.baseline_status || 'Unknown'}</Badge></p>
                         </div>
                       </div>
