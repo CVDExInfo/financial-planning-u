@@ -147,8 +147,8 @@ describe("budgets handler", () => {
       expect(payload.year).toBe(2025);
       expect(payload.amount).toBe(5000000);
       expect(payload.currency).toBe("USD");
-      expect(payload.updatedBy).toBe("test@example.com");
-      expect(payload.lastUpdated).toBeDefined();
+      expect(payload.updated_by).toBe("test@example.com");
+      expect(payload.updated_at).toBeDefined();
     });
 
     it("defaults to USD when currency not specified", async () => {

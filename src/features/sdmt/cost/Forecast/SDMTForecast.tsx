@@ -111,6 +111,10 @@ export function SDMTForecast() {
   // Monthly Budget state (new - per user request)
   const [monthlyBudgets, setMonthlyBudgets] = useState<MonthlyBudgetInput[]>([]);
   const [useMonthlyBudget, setUseMonthlyBudget] = useState(false);
+  const [loadingMonthlyBudget, setLoadingMonthlyBudget] = useState(false);
+  const [savingMonthlyBudget, setSavingMonthlyBudget] = useState(false);
+  const [monthlyBudgetLastUpdated, setMonthlyBudgetLastUpdated] = useState<string | null>(null);
+  const [monthlyBudgetUpdatedBy, setMonthlyBudgetUpdatedBy] = useState<string | null>(null);
   // Budget Overview state for KPIs
   const [budgetOverview, setBudgetOverview] = useState<{
     year: number;
@@ -614,7 +618,8 @@ export function SDMTForecast() {
       setBudgetLastUpdated(result.updated_at);
       toast.success('Presupuesto anual guardado exitosamente');
       
-      // Reload budget overview to update KPIs
+      // Reload budget and budget overview to update KPIs
+      await loadAnnualBudget(budgetYear);
       await loadBudgetOverview(budgetYear);
     } catch (error) {
       console.error('Error saving annual budget:', error);
@@ -628,12 +633,101 @@ export function SDMTForecast() {
     }
   };
 
+  // Load Monthly Budget
+  const loadMonthlyBudget = async (year: number) => {
+    if (!isPortfolioView) return; // Monthly budgets only in portfolio view
+    
+    setLoadingMonthlyBudget(true);
+    try {
+      const monthlyBudget = await finanzasClient.getAllInBudgetMonthly(year);
+      if (monthlyBudget && monthlyBudget.months) {
+        // Convert from API format (month: "YYYY-MM", amount) to internal format (month: 1-12, budget)
+        const budgets: MonthlyBudgetInput[] = monthlyBudget.months.map(m => {
+          const monthMatch = m.month.match(/^\d{4}-(\d{2})$/);
+          const monthNum = monthMatch ? parseInt(monthMatch[1], 10) : 0;
+          return {
+            month: monthNum,
+            budget: m.amount,
+          };
+        }).filter(b => b.month >= 1 && b.month <= 12);
+        
+        setMonthlyBudgets(budgets);
+        setMonthlyBudgetLastUpdated(monthlyBudget.updated_at || null);
+        setMonthlyBudgetUpdatedBy(monthlyBudget.updated_by || null);
+        
+        // If we have saved monthly budgets, enable the monthly budget mode
+        if (budgets.length > 0) {
+          setUseMonthlyBudget(true);
+        }
+      } else {
+        setMonthlyBudgets([]);
+        setMonthlyBudgetLastUpdated(null);
+        setMonthlyBudgetUpdatedBy(null);
+      }
+    } catch (error: any) {
+      // If 404, it means no monthly budgets are set for this year - that's okay
+      if (error?.status === 404 || error?.statusCode === 404) {
+        setMonthlyBudgets([]);
+        setMonthlyBudgetLastUpdated(null);
+        setMonthlyBudgetUpdatedBy(null);
+      } else {
+        console.error('Error loading monthly budget:', error);
+        // Don't show error to user for monthly budgets (optional feature)
+      }
+    } finally {
+      setLoadingMonthlyBudget(false);
+    }
+  };
+
+  // Save Monthly Budget
+  const handleSaveMonthlyBudget = async () => {
+    if (monthlyBudgets.length === 0) {
+      toast.error('Ingrese al menos un presupuesto mensual');
+      return;
+    }
+
+    setSavingMonthlyBudget(true);
+    try {
+      // Convert from internal format (month: 1-12, budget) to API format (month: "YYYY-MM", amount)
+      const months = monthlyBudgets.map(mb => ({
+        month: `${budgetYear}-${String(mb.month).padStart(2, '0')}`,
+        amount: mb.budget,
+      }));
+
+      const result = await finanzasClient.putAllInBudgetMonthly(budgetYear, budgetCurrency, months);
+      setMonthlyBudgetLastUpdated(result.updated_at);
+      setMonthlyBudgetUpdatedBy(result.updated_by);
+      toast.success('Presupuesto mensual guardado exitosamente');
+      
+      // Reload monthly budget and budget overview to update KPIs and grid
+      await loadMonthlyBudget(budgetYear);
+      await loadBudgetOverview(budgetYear);
+    } catch (error) {
+      console.error('Error saving monthly budget:', error);
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: 'No pudimos guardar el presupuesto mensual.',
+      });
+      toast.error(message);
+    } finally {
+      setSavingMonthlyBudget(false);
+    }
+  };
+
+  // Reset monthly budget to auto-distribution
+  const handleResetMonthlyBudget = () => {
+    setMonthlyBudgets([]);
+    setUseMonthlyBudget(false);
+    toast.info('Presupuesto mensual restablecido a distribución automática');
+  };
+
   // Load budget when year changes
   useEffect(() => {
     loadAnnualBudget(budgetYear);
-    // Also load overview if in portfolio view
+    // Also load overview and monthly budget if in portfolio view
     if (isPortfolioView) {
       loadBudgetOverview(budgetYear);
+      loadMonthlyBudget(budgetYear);
     }
   }, [budgetYear, isPortfolioView]);
 
@@ -1083,7 +1177,7 @@ export function SDMTForecast() {
               <DialogTrigger asChild>
                 <Button variant="outline" className="gap-2 h-9" size="sm">
                   <Share2 size={16} />
-                  Export
+                  Exportar
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
@@ -1338,72 +1432,114 @@ export function SDMTForecast() {
       )}
 
       {/* Real Annual Budget KPIs - Show when budget is set and portfolio view (not simulation) */}
-      {isPortfolioView && !budgetSimulation.enabled && budgetOverview?.budgetAllIn && (
+      {isPortfolioView && !budgetSimulation.enabled && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
               <div className="text-2xl font-bold text-blue-600">
-                {formatCurrency(budgetOverview.budgetAllIn.amount)}
+                {budgetOverview?.budgetAllIn ? formatCurrency(budgetOverview.budgetAllIn.amount) : '—'}
               </div>
               <p className="text-sm text-muted-foreground">Presupuesto Anual All-In</p>
               <p className="text-xs text-muted-foreground">
-                {budgetOverview.budgetAllIn.currency} · {budgetOverview.year}
+                {budgetOverview?.budgetAllIn ? `${budgetOverview.budgetAllIn.currency} · ${budgetOverview.year}` : 'No configurado'}
               </p>
             </CardContent>
           </Card>
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
+              {budgetOverview?.budgetAllIn ? (
+                <>
+                  <div className={`text-2xl font-bold ${
+                    budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {formatCurrency(Math.abs(budgetOverview.totals.varianceBudgetVsForecast))}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {getVarianceIcon(-budgetOverview.totals.varianceBudgetVsForecast)}
+                    <p className="text-sm text-muted-foreground">{ES_TEXTS.forecast.overUnderBudget}</p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs max-w-xs">Diferencia entre presupuesto anual y pronóstico total (Budget - Forecast)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-muted-foreground">—</div>
+                  <p className="text-sm text-muted-foreground">{ES_TEXTS.forecast.overUnderBudget}</p>
+                  <p className="text-xs text-muted-foreground">No hay presupuesto</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="border-blue-500/30">
+            <CardContent className="p-3">
               <div className={`text-2xl font-bold ${
-                budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'text-green-600' : 'text-red-600'
+                budgetOverview?.totals.percentBudgetConsumedForecast !== null && budgetOverview?.totals.percentBudgetConsumedForecast !== undefined
+                  ? (budgetOverview.totals.percentBudgetConsumedForecast > 100 
+                      ? 'text-red-600' 
+                      : budgetOverview.totals.percentBudgetConsumedForecast > 90 
+                        ? 'text-yellow-600' 
+                        : 'text-green-600')
+                  : 'text-muted-foreground'
               }`}>
-                {formatCurrency(Math.abs(budgetOverview.totals.varianceBudgetVsForecast))}
+                {budgetOverview?.totals.percentBudgetConsumedForecast !== null && budgetOverview?.totals.percentBudgetConsumedForecast !== undefined
+                  ? `${budgetOverview.totals.percentBudgetConsumedForecast.toFixed(1)}%`
+                  : '—'}
               </div>
               <div className="flex items-center gap-1">
-                {getVarianceIcon(-budgetOverview.totals.varianceBudgetVsForecast)}
-                <p className="text-sm text-muted-foreground">Over/Under Budget</p>
+                <p className="text-sm text-muted-foreground">% Consumo Pronóstico</p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="text-xs max-w-xs">Diferencia entre presupuesto anual y pronóstico total (Budget - Forecast)</p>
+                      <p className="text-xs max-w-xs">Porcentaje del presupuesto consumido según pronóstico (Forecast / Budget × 100)</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-blue-500/30">
-            <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${
-                (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 100 
-                  ? 'text-red-600' 
-                  : (budgetOverview.totals.percentBudgetConsumedForecast || 0) > 90 
-                    ? 'text-yellow-600' 
-                    : 'text-green-600'
-              }`}>
-                {budgetOverview.totals.percentBudgetConsumedForecast?.toFixed(1) || '0.0'}%
-              </div>
-              <p className="text-sm text-muted-foreground">% Consumo Pronóstico</p>
               <p className="text-xs text-muted-foreground">Forecast / Budget</p>
             </CardContent>
           </Card>
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
               <div className={`text-2xl font-bold ${
-                (budgetOverview.totals.percentBudgetConsumedActual || 0) > 100 
-                  ? 'text-red-600' 
-                  : (budgetOverview.totals.percentBudgetConsumedActual || 0) > 90 
-                    ? 'text-yellow-600' 
-                    : 'text-green-600'
+                budgetOverview?.totals.percentBudgetConsumedActual !== null && budgetOverview?.totals.percentBudgetConsumedActual !== undefined
+                  ? (budgetOverview.totals.percentBudgetConsumedActual > 100 
+                      ? 'text-red-600' 
+                      : budgetOverview.totals.percentBudgetConsumedActual > 90 
+                        ? 'text-yellow-600' 
+                        : 'text-green-600')
+                  : 'text-muted-foreground'
               }`}>
-                {budgetOverview.totals.percentBudgetConsumedActual?.toFixed(1) || '0.0'}%
+                {budgetOverview?.totals.percentBudgetConsumedActual !== null && budgetOverview?.totals.percentBudgetConsumedActual !== undefined
+                  ? `${budgetOverview.totals.percentBudgetConsumedActual.toFixed(1)}%`
+                  : '—'}
               </div>
-              <p className="text-sm text-muted-foreground">% Consumo Real</p>
+              <div className="flex items-center gap-1">
+                <p className="text-sm text-muted-foreground">% Consumo Real</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-xs">Porcentaje del presupuesto consumido por gastos reales (Actual / Budget × 100)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <p className="text-xs text-muted-foreground">Actual / Budget</p>
             </CardContent>
           </Card>
@@ -1486,17 +1622,17 @@ export function SDMTForecast() {
                     size="sm"
                   >
                     {savingBudget ? <LoadingSpinner size="sm" /> : null}
-                    Guardar
+                    {savingBudget ? 'Guardando...' : 'Guardar Presupuesto'}
                   </Button>
-                  {budgetLastUpdated && (
-                    <div className="text-xs text-muted-foreground ml-2 self-center">
-                      Actualizado: {new Date(budgetLastUpdated).toLocaleDateString()}
-                    </div>
-                  )}
                 </div>
+                {budgetLastUpdated && (
+                  <div className="text-xs text-muted-foreground mt-2">
+                    📅 Última actualización: {new Date(budgetLastUpdated).toLocaleString('es-MX')}
+                  </div>
+                )}
                 {!canEditBudget && (
                   <div className="text-xs text-amber-600 mt-2">
-                    Solo usuarios PMO/ADMIN pueden editar el presupuesto anual
+                    ⚠️ Solo usuarios PMO/SDMT pueden editar el presupuesto anual
                   </div>
                 )}
                 {!isPortfolioView && budgetAmount && (
@@ -1530,7 +1666,12 @@ export function SDMTForecast() {
                       monthlyBudgets={monthlyBudgets}
                       annualBudgetReference={parseFloat(budgetAmount)}
                       onMonthlyBudgetsChange={setMonthlyBudgets}
-                      disabled={!canEditBudget}
+                      onSave={handleSaveMonthlyBudget}
+                      onReset={handleResetMonthlyBudget}
+                      disabled={!canEditBudget || loadingMonthlyBudget}
+                      saving={savingMonthlyBudget}
+                      lastUpdated={monthlyBudgetLastUpdated}
+                      updatedBy={monthlyBudgetUpdatedBy}
                     />
                   )}
                   {!useMonthlyBudget && (
@@ -1839,17 +1980,17 @@ export function SDMTForecast() {
             key={`forecast-trends-${selectedProjectId}`}
             data={monthlyTrends}
             lines={[
-              { dataKey: 'Planned', name: 'Planned', color: 'oklch(0.45 0.12 200)', strokeDasharray: '5 5' },
-              { dataKey: 'Forecast', name: 'Forecast', color: 'oklch(0.61 0.15 160)', strokeWidth: 3 },
-              { dataKey: 'Actual', name: 'Actual', color: 'oklch(0.72 0.15 65)' },
+              { dataKey: 'Planned', name: ES_TEXTS.forecast.plan.replace(' (P)', ''), color: 'oklch(0.45 0.12 200)', strokeDasharray: '5 5' },
+              { dataKey: 'Forecast', name: ES_TEXTS.forecast.forecast.replace(' (F)', ''), color: 'oklch(0.61 0.15 160)', strokeWidth: 3 },
+              { dataKey: 'Actual', name: ES_TEXTS.forecast.actual.replace(' (A)', ''), color: 'oklch(0.72 0.15 65)' },
               // Add Budget line when simulation is enabled OR when annual budget is set
               ...(isPortfolioView && (
                 (budgetSimulation.enabled && budgetTotal > 0) || hasBudgetForVariance
               )
-                ? [{ dataKey: 'Budget', name: 'Nómina Servicios', color: 'oklch(0.5 0.2 350)', strokeDasharray: '8 4', strokeWidth: 2 }]
+                ? [{ dataKey: 'Budget', name: ES_TEXTS.forecast.budgetLineLabel, color: 'oklch(0.5 0.2 350)', strokeDasharray: '8 4', strokeWidth: 2 }]
                 : [])
             ]}
-            title="Monthly Forecast Trends"
+            title={ES_TEXTS.forecast.monthlyForecastTrends}
           />
         ];
 
@@ -1872,12 +2013,12 @@ export function SDMTForecast() {
                 };
               })}
               stacks={[
-                { dataKey: 'Forecast Over Budget', name: 'Forecast Over Nómina', color: 'oklch(0.65 0.2 30)' },
-                { dataKey: 'Forecast Under Budget', name: 'Forecast Under Nómina', color: 'oklch(0.55 0.15 140)' },
-                { dataKey: 'Actual Over Budget', name: 'Actual Over Nómina', color: 'oklch(0.70 0.25 25)' },
-                { dataKey: 'Actual Under Budget', name: 'Actual Under Nómina', color: 'oklch(0.60 0.18 150)' },
+                { dataKey: 'Forecast Over Budget', name: ES_TEXTS.forecast.forecastOverBudget, color: 'oklch(0.65 0.2 30)' },
+                { dataKey: 'Forecast Under Budget', name: ES_TEXTS.forecast.forecastUnderBudget, color: 'oklch(0.55 0.15 140)' },
+                { dataKey: 'Actual Over Budget', name: ES_TEXTS.forecast.actualOverBudget, color: 'oklch(0.70 0.25 25)' },
+                { dataKey: 'Actual Under Budget', name: ES_TEXTS.forecast.actualUnderBudget, color: 'oklch(0.60 0.18 150)' },
               ]}
-              title="Variance Analysis vs Nómina Servicios"
+              title={ES_TEXTS.forecast.varianceAnalysisVsBudget}
             />
           );
         } else {
@@ -1885,7 +2026,7 @@ export function SDMTForecast() {
           charts.push(
             <Card key="variance-placeholder" className="border-2 border-dashed border-muted">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Variance Analysis</CardTitle>
+                <CardTitle className="text-base">{ES_TEXTS.forecast.varianceAnalysis}</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col items-center justify-center h-[300px] text-center">
                 <div className="w-16 h-16 bg-muted/50 rounded-lg flex items-center justify-center mb-4">
@@ -1908,24 +2049,24 @@ export function SDMTForecast() {
             charts={charts}
             insights={[
               {
-                title: "Forecast Accuracy",
+                title: ES_TEXTS.forecast.forecastAccuracy,
                 value: `${(100 - Math.abs(variancePercentage)).toFixed(1)}%`,
                 type: variancePercentage < 5 ? 'positive' : variancePercentage > 15 ? 'negative' : 'neutral'
               },
               {
-                title: "Largest Variance",
+                title: ES_TEXTS.forecast.largestVariance,
                 value: formatCurrency(Math.max(...forecastData.map(c => Math.abs(c.variance || 0)))),
                 type: 'neutral'
               },
               {
-                title: "Forecast vs Planned",
-                value: totalForecast > totalPlanned ? 'Over Budget' : totalForecast < totalPlanned ? 'Under Budget' : 'On Target',
+                title: ES_TEXTS.forecast.forecastVsPlanned,
+                value: totalForecast > totalPlanned ? ES_TEXTS.forecast.overBudget : totalForecast < totalPlanned ? ES_TEXTS.forecast.underBudget : ES_TEXTS.forecast.onTarget,
                 type: totalForecast > totalPlanned ? 'negative' : totalForecast < totalPlanned ? 'positive' : 'neutral'
               },
               // Add budget insights when simulation is enabled
               ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
                 ? [{
-                    title: "Budget Utilization",
+                    title: ES_TEXTS.forecast.budgetUtilization,
                     value: `${budgetUtilization.toFixed(1)}%`,
                     type: budgetUtilization > 100 ? 'negative' : budgetUtilization > 90 ? 'neutral' : 'positive'
                   }]

@@ -82,8 +82,8 @@ async function getAnnualBudget(event: APIGatewayProxyEventV2): Promise<APIGatewa
       year: result.Item.year,
       amount: result.Item.amount,
       currency: result.Item.currency || "USD",
-      lastUpdated: result.Item.lastUpdated,
-      updatedBy: result.Item.updatedBy,
+      updated_at: result.Item.lastUpdated || result.Item.updated_at,
+      updated_by: result.Item.updatedBy || result.Item.updated_by,
     };
 
     console.log(`[budgets] GET annual budget for ${yearNum}:`, budget);
@@ -142,6 +142,9 @@ async function setAnnualBudget(event: APIGatewayProxyEventV2): Promise<APIGatewa
       year,
       amount,
       currency: budgetCurrency,
+      updated_at: timestamp,
+      updated_by: updatedBy,
+      // Keep legacy fields for backward compatibility
       lastUpdated: timestamp,
       updatedBy,
     };
@@ -159,8 +162,8 @@ async function setAnnualBudget(event: APIGatewayProxyEventV2): Promise<APIGatewa
       year,
       amount,
       currency: budgetCurrency,
-      lastUpdated: timestamp,
-      updatedBy,
+      updated_at: timestamp,
+      updated_by: updatedBy,
     });
   } catch (error: any) {
     if (error?.statusCode) {
@@ -274,6 +277,172 @@ async function getBudgetOverview(event: APIGatewayProxyEventV2): Promise<APIGate
   }
 }
 
+/**
+ * GET /budgets/all-in/monthly?year=YYYY
+ * Returns monthly budget allocations for the specified year
+ */
+async function getMonthlyBudget(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
+  try {
+    await ensureHubAccess(event as any);
+
+    const year = event.queryStringParameters?.year;
+    
+    if (!year) {
+      return bad("Missing required parameter: year");
+    }
+
+    const yearNum = parseInt(year, 10);
+    if (isNaN(yearNum) || yearNum < 2020 || yearNum > 2100) {
+      return bad("Invalid year parameter. Must be between 2020 and 2100");
+    }
+
+    // Query DynamoDB for monthly budgets
+    const budgetsTable = tableName("allocations");
+    const result = await ddb.send(
+      new GetCommand({
+        TableName: budgetsTable,
+        Key: {
+          pk: "ORG#FINANZAS",
+          sk: `BUDGET#ALLIN#MONTHLY#YEAR#${yearNum}`,
+        },
+      })
+    );
+
+    if (!result.Item) {
+      return notFound(`No monthly budgets found for year ${yearNum}`);
+    }
+
+    const monthlyBudget = {
+      year: result.Item.year,
+      currency: result.Item.currency || "USD",
+      months: result.Item.months || [],
+      updated_at: result.Item.updated_at,
+      updated_by: result.Item.updated_by,
+    };
+
+    console.log(`[budgets] GET monthly budget for ${yearNum}:`, { monthCount: monthlyBudget.months.length });
+    return ok(event, monthlyBudget);
+  } catch (error: any) {
+    if (error?.statusCode) {
+      return {
+        statusCode: error.statusCode,
+        body: JSON.stringify({ message: error.body }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
+    logError("Error fetching monthly budget", error);
+    return serverError(event as any, "Failed to fetch monthly budget");
+  }
+}
+
+/**
+ * PUT /budgets/all-in/monthly
+ * Sets monthly budget allocations for the specified year
+ */
+async function setMonthlyBudget(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
+  try {
+    await ensureSDMTAccess(event as any);
+
+    const body = event.body ? JSON.parse(event.body) : {};
+    const { year, currency, months } = body;
+
+    // Validate input
+    if (!year || typeof year !== "number") {
+      return bad("Missing or invalid year");
+    }
+
+    if (year < 2020 || year > 2100) {
+      return bad("Year must be between 2020 and 2100");
+    }
+
+    if (!Array.isArray(months)) {
+      return bad("months must be an array");
+    }
+
+    // Validate months array
+    if (months.length === 0) {
+      return bad("months array cannot be empty");
+    }
+
+    // Validate each month entry
+    for (const monthEntry of months) {
+      if (!monthEntry.month || typeof monthEntry.month !== "string") {
+        return bad("Each month entry must have a 'month' field (format: YYYY-MM)");
+      }
+      
+      if (typeof monthEntry.amount !== "number" || monthEntry.amount < 0) {
+        return bad("Each month entry must have a non-negative 'amount'");
+      }
+
+      // Validate month format (YYYY-MM)
+      const monthMatch = monthEntry.month.match(/^(\d{4})-(\d{2})$/);
+      if (!monthMatch) {
+        return bad(`Invalid month format: ${monthEntry.month}. Expected YYYY-MM`);
+      }
+
+      const monthYear = parseInt(monthMatch[1], 10);
+      const monthNum = parseInt(monthMatch[2], 10);
+      
+      if (monthYear !== year) {
+        return bad(`Month ${monthEntry.month} does not match year ${year}`);
+      }
+
+      if (monthNum < 1 || monthNum > 12) {
+        return bad(`Invalid month number in ${monthEntry.month}`);
+      }
+    }
+
+    const budgetCurrency = currency || "USD";
+    if (!["USD", "EUR", "MXN"].includes(budgetCurrency)) {
+      return bad("Currency must be USD, EUR, or MXN");
+    }
+
+    // Get user context for audit
+    const userContext = await getUserContext(event as any);
+    const updatedBy = userContext.email || userContext.sub || "system";
+    const timestamp = new Date().toISOString();
+
+    // Write to DynamoDB
+    const budgetsTable = tableName("allocations");
+    const item = {
+      pk: "ORG#FINANZAS",
+      sk: `BUDGET#ALLIN#MONTHLY#YEAR#${year}`,
+      year,
+      currency: budgetCurrency,
+      months,
+      updated_at: timestamp,
+      updated_by: updatedBy,
+    };
+
+    await ddb.send(
+      new PutCommand({
+        TableName: budgetsTable,
+        Item: item,
+      })
+    );
+
+    console.log(`[budgets] SET monthly budget for ${year}:`, { monthCount: months.length });
+
+    return ok(event, {
+      year,
+      currency: budgetCurrency,
+      months,
+      updated_at: timestamp,
+      updated_by: updatedBy,
+    });
+  } catch (error: any) {
+    if (error?.statusCode) {
+      return {
+        statusCode: error.statusCode,
+        body: JSON.stringify({ message: error.body }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
+    logError("Error setting monthly budget", error);
+    return serverError(event as any, "Failed to set monthly budget");
+  }
+}
+
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const method = event.requestContext.http.method?.toUpperCase();
   const path = event.requestContext.http.path || event.rawPath || "";
@@ -282,9 +451,17 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     return noContent();
   }
 
-  // Check if this is the overview endpoint
+  // Route to appropriate handler based on path
   if (method === "GET" && path.includes("/overview")) {
     return await getBudgetOverview(event);
+  }
+
+  if (method === "GET" && path.includes("/monthly")) {
+    return await getMonthlyBudget(event);
+  }
+
+  if (method === "PUT" && path.includes("/monthly")) {
+    return await setMonthlyBudget(event);
   }
 
   if (method === "GET") {
