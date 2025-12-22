@@ -284,6 +284,56 @@ describe("AcceptBaseline Handler", () => {
       expect(body.error).toContain("baseline_id is required");
     });
 
+    it("should allow acceptance with request baseline_id when project has no baseline_id", async () => {
+      // Edge case: project has no baseline_id set, but request provides one
+      // This should be allowed (e.g., first-time acceptance scenario)
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const input = command.input;
+        
+        if (input?.Key?.pk === 'PROJECT#P-test123' && input?.Key?.sk === 'METADATA') {
+          return Promise.resolve({
+            Item: {
+              pk: 'PROJECT#P-test123',
+              sk: 'METADATA',
+              id: 'P-test123',
+              baseline_status: 'handed_off',
+              // No baseline_id in project yet
+            },
+          });
+        }
+        
+        if (input?.UpdateExpression) {
+          return Promise.resolve({
+            Attributes: {
+              pk: 'PROJECT#P-test123',
+              sk: 'METADATA',
+              id: 'P-test123',
+              baseline_id: 'base_new123',
+              baseline_status: 'accepted',
+              accepted_by: 'test@example.com',
+              baseline_accepted_at: '2025-01-01T00:00:00.000Z',
+            },
+          });
+        }
+        
+        return Promise.resolve({});
+      });
+
+      const event = baseEvent({
+        body: JSON.stringify({
+          baseline_id: 'base_new123', // Providing baseline_id for project without one
+        }),
+      });
+
+      const response = await acceptBaselineHandler(event);
+
+      expect(response.statusCode).toBe(200);
+      
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty("baseline_status", "accepted");
+      expect(body).toHaveProperty("baselineId", "base_new123");
+    });
+
     it("should materialize allocations and rubros during baseline acceptance", async () => {
       // Mock DynamoDB responses for project and baseline
       dynamo.ddb.send.mockImplementation((command: any) => {

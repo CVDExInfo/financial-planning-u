@@ -45,20 +45,24 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
   const requestBaselineId = body.baseline_id as string | undefined;
   const projectBaselineId = projectResult.Item.baseline_id as string | undefined;
   
-  // Use request baseline_id if provided, otherwise fall back to project's baseline_id
-  const baselineId = requestBaselineId || projectBaselineId;
-  
-  if (!baselineId) {
+  // Determine which baseline_id to use with explicit logic
+  let baselineId: string;
+  if (requestBaselineId) {
+    // Request provides baseline_id - validate it matches project if project has one
+    if (projectBaselineId && requestBaselineId !== projectBaselineId) {
+      return bad(
+        event,
+        `baseline_id mismatch: expected ${projectBaselineId}, got ${requestBaselineId}`,
+        400
+      );
+    }
+    baselineId = requestBaselineId;
+  } else if (projectBaselineId) {
+    // Fall back to project's baseline_id
+    baselineId = projectBaselineId;
+  } else {
+    // Neither request nor project has baseline_id
     return bad(event, "baseline_id is required (provide in request body or ensure project has baseline_id)");
-  }
-
-  // Verify that the baseline matches the project's current baseline
-  if (projectBaselineId && baselineId !== projectBaselineId) {
-    return bad(
-      event,
-      `baseline_id mismatch: expected ${projectBaselineId}, got ${baselineId}`,
-      400
-    );
   }
 
   const userEmail = await getUserEmail(event);
