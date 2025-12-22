@@ -51,6 +51,7 @@ import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
 import { BudgetSimulatorCard } from './BudgetSimulatorCard';
 import { MonthlyBudgetCard } from './MonthlyBudgetCard';
 import { PortfolioSummaryView } from './PortfolioSummaryView';
+import { DataHealthPanel } from '@/components/finanzas/DataHealthPanel';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
 import { 
@@ -1313,6 +1314,9 @@ export function SDMTForecast() {
 
       {/* Baseline Status Panel */}
       <BaselineStatusPanel />
+
+      {/* Data Health Debug Panel (Dev Only) */}
+      <DataHealthPanel />
 
       {/* KPI Summary - Standardized & Compact */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">

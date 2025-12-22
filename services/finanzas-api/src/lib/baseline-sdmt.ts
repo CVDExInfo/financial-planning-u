@@ -167,10 +167,17 @@ export async function queryProjectRubros(
   // If no baselineId is passed, resolve from project metadata.
   let targetBaselineId = baselineId;
   if (!targetBaselineId) {
-    const { baselineId: activeBaseline } = await getProjectActiveBaseline(
+    const { baselineId: activeBaseline, baselineStatus } = await getProjectActiveBaseline(
       projectId
     );
     targetBaselineId = activeBaseline;
+    
+    // Enhanced diagnostic logging for baseline resolution
+    console.log("[queryProjectRubros] Resolved baseline from project metadata", {
+      projectId,
+      baselineId: targetBaselineId,
+      baselineStatus,
+    });
   }
 
   const allRubros: BaselineRubro[] = [];
@@ -207,7 +214,29 @@ export async function queryProjectRubros(
     }
   } while (lastEvaluatedKey);
 
-  return filterRubrosByBaseline(allRubros, targetBaselineId ?? null);
+  // Enhanced diagnostic logging before filtering
+  console.log("[queryProjectRubros] Query results before filtering", {
+    projectId,
+    targetBaselineId,
+    totalRubrosFromQuery: allRubros.length,
+    rubrosSample: allRubros.slice(0, 3).map(r => ({
+      rubroId: r.rubroId,
+      baselineId: r.baselineId,
+      metadataBaselineId: r.metadata?.baseline_id,
+    })),
+  });
+
+  const filtered = filterRubrosByBaseline(allRubros, targetBaselineId ?? null);
+  
+  // Log the filtering result
+  console.log("[queryProjectRubros] Filtering complete", {
+    projectId,
+    targetBaselineId,
+    totalRubrosBeforeFilter: allRubros.length,
+    totalRubrosAfterFilter: filtered.length,
+  });
+
+  return filtered;
 }
 
 /**
