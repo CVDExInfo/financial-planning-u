@@ -1512,17 +1512,25 @@ export async function acceptBaseline(
   )}/accept-baseline`;
 
   try {
+    // Build request body: backend requires baseline_id
+    const requestBody: Record<string, string> = {};
+    if (payload?.baseline_id) {
+      requestBody.baseline_id = payload.baseline_id;
+    }
+    if (payload?.accepted_by) {
+      requestBody.accepted_by = payload.accepted_by;
+    }
+
     const result = await fetchJson<AcceptBaselineResponse>(url, {
       method: "PATCH",
       headers: {
         ...buildAuthHeader(),
         "Content-Type": "application/json",
       },
-      // Send baseline_id and optional accepted_by in request body
-      body: payload ? JSON.stringify({
-        baseline_id: payload.baseline_id,
-        ...(payload.accepted_by && { accepted_by: payload.accepted_by }),
-      }) : undefined,
+      // Backend expects baseline_id in the request body
+      body: Object.keys(requestBody).length > 0
+        ? JSON.stringify(requestBody)
+        : undefined,
     });
 
     // Return the response as-is from the server without adding fallback values
