@@ -672,7 +672,12 @@ export function SDMTForecast() {
         setMonthlyBudgetUpdatedBy(null);
       } else {
         console.error('Error loading monthly budget:', error);
-        // Don't show error to user for monthly budgets (optional feature)
+        
+        // Show user-friendly error for network failures
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          toast.error('Error de red al cargar presupuesto mensual. Verifique la conexión e intente nuevamente.');
+        }
+        // Don't show toast for other errors (optional feature, may not be configured)
       }
     } finally {
       setLoadingMonthlyBudget(false);
@@ -704,10 +709,17 @@ export function SDMTForecast() {
       await loadBudgetOverview(budgetYear);
     } catch (error) {
       console.error('Error saving monthly budget:', error);
-      const message = handleFinanzasApiError(error, {
-        onAuthError: login,
-        fallback: 'No pudimos guardar el presupuesto mensual.',
-      });
+      
+      // Provide detailed error message for network failures
+      let message: string;
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        message = 'Error de red al guardar presupuesto mensual. Verifique la conexión, configuración de CORS, y la URL base de la API en las variables de entorno.';
+      } else {
+        message = handleFinanzasApiError(error, {
+          onAuthError: login,
+          fallback: 'No pudimos guardar el presupuesto mensual.',
+        });
+      }
       toast.error(message);
     } finally {
       setSavingMonthlyBudget(false);
