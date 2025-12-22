@@ -133,23 +133,22 @@ export function DataHealthPanel() {
         const health = await checkProjectHealth(project);
         metrics.set(project.id, health);
         
-        // Log diagnostic info
-        logger.info('[DataHealth] Project metrics:', {
-          projectId: project.id,
-          projectName: project.name,
-          baselineId: health.baselineId,
-          baselineStatus: health.baselineStatus,
-          rubrosCount: health.rubrosCount,
-          lineItemsCount: health.lineItemsCount,
-          hasError: health.hasError,
-        });
+        // Log diagnostic info (dev only, no sensitive data exposed)
+        if (import.meta.env.DEV) {
+          logger.info('[DataHealth] Project metrics:', {
+            projectId: health.projectId.substring(0, 8) + '...', // Redacted ID
+            baselineId: health.baselineId ? health.baselineId.substring(0, 12) + '...' : null,
+            baselineStatus: health.baselineStatus,
+            rubrosCount: health.rubrosCount,
+            lineItemsCount: health.lineItemsCount,
+            hasError: health.hasError,
+          });
+        }
       }
       setProjectMetrics(metrics);
 
       // Check endpoint statuses
       await checkEndpointHealth();
-      
-      logger.info('[DataHealth] Endpoint statuses:', endpointStatuses);
     } catch (error) {
       logger.error('[DataHealth] Health check failed:', error);
     } finally {
