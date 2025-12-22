@@ -140,7 +140,7 @@ export function filterRubrosByBaseline<
       baselineId,
       totalRubros: rubros.length,
       rubrosSample: rubros.slice(0, 3).map(r => ({
-        hasBaselineId: !!r.baselineId,
+        hasDirectBaselineId: !!r.baselineId,
         hasMetadataBaselineId: !!r.metadata?.baseline_id,
       }))
     });
@@ -221,7 +221,7 @@ export async function queryProjectRubros(
     targetBaselineId,
     totalRubrosFromQuery: allRubros.length,
     rubrosSample: allRubros.slice(0, 3).map(r => ({
-      hasBaselineId: !!r.baselineId,
+      hasDirectBaselineId: !!r.baselineId,
       hasMetadataBaselineId: !!r.metadata?.baseline_id,
       metadataSource: r.metadata?.source,
     })),

@@ -136,8 +136,8 @@ export function DataHealthPanel() {
         // Log diagnostic info (dev only, no sensitive data exposed)
         if (import.meta.env.DEV) {
           logger.info('[DataHealth] Project metrics:', {
-            projectId: health.projectId.substring(0, 8) + '...', // Redacted ID
-            baselineId: health.baselineId ? health.baselineId.substring(0, 12) + '...' : null,
+            projectId: health.projectId.length > 8 ? health.projectId.substring(0, 8) + '...' : health.projectId,
+            baselineId: health.baselineId && health.baselineId.length > 12 ? health.baselineId.substring(0, 12) + '...' : health.baselineId,
             baselineStatus: health.baselineStatus,
             rubrosCount: health.rubrosCount,
             lineItemsCount: health.lineItemsCount,
@@ -241,7 +241,13 @@ export function DataHealthPanel() {
                             {getHealthBadge(metrics)}
                           </div>
                           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                            <div>Baseline ID: {metrics.baselineId || 'None'}</div>
+                            <div>
+                              Baseline ID: {metrics.baselineId 
+                                ? (metrics.baselineId.length > 20 
+                                  ? metrics.baselineId.substring(0, 20) + '...' 
+                                  : metrics.baselineId)
+                                : 'None'}
+                            </div>
                             <div>Status: {metrics.baselineStatus || 'N/A'}</div>
                             <div>Rubros: {metrics.rubrosCount}</div>
                             <div>Line Items: {metrics.lineItemsCount}</div>
