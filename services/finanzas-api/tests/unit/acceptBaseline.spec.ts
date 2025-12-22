@@ -205,7 +205,72 @@ describe("AcceptBaseline Handler", () => {
       expect(body.error).toContain("baseline_id mismatch");
     });
 
-    it("should require baseline_id in request body", async () => {
+    it("should use project baseline_id as fallback when not in request body", async () => {
+      // Mock DynamoDB to return project with baseline
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const input = command.input;
+        
+        if (input?.Key?.pk === 'PROJECT#P-test123' && input?.Key?.sk === 'METADATA') {
+          return Promise.resolve({
+            Item: {
+              pk: 'PROJECT#P-test123',
+              sk: 'METADATA',
+              id: 'P-test123',
+              baseline_id: 'base_test123',
+              baseline_status: 'handed_off',
+            },
+          });
+        }
+        
+        if (input?.UpdateExpression) {
+          return Promise.resolve({
+            Attributes: {
+              pk: 'PROJECT#P-test123',
+              sk: 'METADATA',
+              id: 'P-test123',
+              baseline_id: 'base_test123',
+              baseline_status: 'accepted',
+              accepted_by: 'test@example.com',
+              baseline_accepted_at: '2025-01-01T00:00:00.000Z',
+            },
+          });
+        }
+        
+        return Promise.resolve({});
+      });
+
+      const event = baseEvent({
+        body: JSON.stringify({}), // Empty body - should use project baseline_id
+      });
+
+      const response = await acceptBaselineHandler(event);
+
+      expect(response.statusCode).toBe(200);
+      
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty("baseline_status", "accepted");
+      expect(body).toHaveProperty("baselineId", "base_test123");
+    });
+
+    it("should require baseline_id when not in request body and not in project", async () => {
+      // Mock DynamoDB to return project without baseline
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const input = command.input;
+        
+        if (input?.Key?.pk === 'PROJECT#P-test123' && input?.Key?.sk === 'METADATA') {
+          return Promise.resolve({
+            Item: {
+              pk: 'PROJECT#P-test123',
+              sk: 'METADATA',
+              id: 'P-test123',
+              // No baseline_id in project
+            },
+          });
+        }
+        
+        return Promise.resolve({});
+      });
+
       const event = baseEvent({
         body: JSON.stringify({}),
       });
