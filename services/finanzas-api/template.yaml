@@ -1539,6 +1539,22 @@ Resources:
             ApiId: !Ref Api
             Auth:
               Authorizer: CognitoJwt
+        GetBudgetAllInMonthly:
+          Type: HttpApi
+          Properties:
+            Path: /budgets/all-in/monthly
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+        PutBudgetAllInMonthly:
+          Type: HttpApi
+          Properties:
+            Path: /budgets/all-in/monthly
+            Method: PUT
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
 
   # -------------------
   # EventBridge (Pep3) schedule
