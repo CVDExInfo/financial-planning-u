@@ -31,6 +31,7 @@
 
 import { ddb, tableName } from "./dynamo";
 import { GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { logDebug, logError } from "../utils/logging";
 
 export interface ProjectBaselineInfo {
   baselineId: string | null;
@@ -97,7 +98,7 @@ export async function getProjectActiveBaseline(
 
     return { baselineId, baselineStatus };
   } catch (error) {
-    console.error("Error fetching project baseline", { projectId, error });
+    logError("Error fetching project baseline", { projectId, error });
     return { baselineId: null, baselineStatus: null };
   }
 }
@@ -135,7 +136,7 @@ export function filterRubrosByBaseline<
   // LENIENT MODE: If baseline is set but no rubros match, include rubros without baseline_id
   // This handles migration scenarios where projects have rubros but they weren't tagged
   if (matchedRubros.length === 0 && rubros.length > 0) {
-    console.warn("[filterRubrosByBaseline] No rubros matched baseline, falling back to untagged rubros", {
+    logDebug("[filterRubrosByBaseline] No rubros matched baseline, falling back to untagged rubros", {
       baselineId,
       totalRubros: rubros.length,
       rubrosSample: rubros.slice(0, 3).map(r => ({
@@ -173,7 +174,7 @@ export async function queryProjectRubros(
     targetBaselineId = activeBaseline;
     
     // Enhanced diagnostic logging for baseline resolution
-    console.log("[queryProjectRubros] Resolved baseline from project metadata", {
+    logDebug("[queryProjectRubros] Resolved baseline from project metadata", {
       projectId,
       baselineId: targetBaselineId,
       baselineStatus,
@@ -206,7 +207,7 @@ export async function queryProjectRubros(
 
     safetyCounter += 1;
     if (safetyCounter > MAX_PAGINATION_ITERATIONS) {
-      console.warn("Exceeded pagination safety limit while querying rubros", {
+      logError("Exceeded pagination safety limit while querying rubros", {
         projectId,
         baselineId: targetBaselineId,
       });
@@ -215,7 +216,7 @@ export async function queryProjectRubros(
   } while (lastEvaluatedKey);
 
   // Enhanced diagnostic logging before filtering
-  console.log("[queryProjectRubros] Query results before filtering", {
+  logDebug("[queryProjectRubros] Query results before filtering", {
     projectId,
     targetBaselineId,
     totalRubrosFromQuery: allRubros.length,
@@ -229,7 +230,7 @@ export async function queryProjectRubros(
   const filtered = filterRubrosByBaseline(allRubros, targetBaselineId ?? null);
   
   // Log the filtering result
-  console.log("[queryProjectRubros] Filtering complete", {
+  logDebug("[queryProjectRubros] Filtering complete", {
     projectId,
     targetBaselineId,
     totalRubrosBeforeFilter: allRubros.length,
