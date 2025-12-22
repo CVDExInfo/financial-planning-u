@@ -104,7 +104,7 @@
   "devDependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.956.0",
     "@aws-sdk/client-dynamodb": "^3.939.0",
-    "@aws-sdk/lib-dynamodb": "^3.948.0",
+    "@aws-sdk/lib-dynamodb": "^3.957.0",
     "@aws-sdk/util-dynamodb": "^3.953.0",
     "@eslint/js": "^9.39.2",
     "@mermaid-js/mermaid-cli": "^11.4.0",
