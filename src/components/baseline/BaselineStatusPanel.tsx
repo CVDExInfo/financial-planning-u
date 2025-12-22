@@ -70,7 +70,9 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
       if (!canActOnBaseline) {
         throw new Error("User is not allowed to accept baselines");
       }
-      return acceptBaseline(currentProject.id);
+      return acceptBaseline(currentProject.id, {
+        baseline_id: currentProject.baselineId,
+      });
     },
     onSuccess: async () => {
       toast.success("Baseline accepted successfully");
