@@ -57,8 +57,8 @@ describe("acceptBaseline request contract", () => {
     });
   });
 
-  it("sends no body when no audit fields are provided", async () => {
-    await acceptBaseline("P-456");
+  it("sends no body when no payload is provided", async () => {
+    await acceptBaseline("P-789");
 
     const body = (global as any).__lastAcceptBaselineBody?.();
     assert.equal(body, undefined);
