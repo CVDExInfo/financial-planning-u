@@ -833,6 +833,76 @@ export function SDMTForecast() {
     return grid;
   }, [lineItemsForGrid, filteredForecastData, selectedProjectId, selectedPeriod]);
 
+  // Group forecast grid by category with sub-totals
+  const forecastGridWithSubtotals = useMemo(() => {
+    type GridRow = {
+      type: 'item' | 'subtotal';
+      lineItem?: ProjectLineItem;
+      category?: string;
+      monthlyData: ForecastRow[];
+    };
+
+    // Group items by category
+    const itemsByCategory = new Map<string, typeof forecastGrid>();
+    forecastGrid.forEach(item => {
+      const category = item.lineItem.category || 'Sin categoría';
+      if (!itemsByCategory.has(category)) {
+        itemsByCategory.set(category, []);
+      }
+      itemsByCategory.get(category)!.push(item);
+    });
+
+    // Build rows with sub-totals
+    const rows: GridRow[] = [];
+    const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
+    const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
+    const months = isCurrentMonthMode 
+      ? [currentMonthIndex] 
+      : Array.from({ length: 12 }, (_, i) => i + 1);
+
+    itemsByCategory.forEach((categoryItems, category) => {
+      // Add category items
+      categoryItems.forEach(item => {
+        rows.push({
+          type: 'item',
+          lineItem: item.lineItem,
+          monthlyData: item.monthlyData,
+        });
+      });
+
+      // Calculate and add sub-total row
+      const subtotalMonthlyData = months.map(month => {
+        const monthTotals = categoryItems.reduce((totals, item) => {
+          const cell = item.monthlyData.find(c => c.month === month);
+          return {
+            planned: totals.planned + (cell?.planned || 0),
+            forecast: totals.forecast + (cell?.forecast || 0),
+            actual: totals.actual + (cell?.actual || 0),
+          };
+        }, { planned: 0, forecast: 0, actual: 0 });
+
+        return {
+          line_item_id: `subtotal-${category}-${month}`,
+          month,
+          planned: monthTotals.planned,
+          forecast: monthTotals.forecast,
+          actual: monthTotals.actual,
+          variance: monthTotals.forecast - monthTotals.planned,
+          last_updated: '',
+          updated_by: '',
+        } as ForecastRow;
+      });
+
+      rows.push({
+        type: 'subtotal',
+        category,
+        monthlyData: subtotalMonthlyData,
+      });
+    });
+
+    return rows;
+  }, [forecastGrid, selectedPeriod]);
+
   const totalFTE = useMemo(() => {
     return lineItemsForGrid.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
   }, [lineItemsForGrid]);
@@ -1849,19 +1919,68 @@ export function SDMTForecast() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {forecastGrid.map(({ lineItem, monthlyData }) => (
-                    <TableRow key={lineItem.id}>
+                  {forecastGridWithSubtotals.map((row, rowIndex) => {
+                    if (row.type === 'subtotal') {
+                      // Render sub-total row
+                      return (
+                        <TableRow key={`subtotal-${row.category}-${rowIndex}`} className="bg-muted/30 font-semibold">
+                          <TableCell className="sticky left-0 bg-muted/30">
+                            <div className="font-bold text-sm">
+                              Subtotal - {row.category}
+                            </div>
+                          </TableCell>
+                          {row.monthlyData.map(cell => (
+                            <TableCell key={cell.month} className="p-2">
+                              <div className="space-y-2 text-xs font-semibold">
+                                {/* Sub-total Planned */}
+                                {cell.planned > 0 && (
+                                  <div className="text-muted-foreground bg-muted/40 px-2 py-1 rounded">
+                                    P: {formatGridCurrency(cell.planned)}
+                                  </div>
+                                )}
+                                
+                                {/* Sub-total Forecast */}
+                                {(cell.forecast > 0 || cell.planned > 0) && (
+                                  <div className="px-2 py-1 rounded bg-primary/10 text-primary">
+                                    F: {formatGridCurrency(cell.forecast)}
+                                  </div>
+                                )}
+                                
+                                {/* Sub-total Actual */}
+                                {(cell.actual > 0 || cell.forecast > 0 || cell.planned > 0) && (
+                                  <div className="px-2 py-1 rounded bg-blue-50/80 text-blue-700">
+                                    A: {formatGridCurrency(cell.actual)}
+                                  </div>
+                                )}
+                                
+                                {/* Sub-total Variance */}
+                                {cell.variance !== 0 && (
+                                  <div className={`px-2 py-1 rounded text-xs font-bold text-center ${getVarianceColor(cell.variance)}`}>
+                                    {cell.variance > 0 ? '+' : ''}{formatGridCurrency(cell.variance)}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                    }
+                    
+                    // Render regular item row
+                    const { lineItem, monthlyData } = row;
+                    return (
+                    <TableRow key={lineItem!.id}>
                       <TableCell className="sticky left-0 bg-background">
                         <div className="space-y-1">
                           <div className="font-medium flex items-center gap-2">
-                            {lineItem.description}
-                            {lineItem.projectName && (
+                            {lineItem!.description}
+                            {lineItem!.projectName && (
                               <Badge variant="outline" className="text-[10px]">
-                                {lineItem.projectName}
+                                {lineItem!.projectName}
                               </Badge>
                             )}
                           </div>
-                          <div className="text-sm text-muted-foreground">{lineItem.category}</div>
+                          <div className="text-sm text-muted-foreground">{lineItem!.category}</div>
                         </div>
                       </TableCell>
                       {monthlyData.map(cell => (
@@ -1977,7 +2096,8 @@ export function SDMTForecast() {
                         </TableCell>
                       ))}
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
