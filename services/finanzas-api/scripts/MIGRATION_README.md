@@ -375,3 +375,150 @@ Future Handoffs (After PR #640)
      └─ 409 Conflict if baseline mismatch detected
      └─ Automatic new project creation for different baselines
 ```
+
+---
+
+## Data Repair Script: Auto-Accepted Baselines
+
+### Overview
+
+The `repairAutoAcceptedBaselines.ts` script fixes a critical bug where baselines were incorrectly marked as "accepted" during handoff instead of "handed_off".
+
+### Problem
+
+**Root Cause:** 
+- `handoff.ts` was setting `baseline_status = "accepted"` during handoff (via `force_accept` flag)
+- `projects.ts` was setting `baseline_status = "accepted"` at handoff time (line 1062)
+
+**Impact:**
+- Baselines appear accepted immediately after handoff
+- SDMT never gets a chance to review/accept/reject
+- Violates the intended workflow: PMO handoff → SDMT review → SDMT accept/reject
+
+### Detection Logic
+
+A baseline is considered auto-accepted if:
+1. `baseline_status == "accepted"` in project METADATA
+2. NO audit log entry exists with `action == "BASELINE_ACCEPTED"`
+
+This indicates the baseline was marked accepted during handoff (wrong) rather than via the explicit accept endpoint (correct).
+
+### Repair Action
+
+For each auto-accepted baseline:
+1. Set `baseline_status = "handed_off"`
+2. Remove `accepted_by` field
+3. Remove `baseline_accepted_at` field
+4. Preserve `handed_off_by` and `handed_off_at` (handoff signature)
+
+### Usage
+
+```bash
+# Dry run (default - shows what would change, no modifications)
+cd services/finanzas-api/scripts
+npx tsx repairAutoAcceptedBaselines.ts
+
+# Execute repairs (applies changes to DynamoDB)
+npx tsx repairAutoAcceptedBaselines.ts --execute
+
+# Repair specific project only
+npx tsx repairAutoAcceptedBaselines.ts --projectId P-abc123 --execute
+
+# Limit number of repairs (useful for testing)
+npx tsx repairAutoAcceptedBaselines.ts --limit 10 --execute
+```
+
+### Environment Variables
+
+The script uses these environment variables (or defaults):
+
+- `AWS_REGION`: AWS region (default: us-east-1)
+- `PROJECTS_TABLE_NAME`: Projects table (default: finanzas-projects-dev)
+- `AUDIT_LOG_TABLE_NAME`: Audit log table (default: finanzas-audit-log-dev)
+
+### Prerequisites
+
+```bash
+# Install dependencies
+npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb
+
+# Set AWS credentials
+export AWS_PROFILE=your-profile
+# OR
+export AWS_ACCESS_KEY_ID=xxx
+export AWS_SECRET_ACCESS_KEY=xxx
+```
+
+### Safety Features
+
+1. **Dry run by default**: Must explicitly pass `--execute` to make changes
+2. **Audit log validation**: Only repairs baselines without legitimate acceptance records
+3. **Filter support**: Can test on single project before running on all
+4. **Limit support**: Can repair in batches
+5. **Detailed logging**: Shows what will/did change
+
+### Example Output
+
+```
+================================================================================
+Data Repair Script: Revert Auto-Accepted Baselines
+================================================================================
+Mode: DRY RUN (no changes will be made)
+Projects Table: finanzas-projects-dev
+Audit Log Table: finanzas-audit-log-dev
+================================================================================
+
+Scanning projects table for auto-accepted baselines...
+
+Found auto-accepted baseline: P-abc123 (baseline: base_xyz789)
+Found auto-accepted baseline: P-def456 (baseline: base_uvw456)
+
+Scanned 15 accepted baselines, found 2 auto-accepted
+
+Summary of auto-accepted baselines:
+--------------------------------------------------------------------------------
+Project ID: P-abc123
+  Baseline ID: base_xyz789
+  Accepted By: pmo-user@example.com
+  Accepted At: 2024-12-20T10:30:00Z
+  Handed Off By: pmo-user@example.com
+  Handed Off At: 2024-12-20T10:30:00Z
+
+Project ID: P-def456
+  Baseline ID: base_uvw456
+  Accepted By: pmo-user@example.com
+  Accepted At: 2024-12-20T11:45:00Z
+  Handed Off By: pmo-user@example.com
+  Handed Off At: 2024-12-20T11:45:00Z
+
+--------------------------------------------------------------------------------
+
+⚠ DRY RUN MODE - No changes were made
+
+To execute repairs, run with --execute flag:
+  node repairAutoAcceptedBaselines.ts --execute
+
+Total items that would be repaired: 2
+```
+
+### Post-Repair Verification
+
+After running with `--execute`, verify:
+
+1. **Check baseline status**: Projects should show `baseline_status = "handed_off"`
+2. **SDMT can accept**: Navigate to SDMT Forecast/Changes and accept the baseline
+3. **Audit log created**: New `BASELINE_ACCEPTED` entry should be created on accept
+
+### Integration with Code Fixes
+
+This script works in conjunction with code fixes to:
+
+1. **handlers/handoff.ts**: Removed `force_accept` logic, always sets "handed_off"
+2. **handlers/projects.ts**: Changed line 1062 to set "handed_off" not "accepted"
+3. **handlers/acceptBaseline.ts**: Added defensive check against re-acceptance
+4. **handlers/rejectBaseline.ts**: Added defensive check against re-rejection
+
+Together, these ensure:
+- Handoff sets `baseline_status = "handed_off"`
+- Only SDMT can accept via `PATCH /projects/{projectId}/accept-baseline`
+- Audit trail is complete for all baseline state transitions

@@ -298,5 +298,77 @@ describe("AcceptBaseline Handler", () => {
       // Should have calls for allocations and rubros batches
       expect(batchWriteCalls.length).toBeGreaterThan(0);
     });
+
+    it("should prevent re-acceptance of already accepted baseline", async () => {
+      // Mock DynamoDB to return project with already accepted baseline
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const input = command.input;
+        
+        if (input?.Key?.pk === 'PROJECT#P-test123' && input?.Key?.sk === 'METADATA') {
+          return Promise.resolve({
+            Item: {
+              pk: 'PROJECT#P-test123',
+              sk: 'METADATA',
+              baseline_id: 'base_test123',
+              baseline_status: 'accepted', // Already accepted
+              accepted_by: 'previous@example.com',
+              baseline_accepted_at: '2025-01-01T00:00:00.000Z',
+            },
+          });
+        }
+        
+        return Promise.resolve({});
+      });
+
+      const event = baseEvent({
+        body: JSON.stringify({
+          baseline_id: "base_test123",
+        }),
+      });
+
+      const response = await acceptBaselineHandler(event);
+
+      expect(response.statusCode).toBe(409); // Conflict
+      
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty("error");
+      expect(body.error).toContain("already accepted");
+    });
+
+    it("should only accept from handed_off or pending status", async () => {
+      // Mock DynamoDB to return project with rejected baseline
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const input = command.input;
+        
+        if (input?.Key?.pk === 'PROJECT#P-test123' && input?.Key?.sk === 'METADATA') {
+          return Promise.resolve({
+            Item: {
+              pk: 'PROJECT#P-test123',
+              sk: 'METADATA',
+              baseline_id: 'base_test123',
+              baseline_status: 'rejected', // Cannot accept a rejected baseline
+              rejected_by: 'someone@example.com',
+              baseline_rejected_at: '2025-01-01T00:00:00.000Z',
+            },
+          });
+        }
+        
+        return Promise.resolve({});
+      });
+
+      const event = baseEvent({
+        body: JSON.stringify({
+          baseline_id: "base_test123",
+        }),
+      });
+
+      const response = await acceptBaselineHandler(event);
+
+      expect(response.statusCode).toBe(409); // Conflict
+      
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty("error");
+      expect(body.error).toContain('Cannot accept baseline with status "rejected"');
+    });
   });
 });

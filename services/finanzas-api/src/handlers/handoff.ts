@@ -788,10 +788,9 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     }
   }
 
-  // Determine if this is an explicit force-accept scenario
-  // Only set baseline_status to "accepted" if force_accept is explicitly true
-  const isForceAccept = Boolean(body.force_accept === true || body.accept_action === 'accept');
-  const baselineStatus = isForceAccept ? "accepted" : "handed_off";
+  // CRITICAL: Handoff MUST set status to "handed_off" (NOT "accepted")
+  // Only SDMT can accept baselines via PATCH /projects/{projectId}/accept-baseline
+  const baselineStatus = "handed_off";
   const sdmManagerName =
     (body.fields as { sdm_manager_name?: string } | undefined)?.sdm_manager_name ||
     (body as { sdm_manager_name?: string }).sdm_manager_name;
@@ -852,10 +851,14 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     module: "SDMT",
     source: "prefactura",
     baseline_id: baselineId,
-    baseline_status: baselineStatus,
-    // Only set accepted_by and baseline_accepted_at when force_accept is true
-    accepted_by: isForceAccept ? (body.aceptado_por || body.owner || userEmail) : undefined,
-    baseline_accepted_at: isForceAccept ? now : undefined,
+    baseline_status: baselineStatus, // Always "handed_off" for handoff - NEVER "accepted"
+    // Handoff signature metadata (NOT acceptance)
+    // These track WHO handed off the baseline, not who accepted it
+    handed_off_by: body.aceptado_por || body.owner || userEmail,
+    handed_off_at: now,
+    // Acceptance fields remain undefined until SDMT explicitly accepts via PATCH /accept-baseline
+    // accepted_by: undefined,
+    // baseline_accepted_at: undefined,
     currency,
     moneda: currency,
     start_date: startDate,
@@ -868,8 +871,6 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     created_at: existingProjectMetadata?.created_at || now,
     updated_at: now,
     created_by: existingProjectMetadata?.created_by || userEmail,
-    handed_off_at: now,
-    handed_off_by: userEmail,
     sdm_manager_name: sdmManagerName,
     sdm_manager_email: sdmManagerEmail,
   };
@@ -1026,9 +1027,13 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     projectId: resolvedProjectId,
     baselineId,
     status: "HandoffComplete",
-    baseline_status: baselineStatus,
-    accepted_by: projectMetadata.accepted_by || undefined,
-    baseline_accepted_at: projectMetadata.baseline_accepted_at || undefined,
+    baseline_status: baselineStatus, // Always "handed_off" - acceptance happens later via SDMT
+    // Handoff signature metadata (NOT acceptance)
+    handed_off_by: projectMetadata.handed_off_by,
+    handed_off_at: projectMetadata.handed_off_at,
+    // Acceptance fields are undefined until SDMT accepts
+    accepted_by: undefined,
+    baseline_accepted_at: undefined,
     owner: handoff.owner,
     fields: handoff.fields,
     version: handoff.version,

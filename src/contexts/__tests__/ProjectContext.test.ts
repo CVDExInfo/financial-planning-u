@@ -153,7 +153,7 @@ describe('ProjectContext - ALL_PROJECTS Selection Stability', () => {
     
     // Step 5: Verify that non-existent IDs still fail
     const nonExistentId = 'PROJ-123';
-    let nonExistentLookup = emptyProjectMap.get(nonExistentId);
+    const nonExistentLookup = emptyProjectMap.get(nonExistentId);
     assert.strictEqual(nonExistentLookup, undefined, 
       'Non-existent project IDs should not be found');
   });

@@ -194,7 +194,10 @@ export default function PMOProjectDetailsPage() {
         <Alert>
           <AlertTitle>No Baseline</AlertTitle>
           <AlertDescription>
-            This project does not have a baseline yet. Create a baseline through the PMO Estimator.
+            {!currentProject 
+              ? "No project selected. Please select a project from the estimator."
+              : "This project does not have a baseline yet. Create a baseline through the PMO Estimator."
+            }
           </AlertDescription>
         </Alert>
       )}

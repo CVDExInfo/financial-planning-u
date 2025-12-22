@@ -759,7 +759,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           })
         );
 
-        let projectBaseline = baselineLookup.Item as Record<string, unknown> | undefined;
+        const projectBaseline = baselineLookup.Item as Record<string, unknown> | undefined;
         
         // Log what we found in project-scoped baseline
         console.info("[handoff-projects] Project-scoped baseline query result", {
@@ -1059,8 +1059,11 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             undefined,
           baseline_id: baselineId,
           baselineId,
-          baseline_status: "accepted",
-          baseline_accepted_at: now,
+          baseline_status: "handed_off", // CRITICAL: Handoff sets "handed_off" NOT "accepted"
+          // Acceptance is done ONLY via PATCH /projects/{projectId}/accept-baseline by SDMT
+          // handed_off_at and handed_off_by track handoff signature
+          handed_off_at: now,
+          handed_off_by: (handoffBody.aceptado_por as string) || (handoffBody.owner as string) || createdBy,
           baseline_source_project_id:
             baselineSourceProjectId ||
             (existingMetadata as Record<string, unknown> | undefined)
@@ -1072,10 +1075,9 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           created_at: (existingMetadata as Record<string, unknown> | undefined)?.created_at || now,
           updated_at: now,
           created_by: (existingMetadata as Record<string, unknown> | undefined)?.created_by || createdBy,
-          accepted_by:
-            (handoffBody.aceptado_por as string) ||
-            (handoffBody.owner as string) ||
-            createdBy,
+          // accepted_by is ONLY set by PATCH /projects/{projectId}/accept-baseline
+          // We preserve existing accepted_by if it exists (for updates), but don't set it on handoff
+          accepted_by: (existingMetadata as Record<string, unknown> | undefined)?.accepted_by,
           pct_ingenieros: Number(
             handoffBody.pct_ingenieros ?? handoffFields?.pct_ingenieros ?? 0
           ),
