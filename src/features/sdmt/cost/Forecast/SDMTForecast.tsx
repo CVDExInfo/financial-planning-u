@@ -1969,19 +1969,23 @@ export function SDMTForecast() {
                     
                     // Render regular item row
                     const { lineItem, monthlyData } = row;
+                    if (!lineItem) {
+                      // Safety check: skip if lineItem is undefined (should not happen for item rows)
+                      return null;
+                    }
                     return (
-                    <TableRow key={lineItem!.id}>
+                    <TableRow key={lineItem.id}>
                       <TableCell className="sticky left-0 bg-background">
                         <div className="space-y-1">
                           <div className="font-medium flex items-center gap-2">
-                            {lineItem!.description}
-                            {lineItem!.projectName && (
+                            {lineItem.description}
+                            {lineItem.projectName && (
                               <Badge variant="outline" className="text-[10px]">
-                                {lineItem!.projectName}
+                                {lineItem.projectName}
                               </Badge>
                             )}
                           </div>
-                          <div className="text-sm text-muted-foreground">{lineItem!.category}</div>
+                          <div className="text-sm text-muted-foreground">{lineItem.category}</div>
                         </div>
                       </TableCell>
                       {monthlyData.map(cell => (
