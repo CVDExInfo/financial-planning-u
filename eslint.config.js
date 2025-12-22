@@ -5,7 +5,19 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist'] },
+  { 
+    ignores: [
+      'dist',
+      'dist-*',
+      '*-dist',
+      '.aws-sam',
+      'node_modules',
+      '**/*.bak',
+      'packages',
+      'docs-pdf',
+    ] 
+  },
+  // TypeScript/React files configuration
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
@@ -25,6 +37,22 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  // Node.js/script files configuration
+  {
+    files: ['**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: {
+        ...globals.node,
+        ...globals.es2020,
+      },
+      sourceType: 'module',
+    },
+    rules: {
+      // Allow console in Node.js scripts
+      'no-console': 'off',
     },
   },
 )
