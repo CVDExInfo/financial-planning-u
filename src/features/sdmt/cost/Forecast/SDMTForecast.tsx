@@ -831,9 +831,13 @@ export function SDMTForecast() {
   const canEditActual = user?.current_role === 'SDMT';
   const canEditBudget = ['PMO', 'SDMT'].includes(user?.current_role || '');
 
-  // Function to navigate to reconciliation with filters
+  // Navigate to reconciliation, preserving project context
   const navigateToReconciliation = (line_item_id: string, month?: number) => {
     const params = new URLSearchParams();
+    // Preserve project ID
+    if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
+      params.set('projectId', selectedProjectId);
+    }
     params.set('line_item', line_item_id);
     if (month) params.set('month', month.toString());
     
@@ -1301,6 +1305,16 @@ export function SDMTForecast() {
                 <Badge variant={dataSource === 'mock' ? 'outline' : 'secondary'} className="text-xs">
                   {dataSource === 'mock' ? 'Datos de prueba' : 'Datos de API'}
                 </Badge>
+                {!isPortfolioView && selectedProjectId && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs"
+                    onClick={() => navigate(`/sdmt/cost/catalog?projectId=${selectedProjectId}`)}
+                  >
+                    Ver Rubros →
+                  </Button>
+                )}
               </div>
             )}
           </div>
