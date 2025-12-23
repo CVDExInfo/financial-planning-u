@@ -29,6 +29,8 @@ export interface UseSDMTForecastDataResult {
   forecastRows: ForecastRow[];
   refresh: () => void;
   saveForecast: (updatePayload: any) => Promise<void>;
+  materializationPending: boolean;
+  materializationTimeout: boolean;
 }
 
 export function useSDMTForecastData({
@@ -40,6 +42,8 @@ export function useSDMTForecastData({
   const [baseline, setBaseline] = useState<any>(null);
   const [rubros, setRubros] = useState<LineItem[]>([]);
   const [forecastRows, setForecastRows] = useState<ForecastRow[]>([]);
+  const [materializationPending, setMaterializationPending] = useState(false);
+  const [materializationTimeout, setMaterializationTimeout] = useState(false);
   
   const latestRequestKey = useRef(0);
   const abortCtrlRef = useRef<AbortController | null>(null);
@@ -64,11 +68,60 @@ export function useSDMTForecastData({
 
     try {
       // Load baseline summary
-      const baselineResp = await finanzasClient.getBaselineSummary(projectId);
+      let baselineResp = await finanzasClient.getBaselineSummary(projectId);
       if (latestRequestKey.current !== requestKey) return; // stale
       setBaseline(baselineResp);
 
-      // Load rubros / line items
+      // Check if materialization is pending and poll if necessary
+      const isMaterialized = baselineResp.materializedAt || baselineResp.materialization_status === 'completed';
+      
+      if (!isMaterialized) {
+        setMaterializationPending(true);
+        
+        // Poll for materialization completion
+        const pollMaterialization = async (): Promise<boolean> => {
+          const maxAttempts = 12; // 12 attempts * 5 seconds = 60 seconds max
+          let attempts = 0;
+          
+          while (attempts < maxAttempts) {
+            attempts++;
+            
+            // Check if already materialized
+            if (baselineResp.materializedAt || baselineResp.materialization_status === 'completed') {
+              return true;
+            }
+            
+            // Wait 5 seconds before next poll
+            await new Promise(r => setTimeout(r, 5000));
+            
+            // Re-fetch baseline summary
+            try {
+              baselineResp = await finanzasClient.getBaselineSummary(projectId, { signal: abortCtrlRef.current?.signal });
+              if (latestRequestKey.current !== requestKey) return false; // stale
+              setBaseline(baselineResp);
+            } catch (pollErr: any) {
+              if (pollErr.name === 'AbortError') {
+                return false;
+              }
+              // Continue polling even if one fetch fails
+              console.warn('[useSDMTForecastData] Polling error:', pollErr);
+            }
+          }
+          
+          return false; // Timeout
+        };
+        
+        const materialized = await pollMaterialization();
+        setMaterializationPending(false);
+        
+        if (!materialized) {
+          setMaterializationTimeout(true);
+          setLoading(false);
+          return; // Don't proceed to load rubros if materialization timed out
+        }
+      }
+
+      // Load rubros / line items (only after materialization completes or is already complete)
       const rubrosResp = await getProjectRubros(projectId);
       if (latestRequestKey.current !== requestKey) return; // stale
       setRubros(rubrosResp || []);
@@ -93,9 +146,33 @@ export function useSDMTForecastData({
       
       const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
       
+      // Helper function for robust invoice matching
+      const matchInvoiceToCell = (inv: any, cell: ForecastRow): boolean => {
+        if (!inv) return false;
+        
+        // Priority 1: Match by line_item_id
+        if (inv.line_item_id && inv.line_item_id === cell.line_item_id) {
+          return true;
+        }
+        
+        // Priority 2: Match by rubroId
+        if (inv.rubroId && inv.rubroId === cell.rubroId) {
+          return true;
+        }
+        
+        // Priority 3: Match by normalized description
+        const normalize = (s: any) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+        if (inv.description && cell.description && 
+            normalize(inv.description) === normalize(cell.description)) {
+          return true;
+        }
+        
+        return false;
+      };
+      
       const rowsWithActuals = rows.map(cell => {
         const matchedInvoice = matchedInvoices.find(
-          inv => inv.line_item_id === cell.line_item_id && inv.month === cell.month
+          inv => matchInvoiceToCell(inv, cell) && inv.month === cell.month
         );
         
         if (matchedInvoice) {
@@ -103,14 +180,19 @@ export function useSDMTForecastData({
           return {
             ...cell,
             actual: actualAmount,
-            // Variance is actual vs planned (not forecast vs planned)
+            // Calculate both variance types
+            varianceActual: actualAmount - cell.planned,
+            varianceForecast: cell.forecast != null ? cell.forecast - cell.planned : null,
+            // Legacy variance field for backward compatibility
             variance: actualAmount - cell.planned,
           };
         }
         
-        // No matched invoice - keep default variance (forecast vs planned)
+        // No matched invoice - calculate variance based on forecast vs planned
         return {
           ...cell,
+          varianceActual: null, // No actual data
+          varianceForecast: cell.forecast != null ? cell.forecast - cell.planned : null,
           variance: cell.forecast - cell.planned,
         };
       });
@@ -160,5 +242,7 @@ export function useSDMTForecastData({
     forecastRows,
     refresh,
     saveForecast,
+    materializationPending,
+    materializationTimeout,
   };
 }
