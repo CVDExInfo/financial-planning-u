@@ -105,7 +105,7 @@ export function DataHealthPanel() {
       // Check budgets/all-in/overview
       try {
         const overviewStart = Date.now();
-        const overview = await finanzasClient.getAllInBudgetOverview(currentYear);
+        await finanzasClient.getAllInBudgetOverview(currentYear);
         const overviewDuration = Date.now() - overviewStart;
         
         budgetChecks.push({
