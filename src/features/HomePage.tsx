@@ -114,7 +114,7 @@ export function HomePage() {
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
-                  <span>PMO Planificador de Proyectos</span>
+                  <span>PMO Planificador Proyectos de Servicio</span>
                   <Badge variant="secondary" className="text-[11px]">
                     {canAccessPMO ? "Disponible" : "Rol requerido"}
                   </Badge>
