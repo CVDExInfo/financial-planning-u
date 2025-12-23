@@ -266,6 +266,7 @@ export class HttpClient {
 
   /**
    * Build full URL from base URL and endpoint
+   * Normalizes path joining to prevent double slashes and preserve stage paths
    */
   private buildUrl(endpoint: string): string {
     if (endpoint.startsWith("http")) {
@@ -276,7 +277,13 @@ export class HttpClient {
       throw new Error("Finanzas API base URL is not configured");
     }
 
-    return `${this.baseUrl}${endpoint}`;
+    // Normalize URL construction:
+    // 1. Strip trailing slashes from base URL
+    // 2. Ensure endpoint starts with a single slash
+    const base = this.baseUrl.replace(/\/+$/, '');
+    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    
+    return `${base}${path}`;
   }
 
   /**

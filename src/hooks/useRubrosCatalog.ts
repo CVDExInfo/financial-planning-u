@@ -25,6 +25,7 @@ export interface UseRubrosCatalogResult {
 /**
  * Generic hook for fetching rubros with different fetch functions
  * Reduces code duplication across specific rubro hooks
+ * Includes AbortController to prevent stale responses
  * 
  * @param fetchFn - Async function that fetches rubros
  * @param errorMessage - Error message to use if fetch fails
@@ -40,21 +41,29 @@ function useRubrosGeneric(
 
   useEffect(() => {
     let mounted = true;
+    const abortController = new AbortController();
 
     const loadRubros = async () => {
       try {
         setLoading(true);
         const data = await fetchFn();
-        if (mounted) {
+        
+        // Only update state if component is still mounted and request wasn't aborted
+        if (mounted && !abortController.signal.aborted) {
           setRubros(data);
           setError(null);
         }
       } catch (err) {
-        if (mounted) {
+        // Ignore aborted requests
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
+        
+        if (mounted && !abortController.signal.aborted) {
           setError(err instanceof Error ? err : new Error(errorMessage));
         }
       } finally {
-        if (mounted) {
+        if (mounted && !abortController.signal.aborted) {
           setLoading(false);
         }
       }
@@ -64,6 +73,7 @@ function useRubrosGeneric(
 
     return () => {
       mounted = false;
+      abortController.abort();
     };
   }, [fetchFn, errorMessage]);
 
