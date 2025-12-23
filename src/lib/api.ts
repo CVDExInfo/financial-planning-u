@@ -1310,21 +1310,39 @@ export class ApiService {
  */
 export async function getRubrosWithFallback(projectId: string, baselineId?: string) {
   try {
+    // Tier 1: Try manual rubros
     const rubros = await ApiService.getRubros({ projectId, baseline: baselineId });
-    if (Array.isArray(rubros) && rubros.length) return rubros;
+    if (Array.isArray(rubros) && rubros.length) {
+      const total = rubros.reduce((sum, r) => sum + (r.total || 0), 0);
+      console.log('[getRubrosWithFallback] Tier 1 - Manual rubros:', {
+        count: rubros.length,
+        total: total,
+        projectId,
+        baselineId,
+      });
+      return rubros;
+    }
 
-    // Try server aggregated summary
+    // Tier 2: Try server aggregated summary
     try {
       const summary = await ApiService.getRubrosSummary(projectId, baselineId);
       if (summary && Array.isArray(summary.rubro_summary) && summary.rubro_summary.length) {
+        console.log('[getRubrosWithFallback] Tier 2 - Server summary:', {
+          count: summary.rubro_summary.length,
+          labor_total: summary.totals?.labor_total,
+          non_labor_total: summary.totals?.non_labor_total,
+          total: (summary.totals?.labor_total || 0) + (summary.totals?.non_labor_total || 0),
+          projectId,
+          baselineId,
+        });
         return summary.rubro_summary;
       }
     } catch (err) {
       // continue to client-side fallback if server summary not available
-      console.warn('rubros summary endpoint failed', err);
+      console.warn('[getRubrosWithFallback] Tier 2 failed, continuing to Tier 3:', err);
     }
 
-    // Client fallback: aggregate allocations + prefacturas
+    // Tier 3: Client fallback - aggregate allocations + prefacturas
     const [allocations, prefacturas] = await Promise.all([
       ApiService.getAllocations({ projectId, baseline: baselineId }),
       ApiService.getPrefacturas({ projectId, baseline: baselineId })
@@ -1358,9 +1376,21 @@ export async function getRubrosWithFallback(projectId: string, baselineId?: stri
       else push({ rubroId: p.rubroId, description: p.description, month: p.month || 1, amount: p.amount, type: p.type });
     });
 
-    return Array.from(map.values());
+    const aggregatedRubros = Array.from(map.values());
+    const total = aggregatedRubros.reduce((sum, r) => sum + r.total, 0);
+    
+    console.log('[getRubrosWithFallback] Tier 3 - Client aggregation:', {
+      count: aggregatedRubros.length,
+      total: total,
+      allocationsCount: allocations?.length || 0,
+      prefacturasCount: prefacturas?.length || 0,
+      projectId,
+      baselineId,
+    });
+    
+    return aggregatedRubros;
   } catch (err) {
-    console.error('getRubrosWithFallback failed', err);
+    console.error('[getRubrosWithFallback] All tiers failed:', err);
     return [];
   }
 }
