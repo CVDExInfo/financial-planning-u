@@ -16,6 +16,9 @@ const TABLE_PREFACTURAS = process.env.TABLE_PREFACTURAS || "finz_prefacturas";
 const TABLE_DOCS = process.env.TABLE_DOCS || "finz_docs";
 const DOCS_BUCKET = process.env.DOCS_BUCKET || process.env.S3_BUCKET;
 
+// S3 signed URL expiry time in seconds (10 minutes)
+const S3_SIGNED_URL_EXPIRY_SECONDS = 60 * 10;
+
 const ddbClient = new DynamoDBClient({ region: REGION });
 const ddb = DynamoDBDocumentClient.from(ddbClient);
 const s3Client = new S3Client({ region: REGION });
@@ -143,8 +146,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
           Key: objectKey,
         });
         s3SignedUrl = await getSignedUrl(s3Client, command, {
-          expiresIn: 60 * 10,
-        }); // 10 min
+          expiresIn: S3_SIGNED_URL_EXPIRY_SECONDS,
+        });
       }
     } catch (err) {
       // swallow doc errors, but continue with baseline summary

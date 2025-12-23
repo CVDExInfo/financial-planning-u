@@ -104,7 +104,7 @@ export default function RubrosBaselineSummary({
         
         // Call the callback to refresh the parent component
         if (onMaterializeComplete) {
-          setTimeout(() => onMaterializeComplete(), 1000);
+          onMaterializeComplete();
         }
       } else {
         toast.error('Error en materialización', {

@@ -4,6 +4,7 @@ import { materializeRubrosForBaseline } from "../../lib/materializers";
 import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { withCors, ok, bad, serverError } from "../../lib/http";
+import { ensureCanWrite } from "../../lib/auth";
 
 const REGION = process.env.AWS_REGION || "us-east-1";
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
@@ -22,7 +23,9 @@ async function fetchBaselinePayload(baselineId: string) {
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   try {
-    // NOTE: secure this endpoint — only admin users or internal network should call it.
+    // SECURITY: Ensure only authorized users (PMO, SDMT, SDM) can run backfill
+    await ensureCanWrite(event as never);
+    
     // Input: JSON body { projectId, baselineId, dryRun }
     const body = event.body ? JSON.parse(event.body) : {};
     const { projectId, baselineId, dryRun = true } = body;
