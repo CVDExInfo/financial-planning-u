@@ -1,4 +1,5 @@
 import { BatchWriteCommand, BatchWriteCommandInput } from "@aws-sdk/lib-dynamodb";
+import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { ddb, tableName } from "./dynamo";
 import { logError } from "../utils/logging";
 import { batchGetExistingItems } from "./dynamodbHelpers";
@@ -28,8 +29,46 @@ const MONTH_FORMAT = new Intl.DateTimeFormat("en", {
 
 const asArray = (value: unknown): any[] => (Array.isArray(value) ? value : []);
 
+/**
+ * Unmarshall DynamoDB-formatted data if it contains type descriptors
+ * (e.g., {"L": [...], "M": {...}, "S": "...", "N": "123"})
+ */
+const unmarshallIfNeeded = (value: unknown): any => {
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  
+  // Check if this looks like marshalled DynamoDB data by looking for type descriptors
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj);
+  
+  // DynamoDB type descriptors: S, N, B, SS, NS, BS, M, L, NULL, BOOL
+  const dynamoTypes = ["S", "N", "B", "SS", "NS", "BS", "M", "L", "NULL", "BOOL"];
+  
+  // If the object has exactly one key and it's a DynamoDB type descriptor, unmarshall it
+  if (keys.length === 1 && dynamoTypes.includes(keys[0])) {
+    try {
+      return unmarshall({ temp: value as any }).temp;
+    } catch (err) {
+      logError("[materializers] failed to unmarshall DynamoDB data", { value, error: err });
+      return value;
+    }
+  }
+  
+  // If it's an object with multiple fields that might be marshalled, try each field
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(obj)) {
+    result[key] = unmarshallIfNeeded(val);
+  }
+  
+  return result;
+};
+
 const normalizeBaseline = (baseline: BaselineLike) => {
-  const payload = (baseline.payload as Record<string, unknown> | undefined) || {};
+  // Unmarshall payload if it contains DynamoDB-formatted data
+  const rawPayload = (baseline.payload as Record<string, unknown> | undefined) || {};
+  const payload = unmarshallIfNeeded(rawPayload) as Record<string, unknown>;
+  
   const payloadLabor = asArray((payload as { labor_estimates?: any[] }).labor_estimates);
   const payloadNonLabor = asArray((payload as { non_labor_estimates?: any[] }).non_labor_estimates);
   const labor = asArray(baseline.labor_estimates);
