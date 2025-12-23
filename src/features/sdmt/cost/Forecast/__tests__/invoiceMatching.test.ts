@@ -8,32 +8,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { matchInvoiceToCell } from '../useSDMTForecastData';
 
 describe('Invoice Matching Logic', () => {
-  // Helper function (duplicated from hook for testing)
-  const matchInvoiceToCell = (inv: any, cell: any): boolean => {
-    if (!inv) return false;
-    
-    // Priority 1: Match by line_item_id
-    if (inv.line_item_id && inv.line_item_id === cell.line_item_id) {
-      return true;
-    }
-    
-    // Priority 2: Match by rubroId
-    if (inv.rubroId && inv.rubroId === cell.rubroId) {
-      return true;
-    }
-    
-    // Priority 3: Match by normalized description
-    const normalize = (s: any) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-    if (inv.description && cell.description && 
-        normalize(inv.description) === normalize(cell.description)) {
-      return true;
-    }
-    
-    return false;
-  };
-
   it('should match by line_item_id (highest priority)', () => {
     const invoice = {
       line_item_id: 'LI-123',

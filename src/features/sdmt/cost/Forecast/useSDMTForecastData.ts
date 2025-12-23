@@ -33,6 +33,45 @@ export interface UseSDMTForecastDataResult {
   materializationTimeout: boolean;
 }
 
+/**
+ * Helper to check if baseline is materialized
+ */
+export const isMaterialized = (baseline: any): boolean => {
+  return baseline?.materializedAt || baseline?.materialization_status === 'completed';
+};
+
+/**
+ * Helper to normalize strings for comparison (case-insensitive, whitespace-normalized)
+ */
+export const normalizeString = (s: any): string => {
+  return (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+};
+
+/**
+ * Helper function for robust invoice matching
+ */
+export const matchInvoiceToCell = (inv: any, cell: ForecastRow): boolean => {
+  if (!inv) return false;
+  
+  // Priority 1: Match by line_item_id
+  if (inv.line_item_id && inv.line_item_id === cell.line_item_id) {
+    return true;
+  }
+  
+  // Priority 2: Match by rubroId
+  if (inv.rubroId && inv.rubroId === cell.rubroId) {
+    return true;
+  }
+  
+  // Priority 3: Match by normalized description
+  if (inv.description && cell.description && 
+      normalizeString(inv.description) === normalizeString(cell.description)) {
+    return true;
+  }
+  
+  return false;
+};
+
 export function useSDMTForecastData({
   projectId,
   months = 12,
@@ -73,9 +112,9 @@ export function useSDMTForecastData({
       setBaseline(baselineResp);
 
       // Check if materialization is pending and poll if necessary
-      const isMaterialized = baselineResp.materializedAt || baselineResp.materialization_status === 'completed';
+      const materialized = isMaterialized(baselineResp);
       
-      if (!isMaterialized) {
+      if (!materialized) {
         setMaterializationPending(true);
         
         // Poll for materialization completion
@@ -87,7 +126,7 @@ export function useSDMTForecastData({
             attempts++;
             
             // Check if already materialized
-            if (baselineResp.materializedAt || baselineResp.materialization_status === 'completed') {
+            if (isMaterialized(baselineResp)) {
               return true;
             }
             
@@ -145,30 +184,6 @@ export function useSDMTForecastData({
       if (latestRequestKey.current !== requestKey) return; // stale
       
       const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
-      
-      // Helper function for robust invoice matching
-      const matchInvoiceToCell = (inv: any, cell: ForecastRow): boolean => {
-        if (!inv) return false;
-        
-        // Priority 1: Match by line_item_id
-        if (inv.line_item_id && inv.line_item_id === cell.line_item_id) {
-          return true;
-        }
-        
-        // Priority 2: Match by rubroId
-        if (inv.rubroId && inv.rubroId === cell.rubroId) {
-          return true;
-        }
-        
-        // Priority 3: Match by normalized description
-        const normalize = (s: any) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-        if (inv.description && cell.description && 
-            normalize(inv.description) === normalize(cell.description)) {
-          return true;
-        }
-        
-        return false;
-      };
       
       const rowsWithActuals = rows.map(cell => {
         const matchedInvoice = matchedInvoices.find(

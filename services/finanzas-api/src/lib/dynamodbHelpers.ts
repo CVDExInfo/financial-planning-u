@@ -39,7 +39,8 @@ export async function batchGetExistingRubros(
     
     while (resp.UnprocessedKeys && Object.keys(resp.UnprocessedKeys).length && attempts < maxRetries) {
       attempts++;
-      await new Promise(r => setTimeout(r, 200 * attempts));
+      // True exponential backoff: 200ms, 400ms, 800ms
+      await new Promise(r => setTimeout(r, 200 * Math.pow(2, attempts - 1)));
       
       const retryResp = await client.send(new BatchGetCommand({ 
         RequestItems: resp.UnprocessedKeys 
