@@ -13,6 +13,7 @@
     "build:pmo": "tsc -b --noCheck && BUILD_TARGET=pmo vite build",
     "build:finanzas": "bash scripts/pre-build-validate.sh && tsc -b --noCheck && BUILD_TARGET=finanzas vite build",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "test:unit": "VITE_API_BASE_URL=http://localhost tsx --test src/lib/__tests__/*.test.ts",
     "test:behavioral": "tsx --test tests/behavioral-api/*.test.ts",
     "test:ui": "playwright test tests/e2e/behavioral",

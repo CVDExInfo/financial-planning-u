@@ -204,6 +204,7 @@ export class ApiService {
             project?.fecha_inicio ||
             project?.fecha_fin ||
             "",
+          rubros_count: project?.rubros_count ?? project?.line_items_count ?? 0,
           next_billing_periods: [],
           status: (project?.status || project?.estado || "active") as Project["status"],
           created_at:
@@ -512,6 +513,30 @@ export class ApiService {
   }
 
   // Forecast Management
+  /**
+   * Get forecast data for a project with normalized envelope handling
+   * @param projectId - The project ID
+   * @returns Array of forecast cells
+   */
+  static async getForecast(projectId: string): Promise<ForecastCell[]> {
+    try {
+      const endpoint = `${API_ENDPOINTS.planForecast}?projectId=${encodeURIComponent(projectId)}`;
+      const payload = await this.request<{ data: any[] } | any[]>(endpoint);
+      
+      // Normalize envelope: some backends return { data: [...] }, others return bare array
+      const rows = Array.isArray((payload as any).data) 
+        ? (payload as any).data 
+        : Array.isArray(payload) 
+        ? payload 
+        : [];
+      
+      return rows as ForecastCell[];
+    } catch (err) {
+      logger.error("Failed to load forecast", err);
+      return []; // Safe fallback
+    }
+  }
+
   static async getForecastPayload(
     project_id: string,
     period_months?: number,

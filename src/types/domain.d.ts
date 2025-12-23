@@ -212,6 +212,7 @@ export type Project = {
   rejected_by?: string | null;
   baseline_rejected_at?: string;
   rejection_comment?: string;
+  rubros_count?: number;
   next_billing_periods: BillingPeriod[];
   status: "active" | "completed" | "on_hold";
   created_at: string;

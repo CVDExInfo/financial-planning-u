@@ -18,6 +18,7 @@ export const API_BASE_URL = API_BASE;
 // API Endpoints
 export const API_ENDPOINTS = {
   forecast: "/plan/forecast",
+  planForecast: "/plan/forecast", // Alias for forecast endpoint
   // Projects
   projects: "/projects",
   projectById: (id: string) => `/projects/${id}`,
