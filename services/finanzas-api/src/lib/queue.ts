@@ -4,7 +4,7 @@ import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 const sqs = new SQSClient({ region: process.env.AWS_REGION });
 
 export async function enqueueMaterialization(baselineId: string, projectId?: string) {
-  const QueueUrl = process.env.MATERIALIZE_QUEUE_URL!;
+  const QueueUrl = process.env.MATERIALIZE_QUEUE_URL;
   if (!QueueUrl) {
     throw new Error("MATERIALIZE_QUEUE_URL not set");
   }

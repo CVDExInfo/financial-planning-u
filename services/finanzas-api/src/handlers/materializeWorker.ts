@@ -2,7 +2,8 @@
 import { SQSEvent } from "aws-lambda";
 import { materializeRubrosForBaseline, materializeAllocationsForBaseline } from "../lib/materializers";
 import { logDataHealth } from "../lib/dataHealth";
-import { ddb, tableName, GetCommand } from "../lib/dynamo";
+import { ddb, tableName } from "../lib/dynamo";
+import { GetCommand } from "@aws-sdk/lib-dynamodb";
 
 async function fetchBaselinePayload(baselineId: string) {
   try {

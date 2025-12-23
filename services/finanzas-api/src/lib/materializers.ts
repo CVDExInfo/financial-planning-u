@@ -270,6 +270,7 @@ export const materializeRubrosForBaseline = async (
   }
 
   // Check for existing rubros to ensure idempotent writes
+  // Note: This could be optimized with BatchGetItem for large numbers of rubros
   const rubrosToWrite: any[] = [];
   for (const rubro of uniqueRubros) {
     try {
