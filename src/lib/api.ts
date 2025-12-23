@@ -513,6 +513,30 @@ export class ApiService {
   }
 
   // Forecast Management
+  /**
+   * Get forecast data for a project with normalized envelope handling
+   * @param projectId - The project ID
+   * @returns Array of forecast cells
+   */
+  static async getForecast(projectId: string): Promise<ForecastCell[]> {
+    try {
+      const endpoint = `${API_ENDPOINTS.planForecast}?projectId=${encodeURIComponent(projectId)}`;
+      const payload = await this.request<{ data: any[] } | any[]>(endpoint);
+      
+      // Normalize envelope: some backends return { data: [...] }, others return bare array
+      const rows = Array.isArray((payload as any).data) 
+        ? (payload as any).data 
+        : Array.isArray(payload) 
+        ? payload 
+        : [];
+      
+      return rows as ForecastCell[];
+    } catch (err) {
+      logger.error("Failed to load forecast", err);
+      return []; // Safe fallback
+    }
+  }
+
   static async getForecastPayload(
     project_id: string,
     period_months?: number,

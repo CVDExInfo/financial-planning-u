@@ -2,6 +2,10 @@
 set -euo pipefail
 echo "Running pre-merge checks..."
 
+# Export required environment variables for build
+export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev}"
+export CI="${CI:-false}"
+
 # 1. Install dependencies
 npm ci
 
