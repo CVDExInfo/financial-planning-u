@@ -150,17 +150,33 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
   // Enqueue materialization job if MATERIALIZE_QUEUE_URL is configured
   if (process.env.MATERIALIZE_QUEUE_URL) {
     try {
+      // Attempt to set materializationQueuedAt only if it doesn't exist yet
+      // This prevents duplicate enqueuing if the baseline is accepted multiple times
+      await ddb.send(new UpdateCommand({
+        TableName: tableName("prefacturas"),
+        Key: { pk: `BASELINE#${baselineId}`, sk: 'METADATA' },
+        UpdateExpression: 'SET materializationQueuedAt = :now',
+        ConditionExpression: 'attribute_not_exists(materializationQueuedAt)',
+        ExpressionAttributeValues: { ':now': new Date().toISOString() }
+      }));
+      
+      // Only enqueue if we successfully updated (this means not queued before)
       await enqueueMaterialization(baselineId, projectId);
-    } catch (err) {
-      console.error("Failed to enqueue materialization", err);
-      // Record the failure in data_health for ops
-      await logDataHealth({
-        projectId,
-        baselineId,
-        type: "materialize_enqueuer_error",
-        message: String(err),
-        createdAt: new Date().toISOString()
-      });
+    } catch (err: any) {
+      if (err.name === 'ConditionalCheckFailedException') {
+        // Already queued — noop, but log
+        console.info('Materialization already queued for baseline', baselineId);
+      } else {
+        console.error("Failed to enqueue materialization", err);
+        // Record the failure in data_health for ops
+        await logDataHealth({
+          projectId,
+          baselineId,
+          type: "materialize_enqueuer_error",
+          message: String(err),
+          createdAt: new Date().toISOString()
+        });
+      }
     }
   }
 

@@ -39,6 +39,8 @@ describe('useSDMTForecastData Hook Module', () => {
         forecastRows: 'ForecastRow[]',
         refresh: 'function',
         saveForecast: 'function',
+        materializationPending: 'boolean',
+        materializationTimeout: 'boolean',
       },
     };
     
