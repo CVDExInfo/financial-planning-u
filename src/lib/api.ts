@@ -1325,6 +1325,7 @@ export async function getRubrosWithFallback(projectId: string, baselineId?: stri
 
     const map = new Map();
     const push = (item: any) => {
+      // Use a deterministic key: prefer rubroId, then role, then description
       const key = item.rubroId || item.role || item.description || 'unknown';
       let e = map.get(key);
       if (!e) {
@@ -1337,9 +1338,11 @@ export async function getRubrosWithFallback(projectId: string, baselineId?: stri
         };
         map.set(key, e);
       }
-      const month = (item.month || 1) - 1;
-      e.monthly[month] = (e.monthly[month] || 0) + (item.amount || 0);
-      e.total += (item.amount || 0);
+      // Validate month range (1-12) and clamp to valid array index (0-11)
+      const monthIndex = Math.max(0, Math.min(11, (item.month || 1) - 1));
+      const amount = item.amount || 0;
+      e.monthly[monthIndex] = (e.monthly[monthIndex] || 0) + amount;
+      e.total += amount;
     };
 
     (allocations || []).forEach(push);
