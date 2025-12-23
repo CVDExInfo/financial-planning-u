@@ -288,6 +288,7 @@ export function PMOBaselinesQueuePage() {
                     >
                       Status <SortIcon field="status" />
                     </TableHead>
+                    <TableHead>Rubros</TableHead>
                     <TableHead>Accepted/Rejected By</TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50"

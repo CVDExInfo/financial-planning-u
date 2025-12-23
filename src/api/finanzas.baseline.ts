@@ -11,6 +11,16 @@ export interface BaselineSummary {
   rolesCount: number;
   signedBy: string | null;
   signedAt: string | null;
+  acceptedBy?: string | null;
+  acceptedAt?: string | null;
+  rejectedBy?: string | null;
+  rejectedAt?: string | null;
+  rejectionComment?: string | null;
+  materializedAt?: string | null;
+  materializationStatus?: string | null;
+  materializationQueuedAt?: string | null;
+  rubrosCount?: number | null;
+  rubrosByType?: { labor: number; nonLabor: number } | null;
   contractValue: number;
   currency: string;
   doc: {
