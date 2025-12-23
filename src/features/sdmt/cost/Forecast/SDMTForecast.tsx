@@ -97,6 +97,9 @@ export function SDMTForecast() {
   const [dirtyForecasts, setDirtyForecasts] = useState<Record<string, ForecastRow>>({});
   const [savingForecasts, setSavingForecasts] = useState(false);
   
+  // Sorting state for forecast grid
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
   // Stale response guard: Track latest request to prevent race conditions
   const latestRequestKeyRef = useRef<string>('');
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -359,7 +362,12 @@ export function SDMTForecast() {
       return; // Stale, abort processing
     }
     
-    let normalized = normalizeForecastCells(payload.data);
+    // Pass baseline ID and enable debug mode in development for better diagnostics
+    const debugMode = import.meta.env.DEV;
+    let normalized = normalizeForecastCells(payload.data, { 
+      baselineId: currentProject?.baselineId, 
+      debugMode 
+    });
     let usedFallback = false;
     
     // Fallback: If server forecast is empty and we have line items, use them
@@ -467,7 +475,11 @@ export function SDMTForecast() {
           return null;
         }
 
-        const normalized = normalizeForecastCells(payload.data);
+        const debugMode = import.meta.env.DEV;
+        const normalized = normalizeForecastCells(payload.data, {
+          baselineId: project.baselineId,
+          debugMode
+        });
         const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
 
         const projectData: ForecastRow[] = normalized.map(cell => {
@@ -960,12 +972,32 @@ export function SDMTForecast() {
       };
     }).filter(item => item.hasNonZeroValues); // Only show items with data
 
-    if (import.meta.env.DEV && grid.length > 0) {
-      console.debug('[Forecast] Grid recalculated', { projectId: selectedProjectId, rows: grid.length });
+    // Apply sorting: sort by category, then by description
+    const sorted = [...grid].sort((a, b) => {
+      const categoryA = a.lineItem.category || 'Sin categoría';
+      const categoryB = b.lineItem.category || 'Sin categoría';
+      const descriptionA = a.lineItem.description || '';
+      const descriptionB = b.lineItem.description || '';
+      
+      // Primary sort by category
+      const categoryCompare = sortDirection === 'asc' 
+        ? categoryA.localeCompare(categoryB, 'es')
+        : categoryB.localeCompare(categoryA, 'es');
+      
+      if (categoryCompare !== 0) return categoryCompare;
+      
+      // Secondary sort by description
+      return sortDirection === 'asc'
+        ? descriptionA.localeCompare(descriptionB, 'es')
+        : descriptionB.localeCompare(descriptionA, 'es');
+    });
+
+    if (import.meta.env.DEV && sorted.length > 0) {
+      console.debug('[Forecast] Grid recalculated', { projectId: selectedProjectId, rows: sorted.length, sortDirection });
     }
 
-    return grid;
-  }, [lineItemsForGrid, filteredForecastData, selectedProjectId, selectedPeriod]);
+    return sorted;
+  }, [lineItemsForGrid, filteredForecastData, selectedProjectId, selectedPeriod, sortDirection]);
 
   // Group forecast grid by category with sub-totals
   const forecastGridWithSubtotals = useMemo(() => {
@@ -976,7 +1008,7 @@ export function SDMTForecast() {
       monthlyData: ForecastRow[];
     };
 
-    // Group items by category
+    // Group items by category (items are already sorted within categories due to forecastGrid sort)
     const itemsByCategory = new Map<string, typeof forecastGrid>();
     forecastGrid.forEach(item => {
       const category = item.lineItem.category || 'Sin categoría';
@@ -986,6 +1018,13 @@ export function SDMTForecast() {
       itemsByCategory.get(category)!.push(item);
     });
 
+    // Sort categories by name to maintain consistent order
+    const sortedCategories = Array.from(itemsByCategory.keys()).sort((a, b) => 
+      sortDirection === 'asc' 
+        ? a.localeCompare(b, 'es')
+        : b.localeCompare(a, 'es')
+    );
+
     // Build rows with sub-totals
     const rows: GridRow[] = [];
     const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
@@ -994,8 +1033,10 @@ export function SDMTForecast() {
       ? [currentMonthIndex] 
       : Array.from({ length: 12 }, (_, i) => i + 1);
 
-    itemsByCategory.forEach((categoryItems, category) => {
-      // Add category items
+    sortedCategories.forEach(category => {
+      const categoryItems = itemsByCategory.get(category)!;
+      
+      // Add category items (already sorted by description within category)
       categoryItems.forEach(item => {
         rows.push({
           type: 'item',
@@ -1035,7 +1076,7 @@ export function SDMTForecast() {
     });
 
     return rows;
-  }, [forecastGrid, selectedPeriod]);
+  }, [forecastGrid, selectedPeriod, sortDirection]);
 
   const totalFTE = useMemo(() => {
     return lineItemsForGrid.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
@@ -1323,6 +1364,11 @@ export function SDMTForecast() {
     } finally {
       setExporting(null);
     }
+  };
+
+  // Toggle sort direction for forecast grid
+  const toggleSortDirection = () => {
+    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
   return (
@@ -2044,7 +2090,22 @@ export function SDMTForecast() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="sticky left-0 bg-background min-w-[300px]">Rubro</TableHead>
+                    <TableHead 
+                      className="sticky left-0 bg-background min-w-[300px] cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={toggleSortDirection}
+                      title="Click para ordenar"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && toggleSortDirection()}
+                      aria-label={`Ordenar por rubro - actualmente ${sortDirection === 'asc' ? 'ascendente' : 'descendente'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Rubro</span>
+                        <span className="text-muted-foreground" aria-hidden="true">
+                          {sortDirection === 'asc' ? '▲' : '▼'}
+                        </span>
+                      </div>
+                    </TableHead>
                     {(() => {
                       const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
                       const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
