@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import React from "react";
-import { renderToString } from "react-dom/server";
 
 /**
  * Test suite for BaselineStatusPanel component
@@ -13,12 +11,12 @@ import { renderToString } from "react-dom/server";
  */
 
 describe("BaselineStatusPanel", () => {
-  it("should be importable", () => {
+  it("should be importable", async () => {
     // Since we can't easily test React hooks and context in server-side rendering,
     // we'll just verify the module can be imported
-    const { BaselineStatusPanel } = require("../BaselineStatusPanel");
-    assert.ok(BaselineStatusPanel);
-    assert.equal(typeof BaselineStatusPanel, "function");
+    const module = await import("../BaselineStatusPanel");
+    assert.ok(module.BaselineStatusPanel);
+    assert.equal(typeof module.BaselineStatusPanel, "function");
   });
 
   // Additional integration tests would typically be done with Playwright

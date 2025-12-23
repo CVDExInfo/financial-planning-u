@@ -54,11 +54,11 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   const canViewStatus = isSDMT || isPMO || isPM || isExecRO || isVendor;
   const canActOnBaseline = isSDMT; // Only SDMT can accept/reject
 
-  // Fetch baseline details when baseline exists and rubros_count is 0
+  // Fetch baseline details when baseline exists and rubros_count is 0 or null/undefined
   useEffect(() => {
     const shouldFetchBaseline = 
       currentProject?.baselineId && 
-      (currentProject.rubros_count === 0 || currentProject.rubros_count === undefined);
+      (currentProject.rubros_count == null || currentProject.rubros_count === 0);
     
     if (shouldFetchBaseline) {
       setLoadingBaseline(true);
@@ -190,6 +190,13 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     return monthlyRate * months * onCostMultiplier;
   };
 
+  // Helper function to calculate monthly cost for labor estimate (for table display)
+  const calculateMonthlyLaborCost = (estimate: BaselineDetail['labor_estimates'][0]) => {
+    const monthlyRate = (estimate.hourly_rate || 0) * (estimate.hours_per_month || 160) * (estimate.fte_count || 1);
+    const onCostMultiplier = 1 + ((estimate.on_cost_percentage || 0) / 100);
+    return monthlyRate * onCostMultiplier;
+  };
+
   const handleMaterializeClick = () => {
     if (!currentProject?.id || !currentProject?.baselineId) {
       toast.error("No se puede materializar: falta información del proyecto o baseline");
@@ -291,9 +298,7 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
                     </thead>
                     <tbody>
                       {labor_estimates.map((est, idx) => {
-                        const monthlyRate = (est.hourly_rate || 0) * (est.hours_per_month || 160) * (est.fte_count || 1);
-                        const onCostMultiplier = 1 + ((est.on_cost_percentage || 0) / 100);
-                        const totalMonthly = monthlyRate * onCostMultiplier;
+                        const totalMonthly = calculateMonthlyLaborCost(est);
                         
                         return (
                           <tr key={idx} className="border-t">
@@ -580,8 +585,8 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
             )}
           </div>
 
-          {/* Render baseline details table when rubros_count is 0 */}
-          {(currentProject.rubros_count === 0 || currentProject.rubros_count === undefined) && renderBaselineDetails()}
+          {/* Render baseline details table when rubros_count is 0 or null/undefined */}
+          {(currentProject.rubros_count == null || currentProject.rubros_count === 0) && renderBaselineDetails()}
         </CardContent>
       </Card>
 
