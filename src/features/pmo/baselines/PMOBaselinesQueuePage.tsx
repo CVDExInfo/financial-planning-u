@@ -36,6 +36,7 @@ interface ProjectWithBaseline {
   rejected_by?: string | null;
   baseline_rejected_at?: string;
   rejection_comment?: string;
+  rubros_count?: number;
 }
 
 type SortField = "name" | "client" | "status" | "date";
@@ -291,6 +292,9 @@ export function PMOBaselinesQueuePage() {
                         </code>
                       </TableCell>
                       <TableCell>{getStatusBadge(project.baseline_status)}</TableCell>
+                      <TableCell>
+                        {typeof project.rubros_count === "number" ? project.rubros_count : "—"}
+                      </TableCell>
                       <TableCell className="text-sm">
                         {project.baseline_status === "accepted" && project.accepted_by && (
                           <span className="text-green-700 dark:text-green-400">
@@ -315,6 +319,14 @@ export function PMOBaselinesQueuePage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate(`/projects/${project.id}/cost-structure`)}
+                          >
+                            Ver Rubros
+                            <ExternalLink className="ml-2 h-3 w-3" />
+                          </Button>
                           {project.baseline_status === "rejected" && (
                             <Button
                               variant="outline"
