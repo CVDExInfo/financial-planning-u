@@ -48,12 +48,13 @@ interface ProjectWithBaseline {
   non_labor_cost?: number;
 }
 
-type SortField = "name" | "client" | "status" | "date";
+type SortField = "name" | "client" | "status" | "date" | "rubros_count" | "baseline_accepted_at";
 type SortDirection = "asc" | "desc";
 
 export function PMOBaselinesQueuePage() {
   const navigate = useNavigate();
   const [selectedStatus, setSelectedStatus] = useState<"all" | BaselineStatus>("all");
+  const [showMissingRubros, setShowMissingRubros] = useState(false);
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
@@ -126,12 +127,26 @@ export function PMOBaselinesQueuePage() {
   };
 
   const filteredProjects = projects?.filter((p) => {
-    if (selectedStatus === "all") return true;
+    if (selectedStatus === "all") {
+      // If "Missing Rubros" is active, filter by rubros_count === 0
+      if (showMissingRubros) {
+        return p.rubros_count === 0;
+      }
+      return true;
+    }
     // For "handed_off" filter, show both pending and handed_off statuses
     if (selectedStatus === "handed_off") {
-      return p.baseline_status === "pending" || p.baseline_status === "handed_off";
+      const matchesStatus = p.baseline_status === "pending" || p.baseline_status === "handed_off";
+      if (showMissingRubros) {
+        return matchesStatus && p.rubros_count === 0;
+      }
+      return matchesStatus;
     }
-    return p.baseline_status === selectedStatus;
+    const matchesStatus = p.baseline_status === selectedStatus;
+    if (showMissingRubros) {
+      return matchesStatus && p.rubros_count === 0;
+    }
+    return matchesStatus;
   });
 
   // Sort projects
@@ -154,6 +169,14 @@ export function PMOBaselinesQueuePage() {
         bValue = statusOrder[b.baseline_status as keyof typeof statusOrder] ?? 999;
         break;
       }
+      case "rubros_count":
+        aValue = a.rubros_count ?? -1;
+        bValue = b.rubros_count ?? -1;
+        break;
+      case "baseline_accepted_at":
+        aValue = a.baseline_accepted_at ? new Date(a.baseline_accepted_at).getTime() : 0;
+        bValue = b.baseline_accepted_at ? new Date(b.baseline_accepted_at).getTime() : 0;
+        break;
       case "date":
         aValue = a.baseline_status === "accepted" 
           ? new Date(a.baseline_accepted_at || 0).getTime()
@@ -194,6 +217,7 @@ export function PMOBaselinesQueuePage() {
     pending: projects?.filter((p) => p.baseline_status === "pending" || p.baseline_status === "handed_off").length || 0,
     accepted: projects?.filter((p) => p.baseline_status === "accepted").length || 0,
     rejected: projects?.filter((p) => p.baseline_status === "rejected").length || 0,
+    missingRubros: projects?.filter((p) => p.rubros_count === 0).length || 0,
   };
 
   if (error) {
@@ -214,7 +238,7 @@ export function PMOBaselinesQueuePage() {
       {/* Status Filter Tabs */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant={selectedStatus === "all" ? "default" : "outline"}
               size="sm"
@@ -246,6 +270,16 @@ export function PMOBaselinesQueuePage() {
             >
               <XCircle className="mr-2 h-4 w-4" />
               Rejected ({statusCounts.rejected})
+            </Button>
+            <div className="flex-1" />
+            <Button
+              variant={showMissingRubros ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowMissingRubros(!showMissingRubros)}
+              className={showMissingRubros ? "bg-orange-600 hover:bg-orange-700" : ""}
+            >
+              <AlertCircle className="mr-2 h-4 w-4" />
+              Missing Rubros ({statusCounts.missingRubros})
             </Button>
           </div>
         </CardContent>
@@ -291,9 +325,15 @@ export function PMOBaselinesQueuePage() {
                     <TableHead>Accepted/Rejected By</TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleSort("date")}
+                      onClick={() => handleSort("rubros_count")}
                     >
-                      Date <SortIcon field="date" />
+                      Rubros <SortIcon field="rubros_count" />
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("baseline_accepted_at")}
+                    >
+                      Accepted At <SortIcon field="baseline_accepted_at" />
                     </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -311,13 +351,28 @@ export function PMOBaselinesQueuePage() {
                         </code>
                       </TableCell>
                       <TableCell>{getStatusBadge(project.baseline_status)}</TableCell>
+                      <TableCell className="text-sm">
+                        {project.baseline_status === "accepted" && project.accepted_by && (
+                          <span className="text-green-700 dark:text-green-400">
+                            {project.accepted_by}
+                          </span>
+                        )}
+                        {project.baseline_status === "rejected" && project.rejected_by && (
+                          <span className="text-red-700 dark:text-red-400">
+                            {project.rejected_by}
+                          </span>
+                        )}
+                        {(project.baseline_status === "pending" || project.baseline_status === "handed_off") && (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {typeof project.rubros_count === "number" ? (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <div className="flex items-center gap-2 cursor-help">
-                                  <span className="font-medium">{project.rubros_count} Rubros</span>
+                                  <span className="font-medium">{project.rubros_count}</span>
                                   {(project.labor_cost !== undefined || project.non_labor_cost !== undefined) && (
                                     <Info className="h-3 w-3 text-muted-foreground" />
                                   )}
@@ -350,34 +405,15 @@ export function PMOBaselinesQueuePage() {
                           "—"
                         )}
                       </TableCell>
-                      <TableCell className="text-sm">
-                        {project.baseline_status === "accepted" && project.accepted_by && (
-                          <span className="text-green-700 dark:text-green-400">
-                            {project.accepted_by}
-                          </span>
-                        )}
-                        {project.baseline_status === "rejected" && project.rejected_by && (
-                          <span className="text-red-700 dark:text-red-400">
-                            {project.rejected_by}
-                          </span>
-                        )}
-                        {(project.baseline_status === "pending" || project.baseline_status === "handed_off") && (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {project.baseline_status === "accepted"
-                          ? formatDate(project.baseline_accepted_at)
-                          : project.baseline_status === "rejected"
-                            ? formatDate(project.baseline_rejected_at)
-                            : "—"}
+                        {formatDate(project.baseline_accepted_at)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate(`/projects/${project.id}/cost-structure`)}
+                            onClick={() => navigate(`/finanzas/sdmt/cost/catalog?projectId=${project.id}&baseline=${project.baseline_id}`)}
                           >
                             Ver Rubros
                             <ExternalLink className="ml-2 h-3 w-3" />
