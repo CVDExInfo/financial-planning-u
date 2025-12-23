@@ -26,7 +26,7 @@ import {
 import { toast } from "sonner";
 import { useProject } from "@/contexts/ProjectContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { acceptBaseline, rejectBaseline, getBaselineById, handoffBaseline, type BaselineDetail } from "@/api/finanzas";
+import { acceptBaseline, rejectBaseline, getBaselineById, type BaselineDetail } from "@/api/finanzas";
 import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -48,6 +48,7 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   const [baselineDetail, setBaselineDetail] = useState<BaselineDetail | null>(null);
   const [loadingBaseline, setLoadingBaseline] = useState(false);
   const [materializing, setMaterializing] = useState(false);
+  const [confirmMaterializeOpen, setConfirmMaterializeOpen] = useState(false);
 
   // Role-based visibility control
   const canViewStatus = isSDMT || isPMO || isPM || isExecRO || isVendor;
@@ -181,15 +182,28 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     rejectMutation.mutate();
   };
 
-  const handleMaterialize = async () => {
+  // Helper function to calculate labor estimate total cost
+  const calculateLaborCost = (estimate: BaselineDetail['labor_estimates'][0]) => {
+    const monthlyRate = (estimate.hourly_rate || 0) * (estimate.hours_per_month || 160) * (estimate.fte_count || 1);
+    const months = (estimate.end_month || 12) - (estimate.start_month || 1) + 1;
+    const onCostMultiplier = 1 + ((estimate.on_cost_percentage || 0) / 100);
+    return monthlyRate * months * onCostMultiplier;
+  };
+
+  const handleMaterializeClick = () => {
     if (!currentProject?.id || !currentProject?.baselineId) {
       toast.error("No se puede materializar: falta información del proyecto o baseline");
       return;
     }
+    setConfirmMaterializeOpen(true);
+  };
 
-    if (!confirm("¿Confirmar materialización de rubros en la base de datos? Esta acción creará los rubros basados en el baseline aceptado.")) {
+  const handleMaterializeConfirm = async () => {
+    if (!currentProject?.id || !currentProject?.baselineId) {
       return;
     }
+
+    setConfirmMaterializeOpen(false);
 
     try {
       setMaterializing(true);
@@ -228,14 +242,8 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
 
     const { labor_estimates = [], non_labor_estimates = [], supporting_documents = [] } = baselineDetail;
     
-    // Calculate totals
-    const laborTotal = labor_estimates.reduce((sum, est) => {
-      const monthlyRate = (est.hourly_rate || 0) * (est.hours_per_month || 160) * (est.fte_count || 1);
-      const months = (est.end_month || 12) - (est.start_month || 1) + 1;
-      const onCostMultiplier = 1 + ((est.on_cost_percentage || 0) / 100);
-      return sum + (monthlyRate * months * onCostMultiplier);
-    }, 0);
-
+    // Calculate totals using helper function
+    const laborTotal = labor_estimates.reduce((sum, est) => sum + calculateLaborCost(est), 0);
     const nonLaborTotal = non_labor_estimates.reduce((sum, est) => sum + (est.amount || 0), 0);
     
     const hasItems = labor_estimates.length > 0 || non_labor_estimates.length > 0;
@@ -357,7 +365,7 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
             {canActOnBaseline && normalizedStatus === "accepted" && (
               <div className="flex items-center justify-end gap-2 pt-2">
                 <Button
-                  onClick={handleMaterialize}
+                  onClick={handleMaterializeClick}
                   disabled={materializing}
                   variant="default"
                   size="sm"
@@ -626,6 +634,52 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
                 </>
               ) : (
                 "Reject Baseline"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Materialize Confirmation Dialog */}
+      <Dialog open={confirmMaterializeOpen} onOpenChange={setConfirmMaterializeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Materializar Baseline</DialogTitle>
+            <DialogDescription>
+              ¿Confirmar materialización de rubros en la base de datos? Esta acción creará los rubros basados en el baseline aceptado.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              Esta acción convertirá las estimaciones del baseline en rubros editables del catálogo.
+            </AlertDescription>
+          </Alert>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmMaterializeOpen(false)}
+              disabled={materializing}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleMaterializeConfirm}
+              disabled={materializing}
+            >
+              {materializing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Materializando...
+                </>
+              ) : (
+                <>
+                  <Zap className="mr-2 h-4 w-4" />
+                  Confirmar Materialización
+                </>
               )}
             </Button>
           </DialogFooter>
