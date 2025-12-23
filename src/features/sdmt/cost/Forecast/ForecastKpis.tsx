@@ -71,7 +71,7 @@ export function ForecastKpis({ kpis, loading = false }: ForecastKpisProps) {
                   <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-xs max-w-xs">Suma de costos planificados importados desde Planview baseline</p>
+                  <p className="text-xs max-w-xs">Sum of planned costs imported from Planview baseline</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -91,7 +91,7 @@ export function ForecastKpis({ kpis, loading = false }: ForecastKpisProps) {
                   <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-xs max-w-xs">Pronóstico ajustado por SDMT basado en tendencias y factores de riesgo</p>
+                  <p className="text-xs max-w-xs">Adjusted forecast by SDMT based on trends and risk factors</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -111,7 +111,7 @@ export function ForecastKpis({ kpis, loading = false }: ForecastKpisProps) {
                   <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-xs max-w-xs">Gastos reales registrados en el sistema desde facturas conciliadas</p>
+                  <p className="text-xs max-w-xs">Actual expenses recorded in system from reconciled invoices</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -142,7 +142,7 @@ export function ForecastKpis({ kpis, loading = false }: ForecastKpisProps) {
                   <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-xs max-w-xs">Diferencia entre pronóstico y planificado (Forecast - Planned)</p>
+                  <p className="text-xs max-w-xs">Difference between forecast and planned (Forecast - Planned)</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -168,7 +168,7 @@ export function ForecastKpis({ kpis, loading = false }: ForecastKpisProps) {
                   <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-xs max-w-xs">Diferencia entre gastos reales y planificado (Actual - Planned)</p>
+                  <p className="text-xs max-w-xs">Difference between actual and planned (Actual - Planned)</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

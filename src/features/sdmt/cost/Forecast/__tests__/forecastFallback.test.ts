@@ -7,12 +7,13 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
+import { computeForecastFromAllocations, type Allocation } from '../computeForecastFromAllocations';
 
 describe('Forecast Fallback Logic', () => {
   describe('computeForecastFromAllocations', () => {
     it('should create forecast cells from allocation data', () => {
       // Mock allocation data from /allocations endpoint
-      const allocations = [
+      const allocations: Allocation[] = [
         {
           month: '2025-01',
           amount: 50000,
@@ -237,76 +238,3 @@ describe('Forecast Fallback Logic', () => {
     });
   });
 });
-
-// Helper function implementation for testing
-// This mirrors the private function in useSDMTForecastData
-function computeForecastFromAllocations(
-  allocations: any[],
-  rubros: any[],
-  months: number,
-  projectId?: string
-): any[] {
-  if (!allocations || allocations.length === 0) {
-    return [];
-  }
-
-  const allocationMap = new Map<string, { month: number; amount: number; rubroId?: string }[]>();
-  
-  allocations.forEach(alloc => {
-    let monthNum = 0;
-    if (typeof alloc.month === 'number') {
-      monthNum = alloc.month;
-    } else if (typeof alloc.month === 'string') {
-      const match = alloc.month.match(/\d{4}-(\d{2})/);
-      if (match) {
-        monthNum = parseInt(match[1], 10);
-      }
-    }
-    
-    if (monthNum >= 1 && monthNum <= 12) {
-      const rubroId = alloc.rubroId || alloc.rubro_id || alloc.line_item_id || 'UNKNOWN';
-      const key = `${rubroId}-${monthNum}`;
-      
-      if (!allocationMap.has(key)) {
-        allocationMap.set(key, []);
-      }
-      
-      allocationMap.get(key)!.push({
-        month: monthNum,
-        amount: Number(alloc.amount || 0),
-        rubroId,
-      });
-    }
-  });
-
-  const forecastCells: any[] = [];
-  
-  allocationMap.forEach((allocList, key) => {
-    if (allocList.length === 0) return;
-    
-    const firstAlloc = allocList[0];
-    const totalAmount = allocList.reduce((sum, a) => sum + a.amount, 0);
-    const rubroId = firstAlloc.rubroId || 'UNKNOWN';
-    
-    const matchingRubro = rubros.find(r => 
-      r.id === rubroId
-    );
-    
-    forecastCells.push({
-      line_item_id: rubroId,
-      rubroId: rubroId,
-      description: matchingRubro?.description || `Allocation ${rubroId}`,
-      category: matchingRubro?.category || 'Allocations',
-      month: firstAlloc.month,
-      planned: totalAmount,
-      forecast: totalAmount,
-      actual: 0,
-      variance: 0,
-      last_updated: new Date().toISOString(),
-      updated_by: 'system-allocations',
-      projectId,
-    });
-  });
-
-  return forecastCells;
-}

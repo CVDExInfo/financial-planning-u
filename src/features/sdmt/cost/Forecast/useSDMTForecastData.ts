@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { transformLineItemsToForecast, type ForecastRow } from './transformLineItemsToForecast';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
 import { getProjectRubros, getAllocations } from '@/api/finanzas';
+import { computeForecastFromAllocations, type Allocation } from './computeForecastFromAllocations';
 import type { LineItem } from '@/types/domain';
 import finanzasClient from '@/api/finanzasClient';
 
@@ -74,93 +75,6 @@ export const matchInvoiceToCell = (inv: any, cell: ForecastRow): boolean => {
   
   return false;
 };
-
-/**
- * Compute minimal forecast from allocations data
- * 
- * When server forecast is empty but allocations exist, this creates a basic
- * forecast grid showing month totals from allocation data.
- * 
- * @param allocations - Allocation records from /allocations endpoint
- * @param rubros - Line items from /rubros endpoint (for enrichment)
- * @param months - Number of months to generate
- * @param projectId - Project identifier
- * @returns Array of forecast cells with month totals
- */
-function computeForecastFromAllocations(
-  allocations: any[],
-  rubros: LineItem[],
-  months: number,
-  projectId?: string
-): ForecastRow[] {
-  if (!allocations || allocations.length === 0) {
-    return [];
-  }
-
-  // Group allocations by month and rubroId
-  const allocationMap = new Map<string, { month: number; amount: number; rubroId?: string }[]>();
-  
-  allocations.forEach(alloc => {
-    // Parse month from allocation (could be "2025-01" format or month number)
-    let monthNum = 0;
-    if (typeof alloc.month === 'number') {
-      monthNum = alloc.month;
-    } else if (typeof alloc.month === 'string') {
-      const match = alloc.month.match(/\d{4}-(\d{2})/);
-      if (match) {
-        monthNum = parseInt(match[1], 10);
-      }
-    }
-    
-    if (monthNum >= 1 && monthNum <= 12) {
-      const rubroId = alloc.rubroId || alloc.rubro_id || alloc.line_item_id || 'UNKNOWN';
-      const key = `${rubroId}-${monthNum}`;
-      
-      if (!allocationMap.has(key)) {
-        allocationMap.set(key, []);
-      }
-      
-      allocationMap.get(key)!.push({
-        month: monthNum,
-        amount: Number(alloc.amount || 0),
-        rubroId,
-      });
-    }
-  });
-
-  // Create forecast cells from aggregated allocations
-  const forecastCells: ForecastRow[] = [];
-  
-  allocationMap.forEach((allocList, key) => {
-    if (allocList.length === 0) return;
-    
-    const firstAlloc = allocList[0];
-    const totalAmount = allocList.reduce((sum, a) => sum + a.amount, 0);
-    const rubroId = firstAlloc.rubroId || 'UNKNOWN';
-    
-    // Try to find matching rubro for metadata
-    const matchingRubro = rubros.find(r => 
-      r.id === rubroId
-    );
-    
-    forecastCells.push({
-      line_item_id: rubroId,
-      rubroId: rubroId,
-      description: matchingRubro?.description || `Allocation ${rubroId}`,
-      category: matchingRubro?.category || 'Allocations',
-      month: firstAlloc.month,
-      planned: totalAmount,
-      forecast: totalAmount,
-      actual: 0,
-      variance: 0,
-      last_updated: new Date().toISOString(),
-      updated_by: 'system-allocations',
-      projectId,
-    });
-  });
-
-  return forecastCells;
-}
 
 export function useSDMTForecastData({
   projectId,
@@ -281,26 +195,43 @@ export function useSDMTForecastData({
         console.warn('[useSDMTForecastData] Server forecast empty or missing critical cells — trying fallback');
         
         // Step 2: Fallback - try to get allocations
-        const allocations = await getAllocations(projectId);
-        if (latestRequestKey.current !== requestKey) return; // stale
-        
-        if (allocations && allocations.length > 0) {
-          // Step 3: Compute minimal forecast from allocations
-          console.log('[useSDMTForecastData] Computing forecast from allocations:', allocations.length);
-          rows = computeForecastFromAllocations(allocations, rubrosResp, months, projectId);
-          usedFallback = true;
-        } else if (rubrosResp && rubrosResp.length > 0) {
-          // Final fallback: use rubros only (original behavior)
-          console.warn('[useSDMTForecastData] No allocations found — using rubros only');
-          rows = transformLineItemsToForecast(rubrosResp, months, projectId);
-          usedFallback = true;
-        } else {
-          // No data available at all
-          console.error('[useSDMTForecastData] No forecast, allocations, or rubros available');
-          setError('No forecast data available. Please check baseline materialization.');
-          setForecastRows([]);
-          setLoading(false);
-          return;
+        try {
+          const allocations = await getAllocations(projectId);
+          if (latestRequestKey.current !== requestKey) return; // stale
+          
+          if (allocations && allocations.length > 0) {
+            // Step 3: Compute minimal forecast from allocations
+            console.log('[useSDMTForecastData] Computing forecast from allocations:', allocations.length);
+            rows = computeForecastFromAllocations(allocations as Allocation[], rubrosResp, months, projectId);
+            usedFallback = true;
+          } else if (rubrosResp && rubrosResp.length > 0) {
+            // Final fallback: use rubros only (original behavior)
+            console.warn('[useSDMTForecastData] No allocations found — using rubros only');
+            rows = transformLineItemsToForecast(rubrosResp, months, projectId);
+            usedFallback = true;
+          } else {
+            // No data available at all
+            console.error('[useSDMTForecastData] No forecast, allocations, or rubros available');
+            setError('No forecast data available. Please check baseline materialization.');
+            setForecastRows([]);
+            setLoading(false);
+            return;
+          }
+        } catch (allocError: any) {
+          console.warn('[useSDMTForecastData] Allocations fallback failed:', allocError.message);
+          
+          // If allocations fail, still try rubros as final fallback
+          if (rubrosResp && rubrosResp.length > 0) {
+            console.warn('[useSDMTForecastData] Allocations failed — using rubros only');
+            rows = transformLineItemsToForecast(rubrosResp, months, projectId);
+            usedFallback = true;
+          } else {
+            console.error('[useSDMTForecastData] All fallback options exhausted');
+            setError('No forecast data available. Allocation fallback failed.');
+            setForecastRows([]);
+            setLoading(false);
+            return;
+          }
         }
       }
 
