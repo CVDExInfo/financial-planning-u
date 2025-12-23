@@ -8,6 +8,16 @@ jest.mock("../../src/lib/auth", () => ({
   getUserEmail: jest.fn().mockReturnValue("test@example.com"),
 }));
 
+// Mock queue functions
+jest.mock("../../src/lib/queue", () => ({
+  enqueueMaterialization: jest.fn(),
+}));
+
+// Mock dataHealth functions
+jest.mock("../../src/lib/dataHealth", () => ({
+  logDataHealth: jest.fn(),
+}));
+
 // Mock DynamoDB
 jest.mock("../../src/lib/dynamo", () => {
   const sendDdb = jest.fn();
@@ -412,6 +422,110 @@ describe("AcceptBaseline Handler", () => {
       );
       // Should have calls for allocations and rubros batches
       expect(batchWriteCalls.length).toBeGreaterThan(0);
+    });
+
+    it("should persist rubros_count and allocations_count after materialization", async () => {
+      // Track UpdateCommand calls to verify counts are persisted
+      const updateCalls: any[] = [];
+      
+      // Mock DynamoDB responses for project and baseline
+      dynamo.ddb.send.mockImplementation((command: any) => {
+        const input = command.input;
+        
+        // Track all UpdateCommand calls for later assertion
+        if (input?.UpdateExpression) {
+          updateCalls.push(input);
+        }
+        
+        if (input?.Key?.pk === 'PROJECT#P-test123' && input?.Key?.sk === 'METADATA') {
+          return Promise.resolve({
+            Item: {
+              pk: 'PROJECT#P-test123',
+              sk: 'METADATA',
+              baseline_id: 'BL-test456',
+              baseline_status: 'pending',
+            },
+          });
+        }
+
+        if (input?.Key?.pk === 'BASELINE#BL-test456' && input?.Key?.sk === 'METADATA') {
+          return Promise.resolve({
+            Item: {
+              pk: 'BASELINE#BL-test456',
+              sk: 'METADATA',
+              baseline_id: 'BL-test456',
+              project_id: 'P-test123',
+              start_date: '2025-01-01',
+              duration_months: 12,
+              currency: 'USD',
+              labor_estimates: [
+                {
+                  rubroId: 'MOD-DEV-SR',
+                  name: 'Developer Senior',
+                  qty: 2,
+                  unit_cost: 5000,
+                  periodic: 'recurring',
+                },
+              ],
+            },
+          });
+        }
+
+        // Return response for UpdateCommand
+        if (input?.UpdateExpression) {
+          return Promise.resolve({
+            Attributes: {
+              pk: 'PROJECT#P-test123',
+              sk: 'METADATA',
+              baseline_id: 'BL-test456',
+              baseline_status: 'accepted',
+            },
+          });
+        }
+
+        // Mock BatchWriteCommand for materialization
+        if (input?.RequestItems) {
+          return Promise.resolve({});
+        }
+
+        // Mock BatchGetCommand for checking existing rubros
+        if (input?.RequestKeys) {
+          return Promise.resolve({ Responses: {} });
+        }
+
+        // Mock PutCommand for audit log
+        if (input?.TableName?.includes('audit')) {
+          return Promise.resolve({});
+        }
+
+        return Promise.resolve({});
+      });
+
+      const event = baseEvent({
+        body: JSON.stringify({
+          baseline_id: 'BL-test456',
+        }),
+      });
+
+      const response = await acceptBaselineHandler(event);
+
+      expect(response.statusCode).toBe(200);
+      
+      // Verify that UpdateCommand was called to persist materialization counts
+      const persistCountsUpdate = updateCalls.find((call) => 
+        call.UpdateExpression?.includes('rubros_count') && 
+        call.UpdateExpression?.includes('allocations_count')
+      );
+      
+      expect(persistCountsUpdate).toBeDefined();
+      expect(persistCountsUpdate?.ExpressionAttributeValues).toHaveProperty(':rubros_count');
+      expect(persistCountsUpdate?.ExpressionAttributeValues).toHaveProperty(':allocations_count');
+      expect(persistCountsUpdate?.ExpressionAttributeValues).toHaveProperty(':materialized_at');
+      expect(persistCountsUpdate?.ExpressionAttributeValues).toHaveProperty(':updated_at');
+      
+      // Verify counts are numbers
+      expect(typeof persistCountsUpdate?.ExpressionAttributeValues?.[':rubros_count']).toBe('number');
+      expect(typeof persistCountsUpdate?.ExpressionAttributeValues?.[':allocations_count']).toBe('number');
     });
 
     it("should prevent re-acceptance of already accepted baseline", async () => {

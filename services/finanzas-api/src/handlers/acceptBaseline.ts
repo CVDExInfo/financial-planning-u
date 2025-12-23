@@ -246,6 +246,50 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
 
     materializationDetails = { allocationsSummary, rubrosSummary };
     materialized = true;
+
+    // Persist materialization counts to project metadata
+    try {
+      const allocationsCount = (allocationsSummary as any).allocationsWritten ?? (allocationsSummary as any).allocationsPlanned ?? 0;
+      const rubrosCount = (rubrosSummary as any).rubrosWritten ?? 0;
+      const materializedAt = new Date().toISOString();
+
+      await ddb.send(
+        new UpdateCommand({
+          TableName: tableName("projects"),
+          Key: {
+            pk: `PROJECT#${projectId}`,
+            sk: "METADATA",
+          },
+          UpdateExpression:
+            "SET #rubros_count = :rubros_count, #allocations_count = :allocations_count, #materialized_at = :materialized_at, #updated_at = :updated_at",
+          ExpressionAttributeNames: {
+            "#rubros_count": "rubros_count",
+            "#allocations_count": "allocations_count",
+            "#materialized_at": "materialized_at",
+            "#updated_at": "updated_at",
+          },
+          ExpressionAttributeValues: {
+            ":rubros_count": rubrosCount,
+            ":allocations_count": allocationsCount,
+            ":materialized_at": materializedAt,
+            ":updated_at": materializedAt,
+          },
+        })
+      );
+    } catch (persistError) {
+      logError("acceptBaseline: failed to persist materialization counts", {
+        projectId,
+        baselineId,
+        error: persistError,
+      });
+      await logDataHealth({
+        projectId,
+        baselineId,
+        type: "materialize_persist_error",
+        message: `Failed to persist materialization counts: ${String(persistError)}`,
+        createdAt: new Date().toISOString(),
+      });
+    }
   } catch (materializeError) {
     logError("acceptBaseline: failed to materialize baseline", {
       projectId,
