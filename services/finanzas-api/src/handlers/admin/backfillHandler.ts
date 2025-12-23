@@ -85,10 +85,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   } catch (err) {
     console.error("admin/backfill error", err);
     return withCors(
-      serverError({
-        error: "internal_error",
-        message: err instanceof Error ? err.message : String(err),
-      })
+      serverError(err instanceof Error ? err.message : String(err))
     );
   }
 };

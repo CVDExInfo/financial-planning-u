@@ -41,9 +41,8 @@ export interface BackfillResult {
 export async function getBaselineSummary(
   projectId: string
 ): Promise<BaselineSummary> {
-  const url = `projects/${projectId}/baseline-summary`;
   try {
-    const res = await finanzasClient.http<BaselineSummary>(url);
+    const res = await finanzasClient.getBaselineSummary(projectId);
     log.logQueryDiagnostic('getBaselineSummary', { projectId }, 1);
     return res;
   } catch (err) {
@@ -63,13 +62,8 @@ export async function runBackfill(
   projectId: string,
   dryRun: boolean = true
 ): Promise<BackfillResult> {
-  const url = `admin/backfill`;
   try {
-    const res = await finanzasClient.http<BackfillResult>(url, {
-      method: 'POST',
-      body: JSON.stringify({ projectId, dryRun }),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const res = await finanzasClient.runBackfill(projectId, dryRun);
     log.logDataHealth('backfill', 'healthy', {
       projectId,
       dryRun,

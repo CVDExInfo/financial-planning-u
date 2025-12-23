@@ -171,7 +171,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   } catch (err) {
     console.error("baselineSummary error", err);
     return withCors(
-      serverError({ error: "internal_error", message: String(err) })
+      serverError(String(err))
     );
   }
 };
