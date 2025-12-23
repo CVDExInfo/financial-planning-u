@@ -1,6 +1,7 @@
-import { BatchWriteCommand, BatchWriteCommandInput, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { BatchWriteCommand, BatchWriteCommandInput } from "@aws-sdk/lib-dynamodb";
 import { ddb, tableName } from "./dynamo";
 import { logError } from "../utils/logging";
+import { batchGetExistingRubros } from "./dynamodbHelpers";
 
 interface BaselineLike {
   baseline_id?: string;
@@ -269,34 +270,32 @@ export const materializeRubrosForBaseline = async (
     return { dryRun: true, rubrosPlanned: uniqueRubros.length };
   }
 
-  // Check for existing rubros to ensure idempotent writes
-  // Note: This could be optimized with BatchGetItem for large numbers of rubros
+  // Check for existing rubros to ensure idempotent writes using BatchGetItem
   const rubrosToWrite: any[] = [];
-  for (const rubro of uniqueRubros) {
-    try {
-      const existing = await ddb.send(new QueryCommand({
-        TableName: tableName("rubros"),
-        KeyConditionExpression: 'pk = :pk AND sk = :sk',
-        ExpressionAttributeValues: {
-          ':pk': rubro.pk,
-          ':sk': rubro.sk
-        }
-      }));
-      
-      // Only add if it doesn't exist (idempotent)
-      if (!existing.Items || existing.Items.length === 0) {
+  try {
+    const keys = uniqueRubros.map(rubro => ({ pk: rubro.pk, sk: rubro.sk }));
+    const existingRubros = await batchGetExistingRubros(tableName("rubros"), keys);
+    
+    // Create a Set of existing rubro keys for fast lookup
+    const existingKeys = new Set(
+      existingRubros.map(item => `${item.pk}#${item.sk}`)
+    );
+    
+    // Only add rubros that don't exist yet (idempotent)
+    for (const rubro of uniqueRubros) {
+      const key = `${rubro.pk}#${rubro.sk}`;
+      if (!existingKeys.has(key)) {
         rubrosToWrite.push(rubro);
       }
-    } catch (error) {
-      // If query fails, log but continue (better to potentially duplicate than skip)
-      logError("[materializers] failed to check existing rubro", { 
-        baselineId, 
-        projectId, 
-        rubroId: rubro.rubroId,
-        error 
-      });
-      rubrosToWrite.push(rubro);
     }
+  } catch (error) {
+    // If batch get fails, log but write all (better to potentially duplicate than skip)
+    logError("[materializers] failed to batch check existing rubros", { 
+      baselineId, 
+      projectId,
+      error 
+    });
+    rubrosToWrite.push(...uniqueRubros);
   }
 
   try {
