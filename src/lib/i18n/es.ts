@@ -141,6 +141,51 @@ export const ES_TEXTS = {
     reason: "Motivo",
   },
 
+  // Baselines & PMO
+  baseline: {
+    queueTitle: "Cola de Baselines",
+    queueDescription: "Rastrea la entrega y aceptación de baselines",
+    projectBaselines: "Baselines de Proyecto",
+    projectBaselinesDescription: "Ver el estado de aceptación y rechazo de las líneas base para todos los proyectos",
+    all: "Todos",
+    pending: "Pendientes",
+    pendingReview: "Pendiente de Revisión",
+    accepted: "Aceptadas",
+    rejected: "Rechazadas",
+    missingRubros: "Rubros Faltantes",
+    acceptedBy: "Aceptado por",
+    rejectedBy: "Rechazado por",
+    acceptedRejectedBy: "Aceptado/Rechazado por",
+    acceptedAt: "Aceptado el",
+    rejectedAt: "Rechazado el",
+    viewRubros: "Ver Rubros",
+    reviewAndResubmit: "Revisar y reenviar",
+    viewDetails: "Ver Detalles",
+    baselineId: "ID de Baseline",
+    status: "Estado",
+    rubrosBreakdown: "Desglose de Costos",
+    labor: "MOD (Labor)",
+    indirect: "Indirectos",
+    total: "Total",
+    noBaselinesFound: "No se encontraron baselines con el filtro seleccionado",
+    rejectionComments: "Comentarios de Rechazo",
+    rejectionFeedback: "Retroalimentación del SDMT sobre baselines rechazados",
+    date: "Fecha",
+    reason: "Razón",
+    project: "Proyecto",
+    client: "Cliente",
+    actions: "Acciones",
+    rubros: "Rubros",
+  },
+
+  // Planner (formerly Estimator)
+  planner: {
+    title: "Planificador",
+    backToPlanner: "Volver al Planificador",
+    createBaseline: "Crear Baseline",
+    submitBaseline: "Enviar Baseline",
+  },
+
   // Cost Categories
   categories: {
     mod: "Mano de Obra Directa",
