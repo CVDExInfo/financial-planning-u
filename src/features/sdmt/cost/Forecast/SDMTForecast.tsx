@@ -2080,10 +2080,14 @@ export function SDMTForecast() {
                       className="sticky left-0 bg-background min-w-[300px] cursor-pointer hover:bg-muted/50 select-none"
                       onClick={toggleSortDirection}
                       title="Click para ordenar"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && toggleSortDirection()}
+                      aria-label={`Ordenar por rubro - actualmente ${sortDirection === 'asc' ? 'ascendente' : 'descendente'}`}
                     >
                       <div className="flex items-center gap-2">
                         <span>Rubro</span>
-                        <span className="text-muted-foreground">
+                        <span className="text-muted-foreground" aria-hidden="true">
                           {sortDirection === 'asc' ? '▲' : '▼'}
                         </span>
                       </div>

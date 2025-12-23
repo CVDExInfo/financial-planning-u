@@ -120,7 +120,7 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
     };
 
     // Add baseline_id to the cell if provided (for traceability)
-    if (options?.baselineId && cell?.baseline_id !== options.baselineId && options?.debugMode) {
+    if (options?.baselineId && cell?.baseline_id != null && cell.baseline_id !== options.baselineId && options?.debugMode) {
       console.warn(
         `[normalizeForecastCells] Cell baseline_id mismatch. Expected: ${options.baselineId}, Got: ${cell?.baseline_id}`
       );
