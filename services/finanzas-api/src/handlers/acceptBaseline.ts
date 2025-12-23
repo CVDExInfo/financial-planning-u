@@ -10,6 +10,8 @@ import {
 import { bad, fromAuthError, notFound, ok, serverError, withCors } from "../lib/http";
 import { materializeAllocationsForBaseline, materializeRubrosForBaseline } from "../lib/materializers";
 import { logError } from "../utils/logging";
+import { enqueueMaterialization } from "../lib/queue";
+import { logDataHealth } from "../lib/dataHealth";
 
 // Route: PATCH /projects/{projectId}/accept-baseline
 async function acceptBaseline(event: APIGatewayProxyEventV2) {
@@ -144,6 +146,23 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
       Item: audit,
     })
   );
+
+  // Enqueue materialization job if MATERIALIZE_QUEUE_URL is configured
+  if (process.env.MATERIALIZE_QUEUE_URL) {
+    try {
+      await enqueueMaterialization(baselineId, projectId);
+    } catch (err) {
+      console.error("Failed to enqueue materialization", err);
+      // Record the failure in data_health for ops
+      await logDataHealth({
+        projectId,
+        baselineId,
+        type: "materialize_enqueuer_error",
+        message: String(err),
+        createdAt: new Date().toISOString()
+      });
+    }
+  }
 
   // Helper to normalize project fields (handles both English and Spanish field names)
   const normalizeProjectFields = (attrs: any) => ({

@@ -44,7 +44,15 @@ describe("materializers", () => {
 
   beforeEach(() => {
     (ddb.send as jest.Mock).mockReset();
-    (ddb.send as jest.Mock).mockResolvedValue({});
+    // Mock different responses based on the command type
+    (ddb.send as jest.Mock).mockImplementation((command: any) => {
+      // QueryCommand returns empty items (no existing rubros)
+      if (command.constructor.name === 'QueryCommand' || command.input?.KeyConditionExpression) {
+        return Promise.resolve({ Items: [] });
+      }
+      // BatchWriteCommand returns success
+      return Promise.resolve({});
+    });
   });
 
   it("creates allocations for each month and line item", async () => {
@@ -64,7 +72,14 @@ describe("materializers", () => {
     await materializeRubrosForBaseline(baseline, { dryRun: false });
 
     expect(ddb.send).toHaveBeenCalled();
-    const command = (ddb.send as jest.Mock).mock.calls[0][0] as { input?: any };
+    // Find the BatchWriteCommand call (after QueryCommands)
+    const batchWriteCall = (ddb.send as jest.Mock).mock.calls.find((call) => {
+      const command = call[0];
+      return command?.input?.RequestItems?.mock_rubros;
+    });
+    
+    expect(batchWriteCall).toBeDefined();
+    const command = batchWriteCall[0] as { input?: any };
     const requestItems = command?.input?.RequestItems?.mock_rubros;
     expect(requestItems).toHaveLength(2);
 

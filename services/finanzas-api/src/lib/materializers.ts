@@ -1,4 +1,4 @@
-import { BatchWriteCommand, BatchWriteCommandInput } from "@aws-sdk/lib-dynamodb";
+import { BatchWriteCommand, BatchWriteCommandInput, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { ddb, tableName } from "./dynamo";
 import { logError } from "../utils/logging";
 
@@ -266,12 +266,43 @@ export const materializeRubrosForBaseline = async (
   const uniqueRubros = dedupeByKey(rubros, (item) => `${item.pk}#${item.sk}`);
 
   if (options.dryRun) {
-    return { rubrosPlanned: uniqueRubros.length };
+    return { dryRun: true, rubrosPlanned: uniqueRubros.length };
+  }
+
+  // Check for existing rubros to ensure idempotent writes
+  const rubrosToWrite: any[] = [];
+  for (const rubro of uniqueRubros) {
+    try {
+      const existing = await ddb.send(new QueryCommand({
+        TableName: tableName("rubros"),
+        KeyConditionExpression: 'pk = :pk AND sk = :sk',
+        ExpressionAttributeValues: {
+          ':pk': rubro.pk,
+          ':sk': rubro.sk
+        }
+      }));
+      
+      // Only add if it doesn't exist (idempotent)
+      if (!existing.Items || existing.Items.length === 0) {
+        rubrosToWrite.push(rubro);
+      }
+    } catch (error) {
+      // If query fails, log but continue (better to potentially duplicate than skip)
+      logError("[materializers] failed to check existing rubro", { 
+        baselineId, 
+        projectId, 
+        rubroId: rubro.rubroId,
+        error 
+      });
+      rubrosToWrite.push(rubro);
+    }
   }
 
   try {
-    await batchWriteAll(tableName("rubros"), uniqueRubros);
-    return { rubrosWritten: uniqueRubros.length };
+    if (rubrosToWrite.length > 0) {
+      await batchWriteAll(tableName("rubros"), rubrosToWrite);
+    }
+    return { dryRun: false, rubrosWritten: rubrosToWrite.length, rubrosSkipped: uniqueRubros.length - rubrosToWrite.length };
   } catch (error) {
     logError("[materializers] failed to write rubros", { baselineId, projectId, error });
     throw error;
