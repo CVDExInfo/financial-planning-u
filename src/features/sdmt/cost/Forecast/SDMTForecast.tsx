@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -95,6 +95,11 @@ export function SDMTForecast() {
   const [savingActuals, setSavingActuals] = useState(false);
   const [dirtyForecasts, setDirtyForecasts] = useState<Record<string, ForecastRow>>({});
   const [savingForecasts, setSavingForecasts] = useState(false);
+  
+  // Stale response guard: Track latest request to prevent race conditions
+  const latestRequestKeyRef = useRef<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
+  
   const [budgetSimulation, setBudgetSimulation] = useState<BudgetSimulationState>({
     enabled: false,
     budgetTotal: '',
@@ -190,11 +195,24 @@ export function SDMTForecast() {
   useEffect(() => {
     if (selectedProjectId) {
       console.log('🔄 Forecast: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount, 'baseline:', currentProject?.baselineId);
+      
+      // Abort any previous request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
       // Reset state before loading new data
       setForecastData([]);
       setPortfolioLineItems([]);
       loadForecastData();
     }
+    
+    // Cleanup: abort on unmount or when dependencies change
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [selectedProjectId, selectedPeriod, projectChangeCount, currentProject?.baselineId]);
 
   // Reload data when returning from reconciliation with refresh parameter
@@ -225,6 +243,13 @@ export function SDMTForecast() {
       return;
     }
 
+    // Create a new abort controller for this request
+    abortControllerRef.current = new AbortController();
+    
+    // Generate unique request key to identify this specific request
+    const requestKey = `${selectedProjectId}__${currentProject?.baselineId || ''}__${Date.now()}`;
+    latestRequestKeyRef.current = requestKey;
+
     try {
       setLoading(true);
       setForecastError(null);
@@ -240,30 +265,60 @@ export function SDMTForecast() {
           projectId: selectedProjectId, 
           months,
           isCurrentMonthMode,
-          selectedPeriod 
+          selectedPeriod,
+          requestKey,
         });
       }
 
       if (isPortfolioView) {
-        await loadPortfolioForecast(months);
+        await loadPortfolioForecast(months, requestKey);
       } else {
-        await loadSingleProjectForecast(selectedProjectId, months);
+        await loadSingleProjectForecast(selectedProjectId, months, requestKey);
+      }
+      
+      // Verify this is still the latest request before applying results
+      if (latestRequestKeyRef.current !== requestKey) {
+        if (import.meta.env.DEV) {
+          console.debug('[Forecast] Discarding stale response', { requestKey, latest: latestRequestKeyRef.current });
+        }
+        return; // Stale response, ignore it
       }
     } catch (error) {
+      // Ignore aborted requests
+      if (error instanceof Error && error.name === 'AbortError') {
+        if (import.meta.env.DEV) {
+          console.debug('[Forecast] Request aborted', { requestKey });
+        }
+        return;
+      }
+      
       console.error('❌ Failed to load forecast data for project:', selectedProjectId, error);
       const message = handleFinanzasApiError(error, {
         onAuthError: login,
         fallback: 'No se pudo cargar el forecast.',
       });
-      setForecastError(message);
-      setForecastData([]); // Clear data on error
+      
+      // Only set error if this is still the latest request
+      if (latestRequestKeyRef.current === requestKey) {
+        setForecastError(message);
+        setForecastData([]); // Clear data on error
+      }
     } finally {
-      setLoading(false);
+      // Only clear loading if this is still the latest request
+      if (latestRequestKeyRef.current === requestKey) {
+        setLoading(false);
+      }
     }
   };
 
-  const loadSingleProjectForecast = async (projectId: string, months: number) => {
+  const loadSingleProjectForecast = async (projectId: string, months: number, requestKey: string) => {
     const payload = await getForecastPayload(projectId, months);
+    
+    // Check if request is still valid before continuing
+    if (latestRequestKeyRef.current !== requestKey) {
+      return; // Stale, abort processing
+    }
+    
     const normalized = normalizeForecastCells(payload.data);
     setDataSource(payload.source);
     setGeneratedAt(payload.generatedAt);
@@ -271,6 +326,12 @@ export function SDMTForecast() {
 
     // Get matched invoices and sync with actuals
     const invoices = await getProjectInvoices(projectId);
+    
+    // Check again after async operation
+    if (latestRequestKeyRef.current !== requestKey) {
+      return;
+    }
+    
     const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
 
     const updatedData: ForecastRow[] = normalized.map(cell => {
@@ -305,6 +366,11 @@ export function SDMTForecast() {
       });
     }
 
+    // Final check before setting state
+    if (latestRequestKeyRef.current !== requestKey) {
+      return;
+    }
+
     setForecastData(updatedData);
 
     if (import.meta.env.DEV) {
@@ -316,7 +382,7 @@ export function SDMTForecast() {
     }
   };
 
-  const loadPortfolioForecast = async (months: number) => {
+  const loadPortfolioForecast = async (months: number, requestKey: string) => {
     const candidateProjects = projects.filter(project => project.id && project.id !== ALL_PROJECTS_ID);
 
     // Guard: Don't error out if projects haven't loaded yet
@@ -344,6 +410,11 @@ export function SDMTForecast() {
           getProjectInvoices(project.id),
           getProjectRubros(project.id).catch(() => [] as LineItem[]),
         ]);
+        
+        // Check if request is still valid after async operations
+        if (latestRequestKeyRef.current !== requestKey) {
+          throw new Error('Request aborted'); // Will be caught and ignored below
+        }
 
         const normalized = normalizeForecastCells(payload.data);
         const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
@@ -372,6 +443,11 @@ export function SDMTForecast() {
         };
       })
     );
+    
+    // Final check before setting state
+    if (latestRequestKeyRef.current !== requestKey) {
+      return;
+    }
 
     const aggregatedData = portfolioResults.flatMap(result => result.data);
     const aggregatedLineItems = portfolioResults.flatMap(result => result.lineItems);
