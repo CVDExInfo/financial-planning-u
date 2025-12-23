@@ -276,7 +276,7 @@ export function Navigation() {
         },
         {
           path: "/pmo/baselines",
-          label: "Baselines Queue",
+          label: "Linea Bases Proyectos de Servicio",
           icon: BookOpen,
           stack: "pmo",
           allowedRoles: ["PM", "PMO"],

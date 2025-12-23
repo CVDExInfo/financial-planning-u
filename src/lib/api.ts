@@ -229,7 +229,75 @@ export class ApiService {
         };
       };
 
-      return projectArray.map(normalizeProject);
+      const normalized = projectArray.map(normalizeProject);
+
+      // P1.1: Enrich projects with baseline summaries when baseline_id exists
+      // Fetch baseline data in parallel with limited concurrency to extract labor/non-labor totals
+      const concurrency = 5;
+      const enrichedProjects = [...normalized];
+
+      // Helper to determine if a project needs baseline enrichment
+      const needsBaselineEnrichment = (p: Project) => 
+        p.baseline_id && !(p.rubros_count > 0 && p.labor_cost !== undefined && p.non_labor_cost !== undefined);
+
+      // Process in batches
+      const projectsToEnrich = normalized
+        .map((p, index) => ({ project: p, index }))
+        .filter(({ project: p }) => needsBaselineEnrichment(p));
+
+      for (let i = 0; i < projectsToEnrich.length; i += concurrency) {
+        const batch = projectsToEnrich.slice(i, i + concurrency);
+        await Promise.allSettled(
+          batch.map(async ({ project: p, index }) => {
+            try {
+              const baseline = await this.getBaseline(String(p.baseline_id));
+              
+              // Calculate labor cost from labor_estimates
+              const laborTotal = Array.isArray(baseline?.labor_estimates)
+                ? baseline.labor_estimates.reduce((sum: number, estimate: any) => {
+                    const monthlyCost = (estimate?.fte_count || 0) * 
+                                       (estimate?.hourly_rate || 0) * 
+                                       (estimate?.hours_per_month || 0);
+                    const onCost = monthlyCost * (1 + (estimate?.on_cost_percentage || 0) / 100);
+                    const months = Math.max(0, (estimate?.end_month || 0) - (estimate?.start_month || 0) + 1);
+                    return sum + (onCost * months);
+                  }, 0)
+                : 0;
+
+              // Calculate non-labor cost from non_labor_estimates
+              const nonLaborTotal = Array.isArray(baseline?.non_labor_estimates)
+                ? baseline.non_labor_estimates.reduce((sum: number, estimate: any) => {
+                    return sum + (estimate?.amount || 0);
+                  }, 0)
+                : 0;
+
+              // Calculate rubros count
+              const rubrosCount = (baseline?.labor_estimates?.length || 0) + 
+                                 (baseline?.non_labor_estimates?.length || 0);
+              const finalRubrosCount = rubrosCount > 0 ? rubrosCount : (baseline?.line_items?.length || 0);
+
+              enrichedProjects[index] = {
+                ...enrichedProjects[index],
+                rubros_count: finalRubrosCount,
+                labor_cost: laborTotal,
+                non_labor_cost: nonLaborTotal,
+                accepted_by: baseline?.accepted_by || enrichedProjects[index].accepted_by,
+                rejected_by: baseline?.rejected_by || enrichedProjects[index].rejected_by,
+                baseline_accepted_at: baseline?.accepted_ts || enrichedProjects[index].baseline_accepted_at,
+              };
+            } catch (err) {
+              // Swallow errors per-project to avoid breaking the whole list
+              logger.warn("Failed to fetch baseline summary for project", { 
+                projectId: p.id, 
+                baselineId: p.baseline_id,
+                error: err 
+              });
+            }
+          })
+        );
+      }
+
+      return enrichedProjects;
     } catch (error) {
       logger.error("Failed to fetch projects from API:", error);
       if (error instanceof AuthError || error instanceof ValidationError || error instanceof ServerError) {

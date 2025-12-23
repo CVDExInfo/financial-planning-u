@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { getProjects } from "@/lib/api";
 import { toast } from "sonner";
+import { ES_TEXTS } from "@/lib/i18n/es";
 
 type BaselineStatus = "pending" | "handed_off" | "accepted" | "rejected";
 
@@ -77,14 +78,14 @@ export function PMOBaselinesQueuePage() {
         return (
           <Badge variant="default" className="bg-green-600 gap-1.5">
             <CheckCircle2 size={14} />
-            Accepted
+            {ES_TEXTS.baseline.accepted}
           </Badge>
         );
       case "rejected":
         return (
           <Badge variant="destructive" className="gap-1.5">
             <XCircle size={14} />
-            Rejected
+            {ES_TEXTS.baseline.rejected}
           </Badge>
         );
       case "pending":
@@ -92,7 +93,7 @@ export function PMOBaselinesQueuePage() {
         return (
           <Badge variant="secondary" className="gap-1.5">
             <Clock size={14} />
-            Pending Review
+            {ES_TEXTS.baseline.pendingReview}
           </Badge>
         );
       default:
@@ -228,9 +229,9 @@ export function PMOBaselinesQueuePage() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Baseline Visibility Queue</h1>
+          <h1 className="text-3xl font-bold">{ES_TEXTS.baseline.queueTitle}</h1>
           <p className="text-muted-foreground mt-1">
-            Track baseline submission and acceptance status
+            {ES_TEXTS.baseline.queueDescription}
           </p>
         </div>
       </div>
@@ -244,7 +245,7 @@ export function PMOBaselinesQueuePage() {
               size="sm"
               onClick={() => setSelectedStatus("all")}
             >
-              All ({statusCounts.all})
+              {ES_TEXTS.baseline.all} ({statusCounts.all})
             </Button>
             <Button
               variant={selectedStatus === "pending" || selectedStatus === "handed_off" ? "default" : "outline"}
@@ -252,7 +253,7 @@ export function PMOBaselinesQueuePage() {
               onClick={() => setSelectedStatus("handed_off")}
             >
               <Clock className="mr-2 h-4 w-4" />
-              Pending ({statusCounts.pending})
+              {ES_TEXTS.baseline.pending} ({statusCounts.pending})
             </Button>
             <Button
               variant={selectedStatus === "accepted" ? "default" : "outline"}
@@ -261,7 +262,7 @@ export function PMOBaselinesQueuePage() {
               className={selectedStatus === "accepted" ? "bg-green-600 hover:bg-green-700" : ""}
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
-              Accepted ({statusCounts.accepted})
+              {ES_TEXTS.baseline.accepted} ({statusCounts.accepted})
             </Button>
             <Button
               variant={selectedStatus === "rejected" ? "destructive" : "outline"}
@@ -269,7 +270,7 @@ export function PMOBaselinesQueuePage() {
               onClick={() => setSelectedStatus("rejected")}
             >
               <XCircle className="mr-2 h-4 w-4" />
-              Rejected ({statusCounts.rejected})
+              {ES_TEXTS.baseline.rejected} ({statusCounts.rejected})
             </Button>
             <div className="flex-1" />
             <Button
@@ -279,7 +280,7 @@ export function PMOBaselinesQueuePage() {
               className={showMissingRubros ? "bg-orange-600 hover:bg-orange-700" : ""}
             >
               <AlertCircle className="mr-2 h-4 w-4" />
-              Missing Rubros ({statusCounts.missingRubros})
+              {ES_TEXTS.baseline.missingRubros} ({statusCounts.missingRubros})
             </Button>
           </div>
         </CardContent>
@@ -288,9 +289,9 @@ export function PMOBaselinesQueuePage() {
       {/* Baselines Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Project Baselines</CardTitle>
+          <CardTitle>{ES_TEXTS.baseline.projectBaselines}</CardTitle>
           <CardDescription>
-            View baseline acceptance and rejection status for all projects
+            {ES_TEXTS.baseline.projectBaselinesDescription}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -307,36 +308,35 @@ export function PMOBaselinesQueuePage() {
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSort("name")}
                     >
-                      Project <SortIcon field="name" />
+                      {ES_TEXTS.baseline.project} <SortIcon field="name" />
                     </TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSort("client")}
                     >
-                      Client <SortIcon field="client" />
+                      {ES_TEXTS.baseline.client} <SortIcon field="client" />
                     </TableHead>
-                    <TableHead>Baseline ID</TableHead>
+                    <TableHead>{ES_TEXTS.baseline.baselineId}</TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSort("status")}
                     >
-                      Status <SortIcon field="status" />
+                      {ES_TEXTS.baseline.status} <SortIcon field="status" />
                     </TableHead>
-                    <TableHead>Rubros</TableHead>
-                    <TableHead>Accepted/Rejected By</TableHead>
+                    <TableHead>{ES_TEXTS.baseline.acceptedRejectedBy}</TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSort("rubros_count")}
                     >
-                      Rubros <SortIcon field="rubros_count" />
+                      {ES_TEXTS.baseline.rubros} <SortIcon field="rubros_count" />
                     </TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSort("baseline_accepted_at")}
                     >
-                      Accepted At <SortIcon field="baseline_accepted_at" />
+                      {ES_TEXTS.baseline.acceptedAt} <SortIcon field="baseline_accepted_at" />
                     </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-right">{ES_TEXTS.baseline.actions}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -369,39 +369,49 @@ export function PMOBaselinesQueuePage() {
                       </TableCell>
                       <TableCell>
                         {typeof project.rubros_count === "number" ? (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center gap-2 cursor-help">
-                                  <span className="font-medium">{project.rubros_count}</span>
-                                  {(project.labor_cost !== undefined || project.non_labor_cost !== undefined) && (
-                                    <Info className="h-3 w-3 text-muted-foreground" />
-                                  )}
-                                </div>
-                              </TooltipTrigger>
-                              {(project.labor_cost !== undefined || project.non_labor_cost !== undefined) && (
-                                <TooltipContent>
-                                  <div className="text-xs space-y-1">
-                                    <div className="font-semibold">Desglose de Costos</div>
-                                    <div className="flex justify-between gap-4">
-                                      <span className="text-muted-foreground">MOD (Labor):</span>
-                                      <span className="font-medium">{formatCurrency(project.labor_cost)}</span>
-                                    </div>
-                                    <div className="flex justify-between gap-4">
-                                      <span className="text-muted-foreground">Indirectos:</span>
-                                      <span className="font-medium">{formatCurrency(project.non_labor_cost)}</span>
-                                    </div>
-                                    <div className="border-t pt-1 flex justify-between gap-4">
-                                      <span className="font-semibold">Total:</span>
-                                      <span className="font-semibold">
-                                        {formatCurrency((project.labor_cost || 0) + (project.non_labor_cost || 0))}
-                                      </span>
-                                    </div>
+                          <div className="space-y-1">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-2 cursor-help">
+                                    <span className="font-medium">{project.rubros_count}</span>
+                                    {(project.labor_cost !== undefined || project.non_labor_cost !== undefined) && (
+                                      <Info className="h-3 w-3 text-muted-foreground" />
+                                    )}
                                   </div>
-                                </TooltipContent>
-                              )}
-                            </Tooltip>
-                          </TooltipProvider>
+                                </TooltipTrigger>
+                                {(project.labor_cost !== undefined || project.non_labor_cost !== undefined) && (
+                                  <TooltipContent>
+                                    <div className="text-xs space-y-1">
+                                      <div className="font-semibold">{ES_TEXTS.baseline.rubrosBreakdown}</div>
+                                      <div className="flex justify-between gap-4">
+                                        <span className="text-muted-foreground">{ES_TEXTS.baseline.labor}:</span>
+                                        <span className="font-medium">{formatCurrency(project.labor_cost)}</span>
+                                      </div>
+                                      <div className="flex justify-between gap-4">
+                                        <span className="text-muted-foreground">{ES_TEXTS.baseline.indirect}:</span>
+                                        <span className="font-medium">{formatCurrency(project.non_labor_cost)}</span>
+                                      </div>
+                                      <div className="border-t pt-1 flex justify-between gap-4">
+                                        <span className="font-semibold">{ES_TEXTS.baseline.total}:</span>
+                                        <span className="font-semibold">
+                                          {formatCurrency((project.labor_cost || 0) + (project.non_labor_cost || 0))}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
+                            {project.rubros_count === 0 && project.baseline_status === "accepted" && (
+                              <button
+                                className="text-xs text-blue-600 hover:underline cursor-pointer flex items-center gap-1"
+                                onClick={() => navigate(`/finanzas/sdmt/cost/catalog?projectId=${project.id}&baseline=${project.baseline_id}`)}
+                              >
+                                {ES_TEXTS.baseline.viewRubros} →
+                              </button>
+                            )}
+                          </div>
                         ) : (
                           "—"
                         )}
@@ -416,7 +426,7 @@ export function PMOBaselinesQueuePage() {
                             size="sm"
                             onClick={() => navigate(`/finanzas/sdmt/cost/catalog?projectId=${project.id}&baseline=${project.baseline_id}`)}
                           >
-                            Ver Rubros
+                            {ES_TEXTS.baseline.viewRubros}
                             <ExternalLink className="ml-2 h-3 w-3" />
                           </Button>
                           {project.baseline_status === "rejected" && (
@@ -425,7 +435,7 @@ export function PMOBaselinesQueuePage() {
                               size="sm"
                               onClick={() => navigate(`/pmo/prefactura/estimator?project=${project.id}`)}
                             >
-                              Revisar y reenviar
+                              {ES_TEXTS.baseline.reviewAndResubmit}
                               <ExternalLink className="ml-2 h-3 w-3" />
                             </Button>
                           )}
@@ -434,7 +444,7 @@ export function PMOBaselinesQueuePage() {
                             size="sm"
                             onClick={() => navigate(`/pmo/projects/${project.id}`)}
                           >
-                            View Details
+                            {ES_TEXTS.baseline.viewDetails}
                             <ExternalLink className="ml-2 h-3 w-3" />
                           </Button>
                         </div>
@@ -447,7 +457,7 @@ export function PMOBaselinesQueuePage() {
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <AlertCircle className="mx-auto h-12 w-12 mb-4 opacity-50" />
-              <p>No baselines found with the selected filter</p>
+              <p>{ES_TEXTS.baseline.noBaselinesFound}</p>
             </div>
           )}
         </CardContent>
@@ -457,9 +467,9 @@ export function PMOBaselinesQueuePage() {
       {filteredProjects?.some((p) => p.baseline_status === "rejected" && p.rejection_comment) && (
         <Card>
           <CardHeader>
-            <CardTitle>Rejection Comments</CardTitle>
+            <CardTitle>{ES_TEXTS.baseline.rejectionComments}</CardTitle>
             <CardDescription>
-              Feedback from SDMT on rejected baselines
+              {ES_TEXTS.baseline.rejectionFeedback}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -472,19 +482,19 @@ export function PMOBaselinesQueuePage() {
                       <CardTitle className="text-base">{project.name}</CardTitle>
                       <Badge variant="destructive" className="gap-1.5">
                         <XCircle size={14} />
-                        Rejected
+                        {ES_TEXTS.baseline.rejected}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <p className="text-sm text-muted-foreground">
-                      <strong>Rejected by:</strong> {project.rejected_by || "Unknown"}
+                      <strong>{ES_TEXTS.baseline.rejectedBy}:</strong> {project.rejected_by || "—"}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      <strong>Date:</strong> {formatDate(project.baseline_rejected_at)}
+                      <strong>{ES_TEXTS.baseline.date}:</strong> {formatDate(project.baseline_rejected_at)}
                     </p>
                     <div className="mt-3 p-3 bg-muted rounded-md">
-                      <p className="text-sm font-medium mb-1">Reason:</p>
+                      <p className="text-sm font-medium mb-1">{ES_TEXTS.baseline.reason}:</p>
                       <p className="text-sm">{project.rejection_comment}</p>
                     </div>
                     <div className="pt-2">
@@ -493,7 +503,7 @@ export function PMOBaselinesQueuePage() {
                         size="sm"
                         onClick={() => navigate(`/pmo/prefactura/estimator?project=${project.id}`)}
                       >
-                        Revisar y reenviar
+                        {ES_TEXTS.baseline.reviewAndResubmit}
                         <ExternalLink className="ml-2 h-3 w-3" />
                       </Button>
                     </div>
