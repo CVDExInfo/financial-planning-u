@@ -114,21 +114,25 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   })();
 
   try {
+    // Normalize path to prevent double slashes and preserve stage (e.g., /dev)
+    // Strip leading slashes from the path to ensure proper concatenation
+    const normalizedPath = path.replace(/^\/+/, '');
+    
     // Always attach auth headers; allow callers to add extras without removing JWT.
     const headers = { ...(init?.headers || {}), ...buildAuthHeader() };
 
     const response = await (async () => {
       switch (method) {
         case "POST":
-          return httpClient.post<T>(path, parsedBody, { headers });
+          return httpClient.post<T>(normalizedPath, parsedBody, { headers });
         case "PUT":
-          return httpClient.put<T>(path, parsedBody, { headers });
+          return httpClient.put<T>(normalizedPath, parsedBody, { headers });
         case "PATCH":
-          return httpClient.patch<T>(path, parsedBody, { headers });
+          return httpClient.patch<T>(normalizedPath, parsedBody, { headers });
         case "DELETE":
-          return httpClient.delete<T>(path, { headers });
+          return httpClient.delete<T>(normalizedPath, { headers });
         default:
-          return httpClient.get<T>(path, { headers });
+          return httpClient.get<T>(normalizedPath, { headers });
       }
     })();
 
