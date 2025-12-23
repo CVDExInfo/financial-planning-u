@@ -43,7 +43,7 @@ import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
-import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros, getRubrosWithFallback } from '@/api/finanzas';
+import { bulkUploadPayrollActuals, type PayrollActualInput, getRubrosWithFallback } from '@/api/finanzas';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
 import finanzasClient from '@/api/finanzasClient';
 import { ES_TEXTS } from '@/lib/i18n/es';
