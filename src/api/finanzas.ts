@@ -296,21 +296,23 @@ export async function getBaseline(projectId?: string): Promise<any[]> {
 
 export interface BaselineDetail {
   baseline_id: string;
-  project_id: string;
-  project_name: string;
-  labor_estimates: Array<{
+  project_id?: string;
+  project_name?: string;
+  // Labor and non-labor estimates can be at top level or in payload
+  labor_estimates?: Array<{
     rubroId?: string;
     role?: string;
     country?: string;
     level?: string;
     fte_count?: number;
     hourly_rate?: number;
+    rate?: number; // Alternative field name
     hours_per_month?: number;
     on_cost_percentage?: number;
     start_month?: number;
     end_month?: number;
   }>;
-  non_labor_estimates: Array<{
+  non_labor_estimates?: Array<{
     rubroId?: string;
     category?: string;
     description?: string;
@@ -321,6 +323,54 @@ export interface BaselineDetail {
     start_month?: number;
     end_month?: number;
   }>;
+  // DynamoDB stores data in payload field
+  payload?: {
+    labor_estimates?: Array<{
+      rubroId?: string;
+      role?: string;
+      country?: string;
+      level?: string;
+      fte_count?: number;
+      hourly_rate?: number;
+      rate?: number;
+      hours_per_month?: number;
+      on_cost_percentage?: number;
+      start_month?: number;
+      end_month?: number;
+    }>;
+    non_labor_estimates?: Array<{
+      rubroId?: string;
+      category?: string;
+      description?: string;
+      amount?: number;
+      vendor?: string;
+      one_time?: boolean;
+      capex_flag?: boolean;
+      start_month?: number;
+      end_month?: number;
+    }>;
+    project_name?: string;
+    project_description?: string;
+    client_name?: string;
+    currency?: string;
+    start_date?: string;
+    duration_months?: number;
+    contract_value?: number;
+    sdm_manager_name?: string;
+    sdm_manager_email?: string;
+    signed_by?: string;
+    signed_at?: string;
+    signed_role?: string;
+    assumptions?: string[];
+    fx_indexation?: Record<string, unknown>;
+    supporting_documents?: Array<{
+      documentId?: string;
+      documentKey?: string;
+      originalName?: string;
+      uploadedAt?: string;
+      contentType?: string;
+    }>;
+  };
   supporting_documents?: Array<{
     documentId?: string;
     documentKey?: string;
@@ -333,6 +383,8 @@ export interface BaselineDetail {
   created_at?: string;
   signed_by?: string;
   signed_at?: string;
+  sdm_manager_name?: string;
+  sdm_manager_email?: string;
 }
 
 /**

@@ -62,8 +62,18 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     
     if (shouldFetchBaseline) {
       setLoadingBaseline(true);
+      console.log('[BaselineStatusPanel] Fetching baseline details for:', currentProject.baselineId);
       getBaselineById(currentProject.baselineId)
-        .then(setBaselineDetail)
+        .then((data) => {
+          console.log('[BaselineStatusPanel] Baseline data received:', {
+            baseline_id: data.baseline_id,
+            has_payload: !!data.payload,
+            labor_estimates_count: (data.payload?.labor_estimates || data.labor_estimates || []).length,
+            non_labor_estimates_count: (data.payload?.non_labor_estimates || data.non_labor_estimates || []).length,
+            supporting_docs_count: (data.payload?.supporting_documents || data.supporting_documents || []).length,
+          });
+          setBaselineDetail(data);
+        })
         .catch((err) => {
           console.error("Failed to fetch baseline details:", err);
           toast.error("No se pudo cargar los detalles del baseline");
@@ -183,16 +193,20 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   };
 
   // Helper function to calculate labor estimate total cost
-  const calculateLaborCost = (estimate: BaselineDetail['labor_estimates'][0]) => {
-    const monthlyRate = (estimate.hourly_rate || 0) * (estimate.hours_per_month || 160) * (estimate.fte_count || 1);
+  const calculateLaborCost = (estimate: any) => {
+    // Handle both 'hourly_rate' and 'rate' field names
+    const rate = estimate.hourly_rate || estimate.rate || 0;
+    const monthlyRate = rate * (estimate.hours_per_month || 160) * (estimate.fte_count || 1);
     const months = (estimate.end_month || 12) - (estimate.start_month || 1) + 1;
     const onCostMultiplier = 1 + ((estimate.on_cost_percentage || 0) / 100);
     return monthlyRate * months * onCostMultiplier;
   };
 
   // Helper function to calculate monthly cost for labor estimate (for table display)
-  const calculateMonthlyLaborCost = (estimate: BaselineDetail['labor_estimates'][0]) => {
-    const monthlyRate = (estimate.hourly_rate || 0) * (estimate.hours_per_month || 160) * (estimate.fte_count || 1);
+  const calculateMonthlyLaborCost = (estimate: any) => {
+    // Handle both 'hourly_rate' and 'rate' field names
+    const rate = estimate.hourly_rate || estimate.rate || 0;
+    const monthlyRate = rate * (estimate.hours_per_month || 160) * (estimate.fte_count || 1);
     const onCostMultiplier = 1 + ((estimate.on_cost_percentage || 0) / 100);
     return monthlyRate * onCostMultiplier;
   };
@@ -247,7 +261,10 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   const renderBaselineDetails = () => {
     if (!baselineDetail || loadingBaseline) return null;
 
-    const { labor_estimates = [], non_labor_estimates = [], supporting_documents = [] } = baselineDetail;
+    // Handle both payload structure (DynamoDB) and direct structure (for backward compatibility)
+    const labor_estimates = baselineDetail.payload?.labor_estimates || baselineDetail.labor_estimates || [];
+    const non_labor_estimates = baselineDetail.payload?.non_labor_estimates || baselineDetail.non_labor_estimates || [];
+    const supporting_documents = baselineDetail.payload?.supporting_documents || baselineDetail.supporting_documents || [];
     
     // Calculate totals using helper function
     const laborTotal = labor_estimates.reduce((sum, est) => sum + calculateLaborCost(est), 0);
@@ -299,13 +316,14 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
                     <tbody>
                       {labor_estimates.map((est, idx) => {
                         const totalMonthly = calculateMonthlyLaborCost(est);
+                        const rate = est.hourly_rate || est.rate || 0;
                         
                         return (
                           <tr key={idx} className="border-t">
                             <td className="p-2">{est.role || est.rubroId || "N/A"}</td>
                             <td className="p-2">{est.level || "N/A"}</td>
                             <td className="p-2 text-right">{est.fte_count || 0}</td>
-                            <td className="p-2 text-right">${(est.hourly_rate || 0).toLocaleString()}</td>
+                            <td className="p-2 text-right">${rate.toLocaleString()}</td>
                             <td className="p-2 text-right">{est.hours_per_month || 160}</td>
                             <td className="p-2 text-right font-medium">${totalMonthly.toLocaleString()}</td>
                           </tr>
