@@ -276,7 +276,7 @@ export function Navigation() {
         },
         {
           path: "/pmo/baselines",
-          label: "Baselines Queue",
+          label: "Cola de Baselines",
           icon: BookOpen,
           stack: "pmo",
           allowedRoles: ["PM", "PMO"],

@@ -369,39 +369,49 @@ export function PMOBaselinesQueuePage() {
                       </TableCell>
                       <TableCell>
                         {typeof project.rubros_count === "number" ? (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center gap-2 cursor-help">
-                                  <span className="font-medium">{project.rubros_count}</span>
-                                  {(project.labor_cost !== undefined || project.non_labor_cost !== undefined) && (
-                                    <Info className="h-3 w-3 text-muted-foreground" />
-                                  )}
-                                </div>
-                              </TooltipTrigger>
-                              {(project.labor_cost !== undefined || project.non_labor_cost !== undefined) && (
-                                <TooltipContent>
-                                  <div className="text-xs space-y-1">
-                                    <div className="font-semibold">{ES_TEXTS.baseline.rubrosBreakdown}</div>
-                                    <div className="flex justify-between gap-4">
-                                      <span className="text-muted-foreground">{ES_TEXTS.baseline.labor}:</span>
-                                      <span className="font-medium">{formatCurrency(project.labor_cost)}</span>
-                                    </div>
-                                    <div className="flex justify-between gap-4">
-                                      <span className="text-muted-foreground">{ES_TEXTS.baseline.indirect}:</span>
-                                      <span className="font-medium">{formatCurrency(project.non_labor_cost)}</span>
-                                    </div>
-                                    <div className="border-t pt-1 flex justify-between gap-4">
-                                      <span className="font-semibold">{ES_TEXTS.baseline.total}:</span>
-                                      <span className="font-semibold">
-                                        {formatCurrency((project.labor_cost || 0) + (project.non_labor_cost || 0))}
-                                      </span>
-                                    </div>
+                          <div className="space-y-1">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-2 cursor-help">
+                                    <span className="font-medium">{project.rubros_count}</span>
+                                    {(project.labor_cost !== undefined || project.non_labor_cost !== undefined) && (
+                                      <Info className="h-3 w-3 text-muted-foreground" />
+                                    )}
                                   </div>
-                                </TooltipContent>
-                              )}
-                            </Tooltip>
-                          </TooltipProvider>
+                                </TooltipTrigger>
+                                {(project.labor_cost !== undefined || project.non_labor_cost !== undefined) && (
+                                  <TooltipContent>
+                                    <div className="text-xs space-y-1">
+                                      <div className="font-semibold">{ES_TEXTS.baseline.rubrosBreakdown}</div>
+                                      <div className="flex justify-between gap-4">
+                                        <span className="text-muted-foreground">{ES_TEXTS.baseline.labor}:</span>
+                                        <span className="font-medium">{formatCurrency(project.labor_cost)}</span>
+                                      </div>
+                                      <div className="flex justify-between gap-4">
+                                        <span className="text-muted-foreground">{ES_TEXTS.baseline.indirect}:</span>
+                                        <span className="font-medium">{formatCurrency(project.non_labor_cost)}</span>
+                                      </div>
+                                      <div className="border-t pt-1 flex justify-between gap-4">
+                                        <span className="font-semibold">{ES_TEXTS.baseline.total}:</span>
+                                        <span className="font-semibold">
+                                          {formatCurrency((project.labor_cost || 0) + (project.non_labor_cost || 0))}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
+                            {project.rubros_count === 0 && project.baseline_status === "accepted" && (
+                              <a 
+                                className="text-xs text-blue-600 hover:underline cursor-pointer flex items-center gap-1"
+                                onClick={() => navigate(`/finanzas/sdmt/cost/catalog?projectId=${project.id}&baseline=${project.baseline_id}`)}
+                              >
+                                {ES_TEXTS.baseline.viewRubros} →
+                              </a>
+                            )}
+                          </div>
                         ) : (
                           "—"
                         )}
