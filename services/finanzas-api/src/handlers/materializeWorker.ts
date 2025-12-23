@@ -26,10 +26,6 @@ async function countRubros(projectId: string, baselineId: string): Promise<{ tot
       new QueryCommand({
         TableName: tableName("rubros"),
         KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
-        ExpressionAttributeValues: {
-          ":pk": `PROJECT#${projectId}`,
-          ":skPrefix": `RUBRO#`,
-        },
         FilterExpression: "baselineId = :baselineId",
         ExpressionAttributeValues: {
           ":pk": `PROJECT#${projectId}`,
