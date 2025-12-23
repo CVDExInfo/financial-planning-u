@@ -140,16 +140,14 @@ function computeForecastFromAllocations(
     
     // Try to find matching rubro for metadata
     const matchingRubro = rubros.find(r => 
-      r.id === rubroId || 
-      r.rubroId === rubroId ||
-      r.rubro_id === rubroId
+      r.id === rubroId
     );
     
     forecastCells.push({
       line_item_id: rubroId,
       rubroId: rubroId,
-      description: matchingRubro?.description || matchingRubro?.nombre || `Allocation ${rubroId}`,
-      category: matchingRubro?.category || matchingRubro?.categoria || 'Allocations',
+      description: matchingRubro?.description || `Allocation ${rubroId}`,
+      category: matchingRubro?.category || 'Allocations',
       month: firstAlloc.month,
       planned: totalAmount,
       forecast: totalAmount,
@@ -229,7 +227,7 @@ export function useSDMTForecastData({
             
             // Re-fetch baseline summary
             try {
-              baselineResp = await finanzasClient.getBaselineSummary(projectId, { signal: abortCtrlRef.current?.signal });
+              baselineResp = await finanzasClient.getBaselineSummary(projectId);
               if (latestRequestKey.current !== requestKey) return false; // stale
               setBaseline(baselineResp);
             } catch (pollErr: any) {
