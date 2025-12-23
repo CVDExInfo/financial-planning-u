@@ -7,6 +7,11 @@
 
 import type { LineItem, ForecastCell } from '@/types/domain';
 
+/**
+ * ForecastRow extends ForecastCell with optional project metadata
+ * This type is also used in SDMTForecast.tsx and PortfolioSummaryView.tsx
+ * TODO: Consider extracting to shared types file if more components need it
+ */
 export type ForecastRow = ForecastCell & { 
   projectId?: string; 
   projectName?: string;

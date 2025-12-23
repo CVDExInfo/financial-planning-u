@@ -18,7 +18,6 @@ import finanzasClient from '@/api/finanzasClient';
 
 export interface UseSDMTForecastDataParams {
   projectId: string;
-  baselineId?: string;
   months?: number;
 }
 
@@ -34,7 +33,6 @@ export interface UseSDMTForecastDataResult {
 
 export function useSDMTForecastData({
   projectId,
-  baselineId,
   months = 12,
 }: UseSDMTForecastDataParams): UseSDMTForecastDataResult {
   const [loading, setLoading] = useState(true);
@@ -101,14 +99,20 @@ export function useSDMTForecastData({
         );
         
         if (matchedInvoice) {
+          const actualAmount = matchedInvoice.amount || 0;
           return {
             ...cell,
-            actual: matchedInvoice.amount || 0,
-            variance: cell.forecast - cell.planned, // Keep forecast-based variance
+            actual: actualAmount,
+            // Variance is actual vs planned (not forecast vs planned)
+            variance: actualAmount - cell.planned,
           };
         }
         
-        return cell;
+        // No matched invoice - keep default variance (forecast vs planned)
+        return {
+          ...cell,
+          variance: cell.forecast - cell.planned,
+        };
       });
 
       setForecastRows(rowsWithActuals);
@@ -127,7 +131,7 @@ export function useSDMTForecastData({
         setLoading(false);
       }
     }
-  }, [projectId, baselineId, months]);
+  }, [projectId, months]);
 
   useEffect(() => {
     fetchAll();
