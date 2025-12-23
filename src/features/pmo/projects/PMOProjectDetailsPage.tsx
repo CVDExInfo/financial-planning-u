@@ -67,7 +67,7 @@ export default function PMOProjectDetailsPage() {
           className="mb-6"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Volver a Planificador
+          Volver al Planificador
         </Button>
         
         <Alert variant="destructive">
@@ -89,7 +89,7 @@ export default function PMOProjectDetailsPage() {
         className="mb-6"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Volver a Planificador
+        Volver al Planificador
       </Button>
 
       {/* Page Header */}
@@ -195,7 +195,7 @@ export default function PMOProjectDetailsPage() {
           <AlertTitle>No Baseline</AlertTitle>
           <AlertDescription>
             {!currentProject 
-              ? "No se ha seleccionado un proyecto. Por favor seleccione un proyecto desde el planificador."
+              ? "No se ha seleccionado un proyecto. Por favor, seleccione un proyecto desde el Planificador."
               : "Este proyecto aún no tiene una línea base. Cree una línea base a través del Planificador PMO."
             }
           </AlertDescription>
