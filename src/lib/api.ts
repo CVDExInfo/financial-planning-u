@@ -1221,6 +1221,138 @@ export class ApiService {
       body: JSON.stringify({ year, amount, currency }),
     });
   }
+
+  // Rubros with baseline support
+  static async getRubros(params: { projectId: string; baseline?: string }): Promise<any[]> {
+    try {
+      const { projectId, baseline } = params;
+      const query = baseline ? `?baseline=${encodeURIComponent(baseline)}` : '';
+      const endpoint = `/projects/${encodeURIComponent(projectId)}/rubros${query}`;
+      const data = await this.request<any[] | { data?: any[] }>(endpoint);
+      return Array.isArray(data) ? data : (data as any)?.data || [];
+    } catch (error) {
+      logger.error("Failed to fetch rubros:", error);
+      return [];
+    }
+  }
+
+  static async getRubrosSummary(projectId: string, baselineId?: string): Promise<any> {
+    try {
+      const query = baselineId ? `?baseline=${encodeURIComponent(baselineId)}` : '';
+      const endpoint = `/projects/${encodeURIComponent(projectId)}/rubros-summary${query}`;
+      return await this.request(endpoint);
+    } catch (error) {
+      logger.warn("Failed to fetch rubros summary:", error);
+      throw error;
+    }
+  }
+
+  static async getAllocations(params: { projectId: string; baseline?: string }): Promise<any[]> {
+    try {
+      const { projectId, baseline } = params;
+      const queryParams = new URLSearchParams({ projectId });
+      if (baseline) queryParams.set('baseline', baseline);
+      const endpoint = `/allocations?${queryParams.toString()}`;
+      const data = await this.request<any[] | { data?: any[] }>(endpoint);
+      return Array.isArray(data) ? data : (data as any)?.data || [];
+    } catch (error) {
+      logger.error("Failed to fetch allocations:", error);
+      return [];
+    }
+  }
+
+  static async getPrefacturas(params: { projectId: string; baseline?: string }): Promise<any[]> {
+    try {
+      const { projectId, baseline } = params;
+      const queryParams = new URLSearchParams({ projectId });
+      if (baseline) queryParams.set('baseline', baseline);
+      const endpoint = `/prefacturas?${queryParams.toString()}`;
+      const data = await this.request<any[] | { data?: any[] }>(endpoint);
+      return Array.isArray(data) ? data : (data as any)?.data || [];
+    } catch (error) {
+      logger.error("Failed to fetch prefacturas:", error);
+      return [];
+    }
+  }
+
+  static async materializeBaseline(projectId: string, baselineId: string): Promise<{ ok: boolean; message?: string }> {
+    try {
+      const endpoint = `/projects/${encodeURIComponent(projectId)}/handoff`;
+      const response = await this.request<{ ok: boolean; message?: string }>(endpoint, {
+        method: "POST",
+        body: JSON.stringify({ baseline_id: baselineId }),
+      });
+      return response;
+    } catch (error) {
+      logger.error("Failed to materialize baseline:", error);
+      throw error;
+    }
+  }
+}
+
+/**
+ * getRubrosWithFallback - Robust rubros fetching with 3-tier fallback
+ * 
+ * 1. Try ApiService.getRubros() - returns manual rubros if present
+ * 2. Try ApiService.getRubrosSummary() - server-aggregated summary endpoint
+ * 3. Client-side fallback - aggregate allocations + prefacturas into virtual rubros
+ * 
+ * @param projectId - Project identifier
+ * @param baselineId - Optional baseline identifier
+ * @returns Array of rubros with consistent shape
+ */
+export async function getRubrosWithFallback(projectId: string, baselineId?: string) {
+  try {
+    const rubros = await ApiService.getRubros({ projectId, baseline: baselineId });
+    if (Array.isArray(rubros) && rubros.length) return rubros;
+
+    // Try server aggregated summary
+    try {
+      const summary = await ApiService.getRubrosSummary(projectId, baselineId);
+      if (summary && Array.isArray(summary.rubro_summary) && summary.rubro_summary.length) {
+        return summary.rubro_summary;
+      }
+    } catch (err) {
+      // continue to client-side fallback if server summary not available
+      console.warn('rubros summary endpoint failed', err);
+    }
+
+    // Client fallback: aggregate allocations + prefacturas
+    const [allocations, prefacturas] = await Promise.all([
+      ApiService.getAllocations({ projectId, baseline: baselineId }),
+      ApiService.getPrefacturas({ projectId, baseline: baselineId })
+    ]);
+
+    const map = new Map();
+    const push = (item: any) => {
+      const key = item.rubroId || item.role || item.description || 'unknown';
+      let e = map.get(key);
+      if (!e) {
+        e = { 
+          rubroId: item.rubroId || null, 
+          description: item.description || item.role || 'Sin rubro', 
+          type: item.type || 'unknown', 
+          monthly: Array(12).fill(0), 
+          total: 0 
+        };
+        map.set(key, e);
+      }
+      const month = (item.month || 1) - 1;
+      e.monthly[month] = (e.monthly[month] || 0) + (item.amount || 0);
+      e.total += (item.amount || 0);
+    };
+
+    (allocations || []).forEach(push);
+    (prefacturas || []).forEach((p: any) => {
+      if (Array.isArray(p.items)) p.items.forEach(push);
+      else push({ rubroId: p.rubroId, description: p.description, month: p.month || 1, amount: p.amount, type: p.type });
+    });
+
+    return Array.from(map.values());
+  } catch (err) {
+    console.error('getRubrosWithFallback failed', err);
+    return [];
+  }
 }
 
 // Named export wrappers for backward compatibility
