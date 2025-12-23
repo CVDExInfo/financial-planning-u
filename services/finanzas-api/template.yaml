@@ -708,6 +708,80 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
+  BaselineSummaryFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/baselineSummary.ts
+        External:
+          - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+    Properties:
+      CodeUri: .
+      Handler: baselineSummary.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProjectsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref PrefacturasTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref DocsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub 'arn:aws:s3:::${DocsBucketName}/*'
+      Events:
+        GetBaselineSummary:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/baseline-summary
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+
+  AdminBackfillFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/admin/backfillHandler.ts
+        External:
+          - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+    Properties:
+      CodeUri: .
+      Handler: admin/backfillHandler.handler
+      Timeout: 30
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProjectsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref PrefacturasTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RubrosTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AllocationsTable
+      Events:
+        AdminBackfill:
+          Type: HttpApi
+          Properties:
+            Path: /admin/backfill
+            Method: POST
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+
   UploadDocumentFunction:
     Type: AWS::Serverless::Function
     Metadata:
