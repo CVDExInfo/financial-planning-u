@@ -109,6 +109,20 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     const signedBy = baseline.signed_by || baseline.created_by || null;
     const signedAt = baseline.signed_at || baseline.created_at || null;
 
+    // Acceptance/Rejection metadata
+    const acceptedBy = baseline.acceptedBy || null;
+    const acceptedAt = baseline.acceptedAt || null;
+    const rejectedBy = baseline.rejectedBy || null;
+    const rejectedAt = baseline.rejectedAt || null;
+    const rejectionComment = baseline.rejectionComment || null;
+
+    // Materialization metadata
+    const materializedAt = baseline.materializedAt || null;
+    const materializationStatus = baseline.materialization_status || null;
+    const materializationQueuedAt = baseline.materializationQueuedAt || null;
+    const rubrosCount = typeof baseline.rubrosCount === 'number' ? baseline.rubrosCount : null;
+    const rubrosByType = baseline.rubrosByType || null;
+
     // contract value / currency
     const contractValue = safeNumber(
       baseline.contract_value || baseline.contractValue || 0
@@ -164,6 +178,16 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       rolesCount,
       signedBy,
       signedAt,
+      acceptedBy,
+      acceptedAt,
+      rejectedBy,
+      rejectedAt,
+      rejectionComment,
+      materializedAt,
+      materializationStatus,
+      materializationQueuedAt,
+      rubrosCount,
+      rubrosByType,
       contractValue,
       currency,
       doc: s3SignedUrl ? { objectKey, s3Url: s3SignedUrl } : null,

@@ -2,8 +2,8 @@
 import { SQSEvent } from "aws-lambda";
 import { materializeRubrosForBaseline, materializeAllocationsForBaseline } from "../lib/materializers";
 import { logDataHealth } from "../lib/dataHealth";
-import { ddb, tableName } from "../lib/dynamo";
-import { GetCommand } from "@aws-sdk/lib-dynamodb";
+import { ddb, tableName, UpdateCommand } from "../lib/dynamo";
+import { GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 
 async function fetchBaselinePayload(baselineId: string) {
   try {
@@ -20,8 +20,43 @@ async function fetchBaselinePayload(baselineId: string) {
   }
 }
 
+async function countRubros(projectId: string, baselineId: string): Promise<{ total: number; labor: number; nonLabor: number }> {
+  try {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: tableName("rubros"),
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :skPrefix)",
+        ExpressionAttributeValues: {
+          ":pk": `PROJECT#${projectId}`,
+          ":skPrefix": `RUBRO#`,
+        },
+        FilterExpression: "baselineId = :baselineId",
+        ExpressionAttributeValues: {
+          ":pk": `PROJECT#${projectId}`,
+          ":skPrefix": `RUBRO#`,
+          ":baselineId": baselineId,
+        },
+      })
+    );
+    
+    const items = result.Items || [];
+    const labor = items.filter(item => {
+      const category = (item.category || '').toLowerCase();
+      const type = (item.type || '').toLowerCase();
+      return category.includes('labor') || type.includes('labor') || category.includes('mod');
+    }).length;
+    const nonLabor = items.length - labor;
+    
+    return { total: items.length, labor, nonLabor };
+  } catch (error) {
+    console.error("Failed to count rubros", { projectId, baselineId, error });
+    return { total: 0, labor: 0, nonLabor: 0 };
+  }
+}
+
 export const handler = async (event: SQSEvent) => {
   for (const record of event.Records || []) {
+    const now = new Date().toISOString();
     try {
       const body = JSON.parse(record.body);
       const { baselineId, projectId } = body;
@@ -38,15 +73,69 @@ export const handler = async (event: SQSEvent) => {
         continue;
       }
       
+      // Update baseline to processing state
+      try {
+        await ddb.send(new UpdateCommand({
+          TableName: tableName("prefacturas"),
+          Key: { pk: `BASELINE#${baselineId}`, sk: 'METADATA' },
+          UpdateExpression: 'SET materialization_status = :processing',
+          ExpressionAttributeValues: { ':processing': 'processing' }
+        }));
+      } catch (updateErr) {
+        console.warn("Failed to set processing status", updateErr);
+      }
+      
       // Materialize rubros and allocations
-      await Promise.all([
+      const [rubrosSummary, allocationsSummary] = await Promise.all([
         materializeRubrosForBaseline(baseline, { dryRun: false }),
         materializeAllocationsForBaseline(baseline, { dryRun: false })
       ]);
       
-      console.log('Successfully materialized baseline', { baselineId, projectId });
+      // Count rubros and categorize by type
+      const rubrosCount = await countRubros(projectId, baselineId);
+      
+      // Update baseline with materialization metadata
+      await ddb.send(new UpdateCommand({
+        TableName: tableName("prefacturas"),
+        Key: { pk: `BASELINE#${baselineId}`, sk: 'METADATA' },
+        UpdateExpression: 'SET materializedAt = :now, materialization_status = :completed, rubrosCount = :count, rubrosByType = :types',
+        ExpressionAttributeValues: { 
+          ':now': now,
+          ':completed': 'completed',
+          ':count': rubrosCount.total,
+          ':types': { labor: rubrosCount.labor, nonLabor: rubrosCount.nonLabor }
+        }
+      }));
+      
+      console.log('Successfully materialized baseline', { 
+        baselineId, 
+        projectId, 
+        rubrosWritten: rubrosSummary.rubrosWritten || 0,
+        allocationsWritten: allocationsSummary.allocationsWritten || 0,
+        rubrosCount 
+      });
     } catch (err) {
       console.error('materialize worker error', err);
+      
+      // Try to update baseline to failed state
+      try {
+        const body = JSON.parse(record.body);
+        const { baselineId } = body;
+        if (baselineId) {
+          await ddb.send(new UpdateCommand({
+            TableName: tableName("prefacturas"),
+            Key: { pk: `BASELINE#${baselineId}`, sk: 'METADATA' },
+            UpdateExpression: 'SET materialization_status = :failed, materializationError = :error',
+            ExpressionAttributeValues: { 
+              ':failed': 'failed',
+              ':error': String(err)
+            }
+          }));
+        }
+      } catch (updateErr) {
+        console.error('Failed to update baseline to failed state', updateErr);
+      }
+      
       await logDataHealth({ 
         type: 'materialize_worker_error', 
         message: String(err) 

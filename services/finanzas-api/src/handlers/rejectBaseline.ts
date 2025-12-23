@@ -136,6 +136,26 @@ async function rejectBaseline(event: APIGatewayProxyEventV2) {
     })
   );
 
+  // Update baseline record with rejection metadata
+  try {
+    await ddb.send(new UpdateCommand({
+      TableName: tableName("prefacturas"),
+      Key: { pk: `BASELINE#${baselineId}`, sk: 'METADATA' },
+      UpdateExpression: 'SET #status = :rejected, rejectedBy = :rejectedBy, rejectedAt = :rejectedAt, rejectionComment = :comment',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: { 
+        ':rejected': 'rejected',
+        ':rejectedBy': rejectedBy,
+        ':rejectedAt': now,
+        ':comment': comment
+      }
+    }));
+  } catch (err: any) {
+    console.error("Failed to update baseline with rejection metadata", err);
+    // Note: we don't fail the request if baseline update fails
+    // Project metadata is already updated which is the source of truth
+  }
+
   // TODO: PM Notification Extension Point
   // When a baseline is rejected, notify the PM via:
   // 1. Email lambda (if configured)
