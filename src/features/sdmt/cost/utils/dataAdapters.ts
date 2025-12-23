@@ -10,10 +10,16 @@ const toNumber = (value: unknown, fallback = 0): number => {
   return Number.isFinite(num) ? num : fallback;
 };
 
-export const normalizeLineItemFromApi = (raw: any): LineItem => {
+export const normalizeLineItemFromApi = (raw: any, options?: { debugMode?: boolean }): LineItem => {
   const id = normalizeRubroId(
     raw?.id || raw?.rubro_id || raw?.rubroId || raw?.line_item_id || raw?.lineItemId
   );
+  
+  // Defensive check: warn if ID is missing
+  if (!id && options?.debugMode) {
+    console.warn('[normalizeLineItemFromApi] Line item has no valid ID. Raw item:', raw);
+  }
+
   const startMonth = toNumber(raw?.start_month ?? raw?.startMonth, 1) || 1;
   const recurringFlag = Boolean(raw?.recurring);
   const oneTimeFlag = raw?.one_time !== undefined ? Boolean(raw.one_time) : !recurringFlag;
@@ -61,8 +67,15 @@ export const normalizeLineItemFromApi = (raw: any): LineItem => {
   } satisfies LineItem;
 };
 
-export const normalizeForecastCells = (cells: any[]): ForecastCell[] => {
-  return (Array.isArray(cells) ? cells : []).map((cell) => {
+export const normalizeForecastCells = (cells: any[], options?: { baselineId?: string; debugMode?: boolean }): ForecastCell[] => {
+  if (!Array.isArray(cells)) {
+    if (options?.debugMode) {
+      console.warn('[normalizeForecastCells] Input is not an array:', cells);
+    }
+    return [];
+  }
+
+  const normalized = cells.map((cell, index) => {
     const planned = toNumber(
       cell?.planned ?? cell?.amount_planned ?? cell?.planned_amount ?? cell?.plan
     );
@@ -75,13 +88,25 @@ export const normalizeForecastCells = (cells: any[]): ForecastCell[] => {
       cell?.line_item_id || cell?.lineItemId || cell?.rubro_id || cell?.rubroId
     );
 
+    // Defensive check: warn if line_item_id is empty
+    if (!lineItemId && options?.debugMode) {
+      console.warn(`[normalizeForecastCells] Cell at index ${index} has no valid line_item_id. Raw cell:`, cell);
+    }
+
+    // Defensive check: warn if month is invalid
+    if (month < 1 || month > 12) {
+      if (options?.debugMode) {
+        console.warn(`[normalizeForecastCells] Cell at index ${index} has invalid month: ${month}. Raw cell:`, cell);
+      }
+    }
+
     const varianceBase = cell?.variance ?? cell?.forecast_variance;
     const variance =
       varianceBase !== undefined && varianceBase !== null
         ? toNumber(varianceBase)
         : forecast - planned;
 
-    return {
+    const normalizedCell: ForecastCell = {
       line_item_id: lineItemId,
       month,
       planned,
@@ -92,8 +117,33 @@ export const normalizeForecastCells = (cells: any[]): ForecastCell[] => {
       notes: cell?.notes,
       last_updated: cell?.last_updated || cell?.updated_at || "",
       updated_by: cell?.updated_by || cell?.user || "",
-    } satisfies ForecastCell;
+    };
+
+    // Add baseline_id to the cell if provided (for traceability)
+    if (options?.baselineId && cell?.baseline_id !== options.baselineId && options?.debugMode) {
+      console.warn(
+        `[normalizeForecastCells] Cell baseline_id mismatch. Expected: ${options.baselineId}, Got: ${cell?.baseline_id}`
+      );
+    }
+
+    return normalizedCell;
   });
+
+  // Defensive check: log summary of normalization
+  if (options?.debugMode) {
+    const validCells = normalized.filter(c => c.line_item_id && c.month >= 1 && c.month <= 12);
+    const invalidCells = normalized.length - validCells.length;
+    
+    console.log('[normalizeForecastCells] Summary:', {
+      inputCount: cells.length,
+      normalizedCount: normalized.length,
+      validCells: validCells.length,
+      invalidCells,
+      baselineId: options?.baselineId,
+    });
+  }
+
+  return normalized;
 };
 
 export { normalizeRubroId };

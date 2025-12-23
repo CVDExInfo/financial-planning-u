@@ -362,7 +362,12 @@ export function SDMTForecast() {
       return; // Stale, abort processing
     }
     
-    let normalized = normalizeForecastCells(payload.data);
+    // Pass baseline ID and enable debug mode in development for better diagnostics
+    const debugMode = import.meta.env.DEV;
+    let normalized = normalizeForecastCells(payload.data, { 
+      baselineId: currentProject?.baselineId, 
+      debugMode 
+    });
     let usedFallback = false;
     
     // Fallback: If server forecast is empty and we have line items, use them
@@ -470,7 +475,11 @@ export function SDMTForecast() {
           return null;
         }
 
-        const normalized = normalizeForecastCells(payload.data);
+        const debugMode = import.meta.env.DEV;
+        const normalized = normalizeForecastCells(payload.data, {
+          baselineId: project.baselineId,
+          debugMode
+        });
         const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
 
         const projectData: ForecastRow[] = normalized.map(cell => {
