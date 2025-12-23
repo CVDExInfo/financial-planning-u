@@ -116,8 +116,8 @@ export function PMOBaselinesQueuePage() {
 
   // Sort projects
   const sortedProjects = filteredProjects?.slice().sort((a, b) => {
-    let aValue: any;
-    let bValue: any;
+    let aValue: string | number;
+    let bValue: string | number;
 
     switch (sortField) {
       case "name":
