@@ -271,19 +271,26 @@ export class ApiService {
                   }, 0)
                 : 0;
 
-              // Calculate rubros count
-              const rubrosCount = (baseline?.labor_estimates?.length || 0) + 
-                                 (baseline?.non_labor_estimates?.length || 0);
-              const finalRubrosCount = rubrosCount > 0 ? rubrosCount : (baseline?.line_items?.length || 0);
+              // Get actual rubros count by fetching materialized rubros
+              let actualRubrosCount = 0;
+              try {
+                const rubros = await this.getRubros({ projectId: p.id, baseline: String(p.baseline_id) });
+                actualRubrosCount = Array.isArray(rubros) ? rubros.length : 0;
+              } catch (err) {
+                // If getRubros fails, fall back to baseline estimates count
+                const estimatesCount = (baseline?.labor_estimates?.length || 0) + 
+                                      (baseline?.non_labor_estimates?.length || 0);
+                actualRubrosCount = estimatesCount > 0 ? estimatesCount : (baseline?.line_items?.length || 0);
+              }
 
               enrichedProjects[index] = {
                 ...enrichedProjects[index],
-                rubros_count: finalRubrosCount,
+                rubros_count: actualRubrosCount,
                 labor_cost: laborTotal,
                 non_labor_cost: nonLaborTotal,
-                accepted_by: baseline?.accepted_by || enrichedProjects[index].accepted_by,
+                accepted_by: baseline?.accepted_by || baseline?.acceptedBy || enrichedProjects[index].accepted_by,
                 rejected_by: baseline?.rejected_by || enrichedProjects[index].rejected_by,
-                baseline_accepted_at: baseline?.accepted_ts || enrichedProjects[index].baseline_accepted_at,
+                baseline_accepted_at: baseline?.accepted_ts || baseline?.acceptedAt || enrichedProjects[index].baseline_accepted_at,
               };
             } catch (err) {
               // Swallow errors per-project to avoid breaking the whole list
