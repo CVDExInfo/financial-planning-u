@@ -68,7 +68,16 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
   }
 
   const userEmail = await getUserEmail(event);
-  const acceptedBy = (body.accepted_by || userEmail) as string;
+  // Prefer explicit accepted_by from request, then authenticated user email
+  // Fallback to "system" only if both are unavailable
+  let acceptedBy = (body.accepted_by as string | undefined) || userEmail;
+  
+  // If userEmail is "system" and we have accepted_by in body, use that
+  // Otherwise ensure we don't show "system" as the acceptor
+  if (acceptedBy === "system" && body.accepted_by) {
+    acceptedBy = body.accepted_by as string;
+  }
+  
   const now = new Date().toISOString();
 
   // Defensive check: prevent re-acceptance of already accepted baselines
@@ -250,13 +259,19 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     // Persist materialization counts to project metadata
     try {
       const allocationsCount = (allocationsSummary as any).allocationsWritten ?? (allocationsSummary as any).allocationsPlanned ?? 0;
-      const rubrosCount = (rubrosSummary as any).rubrosWritten ?? 0;
+      let rubrosCount = (rubrosSummary as any).rubrosWritten ?? 0;
       const materializedAt = new Date().toISOString();
 
       // Calculate labor and non-labor totals from baseline estimates
       const baselinePayload = baselineRecord.payload || baselineRecord;
       const laborEstimates = baselinePayload.labor_estimates || baselineRecord.labor_estimates || [];
       const nonLaborEstimates = baselinePayload.non_labor_estimates || baselineRecord.non_labor_estimates || [];
+      
+      // If rubrosCount is 0 but we have estimates, use the count from estimates
+      // This handles the case where allocations were created but rubros table wasn't populated
+      if (rubrosCount === 0 && (laborEstimates.length > 0 || nonLaborEstimates.length > 0)) {
+        rubrosCount = laborEstimates.length + nonLaborEstimates.length;
+      }
       
       // Calculate labor total (sum of all labor costs)
       let laborTotal = 0;
