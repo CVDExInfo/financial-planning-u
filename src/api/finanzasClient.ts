@@ -679,6 +679,88 @@ export const finanzasClient = {
     });
     return data;
   },
+
+  /**
+   * Get baseline summary for a project
+   * Returns original baseline values (totals, FTEs, roles) and PDF link
+   */
+  async getBaselineSummary(projectId: string): Promise<{
+    baselineId: string;
+    total: number;
+    totalLabor: number;
+    totalNonLabor: number;
+    ftes: number;
+    rolesCount: number;
+    signedBy: string | null;
+    signedAt: string | null;
+    contractValue: number;
+    currency: string;
+    doc: {
+      objectKey: string | null;
+      s3Url: string;
+    } | null;
+    baselinePayloadExists: boolean;
+    error?: string;
+    message?: string;
+  }> {
+    checkAuth();
+    const data = await http<{
+      baselineId: string;
+      total: number;
+      totalLabor: number;
+      totalNonLabor: number;
+      ftes: number;
+      rolesCount: number;
+      signedBy: string | null;
+      signedAt: string | null;
+      contractValue: number;
+      currency: string;
+      doc: {
+        objectKey: string | null;
+        s3Url: string;
+      } | null;
+      baselinePayloadExists: boolean;
+      error?: string;
+      message?: string;
+    }>(`projects/${projectId}/baseline-summary`);
+    return data;
+  },
+
+  /**
+   * Run admin backfill to materialize baseline rubros
+   * Requires admin privileges
+   */
+  async runBackfill(
+    projectId: string,
+    dryRun: boolean = true
+  ): Promise<{
+    success: boolean;
+    dryRun: boolean;
+    baselineId: string;
+    result: {
+      rubrosPlanned?: number;
+      rubrosWritten?: number;
+    };
+    error?: string;
+    message?: string;
+  }> {
+    checkAuth();
+    const data = await http<{
+      success: boolean;
+      dryRun: boolean;
+      baselineId: string;
+      result: {
+        rubrosPlanned?: number;
+        rubrosWritten?: number;
+      };
+      error?: string;
+      message?: string;
+    }>(`admin/backfill`, {
+      method: 'POST',
+      body: JSON.stringify({ projectId, dryRun }),
+    });
+    return data;
+  },
 };
 
 export default finanzasClient;

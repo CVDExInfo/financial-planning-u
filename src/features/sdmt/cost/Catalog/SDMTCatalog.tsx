@@ -76,6 +76,7 @@ import {
 } from "@/data/cost-categories";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { isMODCategory } from "@/lib/cost-utils";
+import RubrosBaselineSummary from "@/components/RubrosBaselineSummary";
 
 type PendingChangeType = "add" | "edit" | "delete";
 
@@ -920,7 +921,18 @@ export function SDMTCatalog() {
         </div>
       </div>
 
-      {showEmptyState && (
+      {showEmptyState && currentProject?.baselineId && currentProject?.baseline_status === "accepted" && (
+        <RubrosBaselineSummary
+          projectId={selectedProjectId}
+          onMaterializeComplete={() => {
+            // Refresh the line items after materialization
+            invalidateLineItems();
+            invalidateProjectData();
+          }}
+        />
+      )}
+
+      {showEmptyState && !currentProject?.baselineId && (
         <div className="rounded-md border border-dashed border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
           No hay datos de catálogo disponibles para este proyecto aún. Agrega un rubro para
           ver totales y gráficos.
