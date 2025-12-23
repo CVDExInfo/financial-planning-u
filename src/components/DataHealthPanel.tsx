@@ -46,18 +46,18 @@ interface EndpointCheck {
 }
 
 export function DataHealthPanel() {
-  // Only render in DEV mode
-  if (!import.meta.env.DEV) {
-    return null;
-  }
-
   const { selectedProjectId, currentProject } = useProject();
   const [isOpen, setIsOpen] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [healthStatus, setHealthStatus] = useState<HealthCheck | null>(null);
-  const [rubroSCount, setRubrosCount] = useState<number | null>(null);
+  const [rubrosCount, setRubrosCount] = useState<number | null>(null);
   const [lineItemsCount, setLineItemsCount] = useState<number | null>(null);
   const [endpointChecks, setEndpointChecks] = useState<EndpointCheck[]>([]);
+
+  // Only render in DEV mode
+  if (!import.meta.env.DEV) {
+    return null;
+  }
 
   /**
    * Run comprehensive health check

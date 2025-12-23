@@ -49,6 +49,9 @@ const PROJECTS_TABLE = process.env.PROJECTS_TABLE || "finanzas-sd-projects";
 const RUBROS_TABLE = process.env.RUBROS_TABLE || "finanzas-sd-rubros";
 const PREFACTURAS_TABLE = process.env.PREFACTURAS_TABLE || "finanzas-sd-prefacturas";
 
+// Constants
+const MAX_SCAN_PAGES = 100; // Safety limit to prevent infinite pagination loops
+
 interface ProjectMetadata {
   pk: string;
   sk: string;
@@ -140,8 +143,8 @@ async function getAcceptedBaselines(targetProjectId?: string): Promise<ProjectMe
       lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
       pageCount++;
       
-      if (pageCount > 100) {
-        console.warn("⚠️  Exceeded 100 pages while scanning projects. Stopping.");
+      if (pageCount > MAX_SCAN_PAGES) {
+        console.warn(`⚠️  Exceeded ${MAX_SCAN_PAGES} pages while scanning projects. Stopping.`);
         break;
       }
     } while (lastEvaluatedKey);

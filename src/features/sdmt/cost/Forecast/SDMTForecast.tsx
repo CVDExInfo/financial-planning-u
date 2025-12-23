@@ -413,7 +413,8 @@ export function SDMTForecast() {
         
         // Check if request is still valid after async operations
         if (latestRequestKeyRef.current !== requestKey) {
-          throw new Error('Request aborted'); // Will be caught and ignored below
+          // Return empty result to be filtered out, don't throw
+          return null;
         }
 
         const normalized = normalizeForecastCells(payload.data);
@@ -444,14 +445,17 @@ export function SDMTForecast() {
       })
     );
     
+    // Filter out null results from aborted requests
+    const validResults = portfolioResults.filter(result => result !== null);
+    
     // Final check before setting state
     if (latestRequestKeyRef.current !== requestKey) {
       return;
     }
 
-    const aggregatedData = portfolioResults.flatMap(result => result.data);
-    const aggregatedLineItems = portfolioResults.flatMap(result => result.lineItems);
-    const firstGeneratedAt = portfolioResults.find(result => result.generatedAt)?.generatedAt;
+    const aggregatedData = validResults.flatMap(result => result.data);
+    const aggregatedLineItems = validResults.flatMap(result => result.lineItems);
+    const firstGeneratedAt = validResults.find(result => result.generatedAt)?.generatedAt;
 
     setDataSource('api');
     setGeneratedAt(firstGeneratedAt || new Date().toISOString());

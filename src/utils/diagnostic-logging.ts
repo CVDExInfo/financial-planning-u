@@ -15,14 +15,6 @@ import { logger } from './logger';
  * @param data - Optional data to log
  */
 export function logDebug(message: string, data?: Record<string, unknown>): void {
-  // Explicitly check environment to ensure silence in test/production
-  const isTest = process.env.NODE_ENV === 'test';
-  const isProd = process.env.NODE_ENV === 'production';
-  
-  if (isTest || isProd) {
-    return; // Silent in test and production
-  }
-  
   // Only log in development
   if (import.meta.env.DEV) {
     if (data) {
