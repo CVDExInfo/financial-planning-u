@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, DollarSign, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface ForecastKpiCardsProps {
   kpis: {
