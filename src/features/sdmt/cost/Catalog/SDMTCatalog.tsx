@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -117,6 +118,10 @@ const createEmptyFormState = (): CatalogFormState => ({
 });
 
 export function SDMTCatalog() {
+  // Route params - if navigating to /projects/:projectId/cost-structure
+  const params = useParams<{ projectId?: string }>();
+  const routeProjectId = params.projectId;
+  
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [pendingChanges, setPendingChanges] = useState<
     Map<string, PendingChange>
@@ -154,7 +159,15 @@ export function SDMTCatalog() {
     currentProject,
     projectChangeCount,
     invalidateProjectData,
+    setSelectedProjectId,
   } = useProject();
+  
+  // Effect: Update project context when route projectId is provided
+  useEffect(() => {
+    if (routeProjectId && routeProjectId !== currentProject?.id) {
+      setSelectedProjectId(routeProjectId);
+    }
+  }, [routeProjectId, currentProject?.id, setSelectedProjectId]);
 
   const {
     lineItems: queryLineItems,

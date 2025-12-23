@@ -5,6 +5,7 @@
  */
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -71,6 +72,7 @@ export function PortfolioSummaryView({
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [showMonthlyBreakdown, setShowMonthlyBreakdown] = useState(false);
+  const navigate = useNavigate();
 
   // Check if we have runway metrics to display
   const hasRunwayMetrics = runwayMetrics && runwayMetrics.length > 0;
@@ -130,6 +132,22 @@ export function PortfolioSummaryView({
       }
       return next;
     });
+  };
+
+  // Navigate helpers (keeps backward compatibility via onViewProject prop)
+  const goToReconciliation = (projectId: string) => {
+    if (onViewProject) {
+      onViewProject(projectId);
+    } else {
+      // Navigate to reconciliation with projectId as query param
+      navigate(`/sdmt/reconciliation?projectId=${encodeURIComponent(projectId)}`);
+    }
+  };
+
+  const goToRubros = (projectId: string) => {
+    // Route to the Estructura de Costos del Proyecto (rubros) page.
+    // Adjust path if your router uses a different route.
+    navigate(`/projects/${encodeURIComponent(projectId)}/cost-structure`);
   };
 
   const getVarianceColor = (variance: number) => {
@@ -332,24 +350,27 @@ export function PortfolioSummaryView({
                   <div className="border rounded-lg overflow-hidden">
                     <div className="flex items-center justify-between p-3 bg-card hover:bg-muted/50 transition-colors">
                       <div className="flex items-center gap-3 flex-1">
-                        <CollapsibleTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            aria-label={
-                              expandedProjects.has(project.projectId)
-                                ? `Colapsar ${project.projectName}`
-                                : `Expandir ${project.projectName}`
-                            }
-                          >
-                            {expandedProjects.has(project.projectId) ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </CollapsibleTrigger>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => {
+                            toggleProjectExpanded(project.projectId);
+                            // also navigate to Reconciliation for this project
+                            goToReconciliation(project.projectId);
+                          }}
+                          aria-label={
+                            expandedProjects.has(project.projectId)
+                              ? `Colapsar ${project.projectName} y ver conciliación`
+                              : `Expandir ${project.projectName} y ver conciliación`
+                          }
+                        >
+                          {expandedProjects.has(project.projectId) ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
                         <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -385,16 +406,14 @@ export function PortfolioSummaryView({
                             {formatCurrency(Math.abs(project.totalVariance))}
                           </div>
                         </div>
-                        {onViewProject && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => onViewProject(project.projectId)}
-                          >
-                            Ver Rubros
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => goToRubros(project.projectId)}
+                        >
+                          Ver Rubros
+                        </Button>
                       </div>
                     </div>
                     <CollapsibleContent>
