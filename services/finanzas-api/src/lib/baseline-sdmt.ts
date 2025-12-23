@@ -31,6 +31,7 @@
 
 import { ddb, tableName } from "./dynamo";
 import { GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { logDebug, logError } from "../utils/logging";
 
 export interface ProjectBaselineInfo {
   baselineId: string | null;
@@ -97,7 +98,7 @@ export async function getProjectActiveBaseline(
 
     return { baselineId, baselineStatus };
   } catch (error) {
-    console.error("Error fetching project baseline", { projectId, error });
+    logError("Error fetching project baseline", { projectId, error });
     return { baselineId: null, baselineStatus: null };
   }
 }
@@ -135,12 +136,12 @@ export function filterRubrosByBaseline<
   // LENIENT MODE: If baseline is set but no rubros match, include rubros without baseline_id
   // This handles migration scenarios where projects have rubros but they weren't tagged
   if (matchedRubros.length === 0 && rubros.length > 0) {
-    console.warn("[filterRubrosByBaseline] No rubros matched baseline, falling back to untagged rubros", {
+    logDebug("[filterRubrosByBaseline] No rubros matched baseline, falling back to untagged rubros", {
       baselineId,
       totalRubros: rubros.length,
       rubrosSample: rubros.slice(0, 3).map(r => ({
-        baselineId: r.baselineId,
-        metadataBaselineId: r.metadata?.baseline_id
+        hasDirectBaselineId: !!r.baselineId,
+        hasMetadataBaselineId: !!r.metadata?.baseline_id,
       }))
     });
     
@@ -167,10 +168,17 @@ export async function queryProjectRubros(
   // If no baselineId is passed, resolve from project metadata.
   let targetBaselineId = baselineId;
   if (!targetBaselineId) {
-    const { baselineId: activeBaseline } = await getProjectActiveBaseline(
+    const { baselineId: activeBaseline, baselineStatus } = await getProjectActiveBaseline(
       projectId
     );
     targetBaselineId = activeBaseline;
+    
+    // Enhanced diagnostic logging for baseline resolution
+    logDebug("[queryProjectRubros] Resolved baseline from project metadata", {
+      projectId,
+      baselineId: targetBaselineId,
+      baselineStatus,
+    });
   }
 
   const allRubros: BaselineRubro[] = [];
@@ -199,7 +207,7 @@ export async function queryProjectRubros(
 
     safetyCounter += 1;
     if (safetyCounter > MAX_PAGINATION_ITERATIONS) {
-      console.warn("Exceeded pagination safety limit while querying rubros", {
+      logError("Exceeded pagination safety limit while querying rubros", {
         projectId,
         baselineId: targetBaselineId,
       });
@@ -207,7 +215,29 @@ export async function queryProjectRubros(
     }
   } while (lastEvaluatedKey);
 
-  return filterRubrosByBaseline(allRubros, targetBaselineId ?? null);
+  // Enhanced diagnostic logging before filtering
+  logDebug("[queryProjectRubros] Query results before filtering", {
+    projectId,
+    targetBaselineId,
+    totalRubrosFromQuery: allRubros.length,
+    rubrosSample: allRubros.slice(0, 3).map(r => ({
+      hasDirectBaselineId: !!r.baselineId,
+      hasMetadataBaselineId: !!r.metadata?.baseline_id,
+      metadataSource: r.metadata?.source,
+    })),
+  });
+
+  const filtered = filterRubrosByBaseline(allRubros, targetBaselineId ?? null);
+  
+  // Log the filtering result
+  logDebug("[queryProjectRubros] Filtering complete", {
+    projectId,
+    targetBaselineId,
+    totalRubrosBeforeFilter: allRubros.length,
+    totalRubrosAfterFilter: filtered.length,
+  });
+
+  return filtered;
 }
 
 /**
