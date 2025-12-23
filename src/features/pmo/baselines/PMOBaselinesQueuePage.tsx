@@ -404,12 +404,12 @@ export function PMOBaselinesQueuePage() {
                               </Tooltip>
                             </TooltipProvider>
                             {project.rubros_count === 0 && project.baseline_status === "accepted" && (
-                              <a 
+                              <button
                                 className="text-xs text-blue-600 hover:underline cursor-pointer flex items-center gap-1"
                                 onClick={() => navigate(`/finanzas/sdmt/cost/catalog?projectId=${project.id}&baseline=${project.baseline_id}`)}
                               >
                                 {ES_TEXTS.baseline.viewRubros} →
-                              </a>
+                              </button>
                             )}
                           </div>
                         ) : (
