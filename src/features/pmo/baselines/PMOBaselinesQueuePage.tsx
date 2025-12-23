@@ -323,7 +323,7 @@ export function PMOBaselinesQueuePage() {
                     >
                       {ES_TEXTS.baseline.status} <SortIcon field="status" />
                     </TableHead>
-                    <TableHead>{ES_TEXTS.baseline.acceptedBy}/{ES_TEXTS.baseline.rejectedBy}</TableHead>
+                    <TableHead>{ES_TEXTS.baseline.acceptedRejectedBy}</TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSort("rubros_count")}

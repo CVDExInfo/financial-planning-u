@@ -155,6 +155,7 @@ export const ES_TEXTS = {
     missingRubros: "Rubros Faltantes",
     acceptedBy: "Aceptado por",
     rejectedBy: "Rechazado por",
+    acceptedRejectedBy: "Aceptado/Rechazado por",
     acceptedAt: "Aceptado el",
     rejectedAt: "Rechazado el",
     viewRubros: "Ver Rubros",

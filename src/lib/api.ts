@@ -236,12 +236,14 @@ export class ApiService {
       const concurrency = 5;
       const enrichedProjects = [...normalized];
 
+      // Helper to determine if a project needs baseline enrichment
+      const needsBaselineEnrichment = (p: Project) => 
+        p.baseline_id && !(p.rubros_count > 0 && p.labor_cost !== undefined && p.non_labor_cost !== undefined);
+
       // Process in batches
       const projectsToEnrich = normalized
         .map((p, index) => ({ project: p, index }))
-        .filter(({ project: p }) => 
-          p.baseline_id && !(p.rubros_count > 0 && p.labor_cost !== undefined && p.non_labor_cost !== undefined)
-        );
+        .filter(({ project: p }) => needsBaselineEnrichment(p));
 
       for (let i = 0; i < projectsToEnrich.length; i += concurrency) {
         const batch = projectsToEnrich.slice(i, i + concurrency);
@@ -271,12 +273,12 @@ export class ApiService {
 
               // Calculate rubros count
               const rubrosCount = (baseline?.labor_estimates?.length || 0) + 
-                                 (baseline?.non_labor_estimates?.length || 0) ||
-                                 baseline?.line_items?.length || 0;
+                                 (baseline?.non_labor_estimates?.length || 0);
+              const finalRubrosCount = rubrosCount > 0 ? rubrosCount : (baseline?.line_items?.length || 0);
 
               enrichedProjects[index] = {
                 ...enrichedProjects[index],
-                rubros_count: rubrosCount,
+                rubros_count: finalRubrosCount,
                 labor_cost: laborTotal,
                 non_labor_cost: nonLaborTotal,
                 accepted_by: baseline?.accepted_by || enrichedProjects[index].accepted_by,
