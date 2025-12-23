@@ -146,7 +146,7 @@ export function SDMTForecast() {
     lineItems,
     isLoading: isLineItemsLoading,
     error: lineItemsError,
-  } = useProjectLineItems();
+  } = useProjectLineItems({ useFallback: true, baselineId: currentProject?.baseline_id });
   const safeLineItems = useMemo(
     () => (Array.isArray(lineItems) ? lineItems : []),
     [lineItems]
