@@ -432,7 +432,7 @@ describe("AcceptBaseline Handler", () => {
       dynamo.ddb.send.mockImplementation((command: any) => {
         const input = command.input;
         
-        // Log all calls for debugging
+        // Track all UpdateCommand calls for later assertion
         if (input?.UpdateExpression) {
           updateCalls.push(input);
         }
@@ -471,7 +471,7 @@ describe("AcceptBaseline Handler", () => {
           });
         }
 
-        // Track UpdateCommand calls
+        // Return response for UpdateCommand
         if (input?.UpdateExpression) {
           return Promise.resolve({
             Attributes: {
