@@ -13,12 +13,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   CheckCircle2,
   XCircle,
   Clock,
   AlertCircle,
   ExternalLink,
   Loader2,
+  Info,
 } from "lucide-react";
 import { getProjects } from "@/lib/api";
 import { toast } from "sonner";
@@ -37,6 +44,8 @@ interface ProjectWithBaseline {
   baseline_rejected_at?: string;
   rejection_comment?: string;
   rubros_count?: number;
+  labor_cost?: number;
+  non_labor_cost?: number;
 }
 
 export function PMOBaselinesQueuePage() {
@@ -99,6 +108,16 @@ export function PMOBaselinesQueuePage() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const formatCurrency = (amount?: number) => {
+    if (typeof amount !== 'number') return "—";
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
   };
 
   const filteredProjects = projects?.filter((p) => {
@@ -214,7 +233,43 @@ export function PMOBaselinesQueuePage() {
                       </TableCell>
                       <TableCell>{getStatusBadge(project.baseline_status)}</TableCell>
                       <TableCell>
-                        {typeof project.rubros_count === "number" ? project.rubros_count : "—"}
+                        {typeof project.rubros_count === "number" ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-2 cursor-help">
+                                  <span className="font-medium">{project.rubros_count} Rubros</span>
+                                  {(project.labor_cost !== undefined || project.non_labor_cost !== undefined) && (
+                                    <Info className="h-3 w-3 text-muted-foreground" />
+                                  )}
+                                </div>
+                              </TooltipTrigger>
+                              {(project.labor_cost !== undefined || project.non_labor_cost !== undefined) && (
+                                <TooltipContent>
+                                  <div className="text-xs space-y-1">
+                                    <div className="font-semibold">Desglose de Costos</div>
+                                    <div className="flex justify-between gap-4">
+                                      <span className="text-muted-foreground">MOD (Labor):</span>
+                                      <span className="font-medium">{formatCurrency(project.labor_cost)}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-4">
+                                      <span className="text-muted-foreground">Indirectos:</span>
+                                      <span className="font-medium">{formatCurrency(project.non_labor_cost)}</span>
+                                    </div>
+                                    <div className="border-t pt-1 flex justify-between gap-4">
+                                      <span className="font-semibold">Total:</span>
+                                      <span className="font-semibold">
+                                        {formatCurrency((project.labor_cost || 0) + (project.non_labor_cost || 0))}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          "—"
+                        )}
                       </TableCell>
                       <TableCell className="text-sm">
                         {project.baseline_status === "accepted" && project.accepted_by && (
