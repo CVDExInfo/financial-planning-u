@@ -34,9 +34,9 @@ export function EstimatorWizard() {
         <div className="flex items-center space-x-3">
           <Calculator size={32} className="text-primary" />
           <div>
-            <h1 className="text-3xl font-bold text-foreground">PMO Pre-Factura Estimator</h1>
+            <h1 className="text-3xl font-bold text-foreground">Planificador PMO</h1>
             <p className="text-muted-foreground mt-1">
-              Create baseline budget estimates for project planning and cost forecasting
+              Cree estimaciones de línea base para la planificación de proyectos y pronóstico de costos
             </p>
           </div>
         </div>

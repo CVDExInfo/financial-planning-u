@@ -39,9 +39,14 @@ interface ProjectWithBaseline {
   rubros_count?: number;
 }
 
+type SortField = "name" | "client" | "status" | "date";
+type SortDirection = "asc" | "desc";
+
 export function PMOBaselinesQueuePage() {
   const navigate = useNavigate();
   const [selectedStatus, setSelectedStatus] = useState<"all" | BaselineStatus>("all");
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const { data: projects, isLoading, error } = useQuery({
     queryKey: ["projects", "with-baselines"],
@@ -109,6 +114,61 @@ export function PMOBaselinesQueuePage() {
     }
     return p.baseline_status === selectedStatus;
   });
+
+  // Sort projects
+  const sortedProjects = filteredProjects?.slice().sort((a, b) => {
+    let aValue: string | number;
+    let bValue: string | number;
+
+    switch (sortField) {
+      case "name":
+        aValue = a.name?.toLowerCase() || "";
+        bValue = b.name?.toLowerCase() || "";
+        break;
+      case "client":
+        aValue = a.client?.toLowerCase() || "";
+        bValue = b.client?.toLowerCase() || "";
+        break;
+      case "status": {
+        const statusOrder = { accepted: 0, rejected: 1, handed_off: 2, pending: 3 };
+        aValue = statusOrder[a.baseline_status as keyof typeof statusOrder] ?? 999;
+        bValue = statusOrder[b.baseline_status as keyof typeof statusOrder] ?? 999;
+        break;
+      }
+      case "date":
+        aValue = a.baseline_status === "accepted" 
+          ? new Date(a.baseline_accepted_at || 0).getTime()
+          : a.baseline_status === "rejected"
+          ? new Date(a.baseline_rejected_at || 0).getTime()
+          : 0;
+        bValue = b.baseline_status === "accepted"
+          ? new Date(b.baseline_accepted_at || 0).getTime()
+          : b.baseline_status === "rejected"
+          ? new Date(b.baseline_rejected_at || 0).getTime()
+          : 0;
+        break;
+      default:
+        return 0;
+    }
+
+    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return null;
+    return sortDirection === "asc" ? "↑" : "↓";
+  };
 
   const statusCounts = {
     all: projects?.length || 0,
@@ -185,23 +245,42 @@ export function PMOBaselinesQueuePage() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : filteredProjects && filteredProjects.length > 0 ? (
+          ) : sortedProjects && sortedProjects.length > 0 ? (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Client</TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("name")}
+                    >
+                      Project <SortIcon field="name" />
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("client")}
+                    >
+                      Client <SortIcon field="client" />
+                    </TableHead>
                     <TableHead>Baseline ID</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Rubros</TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("status")}
+                    >
+                      Status <SortIcon field="status" />
+                    </TableHead>
                     <TableHead>Accepted/Rejected By</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("date")}
+                    >
+                      Date <SortIcon field="date" />
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProjects.map((project) => (
+                  {sortedProjects.map((project) => (
                     <TableRow key={project.id}>
                       <TableCell className="font-medium">{project.name}</TableCell>
                       <TableCell className="text-muted-foreground">
