@@ -253,6 +253,30 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
       const rubrosCount = (rubrosSummary as any).rubrosWritten ?? 0;
       const materializedAt = new Date().toISOString();
 
+      // Calculate labor and non-labor totals from baseline estimates
+      const baselinePayload = baselineRecord.payload || baselineRecord;
+      const laborEstimates = baselinePayload.labor_estimates || baselineRecord.labor_estimates || [];
+      const nonLaborEstimates = baselinePayload.non_labor_estimates || baselineRecord.non_labor_estimates || [];
+      
+      // Calculate labor total (sum of all labor costs)
+      let laborTotal = 0;
+      for (const labor of laborEstimates) {
+        const rate = labor.rate || labor.hourly_rate || 0;
+        const hours = labor.hours_per_month || 160; // Default to 160 hours/month
+        const fte = labor.fte_count || 1;
+        const duration = (labor.end_month || 12) - (labor.start_month || 1) + 1;
+        const onCost = 1 + (labor.on_cost_percentage || 0) / 100;
+        laborTotal += rate * hours * fte * duration * onCost;
+      }
+      
+      // Calculate non-labor total (sum of all non-labor costs)
+      let nonLaborTotal = 0;
+      for (const nonLabor of nonLaborEstimates) {
+        const amount = nonLabor.amount || 0;
+        const duration = nonLabor.one_time ? 1 : ((nonLabor.end_month || 12) - (nonLabor.start_month || 1) + 1);
+        nonLaborTotal += amount * duration;
+      }
+
       await ddb.send(
         new UpdateCommand({
           TableName: tableName("projects"),
@@ -261,16 +285,20 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
             sk: "METADATA",
           },
           UpdateExpression:
-            "SET #rubros_count = :rubros_count, #allocations_count = :allocations_count, #materialized_at = :materialized_at, #updated_at = :updated_at",
+            "SET #rubros_count = :rubros_count, #allocations_count = :allocations_count, #labor_cost = :labor_cost, #non_labor_cost = :non_labor_cost, #materialized_at = :materialized_at, #updated_at = :updated_at",
           ExpressionAttributeNames: {
             "#rubros_count": "rubros_count",
             "#allocations_count": "allocations_count",
+            "#labor_cost": "labor_cost",
+            "#non_labor_cost": "non_labor_cost",
             "#materialized_at": "materialized_at",
             "#updated_at": "updated_at",
           },
           ExpressionAttributeValues: {
             ":rubros_count": rubrosCount,
             ":allocations_count": allocationsCount,
+            ":labor_cost": Math.round(laborTotal),
+            ":non_labor_cost": Math.round(nonLaborTotal),
             ":materialized_at": materializedAt,
             ":updated_at": materializedAt,
           },
