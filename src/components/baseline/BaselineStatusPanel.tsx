@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,14 +20,17 @@ import {
   Clock,
   AlertCircle,
   Loader2,
+  ExternalLink,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProject } from "@/contexts/ProjectContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { acceptBaseline, rejectBaseline } from "@/api/finanzas";
+import { acceptBaseline, rejectBaseline, getBaselineById, handoffBaseline, type BaselineDetail } from "@/api/finanzas";
 import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { runBackfill } from "@/api/finanzas.baseline";
 
 interface BaselineStatusPanelProps {
   className?: string;
@@ -42,10 +45,33 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   const queryClient = useQueryClient();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
+  const [baselineDetail, setBaselineDetail] = useState<BaselineDetail | null>(null);
+  const [loadingBaseline, setLoadingBaseline] = useState(false);
+  const [materializing, setMaterializing] = useState(false);
 
   // Role-based visibility control
   const canViewStatus = isSDMT || isPMO || isPM || isExecRO || isVendor;
   const canActOnBaseline = isSDMT; // Only SDMT can accept/reject
+
+  // Fetch baseline details when baseline exists and rubros_count is 0
+  useEffect(() => {
+    const shouldFetchBaseline = 
+      currentProject?.baselineId && 
+      (currentProject.rubros_count === 0 || currentProject.rubros_count === undefined);
+    
+    if (shouldFetchBaseline) {
+      setLoadingBaseline(true);
+      getBaselineById(currentProject.baselineId)
+        .then(setBaselineDetail)
+        .catch((err) => {
+          console.error("Failed to fetch baseline details:", err);
+          toast.error("No se pudo cargar los detalles del baseline");
+        })
+        .finally(() => setLoadingBaseline(false));
+    } else {
+      setBaselineDetail(null);
+    }
+  }, [currentProject?.baselineId, currentProject?.rubros_count]);
 
   // Shared function to invalidate all project-dependent queries
   const invalidateProjectQueries = async () => {
@@ -153,6 +179,212 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
 
   const handleRejectConfirm = () => {
     rejectMutation.mutate();
+  };
+
+  const handleMaterialize = async () => {
+    if (!currentProject?.id || !currentProject?.baselineId) {
+      toast.error("No se puede materializar: falta información del proyecto o baseline");
+      return;
+    }
+
+    if (!confirm("¿Confirmar materialización de rubros en la base de datos? Esta acción creará los rubros basados en el baseline aceptado.")) {
+      return;
+    }
+
+    try {
+      setMaterializing(true);
+      const result = await runBackfill(currentProject.id, false);
+      
+      if (result.success) {
+        const rubrosWritten = result.result.rubrosWritten || 0;
+        toast.success(
+          `Materialización exitosa: ${rubrosWritten} rubro(s) creados`,
+          {
+            description: "Los rubros ahora aparecerán en el catálogo",
+            duration: 5000,
+          }
+        );
+        
+        // Refresh project data
+        await refreshProject();
+        await invalidateProjectQueries();
+      } else {
+        toast.error("Error en materialización", {
+          description: result.message || "Revisa la consola para más detalles",
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error materializando rubros", {
+        description: err instanceof Error ? err.message : "Error desconocido",
+      });
+    } finally {
+      setMaterializing(false);
+    }
+  };
+
+  const renderBaselineDetails = () => {
+    if (!baselineDetail || loadingBaseline) return null;
+
+    const { labor_estimates = [], non_labor_estimates = [], supporting_documents = [] } = baselineDetail;
+    
+    // Calculate totals
+    const laborTotal = labor_estimates.reduce((sum, est) => {
+      const monthlyRate = (est.hourly_rate || 0) * (est.hours_per_month || 160) * (est.fte_count || 1);
+      const months = (est.end_month || 12) - (est.start_month || 1) + 1;
+      const onCostMultiplier = 1 + ((est.on_cost_percentage || 0) / 100);
+      return sum + (monthlyRate * months * onCostMultiplier);
+    }, 0);
+
+    const nonLaborTotal = non_labor_estimates.reduce((sum, est) => sum + (est.amount || 0), 0);
+    
+    const hasItems = labor_estimates.length > 0 || non_labor_estimates.length > 0;
+    const documentLink = supporting_documents?.[0]?.documentKey;
+
+    return (
+      <div className="mt-4 space-y-4 pt-4 border-t">
+        <div className="flex items-center justify-between">
+          <h4 className="font-semibold text-sm">Valores Originales del Baseline</h4>
+          {documentLink && (
+            <a
+              href={`/api/documents/${documentLink}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary hover:underline flex items-center gap-1"
+            >
+              <ExternalLink size={12} />
+              Ver documento original
+            </a>
+          )}
+        </div>
+
+        {loadingBaseline ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            <span className="text-sm text-muted-foreground">Cargando detalles del baseline...</span>
+          </div>
+        ) : hasItems ? (
+          <>
+            {/* Labor Estimates */}
+            {labor_estimates.length > 0 && (
+              <div>
+                <h5 className="text-xs font-medium text-muted-foreground mb-2">Recursos Humanos (MOD)</h5>
+                <div className="rounded-md border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left p-2 font-medium">Rol</th>
+                        <th className="text-left p-2 font-medium">Nivel</th>
+                        <th className="text-right p-2 font-medium">FTEs</th>
+                        <th className="text-right p-2 font-medium">Tarifa/hora</th>
+                        <th className="text-right p-2 font-medium">Hrs/mes</th>
+                        <th className="text-right p-2 font-medium">Total Mensual</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {labor_estimates.map((est, idx) => {
+                        const monthlyRate = (est.hourly_rate || 0) * (est.hours_per_month || 160) * (est.fte_count || 1);
+                        const onCostMultiplier = 1 + ((est.on_cost_percentage || 0) / 100);
+                        const totalMonthly = monthlyRate * onCostMultiplier;
+                        
+                        return (
+                          <tr key={idx} className="border-t">
+                            <td className="p-2">{est.role || est.rubroId || "N/A"}</td>
+                            <td className="p-2">{est.level || "N/A"}</td>
+                            <td className="p-2 text-right">{est.fte_count || 0}</td>
+                            <td className="p-2 text-right">${(est.hourly_rate || 0).toLocaleString()}</td>
+                            <td className="p-2 text-right">{est.hours_per_month || 160}</td>
+                            <td className="p-2 text-right font-medium">${totalMonthly.toLocaleString()}</td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="border-t bg-muted/30">
+                        <td colSpan={5} className="p-2 font-semibold">Subtotal MOD</td>
+                        <td className="p-2 text-right font-semibold">${laborTotal.toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Non-Labor Estimates */}
+            {non_labor_estimates.length > 0 && (
+              <div>
+                <h5 className="text-xs font-medium text-muted-foreground mb-2">Gastos y Servicios</h5>
+                <div className="rounded-md border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left p-2 font-medium">Descripción</th>
+                        <th className="text-left p-2 font-medium">Categoría</th>
+                        <th className="text-left p-2 font-medium">Proveedor</th>
+                        <th className="text-right p-2 font-medium">Tipo</th>
+                        <th className="text-right p-2 font-medium">Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {non_labor_estimates.map((est, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="p-2">{est.description || est.rubroId || "N/A"}</td>
+                          <td className="p-2">{est.category || "N/A"}</td>
+                          <td className="p-2">{est.vendor || "N/A"}</td>
+                          <td className="p-2 text-right">
+                            <Badge variant="outline" className="text-xs">
+                              {est.one_time ? "Único" : "Recurrente"}
+                            </Badge>
+                          </td>
+                          <td className="p-2 text-right font-medium">${(est.amount || 0).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t bg-muted/30">
+                        <td colSpan={4} className="p-2 font-semibold">Subtotal Gastos</td>
+                        <td className="p-2 text-right font-semibold">${nonLaborTotal.toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Grand Total */}
+            <div className="flex justify-between items-center pt-2 border-t">
+              <span className="font-semibold">Total Proyecto</span>
+              <span className="text-lg font-bold">${(laborTotal + nonLaborTotal).toLocaleString()}</span>
+            </div>
+
+            {/* Materialize Button */}
+            {canActOnBaseline && normalizedStatus === "accepted" && (
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button
+                  onClick={handleMaterialize}
+                  disabled={materializing}
+                  variant="default"
+                  size="sm"
+                  className="gap-2"
+                >
+                  {materializing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Materializando...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      Materializar Ahora
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground py-4 text-center">
+            No hay detalles del baseline disponibles
+          </p>
+        )}
+      </div>
+    );
   };
 
   if (!currentProject?.baselineId) {
@@ -339,6 +571,9 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
               </div>
             )}
           </div>
+
+          {/* Render baseline details table when rubros_count is 0 */}
+          {(currentProject.rubros_count === 0 || currentProject.rubros_count === undefined) && renderBaselineDetails()}
         </CardContent>
       </Card>
 

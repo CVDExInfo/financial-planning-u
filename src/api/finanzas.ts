@@ -294,6 +294,72 @@ export async function getBaseline(projectId?: string): Promise<any[]> {
   }
 }
 
+export interface BaselineDetail {
+  baseline_id: string;
+  project_id: string;
+  project_name: string;
+  labor_estimates: Array<{
+    rubroId?: string;
+    role?: string;
+    country?: string;
+    level?: string;
+    fte_count?: number;
+    hourly_rate?: number;
+    hours_per_month?: number;
+    on_cost_percentage?: number;
+    start_month?: number;
+    end_month?: number;
+  }>;
+  non_labor_estimates: Array<{
+    rubroId?: string;
+    category?: string;
+    description?: string;
+    amount?: number;
+    vendor?: string;
+    one_time?: boolean;
+    capex_flag?: boolean;
+    start_month?: number;
+    end_month?: number;
+  }>;
+  supporting_documents?: Array<{
+    documentId?: string;
+    documentKey?: string;
+    originalName?: string;
+    uploadedAt?: string;
+    contentType?: string;
+  }>;
+  total_amount?: number;
+  currency?: string;
+  created_at?: string;
+  signed_by?: string;
+  signed_at?: string;
+}
+
+/**
+ * Get baseline details by ID including labor and non-labor estimates
+ */
+export async function getBaselineById(
+  baselineId: string
+): Promise<BaselineDetail> {
+  ensureApiBase();
+
+  const url = `${requireApiBase()}/baseline/${encodeURIComponent(baselineId)}`;
+
+  try {
+    const result = await fetchJson<BaselineDetail>(url, {
+      method: "GET",
+      headers: {
+        ...buildAuthHeader(),
+        "Content-Type": "application/json",
+      },
+    });
+
+    return result;
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to load baseline details");
+  }
+}
+
 export async function getAdjustments(projectId?: string): Promise<any[]> {
   ensureApiBase();
 
