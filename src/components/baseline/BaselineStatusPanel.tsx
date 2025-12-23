@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,14 +20,17 @@ import {
   Clock,
   AlertCircle,
   Loader2,
+  ExternalLink,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProject } from "@/contexts/ProjectContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { acceptBaseline, rejectBaseline } from "@/api/finanzas";
+import { acceptBaseline, rejectBaseline, getBaselineById, type BaselineDetail } from "@/api/finanzas";
 import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { runBackfill } from "@/api/finanzas.baseline";
 
 interface BaselineStatusPanelProps {
   className?: string;
@@ -42,10 +45,44 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   const queryClient = useQueryClient();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
+  const [baselineDetail, setBaselineDetail] = useState<BaselineDetail | null>(null);
+  const [loadingBaseline, setLoadingBaseline] = useState(false);
+  const [materializing, setMaterializing] = useState(false);
+  const [confirmMaterializeOpen, setConfirmMaterializeOpen] = useState(false);
 
   // Role-based visibility control
   const canViewStatus = isSDMT || isPMO || isPM || isExecRO || isVendor;
   const canActOnBaseline = isSDMT; // Only SDMT can accept/reject
+
+  // Fetch baseline details when baseline exists and rubros_count is 0 or null/undefined
+  useEffect(() => {
+    const shouldFetchBaseline = 
+      currentProject?.baselineId && 
+      (currentProject.rubros_count == null || currentProject.rubros_count === 0);
+    
+    if (shouldFetchBaseline) {
+      setLoadingBaseline(true);
+      console.log('[BaselineStatusPanel] Fetching baseline details for:', currentProject.baselineId);
+      getBaselineById(currentProject.baselineId)
+        .then((data) => {
+          console.log('[BaselineStatusPanel] Baseline data received:', {
+            baseline_id: data.baseline_id,
+            has_payload: !!data.payload,
+            labor_estimates_count: (data.payload?.labor_estimates || data.labor_estimates || []).length,
+            non_labor_estimates_count: (data.payload?.non_labor_estimates || data.non_labor_estimates || []).length,
+            supporting_docs_count: (data.payload?.supporting_documents || data.supporting_documents || []).length,
+          });
+          setBaselineDetail(data);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch baseline details:", err);
+          toast.error("No se pudo cargar los detalles del baseline");
+        })
+        .finally(() => setLoadingBaseline(false));
+    } else {
+      setBaselineDetail(null);
+    }
+  }, [currentProject?.baselineId, currentProject?.rubros_count]);
 
   // Shared function to invalidate all project-dependent queries
   const invalidateProjectQueries = async () => {
@@ -153,6 +190,227 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
 
   const handleRejectConfirm = () => {
     rejectMutation.mutate();
+  };
+
+  // Helper function to calculate labor estimate total cost
+  const calculateLaborCost = (estimate: any) => {
+    // Handle both 'hourly_rate' and 'rate' field names
+    const rate = estimate.hourly_rate || estimate.rate || 0;
+    const monthlyRate = rate * (estimate.hours_per_month || 160) * (estimate.fte_count || 1);
+    const months = (estimate.end_month || 12) - (estimate.start_month || 1) + 1;
+    const onCostMultiplier = 1 + ((estimate.on_cost_percentage || 0) / 100);
+    return monthlyRate * months * onCostMultiplier;
+  };
+
+  // Helper function to calculate monthly cost for labor estimate (for table display)
+  const calculateMonthlyLaborCost = (estimate: any) => {
+    // Handle both 'hourly_rate' and 'rate' field names
+    const rate = estimate.hourly_rate || estimate.rate || 0;
+    const monthlyRate = rate * (estimate.hours_per_month || 160) * (estimate.fte_count || 1);
+    const onCostMultiplier = 1 + ((estimate.on_cost_percentage || 0) / 100);
+    return monthlyRate * onCostMultiplier;
+  };
+
+  const handleMaterializeClick = () => {
+    if (!currentProject?.id || !currentProject?.baselineId) {
+      toast.error("No se puede materializar: falta información del proyecto o baseline");
+      return;
+    }
+    setConfirmMaterializeOpen(true);
+  };
+
+  const handleMaterializeConfirm = async () => {
+    if (!currentProject?.id || !currentProject?.baselineId) {
+      return;
+    }
+
+    setConfirmMaterializeOpen(false);
+
+    try {
+      setMaterializing(true);
+      const result = await runBackfill(currentProject.id, false);
+      
+      if (result.success) {
+        const rubrosWritten = result.result.rubrosWritten || 0;
+        toast.success(
+          `Materialización exitosa: ${rubrosWritten} rubro(s) creados`,
+          {
+            description: "Los rubros ahora aparecerán en el catálogo",
+            duration: 5000,
+          }
+        );
+        
+        // Refresh project data
+        await refreshProject();
+        await invalidateProjectQueries();
+      } else {
+        toast.error("Error en materialización", {
+          description: result.message || "Revisa la consola para más detalles",
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error materializando rubros", {
+        description: err instanceof Error ? err.message : "Error desconocido",
+      });
+    } finally {
+      setMaterializing(false);
+    }
+  };
+
+  const renderBaselineDetails = () => {
+    if (!baselineDetail || loadingBaseline) return null;
+
+    // Handle both payload structure (DynamoDB) and direct structure (for backward compatibility)
+    const labor_estimates = baselineDetail.payload?.labor_estimates || baselineDetail.labor_estimates || [];
+    const non_labor_estimates = baselineDetail.payload?.non_labor_estimates || baselineDetail.non_labor_estimates || [];
+    const supporting_documents = baselineDetail.payload?.supporting_documents || baselineDetail.supporting_documents || [];
+    
+    // Calculate totals using helper function
+    const laborTotal = labor_estimates.reduce((sum, est) => sum + calculateLaborCost(est), 0);
+    const nonLaborTotal = non_labor_estimates.reduce((sum, est) => sum + (est.amount || 0), 0);
+    
+    const hasItems = labor_estimates.length > 0 || non_labor_estimates.length > 0;
+    const documentLink = supporting_documents?.[0]?.documentKey;
+
+    return (
+      <div className="mt-4 space-y-4 pt-4 border-t">
+        <div className="flex items-center justify-between">
+          <h4 className="font-semibold text-sm">Valores Originales del Baseline</h4>
+          {documentLink && (
+            <a
+              href={`/api/documents/${documentLink}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary hover:underline flex items-center gap-1"
+            >
+              <ExternalLink size={12} />
+              Ver documento original
+            </a>
+          )}
+        </div>
+
+        {hasItems ? (
+          <>
+            {/* Labor Estimates */}
+            {labor_estimates.length > 0 && (
+              <div>
+                <h5 className="text-xs font-medium text-muted-foreground mb-2">Recursos Humanos (MOD)</h5>
+                <div className="rounded-md border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left p-2 font-medium">Rol</th>
+                        <th className="text-left p-2 font-medium">Nivel</th>
+                        <th className="text-right p-2 font-medium">FTEs</th>
+                        <th className="text-right p-2 font-medium">Tarifa/hora</th>
+                        <th className="text-right p-2 font-medium">Hrs/mes</th>
+                        <th className="text-right p-2 font-medium">Total Mensual</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {labor_estimates.map((est, idx) => {
+                        const totalMonthly = calculateMonthlyLaborCost(est);
+                        const rate = est.hourly_rate || est.rate || 0;
+                        
+                        return (
+                          <tr key={idx} className="border-t">
+                            <td className="p-2">{est.role || est.rubroId || "N/A"}</td>
+                            <td className="p-2">{est.level || "N/A"}</td>
+                            <td className="p-2 text-right">{est.fte_count || 0}</td>
+                            <td className="p-2 text-right">${rate.toLocaleString()}</td>
+                            <td className="p-2 text-right">{est.hours_per_month || 160}</td>
+                            <td className="p-2 text-right font-medium">${totalMonthly.toLocaleString()}</td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="border-t bg-muted/30">
+                        <td colSpan={5} className="p-2 font-semibold">Subtotal MOD</td>
+                        <td className="p-2 text-right font-semibold">${laborTotal.toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Non-Labor Estimates */}
+            {non_labor_estimates.length > 0 && (
+              <div>
+                <h5 className="text-xs font-medium text-muted-foreground mb-2">Gastos y Servicios</h5>
+                <div className="rounded-md border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left p-2 font-medium">Descripción</th>
+                        <th className="text-left p-2 font-medium">Categoría</th>
+                        <th className="text-left p-2 font-medium">Proveedor</th>
+                        <th className="text-right p-2 font-medium">Tipo</th>
+                        <th className="text-right p-2 font-medium">Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {non_labor_estimates.map((est, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="p-2">{est.description || est.rubroId || "N/A"}</td>
+                          <td className="p-2">{est.category || "N/A"}</td>
+                          <td className="p-2">{est.vendor || "N/A"}</td>
+                          <td className="p-2 text-right">
+                            <Badge variant="outline" className="text-xs">
+                              {est.one_time ? "Único" : "Recurrente"}
+                            </Badge>
+                          </td>
+                          <td className="p-2 text-right font-medium">${(est.amount || 0).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t bg-muted/30">
+                        <td colSpan={4} className="p-2 font-semibold">Subtotal Gastos</td>
+                        <td className="p-2 text-right font-semibold">${nonLaborTotal.toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Grand Total */}
+            <div className="flex justify-between items-center pt-2 border-t">
+              <span className="font-semibold">Total Proyecto</span>
+              <span className="text-lg font-bold">${(laborTotal + nonLaborTotal).toLocaleString()}</span>
+            </div>
+
+            {/* Materialize Button */}
+            {canActOnBaseline && normalizedStatus === "accepted" && (
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button
+                  onClick={handleMaterializeClick}
+                  disabled={materializing}
+                  variant="default"
+                  size="sm"
+                  className="gap-2"
+                >
+                  {materializing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Materializando...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      Materializar Ahora
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground py-4 text-center">
+            No hay detalles del baseline disponibles
+          </p>
+        )}
+      </div>
+    );
   };
 
   if (!currentProject?.baselineId) {
@@ -339,6 +597,9 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
               </div>
             )}
           </div>
+
+          {/* Render baseline details table when rubros_count is 0 or null/undefined */}
+          {(currentProject.rubros_count == null || currentProject.rubros_count === 0) && renderBaselineDetails()}
         </CardContent>
       </Card>
 
@@ -391,6 +652,52 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
                 </>
               ) : (
                 "Reject Baseline"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Materialize Confirmation Dialog */}
+      <Dialog open={confirmMaterializeOpen} onOpenChange={setConfirmMaterializeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Materializar Baseline</DialogTitle>
+            <DialogDescription>
+              ¿Confirmar materialización de rubros en la base de datos? Esta acción creará los rubros basados en el baseline aceptado.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              Esta acción convertirá las estimaciones del baseline en rubros editables del catálogo.
+            </AlertDescription>
+          </Alert>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmMaterializeOpen(false)}
+              disabled={materializing}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleMaterializeConfirm}
+              disabled={materializing}
+            >
+              {materializing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Materializando...
+                </>
+              ) : (
+                <>
+                  <Zap className="mr-2 h-4 w-4" />
+                  Confirmar Materialización
+                </>
               )}
             </Button>
           </DialogFooter>
