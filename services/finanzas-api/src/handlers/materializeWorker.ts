@@ -2,8 +2,7 @@
 import { SQSEvent } from "aws-lambda";
 import { materializeRubrosForBaseline, materializeAllocationsForBaseline } from "../lib/materializers";
 import { logDataHealth } from "../lib/dataHealth";
-import { ddb, tableName, UpdateCommand } from "../lib/dynamo";
-import { GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { ddb, tableName, UpdateCommand, GetCommand, QueryCommand } from "../lib/dynamo";
 
 async function fetchBaselinePayload(baselineId: string) {
   try {
@@ -19,6 +18,10 @@ async function fetchBaselinePayload(baselineId: string) {
     return null;
   }
 }
+
+// Labor category classification constants
+const LABOR_CATEGORY_PATTERNS = ['labor', 'mod', 'mano de obra', 'workforce'];
+const LABOR_TYPE_PATTERNS = ['labor', 'mod'];
 
 async function countRubros(projectId: string, baselineId: string): Promise<{ total: number; labor: number; nonLabor: number }> {
   try {
@@ -39,7 +42,10 @@ async function countRubros(projectId: string, baselineId: string): Promise<{ tot
     const labor = items.filter(item => {
       const category = (item.category || '').toLowerCase();
       const type = (item.type || '').toLowerCase();
-      return category.includes('labor') || type.includes('labor') || category.includes('mod');
+      
+      // Check if category or type matches any labor patterns
+      return LABOR_CATEGORY_PATTERNS.some(pattern => category.includes(pattern)) ||
+             LABOR_TYPE_PATTERNS.some(pattern => type.includes(pattern));
     }).length;
     const nonLabor = items.length - labor;
     
@@ -107,8 +113,10 @@ export const handler = async (event: SQSEvent) => {
         baselineId, 
         projectId, 
         rubrosWritten: rubrosSummary.rubrosWritten || 0,
+        rubrosSkipped: rubrosSummary.rubrosSkipped || 0,
         allocationsWritten: allocationsSummary.allocationsWritten || 0,
-        rubrosCount 
+        rubrosCountTotal: rubrosCount.total,
+        rubrosCountByType: rubrosCount
       });
     } catch (err) {
       console.error('materialize worker error', err);
