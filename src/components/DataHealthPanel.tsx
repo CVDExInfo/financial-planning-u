@@ -130,7 +130,7 @@ export function DataHealthPanel() {
       // Check budgets/all-in/monthly
       try {
         const monthlyStart = Date.now();
-        const monthly = await finanzasClient.getAllInBudgetMonthly(currentYear);
+        await finanzasClient.getAllInBudgetMonthly(currentYear);
         const monthlyDuration = Date.now() - monthlyStart;
         
         budgetChecks.push({
