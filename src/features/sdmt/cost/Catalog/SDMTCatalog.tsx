@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -118,9 +118,12 @@ const createEmptyFormState = (): CatalogFormState => ({
 });
 
 export function SDMTCatalog() {
-  // Route params - if navigating to /projects/:projectId/cost-structure
+  // Check both route params and query params for projectId
   const params = useParams<{ projectId?: string }>();
-  const routeProjectId = params.projectId;
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const queryProjectId = queryParams.get('projectId');
+  const routeProjectId = params.projectId || queryProjectId || undefined;
   
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [pendingChanges, setPendingChanges] = useState<
