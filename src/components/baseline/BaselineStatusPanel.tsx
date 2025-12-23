@@ -290,12 +290,7 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
           )}
         </div>
 
-        {loadingBaseline ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            <span className="text-sm text-muted-foreground">Cargando detalles del baseline...</span>
-          </div>
-        ) : hasItems ? (
+        {hasItems ? (
           <>
             {/* Labor Estimates */}
             {labor_estimates.length > 0 && (

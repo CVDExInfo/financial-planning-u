@@ -13,39 +13,6 @@ import { describe, it } from "node:test";
 
 describe("getBaselineById", () => {
   it("should fetch baseline details by ID with correct endpoint", async () => {
-    // Mock fetch for testing
-    const mockFetch = async (url: string, options: any) => {
-      assert.match(url, /\/baseline\/[^/]+$/);
-      assert.equal(options.method, "GET");
-      
-      return {
-        ok: true,
-        text: async () => JSON.stringify({
-          baseline_id: "B-12345",
-          project_id: "P-67890",
-          project_name: "Test Project",
-          labor_estimates: [
-            {
-              rubroId: "MOD-ING",
-              role: "Engineer",
-              level: "senior",
-              fte_count: 2,
-              hourly_rate: 50,
-              hours_per_month: 160,
-            }
-          ],
-          non_labor_estimates: [
-            {
-              rubroId: "GSV-REU",
-              description: "Meeting room",
-              amount: 1000,
-              one_time: true,
-            }
-          ],
-        }),
-      };
-    };
-
     // Test that the API contract is correct
     const baselineId = "B-12345";
     const expectedUrl = `/baseline/${baselineId}`;
