@@ -1,6 +1,6 @@
 // src/features/sdmt/cost/Reconciliation/SDMTReconciliation.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
@@ -183,9 +183,20 @@ export default function SDMTReconciliation() {
   // Routing/context
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentProject, projectChangeCount } = useProject();
+  const [searchParams] = useSearchParams();
+  // If caller navigated with ?projectId=..., prefer that over global context
+  const routeProjectId = searchParams.get('projectId') || undefined;
+  
+  const { currentProject, projectChangeCount, setSelectedProjectId } = useProject();
   const { canUploadInvoices, canApprove } = usePermissions();
   const currentUser = useCurrentUser();
+  
+  // Effect: Update project context when route projectId is provided
+  useEffect(() => {
+    if (routeProjectId && routeProjectId !== currentProject?.id) {
+      setSelectedProjectId(routeProjectId);
+    }
+  }, [routeProjectId, currentProject?.id, setSelectedProjectId]);
 
   // Server data
   const {
