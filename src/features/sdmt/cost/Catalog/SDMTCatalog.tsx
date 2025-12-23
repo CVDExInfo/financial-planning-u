@@ -1698,17 +1698,59 @@ export function SDMTCatalog() {
                   </div>
                 </div>
               ) : filteredItems.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground mb-4">
-                    No se encontraron rubros
-                  </p>
-                  <Button
-                    onClick={() => setIsAddDialogOpen(true)}
-                    className="gap-2"
-                  >
-                    <Plus size={16} />
-                    Agregar Primer Rubro
-                  </Button>
+                <div className="text-center py-12 space-y-4">
+                  {currentProject?.baselineId ? (
+                    <div className="space-y-3">
+                      <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/20 rounded-lg flex items-center justify-center mx-auto">
+                        <Package className="h-6 w-6 text-amber-600 dark:text-amber-500" />
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-2">
+                          Proyecto con baseline pero sin rubros / line items
+                        </p>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <p>
+                            Baseline ID: <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                              {currentProject.baselineId && currentProject.baselineId.length > 20 
+                                ? currentProject.baselineId.substring(0, 20) + '...'
+                                : currentProject.baselineId}
+                            </code>
+                          </p>
+                          <p>Estado: <Badge variant="outline" className="text-xs">{currentProject.baseline_status || 'Unknown'}</Badge></p>
+                        </div>
+                      </div>
+                      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-left max-w-md mx-auto">
+                        <p className="text-sm text-blue-900 dark:text-blue-100 mb-2">
+                          <strong>Siguiente paso:</strong>
+                        </p>
+                        <p className="text-xs text-blue-800 dark:text-blue-200">
+                          Los rubros normalmente se materializan cuando un baseline es aceptado. 
+                          Si esperabas ver rubros aquí, verifica que el proceso de handoff/aceptación 
+                          completó la materialización de line items.
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => setIsAddDialogOpen(true)}
+                        className="gap-2"
+                      >
+                        <Plus size={16} />
+                        Agregar Rubro Manualmente
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-muted-foreground mb-4">
+                        No se encontraron rubros
+                      </p>
+                      <Button
+                        onClick={() => setIsAddDialogOpen(true)}
+                        className="gap-2"
+                      >
+                        <Plus size={16} />
+                        Agregar Primer Rubro
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
