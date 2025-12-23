@@ -312,6 +312,45 @@ export function SDMTForecast() {
     }
   };
 
+  // Helper function to transform LineItems into forecast cells when server forecast is empty
+  const transformLineItemsToForecast = (lineItems: LineItem[], months: number): ForecastRow[] => {
+    if (!lineItems || lineItems.length === 0) return [];
+    
+    const forecastCells: ForecastRow[] = [];
+    
+    lineItems.forEach(item => {
+      // Extract duration (months) from the line item
+      const durationStr = item.duration || item.duracion || '1';
+      const duration = parseInt(durationStr, 10) || 1;
+      const actualMonths = Math.min(duration, months);
+      
+      // Calculate unit cost and total
+      const unitCost = Number(item.unitCost || item.costo_unitario || item.unit_cost || 0);
+      const qty = Number(item.qty || item.cantidad || item.quantity || 1);
+      const totalCost = unitCost * qty;
+      const monthlyAmount = totalCost / actualMonths;
+      
+      // Create forecast cells for each month
+      for (let month = 1; month <= actualMonths; month++) {
+        forecastCells.push({
+          line_item_id: item.id || item.rubroId || item.rubro_id || item.linea_codigo || '',
+          rubroId: item.rubroId || item.rubro_id || item.linea_codigo || '',
+          description: item.descripcion || item.nombre || item.description || item.name || '',
+          category: item.categoria || item.category || 'OPEX',
+          month,
+          planned: monthlyAmount,
+          forecast: monthlyAmount,
+          actual: 0,
+          variance: 0,
+          projectId,
+          projectName: currentProject?.name,
+        } as ForecastRow);
+      }
+    });
+    
+    return forecastCells;
+  };
+
   const loadSingleProjectForecast = async (projectId: string, months: number, requestKey: string) => {
     const payload = await getForecastPayload(projectId, months);
     
@@ -320,8 +359,17 @@ export function SDMTForecast() {
       return; // Stale, abort processing
     }
     
-    const normalized = normalizeForecastCells(payload.data);
-    setDataSource(payload.source);
+    let normalized = normalizeForecastCells(payload.data);
+    let usedFallback = false;
+    
+    // Fallback: If server forecast is empty and we have line items, use them
+    if ((!normalized || normalized.length === 0) && safeLineItems && safeLineItems.length > 0) {
+      console.warn('[SDMTForecast] Server forecast empty — using project line items as fallback');
+      normalized = transformLineItemsToForecast(safeLineItems, months);
+      usedFallback = true;
+    }
+    
+    setDataSource(usedFallback ? 'mock' : payload.source); // Mark as 'mock' to indicate fallback
     setGeneratedAt(payload.generatedAt);
     setPortfolioLineItems([]);
 
@@ -363,6 +411,7 @@ export function SDMTForecast() {
         invoices: invoices.length,
         matchedInvoices: matchedInvoices.length,
         lineItems: safeLineItems.length,
+        usedFallback,
         generatedAt: payload.generatedAt,
       });
     }
@@ -377,7 +426,7 @@ export function SDMTForecast() {
     if (import.meta.env.DEV) {
       console.debug('[Forecast] Data loaded', {
         projectId,
-        source: payload.source,
+        source: usedFallback ? 'lineItems-fallback' : payload.source,
         records: updatedData.length,
       });
     }

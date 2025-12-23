@@ -204,6 +204,7 @@ export class ApiService {
             project?.fecha_inicio ||
             project?.fecha_fin ||
             "",
+          rubros_count: project?.rubros_count ?? project?.line_items_count ?? 0,
           next_billing_periods: [],
           status: (project?.status || project?.estado || "active") as Project["status"],
           created_at:

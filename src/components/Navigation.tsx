@@ -269,7 +269,7 @@ export function Navigation() {
       items: [
         {
           path: "/pmo/prefactura/estimator",
-          label: "Estimator",
+          label: "Planificador",
           icon: Calculator,
           stack: "pmo",
           allowedRoles: ["PM", "PMO"],
