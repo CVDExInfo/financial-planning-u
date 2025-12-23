@@ -160,6 +160,12 @@ export default function RubrosBaselineSummary({
     rolesCount,
     signedBy,
     signedAt,
+    acceptedBy,
+    acceptedAt,
+    materializedAt,
+    materializationStatus,
+    rubrosCount,
+    rubrosByType,
     contractValue,
     currency,
     doc,
@@ -240,6 +246,51 @@ export default function RubrosBaselineSummary({
               </div>
             </div>
           </div>
+          
+          {/* Acceptance and Materialization Info */}
+          {(acceptedBy || materializedAt || rubrosCount !== undefined) && (
+            <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-3 gap-4">
+              {acceptedBy && (
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground uppercase">Accepted By</div>
+                  <div className="text-sm">
+                    <div className="font-medium">{acceptedBy}</div>
+                    {acceptedAt && (
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(acceptedAt).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {materializedAt && (
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground uppercase">Materialized</div>
+                  <div className="text-sm">
+                    <Badge variant="outline" className="text-xs">
+                      {materializationStatus || 'completed'}
+                    </Badge>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {new Date(materializedAt).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {rubrosCount !== undefined && rubrosCount !== null && (
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground uppercase">Rubros Count</div>
+                  <div className="font-semibold text-lg">
+                    {rubrosCount}
+                    {rubrosByType && (
+                      <div className="text-xs text-muted-foreground font-normal">
+                        {rubrosByType.labor} labor, {rubrosByType.nonLabor} non-labor
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Help Text */}

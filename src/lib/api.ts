@@ -187,6 +187,12 @@ export class ApiService {
           project?.baselineAcceptedAt ||
           project?.baselineAccepted_at ||
           "";
+        const rejectedBy = project?.rejected_by || project?.rechazado_por || "";
+        const baselineRejectedAt =
+          project?.baseline_rejected_at ||
+          project?.baselineRejectedAt ||
+          project?.baselineRejected_at ||
+          "";
 
         return {
           id: String(id).trim(),
@@ -204,7 +210,12 @@ export class ApiService {
             project?.fecha_inicio ||
             project?.fecha_fin ||
             "",
+          rejected_by: rejectedBy || undefined,
+          baseline_rejected_at: baselineRejectedAt || undefined,
+          rejection_comment: project?.rejection_comment || project?.comentario_rechazo || undefined,
           rubros_count: project?.rubros_count ?? project?.line_items_count ?? 0,
+          labor_cost: project?.labor_cost ?? project?.costo_mod ?? undefined,
+          non_labor_cost: project?.non_labor_cost ?? project?.costo_indirectos ?? undefined,
           next_billing_periods: [],
           status: (project?.status || project?.estado || "active") as Project["status"],
           created_at:

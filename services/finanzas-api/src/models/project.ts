@@ -104,6 +104,13 @@ export interface ProjectDTO {
   baselineId?: string;
   baselineStatus?: string;
   baselineAcceptedAt?: string;
+  accepted_by?: string;
+  rejected_by?: string;
+  baseline_rejected_at?: string;
+  rejection_comment?: string;
+  rubros_count?: number;
+  labor_cost?: number;
+  non_labor_cost?: number;
   
   // Additional metadata
   module?: string;
@@ -303,6 +310,13 @@ export function mapToProjectDTO(record: ProjectRecord): ProjectDTO {
       record.baseline_accepted_at,
       record.baselineAcceptedAt
     ),
+    accepted_by: firstNonEmpty(record.accepted_by, record.acceptedBy, record.aceptado_por),
+    rejected_by: firstNonEmpty(record.rejected_by, record.rejectedBy, record.rechazado_por),
+    baseline_rejected_at: firstDate(record.baseline_rejected_at, record.baselineRejectedAt),
+    rejection_comment: firstNonEmpty(record.rejection_comment, record.rejectionComment, record.comentario_rechazo),
+    rubros_count: firstNumber(record.rubros_count, record.rubrosCount, record.line_items_count),
+    labor_cost: firstNumber(record.labor_cost, record.laborCost, record.costo_mod),
+    non_labor_cost: firstNumber(record.non_labor_cost, record.nonLaborCost, record.costo_indirectos),
     
     // Additional metadata
     module: firstNonEmpty(record.module),

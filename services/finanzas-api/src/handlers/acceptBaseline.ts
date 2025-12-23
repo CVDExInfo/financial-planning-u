@@ -147,6 +147,30 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     })
   );
 
+  // Update baseline record with acceptance metadata
+  try {
+    await ddb.send(new UpdateCommand({
+      TableName: tableName("prefacturas"),
+      Key: { pk: `BASELINE#${baselineId}`, sk: 'METADATA' },
+      UpdateExpression: 'SET #status = :accepted, acceptedBy = :acceptedBy, acceptedAt = :acceptedAt',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: { 
+        ':accepted': 'accepted',
+        ':acceptedBy': acceptedBy,
+        ':acceptedAt': now
+      }
+    }));
+  } catch (err: any) {
+    console.error("Failed to update baseline with acceptance metadata", err);
+    await logDataHealth({
+      projectId,
+      baselineId,
+      type: "baseline_acceptance_update_error",
+      message: String(err),
+      createdAt: new Date().toISOString()
+    });
+  }
+
   // Enqueue materialization job if MATERIALIZE_QUEUE_URL is configured
   if (process.env.MATERIALIZE_QUEUE_URL) {
     try {
