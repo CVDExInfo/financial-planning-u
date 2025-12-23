@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
-import { batchGetExistingRubros } from "../dynamodbHelpers";
+import { batchGetExistingItems } from "../dynamodbHelpers";
 import { BatchGetCommand } from "@aws-sdk/lib-dynamodb";
 
 // Mock DynamoDB client
@@ -19,12 +19,12 @@ class MockDdbClient {
   }
 }
 
-test("batchGetExistingRubros returns empty array for empty keys", async () => {
-  const result = await batchGetExistingRubros("test-table", []);
+test("batchGetExistingItems returns empty array for empty keys", async () => {
+  const result = await batchGetExistingItems("test-table", []);
   assert.deepEqual(result, []);
 });
 
-test("batchGetExistingRubros handles single batch", async () => {
+test("batchGetExistingItems handles single batch", async () => {
   const mockClient = new MockDdbClient([
     {
       Responses: {
@@ -52,10 +52,10 @@ test("batchGetExistingRubros handles single batch", async () => {
   // Note: This test structure follows the pattern from projects-handoff.test.ts
   // In a real implementation, we'd need to properly mock the DynamoDB DocumentClient
   // For now, we'll create a minimal test that validates the function structure
-  assert.equal(typeof batchGetExistingRubros, "function");
+  assert.equal(typeof batchGetExistingItems, "function");
 });
 
-test("batchGetExistingRubros handles batches over 100 items", async () => {
+test("batchGetExistingItems handles batches over 100 items", async () => {
   // Create 150 keys to test batching
   const keys = Array.from({ length: 150 }, (_, i) => ({
     pk: `PROJECT#1`,
@@ -64,11 +64,11 @@ test("batchGetExistingRubros handles batches over 100 items", async () => {
   
   // Should split into 2 batches (100 + 50)
   // We validate that the function can handle this
-  assert.equal(typeof batchGetExistingRubros, "function");
+  assert.equal(typeof batchGetExistingItems, "function");
 });
 
-test("batchGetExistingRubros handles unprocessed keys with retry", async () => {
+test("batchGetExistingItems handles unprocessed keys with retry", async () => {
   // This would test the retry logic for throttled requests
-  // The function should retry up to 3 times with exponential backoff
-  assert.equal(typeof batchGetExistingRubros, "function");
+  // The function should retry up to 5 times with backoff
+  assert.equal(typeof batchGetExistingItems, "function");
 });

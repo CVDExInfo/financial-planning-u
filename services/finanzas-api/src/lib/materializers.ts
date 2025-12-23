@@ -1,7 +1,7 @@
 import { BatchWriteCommand, BatchWriteCommandInput } from "@aws-sdk/lib-dynamodb";
 import { ddb, tableName } from "./dynamo";
 import { logError } from "../utils/logging";
-import { batchGetExistingRubros } from "./dynamodbHelpers";
+import { batchGetExistingItems } from "./dynamodbHelpers";
 
 interface BaselineLike {
   baseline_id?: string;
@@ -271,10 +271,11 @@ export const materializeRubrosForBaseline = async (
   }
 
   // Check for existing rubros to ensure idempotent writes using BatchGetItem
+  // Using batch-get to avoid N queries for large rubros lists.
   const rubrosToWrite: any[] = [];
   try {
     const keys = uniqueRubros.map(rubro => ({ pk: rubro.pk, sk: rubro.sk }));
-    const existingRubros = await batchGetExistingRubros(tableName("rubros"), keys);
+    const existingRubros = await batchGetExistingItems(tableName("rubros"), keys);
     
     // Create a Set of existing rubro keys for fast lookup
     const existingKeys = new Set(
