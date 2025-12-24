@@ -1360,8 +1360,15 @@ export async function getRubrosWithFallback(projectId: string, baselineId?: stri
 
     const map = new Map();
     const push = (item: any) => {
-      // Use a deterministic key: prefer rubroId, then role, then description
-      const key = item.rubroId || item.role || item.description || 'unknown';
+      // Create a composite key to avoid collisions: rubroId + role + description
+      // This ensures uniqueness even if some fields are null
+      const keyParts = [
+        item.rubroId || '',
+        item.role || '',
+        item.description || ''
+      ].filter(Boolean);
+      const key = keyParts.length > 0 ? keyParts.join('::') : 'unknown';
+      
       let e = map.get(key);
       if (!e) {
         e = { 
