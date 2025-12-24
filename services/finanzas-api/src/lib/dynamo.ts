@@ -212,8 +212,8 @@ export async function queryPayrollByPeriod(
   ]);
 
   const combined = [
-    ...((legacyResult.Items || []) as PayrollEntry[]),
-    ...((flatResult.Items || []) as PayrollEntry[]),
+    ...((legacyResult as any).Items || []) as PayrollEntry[],
+    ...((flatResult as any).Items || []) as PayrollEntry[],
   ];
 
   return combined;

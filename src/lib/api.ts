@@ -252,38 +252,55 @@ export class ApiService {
             try {
               const baseline = await this.getBaseline(String(p.baseline_id));
               
-              // Calculate labor cost from labor_estimates
-              const laborTotal = Array.isArray(baseline?.labor_estimates)
-                ? baseline.labor_estimates.reduce((sum: number, estimate: any) => {
-                    const monthlyCost = (estimate?.fte_count || 0) * 
-                                       (estimate?.hourly_rate || 0) * 
-                                       (estimate?.hours_per_month || 0);
-                    const onCost = monthlyCost * (1 + (estimate?.on_cost_percentage || 0) / 100);
-                    const months = Math.max(0, (estimate?.end_month || 0) - (estimate?.start_month || 0) + 1);
-                    return sum + (onCost * months);
-                  }, 0)
-                : 0;
+              // Use actual total_amount from baseline if available, or sum from estimates
+              let laborTotal = 0;
+              let nonLaborTotal = 0;
+              
+              // Calculate labor cost from labor_estimates using total_amount field
+              if (Array.isArray(baseline?.labor_estimates)) {
+                laborTotal = baseline.labor_estimates.reduce((sum: number, estimate: any) => {
+                  // Use total_amount if available, otherwise calculate
+                  if (estimate.total_amount !== undefined && estimate.total_amount !== null) {
+                    return sum + estimate.total_amount;
+                  }
+                  // Fallback calculation if total_amount not present
+                  const monthlyCost = (estimate?.fte_count || 0) * 
+                                     (estimate?.hourly_rate || 0) * 
+                                     (estimate?.hours_per_month || 0);
+                  const onCost = monthlyCost * (1 + (estimate?.on_cost_percentage || 0) / 100);
+                  const months = Math.max(0, (estimate?.end_month || 0) - (estimate?.start_month || 0) + 1);
+                  return sum + (onCost * months);
+                }, 0);
+              }
 
-              // Calculate non-labor cost from non_labor_estimates
-              const nonLaborTotal = Array.isArray(baseline?.non_labor_estimates)
-                ? baseline.non_labor_estimates.reduce((sum: number, estimate: any) => {
-                    return sum + (estimate?.amount || 0);
-                  }, 0)
-                : 0;
+              // Calculate non-labor cost from non_labor_estimates using total_amount or amount field
+              if (Array.isArray(baseline?.non_labor_estimates)) {
+                nonLaborTotal = baseline.non_labor_estimates.reduce((sum: number, estimate: any) => {
+                  // Use total_amount if available, otherwise use amount field
+                  return sum + (estimate?.total_amount || estimate?.amount || 0);
+                }, 0);
+              }
 
-              // Calculate rubros count
-              const rubrosCount = (baseline?.labor_estimates?.length || 0) + 
-                                 (baseline?.non_labor_estimates?.length || 0);
-              const finalRubrosCount = rubrosCount > 0 ? rubrosCount : (baseline?.line_items?.length || 0);
+              // Get actual rubros count by fetching materialized rubros
+              let actualRubrosCount = 0;
+              try {
+                const rubros = await this.getRubros({ projectId: p.id, baseline: String(p.baseline_id) });
+                actualRubrosCount = Array.isArray(rubros) ? rubros.length : 0;
+              } catch (err) {
+                // If getRubros fails, fall back to baseline estimates count
+                const estimatesCount = (baseline?.labor_estimates?.length || 0) + 
+                                      (baseline?.non_labor_estimates?.length || 0);
+                actualRubrosCount = estimatesCount > 0 ? estimatesCount : (baseline?.line_items?.length || 0);
+              }
 
               enrichedProjects[index] = {
                 ...enrichedProjects[index],
-                rubros_count: finalRubrosCount,
+                rubros_count: actualRubrosCount,
                 labor_cost: laborTotal,
                 non_labor_cost: nonLaborTotal,
-                accepted_by: baseline?.accepted_by || enrichedProjects[index].accepted_by,
+                accepted_by: baseline?.accepted_by || baseline?.acceptedBy || enrichedProjects[index].accepted_by,
                 rejected_by: baseline?.rejected_by || enrichedProjects[index].rejected_by,
-                baseline_accepted_at: baseline?.accepted_ts || enrichedProjects[index].baseline_accepted_at,
+                baseline_accepted_at: baseline?.accepted_ts || baseline?.acceptedAt || enrichedProjects[index].baseline_accepted_at,
               };
             } catch (err) {
               // Swallow errors per-project to avoid breaking the whole list
@@ -1220,6 +1237,178 @@ export class ApiService {
       method: "PUT",
       body: JSON.stringify({ year, amount, currency }),
     });
+  }
+
+  // Rubros with baseline support
+  static async getRubros(params: { projectId: string; baseline?: string }): Promise<any[]> {
+    try {
+      const { projectId, baseline } = params;
+      const query = baseline ? `?baseline=${encodeURIComponent(baseline)}` : '';
+      const endpoint = `/projects/${encodeURIComponent(projectId)}/rubros${query}`;
+      const data = await this.request<any[] | { data?: any[] }>(endpoint);
+      return Array.isArray(data) ? data : (data as any)?.data || [];
+    } catch (error) {
+      logger.error("Failed to fetch rubros:", error);
+      return [];
+    }
+  }
+
+  static async getRubrosSummary(projectId: string, baselineId?: string): Promise<any> {
+    try {
+      const query = baselineId ? `?baseline=${encodeURIComponent(baselineId)}` : '';
+      const endpoint = `/projects/${encodeURIComponent(projectId)}/rubros-summary${query}`;
+      return await this.request(endpoint);
+    } catch (error) {
+      logger.warn("Failed to fetch rubros summary:", error);
+      throw error;
+    }
+  }
+
+  static async getAllocations(params: { projectId: string; baseline?: string }): Promise<any[]> {
+    try {
+      const { projectId, baseline } = params;
+      const queryParams = new URLSearchParams({ projectId });
+      if (baseline) queryParams.set('baseline', baseline);
+      const endpoint = `/allocations?${queryParams.toString()}`;
+      const data = await this.request<any[] | { data?: any[] }>(endpoint);
+      return Array.isArray(data) ? data : (data as any)?.data || [];
+    } catch (error) {
+      logger.error("Failed to fetch allocations:", error);
+      return [];
+    }
+  }
+
+  static async getPrefacturas(params: { projectId: string; baseline?: string }): Promise<any[]> {
+    try {
+      const { projectId, baseline } = params;
+      const queryParams = new URLSearchParams({ projectId });
+      if (baseline) queryParams.set('baseline', baseline);
+      const endpoint = `/prefacturas?${queryParams.toString()}`;
+      const data = await this.request<any[] | { data?: any[] }>(endpoint);
+      return Array.isArray(data) ? data : (data as any)?.data || [];
+    } catch (error) {
+      logger.error("Failed to fetch prefacturas:", error);
+      return [];
+    }
+  }
+
+  static async materializeBaseline(projectId: string, baselineId: string): Promise<{ ok: boolean; message?: string }> {
+    try {
+      const endpoint = `/projects/${encodeURIComponent(projectId)}/handoff`;
+      const response = await this.request<{ ok: boolean; message?: string }>(endpoint, {
+        method: "POST",
+        body: JSON.stringify({ baseline_id: baselineId }),
+      });
+      return response;
+    } catch (error) {
+      logger.error("Failed to materialize baseline:", error);
+      throw error;
+    }
+  }
+}
+
+/**
+ * getRubrosWithFallback - Robust rubros fetching with 3-tier fallback
+ * 
+ * 1. Try ApiService.getRubros() - returns manual rubros if present
+ * 2. Try ApiService.getRubrosSummary() - server-aggregated summary endpoint
+ * 3. Client-side fallback - aggregate allocations + prefacturas into virtual rubros
+ * 
+ * @param projectId - Project identifier
+ * @param baselineId - Optional baseline identifier
+ * @returns Array of rubros with consistent shape
+ */
+export async function getRubrosWithFallback(projectId: string, baselineId?: string) {
+  try {
+    // Tier 1: Try manual rubros
+    const rubros = await ApiService.getRubros({ projectId, baseline: baselineId });
+    if (Array.isArray(rubros) && rubros.length) {
+      const total = rubros.reduce((sum, r) => sum + (r.total || 0), 0);
+      console.log('[getRubrosWithFallback] Tier 1 - Manual rubros:', {
+        count: rubros.length,
+        total: total,
+        projectId,
+        baselineId,
+      });
+      return rubros;
+    }
+
+    // Tier 2: Try server aggregated summary
+    try {
+      const summary = await ApiService.getRubrosSummary(projectId, baselineId);
+      if (summary && Array.isArray(summary.rubro_summary) && summary.rubro_summary.length) {
+        console.log('[getRubrosWithFallback] Tier 2 - Server summary:', {
+          count: summary.rubro_summary.length,
+          labor_total: summary.totals?.labor_total,
+          non_labor_total: summary.totals?.non_labor_total,
+          total: (summary.totals?.labor_total || 0) + (summary.totals?.non_labor_total || 0),
+          projectId,
+          baselineId,
+        });
+        return summary.rubro_summary;
+      }
+    } catch (err) {
+      // continue to client-side fallback if server summary not available
+      console.warn('[getRubrosWithFallback] Tier 2 failed, continuing to Tier 3:', err);
+    }
+
+    // Tier 3: Client fallback - aggregate allocations + prefacturas
+    const [allocations, prefacturas] = await Promise.all([
+      ApiService.getAllocations({ projectId, baseline: baselineId }),
+      ApiService.getPrefacturas({ projectId, baseline: baselineId })
+    ]);
+
+    const map = new Map();
+    const push = (item: any) => {
+      // Create a composite key to avoid collisions: rubroId + role + description
+      // This ensures uniqueness even if some fields are null
+      const keyParts = [
+        item.rubroId || '',
+        item.role || '',
+        item.description || ''
+      ].filter(Boolean);
+      const key = keyParts.length > 0 ? keyParts.join('::') : 'unknown';
+      
+      let e = map.get(key);
+      if (!e) {
+        e = { 
+          rubroId: item.rubroId || null, 
+          description: item.description || item.role || 'Sin rubro', 
+          type: item.type || 'unknown', 
+          monthly: Array(12).fill(0), 
+          total: 0 
+        };
+        map.set(key, e);
+      }
+      // Validate month range (1-12) and clamp to valid array index (0-11)
+      const monthIndex = Math.max(0, Math.min(11, (item.month || 1) - 1));
+      const amount = item.amount || 0;
+      e.monthly[monthIndex] = (e.monthly[monthIndex] || 0) + amount;
+      e.total += amount;
+    };
+
+    (allocations || []).forEach(push);
+    (prefacturas || []).forEach((p: any) => {
+      if (Array.isArray(p.items)) p.items.forEach(push);
+      else push({ rubroId: p.rubroId, description: p.description, month: p.month || 1, amount: p.amount, type: p.type });
+    });
+
+    const aggregatedRubros = Array.from(map.values());
+    const total = aggregatedRubros.reduce((sum, r) => sum + r.total, 0);
+    
+    console.log('[getRubrosWithFallback] Tier 3 - Client aggregation:', {
+      count: aggregatedRubros.length,
+      total: total,
+      allocationsCount: allocations?.length || 0,
+      prefacturasCount: prefacturas?.length || 0,
+      projectId,
+      baselineId,
+    });
+    
+    return aggregatedRubros;
+  } catch (err) {
+    console.error('[getRubrosWithFallback] All tiers failed:', err);
+    return [];
   }
 }
 

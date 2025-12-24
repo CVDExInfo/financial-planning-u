@@ -143,21 +143,28 @@ export const ES_TEXTS = {
 
   // Baselines & PMO
   baseline: {
+    queue_title: "Cola de Baselines",
+    queue_description: "Rastrea la entrega y aceptación de baselines",
+    project_baselines: "Baselines de Proyecto",
     queueTitle: "Cola de Baselines",
     queueDescription: "Rastrea la entrega y aceptación de baselines",
     projectBaselines: "Baselines de Proyecto",
     projectBaselinesDescription: "Ver el estado de aceptación y rechazo de las líneas base para todos los proyectos",
     all: "Todos",
     pending: "Pendientes",
+    pending_review: "Pendiente de Revisión",
     pendingReview: "Pendiente de Revisión",
     accepted: "Aceptadas",
     rejected: "Rechazadas",
     missingRubros: "Rubros Faltantes",
+    accepted_by: "Aceptado por",
     acceptedBy: "Aceptado por",
+    rejected_by: "Rechazado por",
     rejectedBy: "Rechazado por",
     acceptedRejectedBy: "Aceptado/Rechazado por",
     acceptedAt: "Aceptado el",
     rejectedAt: "Rechazado el",
+    view_rubros: "Ver Rubros →",
     viewRubros: "Ver Rubros",
     reviewAndResubmit: "Revisar y reenviar",
     viewDetails: "Ver Detalles",
@@ -181,6 +188,7 @@ export const ES_TEXTS = {
   // Planner (formerly Estimator)
   planner: {
     title: "Planificador",
+    back_to_planner: "Volver al Planificador",
     backToPlanner: "Volver al Planificador",
     createBaseline: "Crear Baseline",
     submitBaseline: "Enviar Baseline",
