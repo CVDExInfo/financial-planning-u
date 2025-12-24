@@ -252,24 +252,34 @@ export class ApiService {
             try {
               const baseline = await this.getBaseline(String(p.baseline_id));
               
-              // Calculate labor cost from labor_estimates
-              const laborTotal = Array.isArray(baseline?.labor_estimates)
-                ? baseline.labor_estimates.reduce((sum: number, estimate: any) => {
-                    const monthlyCost = (estimate?.fte_count || 0) * 
-                                       (estimate?.hourly_rate || 0) * 
-                                       (estimate?.hours_per_month || 0);
-                    const onCost = monthlyCost * (1 + (estimate?.on_cost_percentage || 0) / 100);
-                    const months = Math.max(0, (estimate?.end_month || 0) - (estimate?.start_month || 0) + 1);
-                    return sum + (onCost * months);
-                  }, 0)
-                : 0;
+              // Use actual total_amount from baseline if available, or sum from estimates
+              let laborTotal = 0;
+              let nonLaborTotal = 0;
+              
+              // Calculate labor cost from labor_estimates using total_amount field
+              if (Array.isArray(baseline?.labor_estimates)) {
+                laborTotal = baseline.labor_estimates.reduce((sum: number, estimate: any) => {
+                  // Use total_amount if available, otherwise calculate
+                  if (estimate.total_amount !== undefined && estimate.total_amount !== null) {
+                    return sum + estimate.total_amount;
+                  }
+                  // Fallback calculation if total_amount not present
+                  const monthlyCost = (estimate?.fte_count || 0) * 
+                                     (estimate?.hourly_rate || 0) * 
+                                     (estimate?.hours_per_month || 0);
+                  const onCost = monthlyCost * (1 + (estimate?.on_cost_percentage || 0) / 100);
+                  const months = Math.max(0, (estimate?.end_month || 0) - (estimate?.start_month || 0) + 1);
+                  return sum + (onCost * months);
+                }, 0);
+              }
 
-              // Calculate non-labor cost from non_labor_estimates
-              const nonLaborTotal = Array.isArray(baseline?.non_labor_estimates)
-                ? baseline.non_labor_estimates.reduce((sum: number, estimate: any) => {
-                    return sum + (estimate?.amount || 0);
-                  }, 0)
-                : 0;
+              // Calculate non-labor cost from non_labor_estimates using total_amount or amount field
+              if (Array.isArray(baseline?.non_labor_estimates)) {
+                nonLaborTotal = baseline.non_labor_estimates.reduce((sum: number, estimate: any) => {
+                  // Use total_amount if available, otherwise use amount field
+                  return sum + (estimate?.total_amount || estimate?.amount || 0);
+                }, 0);
+              }
 
               // Get actual rubros count by fetching materialized rubros
               let actualRubrosCount = 0;

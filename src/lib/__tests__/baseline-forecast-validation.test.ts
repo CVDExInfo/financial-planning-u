@@ -19,9 +19,10 @@ const TEST_PROJECT = {
   project_id: "P-4ca622e9-1680-413c-8c01-c76cf4cc42cc",
   baseline_id: "base_3ad9f3b665af",
   expected: {
-    labor_total: 15408000, // $15,408,000
+    // Updated to match actual DynamoDB total_amount
+    labor_total: 15467000, // $15,467,000 (from DynamoDB prefacturas table)
     non_labor_total: 1000, // $1,000
-    total: 15409000, // $15,409,000
+    total: 15468000, // $15,468,000 (actual DynamoDB total, not calculated)
     rubros_count: 3, // 2 labor roles + 1 non-labor service
   }
 };
@@ -34,9 +35,9 @@ describe("End-to-End: DynamoDB → Baseline → UI Pipeline Validation", () => {
     console.log("Baseline:", TEST_PROJECT.baseline_id);
     console.log("\nExpected Values:");
     console.log("  - Rubros Count: 3");
-    console.log("  - Labor (MOD): $15,408,000");
+    console.log("  - Labor (MOD): $15,467,000");
     console.log("  - Non-Labor: $1,000");
-    console.log("  - Total: $15,409,000\n");
+    console.log("  - Total: $15,468,000 (from DynamoDB)\n");
     
     // Step 1: Query baseline from DynamoDB (via ApiService.getBaseline)
     console.log("Step 1: Fetching baseline from DynamoDB...");
@@ -117,13 +118,13 @@ describe("End-to-End: DynamoDB → Baseline → UI Pipeline Validation", () => {
     console.log("\nUI Verification Points:");
     console.log("  1. Baselines Queue (Cola de Baselines):");
     console.log("     - Rubros column should show: 3");
-    console.log("     - Tooltip should show MOD: $15,408,000 and Indirectos: $1,000");
+    console.log("     - Tooltip should show MOD: $15,467,000 and Indirectos: $1,000");
     console.log("     - Accepted by should show: actual user (not 'system')");
     console.log("\n  2. Project Detail Page:");
-    console.log("     - Total Proyecto should show: $15,409,000");
+    console.log("     - Total Proyecto should show: $15,468,000");
     console.log("     - Should list 2 MOD roles + 1 Gastos service");
     console.log("\n  3. Forecast Page (Gestión de Pronóstico):");
-    console.log("     - Planeado Total should show: $15,409,000");
+    console.log("     - Planeado Total should show: $15,468,000");
     console.log("     - Pronóstico Total may vary (includes adjustments)");
     console.log("     - Console logs should show getRubrosWithFallback tier used");
     console.log("\n=== END VALIDATION TEST ===\n");
@@ -245,7 +246,7 @@ describe("End-to-End: DynamoDB → Baseline → UI Pipeline Validation", () => {
     console.log("  Look for logs matching:");
     console.log("    [getRubrosWithFallback] Tier X - ...: {");
     console.log("      count: 3,");
-    console.log("      total: 15409000,");
+    console.log("      total: 15468000,");
     console.log("      projectId: 'P-4ca622e9-1680-413c-8c01-c76cf4cc42cc',");
     console.log("      baselineId: 'base_3ad9f3b665af'");
     console.log("    }\n");
