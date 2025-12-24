@@ -5,12 +5,13 @@ import { getRubrosWithFallback } from "@/lib/api";
 import { ALL_PROJECTS_ID, useProject } from "@/contexts/ProjectContext";
 import type { LineItem } from "@/types/domain";
 
-const lineItemsKey = (projectId?: string) =>
-  ["lineItems", projectId ?? "none"] as const;
+const lineItemsKey = (projectId?: string, baselineId?: string) =>
+  ["lineItems", projectId ?? "none", baselineId ?? "none"] as const;
 
 export function useProjectLineItems(options?: { useFallback?: boolean; baselineId?: string }) {
   const { selectedProject } = useProject();
   const projectId = selectedProject?.id;
+  const baselineId = selectedProject?.baseline_id;
   const queryClient = useQueryClient();
   const useFallback = options?.useFallback ?? false;
   const baselineId = options?.baselineId;
@@ -41,6 +42,7 @@ export function useProjectLineItems(options?: { useFallback?: boolean; baselineI
     if (import.meta.env.DEV && projectId && Array.isArray(query.data)) {
       console.info("[useProjectLineItems] loaded", {
         projectId,
+        baselineId,
         count: query.data.length,
         ids: query.data.map((li) => li.id).filter(Boolean),
         useFallback,
@@ -50,8 +52,8 @@ export function useProjectLineItems(options?: { useFallback?: boolean; baselineI
 
   const invalidate = useCallback(async () => {
     if (!projectId) return;
-    await queryClient.invalidateQueries({ queryKey: lineItemsKey(projectId) });
-  }, [projectId, queryClient]);
+    await queryClient.invalidateQueries({ queryKey: lineItemsKey(projectId, baselineId) });
+  }, [projectId, baselineId, queryClient]);
 
   return {
     ...query,

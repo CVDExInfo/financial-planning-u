@@ -68,7 +68,16 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
   }
 
   const userEmail = await getUserEmail(event);
-  const acceptedBy = (body.accepted_by || userEmail) as string;
+  // Prefer explicit accepted_by from request, then authenticated user email
+  // Fallback to "system" only if both are unavailable
+  let acceptedBy = (body.accepted_by as string | undefined) || userEmail;
+  
+  // If userEmail is "system" and we have accepted_by in body, use that
+  // Otherwise ensure we don't show "system" as the acceptor
+  if (acceptedBy === "system" && body.accepted_by) {
+    acceptedBy = body.accepted_by as string;
+  }
+  
   const now = new Date().toISOString();
 
   // Defensive check: prevent re-acceptance of already accepted baselines
@@ -250,8 +259,38 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     // Persist materialization counts to project metadata
     try {
       const allocationsCount = (allocationsSummary as any).allocationsWritten ?? (allocationsSummary as any).allocationsPlanned ?? 0;
-      const rubrosCount = (rubrosSummary as any).rubrosWritten ?? 0;
+      let rubrosCount = (rubrosSummary as any).rubrosWritten ?? 0;
       const materializedAt = new Date().toISOString();
+
+      // Calculate labor and non-labor totals from baseline estimates
+      const baselinePayload = baselineRecord.payload || baselineRecord;
+      const laborEstimates = baselinePayload.labor_estimates || baselineRecord.labor_estimates || [];
+      const nonLaborEstimates = baselinePayload.non_labor_estimates || baselineRecord.non_labor_estimates || [];
+      
+      // If rubrosCount is 0 but we have estimates, use the count from estimates
+      // This handles the case where allocations were created but rubros table wasn't populated
+      if (rubrosCount === 0 && (laborEstimates.length > 0 || nonLaborEstimates.length > 0)) {
+        rubrosCount = laborEstimates.length + nonLaborEstimates.length;
+      }
+      
+      // Calculate labor total (sum of all labor costs)
+      let laborTotal = 0;
+      for (const labor of laborEstimates) {
+        const rate = labor.rate || labor.hourly_rate || 0;
+        const hours = labor.hours_per_month || 160; // Default to 160 hours/month
+        const fte = labor.fte_count || 1;
+        const duration = (labor.end_month || 12) - (labor.start_month || 1) + 1;
+        const onCost = 1 + (labor.on_cost_percentage || 0) / 100;
+        laborTotal += rate * hours * fte * duration * onCost;
+      }
+      
+      // Calculate non-labor total (sum of all non-labor costs)
+      let nonLaborTotal = 0;
+      for (const nonLabor of nonLaborEstimates) {
+        const amount = nonLabor.amount || 0;
+        const duration = nonLabor.one_time ? 1 : ((nonLabor.end_month || 12) - (nonLabor.start_month || 1) + 1);
+        nonLaborTotal += amount * duration;
+      }
 
       await ddb.send(
         new UpdateCommand({
@@ -261,16 +300,20 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
             sk: "METADATA",
           },
           UpdateExpression:
-            "SET #rubros_count = :rubros_count, #allocations_count = :allocations_count, #materialized_at = :materialized_at, #updated_at = :updated_at",
+            "SET #rubros_count = :rubros_count, #allocations_count = :allocations_count, #labor_cost = :labor_cost, #non_labor_cost = :non_labor_cost, #materialized_at = :materialized_at, #updated_at = :updated_at",
           ExpressionAttributeNames: {
             "#rubros_count": "rubros_count",
             "#allocations_count": "allocations_count",
+            "#labor_cost": "labor_cost",
+            "#non_labor_cost": "non_labor_cost",
             "#materialized_at": "materialized_at",
             "#updated_at": "updated_at",
           },
           ExpressionAttributeValues: {
             ":rubros_count": rubrosCount,
             ":allocations_count": allocationsCount,
+            ":labor_cost": Math.round(laborTotal),
+            ":non_labor_cost": Math.round(nonLaborTotal),
             ":materialized_at": materializedAt,
             ":updated_at": materializedAt,
           },

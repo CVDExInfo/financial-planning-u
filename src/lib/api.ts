@@ -539,6 +539,210 @@ export class ApiService {
     }
   }
 
+  /**
+   * Get rubros (alias for getLineItems for compatibility)
+   */
+  static async getRubros(params: { projectId: string; baseline?: string }): Promise<LineItem[]> {
+    return this.getLineItems(params.projectId);
+  }
+
+  /**
+   * Get rubros summary with server-side aggregation from allocations/prefacturas
+   * Returns aggregated rubros even when rubros table is empty
+   */
+  static async getRubrosSummary(
+    projectId: string,
+    baselineId?: string
+  ): Promise<{
+    rubro_summary: Array<{
+      rubroId: string | null;
+      description: string;
+      type: string;
+      monthly: number[];
+      total: number;
+      recurrent?: boolean;
+    }>;
+    totals: {
+      labor_total: number;
+      non_labor_total: number;
+      rubros_count: number;
+    };
+  } | null> {
+    try {
+      const query = baselineId ? `?baseline=${encodeURIComponent(baselineId)}` : "";
+      const path = `/projects/${encodeURIComponent(projectId)}/rubros-summary${query}`;
+      
+      const data = await this.request<{
+        rubro_summary: any[];
+        totals: { labor_total: number; non_labor_total: number; rubros_count: number };
+      }>(path);
+
+      return data;
+    } catch (error) {
+      // If endpoint not implemented (404, 405, 501), return null
+      if (error instanceof ValidationError || error instanceof ServerError) {
+        const statusCode = (error as any).statusCode || (error as any).status;
+        if (statusCode === 404 || statusCode === 405 || statusCode === 501) {
+          return null;
+        }
+      }
+      logger.warn("getRubrosSummary failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get allocations for a project
+   */
+  static async getAllocations(params: { projectId?: string; baseline?: string }): Promise<any[]> {
+    try {
+      const query = params.projectId 
+        ? `?projectId=${encodeURIComponent(params.projectId)}` 
+        : "";
+      const data = await this.request<any>(`/allocations${query}`);
+      return Array.isArray(data) ? data : (data as any)?.data || [];
+    } catch (error) {
+      logger.warn("getAllocations failed:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get prefacturas (invoices) for a project
+   */
+  static async getPrefacturas(params: { projectId?: string; baseline?: string }): Promise<any[]> {
+    try {
+      const query = params.projectId 
+        ? `?projectId=${encodeURIComponent(params.projectId)}` 
+        : "";
+      const data = await this.request<any>(`/prefacturas${query}`);
+      return Array.isArray(data) ? data : (data as any)?.data || [];
+    } catch (error) {
+      logger.warn("getPrefacturas failed:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get rubros with fallback to allocations/prefacturas aggregation
+   * Tries multiple sources in order:
+   * 1. Rubros table (manual rubros)
+   * 2. Server-side rubros-summary endpoint
+   * 3. Client-side aggregation of allocations
+   */
+  static async getRubrosWithFallback(
+    projectId: string,
+    baselineId?: string
+  ): Promise<LineItem[]> {
+    // 1) Try rubros endpoint
+    const rubros = await this.getLineItems(projectId);
+    if (rubros && rubros.length > 0) {
+      logger.info("getRubrosWithFallback: Using rubros table", { count: rubros.length });
+      return rubros;
+    }
+
+    // 2) Try server-side rubros-summary endpoint
+    const summary = await this.getRubrosSummary(projectId, baselineId);
+    if (summary && summary.rubro_summary && summary.rubro_summary.length > 0) {
+      logger.info("getRubrosWithFallback: Using server-side summary", { count: summary.rubro_summary.length });
+      // Convert rubro_summary to LineItem format
+      return summary.rubro_summary.map((r, idx) => ({
+        id: r.rubroId || `virtual-${idx}`,
+        category: r.type || "unknown",
+        description: r.description || "Sin descripción",
+        qty: 1,
+        unit_cost: r.total || 0,
+        currency: "USD",
+        one_time: !r.recurrent,
+        recurring: r.recurrent || false,
+        start_month: 1,
+        end_month: 12,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        created_by: "system",
+        metadata: {
+          monthly: r.monthly,
+          source: "server_aggregation",
+        },
+      } as LineItem));
+    }
+
+    // 3) Client-side aggregation of allocations
+    logger.info("getRubrosWithFallback: Attempting client-side aggregation");
+    const allocations = await this.getAllocations({ projectId, baseline: baselineId });
+    
+    if (!allocations || allocations.length === 0) {
+      logger.warn("getRubrosWithFallback: No allocations found");
+      return [];
+    }
+
+    // Build a map keyed by rubroId or role/description
+    const map = new Map<string, any>();
+    
+    allocations.forEach((alloc: any) => {
+      const key = alloc.rubroId || alloc.rubro_id || `${alloc.role || alloc.description || "unknown"}`;
+      let entry = map.get(key);
+      
+      if (!entry) {
+        entry = {
+          rubroId: alloc.rubroId || alloc.rubro_id || null,
+          description: alloc.description || alloc.role || "Sin rubro",
+          type: alloc.type || alloc.rubro_type || "unknown",
+          monthly: Array(12).fill(0),
+          total: 0,
+          recurrent: alloc.recurring || false,
+        };
+        map.set(key, entry);
+      }
+      
+      // Parse month - could be 1-12, "M1"-"M12", or "2025-01" format
+      let monthIndex = 0;
+      if (typeof alloc.month === "number") {
+        monthIndex = alloc.month - 1;
+      } else if (typeof alloc.month === "string") {
+        const mMatch = alloc.month.match(/^M(\d+)$/i);
+        if (mMatch) {
+          monthIndex = parseInt(mMatch[1], 10) - 1;
+        } else if (/^\d{4}-\d{2}$/.test(alloc.month)) {
+          monthIndex = parseInt(alloc.month.substring(5, 7), 10) - 1;
+        } else {
+          const parsed = parseInt(alloc.month, 10);
+          if (!isNaN(parsed)) {
+            monthIndex = parsed - 1;
+          }
+        }
+      }
+      
+      if (monthIndex >= 0 && monthIndex < 12) {
+        entry.monthly[monthIndex] += (alloc.amount || 0);
+        entry.total += (alloc.amount || 0);
+      }
+    });
+
+    const virtualRubros = Array.from(map.values()).map((r, idx) => ({
+      id: r.rubroId || `virtual-${idx}`,
+      category: r.type || "unknown",
+      description: r.description,
+      qty: 1,
+      unit_cost: r.total,
+      currency: "USD",
+      one_time: !r.recurrent,
+      recurring: r.recurrent,
+      start_month: 1,
+      end_month: 12,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: "system",
+      metadata: {
+        monthly: r.monthly,
+        source: "client_aggregation",
+      },
+    } as LineItem));
+
+    logger.info("getRubrosWithFallback: Client aggregation complete", { count: virtualRubros.length });
+    return virtualRubros;
+  }
+
   // Line Items
   static async createLineItem(
     projectId: string,
