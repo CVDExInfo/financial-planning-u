@@ -68,8 +68,6 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       return bad("Missing project ID");
     }
 
-    const baselineId = event.queryStringParameters?.baseline;
-
     // Query allocations table
     const allocationsResult = await ddb.send(
       new QueryCommand({
