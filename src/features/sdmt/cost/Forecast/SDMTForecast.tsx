@@ -43,7 +43,7 @@ import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
-import { bulkUploadPayrollActuals, type PayrollActualInput, getRubrosWithFallback } from '@/api/finanzas';
+import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros } from '@/api/finanzas';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
 import finanzasClient from '@/api/finanzasClient';
 import { ES_TEXTS } from '@/lib/i18n/es';
@@ -466,7 +466,7 @@ export function SDMTForecast() {
         const [payload, invoices, projectLineItems] = await Promise.all([
           getForecastPayload(project.id, months),
           getProjectInvoices(project.id),
-          getRubrosWithFallback(project.id, project.baselineId).catch(() => [] as LineItem[]),
+          getProjectRubros(project.id).catch(() => [] as LineItem[]),
         ]);
         
         // Check if request is still valid after async operations
