@@ -11,10 +11,10 @@ const lineItemsKey = (projectId?: string, baselineId?: string) =>
 export function useProjectLineItems(options?: { useFallback?: boolean; baselineId?: string }) {
   const { selectedProject } = useProject();
   const projectId = selectedProject?.id;
-  const baselineId = selectedProject?.baseline_id;
+  const projectBaselineId = selectedProject?.baseline_id;
   const queryClient = useQueryClient();
   const useFallback = options?.useFallback ?? false;
-  const baselineId = options?.baselineId;
+  const baselineId = options?.baselineId ?? projectBaselineId;
 
   const query = useQuery<LineItem[]>({
     queryKey: lineItemsKey(projectId),
