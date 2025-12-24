@@ -890,37 +890,6 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
-  RubrosSummaryFn:
-    Type: AWS::Serverless::Function
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        EntryPoints:
-          - src/handlers/getRubrosSummary.ts
-        External:
-          - aws-sdk
-        Minify: true
-        Sourcemap: true
-        Target: node20
-    Properties:
-      CodeUri: .
-      Handler: getRubrosSummary.handler
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBReadPolicy:
-            TableName: !Ref AllocationsTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref PrefacturasTable
-      Events:
-        GetRubrosSummary:
-          Type: HttpApi
-          Properties:
-            Path: /projects/{projectId}/rubros-summary
-            Method: GET
-            ApiId: !Ref Api
-            Auth:
-              Authorizer: CognitoJwt
-
   BillingFn:
     Type: AWS::Serverless::Function
     Metadata:

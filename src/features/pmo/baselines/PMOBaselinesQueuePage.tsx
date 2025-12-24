@@ -78,14 +78,14 @@ export function PMOBaselinesQueuePage() {
         return (
           <Badge variant="default" className="bg-green-600 gap-1.5">
             <CheckCircle2 size={14} />
-            Aceptado
+            {ES_TEXTS.baseline.accepted}
           </Badge>
         );
       case "rejected":
         return (
           <Badge variant="destructive" className="gap-1.5">
             <XCircle size={14} />
-            Rechazado
+            {ES_TEXTS.baseline.rejected}
           </Badge>
         );
       case "pending":
@@ -93,7 +93,7 @@ export function PMOBaselinesQueuePage() {
         return (
           <Badge variant="secondary" className="gap-1.5">
             <Clock size={14} />
-            Pendiente de Revisión
+            {ES_TEXTS.baseline.pendingReview}
           </Badge>
         );
       default:
@@ -229,9 +229,9 @@ export function PMOBaselinesQueuePage() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Cola de Visibilidad de Baselines</h1>
+          <h1 className="text-3xl font-bold">{ES_TEXTS.baseline.queueTitle}</h1>
           <p className="text-muted-foreground mt-1">
-            Seguimiento del estado de envío y aceptación de baselines
+            {ES_TEXTS.baseline.queueDescription}
           </p>
         </div>
       </div>
@@ -245,7 +245,7 @@ export function PMOBaselinesQueuePage() {
               size="sm"
               onClick={() => setSelectedStatus("all")}
             >
-              Todos ({statusCounts.all})
+              {ES_TEXTS.baseline.all} ({statusCounts.all})
             </Button>
             <Button
               variant={selectedStatus === "pending" || selectedStatus === "handed_off" ? "default" : "outline"}
@@ -253,7 +253,7 @@ export function PMOBaselinesQueuePage() {
               onClick={() => setSelectedStatus("handed_off")}
             >
               <Clock className="mr-2 h-4 w-4" />
-              Pendientes ({statusCounts.pending})
+              {ES_TEXTS.baseline.pending} ({statusCounts.pending})
             </Button>
             <Button
               variant={selectedStatus === "accepted" ? "default" : "outline"}
@@ -262,7 +262,7 @@ export function PMOBaselinesQueuePage() {
               className={selectedStatus === "accepted" ? "bg-green-600 hover:bg-green-700" : ""}
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
-              Aceptados ({statusCounts.accepted})
+              {ES_TEXTS.baseline.accepted} ({statusCounts.accepted})
             </Button>
             <Button
               variant={selectedStatus === "rejected" ? "destructive" : "outline"}
@@ -270,7 +270,7 @@ export function PMOBaselinesQueuePage() {
               onClick={() => setSelectedStatus("rejected")}
             >
               <XCircle className="mr-2 h-4 w-4" />
-              Rechazados ({statusCounts.rejected})
+              {ES_TEXTS.baseline.rejected} ({statusCounts.rejected})
             </Button>
             <div className="flex-1" />
             <Button
@@ -280,7 +280,7 @@ export function PMOBaselinesQueuePage() {
               className={showMissingRubros ? "bg-orange-600 hover:bg-orange-700" : ""}
             >
               <AlertCircle className="mr-2 h-4 w-4" />
-              Sin Rubros ({statusCounts.missingRubros})
+              {ES_TEXTS.baseline.missingRubros} ({statusCounts.missingRubros})
             </Button>
           </div>
         </CardContent>
@@ -289,9 +289,9 @@ export function PMOBaselinesQueuePage() {
       {/* Baselines Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Baselines de Proyectos</CardTitle>
+          <CardTitle>{ES_TEXTS.baseline.projectBaselines}</CardTitle>
           <CardDescription>
-            Ver estado de aceptación y rechazo de baselines para todos los proyectos
+            {ES_TEXTS.baseline.projectBaselinesDescription}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -308,22 +308,22 @@ export function PMOBaselinesQueuePage() {
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSort("name")}
                     >
-                      Proyecto <SortIcon field="name" />
+                      {ES_TEXTS.baseline.project} <SortIcon field="name" />
                     </TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSort("client")}
                     >
-                      Cliente <SortIcon field="client" />
+                      {ES_TEXTS.baseline.client} <SortIcon field="client" />
                     </TableHead>
-                    <TableHead>ID de Baseline</TableHead>
+                    <TableHead>{ES_TEXTS.baseline.baselineId}</TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSort("status")}
                     >
-                      Estado <SortIcon field="status" />
+                      {ES_TEXTS.baseline.status} <SortIcon field="status" />
                     </TableHead>
-                    <TableHead>Aceptado/Rechazado Por</TableHead>
+                    <TableHead>{ES_TEXTS.baseline.acceptedRejectedBy}</TableHead>
                     <TableHead 
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSort("rubros_count")}
@@ -334,9 +334,9 @@ export function PMOBaselinesQueuePage() {
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSort("baseline_accepted_at")}
                     >
-                      Fecha de Aceptación <SortIcon field="baseline_accepted_at" />
+                      {ES_TEXTS.baseline.acceptedAt} <SortIcon field="baseline_accepted_at" />
                     </TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
+                    <TableHead className="text-right">{ES_TEXTS.baseline.actions}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -444,7 +444,7 @@ export function PMOBaselinesQueuePage() {
                             size="sm"
                             onClick={() => navigate(`/pmo/projects/${project.id}`)}
                           >
-                            Ver Detalles
+                            {ES_TEXTS.baseline.viewDetails}
                             <ExternalLink className="ml-2 h-3 w-3" />
                           </Button>
                         </div>
@@ -457,7 +457,7 @@ export function PMOBaselinesQueuePage() {
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <AlertCircle className="mx-auto h-12 w-12 mb-4 opacity-50" />
-              <p>No se encontraron baselines con el filtro seleccionado</p>
+              <p>{ES_TEXTS.baseline.noBaselinesFound}</p>
             </div>
           )}
         </CardContent>
@@ -467,9 +467,9 @@ export function PMOBaselinesQueuePage() {
       {filteredProjects?.some((p) => p.baseline_status === "rejected" && p.rejection_comment) && (
         <Card>
           <CardHeader>
-            <CardTitle>Comentarios de Rechazo</CardTitle>
+            <CardTitle>{ES_TEXTS.baseline.rejectionComments}</CardTitle>
             <CardDescription>
-              Retroalimentación de SDMT sobre baselines rechazados
+              {ES_TEXTS.baseline.rejectionFeedback}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -482,19 +482,19 @@ export function PMOBaselinesQueuePage() {
                       <CardTitle className="text-base">{project.name}</CardTitle>
                       <Badge variant="destructive" className="gap-1.5">
                         <XCircle size={14} />
-                        Rechazado
+                        {ES_TEXTS.baseline.rejected}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <p className="text-sm text-muted-foreground">
-                      <strong>Rechazado por:</strong> {project.rejected_by || "Desconocido"}
+                      <strong>{ES_TEXTS.baseline.rejectedBy}:</strong> {project.rejected_by || "—"}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      <strong>Fecha:</strong> {formatDate(project.baseline_rejected_at)}
+                      <strong>{ES_TEXTS.baseline.date}:</strong> {formatDate(project.baseline_rejected_at)}
                     </p>
                     <div className="mt-3 p-3 bg-muted rounded-md">
-                      <p className="text-sm font-medium mb-1">Razón:</p>
+                      <p className="text-sm font-medium mb-1">{ES_TEXTS.baseline.reason}:</p>
                       <p className="text-sm">{project.rejection_comment}</p>
                     </div>
                     <div className="pt-2">
