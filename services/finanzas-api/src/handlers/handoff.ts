@@ -285,7 +285,7 @@ const seedLineItemsFromBaseline = async (
       );
 
       // Filter in code by metadata.baseline_id or baselineId
-      const alreadySeededForBaseline = (existing.Items || []).some(
+      const alreadySeededForBaseline = ((existing as any).Items || []).some(
         (item: any) =>
           item.metadata?.baseline_id === baselineId ||
           item.baselineId === baselineId
@@ -419,7 +419,7 @@ async function getHandoff(event: APIGatewayProxyEventV2) {
     })
   );
 
-  if (!result.Items || result.Items.length === 0) {
+  if (!(result as any).Items || (result as any).Items.length === 0) {
     return {
       statusCode: 404,
       headers: { "Content-Type": "application/json" },
@@ -427,7 +427,7 @@ async function getHandoff(event: APIGatewayProxyEventV2) {
     };
   }
 
-  const handoff = result.Items[0];
+  const handoff = (result as any).Items[0];
   return {
     statusCode: 200,
     headers: { "Content-Type": "application/json" },
@@ -580,9 +580,9 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     })
   );
 
-  if (idempotencyCheck.Item) {
+  if ((idempotencyCheck as any).Item) {
     // Check if payload matches
-    const existingPayload = JSON.stringify(idempotencyCheck.Item.payload);
+    const existingPayload = JSON.stringify((idempotencyCheck as any).Item.payload);
     const currentPayload = JSON.stringify(body);
     
     if (existingPayload !== currentPayload) {
@@ -599,7 +599,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(idempotencyCheck.Item.result),
+      body: JSON.stringify((idempotencyCheck as any).Item.result),
     };
   }
 
@@ -626,7 +626,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     })
   );
 
-  const metadataBaseline = baselineMetadataResult.Item;
+  const metadataBaseline = (baselineMetadataResult as any).Item;
   
   // Log what we found in METADATA
   console.info("[handoff] METADATA baseline query result", {
@@ -656,7 +656,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     })
   );
 
-  const projectBaseline = projectBaselineResult.Item;
+  const projectBaseline = (projectBaselineResult as any).Item;
   
   // Log what we found in project-scoped baseline
   console.info("[handoff] Project-scoped baseline query result", {
@@ -763,7 +763,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
 
   // Calculate end_date from start_date + duration_months
   // Using proper date arithmetic to handle month boundaries and leap years correctly
-  let endDate = baseline?.payload?.end_date || baseline?.end_date || body.end_date || body.endDate;
+  let endDate = (baseline as any)?.payload?.end_date || (baseline as any)?.end_date || body.end_date || body.endDate;
   if (!endDate && startDate && durationMonths) {
     const start = new Date(startDate);
     if (!isNaN(start.getTime())) {
@@ -797,7 +797,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
   const sdmManagerEmail = (
     (body.fields as { sdm_manager_email?: string } | undefined)?.sdm_manager_email ||
     (body as { sdm_manager_email?: string }).sdm_manager_email ||
-    baseline?.payload?.sdm_manager_email
+    (baseline as any)?.payload?.sdm_manager_email
   )?.toLowerCase();
 
   // Create new handoff record with resolved project ID
@@ -1135,7 +1135,7 @@ async function updateHandoff(event: APIGatewayProxyEventV2) {
       })
     );
 
-    if (!existing.Item) {
+    if (!(existing as any).Item) {
       return notFound("handoff not found");
     }
 
@@ -1149,7 +1149,7 @@ async function updateHandoff(event: APIGatewayProxyEventV2) {
     const userEmail = await getUserEmail(event);
     const now = new Date().toISOString();
     const expectedVersion = body.version ? Number(body.version) : undefined;
-    const currentVersion = existing.Item.version || 1;
+    const currentVersion = (existing as any).Item.version || 1;
 
     // Optimistic concurrency check
     if (expectedVersion !== undefined && expectedVersion !== currentVersion) {
@@ -1199,8 +1199,8 @@ async function updateHandoff(event: APIGatewayProxyEventV2) {
       resource_id: handoffId,
       user: userEmail,
       timestamp: now,
-      before: existing.Item,
-      after: updated.Attributes,
+      before: (existing as any).Item,
+      after: (updated as any).Attributes,
       source: "API",
       ip_address: event.requestContext.http.sourceIp,
       user_agent: event.requestContext.http.userAgent,
@@ -1214,13 +1214,13 @@ async function updateHandoff(event: APIGatewayProxyEventV2) {
     );
 
     return ok({
-      handoffId: updated.Attributes?.handoffId,
-      projectId: updated.Attributes?.projectId,
-      owner: updated.Attributes?.owner,
-      fields: updated.Attributes?.fields,
-      version: updated.Attributes?.version,
-      createdAt: updated.Attributes?.createdAt,
-      updatedAt: updated.Attributes?.updatedAt,
+      handoffId: (updated as any).Attributes?.handoffId,
+      projectId: (updated as any).Attributes?.projectId,
+      owner: (updated as any).Attributes?.owner,
+      fields: (updated as any).Attributes?.fields,
+      version: (updated as any).Attributes?.version,
+      createdAt: (updated as any).Attributes?.createdAt,
+      updatedAt: (updated as any).Attributes?.updatedAt,
     });
   } catch (error) {
     const authError = fromAuthError(error);
@@ -1257,7 +1257,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           error: "Validation failed",
-          details: err.errors,
+          details: (err as any).errors,
         }),
       };
     }
