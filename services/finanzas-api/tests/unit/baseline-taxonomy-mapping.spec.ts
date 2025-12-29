@@ -9,6 +9,7 @@ import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import { createBaseline } from "../../src/handlers/baseline";
 import * as dynamo from "../../src/lib/dynamo";
 import * as auth from "../../src/lib/auth";
+import * as seedLineItems from "../../src/lib/seed-line-items";
 
 // Mock dependencies
 jest.mock("../../src/lib/auth");
@@ -16,12 +17,14 @@ jest.mock("../../src/lib/dynamo", () => ({
   ddb: {
     send: jest.fn(),
   },
+  sendDdb: jest.fn(),
   tableName: jest.fn((table: string) => `test_${table}`),
   PutCommand: jest.fn().mockImplementation((input) => ({ input })),
   GetCommand: jest.fn().mockImplementation((input) => ({ input })),
   QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
   ScanCommand: jest.fn().mockImplementation((input) => ({ input })),
 }));
+jest.mock("../../src/lib/seed-line-items");
 
 describe("Baseline Creation with Taxonomy Mapping", () => {
   beforeEach(() => {
@@ -33,6 +36,8 @@ describe("Baseline Creation with Taxonomy Mapping", () => {
     
     // Mock DynamoDB to succeed
     (dynamo.ddb.send as jest.Mock).mockResolvedValue({});
+    (dynamo.sendDdb as jest.Mock).mockResolvedValue({});
+    (seedLineItems.seedLineItemsFromBaseline as jest.Mock).mockResolvedValue({ seeded: 0, skipped: true });
   });
 
   it("should apply taxonomy mapping to labor estimates during baseline creation", async () => {
