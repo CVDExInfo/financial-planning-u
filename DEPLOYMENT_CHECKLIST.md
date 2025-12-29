@@ -176,6 +176,14 @@ aws logs tail /aws/lambda/finanzas-sd-api-${STAGE}-RubrosFn \
 
 **Expected**: Rubros list shows all line items for the project
 
+#### Test Scenario 5: Baseline seeding (Estimator)
+**Manual API Test**:
+1. Create a baseline via `/baseline` (PMO Estimator flow).
+2. Verify `finz_rubros` contains items with `pk = PROJECT#{projectId}` and `metadata.baseline_id = {baselineId}`.
+3. Check CloudWatch logs for `[baseline.create] seedLineItemsFromBaseline result`.
+
+**Expected**: Rubros are materialized without blocking baseline creation.
+
 ---
 
 ## Monitoring (24-48 hours)

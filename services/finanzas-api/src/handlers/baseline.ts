@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { randomUUID, createHash } from "node:crypto";
 import {
   ddb,
+  sendDdb,
   tableName,
   PutCommand,
   GetCommand,
@@ -14,6 +15,7 @@ import {
   normalizeLaborEstimate,
   normalizeNonLaborEstimate,
 } from "../lib/rubros-taxonomy";
+import { seedLineItemsFromBaseline } from "../lib/seed-line-items";
 
 const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
   headers: event.headers,
@@ -330,18 +332,55 @@ export const createBaseline = async (
       return serverError(event, "Unable to create baseline at this time.");
     }
 
-    return ok(
-      event,
-      {
+    try {
+      const seedResult = await seedLineItemsFromBaseline(
+        project_id,
+        canonicalPayload,
+        baseline_id,
+        { send: sendDdb, tableName }
+      );
+
+      console.info("[baseline.create] seedLineItemsFromBaseline result", {
         baselineId: baseline_id,
         projectId: project_id,
-        status: prefacturaItem.status,
-        signatureHash: signature_hash,
-        totalAmount: total_amount,
-        createdAt: timestamp,
-      },
-      201
-    );
+        seedResult,
+      });
+
+      return ok(
+        event,
+        {
+          baselineId: baseline_id,
+          projectId: project_id,
+          status: prefacturaItem.status,
+          signatureHash: signature_hash,
+          totalAmount: total_amount,
+          createdAt: timestamp,
+          seeded: seedResult.seeded ?? 0,
+        },
+        201
+      );
+    } catch (seedError) {
+      console.error("[baseline.create] rubros seeding failed", {
+        baselineId: baseline_id,
+        projectId: project_id,
+        err: seedError instanceof Error ? seedError.message : String(seedError),
+      });
+
+      return ok(
+        event,
+        {
+          baselineId: baseline_id,
+          projectId: project_id,
+          status: prefacturaItem.status,
+          signatureHash: signature_hash,
+          totalAmount: total_amount,
+          createdAt: timestamp,
+          seeded: 0,
+          seedError: seedError instanceof Error ? seedError.message : String(seedError),
+        },
+        201
+      );
+    }
   } catch (error) {
     const statusCode = (error as { statusCode?: number } | undefined)?.statusCode;
     const body = (error as { body?: unknown } | undefined)?.body;
