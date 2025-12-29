@@ -14,6 +14,7 @@ import {
   normalizeLaborEstimate,
   normalizeNonLaborEstimate,
 } from "../lib/rubros-taxonomy";
+import { enqueueMaterialization } from "../lib/queue";
 
 const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
   headers: event.headers,
@@ -330,6 +331,21 @@ export const createBaseline = async (
       return serverError(event, "Unable to create baseline at this time.");
     }
 
+    void enqueueMaterialization(baseline_id, project_id)
+      .then(() => {
+        console.info("[baseline.create] enqueueMaterialization success", {
+          baselineId: baseline_id,
+          projectId: project_id,
+        });
+      })
+      .catch((enqueueError) => {
+        console.error("[baseline.create] enqueueMaterialization failed", {
+          baselineId: baseline_id,
+          projectId: project_id,
+          err: enqueueError instanceof Error ? enqueueError.message : String(enqueueError),
+        });
+      });
+
     return ok(
       event,
       {
@@ -339,6 +355,8 @@ export const createBaseline = async (
         signatureHash: signature_hash,
         totalAmount: total_amount,
         createdAt: timestamp,
+        seeded: 0,
+        seedQueued: true,
       },
       201
     );
