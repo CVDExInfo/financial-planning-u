@@ -332,55 +332,41 @@ export const createBaseline = async (
       return serverError(event, "Unable to create baseline at this time.");
     }
 
-    try {
-      const seedResult = await seedLineItemsFromBaseline(
-        project_id,
-        canonicalPayload,
-        baseline_id,
-        { send: sendDdb, tableName }
-      );
-
-      console.info("[baseline.create] seedLineItemsFromBaseline result", {
-        baselineId: baseline_id,
-        projectId: project_id,
-        seedResult,
-      });
-
-      return ok(
-        event,
-        {
+    void seedLineItemsFromBaseline(
+      project_id,
+      canonicalPayload,
+      baseline_id,
+      { send: sendDdb, tableName }
+    )
+      .then((seedResult) => {
+        console.info("[baseline.create] seedLineItemsFromBaseline result", {
           baselineId: baseline_id,
           projectId: project_id,
-          status: prefacturaItem.status,
-          signatureHash: signature_hash,
-          totalAmount: total_amount,
-          createdAt: timestamp,
-          seeded: seedResult.seeded ?? 0,
-        },
-        201
-      );
-    } catch (seedError) {
-      console.error("[baseline.create] rubros seeding failed", {
-        baselineId: baseline_id,
-        projectId: project_id,
-        err: seedError instanceof Error ? seedError.message : String(seedError),
-      });
-
-      return ok(
-        event,
-        {
+          seedResult,
+        });
+      })
+      .catch((seedError) => {
+        console.error("[baseline.create] rubros seeding failed", {
           baselineId: baseline_id,
           projectId: project_id,
-          status: prefacturaItem.status,
-          signatureHash: signature_hash,
-          totalAmount: total_amount,
-          createdAt: timestamp,
-          seeded: 0,
-          seedError: seedError instanceof Error ? seedError.message : String(seedError),
-        },
-        201
-      );
-    }
+          err: seedError instanceof Error ? seedError.message : String(seedError),
+        });
+      });
+
+    return ok(
+      event,
+      {
+        baselineId: baseline_id,
+        projectId: project_id,
+        status: prefacturaItem.status,
+        signatureHash: signature_hash,
+        totalAmount: total_amount,
+        createdAt: timestamp,
+        seeded: 0,
+        seedQueued: true,
+      },
+      201
+    );
   } catch (error) {
     const statusCode = (error as { statusCode?: number } | undefined)?.statusCode;
     const body = (error as { body?: unknown } | undefined)?.body;

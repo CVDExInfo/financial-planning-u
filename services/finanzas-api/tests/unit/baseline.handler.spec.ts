@@ -99,7 +99,8 @@ describe("baseline handler CORS", () => {
 
     expect(response.statusCode).toBe(201);
     const body = JSON.parse(response.body as string);
-    expect(body.seeded).toBe(2);
+    expect(body.seeded).toBe(0);
+    expect(body.seedQueued).toBe(true);
     expect(seedLineItems.seedLineItemsFromBaseline).toHaveBeenCalled();
   });
 });

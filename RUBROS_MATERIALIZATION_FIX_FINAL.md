@@ -175,7 +175,7 @@ SK (Sort Key): METADATA or META
 2. POST /baseline → Stores in Prefacturas table
    - PK: BASELINE#{baseline_id}, SK: METADATA (with payload.estimates)
    - PK: PROJECT#{project_id}, SK: BASELINE#{baseline_id} (with top-level estimates)
-   - Now seeds rubros into finz_rubros for estimator-created baselines
+   - Now enqueues asynchronous rubro seeding for estimator-created baselines
    ↓
 3. POST /projects/{id}/handoff → Creates handoff
    - Fetches baseline from Prefacturas
