@@ -5,18 +5,32 @@ import { logDataHealth } from "../lib/dataHealth";
 import { ddb, tableName, UpdateCommand, GetCommand, QueryCommand } from "../lib/dynamo";
 
 async function fetchBaselinePayload(baselineId: string) {
-  try {
-    const result = await ddb.send(
-      new GetCommand({
-        TableName: tableName("prefacturas"),
-        Key: { pk: `BASELINE#${baselineId}`, sk: "METADATA" },
-      })
-    );
-    return result.Item;
-  } catch (error) {
-    console.error("Failed to fetch baseline payload", { baselineId, error });
-    return null;
+  const attempts = 3;
+  const delaysMs = [0, 200, 400];
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      if (delaysMs[attempt] > 0) {
+        await new Promise(resolve => setTimeout(resolve, delaysMs[attempt]));
+      }
+
+      const result = await ddb.send(
+        new GetCommand({
+          TableName: tableName("prefacturas"),
+          Key: { pk: `BASELINE#${baselineId}`, sk: "METADATA" },
+          ConsistentRead: true,
+        })
+      );
+
+      if (result.Item) {
+        return result.Item;
+      }
+    } catch (error) {
+      console.error("Failed to fetch baseline payload", { baselineId, attempt, error });
+    }
   }
+
+  return null;
 }
 
 // Labor category classification constants
