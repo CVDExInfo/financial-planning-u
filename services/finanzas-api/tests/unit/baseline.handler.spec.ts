@@ -2,21 +2,20 @@ import { describe, expect, it, jest } from "@jest/globals";
 import { createBaseline, handler } from "../../src/handlers/baseline";
 import * as auth from "../../src/lib/auth";
 import * as dynamo from "../../src/lib/dynamo";
-import * as seedLineItems from "../../src/lib/seed-line-items";
+import * as queue from "../../src/lib/queue";
 
 jest.mock("../../src/lib/auth");
 jest.mock("../../src/lib/dynamo", () => ({
   ddb: {
     send: jest.fn(),
   },
-  sendDdb: jest.fn(),
   tableName: jest.fn((table: string) => `test_${table}`),
   PutCommand: jest.fn().mockImplementation((input) => ({ input })),
   GetCommand: jest.fn().mockImplementation((input) => ({ input })),
   ScanCommand: jest.fn().mockImplementation((input) => ({ input })),
 }));
-jest.mock("../../src/lib/seed-line-items", () => ({
-  seedLineItemsFromBaseline: jest.fn(),
+jest.mock("../../src/lib/queue", () => ({
+  enqueueMaterialization: jest.fn(),
 }));
 
 describe("baseline handler CORS", () => {
@@ -68,11 +67,7 @@ describe("baseline handler CORS", () => {
     (auth.ensureCanWrite as jest.Mock).mockResolvedValue(undefined);
     (auth.getUserEmail as jest.Mock).mockResolvedValue("test@example.com");
     (dynamo.ddb.send as jest.Mock).mockResolvedValue({});
-    (dynamo.sendDdb as jest.Mock).mockResolvedValue({});
-    (seedLineItems.seedLineItemsFromBaseline as jest.Mock).mockResolvedValue({
-      seeded: 2,
-      skipped: false,
-    });
+    (queue.enqueueMaterialization as jest.Mock).mockResolvedValue(undefined);
 
     const response = await createBaseline({
       headers: { "Content-Type": "application/json" },
@@ -101,6 +96,6 @@ describe("baseline handler CORS", () => {
     const body = JSON.parse(response.body as string);
     expect(body.seeded).toBe(0);
     expect(body.seedQueued).toBe(true);
-    expect(seedLineItems.seedLineItemsFromBaseline).toHaveBeenCalled();
+    expect(queue.enqueueMaterialization).toHaveBeenCalled();
   });
 });

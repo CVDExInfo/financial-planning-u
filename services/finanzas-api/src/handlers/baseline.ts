@@ -15,7 +15,7 @@ import {
   normalizeLaborEstimate,
   normalizeNonLaborEstimate,
 } from "../lib/rubros-taxonomy";
-import { seedLineItemsFromBaseline } from "../lib/seed-line-items";
+import { enqueueMaterialization } from "../lib/queue";
 
 const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
   headers: event.headers,
@@ -332,24 +332,18 @@ export const createBaseline = async (
       return serverError(event, "Unable to create baseline at this time.");
     }
 
-    void seedLineItemsFromBaseline(
-      project_id,
-      canonicalPayload,
-      baseline_id,
-      { send: sendDdb, tableName }
-    )
-      .then((seedResult) => {
-        console.info("[baseline.create] seedLineItemsFromBaseline result", {
+    void enqueueMaterialization(baseline_id, project_id)
+      .then(() => {
+        console.info("[baseline.create] enqueueMaterialization success", {
           baselineId: baseline_id,
           projectId: project_id,
-          seedResult,
         });
       })
-      .catch((seedError) => {
-        console.error("[baseline.create] rubros seeding failed", {
+      .catch((enqueueError) => {
+        console.error("[baseline.create] enqueueMaterialization failed", {
           baselineId: baseline_id,
           projectId: project_id,
-          err: seedError instanceof Error ? seedError.message : String(seedError),
+          err: enqueueError instanceof Error ? enqueueError.message : String(enqueueError),
         });
       });
 
