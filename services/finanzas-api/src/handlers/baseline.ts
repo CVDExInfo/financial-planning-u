@@ -332,20 +332,24 @@ export const createBaseline = async (
       return serverError(event, "Unable to create baseline at this time.");
     }
 
-    void enqueueMaterialization(baseline_id, project_id)
-      .then(() => {
-        console.info("[baseline.create] enqueueMaterialization success", {
-          baselineId: baseline_id,
-          projectId: project_id,
-        });
-      })
-      .catch((enqueueError) => {
-        console.error("[baseline.create] enqueueMaterialization failed", {
-          baselineId: baseline_id,
-          projectId: project_id,
-          err: enqueueError instanceof Error ? enqueueError.message : String(enqueueError),
-        });
+    let seedQueued = false;
+    let seedError: string | undefined;
+
+    try {
+      await enqueueMaterialization(baseline_id, project_id);
+      seedQueued = true;
+      console.info("[baseline.create] enqueueMaterialization success", {
+        baselineId: baseline_id,
+        projectId: project_id,
       });
+    } catch (enqueueError) {
+      seedError = enqueueError instanceof Error ? enqueueError.message : String(enqueueError);
+      console.error("[baseline.create] enqueueMaterialization failed", {
+        baselineId: baseline_id,
+        projectId: project_id,
+        err: seedError,
+      });
+    }
 
     return ok(
       event,
@@ -357,7 +361,8 @@ export const createBaseline = async (
         totalAmount: total_amount,
         createdAt: timestamp,
         seeded: 0,
-        seedQueued: true,
+        seedQueued,
+        seedError,
       },
       201
     );
