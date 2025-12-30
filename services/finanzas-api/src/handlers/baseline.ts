@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { randomUUID, createHash } from "node:crypto";
 import {
   ddb,
+  sendDdb,
   tableName,
   PutCommand,
   GetCommand,
@@ -15,6 +16,7 @@ import {
   normalizeNonLaborEstimate,
 } from "../lib/rubros-taxonomy";
 import { enqueueMaterialization } from "../lib/queue";
+import { seedLineItemsFromBaseline } from "../lib/seed-line-items";
 
 const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
   headers: event.headers,
@@ -343,6 +345,24 @@ export const createBaseline = async (
           baselineId: baseline_id,
           projectId: project_id,
           err: enqueueError instanceof Error ? enqueueError.message : String(enqueueError),
+    void seedLineItemsFromBaseline(
+      project_id,
+      canonicalPayload,
+      baseline_id,
+      { send: sendDdb, tableName }
+    )
+      .then((seedResult) => {
+        console.info("[baseline.create] seedLineItemsFromBaseline result", {
+          baselineId: baseline_id,
+          projectId: project_id,
+          seedResult,
+        });
+      })
+      .catch((seedError) => {
+        console.error("[baseline.create] rubros seeding failed", {
+          baselineId: baseline_id,
+          projectId: project_id,
+          err: seedError instanceof Error ? seedError.message : String(seedError),
         });
       });
 
