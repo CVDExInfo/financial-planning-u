@@ -1,14 +1,14 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { ensureCanRead } from "../lib/auth";
 import { ok, bad, serverError } from "../lib/http";
-import { ddb, tableName, QueryCommand } from "../lib/dynamo";
+import { queryProjectRubros } from "../lib/baseline-sdmt";
 import { logError } from "../utils/logging";
 
 /**
  * GET /projects/:projectId/rubros-summary
  * 
- * Aggregates allocations and prefacturas into a rubros summary when manual rubros don't exist.
- * This is a server-side fallback for efficient aggregation of baseline data.
+ * Aggregates materialized rubros into a summary response for SDMT catalog/forecast.
+ * This is the canonical server-side aggregation for baseline-derived rubros.
  * 
  * Query params:
  *  - baseline: Optional baseline ID to filter by
@@ -35,132 +35,102 @@ import { logError } from "../utils/logging";
 export async function getRubrosSummary(event: APIGatewayProxyEventV2) {
   try {
     // Auth check
-    const authResult = ensureCanRead(event);
-    if (!authResult.ok) {
-      return authResult;
-    }
+    await ensureCanRead(event as any);
 
     const projectId = event.pathParameters?.projectId;
     if (!projectId) {
-      return bad("projectId is required");
+      return bad(event as any, "projectId is required");
     }
 
     const baselineId = event.queryStringParameters?.baseline;
-    const table = tableName();
+    const rubros = await queryProjectRubros(projectId, baselineId);
 
-    // Fetch allocations for the project
-    const allocationsParams = {
-      TableName: table,
-      IndexName: "GSI1",
-      KeyConditionExpression: "GSI1PK = :pk",
-      ExpressionAttributeValues: {
-        ":pk": `PROJECT#${projectId}`,
-      } as Record<string, any>,
-      FilterExpression: baselineId 
-        ? "begins_with(sk, :allocPrefix) AND baseline_id = :baseline"
-        : "begins_with(sk, :allocPrefix)",
+    const rubroMap = new Map<
+      string,
+      {
+        rubroId: string | null;
+        description: string;
+        type: string;
+        monthly: number[];
+        total: number;
+      }
+    >();
+
+    const isLabor = (rubro: any) => {
+      const category = `${rubro.category || ""}`.toLowerCase();
+      const lineaCodigo = `${rubro.metadata?.linea_codigo || ""}`.toUpperCase();
+      const isNonLaborCategory = category.includes("non-labor") || category.includes("non labor");
+      return (!isNonLaborCategory && category.includes("labor")) ||
+        category.includes("mod") ||
+        lineaCodigo.startsWith("MOD");
     };
 
-    if (baselineId) {
-      allocationsParams.ExpressionAttributeValues[":baseline"] = baselineId;
-    }
-    allocationsParams.ExpressionAttributeValues[":allocPrefix"] = "ALLOCATION#";
+    rubros.forEach((rubro) => {
+      const key = rubro.rubroId || rubro.metadata?.linea_codigo || "unknown";
+      const description =
+        rubro.descripcion ||
+        rubro.nombre ||
+        rubro.metadata?.linea_codigo ||
+        "Sin rubro";
 
-    const allocationsResult = await ddb.send(new QueryCommand(allocationsParams));
-    const allocations = (allocationsResult as any).Items || [];
-
-    // Fetch prefacturas for the project
-    const prefacturasParams = {
-      TableName: table,
-      IndexName: "GSI1",
-      KeyConditionExpression: "GSI1PK = :pk",
-      ExpressionAttributeValues: {
-        ":pk": `PROJECT#${projectId}`,
-      } as Record<string, any>,
-      FilterExpression: baselineId
-        ? "begins_with(sk, :prefPrefix) AND baseline_id = :baseline"
-        : "begins_with(sk, :prefPrefix)",
-    };
-
-    if (baselineId) {
-      prefacturasParams.ExpressionAttributeValues[":baseline"] = baselineId;
-    }
-    prefacturasParams.ExpressionAttributeValues[":prefPrefix"] = "PREFACTURA#";
-
-    const prefacturasResult = await ddb.send(new QueryCommand(prefacturasParams));
-    const prefacturas = (prefacturasResult as any).Items || [];
-
-    // Aggregate into rubros summary
-    const rubroMap = new Map<string, any>();
-
-    const addToRubro = (item: any) => {
-      const key = item.rubroId || item.role || item.description || "unknown";
-      let rubro = rubroMap.get(key);
-      
-      if (!rubro) {
-        rubro = {
-          rubroId: item.rubroId || null,
-          description: item.description || item.role || "Sin rubro",
-          type: item.type || "unknown",
+      if (!rubroMap.has(key)) {
+        rubroMap.set(key, {
+          rubroId: rubro.rubroId || null,
+          description,
+          type: isLabor(rubro) ? "labor" : "non_labor",
           monthly: Array(12).fill(0),
           total: 0,
-        };
-        rubroMap.set(key, rubro);
-      }
-
-      const month = (item.month || 1) - 1; // Convert to 0-indexed
-      const amount = item.amount || 0;
-      
-      if (month >= 0 && month < 12) {
-        rubro.monthly[month] += amount;
-      }
-      rubro.total += amount;
-    };
-
-    // Process allocations
-    allocations.forEach((alloc: any) => {
-      addToRubro(alloc);
-    });
-
-    // Process prefacturas (they may have nested items)
-    prefacturas.forEach((pref: any) => {
-      if (Array.isArray(pref.items)) {
-        pref.items.forEach(addToRubro);
-      } else {
-        addToRubro({
-          rubroId: pref.rubroId,
-          description: pref.description,
-          month: pref.month || 1,
-          amount: pref.amount,
-          type: pref.type,
         });
+      }
+
+      const entry = rubroMap.get(key)!;
+      const startMonth = Math.max(Number(rubro.start_month || 1), 1);
+      const endMonth = Math.max(Number(rubro.end_month || startMonth), startMonth);
+      const qty = Number(rubro.qty || 1);
+      const unitCost = Number(rubro.unit_cost || 0);
+      const totalCost =
+        Number(rubro.total_cost || 0) ||
+        unitCost * qty * Math.max(endMonth - startMonth + 1, 1);
+      const isOneTime = Boolean(rubro.one_time);
+
+      if (isOneTime) {
+        const monthIndex = Math.min(11, Math.max(0, startMonth - 1));
+        entry.monthly[monthIndex] += totalCost;
+        entry.total += totalCost;
+      } else {
+        const monthsCount = Math.max(endMonth - startMonth + 1, 1);
+        const monthlyAmount = unitCost * qty;
+        for (let month = startMonth; month <= endMonth; month += 1) {
+          if (month >= 1 && month <= 12) {
+            entry.monthly[month - 1] += monthlyAmount;
+          }
+        }
+        entry.total += totalCost || monthlyAmount * monthsCount;
       }
     });
 
     const rubroSummary = Array.from(rubroMap.values());
+    const totals = rubroSummary.reduce(
+      (acc, rubro) => {
+        if (rubro.type === "labor") {
+          acc.labor_total += rubro.total;
+        } else {
+          acc.non_labor_total += rubro.total;
+        }
+        return acc;
+      },
+      { labor_total: 0, non_labor_total: 0 }
+    );
 
-    // Calculate totals
-    let laborTotal = 0;
-    let nonLaborTotal = 0;
-
-    rubroSummary.forEach((rubro) => {
-      if (rubro.type === "labor" || rubro.type === "MOD") {
-        laborTotal += rubro.total;
-      } else {
-        nonLaborTotal += rubro.total;
-      }
-    });
-
-    return ok({
+    return ok(event as any, {
       rubro_summary: rubroSummary,
       totals: {
-        labor_total: laborTotal,
-        non_labor_total: nonLaborTotal,
+        ...totals,
         rubros_count: rubroSummary.length,
       },
     });
   } catch (error: any) {
     logError("getRubrosSummary failed", error);
-    return serverError("Failed to generate rubros summary");
+    return serverError(event as any, "Failed to generate rubros summary");
   }
 }

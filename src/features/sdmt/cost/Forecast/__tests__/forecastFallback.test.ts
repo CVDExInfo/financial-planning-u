@@ -105,6 +105,15 @@ describe('Forecast Fallback Logic', () => {
       assert.strictEqual(infraJan.description, 'Cloud Infrastructure');
     });
 
+    it('should resolve projectId from allocations when not provided', () => {
+      const allocations: Allocation[] = [
+        { month: '2025-01', amount: 100000, rubroId: 'MOD-001', projectId: 'proj-123' },
+      ];
+      const rubros: any[] = [];
+      const cells = computeForecastFromAllocations(allocations, rubros, 12);
+      assert.strictEqual(cells[0].projectId, 'proj-123');
+    });
+
     it('should handle numeric month format', () => {
       const allocations = [
         {

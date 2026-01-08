@@ -84,8 +84,8 @@ describe("materializers", () => {
     expect(requestItems).toHaveLength(2);
 
     const skValues = requestItems.map((entry: any) => entry.PutRequest.Item.sk);
-    expect(skValues).toContain("RUBRO#MOD-ING#BASELINE#base_test");
-    expect(skValues).toContain("RUBRO#GSV-TOOL#BASELINE#base_test");
+    expect(skValues).toContain("RUBRO#base_test#labor#1");
+    expect(skValues).toContain("RUBRO#base_test#nonlabor#1");
   });
 
   it("uses deterministic keys so reruns do not duplicate", async () => {
