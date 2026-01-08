@@ -59,7 +59,10 @@ export async function getRubrosSummary(event: APIGatewayProxyEventV2) {
     const isLabor = (rubro: any) => {
       const category = `${rubro.category || ""}`.toLowerCase();
       const lineaCodigo = `${rubro.metadata?.linea_codigo || ""}`.toUpperCase();
-      return category.includes("labor") || category.includes("mod") || lineaCodigo.startsWith("MOD");
+      const isNonLaborCategory = category.includes("non-labor") || category.includes("non labor");
+      return (!isNonLaborCategory && category.includes("labor")) ||
+        category.includes("mod") ||
+        lineaCodigo.startsWith("MOD");
     };
 
     rubros.forEach((rubro) => {
