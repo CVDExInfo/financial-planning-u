@@ -1,6 +1,6 @@
 // services/finanzas-api/src/handlers/admin/backfillHandler.ts
 import { APIGatewayProxyHandlerV2 } from "aws-lambda";
-import { materializeRubrosForBaseline } from "../../lib/materializers";
+import { materializeRubrosFromBaseline } from "../../lib/materializers";
 import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { withCors, ok, bad, serverError } from "../../lib/http";
@@ -16,6 +16,7 @@ async function fetchBaselinePayload(baselineId: string) {
     new GetCommand({
       TableName: TABLE_PREFACTURAS,
       Key: { pk: `BASELINE#${baselineId}`, sk: "METADATA" },
+      ConsistentRead: true,
     })
   );
   return res.Item || null;
@@ -61,19 +62,19 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       );
     }
 
-    const baseline = await fetchBaselinePayload(resolvedBaselineId);
-    if (!baseline) {
-      return withCors(
-        bad({
-          error: "baseline_not_found",
-          message: `Baseline ${resolvedBaselineId} not found in prefacturas table`,
-        })
-      );
+    let resolvedProjectId = projectId;
+    if (!resolvedProjectId) {
+      const baseline = await fetchBaselinePayload(resolvedBaselineId);
+      resolvedProjectId =
+        baseline?.project_id ||
+        baseline?.projectId ||
+        baseline?.payload?.project_id ||
+        baseline?.payload?.projectId;
     }
 
-    // call materializer
-    // materializeRubrosForBaseline(baseline, { dryRun: true })
-    const result = await materializeRubrosForBaseline(baseline, {
+    const result = await materializeRubrosFromBaseline({
+      projectId: resolvedProjectId,
+      baselineId: resolvedBaselineId,
       dryRun: !!dryRun,
     });
 
@@ -87,6 +88,15 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     );
   } catch (err) {
     console.error("admin/backfill error", err);
+    const statusCode = (err as { statusCode?: number } | undefined)?.statusCode;
+    if (statusCode) {
+      return withCors(
+        bad({
+          error: "materialization_failed",
+          message: err instanceof Error ? err.message : String(err),
+        }, statusCode)
+      );
+    }
     return withCors(
       serverError(err instanceof Error ? err.message : String(err))
     );

@@ -51,6 +51,18 @@ export function computeForecastFromAllocations(
     return [];
   }
 
+  const resolvedProjectId =
+    projectId ||
+    allocations.find((alloc) => alloc.projectId)?.projectId ||
+    rubros.find((rubro) => rubro.projectId)?.projectId;
+
+  if (!resolvedProjectId) {
+    console.warn(
+      "[computeForecastFromAllocations] Missing projectId; cannot build fallback forecast rows."
+    );
+    return [];
+  }
+
   // Group allocations by month and rubroId
   const allocationMap = new Map<string, { month: number; amount: number; rubroId?: string }[]>();
   
@@ -107,7 +119,7 @@ export function computeForecastFromAllocations(
       variance: 0,
       last_updated: new Date().toISOString(),
       updated_by: 'system-allocations',
-      projectId,
+      projectId: resolvedProjectId,
     });
   });
 

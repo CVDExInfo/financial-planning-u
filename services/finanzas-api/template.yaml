@@ -667,6 +667,8 @@ Resources:
             TableName: !Ref RubrosTable
         - DynamoDBCrudPolicy:
             TableName: !Ref AllocationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref RubrosTaxonomiaTable
       Events:
         AcceptBaseline:
           Type: HttpApi
@@ -772,6 +774,8 @@ Resources:
             TableName: !Ref RubrosTable
         - DynamoDBCrudPolicy:
             TableName: !Ref AllocationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref RubrosTaxonomiaTable
       Events:
         AdminBackfill:
           Type: HttpApi
@@ -886,6 +890,37 @@ Resources:
           Properties:
             Path: /projects/{projectId}/rubros/{rubroId}
             Method: DELETE
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+
+  RubrosSummaryFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/getRubrosSummary.ts
+        External:
+          - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+    Properties:
+      CodeUri: .
+      Handler: getRubrosSummary.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBReadPolicy:
+            TableName: !Ref RubrosTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProjectsTable
+      Events:
+        GetRubrosSummary:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/rubros-summary
+            Method: GET
             ApiId: !Ref Api
             Auth:
               Authorizer: CognitoJwt

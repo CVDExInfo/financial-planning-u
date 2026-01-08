@@ -32,6 +32,7 @@ import { normalizeRubroId } from "../lib/canonical-taxonomy";
 type ProjectRubroAttachment = {
   projectId?: string;
   rubroId?: string;
+  linea_codigo?: string;
   tier?: string;
   category?: string;
   metadata?: unknown;
@@ -144,6 +145,7 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
   const attachments: ProjectRubroAttachment[] = baselineRubros.map((rubro) => ({
     projectId: rubro.metadata?.project_id as string | undefined,
     rubroId: rubro.rubroId,
+    linea_codigo: rubro.metadata?.linea_codigo as string | undefined,
     tier: undefined,
     category: rubro.category,
     metadata: rubro.metadata,
@@ -161,7 +163,11 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
     description: rubro.descripcion,
   }));
   const rubroIds = Array.from(
-    new Set(attachments.map((item) => toRubroId(item)).filter(Boolean)),
+    new Set(
+      attachments
+        .map((item) => item.linea_codigo || toRubroId(item))
+        .filter(Boolean),
+    ),
   );
 
   const rubroDefinitions: Record<string, RubroDefinition> = {};
@@ -267,7 +273,7 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
 
   const rubros = attachments
     .map<RubroResponse | null>((item) => {
-      const rubroId = toRubroId(item);
+      const rubroId = item.linea_codigo || toRubroId(item);
       if (!rubroId) return null;
       const definition = rubroDefinitions[rubroId] || {};
       const taxonomy =
@@ -295,6 +301,7 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
           definition.linea_codigo ||
           taxonomy?.linea_codigo ||
           taxonomyByRubro[rubroId]?.linea_codigo ||
+          item.linea_codigo ||
           definition.codigo ||
           rubroId,
         categoria_codigo:
