@@ -747,14 +747,14 @@ export function SDMTForecast() {
     
     try {
       const overview = await finanzasClient.getAllInBudgetOverview(year);
-      setBudgetOverview(overview);
-      console.log('[SDMTForecast] Budget overview loaded:', overview);
-    } catch (error: any) {
-      if (isBudgetNotFoundError(error)) {
+      if (!overview) {
         console.warn(`[SDMTForecast] ⚠️ Budget overview not found for ${year}`);
         setBudgetOverview(null);
         return;
       }
+      setBudgetOverview(overview);
+      console.log('[SDMTForecast] Budget overview loaded:', overview);
+    } catch (error: any) {
       // Don't show error to user, just log it - this is optional enhancement
       console.error('Error loading budget overview:', error);
       setBudgetOverview(null);
@@ -797,6 +797,13 @@ export function SDMTForecast() {
     setLoadingMonthlyBudget(true);
     try {
       const monthlyBudget = await finanzasClient.getAllInBudgetMonthly(year);
+      if (!monthlyBudget) {
+        console.warn(`[SDMTForecast] ⚠️ Monthly budget not found for ${year}`);
+        setMonthlyBudgets([]);
+        setMonthlyBudgetLastUpdated(null);
+        setMonthlyBudgetUpdatedBy(null);
+        return;
+      }
       if (monthlyBudget && monthlyBudget.months) {
         // Convert from API format (month: "YYYY-MM", amount) to internal format (month: 1-12, budget)
         const budgets: MonthlyBudgetInput[] = monthlyBudget.months.map(m => {
