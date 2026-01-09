@@ -51,6 +51,9 @@ export function computeForecastFromAllocations(
     return [];
   }
 
+  const rubroWithProject = rubros.find(
+    (rubro) => (rubro as { projectId?: string }).projectId
+  ) as { projectId?: string } | undefined;
   const resolvedProjectId =
     projectId ||
     allocations.find((alloc) => alloc.projectId)?.projectId ||

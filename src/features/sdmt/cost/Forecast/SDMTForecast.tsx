@@ -54,6 +54,7 @@ import { PortfolioSummaryView } from './PortfolioSummaryView';
 import { DataHealthPanel } from '@/components/finanzas/DataHealthPanel';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
+import { isBudgetNotFoundError, resolveAnnualBudgetState } from './budgetState';
 import { 
   allocateBudgetMonthly, 
   aggregateMonthlyTotals, 
@@ -115,6 +116,7 @@ export function SDMTForecast() {
   const [budgetAmount, setBudgetAmount] = useState<string>('');
   const [budgetCurrency, setBudgetCurrency] = useState<string>('USD');
   const [budgetLastUpdated, setBudgetLastUpdated] = useState<string | null>(null);
+  const [budgetMissingYear, setBudgetMissingYear] = useState<number | null>(null);
   const [loadingBudget, setLoadingBudget] = useState(false);
   const [savingBudget, setSavingBudget] = useState(false);
   // Monthly Budget state (new - per user request)
@@ -153,6 +155,7 @@ export function SDMTForecast() {
   );
   const isPortfolioView = selectedProjectId === ALL_PROJECTS_ID;
   const lineItemsForGrid = isPortfolioView ? portfolioLineItems : safeLineItems;
+  const projectStartDate = (currentProject as { start_date?: string } | null)?.start_date;
 
   // Helper function to get current month index (1-12) based on today's date and project start
   const getCurrentMonthIndex = (): number => {
@@ -161,12 +164,12 @@ export function SDMTForecast() {
     const currentMonth = today.getMonth() + 1; // 1-12
     
     // For portfolio view or when no project start date, use calendar month (1-12)
-    if (!currentProject?.start_date || isPortfolioView) {
+    if (!projectStartDate || isPortfolioView) {
       return currentMonth;
     }
     
     // Calculate month index relative to project start date
-    const startDate = new Date(currentProject.start_date);
+    const startDate = new Date(projectStartDate);
     const startYear = startDate.getFullYear();
     const startMonth = startDate.getMonth() + 1; // 1-12
     
@@ -179,13 +182,13 @@ export function SDMTForecast() {
 
   // Helper function to compute calendar month from monthIndex and project start date
   const getCalendarMonth = (monthIndex: number): string => {
-    if (!currentProject?.start_date) {
+    if (!projectStartDate) {
       // Fallback: display just the month name without year for consistency
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       return monthNames[monthIndex - 1] || `M${monthIndex}`;
     }
     
-    const startDate = new Date(currentProject.start_date);
+    const startDate = new Date(projectStartDate);
     startDate.setUTCMonth(startDate.getUTCMonth() + (monthIndex - 1));
     const year = startDate.getUTCFullYear();
     const month = startDate.getUTCMonth() + 1;
@@ -359,6 +362,7 @@ export function SDMTForecast() {
       );
       const totalCost = totalFromItem || unitCost * qty;
       const monthlyAmount = totalCost / actualMonths;
+      const resolvedProjectId = itemData.projectId || selectedProjectId;
       
       const monthlySeries = Array.isArray(itemData.monthly)
         ? itemData.monthly
@@ -641,6 +645,7 @@ export function SDMTForecast() {
           const monthKey = `${currentYear}-${String(cell.month).padStart(2, '0')}`;
 
           if (!projectId) return null;
+          const currency = (matchedLineItem?.currency || 'USD') as PayrollActualInput["currency"];
 
           return {
             projectId,
@@ -741,29 +746,30 @@ export function SDMTForecast() {
     setLoadingBudget(true);
     try {
       const budget = await finanzasClient.getAllInBudget(year);
-      if (budget && budget.amount !== null) {
-        setBudgetAmount(budget.amount.toString());
-        setBudgetCurrency(budget.currency || 'USD');
-        setBudgetLastUpdated(budget.updated_at || null);
-      } else {
-        setBudgetAmount('');
-        setBudgetCurrency('USD');
-        setBudgetLastUpdated(null);
-      }
+      const resolution = resolveAnnualBudgetState({ budget, year });
+      setBudgetAmount(resolution.state.amount);
+      setBudgetCurrency(resolution.state.currency);
+      setBudgetLastUpdated(resolution.state.lastUpdated);
+      setBudgetMissingYear(resolution.state.missingYear);
     } catch (error: any) {
+      const resolution = resolveAnnualBudgetState({ error, year });
+      setBudgetAmount(resolution.state.amount);
+      setBudgetCurrency(resolution.state.currency);
+      setBudgetLastUpdated(resolution.state.lastUpdated);
+      setBudgetMissingYear(resolution.state.missingYear);
+
       // If 404, it means no budget is set for this year - that's okay
-      if (error?.status === 404 || error?.statusCode === 404) {
-        setBudgetAmount('');
-        setBudgetCurrency('USD');
-        setBudgetLastUpdated(null);
-      } else {
-        console.error('Error loading annual budget:', error);
-        const message = handleFinanzasApiError(error, {
-          onAuthError: login,
-          fallback: 'No pudimos cargar el presupuesto anual.',
-        });
-        toast.error(message);
+      if (resolution.status === 'missing') {
+        console.warn(`[SDMTForecast] ⚠️ No annual budget configured for ${year}`);
+        return;
       }
+
+      console.error('Error loading annual budget:', error);
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: 'No pudimos cargar el presupuesto anual.',
+      });
+      toast.error(message);
     } finally {
       setLoadingBudget(false);
     }
@@ -782,6 +788,11 @@ export function SDMTForecast() {
       setBudgetOverview(overview);
       console.log('[SDMTForecast] Budget overview loaded:', overview);
     } catch (error: any) {
+      if (isBudgetNotFoundError(error)) {
+        console.warn(`[SDMTForecast] ⚠️ Budget overview not found for ${year}`);
+        setBudgetOverview(null);
+        return;
+      }
       // Don't show error to user, just log it - this is optional enhancement
       console.error('Error loading budget overview:', error);
       setBudgetOverview(null);
@@ -856,7 +867,8 @@ export function SDMTForecast() {
       }
     } catch (error: any) {
       // If 404, it means no monthly budgets are set for this year - that's okay
-      if (error?.status === 404 || error?.statusCode === 404) {
+      if (isBudgetNotFoundError(error)) {
+        console.warn(`[SDMTForecast] ⚠️ Monthly budget not found for ${year}`);
         setMonthlyBudgets([]);
         setMonthlyBudgetLastUpdated(null);
         setMonthlyBudgetUpdatedBy(null);
@@ -1446,9 +1458,9 @@ export function SDMTForecast() {
                 <Badge variant="outline" className="text-xs">
                   {currentProject.name}
                 </Badge>
-                {!isPortfolioView && currentProject?.start_date && (
+                {!isPortfolioView && projectStartDate && (
                   <span className="text-xs text-muted-foreground">
-                    📅 Inicio: {new Date(currentProject.start_date).toLocaleDateString('es-ES', { 
+                    📅 Inicio: {new Date(projectStartDate).toLocaleDateString('es-ES', { 
                       month: 'short', 
                       year: 'numeric' 
                     })}
@@ -2065,6 +2077,11 @@ export function SDMTForecast() {
               📅 Mostrando solo el mes en curso (M{getCurrentMonthIndex()}) - {getCalendarMonth(getCurrentMonthIndex())}
             </div>
           )}
+          {budgetMissingYear && (
+            <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              No hay presupuesto para {budgetMissingYear}. Puedes “Materializar Ahora” o continuar con pronóstico manual.
+            </div>
+          )}
           {isLoadingState ? (
             <div className="flex items-center justify-center h-32">
               <div className="text-center space-y-3">
@@ -2171,7 +2188,7 @@ export function SDMTForecast() {
                       return monthsToShow.map((monthNum) => (
                         <TableHead key={monthNum} className="text-center min-w-[140px]">
                           <div className="font-semibold">M{monthNum}</div>
-                          {!isPortfolioView && currentProject?.start_date && (
+                          {!isPortfolioView && projectStartDate && (
                             <div className="text-xs font-normal text-muted-foreground mt-1">
                               {getCalendarMonth(monthNum)}
                             </div>
