@@ -1265,7 +1265,7 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     unit_cost = totalAmount / qty;
   }
 
-  const base: LineItem = {
+  const base = {
     id,
     category: categoria,
     subtype: tipoCosto || undefined,
@@ -1313,13 +1313,21 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     linea_codigo: lineaCodigo,
     categoria,
     tipo_costo: tipoCosto,
+  } as LineItem & {
+    linea_codigo?: string;
+    categoria?: string;
+    tipo_costo?: string;
   };
 
   return applyTaxonomy(base);
 };
 
 const applyTaxonomy = (
-  item: LineItem,
+  item: LineItem & {
+    linea_codigo?: string;
+    categoria?: string;
+    tipo_costo?: string;
+  },
 ):
   | LineItem
   | (LineItem & {
@@ -1994,4 +2002,3 @@ export async function setAnnualBudget(
     body: JSON.stringify({ year, amount, currency }),
   });
 }
-

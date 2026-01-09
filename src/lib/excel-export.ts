@@ -16,6 +16,11 @@ export class ExcelExporter {
     this.workbook.modified = new Date();
   }
 
+  private async writeBuffer(): Promise<Uint8Array> {
+    const buffer = await this.workbook.xlsx.writeBuffer();
+    return buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer as ArrayBuffer);
+  }
+
   /**
    * Export baseline budget with professional formatting
    */
@@ -43,7 +48,7 @@ export class ExcelExporter {
     const assumptionsSheet = this.workbook.addWorksheet('Assumptions');
     this.setupAssumptionsSheet(assumptionsSheet, baseline);
 
-    return await this.workbook.xlsx.writeBuffer() as Uint8Array;
+    return this.writeBuffer();
   }
 
   /**
@@ -65,7 +70,7 @@ export class ExcelExporter {
     const mappingSheet = this.workbook.addWorksheet('Mapping_Keys');
     this.setupMappingKeysSheet(mappingSheet);
 
-    return await this.workbook.xlsx.writeBuffer() as Uint8Array;
+    return this.writeBuffer();
   }
 
   /**
@@ -87,7 +92,7 @@ export class ExcelExporter {
     const invoicesSheet = this.workbook.addWorksheet('Invoice_Status');
     this.setupInvoiceStatusSheet(invoicesSheet, forecastData);
 
-    return await this.workbook.xlsx.writeBuffer() as Uint8Array;
+    return this.writeBuffer();
   }
 
   private setupSummarySheet(sheet: ExcelJS.Worksheet, baseline: BaselineBudget) {
@@ -534,7 +539,8 @@ export class ExcelExporter {
  * Utility functions for Excel export
  */
 export const downloadExcelFile = (buffer: Uint8Array, filename: string) => {
-  const blob = new Blob([buffer], { 
+  const arrayBuffer = Uint8Array.from(buffer).buffer;
+  const blob = new Blob([arrayBuffer], { 
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
   });
   const url = window.URL.createObjectURL(blob);

@@ -34,7 +34,7 @@ export default function ProjectDetailsPanel({
   onOpenDebugPreview,
   modDataError,
 }: ProjectDetailsPanelProps) {
-  const display = getProjectDisplay(project);
+  const display = getProjectDisplay(project as any);
   const durationMonths = calculateDurationInMonths(
     project.start_date,
     project.end_date,
