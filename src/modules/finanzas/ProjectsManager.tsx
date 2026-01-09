@@ -34,7 +34,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/hooks/useAuth";
 import useProjects, { type ProjectForUI } from "./projects/useProjects";
 import { Badge } from "@/components/ui/badge";
-import ProjectDetailsPanel, { type ModChartPoint } from "./projects/ProjectDetailsPanel";
+import ProjectDetailsPanel from "./projects/ProjectDetailsPanel";
 import { getProjectDisplay } from "@/lib/projects/display";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import {
@@ -58,14 +58,6 @@ const logApiDebug = (message: string, payload?: Record<string, unknown>) => {
   if (import.meta.env.DEV) {
     console.info(`[finanzas-projects] ${message}`, payload ?? "");
   }
-};
-
-// Type for MOD chart data points
-export type ModChartPoint = {
-  month: string;
-  "Allocations MOD": number;
-  "Adjusted/Projected MOD": number;
-  "Actual Payroll MOD": number;
 };
 
 export default function ProjectsManager() {
@@ -327,7 +319,7 @@ export default function ProjectsManager() {
   }, [viewMode, selectedProject, payrollDashboard]);
 
   // Compute MOD chart data for ProjectDetailsPanel
-  const modChartDataForDetails = React.useMemo<ModChartPoint[]>(() => {
+  const modChartDataForDetails = React.useMemo<ModSeriesPoint[]>(() => {
     const payrollRows = (() => {
       if (viewMode !== "project") return payrollDashboard;
 
@@ -337,9 +329,10 @@ export default function ProjectsManager() {
       // consider rows for the selected project when the project-specific call
       // returns empty/403/404. If none exist, fall back to an empty array so the
       // chart renders safely without misleading data.
-      return payrollDashboard.filter(
-        (row) => row.projectId && row.projectId === selectedProjectId,
-      );
+      return payrollDashboard.filter((row) => {
+        const rowProjectId = (row as { projectId?: string }).projectId;
+        return rowProjectId && rowProjectId === selectedProjectId;
+      });
     })();
 
     if (

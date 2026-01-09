@@ -6,6 +6,7 @@ import {
   getProjects,
   FinanzasApiError,
 } from "@/api/finanzas";
+import type { Project } from "@/types/domain";
 import { normalizeProjectsPayload } from "@/api/finanzas-projects-helpers";
 import { normalizeProjectForUI } from "./normalizeProject";
 import { logoutWithHostedUI } from "@/config/aws";
@@ -19,11 +20,11 @@ export type ProjectForUI = {
   end_date?: string;
   mod_total: number;
   currency?: string;
-  status?: string;
+  status?: Project["status"];
   sd_manager_name?: string | null;
   sdm_manager_email?: string | null;
   baseline_id?: string;
-  baseline_status?: string | null;
+  baseline_status?: Project["baseline_status"] | null;
   accepted_by?: string | null;
   baseline_accepted_at?: string | null;
   rejected_by?: string | null;

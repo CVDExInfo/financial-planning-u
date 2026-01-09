@@ -361,7 +361,7 @@ export function useSDMTForecastData({
 
   const saveForecast = useCallback(async (updatePayload: any) => {
     // Minimal wrapper; forward to finanzasClient
-    return finanzasClient.bulkUpsertForecast(projectId, updatePayload.items);
+    await finanzasClient.bulkUpsertForecast(projectId, updatePayload.items);
   }, [projectId]);
 
   return {
