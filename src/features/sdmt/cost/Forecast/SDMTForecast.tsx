@@ -322,27 +322,45 @@ export function SDMTForecast() {
     const forecastCells: ForecastRow[] = [];
     
     lineItems.forEach(item => {
+      const itemData = item as Record<string, any>;
       // Extract duration (months) from the line item
-      const durationStr = item.duration || item.duracion || '1';
+      const durationStr = itemData.duration || itemData.duracion || '1';
       const duration = parseInt(durationStr, 10) || 1;
       const actualMonths = Math.min(duration, months);
       
       // Calculate unit cost and total
-      const unitCost = Number(item.unitCost || item.costo_unitario || item.unit_cost || 0);
-      const qty = Number(item.qty || item.cantidad || item.quantity || 1);
-      const totalCost = unitCost * qty;
+      const unitCost = Number(itemData.unitCost || itemData.costo_unitario || itemData.unit_cost || 0);
+      const qty = Number(itemData.qty || itemData.cantidad || itemData.quantity || 1);
+      const totalFromItem = Number(
+        itemData.total_cost ||
+          itemData.totalCost ||
+          itemData.total ||
+          itemData.monto_total ||
+          itemData.amount ||
+          itemData.monto ||
+          0
+      );
+      const totalCost = totalFromItem || unitCost * qty;
       const monthlyAmount = totalCost / actualMonths;
       
+      const monthlySeries = Array.isArray(itemData.monthly)
+        ? itemData.monthly
+        : null;
+      const lineItemId =
+        itemData.id || itemData.rubroId || itemData.rubro_id || itemData.linea_codigo || itemData.linea_id || '';
+
       // Create forecast cells for each month
       for (let month = 1; month <= actualMonths; month++) {
+        const monthValue = monthlySeries?.[month - 1];
+        const amount = Number(monthValue ?? monthlyAmount ?? 0);
         forecastCells.push({
-          line_item_id: item.id || item.rubroId || item.rubro_id || item.linea_codigo || '',
-          rubroId: item.rubroId || item.rubro_id || item.linea_codigo || '',
-          description: item.descripcion || item.nombre || item.description || item.name || '',
-          category: item.categoria || item.category || 'OPEX',
+          line_item_id: lineItemId,
+          rubroId: lineItemId,
+          description: itemData.descripcion || itemData.nombre || itemData.description || itemData.name || '',
+          category: itemData.categoria || itemData.category || 'OPEX',
           month,
-          planned: monthlyAmount,
-          forecast: monthlyAmount,
+          planned: amount,
+          forecast: amount,
           actual: 0,
           variance: 0,
           projectId,
@@ -933,10 +951,18 @@ export function SDMTForecast() {
   const forecastGrid = useMemo(() => {
     const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
     const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
+    const shouldShowEmptyRows = filteredForecastData.length === 0 && lineItemsForGrid.length > 0;
     
     const grid = lineItemsForGrid.map(lineItem => {
+      const lineItemId =
+        lineItem.id ||
+        (lineItem as any).rubroId ||
+        (lineItem as any).rubro_id ||
+        (lineItem as any).linea_codigo ||
+        (lineItem as any).linea_id ||
+        '';
       const itemForecasts = filteredForecastData.filter(f =>
-        f.line_item_id === lineItem.id && (!lineItem.projectId || f.projectId === lineItem.projectId)
+        f.line_item_id === lineItemId && (!lineItem.projectId || f.projectId === lineItem.projectId)
       );
       
       // In current month mode, only show the current month; otherwise show all 12 months
@@ -947,7 +973,7 @@ export function SDMTForecast() {
       const monthlyData = months.map(month => {
         const cell = itemForecasts.find(f => f.month === month);
         return cell || {
-          line_item_id: lineItem.id,
+          line_item_id: lineItemId,
           month,
           planned: 0,
           forecast: 0,
@@ -970,7 +996,7 @@ export function SDMTForecast() {
         monthlyData,
         hasNonZeroValues
       };
-    }).filter(item => item.hasNonZeroValues); // Only show items with data
+    }).filter(item => shouldShowEmptyRows || item.hasNonZeroValues); // Only show items with data unless fallback is empty
 
     // Apply sorting: sort by category, then by description
     const sorted = [...grid].sort((a, b) => {
@@ -1158,7 +1184,11 @@ export function SDMTForecast() {
 
   const isLoadingState = loading || isLineItemsLoading;
   const hasGridData = forecastGrid.length > 0;
-  const isEmptyState = !isLoadingState && !forecastError && forecastData.length === 0;
+  const isEmptyState =
+    !isLoadingState &&
+    !forecastError &&
+    forecastData.length === 0 &&
+    lineItemsForGrid.length === 0;
   
   // Special case: TODOS mode with only the ALL_PROJECTS placeholder (no real projects)
   const isTodosEmptyState = isPortfolioView && !isLoadingState && !forecastError && projects.length < MINIMUM_PROJECTS_FOR_PORTFOLIO;

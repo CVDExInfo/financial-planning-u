@@ -257,8 +257,10 @@ export class ApiService {
               let nonLaborTotal = 0;
               
               // Calculate labor cost from labor_estimates using total_amount field
-              if (Array.isArray(baseline?.labor_estimates)) {
-                laborTotal = baseline.labor_estimates.reduce((sum: number, estimate: any) => {
+              const baselineData = baseline as Record<string, any> | null;
+
+              if (Array.isArray(baselineData?.labor_estimates)) {
+                laborTotal = baselineData.labor_estimates.reduce((sum: number, estimate: any) => {
                   // Use total_amount if available, otherwise calculate
                   if (estimate.total_amount !== undefined && estimate.total_amount !== null) {
                     return sum + estimate.total_amount;
@@ -274,8 +276,8 @@ export class ApiService {
               }
 
               // Calculate non-labor cost from non_labor_estimates using total_amount or amount field
-              if (Array.isArray(baseline?.non_labor_estimates)) {
-                nonLaborTotal = baseline.non_labor_estimates.reduce((sum: number, estimate: any) => {
+              if (Array.isArray(baselineData?.non_labor_estimates)) {
+                nonLaborTotal = baselineData.non_labor_estimates.reduce((sum: number, estimate: any) => {
                   // Use total_amount if available, otherwise use amount field
                   return sum + (estimate?.total_amount || estimate?.amount || 0);
                 }, 0);
@@ -288,8 +290,8 @@ export class ApiService {
                 actualRubrosCount = Array.isArray(rubros) ? rubros.length : 0;
               } catch (err) {
                 // If getRubros fails, fall back to baseline estimates count
-                const estimatesCount = (baseline?.labor_estimates?.length || 0) + 
-                                      (baseline?.non_labor_estimates?.length || 0);
+                const estimatesCount = (baselineData?.labor_estimates?.length || 0) + 
+                                      (baselineData?.non_labor_estimates?.length || 0);
                 actualRubrosCount = estimatesCount > 0 ? estimatesCount : (baseline?.line_items?.length || 0);
               }
 
@@ -298,9 +300,9 @@ export class ApiService {
                 rubros_count: actualRubrosCount,
                 labor_cost: laborTotal,
                 non_labor_cost: nonLaborTotal,
-                accepted_by: baseline?.accepted_by || baseline?.acceptedBy || enrichedProjects[index].accepted_by,
-                rejected_by: baseline?.rejected_by || enrichedProjects[index].rejected_by,
-                baseline_accepted_at: baseline?.accepted_ts || baseline?.acceptedAt || enrichedProjects[index].baseline_accepted_at,
+                accepted_by: baselineData?.accepted_by || baselineData?.acceptedBy || enrichedProjects[index].accepted_by,
+                rejected_by: baselineData?.rejected_by || enrichedProjects[index].rejected_by,
+                baseline_accepted_at: baselineData?.accepted_ts || baselineData?.acceptedAt || enrichedProjects[index].baseline_accepted_at,
               };
             } catch (err) {
               // Swallow errors per-project to avoid breaking the whole list
@@ -959,6 +961,7 @@ export class ApiService {
         headers: this.buildRequestHeaders(),
       }
     );
+    const payloadData = payload as Record<string, any> | null;
 
     const coerceCells = (input: unknown): ForecastCell[] => {
       if (Array.isArray(input)) return input as ForecastCell[];
@@ -973,7 +976,7 @@ export class ApiService {
 
     const cells = coerceCells(payload);
 
-    const responseMonths = Number(payload?.months) || months;
+    const responseMonths = Number(payloadData?.months) || months;
 
     logger.info(
       "Forecast data loaded from API:",
@@ -985,7 +988,7 @@ export class ApiService {
       data: cells as ForecastCell[],
       projectId,
       months: responseMonths,
-      generated_at: payload?.generated_at || new Date().toISOString(),
+      generated_at: payloadData?.generated_at || new Date().toISOString(),
     };
   }
 

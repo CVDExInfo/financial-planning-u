@@ -16,6 +16,13 @@ interface PayrollUploaderProps {
   onUploaded?: () => void;
 }
 
+type RubroWithTaxonomy = Rubro & {
+  linea_codigo?: string;
+  linea_gasto?: string;
+  categoria?: string;
+  descripcion?: string;
+};
+
 const TEMPLATE_HEADERS = [
   "projectId",
   "month",
@@ -94,13 +101,13 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [preview, setPreview] = React.useState<PayrollActualInput[]>([]);
   const [previewErrors, setPreviewErrors] = React.useState<Record<number, string[]>>({});
-  const [rubros, setRubros] = React.useState<Rubro[]>([]);
+  const [rubros, setRubros] = React.useState<RubroWithTaxonomy[]>([]);
 
   React.useEffect(() => {
     const fetchRubros = async () => {
       try {
         const catalog = await finanzasClient.getRubros();
-        setRubros(catalog);
+        setRubros(catalog as RubroWithTaxonomy[]);
       } catch (error) {
         console.error("No se pudieron cargar los rubros", error);
         toast.error("No pudimos cargar los rubros desde Finanzas");

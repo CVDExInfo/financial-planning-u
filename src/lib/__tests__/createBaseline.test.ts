@@ -58,7 +58,9 @@ const sampleRequest: BaselineCreateRequest = {
   labor_estimates: [
     {
       role: "Engineer",
-      level: "Senior",
+      level: "senior",
+      rubroId: "LAB-ENG",
+      country: "MX",
       fte_count: 1,
       hours_per_month: 160,
       start_month: 1,
@@ -70,6 +72,7 @@ const sampleRequest: BaselineCreateRequest = {
   ],
   non_labor_estimates: [
     {
+      rubroId: "NONLAB-TOOLS",
       category: "Tools",
       description: "Software",
       amount: 500,
