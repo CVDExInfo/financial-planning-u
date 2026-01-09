@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { randomUUID, createHash } from "node:crypto";
 import {
   ddb,
+  sendDdb,
   tableName,
   PutCommand,
   GetCommand,

@@ -17,6 +17,7 @@ jest.mock("../../src/lib/dynamo", () => ({
   ddb: {
     send: jest.fn(),
   },
+  sendDdb: jest.fn(),
   tableName: jest.fn((table: string) => `test_${table}`),
   PutCommand: jest.fn().mockImplementation((input) => ({ input })),
   GetCommand: jest.fn().mockImplementation((input) => ({ input })),
