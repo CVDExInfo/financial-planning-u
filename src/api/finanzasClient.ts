@@ -2,7 +2,11 @@ import { z } from "zod";
 import { API_BASE, HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import httpClient, { HttpError } from "@/lib/http-client";
-import { isBudgetNotFoundError } from "@/features/sdmt/cost/Forecast/budgetState";
+
+const STATIC_TEST_TOKEN =
+  import.meta.env.VITE_FINZ_STATIC_TEST_TOKEN ||
+  (typeof process !== "undefined" ? process.env.VITE_FINZ_STATIC_TEST_TOKEN : "") ||
+  "";
 
 if (!HAS_API_BASE) {
   // Non-fatal in dev; API client will throw on call
@@ -386,7 +390,14 @@ function validateProjectPayload(payload: ProjectCreate): ProjectCreate {
 }
 
 function isJwtPresent(): boolean {
-  return !!getAuthToken();
+  return !!(
+    localStorage.getItem("finz_access_token") ||
+    localStorage.getItem("cv.jwt") ||
+    localStorage.getItem("finz_jwt") ||
+    localStorage.getItem("idToken") ||
+    localStorage.getItem("cognitoIdToken") ||
+    STATIC_TEST_TOKEN
+  );
 }
 
 function checkAuth(): void {
@@ -540,7 +551,6 @@ export const finanzasClient = {
 
   /**
    * Get annual all-in budget for a specific year
-   * Returns null if budget is not configured (404/405)
    */
   async getAllInBudget(year: number): Promise<{
     year: number;
@@ -548,25 +558,18 @@ export const finanzasClient = {
     currency: string;
     updated_at?: string;
     updated_by?: string;
-  } | null> {
+  }> {
     checkAuth();
-    try {
-      const data = await http<{
-        year: number;
-        amount: number | null;
-        currency: string;
-        updated_at?: string;
-        updated_by?: string;
-      }>(`/budgets/all-in?year=${year}`, {
-        method: "GET",
-      });
-      return data;
-    } catch (error) {
-      if (isBudgetNotFoundError(error)) {
-        return null;
-      }
-      throw error;
-    }
+    const data = await http<{
+      year: number;
+      amount: number | null;
+      currency: string;
+      updated_at?: string;
+      updated_by?: string;
+    }>(`/budgets/all-in?year=${year}`, {
+      method: "GET",
+    });
+    return data;
   },
 
   /**
@@ -599,7 +602,6 @@ export const finanzasClient = {
 
   /**
    * Get annual budget overview with cross-project totals
-   * Returns null if budget overview is not available (404/405)
    */
   async getAllInBudgetOverview(year: number): Promise<{
     year: number;
@@ -620,43 +622,35 @@ export const finanzasClient = {
       forecast: number;
       actual: number;
     }>;
-  } | null> {
+  }> {
     checkAuth();
-    try {
-      const data = await http<{
-        year: number;
-        budgetAllIn: { amount: number; currency: string } | null;
-        totals: {
-          planned: number;
-          forecast: number;
-          actual: number;
-          varianceBudgetVsForecast: number;
-          varianceBudgetVsActual: number;
-          percentBudgetConsumedActual: number | null;
-          percentBudgetConsumedForecast: number | null;
-        };
-        byProject?: Array<{
-          projectId: string;
-          projectCode?: string;
-          planned: number;
-          forecast: number;
-          actual: number;
-        }>;
-      }>(`/budgets/all-in/overview?year=${year}`, {
-        method: "GET",
-      });
-      return data;
-    } catch (error) {
-      if (isBudgetNotFoundError(error)) {
-        return null;
-      }
-      throw error;
-    }
+    const data = await http<{
+      year: number;
+      budgetAllIn: { amount: number; currency: string } | null;
+      totals: {
+        planned: number;
+        forecast: number;
+        actual: number;
+        varianceBudgetVsForecast: number;
+        varianceBudgetVsActual: number;
+        percentBudgetConsumedActual: number | null;
+        percentBudgetConsumedForecast: number | null;
+      };
+      byProject?: Array<{
+        projectId: string;
+        projectCode?: string;
+        planned: number;
+        forecast: number;
+        actual: number;
+      }>;
+    }>(`/budgets/all-in/overview?year=${year}`, {
+      method: "GET",
+    });
+    return data;
   },
 
   /**
    * Get monthly budget allocations for a specific year
-   * Returns null if monthly budgets are not configured (404/405)
    */
   async getAllInBudgetMonthly(year: number): Promise<{
     year: number;
@@ -664,7 +658,7 @@ export const finanzasClient = {
     months: Array<{ month: string; amount: number }>;
     updated_at?: string;
     updated_by?: string;
-  } | null> {
+  }> {
     checkAuth();
     const path = `/budgets/all-in/monthly?year=${year}`;
     try {
