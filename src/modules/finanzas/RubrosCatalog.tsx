@@ -41,6 +41,7 @@ export default function RubrosCatalog() {
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
   const [selectedRubro, setSelectedRubro] = React.useState<Rubro | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const selectedRubroWithTaxonomy = selectedRubro as RubroWithTaxonomy | null;
 
   // Get RBAC-filtered projects
   const { projects: availableProjects } = useRBACProjects();

@@ -135,6 +135,7 @@ const formatRubroLabel = (item?: { category?: string; subtype?: string; descript
 
 export function SDMTChanges() {
   const { selectedProjectId, currentProject, selectedPeriod } = useProject();
+  const projectCurrency = (currentProject as { currency?: string } | null)?.currency;
   const { login } = useAuth();
   const { canApprove } = usePermissions();
   const queryClient = useQueryClient();
@@ -219,7 +220,7 @@ export function SDMTChanges() {
     setSelectedLineItemIds([]);
     setForm({
       ...defaultForm,
-      currency: currentProject?.currency ?? defaultForm.currency,
+      currency: projectCurrency ?? defaultForm.currency,
       baseline_id: currentProject?.baselineId ?? "",
     });
   }, [selectedProjectId]);
@@ -234,14 +235,14 @@ export function SDMTChanges() {
   }, [currentProject?.baselineId]);
 
   useEffect(() => {
-    if (!currentProject?.currency) return;
+    if (!projectCurrency) return;
 
     setForm((prev) => {
-      if (prev.currency === currentProject.currency) return prev;
+      if (prev.currency === projectCurrency) return prev;
       if (prev.currency !== defaultForm.currency) return prev;
-      return { ...prev, currency: currentProject.currency };
+      return { ...prev, currency: projectCurrency };
     });
-  }, [currentProject?.currency]);
+  }, [projectCurrency]);
 
   const selectedLineItemLabels = useMemo(
     () => selectedLineItemIds.map((id) => lineItemLabelMap.get(id) || id),
@@ -310,7 +311,10 @@ export function SDMTChanges() {
         );
       }
 
-      return ApiService.createChangeRequest(selectedProjectId, payload);
+      return ApiService.createChangeRequest(
+        selectedProjectId,
+        payload as Omit<DomainChangeRequest, "id" | "status" | "requested_at" | "approvals">
+      );
     },
   });
 
@@ -382,10 +386,10 @@ export function SDMTChanges() {
   }, [selectedProjectId]);
 
   useEffect(() => {
-    if (currentProject?.currency) {
-      setForm((prev) => ({ ...prev, currency: currentProject.currency }));
+    if (projectCurrency) {
+      setForm((prev) => ({ ...prev, currency: projectCurrency }));
     }
-  }, [currentProject?.currency]);
+  }, [projectCurrency]);
 
   const toggleLineItemSelection = (id: string) => {
     setSelectedLineItemIds((prev) =>
@@ -406,7 +410,7 @@ export function SDMTChanges() {
       title: form.title.trim(),
       description: form.description.trim(),
       impact_amount: Number(form.impact_amount),
-      currency: form.currency || currentProject?.currency || "USD",
+      currency: form.currency || projectCurrency || "USD",
       justification: form.justification.trim(),
       affected_line_items: selectedLineItemIds,
       // Time distribution fields
@@ -424,7 +428,9 @@ export function SDMTChanges() {
     try {
       setError(null);
       setApprovalError(null);
-      await createChangeMutation.mutateAsync(payload);
+      await createChangeMutation.mutateAsync(
+        payload as Omit<DomainChangeRequest, "id" | "requested_at" | "requested_by" | "status" | "approvals">
+      );
 
       setForm(defaultForm);
       setFormErrors({});
@@ -915,8 +921,8 @@ export function SDMTChanges() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {currentProject?.currency
-                    ? `Moneda predeterminada del proyecto (${currentProject.currency}).`
+                  {projectCurrency
+                    ? `Moneda predeterminada del proyecto (${projectCurrency}).`
                     : "Se usa la moneda definida en el proyecto o USD por defecto."}
                 </p>
                 {formErrors.currency && (

@@ -8,6 +8,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { computeForecastFromAllocations, type Allocation } from '../computeForecastFromAllocations';
+import type { LineItem } from '@/types/domain';
 
 describe('Forecast Fallback Logic', () => {
   describe('computeForecastFromAllocations', () => {
@@ -46,6 +47,8 @@ describe('Forecast Fallback Logic', () => {
           unit_cost: 5000,
           qty: 10,
           currency: 'USD',
+          start_month: 1,
+          end_month: 12,
           one_time: false,
           recurring: true,
           amortization: 'none',
@@ -62,6 +65,8 @@ describe('Forecast Fallback Logic', () => {
           unit_cost: 10000,
           qty: 1,
           currency: 'USD',
+          start_month: 1,
+          end_month: 12,
           one_time: false,
           recurring: true,
           amortization: 'none',
@@ -71,7 +76,7 @@ describe('Forecast Fallback Logic', () => {
           updated_at: '2024-01-01T00:00:00Z',
           created_by: 'test-user',
         },
-      ];
+      ] as LineItem[];
 
       // Import the actual function to test
       // Note: This function is currently private in useSDMTForecastData
