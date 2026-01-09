@@ -37,6 +37,10 @@ interface ServiceTier {
   tier: string;
   description: string;
   base_price: number;
+  setup_fee?: number;
+  minimum_commitment_months?: number;
+  pricing_tiers?: Array<{ unit_price: number }>;
+  target_market?: string;
   features?: {
     core_services?: string[];
     technical_specs?: {
@@ -135,7 +139,9 @@ const ServiceTierCard: React.FC<ServiceTierCardProps> = ({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-2xl font-bold text-primary">
-              {getPriceRange(tier.pricing_tiers)}
+              {getPriceRange(
+                Array.isArray(tier.pricing_tiers) ? tier.pricing_tiers : [],
+              )}
             </span>
             <span className="text-sm text-muted-foreground">/month</span>
           </div>
@@ -211,6 +217,8 @@ const ServiceTierCard: React.FC<ServiceTierCardProps> = ({
     </Card>
   );
 };
+
+const serviceTiers = serviceCatalog.service_tiers as ServiceTier[];
 
 interface ServiceTierRecommendationProps {
   recommendation: PricingRecommendation;
@@ -386,7 +394,7 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
 
   const handleTierSelect = async (tierId: string) => {
     console.log("🎯 ServiceTierSelector: Tier selected -", tierId);
-    const tierData = serviceCatalog.service_tiers.find((t) => t.id === tierId);
+    const tierData = serviceTiers.find((t) => t.id === tierId);
     console.log("📊 Tier data:", tierData);
 
     // Guard: need project ID to create line item
@@ -402,7 +410,10 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
 
     try {
       // Calculate unit cost (use first pricing tier)
-      const unitCost = tierData.pricing_tiers[0]?.unit_price || 0;
+      const pricingTiers = Array.isArray(tierData.pricing_tiers)
+        ? tierData.pricing_tiers
+        : [];
+      const unitCost = pricingTiers[0]?.unit_price || 0;
 
       // POST to API to create line item
       await addProjectRubro(projectId, {
@@ -430,7 +441,7 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
   };
 
   const handleApplyRecommendation = () => {
-    const recommendedTier = serviceCatalog.service_tiers.find(
+    const recommendedTier = serviceTiers.find(
       (t) => t.name === recommendation.recommended_tier
     );
     if (recommendedTier) {
@@ -458,7 +469,7 @@ export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
 
         <TabsContent value="tiers" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {serviceCatalog.service_tiers.map((tier) => (
+            {serviceTiers.map((tier) => (
               <ServiceTierCard
                 key={tier.id}
                 tier={tier}

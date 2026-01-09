@@ -11,7 +11,7 @@ const lineItemsKey = (projectId?: string, baselineId?: string) =>
 export function useProjectLineItems(options?: { useFallback?: boolean; baselineId?: string }) {
   const { selectedProject } = useProject();
   const projectId = selectedProject?.id;
-  const projectBaselineId = selectedProject?.baseline_id;
+  const projectBaselineId = selectedProject?.baselineId;
   const queryClient = useQueryClient();
   const useFallback = options?.useFallback ?? false;
   const baselineId = options?.baselineId ?? projectBaselineId;

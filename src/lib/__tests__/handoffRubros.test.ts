@@ -81,9 +81,9 @@ describe("handoff baseline materialization", () => {
     assert.ok(baselineTagged, "rubros should preserve baseline lineage in metadata");
 
     const attachments = inMemoryDb.map((item) => ({
-      ...item,
+      ...(item as Record<string, any>),
       rubroId: item.rubroId,
-    }));
+    })) as Array<Record<string, any>>;
 
     // Simulate forecast fallback path for seeded rubros
     const months = 6;

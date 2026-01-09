@@ -102,6 +102,11 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip
 
+type ChartTooltipProps = ComponentProps<typeof RechartsPrimitive.Tooltip> & {
+  payload?: Array<Record<string, unknown>>
+  label?: string | number
+}
+
 function ChartTooltipContent({
   active,
   payload,
@@ -116,24 +121,25 @@ function ChartTooltipContent({
   color,
   nameKey,
   labelKey,
-}: ComponentProps<typeof RechartsPrimitive.Tooltip> &
+}: (ChartTooltipProps &
   ComponentProps<"div"> & {
     hideLabel?: boolean
     hideIndicator?: boolean
     indicator?: "line" | "dot" | "dashed"
     nameKey?: string
     labelKey?: string
-  }) {
+  }) & Record<string, unknown>) {
   const { config } = useChart()
+  const tooltipPayload = Array.isArray(payload) ? payload : []
 
   const tooltipLabel = useMemo(() => {
-    if (hideLabel || !payload?.length) {
+    if (hideLabel || !tooltipPayload.length) {
       return null
     }
 
-    const [item] = payload
+    const [item] = tooltipPayload
     const key = `${labelKey || item?.dataKey || item?.name || "value"}`
-    const itemConfig = getPayloadConfigFromPayload(config, item, key)
+    const itemConfig = getPayloadConfigFromPayload(config, item as any, key)
     const value =
       !labelKey && typeof label === "string"
         ? config[label as keyof typeof config]?.label || label
@@ -142,7 +148,7 @@ function ChartTooltipContent({
     if (labelFormatter) {
       return (
         <div className={cn("font-medium", labelClassName)}>
-          {labelFormatter(value, payload)}
+          {labelFormatter(value, tooltipPayload as any)}
         </div>
       )
     }
@@ -155,18 +161,18 @@ function ChartTooltipContent({
   }, [
     label,
     labelFormatter,
-    payload,
+    tooltipPayload,
     hideLabel,
     labelClassName,
     config,
     labelKey,
   ])
 
-  if (!active || !payload?.length) {
+  if (!active || !tooltipPayload.length) {
     return null
   }
 
-  const nestLabel = payload.length === 1 && indicator !== "dot"
+  const nestLabel = tooltipPayload.length === 1 && indicator !== "dot"
 
   return (
     <div
@@ -177,14 +183,14 @@ function ChartTooltipContent({
     >
       {!nestLabel ? tooltipLabel : null}
       <div className="grid gap-1.5">
-        {payload.map((item, index) => {
+        {tooltipPayload.map((item, index) => {
           const key = `${nameKey || item.name || item.dataKey || "value"}`
-          const itemConfig = getPayloadConfigFromPayload(config, item, key)
-          const indicatorColor = color || item.payload.fill || item.color
+          const itemConfig = getPayloadConfigFromPayload(config, item as any, key)
+          const indicatorColor = color || (item as any).payload?.fill || (item as any).color
 
           return (
             <div
-              key={item.dataKey}
+              key={(item as any).dataKey || key}
               className={cn(
                 "[&>svg]:text-muted-foreground flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5",
                 indicator === "dot" && "items-center"
@@ -248,20 +254,30 @@ function ChartTooltipContent({
 
 const ChartLegend = RechartsPrimitive.Legend
 
+type ChartLegendPayload = {
+  value?: string | number
+  dataKey?: string | number
+  name?: string | number
+  color?: string
+}
+
 function ChartLegendContent({
   className,
   hideIcon = false,
   payload,
   verticalAlign = "bottom",
   nameKey,
-}: ComponentProps<"div"> &
-  Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
-    hideIcon?: boolean
-    nameKey?: string
-  }) {
+}: ComponentProps<"div"> & {
+  payload?: Array<Record<string, unknown>>
+  verticalAlign?: "top" | "bottom"
+  hideIcon?: boolean
+  nameKey?: string
+}) {
   const { config } = useChart()
 
-  if (!payload?.length) {
+  const legendPayload = payload as ChartLegendPayload[] | undefined
+
+  if (!legendPayload?.length) {
     return null
   }
 
@@ -273,7 +289,7 @@ function ChartLegendContent({
         className
       )}
     >
-      {payload.map((item) => {
+      {legendPayload.map((item) => {
         const key = `${nameKey || item.dataKey || "value"}`
         const itemConfig = getPayloadConfigFromPayload(config, item, key)
 

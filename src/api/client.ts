@@ -15,7 +15,7 @@ type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type SafeFetchOptions<T> = {
   method?: HttpMethod;
   body?: unknown;
-  headers?: Record<string, string>;
+  headers?: HeadersInit;
   mockResponse?: () => Promise<T> | T;
   allowMock?: boolean;
 };
@@ -44,11 +44,18 @@ export async function safeFetch<T = unknown>(
   const url = buildUrl(path);
   const method = options.method || "GET";
   const formDataBody = isFormDataBody(options.body);
-  const headers: Record<string, string> = {
-    ...(formDataBody ? {} : { "Content-Type": "application/json" }),
-    ...buildAuthHeader(),
-    ...(options.headers || {}),
-  };
+  const headers = new Headers();
+  if (!formDataBody) {
+    headers.set("Content-Type", "application/json");
+  }
+  new Headers(buildAuthHeader()).forEach((value, key) => {
+    headers.set(key, value);
+  });
+  if (options.headers) {
+    new Headers(options.headers).forEach((value, key) => {
+      headers.set(key, value);
+    });
+  }
 
   try {
     const response = await fetch(url, {
