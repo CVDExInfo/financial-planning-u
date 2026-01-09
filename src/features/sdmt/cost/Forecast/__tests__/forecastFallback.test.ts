@@ -9,6 +9,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import type { AmortizationType, Currency, IndexationPolicy } from '@/types/domain';
 import { computeForecastFromAllocations, type Allocation } from '../computeForecastFromAllocations';
+import type { LineItem } from '@/types/domain';
 
 describe('Forecast Fallback Logic', () => {
   describe('computeForecastFromAllocations', () => {
@@ -76,7 +77,7 @@ describe('Forecast Fallback Logic', () => {
           updated_at: '2024-01-01T00:00:00Z',
           created_by: 'test-user',
         },
-      ];
+      ] as LineItem[];
 
       // Import the actual function to test
       // Note: This function is currently private in useSDMTForecastData

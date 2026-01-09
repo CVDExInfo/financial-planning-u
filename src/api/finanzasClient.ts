@@ -3,6 +3,11 @@ import { HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus, getAuthToken } from "@/config/api";
 import httpClient, { HttpError } from "@/lib/http-client";
 
+const STATIC_TEST_TOKEN =
+  import.meta.env.VITE_FINZ_STATIC_TEST_TOKEN ||
+  (typeof process !== "undefined" ? process.env.VITE_FINZ_STATIC_TEST_TOKEN : "") ||
+  "";
+
 if (!HAS_API_BASE) {
   // Non-fatal in dev; API client will throw on call
   console.warn(

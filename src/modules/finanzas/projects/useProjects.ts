@@ -20,7 +20,7 @@ export type ProjectForUI = {
   end_date?: string;
   mod_total: number;
   currency?: string;
-  status?: string;
+  status?: Project["status"];
   sd_manager_name?: string | null;
   sdm_manager_email?: string | null;
   baseline_id?: string;

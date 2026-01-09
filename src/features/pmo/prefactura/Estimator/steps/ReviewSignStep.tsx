@@ -215,7 +215,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         createdBy: userEmail,
       });
 
-      const baselineRequest: PrefacturaBaselinePayload = {
+      const baselineRequest = {
         project_id: prefacturaProjectId,
         project_name: dealInputs.project_name,
         project_description: dealInputs.project_description,
@@ -245,7 +245,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         signed_by: userEmail,
         signed_role: "PMO",
         signed_at: new Date().toISOString(),
-      };
+      } as PrefacturaBaselinePayload;
 
       const baseline = await createPrefacturaBaseline(baselineRequest);
 
@@ -340,14 +340,16 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         laborPercentage,
       });
 
-      await handoffBaseline(projectId, {
+      const handoffPayload = {
         baseline_id: baselineId,
         mod_total: grandTotalLocal,
         pct_ingenieros: laborPercentage,
         pct_sdm: 100 - laborPercentage,
         project_name: dealInputs?.project_name,
         client_name: dealInputs?.client_name,
-      });
+      } as any;
+
+      await handoffBaseline(projectId, handoffPayload);
 
       toast.success("✓ Project successfully handed off to SDMT team!");
 

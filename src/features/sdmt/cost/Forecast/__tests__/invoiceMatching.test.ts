@@ -25,6 +25,17 @@ const buildCell = (overrides: Record<string, unknown>) =>
   }) as any;
 
 describe('Invoice Matching Logic', () => {
+  const baseCell = {
+    line_item_id: '',
+    month: 1,
+    planned: 0,
+    forecast: 0,
+    actual: 0,
+    variance: 0,
+    last_updated: new Date().toISOString(),
+    updated_by: 'test-user',
+  };
+
   it('should match by line_item_id (highest priority)', () => {
     const invoice = {
       line_item_id: 'LI-123',

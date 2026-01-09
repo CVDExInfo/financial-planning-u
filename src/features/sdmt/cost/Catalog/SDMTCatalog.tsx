@@ -260,7 +260,9 @@ export function SDMTCatalog() {
   );
 
   const summaryCurrency =
-    currentProject?.currency || safeLineItems[0]?.currency || "USD";
+    (currentProject as { currency?: string } | null)?.currency ||
+    safeLineItems[0]?.currency ||
+    "USD";
 
   const showInitialLoading = loading;
   const showErrorState = Boolean(uiErrorMessage);
