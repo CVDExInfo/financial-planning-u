@@ -177,17 +177,20 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     return null;
   }
 
+  const baselineId = currentProject.baselineId;
+  const hasBaselineId = Boolean(baselineId);
+
   const handleAccept = () => {
-    if (!currentProject?.baselineId) {
-      toast.error("No baseline found to accept");
+    if (!hasBaselineId) {
+      toast.error("No baseline ID available for this project");
       return;
     }
     acceptMutation.mutate();
   };
 
   const handleRejectClick = () => {
-    if (!currentProject?.baselineId) {
-      toast.error("No baseline found to reject");
+    if (!hasBaselineId) {
+      toast.error("No baseline ID available for this project");
       return;
     }
     setRejectDialogOpen(true);
@@ -415,10 +418,6 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     );
   };
 
-  if (!currentProject?.baselineId) {
-    return null;
-  }
-
   const status = (currentProject.baseline_status || "pending") as BaselineStatus;
   const normalizedStatus = status.toLowerCase() as BaselineStatus;
 
@@ -469,7 +468,9 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   };
 
   const showActions =
-    canActOnBaseline && (normalizedStatus === "pending" || normalizedStatus === "handed_off");
+    hasBaselineId &&
+    canActOnBaseline &&
+    (normalizedStatus === "pending" || normalizedStatus === "handed_off");
   const showReadOnlyBanner = !canActOnBaseline && (isPMO || isPM);
   const contactEmail =
     currentProject?.sdm_manager_email || currentProject?.accepted_by || undefined;
@@ -527,7 +528,7 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
               </div>
               
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="font-mono">ID: {currentProject.baselineId}</span>
+                <span className="font-mono">ID: {baselineId || "N/A"}</span>
                 
                 {normalizedStatus === "accepted" && currentProject.accepted_by && (
                   <span>
@@ -582,7 +583,7 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
                   variant="default"
                   size="sm"
                   onClick={handleAccept}
-                  disabled={acceptMutation.isPending || rejectMutation.isPending}
+                  disabled={!hasBaselineId || acceptMutation.isPending || rejectMutation.isPending}
                 >
                   {acceptMutation.isPending ? (
                     <>
