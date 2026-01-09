@@ -84,6 +84,13 @@ export function getAuthToken(): string | null {
       return envSource.VITE_API_JWT_TOKEN;
     }
 
+    if (envSource?.VITE_FINZ_STATIC_TEST_TOKEN) {
+      const mode = envSource?.MODE || envSource?.NODE_ENV;
+      if (mode !== "production") {
+        return envSource.VITE_FINZ_STATIC_TEST_TOKEN;
+      }
+    }
+
     // Fallback to old "auth" key structure for backward compatibility
     const authData = localStorage.getItem("auth");
     if (authData) {

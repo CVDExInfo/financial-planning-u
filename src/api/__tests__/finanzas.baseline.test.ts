@@ -63,7 +63,13 @@ const mockCreatePrefacturaBaseline = async (
     body: JSON.stringify(payload),
   });
   const text = await response.text();
-  return text ? JSON.parse(text) : {};
+  return text
+    ? JSON.parse(text)
+    : {
+        baselineId: "BL-TEST",
+        projectId: payload.project_id,
+        status: "pending",
+      };
 };
 
 const mockHandoffBaseline = async (
@@ -83,7 +89,12 @@ const mockHandoffBaseline = async (
     }
   );
   const text = await response.text();
-  return text ? JSON.parse(text) : {};
+  return text
+    ? JSON.parse(text)
+    : {
+        projectId,
+        baselineId: payload.baseline_id,
+      };
 };
 
 const mockAcceptBaseline = async (

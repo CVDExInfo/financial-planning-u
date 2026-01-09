@@ -327,6 +327,7 @@ export type LaborEstimate = {
   on_cost_percentage: number;
   start_month: number;
   end_month: number;
+  currency?: Currency;
 };
 
 export type NonLaborEstimate = {

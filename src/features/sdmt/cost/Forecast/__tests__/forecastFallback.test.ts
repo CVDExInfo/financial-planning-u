@@ -7,6 +7,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
+import type { AmortizationType, Currency, IndexationPolicy } from '@/types/domain';
 import { computeForecastFromAllocations, type Allocation } from '../computeForecastFromAllocations';
 
 describe('Forecast Fallback Logic', () => {
@@ -45,12 +46,14 @@ describe('Forecast Fallback Logic', () => {
           category: 'Mano de Obra Directa',
           unit_cost: 5000,
           qty: 10,
-          currency: 'USD',
+          currency: 'USD' as Currency,
           one_time: false,
           recurring: true,
-          amortization: 'none',
+          start_month: 1,
+          end_month: 12,
+          amortization: 'none' as AmortizationType,
           capex_flag: false,
-          indexation_policy: 'none',
+          indexation_policy: 'none' as IndexationPolicy,
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           created_by: 'test-user',
@@ -61,12 +64,14 @@ describe('Forecast Fallback Logic', () => {
           category: 'Infrastructure',
           unit_cost: 10000,
           qty: 1,
-          currency: 'USD',
+          currency: 'USD' as Currency,
           one_time: false,
           recurring: true,
-          amortization: 'none',
+          start_month: 1,
+          end_month: 12,
+          amortization: 'none' as AmortizationType,
           capex_flag: false,
-          indexation_policy: 'none',
+          indexation_policy: 'none' as IndexationPolicy,
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           created_by: 'test-user',

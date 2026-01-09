@@ -11,10 +11,8 @@ const noopStorage = {
 };
 
 // Polyfill localStorage for auth helpers invoked by the API client
-// @ts-expect-error - Node test environment shim
-global.localStorage = global.localStorage || noopStorage;
-// @ts-expect-error - Node test environment shim
-global.sessionStorage = global.sessionStorage || noopStorage;
+global.localStorage = (global as any).localStorage || noopStorage;
+global.sessionStorage = (global as any).sessionStorage || noopStorage;
 
 const { acceptBaseline } = await import("../finanzas");
 
@@ -23,8 +21,7 @@ const originalFetch = global.fetch;
 describe("acceptBaseline request contract", () => {
   beforeEach(() => {
     let lastBody: any = undefined;
-    // @ts-expect-error - test double for fetch
-    global.fetch = async (_url: string, init?: RequestInit) => {
+    (global as any).fetch = async (_url: string, init?: RequestInit) => {
       lastBody = init?.body;
       return {
         ok: true,

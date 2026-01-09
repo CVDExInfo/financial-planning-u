@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import ApiService from "@/lib/api";
 import { getProjectDisplay } from "@/lib/projects/display";
-import type { Project } from "@/types/domain";
+import type { Currency, Project } from "@/types/domain";
 import { logger } from "@/utils/logger";
 
 export type ProjectSummary = {
@@ -20,6 +20,9 @@ export type ProjectSummary = {
   name: string;
   client?: string;
   description?: string;
+  currency?: Currency;
+  start_date?: string;
+  end_date?: string;
   sdm_manager_name?: string;
   sdm_manager_email?: string;
   baselineId?: string;

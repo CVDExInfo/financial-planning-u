@@ -122,14 +122,26 @@ describe("getBaselineById", () => {
   });
 
   it("should handle both rate and hourly_rate fields", () => {
-    const mockLaborEstimate1 = {
+    const mockLaborEstimate1: {
+      role: string;
+      hourly_rate?: number;
+      rate?: number;
+      fte_count: number;
+      hours_per_month: number;
+    } = {
       role: "Engineer",
       hourly_rate: 50,
       fte_count: 1,
       hours_per_month: 160,
     };
 
-    const mockLaborEstimate2 = {
+    const mockLaborEstimate2: {
+      role: string;
+      hourly_rate?: number;
+      rate?: number;
+      fte_count: number;
+      hours_per_month: number;
+    } = {
       role: "Manager",
       rate: 75, // Alternative field name
       fte_count: 1,

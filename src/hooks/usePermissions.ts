@@ -108,9 +108,11 @@ export function usePermissions() {
     hasDecision("deny-write") ||
     (!hasDecision("allow-write") && effectiveRole !== "SDMT");
 
-  const canAccessRoute = (route: string) => legacyCanAccessRoute(route, effectiveRole);
+  const canAccessRoute = (route: string) =>
+    legacyCanAccessRoute(route, effectiveRole as UserRole);
 
-  const canPerformAction = (action: string) => legacyCanPerformAction(action, effectiveRole);
+  const canPerformAction = (action: string) =>
+    legacyCanPerformAction(action, effectiveRole as UserRole);
 
   const hasPremiumFinanzasFeatures =
     (import.meta.env.VITE_FINZ_PREMIUM_ENABLED ?? "false") === "true" ||

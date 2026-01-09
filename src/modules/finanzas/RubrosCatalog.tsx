@@ -18,6 +18,14 @@ import RubroFormModal from "@/components/finanzas/RubroFormModal";
 import { useRBACProjects } from "@/hooks/useRBACProjects";
 import type { RubroFormData } from "@/types/rubros";
 
+type RubroWithTaxonomy = Rubro & {
+  categoria_codigo?: string | null;
+  linea_codigo?: string | null;
+  linea_gasto?: string | null;
+  tipo_costo?: string | null;
+  tipo_ejecucion?: string | null;
+};
+
 function Cell({ children }: { children: React.ReactNode }) {
   return (
     <td className="px-3 py-2 border-b border-border text-sm text-foreground">
@@ -60,28 +68,29 @@ export default function RubrosCatalog() {
       }
 
       const enrichedRows = normalizedRubros.map((rubro) => {
+        const rubroWithTaxonomy = rubro as RubroWithTaxonomy;
         // Normalize to canonical ID if legacy
-        const canonicalId = getCanonicalRubroId(rubro.rubro_id);
+        const canonicalId = getCanonicalRubroId(rubroWithTaxonomy.rubro_id);
         const taxonomy = taxonomyById.get(canonicalId);
         
         // Prefer taxonomy data, fallback to API response
         const nombre =
-          rubro.nombre ||
+          rubroWithTaxonomy.nombre ||
           taxonomy?.linea_gasto ||
           taxonomy?.descripcion ||
-          rubro.rubro_id;
+          rubroWithTaxonomy.rubro_id;
 
         return {
-          ...rubro,
+          ...rubroWithTaxonomy,
           rubro_id: canonicalId, // Use canonical ID
           nombre,
-          categoria: rubro.categoria ?? taxonomy?.categoria ?? null,
-          categoria_codigo: rubro.categoria_codigo ?? taxonomy?.categoria_codigo ?? null,
-          linea_codigo: rubro.linea_codigo ?? taxonomy?.linea_codigo ?? canonicalId,
-          linea_gasto: rubro.linea_gasto ?? taxonomy?.linea_gasto ?? nombre,
-          tipo_costo: rubro.tipo_costo ?? taxonomy?.tipo_costo ?? null,
-          tipo_ejecucion: rubro.tipo_ejecucion ?? taxonomy?.tipo_ejecucion ?? null,
-          descripcion: rubro.descripcion ?? taxonomy?.descripcion ?? null,
+          categoria: rubroWithTaxonomy.categoria ?? taxonomy?.categoria ?? null,
+          categoria_codigo: rubroWithTaxonomy.categoria_codigo ?? taxonomy?.categoria_codigo ?? null,
+          linea_codigo: rubroWithTaxonomy.linea_codigo ?? taxonomy?.linea_codigo ?? canonicalId,
+          linea_gasto: rubroWithTaxonomy.linea_gasto ?? taxonomy?.linea_gasto ?? nombre,
+          tipo_costo: rubroWithTaxonomy.tipo_costo ?? taxonomy?.tipo_costo ?? null,
+          tipo_ejecucion: rubroWithTaxonomy.tipo_ejecucion ?? taxonomy?.tipo_ejecucion ?? null,
+          descripcion: rubroWithTaxonomy.descripcion ?? taxonomy?.descripcion ?? null,
         } as Rubro;
       });
 
@@ -263,7 +272,7 @@ export default function RubrosCatalog() {
         availableProjects={availableProjects}
         isSubmitting={isSubmitting}
         initialRubro={selectedRubro ? {
-          categoria_codigo: selectedRubro.categoria_codigo || '',
+          categoria_codigo: (selectedRubro as RubroWithTaxonomy).categoria_codigo || '',
           rubroId: selectedRubro.rubro_id,
           tipo: 'recurrente', // Default
           mes_inicio: 1,

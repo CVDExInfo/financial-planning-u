@@ -54,7 +54,9 @@ export function computeForecastFromAllocations(
   const resolvedProjectId =
     projectId ||
     allocations.find((alloc) => alloc.projectId)?.projectId ||
-    rubros.find((rubro) => rubro.projectId)?.projectId;
+    (rubros.find((rubro) => (rubro as { projectId?: string }).projectId) as
+      | { projectId?: string }
+      | undefined)?.projectId;
 
   if (!resolvedProjectId) {
     console.warn(
