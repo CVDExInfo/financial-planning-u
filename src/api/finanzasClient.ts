@@ -2,6 +2,7 @@ import { z } from "zod";
 import { HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus, getAuthToken } from "@/config/api";
 import httpClient, { HttpError } from "@/lib/http-client";
+import { isBudgetNotFoundError } from "@/features/sdmt/cost/Forecast/budgetState";
 
 if (!HAS_API_BASE) {
   // Non-fatal in dev; API client will throw on call
@@ -162,9 +163,6 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
       : new Error("Unknown network error while calling Finanzas API");
   }
 }
-
-const isNotFoundError = (error: unknown): boolean =>
-  error instanceof HttpError && [404, 405].includes(error.status);
 
 function normalizeListResponse<T>(payload: { data?: unknown } | unknown): T[] {
   if (Array.isArray(payload)) return payload as T[];
@@ -549,7 +547,7 @@ export const finanzasClient = {
       });
       return data;
     } catch (error) {
-      if (isNotFoundError(error)) {
+      if (isBudgetNotFoundError(error)) {
         return null;
       }
       throw error;
@@ -634,7 +632,7 @@ export const finanzasClient = {
       });
       return data;
     } catch (error) {
-      if (isNotFoundError(error)) {
+      if (isBudgetNotFoundError(error)) {
         return null;
       }
       throw error;
@@ -665,7 +663,7 @@ export const finanzasClient = {
       });
       return data;
     } catch (error) {
-      if (isNotFoundError(error)) {
+      if (isBudgetNotFoundError(error)) {
         return null;
       }
       throw error;

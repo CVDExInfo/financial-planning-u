@@ -804,29 +804,24 @@ export function SDMTForecast() {
         setMonthlyBudgetUpdatedBy(null);
         return;
       }
-      if (monthlyBudget && monthlyBudget.months) {
-        // Convert from API format (month: "YYYY-MM", amount) to internal format (month: 1-12, budget)
-        const budgets: MonthlyBudgetInput[] = monthlyBudget.months.map(m => {
-          const monthMatch = m.month.match(/^\d{4}-(\d{2})$/);
-          const monthNum = monthMatch ? parseInt(monthMatch[1], 10) : 0;
-          return {
-            month: monthNum,
-            budget: m.amount,
-          };
-        }).filter(b => b.month >= 1 && b.month <= 12);
-        
-        setMonthlyBudgets(budgets);
-        setMonthlyBudgetLastUpdated(monthlyBudget.updated_at || null);
-        setMonthlyBudgetUpdatedBy(monthlyBudget.updated_by || null);
-        
-        // If we have saved monthly budgets, enable the monthly budget mode
-        if (budgets.length > 0) {
-          setUseMonthlyBudget(true);
-        }
-      } else {
-        setMonthlyBudgets([]);
-        setMonthlyBudgetLastUpdated(null);
-        setMonthlyBudgetUpdatedBy(null);
+      
+      // Convert from API format (month: "YYYY-MM", amount) to internal format (month: 1-12, budget)
+      const budgets: MonthlyBudgetInput[] = monthlyBudget.months.map(m => {
+        const monthMatch = m.month.match(/^\d{4}-(\d{2})$/);
+        const monthNum = monthMatch ? parseInt(monthMatch[1], 10) : 0;
+        return {
+          month: monthNum,
+          budget: m.amount,
+        };
+      }).filter(b => b.month >= 1 && b.month <= 12);
+      
+      setMonthlyBudgets(budgets);
+      setMonthlyBudgetLastUpdated(monthlyBudget.updated_at || null);
+      setMonthlyBudgetUpdatedBy(monthlyBudget.updated_by || null);
+      
+      // If we have saved monthly budgets, enable the monthly budget mode
+      if (budgets.length > 0) {
+        setUseMonthlyBudget(true);
       }
     } catch (error: any) {
       // If 404, it means no monthly budgets are set for this year - that's okay
