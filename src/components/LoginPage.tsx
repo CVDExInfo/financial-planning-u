@@ -45,7 +45,7 @@ export function LoginPage() {
   }, []);
 
   const [appearance, setAppearance] = useState<"light" | "dark">(initialAppearance);
-  const previousAppearance = useRef<string | undefined>();
+  const previousAppearance = useRef<string | undefined>(undefined);
 
   // External entry points for other modules (same CloudFront distribution)
   const rawActaUrl = import.meta.env.VITE_ACTA_BASE_URL?.trim();

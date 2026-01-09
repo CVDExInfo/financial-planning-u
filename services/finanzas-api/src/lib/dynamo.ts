@@ -236,7 +236,7 @@ export async function queryPayrollByProject(
   const skPrefix = kind ? `PAYROLL#${kind.toUpperCase()}#` : 'PAYROLL#';
 
   // Use Scan with filter since pk may vary by month or be flat per project
-  const result = await sendDdb(
+  const result = (await sendDdb(
     new ScanCommand({
       TableName: tableName('payroll_actuals'),
       FilterExpression: 'begins_with(pk, :pkPrefix) AND begins_with(sk, :sk)',
@@ -245,7 +245,7 @@ export async function queryPayrollByProject(
         ':sk': skPrefix,
       },
     })
-  );
+  )) as { Items?: PayrollEntry[] };
 
   const items = (result.Items || []) as PayrollEntry[];
 
@@ -269,7 +269,7 @@ export async function queryPayrollByPeriodAllProjects(
   
   // This requires a scan since we're filtering across multiple projects
   // Consider adding a GSI on period+kind if this becomes performance-critical
-  const result = await sendDdb(
+  const result = (await sendDdb(
     new ScanCommand({
       TableName: tableName('payroll_actuals'),
       FilterExpression: 'contains(pk, :period) AND begins_with(sk, :sk)',
@@ -278,7 +278,7 @@ export async function queryPayrollByPeriodAllProjects(
         ':sk': skPrefix,
       },
     })
-  );
+  )) as { Items?: PayrollEntry[] };
   
   return (result.Items || []) as PayrollEntry[];
 }
@@ -294,7 +294,7 @@ export async function queryPayrollByPeriodAllProjects(
  */
 export async function projectExists(projectId: string): Promise<boolean> {
   try {
-    const result = await sendDdb(
+    const result = (await sendDdb(
       new GetCommand({
         TableName: tableName('projects'),
         Key: {
@@ -302,7 +302,7 @@ export async function projectExists(projectId: string): Promise<boolean> {
           sk: 'META',
         },
       })
-    );
+    )) as { Item?: unknown };
     return !!result.Item;
   } catch (error) {
     console.error('Error checking if project exists:', error);
@@ -334,7 +334,7 @@ export async function getRubroTaxonomy(rubroId: string): Promise<{
   category: string;
 } | null> {
   try {
-    const result = await sendDdb(
+    const result = (await sendDdb(
       new GetCommand({
         TableName: tableName('rubros_taxonomia'),
         Key: {
@@ -342,7 +342,7 @@ export async function getRubroTaxonomy(rubroId: string): Promise<{
           sk: `RUBRO#${rubroId}`,
         },
       })
-    );
+    )) as { Item?: RubroTaxonomyItem };
     
     if (!result.Item) {
       return null;

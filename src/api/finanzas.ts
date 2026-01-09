@@ -841,6 +841,7 @@ export type PrefacturaBaselinePayload = {
   duration_months?: number;
   contract_value?: number;
   sdm_manager_name?: string;
+  sdm_manager_email?: string;
   assumptions?: string[];
   labor_estimates: Record<string, unknown>[];
   non_labor_estimates: Record<string, unknown>[];
@@ -1265,7 +1266,7 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     unit_cost = totalAmount / qty;
   }
 
-  const base: LineItem = {
+  const base = {
     id,
     category: categoria,
     subtype: tipoCosto || undefined,
@@ -1313,13 +1314,21 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     linea_codigo: lineaCodigo,
     categoria,
     tipo_costo: tipoCosto,
+  } as LineItem & {
+    linea_codigo?: string;
+    categoria?: string;
+    tipo_costo?: string;
   };
 
   return applyTaxonomy(base);
 };
 
 const applyTaxonomy = (
-  item: LineItem,
+  item: LineItem & {
+    linea_codigo?: string;
+    categoria?: string;
+    tipo_costo?: string;
+  },
 ):
   | LineItem
   | (LineItem & {
@@ -1562,6 +1571,8 @@ export async function getPayrollDashboard(): Promise<MODProjectionByMonth[]> {
 
 export type HandoffBaselinePayload = {
   baseline_id: string;
+  project_name?: string;
+  client_name?: string;
   mod_total?: number;
   pct_ingenieros?: number;
   pct_sdm?: number;
@@ -1994,4 +2005,3 @@ export async function setAnnualBudget(
     body: JSON.stringify({ year, amount, currency }),
   });
 }
-

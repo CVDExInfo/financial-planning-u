@@ -5,7 +5,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { MODProjectionByMonth } from "@/api/finanzas";
-import type { ModChartPoint } from "../ProjectsManager";
+type ModChartPoint = {
+  month: string;
+  "Allocations MOD": number;
+  "Adjusted/Projected MOD": number;
+  "Actual Payroll MOD": number;
+};
 
 /**
  * Converts payroll dashboard data to MOD chart format

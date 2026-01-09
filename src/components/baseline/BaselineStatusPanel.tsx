@@ -40,6 +40,9 @@ type BaselineStatus = "pending" | "handed_off" | "accepted" | "rejected";
 
 export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
   const { currentProject, refreshProject, invalidateProjectData } = useProject();
+  const projectWithRubros = currentProject as
+    | (typeof currentProject & { rubros_count?: number | null })
+    | null;
   const { isSDMT, isPMO, isPM, isExecRO, isVendor } = usePermissions();
   const { login } = useAuth();
   const queryClient = useQueryClient();
@@ -56,9 +59,10 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
 
   // Fetch baseline details when baseline exists and rubros_count is 0 or null/undefined
   useEffect(() => {
-    const shouldFetchBaseline = 
-      currentProject?.baselineId && 
-      (currentProject.rubros_count == null || currentProject.rubros_count === 0);
+    const shouldFetchBaseline =
+      currentProject?.baselineId &&
+      (projectWithRubros?.rubros_count == null ||
+        projectWithRubros?.rubros_count === 0);
     
     if (shouldFetchBaseline) {
       setLoadingBaseline(true);
@@ -82,7 +86,7 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     } else {
       setBaselineDetail(null);
     }
-  }, [currentProject?.baselineId, currentProject?.rubros_count]);
+  }, [currentProject?.baselineId, projectWithRubros?.rubros_count]);
 
   // Shared function to invalidate all project-dependent queries
   const invalidateProjectQueries = async () => {
@@ -597,7 +601,9 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
           </div>
 
           {/* Render baseline details table when rubros_count is 0 or null/undefined */}
-          {(currentProject.rubros_count == null || currentProject.rubros_count === 0) && renderBaselineDetails()}
+          {(projectWithRubros?.rubros_count == null ||
+            projectWithRubros?.rubros_count === 0) &&
+            renderBaselineDetails()}
         </CardContent>
       </Card>
 

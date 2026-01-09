@@ -49,7 +49,7 @@ import ApiService from "@/lib/api";
 import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
-import type { ChangeRequest as DomainChangeRequest } from "@/types/domain";
+import type { ChangeRequest as DomainChangeRequest, Currency } from "@/types/domain";
 import { toast } from "sonner";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import ApprovalWorkflow from "./ApprovalWorkflow";
@@ -406,7 +406,7 @@ export function SDMTChanges() {
       title: form.title.trim(),
       description: form.description.trim(),
       impact_amount: Number(form.impact_amount),
-      currency: form.currency || currentProject?.currency || "USD",
+      currency: (form.currency || currentProject?.currency || "USD") as Currency,
       justification: form.justification.trim(),
       affected_line_items: selectedLineItemIds,
       // Time distribution fields

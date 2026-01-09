@@ -236,7 +236,7 @@ export function SDMTCatalog() {
     setPendingChanges(new Map());
     setSaveBarState("idle");
     toast.error(message);
-    logger.error("Failed to load line items:", message, lineItemsError);
+    logger.error("Failed to load line items", { message, error: lineItemsError });
   }, [lineItemsError, login]);
 
   const uiErrorMessage = catalogError;

@@ -230,15 +230,18 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         labor_estimates: laborEstimates,
         non_labor_estimates: nonLaborEstimates,
         fx_indexation: fxIndexationData ?? undefined,
-        supporting_documents: supportingDocs.map((doc) => ({
-          document_id: doc.documentId || doc.document_id,
-          document_key: doc.documentKey || doc.document_key || "",
-          original_name: doc.originalName || doc.original_name,
-          uploaded_at:
-            doc.uploadedAt || doc.uploaded_at || new Date().toISOString(),
-          content_type:
-            doc.contentType || doc.content_type || "application/octet-stream",
-        })),
+        supporting_documents: supportingDocs.map((doc) => {
+          const docData = doc as Record<string, any>;
+          return {
+            document_id: docData.documentId || docData.document_id,
+            document_key: docData.documentKey || docData.document_key || "",
+            original_name: docData.originalName || docData.original_name,
+            uploaded_at:
+              docData.uploadedAt || docData.uploaded_at || new Date().toISOString(),
+            content_type:
+              docData.contentType || docData.content_type || "application/octet-stream",
+          };
+        }),
         signed_by: userEmail,
         signed_role: "PMO",
         signed_at: new Date().toISOString(),

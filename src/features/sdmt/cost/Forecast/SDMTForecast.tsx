@@ -315,37 +315,71 @@ export function SDMTForecast() {
     }
   };
 
+  const resolveLineItemId = (
+    raw: Record<string, any>,
+    index: number,
+    resolvedProjectId?: string
+  ) => {
+    const preferred =
+      raw.id || raw.rubroId || raw.rubro_id || raw.linea_codigo || raw.linea_id;
+    if (preferred) return String(preferred);
+    const name =
+      raw.descripcion || raw.description || raw.nombre || raw.name || "line";
+    return `${resolvedProjectId || "P?"}:${String(name)}:${index}`;
+  };
+
   // Helper function to transform LineItems into forecast cells when server forecast is empty
   const transformLineItemsToForecast = (lineItems: LineItem[], months: number): ForecastRow[] => {
     if (!lineItems || lineItems.length === 0) return [];
     
     const forecastCells: ForecastRow[] = [];
     
-    lineItems.forEach(item => {
+    lineItems.forEach((item, index) => {
+      const itemData = item as Record<string, any>;
+      const fallbackProjectId = itemData.projectId || selectedProjectId;
+      const lineItemId = resolveLineItemId(itemData, index, fallbackProjectId);
+      const rubroKey =
+        itemData.rubroId || itemData.rubro_id || itemData.linea_codigo || lineItemId;
       // Extract duration (months) from the line item
-      const durationStr = item.duration || item.duracion || '1';
+      const durationStr = itemData.duration || itemData.duracion || '1';
       const duration = parseInt(durationStr, 10) || 1;
       const actualMonths = Math.min(duration, months);
       
       // Calculate unit cost and total
-      const unitCost = Number(item.unitCost || item.costo_unitario || item.unit_cost || 0);
-      const qty = Number(item.qty || item.cantidad || item.quantity || 1);
-      const totalCost = unitCost * qty;
+      const unitCost = Number(itemData.unitCost || itemData.costo_unitario || itemData.unit_cost || 0);
+      const qty = Number(itemData.qty || itemData.cantidad || itemData.quantity || 1);
+      const totalFromItem = Number(
+        itemData.total_cost ||
+          itemData.totalCost ||
+          itemData.total ||
+          itemData.monto_total ||
+          itemData.amount ||
+          itemData.monto ||
+          0
+      );
+      const totalCost = totalFromItem || unitCost * qty;
       const monthlyAmount = totalCost / actualMonths;
       
+      const monthlySeries = Array.isArray(itemData.monthly)
+        ? itemData.monthly
+        : null;
       // Create forecast cells for each month
       for (let month = 1; month <= actualMonths; month++) {
+        const monthValue = monthlySeries?.[month - 1];
+        const amount = Number(monthValue ?? monthlyAmount ?? 0);
         forecastCells.push({
-          line_item_id: item.id || item.rubroId || item.rubro_id || item.linea_codigo || '',
-          rubroId: item.rubroId || item.rubro_id || item.linea_codigo || '',
-          description: item.descripcion || item.nombre || item.description || item.name || '',
-          category: item.categoria || item.category || 'OPEX',
+          line_item_id: lineItemId,
+          rubroId: rubroKey,
+          description: itemData.descripcion || itemData.nombre || itemData.description || itemData.name || '',
+          category: itemData.categoria || itemData.category || 'OPEX',
           month,
-          planned: monthlyAmount,
-          forecast: monthlyAmount,
+          planned: amount,
+          forecast: amount,
           actual: 0,
           variance: 0,
-          projectId,
+          last_updated: new Date().toISOString(),
+          updated_by: "",
+          projectId: fallbackProjectId,
           projectName: currentProject?.name,
         } as ForecastRow);
       }
@@ -594,12 +628,16 @@ export function SDMTForecast() {
     setSavingActuals(true);
     try {
       const currentYear = new Date().getFullYear();
-      const payload: PayrollActualInput[] = entries
+      const payload = entries
         .map(cell => {
           const projectId = cell.projectId || selectedProjectId;
-          const matchedLineItem = lineItemsForGrid.find(item =>
-            item.id === cell.line_item_id && (!item.projectId || item.projectId === projectId)
-          );
+          const matchedLineItem = lineItemsForGrid.find(item => {
+            const itemData = item as Record<string, any>;
+            return (
+              item.id === cell.line_item_id &&
+              (!itemData.projectId || itemData.projectId === projectId)
+            );
+          });
           const monthKey = `${currentYear}-${String(cell.month).padStart(2, '0')}`;
 
           if (!projectId) return null;
@@ -609,14 +647,14 @@ export function SDMTForecast() {
             month: monthKey,
             rubroId: cell.line_item_id,
             amount: Number(cell.actual) || 0,
-            currency: matchedLineItem?.currency || 'USD',
+            currency: matchedLineItem?.currency || "USD",
             resourceCount: matchedLineItem?.qty ? Number(matchedLineItem.qty) : undefined,
             notes: cell.notes,
             uploadedBy: user?.email || user?.login,
-            source: 'sdmt-forecast',
-          } satisfies PayrollActualInput;
+            source: "sdmt-forecast",
+          } as PayrollActualInput;
         })
-        .filter((row): row is PayrollActualInput => Boolean(row));
+        .filter(Boolean) as PayrollActualInput[];
 
       if (payload.length === 0) {
         toast.error('No pudimos construir los datos para guardar en nómina.');
@@ -737,6 +775,10 @@ export function SDMTForecast() {
     
     try {
       const overview = await finanzasClient.getAllInBudgetOverview(year);
+      if (!overview) {
+        setBudgetOverview(null);
+        return;
+      }
       setBudgetOverview(overview);
       console.log('[SDMTForecast] Budget overview loaded:', overview);
     } catch (error: any) {
@@ -782,6 +824,12 @@ export function SDMTForecast() {
     setLoadingMonthlyBudget(true);
     try {
       const monthlyBudget = await finanzasClient.getAllInBudgetMonthly(year);
+      if (!monthlyBudget) {
+        setMonthlyBudgets([]);
+        setMonthlyBudgetLastUpdated(null);
+        setMonthlyBudgetUpdatedBy(null);
+        return;
+      }
       if (monthlyBudget && monthlyBudget.months) {
         // Convert from API format (month: "YYYY-MM", amount) to internal format (month: 1-12, budget)
         const budgets: MonthlyBudgetInput[] = monthlyBudget.months.map(m => {
@@ -933,10 +981,15 @@ export function SDMTForecast() {
   const forecastGrid = useMemo(() => {
     const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
     const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
+    const shouldShowEmptyRows = filteredForecastData.length === 0 && lineItemsForGrid.length > 0;
     
-    const grid = lineItemsForGrid.map(lineItem => {
+    const grid = lineItemsForGrid.map((lineItem, index) => {
+      const lineItemData = lineItem as Record<string, any>;
+      const resolvedProjectId = lineItemData.projectId || selectedProjectId;
+      const lineItemId = resolveLineItemId(lineItemData, index, resolvedProjectId);
       const itemForecasts = filteredForecastData.filter(f =>
-        f.line_item_id === lineItem.id && (!lineItem.projectId || f.projectId === lineItem.projectId)
+        f.line_item_id === lineItemId &&
+        (!lineItemData.projectId || f.projectId === lineItemData.projectId)
       );
       
       // In current month mode, only show the current month; otherwise show all 12 months
@@ -947,7 +1000,7 @@ export function SDMTForecast() {
       const monthlyData = months.map(month => {
         const cell = itemForecasts.find(f => f.month === month);
         return cell || {
-          line_item_id: lineItem.id,
+          line_item_id: lineItemId,
           month,
           planned: 0,
           forecast: 0,
@@ -955,8 +1008,8 @@ export function SDMTForecast() {
           variance: 0,
           last_updated: '',
           updated_by: '',
-          projectId: lineItem.projectId,
-          projectName: lineItem.projectName,
+          projectId: lineItemData.projectId,
+          projectName: lineItemData.projectName,
         };
       });
 
@@ -970,7 +1023,7 @@ export function SDMTForecast() {
         monthlyData,
         hasNonZeroValues
       };
-    }).filter(item => item.hasNonZeroValues); // Only show items with data
+    }).filter(item => shouldShowEmptyRows || item.hasNonZeroValues); // Only show items with data unless fallback is empty
 
     // Apply sorting: sort by category, then by description
     const sorted = [...grid].sort((a, b) => {
@@ -1158,7 +1211,11 @@ export function SDMTForecast() {
 
   const isLoadingState = loading || isLineItemsLoading;
   const hasGridData = forecastGrid.length > 0;
-  const isEmptyState = !isLoadingState && !forecastError && forecastData.length === 0;
+  const isEmptyState =
+    !isLoadingState &&
+    !forecastError &&
+    forecastData.length === 0 &&
+    lineItemsForGrid.length === 0;
   
   // Special case: TODOS mode with only the ALL_PROJECTS placeholder (no real projects)
   const isTodosEmptyState = isPortfolioView && !isLoadingState && !forecastError && projects.length < MINIMUM_PROJECTS_FOR_PORTFOLIO;
@@ -2413,7 +2470,11 @@ export function SDMTForecast() {
                 ? [{
                     title: ES_TEXTS.forecast.budgetUtilization,
                     value: `${budgetUtilization.toFixed(1)}%`,
-                    type: budgetUtilization > 100 ? 'negative' : budgetUtilization > 90 ? 'neutral' : 'positive'
+                    type: (budgetUtilization > 100
+                      ? "negative"
+                      : budgetUtilization > 90
+                        ? "neutral"
+                        : "positive") as "positive" | "negative" | "neutral"
                   }]
                 : [])
             ]}

@@ -126,7 +126,7 @@ export function getRoutesForRole(role: UserRole) {
   return { routes: config.routes, hasConfig: true } as const;
 }
 
-export function getActionsForRole(role: UserRole) {
+export function getActionsForRole(role: UserRole): { actions: string[]; hasConfig: boolean } {
   const config = ROLE_PERMISSIONS[role];
   if (!config || !Array.isArray(config.actions)) {
     console.error("[Auth] No actions configured for role", {
@@ -134,9 +134,9 @@ export function getActionsForRole(role: UserRole) {
       availableRoles: getRolePermissionKeys(),
       config,
     });
-    return { actions: [], hasConfig: false } as const;
+    return { actions: [], hasConfig: false };
   }
-  return { actions: config.actions, hasConfig: true } as const;
+  return { actions: config.actions, hasConfig: true };
 }
 
 /**

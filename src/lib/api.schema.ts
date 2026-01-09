@@ -256,7 +256,7 @@ export function safeParseResponse<T>(
     return result;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const issues = error.errors
+      const issues = error.issues
         .map((e) => `${e.path.join(".")}: ${e.message}`)
         .join("; ");
       console.error(`Validation error in ${context}: ${issues}`);

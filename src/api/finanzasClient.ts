@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { HAS_API_BASE } from "@/config/env";
-import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
+import { buildAuthHeader, handleAuthErrorStatus, getAuthToken } from "@/config/api";
 import httpClient, { HttpError } from "@/lib/http-client";
 
 if (!HAS_API_BASE) {
@@ -162,6 +162,9 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
       : new Error("Unknown network error while calling Finanzas API");
   }
 }
+
+const isNotFoundError = (error: unknown): boolean =>
+  error instanceof HttpError && [404, 405].includes(error.status);
 
 function normalizeListResponse<T>(payload: { data?: unknown } | unknown): T[] {
   if (Array.isArray(payload)) return payload as T[];
@@ -370,14 +373,7 @@ function validateProjectPayload(payload: ProjectCreate): ProjectCreate {
 }
 
 function isJwtPresent(): boolean {
-  return !!(
-    localStorage.getItem("finz_access_token") ||
-    localStorage.getItem("cv.jwt") ||
-    localStorage.getItem("finz_jwt") ||
-    localStorage.getItem("idToken") ||
-    localStorage.getItem("cognitoIdToken") ||
-    STATIC_TEST_TOKEN
-  );
+  return !!getAuthToken();
 }
 
 function checkAuth(): void {
@@ -418,7 +414,7 @@ export const finanzasClient = {
       throw new Error("Invalid allocation rules response");
     }
 
-    return parsed.data;
+    return parsed.data.data;
   },
 
   async getAdjustments(params: { projectId?: string; limit?: number } = {}): Promise<Adjustment[]> {
@@ -538,18 +534,25 @@ export const finanzasClient = {
     currency: string;
     updated_at?: string;
     updated_by?: string;
-  }> {
+  } | null> {
     checkAuth();
-    const data = await http<{
-      year: number;
-      amount: number | null;
-      currency: string;
-      updated_at?: string;
-      updated_by?: string;
-    }>(`/budgets/all-in?year=${year}`, {
-      method: "GET",
-    });
-    return data;
+    try {
+      const data = await http<{
+        year: number;
+        amount: number | null;
+        currency: string;
+        updated_at?: string;
+        updated_by?: string;
+      }>(`/budgets/all-in?year=${year}`, {
+        method: "GET",
+      });
+      return data;
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null;
+      }
+      throw error;
+    }
   },
 
   /**
@@ -602,31 +605,38 @@ export const finanzasClient = {
       forecast: number;
       actual: number;
     }>;
-  }> {
+  } | null> {
     checkAuth();
-    const data = await http<{
-      year: number;
-      budgetAllIn: { amount: number; currency: string } | null;
-      totals: {
-        planned: number;
-        forecast: number;
-        actual: number;
-        varianceBudgetVsForecast: number;
-        varianceBudgetVsActual: number;
-        percentBudgetConsumedActual: number | null;
-        percentBudgetConsumedForecast: number | null;
-      };
-      byProject?: Array<{
-        projectId: string;
-        projectCode?: string;
-        planned: number;
-        forecast: number;
-        actual: number;
-      }>;
-    }>(`/budgets/all-in/overview?year=${year}`, {
-      method: "GET",
-    });
-    return data;
+    try {
+      const data = await http<{
+        year: number;
+        budgetAllIn: { amount: number; currency: string } | null;
+        totals: {
+          planned: number;
+          forecast: number;
+          actual: number;
+          varianceBudgetVsForecast: number;
+          varianceBudgetVsActual: number;
+          percentBudgetConsumedActual: number | null;
+          percentBudgetConsumedForecast: number | null;
+        };
+        byProject?: Array<{
+          projectId: string;
+          projectCode?: string;
+          planned: number;
+          forecast: number;
+          actual: number;
+        }>;
+      }>(`/budgets/all-in/overview?year=${year}`, {
+        method: "GET",
+      });
+      return data;
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null;
+      }
+      throw error;
+    }
   },
 
   /**
@@ -638,18 +648,25 @@ export const finanzasClient = {
     months: Array<{ month: string; amount: number }>;
     updated_at?: string;
     updated_by?: string;
-  }> {
+  } | null> {
     checkAuth();
-    const data = await http<{
-      year: number;
-      currency: string;
-      months: Array<{ month: string; amount: number }>;
-      updated_at?: string;
-      updated_by?: string;
-    }>(`/budgets/all-in/monthly?year=${year}`, {
-      method: "GET",
-    });
-    return data;
+    try {
+      const data = await http<{
+        year: number;
+        currency: string;
+        months: Array<{ month: string; amount: number }>;
+        updated_at?: string;
+        updated_by?: string;
+      }>(`/budgets/all-in/monthly?year=${year}`, {
+        method: "GET",
+      });
+      return data;
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null;
+      }
+      throw error;
+    }
   },
 
   /**

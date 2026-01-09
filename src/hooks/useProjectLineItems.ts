@@ -11,13 +11,13 @@ const lineItemsKey = (projectId?: string, baselineId?: string) =>
 export function useProjectLineItems(options?: { useFallback?: boolean; baselineId?: string }) {
   const { selectedProject } = useProject();
   const projectId = selectedProject?.id;
-  const projectBaselineId = selectedProject?.baseline_id;
+  const projectBaselineId = selectedProject?.baselineId;
   const queryClient = useQueryClient();
   const useFallback = options?.useFallback ?? false;
   const baselineId = options?.baselineId ?? projectBaselineId;
 
   const query = useQuery<LineItem[]>({
-    queryKey: lineItemsKey(projectId),
+    queryKey: lineItemsKey(projectId, baselineId),
     queryFn: async () => {
       if (!projectId || projectId === ALL_PROJECTS_ID) {
         throw new Error("Project is required before loading line items");
@@ -52,8 +52,10 @@ export function useProjectLineItems(options?: { useFallback?: boolean; baselineI
 
   const invalidate = useCallback(async () => {
     if (!projectId) return;
-    await queryClient.invalidateQueries({ queryKey: lineItemsKey(projectId) });
-  }, [projectId, queryClient]);
+    await queryClient.invalidateQueries({
+      queryKey: lineItemsKey(projectId, baselineId),
+    });
+  }, [projectId, baselineId, queryClient]);
 
   return {
     ...query,
