@@ -13,6 +13,35 @@ import { logError } from "../utils/logging";
 import { enqueueMaterialization } from "../lib/queue";
 import { logDataHealth } from "../lib/dataHealth";
 
+export type BaselineIdResolution =
+  | { baselineId: string }
+  | { error: "baseline_id mismatch" | "baseline_id is required" };
+
+export function resolveBaselineId({
+  requestBaselineId,
+  projectBaselineId,
+}: {
+  requestBaselineId?: string;
+  projectBaselineId?: string;
+}): BaselineIdResolution {
+  if (requestBaselineId && projectBaselineId) {
+    if (requestBaselineId !== projectBaselineId) {
+      return { error: "baseline_id mismatch" };
+    }
+    return { baselineId: requestBaselineId };
+  }
+
+  if (requestBaselineId) {
+    return { baselineId: requestBaselineId };
+  }
+
+  if (projectBaselineId) {
+    return { baselineId: projectBaselineId };
+  }
+
+  return { error: "baseline_id is required" };
+}
+
 // Route: PATCH /projects/{projectId}/accept-baseline
 async function acceptBaseline(event: APIGatewayProxyEventV2) {
   await ensureSDMT(event);
@@ -46,26 +75,17 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
   // Get baseline_id from request body or fall back to project metadata
   const requestBaselineId = body.baseline_id as string | undefined;
   const projectBaselineId = projectResult.Item.baseline_id as string | undefined;
-  
-  // Determine which baseline_id to use with explicit logic
-  let baselineId: string;
-  if (requestBaselineId) {
-    // Request provides baseline_id - validate it matches project if project has one
-    if (projectBaselineId && requestBaselineId !== projectBaselineId) {
-      return bad(
-        event,
-        `baseline_id mismatch: expected ${projectBaselineId}, got ${requestBaselineId}`,
-        400
-      );
-    }
-    baselineId = requestBaselineId;
-  } else if (projectBaselineId) {
-    // Fall back to project's baseline_id
-    baselineId = projectBaselineId;
-  } else {
-    // Neither request nor project has baseline_id
-    return bad(event, "baseline_id is required (provide in request body or ensure project has baseline_id)");
+
+  const baselineResolution = resolveBaselineId({
+    requestBaselineId,
+    projectBaselineId,
+  });
+
+  if ("error" in baselineResolution) {
+    return bad(event, baselineResolution.error, 400);
   }
+
+  const baselineId = baselineResolution.baselineId;
 
   const userEmail = await getUserEmail(event);
   const acceptedBy = (body.accepted_by || userEmail) as string;

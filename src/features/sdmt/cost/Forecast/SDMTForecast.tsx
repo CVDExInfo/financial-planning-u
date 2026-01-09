@@ -41,6 +41,7 @@ import { handleFinanzasApiError } from '@/features/sdmt/cost/utils/errorHandling
 import { useNavigate, useLocation } from 'react-router-dom';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
+import { computeTotals, computeVariance } from '@/lib/forecast/analytics';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
 import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros } from '@/api/finanzas';
@@ -154,6 +155,7 @@ export function SDMTForecast() {
     [lineItems]
   );
   const isPortfolioView = selectedProjectId === ALL_PROJECTS_ID;
+  const forecastMode: 'single' | 'all-projects' = isPortfolioView ? 'all-projects' : 'single';
   const lineItemsForGrid = isPortfolioView ? portfolioLineItems : safeLineItems;
   const projectStartDate = (currentProject as { start_date?: string } | null)?.start_date;
 
@@ -449,6 +451,7 @@ export function SDMTForecast() {
 
   const loadPortfolioForecast = async (months: number, requestKey: string) => {
     const candidateProjects = projects.filter(project => project.id && project.id !== ALL_PROJECTS_ID);
+    // TODO(SDMT): Replace per-project fan-out with aggregate portfolio endpoints when available.
 
     // Guard: Don't error out if projects haven't loaded yet
     // Only show error after we're sure the list is definitively empty
@@ -825,9 +828,15 @@ export function SDMTForecast() {
       // If 404, it means no monthly budgets are set for this year - that's okay
       if (isBudgetNotFoundError(error)) {
         console.warn(`[SDMTForecast] ⚠️ Monthly budget not found for ${year}`);
-        setMonthlyBudgets([]);
+        setMonthlyBudgets(
+          Array.from({ length: 12 }, (_, index) => ({
+            month: index + 1,
+            budget: 0,
+          }))
+        );
         setMonthlyBudgetLastUpdated(null);
         setMonthlyBudgetUpdatedBy(null);
+        setUseMonthlyBudget(false);
       } else {
         console.error('Error loading monthly budget:', error);
         
@@ -1063,23 +1072,24 @@ export function SDMTForecast() {
       });
 
       // Calculate and add sub-total row
+      const subtotalSource = categoryItems.flatMap(item => item.monthlyData);
+      const subtotalTotals = computeTotals(subtotalSource, months);
       const subtotalMonthlyData = months.map(month => {
-        const monthTotals = categoryItems.reduce((totals, item) => {
-          const cell = item.monthlyData.find(c => c.month === month);
-          return {
-            planned: totals.planned + (cell?.planned || 0),
-            forecast: totals.forecast + (cell?.forecast || 0),
-            actual: totals.actual + (cell?.actual || 0),
-          };
-        }, { planned: 0, forecast: 0, actual: 0 });
+        const totals = subtotalTotals.byMonth[month] || {
+          planned: 0,
+          forecast: 0,
+          actual: 0,
+          varianceForecast: 0,
+          varianceActual: 0,
+        };
 
         return {
           line_item_id: `subtotal-${category}-${month}`,
           month,
-          planned: monthTotals.planned,
-          forecast: monthTotals.forecast,
-          actual: monthTotals.actual,
-          variance: monthTotals.forecast - monthTotals.planned,
+          planned: totals.planned,
+          forecast: totals.forecast,
+          actual: totals.actual,
+          variance: totals.varianceForecast,
           last_updated: '',
           updated_by: '',
         } as ForecastRow;
@@ -1099,31 +1109,38 @@ export function SDMTForecast() {
     return lineItemsForGrid.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
   }, [lineItemsForGrid]);
 
+  const monthsForTotals = useMemo(() => {
+    if (selectedPeriod === 'CURRENT_MONTH') {
+      return [getCurrentMonthIndex()];
+    }
+
+    const count = Number.parseInt(selectedPeriod, 10);
+    if (Number.isFinite(count) && count > 0 && count <= 12) {
+      return Array.from({ length: count }, (_, i) => i + 1);
+    }
+
+    return Array.from({ length: 12 }, (_, i) => i + 1);
+  }, [selectedPeriod, projectStartDate, isPortfolioView]);
+
   // Calculate totals and metrics - using useMemo to ensure it updates when data changes
+  const totals = useMemo(
+    () => computeTotals(filteredForecastData, monthsForTotals),
+    [filteredForecastData, monthsForTotals]
+  );
+
   const baseMetrics = useMemo(() => {
-    const totalPlanned = filteredForecastData.reduce((sum, cell) => sum + (cell.planned || 0), 0);
-    const totalForecast = filteredForecastData.reduce((sum, cell) => sum + (cell.forecast || 0), 0);
-    const totalActual = filteredForecastData.reduce((sum, cell) => sum + (cell.actual || 0), 0);
-    
-    // SDMT ALIGNMENT FIX: Calculate variances at aggregate level, not sum of cell variances
-    // Variación de Pronóstico = difference between total forecast and total planned
-    const totalVariance = totalForecast - totalPlanned;
-    const variancePercentage = totalPlanned > 0 ? (totalVariance / totalPlanned) * 100 : 0;
-    
-    // Variación Real = difference between actual and planned (not actual vs forecast)
-    // This represents how much actual costs deviate from the original plan/baseline.
-    // Previously calculated as (actual - forecast), but business requirement per screenshots
-    // shows this should be (actual - planned) to measure variance from baseline budget.
-    const actualVariance = totalActual - totalPlanned;
-    const actualVariancePercentage = totalPlanned > 0 ? (actualVariance / totalPlanned) * 100 : 0;
+    const { overall } = totals;
+    const totalVariance = overall.varianceForecast;
+    const actualVariance = overall.varianceActual;
 
     if (import.meta.env.DEV && filteredForecastData.length > 0) {
       console.debug('[Forecast] Metrics recalculated', {
         projectId: selectedProjectId,
+        forecastMode,
         selectedPeriod,
-        totalPlanned,
-        totalForecast,
-        totalActual,
+        totalPlanned: overall.planned,
+        totalForecast: overall.forecast,
+        totalActual: overall.actual,
         totalVariance,
         actualVariance,
       });
@@ -1131,14 +1148,14 @@ export function SDMTForecast() {
 
     return {
       totalVariance,
-      totalPlanned,
-      totalForecast,
-      totalActual,
-      variancePercentage,
+      totalPlanned: overall.planned,
+      totalForecast: overall.forecast,
+      totalActual: overall.actual,
+      variancePercentage: overall.varianceForecastPercent,
       actualVariance,
-      actualVariancePercentage
+      actualVariancePercentage: overall.varianceActualPercent,
     };
-  }, [filteredForecastData, selectedProjectId, selectedPeriod]);
+  }, [filteredForecastData, forecastMode, selectedPeriod, totals, selectedProjectId]);
 
   // Apply budget simulation overlay to base metrics
   const metrics = useMemo(() => {
@@ -1224,39 +1241,54 @@ export function SDMTForecast() {
     return annualBudget > 0;
   }, [budgetAmount]);
 
+  const varianceSeries = useMemo(() => {
+    if (!hasBudgetForVariance) return [];
+    return computeVariance({
+      plan: monthlyBudgetAllocations.map(allocation => allocation.planned),
+      forecast: monthlyBudgetAllocations.map(allocation => allocation.forecast),
+      actual: monthlyBudgetAllocations.map(allocation => allocation.actual),
+      budget: monthlyBudgetAllocations.map(allocation => allocation.budgetAllocated),
+    });
+  }, [hasBudgetForVariance, monthlyBudgetAllocations]);
+
+  const monthsForCharts = useMemo(() => {
+    if (selectedPeriod === 'CURRENT_MONTH') {
+      return [getCurrentMonthIndex()];
+    }
+    return Array.from({ length: 12 }, (_, i) => i + 1);
+  }, [selectedPeriod, projectStartDate, isPortfolioView]);
+
   // Chart data - recalculate when forecastData changes
   const monthlyTrends = useMemo(() => {
-    const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
-    const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
-    
-    // In current month mode, show only current month; otherwise show all 12
-    const monthsToShow = isCurrentMonthMode ? [currentMonthIndex] : Array.from({ length: 12 }, (_, i) => i + 1);
-    
-    const baseTrends = monthsToShow.map((month) => {
-      const monthData = forecastData.filter(cell => cell.month === month);
+    const trendTotals = computeTotals(forecastData, monthsForCharts);
+    const baseTrends = monthsForCharts.map((month) => {
+      const totals = trendTotals.byMonth[month] || {
+        planned: 0,
+        forecast: 0,
+        actual: 0,
+      };
       return {
         month,
-        Planned: monthData.reduce((sum, cell) => sum + (cell.planned || 0), 0),
-        Forecast: monthData.reduce((sum, cell) => sum + (cell.forecast || 0), 0),
-        Actual: monthData.reduce((sum, cell) => sum + (cell.actual || 0), 0)
+        Planned: totals.planned,
+        Forecast: totals.forecast,
+        Actual: totals.actual,
       };
     });
 
     if (import.meta.env.DEV && forecastData.length > 0) {
-      console.debug('[Forecast] Chart trends recalculated', { 
+      console.debug('[Forecast] Chart trends recalculated', {
         projectId: selectedProjectId,
-        isCurrentMonthMode,
-        currentMonthIndex,
-        monthsShown: monthsToShow.length
+        forecastMode,
+        monthsShown: monthsForCharts.length,
       });
     }
-    
+
     // Apply budget line when simulation is enabled OR when annual budget is set
     if (isPortfolioView && budgetSimulation.enabled && budgetTotal > 0) {
       // Use simulation budget (even distribution)
       return applyBudgetToTrends(baseTrends, budgetTotal);
     }
-    
+
     // When annual budget is set (not simulation), use allocated budget per month
     const annualBudget = parseFloat(budgetAmount);
     if (isPortfolioView && annualBudget > 0) {
@@ -1269,9 +1301,19 @@ export function SDMTForecast() {
         };
       });
     }
-    
+
     return baseTrends;
-  }, [forecastData, selectedProjectId, selectedPeriod, isPortfolioView, budgetSimulation.enabled, budgetTotal, budgetAmount, monthlyBudgetAllocations]);
+  }, [
+    forecastData,
+    monthsForCharts,
+    selectedProjectId,
+    forecastMode,
+    isPortfolioView,
+    budgetSimulation.enabled,
+    budgetTotal,
+    budgetAmount,
+    monthlyBudgetAllocations,
+  ]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -2368,11 +2410,11 @@ export function SDMTForecast() {
           charts.push(
             <StackedColumnsChart
               key={`variance-analysis-${selectedProjectId}`}
-              data={monthlyBudgetAllocations.map(allocation => {
-                const forecastVariance = allocation.forecast - allocation.budgetAllocated;
-                const actualVariance = allocation.actual - allocation.budgetAllocated;
+              data={varianceSeries.map(point => {
+                const forecastVariance = point.forecastVarianceBudget ?? 0;
+                const actualVariance = point.actualVarianceBudget ?? 0;
                 return {
-                  month: allocation.month,
+                  month: point.month,
                   'Forecast Over Budget': Math.max(0, forecastVariance),
                   'Forecast Under Budget': Math.abs(Math.min(0, forecastVariance)),
                   'Actual Over Budget': Math.max(0, actualVariance),

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { HAS_API_BASE } from "@/config/env";
+import { API_BASE, HAS_API_BASE } from "@/config/env";
 import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
 import httpClient, { HttpError } from "@/lib/http-client";
 
@@ -98,6 +98,21 @@ function normalizeDataArray<T>(payload: unknown): T[] {
 
   return [];
 }
+
+const logBudgetMonthlyFailure = (path: string, error: unknown) => {
+  if (!import.meta.env.DEV) return;
+
+  const status = error instanceof HttpError ? error.status : undefined;
+  const base = API_BASE ? API_BASE.replace(/\/+$/, "") : "";
+  const url = base ? `${base}/${path.replace(/^\/+/, "")}` : path;
+  const message = error instanceof Error ? error.message : String(error);
+
+  console.warn("[Finz] budgets/all-in/monthly failed after retries", {
+    url,
+    status,
+    message,
+  });
+};
 
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   if (!HAS_API_BASE) {
@@ -645,16 +660,22 @@ export const finanzasClient = {
     updated_by?: string;
   }> {
     checkAuth();
-    const data = await http<{
-      year: number;
-      currency: string;
-      months: Array<{ month: string; amount: number }>;
-      updated_at?: string;
-      updated_by?: string;
-    }>(`/budgets/all-in/monthly?year=${year}`, {
-      method: "GET",
-    });
-    return data;
+    const path = `/budgets/all-in/monthly?year=${year}`;
+    try {
+      const data = await http<{
+        year: number;
+        currency: string;
+        months: Array<{ month: string; amount: number }>;
+        updated_at?: string;
+        updated_by?: string;
+      }>(path, {
+        method: "GET",
+      });
+      return data;
+    } catch (error) {
+      logBudgetMonthlyFailure(path, error);
+      throw error;
+    }
   },
 
   /**
@@ -672,17 +693,23 @@ export const finanzasClient = {
     updated_by: string;
   }> {
     checkAuth();
-    const data = await http<{
-      year: number;
-      currency: string;
-      months: Array<{ month: string; amount: number }>;
-      updated_at: string;
-      updated_by: string;
-    }>(`/budgets/all-in/monthly`, {
-      method: "PUT",
-      body: JSON.stringify({ year, currency, months }),
-    });
-    return data;
+    const path = `/budgets/all-in/monthly`;
+    try {
+      const data = await http<{
+        year: number;
+        currency: string;
+        months: Array<{ month: string; amount: number }>;
+        updated_at: string;
+        updated_by: string;
+      }>(path, {
+        method: "PUT",
+        body: JSON.stringify({ year, currency, months }),
+      });
+      return data;
+    } catch (error) {
+      logBudgetMonthlyFailure(path, error);
+      throw error;
+    }
   },
 
   /**
