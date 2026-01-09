@@ -56,7 +56,7 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
 
   const safeProjects = Array.isArray(projects) ? projects : [];
   const sortedProjects = [...safeProjects].sort((a, b) =>
-    getProjectDisplay(a).name.localeCompare(getProjectDisplay(b).name, undefined, {
+    getProjectDisplay(a as any).name.localeCompare(getProjectDisplay(b as any).name, undefined, {
       sensitivity: "base",
     })
   );
@@ -175,7 +175,7 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
                       <CommandGroup className="overflow-visible">
                         {hasProjects &&
                           sortedProjects.map((project) => {
-                            const display = getProjectDisplay(project);
+                            const display = getProjectDisplay(project as any);
                             const isSelected = selectedProjectId === project.id;
                             const searchValue = `${display.name} ${display.code} ${display.id} ${display.client ?? ""}`;
 

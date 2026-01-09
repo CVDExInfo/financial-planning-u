@@ -107,14 +107,14 @@ export const RubroFormSchema = z.object({
   rubroId: z.string().min(1, 'Línea de gasto es requerida'),
   descripcion: z.string().optional(),
   tipo: z.enum(['una_vez', 'recurrente'], {
-    errorMap: () => ({ message: 'Tipo es requerido' })
+    message: 'Tipo es requerido',
   }),
   mes_inicio: z.number().min(1, 'Mes de inicio debe ser al menos 1').max(12, 'Mes de inicio debe ser máximo 12'),
   plazo_meses: z.number().min(1, 'Plazo debe ser al menos 1 mes'),
   cantidad: z.number().min(0, 'Cantidad debe ser mayor o igual a 0'),
   costo_unitario: z.number().min(0, 'Costo unitario debe ser mayor o igual a 0'),
   moneda: z.enum(['USD', 'EUR', 'MXN', 'COP'], {
-    errorMap: () => ({ message: 'Moneda es requerida' })
+    message: 'Moneda es requerida',
   }),
   notas: z.string().max(1000, 'Las notas no pueden exceder 1000 caracteres').optional(),
 });

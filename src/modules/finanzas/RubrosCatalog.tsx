@@ -272,9 +272,9 @@ export default function RubrosCatalog() {
         context="catalog"
         availableProjects={availableProjects}
         isSubmitting={isSubmitting}
-        initialRubro={selectedRubroWithTaxonomy ? {
-          categoria_codigo: selectedRubroWithTaxonomy.categoria_codigo || '',
-          rubroId: selectedRubroWithTaxonomy.rubro_id,
+        initialRubro={selectedRubro ? {
+          categoria_codigo: (selectedRubro as RubroWithTaxonomy).categoria_codigo || '',
+          rubroId: selectedRubro.rubro_id,
           tipo: 'recurrente', // Default
           mes_inicio: 1,
           plazo_meses: 12,

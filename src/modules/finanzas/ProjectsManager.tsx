@@ -138,7 +138,7 @@ export default function ProjectsManager() {
   const filteredProjects = React.useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return projects.filter((project) => {
-      const display = getProjectDisplay(project);
+      const display = getProjectDisplay(project as any);
       const matchesTerm = term
         ? [display.code, display.name, display.client, display.id]
             .filter(Boolean)
@@ -1079,7 +1079,7 @@ export default function ProjectsManager() {
                     </thead>
                     <tbody>
                       {visibleProjects.map((project: ProjectForUI) => {
-                        const display = getProjectDisplay(project);
+                        const display = getProjectDisplay(project as any);
                         const durationMonths =
                           calculateDurationInMonths(
                             project.start_date,

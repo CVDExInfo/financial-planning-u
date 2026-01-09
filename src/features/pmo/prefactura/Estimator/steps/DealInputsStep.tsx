@@ -1,4 +1,10 @@
-import { type Control, type Resolver, type SubmitHandler, useForm } from "react-hook-form";
+import {
+  type Control,
+  type Resolver,
+  type SubmitHandler,
+  type UseFormReturn,
+  useForm,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -59,7 +65,7 @@ interface DealInputsStepProps {
 
 export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
   const form = useForm<DealInputs>({
-    resolver: zodResolver(dealInputsSchema) as Resolver<DealInputs>,
+    resolver: zodResolver(dealInputsSchema) as Resolver<DealInputs, any, DealInputs>,
     defaultValues: data
       ? {
           ...data,
@@ -78,8 +84,8 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
           sdm_manager_email: "",
           assumptions: [],
         },
-      });
-  const control = form.control as unknown as Control<DealInputs>;
+  }) as UseFormReturn<DealInputs>;
+  const control = form.control as Control<DealInputs, any, DealInputs>;
 
   const assumptions = form.watch("assumptions") || [];
 
@@ -138,7 +144,10 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form
+          onSubmit={form.handleSubmit(onSubmit as SubmitHandler<DealInputs>)}
+          className="space-y-6"
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={control}
