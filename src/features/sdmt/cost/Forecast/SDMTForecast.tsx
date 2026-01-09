@@ -362,7 +362,6 @@ export function SDMTForecast() {
       );
       const totalCost = totalFromItem || unitCost * qty;
       const monthlyAmount = totalCost / actualMonths;
-      const resolvedProjectId = itemData.projectId || selectedProjectId;
       
       const monthlySeries = Array.isArray(itemData.monthly)
         ? itemData.monthly
