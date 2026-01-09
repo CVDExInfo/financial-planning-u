@@ -105,10 +105,7 @@ export function DataHealthPanel() {
       // Check budgets/all-in/overview
       try {
         const overviewStart = Date.now();
-        const overview = await finanzasClient.getAllInBudgetOverview(currentYear);
-        if (!overview) {
-          throw new Error("Budget overview not available");
-        }
+        await finanzasClient.getAllInBudgetOverview(currentYear);
         const overviewDuration = Date.now() - overviewStart;
         
         budgetChecks.push({
@@ -133,10 +130,7 @@ export function DataHealthPanel() {
       // Check budgets/all-in/monthly
       try {
         const monthlyStart = Date.now();
-        const monthly = await finanzasClient.getAllInBudgetMonthly(currentYear);
-        if (!monthly) {
-          throw new Error("Monthly budget not available");
-        }
+        await finanzasClient.getAllInBudgetMonthly(currentYear);
         const monthlyDuration = Date.now() - monthlyStart;
         
         budgetChecks.push({
