@@ -25,6 +25,10 @@ function createMemoryStorage() {
       store.delete(key);
     },
     clear: () => store.clear(),
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
+    get length() {
+      return store.size;
+    },
   } as Storage;
 }
 
@@ -57,19 +61,21 @@ const sampleRequest: BaselineCreateRequest = {
   created_by: "tester@example.com",
   labor_estimates: [
     {
+      rubroId: "LAB-ENG",
       role: "Engineer",
-      level: "Senior",
+      country: "MX",
+      level: "senior",
       fte_count: 1,
       hours_per_month: 160,
       start_month: 1,
       end_month: 3,
       hourly_rate: 100,
       on_cost_percentage: 20,
-      currency: "USD",
     },
   ],
   non_labor_estimates: [
     {
+      rubroId: "NONLAB-TOOLS",
       category: "Tools",
       description: "Software",
       amount: 500,

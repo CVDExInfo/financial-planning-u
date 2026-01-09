@@ -7,10 +7,22 @@
  * 3. Match by normalized description (fallback)
  */
 
-import { describe, it, expect } from 'vitest';
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { matchInvoiceToCell } from '../useSDMTForecastData';
 
 describe('Invoice Matching Logic', () => {
+  const baseCell = {
+    line_item_id: '',
+    month: 1,
+    planned: 0,
+    forecast: 0,
+    actual: 0,
+    variance: 0,
+    last_updated: new Date().toISOString(),
+    updated_by: 'test-user',
+  };
+
   it('should match by line_item_id (highest priority)', () => {
     const invoice = {
       line_item_id: 'LI-123',
@@ -19,12 +31,13 @@ describe('Invoice Matching Logic', () => {
     };
     
     const cell = {
+      ...baseCell,
       line_item_id: 'LI-123',
       rubroId: 'RUBRO-456',
       description: 'Original Description'
     };
     
-    expect(matchInvoiceToCell(invoice, cell)).toBe(true);
+    assert.equal(matchInvoiceToCell(invoice, cell), true);
   });
 
   it('should match by rubroId when line_item_id is not available', () => {
@@ -34,11 +47,12 @@ describe('Invoice Matching Logic', () => {
     };
     
     const cell = {
+      ...baseCell,
       rubroId: 'RUBRO-456',
       description: 'Original Description'
     };
     
-    expect(matchInvoiceToCell(invoice, cell)).toBe(true);
+    assert.equal(matchInvoiceToCell(invoice, cell), true);
   });
 
   it('should match by normalized description as fallback', () => {
@@ -47,10 +61,11 @@ describe('Invoice Matching Logic', () => {
     };
     
     const cell = {
+      ...baseCell,
       description: 'Software License'
     };
     
-    expect(matchInvoiceToCell(invoice, cell)).toBe(true);
+    assert.equal(matchInvoiceToCell(invoice, cell), true);
   });
 
   it('should handle case-insensitive description matching', () => {
@@ -59,10 +74,11 @@ describe('Invoice Matching Logic', () => {
     };
     
     const cell = {
+      ...baseCell,
       description: 'software license'
     };
     
-    expect(matchInvoiceToCell(invoice, cell)).toBe(true);
+    assert.equal(matchInvoiceToCell(invoice, cell), true);
   });
 
   it('should not match when nothing matches', () => {
@@ -73,22 +89,24 @@ describe('Invoice Matching Logic', () => {
     };
     
     const cell = {
+      ...baseCell,
       line_item_id: 'LI-123',
       rubroId: 'RUBRO-456',
       description: 'Original Description'
     };
     
-    expect(matchInvoiceToCell(invoice, cell)).toBe(false);
+    assert.equal(matchInvoiceToCell(invoice, cell), false);
   });
 
   it('should return false for null invoice', () => {
     const cell = {
+      ...baseCell,
       line_item_id: 'LI-123',
       rubroId: 'RUBRO-456',
       description: 'Original Description'
     };
     
-    expect(matchInvoiceToCell(null, cell)).toBe(false);
+    assert.equal(matchInvoiceToCell(null, cell), false);
   });
 
   it('should prefer line_item_id even when other fields differ', () => {
@@ -99,13 +117,14 @@ describe('Invoice Matching Logic', () => {
     };
     
     const cell = {
+      ...baseCell,
       line_item_id: 'LI-123',
       rubroId: 'RUBRO-RIGHT',
       description: 'Right Description'
     };
     
     // Should match on line_item_id despite other differences
-    expect(matchInvoiceToCell(invoice, cell)).toBe(true);
+    assert.equal(matchInvoiceToCell(invoice, cell), true);
   });
 });
 
@@ -118,8 +137,8 @@ describe('Variance Calculations', () => {
     const varianceActual = actual - planned;
     const varianceForecast = forecast - planned;
     
-    expect(varianceActual).toBe(200); // actual is 200 more than planned
-    expect(varianceForecast).toBe(100); // forecast is 100 more than planned
+    assert.equal(varianceActual, 200); // actual is 200 more than planned
+    assert.equal(varianceForecast, 100); // forecast is 100 more than planned
   });
 
   it('should calculate varianceForecast when no invoice matches', () => {
@@ -129,8 +148,8 @@ describe('Variance Calculations', () => {
     const varianceActual = null; // no actual data
     const varianceForecast = forecast - planned;
     
-    expect(varianceActual).toBe(null);
-    expect(varianceForecast).toBe(-100); // forecast is 100 less than planned
+    assert.equal(varianceActual, null);
+    assert.equal(varianceForecast, -100); // forecast is 100 less than planned
   });
 
   it('should handle null forecast gracefully', () => {
@@ -139,6 +158,6 @@ describe('Variance Calculations', () => {
     
     const varianceForecast = forecast != null ? forecast - planned : null;
     
-    expect(varianceForecast).toBe(null);
+    assert.equal(varianceForecast, null);
   });
 });

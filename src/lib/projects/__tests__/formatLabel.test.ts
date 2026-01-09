@@ -2,7 +2,8 @@
  * Tests for project label formatting utilities
  */
 
-import { describe, it, expect } from "@jest/globals";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import {
   formatProjectLabel,
   formatProjectLabelWithClient,
@@ -20,7 +21,7 @@ describe("formatProjectLabel", () => {
     };
 
     const result = formatProjectLabel(project);
-    expect(result).toBe("PRJ-001 – Mobile App");
+    assert.equal(result, "PRJ-001 – Mobile App");
   });
 
   it("should show only code in id-only mode", () => {
@@ -31,7 +32,7 @@ describe("formatProjectLabel", () => {
     };
 
     const result = formatProjectLabel(project, "id-only");
-    expect(result).toBe("PRJ-001");
+    assert.equal(result, "PRJ-001");
   });
 
   it("should show only name in name-only mode", () => {
@@ -42,7 +43,7 @@ describe("formatProjectLabel", () => {
     };
 
     const result = formatProjectLabel(project, "name-only");
-    expect(result).toBe("Mobile App");
+    assert.equal(result, "Mobile App");
   });
 
   it("should fallback to code when name is missing in name-only mode", () => {
@@ -53,7 +54,7 @@ describe("formatProjectLabel", () => {
     };
 
     const result = formatProjectLabel(project, "name-only");
-    expect(result).toBe("PRJ-001");
+    assert.equal(result, "PRJ-001");
   });
 
   it("should prefer code over id for display", () => {
@@ -64,7 +65,7 @@ describe("formatProjectLabel", () => {
     };
 
     const result = formatProjectLabel(project);
-    expect(result).toBe("P-5ae50ace – Project Alpha");
+    assert.equal(result, "P-5ae50ace – Project Alpha");
   });
 
   it("should use id when code is missing", () => {
@@ -74,7 +75,7 @@ describe("formatProjectLabel", () => {
     };
 
     const result = formatProjectLabel(project);
-    expect(result).toBe("PRJ-001 – Mobile App");
+    assert.equal(result, "PRJ-001 – Mobile App");
   });
 
   it("should handle missing name gracefully", () => {
@@ -84,7 +85,7 @@ describe("formatProjectLabel", () => {
     };
 
     const result = formatProjectLabel(project);
-    expect(result).toBe("PRJ-001");
+    assert.equal(result, "PRJ-001");
   });
 
   it("should handle missing code gracefully", () => {
@@ -94,7 +95,7 @@ describe("formatProjectLabel", () => {
     };
 
     const result = formatProjectLabel(project);
-    expect(result).toBe("PRJ-001 – Mobile App");
+    assert.equal(result, "PRJ-001 – Mobile App");
   });
 
   it("should trim whitespace from code and name", () => {
@@ -105,7 +106,7 @@ describe("formatProjectLabel", () => {
     };
 
     const result = formatProjectLabel(project);
-    expect(result).toBe("PRJ-001 – Mobile App");
+    assert.equal(result, "PRJ-001 – Mobile App");
   });
 
   it("should handle empty strings as missing values", () => {
@@ -116,7 +117,7 @@ describe("formatProjectLabel", () => {
     };
 
     const result = formatProjectLabel(project);
-    expect(result).toBe("PRJ-001");
+    assert.equal(result, "PRJ-001");
   });
 
   it("should handle null values", () => {
@@ -127,7 +128,7 @@ describe("formatProjectLabel", () => {
     };
 
     const result = formatProjectLabel(project);
-    expect(result).toBe("PRJ-001");
+    assert.equal(result, "PRJ-001");
   });
 
   it("should return fallback when all fields are missing", () => {
@@ -136,7 +137,7 @@ describe("formatProjectLabel", () => {
     };
 
     const result = formatProjectLabel(project);
-    expect(result).toBe("Unknown Project");
+    assert.equal(result, "Unknown Project");
   });
 });
 
@@ -150,7 +151,7 @@ describe("formatProjectLabelWithClient", () => {
     };
 
     const result = formatProjectLabelWithClient(project, "id-and-name", true);
-    expect(result).toBe("PRJ-001 – Mobile App (ACME Corp)");
+    assert.equal(result, "PRJ-001 – Mobile App (ACME Corp)");
   });
 
   it("should not include client when includeClient is false", () => {
@@ -162,7 +163,7 @@ describe("formatProjectLabelWithClient", () => {
     };
 
     const result = formatProjectLabelWithClient(project, "id-and-name", false);
-    expect(result).toBe("PRJ-001 – Mobile App");
+    assert.equal(result, "PRJ-001 – Mobile App");
   });
 
   it("should handle missing client gracefully", () => {
@@ -173,7 +174,7 @@ describe("formatProjectLabelWithClient", () => {
     };
 
     const result = formatProjectLabelWithClient(project, "id-and-name", true);
-    expect(result).toBe("PRJ-001 – Mobile App");
+    assert.equal(result, "PRJ-001 – Mobile App");
   });
 
   it("should trim client whitespace", () => {
@@ -185,7 +186,7 @@ describe("formatProjectLabelWithClient", () => {
     };
 
     const result = formatProjectLabelWithClient(project, "id-and-name", true);
-    expect(result).toBe("PRJ-001 – Mobile App (ACME Corp)");
+    assert.equal(result, "PRJ-001 – Mobile App (ACME Corp)");
   });
 });
 
@@ -196,7 +197,7 @@ describe("getProjectCode", () => {
       code: "PRJ-001",
     };
 
-    expect(getProjectCode(project)).toBe("PRJ-001");
+    assert.equal(getProjectCode(project), "PRJ-001");
   });
 
   it("should fallback to id when code is missing", () => {
@@ -204,7 +205,7 @@ describe("getProjectCode", () => {
       id: "PRJ-001",
     };
 
-    expect(getProjectCode(project)).toBe("PRJ-001");
+    assert.equal(getProjectCode(project), "PRJ-001");
   });
 
   it("should return empty string when both are missing", () => {
@@ -212,7 +213,7 @@ describe("getProjectCode", () => {
       id: "",
     };
 
-    expect(getProjectCode(project)).toBe("");
+    assert.equal(getProjectCode(project), "");
   });
 });
 
@@ -223,7 +224,7 @@ describe("getProjectName", () => {
       name: "Mobile App",
     };
 
-    expect(getProjectName(project)).toBe("Mobile App");
+    assert.equal(getProjectName(project), "Mobile App");
   });
 
   it("should return fallback when name is missing", () => {
@@ -231,7 +232,7 @@ describe("getProjectName", () => {
       id: "PRJ-001",
     };
 
-    expect(getProjectName(project)).toBe("Unnamed Project");
+    assert.equal(getProjectName(project), "Unnamed Project");
   });
 
   it("should return fallback when name is empty string", () => {
@@ -240,7 +241,7 @@ describe("getProjectName", () => {
       name: "",
     };
 
-    expect(getProjectName(project)).toBe("Unnamed Project");
+    assert.equal(getProjectName(project), "Unnamed Project");
   });
 
   it("should trim whitespace", () => {
@@ -249,6 +250,6 @@ describe("getProjectName", () => {
       name: "  Mobile App  ",
     };
 
-    expect(getProjectName(project)).toBe("Mobile App");
+    assert.equal(getProjectName(project), "Mobile App");
   });
 });
