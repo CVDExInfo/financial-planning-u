@@ -88,7 +88,10 @@ export function DataHealthPanel() {
 
     // Test budget overview endpoint
     try {
-      await finanzasClient.getAllInBudgetOverview(currentYear);
+      const overview = await finanzasClient.getAllInBudgetOverview(currentYear);
+      if (!overview) {
+        throw new Error("Budget overview not available");
+      }
       statuses.push({
         endpoint: `/budgets/all-in/overview?year=${currentYear}`,
         status: 'ok',
@@ -105,7 +108,10 @@ export function DataHealthPanel() {
 
     // Test monthly budget endpoint
     try {
-      await finanzasClient.getAllInBudgetMonthly(currentYear);
+      const monthly = await finanzasClient.getAllInBudgetMonthly(currentYear);
+      if (!monthly) {
+        throw new Error("Monthly budget not available");
+      }
       statuses.push({
         endpoint: `/budgets/all-in/monthly?year=${currentYear}`,
         status: 'ok',
