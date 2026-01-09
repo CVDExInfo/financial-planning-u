@@ -35,6 +35,19 @@ export const resolveAnnualBudgetState = ({
   year: number;
   defaultCurrency?: string;
 }): AnnualBudgetResolution => {
+  // Handle null budget response (404 from API)
+  if (budget === null) {
+    return {
+      status: 'missing',
+      state: {
+        amount: '',
+        currency: defaultCurrency,
+        lastUpdated: null,
+        missingYear: year,
+      },
+    };
+  }
+
   if (error) {
     if (isBudgetNotFoundError(error)) {
       return {
