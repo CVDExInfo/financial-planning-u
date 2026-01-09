@@ -215,7 +215,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         createdBy: userEmail,
       });
 
-      const baselineRequest: PrefacturaBaselinePayload = {
+      const baselineRequest = {
         project_id: prefacturaProjectId,
         project_name: dealInputs.project_name,
         project_description: dealInputs.project_description,
@@ -230,19 +230,22 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         labor_estimates: laborEstimates,
         non_labor_estimates: nonLaborEstimates,
         fx_indexation: fxIndexationData ?? undefined,
-        supporting_documents: supportingDocs.map((doc) => ({
-          document_id: doc.documentId || doc.document_id,
-          document_key: doc.documentKey || doc.document_key || "",
-          original_name: doc.originalName || doc.original_name,
-          uploaded_at:
-            doc.uploadedAt || doc.uploaded_at || new Date().toISOString(),
-          content_type:
-            doc.contentType || doc.content_type || "application/octet-stream",
-        })),
+        supporting_documents: supportingDocs.map((doc) => {
+          const docMeta = doc as Record<string, any>;
+          return {
+            document_id: docMeta.documentId || docMeta.document_id,
+            document_key: docMeta.documentKey || docMeta.document_key || "",
+            original_name: docMeta.originalName || docMeta.original_name,
+            uploaded_at:
+              docMeta.uploadedAt || docMeta.uploaded_at || new Date().toISOString(),
+            content_type:
+              docMeta.contentType || docMeta.content_type || "application/octet-stream",
+          };
+        }),
         signed_by: userEmail,
         signed_role: "PMO",
         signed_at: new Date().toISOString(),
-      };
+      } as PrefacturaBaselinePayload;
 
       const baseline = await createPrefacturaBaseline(baselineRequest);
 
@@ -337,14 +340,16 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
         laborPercentage,
       });
 
-      await handoffBaseline(projectId, {
+      const handoffPayload = {
         baseline_id: baselineId,
         mod_total: grandTotalLocal,
         pct_ingenieros: laborPercentage,
         pct_sdm: 100 - laborPercentage,
         project_name: dealInputs?.project_name,
         client_name: dealInputs?.client_name,
-      });
+      } as any;
+
+      await handoffBaseline(projectId, handoffPayload);
 
       toast.success("✓ Project successfully handed off to SDMT team!");
 

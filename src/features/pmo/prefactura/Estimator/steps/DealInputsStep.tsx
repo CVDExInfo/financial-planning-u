@@ -89,7 +89,7 @@ export function DealInputsStep({ data, setData, onNext }: DealInputsStepProps) {
 
   const assumptions = form.watch("assumptions") || [];
 
-  const onSubmit = (formData: DealInputs) => {
+  const onSubmit: SubmitHandler<DealInputs> = (formData) => {
     console.log("📋 Deal Inputs submitted:", {
       projectName: formData.project_name,
       client: formData.client_name,

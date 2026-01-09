@@ -25,6 +25,10 @@ function createMemoryStorage() {
       store.delete(key);
     },
     clear: () => store.clear(),
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
+    get length() {
+      return store.size;
+    },
   } as Storage;
 }
 
@@ -57,6 +61,7 @@ const sampleRequest: BaselineCreateRequest = {
   created_by: "tester@example.com",
   labor_estimates: [
     {
+      rubroId: "LAB-ENG",
       role: "Engineer",
       level: "senior",
       rubroId: "LAB-ENG",
@@ -67,7 +72,6 @@ const sampleRequest: BaselineCreateRequest = {
       end_month: 3,
       hourly_rate: 100,
       on_cost_percentage: 20,
-      currency: "USD",
     },
   ],
   non_labor_estimates: [

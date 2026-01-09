@@ -30,7 +30,7 @@ describe('BudgetSimulatorCard', () => {
       
       assert.strictEqual(enabledState.enabled, true);
       assert.strictEqual(typeof enabledState.budgetTotal, 'number');
-      assert.ok(enabledState.budgetTotal > 0);
+      assert.ok(Number(enabledState.budgetTotal) > 0);
     });
 
     it('should handle optional estimatedOverride', () => {
