@@ -1,8 +1,13 @@
 import { BatchWriteCommand, BatchWriteCommandInput } from "@aws-sdk/lib-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
-import { ddb, tableName } from "./dynamo";
+import { ddb, tableName, GetCommand, ScanCommand } from "./dynamo";
 import { logError } from "../utils/logging";
 import { batchGetExistingItems } from "./dynamodbHelpers";
+import {
+  getCanonicalRubroId,
+  mapModRoleToRubroId,
+  mapNonLaborCategoryToRubroId,
+} from "./rubros-taxonomy";
 
 interface BaselineLike {
   baseline_id?: string;
@@ -28,6 +33,80 @@ const MONTH_FORMAT = new Intl.DateTimeFormat("en", {
 });
 
 const asArray = (value: unknown): any[] => (Array.isArray(value) ? value : []);
+
+const UNMAPPED_RUBRO_ID = "UNMAPPED";
+const TAXONOMY_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type RubroTaxonomyEntry = {
+  linea_codigo?: string;
+  categoria?: string;
+  descripcion?: string;
+  linea_gasto?: string;
+  categoria_codigo?: string;
+  tipo_costo?: string;
+  tipo_ejecucion?: string;
+};
+
+type TaxonomyIndex = {
+  fetchedAt: number;
+  byCategoryDescription: Map<string, RubroTaxonomyEntry>;
+  byDescription: Map<string, RubroTaxonomyEntry>;
+};
+
+let taxonomyIndexCache: TaxonomyIndex | null = null;
+
+const normalizeKeyPart = (value?: string | null) =>
+  (value || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const taxonomyKey = (category?: string | null, description?: string | null) =>
+  `${normalizeKeyPart(category)}|${normalizeKeyPart(description)}`;
+
+const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
+  const now = Date.now();
+  if (taxonomyIndexCache && now - taxonomyIndexCache.fetchedAt < TAXONOMY_CACHE_TTL_MS) {
+    return taxonomyIndexCache;
+  }
+
+  const entries: RubroTaxonomyEntry[] = [];
+  try {
+    const scan = await ddb.send(
+      new ScanCommand({
+        TableName: tableName("rubros_taxonomia"),
+        ProjectionExpression:
+          "linea_codigo, categoria, descripcion, linea_gasto, categoria_codigo, tipo_costo, tipo_ejecucion",
+      })
+    );
+    entries.push(...(((scan as any)?.Items || []) as RubroTaxonomyEntry[]));
+  } catch (error) {
+    logError("[materializers] failed to scan rubros_taxonomia", { error });
+  }
+
+  const byCategoryDescription = new Map<string, RubroTaxonomyEntry>();
+  const byDescription = new Map<string, RubroTaxonomyEntry>();
+
+  for (const entry of entries) {
+    const description =
+      entry.descripcion || entry.linea_gasto || entry.linea_codigo || "";
+    if (entry.categoria || description) {
+      byCategoryDescription.set(taxonomyKey(entry.categoria, description), entry);
+    }
+    if (description) {
+      byDescription.set(normalizeKeyPart(description), entry);
+    }
+  }
+
+  taxonomyIndexCache = {
+    fetchedAt: now,
+    byCategoryDescription,
+    byDescription,
+  };
+
+  return taxonomyIndexCache;
+};
 
 /**
  * Unmarshall DynamoDB-formatted data if it contains type descriptors
@@ -96,6 +175,259 @@ const normalizeBaseline = (baseline: BaselineLike) => {
       "USD",
     laborEstimates: labor.length > 0 ? labor : payloadLabor,
     nonLaborEstimates: nonLabor.length > 0 ? nonLabor : payloadNonLabor,
+  };
+};
+
+type BaselineLaborEstimate = {
+  rubroId?: string;
+  rubro_id?: string;
+  role?: string;
+  level?: string;
+  country?: string;
+  hours_per_month?: number;
+  hoursPerMonth?: number;
+  hours?: number;
+  fte_count?: number;
+  fteCount?: number;
+  hourly_rate?: number;
+  hourlyRate?: number;
+  rate?: number;
+  on_cost_percentage?: number;
+  onCostPercentage?: number;
+  start_month?: number;
+  startMonth?: number;
+  end_month?: number;
+  endMonth?: number;
+  id?: string;
+  line_item_id?: string;
+};
+
+type BaselineNonLaborEstimate = {
+  rubroId?: string;
+  rubro_id?: string;
+  category?: string;
+  descripcion?: string;
+  description?: string;
+  amount?: number;
+  cost?: number;
+  total?: number;
+  vendor?: string;
+  proveedor?: string;
+  one_time?: boolean;
+  oneTime?: boolean;
+  start_month?: number;
+  startMonth?: number;
+  end_month?: number;
+  endMonth?: number;
+  id?: string;
+  line_item_id?: string;
+};
+
+const stableIdFromParts = (...parts: Array<string | number | undefined | null>) =>
+  parts
+    .filter((part) => part !== undefined && part !== null && `${part}`.length > 0)
+    .map((part) =>
+      `${part}`
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+    )
+    .join("-");
+
+const resolveTaxonomyLinea = async (
+  category?: string,
+  description?: string
+): Promise<string | undefined> => {
+  const index = await ensureTaxonomyIndex();
+  const key = taxonomyKey(category, description);
+  const direct = index.byCategoryDescription.get(key);
+  if (direct?.linea_codigo) return direct.linea_codigo;
+
+  const fallback = index.byDescription.get(normalizeKeyPart(description || ""));
+  if (fallback?.linea_codigo) return fallback.linea_codigo;
+
+  return undefined;
+};
+
+export type BaselineRubrosBuildResult = {
+  items: Array<Record<string, any>>;
+  warnings: string[];
+  laborCount: number;
+  nonLaborCount: number;
+};
+
+export const buildRubrosFromBaselinePayload = async (
+  baselinePayload: Record<string, unknown>,
+  projectId: string,
+  baselineId: string
+): Promise<BaselineRubrosBuildResult> => {
+  const laborEstimates = asArray(
+    (baselinePayload as { labor_estimates?: BaselineLaborEstimate[] }).labor_estimates
+  ) as BaselineLaborEstimate[];
+  const nonLaborEstimates = asArray(
+    (baselinePayload as { non_labor_estimates?: BaselineNonLaborEstimate[] }).non_labor_estimates
+  ) as BaselineNonLaborEstimate[];
+  const currency = (baselinePayload as { currency?: string }).currency || "USD";
+
+  const warnings: string[] = [];
+  const items: Array<Record<string, any>> = [];
+
+  laborEstimates.forEach((estimate, index) => {
+    const explicitRubroId = estimate.rubroId || estimate.rubro_id;
+    const mappedFromRole = explicitRubroId
+      ? undefined
+      : mapModRoleToRubroId(estimate.role);
+    const canonicalRubroId =
+      getCanonicalRubroId(explicitRubroId || mappedFromRole || undefined) ||
+      (explicitRubroId ? undefined : mappedFromRole);
+
+    const resolvedLineaCodigo = canonicalRubroId || UNMAPPED_RUBRO_ID;
+    if (!canonicalRubroId) {
+      warnings.push(
+        `Labor estimate missing taxonomy mapping for role "${estimate.role ?? "unknown"}". Using ${UNMAPPED_RUBRO_ID}.`
+      );
+    }
+
+    const hoursPerMonth =
+      estimate.hours_per_month ?? estimate.hoursPerMonth ?? estimate.hours ?? 0;
+    const fteCount = estimate.fte_count ?? estimate.fteCount ?? 1;
+    const hourlyRate =
+      estimate.hourly_rate ?? estimate.hourlyRate ?? estimate.rate ?? 0;
+    const onCostPct =
+      estimate.on_cost_percentage ?? estimate.onCostPercentage ?? 0;
+
+    const baseCost = hoursPerMonth * fteCount * hourlyRate;
+    const onCost = baseCost * (Number(onCostPct) / 100);
+    const monthlyCost = baseCost + onCost;
+
+    const startMonth = Math.max(
+      Number(estimate.start_month ?? estimate.startMonth ?? 1),
+      1
+    );
+    const endMonth = Math.max(
+      Number(estimate.end_month ?? estimate.endMonth ?? startMonth),
+      startMonth
+    );
+    const monthsCount = endMonth - startMonth + 1;
+    const totalCost = monthlyCost * monthsCount;
+
+    const stableId =
+      estimate.id ||
+      estimate.line_item_id ||
+      stableIdFromParts(estimate.role, estimate.level, index + 1) ||
+      `labor-${index + 1}`;
+
+    const instanceId = `${baselineId}#labor#${stableId}`;
+
+    items.push({
+      pk: `PROJECT#${projectId}`,
+      sk: `RUBRO#${instanceId}`,
+      projectId,
+      baselineId,
+      rubroId: instanceId,
+      linea_codigo: resolvedLineaCodigo,
+      nombre: estimate.role || resolvedLineaCodigo,
+      descripcion: estimate.level
+        ? `${estimate.role ?? "Rol"} (${estimate.level})`
+        : estimate.role,
+      category: "Labor",
+      qty: 1,
+      unit_cost: monthlyCost,
+      currency,
+      recurring: true,
+      one_time: false,
+      start_month: startMonth,
+      end_month: endMonth,
+      total_cost: totalCost,
+      metadata: {
+        source: "baseline_materializer",
+        baseline_id: baselineId,
+        project_id: projectId,
+        role: estimate.role,
+        linea_codigo: resolvedLineaCodigo,
+      },
+    });
+  });
+
+  for (let index = 0; index < nonLaborEstimates.length; index += 1) {
+    const estimate = nonLaborEstimates[index];
+    const explicitRubroId = estimate.rubroId || estimate.rubro_id;
+    const category = estimate.category;
+    const description = estimate.description ?? estimate.descripcion;
+
+    let resolvedLineaCodigo =
+      getCanonicalRubroId(explicitRubroId) ||
+      mapNonLaborCategoryToRubroId(category) ||
+      mapNonLaborCategoryToRubroId(description);
+
+    if (!resolvedLineaCodigo) {
+      resolvedLineaCodigo = await resolveTaxonomyLinea(category, description);
+    }
+
+    if (!resolvedLineaCodigo) {
+      resolvedLineaCodigo = UNMAPPED_RUBRO_ID;
+      warnings.push(
+        `Non-labor estimate missing taxonomy mapping for "${category ?? ""} ${description ?? ""}". Using ${UNMAPPED_RUBRO_ID}.`
+      );
+    }
+
+    const amount = Number(estimate.amount ?? estimate.cost ?? estimate.total ?? 0);
+    const recurring = !(estimate.one_time ?? estimate.oneTime ?? false);
+    const startMonth = Math.max(
+      Number(estimate.start_month ?? estimate.startMonth ?? 1),
+      1
+    );
+    const endMonth = recurring
+      ? Math.max(
+          Number(estimate.end_month ?? estimate.endMonth ?? startMonth),
+          startMonth
+        )
+      : startMonth;
+    const monthsCount = recurring ? endMonth - startMonth + 1 : 1;
+    const totalCost = recurring ? amount * monthsCount : amount;
+
+    const stableId =
+      estimate.id ||
+      estimate.line_item_id ||
+      stableIdFromParts(description, category, index + 1) ||
+      `nonlabor-${index + 1}`;
+
+    const instanceId = `${baselineId}#nonlabor#${stableId}`;
+
+    items.push({
+      pk: `PROJECT#${projectId}`,
+      sk: `RUBRO#${instanceId}`,
+      projectId,
+      baselineId,
+      rubroId: instanceId,
+      linea_codigo: resolvedLineaCodigo,
+      nombre: description || category || resolvedLineaCodigo,
+      descripcion: description,
+      category: category || "Non-labor",
+      qty: 1,
+      unit_cost: amount,
+      currency,
+      recurring,
+      one_time: !recurring,
+      start_month: startMonth,
+      end_month: endMonth,
+      total_cost: totalCost,
+      metadata: {
+        source: "baseline_materializer",
+        baseline_id: baselineId,
+        project_id: projectId,
+        vendor: estimate.vendor ?? estimate.proveedor,
+        linea_codigo: resolvedLineaCodigo,
+      },
+    });
+  }
+
+  return {
+    items,
+    warnings,
+    laborCount: laborEstimates.length,
+    nonLaborCount: nonLaborEstimates.length,
   };
 };
 
@@ -269,82 +601,121 @@ export const materializeRubrosForBaseline = async (
   baseline: BaselineLike,
   options: MaterializerOptions = { dryRun: true }
 ) => {
-  const { baselineId, projectId, currency, laborEstimates, nonLaborEstimates, durationMonths } =
-    normalizeBaseline(baseline);
+  const normalized = normalizeBaseline(baseline);
+  const baselineId = normalized.baselineId;
+  const projectId = normalized.projectId;
 
-  const months = durationMonths || 1;
-  const lineItems = [...laborEstimates, ...nonLaborEstimates];
+  const payload =
+    (baseline.payload as Record<string, unknown> | undefined) ||
+    (baseline as Record<string, unknown>);
 
-  const rubros = lineItems.map((item) => {
-    const rubroId = item.rubroId || item.rubro_id || item.linea_codigo || item.id || "unknown";
-    const totalCost = resolveTotalCost(item, months);
-    const unitCost = Number(item.unit_cost ?? item.unitCost ?? item.amount ?? totalCost);
-    const quantity = Number(item.qty ?? item.quantity ?? 1);
-    const name = item.nombre || item.name || item.role || item.description || item.category || rubroId;
-    const description = item.descripcion || item.description || item.role || name;
-    const category = item.category || item.tipo_costo || item.type || "Unknown";
-    const tier = item.tier || item.level;
+  const { items, warnings, laborCount, nonLaborCount } =
+    await buildRubrosFromBaselinePayload(payload, projectId, baselineId);
 
-    return {
-      pk: `PROJECT#${projectId}`,
-      sk: `RUBRO#${rubroId}#BASELINE#${baselineId}`,
-      rubroId,
-      baselineId,
-      projectId,
-      name,
-      description,
-      tier,
-      category,
-      unitCost,
-      quantity,
-      totalCost,
-      currency,
-      source: "baseline_materializer",
-    };
-  });
+  if (!laborCount && !nonLaborCount) {
+    const error = new Error(
+      `Baseline ${baselineId} has no labor_estimates or non_labor_estimates to materialize.`
+    );
+    (error as { statusCode?: number }).statusCode = 500;
+    throw error;
+  }
 
-  const uniqueRubros = dedupeByKey(rubros, (item) => `${item.pk}#${item.sk}`);
+  const uniqueRubros = dedupeByKey(items, (item) => `${item.pk}#${item.sk}`);
 
   if (options.dryRun) {
-    return { dryRun: true, rubrosPlanned: uniqueRubros.length };
+    return { dryRun: true, rubrosPlanned: uniqueRubros.length, warnings };
   }
 
-  // Check for existing rubros to ensure idempotent writes using BatchGetItem
-  // Using batch-get to avoid N queries for large rubros lists.
-  const rubrosToWrite: any[] = [];
+  let existingKeys = new Set<string>();
   try {
-    const keys = uniqueRubros.map(rubro => ({ pk: rubro.pk, sk: rubro.sk }));
+    const keys = uniqueRubros.map((rubro) => ({ pk: rubro.pk, sk: rubro.sk }));
     const existingRubros = await batchGetExistingItems(tableName("rubros"), keys);
-    
-    // Create a Set of existing rubro keys for fast lookup
-    const existingKeys = new Set(
-      existingRubros.map(item => `${item.pk}#${item.sk}`)
-    );
-    
-    // Only add rubros that don't exist yet (idempotent)
-    for (const rubro of uniqueRubros) {
-      const key = `${rubro.pk}#${rubro.sk}`;
-      if (!existingKeys.has(key)) {
-        rubrosToWrite.push(rubro);
-      }
-    }
+    existingKeys = new Set(existingRubros.map((item) => `${item.pk}#${item.sk}`));
   } catch (error) {
-    // If batch get fails, log but write all (better to potentially duplicate than skip)
-    logError("[materializers] failed to batch check existing rubros", { 
-      baselineId, 
+    logError("[materializers] failed to batch check existing rubros", {
+      baselineId,
       projectId,
-      error 
+      error,
     });
-    rubrosToWrite.push(...uniqueRubros);
   }
+
+  const now = new Date().toISOString();
+  const rubrosToWrite = uniqueRubros.map((rubro) => ({
+    ...rubro,
+    createdAt: rubro.createdAt || now,
+    updatedAt: now,
+  }));
 
   try {
     if (rubrosToWrite.length > 0) {
       await batchWriteAll(tableName("rubros"), rubrosToWrite);
     }
-    return { dryRun: false, rubrosWritten: rubrosToWrite.length, rubrosSkipped: uniqueRubros.length - rubrosToWrite.length };
+    const rubrosWritten = rubrosToWrite.filter(
+      (item) => !existingKeys.has(`${item.pk}#${item.sk}`)
+    ).length;
+    const rubrosUpdated = rubrosToWrite.length - rubrosWritten;
+    return {
+      dryRun: false,
+      rubrosWritten,
+      rubrosUpdated,
+      rubrosSkipped: 0,
+      warnings,
+    };
   } catch (error) {
     logError("[materializers] failed to write rubros", { baselineId, projectId, error });
     throw error;
   }
+};
+
+export const materializeRubrosFromBaseline = async ({
+  projectId,
+  baselineId,
+  dryRun = false,
+}: {
+  projectId?: string;
+  baselineId: string;
+  dryRun?: boolean;
+}) => {
+  if (!baselineId) {
+    throw new Error("baselineId is required to materialize rubros");
+  }
+
+  const result = await ddb.send(
+    new GetCommand({
+      TableName: tableName("prefacturas"),
+      Key: { pk: `BASELINE#${baselineId}`, sk: "METADATA" },
+      ConsistentRead: true,
+    })
+  );
+
+  if (!result.Item) {
+    const error = new Error(`Baseline ${baselineId} not found in prefacturas store.`);
+    (error as { statusCode?: number }).statusCode = 404;
+    throw error;
+  }
+
+  const payload = result.Item;
+  const resolvedProjectId =
+    projectId ||
+    (payload.project_id as string | undefined) ||
+    (payload.projectId as string | undefined) ||
+    (payload.payload as Record<string, unknown> | undefined)?.project_id ||
+    (payload.payload as Record<string, unknown> | undefined)?.projectId;
+
+  if (!resolvedProjectId) {
+    const error = new Error(
+      `Baseline ${baselineId} does not include project_id; cannot materialize rubros.`
+    );
+    (error as { statusCode?: number }).statusCode = 500;
+    throw error;
+  }
+
+  return materializeRubrosForBaseline(
+    {
+      ...payload,
+      project_id: resolvedProjectId,
+      baseline_id: baselineId,
+    },
+    { dryRun }
+  );
 };

@@ -92,6 +92,7 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["lineItems", currentProject.id] }),
       queryClient.invalidateQueries({ queryKey: ["forecast", currentProject.id] }),
+      queryClient.invalidateQueries({ queryKey: ["rubrosSummary", currentProject.id] }),
     ]);
     
     // Force UI components to re-render with new data
@@ -232,13 +233,10 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
       
       if (result.success) {
         const rubrosWritten = result.result.rubrosWritten || 0;
-        toast.success(
-          `Materialización exitosa: ${rubrosWritten} rubro(s) creados`,
-          {
-            description: "Los rubros ahora aparecerán en el catálogo",
-            duration: 5000,
-          }
-        );
+        toast.success(`Rubros materializados: ${rubrosWritten}`, {
+          description: "Los rubros ahora aparecerán en el catálogo",
+          duration: 5000,
+        });
         
         // Refresh project data
         await refreshProject();

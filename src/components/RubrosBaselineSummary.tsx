@@ -1,5 +1,6 @@
 // src/components/RubrosBaselineSummary.tsx
 import React, { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { getBaselineSummary, runBackfill, type BaselineSummary } from '@/api/finanzas.baseline';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,6 +21,12 @@ export default function RubrosBaselineSummary({
   const [summary, setSummary] = useState<BaselineSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const queryClient = useQueryClient();
+
+  const refreshSummary = async () => {
+    const s = await getBaselineSummary(projectId);
+    setSummary(s);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -94,18 +101,22 @@ export default function RubrosBaselineSummary({
       
       if (result.success) {
         const rubrosWritten = result.result.rubrosWritten || 0;
-        toast.success(
-          `Materialización exitosa: ${rubrosWritten} rubro(s) creados`,
-          {
-            description: 'Los rubros ahora aparecerán en el catálogo',
-            duration: 5000,
-          }
-        );
+        toast.success(`Rubros materializados: ${rubrosWritten}`, {
+          description: 'Los rubros ahora aparecerán en el catálogo',
+          duration: 5000,
+        });
         
         // Call the callback to refresh the parent component
         if (onMaterializeComplete) {
           onMaterializeComplete();
         }
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['lineItems', projectId] }),
+          queryClient.invalidateQueries({ queryKey: ['forecast', projectId] }),
+          queryClient.invalidateQueries({ queryKey: ['rubrosSummary', projectId] }),
+        ]);
+        await refreshSummary();
       } else {
         toast.error('Error en materialización', {
           description: result.message || 'Revisa la consola para más detalles',
