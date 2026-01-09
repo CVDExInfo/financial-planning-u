@@ -186,23 +186,37 @@ export const seedLineItemsFromBaseline = async (
     // Check if this baseline has already been seeded
     // Query all rubros for this project and filter by baseline_id in code
     if (baselineId) {
-      const existing = await deps.send(
-        new QueryCommand({
-          TableName: deps.tableName("rubros"),
-          KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-          ExpressionAttributeValues: {
-            ":pk": `PROJECT#${projectId}`,
-            ":sk": "RUBRO#",
-          },
-        })
-      );
+      let lastEvaluatedKey: Record<string, unknown> | undefined;
+      let alreadySeededForBaseline = false;
 
-      // Filter in code by metadata.baseline_id or baselineId
-      const alreadySeededForBaseline = ((existing as any).Items || []).some(
-        (item: any) =>
-          item.metadata?.baseline_id === baselineId ||
-          item.baselineId === baselineId
-      );
+      do {
+        const existing = await deps.send(
+          new QueryCommand({
+            TableName: deps.tableName("rubros"),
+            KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+            ExpressionAttributeValues: {
+              ":pk": `PROJECT#${projectId}`,
+              ":sk": "RUBRO#",
+            },
+            ExclusiveStartKey: lastEvaluatedKey,
+          })
+        );
+
+        // Filter in code by metadata.baseline_id or baselineId
+        alreadySeededForBaseline = ((existing as any).Items || []).some(
+          (item: any) =>
+            item.metadata?.baseline_id === baselineId ||
+            item.baselineId === baselineId
+        );
+
+        if (alreadySeededForBaseline) {
+          break;
+        }
+
+        lastEvaluatedKey = (existing as any).LastEvaluatedKey as
+          | Record<string, unknown>
+          | undefined;
+      } while (lastEvaluatedKey);
 
       if (alreadySeededForBaseline) {
         console.info("[seedLineItems] Baseline already seeded, skipping", {
