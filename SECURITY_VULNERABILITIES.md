@@ -4,9 +4,12 @@ This document tracks the current status of security vulnerabilities in the repos
 
 ## Summary
 
-Last Updated: 2025-11-15
+Last Updated: 2026-01-09
 
 ### Root Package (`/package.json`)
+- ✅ **react-router** (High): Fixed by upgrading to v7.12.0
+- ✅ **react-router-dom** (Moderate): Fixed by upgrading to v7.12.0
+- ✅ **glob** (High): Fixed by upgrading to v10.5.0
 - ✅ **js-yaml** (Moderate): Fixed by overriding to v4.1.1
 - ✅ **esbuild** (Moderate): Not applicable (not a dependency)
 - ⚠️ **fast-redact** (Low): No fix available, mitigated via @mermaid-js/mermaid-cli v11.4.0
@@ -18,6 +21,46 @@ Last Updated: 2025-11-15
 - ✅ **js-yaml** (Moderate): Fixed by overriding to v4.1.1
 
 ## Detailed Vulnerability Information
+
+### react-router - HIGH SEVERITY ✅ FIXED
+
+**Status**: Fixed
+
+**Details**:
+- Previous Version: 7.11.0
+- Current Version: 7.12.0
+- CVE References:
+  - GHSA-h5cw-625j-3rxh: CSRF issue in Action/Server Action Request Processing (CVSS 6.5)
+  - GHSA-2w69-qvjg-hvjx: XSS via Open Redirects (CVSS 8.0)
+  - GHSA-8v8x-cx79-35w7: SSR XSS in ScrollRestoration (CVSS 8.2)
+- Fix: Upgraded to v7.12.0
+
+**Impact**: Production application - used for all routing and navigation in the Finanzas frontend
+
+### react-router-dom - MODERATE SEVERITY ✅ FIXED
+
+**Status**: Fixed
+
+**Details**:
+- Previous Version: 7.11.0
+- Current Version: 7.12.0
+- Depends on react-router (see above for CVE details)
+- Fix: Upgraded to v7.12.0
+
+**Impact**: Production application - used for all browser-based routing in the Finanzas frontend
+
+### glob - HIGH SEVERITY ✅ FIXED
+
+**Status**: Fixed
+
+**Details**:
+- Previous Version: 10.4.5
+- Current Version: 10.5.0
+- CVE Reference: GHSA-5j98-mcp5-4vw2 (Command injection via -c/--cmd executes matches with shell:true, CVSS 7.5)
+- Location: Indirect dependency via sucrase (development dependency)
+- Fix: Upgraded to v10.5.0
+
+**Impact**: Development environment only (devDependency)
 
 ### xlsx (SheetJS) - HIGH SEVERITY ⚠️
 
@@ -85,11 +128,14 @@ Last Updated: 2025-11-15
 
 ## Actions Taken
 
-1. ✅ Updated esbuild from v0.19.12 to v0.25.0 in finanzas-api
-2. ✅ Added npm overrides for js-yaml to force v4.1.1
-3. ✅ Downgraded @mermaid-js/mermaid-cli from v11.12.0 to v11.4.0
-4. ✅ Verified all tests pass after updates
-5. ⚠️ Documented xlsx vulnerability for monitoring
+1. ✅ Updated react-router from v7.11.0 to v7.12.0
+2. ✅ Updated react-router-dom from v7.11.0 to v7.12.0
+3. ✅ Updated glob from v10.4.5 to v10.5.0 (via npm audit fix)
+4. ✅ Updated esbuild from v0.19.12 to v0.25.0 in finanzas-api
+5. ✅ Added npm overrides for js-yaml to force v4.1.1
+6. ✅ Downgraded @mermaid-js/mermaid-cli from v11.12.0 to v11.4.0
+7. ✅ Verified all tests pass after updates
+8. ⚠️ Documented xlsx vulnerability for monitoring
 
 ## Monitoring
 
@@ -101,7 +147,8 @@ The following vulnerabilities should be monitored for updates:
 ## Testing
 
 All security updates have been validated:
-- ✅ Root package lint passes (with pre-existing warnings)
+- ✅ Root package: 0 vulnerabilities (npm audit)
+- ✅ Root package lint passes
 - ✅ Finanzas API tests pass (77/77 tests)
 - ✅ No breaking changes introduced
 
