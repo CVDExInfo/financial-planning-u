@@ -1280,27 +1280,6 @@ export function SDMTForecast() {
     [filteredForecastData, monthsForTotals]
   );
 
-  // Portfolio totals - for ALL_PROJECTS mode, compute from portfolioLineItems
-  // This ensures we have consistent totals regardless of filtering
-  const portfolioTotals = useMemo(() => {
-    if (!isPortfolioView || portfolioLineItems.length === 0) {
-      return totals; // Fallback to regular totals for single-project mode
-    }
-    // In portfolio mode, compute totals from all portfolio line items
-    const result = computeTotals(forecastData, monthsForTotals);
-    
-    if (import.meta.env.DEV) {
-      console.debug('[Forecast] Portfolio totals computed', {
-        portfolioMode: isPortfolioView,
-        totalProjects: portfolioLineItems.length,
-        forecastDataRows: forecastData.length,
-        overall: result.overall,
-      });
-    }
-    
-    return result;
-  }, [isPortfolioView, forecastData, portfolioLineItems.length, monthsForTotals, totals]);
-
   // Per-category totals - group by category and compute totals for each
   type CategoryTotals = Record<string, TotalsResult>;
   type RubroAggregate = {
