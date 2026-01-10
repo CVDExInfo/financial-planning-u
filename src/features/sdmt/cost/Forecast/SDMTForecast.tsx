@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +55,8 @@ import { PortfolioSummaryView } from './PortfolioSummaryView';
 import { ForecastSummaryBar } from './components/ForecastSummaryBar';
 import { ForecastChartsPanel } from './components/ForecastChartsPanel';
 import { ForecastRubrosTable } from './components/ForecastRubrosTable';
+import { TopVarianceProjectsTable } from './components/TopVarianceProjectsTable';
+import { TopVarianceRubrosTable } from './components/TopVarianceRubrosTable';
 import { DataHealthPanel } from '@/components/finanzas/DataHealthPanel';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
@@ -183,7 +185,7 @@ export function SDMTForecast() {
     };
   } | null>(null);
   const { user, login } = useAuth();
-  const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
+  const { selectedProjectId, setSelectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -1151,6 +1153,27 @@ export function SDMTForecast() {
     navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
   };
 
+  // Navigate to single project view
+  const navigateToProject = useCallback((projectId: string) => {
+    if (projectId && projectId !== ALL_PROJECTS_ID) {
+      // Use ProjectContext to select the project, which will trigger navigation
+      setSelectedProjectId(projectId);
+    }
+  }, [setSelectedProjectId]);
+
+  // Handle category click - expand rubros accordion
+  const handleCategoryClick = useCallback((category: string) => {
+    // For now, we'll just log the click
+    // In the future, we could scroll to the rubros accordion and expand it
+    if (import.meta.env.DEV) {
+      console.log('Category clicked:', category);
+    }
+    // TODO: Implement scroll to rubros section and focus on category
+    toast.info(`Ver categoría: ${category}`, {
+      description: 'Expande "Cuadrícula de Pronóstico 12 Meses" abajo para ver detalles',
+    });
+  }, []);
+
   // Filter forecast data to current month when CURRENT_MONTH period is selected
   const filteredForecastData = useMemo(() => {
     if (selectedPeriod !== 'CURRENT_MONTH') {
@@ -1526,6 +1549,65 @@ export function SDMTForecast() {
     const annualBudget = parseFloat(budgetAmount);
     return annualBudget > 0;
   }, [budgetAmount]);
+
+  // Build project summaries for top variance table in TODOS mode
+  const projectSummaries = useMemo(() => {
+    if (!isPortfolioView || forecastData.length === 0 || !hasBudgetForVariance) {
+      return [];
+    }
+
+    // Get total annual budget
+    const annualBudget = parseFloat(budgetAmount);
+    
+    // Group forecast data by project
+    const projectMap = new Map<string, {
+      id: string;
+      name: string;
+      code?: string;
+      plannedTotal: number;
+      forecastTotal: number;
+      actualTotal: number;
+    }>();
+
+    forecastData.forEach(cell => {
+      const projectId = cell.projectId;
+      const projectName = cell.projectName || 'Unknown Project';
+      
+      if (!projectId) return;
+
+      if (!projectMap.has(projectId)) {
+        // Find project details from projects list
+        const project = projects.find(p => p.id === projectId);
+        projectMap.set(projectId, {
+          id: projectId,
+          name: projectName,
+          code: project?.code,
+          plannedTotal: 0,
+          forecastTotal: 0,
+          actualTotal: 0,
+        });
+      }
+
+      const projectData = projectMap.get(projectId)!;
+      projectData.plannedTotal += cell.planned || 0;
+      projectData.forecastTotal += cell.forecast || 0;
+      projectData.actualTotal += cell.actual || 0;
+    });
+
+    // Calculate total planned across all projects for budget allocation
+    const totalPlanned = Array.from(projectMap.values()).reduce(
+      (sum, proj) => sum + proj.plannedTotal,
+      0
+    );
+
+    // Add budgetTotal for each project (proportional allocation)
+    return Array.from(projectMap.values()).map(project => ({
+      ...project,
+      budgetTotal: totalPlanned > 0
+        ? annualBudget * (project.plannedTotal / totalPlanned)
+        : 0,
+    }));
+  }, [isPortfolioView, forecastData, hasBudgetForVariance, budgetAmount, projects]);
 
   const varianceSeries = useMemo(() => {
     if (!hasBudgetForVariance) return [];
@@ -2195,6 +2277,25 @@ export function SDMTForecast() {
               useMonthlyBudget={useMonthlyBudget}
               formatCurrency={formatCurrency}
             />
+          )}
+
+          {/* Top Variance Tables - Executive View */}
+          {!loading && forecastData.length > 0 && hasBudgetForVariance && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <TopVarianceProjectsTable
+                projects={projectSummaries}
+                formatCurrency={formatCurrency}
+                onProjectClick={navigateToProject}
+                topN={5}
+              />
+              <TopVarianceRubrosTable
+                categories={categoryTotals}
+                budgetOverall={parseFloat(budgetAmount)}
+                formatCurrency={formatCurrency}
+                onCategoryClick={handleCategoryClick}
+                topN={5}
+              />
+            </div>
           )}
 
           {/* Collapsible Section: Resumen de todos los proyectos */}
