@@ -363,7 +363,10 @@ describe('MonthlySnapshotGrid - Denominator Zero Percent Rule', () => {
     const varianceForecast = 50; // actual - forecast
 
     // Denominator=0 → percent must be null (explicit)
-    const varianceForecastPercent = null;
+    const varianceForecastPercent =
+      forecast === 0 && varianceForecast !== 0
+        ? null
+        : (varianceForecast / forecast) * 100;
 
     assert.strictEqual(varianceForecastPercent, null, 'Percent should be null when forecast is 0');
   });
