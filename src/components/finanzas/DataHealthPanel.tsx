@@ -40,6 +40,7 @@ interface EndpointHealthStatus {
   status: 'ok' | 'error' | 'not-tested';
   statusCode?: number;
   message?: string;
+  note?: string;
 }
 
 export function DataHealthPanel() {
@@ -88,11 +89,12 @@ export function DataHealthPanel() {
 
     // Test budget overview endpoint
     try {
-      await finanzasClient.getAllInBudgetOverview(currentYear);
+      const overview = await finanzasClient.getAllInBudgetOverview(currentYear);
       statuses.push({
         endpoint: `/budgets/all-in/overview?year=${currentYear}`,
         status: 'ok',
         statusCode: 200,
+        note: overview ? undefined : 'Budget overview not available (404/405)',
       });
     } catch (error: any) {
       statuses.push({
@@ -105,11 +107,12 @@ export function DataHealthPanel() {
 
     // Test monthly budget endpoint
     try {
-      await finanzasClient.getAllInBudgetMonthly(currentYear);
+      const monthly = await finanzasClient.getAllInBudgetMonthly(currentYear);
       statuses.push({
         endpoint: `/budgets/all-in/monthly?year=${currentYear}`,
         status: 'ok',
         statusCode: 200,
+        note: monthly ? undefined : 'Budget monthly not available (404/405)',
       });
     } catch (error: any) {
       statuses.push({
@@ -274,13 +277,17 @@ export function DataHealthPanel() {
                     <div key={index} className="flex items-center gap-2 p-2 rounded border border-gray-200 dark:border-gray-700">
                       {getEndpointStatusIcon(status)}
                       <div className="flex-1">
-                        <div className="text-xs font-mono">{status.endpoint}</div>
-                        {status.status === 'error' && (
-                          <div className="text-xs text-red-600 mt-1">
-                            {status.statusCode ? `HTTP ${status.statusCode}: ` : ''}
-                            {status.message}
-                          </div>
-                        )}
+                      <div className="text-xs font-mono">{status.endpoint}</div>
+                      {status.status === 'error' ? (
+                        <div className="text-xs text-red-600 mt-1">
+                          {status.statusCode ? `HTTP ${status.statusCode}: ` : ''}
+                          {status.message}
+                        </div>
+                      ) : status.note ? (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {status.note}
+                        </div>
+                      ) : null}
                       </div>
                       {status.statusCode && (
                         <Badge 

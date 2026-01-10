@@ -16,6 +16,29 @@ describe('resolveAnnualBudgetState', () => {
     assert.strictEqual(resolution.state.missingYear, 2026);
   });
 
+  it('returns missing state when budget is null', () => {
+    const resolution = resolveAnnualBudgetState({
+      budget: null,
+      year: 2028,
+    });
+
+    assert.strictEqual(resolution.status, 'missing');
+    assert.strictEqual(resolution.state.amount, '');
+    assert.strictEqual(resolution.state.currency, 'USD');
+    assert.strictEqual(resolution.state.lastUpdated, null);
+    assert.strictEqual(resolution.state.missingYear, 2028);
+  });
+
+  it('returns missing state for 405 errors', () => {
+    const resolution = resolveAnnualBudgetState({
+      error: { status: 405 },
+      year: 2029,
+    });
+
+    assert.strictEqual(resolution.status, 'missing');
+    assert.strictEqual(resolution.state.missingYear, 2029);
+  });
+
   it('returns ok state when budget is present', () => {
     const resolution = resolveAnnualBudgetState({
       budget: { amount: 120000, currency: 'MXN', updated_at: '2025-01-01T00:00:00Z' },

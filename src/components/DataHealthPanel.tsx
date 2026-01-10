@@ -43,6 +43,7 @@ interface EndpointCheck {
   status: number | null;
   responseTime: number | null;
   error: string | null;
+  note?: string | null;
 }
 
 export function DataHealthPanel() {
@@ -105,7 +106,7 @@ export function DataHealthPanel() {
       // Check budgets/all-in/overview
       try {
         const overviewStart = Date.now();
-        await finanzasClient.getAllInBudgetOverview(currentYear);
+        const overview = await finanzasClient.getAllInBudgetOverview(currentYear);
         const overviewDuration = Date.now() - overviewStart;
         
         budgetChecks.push({
@@ -113,6 +114,7 @@ export function DataHealthPanel() {
           status: 200,
           responseTime: overviewDuration,
           error: null,
+          note: overview ? null : 'Budget overview not available (404/405)',
         });
         
         logEndpointHealth(`/budgets/all-in/overview?year=${currentYear}`, 200, overviewDuration);
@@ -122,6 +124,7 @@ export function DataHealthPanel() {
           status: null,
           responseTime: null,
           error: error instanceof Error ? error.message : 'Unknown error',
+          note: null,
         });
         
         logEndpointHealth(`/budgets/all-in/overview?year=${currentYear}`, 500, undefined, error);
@@ -130,7 +133,7 @@ export function DataHealthPanel() {
       // Check budgets/all-in/monthly
       try {
         const monthlyStart = Date.now();
-        await finanzasClient.getAllInBudgetMonthly(currentYear);
+        const monthly = await finanzasClient.getAllInBudgetMonthly(currentYear);
         const monthlyDuration = Date.now() - monthlyStart;
         
         budgetChecks.push({
@@ -138,6 +141,7 @@ export function DataHealthPanel() {
           status: 200,
           responseTime: monthlyDuration,
           error: null,
+          note: monthly ? null : 'Budget monthly not available (404/405)',
         });
         
         logEndpointHealth(`/budgets/all-in/monthly?year=${currentYear}`, 200, monthlyDuration);
@@ -147,6 +151,7 @@ export function DataHealthPanel() {
           status: null,
           responseTime: null,
           error: error instanceof Error ? error.message : 'Unknown error',
+          note: null,
         });
         
         logEndpointHealth(`/budgets/all-in/monthly?year=${currentYear}`, 500, undefined, error);
@@ -370,6 +375,11 @@ export function DataHealthPanel() {
                           {check.responseTime !== null && (
                             <span className="text-xs text-muted-foreground">
                               {check.responseTime}ms
+                            </span>
+                          )}
+                          {check.note && (
+                            <span className="text-xs text-muted-foreground">
+                              {check.note}
                             </span>
                           )}
                         </>

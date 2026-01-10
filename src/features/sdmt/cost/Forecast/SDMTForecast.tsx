@@ -78,8 +78,15 @@ import {
 // Expected API response enhancement: ForecastCell should include optional field:
 //   - change_request_id?: string (to link forecast cells to their source change)
 
-type ForecastRow = ForecastCell & { projectId?: string; projectName?: string };
+type ForecastRow = ForecastCell & {
+  projectId?: string;
+  projectName?: string;
+  rubroId?: string;
+  description?: string;
+  category?: string;
+};
 type ProjectLineItem = LineItem & { projectId?: string; projectName?: string };
+type LineItemLike = Record<string, unknown>;
 
 // Constants
 const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real project
@@ -320,47 +327,141 @@ export function SDMTForecast() {
     }
   };
 
-  // Helper function to transform LineItems into forecast cells when server forecast is empty
-  const transformLineItemsToForecast = (lineItems: LineItem[], months: number): ForecastRow[] => {
+  const transformLineItemsToForecast = (
+    lineItems: LineItemLike[],
+    months: number,
+    projectId: string
+  ): ForecastRow[] => {
     if (!lineItems || lineItems.length === 0) return [];
-    
+
     const forecastCells: ForecastRow[] = [];
-    
+
+    const resolveNumber = (value: unknown, fallback = 0): number => {
+      if (value === null || value === undefined) return fallback;
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric : fallback;
+    };
+
+    const resolveDuration = (item: LineItemLike): { value: number; fromData: boolean } => {
+      const baseline = item.baseline as LineItemLike | undefined;
+      const candidates = [
+        item.duration,
+        item.duracion,
+        baseline?.duration,
+        baseline?.duracion,
+        item.baseline_duration,
+        item.baseline_duracion,
+      ];
+      for (const candidate of candidates) {
+        const parsed = resolveNumber(candidate, NaN);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          return { value: Math.trunc(parsed), fromData: true };
+        }
+      }
+      return { value: 1, fromData: false };
+    };
+
+    const resolveString = (value: unknown): string | undefined => {
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value;
+      }
+      return undefined;
+    };
+
     lineItems.forEach(item => {
-      const itemData = item as LineItem & Record<string, any>;
-      // Extract duration (months) from the line item
-      const durationStr = itemData.duration || itemData.duracion || '1';
-      const duration = parseInt(durationStr, 10) || 1;
-      const actualMonths = Math.min(duration, months);
-      
-      // Calculate unit cost and total
-      const unitCost = Number(itemData.unitCost || itemData.costo_unitario || itemData.unit_cost || 0);
-      const qty = Number(itemData.qty || itemData.cantidad || itemData.quantity || 1);
-      const totalCost = unitCost * qty;
-      const monthlyAmount = totalCost / actualMonths;
-      const resolvedProjectId = itemData.projectId || selectedProjectId;
-      
-      // Create forecast cells for each month
-      for (let month = 1; month <= actualMonths; month++) {
+      const lineItemId =
+        resolveString(item.id) ||
+        resolveString(item.rubroId) ||
+        resolveString(item.rubro_id) ||
+        resolveString(item.linea_codigo) ||
+        resolveString(item.linea_id) ||
+        '';
+
+      if (!lineItemId) {
+        return;
+      }
+
+      const rubroKey =
+        resolveString(item.rubroId) ||
+        resolveString(item.rubro_id) ||
+        resolveString(item.linea_codigo) ||
+        lineItemId;
+
+      const duration = resolveDuration(item);
+      const startMonthRaw = resolveNumber(item.start_month, NaN);
+      const endMonthRaw = resolveNumber(item.end_month, NaN);
+      const hasExplicitRange = Number.isFinite(startMonthRaw) || Number.isFinite(endMonthRaw);
+      const startMonth = hasExplicitRange
+        ? Math.max(1, Math.min(months, Number.isFinite(startMonthRaw) ? Math.trunc(startMonthRaw) : 1))
+        : 1;
+      const endMonth = hasExplicitRange
+        ? Math.max(startMonth, Math.min(months, Number.isFinite(endMonthRaw) ? Math.trunc(endMonthRaw) : months))
+        : duration.fromData
+          ? Math.min(months, duration.value)
+          : months;
+
+      const resolveFirstNumber = (values: unknown[]): number | null => {
+        for (const value of values) {
+          if (value === null || value === undefined) continue;
+          if (typeof value === 'string' && value.trim().length === 0) continue;
+          const numeric = Number(value);
+          if (Number.isFinite(numeric)) return numeric;
+        }
+        return null;
+      };
+
+      const baseTotal = resolveFirstNumber([
+        item.total_cost,
+        item.totalCost,
+        item.total,
+        item.monto_total,
+        item.amount,
+        item.monto,
+      ]);
+
+      const unitCost = resolveNumber(
+        item.unitCost ?? item.costo_unitario ?? item.unit_cost,
+        0
+      );
+      const qty = resolveNumber(item.qty ?? item.cantidad ?? item.quantity, 1) || 1;
+      const computedTotal = baseTotal ?? unitCost * qty;
+      const activeMonthCount = Math.max(1, endMonth - startMonth + 1);
+      const defaultMonthlyAmount = computedTotal / activeMonthCount;
+      const monthlyValues = Array.isArray(item.monthly) ? item.monthly : null;
+
+      for (let month = startMonth; month <= endMonth; month += 1) {
+        const monthIndex = month - 1;
+        const monthlyOverride = monthlyValues
+          ? resolveNumber(monthlyValues[monthIndex], NaN)
+          : NaN;
+        const amount = Number.isFinite(monthlyOverride)
+          ? monthlyOverride
+          : defaultMonthlyAmount;
+
         forecastCells.push({
-          line_item_id: itemData.id || itemData.rubroId || itemData.rubro_id || itemData.linea_codigo || '',
-          rubroId: itemData.rubroId || itemData.rubro_id || itemData.linea_codigo || '',
-          description: itemData.descripcion || itemData.nombre || itemData.description || itemData.name || '',
-          category: itemData.categoria || itemData.category || 'OPEX',
+          line_item_id: lineItemId,
+          rubroId: rubroKey,
+          projectId,
+          description: resolveString(item.description) || resolveString(item.descripcion) || '',
+          category: resolveString(item.category) || resolveString(item.categoria) || '',
           month,
-          planned: monthlyAmount,
-          forecast: monthlyAmount,
+          planned: amount,
+          forecast: amount,
           actual: 0,
           variance: 0,
           last_updated: new Date().toISOString(),
           updated_by: user?.email || user?.login || 'system',
-          projectId: resolvedProjectId,
-          projectName: currentProject?.name,
-        } as ForecastRow);
+        });
       }
     });
-    
+
     return forecastCells;
+  };
+
+  const resolveBaselineStatus = (
+    project?: { baselineStatus?: string; baseline_status?: string } | null
+  ): string | null => {
+    return project?.baselineStatus ?? project?.baseline_status ?? null;
   };
 
   const loadSingleProjectForecast = async (projectId: string, months: number, requestKey: string) => {
@@ -378,12 +479,29 @@ export function SDMTForecast() {
       debugMode 
     });
     let usedFallback = false;
+    const baselineStatus = resolveBaselineStatus(
+      currentProject as { baselineStatus?: string; baseline_status?: string } | null
+    );
+    const hasAcceptedBaseline = baselineStatus === 'accepted';
     
     // Fallback: If server forecast is empty and we have line items, use them
-    if ((!normalized || normalized.length === 0) && safeLineItems && safeLineItems.length > 0) {
-      console.warn('[SDMTForecast] Server forecast empty — using project line items as fallback');
-      normalized = transformLineItemsToForecast(safeLineItems, months);
+    if (
+      (!normalized || normalized.length === 0) &&
+      safeLineItems &&
+      safeLineItems.length > 0 &&
+      hasAcceptedBaseline
+    ) {
+      if (import.meta.env.DEV) {
+        console.debug(
+          `[SDMTForecast] Using baseline fallback for ${projectId}, baseline ${currentProject?.baselineId}: ${safeLineItems.length} line items`
+        );
+      }
+      normalized = transformLineItemsToForecast(safeLineItems, months, projectId);
       usedFallback = true;
+    } else if (normalized && normalized.length > 0 && import.meta.env.DEV) {
+      console.debug(
+        `[SDMTForecast] Using server forecast rows for ${projectId}, baseline ${currentProject?.baselineId}`
+      );
     }
     
     setDataSource(usedFallback ? 'mock' : payload.source); // Mark as 'mock' to indicate fallback
@@ -486,10 +604,29 @@ export function SDMTForecast() {
         }
 
         const debugMode = import.meta.env.DEV;
-        const normalized = normalizeForecastCells(payload.data, {
+        let normalized = normalizeForecastCells(payload.data, {
           baselineId: project.baselineId,
           debugMode
         });
+        const baselineStatus = resolveBaselineStatus(
+          project as { baselineStatus?: string; baseline_status?: string } | null
+        );
+        const hasAcceptedBaseline = baselineStatus === 'accepted';
+        let usedFallback = false;
+
+        if ((!normalized || normalized.length === 0) && projectLineItems.length > 0 && hasAcceptedBaseline) {
+          if (import.meta.env.DEV) {
+            console.debug(
+              `[SDMTForecast] Using baseline fallback for ${project.id}, baseline ${project.baselineId}: ${projectLineItems.length} line items`
+            );
+          }
+          normalized = transformLineItemsToForecast(projectLineItems, months, project.id);
+          usedFallback = true;
+        } else if (normalized.length > 0 && import.meta.env.DEV) {
+          console.debug(
+            `[SDMTForecast] Using server forecast rows for ${project.id}, baseline ${project.baselineId}`
+          );
+        }
         const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
 
         const projectData: ForecastRow[] = normalized.map(cell => {
@@ -513,6 +650,7 @@ export function SDMTForecast() {
           data: projectData,
           lineItems: projectLineItems.map(item => ({ ...item, projectId: project.id, projectName: project.name })),
           generatedAt: payload.generatedAt,
+          usedFallback,
         };
       })
     );
@@ -750,6 +888,13 @@ export function SDMTForecast() {
     
     try {
       const overview = await finanzasClient.getAllInBudgetOverview(year);
+      if (!overview) {
+        if (import.meta.env.DEV) {
+          console.debug(`[SDMTForecast] Budget overview missing for ${year}`);
+        }
+        setBudgetOverview(null);
+        return;
+      }
       setBudgetOverview(overview);
       console.log('[SDMTForecast] Budget overview loaded:', overview);
     } catch (error: any) {
@@ -800,6 +945,13 @@ export function SDMTForecast() {
     setLoadingMonthlyBudget(true);
     try {
       const monthlyBudget = await finanzasClient.getAllInBudgetMonthly(year);
+      if (!monthlyBudget) {
+        setMonthlyBudgets([]);
+        setMonthlyBudgetLastUpdated(null);
+        setMonthlyBudgetUpdatedBy(null);
+        setUseMonthlyBudget(false);
+        return;
+      }
       if (monthlyBudget && monthlyBudget.months) {
         // Convert from API format (month: "YYYY-MM", amount) to internal format (month: 1-12, budget)
         const budgets: MonthlyBudgetInput[] = monthlyBudget.months.map(m => {
@@ -913,8 +1065,8 @@ export function SDMTForecast() {
   // Check if user can edit forecast, actuals, and budget
   // Per docs/ui-api-action-map.md: Forecast adjustment is PMO only
   // Per docs/finanzas-roles-and-permissions.md: Budget management is PMO/ADMIN
-  const canEditForecast = ['PMO', 'SDMT'].includes(user?.current_role || '');
-  const canEditActual = user?.current_role === 'SDMT';
+  const canEditForecast = !isPortfolioView && ['PMO', 'SDMT'].includes(user?.current_role || '');
+  const canEditActual = !isPortfolioView && user?.current_role === 'SDMT';
   const canEditBudget = ['PMO', 'SDMT'].includes(user?.current_role || '');
 
   // Navigate to reconciliation, preserving project context
@@ -2069,7 +2221,7 @@ export function SDMTForecast() {
           )}
           {budgetMissingYear && (
             <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              No hay presupuesto para {budgetMissingYear}. Puedes “Materializar Ahora” o continuar con pronóstico manual.
+              No hay presupuesto configurado para {budgetMissingYear}. Puedes “Materializar Ahora” o continuar con pronóstico manual.
             </div>
           )}
           {isLoadingState ? (
