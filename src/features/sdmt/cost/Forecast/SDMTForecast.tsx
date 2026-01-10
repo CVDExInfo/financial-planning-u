@@ -2280,7 +2280,10 @@ export function SDMTForecast() {
           )}
 
           {/* Top Variance Tables - Executive View */}
-          {!loading && forecastData.length > 0 && hasBudgetForVariance && (
+          {!loading &&
+            isPortfolioView &&
+            forecastData.length > 0 &&
+            hasBudgetForVariance && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <TopVarianceProjectsTable
                 projects={projectSummaries}
