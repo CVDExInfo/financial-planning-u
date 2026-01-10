@@ -53,6 +53,8 @@ import { BudgetSimulatorCard } from './BudgetSimulatorCard';
 import { MonthlyBudgetCard } from './MonthlyBudgetCard';
 import { PortfolioSummaryView } from './PortfolioSummaryView';
 import { ForecastSummaryBar } from './components/ForecastSummaryBar';
+import { ForecastChartsPanel } from './components/ForecastChartsPanel';
+import { ForecastRubrosTable } from './components/ForecastRubrosTable';
 import { DataHealthPanel } from '@/components/finanzas/DataHealthPanel';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
@@ -66,6 +68,11 @@ import {
   type MonthlyBudgetInput,
   type RunwayMetrics,
 } from './budgetAllocation';
+import {
+  buildCategoryTotals,
+  buildCategoryRubros,
+  buildPortfolioTotals,
+} from './categoryGrouping';
 
 // TODO: Backend Integration for Change Request Impact on Forecast
 // When a change request is approved in SDMTChanges, the backend should:
@@ -1086,6 +1093,30 @@ export function SDMTForecast() {
     toast.info('Presupuesto mensual restablecido a distribución automática');
   };
 
+  // Save budget from rubros table inline editing
+  const handleSaveBudgetFromTable = async (budgets: Array<{ month: number; budget: number }>) => {
+    if (budgets.length === 0) {
+      throw new Error('No budget data provided');
+    }
+
+    // Convert from internal format (month: 1-12, budget) to API format (month: "YYYY-MM", amount)
+    const months = budgets.map(mb => ({
+      month: `${budgetYear}-${String(mb.month).padStart(2, '0')}`,
+      amount: mb.budget,
+    }));
+
+    const result = await finanzasClient.putAllInBudgetMonthly(budgetYear, budgetCurrency, months);
+    
+    // Update state
+    setMonthlyBudgets(budgets);
+    setUseMonthlyBudget(true);
+    setMonthlyBudgetLastUpdated(result.updated_at);
+    setMonthlyBudgetUpdatedBy(result.updated_by);
+    
+    // Reload budget overview to update KPIs
+    await loadBudgetOverview(budgetYear);
+  };
+
   // Load budget when year changes
   useEffect(() => {
     loadAnnualBudget(budgetYear);
@@ -1455,6 +1486,40 @@ export function SDMTForecast() {
     }
     return calculateRunwayMetrics(annualBudget, monthlyBudgetAllocations);
   }, [budgetAmount, monthlyBudgetAllocations]);
+
+  // Build category totals for TODOS mode (charts and rubros table)
+  const categoryTotals = useMemo(() => {
+    if (!isPortfolioView || forecastData.length === 0) {
+      return new Map();
+    }
+    return buildCategoryTotals(forecastData);
+  }, [isPortfolioView, forecastData]);
+
+  // Build category rubros for TODOS mode (rubros table)
+  const categoryRubros = useMemo(() => {
+    if (!isPortfolioView || forecastData.length === 0) {
+      return new Map();
+    }
+    return buildCategoryRubros(forecastData, portfolioLineItems);
+  }, [isPortfolioView, forecastData, portfolioLineItems]);
+
+  // Build portfolio totals for TODOS mode (charts and rubros table)
+  const portfolioTotalsForCharts = useMemo(() => {
+    if (!isPortfolioView || forecastData.length === 0) {
+      return {
+        byMonth: {},
+        overall: {
+          forecast: 0,
+          actual: 0,
+          planned: 0,
+          varianceForecast: 0,
+          varianceActual: 0,
+          percentConsumption: 0,
+        },
+      };
+    }
+    return buildPortfolioTotals(forecastData);
+  }, [isPortfolioView, forecastData]);
 
   // Check if we have a valid budget for variance analysis
   const hasBudgetForVariance = useMemo(() => {
@@ -2285,6 +2350,30 @@ export function SDMTForecast() {
             // TODO: Navigate to single project view with selected project
             console.log('View project:', projectId);
           }}
+        />
+      )}
+
+      {/* Charts Panel - TODOS mode only */}
+      {isPortfolioView && !loading && forecastData.length > 0 && (
+        <ForecastChartsPanel
+          portfolioTotals={portfolioTotalsForCharts}
+          categoryTotals={categoryTotals}
+          monthlyBudgets={monthlyBudgets}
+          useMonthlyBudget={useMonthlyBudget}
+          formatCurrency={formatCurrency}
+        />
+      )}
+
+      {/* Rubros Table - TODOS mode only */}
+      {isPortfolioView && !loading && forecastData.length > 0 && (
+        <ForecastRubrosTable
+          categoryTotals={categoryTotals}
+          categoryRubros={categoryRubros}
+          portfolioTotals={portfolioTotalsForCharts}
+          monthlyBudgets={monthlyBudgets}
+          onSaveBudget={handleSaveBudgetFromTable}
+          formatCurrency={formatCurrency}
+          canEditBudget={canEditBudget}
         />
       )}
 
