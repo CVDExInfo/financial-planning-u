@@ -6,7 +6,7 @@
  * rubros count, line items count, and API endpoint statuses.
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,13 +16,16 @@ import {
   AlertCircle, 
   ChevronDown, 
   ChevronUp,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useProject, type ProjectSummary } from '@/contexts/ProjectContext';
 import { getProjectRubros } from '@/api/finanzas';
 import finanzasClient from '@/api/finanzasClient';
 import { logger } from '@/utils/logger';
+import { toast } from 'sonner';
+import type { LineItem } from '@/types/domain';
 
 interface ProjectHealthMetrics {
   projectId: string;
@@ -33,6 +36,7 @@ interface ProjectHealthMetrics {
   lineItemsCount: number;
   hasError: boolean;
   errorMessage?: string;
+  lineItems?: LineItem[]; // Store line items for unmapped analysis
 }
 
 interface EndpointHealthStatus {
@@ -68,6 +72,7 @@ export function DataHealthPanel() {
         rubrosCount: lineItems.length,
         lineItemsCount: lineItems.length, // Same data source
         hasError: false,
+        lineItems, // Store for unmapped analysis
       };
     } catch (error: any) {
       return {
@@ -183,6 +188,85 @@ export function DataHealthPanel() {
     return <AlertCircle className="h-4 w-4 text-gray-400" />;
   };
 
+  // Compute unmapped rubros (those with undefined/null/"Sin categoría" category)
+  const unmappedRubros = useMemo(() => {
+    const unmapped: Array<{
+      projectId: string;
+      projectName: string;
+      rubroId: string;
+      rubroDescription: string;
+      totalForecast: number;
+      totalActual: number;
+    }> = [];
+
+    projectMetrics.forEach(metrics => {
+      if (!metrics.lineItems || metrics.hasError) return;
+
+      metrics.lineItems.forEach(item => {
+        const category = item.category?.trim();
+        const isUnmapped = !category || category === '' || category.toLowerCase() === 'sin categoría';
+        
+        if (isUnmapped) {
+          unmapped.push({
+            projectId: metrics.projectId,
+            projectName: metrics.projectName,
+            rubroId: item.id,
+            rubroDescription: item.description || 'Sin descripción',
+            totalForecast: item.total_cost || 0,
+            totalActual: 0, // TODO: would need actual data from forecast API
+          });
+        }
+      });
+    });
+
+    return unmapped;
+  }, [projectMetrics]);
+
+  const unmappedCount = unmappedRubros.length;
+  const unmappedTotalForecast = unmappedRubros.reduce((sum, r) => sum + r.totalForecast, 0);
+
+  // Export unmapped rubros to CSV
+  const exportUnmappedRubros = () => {
+    if (unmappedCount === 0) {
+      toast.info('No hay rubros sin categoría para exportar');
+      return;
+    }
+
+    try {
+      // Create CSV content
+      const headers = ['projectId', 'projectName', 'rubroId', 'rubroDescription', 'totalForecast', 'totalActual'];
+      const rows = unmappedRubros.map(r => [
+        r.projectId,
+        r.projectName,
+        r.rubroId,
+        r.rubroDescription,
+        r.totalForecast.toString(),
+        r.totalActual.toString(),
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+      ].join('\n');
+
+      // Download CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `rubros_sin_categoria_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(`Exportados ${unmappedCount} rubros sin categoría`);
+    } catch (error) {
+      logger.error('[DataHealth] Error exporting unmapped rubros:', error);
+      toast.error('Error al exportar rubros sin categoría');
+    }
+  };
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="border-b border-orange-500/20">
       <Card className="border-orange-500/50 bg-orange-50/50 dark:bg-orange-950/20">
@@ -265,6 +349,37 @@ export function DataHealthPanel() {
                 </div>
               )}
             </div>
+
+            {/* Unmapped Rubros Export */}
+            {projectMetrics.size > 0 && unmappedCount > 0 && (
+              <div className="border-t pt-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <div>
+                        <div className="text-sm font-semibold text-amber-900">
+                          Rubros sin categoría: {unmappedCount}
+                        </div>
+                        <div className="text-xs text-amber-700">
+                          Total pronóstico: ${unmappedTotalForecast.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportUnmappedRubros}
+                      aria-label="Exportar rubros sin categoría"
+                      className="gap-2 border-amber-600 text-amber-700 hover:bg-amber-100"
+                    >
+                      <Download className="h-4 w-4" />
+                      Exportar rubros sin categoría
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Endpoint Status */}
             <div>

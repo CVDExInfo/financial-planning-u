@@ -1494,10 +1494,12 @@ export function SDMTForecast() {
       return null; // Don't compute KPIs for single-project view
     }
 
-    // Calculate total budget from monthly budgets
-    const totalBudget = useMonthlyBudget 
-      ? monthlyBudgets.reduce((acc, m) => acc + (m.budget || 0), 0)
-      : 0;
+    // Calculate monthly budget sum and budgetAllIn for parity checking
+    const monthlyBudgetSum = monthlyBudgets.reduce((acc, m) => acc + (m.budget || 0), 0);
+    const budgetAllIn = budgetOverview?.budgetAllIn?.amount || 0;
+
+    // Determine totalBudget per spec: useMonthlyBudget ? sum(monthlyBudgets) : budgetAllIn
+    const totalBudget = useMonthlyBudget ? monthlyBudgetSum : budgetAllIn;
 
     // Extract totals from existing computations
     const totalForecastValue = totals.overall.forecast;
@@ -1520,8 +1522,11 @@ export function SDMTForecast() {
       useMonthlyBudget,
       lastUpdated: monthlyBudgetLastUpdated,
       updatedBy: monthlyBudgetUpdatedBy,
+      // Pass data for parity checking
+      monthlyBudgetSum,
+      budgetAllIn,
     };
-  }, [isPortfolioView, useMonthlyBudget, monthlyBudgets, totals, monthlyBudgetLastUpdated, monthlyBudgetUpdatedBy]);
+  }, [isPortfolioView, useMonthlyBudget, monthlyBudgets, totals, monthlyBudgetLastUpdated, monthlyBudgetUpdatedBy, budgetOverview]);
 
   // Calculate runway metrics for month-by-month tracking
   const runwayMetrics = useMemo<RunwayMetrics[]>(() => {
@@ -1968,6 +1973,8 @@ export function SDMTForecast() {
           useMonthlyBudget={summaryBarKpis.useMonthlyBudget}
           lastUpdated={summaryBarKpis.lastUpdated}
           updatedBy={summaryBarKpis.updatedBy}
+          monthlyBudgetSum={summaryBarKpis.monthlyBudgetSum}
+          budgetAllIn={summaryBarKpis.budgetAllIn}
         />
       )}
 
