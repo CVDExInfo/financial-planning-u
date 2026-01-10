@@ -41,7 +41,7 @@ import { handleFinanzasApiError } from '@/features/sdmt/cost/utils/errorHandling
 import { useNavigate, useLocation } from 'react-router-dom';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
-import { computeTotals, computeVariance, type TotalsResult } from '@/lib/forecast/analytics';
+import { computeTotals, computeVariance } from '@/lib/forecast/analytics';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
 import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros } from '@/api/finanzas';
@@ -1279,91 +1279,6 @@ export function SDMTForecast() {
     () => computeTotals(filteredForecastData, monthsForTotals),
     [filteredForecastData, monthsForTotals]
   );
-
-  // Per-category totals - group by category and compute totals for each
-  type CategoryTotals = Record<string, TotalsResult>;
-  type RubroAggregate = {
-    rubroId: string;
-    name: string;
-    category: string;
-    monthlyData: Record<number, { forecast: number; actual: number }>;
-    totalForecast: number;
-    totalActual: number;
-  };
-  type CategoryRubros = Record<string, RubroAggregate[]>;
-
-  const { categoryTotals, categoryRubros } = useMemo<{
-    categoryTotals: CategoryTotals;
-    categoryRubros: CategoryRubros;
-  }>(() => {
-    // Group forecast data by category
-    const dataByCategory = new Map<string, ForecastRow[]>();
-    
-    filteredForecastData.forEach((row) => {
-      const category = row.category || 'Sin categoría';
-      if (!dataByCategory.has(category)) {
-        dataByCategory.set(category, []);
-      }
-      dataByCategory.get(category)!.push(row);
-    });
-
-    const categoryTotalsResult: CategoryTotals = {};
-    const categoryRubrosResult: CategoryRubros = {};
-
-    // Compute totals for each category
-    dataByCategory.forEach((rows, category) => {
-      // Compute totals for this category
-      categoryTotalsResult[category] = computeTotals(rows, monthsForTotals);
-
-      // Group by rubro within this category
-      const rubroMap = new Map<string, ForecastRow[]>();
-      rows.forEach((row) => {
-        const rubroId = row.line_item_id;
-        if (!rubroMap.has(rubroId)) {
-          rubroMap.set(rubroId, []);
-        }
-        rubroMap.get(rubroId)!.push(row);
-      });
-
-      // Build rubro aggregates for this category
-      categoryRubrosResult[category] = Array.from(rubroMap.entries()).map(
-        ([rubroId, rubroRows]) => {
-          const monthlyData: Record<number, { forecast: number; actual: number }> = {};
-          let totalForecast = 0;
-          let totalActual = 0;
-
-          rubroRows.forEach((row) => {
-            if (!monthlyData[row.month]) {
-              monthlyData[row.month] = { forecast: 0, actual: 0 };
-            }
-            monthlyData[row.month].forecast += row.forecast || 0;
-            monthlyData[row.month].actual += row.actual || 0;
-            totalForecast += row.forecast || 0;
-            totalActual += row.actual || 0;
-          });
-
-          return {
-            rubroId,
-            name: rubroRows[0]?.description || rubroId,
-            category,
-            monthlyData,
-            totalForecast,
-            totalActual,
-          };
-        }
-      );
-    });
-
-    if (import.meta.env.DEV) {
-      console.debug('[Forecast] Category analytics computed', {
-        categoryCount: Object.keys(categoryTotalsResult).length,
-        categories: Object.keys(categoryTotalsResult),
-        totalRubros: Object.values(categoryRubrosResult).reduce((sum, rubros) => sum + rubros.length, 0),
-      });
-    }
-
-    return { categoryTotals: categoryTotalsResult, categoryRubros: categoryRubrosResult };
-  }, [filteredForecastData, monthsForTotals]);
 
   const baseMetrics = useMemo(() => {
     const { overall } = totals;
