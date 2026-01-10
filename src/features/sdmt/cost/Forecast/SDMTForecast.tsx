@@ -1846,8 +1846,8 @@ export function SDMTForecast() {
         </div>
       </div>
 
-      {/* Baseline Status Panel */}
-      <BaselineStatusPanel />
+      {/* Baseline Status Panel - Hidden in TODOS/Portfolio View */}
+      {!isPortfolioView && <BaselineStatusPanel />}
 
       {/* Data Health Debug Panel (Dev Only) */}
       <DataHealthPanel />
@@ -1867,7 +1867,8 @@ export function SDMTForecast() {
         />
       )}
 
-      {/* KPI Summary - Standardized & Compact */}
+      {/* KPI Summary - Standardized & Compact - Single Project Mode Only */}
+      {!isPortfolioView && (
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         <Card className="h-full">
           <CardContent className="p-3">
@@ -1974,6 +1975,7 @@ export function SDMTForecast() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Budget Simulation KPIs - Only show when simulation is enabled */}
       {isPortfolioView && budgetSimulation.enabled && budgetTotal > 0 && (
@@ -2181,7 +2183,246 @@ export function SDMTForecast() {
         </div>
       )}
 
-      {/* Budget & Simulation Panel - Collapsible */}
+      {/* ========== TODOS / PORTFOLIO VIEW LAYOUT ========== */}
+      {isPortfolioView && (
+        <>
+          {/* Charts Panel - Prominent position after KPI bar */}
+          {!loading && forecastData.length > 0 && (
+            <ForecastChartsPanel
+              portfolioTotals={portfolioTotalsForCharts}
+              categoryTotals={categoryTotals}
+              monthlyBudgets={monthlyBudgets}
+              useMonthlyBudget={useMonthlyBudget}
+              formatCurrency={formatCurrency}
+            />
+          )}
+
+          {/* Collapsible Section: Resumen de todos los proyectos */}
+          {!loading && (
+            <Collapsible defaultOpen={false}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Resumen de todos los proyectos</CardTitle>
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label="Expandir/Colapsar resumen de proyectos"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                </CardHeader>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <PortfolioSummaryView
+                      forecastData={forecastData}
+                      lineItems={portfolioLineItems}
+                      formatCurrency={formatCurrency}
+                      monthlyBudgetAllocations={monthlyBudgetAllocations}
+                      runwayMetrics={runwayMetrics}
+                      selectedPeriod={selectedPeriod}
+                      getCurrentMonthIndex={getCurrentMonthIndex}
+                      allProjects={projects.filter(p => p.id !== ALL_PROJECTS_ID).map(p => ({ id: p.id, name: p.name }))}
+                      onViewProject={(projectId) => {
+                        console.log('View project:', projectId);
+                      }}
+                    />
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          )}
+
+          {/* Collapsible Section: Cuadrícula de Pronóstico 12 Meses (Rubros Grid) */}
+          {!loading && forecastData.length > 0 && (
+            <Collapsible defaultOpen={false}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Cuadrícula de Pronóstico 12 Meses</CardTitle>
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label="Expandir/Colapsar cuadrícula de rubros"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                </CardHeader>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <ForecastRubrosTable
+                      categoryTotals={categoryTotals}
+                      categoryRubros={categoryRubros}
+                      portfolioTotals={portfolioTotalsForCharts}
+                      monthlyBudgets={monthlyBudgets}
+                      onSaveBudget={handleSaveBudgetFromTable}
+                      formatCurrency={formatCurrency}
+                      canEditBudget={canEditBudget}
+                    />
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          )}
+
+          {/* Collapsible Section: Simulador de Presupuesto */}
+          <Collapsible defaultOpen={false}>
+            <Card className="border-2 border-primary/20">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-lg">Simulador de Presupuesto</CardTitle>
+                  </div>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label="Expandir/Colapsar simulador de presupuesto"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+              </CardHeader>
+              <CollapsibleContent>
+                <CardContent className="space-y-4 pt-0">
+                  {/* Annual Budget Editor */}
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium">Presupuesto Anual All-In</div>
+                    <div className="flex flex-wrap items-end gap-2">
+                      <div className="flex-shrink-0 w-20">
+                        <label htmlFor="budget-year" className="text-xs text-muted-foreground block mb-1">Año</label>
+                        <Input
+                          id="budget-year"
+                          type="number"
+                          value={budgetYear}
+                          onChange={(e) => setBudgetYear(parseInt(e.target.value))}
+                          min={2020}
+                          max={2100}
+                          disabled={loadingBudget || savingBudget || !canEditBudget}
+                          className="h-8 text-sm"
+                          aria-label="Año del presupuesto"
+                        />
+                      </div>
+                      <div className="flex-grow min-w-[140px] max-w-[200px]">
+                        <label htmlFor="budget-amount" className="text-xs text-muted-foreground block mb-1">Monto</label>
+                        <Input
+                          id="budget-amount"
+                          type="number"
+                          value={budgetAmount}
+                          onChange={(e) => setBudgetAmount(e.target.value)}
+                          placeholder="0"
+                          disabled={loadingBudget || savingBudget || !canEditBudget}
+                          className="h-8 text-sm"
+                          aria-label="Monto del presupuesto"
+                        />
+                      </div>
+                      <div className="flex-shrink-0 w-20">
+                        <label htmlFor="budget-currency" className="text-xs text-muted-foreground block mb-1">Moneda</label>
+                        <select
+                          id="budget-currency"
+                          value={budgetCurrency}
+                          onChange={(e) => setBudgetCurrency(e.target.value)}
+                          disabled={loadingBudget || savingBudget || !canEditBudget}
+                          className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label="Moneda del presupuesto"
+                        >
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="MXN">MXN</option>
+                        </select>
+                      </div>
+                      <Button
+                        onClick={handleSaveAnnualBudget}
+                        disabled={savingBudget || loadingBudget || !canEditBudget || !budgetAmount}
+                        className="gap-2 h-8"
+                        size="sm"
+                      >
+                        {savingBudget ? <LoadingSpinner size="sm" /> : null}
+                        {savingBudget ? 'Guardando...' : 'Guardar Presupuesto'}
+                      </Button>
+                    </div>
+                    {budgetLastUpdated && (
+                      <div className="text-xs text-muted-foreground mt-2">
+                        📅 Última actualización: {new Date(budgetLastUpdated).toLocaleString('es-MX')}
+                      </div>
+                    )}
+                    {!canEditBudget && (
+                      <div className="text-xs text-amber-600 mt-2">
+                        ⚠️ Solo usuarios PMO/SDMT pueden editar el presupuesto anual
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Monthly Budget Input - Only when annual budget is set */}
+                  {budgetAmount && parseFloat(budgetAmount) > 0 && (
+                    <div className="border-t pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-medium">Modo: Presupuesto Mensual</div>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="use-monthly-budget" className="text-sm text-muted-foreground">
+                            Habilitar entrada mensual
+                          </Label>
+                          <input
+                            type="checkbox"
+                            id="use-monthly-budget"
+                            checked={useMonthlyBudget}
+                            onChange={(e) => setUseMonthlyBudget(e.target.checked)}
+                            disabled={!canEditBudget}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                        </div>
+                      </div>
+                      {useMonthlyBudget && (
+                        <MonthlyBudgetCard
+                          monthlyBudgets={monthlyBudgets}
+                          annualBudgetReference={parseFloat(budgetAmount)}
+                          onMonthlyBudgetsChange={setMonthlyBudgets}
+                          onSave={handleSaveMonthlyBudget}
+                          onReset={handleResetMonthlyBudget}
+                          disabled={!canEditBudget || loadingMonthlyBudget}
+                          saving={savingMonthlyBudget}
+                          lastUpdated={monthlyBudgetLastUpdated}
+                          updatedBy={monthlyBudgetUpdatedBy}
+                        />
+                      )}
+                      {!useMonthlyBudget && (
+                        <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded">
+                          💡 Presupuesto se distribuye automáticamente por mes basado en costos planificados.
+                          Habilite "entrada mensual" arriba para ingresar presupuestos específicos por mes.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Budget Simulator */}
+                  <div className="border-t pt-4">
+                    <div className="text-sm font-medium mb-3">Simulador de Presupuesto (solo vista)</div>
+                    <BudgetSimulatorCard
+                      simulationState={budgetSimulation}
+                      onSimulationChange={setBudgetSimulation}
+                    />
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        </>
+      )}
+
+      {/* ========== SINGLE PROJECT VIEW LAYOUT ========== */}
+      {/* Budget & Simulation Panel - Collapsible - Single Project Mode Only */}
+      {!isPortfolioView && (
       <Collapsible>
         <Card className="border-2 border-primary/20">
           <CardHeader className="pb-3">
@@ -2334,59 +2575,34 @@ export function SDMTForecast() {
           </CollapsibleContent>
         </Card>
       </Collapsible>
-
-      {/* Portfolio Summary View - Only show in portfolio mode */}
-      {isPortfolioView && !loading && (
-        <PortfolioSummaryView
-          forecastData={forecastData}
-          lineItems={portfolioLineItems}
-          formatCurrency={formatCurrency}
-          monthlyBudgetAllocations={monthlyBudgetAllocations}
-          runwayMetrics={runwayMetrics}
-          selectedPeriod={selectedPeriod}
-          getCurrentMonthIndex={getCurrentMonthIndex}
-          allProjects={projects.filter(p => p.id !== ALL_PROJECTS_ID).map(p => ({ id: p.id, name: p.name }))}
-          onViewProject={(projectId) => {
-            // TODO: Navigate to single project view with selected project
-            console.log('View project:', projectId);
-          }}
-        />
       )}
 
-      {/* Charts Panel - TODOS mode only */}
-      {isPortfolioView && !loading && forecastData.length > 0 && (
-        <ForecastChartsPanel
-          portfolioTotals={portfolioTotalsForCharts}
-          categoryTotals={categoryTotals}
-          monthlyBudgets={monthlyBudgets}
-          useMonthlyBudget={useMonthlyBudget}
-          formatCurrency={formatCurrency}
-        />
-      )}
-
-      {/* Rubros Table - TODOS mode only */}
-      {isPortfolioView && !loading && forecastData.length > 0 && (
-        <ForecastRubrosTable
-          categoryTotals={categoryTotals}
-          categoryRubros={categoryRubros}
-          portfolioTotals={portfolioTotalsForCharts}
-          monthlyBudgets={monthlyBudgets}
-          onSaveBudget={handleSaveBudgetFromTable}
-          formatCurrency={formatCurrency}
-          canEditBudget={canEditBudget}
-        />
-      )}
-
-      {/* Forecast Grid */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {selectedPeriod === 'CURRENT_MONTH' 
-              ? `Cuadrícula de Pronóstico - Mes Actual (M${getCurrentMonthIndex()})`
-              : 'Cuadrícula de Pronóstico 12 Meses'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* Forecast Grid - Common for both modes, but with collapsible wrapper for TODOS */}
+      {isPortfolioView ? (
+        /* TODOS mode - wrapped in collapsible "Desglose mensual vs presupuesto" */
+        <Collapsible defaultOpen={false}>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">
+                  {selectedPeriod === 'CURRENT_MONTH' 
+                    ? `Desglose mensual vs presupuesto - Mes Actual (M${getCurrentMonthIndex()})`
+                    : 'Desglose mensual vs presupuesto'}
+                </CardTitle>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Expandir/Colapsar desglose mensual"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
           {selectedPeriod === 'CURRENT_MONTH' && !isLoadingState && (
             <div className="mb-3 p-2 bg-blue-50 rounded text-sm text-blue-900">
               📅 Mostrando solo el mes en curso (M{getCurrentMonthIndex()}) - {getCalendarMonth(getCurrentMonthIndex())}
@@ -2704,11 +2920,344 @@ export function SDMTForecast() {
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      ) : (
+        /* Single project mode - regular Card wrapper */
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {selectedPeriod === 'CURRENT_MONTH' 
+                ? `Cuadrícula de Pronóstico - Mes Actual (M${getCurrentMonthIndex()})`
+                : 'Cuadrícula de Pronóstico 12 Meses'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+          {selectedPeriod === 'CURRENT_MONTH' && !isLoadingState && (
+            <div className="mb-3 p-2 bg-blue-50 rounded text-sm text-blue-900">
+              📅 Mostrando solo el mes en curso (M{getCurrentMonthIndex()}) - {getCalendarMonth(getCurrentMonthIndex())}
+            </div>
+          )}
+          {budgetMissingYear && (
+            <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              No hay presupuesto configurado para {budgetMissingYear}. Puedes "Materializar Ahora" o continuar con pronóstico manual.
+            </div>
+          )}
+          {isLoadingState ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="text-center space-y-3">
+                <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center mx-auto mb-2 animate-pulse">
+                  <span className="text-primary font-bold text-sm">📊</span>
+                </div>
+                <div className="text-muted-foreground">
+                  Cargando datos de pronóstico{currentProject ? ` para ${currentProject.name}` : ''}...
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Project: {selectedProjectId} | Change #{projectChangeCount}
+                </div>
+              </div>
+            </div>
+          ) : isTodosEmptyState ? (
+            <div className="flex items-center justify-center h-48">
+              <div className="text-center space-y-4 max-w-md">
+                <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-amber-600 font-bold text-xl">⚠️</span>
+                </div>
+                <div className="text-lg font-semibold text-foreground">
+                  No se encontraron proyectos para 'TODOS'
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Verifica permisos y filtros. Si deberías ver proyectos, intenta recargar.
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Proyectos cargados: {projects.length} (incluyendo ALL_PROJECTS)
+                </div>
+                <Button 
+                  onClick={loadForecastData}
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                >
+                  Reintentar
+                </Button>
+              </div>
+            </div>
+          ) : forecastError ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="text-center space-y-3">
+                <div className="w-8 h-8 bg-destructive/10 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-destructive font-bold text-sm">⚠️</span>
+                </div>
+                <div className="text-destructive">{forecastError}</div>
+                <div className="text-xs text-muted-foreground">Project ID: {selectedProjectId}</div>
+              </div>
+            </div>
+          ) : isEmptyState ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="text-center space-y-3">
+                <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-muted-foreground font-bold text-sm">🗂️</span>
+                </div>
+                <div className="text-muted-foreground">
+                  No hay datos de pronóstico disponibles aún para {currentProject?.name || 'este proyecto'}.
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Project ID: {selectedProjectId} | Última generación: {generatedAt ? new Date(generatedAt).toLocaleString() : 'sin registro'}
+                </div>
+              </div>
+            </div>
+          ) : !hasGridData ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="text-center space-y-3">
+                <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-muted-foreground font-bold text-sm">📋</span>
+                </div>
+                <div className="text-muted-foreground">
+                  No hay datos de pronóstico disponibles para {currentProject?.name || 'este proyecto'}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Project ID: {selectedProjectId}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead 
+                      className="sticky left-0 bg-background min-w-[300px] cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={toggleSortDirection}
+                      title="Click para ordenar"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && toggleSortDirection()}
+                      aria-label={`Ordenar por rubro - actualmente ${sortDirection === 'asc' ? 'ascendente' : 'descendente'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Rubro</span>
+                        <span className="text-muted-foreground" aria-hidden="true">
+                          {sortDirection === 'asc' ? '▲' : '▼'}
+                        </span>
+                      </div>
+                    </TableHead>
+                    {(() => {
+                      const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
+                      const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
+                      const monthsToShow = isCurrentMonthMode ? [currentMonthIndex] : Array.from({ length: 12 }, (_, i) => i + 1);
+                      
+                      return monthsToShow.map((monthNum) => (
+                        <TableHead key={monthNum} className="text-center min-w-[140px]">
+                          <div className="font-semibold">M{monthNum}</div>
+                          {!isPortfolioView && projectStartDate && (
+                            <div className="text-xs font-normal text-muted-foreground mt-1">
+                              {getCalendarMonth(monthNum)}
+                            </div>
+                          )}
+                          <div className="text-xs font-normal text-muted-foreground mt-1">
+                            P / F / A
+                          </div>
+                        </TableHead>
+                      ));
+                    })()}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {forecastGridWithSubtotals.map((row, rowIndex) => {
+                    if (row.type === 'subtotal') {
+                      // Render sub-total row
+                      return (
+                        <TableRow key={`subtotal-${row.category}-${rowIndex}`} className="bg-muted/30 font-semibold">
+                          <TableCell className="sticky left-0 bg-muted/30">
+                            <div className="font-bold text-sm">
+                              Subtotal - {row.category}
+                            </div>
+                          </TableCell>
+                          {row.monthlyData.map(cell => (
+                            <TableCell key={cell.month} className="p-2">
+                              <div className="space-y-2 text-xs font-semibold">
+                                {/* Sub-total Planned */}
+                                {cell.planned > 0 && (
+                                  <div className="text-muted-foreground bg-muted/40 px-2 py-1 rounded">
+                                    P: {formatGridCurrency(cell.planned)}
+                                  </div>
+                                )}
+                                
+                                {/* Sub-total Forecast */}
+                                {(cell.forecast > 0 || cell.planned > 0) && (
+                                  <div className="px-2 py-1 rounded bg-primary/10 text-primary">
+                                    F: {formatGridCurrency(cell.forecast)}
+                                  </div>
+                                )}
+                                
+                                {/* Sub-total Actual */}
+                                {(cell.actual > 0 || cell.forecast > 0 || cell.planned > 0) && (
+                                  <div className="px-2 py-1 rounded bg-blue-50/80 text-blue-700">
+                                    A: {formatGridCurrency(cell.actual)}
+                                  </div>
+                                )}
+                                
+                                {/* Sub-total Variance */}
+                                {cell.variance !== 0 && (
+                                  <div className={`px-2 py-1 rounded text-xs font-bold text-center ${getVarianceColor(cell.variance)}`}>
+                                    {cell.variance > 0 ? '+' : ''}{formatGridCurrency(cell.variance)}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                    }
+                    
+                    // Render regular item row
+                    const { lineItem, monthlyData } = row;
+                    if (!lineItem) {
+                      // Safety check: skip if lineItem is undefined (should not happen for item rows)
+                      return null;
+                    }
+                    return (
+                    <TableRow key={lineItem.id}>
+                      <TableCell className="sticky left-0 bg-background">
+                        <div className="space-y-1">
+                          <div className="font-medium flex items-center gap-2">
+                            {lineItem.description}
+                            {lineItem.projectName && (
+                              <Badge variant="outline" className="text-[10px]">
+                                {lineItem.projectName}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground">{lineItem.category}</div>
+                        </div>
+                      </TableCell>
+                      {monthlyData.map(cell => (
+                        <TableCell key={cell.month} className="p-2">
+                          <div className="space-y-2 text-xs">
+                            {/* Planned (Read-only) - only show if > 0 */}
+                            {cell.planned > 0 && (
+                              <div className="text-muted-foreground bg-muted/20 px-2 py-1 rounded">
+                                P: {formatGridCurrency(cell.planned)}
+                              </div>
+                            )}
+                            
+                            {/* Forecast (Editable by PMO/SDMT) - only show if > 0 or planned > 0 */}
+                            {(cell.forecast > 0 || cell.planned > 0) && (
+                              <div>
+                                {editingCell?.line_item_id === cell.line_item_id && 
+                                 editingCell?.month === cell.month && 
+                                 editingCell?.type === 'forecast' ? (
+                                  <Input
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onBlur={handleCellSave}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
+                                    className="h-7 text-xs"
+                                    id={`forecast-input-${cell.line_item_id}-${cell.month}`}
+                                    name={`forecast-${cell.line_item_id}-${cell.month}`}
+                                    aria-label={`Forecast value for ${cell.line_item_id} month ${cell.month}`}
+                                    disabled={savingForecasts}
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <div
+                                    className={`px-2 py-1 rounded transition-colors ${
+                                      canEditForecast && !savingForecasts
+                                        ? 'cursor-pointer hover:bg-primary/10 bg-primary/5 text-primary font-medium'
+                                        : 'cursor-default bg-muted/10 text-muted-foreground'
+                                    }`}
+                                    onClick={() => canEditForecast && !savingForecasts && handleCellEdit(cell.line_item_id, cell.month, 'forecast')}
+                                    title={
+                                      savingForecasts 
+                                        ? 'Guardando pronósticos...' 
+                                        : canEditForecast 
+                                          ? 'Click to edit forecast' 
+                                          : 'No permission to edit forecast'
+                                    }
+                                  >
+                                    F: {formatGridCurrency(cell.forecast)}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Actual (Editable by SDMT only) - only show if > 0 or there's forecast/planned */}
+                            {(cell.actual > 0 || cell.forecast > 0 || cell.planned > 0) && (
+                              <div>
+                                {editingCell?.line_item_id === cell.line_item_id && 
+                                 editingCell?.month === cell.month && 
+                                 editingCell?.type === 'actual' ? (
+                                  <Input
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onBlur={handleCellSave}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
+                                    className="h-7 text-xs"
+                                    id={`actual-input-${cell.line_item_id}-${cell.month}`}
+                                    name={`actual-${cell.line_item_id}-${cell.month}`}
+                                    aria-label={`Actual value for ${cell.line_item_id} month ${cell.month}`}
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <div
+                                      className={`px-2 py-1 rounded flex-1 transition-colors ${
+                                        canEditActual 
+                                          ? 'cursor-pointer hover:bg-blue-50 bg-blue-50/50 text-blue-700 font-medium'
+                                          : 'cursor-default bg-muted/10 text-muted-foreground'
+                                      }`}
+                                      onClick={() => canEditActual && handleCellEdit(cell.line_item_id, cell.month, 'actual')}
+                                      title={canEditActual ? 'Click to edit actual' : 'No permission to edit actuals'}
+                                    >
+                                      A: {formatGridCurrency(cell.actual)}
+                                    </div>
+                                    {/* Always show reconciliation icon for organic actuals entry */}
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-5 w-5 p-0 hover:bg-blue-100"
+                                      onClick={() => navigateToReconciliation(cell.line_item_id, cell.month)}
+                                      title={cell.actual > 0 ? 'View/Edit Factura' : 'Add Factura / Enter Actuals'}
+                                    >
+                                      <ExternalLink size={12} />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Variance Indicator */}
+                            {cell.variance !== 0 && (
+                              <div className={`px-2 py-1 rounded text-xs font-medium text-center ${getVarianceColor(cell.variance)}`}>
+                                {cell.variance > 0 ? '+' : ''}{formatGridCurrency(cell.variance)}
+                              </div>
+                            )}
+                            
+                            {/* TODO: Show change request indicator when backend provides change_request_id
+                            {cell.change_request_id && (
+                              <Badge variant="outline" className="text-[10px] mt-1">
+                                Change #{cell.change_request_id.slice(0, 8)}
+                              </Badge>
+                            )}
+                            */}
+                          </div>
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Charts and Analytics */}
-      {!loading && forecastData.length > 0 && (() => {
+      {/* Charts and Analytics - Single Project Mode Only */}
+      {!isPortfolioView && !loading && forecastData.length > 0 && (() => {
         const charts = [
           <LineChartComponent
             key={`forecast-trends-${selectedProjectId}`}

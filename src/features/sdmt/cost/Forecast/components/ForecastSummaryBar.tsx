@@ -116,10 +116,68 @@ export function ForecastSummaryBar({
     });
   };
 
+  // Budget Health Status Logic
+  // - consumption <= 90% and forecast <= budget => "En Meta" (green)
+  // - consumption > 90% and forecast <= budget => "En Riesgo" (yellow)
+  // - forecast > budget OR consumption > 100% => "Sobre Presupuesto" (red)
+  const getBudgetHealthStatus = (): {
+    label: string;
+    color: string;
+    bgColor: string;
+  } => {
+    if (!useMonthlyBudget || totalBudget === 0) {
+      return {
+        label: 'Sin Presupuesto',
+        color: 'text-muted-foreground',
+        bgColor: 'bg-muted',
+      };
+    }
+
+    const isForecastOverBudget = totalForecast > totalBudget;
+    const isConsumptionOver100 = consumedPercent > 100;
+    const isConsumptionOver90 = consumedPercent > 90;
+
+    if (isForecastOverBudget || isConsumptionOver100) {
+      return {
+        label: 'Sobre Presupuesto',
+        color: 'text-red-700',
+        bgColor: 'bg-red-100 border-red-200',
+      };
+    }
+
+    if (isConsumptionOver90) {
+      return {
+        label: 'En Riesgo',
+        color: 'text-yellow-700',
+        bgColor: 'bg-yellow-100 border-yellow-200',
+      };
+    }
+
+    return {
+      label: 'En Meta',
+      color: 'text-green-700',
+      bgColor: 'bg-green-100 border-green-200',
+    };
+  };
+
+  const budgetHealth = getBudgetHealthStatus();
+
   return (
     <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-background">
       <CardContent className="p-4">
         <div className="flex flex-col gap-3">
+          {/* Title and Budget Health Pill Row */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-foreground">
+              Resumen Ejecutivo - Cartera Completa
+            </h3>
+            <Badge
+              className={`${budgetHealth.bgColor} ${budgetHealth.color} border px-3 py-1 font-medium`}
+            >
+              {budgetHealth.label}
+            </Badge>
+          </div>
+
           {/* KPI Cards Row */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             {/* Total Budget */}
