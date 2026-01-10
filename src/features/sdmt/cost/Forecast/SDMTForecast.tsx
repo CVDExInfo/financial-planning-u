@@ -145,9 +145,15 @@ export function SDMTForecast() {
   // Sorting state for forecast grid
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
+  // State for controlling rubros grid collapsible (TODOS view)
+  const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(false);
+  
   // Stale response guard: Track latest request to prevent race conditions
   const latestRequestKeyRef = useRef<string>('');
   const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Ref for scrolling to rubros section when category is clicked
+  const rubrosSectionRef = useRef<HTMLDivElement>(null);
   
   const [budgetSimulation, setBudgetSimulation] = useState<BudgetSimulationState>({
     enabled: false,
@@ -1163,16 +1169,31 @@ export function SDMTForecast() {
 
   // Handle category click - expand rubros accordion
   const handleCategoryClick = useCallback((category: string) => {
-    // For now, we'll just log the click
-    // In the future, we could scroll to the rubros accordion and expand it
-    if (import.meta.env.DEV) {
-      console.log('Category clicked:', category);
-    }
-    // TODO: Implement scroll to rubros section and focus on category
+    // Guard: only run in portfolio/TODOS view
+    if (!isPortfolioView) return;
+    
+    // Ensure rubros/details section is visible
+    setIsRubrosGridOpen(true);
+    
+    // Small delay to allow collapsible to open before scrolling
+    setTimeout(() => {
+      // Smooth scroll to rubros grid
+      if (rubrosSectionRef.current) {
+        rubrosSectionRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+        
+        // After scrolling, move focus to support keyboard users
+        rubrosSectionRef.current.focus();
+      }
+    }, 100);
+    
+    // Keep or slightly refine the toast message
     toast.info(`Ver categoría: ${category}`, {
-      description: 'Expande "Cuadrícula de Pronóstico 12 Meses" abajo para ver detalles',
+      description: 'Desplazando a la cuadrícula de pronóstico. Usa el encabezado "Desglose Mensual vs Presupuesto" para revisar los detalles por rubro.',
     });
-  }, []);
+  }, [isPortfolioView]);
 
   // Filter forecast data to current month when CURRENT_MONTH period is selected
   const filteredForecastData = useMemo(() => {
@@ -2343,8 +2364,8 @@ export function SDMTForecast() {
 
           {/* Collapsible Section: Cuadrícula de Pronóstico 12 Meses (Rubros Grid) */}
           {!loading && forecastData.length > 0 && (
-            <Collapsible defaultOpen={false}>
-              <Card>
+            <Collapsible open={isRubrosGridOpen} onOpenChange={setIsRubrosGridOpen}>
+              <Card ref={rubrosSectionRef} tabIndex={-1}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">Cuadrícula de Pronóstico 12 Meses</CardTitle>
