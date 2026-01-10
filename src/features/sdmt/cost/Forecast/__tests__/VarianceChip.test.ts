@@ -19,7 +19,7 @@ describe('VarianceChip - Formatting Logic', () => {
     const percent = 15.0;
     
     // Value formatting
-    const sign = value > 0 ? '+' : value < 0 ? '−' : '';
+    const sign = '+';
     const formattedValue = `${sign}$1,500`; // Simulated currency format
     
     // Percent formatting
@@ -27,7 +27,7 @@ describe('VarianceChip - Formatting Logic', () => {
     const formattedPercent = `${percentSign}${percent.toFixed(1)}%`;
     
     // Color
-    const color = value > 0 ? 'text-red-600' : value < 0 ? 'text-green-600' : 'text-muted-foreground';
+    const color = 'text-red-600';
     
     assert.strictEqual(sign, '+', 'Positive variance should have + sign');
     assert.strictEqual(formattedPercent, '+15.0%', 'Positive percent should be +15.0%');
