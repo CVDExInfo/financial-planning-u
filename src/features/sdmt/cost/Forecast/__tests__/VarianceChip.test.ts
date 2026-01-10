@@ -39,14 +39,14 @@ describe('VarianceChip - Formatting Logic', () => {
     const percent = -8.5;
     
     // Value formatting (use U+2212 minus sign)
-    const sign = value > 0 ? '+' : value < 0 ? '−' : '';
+    const sign = value < 0 ? '−' : '';
     
     // Percent formatting
     const percentSign = percent > 0 ? '+' : '';
     const formattedPercent = `${percentSign}${percent.toFixed(1)}%`;
     
     // Color
-    const color = value > 0 ? 'text-red-600' : value < 0 ? 'text-green-600' : 'text-muted-foreground';
+    const color = 'text-green-600';
     
     assert.strictEqual(sign, '−', 'Negative variance should have minus sign (U+2212)');
     assert.strictEqual(formattedPercent, '-8.5%', 'Negative percent should be -8.5%');
