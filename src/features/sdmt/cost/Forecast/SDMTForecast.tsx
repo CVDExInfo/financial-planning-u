@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +55,8 @@ import { PortfolioSummaryView } from './PortfolioSummaryView';
 import { ForecastSummaryBar } from './components/ForecastSummaryBar';
 import { ForecastChartsPanel } from './components/ForecastChartsPanel';
 import { ForecastRubrosTable } from './components/ForecastRubrosTable';
+import { TopVarianceProjectsTable } from './components/TopVarianceProjectsTable';
+import { TopVarianceRubrosTable } from './components/TopVarianceRubrosTable';
 import { DataHealthPanel } from '@/components/finanzas/DataHealthPanel';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
@@ -143,9 +145,15 @@ export function SDMTForecast() {
   // Sorting state for forecast grid
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
+  // State for controlling rubros grid collapsible (TODOS view)
+  const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(false);
+  
   // Stale response guard: Track latest request to prevent race conditions
   const latestRequestKeyRef = useRef<string>('');
   const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Ref for scrolling to rubros section when category is clicked
+  const rubrosSectionRef = useRef<HTMLDivElement>(null);
   
   const [budgetSimulation, setBudgetSimulation] = useState<BudgetSimulationState>({
     enabled: false,
@@ -183,7 +191,7 @@ export function SDMTForecast() {
     };
   } | null>(null);
   const { user, login } = useAuth();
-  const { selectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
+  const { selectedProjectId, setSelectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -1151,6 +1159,42 @@ export function SDMTForecast() {
     navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
   };
 
+  // Navigate to single project view
+  const navigateToProject = useCallback((projectId: string) => {
+    if (projectId && projectId !== ALL_PROJECTS_ID) {
+      // Use ProjectContext to select the project, which will trigger navigation
+      setSelectedProjectId(projectId);
+    }
+  }, [setSelectedProjectId]);
+
+  // Handle category click - expand rubros accordion
+  const handleCategoryClick = useCallback((category: string) => {
+    // Guard: only run in portfolio/TODOS view
+    if (!isPortfolioView) return;
+    
+    // Ensure rubros/details section is visible
+    setIsRubrosGridOpen(true);
+    
+    // Small delay to allow collapsible to open before scrolling
+    setTimeout(() => {
+      // Smooth scroll to rubros grid
+      if (rubrosSectionRef.current) {
+        rubrosSectionRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+        
+        // After scrolling, move focus to support keyboard users
+        rubrosSectionRef.current.focus();
+      }
+    }, 100);
+    
+    // Keep or slightly refine the toast message
+    toast.info(`Ver categoría: ${category}`, {
+      description: 'Desplazando a la cuadrícula de pronóstico. Usa el encabezado "Desglose Mensual vs Presupuesto" para revisar los detalles por rubro.',
+    });
+  }, [isPortfolioView]);
+
   // Filter forecast data to current month when CURRENT_MONTH period is selected
   const filteredForecastData = useMemo(() => {
     if (selectedPeriod !== 'CURRENT_MONTH') {
@@ -1526,6 +1570,65 @@ export function SDMTForecast() {
     const annualBudget = parseFloat(budgetAmount);
     return annualBudget > 0;
   }, [budgetAmount]);
+
+  // Build project summaries for top variance table in TODOS mode
+  const projectSummaries = useMemo(() => {
+    if (!isPortfolioView || forecastData.length === 0 || !hasBudgetForVariance) {
+      return [];
+    }
+
+    // Get total annual budget
+    const annualBudget = parseFloat(budgetAmount);
+    
+    // Group forecast data by project
+    const projectMap = new Map<string, {
+      id: string;
+      name: string;
+      code?: string;
+      plannedTotal: number;
+      forecastTotal: number;
+      actualTotal: number;
+    }>();
+
+    forecastData.forEach(cell => {
+      const projectId = cell.projectId;
+      const projectName = cell.projectName || 'Unknown Project';
+      
+      if (!projectId) return;
+
+      if (!projectMap.has(projectId)) {
+        // Find project details from projects list
+        const project = projects.find(p => p.id === projectId);
+        projectMap.set(projectId, {
+          id: projectId,
+          name: projectName,
+          code: project?.code,
+          plannedTotal: 0,
+          forecastTotal: 0,
+          actualTotal: 0,
+        });
+      }
+
+      const projectData = projectMap.get(projectId)!;
+      projectData.plannedTotal += cell.planned || 0;
+      projectData.forecastTotal += cell.forecast || 0;
+      projectData.actualTotal += cell.actual || 0;
+    });
+
+    // Calculate total planned across all projects for budget allocation
+    const totalPlanned = Array.from(projectMap.values()).reduce(
+      (sum, proj) => sum + proj.plannedTotal,
+      0
+    );
+
+    // Add budgetTotal for each project (proportional allocation)
+    return Array.from(projectMap.values()).map(project => ({
+      ...project,
+      budgetTotal: totalPlanned > 0
+        ? annualBudget * (project.plannedTotal / totalPlanned)
+        : 0,
+    }));
+  }, [isPortfolioView, forecastData, hasBudgetForVariance, budgetAmount, projects]);
 
   const varianceSeries = useMemo(() => {
     if (!hasBudgetForVariance) return [];
@@ -2197,6 +2300,28 @@ export function SDMTForecast() {
             />
           )}
 
+          {/* Top Variance Tables - Executive View */}
+          {!loading &&
+            isPortfolioView &&
+            forecastData.length > 0 &&
+            hasBudgetForVariance && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <TopVarianceProjectsTable
+                projects={projectSummaries}
+                formatCurrency={formatCurrency}
+                onProjectClick={navigateToProject}
+                topN={5}
+              />
+              <TopVarianceRubrosTable
+                categories={categoryTotals}
+                budgetOverall={parseFloat(budgetAmount)}
+                formatCurrency={formatCurrency}
+                onCategoryClick={handleCategoryClick}
+                topN={5}
+              />
+            </div>
+          )}
+
           {/* Collapsible Section: Resumen de todos los proyectos */}
           {!loading && (
             <Collapsible defaultOpen={false}>
@@ -2239,8 +2364,8 @@ export function SDMTForecast() {
 
           {/* Collapsible Section: Cuadrícula de Pronóstico 12 Meses (Rubros Grid) */}
           {!loading && forecastData.length > 0 && (
-            <Collapsible defaultOpen={false}>
-              <Card>
+            <Collapsible open={isRubrosGridOpen} onOpenChange={setIsRubrosGridOpen}>
+              <Card ref={rubrosSectionRef} tabIndex={-1}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">Cuadrícula de Pronóstico 12 Meses</CardTitle>
