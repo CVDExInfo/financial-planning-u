@@ -136,6 +136,7 @@ describe('ForecastSummaryBar KPI Calculations', () => {
 
     // MonthlySnapshotGrid should compute the same totalBudget for month
     const monthBudget = monthlyBudgets.find(b => b.month === 1)?.budget || 0;
+    assert.strictEqual(monthBudget, 10000);
     
     assert.strictEqual(summaryBarKpis.totalBudget, 33000);
     assert.strictEqual(summaryBarKpis.varianceBudget, 2000);
