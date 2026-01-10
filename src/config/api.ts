@@ -72,7 +72,13 @@ export function getAuthToken(): string | null {
       "cognitoIdToken",
     ];
 
-    const storageSources = [localStorage, sessionStorage];
+    const storageSources: Storage[] = [];
+    if (typeof localStorage !== "undefined") {
+      storageSources.push(localStorage);
+    }
+    if (typeof sessionStorage !== "undefined") {
+      storageSources.push(sessionStorage);
+    }
     for (const store of storageSources) {
       for (const key of preferredKeys) {
         const value = store.getItem(key);
@@ -84,11 +90,21 @@ export function getAuthToken(): string | null {
       return envSource.VITE_API_JWT_TOKEN;
     }
 
+    const runtimeMode =
+      envSource?.MODE ||
+      (typeof process !== "undefined" ? process.env.NODE_ENV : undefined);
+    const isProduction = runtimeMode === "production";
+    if (!isProduction && envSource?.VITE_FINZ_STATIC_TEST_TOKEN) {
+      return envSource.VITE_FINZ_STATIC_TEST_TOKEN;
+    }
+
     // Fallback to old "auth" key structure for backward compatibility
-    const authData = localStorage.getItem("auth");
-    if (authData) {
-      const parsed = JSON.parse(authData);
-      if (parsed?.idToken) return parsed.idToken;
+    if (typeof localStorage !== "undefined") {
+      const authData = localStorage.getItem("auth");
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        if (parsed?.idToken) return parsed.idToken;
+      }
     }
   } catch (error) {
     console.error("Failed to get auth token:", error);

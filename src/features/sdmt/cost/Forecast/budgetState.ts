@@ -21,7 +21,12 @@ const DEFAULT_CURRENCY = 'USD';
 export const isBudgetNotFoundError = (error: unknown): boolean => {
   if (!error || typeof error !== 'object') return false;
   const maybeError = error as { status?: number; statusCode?: number };
-  return maybeError.status === 404 || maybeError.statusCode === 404;
+  return (
+    maybeError.status === 404 ||
+    maybeError.statusCode === 404 ||
+    maybeError.status === 405 ||
+    maybeError.statusCode === 405
+  );
 };
 
 export const resolveAnnualBudgetState = ({
@@ -35,6 +40,18 @@ export const resolveAnnualBudgetState = ({
   year: number;
   defaultCurrency?: string;
 }): AnnualBudgetResolution => {
+  if (budget === null) {
+    return {
+      status: 'missing',
+      state: {
+        amount: '',
+        currency: defaultCurrency,
+        lastUpdated: null,
+        missingYear: year,
+      },
+    };
+  }
+
   if (error) {
     if (isBudgetNotFoundError(error)) {
       return {

@@ -1,12 +1,7 @@
 import { z } from "zod";
 import { API_BASE, HAS_API_BASE } from "@/config/env";
-import { buildAuthHeader, handleAuthErrorStatus } from "@/config/api";
+import { buildAuthHeader, getAuthToken, handleAuthErrorStatus } from "@/config/api";
 import httpClient, { HttpError } from "@/lib/http-client";
-
-const STATIC_TEST_TOKEN =
-  import.meta.env.VITE_FINZ_STATIC_TEST_TOKEN ||
-  (typeof process !== "undefined" ? process.env.VITE_FINZ_STATIC_TEST_TOKEN : "") ||
-  "";
 
 if (!HAS_API_BASE) {
   // Non-fatal in dev; API client will throw on call
@@ -390,20 +385,17 @@ function validateProjectPayload(payload: ProjectCreate): ProjectCreate {
 }
 
 function isJwtPresent(): boolean {
-  return !!(
-    localStorage.getItem("finz_access_token") ||
-    localStorage.getItem("cv.jwt") ||
-    localStorage.getItem("finz_jwt") ||
-    localStorage.getItem("idToken") ||
-    localStorage.getItem("cognitoIdToken") ||
-    STATIC_TEST_TOKEN
-  );
+  return !!getAuthToken();
 }
 
 function checkAuth(): void {
   if (!isJwtPresent()) {
     throw new Error("You must be signed in to perform this action. Please log in with your Finance credentials.");
   }
+}
+
+function isBudgetMissingError(error: unknown): boolean {
+  return error instanceof HttpError && (error.status === 404 || error.status === 405);
 }
 
 export const finanzasClient = {
@@ -558,18 +550,25 @@ export const finanzasClient = {
     currency: string;
     updated_at?: string;
     updated_by?: string;
-  }> {
+  } | null> {
     checkAuth();
-    const data = await http<{
-      year: number;
-      amount: number | null;
-      currency: string;
-      updated_at?: string;
-      updated_by?: string;
-    }>(`/budgets/all-in?year=${year}`, {
-      method: "GET",
-    });
-    return data;
+    try {
+      const data = await http<{
+        year: number;
+        amount: number | null;
+        currency: string;
+        updated_at?: string;
+        updated_by?: string;
+      }>(`/budgets/all-in?year=${year}`, {
+        method: "GET",
+      });
+      return data;
+    } catch (error) {
+      if (isBudgetMissingError(error)) {
+        return null;
+      }
+      throw error;
+    }
   },
 
   /**
@@ -622,31 +621,38 @@ export const finanzasClient = {
       forecast: number;
       actual: number;
     }>;
-  }> {
+  } | null> {
     checkAuth();
-    const data = await http<{
-      year: number;
-      budgetAllIn: { amount: number; currency: string } | null;
-      totals: {
-        planned: number;
-        forecast: number;
-        actual: number;
-        varianceBudgetVsForecast: number;
-        varianceBudgetVsActual: number;
-        percentBudgetConsumedActual: number | null;
-        percentBudgetConsumedForecast: number | null;
-      };
-      byProject?: Array<{
-        projectId: string;
-        projectCode?: string;
-        planned: number;
-        forecast: number;
-        actual: number;
-      }>;
-    }>(`/budgets/all-in/overview?year=${year}`, {
-      method: "GET",
-    });
-    return data;
+    try {
+      const data = await http<{
+        year: number;
+        budgetAllIn: { amount: number; currency: string } | null;
+        totals: {
+          planned: number;
+          forecast: number;
+          actual: number;
+          varianceBudgetVsForecast: number;
+          varianceBudgetVsActual: number;
+          percentBudgetConsumedActual: number | null;
+          percentBudgetConsumedForecast: number | null;
+        };
+        byProject?: Array<{
+          projectId: string;
+          projectCode?: string;
+          planned: number;
+          forecast: number;
+          actual: number;
+        }>;
+      }>(`/budgets/all-in/overview?year=${year}`, {
+        method: "GET",
+      });
+      return data;
+    } catch (error) {
+      if (isBudgetMissingError(error)) {
+        return null;
+      }
+      throw error;
+    }
   },
 
   /**
@@ -658,7 +664,7 @@ export const finanzasClient = {
     months: Array<{ month: string; amount: number }>;
     updated_at?: string;
     updated_by?: string;
-  }> {
+  } | null> {
     checkAuth();
     const path = `/budgets/all-in/monthly?year=${year}`;
     try {
@@ -673,6 +679,9 @@ export const finanzasClient = {
       });
       return data;
     } catch (error) {
+      if (isBudgetMissingError(error)) {
+        return null;
+      }
       logBudgetMonthlyFailure(path, error);
       throw error;
     }
