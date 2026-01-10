@@ -54,7 +54,44 @@ export function DataHealthPanel() {
   const [endpointStatuses, setEndpointStatuses] = useState<EndpointHealthStatus[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Only show in dev mode
+  // Compute unmapped rubros (those with undefined/null/"Sin categoría" category)
+  const unmappedRubros = useMemo(() => {
+    const unmapped: Array<{
+      projectId: string;
+      projectName: string;
+      rubroId: string;
+      rubroDescription: string;
+      totalForecast: number;
+      totalActual: number;
+    }> = [];
+
+    projectMetrics.forEach(metrics => {
+      if (!metrics.lineItems || metrics.hasError) return;
+
+      metrics.lineItems.forEach(item => {
+        const category = item.category?.trim();
+        const isUnmapped = !category || category === '' || category.toLowerCase() === 'sin categoría';
+        
+        if (isUnmapped) {
+          unmapped.push({
+            projectId: metrics.projectId,
+            projectName: metrics.projectName,
+            rubroId: item.id,
+            rubroDescription: item.description || 'Sin descripción',
+            totalForecast: item.total_cost || 0,
+            totalActual: 0, // TODO: would need actual data from forecast API
+          });
+        }
+      });
+    });
+
+    return unmapped;
+  }, [projectMetrics]);
+
+  const unmappedCount = unmappedRubros.length;
+  const unmappedTotalForecast = unmappedRubros.reduce((sum, r) => sum + r.totalForecast, 0);
+
+  // Only show in dev mode - check after all hooks
   if (!import.meta.env.DEV) {
     return null;
   }
@@ -187,43 +224,6 @@ export function DataHealthPanel() {
     }
     return <AlertCircle className="h-4 w-4 text-gray-400" />;
   };
-
-  // Compute unmapped rubros (those with undefined/null/"Sin categoría" category)
-  const unmappedRubros = useMemo(() => {
-    const unmapped: Array<{
-      projectId: string;
-      projectName: string;
-      rubroId: string;
-      rubroDescription: string;
-      totalForecast: number;
-      totalActual: number;
-    }> = [];
-
-    projectMetrics.forEach(metrics => {
-      if (!metrics.lineItems || metrics.hasError) return;
-
-      metrics.lineItems.forEach(item => {
-        const category = item.category?.trim();
-        const isUnmapped = !category || category === '' || category.toLowerCase() === 'sin categoría';
-        
-        if (isUnmapped) {
-          unmapped.push({
-            projectId: metrics.projectId,
-            projectName: metrics.projectName,
-            rubroId: item.id,
-            rubroDescription: item.description || 'Sin descripción',
-            totalForecast: item.total_cost || 0,
-            totalActual: 0, // TODO: would need actual data from forecast API
-          });
-        }
-      });
-    });
-
-    return unmapped;
-  }, [projectMetrics]);
-
-  const unmappedCount = unmappedRubros.length;
-  const unmappedTotalForecast = unmappedRubros.reduce((sum, r) => sum + r.totalForecast, 0);
 
   // Export unmapped rubros to CSV
   const exportUnmappedRubros = () => {
