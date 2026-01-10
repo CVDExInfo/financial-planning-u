@@ -52,6 +52,7 @@ import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
 import { BudgetSimulatorCard } from './BudgetSimulatorCard';
 import { MonthlyBudgetCard } from './MonthlyBudgetCard';
 import { PortfolioSummaryView } from './PortfolioSummaryView';
+import { ForecastSummaryBar } from './components/ForecastSummaryBar';
 import { DataHealthPanel } from '@/components/finanzas/DataHealthPanel';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
@@ -1411,6 +1412,41 @@ export function SDMTForecast() {
     return allocateBudgetMonthly(annualBudget, monthlyTotals);
   }, [budgetAmount, isPortfolioView, forecastData, useMonthlyBudget, monthlyBudgets]);
 
+  // Compute KPI values for the summary bar (TODOS mode only)
+  const summaryBarKpis = useMemo(() => {
+    if (!isPortfolioView) {
+      return null; // Don't compute KPIs for single-project view
+    }
+
+    // Calculate total budget from monthly budgets
+    const totalBudget = useMonthlyBudget 
+      ? monthlyBudgets.reduce((acc, m) => acc + (m.budget || 0), 0)
+      : 0;
+
+    // Extract totals from existing computations
+    const totalForecastValue = totals.overall.forecast;
+    const totalActualValue = totals.overall.actual;
+
+    // Compute variance vs budget (Forecast - Budget)
+    const varianceBudget = totalBudget > 0 ? totalForecastValue - totalBudget : 0;
+    const varianceBudgetPercent = totalBudget > 0 ? (varianceBudget / totalBudget) * 100 : 0;
+
+    // Compute % consumed (Actual / Budget)
+    const consumedPercent = totalBudget > 0 ? (totalActualValue / totalBudget) * 100 : 0;
+
+    return {
+      totalBudget,
+      totalForecast: totalForecastValue,
+      totalActual: totalActualValue,
+      varianceBudget,
+      varianceBudgetPercent,
+      consumedPercent,
+      useMonthlyBudget,
+      lastUpdated: monthlyBudgetLastUpdated,
+      updatedBy: monthlyBudgetUpdatedBy,
+    };
+  }, [isPortfolioView, useMonthlyBudget, monthlyBudgets, totals, monthlyBudgetLastUpdated, monthlyBudgetUpdatedBy]);
+
   // Calculate runway metrics for month-by-month tracking
   const runwayMetrics = useMemo<RunwayMetrics[]>(() => {
     const annualBudget = parseFloat(budgetAmount);
@@ -1750,6 +1786,21 @@ export function SDMTForecast() {
 
       {/* Data Health Debug Panel (Dev Only) */}
       <DataHealthPanel />
+
+      {/* Executive KPI Summary Bar - TODOS Mode Only */}
+      {isPortfolioView && summaryBarKpis && (
+        <ForecastSummaryBar
+          totalBudget={summaryBarKpis.totalBudget}
+          totalForecast={summaryBarKpis.totalForecast}
+          totalActual={summaryBarKpis.totalActual}
+          consumedPercent={summaryBarKpis.consumedPercent}
+          varianceBudget={summaryBarKpis.varianceBudget}
+          varianceBudgetPercent={summaryBarKpis.varianceBudgetPercent}
+          useMonthlyBudget={summaryBarKpis.useMonthlyBudget}
+          lastUpdated={summaryBarKpis.lastUpdated}
+          updatedBy={summaryBarKpis.updatedBy}
+        />
+      )}
 
       {/* KPI Summary - Standardized & Compact */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
