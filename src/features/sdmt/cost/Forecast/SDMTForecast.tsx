@@ -57,6 +57,7 @@ import { ForecastChartsPanel } from './components/ForecastChartsPanel';
 import { ForecastRubrosTable } from './components/ForecastRubrosTable';
 import { TopVarianceProjectsTable } from './components/TopVarianceProjectsTable';
 import { TopVarianceRubrosTable } from './components/TopVarianceRubrosTable';
+import { MonthlySnapshotGrid } from './components/MonthlySnapshotGrid';
 import { DataHealthPanel } from '@/components/finanzas/DataHealthPanel';
 import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
 import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
@@ -1967,6 +1968,40 @@ export function SDMTForecast() {
           useMonthlyBudget={summaryBarKpis.useMonthlyBudget}
           lastUpdated={summaryBarKpis.lastUpdated}
           updatedBy={summaryBarKpis.updatedBy}
+        />
+      )}
+
+      {/* Monthly Snapshot Grid - TODOS Mode Only */}
+      {isPortfolioView && !loading && forecastData.length > 0 && (
+        <MonthlySnapshotGrid
+          forecastData={forecastData}
+          lineItems={portfolioLineItems}
+          monthlyBudgets={monthlyBudgets}
+          useMonthlyBudget={useMonthlyBudget}
+          formatCurrency={formatCurrency}
+          getCurrentMonthIndex={getCurrentMonthIndex}
+          onScrollToDetail={() => {
+            // Scroll to the 12-month grid section
+            if (rubrosSectionRef.current) {
+              setIsRubrosGridOpen(true);
+              setTimeout(() => {
+                rubrosSectionRef.current?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start',
+                });
+              }, 100);
+            }
+          }}
+          onNavigateToReconciliation={(lineItemId, projectId) => {
+            const params = new URLSearchParams();
+            if (projectId) {
+              params.set('projectId', projectId);
+            }
+            params.set('line_item', lineItemId);
+            const currentPath = location.pathname + location.search;
+            params.set('returnUrl', currentPath);
+            navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
+          }}
         />
       )}
 
