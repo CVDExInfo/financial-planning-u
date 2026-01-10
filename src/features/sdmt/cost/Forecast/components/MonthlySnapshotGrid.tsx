@@ -59,7 +59,6 @@ import {
   ExternalLink,
   Edit,
   Search,
-  Filter,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
