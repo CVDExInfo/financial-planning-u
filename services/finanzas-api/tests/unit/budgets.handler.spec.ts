@@ -395,4 +395,195 @@ describe("budgets handler", () => {
       expect(response.statusCode).toBe(200);
     });
   });
+
+  describe("GET /budgets/all-in/monthly", () => {
+    it("returns monthly budgets when they exist", async () => {
+      (dynamo.ddb.send as jest.Mock).mockResolvedValue({
+        Item: {
+          pk: "ORG#FINANZAS",
+          sk: "BUDGET#ALLIN#MONTHLY#YEAR#2025",
+          year: 2025,
+          currency: "USD",
+          months: [
+            { month: "2025-01", amount: 100000 },
+            { month: "2025-02", amount: 120000 },
+          ],
+          updated_at: "2025-01-15T10:30:00Z",
+          updated_by: "admin@example.com",
+        },
+      });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { 
+          http: { 
+            method: "GET", 
+            path: "/budgets/all-in/monthly" 
+          } 
+        },
+        queryStringParameters: { year: "2025" },
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await budgetsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.year).toBe(2025);
+      expect(payload.currency).toBe("USD");
+      expect(payload.months).toHaveLength(2);
+      expect(payload.months[0].month).toBe("2025-01");
+      expect(payload.months[0].amount).toBe(100000);
+    });
+
+    it("returns 404 when monthly budgets do not exist", async () => {
+      (dynamo.ddb.send as jest.Mock).mockResolvedValue({
+        Item: undefined,
+      });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { 
+          http: { 
+            method: "GET", 
+            path: "/budgets/all-in/monthly" 
+          } 
+        },
+        queryStringParameters: { year: "2025" },
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await budgetsHandler(event);
+
+      expect(response.statusCode).toBe(404);
+      expect(response.body).toContain("No monthly budgets found for year 2025");
+    });
+
+    it("rejects missing year parameter", async () => {
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { 
+          http: { 
+            method: "GET", 
+            path: "/budgets/all-in/monthly" 
+          } 
+        },
+        queryStringParameters: {},
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await budgetsHandler(event);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toContain("Missing required parameter: year");
+    });
+  });
+
+  describe("PUT /budgets/all-in/monthly", () => {
+    it("saves monthly budgets successfully", async () => {
+      (dynamo.ddb.send as jest.Mock).mockResolvedValue({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { 
+          http: { 
+            method: "PUT", 
+            path: "/budgets/all-in/monthly" 
+          } 
+        },
+        body: JSON.stringify({
+          year: 2025,
+          currency: "USD",
+          months: [
+            { month: "2025-01", amount: 100000 },
+            { month: "2025-02", amount: 120000 },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await budgetsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.year).toBe(2025);
+      expect(payload.currency).toBe("USD");
+      expect(payload.months).toHaveLength(2);
+      expect(payload.updated_by).toBe("test@example.com");
+      expect(payload.updated_at).toBeDefined();
+    });
+
+    it("rejects empty months array", async () => {
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { 
+          http: { 
+            method: "PUT", 
+            path: "/budgets/all-in/monthly" 
+          } 
+        },
+        body: JSON.stringify({
+          year: 2025,
+          currency: "USD",
+          months: [],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await budgetsHandler(event);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toContain("months array cannot be empty");
+    });
+
+    it("rejects invalid month format", async () => {
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { 
+          http: { 
+            method: "PUT", 
+            path: "/budgets/all-in/monthly" 
+          } 
+        },
+        body: JSON.stringify({
+          year: 2025,
+          currency: "USD",
+          months: [
+            { month: "January 2025", amount: 100000 },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await budgetsHandler(event);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toContain("Invalid month format");
+    });
+
+    it("rejects month-year mismatch", async () => {
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { 
+          http: { 
+            method: "PUT", 
+            path: "/budgets/all-in/monthly" 
+          } 
+        },
+        body: JSON.stringify({
+          year: 2025,
+          currency: "USD",
+          months: [
+            { month: "2024-01", amount: 100000 },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await budgetsHandler(event);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toContain("does not match year");
+    });
+  });
 });
