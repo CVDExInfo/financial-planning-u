@@ -11,6 +11,8 @@ export type MonthlyTotals = {
   actual: number;
   varianceForecast: number;
   varianceActual: number;
+  varianceForecastPercent: number;
+  varianceActualPercent: number;
 };
 
 export type OverallTotals = {
@@ -37,6 +39,8 @@ const buildMonthTotals = (): MonthlyTotals => ({
   actual: 0,
   varianceForecast: 0,
   varianceActual: 0,
+  varianceForecastPercent: 0,
+  varianceActualPercent: 0,
 });
 
 export function computeTotals(
@@ -72,6 +76,8 @@ export function computeTotals(
   Object.values(byMonth).forEach((totals) => {
     totals.varianceForecast = totals.forecast - totals.planned;
     totals.varianceActual = totals.actual - totals.planned;
+    totals.varianceForecastPercent = totals.planned > 0 ? (totals.varianceForecast / totals.planned) * 100 : 0;
+    totals.varianceActualPercent = totals.planned > 0 ? (totals.varianceActual / totals.planned) * 100 : 0;
   });
 
   const overall = Object.values(byMonth).reduce(
