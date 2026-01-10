@@ -32,6 +32,7 @@ import { Search, Edit2, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { CategoryTotals, CategoryRubro, PortfolioTotals } from '../categoryGrouping';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import VarianceChip from './VarianceChip';
 
 interface ForecastRubrosTableProps {
   categoryTotals: Map<string, CategoryTotals>;
@@ -178,6 +179,9 @@ export function ForecastRubrosTable({
                   <TableHead className="text-center min-w-[100px] bg-muted/50 font-bold">
                     % Consumo
                   </TableHead>
+                  <TableHead className="text-center min-w-[140px] bg-muted/50 font-bold">
+                    Variación
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -193,6 +197,7 @@ export function ForecastRubrosTable({
                           className="h-6 w-6 p-0"
                           onClick={handleStartEditBudget}
                           title="Editar presupuesto"
+                          aria-label="Editar presupuesto"
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
@@ -206,6 +211,7 @@ export function ForecastRubrosTable({
                             onClick={handleSaveBudget}
                             disabled={savingBudget}
                             title="Guardar"
+                            aria-label="Guardar presupuesto"
                           >
                             {savingBudget ? (
                               <LoadingSpinner size="sm" />
@@ -220,6 +226,7 @@ export function ForecastRubrosTable({
                             onClick={handleCancelEditBudget}
                             disabled={savingBudget}
                             title="Cancelar"
+                            aria-label="Cancelar edición de presupuesto"
                           >
                             <X className="h-3 w-3" />
                           </Button>
@@ -255,6 +262,7 @@ export function ForecastRubrosTable({
                     {formatCurrency(budgetYTD)}
                   </TableCell>
                   <TableCell className="text-center bg-muted/50">—</TableCell>
+                  <TableCell className="text-center bg-muted/50">—</TableCell>
                 </TableRow>
 
                 {/* Category and Rubro Rows */}
@@ -271,7 +279,7 @@ export function ForecastRubrosTable({
                       {/* Individual Rubro Rows */}
                       {filteredRubros.map(rubro => (
                         <TableRow key={rubro.rubroId} className="hover:bg-muted/20">
-                          <TableCell className="sticky left-0 bg-background pl-6">
+                          <TableCell className="sticky left-0 bg-background pl-6" title={rubro.description}>
                             <span className="text-sm">{rubro.description}</span>
                           </TableCell>
                           {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
@@ -333,6 +341,13 @@ export function ForecastRubrosTable({
                           >
                             {rubro.overall.percentConsumption.toFixed(1)}%
                           </TableCell>
+                          <TableCell className="text-center bg-muted/30 text-xs">
+                            <VarianceChip
+                              value={rubro.overall.varianceActual}
+                              percent={rubro.overall.forecast !== 0 ? (rubro.overall.varianceActual / rubro.overall.forecast) * 100 : null}
+                              ariaLabel={`Variación para ${rubro.description}: ${rubro.overall.varianceActual}`}
+                            />
+                          </TableCell>
                         </TableRow>
                       ))}
 
@@ -375,6 +390,13 @@ export function ForecastRubrosTable({
                           )}`}
                         >
                           {categoryTotal.overall.percentConsumption.toFixed(1)}%
+                        </TableCell>
+                        <TableCell className="text-center bg-muted/80 text-xs font-bold">
+                          <VarianceChip
+                            value={categoryTotal.overall.varianceActual}
+                            percent={categoryTotal.overall.forecast !== 0 ? (categoryTotal.overall.varianceActual / categoryTotal.overall.forecast) * 100 : null}
+                            ariaLabel={`Variación subtotal para ${category}: ${categoryTotal.overall.varianceActual}`}
+                          />
                         </TableCell>
                       </TableRow>
                     </React.Fragment>
@@ -420,6 +442,13 @@ export function ForecastRubrosTable({
                     )}`}
                   >
                     {portfolioTotals.overall.percentConsumption.toFixed(1)}%
+                  </TableCell>
+                  <TableCell className="text-center bg-primary/20 font-bold text-lg">
+                    <VarianceChip
+                      value={portfolioTotals.overall.varianceActual}
+                      percent={portfolioTotals.overall.forecast !== 0 ? (portfolioTotals.overall.varianceActual / portfolioTotals.overall.forecast) * 100 : null}
+                      ariaLabel={`Variación total del portafolio: ${portfolioTotals.overall.varianceActual}`}
+                    />
                   </TableCell>
                 </TableRow>
               </TableBody>
