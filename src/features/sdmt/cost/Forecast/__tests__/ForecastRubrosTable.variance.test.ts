@@ -72,19 +72,23 @@ describe('ForecastRubrosTable - Subtotal Variance', () => {
   });
 
   it('should format variance with sign prefix', () => {
+    // Define small helper that mirrors VarianceChip formatting semantics
+    const formatVariance = (value: number): string => {
+      if (value > 0) return `+${value}`;
+      if (value < 0) return `−${Math.abs(value)}`; // U+2212 minus sign
+      return `${value}`;
+    };
+
     // Positive variance (overspend)
     const positiveVariance = 150;
-    const positiveFormatted = positiveVariance > 0 ? `+${positiveVariance}` : `${positiveVariance}`;
-    assert.strictEqual(positiveFormatted, '+150', 'Positive variance should have + prefix');
+    assert.strictEqual(formatVariance(positiveVariance), '+150', 'Positive variance should have + prefix');
 
     // Negative variance (savings)
     const negativeVariance = -150;
-    const negativeFormatted = negativeVariance > 0 ? `+${negativeVariance}` : `−${Math.abs(negativeVariance)}`;
-    assert.strictEqual(negativeFormatted, '−150', 'Negative variance should use minus sign');
+    assert.strictEqual(formatVariance(negativeVariance), '−150', 'Negative variance should use minus sign');
 
     // Zero variance
     const zeroVariance = 0;
-    const zeroFormatted = zeroVariance > 0 ? `+${zeroVariance}` : zeroVariance < 0 ? `−${Math.abs(zeroVariance)}` : `${zeroVariance}`;
-    assert.strictEqual(zeroFormatted, '0', 'Zero variance should have no prefix');
+    assert.strictEqual(formatVariance(zeroVariance), '0', 'Zero variance should have no prefix');
   });
 });
