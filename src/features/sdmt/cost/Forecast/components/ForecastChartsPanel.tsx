@@ -13,7 +13,6 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import LineChartComponent from '@/components/charts/LineChart';
-import { DonutChart } from '@/components/charts/DonutChart';
 import type { PortfolioTotals, CategoryTotals } from '../categoryGrouping';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
