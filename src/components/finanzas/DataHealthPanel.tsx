@@ -10,6 +10,12 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -79,7 +85,9 @@ export function DataHealthPanel() {
             rubroId: item.id,
             rubroDescription: item.description || 'Sin descripción',
             totalForecast: item.total_cost || 0,
-            totalActual: 0, // TODO: would need actual data from forecast API
+            // Note: totalActual is not available from line items API
+            // This dev-only export shows forecast from baseline; actual values require forecast API integration
+            totalActual: 0,
           });
         }
       });
@@ -233,8 +241,11 @@ export function DataHealthPanel() {
     }
 
     try {
+      logger.info('[DataHealth] Exporting unmapped rubros - totalActual values are set to 0 (forecast API integration pending)');
+      
       // Create CSV content
-      const headers = ['projectId', 'projectName', 'rubroId', 'rubroDescription', 'totalForecast', 'totalActual'];
+      // Note: totalActual is not currently available from line items API - shows 0 until forecast API is integrated
+      const headers = ['projectId', 'projectName', 'rubroId', 'rubroDescription', 'totalForecast', 'totalActual (N/A)'];
       const rows = unmappedRubros.map(r => [
         r.projectId,
         r.projectName,
@@ -260,7 +271,7 @@ export function DataHealthPanel() {
       link.click();
       document.body.removeChild(link);
 
-      toast.success(`Exportados ${unmappedCount} rubros sin categoría`);
+      toast.success(`Exportados ${unmappedCount} rubros sin categoría (actualizado pronóstico solamente)`);
     } catch (error) {
       logger.error('[DataHealth] Error exporting unmapped rubros:', error);
       toast.error('Error al exportar rubros sin categoría');
@@ -366,16 +377,28 @@ export function DataHealthPanel() {
                         </div>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={exportUnmappedRubros}
-                      aria-label="Exportar rubros sin categoría"
-                      className="gap-2 border-amber-600 text-amber-700 hover:bg-amber-100"
-                    >
-                      <Download className="h-4 w-4" />
-                      Exportar rubros sin categoría
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={exportUnmappedRubros}
+                            aria-label="Exportar rubros sin categoría"
+                            className="gap-2 border-amber-600 text-amber-700 hover:bg-amber-100"
+                          >
+                            <Download className="h-4 w-4" />
+                            Exportar rubros sin categoría
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs max-w-xs">
+                            Exporta CSV con pronóstico de rubros sin categoría.
+                            Nota: Campo "totalActual" muestra 0 (requiere integración con API de forecast).
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
               </div>

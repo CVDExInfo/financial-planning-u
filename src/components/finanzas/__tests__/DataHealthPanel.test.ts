@@ -27,7 +27,8 @@ export function createUnmappedRubrosCSV(
     totalActual: number;
   }>
 ): string {
-  const headers = ['projectId', 'projectName', 'rubroId', 'rubroDescription', 'totalForecast', 'totalActual'];
+  // Note: totalActual header includes (N/A) to indicate data is not available from line items API
+  const headers = ['projectId', 'projectName', 'rubroId', 'rubroDescription', 'totalForecast', 'totalActual (N/A)'];
   const rows = unmappedRubros.map(r => [
     r.projectId,
     r.projectName,
@@ -95,7 +96,7 @@ describe('DataHealthPanel - Unmapped Rubros', () => {
     const csv = createUnmappedRubrosCSV(unmapped);
     const lines = csv.split('\n');
 
-    assert.strictEqual(lines[0], 'projectId,projectName,rubroId,rubroDescription,totalForecast,totalActual');
+    assert.strictEqual(lines[0], 'projectId,projectName,rubroId,rubroDescription,totalForecast,totalActual (N/A)');
   });
 
   it('should create CSV with correct data rows', () => {
