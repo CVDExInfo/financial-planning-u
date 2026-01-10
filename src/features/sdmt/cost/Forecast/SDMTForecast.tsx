@@ -78,6 +78,32 @@ import {
 // Expected API response enhancement: ForecastCell should include optional field:
 //   - change_request_id?: string (to link forecast cells to their source change)
 
+// TODOS MODE – DATA NOTES
+// ========================
+// Portfolio Forecast Loading:
+//   - Function: loadPortfolioForecast(months, requestKey) (line ~570)
+//   - Uses Promise.all to fetch forecast data for all projects in parallel (excluding ALL_PROJECTS_ID)
+//   - For each project: getForecastPayload, getProjectInvoices, getProjectRubros
+//   - Falls back to baseline line items if server forecast is empty and baseline is accepted
+//   - Aggregates all project data into portfolioLineItems and forecastData states
+//   - Handles stale request detection via requestKey to prevent race conditions
+//   - TODO: Replace per-project fan-out with aggregate portfolio endpoints when available
+//
+// All-In Budget Monthly GET/PUT:
+//   - GET function: finanzasClient.getAllInBudgetMonthly(year) in src/api/finanzasClient.ts (line ~661)
+//   - PUT function: finanzasClient.putAllInBudgetMonthly(year, currency, months) in src/api/finanzasClient.ts (line ~693)
+//   - Load function: loadMonthlyBudget(year) (line ~942)
+//   - Save function: handleSaveMonthlyBudget() (line ~1007)
+//   - State: monthlyBudgets (12 month entries), useMonthlyBudget (boolean flag)
+//   - Metadata: monthlyBudgetLastUpdated, monthlyBudgetUpdatedBy
+//   - 404 handling: Treated as "no budget set" - initializes empty 12-month array, sets useMonthlyBudget=false
+//   - Only active in TODOS/ALL_PROJECTS mode (isPortfolioView)
+//
+// Known Issues / Warnings:
+//   - Monthly budget 404 returns warning: "Monthly budget not found for {year}" - this is expected/non-blocking
+//   - Portfolio loading may show "Waiting for projects to load..." if only ALL_PROJECTS placeholder exists
+//   - No explicit pagination handling for project list (assumes all projects fit in single response)
+
 type ForecastRow = ForecastCell & {
   projectId?: string;
   projectName?: string;
@@ -591,67 +617,74 @@ export function SDMTForecast() {
 
     const portfolioResults = await Promise.all(
       candidateProjects.map(async project => {
-        const [payload, invoices, projectLineItems] = await Promise.all([
-          getForecastPayload(project.id, months),
-          getProjectInvoices(project.id),
-          getProjectRubros(project.id).catch(() => [] as LineItem[]),
-        ]);
-        
-        // Check if request is still valid after async operations
-        if (latestRequestKeyRef.current !== requestKey) {
-          // Return empty result to be filtered out, don't throw
-          return null;
-        }
+        try {
+          const [payload, invoices, projectLineItems] = await Promise.all([
+            getForecastPayload(project.id, months),
+            getProjectInvoices(project.id),
+            getProjectRubros(project.id).catch(() => [] as LineItem[]),
+          ]);
+          
+          // Check if request is still valid after async operations
+          if (latestRequestKeyRef.current !== requestKey) {
+            // Return empty result to be filtered out, don't throw
+            return null;
+          }
 
-        const debugMode = import.meta.env.DEV;
-        let normalized = normalizeForecastCells(payload.data, {
-          baselineId: project.baselineId,
-          debugMode
-        });
-        const baselineStatus = resolveBaselineStatus(
-          project as { baselineStatus?: string; baseline_status?: string } | null
-        );
-        const hasAcceptedBaseline = baselineStatus === 'accepted';
-        let usedFallback = false;
+          const debugMode = import.meta.env.DEV;
+          let normalized = normalizeForecastCells(payload.data, {
+            baselineId: project.baselineId,
+            debugMode
+          });
+          const baselineStatus = resolveBaselineStatus(
+            project as { baselineStatus?: string; baseline_status?: string } | null
+          );
+          const hasAcceptedBaseline = baselineStatus === 'accepted';
+          let usedFallback = false;
 
-        if ((!normalized || normalized.length === 0) && projectLineItems.length > 0 && hasAcceptedBaseline) {
-          if (import.meta.env.DEV) {
+          if ((!normalized || normalized.length === 0) && projectLineItems.length > 0 && hasAcceptedBaseline) {
+            if (import.meta.env.DEV) {
+              console.debug(
+                `[SDMTForecast] Using baseline fallback for ${project.id}, baseline ${project.baselineId}: ${projectLineItems.length} line items`
+              );
+            }
+            normalized = transformLineItemsToForecast(projectLineItems, months, project.id);
+            usedFallback = true;
+          } else if (normalized.length > 0 && import.meta.env.DEV) {
             console.debug(
-              `[SDMTForecast] Using baseline fallback for ${project.id}, baseline ${project.baselineId}: ${projectLineItems.length} line items`
+              `[SDMTForecast] Using server forecast rows for ${project.id}, baseline ${project.baselineId}`
             );
           }
-          normalized = transformLineItemsToForecast(projectLineItems, months, project.id);
-          usedFallback = true;
-        } else if (normalized.length > 0 && import.meta.env.DEV) {
-          console.debug(
-            `[SDMTForecast] Using server forecast rows for ${project.id}, baseline ${project.baselineId}`
-          );
-        }
-        const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
+          const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
 
-        const projectData: ForecastRow[] = normalized.map(cell => {
-          const matchedInvoice = matchedInvoices.find(inv =>
-            inv.line_item_id === cell.line_item_id && inv.month === cell.month
-          );
+          const projectData: ForecastRow[] = normalized.map(cell => {
+            const matchedInvoice = matchedInvoices.find(inv =>
+              inv.line_item_id === cell.line_item_id && inv.month === cell.month
+            );
 
-          const withActuals = matchedInvoice
-            ? { ...cell, actual: matchedInvoice.amount || 0, variance: cell.forecast - cell.planned }
-            : cell;
+            const withActuals = matchedInvoice
+              ? { ...cell, actual: matchedInvoice.amount || 0, variance: cell.forecast - cell.planned }
+              : cell;
+
+            return {
+              ...withActuals,
+              projectId: project.id,
+              projectName: project.name,
+            };
+          });
 
           return {
-            ...withActuals,
-            projectId: project.id,
-            projectName: project.name,
+            project,
+            data: projectData,
+            lineItems: projectLineItems.map(item => ({ ...item, projectId: project.id, projectName: project.name })),
+            generatedAt: payload.generatedAt,
+            usedFallback,
           };
-        });
-
-        return {
-          project,
-          data: projectData,
-          lineItems: projectLineItems.map(item => ({ ...item, projectId: project.id, projectName: project.name })),
-          generatedAt: payload.generatedAt,
-          usedFallback,
-        };
+        } catch (error) {
+          // Log error but don't crash entire portfolio load
+          console.warn(`[Forecast] Failed to load data for project ${project.id} (${project.name}):`, error);
+          // Return null to be filtered out later
+          return null;
+        }
       })
     );
     
