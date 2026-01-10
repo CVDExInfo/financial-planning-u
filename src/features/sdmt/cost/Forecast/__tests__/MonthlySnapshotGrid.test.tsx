@@ -4,11 +4,22 @@
  * Tests for budget allocation, grouping, filtering, and denominator=0 percent rule
  */
 
-import { describe, it, expect } from '@jest/globals';
-import type { ForecastCell, MonthlyBudgetInput } from '../components/MonthlySnapshotGrid';
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
 
-// Helper to extract snapshot logic for testing
-// This mimics the internal calculation logic from MonthlySnapshotGrid.tsx
+// Helper types for testing
+interface ForecastCell {
+  line_item_id: string;
+  rubroId?: string;
+  description?: string;
+  projectId?: string;
+  projectName?: string;
+  month: number;
+  planned: number;
+  forecast: number;
+  actual: number;
+  variance: number;
+}
 
 interface TestSnapshotRow {
   id: string;
@@ -87,13 +98,13 @@ describe('MonthlySnapshotGrid - Budget Allocation', () => {
     const proj2 = projects.get('proj2')!;
     const proj3 = projects.get('proj3')!;
 
-    expect(proj1.budget).toBeCloseTo(100, 1); // ±0.1
-    expect(proj2.budget).toBeCloseTo(200, 1);
-    expect(proj3.budget).toBeCloseTo(700, 1);
+    assert.ok(Math.abs(proj1.budget - 100) < 0.1, 'Project 1 budget should be ~100');
+    assert.ok(Math.abs(proj2.budget - 200) < 0.1, 'Project 2 budget should be ~200');
+    assert.ok(Math.abs(proj3.budget - 700) < 0.1, 'Project 3 budget should be ~700');
 
     // Verify total budget allocated equals monthBudget
     const totalAllocated = proj1.budget + proj2.budget + proj3.budget;
-    expect(totalAllocated).toBeCloseTo(monthBudget, 1);
+    assert.ok(Math.abs(totalAllocated - monthBudget) < 0.1, 'Total allocated should equal monthBudget');
   });
 
   it('should distribute budget equally when totalForecast = 0', () => {
@@ -159,9 +170,9 @@ describe('MonthlySnapshotGrid - Budget Allocation', () => {
     const proj2 = projects.get('proj2')!;
     const proj3 = projects.get('proj3')!;
 
-    expect(proj1.budget).toBe(400);
-    expect(proj2.budget).toBe(400);
-    expect(proj3.budget).toBe(400);
+    assert.strictEqual(proj1.budget, 400, 'Project 1 should get 400');
+    assert.strictEqual(proj2.budget, 400, 'Project 2 should get 400');
+    assert.strictEqual(proj3.budget, 400, 'Project 3 should get 400');
   });
 });
 
@@ -212,11 +223,11 @@ describe('MonthlySnapshotGrid - Grouping', () => {
     });
 
     // Assert
-    expect(projectMap.size).toBe(1);
+    assert.strictEqual(projectMap.size, 1, 'Should have 1 project');
     const proj1 = projectMap.get('proj1')!;
-    expect(proj1.forecast).toBe(300);
-    expect(proj1.actual).toBe(270);
-    expect(proj1.rubros).toEqual(['rubro1', 'rubro2']);
+    assert.strictEqual(proj1.forecast, 300, 'Project forecast should be 300');
+    assert.strictEqual(proj1.actual, 270, 'Project actual should be 270');
+    assert.deepStrictEqual(proj1.rubros, ['rubro1', 'rubro2'], 'Should have 2 rubros');
   });
 
   it('should group by rubro with projects as children', () => {
@@ -262,11 +273,11 @@ describe('MonthlySnapshotGrid - Grouping', () => {
     });
 
     // Assert
-    expect(rubroMap.size).toBe(1);
+    assert.strictEqual(rubroMap.size, 1, 'Should have 1 rubro');
     const rubro1 = rubroMap.get('rubro1')!;
-    expect(rubro1.forecast).toBe(300);
-    expect(rubro1.actual).toBe(270);
-    expect(rubro1.projects).toEqual(['proj1', 'proj2']);
+    assert.strictEqual(rubro1.forecast, 300, 'Rubro forecast should be 300');
+    assert.strictEqual(rubro1.actual, 270, 'Rubro actual should be 270');
+    assert.deepStrictEqual(rubro1.projects, ['proj1', 'proj2'], 'Should have 2 projects');
   });
 });
 
@@ -320,8 +331,12 @@ describe('MonthlySnapshotGrid - Only Variance Filter', () => {
     });
 
     // Assert: proj1 should be filtered out (no variance)
-    expect(filtered.length).toBe(2);
-    expect(filtered.map(r => r.id)).toEqual(['proj2', 'proj3']);
+    assert.strictEqual(filtered.length, 2, 'Should have 2 rows with variance');
+    assert.deepStrictEqual(
+      filtered.map(r => r.id), 
+      ['proj2', 'proj3'],
+      'Should keep proj2 and proj3'
+    );
   });
 });
 
@@ -338,7 +353,7 @@ describe('MonthlySnapshotGrid - Denominator Zero Percent Rule', () => {
       ? (varianceBudget / budget) * 100 
       : null;
 
-    expect(varianceBudgetPercent).toBeNull();
+    assert.strictEqual(varianceBudgetPercent, null, 'Percent should be null when budget is 0');
   });
 
   it('should return null percent when forecast (denominator) is 0', () => {
@@ -350,7 +365,7 @@ describe('MonthlySnapshotGrid - Denominator Zero Percent Rule', () => {
       ? (varianceForecast / forecast) * 100
       : null;
 
-    expect(varianceForecastPercent).toBeNull();
+    assert.strictEqual(varianceForecastPercent, null, 'Percent should be null when forecast is 0');
   });
 
   it('should calculate percent correctly when denominator > 0', () => {
@@ -361,7 +376,7 @@ describe('MonthlySnapshotGrid - Denominator Zero Percent Rule', () => {
       ? (varianceBudget / budget) * 100 
       : null;
 
-    expect(varianceBudgetPercent).toBe(20);
+    assert.strictEqual(varianceBudgetPercent, 20, 'Percent should be 20 when variance is 200 and budget is 1000');
   });
 });
 
@@ -397,7 +412,7 @@ describe('MonthlySnapshotGrid - Performance', () => {
     const computeTime = performance.now() - computeStart;
 
     // Assert: computation should be fast (< 10ms for 100 items)
-    expect(computeTime).toBeLessThan(10);
-    expect(projectMap.size).toBe(10); // 100 items / 10 projects
+    assert.ok(computeTime < 10, `Computation time should be < 10ms, got ${computeTime}ms`);
+    assert.strictEqual(projectMap.size, 10, 'Should have 10 projects');
   });
 });

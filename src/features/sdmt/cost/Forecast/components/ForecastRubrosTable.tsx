@@ -197,6 +197,7 @@ export function ForecastRubrosTable({
                           className="h-6 w-6 p-0"
                           onClick={handleStartEditBudget}
                           title="Editar presupuesto"
+                          aria-label="Editar presupuesto"
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
@@ -210,6 +211,7 @@ export function ForecastRubrosTable({
                             onClick={handleSaveBudget}
                             disabled={savingBudget}
                             title="Guardar"
+                            aria-label="Guardar presupuesto"
                           >
                             {savingBudget ? (
                               <LoadingSpinner size="sm" />
@@ -224,6 +226,7 @@ export function ForecastRubrosTable({
                             onClick={handleCancelEditBudget}
                             disabled={savingBudget}
                             title="Cancelar"
+                            aria-label="Cancelar edición de presupuesto"
                           >
                             <X className="h-3 w-3" />
                           </Button>
@@ -276,7 +279,7 @@ export function ForecastRubrosTable({
                       {/* Individual Rubro Rows */}
                       {filteredRubros.map(rubro => (
                         <TableRow key={rubro.rubroId} className="hover:bg-muted/20">
-                          <TableCell className="sticky left-0 bg-background pl-6">
+                          <TableCell className="sticky left-0 bg-background pl-6" title={rubro.description}>
                             <span className="text-sm">{rubro.description}</span>
                           </TableCell>
                           {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
