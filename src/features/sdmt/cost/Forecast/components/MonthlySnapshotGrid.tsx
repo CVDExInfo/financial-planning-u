@@ -15,7 +15,7 @@
  * - Action buttons (view 12-month detail, reconciliation, budget request)
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,9 +59,11 @@ import {
   ExternalLink,
   Edit,
   Search,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useFinanzasUser } from '@/hooks/useFinanzasUser';
+import { MonthlySnapshotSummary } from './MonthlySnapshotSummary';
 
 // Types
 export interface ForecastCell {
@@ -149,8 +151,30 @@ export function MonthlySnapshotGrid({
   onScrollToDetail,
   onNavigateToReconciliation,
 }: MonthlySnapshotGridProps) {
-  // Get user context for budget request payloads
+  // Get user context for budget request payloads and sessionStorage key
   const { userEmail } = useFinanzasUser();
+
+  // Helper to get/set collapsed state from sessionStorage
+  const getStoredCollapsedState = useCallback(() => {
+    try {
+      // Use project context if available; for portfolio view use 'portfolio'
+      const storageKey = `monthlyGridCollapsed:portfolio:${userEmail || 'user'}`;
+      const stored = sessionStorage.getItem(storageKey);
+      return stored === 'true';
+    } catch (e) {
+      // sessionStorage may not be available in some environments
+      return false;
+    }
+  }, [userEmail]);
+
+  const setStoredCollapsedState = useCallback((collapsed: boolean) => {
+    try {
+      const storageKey = `monthlyGridCollapsed:portfolio:${userEmail || 'user'}`;
+      sessionStorage.setItem(storageKey, String(collapsed));
+    } catch (e) {
+      // sessionStorage may not be available
+    }
+  }, [userEmail]);
 
   // State
   const [selectedMonth, setSelectedMonth] = useState<MonthOption>('current');
@@ -163,6 +187,17 @@ export function MonthlySnapshotGrid({
     row?: SnapshotRow;
   }>({ open: false });
   const [budgetRequestNotes, setBudgetRequestNotes] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(() => getStoredCollapsedState());
+
+  // Persist collapsed state to sessionStorage whenever it changes
+  useEffect(() => {
+    setStoredCollapsedState(isCollapsed);
+  }, [isCollapsed, setStoredCollapsedState]);
+
+  // Toggle collapsed state
+  const toggleCollapsed = useCallback(() => {
+    setIsCollapsed(prev => !prev);
+  }, []);
 
   // Compute actual month index from selection
   const actualMonthIndex = useMemo(() => {
@@ -561,22 +596,102 @@ export function MonthlySnapshotGrid({
     return options;
   }, []);
 
+  // Calculate summary totals for collapsed view
+  const summaryTotals = useMemo(() => {
+    const totalBudget = sortedRows.reduce((sum, row) => sum + row.budget, 0);
+    const totalForecast = sortedRows.reduce((sum, row) => sum + row.forecast, 0);
+    const totalActual = sortedRows.reduce((sum, row) => sum + row.actual, 0);
+    
+    return {
+      totalBudget,
+      totalForecast,
+      totalActual,
+    };
+  }, [sortedRows]);
+
+  // Handler for variance item click in summary
+  const handleSummaryVarianceClick = useCallback((item: { 
+    id: string; 
+    projectId?: string; 
+    rubroId?: string;
+  }) => {
+    // Find the row and navigate to reconciliation
+    const row = sortedRows.find(r => r.id === item.id);
+    if (row && onNavigateToReconciliation) {
+      const lineItemId = row.rubroId || row.id;
+      const projectId = row.projectId;
+      onNavigateToReconciliation(lineItemId, projectId);
+    }
+  }, [sortedRows, onNavigateToReconciliation]);
+
   return (
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            Matriz del Mes — Vista Ejecutiva
-          </CardTitle>
-          <Badge variant="outline" className="text-xs">
-            M{actualMonthIndex}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              Matriz del Mes — Vista Ejecutiva
+            </CardTitle>
+            <Badge variant="outline" className="text-xs">
+              M{actualMonthIndex}
+            </Badge>
+          </div>
+          
+          {/* Toggle Button */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleCollapsed}
+                  className="gap-2"
+                  aria-expanded={!isCollapsed}
+                  aria-label={isCollapsed ? 'Expandir desglose' : 'Colapsar a resumen'}
+                >
+                  <ChevronsUpDown className="h-4 w-4" />
+                  <span className="text-xs font-medium">
+                    {isCollapsed ? 'Expandir' : 'Resumir'}
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isCollapsed ? 'Ver desglose completo' : 'Ver resumen ejecutivo'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Controls Row */}
+        {/* Live region for screen readers */}
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {isCollapsed ? 'Mostrando vista resumida' : 'Mostrando desglose completo'}
+        </div>
+
+        {/* Collapsed View: Summary */}
+        {isCollapsed ? (
+          <MonthlySnapshotSummary
+            month={actualMonthIndex}
+            totalBudget={summaryTotals.totalBudget}
+            totalForecast={summaryTotals.totalForecast}
+            totalActual={summaryTotals.totalActual}
+            variances={sortedRows.map(row => ({
+              id: row.id,
+              name: row.name,
+              code: row.code,
+              varianceBudget: row.varianceBudget,
+              varianceBudgetPercent: row.varianceBudgetPercent,
+              projectId: row.projectId,
+              rubroId: row.rubroId,
+            }))}
+            formatCurrency={formatCurrency}
+            onVarianceClick={handleSummaryVarianceClick}
+          />
+        ) : (
+          <>
+            {/* Expanded View: Full Grid with Controls */}
         <div className="flex flex-wrap items-end gap-3">
           {/* Month Selector */}
           <div className="flex-shrink-0 w-32">
@@ -904,6 +1019,8 @@ export function MonthlySnapshotGrid({
           {searchQuery && ` (filtrado por "${searchQuery}")`}
           {showOnlyVariance && ' con variación'}
         </div>
+          </>
+        )}
       </CardContent>
 
       {/* Budget Request Modal */}
