@@ -10,7 +10,7 @@
  * - Search/filter functionality
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -481,7 +481,7 @@ export function ForecastRubrosTable({
                   </TableRow>
                 ) : (
                   visibleCategories.map(([category, categoryTotal, filteredRubros]) => (
-                    <React.Fragment key={category}>
+                    <Fragment key={category}>
                       {/* Individual Rubro Rows */}
                       {filteredRubros.map(rubro => (
                         <TableRow key={rubro.rubroId} className="hover:bg-muted/20">
@@ -605,7 +605,7 @@ export function ForecastRubrosTable({
                           />
                         </TableCell>
                       </TableRow>
-                    </React.Fragment>
+                    </Fragment>
                   ))
                 )}
 
