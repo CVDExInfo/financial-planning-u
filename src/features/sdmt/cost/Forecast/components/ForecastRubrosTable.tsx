@@ -96,7 +96,8 @@ export function ForecastRubrosTable({
       if (saved === 'labor' || saved === 'all' || saved === 'non-labor') {
         setFilterMode(saved as FilterMode);
       } else {
-        // Attempt to match common patterns like 'nonlab or non labor' -> 'non-labor'
+        // Attempt to match common patterns like 'nonlabor' or 'non labor' -> 'non-labor'
+        // Pattern requires starting with 'non' and ending with 'labor'
         if (/^non.*labor$/.test(saved)) {
           setFilterMode('non-labor');
         }

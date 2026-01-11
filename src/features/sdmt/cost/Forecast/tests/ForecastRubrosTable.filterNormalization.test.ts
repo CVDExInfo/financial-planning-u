@@ -28,7 +28,8 @@ function normalizeFilterValue(savedRaw: string | null): 'labor' | 'all' | 'non-l
     if (saved === 'labor' || saved === 'all' || saved === 'non-labor') {
       return saved;
     } else {
-      // Attempt to match common patterns like 'nonlab or non labor' -> 'non-labor'
+      // Attempt to match common patterns like 'nonlabor' or 'non labor' -> 'non-labor'
+      // Pattern requires starting with 'non' and ending with 'labor'
       if (/^non.*labor$/.test(saved)) {
         return 'non-labor';
       }
