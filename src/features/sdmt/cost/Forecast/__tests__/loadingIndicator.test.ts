@@ -18,7 +18,7 @@ describe('Forecast Loading Indicator', () => {
 
   it('should clear isLoadingForecast after all data loads', async () => {
     // Simulate loading sequence
-    let isLoadingForecast;
+    let isLoadingForecast = true;
     
     // Simulate Promise.all completing
     await Promise.all([
