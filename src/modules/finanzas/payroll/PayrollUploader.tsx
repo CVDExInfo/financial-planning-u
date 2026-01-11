@@ -1,4 +1,5 @@
-import React from "react";
+import { useState, useCallback, Fragment } from "react";
+import type { ChangeEvent } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -89,7 +90,7 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
   const { user } = useAuth();
   const { projects } = useProjects();
   const { categories, getRubrosByCategory } = useRubrosTaxonomy();
-  const [manual, setManual] = React.useState<PayrollActualInput>({
+  const [manual, setManual] = useState<PayrollActualInput>({
     projectId: "",
     month: "",
     rubroId: "",
@@ -97,13 +98,13 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
     currency: "USD",
     notes: "",
   });
-  const [currency, setCurrency] = React.useState<(typeof CURRENCY_OPTIONS)[number]>("USD");
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [preview, setPreview] = React.useState<PayrollActualInput[]>([]);
-  const [previewErrors, setPreviewErrors] = React.useState<Record<number, string[]>>({});
-  const [rubros, setRubros] = React.useState<RubroWithTaxonomy[]>([]);
+  const [currency, setCurrency] = useState<(typeof CURRENCY_OPTIONS)[number]>("USD");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [preview, setPreview] = useState<PayrollActualInput[]>([]);
+  const [previewErrors, setPreviewErrors] = useState<Record<number, string[]>>({});
+  const [rubros, setRubros] = useState<RubroWithTaxonomy[]>([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchRubros = async () => {
       try {
         const catalog = await finanzasClient.getRubros();
@@ -117,14 +118,14 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
     void fetchRubros();
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const selectedProject = projects.find((proj) => proj.id === manual.projectId);
     if (selectedProject?.currency && CURRENCY_OPTIONS.includes(selectedProject.currency as any)) {
       setCurrency(selectedProject.currency as (typeof CURRENCY_OPTIONS)[number]);
     }
   }, [manual.projectId, projects]);
 
-  const selectedRubro = React.useMemo(() => {
+  const selectedRubro = useMemo(() => {
     return (
       rubros.find(
         (rubro) => rubro.linea_codigo === manual.rubroId || rubro.rubro_id === manual.rubroId,
@@ -132,7 +133,7 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
     );
   }, [manual.rubroId, rubros]);
 
-  const selectedProject = React.useMemo<ProjectForUI | undefined>(() => {
+  const selectedProject = useMemo<ProjectForUI | undefined>(() => {
     return projects.find((proj) => proj.id === manual.projectId);
   }, [manual.projectId, projects]);
 
@@ -144,7 +145,7 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
     link.click();
   };
 
-  const handleManualSubmit = async (event: React.FormEvent) => {
+  const handleManualSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!manual.projectId || !manual.rubroId || !manual.month) {
       toast.error("Completa los campos obligatorios antes de guardar");
@@ -171,7 +172,7 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
     }
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -269,7 +270,7 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
                   {categories.map((category) => {
                     const items = getRubrosByCategory(category.codigo);
                     return (
-                      <React.Fragment key={category.codigo}>
+                      <Fragment key={category.codigo}>
                         <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">
                           {category.nombre}
                         </div>
@@ -281,7 +282,7 @@ export default function PayrollUploader({ onUploaded }: PayrollUploaderProps) {
                             </div>
                           </SelectItem>
                         ))}
-                      </React.Fragment>
+                      </Fragment>
                     );
                   })}
                 </SelectContent>

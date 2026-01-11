@@ -1,10 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 interface ChartInsightsPanelProps {
   title: string;
-  charts: React.ReactNode[];
+  charts: ReactNode[];
   insights?: Array<{
     title: string;
     value: string;

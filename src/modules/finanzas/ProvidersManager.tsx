@@ -2,7 +2,7 @@
  * Finanzas endpoints used here
  * - POST /providers → registrar proveedores
  */
-import React from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import finanzasClient, {
   ProviderCreateSchema,
@@ -38,7 +38,7 @@ import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling
 import { loadProvidersWithHandler } from "./providers.helpers";
 
 export default function ProvidersManager() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { hasGroup, canEdit, isExecRO } = usePermissions();
@@ -47,14 +47,14 @@ export default function ProvidersManager() {
   const canCreateProvider = canEdit && !isFinReadOnly && !isExecRO;
 
   // Form state
-  const [nombre, setNombre] = React.useState("");
-  const [taxId, setTaxId] = React.useState("");
-  const [tipo, setTipo] = React.useState<"servicios" | "materiales" | "software" | "infraestructura">("servicios");
-  const [contactoNombre, setContactoNombre] = React.useState("");
-  const [contactoEmail, setContactoEmail] = React.useState("");
-  const [contactoTelefono, setContactoTelefono] = React.useState("");
-  const [pais, setPais] = React.useState("");
-  const [notas, setNotas] = React.useState("");
+  const [nombre, setNombre] = useState("");
+  const [taxId, setTaxId] = useState("");
+  const [tipo, setTipo] = useState<"servicios" | "materiales" | "software" | "infraestructura">("servicios");
+  const [contactoNombre, setContactoNombre] = useState("");
+  const [contactoEmail, setContactoEmail] = useState("");
+  const [contactoTelefono, setContactoTelefono] = useState("");
+  const [pais, setPais] = useState("");
+  const [notas, setNotas] = useState("");
 
   const providersQuery = useQuery({
     queryKey: ["providers"],
@@ -101,7 +101,7 @@ export default function ProvidersManager() {
 
   const isSubmitting = createProviderMutation.isPending;
 
-  const handleSubmitCreate = async (e: React.FormEvent) => {
+  const handleSubmitCreate = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!nombre || !taxId) {

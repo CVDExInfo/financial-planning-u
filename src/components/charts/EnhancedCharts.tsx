@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
+import type { FC } from 'react';
 import {
   AreaChart,
   Area,
@@ -51,7 +52,7 @@ interface BaseChartProps {
 /**
  * Enhanced Area Chart with overlay capabilities for cash flow analysis
  */
-export const AreaOverlayChart: React.FC<BaseChartProps & {
+export const AreaOverlayChart: FC<BaseChartProps & {
   secondaryData?: ChartData[];
   secondaryConfig?: Partial<ChartConfig>;
 }> = ({
@@ -182,7 +183,7 @@ export const AreaOverlayChart: React.FC<BaseChartProps & {
 /**
  * Variance Waterfall Chart for showing budget changes
  */
-export const VarianceWaterfallChart: React.FC<BaseChartProps & {
+export const VarianceWaterfallChart: FC<BaseChartProps & {
   baseline?: number;
 }> = ({
   data,
@@ -301,7 +302,7 @@ export const VarianceWaterfallChart: React.FC<BaseChartProps & {
 /**
  * Multi-Series Line Chart for forecast vs actual trends
  */
-export const MultiLineChart: React.FC<BaseChartProps & {
+export const MultiLineChart: FC<BaseChartProps & {
   series: Array<{
     dataKey: string;
     name: string;
@@ -413,7 +414,7 @@ export const MultiLineChart: React.FC<BaseChartProps & {
 /**
  * Stacked Column Chart for category breakdown
  */
-export const StackedColumnChart: React.FC<BaseChartProps & {
+export const StackedColumnChart: FC<BaseChartProps & {
   stacks: Array<{
     dataKey: string;
     name: string;
@@ -514,7 +515,7 @@ export const StackedColumnChart: React.FC<BaseChartProps & {
 /**
  * Enhanced Donut Chart with center metrics
  */
-export const DonutChart: React.FC<BaseChartProps & {
+export const DonutChart: FC<BaseChartProps & {
   centerMetric?: {
     value: number;
     label: string;

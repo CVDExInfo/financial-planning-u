@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import type { ChangeEvent } from 'react';
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -591,7 +592,7 @@ export function ReviewSignStep({ data }: ReviewSignStepProps) {
   };
 
   const handleSupportingDocsSelected = async (
-    event: React.ChangeEvent<HTMLInputElement>,
+    event: ChangeEvent<HTMLInputElement>,
   ) => {
     const files = event.target.files ? Array.from(event.target.files) : [];
     if (!files.length) {

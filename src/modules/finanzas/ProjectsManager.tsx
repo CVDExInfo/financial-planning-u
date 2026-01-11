@@ -3,7 +3,7 @@
  * - GET /projects?limit=50 → listar proyectos existentes
  * - POST /projects → crear un nuevo proyecto
  */
-import React from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { type ProjectCreate, ProjectCreateSchema } from "@/api/finanzasClient";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -61,39 +61,39 @@ const logApiDebug = (message: string, payload?: Record<string, unknown>) => {
 };
 
 export default function ProjectsManager() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { projects, loading, refreshing, error, reload, create } = useProjects();
   const pageSize = 10;
-  const [page, setPage] = React.useState(0);
-  const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(
+  const [page, setPage] = useState(0);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null,
   );
-  const [viewMode, setViewMode] = React.useState<"portfolio" | "project">(
+  const [viewMode, setViewMode] = useState<"portfolio" | "project">(
     "portfolio",
   );
-  const [searchTerm, setSearchTerm] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState<string>("all");
-  const [sortKey, setSortKey] = React.useState<"code" | "start_date" | "status">(
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortKey, setSortKey] = useState<"code" | "start_date" | "status">(
     "code",
   );
-  const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">(
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">(
     "asc",
   );
-  const [lastCreatedCode, setLastCreatedCode] = React.useState<string | null>(
+  const [lastCreatedCode, setLastCreatedCode] = useState<string | null>(
     null,
   );
   const [payrollDashboard, setPayrollDashboard] =
-    React.useState<MODProjectionByMonth[]>([]);
+    useState<MODProjectionByMonth[]>([]);
   const [modChartDataForProject, setModChartDataForProject] =
-    React.useState<ModSeriesPoint[]>([]);
-  const [projectPayrollData, setProjectPayrollData] = React.useState<any[]>([]);
-  const [allocationsRows, setAllocationsRows] = React.useState<any[]>([]);
-  const [adjustmentsRows, setAdjustmentsRows] = React.useState<any[]>([]);
-  const [baselineRows, setBaselineRows] = React.useState<any[]>([]);
-  const [seriesLoading, setSeriesLoading] = React.useState(false);
-  const [seriesError, setSeriesError] = React.useState<string | null>(null);
-  const [modSources, setModSources] = React.useState({
+    useState<ModSeriesPoint[]>([]);
+  const [projectPayrollData, setProjectPayrollData] = useState<any[]>([]);
+  const [allocationsRows, setAllocationsRows] = useState<any[]>([]);
+  const [adjustmentsRows, setAdjustmentsRows] = useState<any[]>([]);
+  const [baselineRows, setBaselineRows] = useState<any[]>([]);
+  const [seriesLoading, setSeriesLoading] = useState(false);
+  const [seriesError, setSeriesError] = useState<string | null>(null);
+  const [modSources, setModSources] = useState({
     payroll: [] as any[],
     allocations: [] as any[],
     baseline: [] as any[],
@@ -103,11 +103,11 @@ export default function ProjectsManager() {
     normalizedBaseline: [] as any[],
     normalizedAdjustments: [] as any[],
   });
-  const [isLoadingModSources, setIsLoadingModSources] = React.useState(false);
-  const [modSourcesError, setModSourcesError] = React.useState<string | null>(
+  const [isLoadingModSources, setIsLoadingModSources] = useState(false);
+  const [modSourcesError, setModSourcesError] = useState<string | null>(
     null,
   );
-  const developerPreviewEnabled = React.useMemo(() => {
+  const developerPreviewEnabled = useMemo(() => {
     const envValue =
       (typeof import.meta !== "undefined" && (import.meta as any)?.env?.VITE_ENABLE_FIN_DEV_PREVIEW) ||
       (typeof process !== "undefined" ? process.env?.VITE_ENABLE_FIN_DEV_PREVIEW : undefined);
@@ -115,7 +115,7 @@ export default function ProjectsManager() {
     return envValue === "true" ||
       (typeof process !== "undefined" && process.env?.NODE_ENV === "development");
   }, []);
-  const [showModDebugPreview, setShowModDebugPreview] = React.useState(
+  const [showModDebugPreview, setShowModDebugPreview] = useState(
     developerPreviewEnabled,
   );
   const { canCreateBaseline, isExecRO, canEdit, isSDM, isPMO, isSDMT } = usePermissions();
@@ -125,17 +125,17 @@ export default function ProjectsManager() {
   useAuth();
 
   // Form state
-  const [name, setName] = React.useState("");
-  const [code, setCode] = React.useState("");
-  const [client, setClient] = React.useState("");
-  const [startDate, setStartDate] = React.useState("");
-  const [endDate, setEndDate] = React.useState("");
-  const [currency, setCurrency] = React.useState<"USD" | "EUR" | "MXN">("USD");
-  const [modTotal, setModTotal] = React.useState("");
-  const [description, setDescription] = React.useState("");
-  const [sdmManagerEmail, setSdmManagerEmail] = React.useState("");
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [client, setClient] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [currency, setCurrency] = useState<"USD" | "EUR" | "MXN">("USD");
+  const [modTotal, setModTotal] = useState("");
+  const [description, setDescription] = useState("");
+  const [sdmManagerEmail, setSdmManagerEmail] = useState("");
 
-  const filteredProjects = React.useMemo(() => {
+  const filteredProjects = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return projects.filter((project) => {
       const display = getProjectDisplay(project as any);
@@ -155,7 +155,7 @@ export default function ProjectsManager() {
     });
   }, [projects, searchTerm, statusFilter]);
 
-  const sortedProjects = React.useMemo(() => {
+  const sortedProjects = useMemo(() => {
     const direction = sortDirection === "asc" ? 1 : -1;
     const sorters: Record<
       typeof sortKey,
@@ -177,21 +177,21 @@ export default function ProjectsManager() {
 
   const totalPages = Math.max(1, Math.ceil(sortedProjects.length / pageSize));
 
-  React.useEffect(() => {
+  useEffect(() => {
     setPage((prev) => Math.min(prev, totalPages - 1));
   }, [sortedProjects.length, totalPages]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setPage(0);
   }, [searchTerm, sortKey, sortDirection, statusFilter]);
 
-  const selectedProject = React.useMemo(
+  const selectedProject = useMemo(
     () =>
       sortedProjects.find((project) => project.id === selectedProjectId) || null,
     [sortedProjects, selectedProjectId],
   );
 
-  const projectsForView = React.useMemo(() => {
+  const projectsForView = useMemo(() => {
     if (viewMode === "project" && selectedProject) {
       return [selectedProject];
     }
@@ -199,7 +199,7 @@ export default function ProjectsManager() {
     return sortedProjects;
   }, [sortedProjects, selectedProject, viewMode]);
 
-  const visibleProjects = React.useMemo(
+  const visibleProjects = useMemo(
     () =>
       sortedProjects.slice(
         page * pageSize,
@@ -208,7 +208,7 @@ export default function ProjectsManager() {
     [sortedProjects, page, pageSize],
   );
 
-  const statusOptions = React.useMemo(
+  const statusOptions = useMemo(
     () =>
       Array.from(
         new Set(
@@ -222,7 +222,7 @@ export default function ProjectsManager() {
 
   const isRefreshingList = loading || refreshing;
 
-  const coverageChartData = React.useMemo(() => {
+  const coverageChartData = useMemo(() => {
     if (payrollDashboard.length === 0) {
       // Fallback: Show portfolio budget distribution by project
       // This ensures the chart always shows useful information during the initial load
@@ -299,7 +299,7 @@ export default function ProjectsManager() {
 
   // Chart data: use payroll actuals when viewing a single project, otherwise show empty.
   // The chart is resilient and will render without data instead of crashing.
-  const modChartData = React.useMemo(() => {
+  const modChartData = useMemo(() => {
     if (
       viewMode === "project" &&
       selectedProject &&
@@ -319,7 +319,7 @@ export default function ProjectsManager() {
   }, [viewMode, selectedProject, payrollDashboard]);
 
   // Compute MOD chart data for ProjectDetailsPanel
-  const modChartDataForDetails = React.useMemo<ModSeriesPoint[]>(() => {
+  const modChartDataForDetails = useMemo<ModSeriesPoint[]>(() => {
     const payrollRows = (() => {
       if (viewMode !== "project") return payrollDashboard;
 
@@ -361,7 +361,7 @@ export default function ProjectsManager() {
     viewMode,
   ]);
 
-  const modDebugSources = React.useMemo(
+  const modDebugSources = useMemo(
     () => [
       {
         key: "payroll",
@@ -398,7 +398,7 @@ export default function ProjectsManager() {
 
   const isModDebugEnabled = developerPreviewEnabled && showModDebugPreview;
 
-  const formatCurrency = React.useCallback(
+  const formatCurrency = useCallback(
     (value: number, currencyCode: string = "USD") =>
       new Intl.NumberFormat("es-MX", {
         style: "currency",
@@ -408,7 +408,7 @@ export default function ProjectsManager() {
     [],
   );
 
-  const calculateDurationInMonths = React.useCallback(
+  const calculateDurationInMonths = useCallback(
     (start?: string, end?: string) => {
       if (!start || !end) return null;
 
@@ -439,7 +439,7 @@ export default function ProjectsManager() {
     return parsed.toLocaleDateString();
   };
 
-  const renderStatusBadge = React.useCallback((status?: string) => {
+  const renderStatusBadge = useCallback((status?: string) => {
     const normalized = (status || "desconocido").toLowerCase();
     let variant: "default" | "secondary" | "outline" | "destructive" =
       "outline";
@@ -461,11 +461,11 @@ export default function ProjectsManager() {
     );
   }, []);
 
-  const loadProjects = React.useCallback(async () => {
+  const loadProjects = useCallback(async () => {
     await reload();
   }, [reload]);
 
-  const loadPayrollDashboard = React.useCallback(async () => {
+  const loadPayrollDashboard = useCallback(async () => {
     try {
       const data = await getPayrollDashboard();
       setPayrollDashboard(data ?? []);
@@ -476,11 +476,11 @@ export default function ProjectsManager() {
     }
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     void loadPayrollDashboard();
   }, [loadPayrollDashboard]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
 
     async function loadModSources() {
@@ -671,7 +671,7 @@ export default function ProjectsManager() {
     };
   }, [selectedProjectId, viewMode, payrollDashboard]);
 
-  const handleSubmitCreate = async (e: React.FormEvent) => {
+  const handleSubmitCreate = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!canCreateProject) {

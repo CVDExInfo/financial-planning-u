@@ -1,4 +1,5 @@
 import React, { createContext, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from 'react';
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -162,7 +163,7 @@ function buildSessionFromTokens(
   };
 }
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [idToken, setIdToken] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [user, setUser] = useState<UserInfo | null>(null);

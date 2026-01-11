@@ -1,4 +1,4 @@
-import React from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Layers, RefreshCcw } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,12 +13,12 @@ import { usePermissions } from "@/hooks/usePermissions";
 export default function ScenariosDashboard() {
   const { selectedProjectId, currentProject, selectedPeriod } = useProject();
   const { isSDMT } = usePermissions();
-  const [scenarios, setScenarios] = React.useState<Scenario[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const isReadOnly = !isSDMT;
 
-  const currencyFormatter = React.useCallback(
+  const currencyFormatter = useCallback(
     (value: number) =>
       new Intl.NumberFormat("es-MX", {
         style: "currency",
@@ -28,7 +28,7 @@ export default function ScenariosDashboard() {
     []
   );
 
-  const loadScenarios = React.useCallback(async () => {
+  const loadScenarios = useCallback(async () => {
     if (!selectedProjectId) return;
 
     try {
@@ -44,7 +44,7 @@ export default function ScenariosDashboard() {
     }
   }, [selectedProjectId]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadScenarios();
   }, [loadScenarios]);
 

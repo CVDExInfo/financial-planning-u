@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
+import type { FC } from 'react';
 import {
   Card,
   CardContent,
@@ -58,7 +59,7 @@ interface ServiceTierCardProps {
   onSelect?: (tierId: string) => void;
 }
 
-const ServiceTierCard: React.FC<ServiceTierCardProps> = ({
+const ServiceTierCard: FC<ServiceTierCardProps> = ({
   tier,
   isRecommended,
   onSelect,
@@ -225,7 +226,7 @@ interface ServiceTierRecommendationProps {
   onApplyRecommendation?: () => void;
 }
 
-const ServiceTierRecommendation: React.FC<ServiceTierRecommendationProps> = ({
+const ServiceTierRecommendation: FC<ServiceTierRecommendationProps> = ({
   recommendation,
   onApplyRecommendation,
 }) => {
@@ -361,7 +362,7 @@ interface ServiceTierSelectorProps {
   onTierSelected?: (tierId: string, tierData: ServiceTier) => void;
 }
 
-export const ServiceTierSelector: React.FC<ServiceTierSelectorProps> = ({
+export const ServiceTierSelector: FC<ServiceTierSelectorProps> = ({
   onTierSelected,
 }) => {
   const { selectedProject } = useProject();

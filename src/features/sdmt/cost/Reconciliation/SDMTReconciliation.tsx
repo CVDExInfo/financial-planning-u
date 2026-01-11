@@ -1,5 +1,6 @@
 // src/features/sdmt/cost/Reconciliation/SDMTReconciliation.tsx
 import { useEffect, useMemo, useState } from "react";
+import type { ChangeEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 
@@ -414,7 +415,7 @@ export default function SDMTReconciliation() {
     ]);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     setUploadFormData((prev) => ({ ...prev, file }));
   };

@@ -2,7 +2,8 @@
  * Finanzas endpoints used here
  * - POST /adjustments → crear ajustes presupuestarios
  */
-import React, { useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import type { FormEvent } from 'react';
 import finanzasClient, { type Adjustment, type AdjustmentCreate } from "@/api/finanzasClient";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -34,11 +35,11 @@ import { useRBACProjects } from "@/hooks/useRBACProjects";
 import { useRubrosTaxonomy } from "@/hooks/useRubrosTaxonomy";
 
 export default function AdjustmentsManager() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [loadError, setLoadError] = React.useState<string | null>(null);
-  const [adjustments, setAdjustments] = React.useState<Adjustment[]>([]);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
 
   const SHOW_ADJUSTMENT_CHARTS = false;
 
@@ -51,20 +52,20 @@ export default function AdjustmentsManager() {
   const canCreateAdjustment = canEdit && !isFinReadOnly && !isExecRO;
 
   // Form state
-  const [projectId, setProjectId] = React.useState("");
-  const [tipo, setTipo] = React.useState<"exceso" | "reduccion" | "reasignacion">("exceso");
-  const [monto, setMonto] = React.useState("");
-  const [origenRubroId, setOrigenRubroId] = React.useState("");
-  const [destinoRubroId, setDestinoRubroId] = React.useState("");
-  const [fechaInicio, setFechaInicio] = React.useState("");
-  const [metodoDistribucion, setMetodoDistribucion] = React.useState<"pro_rata_forward" | "pro_rata_all" | "single_month">("pro_rata_forward");
-  const [justificacion, setJustificacion] = React.useState("");
-  const [solicitadoPor, setSolicitadoPor] = React.useState("");
-  const [projectFilter, setProjectFilter] = React.useState("");
+  const [projectId, setProjectId] = useState("");
+  const [tipo, setTipo] = useState<"exceso" | "reduccion" | "reasignacion">("exceso");
+  const [monto, setMonto] = useState("");
+  const [origenRubroId, setOrigenRubroId] = useState("");
+  const [destinoRubroId, setDestinoRubroId] = useState("");
+  const [fechaInicio, setFechaInicio] = useState("");
+  const [metodoDistribucion, setMetodoDistribucion] = useState<"pro_rata_forward" | "pro_rata_all" | "single_month">("pro_rata_forward");
+  const [justificacion, setJustificacion] = useState("");
+  const [solicitadoPor, setSolicitadoPor] = useState("");
+  const [projectFilter, setProjectFilter] = useState("");
   
   // New rubro context fields
-  const [categoriaRubro, setCategoriaRubro] = React.useState("");
-  const [rubroId, setRubroId] = React.useState("");
+  const [categoriaRubro, setCategoriaRubro] = useState("");
+  const [rubroId, setRubroId] = useState("");
   
   // Get rubros for selected category
   const availableRubros = useMemo(() => {
@@ -83,7 +84,7 @@ export default function AdjustmentsManager() {
     return availableProjects.find(p => p.projectId === projectId);
   }, [projectId, availableProjects]);
 
-  const loadAdjustments = React.useCallback(async () => {
+  const loadAdjustments = useCallback(async () => {
     try {
       setIsLoading(true);
       setLoadError(null);
@@ -100,11 +101,11 @@ export default function AdjustmentsManager() {
     }
   }, [projectFilter]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadAdjustments();
   }, [loadAdjustments]);
 
-  const handleSubmitCreate = async (e: React.FormEvent) => {
+  const handleSubmitCreate = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!projectId || !monto || !fechaInicio || !solicitadoPor) {
@@ -173,7 +174,7 @@ export default function AdjustmentsManager() {
   };
   
   // Initialize form when dialog opens
-  React.useEffect(() => {
+  useEffect(() => {
     if (isCreateDialogOpen && userEmail && !solicitadoPor) {
       setSolicitadoPor(userEmail);
     }

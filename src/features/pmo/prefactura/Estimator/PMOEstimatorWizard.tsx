@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,7 @@ interface EstimatorStep {
   id: string;
   title: string;
   description: string;
-  component: React.ComponentType<any>;
+  component: ComponentType<any>;
 }
 
 const STEPS: EstimatorStep[] = [

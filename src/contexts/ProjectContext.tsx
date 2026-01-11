@@ -6,6 +6,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import type { ReactNode } from 'react';
 import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -58,7 +59,7 @@ export const ProjectContext = createContext<ProjectContextType | undefined>(
   undefined
 );
 
-export function ProjectProvider({ children }: { children: React.ReactNode }) {
+export function ProjectProvider({ children }: { children: ReactNode }) {
   const [selectedProjectId, setSelectedProjectIdStorage] =
     useLocalStorage<string>("selected-project-id", "");
   const [selectedPeriod, setSelectedPeriodStorage] = useLocalStorage<string>(

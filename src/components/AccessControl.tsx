@@ -1,4 +1,5 @@
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import type { ReactNode } from 'react';
 import { UserRole } from "@/types/domain";
 import {
   Card,
@@ -16,7 +17,7 @@ import { getDefaultRouteForRole, normalizeAppPath } from "@/lib/auth";
 import { formatRequiredRoles } from "@/auth/rolePolicies";
 
 interface AccessControlProps {
-  children: React.ReactNode;
+  children: ReactNode;
   requiredRoles?: UserRole[];
 }
 
