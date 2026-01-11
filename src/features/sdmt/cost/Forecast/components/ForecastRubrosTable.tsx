@@ -10,7 +10,7 @@
  * - Search/filter functionality
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,11 @@ import { toast } from 'sonner';
 import type { CategoryTotals, CategoryRubro, PortfolioTotals } from '../categoryGrouping';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import VarianceChip from './VarianceChip';
+import { isLabor } from '@/lib/rubros-category-utils';
+import { useProject } from '@/contexts/ProjectContext';
+import { useAuth } from '@/hooks/useAuth';
+
+type FilterMode = 'labor' | 'all' | 'non-labor';
 
 interface ForecastRubrosTableProps {
   categoryTotals: Map<string, CategoryTotals>;
@@ -42,6 +47,7 @@ interface ForecastRubrosTableProps {
   onSaveBudget: (budgets: Array<{ month: number; budget: number }>) => Promise<void>;
   formatCurrency: (amount: number) => string;
   canEditBudget: boolean;
+  defaultFilter?: FilterMode;
 }
 
 export function ForecastRubrosTable({
@@ -52,11 +58,35 @@ export function ForecastRubrosTable({
   onSaveBudget,
   formatCurrency,
   canEditBudget,
+  defaultFilter = 'labor',
 }: ForecastRubrosTableProps) {
+  const { selectedProject } = useProject();
+  const { user } = useAuth();
   const [searchFilter, setSearchFilter] = useState('');
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [editedBudgets, setEditedBudgets] = useState<Array<{ month: number; budget: number }>>([]);
   const [savingBudget, setSavingBudget] = useState(false);
+  const [filterMode, setFilterMode] = useState<FilterMode>(defaultFilter);
+
+  // Session storage key for persistence
+  const sessionKey = useMemo(() => {
+    const projectId = selectedProject?.id || 'unknown';
+    const userEmail = user?.email || user?.login || 'user';
+    return `forecastGridFilter:${projectId}:${userEmail}`;
+  }, [selectedProject?.id, user?.email, user?.login]);
+
+  // Load filter from sessionStorage on mount
+  useEffect(() => {
+    const savedFilter = sessionStorage.getItem(sessionKey);
+    if (savedFilter && (savedFilter === 'labor' || savedFilter === 'all' || savedFilter === 'non-labor')) {
+      setFilterMode(savedFilter as FilterMode);
+    }
+  }, [sessionKey]);
+
+  // Persist filter to sessionStorage when it changes
+  useEffect(() => {
+    sessionStorage.setItem(sessionKey, filterMode);
+  }, [filterMode, sessionKey]);
 
   // Start budget editing
   const handleStartEditBudget = () => {
@@ -100,7 +130,88 @@ export function ForecastRubrosTable({
     return budgets.reduce((sum, b) => sum + (b.budget || 0), 0);
   }, [monthlyBudgets, editedBudgets, isEditingBudget]);
 
-  // Filter categories and rubros based on search
+  // Filter categories and rubros based on search and filter mode
+  const visibleCategories = useMemo(() => {
+    const lowerSearch = searchFilter.toLowerCase().trim();
+    const filtered: Array<[string, CategoryTotals, CategoryRubro[]]> = [];
+
+    categoryTotals.forEach((categoryTotal, category) => {
+      const rubros = categoryRubros.get(category) || [];
+      
+      // Apply search filter
+      let searchFilteredRubros = rubros;
+      if (lowerSearch) {
+        const categoryMatches = category.toLowerCase().includes(lowerSearch);
+        searchFilteredRubros = rubros.filter(r =>
+          categoryMatches || r.description.toLowerCase().includes(lowerSearch)
+        );
+      }
+      
+      // Apply labor/non-labor filter
+      const filteredRubros = searchFilteredRubros.filter(rubro => {
+        // Determine if this rubro is labor
+        // Check category first, then fallback to role/subtype from rubro data
+        const rubroCategory = rubro.category || category;
+        const rubroRole = (rubro as any).role || (rubro as any).subtype || '';
+        const isLaborRubro = isLabor(rubroCategory, rubroRole);
+        
+        if (filterMode === 'labor') return isLaborRubro;
+        if (filterMode === 'non-labor') return !isLaborRubro;
+        return true; // 'all'
+      });
+
+      // Include category only if it has visible rubros
+      // Special case: always include labor category if filter is 'labor' even if empty
+      if (filteredRubros.length > 0 || (filterMode === 'labor' && category.toLowerCase().includes('mano de obra'))) {
+        // Recalculate category totals based on filtered rubros
+        const recalculatedTotals = recalculateCategoryTotals(filteredRubros);
+        filtered.push([category, recalculatedTotals, filteredRubros]);
+      }
+    });
+
+    return filtered;
+  }, [searchFilter, categoryTotals, categoryRubros, filterMode]);
+
+  // Helper to recalculate category totals from filtered rubros
+  const recalculateCategoryTotals = (rubros: CategoryRubro[]): CategoryTotals => {
+    const byMonth: Record<number, { forecast: number; actual: number; planned: number }> = {};
+    let overallForecast = 0;
+    let overallActual = 0;
+    let overallPlanned = 0;
+
+    rubros.forEach(rubro => {
+      // Aggregate monthly data
+      Object.keys(rubro.byMonth).forEach(monthStr => {
+        const month = parseInt(monthStr, 10);
+        if (!byMonth[month]) {
+          byMonth[month] = { forecast: 0, actual: 0, planned: 0 };
+        }
+        const monthData = rubro.byMonth[month];
+        byMonth[month].forecast += monthData.forecast || 0;
+        byMonth[month].actual += monthData.actual || 0;
+        byMonth[month].planned += monthData.planned || 0;
+      });
+
+      // Aggregate overall totals
+      overallForecast += rubro.overall.forecast || 0;
+      overallActual += rubro.overall.actual || 0;
+      overallPlanned += rubro.overall.planned || 0;
+    });
+
+    return {
+      byMonth,
+      overall: {
+        forecast: overallForecast,
+        actual: overallActual,
+        planned: overallPlanned,
+        varianceActual: overallActual - overallForecast,
+        variancePlanned: overallForecast - overallPlanned,
+        percentConsumption: overallForecast > 0 ? (overallActual / overallForecast) * 100 : 0,
+      },
+    };
+  };
+
+  // Old filteredData for compatibility (now deprecated, use visibleCategories)
   const filteredData = useMemo(() => {
     if (!searchFilter.trim()) {
       return { categories: Array.from(categoryTotals.entries()), allVisible: true };
@@ -145,8 +256,52 @@ export function ForecastRubrosTable({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Rubros por Categoría</CardTitle>
-          {/* Search Filter */}
-          <div className="flex items-center gap-2">
+          {/* Search Filter and Labor/Non-Labor Filter */}
+          <div className="flex items-center gap-3">
+            {/* Labor Filter Segmented Control */}
+            <div className="flex items-center gap-1 border rounded-md p-1 bg-muted/30">
+              <button
+                onClick={() => setFilterMode('labor')}
+                className={`px-3 py-1 text-xs rounded transition-colors ${
+                  filterMode === 'labor'
+                    ? 'bg-primary text-primary-foreground font-medium shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+                aria-label="Filtrar por Mano de Obra (MOD)"
+                aria-pressed={filterMode === 'labor'}
+                role="button"
+              >
+                Mano de Obra (MOD)
+              </button>
+              <button
+                onClick={() => setFilterMode('all')}
+                className={`px-3 py-1 text-xs rounded transition-colors ${
+                  filterMode === 'all'
+                    ? 'bg-primary text-primary-foreground font-medium shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+                aria-label="Mostrar todo"
+                aria-pressed={filterMode === 'all'}
+                role="button"
+              >
+                Todo
+              </button>
+              <button
+                onClick={() => setFilterMode('non-labor')}
+                className={`px-3 py-1 text-xs rounded transition-colors ${
+                  filterMode === 'non-labor'
+                    ? 'bg-primary text-primary-foreground font-medium shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+                aria-label="Filtrar por No Mano de Obra"
+                aria-pressed={filterMode === 'non-labor'}
+                role="button"
+              >
+                No Mano de Obra
+              </button>
+            </div>
+            
+            {/* Search Input */}
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -154,6 +309,7 @@ export function ForecastRubrosTable({
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
                 className="pl-8 w-64"
+                aria-label="Buscar por rubro o categoría"
               />
             </div>
           </div>
@@ -266,15 +422,39 @@ export function ForecastRubrosTable({
                 </TableRow>
 
                 {/* Category and Rubro Rows */}
-                {filteredData.categories.map(([category, categoryTotal]) => {
-                  const rubros = categoryRubros.get(category) || [];
-                  const filteredRubros = searchFilter.trim()
-                    ? rubros.filter(r =>
-                        r.description.toLowerCase().includes(searchFilter.toLowerCase())
-                      )
-                    : rubros;
-
-                  return (
+                {visibleCategories.length === 0 ? (
+                  /* Empty State */
+                  <TableRow>
+                    <TableCell colSpan={15} className="h-32 text-center">
+                      <div className="flex flex-col items-center justify-center space-y-3">
+                        <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
+                          <Search className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            No se encontraron rubros que coincidan con el filtro
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {filterMode === 'labor' && 'No hay rubros de Mano de Obra (MOD) disponibles'}
+                            {filterMode === 'non-labor' && 'No hay rubros de No Mano de Obra disponibles'}
+                            {filterMode === 'all' && searchFilter && `No hay resultados para "${searchFilter}"`}
+                          </p>
+                        </div>
+                        {filterMode !== 'all' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setFilterMode('all')}
+                            className="mt-2"
+                          >
+                            Mostrar todo
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  visibleCategories.map(([category, categoryTotal, filteredRubros]) => (
                     <React.Fragment key={category}>
                       {/* Individual Rubro Rows */}
                       {filteredRubros.map(rubro => (
@@ -400,8 +580,8 @@ export function ForecastRubrosTable({
                         </TableCell>
                       </TableRow>
                     </React.Fragment>
-                  );
-                })}
+                  ))
+                )}
 
                 {/* Grand Total Row (Sticky Footer) */}
                 <TableRow className="bg-primary/10 font-bold border-t-4 border-primary">
