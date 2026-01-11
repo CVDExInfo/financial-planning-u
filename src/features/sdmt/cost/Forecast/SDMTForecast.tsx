@@ -145,7 +145,6 @@ export function SDMTForecast() {
   const [savingForecasts, setSavingForecasts] = useState(false);
   
   // Baseline and FTE state for enhanced rubros fallback
-  const [baselineDetail, setBaselineDetail] = useState<BaselineDetail | null>(null);
   const [totalFTE, setTotalFTE] = useState<number>(0);
   
   // Sorting state for forecast grid
