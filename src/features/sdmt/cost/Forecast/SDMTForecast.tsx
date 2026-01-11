@@ -44,7 +44,7 @@ import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeTyp
 import { computeTotals, computeVariance } from '@/lib/forecast/analytics';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
-import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros } from '@/api/finanzas';
+import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros, getBaselineById, type BaselineDetail } from '@/api/finanzas';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
 import finanzasClient from '@/api/finanzasClient';
 import { ES_TEXTS } from '@/lib/i18n/es';
@@ -178,6 +178,8 @@ export function SDMTForecast() {
   const [savingMonthlyBudget, setSavingMonthlyBudget] = useState(false);
   const [monthlyBudgetLastUpdated, setMonthlyBudgetLastUpdated] = useState<string | null>(null);
   const [monthlyBudgetUpdatedBy, setMonthlyBudgetUpdatedBy] = useState<string | null>(null);
+  // Baseline detail state for FTE calculation
+  const [baselineDetail, setBaselineDetail] = useState<BaselineDetail | null>(null);
   // Budget Overview state for KPIs
   const [budgetOverview, setBudgetOverview] = useState<{
     year: number;
@@ -296,6 +298,25 @@ export function SDMTForecast() {
     });
     setForecastError((prev) => prev || message);
   }, [lineItemsError, login]);
+
+  // Load baseline details for FTE calculation
+  useEffect(() => {
+    if (currentProject?.baselineId && !isPortfolioView) {
+      getBaselineById(currentProject.baselineId)
+        .then((data) => {
+          if (import.meta.env.DEV) {
+            console.log('[SDMTForecast] Baseline details loaded for FTE calculation');
+          }
+          setBaselineDetail(data);
+        })
+        .catch((err) => {
+          console.error('Failed to load baseline details:', err);
+          setBaselineDetail(null);
+        });
+    } else {
+      setBaselineDetail(null);
+    }
+  }, [currentProject?.baselineId, isPortfolioView]);
 
   const loadForecastData = async () => {
     if (!selectedProjectId) {
@@ -1371,8 +1392,22 @@ export function SDMTForecast() {
   }, [forecastGrid, selectedPeriod, sortDirection]);
 
   const totalFTE = useMemo(() => {
-    return lineItemsForGrid.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
-  }, [lineItemsForGrid]);
+    // Prefer baseline labor_estimates for FTE calculation
+    if (baselineDetail) {
+      const laborEstimates = baselineDetail.labor_estimates || baselineDetail.payload?.labor_estimates || [];
+      const fteSum = laborEstimates.reduce((sum, item) => {
+        const fte = Number(item.fte_count || item.fte || 0);
+        return sum + fte;
+      }, 0);
+      
+      // Round to 2 decimals
+      return Math.round(fteSum * 100) / 100;
+    }
+    
+    // Fallback to lineItems qty when baseline not available
+    const lineItemFte = lineItemsForGrid.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+    return Math.round(lineItemFte * 100) / 100;
+  }, [baselineDetail, lineItemsForGrid]);
 
   const monthsForTotals = useMemo(() => {
     if (selectedPeriod === 'CURRENT_MONTH') {
