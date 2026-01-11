@@ -28,7 +28,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Search, Edit2, Check, X } from 'lucide-react';
+import { Search, Edit2, Check, X as XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import type { CategoryTotals, CategoryRubro, PortfolioTotals } from '../categoryGrouping';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -409,7 +409,7 @@ export function ForecastRubrosTable({
                             title="Cancelar"
                             aria-label="Cancelar edición de presupuesto"
                           >
-                            <X className="h-3 w-3" />
+                            <XIcon className="h-3 w-3" />
                           </Button>
                         </div>
                       )}
