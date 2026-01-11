@@ -466,6 +466,16 @@ export type UploadInvoicePayload = {
   invoice_date?: string; // yyyy-mm-dd
 };
 
+export type CreateInvoiceMetadataPayload = {
+  line_item_id: string;
+  month: number; // 1–12
+  amount: number; // numeric (parse in UI)
+  description?: string;
+  vendor: string;
+  invoice_number?: string;
+  invoice_date?: string; // yyyy-mm-dd
+};
+
 export type InvoiceDTO = {
   id: string;
   project_id: string;
@@ -794,6 +804,79 @@ export async function uploadInvoice(
     }
 
     throw toFinanzasError(err, "Unable to upload invoice");
+  }
+}
+
+/**
+ * Create invoice record with metadata only (no file upload)
+ * Used for MOD (Mano de Obra Directa) items that don't require document attachments
+ */
+export async function createInvoiceMetadata(
+  projectId: string,
+  payload: CreateInvoiceMetadataPayload,
+): Promise<InvoiceDTO> {
+  if (USE_MOCKS)
+    throw new Error("Invoice creation is disabled when VITE_USE_MOCKS=true");
+  if (!projectId) throw new Error("Missing projectId");
+  if (!payload.line_item_id) throw new Error("Line item is required");
+  if (!(payload.month >= 1 && payload.month <= 12))
+    throw new Error("Month must be between 1 and 12");
+  if (!Number.isFinite(payload.amount))
+    throw new Error("Amount must be a finite number");
+
+  const parsedInvoiceDate = payload.invoice_date
+    ? Date.parse(payload.invoice_date)
+    : undefined;
+  const normalizedInvoiceDate =
+    typeof parsedInvoiceDate === "number" && !Number.isNaN(parsedInvoiceDate)
+      ? new Date(parsedInvoiceDate).toISOString()
+      : undefined;
+  if (payload.invoice_date && !normalizedInvoiceDate) {
+    throw new FinanzasApiError("Invoice date must be a valid date string");
+  }
+
+  const body = {
+    projectId,
+    lineItemId: payload.line_item_id,
+    month: payload.month,
+    amount: payload.amount,
+    description: payload.description,
+    vendor: payload.vendor,
+    invoiceNumber:
+      payload.invoice_number || `INV-MOD-${Date.now().toString(36).toUpperCase()}`,
+    invoiceDate: normalizedInvoiceDate ?? payload.invoice_date,
+    // No documentKey, originalName, or contentType for metadata-only invoices
+  };
+
+  if (import.meta.env.DEV) {
+    console.info("[createInvoiceMetadata] Creating metadata-only invoice (MOD)", {
+      projectId,
+      line_item_id: payload.line_item_id,
+      amount: payload.amount,
+      month: payload.month,
+      vendor: "***", // Masked
+      invoice_date: normalizedInvoiceDate ?? payload.invoice_date,
+    });
+  }
+
+  try {
+    const response = await httpClient.post<InvoiceDTO>(
+      `/projects/${encodeURIComponent(projectId)}/invoices`,
+      body,
+      { headers: buildAuthHeader() },
+    );
+    return response.data;
+  } catch (err) {
+    if (err instanceof HttpError && [404, 405].includes(err.status)) {
+      const base = requireApiBase();
+      return fetchJson<InvoiceDTO>(`${base}/prefacturas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...buildAuthHeader() },
+        body: JSON.stringify(body),
+      });
+    }
+
+    throw toFinanzasError(err, "Unable to create invoice metadata");
   }
 }
 
