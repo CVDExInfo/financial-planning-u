@@ -144,8 +144,7 @@ export function SDMTForecast() {
   const [dirtyForecasts, setDirtyForecasts] = useState<Record<string, ForecastRow>>({});
   const [savingForecasts, setSavingForecasts] = useState(false);
   
-  // Baseline state for enhanced rubros fallback
-  const [baselineDetail, setBaselineDetail] = useState<BaselineDetail | null>(null);
+  // Baseline state for enhanced rubros fallback (reserved for future use)
   
   // Sorting state for forecast grid
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
