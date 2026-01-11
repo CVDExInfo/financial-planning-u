@@ -563,10 +563,10 @@ export function SDMTForecast() {
         return;
       }
 
-      // Extract results safely
-      const rubrosRes = results[0].status === 'fulfilled' ? results[0].value : [];
-      const allocationsRes = results[1].status === 'fulfilled' ? results[1].value : [];
-      const prefacturasRes = results[2].status === 'fulfilled' ? results[2].value : [];
+      // Extract results safely with strong type guards
+      const rubrosRes = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value as any[] : [];
+      const allocationsRes = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value as any[] : [];
+      const prefacturasRes = results[2].status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value as any[] : [];
       const baselineRes = results[3].status === 'fulfilled' ? results[3].value : null;
 
       // Update baseline detail
