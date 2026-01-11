@@ -87,7 +87,7 @@ export function ForecastRubrosTable({
         .toLowerCase()
         .trim()
         // convert any non-alphanum/hyphen sequences to single hyphen (helps with odd invisible chars)
-        .replace(/[^a-z0-9-]+/gi, '-')
+        .replace(/[^a-z0-9-]+/g, '-')
         // collapse multiple hyphens
         .replace(/-+/g, '-')
         // trim stray hyphens
@@ -678,5 +678,3 @@ export function ForecastRubrosTable({
   );
 }
 
-// Add React import
-import React from 'react';

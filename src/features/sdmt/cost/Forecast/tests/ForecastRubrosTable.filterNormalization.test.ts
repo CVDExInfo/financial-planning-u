@@ -19,7 +19,7 @@ function normalizeFilterValue(savedRaw: string | null): 'labor' | 'all' | 'non-l
       .toLowerCase()
       .trim()
       // convert any non-alphanum/hyphen sequences to single hyphen (helps with odd invisible chars)
-      .replace(/[^a-z0-9-]+/gi, '-')
+      .replace(/[^a-z0-9-]+/g, '-')
       // collapse multiple hyphens
       .replace(/-+/g, '-')
       // trim stray hyphens
@@ -118,11 +118,10 @@ describe('ForecastRubrosTable Filter Normalization Edge Cases', () => {
   });
 
   it('should handle unicode combinations', () => {
-    // Combining diacritics - 'ó' (n + combining acute) becomes 'ó' which is replaced by '-'
-    // Result is 'no-labor' which doesn't match canonical but could match pattern
+    // Combining diacritics: 'n' + combining acute (U+0301) gets normalized
+    // After NFKC normalization, accented characters are preserved but non-alphanumeric replaced
+    // The result may not match canonical forms, testing for graceful handling
     const result = normalizeFilterValue('non\u0301labor');
-    // After NFKC normalization 'n\u0301' becomes 'ó', then replaced to get 'no-labor'
-    // This doesn't match the exact pattern /^non.*labor$/ so returns null
     // This is acceptable behavior - we're just testing it doesn't crash
     assert.ok(result === null || result === 'non-labor');
   });
