@@ -517,7 +517,7 @@ export function SDMTForecast() {
     
     // Pass baseline ID and enable debug mode in development for better diagnostics
     const debugMode = import.meta.env.DEV;
-    let normalized = normalizeForecastCells(payload.data, { 
+    const normalized = normalizeForecastCells(payload.data, { 
       baselineId: currentProject?.baselineId, 
       debugMode 
     });
