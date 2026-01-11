@@ -588,7 +588,7 @@ describe('MonthlySnapshotGrid - TDZ Regression Test', () => {
     // In the actual component, we should use useEffect (not useMemo) for setExpandedGroups
     
     // Simulate the CORRECT pattern with useEffect
-    let expandedGroups = new Set<string>();
+    let expandedGroups: Set<string>;
     const sortedRows = [
       { id: 'row1' },
       { id: 'row2' },
