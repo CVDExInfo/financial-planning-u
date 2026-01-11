@@ -131,6 +131,7 @@ const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real pr
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLoadingForecast, setIsLoadingForecast] = useState(true);
   const [forecastError, setForecastError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
   const [editingCell, setEditingCell] = useState<{ line_item_id: string; month: number; type: 'forecast' | 'actual' } | null>(null);
@@ -311,6 +312,7 @@ export function SDMTForecast() {
 
     try {
       setLoading(true);
+      setIsLoadingForecast(true);
       setForecastError(null);
       setDirtyActuals({});
       setDirtyForecasts({});
@@ -366,6 +368,7 @@ export function SDMTForecast() {
       // Only clear loading if this is still the latest request
       if (latestRequestKeyRef.current === requestKey) {
         setLoading(false);
+        setIsLoadingForecast(false);
       }
     }
   };
@@ -1992,42 +1995,70 @@ export function SDMTForecast() {
       )}
 
       {/* Monthly Snapshot Grid - TODOS Mode Only */}
-      {isPortfolioView && !loading && forecastData.length > 0 && (
-        <MonthlySnapshotGrid
-          forecastData={forecastData}
-          lineItems={portfolioLineItems}
-          monthlyBudgets={monthlyBudgets}
-          useMonthlyBudget={useMonthlyBudget}
-          formatCurrency={formatCurrency}
-          getCurrentMonthIndex={getCurrentMonthIndex}
-          onScrollToDetail={() => {
-            // Scroll to the 12-month grid section
-            if (rubrosSectionRef.current) {
-              setIsRubrosGridOpen(true);
-              setTimeout(() => {
-                rubrosSectionRef.current?.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'start',
-                });
-              }, 100);
-            }
-          }}
-          onNavigateToReconciliation={(lineItemId, projectId) => {
-            const params = new URLSearchParams();
-            if (projectId) {
-              params.set('projectId', projectId);
-            }
-            params.set('line_item', lineItemId);
-            const currentPath = location.pathname + location.search;
-            params.set('returnUrl', currentPath);
-            navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
-          }}
-        />
+      {isPortfolioView && (
+        <>
+          {isLoadingForecast ? (
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-center min-h-[200px]">
+                  <div className="text-center">
+                    <LoadingSpinner size="lg" />
+                    <p className="text-muted-foreground mt-4">Cargando pronóstico...</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : forecastData.length > 0 ? (
+            <MonthlySnapshotGrid
+              forecastData={forecastData}
+              lineItems={portfolioLineItems}
+              monthlyBudgets={monthlyBudgets}
+              useMonthlyBudget={useMonthlyBudget}
+              formatCurrency={formatCurrency}
+              getCurrentMonthIndex={getCurrentMonthIndex}
+              onScrollToDetail={() => {
+                // Scroll to the 12-month grid section
+                if (rubrosSectionRef.current) {
+                  setIsRubrosGridOpen(true);
+                  setTimeout(() => {
+                    rubrosSectionRef.current?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start',
+                    });
+                  }, 100);
+                }
+              }}
+              onNavigateToReconciliation={(lineItemId, projectId) => {
+                const params = new URLSearchParams();
+                if (projectId) {
+                  params.set('projectId', projectId);
+                }
+                params.set('line_item', lineItemId);
+                const currentPath = location.pathname + location.search;
+                params.set('returnUrl', currentPath);
+                navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
+              }}
+            />
+          ) : null}
+        </>
       )}
 
       {/* KPI Summary - Standardized & Compact - Single Project Mode Only */}
       {!isPortfolioView && (
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+        <>
+          {isLoadingForecast ? (
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-center min-h-[120px]">
+                  <div className="text-center">
+                    <LoadingSpinner size="lg" />
+                    <p className="text-muted-foreground mt-4">Cargando pronóstico...</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         <Card className="h-full">
           <CardContent className="p-3">
             <div className="text-xl font-bold">{formatCurrency(totalPlanned)}</div>
@@ -2133,6 +2164,8 @@ export function SDMTForecast() {
           </CardContent>
         </Card>
       </div>
+          )}
+        </>
       )}
 
       {/* Budget Simulation KPIs - Only show when simulation is enabled */}
