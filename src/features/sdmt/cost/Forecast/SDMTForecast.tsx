@@ -186,8 +186,6 @@ export function SDMTForecast() {
   const [savingMonthlyBudget, setSavingMonthlyBudget] = useState(false);
   const [monthlyBudgetLastUpdated, setMonthlyBudgetLastUpdated] = useState<string | null>(null);
   const [monthlyBudgetUpdatedBy, setMonthlyBudgetUpdatedBy] = useState<string | null>(null);
-  // Baseline detail state for FTE calculation
-  const [baselineDetail, setBaselineDetail] = useState<BaselineDetail | null>(null);
   // Budget Overview state for KPIs
   const [budgetOverview, setBudgetOverview] = useState<{
     year: number;
