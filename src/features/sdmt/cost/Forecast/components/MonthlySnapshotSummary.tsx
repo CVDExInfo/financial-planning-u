@@ -79,7 +79,10 @@ export function MonthlySnapshotSummary({
     const isPositive = value > 0;
     const color = isPositive ? 'text-red-600' : value < 0 ? 'text-green-600' : 'text-muted-foreground';
     const sign = isPositive ? '+' : '';
-    const percentText = percent !== null ? `${sign}${percent.toFixed(1)}%` : '—';
+    
+    // Determine percent sign based on the percent value itself, not the variance value
+    const percentSign = percent !== null && percent > 0 ? '+' : '';
+    const percentText = percent !== null ? `${percentSign}${percent.toFixed(1)}%` : '—';
     
     return {
       text: `${sign}${formatCurrency(value)}`,

@@ -154,6 +154,19 @@ export function MonthlySnapshotGrid({
   // Get user context for budget request payloads and sessionStorage key
   const { userEmail } = useFinanzasUser();
 
+  // State
+  const [selectedMonth, setSelectedMonth] = useState<MonthOption>('current');
+  const [groupingMode, setGroupingMode] = useState<GroupingMode>('project');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showOnlyVariance, setShowOnlyVariance] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [budgetRequestModal, setBudgetRequestModal] = useState<{
+    open: boolean;
+    row?: SnapshotRow;
+  }>({ open: false });
+  const [budgetRequestNotes, setBudgetRequestNotes] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   // Helper to get/set collapsed state from sessionStorage
   const getStoredCollapsedState = useCallback(() => {
     try {
@@ -176,18 +189,11 @@ export function MonthlySnapshotGrid({
     }
   }, [userEmail]);
 
-  // State
-  const [selectedMonth, setSelectedMonth] = useState<MonthOption>('current');
-  const [groupingMode, setGroupingMode] = useState<GroupingMode>('project');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showOnlyVariance, setShowOnlyVariance] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [budgetRequestModal, setBudgetRequestModal] = useState<{
-    open: boolean;
-    row?: SnapshotRow;
-  }>({ open: false });
-  const [budgetRequestNotes, setBudgetRequestNotes] = useState('');
-  const [isCollapsed, setIsCollapsed] = useState(() => getStoredCollapsedState());
+  // Load initial collapsed state from sessionStorage once userEmail is available
+  useEffect(() => {
+    const storedState = getStoredCollapsedState();
+    setIsCollapsed(storedState);
+  }, [getStoredCollapsedState]);
 
   // Persist collapsed state to sessionStorage whenever it changes
   useEffect(() => {
