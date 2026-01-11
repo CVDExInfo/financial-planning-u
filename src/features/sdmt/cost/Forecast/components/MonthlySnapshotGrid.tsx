@@ -464,10 +464,10 @@ export function MonthlySnapshotGrid({
   }, [filteredRows]);
 
   // Auto-expand top 3 groups on mount or when sorted rows change significantly
-  useMemo(() => {
+  useEffect(() => {
     const top3Ids = sortedRows.slice(0, 3).map(row => row.id);
     setExpandedGroups(new Set(top3Ids));
-  }, [groupingMode, actualMonthIndex]); // Only re-run when grouping or month changes
+  }, [groupingMode, actualMonthIndex, sortedRows]);
 
   // Helper: Determine status based on budget/forecast/actual
   function determineStatus(
