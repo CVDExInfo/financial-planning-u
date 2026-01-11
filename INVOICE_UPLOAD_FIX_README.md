@@ -44,7 +44,13 @@ logInvoicePayload(payload, file)
 - ✅ Amount is a positive number
 - ✅ Vendor is required and non-empty
 - ✅ Invoice date is a valid date string
-- ✅ File is required (configurable via options)
+- ✅ File is required for non-MOD items (configurable via options)
+- ✅ Invoice number is required for non-MOD items (configurable via options)
+
+**MOD (Mano de Obra) Support:**
+- For MOD line items, file and invoice_number are **optional**
+- Metadata-only invoice creation supported (no S3 upload required)
+- All other validations (amount, vendor, date, months) still apply to MOD items
 
 ### 2. Updated Invoice Submission Handler
 

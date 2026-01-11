@@ -239,3 +239,128 @@ describe('extractServerError', () => {
     expect(result).toContain('Error inesperado');
   });
 });
+
+describe('validateInvoicePayload - MOD (Mano de Obra) Support', () => {
+  const basePayload: InvoicePayloadForValidation = {
+    line_item_id: 'R-MOD-001',
+    month_start: 1,
+    month_end: 1,
+    amount: 1000,
+    vendor: 'Labor Vendor',
+    invoice_date: '2025-01-15',
+    invoice_number: '',
+    file: null,
+  };
+
+  describe('MOD items (requireFile: false, requireInvoiceNumber: false)', () => {
+    it('should allow MOD payload without file', () => {
+      const errors = validateInvoicePayload(basePayload, {
+        requireFile: false,
+        requireInvoiceNumber: false,
+      });
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should allow MOD payload without invoice_number', () => {
+      const payload = { ...basePayload, invoice_number: '' };
+      const errors = validateInvoicePayload(payload, {
+        requireFile: false,
+        requireInvoiceNumber: false,
+      });
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should still validate other required fields for MOD', () => {
+      const payload = { ...basePayload, amount: null };
+      const errors = validateInvoicePayload(payload, {
+        requireFile: false,
+        requireInvoiceNumber: false,
+      });
+      expect(errors.some(e => e.field === 'amount')).toBe(true);
+    });
+
+    it('should validate month range for MOD', () => {
+      const payload = { ...basePayload, month_start: 5, month_end: 3 };
+      const errors = validateInvoicePayload(payload, {
+        requireFile: false,
+        requireInvoiceNumber: false,
+      });
+      expect(errors.some(e => e.field === 'month_range')).toBe(true);
+    });
+
+    it('should validate vendor is required for MOD', () => {
+      const payload = { ...basePayload, vendor: '' };
+      const errors = validateInvoicePayload(payload, {
+        requireFile: false,
+        requireInvoiceNumber: false,
+      });
+      expect(errors.some(e => e.field === 'vendor')).toBe(true);
+    });
+
+    it('should validate invoice_date is required for MOD', () => {
+      const payload = { ...basePayload, invoice_date: '' };
+      const errors = validateInvoicePayload(payload, {
+        requireFile: false,
+        requireInvoiceNumber: false,
+      });
+      expect(errors.some(e => e.field === 'invoice_date')).toBe(true);
+    });
+  });
+
+  describe('Non-MOD items (requireFile: true, requireInvoiceNumber: true - defaults)', () => {
+    it('should require file for non-MOD items', () => {
+      const payload = { ...basePayload, file: null };
+      const errors = validateInvoicePayload(payload); // Default options
+      expect(errors).toContainEqual({
+        field: 'file',
+        message: 'Documento de factura es requerido',
+      });
+    });
+
+    it('should require invoice_number for non-MOD items', () => {
+      const payload = {
+        ...basePayload,
+        invoice_number: '',
+        file: new File(['test'], 'test.pdf', { type: 'application/pdf' }),
+      };
+      const errors = validateInvoicePayload(payload); // Default options
+      expect(errors).toContainEqual({
+        field: 'invoice_number',
+        message: 'Número de factura es requerido',
+      });
+    });
+
+    it('should accept valid non-MOD payload with file and invoice_number', () => {
+      const payload = {
+        ...basePayload,
+        invoice_number: 'INV-12345',
+        file: new File(['test'], 'test.pdf', { type: 'application/pdf' }),
+      };
+      const errors = validateInvoicePayload(payload);
+      expect(errors).toHaveLength(0);
+    });
+  });
+
+  describe('Mixed scenarios', () => {
+    it('should allow file for MOD even when not required', () => {
+      const payload = {
+        ...basePayload,
+        file: new File(['test'], 'test.pdf', { type: 'application/pdf' }),
+      };
+      const errors = validateInvoicePayload(payload, {
+        requireFile: false,
+        requireInvoiceNumber: false,
+      });
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should allow invoice_number for MOD even when not required', () => {
+      const payload = { ...basePayload, invoice_number: 'INV-12345' };
+      const errors = validateInvoicePayload(payload, {
+        requireFile: false,
+        requireInvoiceNumber: false,
+      });
+      expect(errors).toHaveLength(0);
+    });
+  });
+});

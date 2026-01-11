@@ -11,6 +11,7 @@ export interface InvoicePayloadForValidation {
   amount?: number | string | null;
   vendor?: string | null;
   invoice_date?: string | null;
+  invoice_number?: string | null;
   file?: File | null;
 }
 
@@ -22,13 +23,19 @@ export interface ValidationError {
 /**
  * Validates invoice payload before submission
  * Returns array of validation errors (empty if valid)
+ * 
+ * @param payload - Invoice data to validate
+ * @param options - Validation options
+ * @param options.requireFile - Whether file is required (default: true). Set to false for MOD items.
+ * @param options.requireInvoiceNumber - Whether invoice number is required (default: true). Set to false for MOD items.
  */
 export function validateInvoicePayload(
   payload: InvoicePayloadForValidation,
-  options?: { requireFile?: boolean }
+  options?: { requireFile?: boolean; requireInvoiceNumber?: boolean }
 ): ValidationError[] {
   const errors: ValidationError[] = [];
   const requireFile = options?.requireFile !== false; // Default to true
+  const requireInvoiceNumber = options?.requireInvoiceNumber !== false; // Default to true
 
   // Validate line_item_id (rubro)
   if (!payload.line_item_id || payload.line_item_id.trim() === '') {
@@ -126,6 +133,16 @@ export function validateInvoicePayload(
       errors.push({
         field: 'invoice_date',
         message: 'Fecha de factura debe ser una fecha válida'
+      });
+    }
+  }
+
+  // Validate invoice_number (if required)
+  if (requireInvoiceNumber) {
+    if (!payload.invoice_number || payload.invoice_number.trim() === '') {
+      errors.push({
+        field: 'invoice_number',
+        message: 'Número de factura es requerido'
       });
     }
   }
