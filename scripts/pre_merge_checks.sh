@@ -20,7 +20,7 @@ npm run lint
 echo "📝 Type checking..."
 npm run typecheck || echo "⚠️ Typecheck has warnings but continuing..."
 
-# 3. Unit tests (if they exist)
+# 4. Unit tests (if they exist)
 if grep -q '"test"' package.json; then
   echo "🧪 Running unit tests..."
   npm test -- --passWithNoTests --runInBand || echo "⚠️ Tests have failures but continuing..."

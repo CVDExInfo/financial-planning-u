@@ -28,7 +28,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Search, Edit2, Check, X } from 'lucide-react';
+import { Search, Edit2, Check, X as XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import type { CategoryTotals, CategoryRubro, PortfolioTotals } from '../categoryGrouping';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -75,11 +75,36 @@ export function ForecastRubrosTable({
     return `forecastGridFilter:${projectId}:${userEmail}`;
   }, [selectedProject?.id, user?.email, user?.login]);
 
-  // Load filter from sessionStorage on mount
+  // Load filter from sessionStorage on mount (robust normalization)
   useEffect(() => {
-    const savedFilter = sessionStorage.getItem(sessionKey);
-    if (savedFilter && (savedFilter === 'labor' || savedFilter === 'all' || savedFilter === 'non-labor')) {
-      setFilterMode(savedFilter as FilterMode);
+    try {
+      const savedRaw = sessionStorage.getItem(sessionKey);
+      if (!savedRaw) return;
+
+      // Normalize: canonicalize unicode, trim, lower-case, replace non-word/hyphen with hyphen
+      const saved = savedRaw
+        .normalize('NFKC')
+        .toLowerCase()
+        .trim()
+        // convert any non-alphanum/hyphen sequences to single hyphen (helps with odd invisible chars)
+        .replace(/[^a-z0-9-]+/g, '-')
+        // collapse multiple hyphens
+        .replace(/-+/g, '-')
+        // trim stray hyphens
+        .replace(/(^-|-$)/g, '');
+
+      if (saved === 'labor' || saved === 'all' || saved === 'non-labor') {
+        setFilterMode(saved as FilterMode);
+      } else {
+        // Attempt to match common patterns like 'nonlabor' or 'non labor' -> 'non-labor'
+        // Pattern requires starting with 'non' and ending with 'labor'
+        if (/^non.*labor$/.test(saved)) {
+          setFilterMode('non-labor');
+        }
+      }
+    } catch (err) {
+      // Be defensive; on error we silently fall back to default
+      console.warn('[ForecastRubrosTable] failed to read saved filter mode', err);
     }
   }, [sessionKey]);
 
@@ -384,7 +409,7 @@ export function ForecastRubrosTable({
                             title="Cancelar"
                             aria-label="Cancelar edición de presupuesto"
                           >
-                            <X className="h-3 w-3" />
+                            <XIcon className="h-3 w-3" />
                           </Button>
                         </div>
                       )}
@@ -654,5 +679,3 @@ export function ForecastRubrosTable({
   );
 }
 
-// Add React import
-import React from 'react';

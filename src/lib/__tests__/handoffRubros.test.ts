@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  PutCommand,
-  QueryCommand,
-} from "../../../services/finanzas-api/src/lib/dynamo";
+import { PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 describe("handoff baseline materialization", () => {
   it("seeds rubros from baseline and supports forecast fallback", async () => {
     process.env.COGNITO_CLIENT_ID ||= "test-client-id";
@@ -50,7 +47,9 @@ describe("handoff baseline materialization", () => {
     const inMemoryDb: Record<string, any>[] = [];
 
     const fakeSend = async (command: any) => {
-      if (command instanceof QueryCommand) {
+      const commandName = command?.constructor?.name;
+      
+      if (commandName === 'QueryCommand') {
         const pk = command.input.ExpressionAttributeValues?.[":pk"];
         const skPrefix = command.input.ExpressionAttributeValues?.[":sk"] || "";
         const items = inMemoryDb.filter(
@@ -59,12 +58,12 @@ describe("handoff baseline materialization", () => {
         return { Items: items };
       }
 
-      if (command instanceof PutCommand) {
+      if (commandName === 'PutCommand') {
         inMemoryDb.push(command.input.Item);
         return {};
       }
 
-      throw new Error(`Unexpected command: ${command?.constructor?.name}`);
+      throw new Error(`Unexpected command: ${commandName}`);
     };
 
     const seedResult = await seedLineItemsFromBaseline(projectId, baseline, baselineId, {
