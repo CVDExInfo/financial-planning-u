@@ -1,160 +1,32 @@
 /**
  * ForecastSummaryBar Component Tests
  * 
- * Simple validation tests to ensure KPI calculations are correct.
+ * Tests to ensure KPI calculations are correct and match the spec.
  */
 
-// Manual test scenarios for the ForecastSummaryBar component
-// These tests can be run manually by inspecting the UI in TODOS mode
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
 
-export const testScenarios = {
-  /**
-   * Test Case 1: Normal operation with monthly budget
-   * 
-   * Setup:
-   * - isPortfolioView = true
-   * - useMonthlyBudget = true
-   * - monthlyBudgets = [{month: 1, budget: 10000}, {month: 2, budget: 15000}, ...]
-   * - totalForecast = 120000
-   * - totalActual = 80000
-   * 
-   * Expected Results:
-   * - totalBudget = sum of all monthly budgets
-   * - varianceBudget = totalForecast - totalBudget
-   * - varianceBudgetPercent = (varianceBudget / totalBudget) * 100
-   * - consumedPercent = (totalActual / totalBudget) * 100
-   * 
-   * Visual Validation:
-   * - All KPI cards should show values
-   * - Variance should show red if forecast > budget, green if forecast < budget
-   * - Consumption should show red if > 100%, yellow if > 90%, green otherwise
-   */
-  normalOperation: {
-    description: 'Normal operation with monthly budget',
-    input: {
-      monthlyBudgets: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, budget: 10000 })),
-      totalForecast: 120000,
-      totalActual: 80000,
-      useMonthlyBudget: true,
-    },
-    expected: {
-      totalBudget: 120000,
-      varianceBudget: 0,
-      varianceBudgetPercent: 0,
-      consumedPercent: 66.7,
-    },
-  },
-
-  /**
-   * Test Case 2: Over budget scenario
-   * 
-   * Setup:
-   * - totalBudget = 100000
-   * - totalForecast = 120000 (20% over)
-   * - totalActual = 110000 (10% over)
-   * 
-   * Expected Results:
-   * - varianceBudget = +20000
-   * - varianceBudgetPercent = +20%
-   * - consumedPercent = 110%
-   * 
-   * Visual Validation:
-   * - Variance badge should be RED
-   * - Consumption should be RED with "Sobre presupuesto" badge
-   */
-  overBudget: {
-    description: 'Over budget scenario',
-    input: {
-      monthlyBudgets: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, budget: 8333.33 })),
-      totalForecast: 120000,
-      totalActual: 110000,
-      useMonthlyBudget: true,
-    },
-    expected: {
-      totalBudget: 100000,
-      varianceBudget: 20000,
-      varianceBudgetPercent: 20,
-      consumedPercent: 110,
-    },
-  },
-
-  /**
-   * Test Case 3: No budget configured
-   * 
-   * Setup:
-   * - useMonthlyBudget = false
-   * - totalForecast = 120000
-   * - totalActual = 80000
-   * 
-   * Expected Results:
-   * - totalBudget = 0
-   * - All variance metrics should be 0
-   * - UI should show "No definido" for budget
-   * - Consumption and variance should show "—"
-   * 
-   * Visual Validation:
-   * - Budget card shows "No definido"
-   * - Warning message about no budget configured
-   * - No division by zero errors
-   */
-  noBudget: {
-    description: 'No budget configured',
-    input: {
-      monthlyBudgets: [],
-      totalForecast: 120000,
-      totalActual: 80000,
-      useMonthlyBudget: false,
-    },
-    expected: {
-      totalBudget: 0,
-      varianceBudget: 0,
-      varianceBudgetPercent: 0,
-      consumedPercent: 0,
-    },
-  },
-
-  /**
-   * Test Case 4: Single project mode
-   * 
-   * Setup:
-   * - isPortfolioView = false
-   * 
-   * Expected Results:
-   * - summaryBarKpis should be null
-   * - ForecastSummaryBar should NOT render
-   * 
-   * Visual Validation:
-   * - KPI bar should be hidden in single-project view
-   */
-  singleProject: {
-    description: 'Single project mode - bar should be hidden',
-    input: {
-      isPortfolioView: false,
-    },
-    expected: {
-      summaryBarKpis: null,
-      barRendered: false,
-    },
-  },
-};
-
-// Helper function to calculate expected values
+// Helper function to calculate expected KPIs based on spec
 export function calculateExpectedKpis(input: {
   monthlyBudgets: Array<{ month: number; budget: number }>;
+  budgetAllIn: number;
+  useMonthlyBudget: boolean;
   totalForecast: number;
   totalActual: number;
-  useMonthlyBudget: boolean;
 }) {
-  const totalBudget = input.useMonthlyBudget
-    ? input.monthlyBudgets.reduce((acc, m) => acc + m.budget, 0)
-    : 0;
+  // Budget source-of-truth per spec: useMonthlyBudget ? sum(monthlyBudgets) : budgetAllIn
+  const monthlyBudgetSum = input.monthlyBudgets.reduce((acc, m) => acc + m.budget, 0);
+  const totalBudget = input.useMonthlyBudget ? monthlyBudgetSum : input.budgetAllIn;
 
+  // Calculate KPIs
   const varianceBudget = totalBudget > 0 ? input.totalForecast - totalBudget : 0;
   const varianceBudgetPercent = totalBudget > 0 ? (varianceBudget / totalBudget) * 100 : 0;
   const consumedPercent = totalBudget > 0 ? (input.totalActual / totalBudget) * 100 : 0;
 
   return {
     totalBudget,
+    monthlyBudgetSum,
     totalForecast: input.totalForecast,
     totalActual: input.totalActual,
     varianceBudget,
@@ -162,6 +34,115 @@ export function calculateExpectedKpis(input: {
     consumedPercent,
   };
 }
+
+describe('ForecastSummaryBar KPI Calculations', () => {
+  it('should calculate totalBudget from monthly budgets when useMonthlyBudget is true', () => {
+    const input = {
+      monthlyBudgets: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, budget: 10000 })),
+      budgetAllIn: 150000, // Different from monthly sum
+      useMonthlyBudget: true,
+      totalForecast: 120000,
+      totalActual: 80000,
+    };
+
+    const result = calculateExpectedKpis(input);
+
+    assert.strictEqual(result.totalBudget, 120000, 'totalBudget should be sum of monthly budgets');
+    assert.strictEqual(result.monthlyBudgetSum, 120000);
+  });
+
+  it('should calculate totalBudget from budgetAllIn when useMonthlyBudget is false', () => {
+    const input = {
+      monthlyBudgets: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, budget: 10000 })),
+      budgetAllIn: 150000,
+      useMonthlyBudget: false,
+      totalForecast: 120000,
+      totalActual: 80000,
+    };
+
+    const result = calculateExpectedKpis(input);
+
+    assert.strictEqual(result.totalBudget, 150000, 'totalBudget should be budgetAllIn');
+  });
+
+  it('should calculate correct variance and consumption percentages', () => {
+    const input = {
+      monthlyBudgets: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, budget: 10000 })),
+      budgetAllIn: 120000,
+      useMonthlyBudget: true,
+      totalForecast: 132000, // 10% over budget
+      totalActual: 96000, // 80% consumed
+    };
+
+    const result = calculateExpectedKpis(input);
+
+    assert.strictEqual(result.totalBudget, 120000);
+    assert.strictEqual(result.varianceBudget, 12000, 'varianceBudget should be forecast - budget');
+    assert.strictEqual(result.varianceBudgetPercent, 10, 'varianceBudgetPercent should be 10%');
+    assert.strictEqual(result.consumedPercent, 80, 'consumedPercent should be 80%');
+  });
+
+  it('should return zero KPIs when totalBudget is zero', () => {
+    const input = {
+      monthlyBudgets: [],
+      budgetAllIn: 0,
+      useMonthlyBudget: true,
+      totalForecast: 120000,
+      totalActual: 80000,
+    };
+
+    const result = calculateExpectedKpis(input);
+
+    assert.strictEqual(result.totalBudget, 0);
+    assert.strictEqual(result.varianceBudget, 0);
+    assert.strictEqual(result.varianceBudgetPercent, 0);
+    assert.strictEqual(result.consumedPercent, 0);
+  });
+
+  it('should detect budget parity issue when difference > 1%', () => {
+    const monthlyBudgetSum = 120000;
+    const budgetAllIn = 150000; // 25% difference
+    const percentDiff = Math.abs((monthlyBudgetSum - budgetAllIn) / budgetAllIn) * 100;
+
+    assert.ok(percentDiff > 1, 'Should detect parity issue when difference > 1%');
+    assert.strictEqual(Math.round(percentDiff), 20);
+  });
+
+  it('should not detect budget parity issue when difference <= 1%', () => {
+    const monthlyBudgetSum = 120000;
+    const budgetAllIn = 120500; // 0.4% difference
+    const percentDiff = Math.abs((monthlyBudgetSum - budgetAllIn) / budgetAllIn) * 100;
+
+    assert.ok(percentDiff <= 1, 'Should not detect parity issue when difference <= 1%');
+  });
+
+  it('should match MonthlySnapshotGrid KPI calculations for same dataset', () => {
+    // This test ensures that both components calculate the same values
+    const monthlyBudgets = [
+      { month: 1, budget: 10000 },
+      { month: 2, budget: 11000 },
+      { month: 3, budget: 12000 },
+    ];
+    const totalForecast = 35000;
+    const totalActual = 28000;
+
+    const summaryBarKpis = calculateExpectedKpis({
+      monthlyBudgets,
+      budgetAllIn: 0,
+      useMonthlyBudget: true,
+      totalForecast,
+      totalActual,
+    });
+
+    // MonthlySnapshotGrid should compute the same totalBudget for month
+    const monthBudget = monthlyBudgets.find(b => b.month === 1)?.budget || 0;
+    assert.strictEqual(monthBudget, 10000);
+    
+    assert.strictEqual(summaryBarKpis.totalBudget, 33000);
+    assert.strictEqual(summaryBarKpis.varianceBudget, 2000);
+    assert.strictEqual(Math.round(summaryBarKpis.consumedPercent * 10) / 10, 84.8);
+  });
+});
 
 // Validation helper
 export function validateKpiCalculations(

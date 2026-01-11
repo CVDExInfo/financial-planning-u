@@ -16,6 +16,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Info, TrendingUp, TrendingDown } from 'lucide-react';
+import { useMemo } from 'react';
 
 interface ForecastSummaryBarProps {
   totalBudget: number;
@@ -27,6 +28,8 @@ interface ForecastSummaryBarProps {
   useMonthlyBudget: boolean;
   lastUpdated: string | null;
   updatedBy: string | null;
+  monthlyBudgetSum: number;
+  budgetAllIn: number;
 }
 
 export function ForecastSummaryBar({
@@ -39,7 +42,18 @@ export function ForecastSummaryBar({
   useMonthlyBudget,
   lastUpdated,
   updatedBy,
+  monthlyBudgetSum,
+  budgetAllIn,
 }: ForecastSummaryBarProps) {
+  // Check for budget parity issue: if both monthly and annual budgets exist and differ by > 1%
+  const hasBudgetParityIssue = useMemo(() => {
+    if (monthlyBudgetSum > 0 && budgetAllIn > 0) {
+      const percentDiff = Math.abs((monthlyBudgetSum - budgetAllIn) / budgetAllIn) * 100;
+      return percentDiff > 1;
+    }
+    return false;
+  }, [monthlyBudgetSum, budgetAllIn]);
+
   // Format currency with USD symbol
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-US', {
@@ -57,7 +71,7 @@ export function ForecastSummaryBar({
 
   // Determine color for variance badge
   const getVarianceColor = (variance: number, percent: number): string => {
-    if (!useMonthlyBudget || totalBudget === 0) {
+    if (totalBudget === 0) {
       return 'bg-muted text-muted-foreground';
     }
     
@@ -81,7 +95,7 @@ export function ForecastSummaryBar({
 
   // Determine color for consumption percentage
   const getConsumptionColor = (percent: number): string => {
-    if (!useMonthlyBudget || totalBudget === 0) {
+    if (totalBudget === 0) {
       return 'text-muted-foreground';
     }
     
@@ -125,7 +139,7 @@ export function ForecastSummaryBar({
     color: string;
     bgColor: string;
   } => {
-    if (!useMonthlyBudget || totalBudget === 0) {
+    if (totalBudget === 0) {
       return {
         label: 'Sin Presupuesto',
         color: 'text-muted-foreground',
@@ -171,11 +185,37 @@ export function ForecastSummaryBar({
             <h3 className="text-base font-semibold text-foreground">
               Resumen Ejecutivo - Cartera Completa
             </h3>
-            <Badge
-              className={`${budgetHealth.bgColor} ${budgetHealth.color} border px-3 py-1 font-medium`}
-            >
-              {budgetHealth.label}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge
+                className={`${budgetHealth.bgColor} ${budgetHealth.color} border px-3 py-1 font-medium`}
+              >
+                {budgetHealth.label}
+              </Badge>
+              {hasBudgetParityIssue && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className="bg-amber-50 text-amber-700 border-amber-300 px-3 py-1 font-medium cursor-help"
+                      >
+                        Presupuesto mensual ≠ Presupuesto anual
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="text-xs max-w-xs space-y-1">
+                        <p className="font-semibold">Diferencia detectada entre presupuestos:</p>
+                        <p>• Suma mensual: {formatCurrency(monthlyBudgetSum)}</p>
+                        <p>• Presupuesto anual: {formatCurrency(budgetAllIn)}</p>
+                        <p className="mt-2 text-amber-200">
+                          Se está usando {useMonthlyBudget ? 'presupuesto mensual' : 'presupuesto anual'} para cálculos.
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
           </div>
 
           {/* KPI Cards Row */}
@@ -200,7 +240,7 @@ export function ForecastSummaryBar({
                 </TooltipProvider>
               </div>
               <div className="text-xl font-bold text-primary">
-                {useMonthlyBudget && totalBudget > 0 ? formatCurrency(totalBudget) : 'No definido'}
+                {totalBudget > 0 ? formatCurrency(totalBudget) : 'No definido'}
               </div>
             </div>
 
@@ -272,14 +312,14 @@ export function ForecastSummaryBar({
                 </TooltipProvider>
               </div>
               <div className={`text-xl font-bold ${getConsumptionColor(consumedPercent)}`}>
-                {useMonthlyBudget && totalBudget > 0 ? formatPercent(consumedPercent) : '—'}
+                {totalBudget > 0 ? formatPercent(consumedPercent) : '—'}
               </div>
-              {useMonthlyBudget && totalBudget > 0 && consumedPercent > 100 && (
+              {totalBudget > 0 && consumedPercent > 100 && (
                 <Badge variant="destructive" className="text-[10px] w-fit">
                   Sobre presupuesto
                 </Badge>
               )}
-              {useMonthlyBudget && totalBudget > 0 && consumedPercent > 90 && consumedPercent <= 100 && (
+              {totalBudget > 0 && consumedPercent > 90 && consumedPercent <= 100 && (
                 <Badge variant="outline" className="text-[10px] w-fit border-yellow-600 text-yellow-700">
                   Advertencia
                 </Badge>
@@ -305,7 +345,7 @@ export function ForecastSummaryBar({
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              {useMonthlyBudget && totalBudget > 0 ? (
+              {totalBudget > 0 ? (
                 <>
                   <div className="flex items-center gap-2">
                     {getVarianceIcon(varianceBudget)}
@@ -325,7 +365,7 @@ export function ForecastSummaryBar({
           </div>
 
           {/* Last Updated Info */}
-          {useMonthlyBudget && lastUpdated && (
+          {lastUpdated && (
             <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground pt-2 border-t">
               <span>
                 Presupuesto actualizado: {formatLastUpdated(lastUpdated)}
@@ -335,9 +375,9 @@ export function ForecastSummaryBar({
           )}
 
           {/* No Budget Message */}
-          {!useMonthlyBudget && (
+          {totalBudget === 0 && (
             <div className="text-xs text-amber-600 bg-amber-50 rounded px-3 py-2 border border-amber-200">
-              ℹ️ Presupuesto mensual no configurado. Active el presupuesto mensual para ver métricas de consumo y desviación.
+              ℹ️ Presupuesto no configurado. Configure el presupuesto mensual o anual para ver métricas de consumo y desviación.
             </div>
           )}
         </div>

@@ -61,6 +61,7 @@ import {
   Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useFinanzasUser } from '@/hooks/useFinanzasUser';
 
 // Types
 export interface ForecastCell {
@@ -148,6 +149,9 @@ export function MonthlySnapshotGrid({
   onScrollToDetail,
   onNavigateToReconciliation,
 }: MonthlySnapshotGridProps) {
+  // Get user context for budget request payloads
+  const { userEmail } = useFinanzasUser();
+
   // State
   const [selectedMonth, setSelectedMonth] = useState<MonthOption>('current');
   const [groupingMode, setGroupingMode] = useState<GroupingMode>('project');
@@ -518,9 +522,12 @@ export function MonthlySnapshotGrid({
     const { row } = budgetRequestModal;
     if (!row) return;
 
+    // Get requestedBy from user context, fallback to 'current-user'
+    const requestedBy = userEmail || 'current-user';
+
     // TODO: Implement backend integration for budget requests
     const payload = {
-      requestedBy: 'current-user', // Replace with actual user
+      requestedBy,
       timestamp: new Date().toISOString(),
       type: groupingMode === 'project' ? 'project' : 'rubro',
       id: row.id,
@@ -538,7 +545,7 @@ export function MonthlySnapshotGrid({
     
     setBudgetRequestModal({ open: false });
     setBudgetRequestNotes('');
-  }, [budgetRequestModal, budgetRequestNotes, groupingMode, actualMonthIndex]);
+  }, [budgetRequestModal, budgetRequestNotes, groupingMode, actualMonthIndex, userEmail]);
 
   // Month options for selector
   const monthOptions = useMemo(() => {
