@@ -150,8 +150,6 @@ describe('ForecastRubrosTable Filter Logic', () => {
   });
 
   it('should show all rubros when filter is "all"', () => {
-    const filterMode = 'all';
-    
     const visibleCategories: Array<[string, CategoryRubro[]]> = [];
     categoryTotals.forEach((_, category) => {
       const rubros = categoryRubros.get(category) || [];
@@ -258,7 +256,6 @@ describe('ForecastRubrosTable Filter Logic', () => {
       7500
     );
 
-    const category = misclassifiedRubro.category || 'Sin categoría';
     const role = (misclassifiedRubro as any).role || '';
     
     // Should be classified as labor based on role
