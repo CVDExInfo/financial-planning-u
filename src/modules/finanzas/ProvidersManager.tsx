@@ -2,7 +2,7 @@
  * Finanzas endpoints used here
  * - POST /providers → registrar proveedores
  */
-import { useState, useCallback, useEffect } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import finanzasClient, {
   ProviderCreateSchema,
