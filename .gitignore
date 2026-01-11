@@ -59,3 +59,4 @@ docs-pdf/
 
 # Documentation pipeline temporary files
 public/docs/temp/
+pnpm-lock.yaml
