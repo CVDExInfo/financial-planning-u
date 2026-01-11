@@ -1022,6 +1022,52 @@ export function MonthlySnapshotGrid({
                   </>
                 ))
               )}
+              
+              {/* Totals Row */}
+              {sortedRows.length > 0 && (
+                <TableRow className="bg-muted/50 border-t-2 border-primary/30 font-semibold">
+                  <TableCell className="sticky left-0 bg-muted/50 z-10">
+                    {groupingMode === 'project' ? 'Total (Todos los Proyectos)' : 'Total (Todos los Rubros)'}
+                  </TableCell>
+                  <TableCell className="text-right bg-muted/50">
+                    {formatCurrency(summaryTotals.totalBudget)}
+                  </TableCell>
+                  <TableCell className="text-right bg-muted/50">
+                    {formatCurrency(summaryTotals.totalForecast)}
+                  </TableCell>
+                  <TableCell className="text-right text-blue-600 bg-muted/50">
+                    {formatCurrency(summaryTotals.totalActual)}
+                  </TableCell>
+                  <TableCell className="text-right bg-muted/50">
+                    {(() => {
+                      const variance = summaryTotals.totalForecast - summaryTotals.totalBudget;
+                      return (
+                        <span className={variance >= 0 ? 'text-red-600' : 'text-green-600'}>
+                          {variance >= 0 ? '+' : ''}
+                          {formatCurrency(variance)}
+                        </span>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-right bg-muted/50">
+                    {(() => {
+                      const variance = summaryTotals.totalActual - summaryTotals.totalForecast;
+                      return (
+                        <span className={variance >= 0 ? 'text-red-600' : 'text-green-600'}>
+                          {variance >= 0 ? '+' : ''}
+                          {formatCurrency(variance)}
+                        </span>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-center bg-muted/50">
+                    —
+                  </TableCell>
+                  <TableCell className="text-center bg-muted/50">
+                    —
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
