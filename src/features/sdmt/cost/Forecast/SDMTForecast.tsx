@@ -44,9 +44,10 @@ import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeTyp
 import { computeTotals, computeVariance } from '@/lib/forecast/analytics';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
-import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros } from '@/api/finanzas';
+import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros, getBaselineById, type BaselineDetail } from '@/api/finanzas';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
 import finanzasClient from '@/api/finanzasClient';
+import { rubrosFromAllocations } from '@/utils/rubrosFromAllocations';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
 import { BudgetSimulatorCard } from './BudgetSimulatorCard';
@@ -142,6 +143,10 @@ export function SDMTForecast() {
   const [savingActuals, setSavingActuals] = useState(false);
   const [dirtyForecasts, setDirtyForecasts] = useState<Record<string, ForecastRow>>({});
   const [savingForecasts, setSavingForecasts] = useState(false);
+  
+  // Baseline and FTE state for enhanced rubros fallback
+  const [baselineDetail, setBaselineDetail] = useState<BaselineDetail | null>(null);
+  const [totalFTE, setTotalFTE] = useState<number>(0);
   
   // Sorting state for forecast grid
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -508,105 +513,177 @@ export function SDMTForecast() {
   };
 
   const loadSingleProjectForecast = async (projectId: string, months: number, requestKey: string) => {
-    const payload = await getForecastPayload(projectId, months);
+    const abort = abortControllerRef.current;
+    const baselineId = currentProject?.baselineId;
     
-    // Check if request is still valid before continuing
-    if (latestRequestKeyRef.current !== requestKey) {
-      return; // Stale, abort processing
-    }
-    
-    // Pass baseline ID and enable debug mode in development for better diagnostics
-    const debugMode = import.meta.env.DEV;
-    let normalized = normalizeForecastCells(payload.data, { 
-      baselineId: currentProject?.baselineId, 
-      debugMode 
-    });
-    let usedFallback = false;
-    const baselineStatus = resolveBaselineStatus(
-      currentProject as { baselineStatus?: string; baseline_status?: string } | null
-    );
-    const hasAcceptedBaseline = baselineStatus === 'accepted';
-    
-    // Fallback: If server forecast is empty and we have line items, use them
-    if (
-      (!normalized || normalized.length === 0) &&
-      safeLineItems &&
-      safeLineItems.length > 0 &&
-      hasAcceptedBaseline
-    ) {
-      if (import.meta.env.DEV) {
-        console.debug(
-          `[SDMTForecast] Using baseline fallback for ${projectId}, baseline ${currentProject?.baselineId}: ${safeLineItems.length} line items`
-        );
+    // If no baseline ID, fall back to old behavior
+    if (!baselineId) {
+      console.warn('[SDMTForecast] No baseline ID for project', projectId);
+      const payload = await getForecastPayload(projectId, months);
+      
+      // Check if request is still valid before continuing
+      if (latestRequestKeyRef.current !== requestKey) {
+        return; // Stale, abort processing
       }
-      normalized = transformLineItemsToForecast(safeLineItems, months, projectId);
-      usedFallback = true;
-    } else if (normalized && normalized.length > 0 && import.meta.env.DEV) {
-      console.debug(
-        `[SDMTForecast] Using server forecast rows for ${projectId}, baseline ${currentProject?.baselineId}`
-      );
-    }
-    
-    setDataSource(usedFallback ? 'mock' : payload.source); // Mark as 'mock' to indicate fallback
-    setGeneratedAt(payload.generatedAt);
-    setPortfolioLineItems([]);
-
-    // Get matched invoices and sync with actuals
-    const invoices = await getProjectInvoices(projectId);
-    
-    // Check again after async operation
-    if (latestRequestKeyRef.current !== requestKey) {
-      return;
-    }
-    
-    const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
-
-    const updatedData: ForecastRow[] = normalized.map(cell => {
-      const matchedInvoice = matchedInvoices.find(inv =>
-        inv.line_item_id === cell.line_item_id && inv.month === cell.month
-      );
-
-      const withActuals = matchedInvoice
-        ? {
-            ...cell,
-            actual: matchedInvoice.amount || 0,
-            variance: cell.forecast - cell.planned // Keep forecast-based variance
-          }
-        : cell;
-
-      return {
-        ...withActuals,
-        projectId,
-        projectName: currentProject?.name,
-      };
-    });
-
-    if (import.meta.env.DEV) {
-      console.debug('[Forecast] data pipeline', {
-        projectId,
-        rawCells: Array.isArray(payload.data) ? payload.data.length : 0,
-        normalizedCells: normalized.length,
-        invoices: invoices.length,
-        matchedInvoices: matchedInvoices.length,
-        lineItems: safeLineItems.length,
-        usedFallback,
-        generatedAt: payload.generatedAt,
+      
+      const debugMode = import.meta.env.DEV;
+      let normalized = normalizeForecastCells(payload.data, { 
+        baselineId: currentProject?.baselineId, 
+        debugMode 
       });
-    }
-
-    // Final check before setting state
-    if (latestRequestKeyRef.current !== requestKey) {
+      
+      setDataSource(payload.source);
+      setGeneratedAt(payload.generatedAt);
+      setPortfolioLineItems([]);
+      
+      // Get matched invoices and sync with actuals
+      const invoices = await getProjectInvoices(projectId);
+      if (latestRequestKeyRef.current !== requestKey) return;
+      
+      const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
+      const updatedData: ForecastRow[] = normalized.map(cell => {
+        const matchedInvoice = matchedInvoices.find(inv =>
+          inv.line_item_id === cell.line_item_id && inv.month === cell.month
+        );
+        return {
+          ...cell,
+          actual: matchedInvoice?.amount || 0,
+          variance: cell.forecast - cell.planned,
+          projectId,
+          projectName: currentProject?.name,
+        };
+      });
+      
+      if (latestRequestKeyRef.current !== requestKey) return;
+      setForecastData(updatedData);
       return;
     }
 
-    setForecastData(updatedData);
-
-    if (import.meta.env.DEV) {
-      console.debug('[Forecast] Data loaded', {
-        projectId,
-        source: usedFallback ? 'lineItems-fallback' : payload.source,
-        records: updatedData.length,
+    try {
+      // Step 1: Fetch baseline to get labor_estimates and non_labor_estimates
+      const baseline = await getBaselineById(baselineId);
+      if (latestRequestKeyRef.current !== requestKey) return;
+      
+      setBaselineDetail(baseline);
+      
+      // Step 2: Compute FTE from baseline.labor_estimates
+      const ftes = (baseline?.labor_estimates || []).reduce(
+        (s, l) => s + Number(l.fte_count || l.fte || 0), 
+        0
+      );
+      setTotalFTE(ftes);
+      
+      if (import.meta.env.DEV) {
+        console.debug('[SDMTForecast] Baseline loaded', {
+          projectId,
+          baselineId,
+          ftes,
+          laborEstimates: baseline?.labor_estimates?.length || 0,
+          nonLaborEstimates: baseline?.non_labor_estimates?.length || 0,
+        });
+      }
+      
+      // Step 3: Fetch rubros for this baseline
+      const rubros = await finanzasClient.getRubrosForBaseline(projectId, baselineId, {
+        signal: abort?.signal
       });
+      if (latestRequestKeyRef.current !== requestKey) return;
+      
+      // Step 4: If rubros empty, fallback to allocations + prefacturas
+      let finalRubros = rubros;
+      let rubroSource: 'api' | 'fallback' = 'api';
+      
+      const baselineStatus = resolveBaselineStatus(
+        currentProject as { baselineStatus?: string; baseline_status?: string } | null
+      );
+      const hasAcceptedBaseline = baselineStatus === 'accepted';
+      
+      if (rubros.length === 0 && hasAcceptedBaseline) {
+        const [allocResult, prefResult] = await Promise.allSettled([
+          finanzasClient.getAllocationsForBaseline(projectId, baselineId, { signal: abort?.signal }),
+          finanzasClient.getPrefacturasForBaseline(projectId, baselineId, { signal: abort?.signal })
+        ]);
+        
+        if (latestRequestKeyRef.current !== requestKey) return;
+        
+        const allocations = allocResult.status === 'fulfilled' ? allocResult.value : [];
+        const prefacturas = prefResult.status === 'fulfilled' ? prefResult.value : [];
+        
+        const materialized = rubrosFromAllocations(allocations, prefacturas);
+        finalRubros = materialized;
+        rubroSource = 'fallback';
+        
+        if (import.meta.env.DEV) {
+          console.debug('[SDMTForecast] Using rubros fallback', {
+            allocations: allocations.length,
+            prefacturas: prefacturas.length,
+            materialized: materialized.length
+          });
+        }
+      }
+      
+      // Step 5: Transform rubros to forecast cells
+      const debugMode = import.meta.env.DEV;
+      const normalized = transformLineItemsToForecast(finalRubros, months, projectId);
+      
+      setDataSource(rubroSource === 'fallback' ? 'mock' : 'api');
+      setGeneratedAt(new Date().toISOString());
+      setPortfolioLineItems([]);
+      
+      // Step 6: Get matched invoices and sync with actuals
+      const invoices = await getProjectInvoices(projectId);
+      if (latestRequestKeyRef.current !== requestKey) return;
+      
+      const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
+      
+      const updatedData: ForecastRow[] = normalized.map(cell => {
+        const matchedInvoice = matchedInvoices.find(inv =>
+          inv.line_item_id === cell.line_item_id && inv.month === cell.month
+        );
+        
+        const withActuals = matchedInvoice
+          ? {
+              ...cell,
+              actual: matchedInvoice.amount || 0,
+              variance: cell.forecast - cell.planned
+            }
+          : cell;
+        
+        return {
+          ...withActuals,
+          projectId,
+          projectName: currentProject?.name,
+        };
+      });
+      
+      if (import.meta.env.DEV) {
+        console.debug('[Forecast] data pipeline', {
+          projectId,
+          baselineId,
+          rubros: rubros.length,
+          normalized: normalized.length,
+          invoices: invoices.length,
+          matchedInvoices: matchedInvoices.length,
+          source: rubroSource,
+        });
+      }
+      
+      // Final check before setting state
+      if (latestRequestKeyRef.current !== requestKey) return;
+      
+      setForecastData(updatedData);
+      
+      if (import.meta.env.DEV) {
+        console.debug('[Forecast] Data loaded', {
+          projectId,
+          source: rubroSource,
+          records: updatedData.length,
+          ftes,
+        });
+      }
+    } catch (error) {
+      // Let the error bubble up to the calling function's catch block
+      throw error;
     }
   };
 
