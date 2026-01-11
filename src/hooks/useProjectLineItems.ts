@@ -4,6 +4,7 @@ import { getProjectRubros } from "@/api/finanzas";
 import { getRubrosWithFallback } from "@/lib/api";
 import { ALL_PROJECTS_ID, useProject } from "@/contexts/ProjectContext";
 import type { LineItem } from "@/types/domain";
+import { ensureCategory } from "@/lib/rubros-category-utils";
 
 const lineItemsKey = (projectId?: string, baselineId?: string) =>
   ["lineItems", projectId ?? "none", baselineId ?? "none"] as const;
@@ -23,12 +24,16 @@ export function useProjectLineItems(options?: { useFallback?: boolean; baselineI
         throw new Error("Project is required before loading line items");
       }
       
-      // Use fallback method if requested
+      // Fetch line items using fallback method if requested
+      let items: LineItem[];
       if (useFallback) {
-        return getRubrosWithFallback(projectId, baselineId) as Promise<LineItem[]>;
+        items = await getRubrosWithFallback(projectId, baselineId) as LineItem[];
+      } else {
+        items = await getProjectRubros(projectId);
       }
       
-      return getProjectRubros(projectId);
+      // Ensure proper category assignment for labor roles
+      return items.map(ensureCategory);
     },
     enabled: !!projectId && projectId !== ALL_PROJECTS_ID,
     staleTime: 5 * 60 * 1000,

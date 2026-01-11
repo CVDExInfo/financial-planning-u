@@ -14,6 +14,7 @@ import {
 } from "@/modules/rubros.taxonomia";
 import { taxonomyByRubroId } from "@/modules/rubros.catalog.enriched";
 import { toast } from "sonner";
+import { ensureCategory } from "@/lib/rubros-category-utils";
 
 // ---------- Environment ----------
 const envSource =
@@ -1319,7 +1320,7 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     tipo_costo?: string;
   };
 
-  return applyTaxonomy(base);
+  return applyTaxonomy(ensureCategory(base));
 };
 
 const applyTaxonomy = (
