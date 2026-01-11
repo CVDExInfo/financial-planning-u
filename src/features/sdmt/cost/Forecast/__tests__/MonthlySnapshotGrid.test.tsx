@@ -588,7 +588,6 @@ describe('MonthlySnapshotGrid - TDZ Regression Test', () => {
     // In the actual component, we should use useEffect (not useMemo) for setExpandedGroups
     
     // Simulate the CORRECT pattern with useEffect
-    let expandedGroups: Set<string>;
     const sortedRows = [
       { id: 'row1' },
       { id: 'row2' },
@@ -598,7 +597,7 @@ describe('MonthlySnapshotGrid - TDZ Regression Test', () => {
     
     // This simulates what useEffect does - it's a side effect, not a computed value
     const top3Ids = sortedRows.slice(0, 3).map(row => row.id);
-    expandedGroups = new Set(top3Ids);
+    const expandedGroups = new Set(top3Ids);
     
     // Assert: Side effect completed successfully
     assert.strictEqual(expandedGroups.size, 3, 'Should have 3 expanded groups');
