@@ -79,7 +79,7 @@ export function mapAllocationsToRubros(allocations: Allocation[]): Rubro[] {
       : totalAmount;
 
     return {
-      rubro_id: `alloc-${rubroId}`,
+      rubro_id: `alloc-${sanitizeId(rubroId)}`,
       nombre: rubroId, // Use rubro_id as name placeholder
       categoria: 'Allocation',
       tipo_ejecucion: isRecurring ? 'mensual' : 'puntual',
@@ -102,7 +102,7 @@ export function mapPrefacturasToRubros(prefacturas: Prefactura[]): Rubro[] {
     const monthIndex = parseMonthIndex(pref.mes) || 1;
 
     return {
-      rubro_id: `pref-${pref.prefactura_id}`,
+      rubro_id: `pref-${sanitizeId(pref.prefactura_id)}`,
       nombre: pref.descripcion || `Prefactura ${pref.prefactura_id}`,
       categoria: pref.tipo || 'Prefactura',
       tipo_ejecucion: 'puntual',
@@ -157,4 +157,16 @@ function parseMonthIndex(mes: string): number | null {
   }
 
   return null;
+}
+
+/**
+ * Sanitize ID to ensure valid rubro_id
+ * Removes special characters and ensures non-empty
+ */
+function sanitizeId(id: string): string {
+  if (!id || typeof id !== 'string') {
+    return 'unknown';
+  }
+  // Replace non-alphanumeric chars (except dash and underscore) with dash
+  return id.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 50) || 'unknown';
 }

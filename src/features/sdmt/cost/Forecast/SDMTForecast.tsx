@@ -46,7 +46,7 @@ import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters'
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
 import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros } from '@/api/finanzas';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
-import finanzasClient from '@/api/finanzasClient';
+import finanzasClient, { type BaselineDetailResponse } from '@/api/finanzasClient';
 import { ES_TEXTS } from '@/lib/i18n/es';
 import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
 import { BudgetSimulatorCard } from './BudgetSimulatorCard';
@@ -144,7 +144,7 @@ export function SDMTForecast() {
   const [savingForecasts, setSavingForecasts] = useState(false);
   
   // Baseline detail and rubros source tracking
-  const [baselineDetail, setBaselineDetail] = useState<any | null>(null);
+  const [baselineDetail, setBaselineDetail] = useState<BaselineDetailResponse | null>(null);
   const [rubrosSource, setRubrosSource] = useState<'api' | 'fallback' | null>(null);
   
   // Sorting state for forecast grid

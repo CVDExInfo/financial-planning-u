@@ -321,6 +321,47 @@ const ProjectRubroRequestSchema = z.object({
 
 type ProjectRubroRequest = z.infer<typeof ProjectRubroRequestSchema>;
 
+// Baseline detail response type
+export type BaselineDetailResponse = {
+  baseline_id: string;
+  project_id: string;
+  project_name: string;
+  status: string;
+  created_by: string;
+  accepted_by?: string;
+  accepted_at?: string;
+  rejected_by?: string;
+  rejected_at?: string;
+  labor_estimates: Array<{
+    rubroId: string;
+    role: string;
+    country: string;
+    level: string;
+    fte_count: number;
+    hourly_rate: number;
+    hours_per_month: number;
+    on_cost_percentage: number;
+    start_month: number;
+    end_month: number;
+  }>;
+  non_labor_estimates: Array<{
+    rubroId: string;
+    category: string;
+    description: string;
+    amount: number;
+    currency: string;
+    one_time: boolean;
+    start_month?: number;
+    end_month?: number;
+    vendor?: string;
+    capex_flag: boolean;
+  }>;
+  duration_months?: number;
+  total_amount: number;
+  currency: string;
+  created_at: string;
+};
+
 // Allocation bulk schema
 export const AllocationBulkSchema = z.object({
   allocations: z.array(
@@ -853,85 +894,9 @@ export const finanzasClient = {
   async getBaselineById(
     baselineId: string,
     options?: { signal?: AbortSignal }
-  ): Promise<{
-    baseline_id: string;
-    project_id: string;
-    project_name: string;
-    status: string;
-    created_by: string;
-    accepted_by?: string;
-    accepted_at?: string;
-    rejected_by?: string;
-    rejected_at?: string;
-    labor_estimates: Array<{
-      rubroId: string;
-      role: string;
-      country: string;
-      level: string;
-      fte_count: number;
-      hourly_rate: number;
-      hours_per_month: number;
-      on_cost_percentage: number;
-      start_month: number;
-      end_month: number;
-    }>;
-    non_labor_estimates: Array<{
-      rubroId: string;
-      category: string;
-      description: string;
-      amount: number;
-      currency: string;
-      one_time: boolean;
-      start_month?: number;
-      end_month?: number;
-      vendor?: string;
-      capex_flag: boolean;
-    }>;
-    duration_months?: number;
-    total_amount: number;
-    currency: string;
-    created_at: string;
-  }> {
+  ): Promise<BaselineDetailResponse> {
     checkAuth();
-    return await httpWithRetry<{
-      baseline_id: string;
-      project_id: string;
-      project_name: string;
-      status: string;
-      created_by: string;
-      accepted_by?: string;
-      accepted_at?: string;
-      rejected_by?: string;
-      rejected_at?: string;
-      labor_estimates: Array<{
-        rubroId: string;
-        role: string;
-        country: string;
-        level: string;
-        fte_count: number;
-        hourly_rate: number;
-        hours_per_month: number;
-        on_cost_percentage: number;
-        start_month: number;
-        end_month: number;
-      }>;
-      non_labor_estimates: Array<{
-        rubroId: string;
-        category: string;
-        description: string;
-        amount: number;
-        currency: string;
-        one_time: boolean;
-        start_month?: number;
-        end_month?: number;
-        vendor?: string;
-        capex_flag: boolean;
-      }>;
-      duration_months?: number;
-      total_amount: number;
-      currency: string;
-      created_at: string;
-    }>(`/baselines/${baselineId}`, {
+    return await httpWithRetry<BaselineDetailResponse>(`/baselines/${baselineId}`, {
       method: 'GET',
       signal: options?.signal,
     });
