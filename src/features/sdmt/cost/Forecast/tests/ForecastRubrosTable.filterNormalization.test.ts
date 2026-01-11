@@ -3,12 +3,16 @@
  * 
  * Tests to ensure filter value normalization from sessionStorage works correctly
  * and handles legacy/corrupted values robustly.
+ * 
+ * Note: The normalization logic is duplicated here intentionally to test behavior
+ * independently from the component implementation.
  */
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
 // Simulate the normalization logic from ForecastRubrosTable
+// Duplicated intentionally to test behavior independently
 function normalizeFilterValue(savedRaw: string | null): 'labor' | 'all' | 'non-labor' | null {
   try {
     if (!savedRaw) return null;
@@ -35,7 +39,7 @@ function normalizeFilterValue(savedRaw: string | null): 'labor' | 'all' | 'non-l
       }
     }
   } catch (err) {
-    console.warn('[Test] failed to normalize filter value', err);
+    // Silently handle errors (matches component behavior)
   }
   return null;
 }
