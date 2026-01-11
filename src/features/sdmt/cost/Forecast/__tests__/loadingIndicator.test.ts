@@ -17,8 +17,11 @@ describe('Forecast Loading Indicator', () => {
   });
 
   it('should clear isLoadingForecast after all data loads', async () => {
-    // Simulate loading sequence
-    let isLoadingForecast;
+    // Simulate loading sequence - starts true, becomes false after data loads
+    const loadingStates: boolean[] = [];
+    
+    // Initial state
+    loadingStates.push(true);
     
     // Simulate Promise.all completing
     await Promise.all([
@@ -26,10 +29,11 @@ describe('Forecast Loading Indicator', () => {
       Promise.resolve({ data: [] }), // forecast payload
     ]);
     
-    // Set loading to false after all promises resolve
-    isLoadingForecast = false;
+    // State after loading completes
+    loadingStates.push(false);
     
-    assert.strictEqual(isLoadingForecast, false, 'Loading state should be false after data loads');
+    assert.strictEqual(loadingStates[0], true, 'Should start with loading=true');
+    assert.strictEqual(loadingStates[1], false, 'Should end with loading=false after data loads');
   });
 
   it('should handle timeout gracefully', async () => {
