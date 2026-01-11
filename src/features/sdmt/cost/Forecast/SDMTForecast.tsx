@@ -76,6 +76,7 @@ import {
   buildCategoryRubros,
   buildPortfolioTotals,
 } from './categoryGrouping';
+import { rubrosFromAllocations } from '@/features/sdmt/utils/rubrosFromAllocations';
 
 // TODO: Backend Integration for Change Request Impact on Forecast
 // When a change request is approved in SDMTChanges, the backend should:
@@ -144,8 +145,11 @@ export function SDMTForecast() {
   const [savingForecasts, setSavingForecasts] = useState(false);
   
   // Baseline detail and rubros source tracking
-  const [baselineDetail, _setBaselineDetail] = useState<BaselineDetailResponse | null>(null);
-  const [rubrosSource] = useState<'api' | 'fallback' | null>(null);
+  const [baselineDetail, setBaselineDetail] = useState<BaselineDetailResponse | null>(null);
+  const [rubrosSource, setRubrosSource] = useState<'api' | 'fallback' | null>(null);
+  
+  // Request ID tracking to prevent race conditions
+  const requestIdRef = useRef(0);
   
   // Sorting state for forecast grid
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -336,6 +340,14 @@ export function SDMTForecast() {
       if (isPortfolioView) {
         await loadPortfolioForecast(months, requestKey);
       } else {
+        // Load baseline rubros for single project (non-portfolio) view
+        if (currentProject?.baselineId) {
+          await loadBaselineRubros(
+            selectedProjectId,
+            currentProject.baselineId,
+            abortControllerRef.current?.signal
+          );
+        }
         await loadSingleProjectForecast(selectedProjectId, months, requestKey);
       }
       
@@ -509,6 +521,106 @@ export function SDMTForecast() {
     project?: { baselineStatus?: string; baseline_status?: string } | null
   ): string | null => {
     return project?.baselineStatus ?? project?.baseline_status ?? null;
+  };
+
+  /**
+   * Load baseline rubros with fallback to allocations/prefacturas
+   * Uses Promise.allSettled to fetch all data in parallel and handle partial failures
+   */
+  const loadBaselineRubros = async (projectId: string, baselineId: string, signal?: AbortSignal) => {
+    if (!projectId || !baselineId) {
+      if (import.meta.env.DEV) {
+        console.debug('[loadBaselineRubros] Skipping: missing projectId or baselineId');
+      }
+      return;
+    }
+
+    const myRequestId = ++requestIdRef.current;
+    
+    if (import.meta.env.DEV) {
+      console.debug(`[loadBaselineRubros] Starting request ${myRequestId} for baseline ${baselineId}`);
+    }
+
+    // Reset rubros source while loading
+    setRubrosSource(null);
+
+    try {
+      // Fetch all data in parallel using Promise.allSettled
+      const tasks = [
+        finanzasClient.getRubrosForBaseline(projectId, baselineId, { signal }),
+        finanzasClient.getAllocationsForBaseline(projectId, baselineId, { signal }),
+        finanzasClient.getPrefacturasForBaseline(projectId, baselineId, { signal }),
+        finanzasClient.getBaselineById(baselineId, { signal }),
+      ];
+
+      const results = await Promise.allSettled(tasks);
+
+      // Ensure this request is still active
+      if (myRequestId !== requestIdRef.current) {
+        if (import.meta.env.DEV) {
+          console.debug(`[loadBaselineRubros] Request ${myRequestId} stale, aborting`);
+        }
+        return;
+      }
+
+      // Extract results safely
+      const rubrosRes = results[0].status === 'fulfilled' ? results[0].value : [];
+      const allocationsRes = results[1].status === 'fulfilled' ? results[1].value : [];
+      const prefacturasRes = results[2].status === 'fulfilled' ? results[2].value : [];
+      const baselineRes = results[3].status === 'fulfilled' ? results[3].value : null;
+
+      // Update baseline detail
+      setBaselineDetail(baselineRes);
+
+      if (import.meta.env.DEV) {
+        console.debug(`[loadBaselineRubros] Results:`, {
+          rubros: rubrosRes?.length || 0,
+          allocations: allocationsRes?.length || 0,
+          prefacturas: prefacturasRes?.length || 0,
+          baseline: baselineRes ? 'loaded' : 'null',
+        });
+      }
+
+      // If rubros endpoint returned data, use it
+      if (rubrosRes && rubrosRes.length > 0) {
+        setRubrosSource('api');
+        if (import.meta.env.DEV) {
+          console.debug(`[loadBaselineRubros] Using ${rubrosRes.length} rubros from API`);
+        }
+        return rubrosRes;
+      }
+
+      // Fallback: materialize from allocations & prefacturas if any present
+      if ((allocationsRes && allocationsRes.length > 0) || (prefacturasRes && prefacturasRes.length > 0)) {
+        const materialized = rubrosFromAllocations(allocationsRes || [], prefacturasRes || []);
+        setRubrosSource('fallback');
+        if (import.meta.env.DEV) {
+          console.debug(
+            `[loadBaselineRubros] Materialized ${materialized.length} rubros from ${allocationsRes?.length || 0} allocations + ${prefacturasRes?.length || 0} prefacturas`
+          );
+        }
+        return materialized;
+      }
+
+      // Nothing available
+      setRubrosSource(null);
+      if (import.meta.env.DEV) {
+        console.debug('[loadBaselineRubros] No rubros, allocations, or prefacturas available');
+      }
+      return [];
+    } catch (error) {
+      // Handle AbortError gracefully
+      if (error instanceof Error && error.name === 'AbortError') {
+        if (import.meta.env.DEV) {
+          console.debug(`[loadBaselineRubros] Request ${myRequestId} aborted`);
+        }
+        return [];
+      }
+
+      console.error('[loadBaselineRubros] Error loading baseline rubros:', error);
+      setRubrosSource(null);
+      return [];
+    }
   };
 
   const loadSingleProjectForecast = async (projectId: string, months: number, requestKey: string) => {
