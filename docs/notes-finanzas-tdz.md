@@ -80,3 +80,102 @@ To avoid similar TDZ issues in React components:
 - ✅ TypeScript type-checking passes (no new errors)
 - ✅ ESLint passes with no warnings
 - ✅ Route renders without runtime errors
+
+---
+
+# TDZ Fix: Finanzas SD Cost Forecast Route - "Cuadrícula de Pronóstico 12 Meses"
+
+## Issue Summary
+
+**Route:** `/finanzas/sdmt/cost/forecast`  
+**Error:** `ReferenceError: Cannot access 'X' before initialization`  
+**Component:** `src/features/sdmt/cost/Forecast/components/ForecastRubrosTable.tsx`  
+**Date Fixed:** 2026-01-11  
+**Trigger:** Clicking "Cuadrícula de Pronóstico 12 Meses" (12-Month Forecast Grid) to expand the collapsible section
+
+## Root Cause
+
+The `ForecastRubrosTable` component had a **Temporal Dead Zone (TDZ) violation** where a function was called before its declaration:
+
+```typescript
+// ❌ BEFORE: Function called inside useMemo (line 192)
+const visibleCategories = useMemo(() => {
+  // ... filtering logic ...
+  const recalculatedTotals = recalculateCategoryTotals(filteredRubros); // ❌ Called here
+  // ...
+}, [searchFilter, categoryTotals, categoryRubros, filterMode]);
+
+// Line 201: Function declared here (TOO LATE!)
+const recalculateCategoryTotals = (rubros: CategoryRubro[]): CategoryTotals => {
+  // ... implementation ...
+};
+```
+
+When the `visibleCategories` useMemo executes, it tries to call `recalculateCategoryTotals`, but that function hasn't been initialized yet because it's declared later in the code.
+
+In minified production builds, `recalculateCategoryTotals` gets shortened to a single letter (e.g., `X`), causing the error:
+```
+ReferenceError: Cannot access 'X' before initialization
+```
+
+## Solution
+
+Moved the `recalculateCategoryTotals` function declaration **before** the `visibleCategories` useMemo:
+
+```typescript
+// ✅ AFTER: Function declared first (line 159)
+const recalculateCategoryTotals = (rubros: CategoryRubro[]): CategoryTotals => {
+  // ... implementation ...
+};
+
+// Then used in useMemo (line 203+)
+const visibleCategories = useMemo(() => {
+  // ... filtering logic ...
+  const recalculatedTotals = recalculateCategoryTotals(filteredRubros); // ✅ Now safe
+  // ...
+}, [searchFilter, categoryTotals, categoryRubros, filterMode]);
+```
+
+## Why This Happened
+
+JavaScript/TypeScript const and let declarations are hoisted but remain in the **Temporal Dead Zone (TDZ)** until the execution reaches the declaration line:
+
+1. The variable name is reserved in scope from the start
+2. But it cannot be accessed until the line where it's declared and initialized
+3. Accessing it before declaration throws `ReferenceError: Cannot access 'X' before initialization`
+4. In production builds, variable names are minified (e.g., `recalculateCategoryTotals` → `X`)
+
+The issue only appeared when expanding the "Cuadrícula de Pronóstico 12 Meses" section because:
+- That's when `ForecastRubrosTable` component is first rendered
+- The `visibleCategories` useMemo executes immediately on mount
+- It tries to call `recalculateCategoryTotals` which is still in TDZ
+
+## Prevention Guidelines
+
+To avoid similar TDZ issues in React components:
+
+1. **Declare helper functions BEFORE they're used** in useMemo/useEffect/useCallback
+2. **Order declarations properly:**
+   - Imports
+   - Type definitions
+   - Helper functions (that don't depend on state/props)
+   - State hooks (`useState`, etc.)
+   - Context hooks (`useContext`, custom hooks)
+   - Computed values (useMemo, useCallback) that use the helpers
+3. **Never reference a const/let before its declaration line**
+4. **Consider moving complex helper functions outside the component** if they don't need closure over state/props
+5. **Use ESLint rules** to catch potential TDZ issues during development
+
+## Files Modified
+
+- `src/features/sdmt/cost/Forecast/components/ForecastRubrosTable.tsx`: Moved `recalculateCategoryTotals` function declaration before `visibleCategories` useMemo
+- `docs/notes-finanzas-tdz.md`: Updated documentation with this case
+
+## Verification
+
+- ✅ Build succeeds without errors
+- ✅ TypeScript type-checking passes
+- ✅ ESLint passes with no warnings
+- ✅ Route loads without errors
+- ✅ Clicking "Cuadrícula de Pronóstico 12 Meses" renders without TDZ error
+- ✅ Component can be dynamically imported without throwing
