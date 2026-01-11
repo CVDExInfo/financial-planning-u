@@ -464,6 +464,95 @@ export const finanzasClient = {
     return parsed.data.data;
   },
 
+  /**
+   * Get rubros for a specific project and baseline
+   * Supports request cancellation via AbortSignal
+   */
+  async getRubrosForBaseline(
+    projectId: string,
+    baselineId: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<any[]> {
+    const search = new URLSearchParams();
+    search.set("baselineId", baselineId);
+    const query = search.toString();
+
+    const data = await http<{ data?: unknown } | any[]>(
+      `/projects/${projectId}/rubros${query ? `?${query}` : ""}`,
+      {
+        method: "GET",
+        signal: options?.signal,
+      }
+    );
+    
+    return normalizeListResponse<any>(data);
+  },
+
+  /**
+   * Get allocations for a specific project and baseline
+   * Used for rubros fallback when rubros endpoint returns empty
+   */
+  async getAllocationsForBaseline(
+    projectId: string,
+    baselineId: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<any[]> {
+    const search = new URLSearchParams();
+    search.set("project_id", projectId);
+    search.set("baseline_id", baselineId);
+    const query = search.toString();
+
+    const data = await http<{ data?: unknown } | any[]>(
+      `/allocations${query ? `?${query}` : ""}`,
+      {
+        method: "GET",
+        signal: options?.signal,
+      }
+    );
+    
+    return normalizeListResponse<any>(data);
+  },
+
+  /**
+   * Get prefacturas/invoices for a specific project and baseline
+   * Used for rubros fallback when rubros endpoint returns empty
+   */
+  async getPrefacturasForBaseline(
+    projectId: string,
+    baselineId: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<any[]> {
+    const search = new URLSearchParams();
+    search.set("projectId", projectId);
+    search.set("baselineId", baselineId);
+    const query = search.toString();
+
+    // Try prefacturas endpoint first, fall back to invoices if needed
+    try {
+      const data = await http<{ data?: unknown } | any[]>(
+        `/prefacturas${query ? `?${query}` : ""}`,
+        {
+          method: "GET",
+          signal: options?.signal,
+        }
+      );
+      return normalizeListResponse<any>(data);
+    } catch (error) {
+      // If prefacturas endpoint doesn't exist, try invoices
+      if (error instanceof HttpError && (error.status === 404 || error.status === 501)) {
+        const data = await http<{ data?: unknown } | any[]>(
+          `/invoices${query ? `?${query}` : ""}`,
+          {
+            method: "GET",
+            signal: options?.signal,
+          }
+        );
+        return normalizeListResponse<any>(data);
+      }
+      throw error;
+    }
+  },
+
   // Write operations
   async createProject(payload: ProjectCreate): Promise<Project> {
     checkAuth();
