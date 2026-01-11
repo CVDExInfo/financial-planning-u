@@ -143,6 +143,10 @@ export function SDMTForecast() {
   const [dirtyForecasts, setDirtyForecasts] = useState<Record<string, ForecastRow>>({});
   const [savingForecasts, setSavingForecasts] = useState(false);
   
+  // Baseline detail and rubros source tracking
+  const [baselineDetail, setBaselineDetail] = useState<any | null>(null);
+  const [rubrosSource, setRubrosSource] = useState<'api' | 'fallback' | null>(null);
+  
   // Sorting state for forecast grid
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
@@ -1368,8 +1372,16 @@ export function SDMTForecast() {
   }, [forecastGrid, selectedPeriod, sortDirection]);
 
   const totalFTE = useMemo(() => {
+    // Prioritize baseline labor_estimates if available
+    if (baselineDetail?.labor_estimates && Array.isArray(baselineDetail.labor_estimates)) {
+      return baselineDetail.labor_estimates.reduce(
+        (sum: number, item: any) => sum + (Number(item.fte_count || item.fte || 0)), 
+        0
+      );
+    }
+    // Fallback to line items qty
     return lineItemsForGrid.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
-  }, [lineItemsForGrid]);
+  }, [baselineDetail, lineItemsForGrid]);
 
   const monthsForTotals = useMemo(() => {
     if (selectedPeriod === 'CURRENT_MONTH') {
@@ -2423,7 +2435,19 @@ export function SDMTForecast() {
               <Card ref={rubrosSectionRef} tabIndex={-1}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Cuadrícula de Pronóstico 12 Meses</CardTitle>
+                    <div className="flex items-center gap-3">
+                      <CardTitle className="text-lg">Cuadrícula de Pronóstico 12 Meses</CardTitle>
+                      {rubrosSource === 'fallback' && (
+                        <Badge variant="outline" className="text-xs">
+                          Fuente: Fallback (allocations/prefacturas)
+                        </Badge>
+                      )}
+                      {rubrosSource === 'api' && import.meta.env.DEV && (
+                        <Badge variant="outline" className="text-xs">
+                          Fuente: API
+                        </Badge>
+                      )}
+                    </div>
                     <CollapsibleTrigger asChild>
                       <Button
                         variant="ghost"
