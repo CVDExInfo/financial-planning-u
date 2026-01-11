@@ -2446,6 +2446,7 @@ export function SDMTForecast() {
                       onSaveBudget={handleSaveBudgetFromTable}
                       formatCurrency={formatCurrency}
                       canEditBudget={canEditBudget}
+                      defaultFilter="labor"
                     />
                   </CardContent>
                 </CollapsibleContent>
