@@ -235,6 +235,9 @@ devDependencies:
   '@vitejs/plugin-react-swc':
     specifier: ^4.2.2
     version: 4.2.2(vite@7.3.1)
+  aws-jwt-verify:
+    specifier: ^5.1.1
+    version: 5.1.1
   csv-parse:
     specifier: ^6.1.0
     version: 6.1.0
@@ -5094,6 +5097,11 @@ packages:
     engines: {node: '>= 0.4'}
     dependencies:
       possible-typed-array-names: 1.1.0
+    dev: true
+
+  /aws-jwt-verify@5.1.1:
+    resolution: {integrity: sha512-j6whGdGJmQ27agk4ijY8RPv6itb8JLb7SCJ86fEnneTcSBrpxuwL8kLq6y5WVH95aIknyAloEqAsaOLS1J8ITQ==}
+    engines: {node: '>=18.0.0'}
     dev: true
 
   /b4a@1.7.3:
