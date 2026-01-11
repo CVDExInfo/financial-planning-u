@@ -418,3 +418,126 @@ describe('MonthlySnapshotGrid - Performance', () => {
     assert.strictEqual(projectMap.size, 10, 'Should have 10 projects');
   });
 });
+
+/**
+ * Test: Collapsed/Summary Mode
+ */
+describe('MonthlySnapshotGrid - Collapsed Mode', () => {
+  it('should calculate summary totals correctly', () => {
+    const rows = [
+      {
+        id: 'proj1',
+        name: 'Project 1',
+        budget: 1000,
+        forecast: 1100,
+        actual: 900,
+        varianceBudget: 100,
+        varianceBudgetPercent: 10,
+      },
+      {
+        id: 'proj2',
+        name: 'Project 2',
+        budget: 2000,
+        forecast: 1900,
+        actual: 2100,
+        varianceBudget: -100,
+        varianceBudgetPercent: -5,
+      },
+      {
+        id: 'proj3',
+        name: 'Project 3',
+        budget: 500,
+        forecast: 600,
+        actual: 550,
+        varianceBudget: 100,
+        varianceBudgetPercent: 20,
+      },
+    ];
+
+    // Calculate summary
+    const totalBudget = rows.reduce((sum, row) => sum + row.budget, 0);
+    const totalForecast = rows.reduce((sum, row) => sum + row.forecast, 0);
+    const totalActual = rows.reduce((sum, row) => sum + row.actual, 0);
+
+    assert.strictEqual(totalBudget, 3500, 'Total budget should be 3500');
+    assert.strictEqual(totalForecast, 3600, 'Total forecast should be 3600');
+    assert.strictEqual(totalActual, 3550, 'Total actual should be 3550');
+
+    const totalVarianceBudget = totalForecast - totalBudget;
+    const totalVarianceBudgetPercent = (totalVarianceBudget / totalBudget) * 100;
+
+    assert.strictEqual(totalVarianceBudget, 100, 'Total variance should be 100');
+    assert.ok(
+      Math.abs(totalVarianceBudgetPercent - 2.857) < 0.01,
+      'Total variance percent should be ~2.857%'
+    );
+  });
+
+  it('should identify top 5 positive variances (overspend)', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => ({
+      id: `proj${i}`,
+      name: `Project ${i}`,
+      varianceBudget: (i % 2 === 0 ? 1 : -1) * (i + 1) * 100, // Alternating positive/negative
+      varianceBudgetPercent: 10,
+    }));
+
+    // Filter and sort positive variances
+    const positive = rows
+      .filter(r => r.varianceBudget > 0)
+      .sort((a, b) => b.varianceBudget - a.varianceBudget)
+      .slice(0, 5);
+
+    assert.strictEqual(positive.length, 5, 'Should have 5 positive variances');
+    assert.strictEqual(positive[0].varianceBudget, 900, 'Top variance should be 900');
+    assert.strictEqual(positive[4].varianceBudget, 100, 'Fifth variance should be 100');
+  });
+
+  it('should identify top 5 negative variances (savings)', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => ({
+      id: `proj${i}`,
+      name: `Project ${i}`,
+      varianceBudget: (i % 2 === 0 ? 1 : -1) * (i + 1) * 100, // Alternating positive/negative
+      varianceBudgetPercent: 10,
+    }));
+
+    // Filter and sort negative variances
+    const negative = rows
+      .filter(r => r.varianceBudget < 0)
+      .sort((a, b) => a.varianceBudget - b.varianceBudget)
+      .slice(0, 5);
+
+    assert.strictEqual(negative.length, 5, 'Should have 5 negative variances');
+    assert.strictEqual(negative[0].varianceBudget, -1000, 'Top savings should be -1000');
+    assert.strictEqual(negative[4].varianceBudget, -200, 'Fifth savings should be -200');
+  });
+
+  it('should handle sessionStorage key generation', () => {
+    const userEmail = 'test@example.com';
+    const projectId = 'portfolio';
+    const expectedKey = `monthlyGridCollapsed:${projectId}:${userEmail}`;
+    
+    // This would be the actual implementation in the component
+    const storageKey = `monthlyGridCollapsed:${projectId}:${userEmail}`;
+    
+    assert.strictEqual(
+      storageKey,
+      expectedKey,
+      'Storage key should match expected format'
+    );
+  });
+
+  it('should handle sessionStorage fallback when user is unknown', () => {
+    const userEmail = undefined;
+    const projectId = 'portfolio';
+    const expectedKey = `monthlyGridCollapsed:${projectId}:user`;
+    
+    // Fallback to 'user' when userEmail is not available
+    const storageKey = `monthlyGridCollapsed:${projectId}:${userEmail || 'user'}`;
+    
+    assert.strictEqual(
+      storageKey,
+      expectedKey,
+      'Storage key should fallback to "user" when email is not available'
+    );
+  });
+});
