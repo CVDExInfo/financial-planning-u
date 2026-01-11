@@ -595,14 +595,17 @@ export function MonthlySnapshotGrid({
     setBudgetRequestNotes('');
   }, [budgetRequestModal, budgetRequestNotes, groupingMode, actualMonthIndex, userEmail]);
 
-  // Month options for selector
+  // Month options for selector - support up to 60 months (5 years)
   const monthOptions = useMemo(() => {
     const options: Array<{ value: MonthOption; label: string }> = [
       { value: 'current', label: 'Mes actual' },
       { value: 'previous', label: 'Mes anterior' },
     ];
     
-    for (let i = 1; i <= 12; i++) {
+    // Add M1 through M60 (5 years) to support long-term projects
+    // Can be extended dynamically based on baselineDetail.duration_months if needed
+    const maxMonths = 60;
+    for (let i = 1; i <= maxMonths; i++) {
       options.push({ value: i, label: `M${i}` });
     }
     
@@ -1021,6 +1024,52 @@ export function MonthlySnapshotGrid({
                     ))}
                   </>
                 ))
+              )}
+              
+              {/* Totals Row */}
+              {sortedRows.length > 0 && (
+                <TableRow className="bg-muted/50 border-t-2 border-primary/30 font-semibold">
+                  <TableCell className="sticky left-0 bg-muted/50 z-10">
+                    {groupingMode === 'project' ? 'Total (Todos los Proyectos)' : 'Total (Todos los Rubros)'}
+                  </TableCell>
+                  <TableCell className="text-right bg-muted/50">
+                    {formatCurrency(summaryTotals.totalBudget)}
+                  </TableCell>
+                  <TableCell className="text-right bg-muted/50">
+                    {formatCurrency(summaryTotals.totalForecast)}
+                  </TableCell>
+                  <TableCell className="text-right text-blue-600 bg-muted/50">
+                    {formatCurrency(summaryTotals.totalActual)}
+                  </TableCell>
+                  <TableCell className="text-right bg-muted/50">
+                    {(() => {
+                      const variance = summaryTotals.totalForecast - summaryTotals.totalBudget;
+                      return (
+                        <span className={variance >= 0 ? 'text-red-600' : 'text-green-600'}>
+                          {variance >= 0 ? '+' : ''}
+                          {formatCurrency(variance)}
+                        </span>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-right bg-muted/50">
+                    {(() => {
+                      const variance = summaryTotals.totalActual - summaryTotals.totalForecast;
+                      return (
+                        <span className={variance >= 0 ? 'text-red-600' : 'text-green-600'}>
+                          {variance >= 0 ? '+' : ''}
+                          {formatCurrency(variance)}
+                        </span>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-center bg-muted/50">
+                    —
+                  </TableCell>
+                  <TableCell className="text-center bg-muted/50">
+                    —
+                  </TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>
