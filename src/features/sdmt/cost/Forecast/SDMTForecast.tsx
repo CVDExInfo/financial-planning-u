@@ -567,7 +567,7 @@ export function SDMTForecast() {
       const rubrosRes = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value as any[] : [];
       const allocationsRes = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value as any[] : [];
       const prefacturasRes = results[2].status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value as any[] : [];
-      const baselineRes = results[3].status === 'fulfilled' ? results[3].value : null;
+      const baselineRes: BaselineDetailResponse | null = (results[3] && results[3].status === 'fulfilled') ? results[3].value as BaselineDetailResponse : null;
 
       // Update baseline detail
       setBaselineDetail(baselineRes);
