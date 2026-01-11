@@ -595,15 +595,17 @@ export function MonthlySnapshotGrid({
     setBudgetRequestNotes('');
   }, [budgetRequestModal, budgetRequestNotes, groupingMode, actualMonthIndex, userEmail]);
 
-  // Month options for selector - support up to 48 months
+  // Month options for selector - support up to 60 months (5 years)
   const monthOptions = useMemo(() => {
     const options: Array<{ value: MonthOption; label: string }> = [
       { value: 'current', label: 'Mes actual' },
       { value: 'previous', label: 'Mes anterior' },
     ];
     
-    // Add M1 through M48 (4 years) to support long-term projects
-    for (let i = 1; i <= 48; i++) {
+    // Add M1 through M60 (5 years) to support long-term projects
+    // Can be extended dynamically based on baselineDetail.duration_months if needed
+    const maxMonths = 60;
+    for (let i = 1; i <= maxMonths; i++) {
       options.push({ value: i, label: `M${i}` });
     }
     
