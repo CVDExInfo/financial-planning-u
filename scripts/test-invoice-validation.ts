@@ -1,7 +1,7 @@
 // Manual validation test script
 // Run with: node --loader ts-node/esm scripts/test-invoice-validation.ts
 
-import { validateInvoicePayload, formatValidationErrors } from '../src/utils/invoiceValidation.js';
+import { validateInvoicePayload, formatValidationErrors } from '../src/utils/invoiceValidation';
 
 console.log('Testing Invoice Validation Utility\n');
 

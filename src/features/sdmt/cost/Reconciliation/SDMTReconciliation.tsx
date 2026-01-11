@@ -436,10 +436,7 @@ export default function SDMTReconciliation() {
       return;
     }
 
-    // Parse amount early for validation
-    const amount = parseFloat(uploadFormData.amount);
-
-    // Validate payload using utility
+    // Validate payload using utility (including amount parsing)
     const validationErrors = validateInvoicePayload({
       line_item_id: uploadFormData.line_item_id,
       month_start: uploadFormData.start_month,
@@ -458,6 +455,9 @@ export default function SDMTReconciliation() {
       }
       return;
     }
+
+    // Parse amount after validation passes
+    const amount = parseFloat(uploadFormData.amount);
 
     // Multi-month upload: loop through each month in the range
     const monthsToUpload = [];

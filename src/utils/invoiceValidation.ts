@@ -83,7 +83,7 @@ export function validateInvoicePayload(
   }
 
   // Validate amount
-  if (!payload.amount) {
+  if (payload.amount == null || payload.amount === '') {
     errors.push({
       field: 'amount',
       message: 'Monto de factura es requerido'
@@ -158,8 +158,10 @@ export function logInvoicePayload(
   payload: Record<string, unknown>,
   file?: File
 ): void {
-  if (typeof import.meta !== 'undefined' && !(import.meta as any)?.env?.DEV) {
-    return; // Only log in development
+  // Only log in development mode
+  const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
+  if (!isDev) {
+    return;
   }
 
   const safePayload = {
