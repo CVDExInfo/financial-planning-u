@@ -144,7 +144,7 @@ export function SDMTForecast() {
   const [savingForecasts, setSavingForecasts] = useState(false);
   
   // Baseline detail and rubros source tracking
-  const [baselineDetail, setBaselineDetail] = useState<BaselineDetailResponse | null>(null);
+  const [baselineDetail, _setBaselineDetail] = useState<BaselineDetailResponse | null>(null);
   const [rubrosSource, setRubrosSource] = useState<'api' | 'fallback' | null>(null);
   
   // Sorting state for forecast grid
