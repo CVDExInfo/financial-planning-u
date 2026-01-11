@@ -155,6 +155,46 @@ export function ForecastRubrosTable({
     return budgets.reduce((sum, b) => sum + (b.budget || 0), 0);
   }, [monthlyBudgets, editedBudgets, isEditingBudget]);
 
+  // Helper to recalculate category totals from filtered rubros
+  // IMPORTANT: Must be declared BEFORE visibleCategories useMemo to avoid TDZ error
+  const recalculateCategoryTotals = (rubros: CategoryRubro[]): CategoryTotals => {
+    const byMonth: Record<number, { forecast: number; actual: number; planned: number }> = {};
+    let overallForecast = 0;
+    let overallActual = 0;
+    let overallPlanned = 0;
+
+    rubros.forEach(rubro => {
+      // Aggregate monthly data
+      Object.keys(rubro.byMonth).forEach(monthStr => {
+        const month = parseInt(monthStr, 10);
+        if (!byMonth[month]) {
+          byMonth[month] = { forecast: 0, actual: 0, planned: 0 };
+        }
+        const monthData = rubro.byMonth[month];
+        byMonth[month].forecast += monthData.forecast || 0;
+        byMonth[month].actual += monthData.actual || 0;
+        byMonth[month].planned += monthData.planned || 0;
+      });
+
+      // Aggregate overall totals
+      overallForecast += rubro.overall.forecast || 0;
+      overallActual += rubro.overall.actual || 0;
+      overallPlanned += rubro.overall.planned || 0;
+    });
+
+    return {
+      byMonth,
+      overall: {
+        forecast: overallForecast,
+        actual: overallActual,
+        planned: overallPlanned,
+        varianceActual: overallActual - overallForecast,
+        variancePlanned: overallForecast - overallPlanned,
+        percentConsumption: overallForecast > 0 ? (overallActual / overallForecast) * 100 : 0,
+      },
+    };
+  };
+
   // Filter categories and rubros based on search and filter mode
   const visibleCategories = useMemo(() => {
     const lowerSearch = searchFilter.toLowerCase().trim();
@@ -196,45 +236,6 @@ export function ForecastRubrosTable({
 
     return filtered;
   }, [searchFilter, categoryTotals, categoryRubros, filterMode]);
-
-  // Helper to recalculate category totals from filtered rubros
-  const recalculateCategoryTotals = (rubros: CategoryRubro[]): CategoryTotals => {
-    const byMonth: Record<number, { forecast: number; actual: number; planned: number }> = {};
-    let overallForecast = 0;
-    let overallActual = 0;
-    let overallPlanned = 0;
-
-    rubros.forEach(rubro => {
-      // Aggregate monthly data
-      Object.keys(rubro.byMonth).forEach(monthStr => {
-        const month = parseInt(monthStr, 10);
-        if (!byMonth[month]) {
-          byMonth[month] = { forecast: 0, actual: 0, planned: 0 };
-        }
-        const monthData = rubro.byMonth[month];
-        byMonth[month].forecast += monthData.forecast || 0;
-        byMonth[month].actual += monthData.actual || 0;
-        byMonth[month].planned += monthData.planned || 0;
-      });
-
-      // Aggregate overall totals
-      overallForecast += rubro.overall.forecast || 0;
-      overallActual += rubro.overall.actual || 0;
-      overallPlanned += rubro.overall.planned || 0;
-    });
-
-    return {
-      byMonth,
-      overall: {
-        forecast: overallForecast,
-        actual: overallActual,
-        planned: overallPlanned,
-        varianceActual: overallActual - overallForecast,
-        variancePlanned: overallForecast - overallPlanned,
-        percentConsumption: overallForecast > 0 ? (overallActual / overallForecast) * 100 : 0,
-      },
-    };
-  };
 
   // Old filteredData for compatibility (now deprecated, use visibleCategories)
   const filteredData = useMemo(() => {
