@@ -595,14 +595,15 @@ export function MonthlySnapshotGrid({
     setBudgetRequestNotes('');
   }, [budgetRequestModal, budgetRequestNotes, groupingMode, actualMonthIndex, userEmail]);
 
-  // Month options for selector
+  // Month options for selector - support up to 48 months
   const monthOptions = useMemo(() => {
     const options: Array<{ value: MonthOption; label: string }> = [
       { value: 'current', label: 'Mes actual' },
       { value: 'previous', label: 'Mes anterior' },
     ];
     
-    for (let i = 1; i <= 12; i++) {
+    // Add M1 through M48 (4 years) to support long-term projects
+    for (let i = 1; i <= 48; i++) {
       options.push({ value: i, label: `M${i}` });
     }
     
