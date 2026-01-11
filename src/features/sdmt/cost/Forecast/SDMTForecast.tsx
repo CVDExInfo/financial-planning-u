@@ -44,7 +44,7 @@ import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeTyp
 import { computeTotals, computeVariance } from '@/lib/forecast/analytics';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { useProjectLineItems } from '@/hooks/useProjectLineItems';
-import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros } from '@/api/finanzas';
+import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros, getBaselineById, type BaselineDetail } from '@/api/finanzas';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
 import finanzasClient from '@/api/finanzasClient';
 import { ES_TEXTS } from '@/lib/i18n/es';
@@ -131,6 +131,7 @@ const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real pr
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLoadingForecast, setIsLoadingForecast] = useState(true);
   const [forecastError, setForecastError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
   const [editingCell, setEditingCell] = useState<{ line_item_id: string; month: number; type: 'forecast' | 'actual' } | null>(null);
@@ -177,6 +178,8 @@ export function SDMTForecast() {
   const [savingMonthlyBudget, setSavingMonthlyBudget] = useState(false);
   const [monthlyBudgetLastUpdated, setMonthlyBudgetLastUpdated] = useState<string | null>(null);
   const [monthlyBudgetUpdatedBy, setMonthlyBudgetUpdatedBy] = useState<string | null>(null);
+  // Baseline detail state for FTE calculation
+  const [baselineDetail, setBaselineDetail] = useState<BaselineDetail | null>(null);
   // Budget Overview state for KPIs
   const [budgetOverview, setBudgetOverview] = useState<{
     year: number;
@@ -296,6 +299,25 @@ export function SDMTForecast() {
     setForecastError((prev) => prev || message);
   }, [lineItemsError, login]);
 
+  // Load baseline details for FTE calculation
+  useEffect(() => {
+    if (currentProject?.baselineId && !isPortfolioView) {
+      getBaselineById(currentProject.baselineId)
+        .then((data) => {
+          if (import.meta.env.DEV) {
+            console.log('[SDMTForecast] Baseline details loaded for FTE calculation');
+          }
+          setBaselineDetail(data);
+        })
+        .catch((err) => {
+          console.error('Failed to load baseline details:', err);
+          setBaselineDetail(null);
+        });
+    } else {
+      setBaselineDetail(null);
+    }
+  }, [currentProject?.baselineId, isPortfolioView]);
+
   const loadForecastData = async () => {
     if (!selectedProjectId) {
       console.log('❌ No project selected, skipping forecast load');
@@ -311,6 +333,7 @@ export function SDMTForecast() {
 
     try {
       setLoading(true);
+      setIsLoadingForecast(true);
       setForecastError(null);
       setDirtyActuals({});
       setDirtyForecasts({});
@@ -366,6 +389,7 @@ export function SDMTForecast() {
       // Only clear loading if this is still the latest request
       if (latestRequestKeyRef.current === requestKey) {
         setLoading(false);
+        setIsLoadingForecast(false);
       }
     }
   };
@@ -1368,8 +1392,22 @@ export function SDMTForecast() {
   }, [forecastGrid, selectedPeriod, sortDirection]);
 
   const totalFTE = useMemo(() => {
-    return lineItemsForGrid.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
-  }, [lineItemsForGrid]);
+    // Prefer baseline labor_estimates for FTE calculation
+    if (baselineDetail) {
+      const laborEstimates = baselineDetail.labor_estimates || baselineDetail.payload?.labor_estimates || [];
+      const fteSum = laborEstimates.reduce((sum, item) => {
+        const fte = Number(item.fte_count || item.fte || 0);
+        return sum + fte;
+      }, 0);
+      
+      // Round to 2 decimals
+      return Math.round(fteSum * 100) / 100;
+    }
+    
+    // Fallback to lineItems qty when baseline not available
+    const lineItemFte = lineItemsForGrid.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+    return Math.round(lineItemFte * 100) / 100;
+  }, [baselineDetail, lineItemsForGrid]);
 
   const monthsForTotals = useMemo(() => {
     if (selectedPeriod === 'CURRENT_MONTH') {
@@ -1992,42 +2030,70 @@ export function SDMTForecast() {
       )}
 
       {/* Monthly Snapshot Grid - TODOS Mode Only */}
-      {isPortfolioView && !loading && forecastData.length > 0 && (
-        <MonthlySnapshotGrid
-          forecastData={forecastData}
-          lineItems={portfolioLineItems}
-          monthlyBudgets={monthlyBudgets}
-          useMonthlyBudget={useMonthlyBudget}
-          formatCurrency={formatCurrency}
-          getCurrentMonthIndex={getCurrentMonthIndex}
-          onScrollToDetail={() => {
-            // Scroll to the 12-month grid section
-            if (rubrosSectionRef.current) {
-              setIsRubrosGridOpen(true);
-              setTimeout(() => {
-                rubrosSectionRef.current?.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'start',
-                });
-              }, 100);
-            }
-          }}
-          onNavigateToReconciliation={(lineItemId, projectId) => {
-            const params = new URLSearchParams();
-            if (projectId) {
-              params.set('projectId', projectId);
-            }
-            params.set('line_item', lineItemId);
-            const currentPath = location.pathname + location.search;
-            params.set('returnUrl', currentPath);
-            navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
-          }}
-        />
+      {isPortfolioView && (
+        <>
+          {isLoadingForecast ? (
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-center min-h-[200px]">
+                  <div className="text-center">
+                    <LoadingSpinner size="lg" />
+                    <p className="text-muted-foreground mt-4">Cargando pronóstico...</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : forecastData.length > 0 ? (
+            <MonthlySnapshotGrid
+              forecastData={forecastData}
+              lineItems={portfolioLineItems}
+              monthlyBudgets={monthlyBudgets}
+              useMonthlyBudget={useMonthlyBudget}
+              formatCurrency={formatCurrency}
+              getCurrentMonthIndex={getCurrentMonthIndex}
+              onScrollToDetail={() => {
+                // Scroll to the 12-month grid section
+                if (rubrosSectionRef.current) {
+                  setIsRubrosGridOpen(true);
+                  setTimeout(() => {
+                    rubrosSectionRef.current?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start',
+                    });
+                  }, 100);
+                }
+              }}
+              onNavigateToReconciliation={(lineItemId, projectId) => {
+                const params = new URLSearchParams();
+                if (projectId) {
+                  params.set('projectId', projectId);
+                }
+                params.set('line_item', lineItemId);
+                const currentPath = location.pathname + location.search;
+                params.set('returnUrl', currentPath);
+                navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
+              }}
+            />
+          ) : null}
+        </>
       )}
 
       {/* KPI Summary - Standardized & Compact - Single Project Mode Only */}
       {!isPortfolioView && (
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+        <>
+          {isLoadingForecast ? (
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-center min-h-[120px]">
+                  <div className="text-center">
+                    <LoadingSpinner size="lg" />
+                    <p className="text-muted-foreground mt-4">Cargando pronóstico...</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         <Card className="h-full">
           <CardContent className="p-3">
             <div className="text-xl font-bold">{formatCurrency(totalPlanned)}</div>
@@ -2133,6 +2199,8 @@ export function SDMTForecast() {
           </CardContent>
         </Card>
       </div>
+          )}
+        </>
       )}
 
       {/* Budget Simulation KPIs - Only show when simulation is enabled */}
