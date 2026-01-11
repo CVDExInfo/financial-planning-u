@@ -166,11 +166,12 @@ export function MonthlySnapshotGrid({
   }>({ open: false });
   const [budgetRequestNotes, setBudgetRequestNotes] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
 
   // Helper to get/set collapsed state from sessionStorage
   const getStoredCollapsedState = useCallback(() => {
     try {
-      // Use project context if available; for portfolio view use 'portfolio'
+      // For portfolio view, use 'portfolio' as the context identifier
       const storageKey = `monthlyGridCollapsed:portfolio:${userEmail || 'user'}`;
       const stored = sessionStorage.getItem(storageKey);
       return stored === 'true';
@@ -182,6 +183,7 @@ export function MonthlySnapshotGrid({
 
   const setStoredCollapsedState = useCallback((collapsed: boolean) => {
     try {
+      // For portfolio view, use 'portfolio' as the context identifier
       const storageKey = `monthlyGridCollapsed:portfolio:${userEmail || 'user'}`;
       sessionStorage.setItem(storageKey, String(collapsed));
     } catch (e) {
@@ -189,16 +191,21 @@ export function MonthlySnapshotGrid({
     }
   }, [userEmail]);
 
-  // Load initial collapsed state from sessionStorage once userEmail is available
+  // Load initial collapsed state from sessionStorage once
   useEffect(() => {
-    const storedState = getStoredCollapsedState();
-    setIsCollapsed(storedState);
-  }, [getStoredCollapsedState]);
+    if (!hasLoadedFromStorage) {
+      const storedState = getStoredCollapsedState();
+      setIsCollapsed(storedState);
+      setHasLoadedFromStorage(true);
+    }
+  }, [hasLoadedFromStorage, getStoredCollapsedState]);
 
   // Persist collapsed state to sessionStorage whenever it changes
   useEffect(() => {
-    setStoredCollapsedState(isCollapsed);
-  }, [isCollapsed, setStoredCollapsedState]);
+    if (hasLoadedFromStorage) {
+      setStoredCollapsedState(isCollapsed);
+    }
+  }, [isCollapsed, hasLoadedFromStorage, setStoredCollapsedState]);
 
   // Toggle collapsed state
   const toggleCollapsed = useCallback(() => {

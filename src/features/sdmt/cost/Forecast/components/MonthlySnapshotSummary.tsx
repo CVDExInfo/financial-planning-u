@@ -80,7 +80,7 @@ export function MonthlySnapshotSummary({
     const color = isPositive ? 'text-red-600' : value < 0 ? 'text-green-600' : 'text-muted-foreground';
     const sign = isPositive ? '+' : '';
     
-    // Determine percent sign based on the percent value itself, not the variance value
+    // For percent, only add '+' for positive values; negative values show '-' automatically via toFixed()
     const percentSign = percent !== null && percent > 0 ? '+' : '';
     const percentText = percent !== null ? `${percentSign}${percent.toFixed(1)}%` : '—';
     
