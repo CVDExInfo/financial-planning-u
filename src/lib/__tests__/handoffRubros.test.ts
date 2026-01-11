@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 describe("handoff baseline materialization", () => {
   it("seeds rubros from baseline and supports forecast fallback", async () => {
     process.env.COGNITO_CLIENT_ID ||= "test-client-id";
