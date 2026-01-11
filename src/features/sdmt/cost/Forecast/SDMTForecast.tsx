@@ -1453,7 +1453,20 @@ export function SDMTForecast() {
   const dirtyForecastCount = useMemo(() => Object.keys(dirtyForecasts).length, [dirtyForecasts]);
 
   const isLoadingState = loading || isLineItemsLoading;
-  const hasGridData = forecastGrid.length > 0;
+  
+  // Enhanced hasGridData: Check if we have Planned (P), Forecast (F), or Actual (A) data
+  // This ensures new projects with only P or F (but no A) will display data instead of "No hay datos"
+  const hasGridData = useMemo(() => {
+    if (forecastGrid.length === 0) return false;
+    
+    // Check totals: if any of P, F, or A is > 0, we have data to display
+    const hasP = totals.overall.planned > 0;
+    const hasF = totals.overall.forecast > 0;
+    const hasA = totals.overall.actual > 0;
+    
+    return hasP || hasF || hasA;
+  }, [forecastGrid.length, totals]);
+  
   const isEmptyState = !isLoadingState && !forecastError && forecastData.length === 0;
   
   // Special case: TODOS mode with only the ALL_PROJECTS placeholder (no real projects)
