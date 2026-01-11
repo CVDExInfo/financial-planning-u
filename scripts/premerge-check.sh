@@ -7,19 +7,19 @@ echo "=========================================="
 
 # Install dependencies with frozen lockfile
 echo "📦 Installing dependencies..."
-yarn install --frozen-lockfile
+npm ci
 
 # Run linter
 echo "🔍 Running linter..."
-yarn lint
+npm run lint
 
 # Run tests
 echo "🧪 Running tests..."
-yarn test --ci --reporters=default
+npm test -- --ci --reporters=default
 
 # Build the project
 echo "🏗️  Building project..."
-yarn build
+npm run build
 
 # Optional quick smoke check (non-blocking)
 echo "💨 Running smoke check (optional)..."
