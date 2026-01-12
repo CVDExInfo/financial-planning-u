@@ -893,10 +893,28 @@ export const finanzasClient = {
    */
   async getBaselineById(
     baselineId: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; projectId?: string }
   ): Promise<BaselineDetailResponse> {
     checkAuth();
-    return await httpWithRetry<BaselineDetailResponse>(`/baselines/${baselineId}`, {
+    const projectId = options?.projectId;
+
+    if (projectId) {
+      try {
+        return await httpWithRetry<BaselineDetailResponse>(
+          `/projects/${projectId}/baselines/${baselineId}`,
+          {
+            method: 'GET',
+            signal: options?.signal,
+          }
+        );
+      } catch (error) {
+        if (options?.signal?.aborted) {
+          throw error;
+        }
+      }
+    }
+
+    return await httpWithRetry<BaselineDetailResponse>(`/baseline/${baselineId}`, {
       method: 'GET',
       signal: options?.signal,
     });
