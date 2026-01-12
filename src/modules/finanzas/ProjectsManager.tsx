@@ -4,6 +4,7 @@
  * - POST /projects → crear un nuevo proyecto
  */
 import { useState, useMemo, useCallback, useEffect } from "react";
+import type { FormEvent } from 'react';
 import { type ProjectCreate, ProjectCreateSchema } from "@/api/finanzasClient";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

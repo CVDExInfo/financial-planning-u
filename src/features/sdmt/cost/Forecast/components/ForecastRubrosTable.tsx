@@ -632,17 +632,6 @@ export function ForecastRubrosTable({
                             </Button>
                           )}
                         </div>
-                        {filterMode !== 'all' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setFilterMode('all')}
-                            className="mt-2"
-                          >
-                            Mostrar todo
-                          </Button>
-                        )}
-                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (

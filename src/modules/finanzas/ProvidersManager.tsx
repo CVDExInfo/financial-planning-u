@@ -3,6 +3,7 @@
  * - POST /providers → registrar proveedores
  */
 import { useState } from "react";
+import type { FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import finanzasClient, {
   ProviderCreateSchema,
