@@ -631,7 +631,7 @@ export const getProjectBaseline = async (
 
     if (metadataLookup.Item) {
       // Verify project_id matches to ensure baseline belongs to this project
-      // Check both top-level project_id and payload.project_id (due to schema evolution)
+      // Check all possible field names (snake_case and camelCase) due to schema evolution
       const baselineProjectId =
         metadataLookup.Item.project_id ||
         metadataLookup.Item.payload?.project_id ||
