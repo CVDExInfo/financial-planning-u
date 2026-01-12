@@ -4,9 +4,8 @@ import { setupAuthenticatedPage, getRoleCredentials } from '../behavioral/auth-h
 test.describe('Finanzas 12m smoke', () => {
   test.beforeEach(async ({}, testInfo) => {
     // Skip if no SDMT or PMO credentials are configured
-    if (!process.env.E2E_SDMT_EMAIL && !process.env.E2E_PMO_EMAIL) {
-      test.skip('No SDMT/PMO credentials configured - skipping smoke tests');
-    }
+    const hasCredentials = !!(process.env.E2E_SDMT_EMAIL || process.env.E2E_PMO_EMAIL);
+    test.skip(!hasCredentials, 'No SDMT/PMO credentials configured - skipping smoke tests');
   });
 
   test('toggle Rubro -> Proyecto and expand project, filter MOD updates totals', async ({ page }) => {
@@ -14,7 +13,7 @@ test.describe('Finanzas 12m smoke', () => {
     const credentials = getRoleCredentials('SDMT') || getRoleCredentials('PMO');
     
     if (!credentials) {
-      test.skip('No SDMT or PMO credentials available');
+      test.skip(true, 'No SDMT or PMO credentials available');
       return;
     }
 
@@ -58,7 +57,9 @@ test.describe('Finanzas 12m smoke', () => {
     await expect(toggleBtn).toHaveAttribute('aria-expanded', 'true');
 
     // Ensure nested rubros exist
-    await expect(page.locator('table.nested-rubros tr.rubro-row')).toHaveCountGreaterThan(0);
+    const nestedRubros = page.locator('table.nested-rubros tr.rubro-row');
+    const nestedCount = await nestedRubros.count();
+    expect(nestedCount).toBeGreaterThan(0);
 
     // Capture project subtotal before filter
     const subtotalLocator = projectRow.locator('.project-month-total').first();
