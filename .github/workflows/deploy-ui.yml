@@ -95,7 +95,7 @@ jobs:
           echo "Installing required CLI tools for validation..."
           sudo apt-get update -qq
           sudo apt-get install -y -qq curl jq dnsutils
-          
+
           # Ensure AWS CLI v2 is available and up-to-date
           if ! command -v aws &> /dev/null; then
             echo "AWS CLI not found, installing AWS CLI v2..."
@@ -104,7 +104,7 @@ jobs:
             sudo /tmp/aws/install
             rm -rf /tmp/awscliv2.zip /tmp/aws
           fi
-          
+
           aws --version
           echo "✅ CLI tools installed"
 
@@ -579,7 +579,7 @@ jobs:
             echo "   Ensure sync completed successfully and CloudFront invalidation is executed"
             exit 1
           fi
-          
+
           echo "✅ Finanzas S3 manifest matches local build"
 
       - name: Verify auth callback in S3
@@ -641,18 +641,18 @@ jobs:
             DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
           fi
           FINZ="https://${DOMAIN}/finanzas/"
-          
+
           echo "🌐 Testing CloudFront UI accessibility: $FINZ"
           STATUS=$(curl -sS -o /tmp/finanzas-cf-html.txt -w '%{http_code}' "$FINZ")
           echo "   HTTP Status: $STATUS"
-          
+
           if [ "$STATUS" != "200" ]; then
             echo "❌ Finanzas portal not accessible (HTTP $STATUS)"
             exit 1
           fi
-          
+
           echo "✅ CloudFront UI accessible (HTTP 200)"
-          
+
           # Verify HTML content has expected structure
           if [ -f /tmp/finanzas-cf-html.txt ]; then
             if grep -q "/finanzas/assets/" /tmp/finanzas-cf-html.txt; then
@@ -661,46 +661,46 @@ jobs:
               echo "⚠️  HTML missing /finanzas/assets/ references (may indicate CloudFront cache not yet updated)"
               echo "   This is expected immediately after deployment - CloudFront invalidation may still be propagating"
             fi
-            
+
             # Show sample of what was found (for debugging)
             FOUND_ASSETS=$(grep -oE '/finanzas/assets/[^"]+\.(js|css)' /tmp/finanzas-cf-html.txt | head -3 || echo "none")
             echo "📋 Sample assets found in CloudFront HTML:"
             echo "$FOUND_ASSETS"
           fi
-          
+
           rm -f /tmp/finanzas-cf-html.txt
 
       - name: Deploy smoke test (Local build assets match S3)
         run: |
           set -euo pipefail
-          
+
           echo "🔍 Validating S3 deployment against local build artifacts..."
-          
+
           # Validate against LOCAL build output (source of truth), not CloudFront HTML
           # This avoids race conditions with CloudFront cache invalidation
           if [ ! -f dist-finanzas/index.html ]; then
             echo "❌ Local build artifact dist-finanzas/index.html not found"
             exit 1
           fi
-          
+
           # Extract asset paths from the local build's index.html
           ASSET_PATHS=$(grep -oE '/finanzas/assets/[^"]+\.(js|css)' dist-finanzas/index.html | sort -u)
-          
+
           if [ -z "$ASSET_PATHS" ]; then
             echo "❌ No /finanzas/assets references found in local build index.html"
             echo "   This indicates a build configuration issue (check base path in vite.config.ts)"
             exit 1
           fi
-          
+
           echo "📋 Assets referenced in local build:"
           echo "$ASSET_PATHS"
           echo ""
-          
+
           # Verify each asset exists in S3
           MISSING_ASSETS=()
           while IFS= read -r PATH; do
             KEY="${PATH#/}"  # Remove leading slash to get S3 key
-            
+
             if aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$KEY" >/dev/null 2>&1; then
               echo "✅ Asset present in S3: $KEY"
             else
@@ -708,7 +708,7 @@ jobs:
               MISSING_ASSETS+=("$KEY")
             fi
           done <<< "$ASSET_PATHS"
-          
+
           if [ ${#MISSING_ASSETS[@]} -gt 0 ]; then
             echo ""
             echo "❌ DEPLOYMENT VERIFICATION FAILED"
@@ -719,7 +719,7 @@ jobs:
             echo "   Review the 'Upload Finanzas assets to S3' step above for errors."
             exit 1
           fi
-          
+
           echo ""
           echo "✅ All build assets verified in S3"
 
