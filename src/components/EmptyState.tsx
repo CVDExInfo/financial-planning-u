@@ -1,11 +1,12 @@
 import { Inbox } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import type { ComponentType } from 'react';
 
 interface EmptyStateProps {
   title?: string;
   message?: string;
-  icon?: React.ComponentType<{ className?: string }>;
+  icon?: ComponentType<{ className?: string }>;
   action?: {
     label: string;
     onClick: () => void;

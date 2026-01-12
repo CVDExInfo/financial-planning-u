@@ -632,11 +632,11 @@ export function ForecastRubrosTable({
                             </Button>
                           )}
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    visibleCategories.map(([category, categoryTotal, filteredRubros]) => (
-                      <Fragment key={category}>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  visibleCategories.map(([category, categoryTotal, filteredRubros]) => (
+                    <Fragment key={category}>
                       {/* Individual Rubro Rows */}
                       {filteredRubros.map(rubro => (
                         <TableRow key={rubro.rubroId} className="hover:bg-muted/20">

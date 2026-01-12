@@ -1,4 +1,4 @@
-import React from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { RefreshCcw, BarChart3 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,22 +13,22 @@ import { getCashflow, toCashflowSeries } from "./services/cashflow.service";
 export default function CashflowDashboard() {
   const { selectedProjectId, selectedPeriod, currentProject, projects } = useProject();
   const { isSDMT } = usePermissions();
-  const [cashflowData, setCashflowData] = React.useState<Array<{ month: number; Ingresos: number; Egresos: number; Neto: number }>>([]);
-  const [marginData, setMarginData] = React.useState<Array<{ month: number; "Margen %": number }>>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [cashflowData, setCashflowData] = useState<Array<{ month: number; Ingresos: number; Egresos: number; Neto: number }>>([]);
+  const [marginData, setMarginData] = useState<Array<{ month: number; "Margen %": number }>>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const isReadOnly = !isSDMT;
 
   const months = Math.max(parseInt(selectedPeriod || "12", 10), 1);
   const mode = selectedProjectId ? "PROJECT" : "ALL";
   
   // Memoize project IDs to avoid recalculation on every render
-  const allProjectIds = React.useMemo(
+  const allProjectIds = useMemo(
     () => projects.map((p) => p.id).filter(Boolean),
     [projects]
   );
 
-  const currencyFormatter = React.useCallback(
+  const currencyFormatter = useCallback(
     (value: number) =>
       new Intl.NumberFormat("es-MX", {
         style: "currency",
@@ -38,7 +38,7 @@ export default function CashflowDashboard() {
     []
   );
 
-  const loadCashflow = React.useCallback(async () => {
+  const loadCashflow = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -79,7 +79,7 @@ export default function CashflowDashboard() {
     }
   }, [months, mode, selectedProjectId, allProjectIds]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadCashflow();
   }, [loadCashflow]);
 

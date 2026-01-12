@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { ReactNode } from 'react';
 import LoadingState from "./LoadingState";
 import ErrorState from "./ErrorState";
 import EmptyState from "./EmptyState";
@@ -16,7 +17,7 @@ interface DataContainerProps<T> {
     label: string;
     onClick: () => void;
   };
-  children: (data: T | T[]) => React.ReactNode;
+  children: (data: T | T[]) => ReactNode;
   className?: string;
 }
 

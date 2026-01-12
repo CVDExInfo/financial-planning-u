@@ -3,7 +3,8 @@
  * - GET /catalog/rubros → obtener catálogo de rubros
  * - POST /projects/:projectId/rubros → asociar rubro a un proyecto
  */
-import React from "react";
+import { useState, useCallback, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import finanzasClient, { Rubro, type RubroCreate } from "@/api/finanzasClient";
 import { API_BASE } from "@/config/env";
 import { toast } from "sonner";
@@ -26,7 +27,7 @@ type RubroWithTaxonomy = Rubro & {
   tipo_ejecucion?: string | null;
 };
 
-function Cell({ children }: { children: React.ReactNode }) {
+function Cell({ children }: { children: ReactNode }) {
   return (
     <td className="px-3 py-2 border-b border-border text-sm text-foreground">
       {children}
@@ -35,18 +36,18 @@ function Cell({ children }: { children: React.ReactNode }) {
 }
 
 export default function RubrosCatalog() {
-  const [rows, setRows] = React.useState<Rubro[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
-  const [selectedRubro, setSelectedRubro] = React.useState<Rubro | null>(null);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [rows, setRows] = useState<Rubro[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedRubro, setSelectedRubro] = useState<Rubro | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const selectedRubroWithTaxonomy = selectedRubro as RubroWithTaxonomy | null;
 
   // Get RBAC-filtered projects
   const { projects: availableProjects } = useRBACProjects();
 
-  const loadRubros = React.useCallback(async () => {
+  const loadRubros = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -108,7 +109,7 @@ export default function RubrosCatalog() {
     }
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Debug logging for dev mode only
     if (import.meta.env.DEV) {
       console.log("[Finz] RubrosCatalog - API_BASE:", API_BASE || "(missing)");

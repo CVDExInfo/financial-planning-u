@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import type { FC, ChangeEvent } from 'react';
 import { Upload, Download, AlertTriangle, CheckCircle, X, FileText } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,7 +52,7 @@ interface ImportWizardProps {
 /**
  * Advanced Import Wizard with mapping and validation
  */
-export const ImportWizard: React.FC<ImportWizardProps> = ({
+export const ImportWizard: FC<ImportWizardProps> = ({
   onImportComplete,
   targetSchema,
   className
@@ -82,7 +83,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const currentSchema = schemas[targetSchema];
 
   // File upload handler
-  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
