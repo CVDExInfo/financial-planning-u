@@ -356,6 +356,10 @@ export type BaselineDetailResponse = {
     vendor?: string;
     capex_flag: boolean;
   }>;
+  payload?: {
+    labor_estimates?: BaselineDetailResponse["labor_estimates"];
+    non_labor_estimates?: BaselineDetailResponse["non_labor_estimates"];
+  };
   duration_months?: number;
   total_amount: number;
   currency: string;
@@ -893,10 +897,22 @@ export const finanzasClient = {
    */
   async getBaselineById(
     baselineId: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; projectId?: string }
   ): Promise<BaselineDetailResponse> {
     checkAuth();
-    return await httpWithRetry<BaselineDetailResponse>(`/baselines/${baselineId}`, {
+    const projectId = options?.projectId;
+
+    if (projectId) {
+      return await httpWithRetry<BaselineDetailResponse>(
+        `/projects/${projectId}/baselines/${baselineId}`,
+        {
+          method: 'GET',
+          signal: options?.signal,
+        }
+      );
+    }
+
+    return await httpWithRetry<BaselineDetailResponse>(`/baseline/${baselineId}`, {
       method: 'GET',
       signal: options?.signal,
     });

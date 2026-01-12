@@ -6,6 +6,7 @@ import {
   tableName,
   PutCommand,
   GetCommand,
+  QueryCommand,
   ScanCommand,
 } from "../lib/dynamo";
 import { ensureCanWrite, ensureCanRead, getUserEmail } from "../lib/auth";
@@ -16,6 +17,7 @@ import {
   normalizeNonLaborEstimate,
 } from "../lib/rubros-taxonomy";
 import { enqueueMaterialization } from "../lib/queue";
+import { queryProjectRubros } from "../lib/baseline-sdmt";
 
 const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
   headers: event.headers,
@@ -30,6 +32,30 @@ const adaptAuthContext = (event: APIGatewayProxyEvent) => ({
     },
   },
 });
+
+const extractProjectBaselineParams = (event: APIGatewayProxyEvent) => {
+  let projectId =
+    event.pathParameters?.projectId || event.pathParameters?.project_id;
+  let baselineId =
+    event.pathParameters?.baseline_id || event.pathParameters?.baselineId;
+
+  if (!projectId || !baselineId) {
+    const rawPath =
+      (event as { rawPath?: string }).rawPath ||
+      event.path ||
+      event.resource ||
+      "";
+    const match = rawPath.match(
+      /^\/projects\/([^/]+)\/baselines\/([^/]+)(?:\/([^/]+))?$/i
+    );
+    if (match) {
+      projectId = projectId || decodeURIComponent(match[1]);
+      baselineId = baselineId || decodeURIComponent(match[2]);
+    }
+  }
+
+  return { projectId, baselineId };
+};
 
 interface LaborEstimate {
   rubroId?: string;  // Canonical rubro ID from taxonomy (e.g., "MOD-ING", "MOD-LEAD")
@@ -489,6 +515,38 @@ export const handler = async (
   }
 
   if (
+    routeKey === "GET /projects/{projectId}/baselines/{baseline_id}" ||
+    (method === "GET" &&
+      /^\/projects\/[^/]+\/baselines\/[^/]+$/i.test(rawPath))
+  ) {
+    return getProjectBaseline(event);
+  }
+
+  if (
+    routeKey === "GET /projects/{projectId}/baselines/{baseline_id}/rubros" ||
+    (method === "GET" &&
+      /^\/projects\/[^/]+\/baselines\/[^/]+\/rubros$/i.test(rawPath))
+  ) {
+    return getBaselineRubros(event);
+  }
+
+  if (
+    routeKey === "GET /projects/{projectId}/baselines/{baseline_id}/allocations" ||
+    (method === "GET" &&
+      /^\/projects\/[^/]+\/baselines\/[^/]+\/allocations$/i.test(rawPath))
+  ) {
+    return getBaselineAllocations(event);
+  }
+
+  if (
+    routeKey === "GET /projects/{projectId}/baselines/{baseline_id}/prefacturas" ||
+    (method === "GET" &&
+      /^\/projects\/[^/]+\/baselines\/[^/]+\/prefacturas$/i.test(rawPath))
+  ) {
+    return getBaselinePrefacturas(event);
+  }
+
+  if (
     routeKey === "GET /prefacturas/baselines" ||
     (method === "GET" && rawPath.startsWith("/prefacturas/baselines"))
   ) {
@@ -529,6 +587,197 @@ export const getBaseline = async (
     return serverError(
       event,
       error instanceof Error ? error.message : "Failed to get baseline"
+    );
+  }
+};
+
+/**
+ * GET /projects/{projectId}/baselines/{baseline_id}
+ * Retrieves a baseline by ID scoped to a project.
+ */
+export const getProjectBaseline = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
+  try {
+    await ensureCanRead(adaptAuthContext(event) as never);
+
+    const { projectId, baselineId } = extractProjectBaselineParams(event);
+    if (!projectId || !baselineId) {
+      return bad(event, "Missing projectId or baseline_id");
+    }
+
+    const prefacturasTable = tableName("prefacturas");
+    const lookup = await ddb.send(
+      new GetCommand({
+        TableName: prefacturasTable,
+        Key: { pk: `PROJECT#${projectId}`, sk: `BASELINE#${baselineId}` },
+      })
+    );
+
+    if (lookup.Item) {
+      return ok(event, lookup.Item);
+    }
+
+    return bad(event, "Baseline not found", 404);
+  } catch (error) {
+    logError("Error getting project baseline:", error);
+    return serverError(
+      event,
+      error instanceof Error ? error.message : "Failed to get project baseline"
+    );
+  }
+};
+
+/**
+ * GET /projects/{projectId}/baselines/{baseline_id}/rubros
+ */
+export const getBaselineRubros = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
+  try {
+    await ensureCanRead(adaptAuthContext(event) as never);
+
+    const { projectId, baselineId } = extractProjectBaselineParams(event);
+    if (!projectId || !baselineId) {
+      return bad(event, "Missing projectId or baseline_id");
+    }
+
+    const rubros = await queryProjectRubros(projectId, baselineId);
+
+    return ok(event, {
+      data: rubros,
+      total: rubros.length,
+      projectId,
+      baselineId,
+    });
+  } catch (error) {
+    logError("Error getting baseline rubros:", error);
+    return serverError(
+      event,
+      error instanceof Error ? error.message : "Failed to get baseline rubros"
+    );
+  }
+};
+
+/**
+ * GET /projects/{projectId}/baselines/{baseline_id}/allocations
+ */
+export const getBaselineAllocations = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
+  try {
+    await ensureCanRead(adaptAuthContext(event) as never);
+
+    const { projectId, baselineId } = extractProjectBaselineParams(event);
+    if (!projectId || !baselineId) {
+      return bad(event, "Missing projectId or baseline_id");
+    }
+
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: tableName("allocations"),
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+        ExpressionAttributeValues: {
+          ":pk": `PROJECT#${projectId}`,
+          ":sk": `ALLOCATION#${baselineId}#`,
+        },
+      })
+    );
+
+    const allocations = (result.Items || []).map((item) => {
+      const monthValue = item.month ?? item.mes;
+      const monthString =
+        typeof monthValue === "number" ? `M${monthValue}` : monthValue;
+
+      return {
+        allocation_id: item.id || item.allocation_id || item.sk,
+        rubro_id: item.rubroId || item.rubro_id,
+        mes: monthString,
+        monto_planeado: item.amount ?? item.monto_planeado ?? item.planned ?? 0,
+        monto_forecast: item.forecast ?? item.monto_forecast,
+        baseline_id: item.baselineId || item.baseline_id,
+      };
+    });
+
+    return ok(event, {
+      data: allocations,
+      total: allocations.length,
+      projectId,
+      baselineId,
+    });
+  } catch (error) {
+    logError("Error getting baseline allocations:", error);
+    return serverError(
+      event,
+      error instanceof Error ? error.message : "Failed to get baseline allocations"
+    );
+  }
+};
+
+/**
+ * GET /projects/{projectId}/baselines/{baseline_id}/prefacturas
+ */
+export const getBaselinePrefacturas = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
+  try {
+    await ensureCanRead(adaptAuthContext(event) as never);
+
+    const { projectId, baselineId } = extractProjectBaselineParams(event);
+    if (!projectId || !baselineId) {
+      return bad(event, "Missing projectId or baseline_id");
+    }
+
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: tableName("prefacturas"),
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+        ExpressionAttributeValues: {
+          ":pk": `PROJECT#${projectId}`,
+          ":sk": "INVOICE#",
+        },
+      })
+    );
+
+    const prefacturaItems = result.Items || [];
+    const taggedPrefacturas = prefacturaItems.filter((item) => {
+      const itemBaseline = item.baselineId || item.baseline_id;
+      return itemBaseline === baselineId;
+    });
+    const untaggedPrefacturas = prefacturaItems.filter((item) => {
+      const itemBaseline = item.baselineId || item.baseline_id;
+      return !itemBaseline;
+    });
+    const prefacturas =
+      taggedPrefacturas.length > 0 ? taggedPrefacturas : untaggedPrefacturas;
+
+    const response = prefacturas.map((item) => {
+      const monthValue = item.month ?? item.mes ?? "M1";
+      const monthString =
+        typeof monthValue === "number" ? `M${monthValue}` : monthValue;
+
+      return {
+        prefactura_id: item.invoiceId || item.prefactura_id || item.id || item.sk,
+        rubro_id: item.lineItemId || item.rubro_id,
+        descripcion: item.description || item.descripcion || item.invoiceNumber,
+        monto: item.amount ?? item.monto ?? 0,
+        mes: monthString,
+        tipo: item.vendor || item.tipo || "Prefactura",
+        baseline_id: item.baselineId || item.baseline_id,
+      };
+    });
+
+    return ok(event, {
+      data: response,
+      total: response.length,
+      projectId,
+      baselineId,
+    });
+  } catch (error) {
+    logError("Error getting baseline prefacturas:", error);
+    return serverError(
+      event,
+      error instanceof Error ? error.message : "Failed to get baseline prefacturas"
     );
   }
 };
