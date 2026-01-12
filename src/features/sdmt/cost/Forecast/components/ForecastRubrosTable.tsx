@@ -28,7 +28,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Search, Edit2, Check, X as XIcon } from 'lucide-react';
+import { Search, Edit2, Check, X as XIcon, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import type { CategoryTotals, CategoryRubro, PortfolioTotals } from '../categoryGrouping';
 import type { ProjectTotals, ProjectRubro } from '../projectGrouping';
@@ -52,6 +52,7 @@ interface ForecastRubrosTableProps {
   formatCurrency: (amount: number) => string;
   canEditBudget: boolean;
   defaultFilter?: FilterMode;
+  defaultViewMode?: ViewMode;
 }
 
 export function ForecastRubrosTable({
@@ -65,6 +66,7 @@ export function ForecastRubrosTable({
   formatCurrency,
   canEditBudget,
   defaultFilter = 'labor',
+  defaultViewMode = 'category',
 }: ForecastRubrosTableProps) {
   const { selectedProject } = useProject();
   const { user } = useAuth();
@@ -73,7 +75,8 @@ export function ForecastRubrosTable({
   const [editedBudgets, setEditedBudgets] = useState<Array<{ month: number; budget: number }>>([]);
   const [savingBudget, setSavingBudget] = useState(false);
   const [filterMode, setFilterMode] = useState<FilterMode>(defaultFilter);
-  const [viewMode, setViewMode] = useState<ViewMode>('category');
+  const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
   // Session storage key for persistence
   const sessionKey = useMemo(() => {
@@ -142,6 +145,51 @@ export function ForecastRubrosTable({
   useEffect(() => {
     sessionStorage.setItem(viewModeSessionKey, viewMode);
   }, [viewMode, viewModeSessionKey]);
+
+  // Helper to get project open state storage key
+  const getProjectOpenKey = useMemo(() => {
+    const projectId = selectedProject?.id || 'ALL_PROJECTS';
+    return `forecast:projectOpen:${projectId}`;
+  }, [selectedProject?.id]);
+
+  // Load expanded projects from sessionStorage
+  useEffect(() => {
+    if (viewMode !== 'project') return;
+    
+    try {
+      const saved = sessionStorage.getItem(getProjectOpenKey);
+      if (saved) {
+        const expandedSet = new Set<string>(JSON.parse(saved));
+        setExpandedProjects(expandedSet);
+      }
+    } catch (err) {
+      console.warn('[ForecastRubrosTable] failed to load expanded projects', err);
+    }
+  }, [viewMode, getProjectOpenKey]);
+
+  // Persist expanded projects to sessionStorage
+  useEffect(() => {
+    if (viewMode !== 'project') return;
+    
+    try {
+      sessionStorage.setItem(getProjectOpenKey, JSON.stringify(Array.from(expandedProjects)));
+    } catch (err) {
+      console.warn('[ForecastRubrosTable] failed to save expanded projects', err);
+    }
+  }, [expandedProjects, viewMode, getProjectOpenKey]);
+
+  // Toggle project expansion
+  const toggleProject = (projectId: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
+      return next;
+    });
+  };
 
   // Start budget editing
   const handleStartEditBudget = () => {
@@ -415,11 +463,12 @@ export function ForecastRubrosTable({
                       ? 'bg-primary text-primary-foreground font-medium shadow-sm'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
-                  aria-label="Ver por Categoría"
+                  aria-label="Ver por Rubro"
                   aria-pressed={viewMode === 'category'}
                   role="button"
+                  title="Agrupar por rubro (categoría)"
                 >
-                  Por Categoría
+                  Rubro
                 </button>
                 <button
                   onClick={() => setViewMode('project')}
@@ -431,8 +480,9 @@ export function ForecastRubrosTable({
                   aria-label="Ver por Proyecto"
                   aria-pressed={viewMode === 'project'}
                   role="button"
+                  title="Agrupar por proyecto con rubros anidados"
                 >
-                  Por Proyecto
+                  Proyecto
                 </button>
               </div>
             )}
@@ -797,133 +847,150 @@ export function ForecastRubrosTable({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    visibleProjects.map(([projectId, projectTotal, filteredRubros, projectName]) => (
-                      <Fragment key={projectId}>
-                        {/* Individual Rubro Rows (Indented) */}
-                        {filteredRubros.map(rubro => (
-                          <TableRow key={rubro.rubroId} className="hover:bg-muted/20">
-                            <TableCell className="sticky left-0 bg-background pl-6" title={rubro.description}>
-                              <span className="text-sm">{rubro.description}</span>
+                    visibleProjects.map(([projectId, projectTotal, filteredRubros, projectName]) => {
+                      const isExpanded = expandedProjects.has(projectId);
+                      
+                      return (
+                        <Fragment key={projectId}>
+                          {/* Project Header Row (Collapsible) */}
+                          <TableRow className="bg-primary/10 font-semibold border-t-2 hover:bg-primary/15 transition-colors">
+                            <TableCell className="sticky left-0 bg-primary/10">
+                              <button
+                                onClick={() => toggleProject(projectId)}
+                                className="flex items-center gap-2 w-full text-left hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+                                aria-expanded={isExpanded}
+                                aria-controls={`project-${projectId}-panel`}
+                                title={isExpanded ? "Ocultar rubros del proyecto" : "Mostrar rubros del proyecto"}
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4 text-primary transition-transform" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 text-primary transition-transform" />
+                                )}
+                                <span className="font-bold text-primary">{projectName}</span>
+                              </button>
                             </TableCell>
                             {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
-                              const monthData = rubro.byMonth[month] || {
+                              const monthData = projectTotal.byMonth[month] || {
                                 forecast: 0,
                                 actual: 0,
                                 planned: 0,
                               };
-                              const hasVariance = monthData.actual > monthData.forecast;
 
                               return (
-                                <TableCell
-                                  key={month}
-                                  className={`text-center text-xs ${
-                                    hasVariance ? getVarianceColor(monthData.actual, monthData.forecast) : ''
-                                  }`}
-                                >
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="cursor-help">
-                                        {monthData.forecast > 0 && (
-                                          <div className="text-muted-foreground">
-                                            {formatCurrency(monthData.forecast)}
-                                          </div>
-                                        )}
-                                        {monthData.actual > 0 && (
-                                          <div className="text-blue-600 font-medium">
-                                            ({formatCurrency(monthData.actual)})
-                                          </div>
-                                        )}
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <div className="text-xs space-y-1">
-                                        <div>Plan: {formatCurrency(monthData.planned)}</div>
-                                        <div>Pronóstico: {formatCurrency(monthData.forecast)}</div>
-                                        <div>Real: {formatCurrency(monthData.actual)}</div>
-                                        <div>
-                                          Desviación: {formatCurrency(monthData.actual - monthData.forecast)}
-                                        </div>
-                                      </div>
-                                    </TooltipContent>
-                                  </Tooltip>
+                                <TableCell key={month} className="text-center text-xs bg-primary/10">
+                                  <div className="text-primary font-medium">
+                                    {formatCurrency(monthData.forecast)}
+                                  </div>
+                                  {monthData.actual > 0 && (
+                                    <div className="text-blue-600">
+                                      ({formatCurrency(monthData.actual)})
+                                    </div>
+                                  )}
                                 </TableCell>
                               );
                             })}
-                            <TableCell className="text-center bg-muted/30 text-xs">
-                              <div>{formatCurrency(rubro.overall.forecast)}</div>
-                              {rubro.overall.actual > 0 && (
-                                <div className="text-blue-600 font-medium">
-                                  ({formatCurrency(rubro.overall.actual)})
+                            <TableCell className="text-center bg-primary/15 text-xs font-bold">
+                              <div>{formatCurrency(projectTotal.overall.forecast)}</div>
+                              {projectTotal.overall.actual > 0 && (
+                                <div className="text-blue-600">
+                                  ({formatCurrency(projectTotal.overall.actual)})
                                 </div>
                               )}
                             </TableCell>
                             <TableCell
-                              className={`text-center bg-muted/30 text-xs ${getConsumptionColor(
-                                rubro.overall.percentConsumption
+                              className={`text-center bg-primary/15 text-xs font-bold ${getConsumptionColor(
+                                projectTotal.overall.percentConsumption
                               )}`}
                             >
-                              {rubro.overall.percentConsumption.toFixed(1)}%
+                              {projectTotal.overall.percentConsumption.toFixed(1)}%
                             </TableCell>
-                            <TableCell className="text-center bg-muted/30 text-xs">
+                            <TableCell className="text-center bg-primary/15 text-xs font-bold">
                               <VarianceChip
-                                value={rubro.overall.varianceActual}
-                                percent={rubro.overall.forecast !== 0 ? (rubro.overall.varianceActual / rubro.overall.forecast) * 100 : null}
-                                ariaLabel={`Variación para ${rubro.description}: ${rubro.overall.varianceActual}`}
+                                value={projectTotal.overall.varianceActual}
+                                percent={projectTotal.overall.forecast !== 0 ? (projectTotal.overall.varianceActual / projectTotal.overall.forecast) * 100 : null}
+                                ariaLabel={`Variación total para ${projectName}: ${projectTotal.overall.varianceActual}`}
                               />
                             </TableCell>
                           </TableRow>
-                        ))}
 
-                        {/* Project Subtotal Row */}
-                        <TableRow className="bg-muted/60 font-semibold border-t-2">
-                          <TableCell className="sticky left-0 bg-muted/60">
-                            <span className="font-bold">Subtotal – {projectName}</span>
-                          </TableCell>
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
-                            const monthData = projectTotal.byMonth[month] || {
-                              forecast: 0,
-                              actual: 0,
-                              planned: 0,
-                            };
+                          {/* Collapsible Rubro Rows */}
+                          {isExpanded && filteredRubros.map(rubro => (
+                            <TableRow key={rubro.rubroId} className="hover:bg-muted/20">
+                              <TableCell className="sticky left-0 bg-background pl-8" title={rubro.description}>
+                                <span className="text-sm text-muted-foreground">↳ {rubro.description}</span>
+                              </TableCell>
+                              {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
+                                const monthData = rubro.byMonth[month] || {
+                                  forecast: 0,
+                                  actual: 0,
+                                  planned: 0,
+                                };
+                                const hasVariance = monthData.actual > monthData.forecast;
 
-                            return (
-                              <TableCell key={month} className="text-center text-xs bg-muted/60">
-                                <div className="text-primary">
-                                  {formatCurrency(monthData.forecast)}
-                                </div>
-                                {monthData.actual > 0 && (
-                                  <div className="text-blue-600">
-                                    ({formatCurrency(monthData.actual)})
+                                return (
+                                  <TableCell
+                                    key={month}
+                                    className={`text-center text-xs ${
+                                      hasVariance ? getVarianceColor(monthData.actual, monthData.forecast) : ''
+                                    }`}
+                                  >
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="cursor-help">
+                                          {monthData.forecast > 0 && (
+                                            <div className="text-muted-foreground">
+                                              {formatCurrency(monthData.forecast)}
+                                            </div>
+                                          )}
+                                          {monthData.actual > 0 && (
+                                            <div className="text-blue-600 font-medium">
+                                              ({formatCurrency(monthData.actual)})
+                                            </div>
+                                          )}
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <div className="text-xs space-y-1">
+                                          <div>Plan: {formatCurrency(monthData.planned)}</div>
+                                          <div>Pronóstico: {formatCurrency(monthData.forecast)}</div>
+                                          <div>Real: {formatCurrency(monthData.actual)}</div>
+                                          <div>
+                                            Desviación: {formatCurrency(monthData.actual - monthData.forecast)}
+                                          </div>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TableCell>
+                                );
+                              })}
+                              <TableCell className="text-center bg-muted/30 text-xs">
+                                <div>{formatCurrency(rubro.overall.forecast)}</div>
+                                {rubro.overall.actual > 0 && (
+                                  <div className="text-blue-600 font-medium">
+                                    ({formatCurrency(rubro.overall.actual)})
                                   </div>
                                 )}
                               </TableCell>
-                            );
-                          })}
-                          <TableCell className="text-center bg-muted/80 text-xs font-bold">
-                            <div>{formatCurrency(projectTotal.overall.forecast)}</div>
-                            {projectTotal.overall.actual > 0 && (
-                              <div className="text-blue-600">
-                                ({formatCurrency(projectTotal.overall.actual)})
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell
-                            className={`text-center bg-muted/80 text-xs font-bold ${getConsumptionColor(
-                              projectTotal.overall.percentConsumption
-                            )}`}
-                          >
-                            {projectTotal.overall.percentConsumption.toFixed(1)}%
-                          </TableCell>
-                          <TableCell className="text-center bg-muted/80 text-xs font-bold">
-                            <VarianceChip
-                              value={projectTotal.overall.varianceActual}
-                              percent={projectTotal.overall.forecast !== 0 ? (projectTotal.overall.varianceActual / projectTotal.overall.forecast) * 100 : null}
-                              ariaLabel={`Variación subtotal para ${projectName}: ${projectTotal.overall.varianceActual}`}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      </Fragment>
-                    ))
+                              <TableCell
+                                className={`text-center bg-muted/30 text-xs ${getConsumptionColor(
+                                  rubro.overall.percentConsumption
+                                )}`}
+                              >
+                                {rubro.overall.percentConsumption.toFixed(1)}%
+                              </TableCell>
+                              <TableCell className="text-center bg-muted/30 text-xs">
+                                <VarianceChip
+                                  value={rubro.overall.varianceActual}
+                                  percent={rubro.overall.forecast !== 0 ? (rubro.overall.varianceActual / rubro.overall.forecast) * 100 : null}
+                                  ariaLabel={`Variación para ${rubro.description}: ${rubro.overall.varianceActual}`}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </Fragment>
+                      );
+                    })
                   )
                 )}
 
