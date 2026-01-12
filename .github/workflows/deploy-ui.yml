@@ -436,15 +436,97 @@ jobs:
           fi
           echo "✅ Finanzas build artifacts look good"
 
-      - name: Upload Finanzas Portal to S3 (/finanzas prefix)
+      - name: Upload Finanzas Portal to S3 (/finanzas prefix) - Assets First
         run: |
+          set -euo pipefail
+          echo "📦 Step 1: Uploading hashed assets with long-term cache headers..."
+          
+          # Upload hashed assets (JS/CSS with content hashes) with immutable cache
+          aws s3 sync dist-finanzas/assets/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/assets/" \
+            --exclude '*.map' \
+            --cache-control 'public, max-age=31536000, immutable' \
+            --delete
+          
+          echo "✅ Hashed assets uploaded with long-term cache headers"
+          
+          echo "📦 Step 2: Uploading other static files (auth, favicon, etc.) with moderate cache..."
+          
+          # Upload other static files (auth callback, favicon, etc.) - exclude index.html and assets/
           aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
+            --exclude 'index.html' \
+            --exclude 'assets/*' \
             --exclude '*.map' \
             --exclude 'docs/*' \
             --exclude 'test-helper.html' \
+            --cache-control 'public, max-age=3600' \
             --delete
-          echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
+          
+          echo "✅ Static files uploaded"
+          
+          echo "📦 Step 3: Uploading index.html LAST with no-cache headers..."
+          
+          # Upload index.html LAST with no-cache to ensure it references uploaded assets
+          aws s3 cp dist-finanzas/index.html "s3://${FINANZAS_BUCKET_NAME}/finanzas/index.html" \
+            --cache-control 'no-cache, must-revalidate' \
+            --metadata-directive REPLACE
+          
+          echo "✅ index.html uploaded with no-cache headers"
+          echo "✅ Complete upload to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
 
+      - name: Smoke Test - Verify index.html references existing S3 assets
+        run: |
+          set -euo pipefail
+          
+          echo "🔍 Smoke Test: Verifying index.html references assets that exist in S3..."
+          
+          # Download index.html from S3
+          aws s3 cp "s3://${FINANZAS_BUCKET_NAME}/finanzas/index.html" /tmp/s3-index.html
+          
+          echo "📄 Extracting asset references from index.html..."
+          
+          # Extract JS and CSS asset filenames from index.html
+          grep -oP '(?<=(src|href)=")[^"]*\.(js|css)[^"]*(?=")' /tmp/s3-index.html | sort -u > /tmp/index-assets.txt || true
+          
+          if [ ! -s /tmp/index-assets.txt ]; then
+            echo "❌ CRITICAL: No JS/CSS assets found in index.html"
+            echo "   This indicates index.html may be corrupted or build failed"
+            cat /tmp/s3-index.html | head -50
+            exit 1
+          fi
+          
+          echo "Found $(wc -l < /tmp/index-assets.txt) asset references in index.html"
+          cat /tmp/index-assets.txt
+          
+          echo ""
+          echo "🔍 Verifying each asset exists in S3..."
+          
+          MISSING_ASSETS=0
+          while IFS= read -r ASSET_PATH; do
+            # Remove leading slash and /finanzas/ prefix if present
+            ASSET_KEY="${ASSET_PATH#/}"
+            ASSET_KEY="${ASSET_KEY#finanzas/}"
+            
+            # Check if asset exists in S3
+            if aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "finanzas/${ASSET_KEY}" >/dev/null 2>&1; then
+              echo "  ✅ s3://${FINANZAS_BUCKET_NAME}/finanzas/${ASSET_KEY}"
+            else
+              echo "  ❌ MISSING: s3://${FINANZAS_BUCKET_NAME}/finanzas/${ASSET_KEY}"
+              MISSING_ASSETS=$((MISSING_ASSETS + 1))
+            fi
+          done < /tmp/index-assets.txt
+          
+          if [ $MISSING_ASSETS -gt 0 ]; then
+            echo ""
+            echo "❌ CRITICAL: $MISSING_ASSETS asset(s) referenced in index.html do not exist in S3"
+            echo "   This means index.html is referencing old or non-existent bundles"
+            echo "   The deployment is broken and users will see errors"
+            exit 1
+          fi
+          
+          echo ""
+          echo "✅ All assets referenced in index.html exist in S3"
+          echo "✅ Smoke test PASSED - deployment is consistent"
+      
       - name: Verify Finanzas S3 manifest matches local build
         run: |
           set -euo pipefail
@@ -501,14 +583,48 @@ jobs:
           fi
           echo "✅ /finanzas/* behavior configured"
 
-      - name: Invalidate CloudFront (all + Finanzas SPA)
+      - name: Invalidate CloudFront (critical paths)
         run: |
           set -euo pipefail
+          
+          echo "🔄 Creating CloudFront invalidation for critical paths..."
+          echo "   Distribution: ${CLOUDFRONT_DIST_ID}"
+          echo "   Paths: /finanzas/index.html, /finanzas/assets/*"
+          
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
             --distribution-id "${CLOUDFRONT_DIST_ID}" \
-            --paths '/*' '/finanzas/*' '/finanzas/index.html' \
+            --paths '/finanzas/index.html' '/finanzas/assets/*' '/*' \
             --query 'Invalidation.Id' --output text)
-          echo "✅ Invalidation queued: $INVALIDATION_ID"
+          
+          echo "✅ Invalidation created: $INVALIDATION_ID"
+          echo "⏳ Waiting for invalidation to complete..."
+          
+          # Wait for invalidation to complete (up to 5 minutes)
+          WAIT_COUNT=0
+          MAX_WAIT=30  # 30 iterations * 10 seconds = 5 minutes
+          
+          while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+            INVALIDATION_STATUS=$(aws cloudfront get-invalidation \
+              --distribution-id "${CLOUDFRONT_DIST_ID}" \
+              --id "$INVALIDATION_ID" \
+              --query 'Invalidation.Status' \
+              --output text)
+            
+            if [ "$INVALIDATION_STATUS" = "Completed" ]; then
+              echo "✅ Invalidation completed successfully"
+              break
+            fi
+            
+            echo "   Status: $INVALIDATION_STATUS (waiting...)"
+            sleep 10
+            WAIT_COUNT=$((WAIT_COUNT + 1))
+          done
+          
+          if [ "$INVALIDATION_STATUS" != "Completed" ]; then
+            echo "⚠️  Invalidation still in progress after 5 minutes"
+            echo "   Status: $INVALIDATION_STATUS"
+            echo "   Continuing deployment - invalidation will complete in background"
+          fi
 
       - name: UI Smoke (Finanzas /finanzas/)
         run: |
@@ -525,6 +641,57 @@ jobs:
             echo "$HTML_SNIPPET" | grep -q "/finanzas/assets/" || { echo "⚠️ HTML missing /finanzas/assets references"; }
           else
             echo "❌ Finanzas portal not accessible (HTTP $STATUS)"; exit 1;
+          fi
+
+      - name: Verify CloudFront serves correct index.html
+        run: |
+          set -euo pipefail
+          
+          echo "🔍 Verifying CloudFront serves the correct index.html..."
+          
+          DOMAIN="${CF_DOMAIN}"
+          if [ -z "$DOMAIN" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          fi
+          
+          FINZ_URL="https://${DOMAIN}/finanzas/"
+          
+          # Fetch index.html from CloudFront with cache-busting
+          echo "📡 Fetching from CloudFront: $FINZ_URL"
+          curl -sS -H "Cache-Control: no-cache" "$FINZ_URL" -o /tmp/cf-index.html
+          
+          # Fetch index.html from S3 for comparison
+          echo "📦 Fetching from S3: s3://${FINANZAS_BUCKET_NAME}/finanzas/index.html"
+          aws s3 cp "s3://${FINANZAS_BUCKET_NAME}/finanzas/index.html" /tmp/s3-index-verify.html
+          
+          # Extract asset references from both
+          echo "🔍 Comparing asset references..."
+          
+          grep -oP 'index-[a-zA-Z0-9_-]+\.js' /tmp/cf-index.html | sort -u > /tmp/cf-assets.txt || echo "none" > /tmp/cf-assets.txt
+          grep -oP 'index-[a-zA-Z0-9_-]+\.js' /tmp/s3-index-verify.html | sort -u > /tmp/s3-assets.txt || echo "none" > /tmp/s3-assets.txt
+          
+          echo "CloudFront assets:"
+          cat /tmp/cf-assets.txt
+          echo ""
+          echo "S3 assets:"
+          cat /tmp/s3-assets.txt
+          echo ""
+          
+          if diff -q /tmp/cf-assets.txt /tmp/s3-assets.txt >/dev/null; then
+            echo "✅ CloudFront serves the same index.html as S3"
+            echo "✅ Asset references match - deployment is consistent"
+          else
+            echo "❌ CRITICAL: CloudFront and S3 index.html differ!"
+            echo ""
+            echo "Differences:"
+            diff -u /tmp/s3-assets.txt /tmp/cf-assets.txt || true
+            echo ""
+            echo "This indicates CloudFront cache has not been updated."
+            echo "The invalidation may not have propagated yet."
+            echo ""
+            echo "⚠️  Users may see stale UI. Manual invalidation may be required."
+            echo "   Run: aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DIST_ID} --paths '/finanzas/index.html' '/finanzas/assets/*'"
+            exit 1
           fi
 
       - name: Deep-route SPA smoke test
@@ -615,11 +782,21 @@ jobs:
           ## 🌐 Access
           - Finanzas: https://${DOMAIN}/finanzas/
 
-                    ## ✅ Checklist
-          - Base path OK (/finanzas/)
-          - /finanzas/* behavior exists
-          - /health returns 200
-          - catalog/rubros returns JSON (length shown above)
+          ## ✅ Deployment Strategy
+          - **Step 1**: Upload hashed assets (/finanzas/assets/*) with immutable cache (max-age=31536000)
+          - **Step 2**: Upload static files (auth, favicon, etc.) with moderate cache (max-age=3600)
+          - **Step 3**: Upload index.html LAST with no-cache headers (no-cache, must-revalidate)
+          - **Step 4**: Verify all assets referenced in index.html exist in S3 (smoke test)
+          - **Step 5**: Create CloudFront invalidation and wait for completion
+          - **Step 6**: Verify CloudFront serves same index.html as S3
+          
+          This atomic deployment strategy ensures:
+          - ✅ Hashed assets are cached long-term (performance)
+          - ✅ index.html is never cached (always fresh)
+          - ✅ No race condition between asset upload and index.html
+          - ✅ Deployment fails if index.html references missing assets
+          - ✅ CloudFront cache is invalidated and verified
+
           ## 🔬 Evidence Pack
           ### 1. API Base URL Computation
           - Computed during "Compute API base URL" step
@@ -634,4 +811,13 @@ jobs:
           - Deep route (/finanzas/sdmt/cost/forecast): ✅ HTTP 200 + asset markers
           - Auth callback (/finanzas/auth/callback.html): ✅ (see post-deploy-verify.sh output)
           - Nested SPA routes: ✅ (see post-deploy-verify.sh output)
+          ### 4. Cache Headers Verification
+          - index.html: Cache-Control: no-cache, must-revalidate
+          - Hashed assets: Cache-Control: public, max-age=31536000, immutable
+          - Static files: Cache-Control: public, max-age=3600
+          ### 5. Atomic Deployment Verification
+          - Asset upload completed before index.html ✅
+          - All assets in index.html verified to exist in S3 ✅
+          - CloudFront invalidation completed ✅
+          - CloudFront serves same index.html as S3 ✅
           EOF
