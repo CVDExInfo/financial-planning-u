@@ -114,6 +114,46 @@ The deployment workflow (`.github/workflows/deploy-ui.yml`) includes automated g
 
 **Note**: PMO artifact guard has been removed from this repo as PMO is built by acta-ui repo.
 
+### 2. S3 Asset Validation (Post-Deploy)
+**Location**: After S3 sync and before CloudFront invalidation
+
+```yaml
+- name: Deploy smoke test (Local build assets match S3)
+  run: |
+    # Validates that all assets referenced in the local build's index.html
+    # are present in S3 after upload
+```
+
+**Purpose**: Ensures deployment consistency between local build and S3.
+
+**What it checks**:
+- Extracts asset paths from local `dist-finanzas/index.html` (source of truth)
+- Verifies each referenced asset exists in S3 using `aws s3api head-object`
+- Fails if any asset is missing, indicating S3 sync or build issues
+
+**Why local validation?**
+- Avoids race conditions with CloudFront cache invalidation
+- Validates against the exact build artifacts that were created
+- More deterministic than fetching HTML from CloudFront
+- Immune to CloudFront caching delays
+
+**Environment Requirements**:
+- `FINANZAS_BUCKET_NAME` - S3 bucket name (e.g., `ukusi-ui-finanzas-prod`)
+- AWS CLI v2 installed and configured
+- AWS credentials with S3 read permissions
+
+**Error Messages**:
+- `❌ No /finanzas/assets references found in local build index.html` - Build configuration issue with base path
+- `❌ Missing asset in S3: s3://...` - S3 sync failed or asset not built correctly
+- `aws: command not found` - AWS CLI not installed (should be auto-installed by workflow)
+
+**Recovery**:
+If this step fails:
+1. Check the "Upload Finanzas assets to S3" step for errors
+2. Verify `vite.config.ts` has correct `base: "/finanzas/"` configuration
+3. Check build output in `dist-finanzas/` for expected assets
+4. Manually verify S3 bucket contents: `aws s3 ls s3://ukusi-ui-finanzas-prod/finanzas/assets/`
+
 ## Manual Validation
 
 ### Inspecting Deployed HTML
@@ -214,6 +254,68 @@ After deployment, caches are invalidated:
 ```bash
 aws cloudfront create-invalidation \
   --distribution-id YOUR_ID \
+  --paths '/*' '/finanzas/*' '/finanzas/index.html'
+```
+
+The workflow does this automatically, but you can manually trigger if needed.
+
+### Deployment Validation Failures
+
+#### Error: `aws: command not found`
+
+**Symptom**: The "Deploy smoke test" step fails with "aws: command not found"
+
+**Root Cause**: AWS CLI is not available in the GitHub Actions runner environment
+
+**Fix**: The workflow now automatically installs AWS CLI v2 if not present. This is handled in the "Install CLI tools" step:
+
+```yaml
+- name: Install CLI tools
+  run: |
+    # Installs curl, jq, dnsutils, and AWS CLI v2 if not present
+    if ! command -v aws &> /dev/null; then
+      curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+      unzip -q /tmp/awscliv2.zip -d /tmp
+      sudo /tmp/aws/install
+    fi
+    aws --version
+```
+
+**Manual Verification**:
+```bash
+# In GitHub Actions runner
+aws --version
+# Should output: aws-cli/2.x.x ...
+```
+
+#### Error: `❌ Missing asset in S3: s3://...`
+
+**Symptom**: The "Deploy smoke test" step reports specific assets missing from S3
+
+**Root Cause**: One of:
+1. S3 sync failed to upload the asset
+2. Build didn't produce the expected asset
+3. Asset filename changed but old HTML references it (rare with local validation)
+
+**Diagnosis**:
+```bash
+# 1. Check local build output
+ls -R dist-finanzas/assets/
+# Should show index-<hash>.js and index-<hash>.css
+
+# 2. Check what's in S3
+aws s3 ls s3://ukusi-ui-finanzas-prod/finanzas/assets/ --recursive
+
+# 3. Check what index.html references
+grep -oE '/finanzas/assets/[^"]+\.(js|css)' dist-finanzas/index.html
+```
+
+**Fix**:
+- If build is missing assets: Check TypeScript errors, Vite config, or build step logs
+- If S3 sync failed: Check AWS credentials, bucket permissions, or network issues
+- If hashes mismatch: Ensure build ran successfully before S3 sync
+
+**Prevention**: The new validation logic uses local `dist-finanzas/index.html` as source of truth, so it validates the exact assets that were built, not what CloudFront serves (which may be cached).
   --paths '/*' '/finanzas/*' '/finanzas/index.html'
 ```
 

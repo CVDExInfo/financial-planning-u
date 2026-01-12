@@ -115,6 +115,15 @@ curl -s https://d7t9x3j66yd8k.cloudfront.net/finanzas/ | \
   grep -i 'github.dev\|codespaces' || echo '✅ No dev references'
 ```
 
+**Automated Deployment Verification**:
+The GitHub Actions workflow includes automated post-deployment verification:
+- **Local Build Validation**: Validates S3 contents match local build artifacts (source of truth)
+- **CloudFront Smoke Test**: Verifies CloudFront serves the UI successfully
+- **Deep Route Test**: Ensures SPA routing works for nested routes
+- **Comprehensive Verification**: Runs `scripts/post-deploy-verify.sh` for end-to-end checks
+
+See `docs/infra/CF_VALIDATE.md` for details on validation guards and troubleshooting.
+
 ### 3. API Connectivity
 
 Test API endpoints with Cognito authentication:
