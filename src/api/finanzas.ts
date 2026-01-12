@@ -392,22 +392,40 @@ export interface BaselineDetail {
  * Get baseline details by ID including labor and non-labor estimates
  */
 export async function getBaselineById(
-  baselineId: string
+  baselineId: string,
+  projectId?: string
 ): Promise<BaselineDetail> {
   ensureApiBase();
 
-  const url = `${requireApiBase()}/baseline/${encodeURIComponent(baselineId)}`;
+  const base = requireApiBase();
+  const encodedBaselineId = encodeURIComponent(baselineId);
+  const projectUrl = projectId
+    ? `${base}/projects/${encodeURIComponent(projectId)}/baselines/${encodedBaselineId}`
+    : null;
+  const fallbackUrl = `${base}/baseline/${encodedBaselineId}`;
 
   try {
-    const result = await fetchJson<BaselineDetail>(url, {
+    if (projectUrl) {
+      return await fetchJson<BaselineDetail>(projectUrl, {
+        method: "GET",
+        headers: {
+          ...buildAuthHeader(),
+          "Content-Type": "application/json",
+        },
+      });
+    }
+  } catch (err) {
+    throw toFinanzasError(err, "Unable to load baseline details");
+  }
+
+  try {
+    return await fetchJson<BaselineDetail>(fallbackUrl, {
       method: "GET",
       headers: {
         ...buildAuthHeader(),
         "Content-Type": "application/json",
       },
     });
-
-    return result;
   } catch (err) {
     throw toFinanzasError(err, "Unable to load baseline details");
   }

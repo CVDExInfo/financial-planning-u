@@ -502,6 +502,38 @@ Resources:
             ApiId: !Ref Api
             Auth:
               Authorizer: CognitoJwt
+        GetProjectBaseline:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/baselines/{baseline_id}
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+        GetBaselineRubros:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/baselines/{baseline_id}/rubros
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+        GetBaselineAllocations:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/baselines/{baseline_id}/allocations
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+        GetBaselinePrefacturas:
+          Type: HttpApi
+          Properties:
+            Path: /projects/{projectId}/baselines/{baseline_id}/prefacturas
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
         ListBaselines:
           Type: HttpApi
           Properties:

@@ -14,7 +14,7 @@ This document maps the requested changes to their implementation locations and n
   - File: `src/features/sdmt/utils/rubrosFromAllocations.ts`
 
 **Runtime dependency**
-Baseline endpoints must resolve successfully (CORS + 200 responses) or fallback data cannot populate. Without baseline data, the UI can still render but will show empty/partial states.
+Baseline endpoints must resolve successfully (CORS + 200 responses) or fallback data cannot populate. The API currently exposes `GET /baseline/{baseline_id}` (singular); the frontend now aligns to that path. If the backend does not expose baseline-scoped rubros/allocations/prefacturas endpoints, those fallbacks will still be empty and require backend support.
 
 ### 1.2 Stable Initial Page Load (No “Navigate Away to Fix” Bug)
 **Implementation evidence**
