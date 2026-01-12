@@ -594,6 +594,7 @@ export const getBaseline = async (
 /**
  * GET /projects/{projectId}/baselines/{baseline_id}
  * Retrieves a baseline by ID scoped to a project.
+ * Falls back to METADATA record for older baselines that don't have project-scoped rows.
  */
 export const getProjectBaseline = async (
   event: APIGatewayProxyEvent
@@ -607,15 +608,44 @@ export const getProjectBaseline = async (
     }
 
     const prefacturasTable = tableName("prefacturas");
-    const lookup = await ddb.send(
+    
+    // Try project-scoped baseline first
+    const projectLookup = await ddb.send(
       new GetCommand({
         TableName: prefacturasTable,
         Key: { pk: `PROJECT#${projectId}`, sk: `BASELINE#${baselineId}` },
       })
     );
 
-    if (lookup.Item) {
-      return ok(event, lookup.Item);
+    if (projectLookup.Item) {
+      return ok(event, projectLookup.Item);
+    }
+
+    // Fall back to METADATA record for older baselines
+    const metadataLookup = await ddb.send(
+      new GetCommand({
+        TableName: prefacturasTable,
+        Key: { pk: `BASELINE#${baselineId}`, sk: "METADATA" },
+      })
+    );
+
+    if (metadataLookup.Item) {
+      // Verify project_id matches to ensure baseline belongs to this project
+      // Check all possible field names (snake_case and camelCase) due to schema evolution
+      const baselineProjectId =
+        metadataLookup.Item.project_id ||
+        metadataLookup.Item.projectId ||
+        metadataLookup.Item.payload?.project_id ||
+        metadataLookup.Item.payload?.projectId;
+
+      // If project_id exists in the baseline, it must match the requested projectId
+      // If no project_id exists, allow it (legacy baselines before project tracking)
+      if (baselineProjectId && baselineProjectId !== projectId) {
+        // Return 404 to avoid revealing baseline exists for other projects
+        return bad(event, "Baseline not found", 404);
+      }
+
+      return ok(event, metadataLookup.Item);
     }
 
     return bad(event, "Baseline not found", 404);
