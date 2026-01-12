@@ -634,7 +634,9 @@ export const getProjectBaseline = async (
       // Check both top-level project_id and payload.project_id (due to schema evolution)
       const baselineProjectId =
         metadataLookup.Item.project_id ||
-        metadataLookup.Item.payload?.project_id;
+        metadataLookup.Item.payload?.project_id ||
+        metadataLookup.Item.projectId ||
+        metadataLookup.Item.payload?.projectId;
 
       // If project_id exists in the baseline, it must match the requested projectId
       // If no project_id exists, allow it (legacy baselines before project tracking)
