@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { setupAuthenticatedPage, getRoleCredentials } from '../behavioral/auth-helper';
 
 test.describe('Finanzas 12m smoke', () => {
   test.beforeEach(async ({}, testInfo) => {
@@ -9,6 +10,17 @@ test.describe('Finanzas 12m smoke', () => {
   });
 
   test('toggle Rubro -> Proyecto and expand project, filter MOD updates totals', async ({ page }) => {
+    // Use SDMT credentials (preferred) or PMO as fallback
+    const credentials = getRoleCredentials('SDMT') || getRoleCredentials('PMO');
+    
+    if (!credentials) {
+      test.skip('No SDMT or PMO credentials available');
+      return;
+    }
+
+    // Setup authentication
+    await setupAuthenticatedPage(page, credentials.username, credentials.password);
+
     const base = process.env.FINZ_UI_BASE_URL || 'https://d7t9x3j66yd8k.cloudfront.net/finanzas';
     await page.goto(`${base}/sdmt/cost/forecast`);
     await page.waitForLoadState('domcontentloaded');

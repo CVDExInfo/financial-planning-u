@@ -95,6 +95,10 @@ jobs:
         id: playwright-smoke
         env:
           FINZ_UI_BASE_URL: ${{ env.FINZ_UI_BASE_URL }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          COGNITO_USER_POOL_ID: ${{ env.COGNITO_USER_POOL_ID }}
+          COGNITO_WEB_CLIENT: ${{ env.COGNITO_WEB_CLIENT }}
+          COGNITO_REGION: ${{ env.COGNITO_REGION }}
           E2E_SDMT_EMAIL: ${{ secrets.E2E_SDMT_EMAIL }}
           E2E_SDMT_PASSWORD: ${{ secrets.E2E_SDMT_PASSWORD }}
           E2E_PMO_EMAIL: ${{ secrets.E2E_PMO_EMAIL }}
