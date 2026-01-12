@@ -43,6 +43,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 
 import { queryClient } from "./lib/queryClient";
 import { useIdleLogout } from "./hooks/useIdleLogout";
+import BuildInfo from "@/components/BuildInfo";
 
 // Hook to determine current module
 // NOTE: Module context detection reserved for future enhancements
@@ -298,6 +299,13 @@ function AppContent() {
           </AccessControl>
         </main>
       </ProjectProvider>
+
+      <footer className="app-footer p-4 text-sm text-muted-foreground border-t">
+        <div className="container mx-auto flex justify-between items-center">
+          <div>© {new Date().getFullYear()} Finanzas</div>
+          <BuildInfo />
+        </div>
+      </footer>
 
       <Toaster position="top-right" />
     </div>

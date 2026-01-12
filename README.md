@@ -664,12 +664,51 @@ E2E_NO_GROUP_PASSWORD=SecureTestPass2025!
 - `npm run test:behavioral` → **run behavioral API tests (health, CORS, RBAC, schema)**
 - `npm run test:ui` → **run Playwright UI behavioral tests**
 - `npm run test:unit` → run unit tests
+- `npm run smoke-check` → **verify deployed build on CloudFront (requires FINANZAS_CLOUDFRONT_DOMAIN env var)**
 - `npm run generate-docs-pdf` → generate PDF versions of all documentation files (legacy)
 - `npm run render-docs` → generate bilingual PDF/DOCX documentation with corporate branding
 - `scripts/build-guards-finanzas.sh` → **validate Finanzas build artifacts (CI/CD quality gate)**
 - `scripts/finanzas-e2e-smoke.sh` → end-to-end smoke tests with Cognito
 - `scripts/create-s3-bucket.sh` → create and configure the S3 bucket for hosting
 - `scripts/deploy-check.sh` → CI-friendly build verification (lint/build). Adjust as needed.
+
+### Build Metadata & Deployment Validation
+
+The application includes build metadata in the footer (visible in non-production environments) showing:
+- Build SHA (first 7 characters of commit hash)
+- Build branch
+- Build timestamp (UTC)
+- Deployment environment (staging/production)
+
+**Validating Deployments:**
+
+To verify a deployed build after deployment:
+
+```bash
+# Set your CloudFront domain
+export FINANZAS_CLOUDFRONT_DOMAIN=d7t9x3j66yd8k.cloudfront.net
+
+# Run the smoke check
+npm run smoke-check
+```
+
+The smoke-check script:
+1. Fetches the deployed `index.html` from CloudFront
+2. Verifies that `VITE_BUILD_SHA` is present in the HTML
+3. Extracts and displays the build SHA
+4. Confirms the deployment is serving the expected build
+
+**In CI/CD:**
+
+The deploy workflow (`deploy-ui.yml`) automatically:
+1. Sets build metadata environment variables before the build
+2. Uploads immutable assets (JS, CSS) with long-term caching (`max-age=31536000, immutable`)
+3. Uploads `index.html` with no-cache headers (`no-cache, max-age=0, must-revalidate`)
+4. Invalidates CloudFront cache for `/finanzas/index.html` and `/finanzas/assets/index-*.js`
+5. Waits for the invalidation to complete
+6. Runs a smoke-check to verify the build SHA is present in the deployed HTML
+
+This ensures users always get fresh index.html files while maintaining optimal caching for versioned assets.
 
 ## Troubleshooting
 

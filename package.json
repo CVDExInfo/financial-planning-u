@@ -29,6 +29,7 @@
     "validate:api-config": "bash scripts/validate-api-config.sh",
     "validate:pre-build": "bash scripts/pre-build-validate.sh",
     "smoke:api": "bash scripts/finanzas-e2e-smoke.sh",
+    "smoke-check": "node scripts/smoke-check.js",
     "qa:finanzas:auth": "TS_NODE_PROJECT=tsconfig.node.json node --loader ts-node/esm scripts/qa/verify-finanzas-auth-config.ts",
     "cognito:update-hosted-ui": "bash infra/cognito/update-hosted-ui-css.sh",
     "generate-docs-pdf": "node scripts/generate-docs-pdf.cjs",

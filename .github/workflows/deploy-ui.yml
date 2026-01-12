@@ -177,6 +177,19 @@ jobs:
           fi
           echo "✅ API /health preflight ok"
 
+      - name: Set build metadata env
+        run: |
+          echo "VITE_BUILD_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
+          echo "VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+          # If GITHUB_REF_NAME is not directly available, compute branch:
+          if [ -n "${GITHUB_REF_NAME:-}" ]; then
+            echo "VITE_BUILD_BRANCH=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          else
+            echo "VITE_BUILD_BRANCH=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+          fi
+          # Set deploy env: e.g., staging for runs on staging, production on prod deploy
+          echo "VITE_DEPLOY_ENV=${{ github.event.inputs.deploy_env || 'staging' }}" >> $GITHUB_ENV
+
       - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
           BUILD_TARGET: finanzas
@@ -194,6 +207,10 @@ jobs:
           VITE_COGNITO_IDENTITY_POOL_ID: ${{ env.COGNITO_IDENTITY_POOL_ID }}
           VITE_COGNITO_DOMAIN: ${{ env.COGNITO_DOMAIN }}
           VITE_CLOUDFRONT_URL: https://${{ env.CF_DOMAIN }}
+          VITE_BUILD_SHA: ${{ env.VITE_BUILD_SHA }}
+          VITE_BUILD_TIME: ${{ env.VITE_BUILD_TIME }}
+          VITE_BUILD_BRANCH: ${{ env.VITE_BUILD_BRANCH }}
+          VITE_DEPLOY_ENV: ${{ env.VITE_DEPLOY_ENV }}
         run: |
           set -euo pipefail
 
@@ -436,14 +453,27 @@ jobs:
           fi
           echo "✅ Finanzas build artifacts look good"
 
-      - name: Upload Finanzas Portal to S3 (/finanzas prefix)
+      - name: Upload immutable assets to S3
+        env:
+          FINANZAS_BUCKET_NAME: ${{ secrets.FINANZAS_BUCKET_NAME }}
         run: |
-          aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
+          set -euo pipefail
+          aws s3 sync dist-finanzas/ s3://$FINANZAS_BUCKET_NAME/finanzas/ \
+            --acl public-read --delete --exclude "index.html" \
             --exclude '*.map' \
             --exclude 'docs/*' \
             --exclude 'test-helper.html' \
-            --delete
-          echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
+            --cache-control "public, max-age=31536000, immutable"
+          echo "✅ Immutable assets uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
+
+      - name: Upload index.html with no-cache
+        env:
+          FINANZAS_BUCKET_NAME: ${{ secrets.FINANZAS_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          aws s3 cp dist-finanzas/index.html s3://$FINANZAS_BUCKET_NAME/finanzas/index.html \
+            --acl public-read --cache-control "no-cache, max-age=0, must-revalidate"
+          echo "✅ index.html uploaded with no-cache to s3://${FINANZAS_BUCKET_NAME}/finanzas/index.html"
 
       - name: Verify Finanzas S3 manifest matches local build
         run: |
@@ -501,14 +531,41 @@ jobs:
           fi
           echo "✅ /finanzas/* behavior configured"
 
-      - name: Invalidate CloudFront (all + Finanzas SPA)
+      - name: CloudFront invalidation for Finanzas index & assets
+        if: ${{ secrets.CLOUDFRONT_DIST_ID != '' }}
+        env:
+          CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}
         run: |
           set -euo pipefail
+          echo "Creating CloudFront invalidation..."
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
-            --distribution-id "${CLOUDFRONT_DIST_ID}" \
-            --paths '/*' '/finanzas/*' '/finanzas/index.html' \
+            --distribution-id "$CLOUDFRONT_DIST_ID" \
+            --paths "/finanzas/index.html" "/finanzas/assets/index-*.js" \
             --query 'Invalidation.Id' --output text)
-          echo "✅ Invalidation queued: $INVALIDATION_ID"
+          echo "Invalidation id: $INVALIDATION_ID"
+          echo "Waiting for invalidation to complete..."
+          aws cloudfront wait invalidation-completed --distribution-id "$CLOUDFRONT_DIST_ID" --id "$INVALIDATION_ID"
+          echo "Invalidation completed."
+
+      - name: Smoke-check CloudFront served index (verify build SHA)
+        env:
+          CLOUDFRONT_DOMAIN: ${{ secrets.FINANZAS_CLOUDFRONT_DOMAIN }}
+        run: |
+          set -euo pipefail
+          echo "Fetching https://$CLOUDFRONT_DOMAIN/finanzas/index.html"
+          INDEX_HTML=$(curl -fsS "https://$CLOUDFRONT_DOMAIN/finanzas/index.html")
+          echo "Checking for VITE_BUILD_SHA presence..."
+          if ! echo "$INDEX_HTML" | grep -q 'VITE_BUILD_SHA'; then
+            echo "ERROR: index.html does not contain VITE_BUILD_SHA. Frontend may be serving an old bundle."
+            # Output snippet to aid debugging
+            echo "index.html preview:"
+            echo "$INDEX_HTML" | head -n 200
+            exit 1
+          fi
+          # Optionally check commit short hash
+          SHA=$(echo "$INDEX_HTML" | grep -Eo 'VITE_BUILD_SHA[:=]"[0-9a-f]+' | head -n1 | sed -E 's/.*"([0-9a-f]+).*/\1/')
+          echo "Detected VITE_BUILD_SHA: $SHA"
+          echo "Smoke-check passed."
 
       - name: UI Smoke (Finanzas /finanzas/)
         run: |

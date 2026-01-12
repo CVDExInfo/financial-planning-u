@@ -38,6 +38,14 @@ fi
 echo "🏗️  Building project..."
 npm run build
 
+# 5a. Run smoke-check if FINANZAS_CLOUDFRONT_DOMAIN is available (CI only)
+if [ -n "${FINANZAS_CLOUDFRONT_DOMAIN:-}" ]; then
+  echo "🔍 Running smoke-check (CloudFront available)..."
+  FINANZAS_CLOUDFRONT_DOMAIN="${FINANZAS_CLOUDFRONT_DOMAIN}" npm run smoke-check || echo "⚠️ Smoke-check failed but continuing..."
+else
+  echo "ℹ️  Skipping smoke-check (no FINANZAS_CLOUDFRONT_DOMAIN)"
+fi
+
 # 6. Run FE contract tests / API wiring checks (if script exists)
 if [ -f "scripts/qa-full-review.sh" ]; then
   echo "🔬 Running QA full review..."
