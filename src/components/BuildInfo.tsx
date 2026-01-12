@@ -8,16 +8,25 @@ export const BuildInfo: React.FC = () => {
   const deployEnv = import.meta.env.VITE_DEPLOY_ENV ?? '';
 
   // Show only on non-production or always if explicitly set
-  if (!sha) return null;
+  if (!sha || sha.length < 7) return null;
 
   // Optionally hide in prod; show in staging/dev
   if (deployEnv === 'production') return null;
+
+  // Validate date string
+  let formattedTime = '';
+  if (time) {
+    const date = new Date(time);
+    if (!isNaN(date.getTime())) {
+      formattedTime = date.toUTCString();
+    }
+  }
 
   return (
     <div aria-hidden className="build-info text-xs text-muted flex items-center gap-4">
       <span>Build: <code>{sha.slice(0, 7)}</code></span>
       {branch && <span>Branch: {branch}</span>}
-      {time && <span>Built: {new Date(time).toUTCString()}</span>}
+      {formattedTime && <span>Built: {formattedTime}</span>}
       <span className="px-1 py-0.5 rounded bg-slate-100 text-slate-700">env: {deployEnv || 'staging'}</span>
     </div>
   );

@@ -15,7 +15,7 @@ if (!domain) {
       console.log(text.slice(0, 1000));
       process.exit(3);
     }
-    const m = text.match(/VITE_BUILD_SHA[:=]"?([0-9a-f]{7,40})"?/i);
+    const m = text.match(/VITE_BUILD_SHA[:=]"?([0-9a-f]{7,40})"?/);
     console.log('Build SHA found:', m ? m[1] : 'unknown');
     console.log('Smoke check: passed');
   } catch (err) {
