@@ -52,6 +52,7 @@ interface ForecastRubrosTableProps {
   formatCurrency: (amount: number) => string;
   canEditBudget: boolean;
   defaultFilter?: FilterMode;
+  defaultViewMode?: ViewMode;
 }
 
 export function ForecastRubrosTable({
@@ -65,6 +66,7 @@ export function ForecastRubrosTable({
   formatCurrency,
   canEditBudget,
   defaultFilter = 'labor',
+  defaultViewMode = 'category',
 }: ForecastRubrosTableProps) {
   const { selectedProject } = useProject();
   const { user } = useAuth();
@@ -73,7 +75,7 @@ export function ForecastRubrosTable({
   const [editedBudgets, setEditedBudgets] = useState<Array<{ month: number; budget: number }>>([]);
   const [savingBudget, setSavingBudget] = useState(false);
   const [filterMode, setFilterMode] = useState<FilterMode>(defaultFilter);
-  const [viewMode, setViewMode] = useState<ViewMode>('category');
+  const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
   // Session storage key for persistence
@@ -462,6 +464,7 @@ export function ForecastRubrosTable({
                   aria-label="Ver por Rubro"
                   aria-pressed={viewMode === 'category'}
                   role="button"
+                  title="Agrupar por rubro (categoría)"
                 >
                   Rubro
                 </button>
@@ -475,8 +478,9 @@ export function ForecastRubrosTable({
                   aria-label="Ver por Proyecto"
                   aria-pressed={viewMode === 'project'}
                   role="button"
+                  title="Agrupar por proyecto con rubros anidados"
                 >
-                  Por Proyecto
+                  Proyecto
                 </button>
               </div>
             )}
