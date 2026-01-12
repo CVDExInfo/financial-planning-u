@@ -67,7 +67,7 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     if (shouldFetchBaseline) {
       setLoadingBaseline(true);
       console.log('[BaselineStatusPanel] Fetching baseline details for:', currentProject.baselineId);
-      getBaselineById(currentProject.baselineId)
+      getBaselineById(currentProject.baselineId, currentProject.id)
         .then((data) => {
           console.log('[BaselineStatusPanel] Baseline data received:', {
             baseline_id: data.baseline_id,
