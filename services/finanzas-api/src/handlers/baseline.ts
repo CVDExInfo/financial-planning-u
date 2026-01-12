@@ -594,6 +594,7 @@ export const getBaseline = async (
 /**
  * GET /projects/{projectId}/baselines/{baseline_id}
  * Retrieves a baseline by ID scoped to a project.
+ * Falls back to METADATA record for older baselines that don't have project-scoped rows.
  */
 export const getProjectBaseline = async (
   event: APIGatewayProxyEvent
@@ -607,15 +608,38 @@ export const getProjectBaseline = async (
     }
 
     const prefacturasTable = tableName("prefacturas");
-    const lookup = await ddb.send(
+    
+    // Try project-scoped baseline first
+    const projectLookup = await ddb.send(
       new GetCommand({
         TableName: prefacturasTable,
         Key: { pk: `PROJECT#${projectId}`, sk: `BASELINE#${baselineId}` },
       })
     );
 
-    if (lookup.Item) {
-      return ok(event, lookup.Item);
+    if (projectLookup.Item) {
+      return ok(event, projectLookup.Item);
+    }
+
+    // Fall back to METADATA record for older baselines
+    const metadataLookup = await ddb.send(
+      new GetCommand({
+        TableName: prefacturasTable,
+        Key: { pk: `BASELINE#${baselineId}`, sk: "METADATA" },
+      })
+    );
+
+    if (metadataLookup.Item) {
+      // Verify project_id matches to ensure baseline belongs to this project
+      const baselineProjectId = 
+        metadataLookup.Item.project_id || 
+        metadataLookup.Item.payload?.project_id;
+      
+      if (baselineProjectId && baselineProjectId !== projectId) {
+        return bad(event, "Baseline not found", 404);
+      }
+      
+      return ok(event, metadataLookup.Item);
     }
 
     return bad(event, "Baseline not found", 404);
