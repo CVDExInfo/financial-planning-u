@@ -77,7 +77,7 @@ import {
   buildPortfolioTotals,
 } from './categoryGrouping';
 import { buildProjectTotals, buildProjectRubros } from './projectGrouping';
-import { rubrosFromAllocations } from '@/features/sdmt/utils/rubrosFromAllocations';
+import { rubrosFromAllocations } from '@/features/sdmt/utils';
 
 // TODO: Backend Integration for Change Request Impact on Forecast
 // When a change request is approved in SDMTChanges, the backend should:
