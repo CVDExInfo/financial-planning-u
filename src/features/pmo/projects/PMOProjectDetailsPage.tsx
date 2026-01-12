@@ -66,7 +66,7 @@ export default function PMOProjectDetailsPage() {
   useEffect(() => {
     if (currentProject?.baselineId && currentProject?.baseline_status === 'accepted') {
       setLoadingBaseline(true);
-      getBaselineById(currentProject.baselineId)
+      getBaselineById(currentProject.baselineId, currentProject.id || projectId)
         .then(setBaselineDetail)
         .catch((err) => {
           console.error("Failed to fetch baseline details:", err);

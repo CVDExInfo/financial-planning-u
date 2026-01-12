@@ -444,6 +444,86 @@
                     }
                 ]
             },
+            "get /projects/{projectId}/baselines/{baseline_id}": {
+                "appliesTo": {
+                    "principalTypes": [
+                        "User"
+                    ],
+                    "resourceTypes": [
+                        "Application"
+                    ],
+                    "context": {
+                        "type": "Record",
+                        "attributes": {}
+                    }
+                },
+                "memberOf": [
+                    {
+                        "id": "FIN",
+                        "type": "finanzassd::Action"
+                    }
+                ]
+            },
+            "get /projects/{projectId}/baselines/{baseline_id}/rubros": {
+                "appliesTo": {
+                    "principalTypes": [
+                        "User"
+                    ],
+                    "resourceTypes": [
+                        "Application"
+                    ],
+                    "context": {
+                        "type": "Record",
+                        "attributes": {}
+                    }
+                },
+                "memberOf": [
+                    {
+                        "id": "FIN",
+                        "type": "finanzassd::Action"
+                    }
+                ]
+            },
+            "get /projects/{projectId}/baselines/{baseline_id}/allocations": {
+                "appliesTo": {
+                    "principalTypes": [
+                        "User"
+                    ],
+                    "resourceTypes": [
+                        "Application"
+                    ],
+                    "context": {
+                        "type": "Record",
+                        "attributes": {}
+                    }
+                },
+                "memberOf": [
+                    {
+                        "id": "FIN",
+                        "type": "finanzassd::Action"
+                    }
+                ]
+            },
+            "get /projects/{projectId}/baselines/{baseline_id}/prefacturas": {
+                "appliesTo": {
+                    "principalTypes": [
+                        "User"
+                    ],
+                    "resourceTypes": [
+                        "Application"
+                    ],
+                    "context": {
+                        "type": "Record",
+                        "attributes": {}
+                    }
+                },
+                "memberOf": [
+                    {
+                        "id": "FIN",
+                        "type": "finanzassd::Action"
+                    }
+                ]
+            },
             "post /baseline": {
                 "appliesTo": {
                     "principalTypes": [

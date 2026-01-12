@@ -309,7 +309,7 @@ export function SDMTForecast() {
   // Load baseline details for FTE calculation
   useEffect(() => {
     if (currentProject?.baselineId && !isPortfolioView) {
-      getBaselineById(currentProject.baselineId)
+      getBaselineById(currentProject.baselineId, currentProject.id)
         .then((data) => {
           if (import.meta.env.DEV) {
             console.log('[SDMTForecast] Baseline details loaded for FTE calculation');
@@ -573,7 +573,7 @@ export function SDMTForecast() {
         finanzasClient.getRubrosForBaseline(projectId, baselineId, { signal }),
         finanzasClient.getAllocationsForBaseline(projectId, baselineId, { signal }),
         finanzasClient.getPrefacturasForBaseline(projectId, baselineId, { signal }),
-        finanzasClient.getBaselineById(baselineId, { signal }),
+        finanzasClient.getBaselineById(baselineId, { signal, projectId }),
       ];
 
       const results = await Promise.allSettled(tasks);
