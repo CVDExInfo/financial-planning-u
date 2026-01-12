@@ -631,14 +631,15 @@ export const getProjectBaseline = async (
 
     if (metadataLookup.Item) {
       // Verify project_id matches to ensure baseline belongs to this project
-      const baselineProjectId = 
-        metadataLookup.Item.project_id || 
+      const baselineProjectId =
+        metadataLookup.Item.project_id ||
         metadataLookup.Item.payload?.project_id;
-      
+
+      // Return 404 if project_id doesn't match (don't reveal baseline exists for other projects)
       if (baselineProjectId && baselineProjectId !== projectId) {
         return bad(event, "Baseline not found", 404);
       }
-      
+
       return ok(event, metadataLookup.Item);
     }
 
