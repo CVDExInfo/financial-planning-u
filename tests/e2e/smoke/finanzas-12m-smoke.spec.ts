@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { setupAuthenticatedPage, getRoleCredentials } from '../behavioral/auth-helper';
 
 test.describe('Finanzas 12m smoke', () => {
-  test.beforeEach(async ({}, testInfo) => {
+  test.beforeEach(async () => {
     // Skip if no SDMT or PMO credentials are configured
     const hasCredentials = !!(process.env.E2E_SDMT_EMAIL || process.env.E2E_PMO_EMAIL);
     test.skip(!hasCredentials, 'No SDMT/PMO credentials configured - skipping smoke tests');
