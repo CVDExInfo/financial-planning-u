@@ -18,7 +18,7 @@
     "test:sdmt:forecast-fallback": "VITE_API_BASE_URL=http://localhost tsx --test src/features/sdmt/cost/Forecast/__tests__/forecastFallback.test.ts",
     "test:behavioral": "tsx --test tests/behavioral-api/*.test.ts",
     "test:ui": "playwright test tests/e2e/behavioral",
-    "test:ui:smoke": "npx playwright test tests/e2e/smoke --project=chromium --reporter=list",
+    "test:ui:smoke": "npx playwright test --config=playwright.smoke.config.ts --project=chromium --reporter=list",
     "contract-tests": "BASE=\"${FINZ_API_BASE:-${DEV_API_URL:-}}\"; if [ -z \"$BASE\" ]; then echo \"❌ DEV_API_URL or FINZ_API_BASE must be set (e.g. https://.../dev)\"; exit 1; fi; BASE=\"${BASE%/}\"; TOKEN=$(scripts/cognito/get-jwt.sh); npx --yes newman run postman/finanzas-sd-api-collection.json --environment postman/finanzas-sd-dev.postman_environment.json --env-var baseUrl=$BASE --env-var access_token=$TOKEN --env-var username=${COGNITO_TESTER_USERNAME:-$USERNAME} --env-var password=${COGNITO_TESTER_PASSWORD:-$PASSWORD} --env-var cognito_client_id=${COGNITO_WEB_CLIENT} --timeout-request 10000 --timeout-script 5000 --bail",
     "optimize": "vite optimize",
     "preview": "vite preview",
