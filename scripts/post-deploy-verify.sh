@@ -378,6 +378,69 @@ if [ -n "${S3_BUCKET:-}" ]; then
 fi
 
 # ============================================================================
+# SECTION 8: Cache Headers Verification
+# ============================================================================
+echo -e "${BLUE}📍 Section 8: Cache Headers Verification${NC}"
+echo "────────────────────────────────────────────────────────────────"
+echo ""
+
+echo "Verifying cache headers for index.html and assets..."
+echo ""
+
+# Check index.html cache headers
+echo "Test 1: index.html cache headers"
+INDEX_CACHE_HEADER=$(curl -sS -I "https://${CLOUDFRONT_DOMAIN}/finanzas/" 2>/dev/null | grep -i 'cache-control' | tr -d '\r' || echo "none")
+
+if echo "$INDEX_CACHE_HEADER" | grep -qi 'no-cache'; then
+  echo -e "${GREEN}✅ index.html has no-cache header${NC}"
+  echo "   $INDEX_CACHE_HEADER"
+else
+  echo -e "${YELLOW}⚠️  index.html cache header: $INDEX_CACHE_HEADER${NC}"
+  echo "   Expected: Cache-Control: no-cache, must-revalidate"
+  WARNINGS=$((WARNINGS + 1))
+fi
+
+echo ""
+
+# Check hashed asset cache headers
+echo "Test 2: Hashed asset cache headers"
+if [ -f /tmp/finanzas_ui.html ]; then
+  # Extract a sample JS asset URL
+  SAMPLE_JS=$(grep -oP '(?<=src=")[^"]*index[^"]*\.js[^"]*(?=")' /tmp/finanzas_ui.html | head -1 || echo "")
+  
+  if [ -n "$SAMPLE_JS" ]; then
+    # Make absolute URL if relative
+    if [[ "$SAMPLE_JS" == /* ]]; then
+      SAMPLE_JS_URL="https://${CLOUDFRONT_DOMAIN}${SAMPLE_JS}"
+    else
+      SAMPLE_JS_URL="$SAMPLE_JS"
+    fi
+    
+    ASSET_CACHE_HEADER=$(curl -sS -I "$SAMPLE_JS_URL" 2>/dev/null | grep -i 'cache-control' | tr -d '\r' || echo "none")
+    
+    if echo "$ASSET_CACHE_HEADER" | grep -qi 'max-age=31536000'; then
+      echo -e "${GREEN}✅ Hashed asset has long-term cache (1 year)${NC}"
+      echo "   $ASSET_CACHE_HEADER"
+    elif echo "$ASSET_CACHE_HEADER" | grep -qi 'immutable'; then
+      echo -e "${GREEN}✅ Hashed asset has immutable cache${NC}"
+      echo "   $ASSET_CACHE_HEADER"
+    else
+      echo -e "${YELLOW}⚠️  Hashed asset cache header: $ASSET_CACHE_HEADER${NC}"
+      echo "   Expected: Cache-Control: public, max-age=31536000, immutable"
+      WARNINGS=$((WARNINGS + 1))
+    fi
+  else
+    echo -e "${YELLOW}⚠️  Could not find sample JS asset to test${NC}"
+    WARNINGS=$((WARNINGS + 1))
+  fi
+else
+  echo -e "${YELLOW}⚠️  HTML file not available for asset testing${NC}"
+  WARNINGS=$((WARNINGS + 1))
+fi
+
+echo ""
+
+# ============================================================================
 # Summary
 # ============================================================================
 echo "╔════════════════════════════════════════════════════════════════╗"
