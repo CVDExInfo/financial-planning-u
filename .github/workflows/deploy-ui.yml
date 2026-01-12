@@ -485,6 +485,7 @@ jobs:
           echo "📄 Extracting asset references from index.html..."
           
           # Extract JS and CSS asset filenames from index.html
+          # Pattern matches: src="..." or href="..." followed by .js or .css
           grep -oP '(?<=(src|href)=")[^"]*\.(js|css)[^"]*(?=")' /tmp/s3-index.html | sort -u > /tmp/index-assets.txt || true
           
           if [ ! -s /tmp/index-assets.txt ]; then
@@ -599,11 +600,13 @@ jobs:
           echo "✅ Invalidation created: $INVALIDATION_ID"
           echo "⏳ Waiting for invalidation to complete..."
           
-          # Wait for invalidation to complete (up to 5 minutes)
-          WAIT_COUNT=0
-          MAX_WAIT=30  # 30 iterations * 10 seconds = 5 minutes
+          # Wait for invalidation to complete
+          MAX_WAIT_ITERATIONS=30  # 30 iterations
+          WAIT_INTERVAL_SECONDS=10  # 10 seconds per iteration
+          MAX_WAIT_MINUTES=5  # Total: 5 minutes
           
-          while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+          WAIT_COUNT=0
+          while [ $WAIT_COUNT -lt $MAX_WAIT_ITERATIONS ]; do
             INVALIDATION_STATUS=$(aws cloudfront get-invalidation \
               --distribution-id "${CLOUDFRONT_DIST_ID}" \
               --id "$INVALIDATION_ID" \
@@ -616,12 +619,12 @@ jobs:
             fi
             
             echo "   Status: $INVALIDATION_STATUS (waiting...)"
-            sleep 10
+            sleep $WAIT_INTERVAL_SECONDS
             WAIT_COUNT=$((WAIT_COUNT + 1))
           done
           
           if [ "$INVALIDATION_STATUS" != "Completed" ]; then
-            echo "⚠️  Invalidation still in progress after 5 minutes"
+            echo "⚠️  Invalidation still in progress after ${MAX_WAIT_MINUTES} minutes"
             echo "   Status: $INVALIDATION_STATUS"
             echo "   Continuing deployment - invalidation will complete in background"
           fi
@@ -667,8 +670,11 @@ jobs:
           # Extract asset references from both
           echo "🔍 Comparing asset references..."
           
-          grep -oP 'index-[a-zA-Z0-9_-]+\.js' /tmp/cf-index.html | sort -u > /tmp/cf-assets.txt || echo "none" > /tmp/cf-assets.txt
-          grep -oP 'index-[a-zA-Z0-9_-]+\.js' /tmp/s3-index-verify.html | sort -u > /tmp/s3-assets.txt || echo "none" > /tmp/s3-assets.txt
+          # Pattern to match hashed JS bundles (e.g., index-DR7bSnEK.js)
+          ASSET_PATTERN='index-[a-zA-Z0-9_-]+\.js'
+          
+          grep -oP "$ASSET_PATTERN" /tmp/cf-index.html | sort -u > /tmp/cf-assets.txt || echo "none" > /tmp/cf-assets.txt
+          grep -oP "$ASSET_PATTERN" /tmp/s3-index-verify.html | sort -u > /tmp/s3-assets.txt || echo "none" > /tmp/s3-assets.txt
           
           echo "CloudFront assets:"
           cat /tmp/cf-assets.txt
