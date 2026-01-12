@@ -631,12 +631,15 @@ export const getProjectBaseline = async (
 
     if (metadataLookup.Item) {
       // Verify project_id matches to ensure baseline belongs to this project
+      // Check both top-level project_id and payload.project_id (due to schema evolution)
       const baselineProjectId =
         metadataLookup.Item.project_id ||
         metadataLookup.Item.payload?.project_id;
 
-      // Return 404 if project_id doesn't match (don't reveal baseline exists for other projects)
+      // If project_id exists in the baseline, it must match the requested projectId
+      // If no project_id exists, allow it (legacy baselines before project tracking)
       if (baselineProjectId && baselineProjectId !== projectId) {
+        // Return 404 to avoid revealing baseline exists for other projects
         return bad(event, "Baseline not found", 404);
       }
 
