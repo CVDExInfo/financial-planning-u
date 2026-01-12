@@ -442,24 +442,24 @@ jobs:
           echo "📦 Step 1: Uploading hashed assets with long-term cache headers..."
           
           # Upload hashed assets (JS/CSS with content hashes) with immutable cache
+          # Note: We sync only the assets/ directory first to ensure they're available
           aws s3 sync dist-finanzas/assets/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/assets/" \
             --exclude '*.map' \
-            --cache-control 'public, max-age=31536000, immutable' \
-            --delete
+            --cache-control 'public, max-age=31536000, immutable'
           
           echo "✅ Hashed assets uploaded with long-term cache headers"
           
           echo "📦 Step 2: Uploading other static files (auth, favicon, etc.) with moderate cache..."
           
           # Upload other static files (auth callback, favicon, etc.) - exclude index.html and assets/
+          # Note: We don't use --delete here to avoid accidentally removing the assets we just uploaded
           aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
             --exclude 'index.html' \
             --exclude 'assets/*' \
             --exclude '*.map' \
             --exclude 'docs/*' \
             --exclude 'test-helper.html' \
-            --cache-control 'public, max-age=3600' \
-            --delete
+            --cache-control 'public, max-age=3600'
           
           echo "✅ Static files uploaded"
           
@@ -471,6 +471,32 @@ jobs:
             --metadata-directive REPLACE
           
           echo "✅ index.html uploaded with no-cache headers"
+          
+          echo "📦 Step 4: Cleanup - Remove stale files from S3..."
+          
+          # Now perform cleanup of old files that are no longer in the build
+          # This is done last to ensure we never delete files before uploading their replacements
+          aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
+            --exclude '*.map' \
+            --exclude 'docs/*' \
+            --exclude 'test-helper.html' \
+            --delete \
+            --dryrun > /tmp/s3-cleanup-dryrun.txt || true
+          
+          # Show what would be deleted for transparency
+          if [ -s /tmp/s3-cleanup-dryrun.txt ]; then
+            echo "Files that would be removed:"
+            cat /tmp/s3-cleanup-dryrun.txt
+          fi
+          
+          # Perform actual cleanup
+          aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
+            --exclude '*.map' \
+            --exclude 'docs/*' \
+            --exclude 'test-helper.html' \
+            --delete
+          
+          echo "✅ Cleanup completed"
           echo "✅ Complete upload to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
 
       - name: Smoke Test - Verify index.html references existing S3 assets
@@ -603,7 +629,7 @@ jobs:
           # Wait for invalidation to complete
           MAX_WAIT_ITERATIONS=30  # 30 iterations
           WAIT_INTERVAL_SECONDS=10  # 10 seconds per iteration
-          MAX_WAIT_MINUTES=5  # Total: 5 minutes
+          # Total wait time: 30 * 10 = 300 seconds = 5 minutes
           
           WAIT_COUNT=0
           while [ $WAIT_COUNT -lt $MAX_WAIT_ITERATIONS ]; do
@@ -624,7 +650,7 @@ jobs:
           done
           
           if [ "$INVALIDATION_STATUS" != "Completed" ]; then
-            echo "⚠️  Invalidation still in progress after ${MAX_WAIT_MINUTES} minutes"
+            echo "⚠️  Invalidation still in progress after $((MAX_WAIT_ITERATIONS * WAIT_INTERVAL_SECONDS / 60)) minutes"
             echo "   Status: $INVALIDATION_STATUS"
             echo "   Continuing deployment - invalidation will complete in background"
           fi
@@ -670,8 +696,9 @@ jobs:
           # Extract asset references from both
           echo "🔍 Comparing asset references..."
           
-          # Pattern to match hashed JS bundles (e.g., index-DR7bSnEK.js)
-          ASSET_PATTERN='index-[a-zA-Z0-9_-]+\.js'
+          # Pattern to match hashed JS bundles (e.g., index-DR7bSnEK.js, main-abc123.js)
+          # Matches: [name]-[hash].[ext] where hash can contain alphanumeric, underscore, dash
+          ASSET_PATTERN='(index|main|vendor)-[a-zA-Z0-9_-]+\.(js|css)'
           
           grep -oP "$ASSET_PATTERN" /tmp/cf-index.html | sort -u > /tmp/cf-assets.txt || echo "none" > /tmp/cf-assets.txt
           grep -oP "$ASSET_PATTERN" /tmp/s3-index-verify.html | sort -u > /tmp/s3-assets.txt || echo "none" > /tmp/s3-assets.txt
