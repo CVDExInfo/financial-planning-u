@@ -512,6 +512,7 @@ jobs:
           
           # Extract JS and CSS asset filenames from index.html
           # Pattern matches: src="..." or href="..." followed by .js or .css
+          # Note: Requires GNU grep (available in GitHub Actions Ubuntu runner)
           grep -oP '(?<=(src|href)=")[^"]*\.(js|css)[^"]*(?=")' /tmp/s3-index.html | sort -u > /tmp/index-assets.txt || true
           
           if [ ! -s /tmp/index-assets.txt ]; then
@@ -696,8 +697,10 @@ jobs:
           # Extract asset references from both
           echo "🔍 Comparing asset references..."
           
-          # Pattern to match hashed JS bundles (e.g., index-DR7bSnEK.js, main-abc123.js)
-          # Matches: [name]-[hash].[ext] where hash can contain alphanumeric, underscore, dash
+          # Pattern to match hashed JS/CSS bundles (e.g., index-DR7bSnEK.js, main-abc123.css)
+          # Format: [name]-[hash].[ext] where hash can contain alphanumeric, underscore, dash
+          # Note: Dash at end of character class [a-zA-Z0-9_-] is literal (correct positioning)
+          # Note: Requires GNU grep with -P flag (available in GitHub Actions Ubuntu runner)
           ASSET_PATTERN='(index|main|vendor)-[a-zA-Z0-9_-]+\.(js|css)'
           
           grep -oP "$ASSET_PATTERN" /tmp/cf-index.html | sort -u > /tmp/cf-assets.txt || echo "none" > /tmp/cf-assets.txt
