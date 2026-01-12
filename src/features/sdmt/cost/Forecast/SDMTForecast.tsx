@@ -76,6 +76,7 @@ import {
   buildCategoryRubros,
   buildPortfolioTotals,
 } from './categoryGrouping';
+import { buildProjectTotals, buildProjectRubros } from './projectGrouping';
 import { rubrosFromAllocations } from '@/features/sdmt/utils/rubrosFromAllocations';
 
 // TODO: Backend Integration for Change Request Impact on Forecast
@@ -1730,6 +1731,22 @@ const totalFTE = useMemo(() => {
     return buildCategoryRubros(forecastData, portfolioLineItems);
   }, [isPortfolioView, forecastData, portfolioLineItems]);
 
+  // Build project totals for TODOS mode (project view)
+  const projectTotals = useMemo(() => {
+    if (!isPortfolioView || forecastData.length === 0) {
+      return new Map();
+    }
+    return buildProjectTotals(forecastData);
+  }, [isPortfolioView, forecastData]);
+
+  // Build project rubros for TODOS mode (project view)
+  const projectRubros = useMemo(() => {
+    if (!isPortfolioView || forecastData.length === 0) {
+      return new Map();
+    }
+    return buildProjectRubros(forecastData, portfolioLineItems);
+  }, [isPortfolioView, forecastData, portfolioLineItems]);
+
   // Build portfolio totals for TODOS mode (charts and rubros table)
   const portfolioTotalsForCharts = useMemo(() => {
     if (!isPortfolioView || forecastData.length === 0) {
@@ -2647,6 +2664,8 @@ const totalFTE = useMemo(() => {
                     <ForecastRubrosTable
                       categoryTotals={categoryTotals}
                       categoryRubros={categoryRubros}
+                      projectTotals={projectTotals}
+                      projectRubros={projectRubros}
                       portfolioTotals={portfolioTotalsForCharts}
                       monthlyBudgets={monthlyBudgets}
                       onSaveBudget={handleSaveBudgetFromTable}
