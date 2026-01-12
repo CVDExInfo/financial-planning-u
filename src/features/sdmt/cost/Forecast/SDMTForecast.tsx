@@ -2635,7 +2635,7 @@ const totalFTE = useMemo(() => {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <CardTitle className="text-lg">Cuadrícula de Pronóstico 12 Meses</CardTitle>
+                      <CardTitle className="text-lg">Cuadrícula de Pronóstico (12 meses) — Por Rubro</CardTitle>
                       {rubrosSource === 'fallback' && (
                         <Badge variant="outline" className="text-xs">
                           Fuente: Fallback (allocations/prefacturas)
@@ -2992,8 +2992,8 @@ const totalFTE = useMemo(() => {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">
                   {selectedPeriod === 'CURRENT_MONTH' 
-                    ? `Desglose mensual vs presupuesto - Mes Actual (M${getCurrentMonthIndex()})`
-                    : 'Desglose mensual vs presupuesto'}
+                    ? `Desglose Mensual vs Presupuesto (12 meses) — Por Proyecto - Mes Actual (M${getCurrentMonthIndex()})`
+                    : 'Desglose Mensual vs Presupuesto (12 meses) — Por Proyecto'}
                 </CardTitle>
                 <CollapsibleTrigger asChild>
                   <Button
@@ -3336,8 +3336,8 @@ const totalFTE = useMemo(() => {
           <CardHeader>
             <CardTitle>
               {selectedPeriod === 'CURRENT_MONTH' 
-                ? `Cuadrícula de Pronóstico - Mes Actual (M${getCurrentMonthIndex()})`
-                : 'Cuadrícula de Pronóstico 12 Meses'}
+                ? `Cuadrícula de Pronóstico (12 meses) — Por Rubro - Mes Actual (M${getCurrentMonthIndex()})`
+                : 'Cuadrícula de Pronóstico (12 meses) — Por Rubro'}
             </CardTitle>
           </CardHeader>
           <CardContent>

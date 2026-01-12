@@ -116,10 +116,13 @@
     Contains: Portfolio Summary View, Project list, Runway metrics
 
 ┌──────────────────────────────────────────────────────────────┐
-│ ▶ Cuadrícula de Pronóstico 12 Meses                   [▼]   │
+│ ▶ Cuadrícula de Pronóstico (12 meses) — Por Rubro     [▼]   │
 └──────────────────────────────────────────────────────────────┘
     Collapsed by default
     Contains: Rubros table, Category breakdown, Budget editing
+    Toggle: Ver por [Rubro] [Proyecto] - Default: Rubro
+    - Por Rubro: Category-first view (unchanged from original)
+    - Por Proyecto: Project-first view with nested collapsible rubros
 
 ┌──────────────────────────────────────────────────────────────┐
 │ ▶ Simulador de Presupuesto                            [▼]   │
@@ -128,10 +131,13 @@
     Contains: Annual budget, Monthly budget, Budget simulator
 
 ┌──────────────────────────────────────────────────────────────┐
-│ ▶ Desglose mensual vs presupuesto                     [▼]   │
+│ ▶ Desglose Mensual vs Presupuesto (12 meses) — Por Proyecto [▼] │
 └──────────────────────────────────────────────────────────────┘
     Collapsed by default
     Contains: Forecast Grid with full line-item detail
+    Toggle: Ver por [Rubro] [Proyecto] - Default: Proyecto (recommended)
+    - Por Rubro: Category-first view
+    - Por Proyecto: Project-first view with nested collapsible rubros (collapsed by default)
 
 ✅ Benefits:
 - Clean, executive-friendly "above the fold" view
@@ -231,11 +237,12 @@
 └──────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────┐
-│ 📊 Cuadrícula de Pronóstico 12 Meses                        │
+│ 📊 Cuadrícula de Pronóstico (12 meses) — Por Rubro         │
 │    - Line-by-line breakdown                                  │
 │    - Planned / Forecast / Actual columns                     │
 │    - Editable cells                                          │
 │    - Category subtotals                                      │
+│    Toggle: Ver por [Rubro] [Proyecto]                       │
 └──────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────┐
