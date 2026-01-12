@@ -2672,6 +2672,7 @@ const totalFTE = useMemo(() => {
                       formatCurrency={formatCurrency}
                       canEditBudget={canEditBudget}
                       defaultFilter="labor"
+                      defaultViewMode="category"
                     />
                   </CardContent>
                 </CollapsibleContent>

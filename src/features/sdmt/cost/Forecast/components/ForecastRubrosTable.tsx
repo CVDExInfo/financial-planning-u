@@ -146,14 +146,18 @@ export function ForecastRubrosTable({
     sessionStorage.setItem(viewModeSessionKey, viewMode);
   }, [viewMode, viewModeSessionKey]);
 
+  // Helper to get project open state storage key
+  const getProjectOpenKey = useMemo(() => {
+    const projectId = selectedProject?.id || 'ALL_PROJECTS';
+    return `forecast:projectOpen:${projectId}`;
+  }, [selectedProject?.id]);
+
   // Load expanded projects from sessionStorage
   useEffect(() => {
     if (viewMode !== 'project') return;
     
     try {
-      const projectId = selectedProject?.id || 'ALL_PROJECTS';
-      const key = `forecast:projectOpen:${projectId}`;
-      const saved = sessionStorage.getItem(key);
+      const saved = sessionStorage.getItem(getProjectOpenKey);
       if (saved) {
         const expandedSet = new Set<string>(JSON.parse(saved));
         setExpandedProjects(expandedSet);
@@ -161,20 +165,18 @@ export function ForecastRubrosTable({
     } catch (err) {
       console.warn('[ForecastRubrosTable] failed to load expanded projects', err);
     }
-  }, [viewMode, selectedProject?.id]);
+  }, [viewMode, getProjectOpenKey]);
 
   // Persist expanded projects to sessionStorage
   useEffect(() => {
     if (viewMode !== 'project') return;
     
     try {
-      const projectId = selectedProject?.id || 'ALL_PROJECTS';
-      const key = `forecast:projectOpen:${projectId}`;
-      sessionStorage.setItem(key, JSON.stringify(Array.from(expandedProjects)));
+      sessionStorage.setItem(getProjectOpenKey, JSON.stringify(Array.from(expandedProjects)));
     } catch (err) {
       console.warn('[ForecastRubrosTable] failed to save expanded projects', err);
     }
-  }, [expandedProjects, viewMode, selectedProject?.id]);
+  }, [expandedProjects, viewMode, getProjectOpenKey]);
 
   // Toggle project expansion
   const toggleProject = (projectId: string) => {
@@ -914,7 +916,7 @@ export function ForecastRubrosTable({
 
                           {/* Collapsible Rubro Rows */}
                           {isExpanded && filteredRubros.map(rubro => (
-                            <TableRow key={rubro.rubroId} className="hover:bg-muted/20" id={`project-${projectId}-panel`}>
+                            <TableRow key={rubro.rubroId} className="hover:bg-muted/20">
                               <TableCell className="sticky left-0 bg-background pl-8" title={rubro.description}>
                                 <span className="text-sm text-muted-foreground">↳ {rubro.description}</span>
                               </TableCell>
