@@ -15,9 +15,13 @@ describe("getBaselineById", () => {
   it("should fetch baseline details by ID with correct endpoint", async () => {
     // Test that the API contract is correct
     const baselineId = "B-12345";
-    const expectedUrl = `/baseline/${baselineId}`;
+    const projectId = "PRJ-123";
+    const expectedProjectUrl = `/projects/${projectId}/baselines/${baselineId}`;
+    const expectedFallbackUrl = `/baseline/${baselineId}`;
     
-    assert.ok(expectedUrl.includes(baselineId));
+    assert.ok(expectedProjectUrl.includes(baselineId));
+    assert.ok(expectedProjectUrl.includes(projectId));
+    assert.ok(expectedFallbackUrl.includes(baselineId));
   });
 
   it("should handle payload structure from DynamoDB", () => {
