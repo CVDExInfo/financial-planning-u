@@ -92,7 +92,9 @@ export default defineConfig(() => {
       "import.meta.env.VITE_API_BASE_URL": JSON.stringify(apiBaseUrl),
     },
     plugins: [
-      react(),
+      react({
+        jsxRuntime: 'automatic'
+      }),
       tailwindcss(),
     ],
     resolve: {

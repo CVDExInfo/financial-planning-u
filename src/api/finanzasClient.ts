@@ -178,6 +178,49 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+/**
+ * HTTP request with exponential backoff retry logic
+ * Retries up to 3 times on network errors or 5xx status codes
+ * Does not retry on 4xx client errors
+ */
+async function httpWithRetry<T>(
+  path: string,
+  init?: RequestInit & { signal?: AbortSignal }
+): Promise<T> {
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 second
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await http<T>(path, init);
+    } catch (error) {
+      // Check if request was aborted
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error;
+      }
+
+      // Don't retry on 4xx client errors
+      if (error instanceof HttpError && error.status >= 400 && error.status < 500) {
+        throw error;
+      }
+
+      // Don't retry if this was the last attempt
+      if (attempt === maxRetries) {
+        throw error;
+      }
+
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = baseDelay * Math.pow(2, attempt);
+      if (import.meta.env.DEV) {
+        console.log(`[Finz] Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms for ${path}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw new Error('Max retries exceeded');
+}
+
 function normalizeListResponse<T>(payload: { data?: unknown } | unknown): T[] {
   if (Array.isArray(payload)) return payload as T[];
   if (payload && typeof payload === "object") {
@@ -277,6 +320,47 @@ const ProjectRubroRequestSchema = z.object({
 });
 
 type ProjectRubroRequest = z.infer<typeof ProjectRubroRequestSchema>;
+
+// Baseline detail response type
+export type BaselineDetailResponse = {
+  baseline_id: string;
+  project_id: string;
+  project_name: string;
+  status: string;
+  created_by: string;
+  accepted_by?: string;
+  accepted_at?: string;
+  rejected_by?: string;
+  rejected_at?: string;
+  labor_estimates: Array<{
+    rubroId: string;
+    role: string;
+    country: string;
+    level: string;
+    fte_count: number;
+    hourly_rate: number;
+    hours_per_month: number;
+    on_cost_percentage: number;
+    start_month: number;
+    end_month: number;
+  }>;
+  non_labor_estimates: Array<{
+    rubroId: string;
+    category: string;
+    description: string;
+    amount: number;
+    currency: string;
+    one_time: boolean;
+    start_month?: number;
+    end_month?: number;
+    vendor?: string;
+    capex_flag: boolean;
+  }>;
+  duration_months?: number;
+  total_amount: number;
+  currency: string;
+  created_at: string;
+};
 
 // Allocation bulk schema
 export const AllocationBulkSchema = z.object({
@@ -801,6 +885,104 @@ export const finanzasClient = {
       body: JSON.stringify({ projectId, dryRun }),
     });
     return data;
+  },
+
+  /**
+   * Get baseline details by ID
+   * Returns full baseline with labor_estimates and non_labor_estimates
+   */
+  async getBaselineById(
+    baselineId: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<BaselineDetailResponse> {
+    checkAuth();
+    return await httpWithRetry<BaselineDetailResponse>(`/baselines/${baselineId}`, {
+      method: 'GET',
+      signal: options?.signal,
+    });
+  },
+
+  /**
+   * Get rubros for a specific baseline
+   * Returns array of rubros materialized for the baseline
+   */
+  async getRubrosForBaseline(
+    projectId: string,
+    baselineId: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<Array<{
+    rubro_id: string;
+    nombre: string;
+    categoria?: string;
+    tipo_ejecucion?: string;
+    descripcion?: string;
+    linea_codigo?: string;
+    tipo_costo?: string;
+  }>> {
+    checkAuth();
+    const result = await httpWithRetry<{ data: unknown[] } | unknown[]>(
+      `/projects/${projectId}/baselines/${baselineId}/rubros`,
+      {
+        method: 'GET',
+        signal: options?.signal,
+      }
+    );
+    return normalizeListResponse(result);
+  },
+
+  /**
+   * Get allocations for a specific baseline
+   * Used as fallback when rubros are not materialized
+   */
+  async getAllocationsForBaseline(
+    projectId: string,
+    baselineId: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<Array<{
+    allocation_id: string;
+    rubro_id: string;
+    mes: string;
+    monto_planeado: number;
+    monto_forecast?: number;
+    baseline_id?: string;
+  }>> {
+    checkAuth();
+    const result = await httpWithRetry<{ data: unknown[] } | unknown[]>(
+      `/projects/${projectId}/baselines/${baselineId}/allocations`,
+      {
+        method: 'GET',
+        signal: options?.signal,
+      }
+    );
+    return normalizeListResponse(result);
+  },
+
+  /**
+   * Get prefacturas for a specific baseline
+   * Used as fallback when rubros are not materialized
+   */
+  async getPrefacturasForBaseline(
+    projectId: string,
+    baselineId: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<Array<{
+    prefactura_id: string;
+    rubro_id?: string;
+    descripcion: string;
+    monto: number;
+    mes: string;
+    tipo: string;
+    baseline_id?: string;
+  }>> {
+    checkAuth();
+    const result = await httpWithRetry<{ data: unknown[] } | unknown[]>(
+      `/projects/${projectId}/baselines/${baselineId}/prefacturas`,
+      {
+        method: 'GET',
+        signal: options?.signal,
+      }
+    );
+    return normalizeListResponse(result);
   },
 };
 

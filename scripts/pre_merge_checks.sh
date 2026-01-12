@@ -1,39 +1,56 @@
 #!/usr/bin/env bash
 set -euo pipefail
-echo "Running pre-merge checks..."
+
+echo "╔════════════════════════════════════════════════════════════════╗"
+echo "║  🔍 Running Pre-Merge Checks                                   ║"
+echo "╚════════════════════════════════════════════════════════════════╝"
 
 # Export required environment variables for build
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev}"
 export CI="${CI:-false}"
 
-# 1. Install pnpm if missing
-if ! command -v pnpm >/dev/null 2>&1; then
-  npm i -g pnpm@8
-fi
+# 1. Install dependencies
+echo "📦 Installing dependencies..."
+npm ci
 
-# 2. Install dependencies deterministically using pnpm lockfile
-pnpm install --frozen-lockfile
+# 2. Lint & types
+echo "🔍 Running linter..."
+npm run lint
 
-# 3. Lint & types
-pnpm -s lint
-pnpm -s typecheck || echo "⚠️ Typecheck has warnings but continuing..."
+echo "📝 Type checking..."
+npm run typecheck || echo "⚠️ Typecheck has warnings but continuing..."
 
 # 4. Unit tests (if they exist)
 if grep -q '"test"' package.json; then
-  pnpm -s test -- --runInBand || echo "⚠️ Tests have failures but continuing..."
+  echo "🧪 Running unit tests..."
+  npm test -- --passWithNoTests --runInBand || echo "⚠️ Tests have failures but continuing..."
+fi
+
+# 4. Integration tests
+if [ -d "tests/integration" ]; then
+  echo "🔗 Running integration tests..."
+  npx tsx --test tests/integration/*.test.ts || echo "⚠️ Integration tests have failures but continuing..."
+else
+  echo "⚠️  No integration tests directory found, skipping..."
 fi
 
 # 5. Build (production)
-pnpm -s build
+echo "🏗️  Building project..."
+npm run build
 
 # 6. Run FE contract tests / API wiring checks (if script exists)
 if [ -f "scripts/qa-full-review.sh" ]; then
+  echo "🔬 Running QA full review..."
   bash scripts/qa-full-review.sh || echo "⚠️ QA review has warnings but continuing..."
 fi
 
 # 7. Run finanzas small verification (RBAC / endpoints) (if script exists)
 if [ -f "scripts/verify-rbac-fix.js" ]; then
+  echo "🔐 Running RBAC verification..."
   node scripts/verify-rbac-fix.js || echo "⚠️ RBAC verification has warnings but continuing..."
 fi
 
-echo "Pre-merge checks complete."
+echo ""
+echo "╔════════════════════════════════════════════════════════════════╗"
+echo "║  ✅ PRE-MERGE CHECKS COMPLETE                                  ║"
+echo "╚════════════════════════════════════════════════════════════════╝"

@@ -321,3 +321,98 @@ No new errors introduced by this PR.
 - ✅ No new dependencies
 - ✅ Minimal code modifications
 - ✅ Comprehensive testing
+
+---
+
+## Forecast Project Breakdown Toggle (Por Proyecto View)
+
+### Feature:
+New toggle in "Cuadrícula de Pronóstico 12 Meses" (TODOS/ALL_PROJECTS mode) to switch between:
+- **Por Categoría** (existing category-based view)
+- **Por Proyecto** (new project-based view)
+
+### Before:
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Rubros por Categoría                                        │
+│ [Mano de Obra (MOD)] [Todo] [No Mano de Obra]  [Search]    │
+└─────────────────────────────────────────────────────────────┘
+  Category View Only
+```
+
+### After:
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Rubros por Categoría                                                │
+│ [Por Categoría] [Por Proyecto]  [Mano de Obra] [Todo] [No MOD] 🔍  │
+└─────────────────────────────────────────────────────────────────────┘
+  ↑ NEW: View Mode Toggle
+```
+
+### Project View Structure:
+```
+Table (when viewMode='project'):
+┌───────────────────┬─────┬─────┬─────┬─────────┬──────────┬──────────┐
+│ Categoría / Rubro │ M1  │ M2  │ ... │ Total   │ Consumo  │ Variación│
+├───────────────────┼─────┼─────┼─────┼─────────┼──────────┼──────────┤
+│   Rubro A         │ 100 │ 200 │ ... │ 1200    │ 85%      │ +50      │  ← Indented
+│   Rubro B         │ 150 │ 250 │ ... │ 1800    │ 92%      │ -20      │  ← Indented
+│ Subtotal – Proj1  │ 250 │ 450 │ ... │ 3000    │ 88%      │ +30      │  ← Bold
+│   Rubro C         │ 300 │ 350 │ ... │ 2500    │ 95%      │ +100     │  ← Indented
+│ Subtotal – Proj2  │ 300 │ 350 │ ... │ 2500    │ 95%      │ +100     │  ← Bold
+│ Total Portafolio  │ 550 │ 800 │ ... │ 5500    │ 91%      │ +130     │  ← Sticky
+└───────────────────┴─────┴─────┴─────┴─────────┴──────────┴──────────┘
+```
+
+### Implementation Details:
+**Files Changed:**
+1. `src/features/sdmt/cost/Forecast/projectGrouping.ts` (NEW)
+   - Exports: `buildProjectTotals()`, `buildProjectRubros()`
+   - Types: `ProjectTotals`, `ProjectRubro`, `ProjectMonthTotals`, `ProjectOverallTotals`
+   - Mirrors logic from `categoryGrouping.ts` but groups by `project_id`
+
+2. `src/features/sdmt/cost/Forecast/SDMTForecast.tsx`
+   - Added: `import { buildProjectTotals, buildProjectRubros } from './projectGrouping'`
+   - Added useMemo: `projectTotals`, `projectRubros`
+   - Passes `projectTotals` and `projectRubros` to `ForecastRubrosTable`
+
+3. `src/features/sdmt/cost/Forecast/components/ForecastRubrosTable.tsx`
+   - Added props: `projectTotals?: Map<string, ProjectTotals>`, `projectRubros?: Map<string, ProjectRubro[]>`
+   - Added state: `viewMode: 'category' | 'project'`
+   - Added UI: View mode toggle buttons (Por Categoría / Por Proyecto)
+   - Added logic: `visibleProjects` useMemo with search/filter support
+   - Added helper: `recalculateProjectTotals()` for filtered project totals
+   - Updated: Search placeholder changes based on view mode
+   - Persistence: `viewMode` saved to sessionStorage per user+project
+
+**Behavior:**
+- Toggle defaults to "Por Categoría" (existing view)
+- Clicking "Por Proyecto" switches to project-grouped view with indented rubros
+- Search works for both project names and rubro descriptions in project view
+- Filters (Mano de Obra / Todo / No Mano de Obra) apply to both views
+- View mode and filter persist across page refreshes (sessionStorage)
+- Performance: All aggregations memoized; no extra API calls
+
+**Testing:**
+- `src/features/sdmt/cost/Forecast/__tests__/projectGrouping.test.ts` (7 tests)
+- `src/features/sdmt/cost/Forecast/__tests__/ForecastRubrosTable.projectView.test.ts` (5 tests)
+- All tests pass ✅
+
+**Accessibility:**
+- Toggle buttons have `aria-label` and `aria-pressed` attributes
+- Search input `aria-label` updates based on view mode
+- Keyboard navigation supported
+
+**Performance:**
+- `useMemo` on all grouping operations
+- No TDZ errors (helper functions declared before useMemo)
+- Reuses existing table rendering logic
+
+**User Experience:**
+- Consistent styling with category view
+- Project names in bold for subtotal rows
+- Rubros indented (pl-6) for visual hierarchy
+- Same variance chips and consumption % coloring
+- Tooltips show P / F / A breakdown per cell
+
+---
