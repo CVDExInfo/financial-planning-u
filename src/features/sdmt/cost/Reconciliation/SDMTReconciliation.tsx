@@ -1,6 +1,5 @@
 // src/features/sdmt/cost/Reconciliation/SDMTReconciliation.tsx
 import { useEffect, useMemo, useState } from "react";
-import type { ChangeEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 
@@ -64,18 +63,10 @@ import { useProviders } from "@/hooks/useProviders";
 import { useCurrentUser } from "@/hooks/useAuth";
 import {
   uploadInvoice,
-  createInvoiceMetadata,
   updateInvoiceStatus,
   type UploadInvoicePayload,
-  type CreateInvoiceMetadataPayload,
   FinanzasApiError,
 } from "@/api/finanzas";
-import {
-  validateInvoicePayload,
-  formatValidationErrors,
-  extractServerError,
-  logInvoicePayload,
-} from "@/utils/invoiceValidation";
 
 import {
   formatLineItemDisplay,
@@ -183,7 +174,6 @@ export default function SDMTReconciliation() {
   const [uploadFormData, setUploadFormData] = useState<UploadFormState>(
     createInitialUploadForm
   );
-  const [isSubmittingInvoice, setIsSubmittingInvoice] = useState(false);
   
   // Correction/deletion dialog state
   const [showCorrectionDialog, setShowCorrectionDialog] = useState(false);
@@ -424,7 +414,7 @@ export default function SDMTReconciliation() {
     ]);
   };
 
-  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     setUploadFormData((prev) => ({ ...prev, file }));
   };
@@ -435,40 +425,81 @@ export default function SDMTReconciliation() {
       return;
     }
 
-    if (!projectId) {
-      toast.error("Selecciona un proyecto antes de subir facturas");
+    // Validate line item selection
+    if (!uploadFormData.line_item_id) {
+      toast.error("Selecciona un rubro");
       return;
     }
 
-    // Detect if selected line item is MOD
+    // Check if selected line item is MOD
     const isMOD = isSelectedLineItemMOD(uploadFormData.line_item_id, safeLineItems);
 
-    // Validate payload using utility with MOD-aware options
-    const validationErrors = validateInvoicePayload({
-      line_item_id: uploadFormData.line_item_id,
-      month_start: uploadFormData.start_month,
-      month_end: uploadFormData.end_month,
-      amount: uploadFormData.amount,
-      vendor: uploadFormData.vendor,
-      invoice_date: uploadFormData.invoice_date,
-      invoice_number: uploadFormData.invoice_number,
-      file: uploadFormData.file,
-    }, {
-      requireFile: !isMOD,
-      requireInvoiceNumber: !isMOD,
-    });
+    // Validate month range
+    if (uploadFormData.start_month < 1 || uploadFormData.start_month > 12) {
+      toast.error("Mes de inicio debe estar entre 1 y 12");
+      return;
+    }
+    if (uploadFormData.end_month < 1 || uploadFormData.end_month > 12) {
+      toast.error("Mes de fin debe estar entre 1 y 12");
+      return;
+    }
+    if (uploadFormData.start_month > uploadFormData.end_month) {
+      toast.error("Mes de inicio no puede ser mayor que mes de fin");
+      return;
+    }
 
-    if (validationErrors.length > 0) {
-      const errorMessage = formatValidationErrors(validationErrors);
-      toast.error(errorMessage);
-      if (import.meta.env.DEV) {
-        console.warn("[Factura] Validation failed:", validationErrors);
+    // Validate invoice date
+    if (!uploadFormData.invoice_date) {
+      toast.error("Fecha de factura requerida para conciliación");
+      return;
+    }
+
+    const parsedInvoiceDate = Date.parse(uploadFormData.invoice_date);
+    if (Number.isNaN(parsedInvoiceDate)) {
+      toast.error("Ingresa una fecha de factura válida");
+      return;
+    }
+
+    // Validate vendor
+    const vendorValue = uploadFormData.vendor.trim();
+    if (!vendorValue) {
+      toast.error("Proveedor requerido para conciliación");
+      return;
+    }
+
+    // Validate amount
+    if (!uploadFormData.amount) {
+      toast.error("Monto de factura requerido");
+      return;
+    }
+
+    const amount = parseFloat(uploadFormData.amount);
+    if (Number.isNaN(amount)) {
+      toast.error("Ingresa un monto de factura válido");
+      return;
+    }
+    if (!(amount > 0)) {
+      toast.error("El monto de la factura debe ser mayor a cero");
+      return;
+    }
+
+    // MOD-specific validation: file is optional for MOD rubros
+    // NOTE: The backend API currently requires a file for all uploads (uploadInvoice throws if file is missing).
+    // TODO: Update backend to support metadata-only invoices for MOD rubros, or create a separate endpoint.
+    // For now, we still require a file but make the UI clearer about MOD being "optional" in the future.
+    if (!uploadFormData.file) {
+      if (isMOD) {
+        toast.error("Documento requerido por ahora. Backend será actualizado para permitir cargas sin documento para MOD.");
+      } else {
+        toast.error("Documento de factura requerido para rubros no-MOD");
       }
       return;
     }
 
-    // Parse amount after validation passes
-    const amount = parseFloat(uploadFormData.amount);
+    if (!projectId) {
+      toast.error("Selecciona un proyecto antes de subir facturas");
+      return;
+    }
 
     // Multi-month upload: loop through each month in the range
     const monthsToUpload = [];
@@ -477,7 +508,6 @@ export default function SDMTReconciliation() {
     }
 
     try {
-      setIsSubmittingInvoice(true);
       toast.loading(
         monthsToUpload.length === 1
           ? "Subiendo factura..."
@@ -485,56 +515,27 @@ export default function SDMTReconciliation() {
       );
 
       // Upload invoice for each month in the range
-      const uploadPromises = monthsToUpload.map(async (month) => {
-        // If file is present, use presigned S3 flow
-        if (uploadFormData.file) {
-          const payload: UploadInvoicePayload = {
-            file: uploadFormData.file,
-            line_item_id: uploadFormData.line_item_id,
-            month,
-            amount,
-            description: uploadFormData.description.trim() || undefined,
-            vendor: uploadFormData.vendor.trim(),
-            invoice_number: uploadFormData.invoice_number.trim() || undefined,
-            invoice_date: uploadFormData.invoice_date.trim() || undefined,
-          };
-
-          // Log payload for debugging (development only, no sensitive data)
-          if (import.meta.env.DEV) {
-            logInvoicePayload(payload, uploadFormData.file);
-          }
-
-          return uploadInvoice(projectId, payload);
-        } else {
-          // Metadata-only creation for MOD items (no S3 upload)
-          const payload: CreateInvoiceMetadataPayload = {
-            line_item_id: uploadFormData.line_item_id,
-            month,
-            amount,
-            description: uploadFormData.description.trim() || undefined,
-            vendor: uploadFormData.vendor.trim(),
-            invoice_number: uploadFormData.invoice_number.trim() || undefined,
-            invoice_date: uploadFormData.invoice_date.trim() || undefined,
-          };
-
-          // Log payload for debugging (development only, no sensitive data)
-          if (import.meta.env.DEV) {
-            logInvoicePayload(payload as any, undefined);
-          }
-
-          return createInvoiceMetadata(projectId, payload);
-        }
-      });
+      const uploadPromises = monthsToUpload.map((month) =>
+        uploadMutation.mutateAsync({
+          projectId,
+          file: uploadFormData.file!,
+          line_item_id: uploadFormData.line_item_id,
+          month,
+          amount,
+          description: uploadFormData.description.trim() || undefined,
+          vendor: vendorValue,
+          invoice_number: uploadFormData.invoice_number.trim() || undefined,
+          invoice_date: uploadFormData.invoice_date.trim() || undefined,
+        })
+      );
 
       await Promise.all(uploadPromises);
 
       toast.dismiss();
       toast.success(
         monthsToUpload.length === 1
-          ? isMOD && !uploadFormData.file
-            ? "Registro de MOD creado exitosamente"
-            : "Factura y documento subidos exitosamente"
-          : `${monthsToUpload.length} ${isMOD && !uploadFormData.file ? "registros de MOD creados" : "facturas subidas"} exitosamente`
+          ? "Factura y documento subidos exitosamente"
+          : `${monthsToUpload.length} facturas subidas exitosamente`
       );
 
       setShowUploadForm(false);
@@ -549,29 +550,11 @@ export default function SDMTReconciliation() {
       }
     } catch (err) {
       toast.dismiss();
-      
-      // Extract server error message
-      const serverMessage = extractServerError(err);
-      toast.error(serverMessage);
-      
+      const message = formatUploadError(err);
+      toast.error(message);
       if (import.meta.env.DEV) {
-        console.error("[Finanzas] ❌ Invoice upload error:", {
-          projectId,
-          line_item_id: uploadFormData.line_item_id,
-          amount,
-          vendor: uploadFormData.vendor ? "***" : undefined,
-          invoice_date: uploadFormData.invoice_date,
-          file: uploadFormData.file ? {
-            name: uploadFormData.file.name,
-            size: uploadFormData.file.size,
-            type: uploadFormData.file.type
-          } : undefined,
-          error: err,
-          errorMessage: serverMessage,
-        });
+        console.error("[SDMTReconciliation] Invoice upload failed", { projectId, payload: uploadFormData, err });
       }
-    } finally {
-      setIsSubmittingInvoice(false);
     }
   };
 
@@ -1253,9 +1236,9 @@ export default function SDMTReconciliation() {
             </Button>
             <Button
               onClick={handleInvoiceSubmit}
-              disabled={isSubmittingInvoice || !canUploadInvoices}
+              disabled={uploadMutation.isPending || !canUploadInvoices}
             >
-              {isSubmittingInvoice ? "Subiendo..." : "Subir Factura"}
+              {uploadMutation.isPending ? "Subiendo..." : "Subir Factura"}
             </Button>
           </div>
         </DialogContent>

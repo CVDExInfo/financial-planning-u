@@ -6,7 +6,7 @@
  * for all projects and rubros at a glance.
  * 
  * Supports:
- * - Month selection (current, previous, M1-M12)
+ * - Month selection (current, previous, M1-M60)
  * - Grouping by Project or Rubro
  * - Search by project code/name and rubro name
  * - Filter to show only rows with variance
@@ -120,7 +120,7 @@ interface MonthlySnapshotGridProps {
 }
 
 type GroupingMode = 'project' | 'rubro';
-type MonthOption = 'current' | 'previous' | number; // 'current', 'previous', or 1-12
+type MonthOption = 'current' | 'previous' | number; // 'current', 'previous', or 1-60
 
 interface SnapshotRow {
   id: string;
@@ -217,10 +217,15 @@ export function MonthlySnapshotGrid({
     if (selectedMonth === 'current') return getCurrentMonthIndex();
     if (selectedMonth === 'previous') {
       const current = getCurrentMonthIndex();
-      return current > 1 ? current - 1 : 12;
+      // Determine the maximum available month from forecastData (fallback to 60)
+      const maxMonth =
+        (Array.isArray(forecastData) && forecastData.length > 0)
+          ? Math.max(...forecastData.map((d) => Number(d.month) || 0))
+          : 60;
+      return current > 1 ? current - 1 : Math.max(1, maxMonth);
     }
     return selectedMonth as number;
-  }, [selectedMonth, getCurrentMonthIndex]);
+  }, [selectedMonth, getCurrentMonthIndex, forecastData]);
 
   // Get budget for selected month
   const monthBudget = useMemo(() => {
@@ -907,7 +912,7 @@ export function MonthlySnapshotGrid({
                                   <FileSpreadsheet className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent>Ver detalle 12 meses</TooltipContent>
+                              <TooltipContent>Ver detalle mensual</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
 
