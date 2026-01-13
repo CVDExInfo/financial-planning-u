@@ -72,18 +72,38 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
         baseline?.payload?.projectId;
     }
 
-    const result = await materializeRubrosFromBaseline({
+    // Materialize rubros (existing behavior)
+    const rubrosResult = await materializeRubrosFromBaseline({
       projectId: resolvedProjectId,
       baselineId: resolvedBaselineId,
       dryRun: !!dryRun,
     });
+
+    // ALSO materialize allocations so the UI "Materializar Baseline" produces both rubros and allocations
+    // We call the allocations materializer directly to produce idempotent writes.
+    const { materializeAllocationsForBaseline } = await import("../../lib/materializers");
+    
+    // Fetch the full baseline payload to pass to the allocations materializer
+    const baselinePayload = await fetchBaselinePayload(resolvedBaselineId);
+    
+    const allocationsResult = await materializeAllocationsForBaseline(
+      {
+        baseline_id: resolvedBaselineId,
+        project_id: resolvedProjectId,
+        payload: baselinePayload?.payload || baselinePayload,
+      },
+      { dryRun: !!dryRun }
+    );
 
     return withCors(
       ok({
         success: true,
         dryRun: !!dryRun,
         baselineId: resolvedBaselineId,
-        result,
+        result: {
+          rubrosResult,
+          allocationsResult,
+        },
       })
     );
   } catch (err) {
