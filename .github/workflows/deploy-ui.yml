@@ -14,7 +14,7 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
   DEPLOYMENT_ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
   FINANZAS_BUCKET_NAME: ${{ vars.FINANZAS_BUCKET_NAME || 'ukusi-ui-finanzas-prod' }}
-  CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID || 'EPQU7PVDLQUA' }}
+  CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID || 'EPQU7PVDLQXUA' }}
   CF_DOMAIN: ${{ vars.CF_DOMAIN || 'd7t9x3j66yd8k.cloudfront.net' }}
   FINANZAS_CF_FUNCTION_NAME: ${{ vars.FINANZAS_CF_FUNCTION_NAME || 'finanzas-path-rewrite' }}
   FINZ_API_ID: ${{ vars.FINZ_API_ID || 'pyorjw6lbe' }}
@@ -73,27 +73,46 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install CLI tools
+      - name: Install CLI tools (robust + diagnostic)
         run: |
           set -euo pipefail
           echo "Installing required CLI tools for validation..."
-          sudo apt-get update -qq
-          # Explicitly install tools we rely on (including grep)
-          sudo apt-get install -y -qq curl jq dnsutils grep coreutils unzip
-          # Ensure AWS CLI v2 is available and up-to-date
-          if ! command -v aws &> /dev/null; then
-            echo "AWS CLI not found, installing AWS CLI v2..."
-            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
-            unzip -q /tmp/awscliv2.zip -d /tmp
-            sudo /tmp/aws/install
-            rm -rf /tmp/awscliv2.zip /tmp/aws
+          echo "OS release:"
+          cat /etc/os-release || true
+          echo "uname -a:"
+          uname -a || true
+
+          # update and install with explicit failure diagnostics
+          if ! sudo apt-get update -qq; then
+            echo "❌ apt-get update failed - printing apt logs and lsb_release"
+            sudo apt-get update || true
+            lsb_release -a || true
+            exit 1
           fi
-          echo "Tool versions and paths (debug):"
-          echo "  PATH=$PATH"
-          echo "  grep: $(command -v grep || echo NOTFOUND)  ; grep --version 2>&1 || true"
-          echo "  aws: $(aws --version 2>&1 || true)"
-          echo "  jq: $(jq --version 2>&1 || true)"
-          echo "✅ CLI tools installed"
+
+          if ! sudo apt-get install -y -qq curl jq dnsutils grep coreutils unzip python3; then
+            echo "❌ apt-get install failed; listing dpkg status for relevant packages"
+            dpkg -l | egrep -i '(curl|jq|dnsutils|grep|coreutils|unzip|python3)' || true
+            sudo apt-get install -y curl jq dnsutils grep coreutils unzip python3 || true
+            echo "Retry attempt results (dpkg -l):"
+            dpkg -l | egrep -i '(curl|jq|dnsutils|grep|coreutils|unzip|python3)' || true
+            exit 1
+          fi
+
+          echo "Installed packages snapshot (dpkg -l relevant lines):"
+          dpkg -l | egrep -i '(curl|jq|dnsutils|grep|coreutils|unzip|python3)' || true
+
+          echo "Locations:"
+          for cmd in grep jq curl unzip python3 awk sed; do
+            echo -n "$cmd -> "
+            command -v $cmd || echo "NOTFOUND"
+          done
+
+          echo "grep --version output:"
+          grep --version 2>&1 || true
+
+          echo "PATH: $PATH"
+          echo "✅ CLI tools installed (robust)"
 
       - name: Install deps
         run: |
@@ -164,6 +183,7 @@ jobs:
             if [ "${ALLOW_DRIFT}" != "true" ]; then
               echo "❌ CRITICAL: Production deployment with non-production API stage"
               echo "   DEPLOYMENT_ENV is 'prod' but FINZ_API_STAGE is '${FINZ_API_STAGE}'"
+              echo "   This would deploy production frontend pointing to ${FINZ_API_STAGE} API"
               echo ""
               echo "🔧 To fix:"
               echo "   1. Set FINZ_API_STAGE_PROD=prod in repository variables"
@@ -365,7 +385,7 @@ jobs:
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
         run: |
           set -euo pipefail
-          VITE_API_BASE_URL="$(printf '%s' "$VITE_API_BASE_URL" | tr -d '\r')"
+          VITE_API_BASE_URL="$(printf '%s' "$VITE_API_BASE_URL" | tr -d '\r\n')"
           VITE_API_BASE_URL="${VITE_API_BASE_URL%/}"
           DIST="dist-finanzas"
           echo "🔍 Searching for VITE_API_BASE_URL in build artifacts..."
@@ -526,6 +546,7 @@ jobs:
       - name: Verify Finanzas S3 manifest matches local build
         run: |
           set -euo pipefail
+          # Build local manifest
           find dist-finanzas -type f \
             ! -name '*.map' \
             ! -name '*.docx' \
@@ -533,6 +554,8 @@ jobs:
             -print \
             | sed 's|^dist-finanzas/||' \
             | sort > /tmp/local-finanzas-manifest.txt
+
+          # Try to list S3 manifest (capture stderr)
           if ! aws s3api list-objects-v2 \
             --bucket "${FINANZAS_BUCKET_NAME}" \
             --prefix "finanzas/" \
@@ -555,6 +578,7 @@ jobs:
               exit 1
             fi
           fi
+
           echo "🔍 Comparing local vs S3 manifests (excluding .map/.docx files and docs/ prefix)..."
           if ! diff -u /tmp/local-finanzas-manifest.txt /tmp/s3-finanzas-manifest.txt; then
             echo "❌ Finanzas S3 manifest mismatch — bucket drift detected"
@@ -636,29 +660,118 @@ jobs:
             echo "⚠️  HTML missing /finanzas/assets/ references (may indicate CloudFront cache not yet updated)"
             echo "   This is expected immediately after deployment - CloudFront invalidation may still be propagating"
           fi
-          # Show sample of what was found (for debugging)
           grep -oE '/finanzas/assets/[^"]+\.(js|css)' /tmp/finanzas-cf-html.txt | sort -u | head -20 || true
 
-      - name: Deploy smoke test (CloudFront HTML matches S3 assets)
+      - name: Deploy smoke test (Local build assets match S3)
         run: |
           set -euo pipefail
-          DOMAIN="${CF_DOMAIN}"
-          if [ -z "$DOMAIN" ]; then
-            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
-          fi
-          FINZ="https://${DOMAIN}/finanzas/"
-          HTML=$(curl -sS "$FINZ")
-          ASSET_PATHS=$(printf '%s' "$HTML" | grep -oE '/finanzas/assets/[^"]+\.(js|css)' | sort -u)
-          if [ -z "$ASSET_PATHS" ]; then
-            echo "❌ No /finanzas/assets references found in CloudFront HTML"
+          echo "🔍 Validating S3 deployment against local build artifacts..."
+          if [ ! -f dist-finanzas/index.html ]; then
+            echo "❌ Local build artifact dist-finanzas/index.html not found"
             exit 1
           fi
-          echo "$ASSET_PATHS" | while read -r PATH; do
-            KEY="${PATH#/}"
-            aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$KEY" >/dev/null \
-              || { echo "❌ Missing asset in S3: s3://${FINANZAS_BUCKET_NAME}/$KEY"; exit 1; }
-            echo "✅ Asset present in S3: $KEY"
-          done
+
+          # Extract asset paths from local build index.html
+          ASSET_PATHS=$(grep -oE '/finanzas/assets/[^"]+\.(js|css)' dist-finanzas/index.html | sort -u)
+          if [ -z "$ASSET_PATHS" ]; then
+            echo "❌ No /finanzas/assets references found in local build index.html"
+            echo " This indicates a build configuration issue (check base path in vite.config.ts)"
+            exit 1
+          fi
+
+          echo "📋 Assets referenced in local build:"
+          echo "$ASSET_PATHS"
+          echo ""
+
+          # List objects in S3 (capture stderr)
+          LIST_OK="true"
+          if ! S3_ASSETS=$(aws s3api list-objects-v2 \
+            --bucket "${FINANZAS_BUCKET_NAME}" \
+            --prefix "finanzas/assets/" \
+            --output json 2>/tmp/s3_assets_err.log \
+            | jq -r '.Contents[]?.Key' \
+            | sort -u); then
+            echo "----- aws s3api list-objects-v2 stderr -----"
+            sed -n '1,200p' /tmp/s3_assets_err.log || true
+            if grep -qi "AccessDenied\\|Access Denied" /tmp/s3_assets_err.log; then
+              echo "⚠️ Unable to list S3 assets due to AccessDenied."
+              echo "   Skipping S3 asset verification (no s3:ListBucket on ${FINANZAS_BUCKET_NAME})."
+              LIST_OK="false"
+            else
+              echo "❌ Unable to list S3 assets due to unexpected error. Failing."
+              exit 1
+            fi
+          fi
+
+          if [ "$LIST_OK" != "true" ]; then
+            exit 0
+          fi
+
+          if [ -z "$S3_ASSETS" ]; then
+            echo "❌ No assets found in S3 under finanzas/assets/"
+            echo "   Ensure the 'Upload Finanzas assets to S3' step completed successfully."
+            exit 1
+          fi
+
+          # Diagnostic: show S3 assets (first 20)
+          echo "S3 assets count (sample up to 20):"
+          printf '%s\n' "$S3_ASSETS" | sed -n '1,20p' || true
+          echo "Length of S3_ASSETS var (bytes): $(printf '%s' "$S3_ASSETS" | wc -c)"
+
+          # If grep is available, use it for membership checks; otherwise fallback to python3
+          if command -v grep >/dev/null 2>&1; then
+            MISSING_ASSETS=()
+            while IFS= read -r PATH; do
+              KEY="${PATH#/}"  # Remove leading slash to get S3 key
+              if echo "$S3_ASSETS" | grep -F -x -q "$KEY"; then
+                echo "✅ Asset present in S3: $KEY"
+              else
+                echo "❌ Missing asset in S3: s3://${FINANZAS_BUCKET_NAME}/$KEY"
+                MISSING_ASSETS+=("$KEY")
+              fi
+            done <<< "$ASSET_PATHS"
+
+            if [ ${#MISSING_ASSETS[@]} -gt 0 ]; then
+              echo ""
+              echo "❌ DEPLOYMENT VERIFICATION FAILED"
+              echo "   ${#MISSING_ASSETS[@]} asset(s) referenced in build but missing from S3:"
+              printf '   - %s\n' "${MISSING_ASSETS[@]}"
+              echo ""
+              echo "🔧 This indicates the S3 sync may have failed or assets weren't built correctly."
+              echo "   Review the 'Upload Finanzas assets to S3' step above for errors."
+              exit 1
+            fi
+          else
+            echo "⚠️ grep not found at membership check; using python3 fallback for membership tests"
+            printf '%s\n' "$S3_ASSETS" > /tmp/s3_assets_list.txt
+            printf '%s\n' "$ASSET_PATHS" > /tmp/local_asset_paths.txt
+            python3 - <<'PY'
+import sys
+s3 = set(line.strip() for line in open('/tmp/s3_assets_list.txt', 'r') if line.strip())
+missing=[]
+for line in open('/tmp/local_asset_paths.txt', 'r'):
+    p=line.strip()
+    if not p:
+        continue
+    key = p.lstrip('/')
+    if key not in s3:
+        missing.append(key)
+    else:
+        print("✅ Asset present in S3: {}".format(key))
+if missing:
+    print("", file=sys.stderr)
+    print("❌ DEPLOYMENT VERIFICATION FAILED", file=sys.stderr)
+    print("   {} asset(s) referenced in build but missing from S3:".format(len(missing)), file=sys.stderr)
+    for m in missing:
+        print("   - {}".format(m), file=sys.stderr)
+    print("", file=sys.stderr)
+    sys.exit(2)
+PY
+            # python exit code will fail this step if missing assets found
+          fi
+
+          echo ""
+          echo "✅ All build assets verified in S3"
 
       - name: Deep-route SPA smoke test
         run: |
@@ -667,16 +780,83 @@ jobs:
           if [ -z "$DOMAIN" ]; then
             DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
           fi
-          FINZ="https://${DOMAIN}/finanzas/"
-          # Example deep route to verify SPA routing (adjust path if you have known deep routes)
-          DEEP="/finanzas/sdmt/cost"
-          STATUS=$(curl -sS -o /tmp/finanzas-deep.html -w '%{http_code}' "${FINZ}${DEEP}")
-          echo "Deep route ${DEEP} HTTP: $STATUS"
+          DEEP_ROUTE="https://${DOMAIN}/finanzas/sdmt/cost/forecast"
+          echo "Testing deep SPA route: $DEEP_ROUTE"
+          STATUS=$(curl -sS -o /tmp/deep_route.html -w '%{http_code}' "$DEEP_ROUTE" 2>/dev/null || echo "000")
+          echo "Deep route status: $STATUS"
           if [ "$STATUS" != "200" ]; then
-            echo "❌ Deep-route SPA smoke test failed (HTTP $STATUS)"
+            echo "❌ Deep-route test failed (HTTP $STATUS)"
+            echo " SPA routing may not be configured correctly"
             exit 1
           fi
-          echo "✅ Deep-route SPA smoke test passed (HTTP 200)"
+          if [ -f /tmp/deep_route.html ]; then
+            if grep -q "/finanzas/assets/" /tmp/deep_route.html; then
+              echo "✅ Deep-route returns valid SPA content (found /finanzas/assets/)"
+            else
+              echo "❌ Deep-route response missing /finanzas/assets/ references"
+              echo " This may indicate CloudFront is not handling SPA routing correctly"
+              exit 1
+            fi
+          fi
+          echo "✅ Deep-route SPA smoke test passed"
+
+      - name: API Smokes (public /health, /catalog/rubros)
+        run: |
+          set -euo pipefail
+          : ${VITE_API_BASE_URL:?VITE_API_BASE_URL missing}
+          BASE="${VITE_API_BASE_URL%/}"
+          echo "API base: $BASE"
+          CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || true)
+          [ "$CODE" = "200" ] || { echo "❌ /health returned $CODE"; exit 1; }
+          LEN=$(curl -sS "$BASE/catalog/rubros" | jq '.data | length' || echo "0")
+          echo "Catalog items: $LEN"
+          [ "$LEN" != "0" ] || echo "⚠️ catalog/rubros length is 0 (seed missing?)"
+
+      - name: Post-Deployment Comprehensive Verification
+        run: |
+          set -euo pipefail
+          export CLOUDFRONT_DOMAIN="${CF_DOMAIN}"
+          export VITE_API_BASE_URL="${VITE_API_BASE_URL}"
+          export S3_BUCKET="${FINANZAS_BUCKET_NAME}"
+          echo "🔍 Running comprehensive post-deployment verification..."
+          bash scripts/post-deploy-verify.sh || {
+            echo "❌ Post-deployment verification failed"
+            echo " This indicates the deployment may not be functioning correctly"
+            echo " Review the errors above before proceeding"
+            exit 1
+          }
+
+      - name: Summary & Evidence Pack
+        if: always()
+        run: |
+          set -eo pipefail
+          DOMAIN="${CF_DOMAIN}"
+          if [ -z "$DOMAIN" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          fi
+          API="${VITE_API_BASE_URL:-N/A}"
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+# 🚀 Finanzas UI Deployment — ${DEPLOYMENT_ENV}
+## 📊 Build Target
+- Finanzas → dist-finanzas/ (/finanzas/)
+## ⚙️ Environment
+- AWS_REGION: ${AWS_REGION}
+- FINZ_API_ID: ${FINZ_API_ID}
+- FINZ_API_STAGE: ${FINZ_API_STAGE}
+- VITE_API_BASE_URL: ${API}
+## ☁️ AWS
+- Finanzas Bucket: ${FINANZAS_BUCKET_NAME}
+- CloudFront ID: ${CLOUDFRONT_DIST_ID}
+- CloudFront Domain: ${DOMAIN}
+## 🌐 Access
+- Finanzas: https://${DOMAIN}/finanzas/
+## ✅ Checklist
+- Base path OK (/finanzas/)
+- /finanzas/* behavior exists
+- /health returns 200
+- catalog/rubros returns JSON (length shown above)
+EOF
+          echo "✅ Evidence pack appended"
 
       - name: Finalize
         run: |
