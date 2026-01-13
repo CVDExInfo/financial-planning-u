@@ -94,7 +94,8 @@ jobs:
           set -euo pipefail
           echo "Installing required CLI tools for validation..."
           sudo apt-get update -qq
-          sudo apt-get install -y -qq curl jq dnsutils
+          # Explicitly install tools we rely on (including grep)
+          sudo apt-get install -y -qq curl jq dnsutils grep coreutils unzip
 
           # Ensure AWS CLI v2 is available and up-to-date
           if ! command -v aws &> /dev/null; then
@@ -105,7 +106,11 @@ jobs:
             rm -rf /tmp/awscliv2.zip /tmp/aws
           fi
 
-          aws --version
+          echo "Tool versions and paths (debug):"
+          echo "  PATH=$PATH"
+          echo "  grep: $(command -v grep || echo NOTFOUND)  ; grep --version 2>&1 || true"
+          echo "  aws: $(aws --version 2>&1 || true)"
+          echo "  jq: $(jq --version 2>&1 || true)"
           echo "✅ CLI tools installed"
 
       - name: Install deps
@@ -165,6 +170,14 @@ jobs:
           echo "📝 Setting VITE_API_BASE_URL=$BASE for Finanzas build"
           printf '%s\n' "VITE_API_BASE_URL=$BASE" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
+
+      - name: Export EXPECTED_API_BASE_URL for pre-build validation
+        run: |
+          set -euo pipefail
+          : "${VITE_API_BASE_URL:?VITE_API_BASE_URL must be set at this point}"
+          echo "Using EXPECTED_API_BASE_URL=${VITE_API_BASE_URL}"
+          printf '%s\n' "EXPECTED_API_BASE_URL=${VITE_API_BASE_URL}" >> "$GITHUB_ENV"
+          echo "✅ EXPECTED_API_BASE_URL exported"
 
       - name: Guard - Stage/Environment Drift Check
         run: |
@@ -542,6 +555,14 @@ jobs:
             --delete
           echo "✅ Finanzas assets uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/assets/"
 
+      - name: Debug - list S3 assets after upload
+        run: |
+          set -euo pipefail
+          echo "Post-upload S3 keys under finanzas/assets/:"
+          aws s3api list-objects-v2 --bucket "${FINANZAS_BUCKET_NAME}" --prefix "finanzas/assets/" --output json \
+            | jq -r '.Contents[]? | "\(.Key)\t\(.LastModified)\t\(.Size)\t\(.StorageClass)\t\(.ETag // "")"' \
+            | sort -u || true
+
       - name: Upload Finanzas non-asset files to S3 (/finanzas with no-cache)
         run: |
           set -euo pipefail
@@ -719,15 +740,13 @@ jobs:
             --output json 2>/tmp/s3_assets_err.log \
             | jq -r '.Contents[]?.Key' \
             | sort -u); then
+            echo "----- aws s3api list-objects-v2 stderr -----"
+            sed -n '1,200p' /tmp/s3_assets_err.log || true
             if grep -qi "AccessDenied\\|Access Denied" /tmp/s3_assets_err.log; then
-              echo "⚠️  Unable to list S3 assets under finanzas/assets/ due to AccessDenied."
-              echo "   Skipping S3 asset verification (no s3:ListBucket on ${FINANZAS_BUCKET_NAME})."
+              echo "⚠️  Unable to list S3 assets due to AccessDenied. Skipping asset verification."
               LIST_OK="false"
             else
-              echo "❌ Unable to list S3 assets under finanzas/assets/"
-              echo "   Ensure the role has s3:ListBucket permission for ${FINANZAS_BUCKET_NAME}."
-              echo "----- aws s3api list-objects-v2 stderr -----"
-              cat /tmp/s3_assets_err.log || true
+              echo "❌ Unable to list S3 assets due to unexpected error. Failing."
               exit 1
             fi
           fi
