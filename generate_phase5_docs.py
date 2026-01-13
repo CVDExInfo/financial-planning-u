@@ -27,11 +27,18 @@ import os
 import sys
 from pathlib import Path
 
+# Constants for placeholder image generation
+PLACEHOLDER_IMG_WIDTH = 1200
+PLACEHOLDER_IMG_HEIGHT = 800
+PLACEHOLDER_BG_COLOR = (240, 240, 240)
+PLACEHOLDER_TEXT_COLOR = (80, 80, 80)
+PLACEHOLDER_TEXT_POSITION = (20, 20)
+
 # The full markdown content (expanded version)
 MD_CONTENT = r"""
 # Phase 5 - TODOS Executive Layout Visual Guide (Validated + Expanded)
 
-_Last updated: 2025-07-__ (Validated & expanded by AIGOR)_
+_Last updated: 2026-01-13 (Validated & expanded by AI)_
 
 ---
 
@@ -372,7 +379,7 @@ export function getBudgetHealthStatus({ consumption, forecast, budget }) {
 
 ## 14. Change Log
 
-- `2025-07-__` — Validated original file; expanded with module APIs, accessibility, design tokens, full QA plan, screenshot conventions, and implementation notes.
+- `2026-01-13` — Validated original file; expanded with module APIs, accessibility, design tokens, full QA plan, screenshot conventions, and implementation notes.
 
 ---
 
@@ -414,11 +421,11 @@ def create_screenshot_placeholders(base_dir: Path):
             # Create a placeholder PNG with text
             try:
                 from PIL import Image, ImageDraw, ImageFont
-                img = Image.new("RGB", (1200, 800), color=(240, 240, 240))
+                img = Image.new("RGB", (PLACEHOLDER_IMG_WIDTH, PLACEHOLDER_IMG_HEIGHT), color=PLACEHOLDER_BG_COLOR)
                 d = ImageDraw.Draw(img)
                 text = f"Placeholder: {fn}"
                 # Use default font
-                d.text((20, 20), text, fill=(80, 80, 80))
+                d.text(PLACEHOLDER_TEXT_POSITION, text, fill=PLACEHOLDER_TEXT_COLOR)
                 img.save(p, "PNG")
                 print(f"✅ Created placeholder {fn}")
             except ImportError:
@@ -463,6 +470,7 @@ def create_docx(md_text: str, out_path: Path):
     """Convert markdown to DOCX using python-docx."""
     try:
         from docx import Document
+        from docx.shared import Pt
     except ImportError as e:
         print("❌ python-docx not installed. Please run: pip install python-docx")
         raise e
@@ -484,7 +492,7 @@ def create_docx(md_text: str, out_path: Path):
                 # Make code blocks slightly different
                 for run in p.runs:
                     run.font.name = 'Courier New'
-                    run.font.size = 10
+                    run.font.size = Pt(10)
                 code_block_lines = []
                 in_code_block = False
             else:
