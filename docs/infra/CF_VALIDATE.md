@@ -316,10 +316,6 @@ grep -oE '/finanzas/assets/[^"]+\.(js|css)' dist-finanzas/index.html
 - If hashes mismatch: Ensure build ran successfully before S3 sync
 
 **Prevention**: The new validation logic uses local `dist-finanzas/index.html` as source of truth, so it validates the exact assets that were built, not what CloudFront serves (which may be cached).
-  --paths '/*' '/finanzas/*' '/finanzas/index.html'
-```
-
-The workflow does this automatically, but you can manually trigger if needed.
 
 ## GREEN Criteria
 
