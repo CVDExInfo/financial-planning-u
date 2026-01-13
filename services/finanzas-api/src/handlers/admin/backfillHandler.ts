@@ -62,14 +62,16 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       );
     }
 
+    // Fetch baseline payload once (needed for both projectId resolution and allocations)
+    let baselinePayload = null;
     let resolvedProjectId = projectId;
     if (!resolvedProjectId) {
-      const baseline = await fetchBaselinePayload(resolvedBaselineId);
+      baselinePayload = await fetchBaselinePayload(resolvedBaselineId);
       resolvedProjectId =
-        baseline?.project_id ||
-        baseline?.projectId ||
-        baseline?.payload?.project_id ||
-        baseline?.payload?.projectId;
+        baselinePayload?.project_id ||
+        baselinePayload?.projectId ||
+        baselinePayload?.payload?.project_id ||
+        baselinePayload?.payload?.projectId;
     }
 
     // Materialize rubros (existing behavior)
@@ -83,8 +85,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     // We call the allocations materializer directly to produce idempotent writes.
     const { materializeAllocationsForBaseline } = await import("../../lib/materializers");
     
-    // Fetch the full baseline payload to pass to the allocations materializer
-    const baselinePayload = await fetchBaselinePayload(resolvedBaselineId);
+    // Fetch baseline payload if not already fetched
+    if (!baselinePayload) {
+      baselinePayload = await fetchBaselinePayload(resolvedBaselineId);
+    }
     
     const allocationsResult = await materializeAllocationsForBaseline(
       {
