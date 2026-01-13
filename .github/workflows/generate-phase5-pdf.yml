@@ -15,7 +15,7 @@ jobs:
     name: Build docs and generate PDF
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # allow commit back to the repo
+      contents: write  # allow commit back to the repo (for PR runs)
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
@@ -37,37 +37,54 @@ jobs:
           sudo apt-get install -y texlive-latex-recommended texlive-fonts-recommended texlive-latex-extra
           pandoc --version
 
-      - name: Create and activate venv, install python deps
+      - name: Verify pandoc and pdflatex
         run: |
+          pandoc --version
+          # pdflatex may be installed as part of texlive; check it
+          if command -v pdflatex >/dev/null 2>&1; then
+            pdflatex --version || true
+          else
+            echo "pdflatex not found; pandoc -> pdf may fail without LaTeX engine."
+          fi
+
+      - name: Create and activate venv, install python deps
+        shell: bash
+        run: |
+          set -euo pipefail
           python -m venv .venv
           source .venv/bin/activate
           python -m pip install --upgrade pip
           pip install --no-cache-dir python-docx Pillow docx2pdf
 
       - name: Run generate_phase5_docs.py
-        env:
-          PATH: ${{ runner.tool_cache }}/python/3.10.*/x64/bin:${{ env.PATH }}
+        shell: bash
         run: |
+          set -euo pipefail
+          # Activate the venv created earlier
           source .venv/bin/activate
+          # Run the script (do not fail the job if PDF generation fails; we handle that later)
           python generate_phase5_docs.py || true
-          ls -la PHASE5_VISUAL_GUIDE.*
-          ls -la docs/phase5/screenshots || true
+          # Show created files (use absolute /bin/ls to avoid PATH issues)
+          /bin/ls -la PHASE5_VISUAL_GUIDE.* || true
+          /bin/ls -la docs/phase5/screenshots || true
 
       - name: Check if PDF exists
         id: check_pdf
         run: |
           if [ -f "PHASE5_VISUAL_GUIDE.pdf" ]; then
-            echo "::set-output name=exists::true"
+            echo "exists=true" >> $GITHUB_OUTPUT
             echo "pdf_exists=true" > pdf_status.txt
           else
-            echo "::set-output name=exists::false"
+            echo "exists=false" >> $GITHUB_OUTPUT
             echo "pdf_exists=false" > pdf_status.txt
           fi
           cat pdf_status.txt
 
-      - name: Commit PDF back to branch (if present)
-        if: steps.check_pdf.outputs.exists == 'true'
+      - name: Commit PDF back to branch (if present, only for PR runs)
+        if: steps.check_pdf.outputs.exists == 'true' && github.event_name == 'pull_request'
+        shell: bash
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # create a small commit message to include the generated PDF
@@ -78,9 +95,10 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "chore(docs): add generated PHASE5_VISUAL_GUIDE.pdf and screenshots (automation)"
-            # push back to the PR head branch
+            # push back to the PR head branch (safe for pull_request runs)
             git push origin HEAD:${{ github.head_ref }}
           fi
+
       - name: Upload artifact (for convenience)
         if: steps.check_pdf.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
@@ -93,4 +111,3 @@ jobs:
         run: |
           echo "PHASE5_VISUAL_GUIDE.pdf was not created by the script."
           echo "Check logs above for errors; ensure generate_phase5_docs.py created PHASE5_VISUAL_GUIDE.docx first, then pandoc converted it."
-
