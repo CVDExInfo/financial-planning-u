@@ -77,7 +77,6 @@ import {
   buildPortfolioTotals,
 } from './categoryGrouping';
 import { buildProjectTotals, buildProjectRubros } from './projectGrouping';
-import { rubrosFromAllocations } from '@/features/sdmt/utils';
 
 // TODO: Backend Integration for Change Request Impact on Forecast
 // When a change request is approved in SDMTChanges, the backend should:
@@ -146,12 +145,8 @@ export function SDMTForecast() {
   const [dirtyForecasts, setDirtyForecasts] = useState<Record<string, ForecastRow>>({});
   const [savingForecasts, setSavingForecasts] = useState(false);
   
-  // Baseline detail and rubros source tracking
+  // Baseline detail for FTE calculation
   const [baselineDetail, setBaselineDetail] = useState<BaselineDetailResponse | null>(null);
-  const [rubrosSource, setRubrosSource] = useState<'api' | 'fallback' | null>(null);
-  
-  // Request ID tracking to prevent race conditions
-  const requestIdRef = useRef(0);
   
   // Sorting state for forecast grid
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -309,7 +304,7 @@ export function SDMTForecast() {
   // Load baseline details for FTE calculation
   useEffect(() => {
     if (currentProject?.baselineId && !isPortfolioView) {
-      getBaselineById(currentProject.baselineId, currentProject.id)
+      getBaselineById(currentProject.baselineId)
         .then((data) => {
           if (import.meta.env.DEV) {
             console.log('[SDMTForecast] Baseline details loaded for FTE calculation');
@@ -362,14 +357,6 @@ export function SDMTForecast() {
       if (isPortfolioView) {
         await loadPortfolioForecast(months, requestKey);
       } else {
-        // Load baseline rubros for single project (non-portfolio) view
-        if (currentProject?.baselineId) {
-          await loadBaselineRubros(
-            selectedProjectId,
-            currentProject.baselineId,
-            abortControllerRef.current?.signal
-          );
-        }
         await loadSingleProjectForecast(selectedProjectId, months, requestKey);
       }
       
@@ -547,105 +534,8 @@ export function SDMTForecast() {
   };
 
   /**
-   * Load baseline rubros with fallback to allocations/prefacturas
-   * Uses Promise.allSettled to fetch all data in parallel and handle partial failures
+   * Load forecast data for a single project
    */
-  const loadBaselineRubros = async (projectId: string, baselineId: string, signal?: AbortSignal) => {
-    if (!projectId || !baselineId) {
-      if (import.meta.env.DEV) {
-        console.debug('[loadBaselineRubros] Skipping: missing projectId or baselineId');
-      }
-      return;
-    }
-
-    const myRequestId = ++requestIdRef.current;
-    
-    if (import.meta.env.DEV) {
-      console.debug(`[loadBaselineRubros] Starting request ${myRequestId} for baseline ${baselineId}`);
-    }
-
-    // Reset rubros source while loading
-    setRubrosSource(null);
-
-    try {
-      // Fetch all data in parallel using Promise.allSettled
-      const tasks = [
-        finanzasClient.getRubrosForBaseline(projectId, baselineId, { signal }),
-        finanzasClient.getAllocationsForBaseline(projectId, baselineId, { signal }),
-        finanzasClient.getPrefacturasForBaseline(projectId, baselineId, { signal }),
-        finanzasClient.getBaselineById(baselineId, { signal, projectId }),
-      ];
-
-      const results = await Promise.allSettled(tasks);
-
-      // Ensure this request is still active
-      if (myRequestId !== requestIdRef.current) {
-        if (import.meta.env.DEV) {
-          console.debug(`[loadBaselineRubros] Request ${myRequestId} stale, aborting`);
-        }
-        return;
-      }
-
-      // Extract results safely with strong type guards
-      const rubrosRes = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value as any[] : [];
-      const allocationsRes = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value as any[] : [];
-      const prefacturasRes = results[2].status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value as any[] : [];
-      const baselineRes: BaselineDetailResponse | null = (results[3] && results[3].status === 'fulfilled') ? results[3].value as BaselineDetailResponse : null;
-
-      // Update baseline detail
-      setBaselineDetail(baselineRes);
-
-      if (import.meta.env.DEV) {
-        console.debug(`[loadBaselineRubros] Results:`, {
-          rubros: rubrosRes?.length || 0,
-          allocations: allocationsRes?.length || 0,
-          prefacturas: prefacturasRes?.length || 0,
-          baseline: baselineRes ? 'loaded' : 'null',
-        });
-      }
-
-      // If rubros endpoint returned data, use it
-      if (rubrosRes && rubrosRes.length > 0) {
-        setRubrosSource('api');
-        if (import.meta.env.DEV) {
-          console.debug(`[loadBaselineRubros] Using ${rubrosRes.length} rubros from API`);
-        }
-        return rubrosRes;
-      }
-
-      // Fallback: materialize from allocations & prefacturas if any present
-      if ((allocationsRes && allocationsRes.length > 0) || (prefacturasRes && prefacturasRes.length > 0)) {
-        const materialized = rubrosFromAllocations(allocationsRes || [], prefacturasRes || []);
-        setRubrosSource('fallback');
-        if (import.meta.env.DEV) {
-          console.debug(
-            `[loadBaselineRubros] Materialized ${materialized.length} rubros from ${allocationsRes?.length || 0} allocations + ${prefacturasRes?.length || 0} prefacturas`
-          );
-        }
-        return materialized;
-      }
-
-      // Nothing available
-      setRubrosSource(null);
-      if (import.meta.env.DEV) {
-        console.debug('[loadBaselineRubros] No rubros, allocations, or prefacturas available');
-      }
-      return [];
-    } catch (error) {
-      // Handle AbortError gracefully
-      if (error instanceof Error && error.name === 'AbortError') {
-        if (import.meta.env.DEV) {
-          console.debug(`[loadBaselineRubros] Request ${myRequestId} aborted`);
-        }
-        return [];
-      }
-
-      console.error('[loadBaselineRubros] Error loading baseline rubros:', error);
-      setRubrosSource(null);
-      return [];
-    }
-  };
-
   const loadSingleProjectForecast = async (projectId: string, months: number, requestKey: string) => {
     const payload = await getForecastPayload(projectId, months);
     
@@ -2635,17 +2525,7 @@ const totalFTE = useMemo(() => {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <CardTitle className="text-lg">Cuadrícula de Pronóstico (12 meses) — Por Rubro</CardTitle>
-                      {rubrosSource === 'fallback' && (
-                        <Badge variant="outline" className="text-xs">
-                          Fuente: Fallback (allocations/prefacturas)
-                        </Badge>
-                      )}
-                      {rubrosSource === 'api' && import.meta.env.DEV && (
-                        <Badge variant="outline" className="text-xs">
-                          Fuente: API
-                        </Badge>
-                      )}
+                      <CardTitle className="text-lg">Cuadrícula de Pronóstico 12 Meses</CardTitle>
                     </div>
                     <CollapsibleTrigger asChild>
                       <Button
@@ -2672,7 +2552,6 @@ const totalFTE = useMemo(() => {
                       formatCurrency={formatCurrency}
                       canEditBudget={canEditBudget}
                       defaultFilter="labor"
-                      defaultViewMode="category"
                     />
                   </CardContent>
                 </CollapsibleContent>
@@ -2993,8 +2872,8 @@ const totalFTE = useMemo(() => {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">
                   {selectedPeriod === 'CURRENT_MONTH' 
-                    ? `Desglose Mensual vs Presupuesto (12 meses) — Por Proyecto - Mes Actual (M${getCurrentMonthIndex()})`
-                    : 'Desglose Mensual vs Presupuesto (12 meses) — Por Proyecto'}
+                    ? `Desglose mensual vs presupuesto - Mes Actual (M${getCurrentMonthIndex()})`
+                    : 'Desglose mensual vs presupuesto'}
                 </CardTitle>
                 <CollapsibleTrigger asChild>
                   <Button
@@ -3337,8 +3216,8 @@ const totalFTE = useMemo(() => {
           <CardHeader>
             <CardTitle>
               {selectedPeriod === 'CURRENT_MONTH' 
-                ? `Cuadrícula de Pronóstico (12 meses) — Por Rubro - Mes Actual (M${getCurrentMonthIndex()})`
-                : 'Cuadrícula de Pronóstico (12 meses) — Por Rubro'}
+                ? `Cuadrícula de Pronóstico - Mes Actual (M${getCurrentMonthIndex()})`
+                : 'Cuadrícula de Pronóstico 12 Meses'}
             </CardTitle>
           </CardHeader>
           <CardContent>
