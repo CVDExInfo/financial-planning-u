@@ -78,6 +78,22 @@ import {
 } from './categoryGrouping';
 import { buildProjectTotals, buildProjectRubros } from './projectGrouping';
 
+// ---- Exported helpers for month support and testing ----
+export function getBaselineDuration(baselineDetail: any): number {
+  // Try payload.duration_months then duration_months, fall back to 60
+  const raw =
+    (baselineDetail?.payload?.duration_months ?? baselineDetail?.duration_months);
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.max(1, parsed) : 60;
+}
+
+export function clampMonthIndex(monthsElapsed: number, baselineDetail: any): number {
+  const maxMonths = Math.max(1, getBaselineDuration(baselineDetail) || 60);
+  return Math.max(1, Math.min(maxMonths, Math.floor(Number(monthsElapsed) || 1)));
+}
+// ---------------------------------------------------------
+
+
 // TODO: Backend Integration for Change Request Impact on Forecast
 // When a change request is approved in SDMTChanges, the backend should:
 // 1. Parse the change's start_month_index, duration_months, and allocation_mode
@@ -233,8 +249,8 @@ export function SDMTForecast() {
     // Calculate months elapsed since project start
     const monthsElapsed = (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1;
     
-    // Clamp to 1-12 range (project month index)
-    return Math.max(1, Math.min(12, monthsElapsed));
+    // Clamp according to baseline duration (fallback to 60)
+    return clampMonthIndex(monthsElapsed, baselineDetail);
   };
 
   // Helper function to compute calendar month from monthIndex and project start date
@@ -894,15 +910,16 @@ export function SDMTForecast() {
       });
 
       // Send updates per project using bulkUpsertForecast with monthIndex format
-      // The API expects: {items: [{rubroId, month: number (1-12), forecast}]}
+      // The API expects: {items: [{rubroId, month: number, forecast}]}
       // We send monthIndex as a number, and the backend will compute the calendar month
       for (const [projectId, projectCells] of byProject.entries()) {
         const items = projectCells.map(cell => {
-          // Validate month is in valid range (1-12)
-          const monthIndex = Math.max(1, Math.min(12, cell.month));
+          // Validate month is in valid range (up to baseline duration, fallback 60)
+          const maxMonths = getBaselineDuration(baselineDetail);
+          const monthIndex = Math.max(1, Math.min(maxMonths, cell.month));
           return {
             rubroId: cell.line_item_id,
-            month: monthIndex, // Send as numeric monthIndex (1-12)
+            month: monthIndex,
             forecast: Number(cell.forecast) || 0,
           };
         });
@@ -1040,7 +1057,7 @@ export function SDMTForecast() {
             month: monthNum,
             budget: m.amount,
           };
-        }).filter(b => b.month >= 1 && b.month <= 12);
+        }).filter(b => b.month >= 1 && b.month <= 60); // Support up to 60 months
         
         setMonthlyBudgets(budgets);
         setMonthlyBudgetLastUpdated(monthlyBudget.updated_at || null);
@@ -1431,16 +1448,18 @@ const totalFTE = useMemo(() => {
       return [getCurrentMonthIndex()];
     }
 
+    // Allow up to baseline.duration_months (fallback 60)
+    const baselineDuration = getBaselineDuration(baselineDetail);
+    const maxMonths = Math.max(1, baselineDuration);
+
     const count = Number.parseInt(selectedPeriod, 10);
-    // Support up to 60 months (or baseline.duration_months if available)
-    const maxMonths = baselineDetail?.duration_months || 60;
     if (Number.isFinite(count) && count > 0 && count <= maxMonths) {
       return Array.from({ length: count }, (_, i) => i + 1);
     }
 
-    // Default to 12 months if no valid selection
-    return Array.from({ length: 12 }, (_, i) => i + 1);
-  }, [selectedPeriod, projectStartDate, isPortfolioView, baselineDetail?.duration_months]);
+    // Default to last 12 months or up to baseline if smaller
+    return Array.from({ length: Math.min(12, maxMonths) }, (_, i) => i + 1);
+  }, [selectedPeriod, projectStartDate, isPortfolioView, baselineDetail]);
 
   // Calculate totals and metrics - using useMemo to ensure it updates when data changes
   const totals = useMemo(
@@ -1737,8 +1756,10 @@ const totalFTE = useMemo(() => {
     if (selectedPeriod === 'CURRENT_MONTH') {
       return [getCurrentMonthIndex()];
     }
-    return Array.from({ length: 12 }, (_, i) => i + 1);
-  }, [selectedPeriod, projectStartDate, isPortfolioView]);
+    const baselineDuration = getBaselineDuration(baselineDetail);
+    const maxMonths = Math.max(1, baselineDuration);
+    return Array.from({ length: Math.min(12, maxMonths) }, (_, i) => i + 1);
+  }, [selectedPeriod, projectStartDate, isPortfolioView, baselineDetail]);
 
   // Chart data - recalculate when forecastData changes
   const monthlyTrends = useMemo(() => {

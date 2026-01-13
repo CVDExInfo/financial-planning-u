@@ -81,7 +81,7 @@ export function computeForecastFromAllocations(
       }
     }
     
-    if (monthNum >= 1 && monthNum <= 12) {
+    if (monthNum >= 1 && monthNum <= 60) { // Support up to 60 months
       const rubroId = alloc.rubroId || alloc.rubro_id || alloc.line_item_id || 'UNKNOWN';
       const key = `${rubroId}-${monthNum}`;
       

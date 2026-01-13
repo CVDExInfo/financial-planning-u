@@ -217,10 +217,15 @@ export function MonthlySnapshotGrid({
     if (selectedMonth === 'current') return getCurrentMonthIndex();
     if (selectedMonth === 'previous') {
       const current = getCurrentMonthIndex();
-      return current > 1 ? current - 1 : 12;
+      // Determine the maximum available month from forecastData (fallback to 60)
+      const maxMonth =
+        (Array.isArray(forecastData) && forecastData.length > 0)
+          ? Math.max(...forecastData.map((d) => Number(d.month) || 0))
+          : 60;
+      return current > 1 ? current - 1 : Math.max(1, maxMonth);
     }
     return selectedMonth as number;
-  }, [selectedMonth, getCurrentMonthIndex]);
+  }, [selectedMonth, getCurrentMonthIndex, forecastData]);
 
   // Get budget for selected month
   const monthBudget = useMemo(() => {
