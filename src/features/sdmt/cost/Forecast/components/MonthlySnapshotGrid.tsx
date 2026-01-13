@@ -12,7 +12,7 @@
  * - Filter to show only rows with variance
  * - Expand/collapse groups
  * - Sort by absolute variance vs Budget
- * - Action buttons (view 12-month detail, reconciliation, budget request)
+ * - Action buttons (view monthly detail, reconciliation, budget request)
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
@@ -109,10 +109,10 @@ interface MonthlySnapshotGridProps {
   /** Currency formatter function */
   formatCurrency: (amount: number) => string;
   
-  /** Current month index (1-12) for default selection */
+  /** Current month index (1..baseline.duration_months, fallback 1..60) for default selection */
   getCurrentMonthIndex: () => number;
   
-  /** Callback to scroll to 12-month detail section */
+  /** Callback to scroll to monthly detail section */
   onScrollToDetail?: () => void;
   
   /** Callback to navigate to reconciliation */
