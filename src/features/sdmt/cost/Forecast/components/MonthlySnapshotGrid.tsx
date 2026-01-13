@@ -6,7 +6,7 @@
  * for all projects and rubros at a glance.
  * 
  * Supports:
- * - Month selection (current, previous, M1-M12)
+ * - Month selection (current, previous, M1-M60)
  * - Grouping by Project or Rubro
  * - Search by project code/name and rubro name
  * - Filter to show only rows with variance
@@ -120,7 +120,7 @@ interface MonthlySnapshotGridProps {
 }
 
 type GroupingMode = 'project' | 'rubro';
-type MonthOption = 'current' | 'previous' | number; // 'current', 'previous', or 1-12
+type MonthOption = 'current' | 'previous' | number; // 'current', 'previous', or 1-60
 
 interface SnapshotRow {
   id: string;

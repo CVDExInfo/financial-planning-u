@@ -1432,12 +1432,15 @@ const totalFTE = useMemo(() => {
     }
 
     const count = Number.parseInt(selectedPeriod, 10);
-    if (Number.isFinite(count) && count > 0 && count <= 12) {
+    // Support up to 60 months (or baseline.duration_months if available)
+    const maxMonths = baselineDetail?.duration_months || 60;
+    if (Number.isFinite(count) && count > 0 && count <= maxMonths) {
       return Array.from({ length: count }, (_, i) => i + 1);
     }
 
+    // Default to 12 months if no valid selection
     return Array.from({ length: 12 }, (_, i) => i + 1);
-  }, [selectedPeriod, projectStartDate, isPortfolioView]);
+  }, [selectedPeriod, projectStartDate, isPortfolioView, baselineDetail?.duration_months]);
 
   // Calculate totals and metrics - using useMemo to ensure it updates when data changes
   const totals = useMemo(
