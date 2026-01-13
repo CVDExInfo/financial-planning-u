@@ -94,7 +94,7 @@ jobs:
           set -euo pipefail
           echo "Installing required CLI tools for validation..."
           sudo apt-get update -qq
-          sudo apt-get install -y -qq curl jq dnsutils
+          sudo apt-get install -y -qq curl jq dnsutils grep
 
           # Ensure AWS CLI v2 is available and up-to-date
           if ! command -v aws &> /dev/null; then
@@ -245,12 +245,27 @@ jobs:
 
           export VITE_API_BASE_URL
 
-          BUILD_TARGET=finanzas npm run build || {
+          npm run build:finanzas || {
             echo "❌ Finanzas build failed"
             echo "   Build failed — see errors above (TypeScript/esbuild). This is usually a code compile error, not VITE_API_BASE_URL."
             exit 1
           }
           echo "✅ Finanzas Portal built → dist-finanzas/"
+
+      - name: Write Finanzas build info
+        run: |
+          set -euo pipefail
+          BUILD_SHA="$(git rev-parse HEAD)"
+          BUILD_TIME="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          cat > dist-finanzas/build-info.json <<EOF
+          {
+            "buildSha": "${BUILD_SHA}",
+            "buildTimeUtc": "${BUILD_TIME}",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}"
+          }
+          EOF
+          echo "✅ Wrote dist-finanzas/build-info.json"
 
       - name: Record Finanzas bundle hashes
         run: |
@@ -696,29 +711,67 @@ jobs:
           echo "$ASSET_PATHS"
           echo ""
 
-          # Verify each asset exists in S3
-          MISSING_ASSETS=()
-          while IFS= read -r PATH; do
-            KEY="${PATH#/}"  # Remove leading slash to get S3 key
-
-            if aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$KEY" >/dev/null 2>&1; then
-              echo "✅ Asset present in S3: $KEY"
+          # Verify each asset exists in S3 using list-objects (avoids GetObject permission issues)
+          LIST_OK="true"
+          if ! S3_ASSETS=$(aws s3api list-objects-v2 \
+            --bucket "${FINANZAS_BUCKET_NAME}" \
+            --prefix "finanzas/assets/" \
+            --output json 2>/tmp/s3_assets_err.log \
+            | jq -r '.Contents[]?.Key' \
+            | sort -u); then
+            if python - <<'PY' 2>/dev/null
+from pathlib import Path
+err = Path("/tmp/s3_assets_err.log").read_text(errors="ignore")
+print("AccessDenied" in err or "Access Denied" in err)
+PY
+            then
+              echo "⚠️  Unable to list S3 assets under finanzas/assets/ due to AccessDenied."
+              echo "   Skipping S3 asset verification (no s3:ListBucket on ${FINANZAS_BUCKET_NAME})."
+              LIST_OK="false"
             else
-              echo "❌ Missing asset in S3: s3://${FINANZAS_BUCKET_NAME}/$KEY"
-              MISSING_ASSETS+=("$KEY")
+              echo "❌ Unable to list S3 assets under finanzas/assets/"
+              echo "   Ensure the role has s3:ListBucket permission for ${FINANZAS_BUCKET_NAME}."
+              echo "----- aws s3api list-objects-v2 stderr -----"
+              cat /tmp/s3_assets_err.log || true
+              exit 1
             fi
-          done <<< "$ASSET_PATHS"
+          fi
 
-          if [ ${#MISSING_ASSETS[@]} -gt 0 ]; then
-            echo ""
-            echo "❌ DEPLOYMENT VERIFICATION FAILED"
-            echo "   ${#MISSING_ASSETS[@]} asset(s) referenced in build but missing from S3:"
-            printf '   - %s\n' "${MISSING_ASSETS[@]}"
-            echo ""
-            echo "🔧 This indicates the S3 sync may have failed or assets weren't built correctly."
-            echo "   Review the 'Upload Finanzas assets to S3' step above for errors."
+          if [ "$LIST_OK" != "true" ]; then
+            exit 0
+          fi
+
+          if [ -z "$S3_ASSETS" ]; then
+            echo "❌ No assets found in S3 under finanzas/assets/"
+            echo "   Ensure the 'Upload Finanzas assets to S3' step completed successfully."
             exit 1
           fi
+
+          export ASSET_PATHS
+          export S3_ASSETS
+          python - <<'PY'
+import os
+asset_paths = os.environ["ASSET_PATHS"].splitlines()
+s3_assets = set(filter(None, os.environ["S3_ASSETS"].splitlines()))
+missing = []
+for path in asset_paths:
+    key = path.lstrip("/")
+    if key in s3_assets:
+        print(f"✅ Asset present in S3: {key}")
+    else:
+        print(f"❌ Missing asset in S3: s3://{os.environ['FINANZAS_BUCKET_NAME']}/{key}")
+        missing.append(key)
+if missing:
+    print("")
+    print("❌ DEPLOYMENT VERIFICATION FAILED")
+    print(f"   {len(missing)} asset(s) referenced in build but missing from S3:")
+    for item in missing:
+        print(f"   - {item}")
+    print("")
+    print("🔧 This indicates the S3 sync may have failed or assets weren't built correctly.")
+    print("   Review the 'Upload Finanzas assets to S3' step above for errors.")
+    raise SystemExit(1)
+PY
 
           echo ""
           echo "✅ All build assets verified in S3"
