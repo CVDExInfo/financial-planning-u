@@ -432,7 +432,9 @@ export const buildRubrosFromBaselinePayload = async (
 };
 
 const formatMonth = (date: Date) => {
-  return MONTH_FORMAT.format(date).replace("/", "-");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
 };
 
 const monthSequence = (startDate: string, durationMonths: number): string[] => {
@@ -559,24 +561,28 @@ export const materializeAllocationsForBaseline = async (
   const now = new Date().toISOString();
 
   const allocations = lineItems.flatMap((item) => {
-    const rubroId = item.rubroId || item.rubro_id || item.linea_codigo || item.id || "unknown";
+    const rubroStableId = item.rubroId || item.rubro_id || item.linea_codigo || item.id || "unknown";
+    const lineItemId = item.id || item.line_item_id || stableIdFromParts(rubroStableId, item.role, item.category);
     const totalCost = resolveTotalCost(item, months.length);
     const monthly = resolveMonthlyAmounts(item, months, totalCost);
 
     return months.map((month, idx) => {
       const amount = Number(monthly[idx] ?? 0);
-      const sk = `ALLOCATION#${baselineId}#${month}#${rubroId}`;
+      const sk = `ALLOCATION#${baselineId}#${rubroStableId}#${month}`;
       return {
         pk: `PROJECT#${projectId}`,
         sk,
-        id: `${baselineId}#${month}#${rubroId}`,
         projectId,
         baselineId,
-        rubroId,
+        rubro_id: rubroStableId,
         month,
         amount,
-        currency,
-        source: "baseline_materializer",
+        metadata: {
+          source: "baseline_materializer",
+          baseline_id: baselineId,
+          project_id: projectId,
+          line_item_id: lineItemId,
+        },
         createdAt: now,
       };
     });
