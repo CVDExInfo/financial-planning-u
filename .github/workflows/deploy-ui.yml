@@ -696,12 +696,25 @@ jobs:
           echo "$ASSET_PATHS"
           echo ""
 
-          # Verify each asset exists in S3
+          # Verify each asset exists in S3 using list-objects (avoids GetObject permission issues)
+          S3_ASSETS=$(aws s3api list-objects-v2 \
+            --bucket "${FINANZAS_BUCKET_NAME}" \
+            --prefix "finanzas/assets/" \
+            --output json \
+            | jq -r '.Contents[]?.Key' \
+            | sort -u)
+
+          if [ -z "$S3_ASSETS" ]; then
+            echo "❌ No assets found in S3 under finanzas/assets/"
+            echo "   Ensure the 'Upload Finanzas assets to S3' step completed successfully."
+            exit 1
+          fi
+
           MISSING_ASSETS=()
           while IFS= read -r PATH; do
             KEY="${PATH#/}"  # Remove leading slash to get S3 key
 
-            if aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$KEY" >/dev/null 2>&1; then
+            if echo "$S3_ASSETS" | grep -F -x -q "$KEY"; then
               echo "✅ Asset present in S3: $KEY"
             else
               echo "❌ Missing asset in S3: s3://${FINANZAS_BUCKET_NAME}/$KEY"
