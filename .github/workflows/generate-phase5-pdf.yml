@@ -1,0 +1,96 @@
+name: Generate Phase5 PDF & commit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'generate_phase5_docs.py'
+      - 'PHASE5_VISUAL_GUIDE.md'
+      - '.github/workflows/**'
+      - 'docs/phase5/**'
+
+jobs:
+  build-and-generate-pdf:
+    name: Build docs and generate PDF
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # allow commit back to the repo
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Ensure python is available
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install apt dependencies (pandoc + texlive)
+        run: |
+          sudo apt-get update -y
+          # pandoc
+          sudo apt-get install -y pandoc
+          # minimal texlive for pandoc -> pdf; add more packages if needed
+          sudo apt-get install -y texlive-latex-recommended texlive-fonts-recommended texlive-latex-extra
+          pandoc --version
+
+      - name: Create and activate venv, install python deps
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir python-docx Pillow docx2pdf
+
+      - name: Run generate_phase5_docs.py
+        env:
+          PATH: ${{ runner.tool_cache }}/python/3.10.*/x64/bin:${{ env.PATH }}
+        run: |
+          source .venv/bin/activate
+          python generate_phase5_docs.py || true
+          ls -la PHASE5_VISUAL_GUIDE.*
+          ls -la docs/phase5/screenshots || true
+
+      - name: Check if PDF exists
+        id: check_pdf
+        run: |
+          if [ -f "PHASE5_VISUAL_GUIDE.pdf" ]; then
+            echo "::set-output name=exists::true"
+            echo "pdf_exists=true" > pdf_status.txt
+          else
+            echo "::set-output name=exists::false"
+            echo "pdf_exists=false" > pdf_status.txt
+          fi
+          cat pdf_status.txt
+
+      - name: Commit PDF back to branch (if present)
+        if: steps.check_pdf.outputs.exists == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # create a small commit message to include the generated PDF
+          git add PHASE5_VISUAL_GUIDE.pdf
+          git add docs/phase5/screenshots/ || true
+          # only commit if there are changes
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore(docs): add generated PHASE5_VISUAL_GUIDE.pdf and screenshots (automation)"
+            # push back to the PR head branch
+            git push origin HEAD:${{ github.head_ref }}
+          fi
+      - name: Upload artifact (for convenience)
+        if: steps.check_pdf.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PHASE5_VISUAL_GUIDE_PDF
+          path: PHASE5_VISUAL_GUIDE.pdf
+
+      - name: Print note if PDF missing
+        if: steps.check_pdf.outputs.exists == 'false'
+        run: |
+          echo "PHASE5_VISUAL_GUIDE.pdf was not created by the script."
+          echo "Check logs above for errors; ensure generate_phase5_docs.py created PHASE5_VISUAL_GUIDE.docx first, then pandoc converted it."
+
