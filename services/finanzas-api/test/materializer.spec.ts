@@ -133,13 +133,14 @@ describe("materializers", () => {
 
     expect(allAllocations).toHaveLength(36); // 1 line item * 36 months
 
-    // Verify metadata structure
+    // Verify structure (flattened, no nested metadata)
     const firstAllocation = allAllocations[0].PutRequest.Item;
-    expect(firstAllocation.metadata).toBeDefined();
-    expect(firstAllocation.metadata.source).toBe("baseline_materializer");
-    expect(firstAllocation.metadata.baseline_id).toBe("base_long");
-    expect(firstAllocation.metadata.project_id).toBe("PRJ-456");
+    expect(firstAllocation.source).toBe("baseline_materializer");
+    expect(firstAllocation.baselineId).toBe("base_long");
+    expect(firstAllocation.projectId).toBe("PRJ-456");
     expect(firstAllocation.rubro_id).toBe("MOD-DEV");
+    expect(firstAllocation.month_index).toBeDefined();
+    expect(firstAllocation.line_item_id).toBeDefined();
 
     // Verify SK format: ALLOCATION#baselineId#rubroId#month
     const skPattern = /^ALLOCATION#base_long#MOD-DEV#\d{4}-\d{2}$/;

@@ -267,6 +267,12 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     materializationDetails = { allocationsSummary, rubrosSummary };
     materialized = true;
 
+    console.info("acceptBaseline materialization", {
+      baselineId,
+      allocationsSummary,
+      rubrosSummary,
+    });
+
     // Persist materialization counts to project metadata
     try {
       const allocationsCount = (allocationsSummary as any).allocationsWritten ?? (allocationsSummary as any).allocationsPlanned ?? 0;

@@ -158,23 +158,32 @@ export const handler = async (
     // Preferred path: allocations (plan/forecast/actual per line item/month)
     if (allocations.length > 0) {
       for (const allocation of allocations) {
-        const month = Number(allocation.month || allocation.mes || 1);
-        if (month <= (months as number)) {
-          const planned = Number(
-            allocation.planned || allocation.monto_planeado || 0
-          );
-          // Use forecast if explicitly set, otherwise default to planned
-          // This ensures PMO adjustments are visible
+        // Handle both numeric month and month_index fields
+        // Materialized allocations use month_index, manual allocations may use month
+        const monthIndex = Number(allocation.month_index || allocation.month || allocation.mes || 1);
+        
+        if (monthIndex <= (months as number)) {
+          // If allocation is from baseline materializer, use amount as forecast
+          const isMaterialized = allocation.source === "baseline_materializer";
+          
+          const planned = isMaterialized 
+            ? Number(allocation.amount || 0)
+            : Number(allocation.planned || allocation.monto_planeado || 0);
+          
+          // Use forecast if explicitly set, otherwise use amount for materialized or planned for manual
           const forecastValue = allocation.forecast ?? allocation.monto_proyectado;
-          const forecast = forecastValue !== undefined ? Number(forecastValue) : planned;
+          const forecast = forecastValue !== undefined 
+            ? Number(forecastValue) 
+            : (isMaterialized ? Number(allocation.amount || 0) : planned);
+          
           const actual = Number(
             allocation.actual || allocation.monto_real || 0
           );
 
           forecastData.push({
             line_item_id:
-              allocation.rubroId || allocation.line_item_id || "unknown",
-            month,
+              allocation.line_item_id || allocation.rubroId || allocation.rubro_id || "unknown",
+            month: monthIndex,
             planned,
             forecast,
             actual,
@@ -183,11 +192,23 @@ export const handler = async (
             notes: allocation.notes || allocation.notas,
             last_updated:
               allocation.updated_at ||
+              allocation.createdAt ||
               allocation.created_at ||
               new Date().toISOString(),
             updated_by: allocation.updated_by || allocation.created_by || "system",
           });
         }
+      }
+      
+      // Log allocation integration for debugging
+      const materializedCount = allocations.filter(a => a.source === "baseline_materializer").length;
+      if (materializedCount > 0) {
+        console.info("computeForecastFromAllocations: merged allocations", {
+          projectId,
+          baselineId: allocations[0]?.baselineId,
+          allocationsCells: forecastData.length,
+          materializedCells: materializedCount,
+        });
       }
     } else {
       // Fallback: derive monthly plan from rubro attachments when allocations are empty
