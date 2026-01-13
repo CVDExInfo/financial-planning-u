@@ -576,27 +576,58 @@ export const materializeAllocationsForBaseline = async (
         baselineId,
         rubro_id: rubroStableId,
         month,
+        month_index: idx + 1,
         amount,
-        metadata: {
-          source: "baseline_materializer",
-          baseline_id: baselineId,
-          project_id: projectId,
-          line_item_id: lineItemId,
-        },
+        source: "baseline_materializer",
+        line_item_id: lineItemId,
         createdAt: now,
       };
     });
   });
 
   const uniqueAllocations = dedupeByKey(allocations, (item) => `${item.pk}#${item.sk}`);
+  const allocationsAttempted = uniqueAllocations.length;
 
   if (options.dryRun) {
-    return { allocationsPlanned: uniqueAllocations.length, months: months.length };
+    return { allocationsAttempted, allocationsPlanned: uniqueAllocations.length, months: months.length };
   }
 
+  // Idempotency: Check for existing allocations
+  let existingKeys = new Set<string>();
   try {
-    await batchWriteAll(tableName("allocations"), uniqueAllocations);
-    return { allocationsWritten: uniqueAllocations.length, months: months.length };
+    const keys = uniqueAllocations.map((allocation) => ({ pk: allocation.pk, sk: allocation.sk }));
+    const existingAllocations = await batchGetExistingItems(tableName("allocations"), keys);
+    existingKeys = new Set(existingAllocations.map((item) => `${item.pk}#${item.sk}`));
+  } catch (error) {
+    logError("[materializers] failed to batch check existing allocations", {
+      baselineId,
+      projectId,
+      error,
+    });
+  }
+
+  // Filter out existing allocations to avoid duplicates
+  const allocationsToWrite = uniqueAllocations.filter(
+    (item) => !existingKeys.has(`${item.pk}#${item.sk}`)
+  );
+
+  const allocationsSkipped = allocationsAttempted - allocationsToWrite.length;
+  const allocationsWritten = allocationsToWrite.length;
+
+  try {
+    if (allocationsToWrite.length > 0) {
+      await batchWriteAll(tableName("allocations"), allocationsToWrite);
+    }
+
+    console.info("materializeAllocationsForBaseline", {
+      baselineId,
+      projectId,
+      allocationsAttempted,
+      allocationsWritten,
+      allocationsSkipped,
+    });
+
+    return { allocationsAttempted, allocationsWritten, allocationsSkipped };
   } catch (error) {
     logError("[materializers] failed to write allocations", { baselineId, projectId, error });
     throw error;
