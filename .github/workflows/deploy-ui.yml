@@ -245,12 +245,27 @@ jobs:
 
           export VITE_API_BASE_URL
 
-          BUILD_TARGET=finanzas npm run build || {
+          npm run build:finanzas || {
             echo "❌ Finanzas build failed"
             echo "   Build failed — see errors above (TypeScript/esbuild). This is usually a code compile error, not VITE_API_BASE_URL."
             exit 1
           }
           echo "✅ Finanzas Portal built → dist-finanzas/"
+
+      - name: Write Finanzas build info
+        run: |
+          set -euo pipefail
+          BUILD_SHA="$(git rev-parse HEAD)"
+          BUILD_TIME="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          cat > dist-finanzas/build-info.json <<EOF
+          {
+            "buildSha": "${BUILD_SHA}",
+            "buildTimeUtc": "${BUILD_TIME}",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}"
+          }
+          EOF
+          echo "✅ Wrote dist-finanzas/build-info.json"
 
       - name: Record Finanzas bundle hashes
         run: |
