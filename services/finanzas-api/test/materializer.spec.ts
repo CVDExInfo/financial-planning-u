@@ -101,4 +101,84 @@ describe("materializers", () => {
     const unique = new Set(allRequests);
     expect(unique.size).toBe(6);
   });
+
+  it("creates allocations for >12 months (M1..M36)", async () => {
+    const longBaseline: BaselineStub = {
+      baseline_id: "base_long",
+      project_id: "PRJ-456",
+      start_date: "2025-01-01",
+      duration_months: 36,
+      currency: "USD",
+      labor_estimates: [
+        {
+          rubroId: "MOD-DEV",
+          periodic: "recurring",
+          total_cost: 36000,
+        },
+      ],
+    };
+
+    await materializeAllocationsForBaseline(longBaseline, { dryRun: false });
+
+    expect(ddb.send).toHaveBeenCalled();
+    const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
+      const command = call[0];
+      return command?.input?.RequestItems?.mock_allocations;
+    });
+
+    const allAllocations = batchCalls.flatMap((call) => {
+      const command = call[0] as { input?: any };
+      return command?.input?.RequestItems?.mock_allocations || [];
+    });
+
+    expect(allAllocations).toHaveLength(36); // 1 line item * 36 months
+
+    // Verify metadata structure
+    const firstAllocation = allAllocations[0].PutRequest.Item;
+    expect(firstAllocation.metadata).toBeDefined();
+    expect(firstAllocation.metadata.source).toBe("baseline_materializer");
+    expect(firstAllocation.metadata.baseline_id).toBe("base_long");
+    expect(firstAllocation.metadata.project_id).toBe("PRJ-456");
+    expect(firstAllocation.rubro_id).toBe("MOD-DEV");
+
+    // Verify SK format: ALLOCATION#baselineId#rubroId#month
+    const skPattern = /^ALLOCATION#base_long#MOD-DEV#\d{4}-\d{2}$/;
+    expect(firstAllocation.sk).toMatch(skPattern);
+  });
+
+  it("normalizeMonth accepts M13+ and computes correct calendar month", async () => {
+    // Test with M13 which should map to month 13 from project start
+    const baseline13Months: BaselineStub = {
+      baseline_id: "base_13m",
+      project_id: "PRJ-789",
+      start_date: "2025-01-01", // Start Jan 2025
+      duration_months: 13,
+      currency: "USD",
+      labor_estimates: [
+        {
+          rubroId: "MOD-TEST",
+          periodic: "recurring",
+          total_cost: 13000,
+        },
+      ],
+    };
+
+    await materializeAllocationsForBaseline(baseline13Months, { dryRun: false });
+
+    const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
+      const command = call[0];
+      return command?.input?.RequestItems?.mock_allocations;
+    });
+
+    const allAllocations = batchCalls.flatMap((call) => {
+      const command = call[0] as { input?: any };
+      return command?.input?.RequestItems?.mock_allocations || [];
+    });
+
+    expect(allAllocations).toHaveLength(13);
+
+    // Verify that month 13 is correctly computed as Jan 2026 (Jan 2025 + 12 months)
+    const month13Allocation = allAllocations[12].PutRequest.Item;
+    expect(month13Allocation.month).toBe("2026-01"); // Jan 2025 + 12 months = Jan 2026
+  });
 });

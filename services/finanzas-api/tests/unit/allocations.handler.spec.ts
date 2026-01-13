@@ -483,7 +483,7 @@ describe("allocations handler", () => {
           items: [
             {
               rubroId: "MOD-ING",
-              month: 13, // Invalid - must be 1-12
+              month: 61, // Invalid - must be 1-60
               forecast: 32000,
             },
           ],
@@ -494,7 +494,7 @@ describe("allocations handler", () => {
       const response = await allocationsHandler(event);
 
       expect(response.statusCode).toBe(400);
-      expect(response.body).toContain("Month index must be between 1 and 12");
+      expect(response.body).toContain("Month index must be between 1 and 60");
     });
 
     it("rejects forecast updates from non-SDMT users", async () => {

@@ -99,9 +99,9 @@ function normalizeMonth(
     throw new Error(`Invalid month type: ${typeof monthInput}`);
   }
 
-  // Validate monthIndex is in valid range
-  if (monthIndex < 1 || monthIndex > 12) {
-    throw new Error(`Month index must be between 1 and 12, got: ${monthIndex}`);
+  // Allow contract month indices up to M60 (supports baselines with longer durations)
+  if (monthIndex < 1 || monthIndex > 60) {
+    throw new Error(`Month index must be between 1 and 60, got: ${monthIndex}`);
   }
 
   // Compute calendarMonthKey from projectStartDate + (monthIndex - 1) months
