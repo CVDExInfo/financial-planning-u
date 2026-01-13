@@ -23,7 +23,6 @@ Usage:
  # - Or: pip install docx2pdf
  $ python generate_phase5_docs.py
 """
-import os
 import sys
 from pathlib import Path
 
