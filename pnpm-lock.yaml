@@ -165,7 +165,7 @@ dependencies:
     specifier: ^7.68.0
     version: 7.71.0(react@19.2.3)
   react-resizable-panels:
-    specifier: ^4.3.3
+    specifier: ^4.4.0
     version: 4.4.0(react-dom@19.2.3)(react@19.2.3)
   react-router-dom:
     specifier: ^7.12.0
