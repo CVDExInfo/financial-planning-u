@@ -78,19 +78,11 @@ import {
 } from './categoryGrouping';
 import { buildProjectTotals, buildProjectRubros } from './projectGrouping';
 
-// ---- Exported helpers for month support and testing ----
-export function getBaselineDuration(baselineDetail: any): number {
-  // Try payload.duration_months then duration_months, fall back to 60
-  const raw =
-    (baselineDetail?.payload?.duration_months ?? baselineDetail?.duration_months);
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.max(1, parsed) : 60;
-}
+import { getBaselineDuration, clampMonthIndex } from './monthHelpers';
 
-export function clampMonthIndex(monthsElapsed: number, baselineDetail: any): number {
-  const maxMonths = Math.max(1, getBaselineDuration(baselineDetail) || 60);
-  return Math.max(1, Math.min(maxMonths, Math.floor(Number(monthsElapsed) || 1)));
-}
+// ---- Exported helpers for month support and testing ----
+// Re-exported from monthHelpers.ts for backward compatibility
+export { getBaselineDuration, clampMonthIndex };
 // ---------------------------------------------------------
 
 

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { clampMonthIndex, getBaselineDuration } from '../SDMTForecast';
+import { clampMonthIndex, getBaselineDuration } from '../monthHelpers';
 
 describe('Month support helpers', () => {
   it('getBaselineDuration fallback to 60 when baselineDetail absent', () => {
