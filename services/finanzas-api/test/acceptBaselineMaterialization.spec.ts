@@ -1,6 +1,7 @@
 import { jest } from "@jest/globals";
 import { materializeAllocationsForBaseline, materializeRubrosForBaseline } from "../src/lib/materializers";
 import { ddb } from "../src/lib/dynamo";
+import { batchGetExistingItems } from "../src/lib/dynamodbHelpers";
 
 jest.mock("../src/lib/dynamo", () => {
   return {
@@ -8,6 +9,12 @@ jest.mock("../src/lib/dynamo", () => {
     tableName: (key: string) => `mock_${key}`,
     GetCommand: jest.fn(),
     QueryCommand: jest.fn(),
+  };
+});
+
+jest.mock("../src/lib/dynamodbHelpers", () => {
+  return {
+    batchGetExistingItems: jest.fn().mockResolvedValue([]),
   };
 });
 
@@ -28,11 +35,13 @@ type BaselineStub = {
 describe("AcceptBaseline Materialization Integration", () => {
   beforeEach(() => {
     (ddb.send as jest.Mock).mockReset();
+    (batchGetExistingItems as jest.Mock).mockReset();
+    
     // Default mock: no existing items
+    (batchGetExistingItems as jest.Mock).mockResolvedValue([]);
+    
+    // Mock DynamoDB send for various commands
     (ddb.send as jest.Mock).mockImplementation((command: any) => {
-      if (command.constructor.name === "QueryCommand" || command.input?.KeyConditionExpression) {
-        return Promise.resolve({ Items: [] });
-      }
       if (command.constructor.name === "ScanCommand") {
         return Promise.resolve({ Items: [] });
       }

@@ -1,11 +1,18 @@
 import { jest } from "@jest/globals";
 import { materializeAllocationsForBaseline } from "../src/lib/materializers";
 import { ddb } from "../src/lib/dynamo";
+import { batchGetExistingItems } from "../src/lib/dynamodbHelpers";
 
 jest.mock("../src/lib/dynamo", () => {
   return {
     ddb: { send: jest.fn() },
     tableName: (key: string) => `mock_${key}`,
+  };
+});
+
+jest.mock("../src/lib/dynamodbHelpers", () => {
+  return {
+    batchGetExistingItems: jest.fn().mockResolvedValue([]),
   };
 });
 
@@ -26,12 +33,13 @@ type BaselineStub = {
 describe("Allocations Materializer (M1..M60)", () => {
   beforeEach(() => {
     (ddb.send as jest.Mock).mockReset();
-    // Mock QueryCommand to return empty (no existing allocations)
+    (batchGetExistingItems as jest.Mock).mockReset();
+    
+    // Default: no existing items
+    (batchGetExistingItems as jest.Mock).mockResolvedValue([]);
+    
+    // Mock DynamoDB send for BatchWriteCommand
     (ddb.send as jest.Mock).mockImplementation((command: any) => {
-      if (command.constructor.name === "QueryCommand" || command.input?.KeyConditionExpression) {
-        return Promise.resolve({ Items: [] });
-      }
-      // BatchWriteCommand returns success
       return Promise.resolve({});
     });
   });
@@ -119,12 +127,7 @@ describe("Allocations Materializer (M1..M60)", () => {
     };
 
     // First run: no existing allocations
-    (ddb.send as jest.Mock).mockImplementation((command: any) => {
-      if (command.constructor.name === "QueryCommand" || command.input?.KeyConditionExpression) {
-        return Promise.resolve({ Items: [] });
-      }
-      return Promise.resolve({});
-    });
+    (batchGetExistingItems as jest.Mock).mockResolvedValue([]);
 
     const firstRun = await materializeAllocationsForBaseline(baseline, { dryRun: false });
     expect(firstRun.allocationsAttempted).toBe(36);
@@ -133,21 +136,26 @@ describe("Allocations Materializer (M1..M60)", () => {
 
     // Reset mock
     (ddb.send as jest.Mock).mockReset();
+    (batchGetExistingItems as jest.Mock).mockReset();
 
     // Second run: simulate all allocations already exist
-    const existingAllocations = Array.from({ length: 36 }, (_, i) => ({
-      pk: "PROJECT#P-67890",
-      sk: `ALLOCATION#base_idempotent#MOD-DEV#2025-${String(i + 1).padStart(2, "0")}`,
-    }));
+    // Build existing items matching the SK pattern
+    const existingAllocations: any[] = [];
+    const startDate = new Date("2025-01-01");
+    for (let i = 0; i < 36; i++) {
+      const monthDate = new Date(startDate);
+      monthDate.setUTCMonth(monthDate.getUTCMonth() + i);
+      const year = monthDate.getUTCFullYear();
+      const month = String(monthDate.getUTCMonth() + 1).padStart(2, "0");
+      const calendarMonth = `${year}-${month}`;
+      
+      existingAllocations.push({
+        pk: "PROJECT#P-67890",
+        sk: `ALLOCATION#base_idempotent#MOD-DEV#${calendarMonth}`,
+      });
+    }
 
-    (ddb.send as jest.Mock).mockImplementation((command: any) => {
-      // QueryCommand returns existing allocations
-      if (command.constructor.name === "QueryCommand" || command.input?.KeyConditionExpression) {
-        return Promise.resolve({ Items: existingAllocations });
-      }
-      // BatchWriteCommand should not be called, but return success if it is
-      return Promise.resolve({});
-    });
+    (batchGetExistingItems as jest.Mock).mockResolvedValue(existingAllocations);
 
     const secondRun = await materializeAllocationsForBaseline(baseline, { dryRun: false });
     expect(secondRun.allocationsAttempted).toBe(36);
