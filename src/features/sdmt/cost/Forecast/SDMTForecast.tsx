@@ -3024,7 +3024,12 @@ const totalFTE = useMemo(() => {
                     {(() => {
                       const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
                       const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
-                      const monthsToShow = isCurrentMonthMode ? [currentMonthIndex] : Array.from({ length: 12 }, (_, i) => i + 1);
+                      // Dynamic month range based on selectedPeriod
+                      const periodCount = isCurrentMonthMode ? 1 : parseInt(selectedPeriod) || 12;
+                      const baselineDuration = getBaselineDuration(baselineDetail);
+                      const maxMonths = Math.max(1, baselineDuration);
+                      const monthCount = Math.min(periodCount, maxMonths);
+                      const monthsToShow = isCurrentMonthMode ? [currentMonthIndex] : Array.from({ length: monthCount }, (_, i) => i + 1);
                       
                       return monthsToShow.map((monthNum) => (
                         <TableHead key={monthNum} className="text-center min-w-[140px]">
@@ -3356,7 +3361,12 @@ const totalFTE = useMemo(() => {
                     {(() => {
                       const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
                       const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
-                      const monthsToShow = isCurrentMonthMode ? [currentMonthIndex] : Array.from({ length: 12 }, (_, i) => i + 1);
+                      // Dynamic month range based on selectedPeriod
+                      const periodCount = isCurrentMonthMode ? 1 : parseInt(selectedPeriod) || 12;
+                      const baselineDuration = getBaselineDuration(baselineDetail);
+                      const maxMonths = Math.max(1, baselineDuration);
+                      const monthCount = Math.min(periodCount, maxMonths);
+                      const monthsToShow = isCurrentMonthMode ? [currentMonthIndex] : Array.from({ length: monthCount }, (_, i) => i + 1);
                       
                       return monthsToShow.map((monthNum) => (
                         <TableHead key={monthNum} className="text-center min-w-[140px]">

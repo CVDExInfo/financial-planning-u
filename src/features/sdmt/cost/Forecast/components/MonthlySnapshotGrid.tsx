@@ -912,7 +912,7 @@ export function MonthlySnapshotGrid({
                                   <FileSpreadsheet className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent>Ver detalle 12 meses</TooltipContent>
+                              <TooltipContent>Ver detalle mensual</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
 
