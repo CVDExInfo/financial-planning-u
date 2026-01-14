@@ -64,14 +64,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
         run: |
-          npm ci
+          rm -rf node_modules
+          pnpm install --frozen-lockfile
           # Ensure tsx is available for running TypeScript directly
           if ! command -v tsx >/dev/null 2>&1; then
-            npm install -g tsx
+            pnpm add -g tsx
           fi
 
       - name: Configure AWS credentials (OIDC)

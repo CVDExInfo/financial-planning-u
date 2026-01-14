@@ -1,0 +1,15 @@
+# Use pnpm, ignore npm lockfile
+package-lock.json
+
+# Node modules
+node_modules/
+
+# Build artifacts
+dist/
+.aws-sam/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store

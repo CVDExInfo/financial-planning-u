@@ -2,6 +2,7 @@
   "name": "finanzas-sd-api",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@9.15.9",
   "scripts": {
     "build": "echo 'TS build not required by SAM if using plain .ts via esbuild bundling later' && exit 0",
     "test": "SKIP_INTEGRATION_TESTS=true node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
@@ -22,6 +23,7 @@
     "@aws-sdk/client-verifiedpermissions": "^3.637.0",
     "@aws-sdk/lib-dynamodb": "^3.931.0",
     "@aws-sdk/s3-request-presigner": "^3.931.0",
+    "@aws-sdk/util-dynamodb": "^3.931.0",
     "@types/uuid": "^10.0.0",
     "aws-jwt-verify": "^4.0.1",
     "uuid": "^13.0.0",

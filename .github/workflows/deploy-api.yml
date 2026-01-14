@@ -86,8 +86,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: services/finanzas-api/package-lock.json
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('services/finanzas-api/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Install SAM CLI
         run: |
@@ -99,10 +109,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "Installing API service dependencies"
-          if ! npm ci; then
-            echo "npm ci failed (lock mismatch). Falling back to npm install."
-            npm install
-          fi
+          rm -rf node_modules
+          pnpm install --frozen-lockfile
 
       - name: Validate SAM template (fail fast)
         working-directory: services/finanzas-api
@@ -114,8 +122,8 @@ jobs:
         working-directory: services/finanzas-api
         run: |
           set -euo pipefail
-          npm i -g esbuild || true
-          npm install esbuild --no-save || true
+          pnpm add -g esbuild || true
+          pnpm add esbuild --save-dev --frozen-lockfile=false || true
           export PATH="$PWD/node_modules/.bin:$PATH"
           sam build
 

@@ -15,16 +15,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Install SAM CLI
         run: |
           pipx install aws-sam-cli
           sam --version
 
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('services/finanzas-api/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
       - name: Install deps & unit tests
         working-directory: services/finanzas-api
         run: |
-          if ! npm ci; then npm install; fi
-          npm test
+          rm -rf node_modules
+          pnpm install --frozen-lockfile
+          pnpm -s test
 
       - name: SAM build
         working-directory: services/finanzas-api

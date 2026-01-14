@@ -218,7 +218,7 @@ jobs:
 
           export VITE_API_BASE_URL
 
-          BUILD_TARGET=finanzas npm run build || {
+          BUILD_TARGET=finanzas pnpm -s run build || {
             echo "❌ Finanzas build failed"
             echo "   Build failed — see errors above (TypeScript/esbuild). This is usually a code compile error, not VITE_API_BASE_URL."
             exit 1

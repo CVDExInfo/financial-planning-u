@@ -50,11 +50,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
       
       # Step 3: Install project dependencies
       - name: Install dependencies
-        run: npm ci
+        run: |
+          rm -rf node_modules
+          pnpm install --frozen-lockfile
       
       # Step 4: Install Pandoc for document conversion
       - name: Install Pandoc
@@ -66,7 +79,7 @@ jobs:
       # Step 5: Install Mermaid CLI for diagram rendering
       - name: Install Mermaid CLI
         run: |
-          npm install -g @mermaid-js/mermaid-cli@11.4.1
+          pnpm add -g @mermaid-js/mermaid-cli@11.4.1
           mmdc --version
       
       # Step 6: Install Chromium for mermaid-cli (required for rendering)
@@ -115,7 +128,7 @@ jobs:
           PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
         run: |
           echo "Branding: $USE_CVDEX_BRANDING"
-          npm run render-docs
+          pnpm -s run render-docs
       
       # Step 13: Verify output files exist
       - name: Verify generated files
