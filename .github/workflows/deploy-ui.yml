@@ -329,7 +329,7 @@ jobs:
           echo "📝 Total files changed: $(wc -l < /tmp/finz-changed-files.txt)"
           
           # Detect Finanzas-specific changes (src, public, config, dependencies)
-          FINZ_PATTERN='^(src/modules/finanzas|src/features/sdmt|src/components|src/api|public/|index\.html|vite\.config\.|package\.json|pnpm-lock\.yaml|tailwind\.config\.js|tsconfig)'
+          FINZ_PATTERN='(^|/)(src/modules/finanzas|src/features/sdmt|src/components|src/api|public/|index\.html|vite\.config(\.|$)|package\.json|pnpm-lock\.yaml|tailwind\.config\.js|tsconfig)'
           FINZ_FILES=$(echo "$CHANGED_FILES" | grep -E "$FINZ_PATTERN" || true)
           
           if [ -n "$FINZ_FILES" ]; then
@@ -337,19 +337,48 @@ jobs:
             echo "$FINZ_FILES" | head -20
             printf 'finz_changed=true\n' >> "$GITHUB_OUTPUT"
             echo "finz_changed=true" >> "$GITHUB_ENV"
+            FINZ_CHANGED_VAL="true"
           else
             echo "ℹ️  No Finanzas source files changed (CI-only changes or other modules)"
             printf 'finz_changed=false\n' >> "$GITHUB_OUTPUT"
             echo "finz_changed=false" >> "$GITHUB_ENV"
+            FINZ_CHANGED_VAL="false"
+          fi
+
+          # Print diagnostics: changed files list
+          echo ""
+          echo "📋 Changed files (first 50):"
+          head -50 /tmp/finz-changed-files.txt || true
+          
+          # Print diagnostics: FINZ_FILES matched
+          if [ -n "$FINZ_FILES" ]; then
+            echo ""
+            echo "📋 Finanzas-relevant files (matched by pattern):"
+            echo "$FINZ_FILES"
+          fi
+          
+          # Print diagnostics: pnpm-lock.yaml info if changed
+          if echo "$CHANGED_FILES" | grep -q 'pnpm-lock\.yaml'; then
+            echo ""
+            echo "📋 pnpm-lock.yaml changed - checking dependency updates..."
+            if [ -f pnpm-lock.yaml ]; then
+              echo "  pnpm-lock.yaml size: $(wc -c < pnpm-lock.yaml) bytes"
+              echo "  pnpm-lock.yaml lockfileVersion: $(grep -m1 'lockfileVersion:' pnpm-lock.yaml || echo 'N/A')"
+            fi
           fi
 
           {
             echo "### Finanzas file changes (detected vs $COMPARE_REF)"
             echo "- Total files changed: $(wc -l < /tmp/finz-changed-files.txt)"
-            echo "- Finanzas source changed: \${{ steps.finz_changed.outputs.finz_changed }}"
+            echo "- Finanzas source changed: $FINZ_CHANGED_VAL"
             echo ""
             echo "#### Changed files:"
             head -50 /tmp/finz-changed-files.txt
+            echo ""
+            if [ -n "$FINZ_FILES" ]; then
+              echo "#### Finanzas-relevant files:"
+              echo "$FINZ_FILES"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Guard - Bundle hash vs source changes consistency
