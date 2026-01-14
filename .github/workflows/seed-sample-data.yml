@@ -18,6 +18,10 @@ jobs:
         with:
           node-version: 18
 
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -26,8 +30,8 @@ jobs:
 
       - name: Install script dependencies
         run: |
-          npm init -y
-          npm install @aws-sdk/client-cloudformation @aws-sdk/client-dynamodb @aws-sdk/util-dynamodb
+          pnpm init -y
+          pnpm add @aws-sdk/client-cloudformation @aws-sdk/client-dynamodb @aws-sdk/util-dynamodb
 
       - name: Run seed script
         env:

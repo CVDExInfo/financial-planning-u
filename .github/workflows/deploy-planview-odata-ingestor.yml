@@ -40,6 +40,18 @@ jobs:
         with:
           node-version: "20"
 
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('services/planview-ingestor/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
       - name: Install SAM CLI
         uses: aws-actions/setup-sam@v2
         with:
@@ -47,15 +59,17 @@ jobs:
 
       - name: Install dependencies
         working-directory: services/planview-ingestor
-        run: npm ci
+        run: |
+          rm -rf node_modules
+          pnpm install --frozen-lockfile
 
       - name: Run tests
         working-directory: services/planview-ingestor
-        run: npm test
+        run: pnpm -s test
 
       - name: Build TypeScript
         working-directory: services/planview-ingestor
-        run: npm run build
+        run: pnpm -s run build
 
       - name: Build Lambda (SAM)
         working-directory: services/planview-ingestor

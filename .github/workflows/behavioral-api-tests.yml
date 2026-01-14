@@ -74,10 +74,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          rm -rf node_modules
+          pnpm install --frozen-lockfile
 
       - name: Configure AWS credentials (OIDC)
         if: vars.OIDC_AWS_ROLE_ARN != ''
@@ -170,7 +183,7 @@ jobs:
           echo ""
           
           # Run the behavioral test suite
-          npm run test:behavioral 2>&1 | tee /tmp/behavioral-test-output.txt
+          pnpm -s run test:behavioral 2>&1 | tee /tmp/behavioral-test-output.txt
           
           # Capture exit code
           TEST_EXIT_CODE=$?
