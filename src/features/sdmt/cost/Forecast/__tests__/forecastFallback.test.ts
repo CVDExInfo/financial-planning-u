@@ -195,7 +195,7 @@ describe('Forecast Fallback Logic', () => {
           projectId: 'proj-123',
         },
         {
-          month: '2025-13', // Invalid (month 13)
+          month: '2025-99', // Invalid (month 99 > 60)
           amount: 10000,
           rubroId: 'TEST-002',
           projectId: 'proj-123',
@@ -214,6 +214,21 @@ describe('Forecast Fallback Logic', () => {
       // Only the valid month should be included
       assert.strictEqual(cells.length, 1);
       assert.strictEqual(cells[0].month, 6);
+    });
+
+    it('uses month_index when present (M13 -> month 13)', () => {
+      const allocations = [{
+        month: "2026-01",
+        month_index: 13,
+        amount: 1000,
+        rubro_id: "R-1",
+        projectId: "P-1",
+      }];
+      const rubros = [{ id: "R-1", projectId: "P-1", description: "Dev" }];
+      const rows = computeForecastFromAllocations(allocations as any, rubros as any, 36, "P-1");
+      assert.strictEqual(rows.length, 1);
+      assert.strictEqual(rows[0].month, 13);
+      assert.strictEqual(rows[0].forecast, 1000);
     });
   });
 
