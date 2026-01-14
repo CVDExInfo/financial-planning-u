@@ -35,6 +35,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Normalize line endings for local actions
         run: |
           sudo apt-get update -y
@@ -96,11 +101,6 @@ jobs:
           password: ${{ env.PASSWORD }}
           aws_region: ${{ env.AWS_REGION }}
 
-      - name: "Install Node + Newman"
-        run: |
-          pnpm add -g newman newman-reporter-json
-          newman --version
-
       - uses: pnpm/action-setup@v2
         with:
           version: 9
@@ -112,6 +112,11 @@ jobs:
           key: ${{ runner.os }}-pnpm-${{ hashFiles('services/finanzas-api/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-
+
+      - name: "Install Node + Newman"
+        run: |
+          pnpm add -g newman newman-reporter-json
+          newman --version
 
       - name: "Setup Canonical Test Data (Non-blocking)"
         id: seed_data
