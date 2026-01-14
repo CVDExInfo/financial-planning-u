@@ -329,7 +329,7 @@ jobs:
           echo "📝 Total files changed: $(wc -l < /tmp/finz-changed-files.txt)"
           
           # Detect Finanzas-specific changes (src, public, config, dependencies)
-          FINZ_PATTERN='^(src/features/sdmt|src/components|src/api|public/|index\.html|vite\.config\.|package\.json|pnpm-lock\.yaml|tailwind\.config\.js|tsconfig)'
+          FINZ_PATTERN='^(src/modules/finanzas|src/features/sdmt|src/components|src/api|public/|index\.html|vite\.config\.|package\.json|pnpm-lock\.yaml|tailwind\.config\.js|tsconfig)'
           FINZ_FILES=$(echo "$CHANGED_FILES" | grep -E "$FINZ_PATTERN" || true)
           
           if [ -n "$FINZ_FILES" ]; then
