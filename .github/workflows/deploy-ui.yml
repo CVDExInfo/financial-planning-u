@@ -306,11 +306,13 @@ jobs:
             echo "ℹ️  Bundle hashes differ from previous run (expected when Finanzas UI changed)."
           fi
 
-      - name: Detect Finanzas UI changes in this commit
-        id: finz_changes
+      - name: Detect Finanzas source changes
+        id: finz_changed
         run: |
           set -euo pipefail
 
+          echo "🔍 Detecting Finanzas source changes..."
+          
           COMPARE_REF="${{ github.event.before || '' }}"
           if [ -z "$COMPARE_REF" ]; then
             COMPARE_REF="HEAD~1"
@@ -320,35 +322,95 @@ jobs:
             COMPARE_REF="HEAD~1"
           fi
 
+          echo "📊 Comparing $COMPARE_REF...HEAD"
           CHANGED_FILES=$(git diff --name-only "$COMPARE_REF"...HEAD || git diff --name-only "$COMPARE_REF" HEAD || true)
           echo "$CHANGED_FILES" > /tmp/finz-changed-files.txt
-
-          if echo "$CHANGED_FILES" | grep -E -q '^(src/|public/|index\.html|vite\.config\.ts|package\.json|tailwind\.config\.js|tsconfig|scripts/finanzas)'; then
+          
+          echo "📝 Total files changed: $(wc -l < /tmp/finz-changed-files.txt)"
+          
+          # Detect Finanzas-specific changes (src, public, config, dependencies)
+          FINZ_PATTERN='^(src/features/sdmt|src/components|src/api|public/|index\.html|vite\.config\.|package\.json|pnpm-lock\.yaml|tailwind\.config\.js|tsconfig)'
+          FINZ_FILES=$(echo "$CHANGED_FILES" | grep -E "$FINZ_PATTERN" || true)
+          
+          if [ -n "$FINZ_FILES" ]; then
+            echo "✅ Finanzas source files changed:"
+            echo "$FINZ_FILES" | head -20
             printf 'finz_changed=true\n' >> "$GITHUB_OUTPUT"
+            echo "finz_changed=true" >> "$GITHUB_ENV"
           else
+            echo "ℹ️  No Finanzas source files changed (CI-only changes or other modules)"
             printf 'finz_changed=false\n' >> "$GITHUB_OUTPUT"
+            echo "finz_changed=false" >> "$GITHUB_ENV"
           fi
 
           {
             echo "### Finanzas file changes (detected vs $COMPARE_REF)"
-            echo "$(wc -l < /tmp/finz-changed-files.txt) files changed"
+            echo "- Total files changed: $(wc -l < /tmp/finz-changed-files.txt)"
+            echo "- Finanzas source changed: \${{ steps.finz_changed.outputs.finz_changed }}"
+            echo ""
+            echo "#### Changed files:"
             head -50 /tmp/finz-changed-files.txt
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Fail if bundle unchanged while Finanzas files changed
+      - name: Guard - Bundle hash vs source changes consistency
         if: steps.prev_run.outputs.previous_run_found == 'true'
         run: |
           set -euo pipefail
 
-          if cmp -s dist-finanzas-bundle-hashes.txt "${{ steps.prev_run.outputs.previous_hash_file }}"; then
-            if [ "${{ steps.finz_changes.outputs.finz_changed }}" = "true" ]; then
-              echo "❌ Finanzas bundle hashes match previous successful deploy, but Finanzas files changed."
+          echo "🔍 Validating bundle hash vs source changes consistency..."
+          echo "📊 Debug info:"
+          echo "  - Previous hash file: ${{ steps.prev_run.outputs.previous_hash_file }}"
+          echo "  - Finanzas source changed: ${{ steps.finz_changed.outputs.finz_changed }}"
+          
+          echo ""
+          echo "📝 Previous bundle hashes:"
+          cat "${{ steps.prev_run.outputs.previous_hash_file }}" || echo "  (file not readable)"
+          
+          echo ""
+          echo "📝 Current bundle hashes:"
+          cat dist-finanzas-bundle-hashes.txt
+          
+          echo ""
+          echo "🔬 Comparing hashes..."
+          
+          # Use explicit comparison instead of cmp for better diagnostics
+          if diff -u "${{ steps.prev_run.outputs.previous_hash_file }}" dist-finanzas-bundle-hashes.txt > /tmp/hash-diff.txt; then
+            HASHES_MATCH=true
+            echo "ℹ️  Bundle hashes are IDENTICAL to previous successful deploy"
+          else
+            HASHES_MATCH=false
+            echo "✅ Bundle hashes DIFFER from previous successful deploy:"
+            cat /tmp/hash-diff.txt
+          fi
+          
+          echo ""
+          FINZ_CHANGED="${{ steps.finz_changed.outputs.finz_changed }}"
+          echo "🔎 Source change detection: finz_changed=$FINZ_CHANGED"
+          
+          # Guard logic: fail if hashes match but source changed
+          if [ "$HASHES_MATCH" = "true" ]; then
+            if [ "$FINZ_CHANGED" = "true" ]; then
+              echo ""
+              echo "❌ GUARD FAILURE: Bundle hashes match previous successful deploy, but Finanzas source files changed."
+              echo ""
+              echo "This indicates a build problem:"
+              echo "  - Source files were modified (detected by git diff)"
+              echo "  - But the build output hashes are identical"
+              echo "  - This suggests the build is not picking up the source changes"
+              echo ""
+              echo "🔧 Possible causes:"
+              echo "  1. Build cache issue (try clearing node_modules and dist)"
+              echo "  2. Vite configuration not watching certain files"
+              echo "  3. Source changes in files that don't affect the bundle"
+              echo ""
+              echo "Changed files were:"
+              cat /tmp/finz-changed-files.txt || echo "(file list not available)"
               exit 1
             else
-              echo "ℹ️ Bundle hashes unchanged and no Finanzas-specific files changed; continuing."
+              echo "✅ Bundle hashes unchanged and no Finanzas source files changed; safe to continue."
             fi
           else
-            echo "✅ Bundle hashes differ from previous successful deploy."
+            echo "✅ Bundle hashes differ from previous deploy; changes detected correctly."
           fi
 
       - name: Verify API URL embedded in Finanzas bundle
