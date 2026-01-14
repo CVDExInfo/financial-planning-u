@@ -59,4 +59,6 @@ docs-pdf/
 
 # Documentation pipeline temporary files
 public/docs/temp/
-pnpm-lock.yaml
+
+# Use pnpm, ignore npm lockfile
+package-lock.json
