@@ -26,6 +26,9 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.931.0
         version: 3.968.0
+      '@aws-sdk/util-dynamodb':
+        specifier: ^3.931.0
+        version: 3.968.0(@aws-sdk/client-dynamodb@3.968.0)
       '@types/uuid':
         specifier: ^10.0.0
         version: 10.0.0
