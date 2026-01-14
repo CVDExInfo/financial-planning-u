@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "commonjs",
+  "packageManager": "pnpm@9.15.9",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "jest --runInBand",
