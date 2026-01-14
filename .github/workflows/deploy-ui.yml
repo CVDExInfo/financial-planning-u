@@ -336,9 +336,16 @@ jobs:
           # Pattern matches ONLY frontend bundle inputs, excluding:
           # - .github/workflows/ (CI config doesn't affect bundle)
           # - services/ subdirectories (backend services don't affect frontend bundle)
+          # - public/docs/ (documentation doesn't affect JS/CSS bundle)
           # Match root-level package.json and pnpm-lock.yaml only (not in subdirs)
           FINZ_PATTERN='^(src/modules/finanzas|src/features/sdmt|src/components|src/api|public/|index\.html|vite\.config|package\.json$|pnpm-lock\.yaml$|tailwind\.config\.js|tsconfig)'
           FINZ_FILES=$(echo "$CHANGED_FILES" | grep -E "$FINZ_PATTERN" || true)
+          
+          # Exclude public/docs/ - documentation files don't affect the bundle
+          # (they're just static assets copied as-is, not processed by Vite)
+          if [ -n "$FINZ_FILES" ]; then
+            FINZ_FILES=$(echo "$FINZ_FILES" | grep -v '^public/docs/' || true)
+          fi
           
           # Additional check: if only package.json changed, verify it's a meaningful change
           # (not just packageManager field metadata)
