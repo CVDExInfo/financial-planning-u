@@ -70,17 +70,24 @@ export function computeForecastFromAllocations(
   const allocationMap = new Map<string, { month: number; amount: number; rubroId?: string }[]>();
   
   allocations.forEach(alloc => {
-    // Parse month from allocation (could be "2025-01" format or month number)
+    // Determine contract month index. Priority:
+    //  1) alloc.month_index (authoritative, written by materializer)
+    //  2) alloc.month if numeric (legacy)
+    //  3) alloc.month as 'YYYY-MM' fallback (legacy/older rows)
     let monthNum = 0;
-    if (typeof alloc.month === 'number') {
+    if ((alloc as any).month_index !== undefined && (alloc as any).month_index !== null) {
+      monthNum = Number((alloc as any).month_index);
+    } else if (typeof alloc.month === 'number') {
       monthNum = alloc.month;
     } else if (typeof alloc.month === 'string') {
-      const match = alloc.month.match(/\d{4}-(\d{2})/);
-      if (match) {
-        monthNum = parseInt(match[1], 10);
+      const match = alloc.month.match(/^(\d{4})-(\d{2})$/);
+      if (match) monthNum = parseInt(match[2], 10);
+      else {
+        const parsed = parseInt(alloc.month as any, 10);
+        if (!isNaN(parsed)) monthNum = parsed;
       }
     }
-    
+
     if (monthNum >= 1 && monthNum <= 60) { // Support up to 60 months
       const rubroId = alloc.rubroId || alloc.rubro_id || alloc.line_item_id || 'UNKNOWN';
       const key = `${rubroId}-${monthNum}`;

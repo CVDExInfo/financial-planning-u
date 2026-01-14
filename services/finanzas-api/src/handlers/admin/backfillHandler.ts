@@ -62,28 +62,52 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       );
     }
 
+    // Fetch baseline payload once (needed for both projectId resolution and allocations)
+    let baselinePayload = null;
     let resolvedProjectId = projectId;
     if (!resolvedProjectId) {
-      const baseline = await fetchBaselinePayload(resolvedBaselineId);
+      baselinePayload = await fetchBaselinePayload(resolvedBaselineId);
       resolvedProjectId =
-        baseline?.project_id ||
-        baseline?.projectId ||
-        baseline?.payload?.project_id ||
-        baseline?.payload?.projectId;
+        baselinePayload?.project_id ||
+        baselinePayload?.projectId ||
+        baselinePayload?.payload?.project_id ||
+        baselinePayload?.payload?.projectId;
     }
 
-    const result = await materializeRubrosFromBaseline({
+    // Materialize rubros (existing behavior)
+    const rubrosResult = await materializeRubrosFromBaseline({
       projectId: resolvedProjectId,
       baselineId: resolvedBaselineId,
       dryRun: !!dryRun,
     });
+
+    // ALSO materialize allocations so the UI "Materializar Baseline" produces both rubros and allocations
+    // We call the allocations materializer directly to produce idempotent writes.
+    const { materializeAllocationsForBaseline } = await import("../../lib/materializers");
+    
+    // Fetch baseline payload if not already fetched
+    if (!baselinePayload) {
+      baselinePayload = await fetchBaselinePayload(resolvedBaselineId);
+    }
+    
+    const allocationsResult = await materializeAllocationsForBaseline(
+      {
+        baseline_id: resolvedBaselineId,
+        project_id: resolvedProjectId,
+        payload: baselinePayload?.payload || baselinePayload,
+      },
+      { dryRun: !!dryRun }
+    );
 
     return withCors(
       ok({
         success: true,
         dryRun: !!dryRun,
         baselineId: resolvedBaselineId,
-        result,
+        result: {
+          rubrosResult,
+          allocationsResult,
+        },
       })
     );
   } catch (err) {
