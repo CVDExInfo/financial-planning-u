@@ -35,6 +35,7 @@ export interface UseSDMTForecastDataResult {
   materializationTimeout: boolean;
   materializationFailed: boolean;
   retryMaterialization: () => void;
+  dataSource: 'serverForecast' | 'allocationsFallback' | 'rubrosFallback' | null;
 }
 
 /**
@@ -88,6 +89,7 @@ export function useSDMTForecastData({
   const [materializationPending, setMaterializationPending] = useState(false);
   const [materializationTimeout, setMaterializationTimeout] = useState(false);
   const [materializationFailed, setMaterializationFailed] = useState(false);
+  const [dataSource, setDataSource] = useState<'serverForecast' | 'allocationsFallback' | 'rubrosFallback' | null>(null);
   
   const latestRequestKey = useRef(0);
   const abortCtrlRef = useRef<AbortController | null>(null);
@@ -207,6 +209,7 @@ export function useSDMTForecastData({
         // Use server forecast - it has valid data
         rows = forecastPayload.data as ForecastRow[];
         console.log(`[useSDMTForecastData] ✅ Using server forecast data (${rows.length} cells with critical data)`);
+        setDataSource('serverForecast');
       } else {
         console.warn('[useSDMTForecastData] Server forecast empty or missing critical cells — trying fallback');
         
@@ -235,12 +238,14 @@ export function useSDMTForecastData({
             rows = computeForecastFromAllocations(allocations as Allocation[], rubrosResp, months, projectId);
             console.log(`[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from allocations`);
             usedFallback = true;
+            setDataSource('allocationsFallback');
           } else if (rubrosResp && rubrosResp.length > 0) {
             // Final fallback: use rubros only (original behavior)
             console.warn(`[useSDMTForecastData] No allocations found — using ${rubrosResp.length} rubros only`);
             rows = transformLineItemsToForecast(rubrosResp, months, projectId);
             console.log(`[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from rubros fallback`);
             usedFallback = true;
+            setDataSource('rubrosFallback');
           } else {
             // No data available at all
             console.error('[useSDMTForecastData] ❌ No forecast, allocations, or rubros available');
@@ -258,6 +263,7 @@ export function useSDMTForecastData({
             rows = transformLineItemsToForecast(rubrosResp, months, projectId);
             console.log(`[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from rubros fallback (after allocation error)`);
             usedFallback = true;
+            setDataSource('rubrosFallback');
           } else {
             console.error('[useSDMTForecastData] ❌ All fallback options exhausted');
             setError('No forecast data available. Allocation fallback failed.');
@@ -314,7 +320,7 @@ export function useSDMTForecastData({
         forecastCellsGenerated: rowsWithActuals.length,
         invoicesRetrieved: invoices?.length || 0,
         matchedInvoices: matchedInvoices.length,
-        dataSource: usedFallback ? 'fallback (allocations or rubros)' : 'server forecast',
+        dataSource: dataSource || (usedFallback ? 'fallback (allocations or rubros)' : 'server forecast'),
         months,
       });
       
@@ -376,5 +382,6 @@ export function useSDMTForecastData({
     materializationTimeout,
     materializationFailed,
     retryMaterialization,
+    dataSource,
   };
 }
