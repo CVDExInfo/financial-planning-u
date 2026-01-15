@@ -197,6 +197,7 @@ export function useSDMTForecastData({
       let rows: ForecastRow[] = [];
       let usedFallback = false;
       let allocationsCount = 0; // Track for summary logging
+      let chosenDataSource: 'serverForecast' | 'allocationsFallback' | 'rubrosFallback' | null = null;
 
       // Check if forecast has meaningful data
       const hasForecastData = forecastPayload.data && forecastPayload.data.length > 0;
@@ -208,8 +209,8 @@ export function useSDMTForecastData({
       if (hasCriticalCells) {
         // Use server forecast - it has valid data
         rows = forecastPayload.data as ForecastRow[];
+        chosenDataSource = 'serverForecast';
         console.log(`[useSDMTForecastData] ✅ Using server forecast data (${rows.length} cells with critical data)`);
-        setDataSource('serverForecast');
       } else {
         console.warn('[useSDMTForecastData] Server forecast empty or missing critical cells — trying fallback');
         
@@ -238,14 +239,14 @@ export function useSDMTForecastData({
             rows = computeForecastFromAllocations(allocations as Allocation[], rubrosResp, months, projectId);
             console.log(`[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from allocations`);
             usedFallback = true;
-            setDataSource('allocationsFallback');
+            chosenDataSource = 'allocationsFallback';
           } else if (rubrosResp && rubrosResp.length > 0) {
             // Final fallback: use rubros only (original behavior)
             console.warn(`[useSDMTForecastData] No allocations found — using ${rubrosResp.length} rubros only`);
             rows = transformLineItemsToForecast(rubrosResp, months, projectId);
             console.log(`[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from rubros fallback`);
             usedFallback = true;
-            setDataSource('rubrosFallback');
+            chosenDataSource = 'rubrosFallback';
           } else {
             // No data available at all
             console.error('[useSDMTForecastData] ❌ No forecast, allocations, or rubros available');
@@ -263,7 +264,7 @@ export function useSDMTForecastData({
             rows = transformLineItemsToForecast(rubrosResp, months, projectId);
             console.log(`[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from rubros fallback (after allocation error)`);
             usedFallback = true;
-            setDataSource('rubrosFallback');
+            chosenDataSource = 'rubrosFallback';
           } else {
             console.error('[useSDMTForecastData] ❌ All fallback options exhausted');
             setError('No forecast data available. Allocation fallback failed.');
@@ -312,7 +313,10 @@ export function useSDMTForecastData({
 
       setForecastRows(rowsWithActuals);
       
-      // Summary logging for data validation
+      // Update state with chosen data source (after all async operations)
+      setDataSource(chosenDataSource);
+      
+      // Summary logging for data validation (use local variable for accuracy)
       console.log('[useSDMTForecastData] 📊 Data Summary:', {
         projectId,
         rubrosRetrieved: rubrosResp?.length || 0,
@@ -320,7 +324,7 @@ export function useSDMTForecastData({
         forecastCellsGenerated: rowsWithActuals.length,
         invoicesRetrieved: invoices?.length || 0,
         matchedInvoices: matchedInvoices.length,
-        dataSource: dataSource,
+        dataSource: chosenDataSource,
         months,
       });
       
