@@ -1,0 +1,199 @@
+name: pre-merge-preflight
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  preflight:
+    name: Pre-merge preflight
+    runs-on: ubuntu-latest
+    env:
+      API_BASE: ${{ secrets.API_BASE }}
+      API_TOKEN: ${{ secrets.API_TOKEN }}
+      BASELINE_ID: ${{ secrets.BASELINE_ID }}
+      PROJECT_ID: ${{ secrets.PROJECT_ID }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      CLOUDWATCH_LOG_GROUP: ${{ secrets.CLOUDWATCH_LOG_GROUP }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+
+      - name: Activate pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies
+        working-directory: services/finanzas-api
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests (finanzas-api)
+        working-directory: services/finanzas-api
+        run: pnpm -s test -- --runInBand
+        # will fail the job if tests fail
+
+      - name: Run lint & build (repo-level)
+        run: |
+          pnpm -w -s lint || true
+          pnpm -w -s build || true
+
+      # -------------------------------------------------------------
+      # Integration / smoke tests (uses API_BASE & API_TOKEN)
+      # -------------------------------------------------------------
+      - name: Dry-run admin backfill (smoke)
+        id: dry_run
+        run: |
+          set -euo pipefail
+          echo "Running dry-run admin backfill for $BASELINE_ID"
+          curl -sS -X POST "${API_BASE}/admin/backfill" \
+            -H "Authorization: ${API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"baselineId\":\"${BASELINE_ID}\",\"dryRun\": true}" \
+            -o dry_run_backfill.json
+          cat dry_run_backfill.json
+          # Try to extract allocationsAttempted; support two possible shapes
+          ATTEMPTED=$(jq -r '(.result.allocationsResult.allocationsAttempted // .allocationsResult.allocationsAttempted) // empty' dry_run_backfill.json || true)
+          echo "allocationsAttempted=${ATTEMPTED}" >/tmp/dry_run_out.txt
+          if [ -z "$ATTEMPTED" ]; then
+            echo "ERROR: allocationsAttempted not found in dry_run_backfill.json"
+            exit 1
+          fi
+          if [ "$ATTEMPTED" -le 0 ]; then
+            echo "ERROR: allocationsAttempted is <= 0 ($ATTEMPTED)"
+            exit 2
+          fi
+          echo "Dry-run passed: allocationsAttempted=$ATTEMPTED"
+
+      - name: Real admin backfill (write allocations)
+        id: real_run
+        run: |
+          set -euo pipefail
+          echo "Running real admin backfill for $BASELINE_ID"
+          curl -sS -X POST "${API_BASE}/admin/backfill" \
+            -H "Authorization: ${API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"baselineId\":\"${BASELINE_ID}\",\"dryRun\": false}" \
+            -o real_run_backfill.json
+          cat real_run_backfill.json
+          WRITTEN=$(jq -r '(.result.allocationsResult.allocationsWritten // .allocationsResult.allocationsWritten) // empty' real_run_backfill.json || true)
+          echo "allocationsWritten=${WRITTEN}" >/tmp/real_run_out.txt
+          if [ -z "$WRITTEN" ]; then
+            echo "ERROR: allocationsWritten not found in real_run_backfill.json"
+            exit 1
+          fi
+          if [ "$WRITTEN" -le 0 ]; then
+            echo "ERROR: allocationsWritten is <= 0 ($WRITTEN)"
+            exit 2
+          fi
+          echo "Real backfill passed: allocationsWritten=$WRITTEN"
+
+      - name: Verify allocations via GET
+        id: allocations_get
+        run: |
+          set -euo pipefail
+          echo "Fetching allocations for project ${PROJECT_ID}"
+          curl -sS "${API_BASE}/allocations?projectId=${PROJECT_ID}" \
+            -H "Authorization: ${API_TOKEN}" -o allocations_list.json
+          COUNT=$(jq 'length' allocations_list.json || true)
+          echo "allocations_count=$COUNT" >/tmp/allocations_out.txt
+          if [ -z "$COUNT" ] || [ "$COUNT" -eq 0 ]; then
+            echo "ERROR: allocations GET returned 0 items"
+            exit 1
+          fi
+          echo "Allocations verification passed (count=${COUNT})"
+
+      # -------------------------------------------------------------
+      # CloudWatch validations (requires AWS creds via secrets)
+      # -------------------------------------------------------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: "Poll CloudWatch: normalizeBaseline preview"
+        id: cw_preview
+        run: |
+          set -euo pipefail
+          # check logs within last hour for preview messages that include baseline id
+          START_MS=$(($(date +%s) - 3600))
+          echo "Searching CloudWatch logs in ${CLOUDWATCH_LOG_GROUP} since ${START_MS}"
+          MSGS=$(aws logs filter-log-events \
+            --log-group-name "${CLOUDWATCH_LOG_GROUP}" \
+            --start-time $(( START_MS * 1000 )) \
+            --filter-pattern "normalizeBaseline preview" \
+            --limit 50 \
+            --query 'events[*].message' \
+            --output text || true)
+          echo "$MSGS" > preview_msgs.txt
+          echo "Captured preview logs:"
+          tail -n 50 preview_msgs.txt || true
+          # Grep for the baseline id and extract laborCount (first match)
+          LABOR=$(echo "$MSGS" | grep -F "${BASELINE_ID}" || true | grep -oP '"laborCount":\s*\K\d+' | head -n1 || true)
+          echo "preview_laborCount=${LABOR}" >/tmp/cw_preview_out.txt
+          if [ -z "$LABOR" ]; then
+            echo "ERROR: unable to find normalizeBaseline preview log with laborCount for ${BASELINE_ID}"
+            exit 1
+          fi
+          if [ "$LABOR" -le 0 ]; then
+            echo "ERROR: preview laborCount is <= 0 ($LABOR)"
+            exit 2
+          fi
+          echo "CloudWatch preview check passed: laborCount=$LABOR"
+
+      - name: "Poll CloudWatch: materializeAllocationsForBaseline result"
+        id: cw_result
+        run: |
+          set -euo pipefail
+          START_MS=$(($(date +%s) - 3600))
+          MSGS=$(aws logs filter-log-events \
+            --log-group-name "${CLOUDWATCH_LOG_GROUP}" \
+            --start-time $(( START_MS * 1000 )) \
+            --filter-pattern "materializeAllocationsForBaseline result" \
+            --limit 50 \
+            --query 'events[*].message' \
+            --output text || true)
+          echo "$MSGS" > materializer_msgs.txt
+          echo "Captured materializer result logs:"
+          tail -n 50 materializer_msgs.txt || true
+          ALLOC_WRITTEN=$(echo "$MSGS" | grep -F "${BASELINE_ID}" || true | grep -oP '"allocationsWritten":\s*\K\d+' | head -n1 || true)
+          echo "materializer_allocationsWritten=${ALLOC_WRITTEN}" >/tmp/cw_materializer_out.txt
+          if [ -z "$ALLOC_WRITTEN" ]; then
+            echo "ERROR: unable to find materializeAllocationsForBaseline result log with allocationsWritten for ${BASELINE_ID}"
+            exit 1
+          fi
+          if [ "$ALLOC_WRITTEN" -le 0 ]; then
+            echo "ERROR: allocationsWritten is <= 0 ($ALLOC_WRITTEN)"
+            exit 2
+          fi
+          echo "CloudWatch materializer check passed: allocationsWritten=$ALLOC_WRITTEN"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: preflight-artifacts
+          path: |
+            dry_run_backfill.json
+            real_run_backfill.json
+            allocations_list.json
+            preview_msgs.txt
+            materializer_msgs.txt
+            /tmp/dry_run_out.txt
+            /tmp/real_run_out.txt
+            /tmp/allocations_out.txt
+            /tmp/cw_preview_out.txt
+            /tmp/cw_materializer_out.txt
