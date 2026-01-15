@@ -33,27 +33,27 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Validate Cognito secrets + fetch API token
+      - name: Validate Cognito credentials + fetch API token
         shell: bash
         env:
-          COGNITO_USER: ${{ secrets.COGNITO_TESTER_USERNAME }}
-          COGNITO_PASS: ${{ secrets.COGNITO_TESTER_PASSWORD }}
-          COGNITO_CLIENT: ${{ secrets.COGNITO_WEB_CLIENT }}
+          COGNITO_USER: ${{ vars.COGNITO_TESTER_USERNAME }}
+          COGNITO_PASS: ${{ vars.COGNITO_TESTER_PASSWORD }}
+          COGNITO_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
           set -euo pipefail
-          echo "Validating Cognito tester secrets..."
+          echo "Validating Cognito tester credentials..."
           missing=false
           for v in COGNITO_USER COGNITO_PASS COGNITO_CLIENT; do
             if [ -z "${!v}" ]; then
-              echo "::error::Required secret $v is not set"
+              echo "::error::Required env variable $v is not set"
               missing=true
             else
               echo "Found $v"
             fi
           done
           if [ "$missing" = true ]; then
-            echo "::error::Add Cognito tester credentials (COGNITO_TESTER_USERNAME, COGNITO_TESTER_PASSWORD, COGNITO_WEB_CLIENT) to repo secrets."
+            echo "::error::Add Cognito tester credentials (COGNITO_TESTER_USERNAME, COGNITO_TESTER_PASSWORD, COGNITO_WEB_CLIENT) to repository environment variables."
             exit 1
           fi
 
