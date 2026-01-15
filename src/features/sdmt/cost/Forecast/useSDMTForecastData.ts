@@ -320,7 +320,7 @@ export function useSDMTForecastData({
         forecastCellsGenerated: rowsWithActuals.length,
         invoicesRetrieved: invoices?.length || 0,
         matchedInvoices: matchedInvoices.length,
-        dataSource: dataSource || (usedFallback ? 'fallback (allocations or rubros)' : 'server forecast'),
+        dataSource: dataSource,
         months,
       });
       

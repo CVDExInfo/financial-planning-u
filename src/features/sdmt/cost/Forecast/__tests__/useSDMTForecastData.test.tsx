@@ -151,7 +151,24 @@ describe('useSDMTForecastData Helper Functions', () => {
       // Compute forecast from allocations
       const rows = computeForecastFromAllocations(
         allocations,
-        [{ id: 'R-1', description: 'Engineer', category: 'Labor' }] as LineItem[],
+        [{ 
+          id: 'R-1', 
+          description: 'Engineer', 
+          category: 'Labor',
+          unit_cost: 100,
+          qty: 10,
+          start_month: 1,
+          end_month: 12,
+          currency: 'USD',
+          one_time: false,
+          recurring: true,
+          amortization: 'none',
+          capex_flag: false,
+          indexation_policy: 'none',
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+          created_by: 'test-user',
+        } as LineItem],
         12,
         'P-1'
       );
@@ -257,7 +274,7 @@ describe('useSDMTForecastData Helper Functions', () => {
         }
       ];
       
-      const rubros: any[] = [];
+      const rubros: LineItem[] = [];
       const rows = computeForecastFromAllocations(allocations as any, rubros, 60, 'P-1');
       
       // Only valid month should be included
