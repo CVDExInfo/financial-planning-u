@@ -117,6 +117,11 @@ const unmarshallIfNeeded = (value: unknown): any => {
     return value;
   }
   
+  // Handle arrays
+  if (Array.isArray(value)) {
+    return value.map((item) => unmarshallIfNeeded(item));
+  }
+  
   // Check if this looks like marshalled DynamoDB data by looking for type descriptors
   const obj = value as Record<string, unknown>;
   const keys = Object.keys(obj);
@@ -144,9 +149,55 @@ const unmarshallIfNeeded = (value: unknown): any => {
 };
 
 const normalizeBaseline = (baseline: BaselineLike) => {
-  // Unmarshall payload if it contains DynamoDB-formatted data
-  const rawPayload = (baseline.payload as Record<string, unknown> | undefined) || {};
-  const payload = unmarshallIfNeeded(rawPayload) as Record<string, unknown>;
+  // ---------- START PATCH for normalizeBaseline ----------
+  const rawPayloadCandidate = (baseline.payload as Record<string, unknown> | undefined) ?? baseline ?? {};
+  // Try to unmarshall the candidate
+  const payloadCandidate = unmarshallIfNeeded(rawPayloadCandidate) as Record<string, unknown>;
+
+  // Helper: try to find estimates within 0..2 extra payload nestings
+  const tryUnwrapForEstimates = (p: any): Record<string, unknown> => {
+    if (!p || typeof p !== "object") return {};
+    // Level 0: direct
+    if (Array.isArray(p.labor_estimates) || Array.isArray(p.non_labor_estimates)) return p;
+    // Level 1: p.payload
+    if (p.payload) {
+      const p1 = unmarshallIfNeeded(p.payload);
+      if (Array.isArray((p1 as any).labor_estimates) || Array.isArray((p1 as any).non_labor_estimates)) return p1 as Record<string, unknown>;
+      // Level 2: p.payload.payload
+      if ((p1 as any).payload) {
+        const p2 = unmarshallIfNeeded((p1 as any).payload);
+        if (Array.isArray((p2 as any).labor_estimates) || Array.isArray((p2 as any).non_labor_estimates)) return p2 as Record<string, unknown>;
+      }
+    }
+    // Last resort: return the original unmarshalled candidate
+    return p;
+  };
+
+  const payload = tryUnwrapForEstimates(payloadCandidate) as Record<string, unknown>;
+
+  // Diagnostic: helpful preview for CloudWatch (so operators can confirm what materializer received)
+  try {
+    const previewLaborCount =
+      Array.isArray((payload as any).labor_estimates)
+        ? (payload as any).labor_estimates.length
+        : 0;
+    const previewNonLaborCount =
+      Array.isArray((payload as any).non_labor_estimates)
+        ? (payload as any).non_labor_estimates.length
+        : 0;
+    console.info("[materializers] normalizeBaseline preview", {
+      baselineId: baseline.baseline_id || baseline.baselineId,
+      projectId: baseline.project_id || baseline.projectId || (payload as any).project_id,
+      startDate: baseline.start_date || (payload as any).start_date || null,
+      durationMonths: baseline.duration_months || baseline.durationMonths || (payload as any).duration_months || (payload as any).durationMonths || 0,
+      laborCount: previewLaborCount,
+      nonLaborCount: previewNonLaborCount
+    });
+  } catch (e) {
+    // don't fail normalization on logging issues
+    console.warn("[materializers] normalizeBaseline preview logging failed", String(e));
+  }
+  // ---------- END PATCH ----------
   
   const payloadLabor = asArray((payload as { labor_estimates?: any[] }).labor_estimates);
   const payloadNonLabor = asArray((payload as { non_labor_estimates?: any[] }).non_labor_estimates);

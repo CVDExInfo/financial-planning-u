@@ -23,11 +23,12 @@ jest.mock("../src/utils/logging", () => ({
 type BaselineStub = {
   baseline_id: string;
   project_id: string;
-  start_date: string;
-  duration_months: number;
+  start_date?: string;
+  duration_months?: number;
   currency?: string;
   labor_estimates?: any[];
   non_labor_estimates?: any[];
+  payload?: any;
 };
 
 describe("Allocations Materializer (M1..M60)", () => {
@@ -302,5 +303,49 @@ describe("Allocations Materializer (M1..M60)", () => {
     // Verify M60 = Dec 2029
     const month60 = allAllocations.find((a: any) => a.PutRequest.Item.month_index === 60);
     expect(month60?.PutRequest.Item.month).toBe("2029-12");
+  });
+
+  it("materializes allocations when estimates are nested under payload.payload", async () => {
+    const baseline: BaselineStub = {
+      baseline_id: "base_nested_payload",
+      project_id: "P-NEST",
+      // no top-level start_date/duration; included inside payload.payload
+      currency: "USD",
+      payload: {
+        payload: {
+          start_date: "2025-01-01",
+          duration_months: 36,
+          labor_estimates: [
+            {
+              id: "labor-nested-1",
+              rubroId: "MOD-NEST",
+              role: "EngineerNested",
+              periodic: "recurring",
+              total_cost: 360000
+            }
+          ],
+          non_labor_estimates: []
+        }
+      }
+    };
+
+    // Reset mocks
+    (ddb.send as jest.Mock).mockReset();
+    (batchGetExistingItems as jest.Mock).mockReset();
+    (batchGetExistingItems as jest.Mock).mockResolvedValue([]);
+    (ddb.send as jest.Mock).mockImplementation((command: any) => Promise.resolve({}));
+
+    const result = await materializeAllocationsForBaseline(baseline as any, { dryRun: false });
+
+    expect(result.allocationsAttempted).toBe(36);
+    expect(result.allocationsWritten).toBe(36);
+    expect(result.allocationsSkipped).toBe(0);
+
+    // Ensure BatchWrite happened
+    const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
+      const command = call[0];
+      return command?.input?.RequestItems?.mock_allocations;
+    });
+    expect(batchCalls.length).toBeGreaterThan(0);
   });
 });
