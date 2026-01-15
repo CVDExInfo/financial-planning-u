@@ -21,6 +21,10 @@ import {
   normalizeNonLaborEstimate,
 } from "../lib/rubros-taxonomy";
 import { seedLineItemsFromBaseline } from "../lib/seed-line-items";
+import {
+  materializeAllocationsForBaseline,
+  materializeRubrosForBaseline,
+} from "../lib/materializers";
 
 type BaselineDealInputs = {
   project_name?: string;
@@ -765,6 +769,53 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     hasEstimates: hasLaborEstimates || hasNonLaborEstimates,
   });
 
+  // UPSTREAM ALLOCATION MATERIALIZATION
+  // Create allocations and rubros immediately at handoff (not waiting for acceptance)
+  // This ensures SDMT Forecast can display F values right after handoff
+  let materializationSummary: Record<string, unknown> | undefined;
+  
+  try {
+    console.info("[baseline-handoff] materialization start", {
+      projectId: resolvedProjectId,
+      baselineId,
+      start_date: normalizedBaseline.start_date,
+      durationMonths: normalizedBaseline.durationMonths,
+    });
+
+    // Prepare baseline record for materializers (they expect specific field names)
+    const baselineForMaterializers = {
+      baseline_id: baselineId,
+      project_id: resolvedProjectId,
+      start_date: startDate,
+      duration_months: durationMonths,
+      currency,
+      labor_estimates: normalizedBaseline.labor_estimates,
+      non_labor_estimates: normalizedBaseline.non_labor_estimates,
+      payload: baseline?.payload || {},
+    };
+
+    const [allocationsSummary, rubrosSummary] = await Promise.all([
+      materializeAllocationsForBaseline(baselineForMaterializers, { dryRun: false }),
+      materializeRubrosForBaseline(baselineForMaterializers, { dryRun: false }),
+    ]);
+
+    materializationSummary = { allocationsSummary, rubrosSummary };
+
+    console.info("[baseline-handoff] materialization result", {
+      projectId: resolvedProjectId,
+      baselineId,
+      allocationsSummary,
+      rubrosSummary,
+    });
+  } catch (materializeError) {
+    // Log error but don't fail handoff - acceptance will retry
+    logError("[baseline-handoff] materialization failed (will retry at acceptance)", {
+      projectId: resolvedProjectId,
+      baselineId,
+      error: materializeError,
+    });
+  }
+
   // Store idempotency record (with 24h TTL)
   const ttl = Math.floor(Date.now() / 1000) + 86400; // 24 hours
   
@@ -799,6 +850,8 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
     modTotal: totalAmount,
     sdm_manager_name: sdmManagerName,
     seededRubros: seedResult.seeded,
+    // Upstream materialization summary
+    materialization: materializationSummary,
   };
 
   const idempotencyRecord = {
