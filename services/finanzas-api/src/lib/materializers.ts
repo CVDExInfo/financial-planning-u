@@ -511,7 +511,7 @@ const resolveMonthlyAmounts = (
   }
 
   const recurring = item.periodic === "recurring" || item.recurring === true;
-  const monthlyValue = recurring ? totalCost / months.length : totalCost / months.length;
+  const monthlyValue = totalCost / months.length;
   return months.map(() => Number.isFinite(monthlyValue) ? monthlyValue : 0);
 };
 

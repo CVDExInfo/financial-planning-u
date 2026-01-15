@@ -197,22 +197,23 @@ export const handler = async (
         
         if (monthIndex <= (months as number)) {
           // P/F/A MODEL: Use dedicated fields with backward compatibility
-          // If allocation has planned/forecast/actual fields, use those
-          // Otherwise fall back to legacy 'amount' field
+          // Modern schema: allocations have planned/forecast/actual fields
+          // Legacy schema: allocations only have amount field
+          // Check if at least one P/F/A field is defined (not just undefined)
           const hasModernSchema = 
             allocation.planned !== undefined || 
             allocation.forecast !== undefined || 
             allocation.actual !== undefined;
           
           const planned = hasModernSchema
-            ? Number(allocation.planned || 0)
-            : Number(allocation.amount || allocation.monto_planeado || 0);
+            ? Number(allocation.planned ?? 0)
+            : Number(allocation.amount ?? allocation.monto_planeado ?? 0);
           
           const forecast = hasModernSchema
             ? Number(allocation.forecast ?? allocation.planned ?? 0)
             : Number(allocation.forecast ?? allocation.amount ?? allocation.monto_proyectado ?? planned);
           
-          const actual = Number(allocation.actual || allocation.monto_real || 0);
+          const actual = Number(allocation.actual ?? allocation.monto_real ?? 0);
 
           forecastData.push({
             line_item_id:
