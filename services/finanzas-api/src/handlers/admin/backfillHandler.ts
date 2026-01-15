@@ -95,17 +95,17 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
         return raw;
       }
       // If the metadata has a 'payload' wrapper, prefer its content
-      const p1 = raw.payload ?? raw;
-      if (Array.isArray(p1.labor_estimates) || Array.isArray(p1.non_labor_estimates)) {
-        return p1;
+      const singleNestedPayload = raw.payload ?? raw;
+      if (Array.isArray(singleNestedPayload.labor_estimates) || Array.isArray(singleNestedPayload.non_labor_estimates)) {
+        return singleNestedPayload;
       }
       // One additional defensive level: payload.payload
-      const p2 = (p1 && typeof p1 === 'object' && p1.payload) ? p1.payload : p1;
-      if (Array.isArray(p2.labor_estimates) || Array.isArray(p2.non_labor_estimates)) {
-        return p2;
+      const doubleNestedPayload = (singleNestedPayload && typeof singleNestedPayload === 'object' && singleNestedPayload.payload) ? singleNestedPayload.payload : singleNestedPayload;
+      if (Array.isArray(doubleNestedPayload.labor_estimates) || Array.isArray(doubleNestedPayload.non_labor_estimates)) {
+        return doubleNestedPayload;
       }
-      // Last resort: return p1 even if empty (the materializer will validate)
-      return p1;
+      // Last resort: return singleNestedPayload even if empty (the materializer will validate)
+      return singleNestedPayload;
     };
 
     const suppliedPayload = unwrapBaselinePayload(baselinePayload);
@@ -115,14 +115,14 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       baselineId: resolvedBaselineId,
       projectId: resolvedProjectId,
       preview: {
-        start_date: suppliedPayload?.start_date ?? suppliedPayload?.payload?.start_date ?? null,
-        duration_months: suppliedPayload?.duration_months ?? suppliedPayload?.payload?.duration_months ?? null,
+        start_date: suppliedPayload?.start_date ?? null,
+        duration_months: suppliedPayload?.duration_months ?? null,
         laborEstimatesCount: Array.isArray(suppliedPayload?.labor_estimates)
           ? suppliedPayload.labor_estimates.length
-          : (Array.isArray(suppliedPayload?.payload?.labor_estimates) ? suppliedPayload.payload.labor_estimates.length : 0),
+          : 0,
         nonLaborEstimatesCount: Array.isArray(suppliedPayload?.non_labor_estimates)
           ? suppliedPayload.non_labor_estimates.length
-          : (Array.isArray(suppliedPayload?.payload?.non_labor_estimates) ? suppliedPayload.payload.non_labor_estimates.length : 0)
+          : 0
       }
     });
 
