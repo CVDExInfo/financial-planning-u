@@ -77,13 +77,13 @@ jobs:
             fi
           fi
 
-      - name: Diagnostic: Node / pnpm versions
+      - name: "Diagnostic: Node / pnpm versions"
         shell: bash
         run: |
           set -euo pipefail
           echo "node: $(node -v)"
           echo "npm: $(npm -v)"
-          if command -v pnpm >/dev/null 2>&1; then pnpm -v; else echo "pnpm: not found"; fi
+          if command -v pnpm >/dev/null 2>&1; then echo "pnpm: $(pnpm -v)"; else echo "pnpm: not found"; fi
 
       - name: Install dependencies
         shell: bash
