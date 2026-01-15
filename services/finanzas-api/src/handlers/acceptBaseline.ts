@@ -267,10 +267,15 @@ async function acceptBaseline(event: APIGatewayProxyEventV2) {
     materializationDetails = { allocationsSummary, rubrosSummary };
     materialized = true;
 
-    console.info("acceptBaseline materialization", {
+    console.info("[acceptBaseline] materialization result", {
       baselineId,
-      allocationsSummary,
-      rubrosSummary,
+      projectId,
+      allocationsAttempted: (allocationsSummary as any).allocationsAttempted,
+      allocationsWritten: (allocationsSummary as any).allocationsWritten,
+      allocationsSkipped: (allocationsSummary as any).allocationsSkipped,
+      rubrosWritten: (rubrosSummary as any).rubrosWritten,
+      rubrosUpdated: (rubrosSummary as any).rubrosUpdated,
+      note: "If allocationsWritten=0 and allocationsSkipped>0, allocations were already created at handoff (expected behavior)",
     });
 
     // Persist materialization counts to project metadata

@@ -438,7 +438,31 @@ const formatMonth = (date: Date) => {
 };
 
 const monthSequence = (startDate: string, durationMonths: number): string[] => {
-  const start = new Date(startDate || new Date().toISOString());
+  // Contract month alignment: M1 = baseline start_date month
+  let start: Date;
+  let startDateWasFallback = false;
+  
+  if (startDate) {
+    start = new Date(startDate);
+    // Validate the date
+    if (isNaN(start.getTime())) {
+      console.error("[materializers] Invalid start_date, using current month", { startDate });
+      start = new Date();
+      startDateWasFallback = true;
+    }
+  } else {
+    console.error("[materializers] Missing start_date, using current month");
+    start = new Date();
+    startDateWasFallback = true;
+  }
+  
+  if (startDateWasFallback) {
+    console.warn("[materializers] Contract month alignment may be incorrect", {
+      startDateWasFallback: true,
+      fallbackMonth: formatMonth(start),
+    });
+  }
+  
   const months: string[] = [];
   for (let i = 0; i < durationMonths; i += 1) {
     const next = new Date(start);
@@ -556,6 +580,15 @@ export const materializeAllocationsForBaseline = async (
   const { baselineId, projectId, durationMonths, startDate, currency, laborEstimates, nonLaborEstimates } =
     normalizeBaseline(baseline);
 
+  console.info("[materializers] materializeAllocationsForBaseline start", {
+    projectId,
+    baselineId,
+    start_date: startDate,
+    durationMonths,
+    laborEstimatesCount: laborEstimates.length,
+    nonLaborEstimatesCount: nonLaborEstimates.length,
+  });
+
   const months = monthSequence(startDate, durationMonths || 0);
   const lineItems = [...laborEstimates, ...nonLaborEstimates];
   const now = new Date().toISOString();
@@ -577,7 +610,13 @@ export const materializeAllocationsForBaseline = async (
         rubro_id: rubroStableId,
         month,
         month_index: idx + 1,
-        amount,
+        // P/F/A model: Planned (P) = monthly amount from baseline (immutable)
+        //             Forecast (F) = initially equals Planned (can change via cost changes)
+        //             Actual (A) = 0 initially (updated from invoices/payroll)
+        planned: amount,
+        forecast: amount,
+        actual: 0,
+        amount, // Keep for backward compatibility
         source: "baseline_materializer",
         line_item_id: lineItemId,
         createdAt: now,
@@ -596,8 +635,19 @@ export const materializeAllocationsForBaseline = async (
   let existingKeys = new Set<string>();
   try {
     const keys = uniqueAllocations.map((allocation) => ({ pk: allocation.pk, sk: allocation.sk }));
+    console.info("[materializers] checking existing allocations", {
+      baselineId,
+      projectId,
+      sampleSKsToCheck: keys.slice(0, 3).map(k => k.sk),
+    });
     const existingAllocations = await batchGetExistingItems(tableName("allocations"), keys);
     existingKeys = new Set(existingAllocations.map((item) => `${item.pk}#${item.sk}`));
+    console.info("[materializers] existing allocations found", {
+      baselineId,
+      projectId,
+      existingCount: existingKeys.size,
+      existingSKsSample: Array.from(existingKeys).slice(0, 3),
+    });
   } catch (error) {
     logError("[materializers] failed to batch check existing allocations", {
       baselineId,
@@ -619,13 +669,25 @@ export const materializeAllocationsForBaseline = async (
       await batchWriteAll(tableName("allocations"), allocationsToWrite);
     }
 
-    console.info("materializeAllocationsForBaseline", {
+    console.info("[materializers] materializeAllocationsForBaseline result", {
       baselineId,
       projectId,
       allocationsAttempted,
       allocationsWritten,
       allocationsSkipped,
+      months: months.length,
+      monthRange: months.length > 0 ? `${months[0]} to ${months[months.length - 1]}` : 'none',
     });
+
+    // WARN if we attempted to create allocations but wrote 0 (all skipped)
+    if (allocationsAttempted > 0 && allocationsWritten === 0) {
+      console.warn("[materializers] All allocations were skipped (idempotent)", {
+        baselineId,
+        projectId,
+        allocationsAttempted,
+        note: "This is normal if allocations were already materialized",
+      });
+    }
 
     return { allocationsAttempted, allocationsWritten, allocationsSkipped };
   } catch (error) {

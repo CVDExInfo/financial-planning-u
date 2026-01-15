@@ -84,9 +84,15 @@ export const handler = async (
     // SDMT ALIGNMENT FIX: Use baseline-filtered rubros to prevent mixing
     // data from multiple baselines
     let baselineRubros;
+    let activeBaselineId: string | undefined;
     try {
       baselineRubros = await queryProjectRubros(projectId);
       rubrosCount = baselineRubros.length;
+      
+      // Extract active baseline_id from rubros or project metadata
+      if (baselineRubros.length > 0) {
+        activeBaselineId = baselineRubros[0].metadata?.baseline_id || baselineRubros[0].baselineId;
+      }
       
       // Log baseline information for debugging
       if (rubrosCount === 0) {
@@ -99,6 +105,7 @@ export const handler = async (
         console.info("[forecast] Rubros loaded", {
           projectId,
           rubrosCount,
+          activeBaselineId,
           months
         });
       }
@@ -150,35 +157,62 @@ export const handler = async (
     const payrolls = payrollResult?.Items || [];
     const rubroAttachments = baselineRubros; // Use filtered rubros
 
-    allocationsCount = allocations.length;
+    // MULTI-BASELINE SAFETY: Filter allocations by active baseline_id
+    // This prevents mixing allocations from different baselines
+    const filteredAllocations = activeBaselineId
+      ? allocations.filter(a => a.baselineId === activeBaselineId)
+      : allocations;
+
+    allocationsCount = filteredAllocations.length;
     payrollCount = payrolls.length;
+    
+    console.info("[forecast] allocations vs rubros", {
+      projectId,
+      baselineId: activeBaselineId,
+      allocationsCount: filteredAllocations.length,
+      allocationsTotal: allocations.length,
+      rubrosCount,
+      months,
+    });
+    
+    // WARN if we have rubros but no allocations (possible upstream materialization gap)
+    if (rubrosCount > 0 && filteredAllocations.length === 0) {
+      console.warn("[forecast] Rubros exist but no allocations found", {
+        projectId,
+        baselineId: activeBaselineId,
+        rubrosCount,
+        allocationsCount: 0,
+        note: "Possible upstream materialization gap - allocations may not have been created at handoff",
+      });
+    }
 
     const forecastData: ForecastItem[] = [];
 
     // Preferred path: allocations (plan/forecast/actual per line item/month)
-    if (allocations.length > 0) {
-      for (const allocation of allocations) {
+    if (filteredAllocations.length > 0) {
+      for (const allocation of filteredAllocations) {
         // Handle both numeric month and month_index fields
         // Materialized allocations use month_index, manual allocations may use month
         const monthIndex = Number(allocation.month_index || allocation.month || allocation.mes || 1);
         
         if (monthIndex <= (months as number)) {
-          // If allocation is from baseline materializer, use amount as forecast
-          const isMaterialized = allocation.source === "baseline_materializer";
+          // P/F/A MODEL: Use dedicated fields with backward compatibility
+          // If allocation has planned/forecast/actual fields, use those
+          // Otherwise fall back to legacy 'amount' field
+          const hasModernSchema = 
+            allocation.planned !== undefined || 
+            allocation.forecast !== undefined || 
+            allocation.actual !== undefined;
           
-          const planned = isMaterialized 
-            ? Number(allocation.amount || 0)
-            : Number(allocation.planned || allocation.monto_planeado || 0);
+          const planned = hasModernSchema
+            ? Number(allocation.planned || 0)
+            : Number(allocation.amount || allocation.monto_planeado || 0);
           
-          // Use forecast if explicitly set, otherwise use amount for materialized or planned for manual
-          const forecastValue = allocation.forecast ?? allocation.monto_proyectado;
-          const forecast = forecastValue !== undefined 
-            ? Number(forecastValue) 
-            : (isMaterialized ? Number(allocation.amount || 0) : planned);
+          const forecast = hasModernSchema
+            ? Number(allocation.forecast ?? allocation.planned ?? 0)
+            : Number(allocation.forecast ?? allocation.amount ?? allocation.monto_proyectado ?? planned);
           
-          const actual = Number(
-            allocation.actual || allocation.monto_real || 0
-          );
+          const actual = Number(allocation.actual || allocation.monto_real || 0);
 
           forecastData.push({
             line_item_id:
@@ -201,11 +235,11 @@ export const handler = async (
       }
       
       // Log allocation integration for debugging
-      const materializedCount = allocations.filter(a => a.source === "baseline_materializer").length;
+      const materializedCount = filteredAllocations.filter(a => a.source === "baseline_materializer").length;
       if (materializedCount > 0) {
-        console.info("computeForecastFromAllocations: merged allocations", {
+        console.info("[forecast] merged allocations", {
           projectId,
-          baselineId: allocations[0]?.baselineId,
+          baselineId: activeBaselineId,
           allocationsCells: forecastData.length,
           materializedCells: materializedCount,
         });
