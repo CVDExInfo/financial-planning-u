@@ -5,6 +5,14 @@ on:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 
+env:
+  BASELINE_ID: "base_5c62d927a71b"
+  PROJECT_ID: "P-7e4fbaf2-dc12-4b22-a75e-1b8bed96a4c7"
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  CLOUDWATCH_LOG_GROUP: ${{ secrets.CLOUDWATCH_LOG_GROUP }}
+  # prefer VITE_API_BASE_URL if present
+  API_BASE: ${{ secrets.VITE_API_BASE_URL || secrets.API_BASE }}
+
 jobs:
   preflight:
     runs-on: ubuntu-latest
@@ -18,22 +26,69 @@ jobs:
         with:
           node-version: 20
 
-      - name: Ensure required secrets/env present
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Validate Cognito secrets + fetch API token
         shell: bash
         env:
-          API_BASE: ${{ secrets.API_BASE }}
-          API_TOKEN: ${{ secrets.API_TOKEN }}
-          BASELINE_ID: ${{ secrets.BASELINE_ID }}
-          PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          COGNITO_USER: ${{ secrets.COGNITO_TESTER_USERNAME }}
+          COGNITO_PASS: ${{ secrets.COGNITO_TESTER_PASSWORD }}
+          COGNITO_CLIENT: ${{ secrets.COGNITO_WEB_CLIENT }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          set -euo pipefail
+          echo "Validating Cognito tester secrets..."
+          missing=false
+          for v in COGNITO_USER COGNITO_PASS COGNITO_CLIENT; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Required secret $v is not set"
+              missing=true
+            else
+              echo "Found $v"
+            fi
+          done
+          if [ "$missing" = true ]; then
+            echo "::error::Add Cognito tester credentials (COGNITO_TESTER_USERNAME, COGNITO_TESTER_PASSWORD, COGNITO_WEB_CLIENT) to repo secrets."
+            exit 1
+          fi
+
+          # Use AWS CLI to authenticate via Cognito USER_PASSWORD_AUTH
+          echo "Requesting Cognito token via aws cli..."
+          auth=$(aws cognito-idp initiate-auth \
+            --region "${AWS_REGION}" \
+            --client-id "${COGNITO_CLIENT}" \
+            --auth-flow USER_PASSWORD_AUTH \
+            --auth-parameters "USERNAME=${COGNITO_USER},PASSWORD=${COGNITO_PASS}" \
+            --output json) || { echo "::error::Cognito auth failed"; echo "$auth"; exit 1; }
+
+          token=$(echo "$auth" | jq -r '.AuthenticationResult.AccessToken // empty')
+          if [ -z "$token" ]; then
+            echo "::error::Failed to extract AccessToken from Cognito response"
+            echo "$auth"
+            exit 1
+          fi
+
+          echo "Cognito token fetched (masked): ****"
+          # export for subsequent steps
+          echo "API_TOKEN=${token}" >> $GITHUB_ENV
+
+      - name: Ensure required AWS secrets present
+        shell: bash
+        env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           CLOUDWATCH_LOG_GROUP: ${{ secrets.CLOUDWATCH_LOG_GROUP }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           set -euo pipefail
-          echo "Validating required environment variables are set..."
+          echo "Validating required AWS environment variables are set..."
           missing=false
-          for s in API_BASE API_TOKEN BASELINE_ID PROJECT_ID AWS_REGION CLOUDWATCH_LOG_GROUP AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+          for s in AWS_REGION CLOUDWATCH_LOG_GROUP AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
             val="${!s}"
             if [ -z "$val" ]; then
               echo "::error::Required env/secret $s is not set or empty"
@@ -43,9 +98,25 @@ jobs:
             fi
           done
           if [ "$missing" = true ]; then
-            echo "::error::One or more required secrets are missing. Please set repository secrets and re-run the workflow."
+            echo "::error::One or more required AWS secrets are missing. Please set repository secrets and re-run the workflow."
             exit 1
           fi
+          
+          # Verify hardcoded values are set
+          echo "Verifying hardcoded BASELINE_ID and PROJECT_ID..."
+          if [ -z "$BASELINE_ID" ] || [ -z "$PROJECT_ID" ]; then
+            echo "::error::BASELINE_ID or PROJECT_ID not set in workflow env"
+            exit 1
+          fi
+          echo "BASELINE_ID: $BASELINE_ID"
+          echo "PROJECT_ID: $PROJECT_ID"
+          
+          # Verify API_BASE is set
+          if [ -z "$API_BASE" ]; then
+            echo "::error::API_BASE not set (requires VITE_API_BASE_URL or API_BASE secret)"
+            exit 1
+          fi
+          echo "API_BASE: $API_BASE"
 
       - name: Ensure pnpm is available
         shell: bash
