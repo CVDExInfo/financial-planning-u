@@ -1,13 +1,10 @@
 // services/finanzas-api/src/handlers/admin/backfillHandler.ts
 import { APIGatewayProxyHandlerV2 } from "aws-lambda";
-import { materializeRubrosFromBaseline } from "../../lib/materializers";
-import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { materializeRubrosFromBaseline, materializeAllocationsForBaseline } from "../../lib/materializers";
+import { ddb, GetCommand } from "../../lib/dynamo";
 import { withCors, ok, bad, serverError } from "../../lib/http";
 import { ensureCanWrite } from "../../lib/auth";
 
-const REGION = process.env.AWS_REGION || "us-east-1";
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
 const TABLE_PREFACTURAS = process.env.TABLE_PREFACTURAS || "finz_prefacturas";
 const TABLE_PROJECTS = process.env.TABLE_PROJECTS || "finz_projects";
 
@@ -83,18 +80,59 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 
     // ALSO materialize allocations so the UI "Materializar Baseline" produces both rubros and allocations
     // We call the allocations materializer directly to produce idempotent writes.
-    const { materializeAllocationsForBaseline } = await import("../../lib/materializers");
     
     // Fetch baseline payload if not already fetched
     if (!baselinePayload) {
       baselinePayload = await fetchBaselinePayload(resolvedBaselineId);
     }
     
+    // Normalize/unpack payload robustly so materializer always receives the real payload
+    // The function below unwraps common envelope shapes: baseline.payload, baseline.payload.payload, etc.
+    const unwrapBaselinePayload = (raw: any): any => {
+      if (!raw) return raw;
+      // If metadata stored at top-level (legacy)
+      if (Array.isArray(raw.labor_estimates) || Array.isArray(raw.non_labor_estimates)) {
+        return raw;
+      }
+      // If the metadata has a 'payload' wrapper, prefer its content
+      const singleNestedPayload = raw.payload ?? raw;
+      if (Array.isArray(singleNestedPayload.labor_estimates) || Array.isArray(singleNestedPayload.non_labor_estimates)) {
+        return singleNestedPayload;
+      }
+      // One additional defensive level: payload.payload
+      const doubleNestedPayload = (singleNestedPayload && typeof singleNestedPayload === 'object' && singleNestedPayload.payload) ? singleNestedPayload.payload : singleNestedPayload;
+      if (Array.isArray(doubleNestedPayload.labor_estimates) || Array.isArray(doubleNestedPayload.non_labor_estimates)) {
+        return doubleNestedPayload;
+      }
+      // Last resort: return singleNestedPayload even if empty (the materializer will validate)
+      return singleNestedPayload;
+    };
+
+    const suppliedPayload = unwrapBaselinePayload(baselinePayload);
+
+    // Add a helpful log with a preview of the payload so we can diagnose quick failures
+    console.info('[backfill] calling allocations materializer', {
+      baselineId: resolvedBaselineId,
+      projectId: resolvedProjectId,
+      preview: {
+        start_date: suppliedPayload?.start_date ?? null,
+        duration_months: suppliedPayload?.duration_months ?? null,
+        laborEstimatesCount: Array.isArray(suppliedPayload?.labor_estimates)
+          ? suppliedPayload.labor_estimates.length
+          : 0,
+        nonLaborEstimatesCount: Array.isArray(suppliedPayload?.non_labor_estimates)
+          ? suppliedPayload.non_labor_estimates.length
+          : 0
+      }
+    });
+
+    // Call allocations materializer with the normalized payload
     const allocationsResult = await materializeAllocationsForBaseline(
       {
         baseline_id: resolvedBaselineId,
         project_id: resolvedProjectId,
-        payload: baselinePayload?.payload || baselinePayload,
+        // Pass the normalized suppliedPayload if present, otherwise the raw baselinePayload
+        payload: suppliedPayload || baselinePayload || {},
       },
       { dryRun: !!dryRun }
     );
