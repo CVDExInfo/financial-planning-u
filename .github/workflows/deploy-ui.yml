@@ -153,6 +153,14 @@ jobs:
           echo "ℹ️  Running npm run lint (gating)"
           npm run lint
 
+      # ---- CI Guard 1: Clean build caches (prevent stale bundles) ----
+      - name: Clean build caches (prevent stale bundles)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist-finanzas dist .vite node_modules/.cache || true
+          echo "✅ Local build cache removed"
+
       # ---- Compute the API base URL for the build (DEV_API_URL wins, otherwise derive) ----
       - name: Compute API base URL
         id: apibase
@@ -186,10 +194,6 @@ jobs:
           # make VITE_CLOUDFRONT_URL available too (computed earlier in compute step)
           printf '%s\n' "VITE_CLOUDFRONT_URL=${VITE_CLOUDFRONT_URL}" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
-
-      # ... (the remainder of the file is unchanged) ...
-      # I intentionally preserved all the original steps after Build (Build, Write metadata, Hashes, Upload,
-      # CloudFront invalidation, API Smokes, etc.) — only the top-of-file brittle expression changes were made.
 
       - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
@@ -226,6 +230,25 @@ jobs:
             exit 1
           }
           echo "✅ Finanzas Portal built → dist-finanzas/"
+
+      # ---- CI Guard 2: Verify build produced JS/CSS bundles ----
+      - name: Verify build produced JS/CSS bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Check if index JS bundle exists
+          if ! compgen -G "dist-finanzas/assets/index-*.js" > /dev/null; then
+            echo "❌ No JS bundles found in dist-finanzas/assets. Build likely failed or output path changed."
+            exit 1
+          fi
+          # Check if index CSS bundle exists
+          if ! compgen -G "dist-finanzas/assets/index-*.css" > /dev/null; then
+            echo "❌ No CSS bundles found in dist-finanzas/assets. Build likely failed or output path changed."
+            exit 1
+          fi
+          echo "✅ Bundle assets exist:"
+          ls -l dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
+          sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
 
       - name: Write Finanzas deployment metadata
         run: bash scripts/write-deployment-meta.sh dist-finanzas
@@ -471,6 +494,45 @@ jobs:
             --exclude 'test-helper.html' \
             --delete
           echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
+
+      # ---- CI Guard 3: S3 post-sync verification (post-upload) ----
+      - name: Verify S3 sync and index.html asset references
+        shell: bash
+        env:
+          FINANZAS_BUCKET_NAME: ${{ env.FINANZAS_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          # Use find to safely collect asset files
+          mapfile -t LOC_ASSETS < <(find dist-finanzas/assets -type f \( -name 'index-*.js' -o -name 'index-*.css' \) 2>/dev/null || true)
+          if [ ${#LOC_ASSETS[@]} -eq 0 ]; then
+            echo "❌ No local assets found; aborting verification"; exit 1
+          fi
+          MISSING=0
+          for f in "${LOC_ASSETS[@]}"; do
+            key="finanzas/$(basename "$f")"
+            if ! aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$key" >/dev/null 2>&1; then
+              echo "❌ Asset missing in S3: $key"; MISSING=1
+            else
+              echo "✅ Found in S3: $key"
+            fi
+          done
+          if [ "$MISSING" -ne 0 ]; then
+            echo "❌ One or more assets were not found in S3 after sync. Aborting."; exit 1
+          fi
+          INDEX=dist-finanzas/index.html
+          if [ ! -f "$INDEX" ]; then echo "❌ dist-finanzas/index.html missing"; exit 1; fi
+          grep -oE 'assets/index-[0-9a-fA-F]+\.(js|css)' "$INDEX" | sort -u > /tmp/local-references.txt
+          MISSREF=0
+          while read -r asset; do
+            key="finanzas/$(basename "$asset")"
+            if ! aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$key" >/dev/null 2>&1; then
+              echo "❌ Referenced asset NOT in S3: $key"; MISSREF=1
+            else
+              echo "✅ Referenced asset exists: $key"
+            fi
+          done < /tmp/local-references.txt
+          if [ "$MISSREF" -ne 0 ]; then echo "❌ index.html references not found in S3 — possible S3 sync path mismatch or deploy race."; exit 1; fi
+          echo "✅ S3 verification complete"
 
       - name: Verify Finanzas S3 manifest matches local build
         run: |
