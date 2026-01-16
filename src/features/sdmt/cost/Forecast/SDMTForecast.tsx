@@ -170,7 +170,6 @@ const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOU
 const SHOW_KEY_TRENDS = import.meta.env.VITE_FINZ_SHOW_KEYTRENDS === 'true';
 
 // Backward compatibility: HIDE_KEY_TRENDS is deprecated, use SHOW_KEY_TRENDS instead
-const HIDE_KEY_TRENDS = import.meta.env.VITE_FINZ_HIDE_KEY_TRENDS === 'true';
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
