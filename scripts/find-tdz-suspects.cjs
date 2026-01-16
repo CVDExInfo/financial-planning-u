@@ -1,4 +1,4 @@
-// scripts/find-tdz-suspects.js
+// scripts/find-tdz-suspects.cjs
 const fs = require('fs');
 const path = require('path');
 
