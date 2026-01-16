@@ -889,16 +889,16 @@ export function MonthlySnapshotGrid({
                         onClick={toggleCollapsed}
                         className="gap-2"
                         aria-expanded={!isCollapsed}
-                        aria-label={isCollapsed ? 'Expandir desglose' : 'Colapsar a resumen'}
+                        aria-label="Colapsar a resumen"
                       >
                         <ChevronsUpDown className="h-4 w-4" />
                         <span className="text-xs font-medium">
-                          {isCollapsed ? 'Expandir' : 'Resumir'}
+                          Resumir
                         </span>
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {isCollapsed ? 'Ver desglose completo' : 'Ver resumen ejecutivo'}
+                      Ver resumen ejecutivo
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
