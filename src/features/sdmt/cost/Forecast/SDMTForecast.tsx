@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -11,13 +11,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -25,67 +25,94 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Share2, TrendingUp, TrendingDown, ExternalLink, FileSpreadsheet, Info, Calculator, ChevronDown } from 'lucide-react';
-import { toast } from 'sonner';
-import { ChartInsightsPanel } from '@/components/ChartInsightsPanel';
-import LineChartComponent from '@/components/charts/LineChart';
-import { StackedColumnsChart } from '@/components/charts/StackedColumnsChart';
-import ModuleBadge from '@/components/ModuleBadge';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import type { ForecastCell, LineItem } from '@/types/domain';
-import { useAuth } from '@/hooks/useAuth';
-import { ALL_PROJECTS_ID, useProject } from '@/contexts/ProjectContext';
-import { handleFinanzasApiError } from '@/features/sdmt/cost/utils/errorHandling';
-import { useViewMode } from '@/contexts/ViewModeContext';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
-import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
-import { computeTotals, computeVariance } from '@/lib/forecast/analytics';
-import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
-import { useProjectLineItems } from '@/hooks/useProjectLineItems';
-import { bulkUploadPayrollActuals, type PayrollActualInput, getProjectRubros, getBaselineById, type BaselineDetail } from '@/api/finanzas';
-import { getForecastPayload, getProjectInvoices } from './forecastService';
-import finanzasClient, { type BaselineDetailResponse } from '@/api/finanzasClient';
-import { ES_TEXTS } from '@/lib/i18n/es';
-import { BaselineStatusPanel } from '@/components/baseline/BaselineStatusPanel';
-import { BudgetSimulatorCard } from './BudgetSimulatorCard';
-import { MonthlyBudgetCard } from './MonthlyBudgetCard';
-import { PortfolioSummaryView } from './PortfolioSummaryView';
-import { ForecastSummaryBar } from './components/ForecastSummaryBar';
-import { ForecastChartsPanel } from './components/ForecastChartsPanel';
-import { ForecastRubrosTable } from './components/ForecastRubrosTable';
-import { TopVarianceProjectsTable } from './components/TopVarianceProjectsTable';
-import { TopVarianceRubrosTable } from './components/TopVarianceRubrosTable';
-import { MonthlySnapshotGrid } from './components/MonthlySnapshotGrid';
-import { DataHealthPanel } from '@/components/finanzas/DataHealthPanel';
-import type { BudgetSimulationState, SimulatedMetrics } from './budgetSimulation';
-import { applyBudgetSimulation, applyBudgetToTrends } from './budgetSimulation';
-import { isBudgetNotFoundError, resolveAnnualBudgetState } from './budgetState';
-import { 
-  allocateBudgetMonthly, 
-  aggregateMonthlyTotals, 
+} from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Share2,
+  TrendingUp,
+  TrendingDown,
+  ExternalLink,
+  FileSpreadsheet,
+  Info,
+  Calculator,
+  ChevronDown,
+} from "lucide-react";
+import { toast } from "sonner";
+import { ChartInsightsPanel } from "@/components/ChartInsightsPanel";
+import LineChartComponent from "@/components/charts/LineChart";
+import { StackedColumnsChart } from "@/components/charts/StackedColumnsChart";
+import ModuleBadge from "@/components/ModuleBadge";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import type { ForecastCell, LineItem } from "@/types/domain";
+import { useAuth } from "@/hooks/useAuth";
+import { ALL_PROJECTS_ID, useProject } from "@/contexts/ProjectContext";
+import { handleFinanzasApiError } from "@/features/sdmt/cost/utils/errorHandling";
+import { useNavigate, useLocation } from "react-router-dom";
+import { excelExporter, downloadExcelFile } from "@/lib/excel-export";
+import {
+  PDFExporter,
+  formatReportCurrency,
+  formatReportPercentage,
+  getChangeType,
+} from "@/lib/pdf-export";
+import { computeTotals, computeVariance } from "@/lib/forecast/analytics";
+import { normalizeForecastCells } from "@/features/sdmt/cost/utils/dataAdapters";
+import { useProjectLineItems } from "@/hooks/useProjectLineItems";
+import {
+  bulkUploadPayrollActuals,
+  type PayrollActualInput,
+  getProjectRubros,
+  getBaselineById,
+  type BaselineDetail,
+} from "@/api/finanzas";
+import { getForecastPayload, getProjectInvoices } from "./forecastService";
+import finanzasClient, {
+  type BaselineDetailResponse,
+} from "@/api/finanzasClient";
+import { ES_TEXTS } from "@/lib/i18n/es";
+import { BaselineStatusPanel } from "@/components/baseline/BaselineStatusPanel";
+import { BudgetSimulatorCard } from "./BudgetSimulatorCard";
+import { MonthlyBudgetCard } from "./MonthlyBudgetCard";
+import { PortfolioSummaryView } from "./PortfolioSummaryView";
+import { ForecastSummaryBar } from "./components/ForecastSummaryBar";
+import { ForecastChartsPanel } from "./components/ForecastChartsPanel";
+import { ForecastRubrosTable } from "./components/ForecastRubrosTable";
+import { TopVarianceProjectsTable } from "./components/TopVarianceProjectsTable";
+import { TopVarianceRubrosTable } from "./components/TopVarianceRubrosTable";
+import { MonthlySnapshotGrid } from "./components/MonthlySnapshotGrid";
+import { DataHealthPanel } from "@/components/finanzas/DataHealthPanel";
+import type {
+  BudgetSimulationState,
+  SimulatedMetrics,
+} from "./budgetSimulation";
+import { applyBudgetSimulation, applyBudgetToTrends } from "./budgetSimulation";
+import { isBudgetNotFoundError, resolveAnnualBudgetState } from "./budgetState";
+import {
+  allocateBudgetMonthly,
+  aggregateMonthlyTotals,
   allocateBudgetWithMonthlyInputs,
   calculateRunwayMetrics,
   type MonthlyAllocation,
   type MonthlyBudgetInput,
   type RunwayMetrics,
-} from './budgetAllocation';
+} from "./budgetAllocation";
 import {
   buildCategoryTotals,
   buildCategoryRubros,
   buildPortfolioTotals,
-} from './categoryGrouping';
-import { buildProjectTotals, buildProjectRubros } from './projectGrouping';
+} from "./categoryGrouping";
+import { buildProjectTotals, buildProjectRubros } from "./projectGrouping";
 
-import { getBaselineDuration, clampMonthIndex } from './monthHelpers';
+import { getBaselineDuration, clampMonthIndex } from "./monthHelpers";
 
 // ---- Exported helpers for month support and testing ----
 // Re-exported from monthHelpers.ts for backward compatibility
 export { getBaselineDuration, clampMonthIndex };
 // ---------------------------------------------------------
-
 
 // TODO: Backend Integration for Change Request Impact on Forecast
 // When a change request is approved in SDMTChanges, the backend should:
@@ -143,55 +170,78 @@ export function SDMTForecast() {
   const [loading, setLoading] = useState(true);
   const [isLoadingForecast, setIsLoadingForecast] = useState(true);
   const [forecastError, setForecastError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null);
-  const [editingCell, setEditingCell] = useState<{ line_item_id: string; month: number; type: 'forecast' | 'actual' } | null>(null);
-  const [editValue, setEditValue] = useState('');
-  const [dataSource, setDataSource] = useState<'api' | 'mock'>('api');
+  const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
+  const [editingCell, setEditingCell] = useState<{
+    line_item_id: string;
+    month: number;
+    type: "forecast" | "actual";
+  } | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [dataSource, setDataSource] = useState<"api" | "mock">("api");
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
-  const [portfolioLineItems, setPortfolioLineItems] = useState<ProjectLineItem[]>([]);
-  const [dirtyActuals, setDirtyActuals] = useState<Record<string, ForecastRow>>({});
+  const [portfolioLineItems, setPortfolioLineItems] = useState<
+    ProjectLineItem[]
+  >([]);
+  const [dirtyActuals, setDirtyActuals] = useState<Record<string, ForecastRow>>(
+    {}
+  );
   const [savingActuals, setSavingActuals] = useState(false);
-  const [dirtyForecasts, setDirtyForecasts] = useState<Record<string, ForecastRow>>({});
+  const [dirtyForecasts, setDirtyForecasts] = useState<
+    Record<string, ForecastRow>
+  >({});
   const [savingForecasts, setSavingForecasts] = useState(false);
-  
+
   // Baseline detail for FTE calculation
-  const [baselineDetail, setBaselineDetail] = useState<BaselineDetailResponse | null>(null);
-  
+  const [baselineDetail, setBaselineDetail] =
+    useState<BaselineDetailResponse | null>(null);
+
   // Sorting state for forecast grid
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
   // State for controlling rubros grid collapsible (TODOS view)
-  // Default: SDM mode expands detail, Gerente mode collapses (executive view)
-  const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(() => viewMode === 'sdm');
-  
+  const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(false);
+
   // Stale response guard: Track latest request to prevent race conditions
-  const latestRequestKeyRef = useRef<string>('');
+  const latestRequestKeyRef = useRef<string>("");
   const abortControllerRef = useRef<AbortController | null>(null);
-  
+
   // Ref for scrolling to rubros section when category is clicked
   const rubrosSectionRef = useRef<HTMLDivElement>(null);
-  
-  const [budgetSimulation, setBudgetSimulation] = useState<BudgetSimulationState>({
-    enabled: false,
-    budgetTotal: '',
-    factor: 1.0,
-    estimatedOverride: '',
-  });
+
+  const [budgetSimulation, setBudgetSimulation] =
+    useState<BudgetSimulationState>({
+      enabled: false,
+      budgetTotal: "",
+      factor: 1.0,
+      estimatedOverride: "",
+    });
   // Annual Budget state
-  const [budgetYear, setBudgetYear] = useState<number>(new Date().getFullYear());
-  const [budgetAmount, setBudgetAmount] = useState<string>('');
-  const [budgetCurrency, setBudgetCurrency] = useState<string>('USD');
-  const [budgetLastUpdated, setBudgetLastUpdated] = useState<string | null>(null);
-  const [budgetMissingYear, setBudgetMissingYear] = useState<number | null>(null);
+  const [budgetYear, setBudgetYear] = useState<number>(
+    new Date().getFullYear()
+  );
+  const [budgetAmount, setBudgetAmount] = useState<string>("");
+  const [budgetCurrency, setBudgetCurrency] = useState<string>("USD");
+  const [budgetLastUpdated, setBudgetLastUpdated] = useState<string | null>(
+    null
+  );
+  const [budgetMissingYear, setBudgetMissingYear] = useState<number | null>(
+    null
+  );
   const [loadingBudget, setLoadingBudget] = useState(false);
   const [savingBudget, setSavingBudget] = useState(false);
   // Monthly Budget state (new - per user request)
-  const [monthlyBudgets, setMonthlyBudgets] = useState<MonthlyBudgetInput[]>([]);
+  const [monthlyBudgets, setMonthlyBudgets] = useState<MonthlyBudgetInput[]>(
+    []
+  );
   const [useMonthlyBudget, setUseMonthlyBudget] = useState(false);
   const [loadingMonthlyBudget, setLoadingMonthlyBudget] = useState(false);
   const [savingMonthlyBudget, setSavingMonthlyBudget] = useState(false);
-  const [monthlyBudgetLastUpdated, setMonthlyBudgetLastUpdated] = useState<string | null>(null);
-  const [monthlyBudgetUpdatedBy, setMonthlyBudgetUpdatedBy] = useState<string | null>(null);
+  const [monthlyBudgetLastUpdated, setMonthlyBudgetLastUpdated] = useState<
+    string | null
+  >(null);
+  const [monthlyBudgetUpdatedBy, setMonthlyBudgetUpdatedBy] = useState<
+    string | null
+  >(null);
   // Budget Overview state for KPIs
   const [budgetOverview, setBudgetOverview] = useState<{
     year: number;
@@ -207,52 +257,56 @@ export function SDMTForecast() {
     };
   } | null>(null);
   const { user, login } = useAuth();
-  const { selectedProjectId, setSelectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
+  const {
+    selectedProjectId,
+    setSelectedProjectId,
+    selectedPeriod,
+    currentProject,
+    projectChangeCount,
+    projects,
+  } = useProject();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // Get viewMode from context (with fallback for when context is not available)
-  let viewMode: 'sdm' | 'gerente' = 'sdm';
-  try {
-    const viewModeContext = useViewMode();
-    viewMode = viewModeContext.viewMode;
-  } catch (e) {
-    // Context not available (e.g., direct navigation), use default 'sdm'
-  }
-  
   const {
     lineItems,
     isLoading: isLineItemsLoading,
     error: lineItemsError,
-  } = useProjectLineItems({ useFallback: true, baselineId: currentProject?.baselineId });
+  } = useProjectLineItems({
+    useFallback: true,
+    baselineId: currentProject?.baselineId,
+  });
   const safeLineItems = useMemo(
     () => (Array.isArray(lineItems) ? lineItems : []),
     [lineItems]
   );
   const isPortfolioView = selectedProjectId === ALL_PROJECTS_ID;
-  const forecastMode: 'single' | 'all-projects' = isPortfolioView ? 'all-projects' : 'single';
+  const forecastMode: "single" | "all-projects" = isPortfolioView
+    ? "all-projects"
+    : "single";
   const lineItemsForGrid = isPortfolioView ? portfolioLineItems : safeLineItems;
-  const projectStartDate = (currentProject as { start_date?: string } | null)?.start_date;
+  const projectStartDate = (currentProject as { start_date?: string } | null)
+    ?.start_date;
 
   // Helper function to get current month index (1-12) based on today's date and project start
   const getCurrentMonthIndex = (): number => {
     const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth() + 1; // 1-12
-    
+
     // For portfolio view or when no project start date, use calendar month (1-12)
     if (!projectStartDate || isPortfolioView) {
       return currentMonth;
     }
-    
+
     // Calculate month index relative to project start date
     const startDate = new Date(projectStartDate);
     const startYear = startDate.getFullYear();
     const startMonth = startDate.getMonth() + 1; // 1-12
-    
+
     // Calculate months elapsed since project start
-    const monthsElapsed = (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1;
-    
+    const monthsElapsed =
+      (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1;
+
     // Clamp according to baseline duration (fallback to 60)
     return clampMonthIndex(monthsElapsed, baselineDetail);
   };
@@ -261,51 +315,89 @@ export function SDMTForecast() {
   const getCalendarMonth = (monthIndex: number): string => {
     if (!projectStartDate) {
       // Fallback: display just the month name without year for consistency
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
       return monthNames[monthIndex - 1] || `M${monthIndex}`;
     }
-    
+
     const startDate = new Date(projectStartDate);
     startDate.setUTCMonth(startDate.getUTCMonth() + (monthIndex - 1));
     const year = startDate.getUTCFullYear();
     const month = startDate.getUTCMonth() + 1;
-    
+
     // Return month name for display (e.g., "May 2025")
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
     return `${monthNames[month - 1]} ${year}`;
   };
 
   // Load data when project or period changes
   useEffect(() => {
     if (selectedProjectId) {
-      console.log('🔄 Forecast: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount, 'baseline:', currentProject?.baselineId);
-      
+      console.log(
+        "🔄 Forecast: Loading data for project:",
+        selectedProjectId,
+        "change count:",
+        projectChangeCount,
+        "baseline:",
+        currentProject?.baselineId
+      );
+
       // Abort any previous request
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
-      
+
       // Reset state before loading new data
       setForecastData([]);
       setPortfolioLineItems([]);
       loadForecastData();
     }
-    
+
     // Cleanup: abort on unmount or when dependencies change
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
-  }, [selectedProjectId, selectedPeriod, projectChangeCount, currentProject?.baselineId]);
+  }, [
+    selectedProjectId,
+    selectedPeriod,
+    projectChangeCount,
+    currentProject?.baselineId,
+  ]);
 
   // Reload data when returning from reconciliation with refresh parameter
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
-    const refreshParam = urlParams.get('_refresh');
+    const refreshParam = urlParams.get("_refresh");
     if (refreshParam && selectedProjectId) {
       if (import.meta.env.DEV) {
-        console.log('🔄 Forecast: Refreshing after reconciliation');
+        console.log("🔄 Forecast: Refreshing after reconciliation");
       }
       loadForecastData();
     }
@@ -316,7 +408,7 @@ export function SDMTForecast() {
 
     const message = handleFinanzasApiError(lineItemsError, {
       onAuthError: login,
-      fallback: 'No se pudieron cargar los rubros para forecast.',
+      fallback: "No se pudieron cargar los rubros para forecast.",
     });
     setForecastError((prev) => prev || message);
   }, [lineItemsError, login]);
@@ -327,12 +419,14 @@ export function SDMTForecast() {
       getBaselineById(currentProject.baselineId)
         .then((data) => {
           if (import.meta.env.DEV) {
-            console.log('[SDMTForecast] Baseline details loaded for FTE calculation');
+            console.log(
+              "[SDMTForecast] Baseline details loaded for FTE calculation"
+            );
           }
           setBaselineDetail(data);
         })
         .catch((err) => {
-          console.error('Failed to load baseline details:', err);
+          console.error("Failed to load baseline details:", err);
           setBaselineDetail(null);
         });
     } else {
@@ -342,15 +436,17 @@ export function SDMTForecast() {
 
   const loadForecastData = async () => {
     if (!selectedProjectId) {
-      console.log('❌ No project selected, skipping forecast load');
+      console.log("❌ No project selected, skipping forecast load");
       return;
     }
 
     // Create a new abort controller for this request
     abortControllerRef.current = new AbortController();
-    
+
     // Generate unique request key to identify this specific request
-    const requestKey = `${selectedProjectId}__${currentProject?.baselineId || ''}__${Date.now()}`;
+    const requestKey = `${selectedProjectId}__${
+      currentProject?.baselineId || ""
+    }__${Date.now()}`;
     latestRequestKeyRef.current = requestKey;
 
     try {
@@ -359,14 +455,14 @@ export function SDMTForecast() {
       setForecastError(null);
       setDirtyActuals({});
       setDirtyForecasts({});
-      
+
       // Handle CURRENT_MONTH period - always load 12 months but filter to current month later
-      const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
+      const isCurrentMonthMode = selectedPeriod === "CURRENT_MONTH";
       const months = isCurrentMonthMode ? 12 : parseInt(selectedPeriod);
-      
+
       if (import.meta.env.DEV) {
-        console.debug('[Forecast] Loading data', { 
-          projectId: selectedProjectId, 
+        console.debug("[Forecast] Loading data", {
+          projectId: selectedProjectId,
           months,
           isCurrentMonthMode,
           selectedPeriod,
@@ -379,29 +475,36 @@ export function SDMTForecast() {
       } else {
         await loadSingleProjectForecast(selectedProjectId, months, requestKey);
       }
-      
+
       // Verify this is still the latest request before applying results
       if (latestRequestKeyRef.current !== requestKey) {
         if (import.meta.env.DEV) {
-          console.debug('[Forecast] Discarding stale response', { requestKey, latest: latestRequestKeyRef.current });
+          console.debug("[Forecast] Discarding stale response", {
+            requestKey,
+            latest: latestRequestKeyRef.current,
+          });
         }
         return; // Stale response, ignore it
       }
     } catch (error) {
       // Ignore aborted requests
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (error instanceof Error && error.name === "AbortError") {
         if (import.meta.env.DEV) {
-          console.debug('[Forecast] Request aborted', { requestKey });
+          console.debug("[Forecast] Request aborted", { requestKey });
         }
         return;
       }
-      
-      console.error('❌ Failed to load forecast data for project:', selectedProjectId, error);
+
+      console.error(
+        "❌ Failed to load forecast data for project:",
+        selectedProjectId,
+        error
+      );
       const message = handleFinanzasApiError(error, {
         onAuthError: login,
-        fallback: 'No se pudo cargar el forecast.',
+        fallback: "No se pudo cargar el forecast.",
       });
-      
+
       // Only set error if this is still the latest request
       if (latestRequestKeyRef.current === requestKey) {
         setForecastError(message);
@@ -431,7 +534,9 @@ export function SDMTForecast() {
       return Number.isFinite(numeric) ? numeric : fallback;
     };
 
-    const resolveDuration = (item: LineItemLike): { value: number; fromData: boolean } => {
+    const resolveDuration = (
+      item: LineItemLike
+    ): { value: number; fromData: boolean } => {
       const baseline = item.baseline as LineItemLike | undefined;
       const candidates = [
         item.duration,
@@ -451,20 +556,20 @@ export function SDMTForecast() {
     };
 
     const resolveString = (value: unknown): string | undefined => {
-      if (typeof value === 'string' && value.trim().length > 0) {
+      if (typeof value === "string" && value.trim().length > 0) {
         return value;
       }
       return undefined;
     };
 
-    lineItems.forEach(item => {
+    lineItems.forEach((item) => {
       const lineItemId =
         resolveString(item.id) ||
         resolveString(item.rubroId) ||
         resolveString(item.rubro_id) ||
         resolveString(item.linea_codigo) ||
         resolveString(item.linea_id) ||
-        '';
+        "";
 
       if (!lineItemId) {
         return;
@@ -479,20 +584,33 @@ export function SDMTForecast() {
       const duration = resolveDuration(item);
       const startMonthRaw = resolveNumber(item.start_month, NaN);
       const endMonthRaw = resolveNumber(item.end_month, NaN);
-      const hasExplicitRange = Number.isFinite(startMonthRaw) || Number.isFinite(endMonthRaw);
+      const hasExplicitRange =
+        Number.isFinite(startMonthRaw) || Number.isFinite(endMonthRaw);
       const startMonth = hasExplicitRange
-        ? Math.max(1, Math.min(months, Number.isFinite(startMonthRaw) ? Math.trunc(startMonthRaw) : 1))
+        ? Math.max(
+            1,
+            Math.min(
+              months,
+              Number.isFinite(startMonthRaw) ? Math.trunc(startMonthRaw) : 1
+            )
+          )
         : 1;
       const endMonth = hasExplicitRange
-        ? Math.max(startMonth, Math.min(months, Number.isFinite(endMonthRaw) ? Math.trunc(endMonthRaw) : months))
+        ? Math.max(
+            startMonth,
+            Math.min(
+              months,
+              Number.isFinite(endMonthRaw) ? Math.trunc(endMonthRaw) : months
+            )
+          )
         : duration.fromData
-          ? Math.min(months, duration.value)
-          : months;
+        ? Math.min(months, duration.value)
+        : months;
 
       const resolveFirstNumber = (values: unknown[]): number | null => {
         for (const value of values) {
           if (value === null || value === undefined) continue;
-          if (typeof value === 'string' && value.trim().length === 0) continue;
+          if (typeof value === "string" && value.trim().length === 0) continue;
           const numeric = Number(value);
           if (Number.isFinite(numeric)) return numeric;
         }
@@ -512,7 +630,8 @@ export function SDMTForecast() {
         item.unitCost ?? item.costo_unitario ?? item.unit_cost,
         0
       );
-      const qty = resolveNumber(item.qty ?? item.cantidad ?? item.quantity, 1) || 1;
+      const qty =
+        resolveNumber(item.qty ?? item.cantidad ?? item.quantity, 1) || 1;
       const computedTotal = baseTotal ?? unitCost * qty;
       const activeMonthCount = Math.max(1, endMonth - startMonth + 1);
       const defaultMonthlyAmount = computedTotal / activeMonthCount;
@@ -531,15 +650,19 @@ export function SDMTForecast() {
           line_item_id: lineItemId,
           rubroId: rubroKey,
           projectId,
-          description: resolveString(item.description) || resolveString(item.descripcion) || '',
-          category: resolveString(item.category) || resolveString(item.categoria) || '',
+          description:
+            resolveString(item.description) ||
+            resolveString(item.descripcion) ||
+            "",
+          category:
+            resolveString(item.category) || resolveString(item.categoria) || "",
           month,
           planned: amount,
           forecast: amount,
           actual: 0,
           variance: 0,
           last_updated: new Date().toISOString(),
-          updated_by: user?.email || user?.login || 'system',
+          updated_by: user?.email || user?.login || "system",
         });
       }
     });
@@ -556,26 +679,33 @@ export function SDMTForecast() {
   /**
    * Load forecast data for a single project
    */
-  const loadSingleProjectForecast = async (projectId: string, months: number, requestKey: string) => {
+  const loadSingleProjectForecast = async (
+    projectId: string,
+    months: number,
+    requestKey: string
+  ) => {
     const payload = await getForecastPayload(projectId, months);
-    
+
     // Check if request is still valid before continuing
     if (latestRequestKeyRef.current !== requestKey) {
       return; // Stale, abort processing
     }
-    
+
     // Pass baseline ID and enable debug mode in development for better diagnostics
     const debugMode = import.meta.env.DEV;
-    let normalized = normalizeForecastCells(payload.data, { 
-      baselineId: currentProject?.baselineId, 
-      debugMode 
+    let normalized = normalizeForecastCells(payload.data, {
+      baselineId: currentProject?.baselineId,
+      debugMode,
     });
     let usedFallback = false;
     const baselineStatus = resolveBaselineStatus(
-      currentProject as { baselineStatus?: string; baseline_status?: string } | null
+      currentProject as {
+        baselineStatus?: string;
+        baseline_status?: string;
+      } | null
     );
-    const hasAcceptedBaseline = baselineStatus === 'accepted';
-    
+    const hasAcceptedBaseline = baselineStatus === "accepted";
+
     // Fallback: If server forecast is empty and we have line items, use them
     if (
       (!normalized || normalized.length === 0) &&
@@ -588,38 +718,43 @@ export function SDMTForecast() {
           `[SDMTForecast] Using baseline fallback for ${projectId}, baseline ${currentProject?.baselineId}: ${safeLineItems.length} line items`
         );
       }
-      normalized = transformLineItemsToForecast(safeLineItems, months, projectId);
+      normalized = transformLineItemsToForecast(
+        safeLineItems,
+        months,
+        projectId
+      );
       usedFallback = true;
     } else if (normalized && normalized.length > 0 && import.meta.env.DEV) {
       console.debug(
         `[SDMTForecast] Using server forecast rows for ${projectId}, baseline ${currentProject?.baselineId}`
       );
     }
-    
-    setDataSource(usedFallback ? 'mock' : payload.source); // Mark as 'mock' to indicate fallback
+
+    setDataSource(usedFallback ? "mock" : payload.source); // Mark as 'mock' to indicate fallback
     setGeneratedAt(payload.generatedAt);
     setPortfolioLineItems([]);
 
     // Get matched invoices and sync with actuals
     const invoices = await getProjectInvoices(projectId);
-    
+
     // Check again after async operation
     if (latestRequestKeyRef.current !== requestKey) {
       return;
     }
-    
-    const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
 
-    const updatedData: ForecastRow[] = normalized.map(cell => {
-      const matchedInvoice = matchedInvoices.find(inv =>
-        inv.line_item_id === cell.line_item_id && inv.month === cell.month
+    const matchedInvoices = invoices.filter((inv) => inv.status === "Matched");
+
+    const updatedData: ForecastRow[] = normalized.map((cell) => {
+      const matchedInvoice = matchedInvoices.find(
+        (inv) =>
+          inv.line_item_id === cell.line_item_id && inv.month === cell.month
       );
 
       const withActuals = matchedInvoice
         ? {
             ...cell,
             actual: matchedInvoice.amount || 0,
-            variance: cell.forecast - cell.planned // Keep forecast-based variance
+            variance: cell.forecast - cell.planned, // Keep forecast-based variance
           }
         : cell;
 
@@ -631,7 +766,7 @@ export function SDMTForecast() {
     });
 
     if (import.meta.env.DEV) {
-      console.debug('[Forecast] data pipeline', {
+      console.debug("[Forecast] data pipeline", {
         projectId,
         rawCells: Array.isArray(payload.data) ? payload.data.length : 0,
         normalizedCells: normalized.length,
@@ -651,16 +786,18 @@ export function SDMTForecast() {
     setForecastData(updatedData);
 
     if (import.meta.env.DEV) {
-      console.debug('[Forecast] Data loaded', {
+      console.debug("[Forecast] Data loaded", {
         projectId,
-        source: usedFallback ? 'lineItems-fallback' : payload.source,
+        source: usedFallback ? "lineItems-fallback" : payload.source,
         records: updatedData.length,
       });
     }
   };
 
   const loadPortfolioForecast = async (months: number, requestKey: string) => {
-    const candidateProjects = projects.filter(project => project.id && project.id !== ALL_PROJECTS_ID);
+    const candidateProjects = projects.filter(
+      (project) => project.id && project.id !== ALL_PROJECTS_ID
+    );
     // TODO(SDMT): Replace per-project fan-out with aggregate portfolio endpoints when available.
 
     // Guard: Don't error out if projects haven't loaded yet
@@ -670,26 +807,28 @@ export function SDMTForecast() {
       if (projects.length < MINIMUM_PROJECTS_FOR_PORTFOLIO) {
         // Projects might still be loading; don't set error yet
         if (import.meta.env.DEV) {
-          console.debug('[Forecast] Portfolio: Waiting for projects to load...');
+          console.debug(
+            "[Forecast] Portfolio: Waiting for projects to load..."
+          );
         }
         setForecastData([]);
         return;
       }
       // If we have projects but they're all filtered out, that's a real empty state
-      setForecastError('No hay proyectos disponibles para consolidar.');
+      setForecastError("No hay proyectos disponibles para consolidar.");
       setForecastData([]);
       return;
     }
 
     const portfolioResults = await Promise.all(
-      candidateProjects.map(async project => {
+      candidateProjects.map(async (project) => {
         try {
           const [payload, invoices, projectLineItems] = await Promise.all([
             getForecastPayload(project.id, months),
             getProjectInvoices(project.id),
             getProjectRubros(project.id).catch(() => [] as LineItem[]),
           ]);
-          
+
           // Check if request is still valid after async operations
           if (latestRequestKeyRef.current !== requestKey) {
             // Return empty result to be filtered out, don't throw
@@ -699,36 +838,55 @@ export function SDMTForecast() {
           const debugMode = import.meta.env.DEV;
           let normalized = normalizeForecastCells(payload.data, {
             baselineId: project.baselineId,
-            debugMode
+            debugMode,
           });
           const baselineStatus = resolveBaselineStatus(
-            project as { baselineStatus?: string; baseline_status?: string } | null
+            project as {
+              baselineStatus?: string;
+              baseline_status?: string;
+            } | null
           );
-          const hasAcceptedBaseline = baselineStatus === 'accepted';
+          const hasAcceptedBaseline = baselineStatus === "accepted";
           let usedFallback = false;
 
-          if ((!normalized || normalized.length === 0) && projectLineItems.length > 0 && hasAcceptedBaseline) {
+          if (
+            (!normalized || normalized.length === 0) &&
+            projectLineItems.length > 0 &&
+            hasAcceptedBaseline
+          ) {
             if (import.meta.env.DEV) {
               console.debug(
                 `[SDMTForecast] Using baseline fallback for ${project.id}, baseline ${project.baselineId}: ${projectLineItems.length} line items`
               );
             }
-            normalized = transformLineItemsToForecast(projectLineItems, months, project.id);
+            normalized = transformLineItemsToForecast(
+              projectLineItems,
+              months,
+              project.id
+            );
             usedFallback = true;
           } else if (normalized.length > 0 && import.meta.env.DEV) {
             console.debug(
               `[SDMTForecast] Using server forecast rows for ${project.id}, baseline ${project.baselineId}`
             );
           }
-          const matchedInvoices = invoices.filter(inv => inv.status === 'Matched');
+          const matchedInvoices = invoices.filter(
+            (inv) => inv.status === "Matched"
+          );
 
-          const projectData: ForecastRow[] = normalized.map(cell => {
-            const matchedInvoice = matchedInvoices.find(inv =>
-              inv.line_item_id === cell.line_item_id && inv.month === cell.month
+          const projectData: ForecastRow[] = normalized.map((cell) => {
+            const matchedInvoice = matchedInvoices.find(
+              (inv) =>
+                inv.line_item_id === cell.line_item_id &&
+                inv.month === cell.month
             );
 
             const withActuals = matchedInvoice
-              ? { ...cell, actual: matchedInvoice.amount || 0, variance: cell.forecast - cell.planned }
+              ? {
+                  ...cell,
+                  actual: matchedInvoice.amount || 0,
+                  variance: cell.forecast - cell.planned,
+                }
               : cell;
 
             return {
@@ -741,38 +899,49 @@ export function SDMTForecast() {
           return {
             project,
             data: projectData,
-            lineItems: projectLineItems.map(item => ({ ...item, projectId: project.id, projectName: project.name })),
+            lineItems: projectLineItems.map((item) => ({
+              ...item,
+              projectId: project.id,
+              projectName: project.name,
+            })),
             generatedAt: payload.generatedAt,
             usedFallback,
           };
         } catch (error) {
           // Log error but don't crash entire portfolio load
-          console.warn(`[Forecast] Failed to load data for project ${project.id} (${project.name}):`, error);
+          console.warn(
+            `[Forecast] Failed to load data for project ${project.id} (${project.name}):`,
+            error
+          );
           // Return null to be filtered out later
           return null;
         }
       })
     );
-    
+
     // Filter out null results from aborted requests
-    const validResults = portfolioResults.filter(result => result !== null);
-    
+    const validResults = portfolioResults.filter((result) => result !== null);
+
     // Final check before setting state
     if (latestRequestKeyRef.current !== requestKey) {
       return;
     }
 
-    const aggregatedData = validResults.flatMap(result => result.data);
-    const aggregatedLineItems = validResults.flatMap(result => result.lineItems);
-    const firstGeneratedAt = validResults.find(result => result.generatedAt)?.generatedAt;
+    const aggregatedData = validResults.flatMap((result) => result.data);
+    const aggregatedLineItems = validResults.flatMap(
+      (result) => result.lineItems
+    );
+    const firstGeneratedAt = validResults.find(
+      (result) => result.generatedAt
+    )?.generatedAt;
 
-    setDataSource('api');
+    setDataSource("api");
     setGeneratedAt(firstGeneratedAt || new Date().toISOString());
     setPortfolioLineItems(aggregatedLineItems);
     setForecastData(aggregatedData);
 
     if (import.meta.env.DEV) {
-      console.debug('[Forecast] Portfolio data loaded', {
+      console.debug("[Forecast] Portfolio data loaded", {
         projects: candidateProjects.length,
         records: aggregatedData.length,
         lineItems: aggregatedLineItems.length,
@@ -780,61 +949,83 @@ export function SDMTForecast() {
     }
   };
 
-  const handleCellEdit = (line_item_id: string, month: number, type: 'forecast' | 'actual') => {
-    const cell = forecastData.find(c => c.line_item_id === line_item_id && c.month === month);
+  const handleCellEdit = (
+    line_item_id: string,
+    month: number,
+    type: "forecast" | "actual"
+  ) => {
+    const cell = forecastData.find(
+      (c) => c.line_item_id === line_item_id && c.month === month
+    );
     setEditingCell({ line_item_id, month, type });
-    const currentValue = type === 'forecast' ? cell?.forecast : cell?.actual;
-    setEditValue(currentValue?.toString() || '0');
+    const currentValue = type === "forecast" ? cell?.forecast : cell?.actual;
+    setEditValue(currentValue?.toString() || "0");
   };
 
   const handleCellSave = () => {
     if (editingCell) {
       let pendingChange: ForecastRow | null = null;
-      const updatedData = forecastData.map(cell => {
-        if (cell.line_item_id === editingCell.line_item_id && cell.month === editingCell.month) {
+      const updatedData = forecastData.map((cell) => {
+        if (
+          cell.line_item_id === editingCell.line_item_id &&
+          cell.month === editingCell.month
+        ) {
           const newValue = parseFloat(editValue) || 0;
-          const updates = editingCell.type === 'forecast'
-            ? { forecast: newValue, variance: newValue - cell.planned }
-            : { actual: newValue };
+          const updates =
+            editingCell.type === "forecast"
+              ? { forecast: newValue, variance: newValue - cell.planned }
+              : { actual: newValue };
 
           const nextCell: ForecastRow = {
             ...cell,
             ...updates,
             last_updated: new Date().toISOString(),
-            updated_by: user?.login || 'current-user'
+            updated_by: user?.login || "current-user",
           };
-          
+
           // Track the pending change
-          if (editingCell.type === 'actual') {
+          if (editingCell.type === "actual") {
             pendingChange = nextCell;
-          } else if (editingCell.type === 'forecast') {
+          } else if (editingCell.type === "forecast") {
             pendingChange = nextCell;
           }
-          
+
           return nextCell;
         }
         return cell;
       });
       setForecastData(updatedData);
-      
+
       if (pendingChange) {
-        const changeKey = `${pendingChange.projectId || selectedProjectId}-${pendingChange.line_item_id}-${pendingChange.month}`;
-        if (editingCell.type === 'actual') {
-          setDirtyActuals(prev => ({ ...prev, [changeKey]: pendingChange as ForecastRow }));
-        } else if (editingCell.type === 'forecast') {
-          setDirtyForecasts(prev => ({ ...prev, [changeKey]: pendingChange as ForecastRow }));
+        const changeKey = `${pendingChange.projectId || selectedProjectId}-${
+          pendingChange.line_item_id
+        }-${pendingChange.month}`;
+        if (editingCell.type === "actual") {
+          setDirtyActuals((prev) => ({
+            ...prev,
+            [changeKey]: pendingChange as ForecastRow,
+          }));
+        } else if (editingCell.type === "forecast") {
+          setDirtyForecasts((prev) => ({
+            ...prev,
+            [changeKey]: pendingChange as ForecastRow,
+          }));
         }
       }
-      
+
       setEditingCell(null);
-      toast.success(`${editingCell.type === 'forecast' ? 'Pronóstico' : 'Real'} actualizado correctamente`);
+      toast.success(
+        `${
+          editingCell.type === "forecast" ? "Pronóstico" : "Real"
+        } actualizado correctamente`
+      );
     }
   };
 
   const handlePersistActuals = async () => {
     const entries = Object.values(dirtyActuals);
     if (entries.length === 0) {
-      toast.info('No hay cambios de valores reales para guardar');
+      toast.info("No hay cambios de valores reales para guardar");
       return;
     }
 
@@ -842,16 +1033,24 @@ export function SDMTForecast() {
     try {
       const currentYear = new Date().getFullYear();
       const payload: PayrollActualInput[] = entries
-        .map(cell => {
+        .map((cell) => {
           const projectId = cell.projectId || selectedProjectId;
-          const matchedLineItem = lineItemsForGrid.find(item => {
-            const lineItemProjectId = (item as { projectId?: string }).projectId;
-            return item.id === cell.line_item_id && (!lineItemProjectId || lineItemProjectId === projectId);
+          const matchedLineItem = lineItemsForGrid.find((item) => {
+            const lineItemProjectId = (item as { projectId?: string })
+              .projectId;
+            return (
+              item.id === cell.line_item_id &&
+              (!lineItemProjectId || lineItemProjectId === projectId)
+            );
           });
-          const monthKey = `${currentYear}-${String(cell.month).padStart(2, '0')}`;
+          const monthKey = `${currentYear}-${String(cell.month).padStart(
+            2,
+            "0"
+          )}`;
 
           if (!projectId) return null;
-          const currency = (matchedLineItem?.currency || 'USD') as PayrollActualInput["currency"];
+          const currency = (matchedLineItem?.currency ||
+            "USD") as PayrollActualInput["currency"];
 
           return {
             projectId,
@@ -859,29 +1058,31 @@ export function SDMTForecast() {
             rubroId: cell.line_item_id,
             amount: Number(cell.actual) || 0,
             currency,
-            resourceCount: matchedLineItem?.qty ? Number(matchedLineItem.qty) : undefined,
+            resourceCount: matchedLineItem?.qty
+              ? Number(matchedLineItem.qty)
+              : undefined,
             notes: cell.notes,
             uploadedBy: user?.email || user?.login,
-            source: 'sdmt-forecast',
+            source: "sdmt-forecast",
           } as PayrollActualInput;
         })
         .filter((row): row is PayrollActualInput => Boolean(row));
 
       if (payload.length === 0) {
-        toast.error('No pudimos construir los datos para guardar en nómina.');
+        toast.error("No pudimos construir los datos para guardar en nómina.");
         return;
       }
 
       await bulkUploadPayrollActuals(payload);
-      toast.success('Valores reales enviados a Nómina (DynamoDB)');
+      toast.success("Valores reales enviados a Nómina (DynamoDB)");
       setDirtyActuals({});
     } catch (error) {
-      console.error('❌ Error al guardar valores reales', error);
+      console.error("❌ Error al guardar valores reales", error);
       const message = handleFinanzasApiError(error, {
         onAuthError: login,
-        fallback: 'No pudimos guardar los valores reales.',
+        fallback: "No pudimos guardar los valores reales.",
       });
-      setForecastError(prev => prev || message);
+      setForecastError((prev) => prev || message);
     } finally {
       setSavingActuals(false);
     }
@@ -890,7 +1091,7 @@ export function SDMTForecast() {
   const handlePersistForecasts = async () => {
     const entries: ForecastRow[] = Object.values(dirtyForecasts);
     if (entries.length === 0) {
-      toast.info('No hay cambios de pronóstico para guardar');
+      toast.info("No hay cambios de pronóstico para guardar");
       return;
     }
 
@@ -903,10 +1104,10 @@ export function SDMTForecast() {
     try {
       // Group by project for API calls
       const byProject = new Map<string, ForecastRow[]>();
-      entries.forEach(cell => {
+      entries.forEach((cell) => {
         const projectId = cell.projectId || selectedProjectId;
         if (!projectId) return;
-        
+
         if (!byProject.has(projectId)) {
           byProject.set(projectId, []);
         }
@@ -917,7 +1118,7 @@ export function SDMTForecast() {
       // The API expects: {items: [{rubroId, month: number, forecast}]}
       // We send monthIndex as a number, and the backend will compute the calendar month
       for (const [projectId, projectCells] of byProject.entries()) {
-        const items = projectCells.map(cell => {
+        const items = projectCells.map((cell) => {
           // Validate month is in valid range (up to baseline duration, fallback 60)
           const maxMonths = getBaselineDuration(baselineDetail);
           const monthIndex = Math.max(1, Math.min(maxMonths, cell.month));
@@ -931,18 +1132,18 @@ export function SDMTForecast() {
         await finanzasClient.bulkUpsertForecast(projectId, items);
       }
 
-      toast.success('Pronósticos ajustados guardados exitosamente');
+      toast.success("Pronósticos ajustados guardados exitosamente");
       setDirtyForecasts({});
-      
+
       // Reload forecast data to show persisted values
       await loadForecastData();
     } catch (error) {
-      console.error('❌ Error al guardar pronósticos', error);
+      console.error("❌ Error al guardar pronósticos", error);
       const message = handleFinanzasApiError(error, {
         onAuthError: login,
-        fallback: 'No pudimos guardar los pronósticos ajustados.',
+        fallback: "No pudimos guardar los pronósticos ajustados.",
       });
-      setForecastError(prev => prev || message);
+      setForecastError((prev) => prev || message);
     } finally {
       setSavingForecasts(false);
     }
@@ -966,15 +1167,17 @@ export function SDMTForecast() {
       setBudgetMissingYear(resolution.state.missingYear);
 
       // If 404, it means no budget is set for this year - that's okay
-      if (resolution.status === 'missing') {
-        console.warn(`[SDMTForecast] ⚠️ No annual budget configured for ${year}`);
+      if (resolution.status === "missing") {
+        console.warn(
+          `[SDMTForecast] ⚠️ No annual budget configured for ${year}`
+        );
         return;
       }
 
-      console.error('Error loading annual budget:', error);
+      console.error("Error loading annual budget:", error);
       const message = handleFinanzasApiError(error, {
         onAuthError: login,
-        fallback: 'No pudimos cargar el presupuesto anual.',
+        fallback: "No pudimos cargar el presupuesto anual.",
       });
       toast.error(message);
     } finally {
@@ -985,7 +1188,7 @@ export function SDMTForecast() {
   // Load Budget Overview for KPIs (only in portfolio view)
   const loadBudgetOverview = async (year: number) => {
     if (!isPortfolioView) return;
-    
+
     try {
       const overview = await finanzasClient.getAllInBudgetOverview(year);
       if (!overview) {
@@ -996,7 +1199,7 @@ export function SDMTForecast() {
         return;
       }
       setBudgetOverview(overview);
-      console.log('[SDMTForecast] Budget overview loaded:', overview);
+      console.log("[SDMTForecast] Budget overview loaded:", overview);
     } catch (error: any) {
       if (isBudgetNotFoundError(error)) {
         console.warn(`[SDMTForecast] ⚠️ Budget overview not found for ${year}`);
@@ -1004,7 +1207,7 @@ export function SDMTForecast() {
         return;
       }
       // Don't show error to user, just log it - this is optional enhancement
-      console.error('Error loading budget overview:', error);
+      console.error("Error loading budget overview:", error);
       setBudgetOverview(null);
     }
   };
@@ -1013,24 +1216,28 @@ export function SDMTForecast() {
   const handleSaveAnnualBudget = async () => {
     const amount = parseFloat(budgetAmount);
     if (isNaN(amount) || amount < 0) {
-      toast.error('Por favor ingrese un monto válido');
+      toast.error("Por favor ingrese un monto válido");
       return;
     }
 
     setSavingBudget(true);
     try {
-      const result = await finanzasClient.putAllInBudget(budgetYear, amount, budgetCurrency);
+      const result = await finanzasClient.putAllInBudget(
+        budgetYear,
+        amount,
+        budgetCurrency
+      );
       setBudgetLastUpdated(result.updated_at);
-      toast.success('Presupuesto anual guardado exitosamente');
-      
+      toast.success("Presupuesto anual guardado exitosamente");
+
       // Reload budget and budget overview to update KPIs
       await loadAnnualBudget(budgetYear);
       await loadBudgetOverview(budgetYear);
     } catch (error) {
-      console.error('Error saving annual budget:', error);
+      console.error("Error saving annual budget:", error);
       const message = handleFinanzasApiError(error, {
         onAuthError: login,
-        fallback: 'No pudimos guardar el presupuesto anual.',
+        fallback: "No pudimos guardar el presupuesto anual.",
       });
       toast.error(message);
     } finally {
@@ -1041,7 +1248,7 @@ export function SDMTForecast() {
   // Load Monthly Budget
   const loadMonthlyBudget = async (year: number) => {
     if (!isPortfolioView) return; // Monthly budgets only in portfolio view
-    
+
     setLoadingMonthlyBudget(true);
     try {
       const monthlyBudget = await finanzasClient.getAllInBudgetMonthly(year);
@@ -1054,19 +1261,21 @@ export function SDMTForecast() {
       }
       if (monthlyBudget && monthlyBudget.months) {
         // Convert from API format (month: "YYYY-MM", amount) to internal format (month: 1-12, budget)
-        const budgets: MonthlyBudgetInput[] = monthlyBudget.months.map(m => {
-          const monthMatch = m.month.match(/^\d{4}-(\d{2})$/);
-          const monthNum = monthMatch ? parseInt(monthMatch[1], 10) : 0;
-          return {
-            month: monthNum,
-            budget: m.amount,
-          };
-        }).filter(b => b.month >= 1 && b.month <= 60); // Support up to 60 months
-        
+        const budgets: MonthlyBudgetInput[] = monthlyBudget.months
+          .map((m) => {
+            const monthMatch = m.month.match(/^\d{4}-(\d{2})$/);
+            const monthNum = monthMatch ? parseInt(monthMatch[1], 10) : 0;
+            return {
+              month: monthNum,
+              budget: m.amount,
+            };
+          })
+          .filter((b) => b.month >= 1 && b.month <= 60); // Support up to 60 months
+
         setMonthlyBudgets(budgets);
         setMonthlyBudgetLastUpdated(monthlyBudget.updated_at || null);
         setMonthlyBudgetUpdatedBy(monthlyBudget.updated_by || null);
-        
+
         // If we have saved monthly budgets, enable the monthly budget mode
         if (budgets.length > 0) {
           setUseMonthlyBudget(true);
@@ -1090,11 +1299,13 @@ export function SDMTForecast() {
         setMonthlyBudgetUpdatedBy(null);
         setUseMonthlyBudget(false);
       } else {
-        console.error('Error loading monthly budget:', error);
-        
+        console.error("Error loading monthly budget:", error);
+
         // Show user-friendly error for network failures
-        if (error instanceof TypeError && error.message.includes('fetch')) {
-          toast.error('Error de red al cargar presupuesto mensual. Verifique la conexión e intente nuevamente.');
+        if (error instanceof TypeError && error.message.includes("fetch")) {
+          toast.error(
+            "Error de red al cargar presupuesto mensual. Verifique la conexión e intente nuevamente."
+          );
         }
         // Don't show toast for other errors (optional feature, may not be configured)
       }
@@ -1106,37 +1317,42 @@ export function SDMTForecast() {
   // Save Monthly Budget
   const handleSaveMonthlyBudget = async () => {
     if (monthlyBudgets.length === 0) {
-      toast.error('Ingrese al menos un presupuesto mensual');
+      toast.error("Ingrese al menos un presupuesto mensual");
       return;
     }
 
     setSavingMonthlyBudget(true);
     try {
       // Convert from internal format (month: 1-12, budget) to API format (month: "YYYY-MM", amount)
-      const months = monthlyBudgets.map(mb => ({
-        month: `${budgetYear}-${String(mb.month).padStart(2, '0')}`,
+      const months = monthlyBudgets.map((mb) => ({
+        month: `${budgetYear}-${String(mb.month).padStart(2, "0")}`,
         amount: mb.budget,
       }));
 
-      const result = await finanzasClient.putAllInBudgetMonthly(budgetYear, budgetCurrency, months);
+      const result = await finanzasClient.putAllInBudgetMonthly(
+        budgetYear,
+        budgetCurrency,
+        months
+      );
       setMonthlyBudgetLastUpdated(result.updated_at);
       setMonthlyBudgetUpdatedBy(result.updated_by);
-      toast.success('Presupuesto mensual guardado exitosamente');
-      
+      toast.success("Presupuesto mensual guardado exitosamente");
+
       // Reload monthly budget and budget overview to update KPIs and grid
       await loadMonthlyBudget(budgetYear);
       await loadBudgetOverview(budgetYear);
     } catch (error) {
-      console.error('Error saving monthly budget:', error);
-      
+      console.error("Error saving monthly budget:", error);
+
       // Provide detailed error message for network failures
       let message: string;
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        message = 'Error de red al guardar presupuesto mensual. Verifique la conexión, configuración de CORS, y la URL base de la API en las variables de entorno.';
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        message =
+          "Error de red al guardar presupuesto mensual. Verifique la conexión, configuración de CORS, y la URL base de la API en las variables de entorno.";
       } else {
         message = handleFinanzasApiError(error, {
           onAuthError: login,
-          fallback: 'No pudimos guardar el presupuesto mensual.',
+          fallback: "No pudimos guardar el presupuesto mensual.",
         });
       }
       toast.error(message);
@@ -1149,29 +1365,35 @@ export function SDMTForecast() {
   const handleResetMonthlyBudget = () => {
     setMonthlyBudgets([]);
     setUseMonthlyBudget(false);
-    toast.info('Presupuesto mensual restablecido a distribución automática');
+    toast.info("Presupuesto mensual restablecido a distribución automática");
   };
 
   // Save budget from rubros table inline editing
-  const handleSaveBudgetFromTable = async (budgets: Array<{ month: number; budget: number }>) => {
+  const handleSaveBudgetFromTable = async (
+    budgets: Array<{ month: number; budget: number }>
+  ) => {
     if (budgets.length === 0) {
-      throw new Error('No budget data provided');
+      throw new Error("No budget data provided");
     }
 
     // Convert from internal format (month: 1-12, budget) to API format (month: "YYYY-MM", amount)
-    const months = budgets.map(mb => ({
-      month: `${budgetYear}-${String(mb.month).padStart(2, '0')}`,
+    const months = budgets.map((mb) => ({
+      month: `${budgetYear}-${String(mb.month).padStart(2, "0")}`,
       amount: mb.budget,
     }));
 
-    const result = await finanzasClient.putAllInBudgetMonthly(budgetYear, budgetCurrency, months);
-    
+    const result = await finanzasClient.putAllInBudgetMonthly(
+      budgetYear,
+      budgetCurrency,
+      months
+    );
+
     // Update state
     setMonthlyBudgets(budgets);
     setUseMonthlyBudget(true);
     setMonthlyBudgetLastUpdated(result.updated_at);
     setMonthlyBudgetUpdatedBy(result.updated_by);
-    
+
     // Reload budget overview to update KPIs
     await loadBudgetOverview(budgetYear);
   };
@@ -1189,158 +1411,191 @@ export function SDMTForecast() {
   // Check if user can edit forecast, actuals, and budget
   // Per docs/ui-api-action-map.md: Forecast adjustment is PMO only
   // Per docs/finanzas-roles-and-permissions.md: Budget management is PMO/ADMIN
-  const canEditForecast = !isPortfolioView && ['PMO', 'SDMT'].includes(user?.current_role || '');
-  const canEditActual = !isPortfolioView && user?.current_role === 'SDMT';
-  const canEditBudget = ['PMO', 'SDMT'].includes(user?.current_role || '');
+  const canEditForecast =
+    !isPortfolioView && ["PMO", "SDMT"].includes(user?.current_role || "");
+  const canEditActual = !isPortfolioView && user?.current_role === "SDMT";
+  const canEditBudget = ["PMO", "SDMT"].includes(user?.current_role || "");
 
   // Navigate to reconciliation, preserving project context
   const navigateToReconciliation = (line_item_id: string, month?: number) => {
     const params = new URLSearchParams();
     // Preserve project ID
     if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
-      params.set('projectId', selectedProjectId);
+      params.set("projectId", selectedProjectId);
     }
-    params.set('line_item', line_item_id);
-    if (month) params.set('month', month.toString());
-    
+    params.set("line_item", line_item_id);
+    if (month) params.set("month", month.toString());
+
     // Add returnUrl so user can navigate back to Forecast
     const currentPath = location.pathname + location.search;
-    params.set('returnUrl', currentPath);
-    
+    params.set("returnUrl", currentPath);
+
     navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
   };
 
   // Navigate to single project view
-  const navigateToProject = useCallback((projectId: string) => {
-    if (projectId && projectId !== ALL_PROJECTS_ID) {
-      // Use ProjectContext to select the project, which will trigger navigation
-      setSelectedProjectId(projectId);
-    }
-  }, [setSelectedProjectId]);
+  const navigateToProject = useCallback(
+    (projectId: string) => {
+      if (projectId && projectId !== ALL_PROJECTS_ID) {
+        // Use ProjectContext to select the project, which will trigger navigation
+        setSelectedProjectId(projectId);
+      }
+    },
+    [setSelectedProjectId]
+  );
 
   // Handle category click - expand rubros accordion
-  const handleCategoryClick = useCallback((category: string) => {
-    // Guard: only run in portfolio/TODOS view
-    if (!isPortfolioView) return;
-    
-    // Ensure rubros/details section is visible
-    setIsRubrosGridOpen(true);
-    
-    // Small delay to allow collapsible to open before scrolling
-    setTimeout(() => {
-      // Smooth scroll to rubros grid
-      if (rubrosSectionRef.current) {
-        rubrosSectionRef.current.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        });
-        
-        // After scrolling, move focus to support keyboard users
-        rubrosSectionRef.current.focus();
-      }
-    }, 100);
-    
-    // Keep or slightly refine the toast message
-    toast.info(`Ver categoría: ${category}`, {
-      description: 'Desplazando a la cuadrícula de pronóstico. Usa el encabezado "Desglose Mensual vs Presupuesto" para revisar los detalles por rubro.',
-    });
-  }, [isPortfolioView]);
+  const handleCategoryClick = useCallback(
+    (category: string) => {
+      // Guard: only run in portfolio/TODOS view
+      if (!isPortfolioView) return;
+
+      // Ensure rubros/details section is visible
+      setIsRubrosGridOpen(true);
+
+      // Small delay to allow collapsible to open before scrolling
+      setTimeout(() => {
+        // Smooth scroll to rubros grid
+        if (rubrosSectionRef.current) {
+          rubrosSectionRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+
+          // After scrolling, move focus to support keyboard users
+          rubrosSectionRef.current.focus();
+        }
+      }, 100);
+
+      // Keep or slightly refine the toast message
+      toast.info(`Ver categoría: ${category}`, {
+        description:
+          'Desplazando a la cuadrícula de pronóstico. Usa el encabezado "Desglose Mensual vs Presupuesto" para revisar los detalles por rubro.',
+      });
+    },
+    [isPortfolioView]
+  );
 
   // Filter forecast data to current month when CURRENT_MONTH period is selected
   const filteredForecastData = useMemo(() => {
-    if (selectedPeriod !== 'CURRENT_MONTH') {
+    if (selectedPeriod !== "CURRENT_MONTH") {
       return forecastData;
     }
-    
+
     const currentMonthIndex = getCurrentMonthIndex();
-    const filtered = forecastData.filter(cell => cell.month === currentMonthIndex);
-    
+    const filtered = forecastData.filter(
+      (cell) => cell.month === currentMonthIndex
+    );
+
     if (import.meta.env.DEV) {
-      console.debug('[Forecast] Current month filtering', {
+      console.debug("[Forecast] Current month filtering", {
         currentMonthIndex,
         totalCells: forecastData.length,
         filteredCells: filtered.length,
       });
     }
-    
+
     return filtered;
   }, [forecastData, selectedPeriod]);
 
   // Group forecast data by line item and month for display
   const forecastGrid = useMemo(() => {
-    const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
+    const isCurrentMonthMode = selectedPeriod === "CURRENT_MONTH";
     const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
-    
-    const grid = lineItemsForGrid.map(lineItem => {
-      const lineItemData = lineItem as LineItem & { projectId?: string; projectName?: string };
-      const itemForecasts = filteredForecastData.filter(f =>
-        f.line_item_id === lineItem.id && (!lineItemData.projectId || f.projectId === lineItemData.projectId)
-      );
-      
-      // In current month mode, only show the current month; otherwise show all 12 months
-      const months = isCurrentMonthMode 
-        ? [currentMonthIndex] 
-        : Array.from({ length: 12 }, (_, i) => i + 1);
 
-      const monthlyData = months.map(month => {
-        const cell = itemForecasts.find(f => f.month === month);
-        return cell || {
-          line_item_id: lineItem.id,
-          month,
-          planned: 0,
-          forecast: 0,
-          actual: 0,
-          variance: 0,
-          last_updated: '',
-          updated_by: '',
-          projectId: lineItemData.projectId,
-          projectName: lineItemData.projectName,
+    const grid = lineItemsForGrid
+      .map((lineItem) => {
+        const lineItemData = lineItem as LineItem & {
+          projectId?: string;
+          projectName?: string;
         };
-      });
+        const itemForecasts = filteredForecastData.filter(
+          (f) =>
+            f.line_item_id === lineItem.id &&
+            (!lineItemData.projectId || f.projectId === lineItemData.projectId)
+        );
 
-      // Check if the line item has any non-zero values to show
-      const hasNonZeroValues = monthlyData.some(cell => 
-        (cell.planned || 0) > 0 || (cell.forecast || 0) > 0 || (cell.actual || 0) > 0
-      );
+        // In current month mode, only show the current month; otherwise show all 12 months
+        const months = isCurrentMonthMode
+          ? [currentMonthIndex]
+          : Array.from({ length: 12 }, (_, i) => i + 1);
 
-      return { 
-        lineItem, 
-        monthlyData,
-        hasNonZeroValues
-      };
-    }).filter(item => item.hasNonZeroValues); // Only show items with data
+        const monthlyData = months.map((month) => {
+          const cell = itemForecasts.find((f) => f.month === month);
+          return (
+            cell || {
+              line_item_id: lineItem.id,
+              month,
+              planned: 0,
+              forecast: 0,
+              actual: 0,
+              variance: 0,
+              last_updated: "",
+              updated_by: "",
+              projectId: lineItemData.projectId,
+              projectName: lineItemData.projectName,
+            }
+          );
+        });
+
+        // Check if the line item has any non-zero values to show
+        const hasNonZeroValues = monthlyData.some(
+          (cell) =>
+            (cell.planned || 0) > 0 ||
+            (cell.forecast || 0) > 0 ||
+            (cell.actual || 0) > 0
+        );
+
+        return {
+          lineItem,
+          monthlyData,
+          hasNonZeroValues,
+        };
+      })
+      .filter((item) => item.hasNonZeroValues); // Only show items with data
 
     // Apply sorting: sort by category, then by description
     const sorted = [...grid].sort((a, b) => {
-      const categoryA = a.lineItem.category || 'Sin categoría';
-      const categoryB = b.lineItem.category || 'Sin categoría';
-      const descriptionA = a.lineItem.description || '';
-      const descriptionB = b.lineItem.description || '';
-      
+      const categoryA = a.lineItem.category || "Sin categoría";
+      const categoryB = b.lineItem.category || "Sin categoría";
+      const descriptionA = a.lineItem.description || "";
+      const descriptionB = b.lineItem.description || "";
+
       // Primary sort by category
-      const categoryCompare = sortDirection === 'asc' 
-        ? categoryA.localeCompare(categoryB, 'es')
-        : categoryB.localeCompare(categoryA, 'es');
-      
+      const categoryCompare =
+        sortDirection === "asc"
+          ? categoryA.localeCompare(categoryB, "es")
+          : categoryB.localeCompare(categoryA, "es");
+
       if (categoryCompare !== 0) return categoryCompare;
-      
+
       // Secondary sort by description
-      return sortDirection === 'asc'
-        ? descriptionA.localeCompare(descriptionB, 'es')
-        : descriptionB.localeCompare(descriptionA, 'es');
+      return sortDirection === "asc"
+        ? descriptionA.localeCompare(descriptionB, "es")
+        : descriptionB.localeCompare(descriptionA, "es");
     });
 
     if (import.meta.env.DEV && sorted.length > 0) {
-      console.debug('[Forecast] Grid recalculated', { projectId: selectedProjectId, rows: sorted.length, sortDirection });
+      console.debug("[Forecast] Grid recalculated", {
+        projectId: selectedProjectId,
+        rows: sorted.length,
+        sortDirection,
+      });
     }
 
     return sorted;
-  }, [lineItemsForGrid, filteredForecastData, selectedProjectId, selectedPeriod, sortDirection]);
+  }, [
+    lineItemsForGrid,
+    filteredForecastData,
+    selectedProjectId,
+    selectedPeriod,
+    sortDirection,
+  ]);
 
   // Group forecast grid by category with sub-totals
   const forecastGridWithSubtotals = useMemo(() => {
     type GridRow = {
-      type: 'item' | 'subtotal';
+      type: "item" | "subtotal";
       lineItem?: ProjectLineItem;
       category?: string;
       monthlyData: ForecastRow[];
@@ -1348,8 +1603,8 @@ export function SDMTForecast() {
 
     // Group items by category (items are already sorted within categories due to forecastGrid sort)
     const itemsByCategory = new Map<string, typeof forecastGrid>();
-    forecastGrid.forEach(item => {
-      const category = item.lineItem.category || 'Sin categoría';
+    forecastGrid.forEach((item) => {
+      const category = item.lineItem.category || "Sin categoría";
       if (!itemsByCategory.has(category)) {
         itemsByCategory.set(category, []);
       }
@@ -1357,36 +1612,36 @@ export function SDMTForecast() {
     });
 
     // Sort categories by name to maintain consistent order
-    const sortedCategories = Array.from(itemsByCategory.keys()).sort((a, b) => 
-      sortDirection === 'asc' 
-        ? a.localeCompare(b, 'es')
-        : b.localeCompare(a, 'es')
+    const sortedCategories = Array.from(itemsByCategory.keys()).sort((a, b) =>
+      sortDirection === "asc"
+        ? a.localeCompare(b, "es")
+        : b.localeCompare(a, "es")
     );
 
     // Build rows with sub-totals
     const rows: GridRow[] = [];
-    const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
+    const isCurrentMonthMode = selectedPeriod === "CURRENT_MONTH";
     const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
-    const months = isCurrentMonthMode 
-      ? [currentMonthIndex] 
+    const months = isCurrentMonthMode
+      ? [currentMonthIndex]
       : Array.from({ length: 12 }, (_, i) => i + 1);
 
-    sortedCategories.forEach(category => {
+    sortedCategories.forEach((category) => {
       const categoryItems = itemsByCategory.get(category)!;
-      
+
       // Add category items (already sorted by description within category)
-      categoryItems.forEach(item => {
+      categoryItems.forEach((item) => {
         rows.push({
-          type: 'item',
+          type: "item",
           lineItem: item.lineItem,
           monthlyData: item.monthlyData,
         });
       });
 
       // Calculate and add sub-total row
-      const subtotalSource = categoryItems.flatMap(item => item.monthlyData);
+      const subtotalSource = categoryItems.flatMap((item) => item.monthlyData);
       const subtotalTotals = computeTotals(subtotalSource, months);
-      const subtotalMonthlyData = months.map(month => {
+      const subtotalMonthlyData = months.map((month) => {
         const totals = subtotalTotals.byMonth[month] || {
           planned: 0,
           forecast: 0,
@@ -1402,13 +1657,13 @@ export function SDMTForecast() {
           forecast: totals.forecast,
           actual: totals.actual,
           variance: totals.varianceForecast,
-          last_updated: '',
-          updated_by: '',
+          last_updated: "",
+          updated_by: "",
         } as ForecastRow;
       });
 
       rows.push({
-        type: 'subtotal',
+        type: "subtotal",
         category,
         monthlyData: subtotalMonthlyData,
       });
@@ -1417,38 +1672,42 @@ export function SDMTForecast() {
     return rows;
   }, [forecastGrid, selectedPeriod, sortDirection]);
 
-const totalFTE = useMemo(() => {
-  // Helper: sum numeric FTE-like values safely
-  const sumFtesFromArray = (arr: any[] = []) =>
-    arr.reduce((sum: number, item: any) => {
-      // Accept different possible field names and qty fallback
-      const raw = item?.fte_count ?? item?.fte ?? item?.qty ?? 0;
-      const val = Number(raw);
-      return sum + (Number.isFinite(val) ? val : 0);
-    }, 0);
+  const totalFTE = useMemo(() => {
+    // Helper: sum numeric FTE-like values safely
+    const sumFtesFromArray = (arr: any[] = []) =>
+      arr.reduce((sum: number, item: any) => {
+        // Accept different possible field names and qty fallback
+        const raw = item?.fte_count ?? item?.fte ?? item?.qty ?? 0;
+        const val = Number(raw);
+        return sum + (Number.isFinite(val) ? val : 0);
+      }, 0);
 
-  // 1) Prefer baseline labor_estimates if present
-  if (baselineDetail) {
-    const laborEstimates =
-      Array.isArray(baselineDetail.labor_estimates) && baselineDetail.labor_estimates.length > 0
-        ? baselineDetail.labor_estimates
-        : Array.isArray(baselineDetail.payload?.labor_estimates) && baselineDetail.payload.labor_estimates.length > 0
-        ? baselineDetail.payload.labor_estimates
-        : null;
+    // 1) Prefer baseline labor_estimates if present
+    if (baselineDetail) {
+      const laborEstimates =
+        Array.isArray(baselineDetail.labor_estimates) &&
+        baselineDetail.labor_estimates.length > 0
+          ? baselineDetail.labor_estimates
+          : Array.isArray(baselineDetail.payload?.labor_estimates) &&
+            baselineDetail.payload.labor_estimates.length > 0
+          ? baselineDetail.payload.labor_estimates
+          : null;
 
-    if (laborEstimates) {
-      const fteSum = sumFtesFromArray(laborEstimates);
-      return Math.round(fteSum * 100) / 100;
+      if (laborEstimates) {
+        const fteSum = sumFtesFromArray(laborEstimates);
+        return Math.round(fteSum * 100) / 100;
+      }
     }
-  }
 
-  // 2) Fallback to line items qty
-  const lineItemFte = Array.isArray(lineItemsForGrid) ? sumFtesFromArray(lineItemsForGrid) : 0;
-  return Math.round(lineItemFte * 100) / 100;
-}, [baselineDetail, lineItemsForGrid]);
+    // 2) Fallback to line items qty
+    const lineItemFte = Array.isArray(lineItemsForGrid)
+      ? sumFtesFromArray(lineItemsForGrid)
+      : 0;
+    return Math.round(lineItemFte * 100) / 100;
+  }, [baselineDetail, lineItemsForGrid]);
 
   const monthsForTotals = useMemo(() => {
-    if (selectedPeriod === 'CURRENT_MONTH') {
+    if (selectedPeriod === "CURRENT_MONTH") {
       return [getCurrentMonthIndex()];
     }
 
@@ -1477,7 +1736,7 @@ const totalFTE = useMemo(() => {
     const actualVariance = overall.varianceActual;
 
     if (import.meta.env.DEV && filteredForecastData.length > 0) {
-      console.debug('[Forecast] Metrics recalculated', {
+      console.debug("[Forecast] Metrics recalculated", {
         projectId: selectedProjectId,
         forecastMode,
         selectedPeriod,
@@ -1498,7 +1757,13 @@ const totalFTE = useMemo(() => {
       actualVariance,
       actualVariancePercentage: overall.varianceActualPercent,
     };
-  }, [filteredForecastData, forecastMode, selectedPeriod, totals, selectedProjectId]);
+  }, [
+    filteredForecastData,
+    forecastMode,
+    selectedPeriod,
+    totals,
+    selectedProjectId,
+  ]);
 
   // Apply budget simulation overlay to base metrics
   const metrics = useMemo(() => {
@@ -1530,35 +1795,46 @@ const totalFTE = useMemo(() => {
     budgetVarianceProjected,
     pctUsedActual,
   } = metrics;
-  const dirtyActualCount = useMemo(() => Object.keys(dirtyActuals).length, [dirtyActuals]);
-  const dirtyForecastCount = useMemo(() => Object.keys(dirtyForecasts).length, [dirtyForecasts]);
+  const dirtyActualCount = useMemo(
+    () => Object.keys(dirtyActuals).length,
+    [dirtyActuals]
+  );
+  const dirtyForecastCount = useMemo(
+    () => Object.keys(dirtyForecasts).length,
+    [dirtyForecasts]
+  );
 
   const isLoadingState = loading || isLineItemsLoading;
-  
+
   // Enhanced hasGridData: Check if we have Planned (P), Forecast (F), or Actual (A) data
   // This ensures new projects with only P or F (but no A) will display data instead of "No hay datos"
   const hasGridData = useMemo(() => {
     if (forecastGrid.length === 0) return false;
-    
+
     // Check totals: if any of P, F, or A is > 0, we have data to display
     const hasP = totals.overall.planned > 0;
     const hasF = totals.overall.forecast > 0;
     const hasA = totals.overall.actual > 0;
-    
+
     return hasP || hasF || hasA;
   }, [forecastGrid.length, totals]);
-  
-  const isEmptyState = !isLoadingState && !forecastError && forecastData.length === 0;
-  
+
+  const isEmptyState =
+    !isLoadingState && !forecastError && forecastData.length === 0;
+
   // Special case: TODOS mode with only the ALL_PROJECTS placeholder (no real projects)
-  const isTodosEmptyState = isPortfolioView && !isLoadingState && !forecastError && projects.length < MINIMUM_PROJECTS_FOR_PORTFOLIO;
+  const isTodosEmptyState =
+    isPortfolioView &&
+    !isLoadingState &&
+    !forecastError &&
+    projects.length < MINIMUM_PROJECTS_FOR_PORTFOLIO;
 
   // Calculate monthly budget allocations when annual budget is set
   // Must be computed BEFORE monthlyTrends since trends may reference it
   const monthlyBudgetAllocations = useMemo<MonthlyAllocation[]>(() => {
     // Only calculate if we have annual budget and are in portfolio view
     const annualBudget = parseFloat(budgetAmount);
-    
+
     if (!isPortfolioView || !annualBudget || annualBudget <= 0) {
       // Return empty allocations (zero budget per month)
       return Array.from({ length: 12 }, (_, i) => ({
@@ -1572,15 +1848,25 @@ const totalFTE = useMemo(() => {
 
     // Aggregate monthly totals from forecast data
     const monthlyTotals = aggregateMonthlyTotals(forecastData);
-    
+
     // NEW: If monthly budgets are provided, use those with auto-fill
     if (useMonthlyBudget && monthlyBudgets.length > 0) {
-      return allocateBudgetWithMonthlyInputs(annualBudget, monthlyBudgets, monthlyTotals);
+      return allocateBudgetWithMonthlyInputs(
+        annualBudget,
+        monthlyBudgets,
+        monthlyTotals
+      );
     }
-    
+
     // Otherwise, allocate annual budget proportionally across months
     return allocateBudgetMonthly(annualBudget, monthlyTotals);
-  }, [budgetAmount, isPortfolioView, forecastData, useMonthlyBudget, monthlyBudgets]);
+  }, [
+    budgetAmount,
+    isPortfolioView,
+    forecastData,
+    useMonthlyBudget,
+    monthlyBudgets,
+  ]);
 
   // Compute KPI values for the summary bar (TODOS mode only)
   const summaryBarKpis = useMemo(() => {
@@ -1589,7 +1875,10 @@ const totalFTE = useMemo(() => {
     }
 
     // Calculate monthly budget sum and budgetAllIn for parity checking
-    const monthlyBudgetSum = monthlyBudgets.reduce((acc, m) => acc + (m.budget || 0), 0);
+    const monthlyBudgetSum = monthlyBudgets.reduce(
+      (acc, m) => acc + (m.budget || 0),
+      0
+    );
     const budgetAllIn = budgetOverview?.budgetAllIn?.amount || 0;
 
     // Determine totalBudget per spec: useMonthlyBudget ? sum(monthlyBudgets) : budgetAllIn
@@ -1600,11 +1889,14 @@ const totalFTE = useMemo(() => {
     const totalActualValue = totals.overall.actual;
 
     // Compute variance vs budget (Forecast - Budget)
-    const varianceBudget = totalBudget > 0 ? totalForecastValue - totalBudget : 0;
-    const varianceBudgetPercent = totalBudget > 0 ? (varianceBudget / totalBudget) * 100 : 0;
+    const varianceBudget =
+      totalBudget > 0 ? totalForecastValue - totalBudget : 0;
+    const varianceBudgetPercent =
+      totalBudget > 0 ? (varianceBudget / totalBudget) * 100 : 0;
 
     // Compute % consumed (Actual / Budget)
-    const consumedPercent = totalBudget > 0 ? (totalActualValue / totalBudget) * 100 : 0;
+    const consumedPercent =
+      totalBudget > 0 ? (totalActualValue / totalBudget) * 100 : 0;
 
     return {
       totalBudget,
@@ -1620,12 +1912,24 @@ const totalFTE = useMemo(() => {
       monthlyBudgetSum,
       budgetAllIn,
     };
-  }, [isPortfolioView, useMonthlyBudget, monthlyBudgets, totals, monthlyBudgetLastUpdated, monthlyBudgetUpdatedBy, budgetOverview]);
+  }, [
+    isPortfolioView,
+    useMonthlyBudget,
+    monthlyBudgets,
+    totals,
+    monthlyBudgetLastUpdated,
+    monthlyBudgetUpdatedBy,
+    budgetOverview,
+  ]);
 
   // Calculate runway metrics for month-by-month tracking
   const runwayMetrics = useMemo<RunwayMetrics[]>(() => {
     const annualBudget = parseFloat(budgetAmount);
-    if (!annualBudget || annualBudget <= 0 || monthlyBudgetAllocations.length === 0) {
+    if (
+      !annualBudget ||
+      annualBudget <= 0 ||
+      monthlyBudgetAllocations.length === 0
+    ) {
       return [];
     }
     return calculateRunwayMetrics(annualBudget, monthlyBudgetAllocations);
@@ -1689,32 +1993,39 @@ const totalFTE = useMemo(() => {
 
   // Build project summaries for top variance table in TODOS mode
   const projectSummaries = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0 || !hasBudgetForVariance) {
+    if (
+      !isPortfolioView ||
+      forecastData.length === 0 ||
+      !hasBudgetForVariance
+    ) {
       return [];
     }
 
     // Get total annual budget
     const annualBudget = parseFloat(budgetAmount);
-    
-    // Group forecast data by project
-    const projectMap = new Map<string, {
-      id: string;
-      name: string;
-      code?: string;
-      plannedTotal: number;
-      forecastTotal: number;
-      actualTotal: number;
-    }>();
 
-    forecastData.forEach(cell => {
+    // Group forecast data by project
+    const projectMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        code?: string;
+        plannedTotal: number;
+        forecastTotal: number;
+        actualTotal: number;
+      }
+    >();
+
+    forecastData.forEach((cell) => {
       const projectId = cell.projectId;
-      const projectName = cell.projectName || 'Unknown Project';
-      
+      const projectName = cell.projectName || "Unknown Project";
+
       if (!projectId) return;
 
       if (!projectMap.has(projectId)) {
         // Find project details from projects list
-        const project = projects.find(p => p.id === projectId);
+        const project = projects.find((p) => p.id === projectId);
         projectMap.set(projectId, {
           id: projectId,
           name: projectName,
@@ -1738,26 +2049,37 @@ const totalFTE = useMemo(() => {
     );
 
     // Add budgetTotal for each project (proportional allocation)
-    return Array.from(projectMap.values()).map(project => ({
+    return Array.from(projectMap.values()).map((project) => ({
       ...project,
-      budgetTotal: totalPlanned > 0
-        ? annualBudget * (project.plannedTotal / totalPlanned)
-        : 0,
+      budgetTotal:
+        totalPlanned > 0
+          ? annualBudget * (project.plannedTotal / totalPlanned)
+          : 0,
     }));
-  }, [isPortfolioView, forecastData, hasBudgetForVariance, budgetAmount, projects]);
+  }, [
+    isPortfolioView,
+    forecastData,
+    hasBudgetForVariance,
+    budgetAmount,
+    projects,
+  ]);
 
   const varianceSeries = useMemo(() => {
     if (!hasBudgetForVariance) return [];
     return computeVariance({
-      plan: monthlyBudgetAllocations.map(allocation => allocation.planned),
-      forecast: monthlyBudgetAllocations.map(allocation => allocation.forecast),
-      actual: monthlyBudgetAllocations.map(allocation => allocation.actual),
-      budget: monthlyBudgetAllocations.map(allocation => allocation.budgetAllocated),
+      plan: monthlyBudgetAllocations.map((allocation) => allocation.planned),
+      forecast: monthlyBudgetAllocations.map(
+        (allocation) => allocation.forecast
+      ),
+      actual: monthlyBudgetAllocations.map((allocation) => allocation.actual),
+      budget: monthlyBudgetAllocations.map(
+        (allocation) => allocation.budgetAllocated
+      ),
     });
   }, [hasBudgetForVariance, monthlyBudgetAllocations]);
 
   const monthsForCharts = useMemo(() => {
-    if (selectedPeriod === 'CURRENT_MONTH') {
+    if (selectedPeriod === "CURRENT_MONTH") {
       return [getCurrentMonthIndex()];
     }
     const baselineDuration = getBaselineDuration(baselineDetail);
@@ -1783,7 +2105,7 @@ const totalFTE = useMemo(() => {
     });
 
     if (import.meta.env.DEV && forecastData.length > 0) {
-      console.debug('[Forecast] Chart trends recalculated', {
+      console.debug("[Forecast] Chart trends recalculated", {
         projectId: selectedProjectId,
         forecastMode,
         monthsShown: monthsForCharts.length,
@@ -1801,7 +2123,9 @@ const totalFTE = useMemo(() => {
     if (isPortfolioView && annualBudget > 0) {
       // Use the monthly allocations we computed (filter to current month if needed)
       return baseTrends.map((trend) => {
-        const allocation = monthlyBudgetAllocations.find(a => a.month === trend.month);
+        const allocation = monthlyBudgetAllocations.find(
+          (a) => a.month === trend.month
+        );
         return {
           ...trend,
           Budget: allocation?.budgetAllocated || 0,
@@ -1823,48 +2147,54 @@ const totalFTE = useMemo(() => {
   ]);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
     }).format(amount);
   };
 
   // Format currency for grid display (full amounts, not abbreviated)
   const formatGridCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
   };
 
   const getVarianceColor = (variance: number) => {
-    if (variance > 0) return 'text-red-600 bg-red-50';
-    if (variance < 0) return 'text-green-600 bg-green-50';
-    return 'text-muted-foreground bg-muted';
+    if (variance > 0) return "text-red-600 bg-red-50";
+    if (variance < 0) return "text-green-600 bg-green-50";
+    return "text-muted-foreground bg-muted";
   };
 
   const getVarianceIcon = (variance: number) => {
     if (variance > 0) return <TrendingUp size={14} className="text-red-600" />;
-    if (variance < 0) return <TrendingDown size={14} className="text-green-600" />;
+    if (variance < 0)
+      return <TrendingDown size={14} className="text-green-600" />;
     return null;
   };
 
   // Export functions
   const handleExcelExport = async () => {
     if (exporting) return;
-    
+
     try {
-      setExporting('excel');
+      setExporting("excel");
       const exporter = excelExporter;
-      const buffer = await exporter.exportForecastGrid(forecastData, lineItemsForGrid);
-      const filename = `forecast-data-${new Date().toISOString().split('T')[0]}.xlsx`;
+      const buffer = await exporter.exportForecastGrid(
+        forecastData,
+        lineItemsForGrid
+      );
+      const filename = `forecast-data-${
+        new Date().toISOString().split("T")[0]
+      }.xlsx`;
       downloadExcelFile(buffer, filename);
-      toast.success('Reporte Excel exportado exitosamente');
+      toast.success("Reporte Excel exportado exitosamente");
     } catch (error) {
-      toast.error('Error al exportar reporte Excel');
+      toast.error("Error al exportar reporte Excel");
       console.error(error);
     } finally {
       setExporting(null);
@@ -1873,59 +2203,73 @@ const totalFTE = useMemo(() => {
 
   const handlePDFExport = async () => {
     if (exporting) return;
-    
+
     try {
-      setExporting('pdf');
+      setExporting("pdf");
       const reportData = {
-        title: 'Análisis de Pronóstico de Costos',
-        subtitle: 'Resumen Ejecutivo y Reporte de Variaciones',
+        title: "Análisis de Pronóstico de Costos",
+        subtitle: "Resumen Ejecutivo y Reporte de Variaciones",
         generated: new Date().toLocaleDateString(),
         metrics: [
           {
-            label: 'Presupuesto Planeado Total',
+            label: "Presupuesto Planeado Total",
             value: formatReportCurrency(totalPlanned),
-            color: '#64748b'
+            color: "#64748b",
           },
           {
-            label: 'Pronóstico Actual',
+            label: "Pronóstico Actual",
             value: formatReportCurrency(totalForecast),
-            change: formatReportPercentage(((totalForecast - totalPlanned) / totalPlanned) * 100),
+            change: formatReportPercentage(
+              ((totalForecast - totalPlanned) / totalPlanned) * 100
+            ),
             changeType: getChangeType(totalForecast - totalPlanned),
-            color: '#2BB673'
+            color: "#2BB673",
           },
           {
-            label: 'Gastos Reales',
+            label: "Gastos Reales",
             value: formatReportCurrency(totalActual),
-            change: formatReportPercentage(((totalActual - totalPlanned) / totalPlanned) * 100),
+            change: formatReportPercentage(
+              ((totalActual - totalPlanned) / totalPlanned) * 100
+            ),
             changeType: getChangeType(totalActual - totalPlanned),
-            color: '#14B8A6'
+            color: "#14B8A6",
           },
           {
-            label: 'Variación de Presupuesto',
+            label: "Variación de Presupuesto",
             value: formatReportCurrency(Math.abs(totalVariance)),
             change: formatReportPercentage(Math.abs(variancePercentage)),
             changeType: getChangeType(-Math.abs(totalVariance)),
-            color: totalVariance > 0 ? '#ef4444' : '#22c55e'
-          }
+            color: totalVariance > 0 ? "#ef4444" : "#22c55e",
+          },
         ],
         summary: [
-          `Variación total del presupuesto del proyecto: ${formatReportCurrency(totalVariance)} (${variancePercentage.toFixed(1)}%)`,
-          `${forecastData.filter(f => f.variance > 0).length} rubros mostrando sobrecostos`,
-          `${forecastData.filter(f => f.variance < 0).length} rubros bajo presupuesto`,
-          `Precisión actual del pronóstico: ${(100 - Math.abs(variancePercentage)).toFixed(1)}%`
+          `Variación total del presupuesto del proyecto: ${formatReportCurrency(
+            totalVariance
+          )} (${variancePercentage.toFixed(1)}%)`,
+          `${
+            forecastData.filter((f) => f.variance > 0).length
+          } rubros mostrando sobrecostos`,
+          `${
+            forecastData.filter((f) => f.variance < 0).length
+          } rubros bajo presupuesto`,
+          `Precisión actual del pronóstico: ${(
+            100 - Math.abs(variancePercentage)
+          ).toFixed(1)}%`,
         ],
         recommendations: [
-          totalVariance > 50000 ? 'Se requiere revisión inmediata del presupuesto por sobrecostos significativos' : 'Variación de presupuesto dentro del rango aceptable',
-          'Enfocar en rubros con mayor impacto de variación para optimización de costos',
-          'Considerar actualizar modelos de pronóstico basados en tendencias de desempeño real',
-          'Implementar seguimiento mejorado para categorías de costo de alto riesgo'
-        ]
+          totalVariance > 50000
+            ? "Se requiere revisión inmediata del presupuesto por sobrecostos significativos"
+            : "Variación de presupuesto dentro del rango aceptable",
+          "Enfocar en rubros con mayor impacto de variación para optimización de costos",
+          "Considerar actualizar modelos de pronóstico basados en tendencias de desempeño real",
+          "Implementar seguimiento mejorado para categorías de costo de alto riesgo",
+        ],
       };
 
       await PDFExporter.exportToPDF(reportData);
-      toast.success('Reporte profesional de pronóstico generado');
+      toast.success("Reporte profesional de pronóstico generado");
     } catch (error) {
-      toast.error('Error al generar resumen PDF');
+      toast.error("Error al generar resumen PDF");
       console.error(error);
     } finally {
       setExporting(null);
@@ -1934,7 +2278,7 @@ const totalFTE = useMemo(() => {
 
   // Toggle sort direction for forecast grid
   const toggleSortDirection = () => {
-    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
   };
 
   return (
@@ -1957,21 +2301,29 @@ const totalFTE = useMemo(() => {
                 </Badge>
                 {!isPortfolioView && projectStartDate && (
                   <span className="text-xs text-muted-foreground">
-                    📅 Inicio: {new Date(projectStartDate).toLocaleDateString('es-ES', { 
-                      month: 'short', 
-                      year: 'numeric' 
+                    📅 Inicio:{" "}
+                    {new Date(projectStartDate).toLocaleDateString("es-ES", {
+                      month: "short",
+                      year: "numeric",
                     })}
                   </span>
                 )}
-                <Badge variant={dataSource === 'mock' ? 'outline' : 'secondary'} className="text-xs">
-                  {dataSource === 'mock' ? 'Datos de prueba' : 'Datos de API'}
+                <Badge
+                  variant={dataSource === "mock" ? "outline" : "secondary"}
+                  className="text-xs"
+                >
+                  {dataSource === "mock" ? "Datos de prueba" : "Datos de API"}
                 </Badge>
                 {!isPortfolioView && selectedProjectId && (
                   <Button
                     variant="link"
                     size="sm"
                     className="h-auto p-0 text-xs"
-                    onClick={() => navigate(`/sdmt/cost/catalog?projectId=${selectedProjectId}`)}
+                    onClick={() =>
+                      navigate(
+                        `/sdmt/cost/catalog?projectId=${selectedProjectId}`
+                      )
+                    }
                   >
                     Ver Rubros →
                   </Button>
@@ -1979,12 +2331,14 @@ const totalFTE = useMemo(() => {
               </div>
             )}
           </div>
-          
+
           {/* Primary Actions - Right Side */}
           <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={handlePersistForecasts}
-              disabled={savingForecasts || dirtyForecastCount === 0 || !canEditForecast}
+              disabled={
+                savingForecasts || dirtyForecastCount === 0 || !canEditForecast
+              }
               className="gap-2 h-9"
               size="sm"
             >
@@ -2022,41 +2376,46 @@ const totalFTE = useMemo(() => {
                 <DialogHeader>
                   <DialogTitle>Compartir Datos de Pronóstico</DialogTitle>
                   <DialogDescription>
-                    Exportar y compartir datos de pronóstico en múltiples formatos para interesados y reportes.
+                    Exportar y compartir datos de pronóstico en múltiples
+                    formatos para interesados y reportes.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="py-6 space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="h-20 flex flex-col gap-2"
                       onClick={handleExcelExport}
                       disabled={exporting !== null}
                     >
-                      {exporting === 'excel' ? (
+                      {exporting === "excel" ? (
                         <LoadingSpinner size="sm" />
                       ) : (
                         <FileSpreadsheet size={24} />
                       )}
                       <span>Reporte Excel</span>
                       <span className="text-xs text-muted-foreground">
-                        {exporting === 'excel' ? 'Generando...' : 'Pronóstico detallado con fórmulas'}
+                        {exporting === "excel"
+                          ? "Generando..."
+                          : "Pronóstico detallado con fórmulas"}
                       </span>
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="h-20 flex flex-col gap-2"
                       onClick={handlePDFExport}
                       disabled={exporting !== null}
                     >
-                      {exporting === 'pdf' ? (
+                      {exporting === "pdf" ? (
                         <LoadingSpinner size="sm" />
                       ) : (
                         <Share2 size={24} />
                       )}
                       <span>Resumen PDF</span>
                       <span className="text-xs text-muted-foreground">
-                        {exporting === 'pdf' ? 'Generando...' : 'Formato de resumen ejecutivo'}
+                        {exporting === "pdf"
+                          ? "Generando..."
+                          : "Formato de resumen ejecutivo"}
                       </span>
                     </Button>
                   </div>
@@ -2099,7 +2458,9 @@ const totalFTE = useMemo(() => {
                 <div className="flex items-center justify-center min-h-[200px]">
                   <div className="text-center">
                     <LoadingSpinner size="lg" />
-                    <p className="text-muted-foreground mt-4">Cargando pronóstico...</p>
+                    <p className="text-muted-foreground mt-4">
+                      Cargando pronóstico...
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -2118,8 +2479,8 @@ const totalFTE = useMemo(() => {
                   setIsRubrosGridOpen(true);
                   setTimeout(() => {
                     rubrosSectionRef.current?.scrollIntoView({
-                      behavior: 'smooth',
-                      block: 'start',
+                      behavior: "smooth",
+                      block: "start",
                     });
                   }, 100);
                 }
@@ -2127,12 +2488,14 @@ const totalFTE = useMemo(() => {
               onNavigateToReconciliation={(lineItemId, projectId) => {
                 const params = new URLSearchParams();
                 if (projectId) {
-                  params.set('projectId', projectId);
+                  params.set("projectId", projectId);
                 }
-                params.set('line_item', lineItemId);
+                params.set("line_item", lineItemId);
                 const currentPath = location.pathname + location.search;
-                params.set('returnUrl', currentPath);
-                navigate(`/finanzas/sdmt/cost/reconciliation?${params.toString()}`);
+                params.set("returnUrl", currentPath);
+                navigate(
+                  `/finanzas/sdmt/cost/reconciliation?${params.toString()}`
+                );
               }}
               onNavigateToCostCatalog={(projectId) => {
                 navigate(`/sdmt/cost/catalog?projectId=${projectId}`);
@@ -2151,118 +2514,165 @@ const totalFTE = useMemo(() => {
                 <div className="flex items-center justify-center min-h-[120px]">
                   <div className="text-center">
                     <LoadingSpinner size="lg" />
-                    <p className="text-muted-foreground mt-4">Cargando pronóstico...</p>
+                    <p className="text-muted-foreground mt-4">
+                      Cargando pronóstico...
+                    </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-        <Card className="h-full">
-          <CardContent className="p-3">
-            <div className="text-xl font-bold">{formatCurrency(totalPlanned)}</div>
-            <div className="flex items-center gap-1 mt-1">
-              <p className="text-xs text-muted-foreground">Total Planeado</p>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs max-w-xs">Suma de costos planificados importados desde Planview baseline</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Card className="h-full">
+                <CardContent className="p-3">
+                  <div className="text-xl font-bold">
+                    {formatCurrency(totalPlanned)}
+                  </div>
+                  <div className="flex items-center gap-1 mt-1">
+                    <p className="text-xs text-muted-foreground">
+                      Total Planeado
+                    </p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs max-w-xs">
+                            Suma de costos planificados importados desde
+                            Planview baseline
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="h-full">
+                <CardContent className="p-3">
+                  <div className="text-xl font-bold">
+                    {formatCurrency(totalForecast)}
+                  </div>
+                  <div className="flex items-center gap-1 mt-1">
+                    <p className="text-xs text-muted-foreground">
+                      Pronóstico Total
+                    </p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs max-w-xs">
+                            Pronóstico ajustado por SDMT basado en tendencias y
+                            factores de riesgo
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="h-full">
+                <CardContent className="p-3">
+                  <div className="text-xl font-bold text-blue-600">
+                    {formatCurrency(totalActual)}
+                  </div>
+                  <div className="flex items-center gap-1 mt-1">
+                    <p className="text-xs text-muted-foreground">Total Real</p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs max-w-xs">
+                            Gastos reales registrados en el sistema desde
+                            facturas conciliadas
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="h-full">
+                <CardContent className="p-3">
+                  <div className="text-xl font-bold">
+                    {totalFTE.toLocaleString()}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Total FTE
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="h-full">
+                <CardContent className="p-3">
+                  <div
+                    className={`text-xl font-bold ${
+                      totalVariance >= 0 ? "text-red-600" : "text-green-600"
+                    }`}
+                  >
+                    {formatCurrency(Math.abs(totalVariance))}
+                  </div>
+                  <div className="flex items-center gap-1 mt-1">
+                    {getVarianceIcon(totalVariance)}
+                    <p className="text-xs text-muted-foreground">
+                      Variación Pronóstico
+                    </p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs max-w-xs">
+                            Diferencia entre pronóstico y planificado (Forecast
+                            - Planned)
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {Math.abs(variancePercentage).toFixed(1)}%
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="h-full">
+                <CardContent className="p-3">
+                  <div
+                    className={`text-xl font-bold ${
+                      actualVariance >= 0 ? "text-red-600" : "text-green-600"
+                    }`}
+                  >
+                    {formatCurrency(Math.abs(actualVariance))}
+                  </div>
+                  <div className="flex items-center gap-1 mt-1">
+                    {getVarianceIcon(actualVariance)}
+                    <p className="text-xs text-muted-foreground">
+                      Variación Real
+                    </p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs max-w-xs">
+                            Diferencia entre gastos reales y planificado (Actual
+                            - Planned)
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {Math.abs(actualVariancePercentage).toFixed(1)}%
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardContent className="p-3">
-            <div className="text-xl font-bold">{formatCurrency(totalForecast)}</div>
-            <div className="flex items-center gap-1 mt-1">
-              <p className="text-xs text-muted-foreground">Pronóstico Total</p>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs max-w-xs">Pronóstico ajustado por SDMT basado en tendencias y factores de riesgo</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardContent className="p-3">
-            <div className="text-xl font-bold text-blue-600">{formatCurrency(totalActual)}</div>
-            <div className="flex items-center gap-1 mt-1">
-              <p className="text-xs text-muted-foreground">Total Real</p>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs max-w-xs">Gastos reales registrados en el sistema desde facturas conciliadas</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardContent className="p-3">
-            <div className="text-xl font-bold">{totalFTE.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Total FTE</p>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardContent className="p-3">
-            <div className={`text-xl font-bold ${totalVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {formatCurrency(Math.abs(totalVariance))}
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              {getVarianceIcon(totalVariance)}
-              <p className="text-xs text-muted-foreground">Variación Pronóstico</p>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs max-w-xs">Diferencia entre pronóstico y planificado (Forecast - Planned)</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <p className="text-xs text-muted-foreground">{Math.abs(variancePercentage).toFixed(1)}%</p>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardContent className="p-3">
-            <div className={`text-xl font-bold ${actualVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {formatCurrency(Math.abs(actualVariance))}
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              {getVarianceIcon(actualVariance)}
-              <p className="text-xs text-muted-foreground">Variación Real</p>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs max-w-xs">Diferencia entre gastos reales y planificado (Actual - Planned)</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <p className="text-xs text-muted-foreground">{Math.abs(actualVariancePercentage).toFixed(1)}%</p>
-          </CardContent>
-        </Card>
-      </div>
           )}
         </>
       )}
@@ -2272,16 +2682,23 @@ const totalFTE = useMemo(() => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
           <Card className="border-primary/30">
             <CardContent className="p-3">
-              <div className="text-2xl font-bold text-primary">{formatCurrency(budgetTotal)}</div>
+              <div className="text-2xl font-bold text-primary">
+                {formatCurrency(budgetTotal)}
+              </div>
               <div className="flex items-center gap-1">
-                <p className="text-sm text-muted-foreground">Presupuesto Total</p>
+                <p className="text-sm text-muted-foreground">
+                  Presupuesto Total
+                </p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="text-xs max-w-xs">Presupuesto anual simulado distribuido proporcionalmente por mes</p>
+                      <p className="text-xs max-w-xs">
+                        Presupuesto anual simulado distribuido proporcionalmente
+                        por mes
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -2291,68 +2708,111 @@ const totalFTE = useMemo(() => {
           </Card>
           <Card className="border-primary/30">
             <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${budgetVarianceProjected >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <div
+                className={`text-2xl font-bold ${
+                  budgetVarianceProjected >= 0
+                    ? "text-green-600"
+                    : "text-red-600"
+                }`}
+              >
                 {formatCurrency(Math.abs(budgetVarianceProjected))}
               </div>
               <div className="flex items-center gap-1">
                 {getVarianceIcon(-budgetVarianceProjected)}
-                <p className="text-sm text-muted-foreground">Variación vs Presupuesto</p>
+                <p className="text-sm text-muted-foreground">
+                  Variación vs Presupuesto
+                </p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="text-xs max-w-xs">Diferencia entre presupuesto y pronóstico (Budget - Forecast)</p>
+                      <p className="text-xs max-w-xs">
+                        Diferencia entre presupuesto y pronóstico (Budget -
+                        Forecast)
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
               <p className="text-xs text-muted-foreground">
-                {budgetVarianceProjected >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
+                {budgetVarianceProjected >= 0
+                  ? "Bajo presupuesto"
+                  : "Sobre presupuesto"}
               </p>
             </CardContent>
           </Card>
           <Card className="border-primary/30">
             <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${budgetUtilization > 100 ? 'text-red-600' : budgetUtilization > 90 ? 'text-yellow-600' : 'text-green-600'}`}>
+              <div
+                className={`text-2xl font-bold ${
+                  budgetUtilization > 100
+                    ? "text-red-600"
+                    : budgetUtilization > 90
+                    ? "text-yellow-600"
+                    : "text-green-600"
+                }`}
+              >
                 {budgetUtilization.toFixed(1)}%
               </div>
               <div className="flex items-center gap-1">
-                <p className="text-sm text-muted-foreground">Utilización de Presupuesto</p>
+                <p className="text-sm text-muted-foreground">
+                  Utilización de Presupuesto
+                </p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="text-xs max-w-xs">Porcentaje del presupuesto utilizado según pronóstico (Forecast / Budget × 100)</p>
+                      <p className="text-xs max-w-xs">
+                        Porcentaje del presupuesto utilizado según pronóstico
+                        (Forecast / Budget × 100)
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <p className="text-xs text-muted-foreground">Pronóstico / Presupuesto</p>
+              <p className="text-xs text-muted-foreground">
+                Pronóstico / Presupuesto
+              </p>
             </CardContent>
           </Card>
           <Card className="border-primary/30">
             <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${pctUsedActual > 100 ? 'text-red-600' : pctUsedActual > 90 ? 'text-yellow-600' : 'text-blue-600'}`}>
+              <div
+                className={`text-2xl font-bold ${
+                  pctUsedActual > 100
+                    ? "text-red-600"
+                    : pctUsedActual > 90
+                    ? "text-yellow-600"
+                    : "text-blue-600"
+                }`}
+              >
                 {pctUsedActual.toFixed(1)}%
               </div>
               <div className="flex items-center gap-1">
-                <p className="text-sm text-muted-foreground">Real vs Presupuesto</p>
+                <p className="text-sm text-muted-foreground">
+                  Real vs Presupuesto
+                </p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="text-xs max-w-xs">Porcentaje del presupuesto consumido por gastos reales (Actual / Budget × 100)</p>
+                      <p className="text-xs max-w-xs">
+                        Porcentaje del presupuesto consumido por gastos reales
+                        (Actual / Budget × 100)
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <p className="text-xs text-muted-foreground">Gastos reales / Presupuesto</p>
+              <p className="text-xs text-muted-foreground">
+                Gastos reales / Presupuesto
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -2364,11 +2824,17 @@ const totalFTE = useMemo(() => {
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
               <div className="text-2xl font-bold text-blue-600">
-                {budgetOverview?.budgetAllIn ? formatCurrency(budgetOverview.budgetAllIn.amount) : '—'}
+                {budgetOverview?.budgetAllIn
+                  ? formatCurrency(budgetOverview.budgetAllIn.amount)
+                  : "—"}
               </div>
-              <p className="text-sm text-muted-foreground">Presupuesto Anual All-In</p>
+              <p className="text-sm text-muted-foreground">
+                Presupuesto Anual All-In
+              </p>
               <p className="text-xs text-muted-foreground">
-                {budgetOverview?.budgetAllIn ? `${budgetOverview.budgetAllIn.currency} · ${budgetOverview.year}` : 'No configurado'}
+                {budgetOverview?.budgetAllIn
+                  ? `${budgetOverview.budgetAllIn.currency} · ${budgetOverview.year}`
+                  : "No configurado"}
               </p>
             </CardContent>
           </Card>
@@ -2376,62 +2842,98 @@ const totalFTE = useMemo(() => {
             <CardContent className="p-3">
               {budgetOverview?.budgetAllIn ? (
                 <>
-                  <div className={`text-2xl font-bold ${
-                    budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {formatCurrency(Math.abs(budgetOverview.totals.varianceBudgetVsForecast))}
+                  <div
+                    className={`text-2xl font-bold ${
+                      budgetOverview.totals.varianceBudgetVsForecast >= 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {formatCurrency(
+                      Math.abs(budgetOverview.totals.varianceBudgetVsForecast)
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
-                    {getVarianceIcon(-budgetOverview.totals.varianceBudgetVsForecast)}
-                    <p className="text-sm text-muted-foreground">{ES_TEXTS.forecast.overUnderBudget}</p>
+                    {getVarianceIcon(
+                      -budgetOverview.totals.varianceBudgetVsForecast
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      {ES_TEXTS.forecast.overUnderBudget}
+                    </p>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p className="text-xs max-w-xs">Diferencia entre presupuesto anual y pronóstico total (Budget - Forecast)</p>
+                          <p className="text-xs max-w-xs">
+                            Diferencia entre presupuesto anual y pronóstico
+                            total (Budget - Forecast)
+                          </p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {budgetOverview.totals.varianceBudgetVsForecast >= 0 ? 'Bajo presupuesto' : 'Sobre presupuesto'}
+                    {budgetOverview.totals.varianceBudgetVsForecast >= 0
+                      ? "Bajo presupuesto"
+                      : "Sobre presupuesto"}
                   </p>
                 </>
               ) : (
                 <>
-                  <div className="text-2xl font-bold text-muted-foreground">—</div>
-                  <p className="text-sm text-muted-foreground">{ES_TEXTS.forecast.overUnderBudget}</p>
-                  <p className="text-xs text-muted-foreground">No hay presupuesto</p>
+                  <div className="text-2xl font-bold text-muted-foreground">
+                    —
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {ES_TEXTS.forecast.overUnderBudget}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    No hay presupuesto
+                  </p>
                 </>
               )}
             </CardContent>
           </Card>
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${
-                budgetOverview?.totals.percentBudgetConsumedForecast !== null && budgetOverview?.totals.percentBudgetConsumedForecast !== undefined
-                  ? (budgetOverview.totals.percentBudgetConsumedForecast > 100 
-                      ? 'text-red-600' 
-                      : budgetOverview.totals.percentBudgetConsumedForecast > 90 
-                        ? 'text-yellow-600' 
-                        : 'text-green-600')
-                  : 'text-muted-foreground'
-              }`}>
-                {budgetOverview?.totals.percentBudgetConsumedForecast !== null && budgetOverview?.totals.percentBudgetConsumedForecast !== undefined
-                  ? `${budgetOverview.totals.percentBudgetConsumedForecast.toFixed(1)}%`
-                  : '—'}
+              <div
+                className={`text-2xl font-bold ${
+                  budgetOverview?.totals.percentBudgetConsumedForecast !==
+                    null &&
+                  budgetOverview?.totals.percentBudgetConsumedForecast !==
+                    undefined
+                    ? budgetOverview.totals.percentBudgetConsumedForecast > 100
+                      ? "text-red-600"
+                      : budgetOverview.totals.percentBudgetConsumedForecast > 90
+                      ? "text-yellow-600"
+                      : "text-green-600"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {budgetOverview?.totals.percentBudgetConsumedForecast !==
+                  null &&
+                budgetOverview?.totals.percentBudgetConsumedForecast !==
+                  undefined
+                  ? `${budgetOverview.totals.percentBudgetConsumedForecast.toFixed(
+                      1
+                    )}%`
+                  : "—"}
               </div>
               <div className="flex items-center gap-1">
-                <p className="text-sm text-muted-foreground">% Consumo Pronóstico</p>
+                <p className="text-sm text-muted-foreground">
+                  % Consumo Pronóstico
+                </p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="text-xs max-w-xs">Porcentaje del presupuesto consumido según pronóstico (Forecast / Budget × 100)</p>
+                      <p className="text-xs max-w-xs">
+                        Porcentaje del presupuesto consumido según pronóstico
+                        (Forecast / Budget × 100)
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -2441,18 +2943,25 @@ const totalFTE = useMemo(() => {
           </Card>
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
-              <div className={`text-2xl font-bold ${
-                budgetOverview?.totals.percentBudgetConsumedActual !== null && budgetOverview?.totals.percentBudgetConsumedActual !== undefined
-                  ? (budgetOverview.totals.percentBudgetConsumedActual > 100 
-                      ? 'text-red-600' 
-                      : budgetOverview.totals.percentBudgetConsumedActual > 90 
-                        ? 'text-yellow-600' 
-                        : 'text-green-600')
-                  : 'text-muted-foreground'
-              }`}>
-                {budgetOverview?.totals.percentBudgetConsumedActual !== null && budgetOverview?.totals.percentBudgetConsumedActual !== undefined
-                  ? `${budgetOverview.totals.percentBudgetConsumedActual.toFixed(1)}%`
-                  : '—'}
+              <div
+                className={`text-2xl font-bold ${
+                  budgetOverview?.totals.percentBudgetConsumedActual !== null &&
+                  budgetOverview?.totals.percentBudgetConsumedActual !==
+                    undefined
+                    ? budgetOverview.totals.percentBudgetConsumedActual > 100
+                      ? "text-red-600"
+                      : budgetOverview.totals.percentBudgetConsumedActual > 90
+                      ? "text-yellow-600"
+                      : "text-green-600"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {budgetOverview?.totals.percentBudgetConsumedActual !== null &&
+                budgetOverview?.totals.percentBudgetConsumedActual !== undefined
+                  ? `${budgetOverview.totals.percentBudgetConsumedActual.toFixed(
+                      1
+                    )}%`
+                  : "—"}
               </div>
               <div className="flex items-center gap-1">
                 <p className="text-sm text-muted-foreground">% Consumo Real</p>
@@ -2462,7 +2971,10 @@ const totalFTE = useMemo(() => {
                       <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="text-xs max-w-xs">Porcentaje del presupuesto consumido por gastos reales (Actual / Budget × 100)</p>
+                      <p className="text-xs max-w-xs">
+                        Porcentaje del presupuesto consumido por gastos reales
+                        (Actual / Budget × 100)
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -2492,22 +3004,22 @@ const totalFTE = useMemo(() => {
             isPortfolioView &&
             forecastData.length > 0 &&
             hasBudgetForVariance && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <TopVarianceProjectsTable
-                projects={projectSummaries}
-                formatCurrency={formatCurrency}
-                onProjectClick={navigateToProject}
-                topN={5}
-              />
-              <TopVarianceRubrosTable
-                categories={categoryTotals}
-                budgetOverall={parseFloat(budgetAmount)}
-                formatCurrency={formatCurrency}
-                onCategoryClick={handleCategoryClick}
-                topN={5}
-              />
-            </div>
-          )}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <TopVarianceProjectsTable
+                  projects={projectSummaries}
+                  formatCurrency={formatCurrency}
+                  onProjectClick={navigateToProject}
+                  topN={5}
+                />
+                <TopVarianceRubrosTable
+                  categories={categoryTotals}
+                  budgetOverall={parseFloat(budgetAmount)}
+                  formatCurrency={formatCurrency}
+                  onCategoryClick={handleCategoryClick}
+                  topN={5}
+                />
+              </div>
+            )}
 
           {/* Collapsible Section: Resumen de todos los proyectos */}
           {!loading && (
@@ -2515,7 +3027,9 @@ const totalFTE = useMemo(() => {
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Resumen de todos los proyectos</CardTitle>
+                    <CardTitle className="text-lg">
+                      Resumen de todos los proyectos
+                    </CardTitle>
                     <CollapsibleTrigger asChild>
                       <Button
                         variant="ghost"
@@ -2538,9 +3052,11 @@ const totalFTE = useMemo(() => {
                       runwayMetrics={runwayMetrics}
                       selectedPeriod={selectedPeriod}
                       getCurrentMonthIndex={getCurrentMonthIndex}
-                      allProjects={projects.filter(p => p.id !== ALL_PROJECTS_ID).map(p => ({ id: p.id, name: p.name }))}
+                      allProjects={projects
+                        .filter((p) => p.id !== ALL_PROJECTS_ID)
+                        .map((p) => ({ id: p.id, name: p.name }))}
                       onViewProject={(projectId) => {
-                        console.log('View project:', projectId);
+                        console.log("View project:", projectId);
                       }}
                     />
                   </CardContent>
@@ -2551,12 +3067,17 @@ const totalFTE = useMemo(() => {
 
           {/* Collapsible Section: Cuadrícula de Pronóstico 12 Meses (Rubros Grid) */}
           {!loading && forecastData.length > 0 && (
-            <Collapsible open={isRubrosGridOpen} onOpenChange={setIsRubrosGridOpen}>
+            <Collapsible
+              open={isRubrosGridOpen}
+              onOpenChange={setIsRubrosGridOpen}
+            >
               <Card ref={rubrosSectionRef} tabIndex={-1}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <CardTitle className="text-lg">Cuadrícula de Pronóstico 12 Meses</CardTitle>
+                      <CardTitle className="text-lg">
+                        Cuadrícula de Pronóstico 12 Meses
+                      </CardTitle>
                     </div>
                     <CollapsibleTrigger asChild>
                       <Button
@@ -2597,7 +3118,9 @@ const totalFTE = useMemo(() => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calculator className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-lg">Simulador de Presupuesto</CardTitle>
+                    <CardTitle className="text-lg">
+                      Simulador de Presupuesto
+                    </CardTitle>
                   </div>
                   <CollapsibleTrigger asChild>
                     <Button
@@ -2615,42 +3138,67 @@ const totalFTE = useMemo(() => {
                 <CardContent className="space-y-4 pt-0">
                   {/* Annual Budget Editor */}
                   <div className="space-y-3">
-                    <div className="text-sm font-medium">Presupuesto Anual All-In</div>
+                    <div className="text-sm font-medium">
+                      Presupuesto Anual All-In
+                    </div>
                     <div className="flex flex-wrap items-end gap-2">
                       <div className="flex-shrink-0 w-20">
-                        <label htmlFor="budget-year" className="text-xs text-muted-foreground block mb-1">Año</label>
+                        <label
+                          htmlFor="budget-year"
+                          className="text-xs text-muted-foreground block mb-1"
+                        >
+                          Año
+                        </label>
                         <Input
                           id="budget-year"
                           type="number"
                           value={budgetYear}
-                          onChange={(e) => setBudgetYear(parseInt(e.target.value))}
+                          onChange={(e) =>
+                            setBudgetYear(parseInt(e.target.value))
+                          }
                           min={2020}
                           max={2100}
-                          disabled={loadingBudget || savingBudget || !canEditBudget}
+                          disabled={
+                            loadingBudget || savingBudget || !canEditBudget
+                          }
                           className="h-8 text-sm"
                           aria-label="Año del presupuesto"
                         />
                       </div>
                       <div className="flex-grow min-w-[140px] max-w-[200px]">
-                        <label htmlFor="budget-amount" className="text-xs text-muted-foreground block mb-1">Monto</label>
+                        <label
+                          htmlFor="budget-amount"
+                          className="text-xs text-muted-foreground block mb-1"
+                        >
+                          Monto
+                        </label>
                         <Input
                           id="budget-amount"
                           type="number"
                           value={budgetAmount}
                           onChange={(e) => setBudgetAmount(e.target.value)}
                           placeholder="0"
-                          disabled={loadingBudget || savingBudget || !canEditBudget}
+                          disabled={
+                            loadingBudget || savingBudget || !canEditBudget
+                          }
                           className="h-8 text-sm"
                           aria-label="Monto del presupuesto"
                         />
                       </div>
                       <div className="flex-shrink-0 w-20">
-                        <label htmlFor="budget-currency" className="text-xs text-muted-foreground block mb-1">Moneda</label>
+                        <label
+                          htmlFor="budget-currency"
+                          className="text-xs text-muted-foreground block mb-1"
+                        >
+                          Moneda
+                        </label>
                         <select
                           id="budget-currency"
                           value={budgetCurrency}
                           onChange={(e) => setBudgetCurrency(e.target.value)}
-                          disabled={loadingBudget || savingBudget || !canEditBudget}
+                          disabled={
+                            loadingBudget || savingBudget || !canEditBudget
+                          }
                           className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                           aria-label="Moneda del presupuesto"
                         >
@@ -2661,40 +3209,54 @@ const totalFTE = useMemo(() => {
                       </div>
                       <Button
                         onClick={handleSaveAnnualBudget}
-                        disabled={savingBudget || loadingBudget || !canEditBudget || !budgetAmount}
+                        disabled={
+                          savingBudget ||
+                          loadingBudget ||
+                          !canEditBudget ||
+                          !budgetAmount
+                        }
                         className="gap-2 h-8"
                         size="sm"
                       >
                         {savingBudget ? <LoadingSpinner size="sm" /> : null}
-                        {savingBudget ? 'Guardando...' : 'Guardar Presupuesto'}
+                        {savingBudget ? "Guardando..." : "Guardar Presupuesto"}
                       </Button>
                     </div>
                     {budgetLastUpdated && (
                       <div className="text-xs text-muted-foreground mt-2">
-                        📅 Última actualización: {new Date(budgetLastUpdated).toLocaleString('es-MX')}
+                        📅 Última actualización:{" "}
+                        {new Date(budgetLastUpdated).toLocaleString("es-MX")}
                       </div>
                     )}
                     {!canEditBudget && (
                       <div className="text-xs text-amber-600 mt-2">
-                        ⚠️ Solo usuarios PMO/SDMT pueden editar el presupuesto anual
+                        ⚠️ Solo usuarios PMO/SDMT pueden editar el presupuesto
+                        anual
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Monthly Budget Input - Only when annual budget is set */}
                   {budgetAmount && parseFloat(budgetAmount) > 0 && (
                     <div className="border-t pt-4">
                       <div className="flex items-center justify-between mb-3">
-                        <div className="text-sm font-medium">Modo: Presupuesto Mensual</div>
+                        <div className="text-sm font-medium">
+                          Modo: Presupuesto Mensual
+                        </div>
                         <div className="flex items-center gap-2">
-                          <Label htmlFor="use-monthly-budget" className="text-sm text-muted-foreground">
+                          <Label
+                            htmlFor="use-monthly-budget"
+                            className="text-sm text-muted-foreground"
+                          >
                             Habilitar entrada mensual
                           </Label>
                           <input
                             type="checkbox"
                             id="use-monthly-budget"
                             checked={useMonthlyBudget}
-                            onChange={(e) => setUseMonthlyBudget(e.target.checked)}
+                            onChange={(e) =>
+                              setUseMonthlyBudget(e.target.checked)
+                            }
                             disabled={!canEditBudget}
                             className="h-4 w-4 rounded border-gray-300"
                           />
@@ -2715,16 +3277,20 @@ const totalFTE = useMemo(() => {
                       )}
                       {!useMonthlyBudget && (
                         <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded">
-                          💡 Presupuesto se distribuye automáticamente por mes basado en costos planificados.
-                          Habilite "entrada mensual" arriba para ingresar presupuestos específicos por mes.
+                          💡 Presupuesto se distribuye automáticamente por mes
+                          basado en costos planificados. Habilite "entrada
+                          mensual" arriba para ingresar presupuestos específicos
+                          por mes.
                         </div>
                       )}
                     </div>
                   )}
-                  
+
                   {/* Budget Simulator */}
                   <div className="border-t pt-4">
-                    <div className="text-sm font-medium mb-3">Simulador de Presupuesto (solo vista)</div>
+                    <div className="text-sm font-medium mb-3">
+                      Simulador de Presupuesto (solo vista)
+                    </div>
                     <BudgetSimulatorCard
                       simulationState={budgetSimulation}
                       onSimulationChange={setBudgetSimulation}
@@ -2740,158 +3306,206 @@ const totalFTE = useMemo(() => {
       {/* ========== SINGLE PROJECT VIEW LAYOUT ========== */}
       {/* Budget & Simulation Panel - Collapsible - Single Project Mode Only */}
       {!isPortfolioView && (
-      <Collapsible>
-        <Card className="border-2 border-primary/20">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calculator className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Presupuesto & Simulación</CardTitle>
-              </div>
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  aria-label="Expandir/Colapsar panel de presupuesto"
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </CollapsibleTrigger>
-            </div>
-          </CardHeader>
-          <CollapsibleContent>
-            <CardContent className="space-y-4 pt-0">
-              {/* Annual Budget Editor */}
-              <div className="space-y-3">
-                <div className="text-sm font-medium">Presupuesto Anual All-In</div>
-                <div className="flex flex-wrap items-end gap-2">
-                  <div className="flex-shrink-0 w-20">
-                    <label htmlFor="budget-year" className="text-xs text-muted-foreground block mb-1">Año</label>
-                    <Input
-                      id="budget-year"
-                      type="number"
-                      value={budgetYear}
-                      onChange={(e) => setBudgetYear(parseInt(e.target.value))}
-                      min={2020}
-                      max={2100}
-                      disabled={loadingBudget || savingBudget || !canEditBudget}
-                      className="h-8 text-sm"
-                      aria-label="Año del presupuesto"
-                    />
-                  </div>
-                  <div className="flex-grow min-w-[140px] max-w-[200px]">
-                    <label htmlFor="budget-amount" className="text-xs text-muted-foreground block mb-1">Monto</label>
-                    <Input
-                      id="budget-amount"
-                      type="number"
-                      value={budgetAmount}
-                      onChange={(e) => setBudgetAmount(e.target.value)}
-                      placeholder="0"
-                      disabled={loadingBudget || savingBudget || !canEditBudget}
-                      className="h-8 text-sm"
-                      aria-label="Monto del presupuesto"
-                    />
-                  </div>
-                  <div className="flex-shrink-0 w-20">
-                    <label htmlFor="budget-currency" className="text-xs text-muted-foreground block mb-1">Moneda</label>
-                    <select
-                      id="budget-currency"
-                      value={budgetCurrency}
-                      onChange={(e) => setBudgetCurrency(e.target.value)}
-                      disabled={loadingBudget || savingBudget || !canEditBudget}
-                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label="Moneda del presupuesto"
-                    >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="MXN">MXN</option>
-                    </select>
-                  </div>
-                  <Button
-                    onClick={handleSaveAnnualBudget}
-                    disabled={savingBudget || loadingBudget || !canEditBudget || !budgetAmount}
-                    className="gap-2 h-8"
-                    size="sm"
-                  >
-                    {savingBudget ? <LoadingSpinner size="sm" /> : null}
-                    {savingBudget ? 'Guardando...' : 'Guardar Presupuesto'}
-                  </Button>
+        <Collapsible>
+          <Card className="border-2 border-primary/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">
+                    Presupuesto & Simulación
+                  </CardTitle>
                 </div>
-                {budgetLastUpdated && (
-                  <div className="text-xs text-muted-foreground mt-2">
-                    📅 Última actualización: {new Date(budgetLastUpdated).toLocaleString('es-MX')}
-                  </div>
-                )}
-                {!canEditBudget && (
-                  <div className="text-xs text-amber-600 mt-2">
-                    ⚠️ Solo usuarios PMO/SDMT pueden editar el presupuesto anual
-                  </div>
-                )}
-                {!isPortfolioView && budgetAmount && (
-                  <div className="text-xs text-muted-foreground mt-2">
-                    ℹ️ Presupuesto All-In aplica a todos los proyectos; seleccione "TODOS" para ver consumo total.
-                  </div>
-                )}
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Expandir/Colapsar panel de presupuesto"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
               </div>
-              
-              {/* Monthly Budget Input - Only in Portfolio View when annual budget is set */}
-              {isPortfolioView && budgetAmount && parseFloat(budgetAmount) > 0 && (
-                <div className="border-t pt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-sm font-medium">Modo: Presupuesto Mensual</div>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="use-monthly-budget" className="text-sm text-muted-foreground">
-                        Habilitar entrada mensual
-                      </Label>
-                      <input
-                        type="checkbox"
-                        id="use-monthly-budget"
-                        checked={useMonthlyBudget}
-                        onChange={(e) => setUseMonthlyBudget(e.target.checked)}
-                        disabled={!canEditBudget}
-                        className="h-4 w-4 rounded border-gray-300"
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-0">
+                {/* Annual Budget Editor */}
+                <div className="space-y-3">
+                  <div className="text-sm font-medium">
+                    Presupuesto Anual All-In
+                  </div>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="flex-shrink-0 w-20">
+                      <label
+                        htmlFor="budget-year"
+                        className="text-xs text-muted-foreground block mb-1"
+                      >
+                        Año
+                      </label>
+                      <Input
+                        id="budget-year"
+                        type="number"
+                        value={budgetYear}
+                        onChange={(e) =>
+                          setBudgetYear(parseInt(e.target.value))
+                        }
+                        min={2020}
+                        max={2100}
+                        disabled={
+                          loadingBudget || savingBudget || !canEditBudget
+                        }
+                        className="h-8 text-sm"
+                        aria-label="Año del presupuesto"
                       />
                     </div>
+                    <div className="flex-grow min-w-[140px] max-w-[200px]">
+                      <label
+                        htmlFor="budget-amount"
+                        className="text-xs text-muted-foreground block mb-1"
+                      >
+                        Monto
+                      </label>
+                      <Input
+                        id="budget-amount"
+                        type="number"
+                        value={budgetAmount}
+                        onChange={(e) => setBudgetAmount(e.target.value)}
+                        placeholder="0"
+                        disabled={
+                          loadingBudget || savingBudget || !canEditBudget
+                        }
+                        className="h-8 text-sm"
+                        aria-label="Monto del presupuesto"
+                      />
+                    </div>
+                    <div className="flex-shrink-0 w-20">
+                      <label
+                        htmlFor="budget-currency"
+                        className="text-xs text-muted-foreground block mb-1"
+                      >
+                        Moneda
+                      </label>
+                      <select
+                        id="budget-currency"
+                        value={budgetCurrency}
+                        onChange={(e) => setBudgetCurrency(e.target.value)}
+                        disabled={
+                          loadingBudget || savingBudget || !canEditBudget
+                        }
+                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label="Moneda del presupuesto"
+                      >
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="MXN">MXN</option>
+                      </select>
+                    </div>
+                    <Button
+                      onClick={handleSaveAnnualBudget}
+                      disabled={
+                        savingBudget ||
+                        loadingBudget ||
+                        !canEditBudget ||
+                        !budgetAmount
+                      }
+                      className="gap-2 h-8"
+                      size="sm"
+                    >
+                      {savingBudget ? <LoadingSpinner size="sm" /> : null}
+                      {savingBudget ? "Guardando..." : "Guardar Presupuesto"}
+                    </Button>
                   </div>
-                  {useMonthlyBudget && (
-                    <MonthlyBudgetCard
-                      monthlyBudgets={monthlyBudgets}
-                      annualBudgetReference={parseFloat(budgetAmount)}
-                      onMonthlyBudgetsChange={setMonthlyBudgets}
-                      onSave={handleSaveMonthlyBudget}
-                      onReset={handleResetMonthlyBudget}
-                      disabled={!canEditBudget || loadingMonthlyBudget}
-                      saving={savingMonthlyBudget}
-                      lastUpdated={monthlyBudgetLastUpdated}
-                      updatedBy={monthlyBudgetUpdatedBy}
-                    />
+                  {budgetLastUpdated && (
+                    <div className="text-xs text-muted-foreground mt-2">
+                      📅 Última actualización:{" "}
+                      {new Date(budgetLastUpdated).toLocaleString("es-MX")}
+                    </div>
                   )}
-                  {!useMonthlyBudget && (
-                    <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded">
-                      💡 Presupuesto se distribuye automáticamente por mes basado en costos planificados.
-                      Habilite "entrada mensual" arriba para ingresar presupuestos específicos por mes.
+                  {!canEditBudget && (
+                    <div className="text-xs text-amber-600 mt-2">
+                      ⚠️ Solo usuarios PMO/SDMT pueden editar el presupuesto
+                      anual
+                    </div>
+                  )}
+                  {!isPortfolioView && budgetAmount && (
+                    <div className="text-xs text-muted-foreground mt-2">
+                      ℹ️ Presupuesto All-In aplica a todos los proyectos;
+                      seleccione "TODOS" para ver consumo total.
                     </div>
                   )}
                 </div>
-              )}
-              
-              {/* Budget Simulator - Only in Portfolio View */}
-              {isPortfolioView && (
-                <>
-                  <div className="border-t pt-4">
-                    <div className="text-sm font-medium mb-3">Simulador de Presupuesto (solo vista)</div>
-                    <BudgetSimulatorCard
-                      simulationState={budgetSimulation}
-                      onSimulationChange={setBudgetSimulation}
-                    />
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
+
+                {/* Monthly Budget Input - Only in Portfolio View when annual budget is set */}
+                {isPortfolioView &&
+                  budgetAmount &&
+                  parseFloat(budgetAmount) > 0 && (
+                    <div className="border-t pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-medium">
+                          Modo: Presupuesto Mensual
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label
+                            htmlFor="use-monthly-budget"
+                            className="text-sm text-muted-foreground"
+                          >
+                            Habilitar entrada mensual
+                          </Label>
+                          <input
+                            type="checkbox"
+                            id="use-monthly-budget"
+                            checked={useMonthlyBudget}
+                            onChange={(e) =>
+                              setUseMonthlyBudget(e.target.checked)
+                            }
+                            disabled={!canEditBudget}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                        </div>
+                      </div>
+                      {useMonthlyBudget && (
+                        <MonthlyBudgetCard
+                          monthlyBudgets={monthlyBudgets}
+                          annualBudgetReference={parseFloat(budgetAmount)}
+                          onMonthlyBudgetsChange={setMonthlyBudgets}
+                          onSave={handleSaveMonthlyBudget}
+                          onReset={handleResetMonthlyBudget}
+                          disabled={!canEditBudget || loadingMonthlyBudget}
+                          saving={savingMonthlyBudget}
+                          lastUpdated={monthlyBudgetLastUpdated}
+                          updatedBy={monthlyBudgetUpdatedBy}
+                        />
+                      )}
+                      {!useMonthlyBudget && (
+                        <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded">
+                          💡 Presupuesto se distribuye automáticamente por mes
+                          basado en costos planificados. Habilite "entrada
+                          mensual" arriba para ingresar presupuestos específicos
+                          por mes.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                {/* Budget Simulator - Only in Portfolio View */}
+                {isPortfolioView && (
+                  <>
+                    <div className="border-t pt-4">
+                      <div className="text-sm font-medium mb-3">
+                        Simulador de Presupuesto (solo vista)
+                      </div>
+                      <BudgetSimulatorCard
+                        simulationState={budgetSimulation}
+                        onSimulationChange={setBudgetSimulation}
+                      />
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
       )}
 
       {/* Forecast Grid - Common for both modes, but with collapsible wrapper for TODOS */}
@@ -2902,9 +3516,9 @@ const totalFTE = useMemo(() => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">
-                  {selectedPeriod === 'CURRENT_MONTH' 
+                  {selectedPeriod === "CURRENT_MONTH"
                     ? `Desglose mensual vs presupuesto - Mes Actual (M${getCurrentMonthIndex()})`
-                    : 'Desglose mensual vs presupuesto'}
+                    : "Desglose mensual vs presupuesto"}
                 </CardTitle>
                 <CollapsibleTrigger asChild>
                   <Button
@@ -2920,328 +3534,443 @@ const totalFTE = useMemo(() => {
             </CardHeader>
             <CollapsibleContent>
               <CardContent className="pt-0">
-          {selectedPeriod === 'CURRENT_MONTH' && !isLoadingState && (
-            <div className="mb-3 p-2 bg-blue-50 rounded text-sm text-blue-900">
-              📅 Mostrando solo el mes en curso (M{getCurrentMonthIndex()}) - {getCalendarMonth(getCurrentMonthIndex())}
-            </div>
-          )}
-          {budgetMissingYear && (
-            <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              No hay presupuesto configurado para {budgetMissingYear}. Puedes “Materializar Ahora” o continuar con pronóstico manual.
-            </div>
-          )}
-          {isLoadingState ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center space-y-3">
-                <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center mx-auto mb-2 animate-pulse">
-                  <span className="text-primary font-bold text-sm">📊</span>
-                </div>
-                <div className="text-muted-foreground">
-                  Cargando datos de pronóstico{currentProject ? ` para ${currentProject.name}` : ''}...
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Project: {selectedProjectId} | Change #{projectChangeCount}
-                </div>
-              </div>
-            </div>
-          ) : isTodosEmptyState ? (
-            <div className="flex items-center justify-center h-48">
-              <div className="text-center space-y-4 max-w-md">
-                <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <span className="text-amber-600 font-bold text-xl">⚠️</span>
-                </div>
-                <div className="text-lg font-semibold text-foreground">
-                  No se encontraron proyectos para 'TODOS'
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Verifica permisos y filtros. Si deberías ver proyectos, intenta recargar.
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Proyectos cargados: {projects.length} (incluyendo ALL_PROJECTS)
-                </div>
-                <Button 
-                  onClick={loadForecastData}
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                >
-                  Reintentar
-                </Button>
-              </div>
-            </div>
-          ) : forecastError ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center space-y-3">
-                <div className="w-8 h-8 bg-destructive/10 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <span className="text-destructive font-bold text-sm">⚠️</span>
-                </div>
-                <div className="text-destructive">{forecastError}</div>
-                <div className="text-xs text-muted-foreground">Project ID: {selectedProjectId}</div>
-              </div>
-            </div>
-          ) : isEmptyState ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center space-y-3">
-                <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <span className="text-muted-foreground font-bold text-sm">🗂️</span>
-                </div>
-                <div className="text-muted-foreground">
-                  No hay datos de pronóstico disponibles aún para {currentProject?.name || 'este proyecto'}.
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Project ID: {selectedProjectId} | Última generación: {generatedAt ? new Date(generatedAt).toLocaleString() : 'sin registro'}
-                </div>
-              </div>
-            </div>
-          ) : !hasGridData ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center space-y-3">
-                <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <span className="text-muted-foreground font-bold text-sm">📋</span>
-                </div>
-                <div className="text-muted-foreground">
-                  No hay datos de pronóstico disponibles para {currentProject?.name || 'este proyecto'}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Project ID: {selectedProjectId}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead 
-                      className="sticky left-0 bg-background min-w-[300px] cursor-pointer hover:bg-muted/50 select-none"
-                      onClick={toggleSortDirection}
-                      title="Click para ordenar"
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && toggleSortDirection()}
-                      aria-label={`Ordenar por rubro - actualmente ${sortDirection === 'asc' ? 'ascendente' : 'descendente'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>Rubro</span>
-                        <span className="text-muted-foreground" aria-hidden="true">
-                          {sortDirection === 'asc' ? '▲' : '▼'}
+                {selectedPeriod === "CURRENT_MONTH" && !isLoadingState && (
+                  <div className="mb-3 p-2 bg-blue-50 rounded text-sm text-blue-900">
+                    📅 Mostrando solo el mes en curso (M{getCurrentMonthIndex()}
+                    ) - {getCalendarMonth(getCurrentMonthIndex())}
+                  </div>
+                )}
+                {budgetMissingYear && (
+                  <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    No hay presupuesto configurado para {budgetMissingYear}.
+                    Puedes “Materializar Ahora” o continuar con pronóstico
+                    manual.
+                  </div>
+                )}
+                {isLoadingState ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-center space-y-3">
+                      <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center mx-auto mb-2 animate-pulse">
+                        <span className="text-primary font-bold text-sm">
+                          📊
                         </span>
                       </div>
-                    </TableHead>
-                    {(() => {
-                      const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
-                      const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
-                      // Dynamic month range based on selectedPeriod
-                      const periodCount = isCurrentMonthMode ? 1 : parseInt(selectedPeriod) || 12;
-                      const baselineDuration = getBaselineDuration(baselineDetail);
-                      const maxMonths = Math.max(1, baselineDuration);
-                      const monthCount = Math.min(periodCount, maxMonths);
-                      const monthsToShow = isCurrentMonthMode ? [currentMonthIndex] : Array.from({ length: monthCount }, (_, i) => i + 1);
-                      
-                      return monthsToShow.map((monthNum) => (
-                        <TableHead key={monthNum} className="text-center min-w-[140px]">
-                          <div className="font-semibold">M{monthNum}</div>
-                          {!isPortfolioView && projectStartDate && (
-                            <div className="text-xs font-normal text-muted-foreground mt-1">
-                              {getCalendarMonth(monthNum)}
+                      <div className="text-muted-foreground">
+                        Cargando datos de pronóstico
+                        {currentProject ? ` para ${currentProject.name}` : ""}
+                        ...
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Project: {selectedProjectId} | Change #
+                        {projectChangeCount}
+                      </div>
+                    </div>
+                  </div>
+                ) : isTodosEmptyState ? (
+                  <div className="flex items-center justify-center h-48">
+                    <div className="text-center space-y-4 max-w-md">
+                      <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                        <span className="text-amber-600 font-bold text-xl">
+                          ⚠️
+                        </span>
+                      </div>
+                      <div className="text-lg font-semibold text-foreground">
+                        No se encontraron proyectos para 'TODOS'
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Verifica permisos y filtros. Si deberías ver proyectos,
+                        intenta recargar.
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Proyectos cargados: {projects.length} (incluyendo
+                        ALL_PROJECTS)
+                      </div>
+                      <Button
+                        onClick={loadForecastData}
+                        variant="outline"
+                        size="sm"
+                        className="mt-4"
+                      >
+                        Reintentar
+                      </Button>
+                    </div>
+                  </div>
+                ) : forecastError ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-center space-y-3">
+                      <div className="w-8 h-8 bg-destructive/10 rounded-lg flex items-center justify-center mx-auto mb-2">
+                        <span className="text-destructive font-bold text-sm">
+                          ⚠️
+                        </span>
+                      </div>
+                      <div className="text-destructive">{forecastError}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Project ID: {selectedProjectId}
+                      </div>
+                    </div>
+                  </div>
+                ) : isEmptyState ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-center space-y-3">
+                      <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
+                        <span className="text-muted-foreground font-bold text-sm">
+                          🗂️
+                        </span>
+                      </div>
+                      <div className="text-muted-foreground">
+                        No hay datos de pronóstico disponibles aún para{" "}
+                        {currentProject?.name || "este proyecto"}.
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Project ID: {selectedProjectId} | Última generación:{" "}
+                        {generatedAt
+                          ? new Date(generatedAt).toLocaleString()
+                          : "sin registro"}
+                      </div>
+                    </div>
+                  </div>
+                ) : !hasGridData ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-center space-y-3">
+                      <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
+                        <span className="text-muted-foreground font-bold text-sm">
+                          📋
+                        </span>
+                      </div>
+                      <div className="text-muted-foreground">
+                        No hay datos de pronóstico disponibles para{" "}
+                        {currentProject?.name || "este proyecto"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Project ID: {selectedProjectId}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead
+                            className="sticky left-0 bg-background min-w-[300px] cursor-pointer hover:bg-muted/50 select-none"
+                            onClick={toggleSortDirection}
+                            title="Click para ordenar"
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && toggleSortDirection()
+                            }
+                            aria-label={`Ordenar por rubro - actualmente ${
+                              sortDirection === "asc"
+                                ? "ascendente"
+                                : "descendente"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>Rubro</span>
+                              <span
+                                className="text-muted-foreground"
+                                aria-hidden="true"
+                              >
+                                {sortDirection === "asc" ? "▲" : "▼"}
+                              </span>
                             </div>
-                          )}
-                          <div className="text-xs font-normal text-muted-foreground mt-1">
-                            P / F / A
-                          </div>
-                        </TableHead>
-                      ));
-                    })()}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {forecastGridWithSubtotals.map((row, rowIndex) => {
-                    if (row.type === 'subtotal') {
-                      // Render sub-total row
-                      return (
-                        <TableRow key={`subtotal-${row.category}-${rowIndex}`} className="bg-muted/30 font-semibold">
-                          <TableCell className="sticky left-0 bg-muted/30">
-                            <div className="font-bold text-sm">
-                              Subtotal - {row.category}
-                            </div>
-                          </TableCell>
-                          {row.monthlyData.map(cell => (
-                            <TableCell key={cell.month} className="p-2">
-                              <div className="space-y-2 text-xs font-semibold">
-                                {/* Sub-total Planned */}
-                                {cell.planned > 0 && (
-                                  <div className="text-muted-foreground bg-muted/40 px-2 py-1 rounded">
-                                    P: {formatGridCurrency(cell.planned)}
+                          </TableHead>
+                          {(() => {
+                            const isCurrentMonthMode =
+                              selectedPeriod === "CURRENT_MONTH";
+                            const currentMonthIndex = isCurrentMonthMode
+                              ? getCurrentMonthIndex()
+                              : 0;
+                            // Dynamic month range based on selectedPeriod
+                            const periodCount = isCurrentMonthMode
+                              ? 1
+                              : parseInt(selectedPeriod) || 12;
+                            const baselineDuration =
+                              getBaselineDuration(baselineDetail);
+                            const maxMonths = Math.max(1, baselineDuration);
+                            const monthCount = Math.min(periodCount, maxMonths);
+                            const monthsToShow = isCurrentMonthMode
+                              ? [currentMonthIndex]
+                              : Array.from(
+                                  { length: monthCount },
+                                  (_, i) => i + 1
+                                );
+
+                            return monthsToShow.map((monthNum) => (
+                              <TableHead
+                                key={monthNum}
+                                className="text-center min-w-[140px]"
+                              >
+                                <div className="font-semibold">M{monthNum}</div>
+                                {!isPortfolioView && projectStartDate && (
+                                  <div className="text-xs font-normal text-muted-foreground mt-1">
+                                    {getCalendarMonth(monthNum)}
                                   </div>
                                 )}
-                                
-                                {/* Sub-total Forecast */}
-                                {(cell.forecast > 0 || cell.planned > 0) && (
-                                  <div className="px-2 py-1 rounded bg-primary/10 text-primary">
-                                    F: {formatGridCurrency(cell.forecast)}
-                                  </div>
-                                )}
-                                
-                                {/* Sub-total Actual */}
-                                {(cell.actual > 0 || cell.forecast > 0 || cell.planned > 0) && (
-                                  <div className="px-2 py-1 rounded bg-blue-50/80 text-blue-700">
-                                    A: {formatGridCurrency(cell.actual)}
-                                  </div>
-                                )}
-                                
-                                {/* Sub-total Variance */}
-                                {cell.variance !== 0 && (
-                                  <div className={`px-2 py-1 rounded text-xs font-bold text-center ${getVarianceColor(cell.variance)}`}>
-                                    {cell.variance > 0 ? '+' : ''}{formatGridCurrency(cell.variance)}
-                                  </div>
-                                )}
-                              </div>
-                            </TableCell>
-                          ))}
+                                <div className="text-xs font-normal text-muted-foreground mt-1">
+                                  P / F / A
+                                </div>
+                              </TableHead>
+                            ));
+                          })()}
                         </TableRow>
-                      );
-                    }
-                    
-                    // Render regular item row
-                    const { lineItem, monthlyData } = row;
-                    if (!lineItem) {
-                      // Safety check: skip if lineItem is undefined (should not happen for item rows)
-                      return null;
-                    }
-                    return (
-                    <TableRow key={lineItem.id}>
-                      <TableCell className="sticky left-0 bg-background">
-                        <div className="space-y-1">
-                          <div className="font-medium flex items-center gap-2">
-                            {lineItem.description}
-                            {lineItem.projectName && (
-                              <Badge variant="outline" className="text-[10px]">
-                                {lineItem.projectName}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-sm text-muted-foreground">{lineItem.category}</div>
-                        </div>
-                      </TableCell>
-                      {monthlyData.map(cell => (
-                        <TableCell key={cell.month} className="p-2">
-                          <div className="space-y-2 text-xs">
-                            {/* Planned (Read-only) - only show if > 0 */}
-                            {cell.planned > 0 && (
-                              <div className="text-muted-foreground bg-muted/20 px-2 py-1 rounded">
-                                P: {formatGridCurrency(cell.planned)}
-                              </div>
-                            )}
-                            
-                            {/* Forecast (Editable by PMO/SDMT) - only show if > 0 or planned > 0 */}
-                            {(cell.forecast > 0 || cell.planned > 0) && (
-                              <div>
-                                {editingCell?.line_item_id === cell.line_item_id && 
-                                 editingCell?.month === cell.month && 
-                                 editingCell?.type === 'forecast' ? (
-                                  <Input
-                                    value={editValue}
-                                    onChange={(e) => setEditValue(e.target.value)}
-                                    onBlur={handleCellSave}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
-                                    className="h-7 text-xs"
-                                    id={`forecast-input-${cell.line_item_id}-${cell.month}`}
-                                    name={`forecast-${cell.line_item_id}-${cell.month}`}
-                                    aria-label={`Forecast value for ${cell.line_item_id} month ${cell.month}`}
-                                    disabled={savingForecasts}
-                                    autoFocus
-                                  />
-                                ) : (
-                                  <div
-                                    className={`px-2 py-1 rounded transition-colors ${
-                                      canEditForecast && !savingForecasts
-                                        ? 'cursor-pointer hover:bg-primary/10 bg-primary/5 text-primary font-medium'
-                                        : 'cursor-default bg-muted/10 text-muted-foreground'
-                                    }`}
-                                    onClick={() => canEditForecast && !savingForecasts && handleCellEdit(cell.line_item_id, cell.month, 'forecast')}
-                                    title={
-                                      savingForecasts 
-                                        ? 'Guardando pronósticos...' 
-                                        : canEditForecast 
-                                          ? 'Click to edit forecast' 
-                                          : 'No permission to edit forecast'
-                                    }
-                                  >
-                                    F: {formatGridCurrency(cell.forecast)}
+                      </TableHeader>
+                      <TableBody>
+                        {forecastGridWithSubtotals.map((row, rowIndex) => {
+                          if (row.type === "subtotal") {
+                            // Render sub-total row
+                            return (
+                              <TableRow
+                                key={`subtotal-${row.category}-${rowIndex}`}
+                                className="bg-muted/30 font-semibold"
+                              >
+                                <TableCell className="sticky left-0 bg-muted/30">
+                                  <div className="font-bold text-sm">
+                                    Subtotal - {row.category}
                                   </div>
-                                )}
-                              </div>
-                            )}
-                            
-                            {/* Actual (Editable by SDMT only) - only show if > 0 or there's forecast/planned */}
-                            {(cell.actual > 0 || cell.forecast > 0 || cell.planned > 0) && (
-                              <div>
-                                {editingCell?.line_item_id === cell.line_item_id && 
-                                 editingCell?.month === cell.month && 
-                                 editingCell?.type === 'actual' ? (
-                                  <Input
-                                    value={editValue}
-                                    onChange={(e) => setEditValue(e.target.value)}
-                                    onBlur={handleCellSave}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
-                                    className="h-7 text-xs"
-                                    id={`actual-input-${cell.line_item_id}-${cell.month}`}
-                                    name={`actual-${cell.line_item_id}-${cell.month}`}
-                                    aria-label={`Actual value for ${cell.line_item_id} month ${cell.month}`}
-                                    autoFocus
-                                  />
-                                ) : (
-                                  <div className="flex items-center gap-1">
-                                    <div
-                                      className={`px-2 py-1 rounded flex-1 transition-colors ${
-                                        canEditActual 
-                                          ? 'cursor-pointer hover:bg-blue-50 bg-blue-50/50 text-blue-700 font-medium'
-                                          : 'cursor-default bg-muted/10 text-muted-foreground'
-                                      }`}
-                                      onClick={() => canEditActual && handleCellEdit(cell.line_item_id, cell.month, 'actual')}
-                                      title={canEditActual ? 'Click to edit actual' : 'No permission to edit actuals'}
-                                    >
-                                      A: {formatGridCurrency(cell.actual)}
+                                </TableCell>
+                                {row.monthlyData.map((cell) => (
+                                  <TableCell key={cell.month} className="p-2">
+                                    <div className="space-y-2 text-xs font-semibold">
+                                      {/* Sub-total Planned */}
+                                      {cell.planned > 0 && (
+                                        <div className="text-muted-foreground bg-muted/40 px-2 py-1 rounded">
+                                          P: {formatGridCurrency(cell.planned)}
+                                        </div>
+                                      )}
+
+                                      {/* Sub-total Forecast */}
+                                      {(cell.forecast > 0 ||
+                                        cell.planned > 0) && (
+                                        <div className="px-2 py-1 rounded bg-primary/10 text-primary">
+                                          F: {formatGridCurrency(cell.forecast)}
+                                        </div>
+                                      )}
+
+                                      {/* Sub-total Actual */}
+                                      {(cell.actual > 0 ||
+                                        cell.forecast > 0 ||
+                                        cell.planned > 0) && (
+                                        <div className="px-2 py-1 rounded bg-blue-50/80 text-blue-700">
+                                          A: {formatGridCurrency(cell.actual)}
+                                        </div>
+                                      )}
+
+                                      {/* Sub-total Variance */}
+                                      {cell.variance !== 0 && (
+                                        <div
+                                          className={`px-2 py-1 rounded text-xs font-bold text-center ${getVarianceColor(
+                                            cell.variance
+                                          )}`}
+                                        >
+                                          {cell.variance > 0 ? "+" : ""}
+                                          {formatGridCurrency(cell.variance)}
+                                        </div>
+                                      )}
                                     </div>
-                                    {/* Always show reconciliation icon for organic actuals entry */}
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-5 w-5 p-0 hover:bg-blue-100"
-                                      onClick={() => navigateToReconciliation(cell.line_item_id, cell.month)}
-                                      title={cell.actual > 0 ? 'View/Edit Factura' : 'Add Factura / Enter Actuals'}
-                                    >
-                                      <ExternalLink size={12} />
-                                    </Button>
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            );
+                          }
+
+                          // Render regular item row
+                          const { lineItem, monthlyData } = row;
+                          if (!lineItem) {
+                            // Safety check: skip if lineItem is undefined (should not happen for item rows)
+                            return null;
+                          }
+                          return (
+                            <TableRow key={lineItem.id}>
+                              <TableCell className="sticky left-0 bg-background">
+                                <div className="space-y-1">
+                                  <div className="font-medium flex items-center gap-2">
+                                    {lineItem.description}
+                                    {lineItem.projectName && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px]"
+                                      >
+                                        {lineItem.projectName}
+                                      </Badge>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                            )}
-                            
-                            {/* Variance Indicator */}
-                            {cell.variance !== 0 && (
-                              <div className={`px-2 py-1 rounded text-xs font-medium text-center ${getVarianceColor(cell.variance)}`}>
-                                {cell.variance > 0 ? '+' : ''}{formatGridCurrency(cell.variance)}
-                              </div>
-                            )}
-                            
-                            {/* TODO: Show change request indicator when backend provides change_request_id
+                                  <div className="text-sm text-muted-foreground">
+                                    {lineItem.category}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              {monthlyData.map((cell) => (
+                                <TableCell key={cell.month} className="p-2">
+                                  <div className="space-y-2 text-xs">
+                                    {/* Planned (Read-only) - only show if > 0 */}
+                                    {cell.planned > 0 && (
+                                      <div className="text-muted-foreground bg-muted/20 px-2 py-1 rounded">
+                                        P: {formatGridCurrency(cell.planned)}
+                                      </div>
+                                    )}
+
+                                    {/* Forecast (Editable by PMO/SDMT) - only show if > 0 or planned > 0 */}
+                                    {(cell.forecast > 0 ||
+                                      cell.planned > 0) && (
+                                      <div>
+                                        {editingCell?.line_item_id ===
+                                          cell.line_item_id &&
+                                        editingCell?.month === cell.month &&
+                                        editingCell?.type === "forecast" ? (
+                                          <Input
+                                            value={editValue}
+                                            onChange={(e) =>
+                                              setEditValue(e.target.value)
+                                            }
+                                            onBlur={handleCellSave}
+                                            onKeyDown={(e) =>
+                                              e.key === "Enter" &&
+                                              handleCellSave()
+                                            }
+                                            className="h-7 text-xs"
+                                            id={`forecast-input-${cell.line_item_id}-${cell.month}`}
+                                            name={`forecast-${cell.line_item_id}-${cell.month}`}
+                                            aria-label={`Forecast value for ${cell.line_item_id} month ${cell.month}`}
+                                            disabled={savingForecasts}
+                                            autoFocus
+                                          />
+                                        ) : (
+                                          <div
+                                            className={`px-2 py-1 rounded transition-colors ${
+                                              canEditForecast &&
+                                              !savingForecasts
+                                                ? "cursor-pointer hover:bg-primary/10 bg-primary/5 text-primary font-medium"
+                                                : "cursor-default bg-muted/10 text-muted-foreground"
+                                            }`}
+                                            onClick={() =>
+                                              canEditForecast &&
+                                              !savingForecasts &&
+                                              handleCellEdit(
+                                                cell.line_item_id,
+                                                cell.month,
+                                                "forecast"
+                                              )
+                                            }
+                                            title={
+                                              savingForecasts
+                                                ? "Guardando pronósticos..."
+                                                : canEditForecast
+                                                ? "Click to edit forecast"
+                                                : "No permission to edit forecast"
+                                            }
+                                          >
+                                            F:{" "}
+                                            {formatGridCurrency(cell.forecast)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Actual (Editable by SDMT only) - only show if > 0 or there's forecast/planned */}
+                                    {(cell.actual > 0 ||
+                                      cell.forecast > 0 ||
+                                      cell.planned > 0) && (
+                                      <div>
+                                        {editingCell?.line_item_id ===
+                                          cell.line_item_id &&
+                                        editingCell?.month === cell.month &&
+                                        editingCell?.type === "actual" ? (
+                                          <Input
+                                            value={editValue}
+                                            onChange={(e) =>
+                                              setEditValue(e.target.value)
+                                            }
+                                            onBlur={handleCellSave}
+                                            onKeyDown={(e) =>
+                                              e.key === "Enter" &&
+                                              handleCellSave()
+                                            }
+                                            className="h-7 text-xs"
+                                            id={`actual-input-${cell.line_item_id}-${cell.month}`}
+                                            name={`actual-${cell.line_item_id}-${cell.month}`}
+                                            aria-label={`Actual value for ${cell.line_item_id} month ${cell.month}`}
+                                            autoFocus
+                                          />
+                                        ) : (
+                                          <div className="flex items-center gap-1">
+                                            <div
+                                              className={`px-2 py-1 rounded flex-1 transition-colors ${
+                                                canEditActual
+                                                  ? "cursor-pointer hover:bg-blue-50 bg-blue-50/50 text-blue-700 font-medium"
+                                                  : "cursor-default bg-muted/10 text-muted-foreground"
+                                              }`}
+                                              onClick={() =>
+                                                canEditActual &&
+                                                handleCellEdit(
+                                                  cell.line_item_id,
+                                                  cell.month,
+                                                  "actual"
+                                                )
+                                              }
+                                              title={
+                                                canEditActual
+                                                  ? "Click to edit actual"
+                                                  : "No permission to edit actuals"
+                                              }
+                                            >
+                                              A:{" "}
+                                              {formatGridCurrency(cell.actual)}
+                                            </div>
+                                            {/* Always show reconciliation icon for organic actuals entry */}
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-5 w-5 p-0 hover:bg-blue-100"
+                                              onClick={() =>
+                                                navigateToReconciliation(
+                                                  cell.line_item_id,
+                                                  cell.month
+                                                )
+                                              }
+                                              title={
+                                                cell.actual > 0
+                                                  ? "View/Edit Factura"
+                                                  : "Add Factura / Enter Actuals"
+                                              }
+                                            >
+                                              <ExternalLink size={12} />
+                                            </Button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Variance Indicator */}
+                                    {cell.variance !== 0 && (
+                                      <div
+                                        className={`px-2 py-1 rounded text-xs font-medium text-center ${getVarianceColor(
+                                          cell.variance
+                                        )}`}
+                                      >
+                                        {cell.variance > 0 ? "+" : ""}
+                                        {formatGridCurrency(cell.variance)}
+                                      </div>
+                                    )}
+
+                                    {/* TODO: Show change request indicator when backend provides change_request_id
                             {cell.change_request_id && (
                               <Badge variant="outline" className="text-[10px] mt-1">
                                 Change #{cell.change_request_id.slice(0, 8)}
                               </Badge>
                             )}
                             */}
-                          </div>
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                                  </div>
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </CollapsibleContent>
           </Card>
@@ -3251,445 +3980,615 @@ const totalFTE = useMemo(() => {
         <Card>
           <CardHeader>
             <CardTitle>
-              {selectedPeriod === 'CURRENT_MONTH' 
+              {selectedPeriod === "CURRENT_MONTH"
                 ? `Cuadrícula de Pronóstico - Mes Actual (M${getCurrentMonthIndex()})`
-                : 'Cuadrícula de Pronóstico 12 Meses'}
+                : "Cuadrícula de Pronóstico 12 Meses"}
             </CardTitle>
           </CardHeader>
           <CardContent>
-          {selectedPeriod === 'CURRENT_MONTH' && !isLoadingState && (
-            <div className="mb-3 p-2 bg-blue-50 rounded text-sm text-blue-900">
-              📅 Mostrando solo el mes en curso (M{getCurrentMonthIndex()}) - {getCalendarMonth(getCurrentMonthIndex())}
-            </div>
-          )}
-          {budgetMissingYear && (
-            <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              No hay presupuesto configurado para {budgetMissingYear}. Puedes "Materializar Ahora" o continuar con pronóstico manual.
-            </div>
-          )}
-          {isLoadingState ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center space-y-3">
-                <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center mx-auto mb-2 animate-pulse">
-                  <span className="text-primary font-bold text-sm">📊</span>
-                </div>
-                <div className="text-muted-foreground">
-                  Cargando datos de pronóstico{currentProject ? ` para ${currentProject.name}` : ''}...
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Project: {selectedProjectId} | Change #{projectChangeCount}
+            {selectedPeriod === "CURRENT_MONTH" && !isLoadingState && (
+              <div className="mb-3 p-2 bg-blue-50 rounded text-sm text-blue-900">
+                📅 Mostrando solo el mes en curso (M{getCurrentMonthIndex()}) -{" "}
+                {getCalendarMonth(getCurrentMonthIndex())}
+              </div>
+            )}
+            {budgetMissingYear && (
+              <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                No hay presupuesto configurado para {budgetMissingYear}. Puedes
+                "Materializar Ahora" o continuar con pronóstico manual.
+              </div>
+            )}
+            {isLoadingState ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="text-center space-y-3">
+                  <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center mx-auto mb-2 animate-pulse">
+                    <span className="text-primary font-bold text-sm">📊</span>
+                  </div>
+                  <div className="text-muted-foreground">
+                    Cargando datos de pronóstico
+                    {currentProject ? ` para ${currentProject.name}` : ""}...
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Project: {selectedProjectId} | Change #{projectChangeCount}
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : isTodosEmptyState ? (
-            <div className="flex items-center justify-center h-48">
-              <div className="text-center space-y-4 max-w-md">
-                <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <span className="text-amber-600 font-bold text-xl">⚠️</span>
-                </div>
-                <div className="text-lg font-semibold text-foreground">
-                  No se encontraron proyectos para 'TODOS'
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Verifica permisos y filtros. Si deberías ver proyectos, intenta recargar.
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Proyectos cargados: {projects.length} (incluyendo ALL_PROJECTS)
-                </div>
-                <Button 
-                  onClick={loadForecastData}
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                >
-                  Reintentar
-                </Button>
-              </div>
-            </div>
-          ) : forecastError ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center space-y-3">
-                <div className="w-8 h-8 bg-destructive/10 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <span className="text-destructive font-bold text-sm">⚠️</span>
-                </div>
-                <div className="text-destructive">{forecastError}</div>
-                <div className="text-xs text-muted-foreground">Project ID: {selectedProjectId}</div>
-              </div>
-            </div>
-          ) : isEmptyState ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center space-y-3">
-                <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <span className="text-muted-foreground font-bold text-sm">🗂️</span>
-                </div>
-                <div className="text-muted-foreground">
-                  No hay datos de pronóstico disponibles aún para {currentProject?.name || 'este proyecto'}.
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Project ID: {selectedProjectId} | Última generación: {generatedAt ? new Date(generatedAt).toLocaleString() : 'sin registro'}
+            ) : isTodosEmptyState ? (
+              <div className="flex items-center justify-center h-48">
+                <div className="text-center space-y-4 max-w-md">
+                  <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <span className="text-amber-600 font-bold text-xl">⚠️</span>
+                  </div>
+                  <div className="text-lg font-semibold text-foreground">
+                    No se encontraron proyectos para 'TODOS'
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Verifica permisos y filtros. Si deberías ver proyectos,
+                    intenta recargar.
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Proyectos cargados: {projects.length} (incluyendo
+                    ALL_PROJECTS)
+                  </div>
+                  <Button
+                    onClick={loadForecastData}
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                  >
+                    Reintentar
+                  </Button>
                 </div>
               </div>
-            </div>
-          ) : !hasGridData ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center space-y-3">
-                <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <span className="text-muted-foreground font-bold text-sm">📋</span>
-                </div>
-                <div className="text-muted-foreground">
-                  No hay datos de pronóstico disponibles para {currentProject?.name || 'este proyecto'}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Project ID: {selectedProjectId}
+            ) : forecastError ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="text-center space-y-3">
+                  <div className="w-8 h-8 bg-destructive/10 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <span className="text-destructive font-bold text-sm">
+                      ⚠️
+                    </span>
+                  </div>
+                  <div className="text-destructive">{forecastError}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Project ID: {selectedProjectId}
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead 
-                      className="sticky left-0 bg-background min-w-[300px] cursor-pointer hover:bg-muted/50 select-none"
-                      onClick={toggleSortDirection}
-                      title="Click para ordenar"
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && toggleSortDirection()}
-                      aria-label={`Ordenar por rubro - actualmente ${sortDirection === 'asc' ? 'ascendente' : 'descendente'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>Rubro</span>
-                        <span className="text-muted-foreground" aria-hidden="true">
-                          {sortDirection === 'asc' ? '▲' : '▼'}
-                        </span>
-                      </div>
-                    </TableHead>
-                    {(() => {
-                      const isCurrentMonthMode = selectedPeriod === 'CURRENT_MONTH';
-                      const currentMonthIndex = isCurrentMonthMode ? getCurrentMonthIndex() : 0;
-                      // Dynamic month range based on selectedPeriod
-                      const periodCount = isCurrentMonthMode ? 1 : parseInt(selectedPeriod) || 12;
-                      const baselineDuration = getBaselineDuration(baselineDetail);
-                      const maxMonths = Math.max(1, baselineDuration);
-                      const monthCount = Math.min(periodCount, maxMonths);
-                      const monthsToShow = isCurrentMonthMode ? [currentMonthIndex] : Array.from({ length: monthCount }, (_, i) => i + 1);
-                      
-                      return monthsToShow.map((monthNum) => (
-                        <TableHead key={monthNum} className="text-center min-w-[140px]">
-                          <div className="font-semibold">M{monthNum}</div>
-                          {!isPortfolioView && projectStartDate && (
+            ) : isEmptyState ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="text-center space-y-3">
+                  <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <span className="text-muted-foreground font-bold text-sm">
+                      🗂️
+                    </span>
+                  </div>
+                  <div className="text-muted-foreground">
+                    No hay datos de pronóstico disponibles aún para{" "}
+                    {currentProject?.name || "este proyecto"}.
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Project ID: {selectedProjectId} | Última generación:{" "}
+                    {generatedAt
+                      ? new Date(generatedAt).toLocaleString()
+                      : "sin registro"}
+                  </div>
+                </div>
+              </div>
+            ) : !hasGridData ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="text-center space-y-3">
+                  <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <span className="text-muted-foreground font-bold text-sm">
+                      📋
+                    </span>
+                  </div>
+                  <div className="text-muted-foreground">
+                    No hay datos de pronóstico disponibles para{" "}
+                    {currentProject?.name || "este proyecto"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Project ID: {selectedProjectId}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead
+                        className="sticky left-0 bg-background min-w-[300px] cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={toggleSortDirection}
+                        title="Click para ordenar"
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && toggleSortDirection()
+                        }
+                        aria-label={`Ordenar por rubro - actualmente ${
+                          sortDirection === "asc" ? "ascendente" : "descendente"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span>Rubro</span>
+                          <span
+                            className="text-muted-foreground"
+                            aria-hidden="true"
+                          >
+                            {sortDirection === "asc" ? "▲" : "▼"}
+                          </span>
+                        </div>
+                      </TableHead>
+                      {(() => {
+                        const isCurrentMonthMode =
+                          selectedPeriod === "CURRENT_MONTH";
+                        const currentMonthIndex = isCurrentMonthMode
+                          ? getCurrentMonthIndex()
+                          : 0;
+                        // Dynamic month range based on selectedPeriod
+                        const periodCount = isCurrentMonthMode
+                          ? 1
+                          : parseInt(selectedPeriod) || 12;
+                        const baselineDuration =
+                          getBaselineDuration(baselineDetail);
+                        const maxMonths = Math.max(1, baselineDuration);
+                        const monthCount = Math.min(periodCount, maxMonths);
+                        const monthsToShow = isCurrentMonthMode
+                          ? [currentMonthIndex]
+                          : Array.from({ length: monthCount }, (_, i) => i + 1);
+
+                        return monthsToShow.map((monthNum) => (
+                          <TableHead
+                            key={monthNum}
+                            className="text-center min-w-[140px]"
+                          >
+                            <div className="font-semibold">M{monthNum}</div>
+                            {!isPortfolioView && projectStartDate && (
+                              <div className="text-xs font-normal text-muted-foreground mt-1">
+                                {getCalendarMonth(monthNum)}
+                              </div>
+                            )}
                             <div className="text-xs font-normal text-muted-foreground mt-1">
-                              {getCalendarMonth(monthNum)}
+                              P / F / A
                             </div>
-                          )}
-                          <div className="text-xs font-normal text-muted-foreground mt-1">
-                            P / F / A
-                          </div>
-                        </TableHead>
-                      ));
-                    })()}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {forecastGridWithSubtotals.map((row, rowIndex) => {
-                    if (row.type === 'subtotal') {
-                      // Render sub-total row
+                          </TableHead>
+                        ));
+                      })()}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {forecastGridWithSubtotals.map((row, rowIndex) => {
+                      if (row.type === "subtotal") {
+                        // Render sub-total row
+                        return (
+                          <TableRow
+                            key={`subtotal-${row.category}-${rowIndex}`}
+                            className="bg-muted/30 font-semibold"
+                          >
+                            <TableCell className="sticky left-0 bg-muted/30">
+                              <div className="font-bold text-sm">
+                                Subtotal - {row.category}
+                              </div>
+                            </TableCell>
+                            {row.monthlyData.map((cell) => (
+                              <TableCell key={cell.month} className="p-2">
+                                <div className="space-y-2 text-xs font-semibold">
+                                  {/* Sub-total Planned */}
+                                  {cell.planned > 0 && (
+                                    <div className="text-muted-foreground bg-muted/40 px-2 py-1 rounded">
+                                      P: {formatGridCurrency(cell.planned)}
+                                    </div>
+                                  )}
+
+                                  {/* Sub-total Forecast */}
+                                  {(cell.forecast > 0 || cell.planned > 0) && (
+                                    <div className="px-2 py-1 rounded bg-primary/10 text-primary">
+                                      F: {formatGridCurrency(cell.forecast)}
+                                    </div>
+                                  )}
+
+                                  {/* Sub-total Actual */}
+                                  {(cell.actual > 0 ||
+                                    cell.forecast > 0 ||
+                                    cell.planned > 0) && (
+                                    <div className="px-2 py-1 rounded bg-blue-50/80 text-blue-700">
+                                      A: {formatGridCurrency(cell.actual)}
+                                    </div>
+                                  )}
+
+                                  {/* Sub-total Variance */}
+                                  {cell.variance !== 0 && (
+                                    <div
+                                      className={`px-2 py-1 rounded text-xs font-bold text-center ${getVarianceColor(
+                                        cell.variance
+                                      )}`}
+                                    >
+                                      {cell.variance > 0 ? "+" : ""}
+                                      {formatGridCurrency(cell.variance)}
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        );
+                      }
+
+                      // Render regular item row
+                      const { lineItem, monthlyData } = row;
+                      if (!lineItem) {
+                        // Safety check: skip if lineItem is undefined (should not happen for item rows)
+                        return null;
+                      }
                       return (
-                        <TableRow key={`subtotal-${row.category}-${rowIndex}`} className="bg-muted/30 font-semibold">
-                          <TableCell className="sticky left-0 bg-muted/30">
-                            <div className="font-bold text-sm">
-                              Subtotal - {row.category}
+                        <TableRow key={lineItem.id}>
+                          <TableCell className="sticky left-0 bg-background">
+                            <div className="space-y-1">
+                              <div className="font-medium flex items-center gap-2">
+                                {lineItem.description}
+                                {lineItem.projectName && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px]"
+                                  >
+                                    {lineItem.projectName}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {lineItem.category}
+                              </div>
                             </div>
                           </TableCell>
-                          {row.monthlyData.map(cell => (
+                          {monthlyData.map((cell) => (
                             <TableCell key={cell.month} className="p-2">
-                              <div className="space-y-2 text-xs font-semibold">
-                                {/* Sub-total Planned */}
+                              <div className="space-y-2 text-xs">
+                                {/* Planned (Read-only) - only show if > 0 */}
                                 {cell.planned > 0 && (
-                                  <div className="text-muted-foreground bg-muted/40 px-2 py-1 rounded">
+                                  <div className="text-muted-foreground bg-muted/20 px-2 py-1 rounded">
                                     P: {formatGridCurrency(cell.planned)}
                                   </div>
                                 )}
-                                
-                                {/* Sub-total Forecast */}
+
+                                {/* Forecast (Editable by PMO/SDMT) - only show if > 0 or planned > 0 */}
                                 {(cell.forecast > 0 || cell.planned > 0) && (
-                                  <div className="px-2 py-1 rounded bg-primary/10 text-primary">
-                                    F: {formatGridCurrency(cell.forecast)}
+                                  <div>
+                                    {editingCell?.line_item_id ===
+                                      cell.line_item_id &&
+                                    editingCell?.month === cell.month &&
+                                    editingCell?.type === "forecast" ? (
+                                      <Input
+                                        value={editValue}
+                                        onChange={(e) =>
+                                          setEditValue(e.target.value)
+                                        }
+                                        onBlur={handleCellSave}
+                                        onKeyDown={(e) =>
+                                          e.key === "Enter" && handleCellSave()
+                                        }
+                                        className="h-7 text-xs"
+                                        id={`forecast-input-${cell.line_item_id}-${cell.month}`}
+                                        name={`forecast-${cell.line_item_id}-${cell.month}`}
+                                        aria-label={`Forecast value for ${cell.line_item_id} month ${cell.month}`}
+                                        disabled={savingForecasts}
+                                        autoFocus
+                                      />
+                                    ) : (
+                                      <div
+                                        className={`px-2 py-1 rounded transition-colors ${
+                                          canEditForecast && !savingForecasts
+                                            ? "cursor-pointer hover:bg-primary/10 bg-primary/5 text-primary font-medium"
+                                            : "cursor-default bg-muted/10 text-muted-foreground"
+                                        }`}
+                                        onClick={() =>
+                                          canEditForecast &&
+                                          !savingForecasts &&
+                                          handleCellEdit(
+                                            cell.line_item_id,
+                                            cell.month,
+                                            "forecast"
+                                          )
+                                        }
+                                        title={
+                                          savingForecasts
+                                            ? "Guardando pronósticos..."
+                                            : canEditForecast
+                                            ? "Click to edit forecast"
+                                            : "No permission to edit forecast"
+                                        }
+                                      >
+                                        F: {formatGridCurrency(cell.forecast)}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
-                                
-                                {/* Sub-total Actual */}
-                                {(cell.actual > 0 || cell.forecast > 0 || cell.planned > 0) && (
-                                  <div className="px-2 py-1 rounded bg-blue-50/80 text-blue-700">
-                                    A: {formatGridCurrency(cell.actual)}
+
+                                {/* Actual (Editable by SDMT only) - only show if > 0 or there's forecast/planned */}
+                                {(cell.actual > 0 ||
+                                  cell.forecast > 0 ||
+                                  cell.planned > 0) && (
+                                  <div>
+                                    {editingCell?.line_item_id ===
+                                      cell.line_item_id &&
+                                    editingCell?.month === cell.month &&
+                                    editingCell?.type === "actual" ? (
+                                      <Input
+                                        value={editValue}
+                                        onChange={(e) =>
+                                          setEditValue(e.target.value)
+                                        }
+                                        onBlur={handleCellSave}
+                                        onKeyDown={(e) =>
+                                          e.key === "Enter" && handleCellSave()
+                                        }
+                                        className="h-7 text-xs"
+                                        id={`actual-input-${cell.line_item_id}-${cell.month}`}
+                                        name={`actual-${cell.line_item_id}-${cell.month}`}
+                                        aria-label={`Actual value for ${cell.line_item_id} month ${cell.month}`}
+                                        autoFocus
+                                      />
+                                    ) : (
+                                      <div className="flex items-center gap-1">
+                                        <div
+                                          className={`px-2 py-1 rounded flex-1 transition-colors ${
+                                            canEditActual
+                                              ? "cursor-pointer hover:bg-blue-50 bg-blue-50/50 text-blue-700 font-medium"
+                                              : "cursor-default bg-muted/10 text-muted-foreground"
+                                          }`}
+                                          onClick={() =>
+                                            canEditActual &&
+                                            handleCellEdit(
+                                              cell.line_item_id,
+                                              cell.month,
+                                              "actual"
+                                            )
+                                          }
+                                          title={
+                                            canEditActual
+                                              ? "Click to edit actual"
+                                              : "No permission to edit actuals"
+                                          }
+                                        >
+                                          A: {formatGridCurrency(cell.actual)}
+                                        </div>
+                                        {/* Always show reconciliation icon for organic actuals entry */}
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-5 w-5 p-0 hover:bg-blue-100"
+                                          onClick={() =>
+                                            navigateToReconciliation(
+                                              cell.line_item_id,
+                                              cell.month
+                                            )
+                                          }
+                                          title={
+                                            cell.actual > 0
+                                              ? "View/Edit Factura"
+                                              : "Add Factura / Enter Actuals"
+                                          }
+                                        >
+                                          <ExternalLink size={12} />
+                                        </Button>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
-                                
-                                {/* Sub-total Variance */}
+
+                                {/* Variance Indicator */}
                                 {cell.variance !== 0 && (
-                                  <div className={`px-2 py-1 rounded text-xs font-bold text-center ${getVarianceColor(cell.variance)}`}>
-                                    {cell.variance > 0 ? '+' : ''}{formatGridCurrency(cell.variance)}
-                                  </div>
-                                )}
-                              </div>
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      );
-                    }
-                    
-                    // Render regular item row
-                    const { lineItem, monthlyData } = row;
-                    if (!lineItem) {
-                      // Safety check: skip if lineItem is undefined (should not happen for item rows)
-                      return null;
-                    }
-                    return (
-                    <TableRow key={lineItem.id}>
-                      <TableCell className="sticky left-0 bg-background">
-                        <div className="space-y-1">
-                          <div className="font-medium flex items-center gap-2">
-                            {lineItem.description}
-                            {lineItem.projectName && (
-                              <Badge variant="outline" className="text-[10px]">
-                                {lineItem.projectName}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-sm text-muted-foreground">{lineItem.category}</div>
-                        </div>
-                      </TableCell>
-                      {monthlyData.map(cell => (
-                        <TableCell key={cell.month} className="p-2">
-                          <div className="space-y-2 text-xs">
-                            {/* Planned (Read-only) - only show if > 0 */}
-                            {cell.planned > 0 && (
-                              <div className="text-muted-foreground bg-muted/20 px-2 py-1 rounded">
-                                P: {formatGridCurrency(cell.planned)}
-                              </div>
-                            )}
-                            
-                            {/* Forecast (Editable by PMO/SDMT) - only show if > 0 or planned > 0 */}
-                            {(cell.forecast > 0 || cell.planned > 0) && (
-                              <div>
-                                {editingCell?.line_item_id === cell.line_item_id && 
-                                 editingCell?.month === cell.month && 
-                                 editingCell?.type === 'forecast' ? (
-                                  <Input
-                                    value={editValue}
-                                    onChange={(e) => setEditValue(e.target.value)}
-                                    onBlur={handleCellSave}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
-                                    className="h-7 text-xs"
-                                    id={`forecast-input-${cell.line_item_id}-${cell.month}`}
-                                    name={`forecast-${cell.line_item_id}-${cell.month}`}
-                                    aria-label={`Forecast value for ${cell.line_item_id} month ${cell.month}`}
-                                    disabled={savingForecasts}
-                                    autoFocus
-                                  />
-                                ) : (
                                   <div
-                                    className={`px-2 py-1 rounded transition-colors ${
-                                      canEditForecast && !savingForecasts
-                                        ? 'cursor-pointer hover:bg-primary/10 bg-primary/5 text-primary font-medium'
-                                        : 'cursor-default bg-muted/10 text-muted-foreground'
-                                    }`}
-                                    onClick={() => canEditForecast && !savingForecasts && handleCellEdit(cell.line_item_id, cell.month, 'forecast')}
-                                    title={
-                                      savingForecasts 
-                                        ? 'Guardando pronósticos...' 
-                                        : canEditForecast 
-                                          ? 'Click to edit forecast' 
-                                          : 'No permission to edit forecast'
-                                    }
+                                    className={`px-2 py-1 rounded text-xs font-medium text-center ${getVarianceColor(
+                                      cell.variance
+                                    )}`}
                                   >
-                                    F: {formatGridCurrency(cell.forecast)}
+                                    {cell.variance > 0 ? "+" : ""}
+                                    {formatGridCurrency(cell.variance)}
                                   </div>
                                 )}
-                              </div>
-                            )}
-                            
-                            {/* Actual (Editable by SDMT only) - only show if > 0 or there's forecast/planned */}
-                            {(cell.actual > 0 || cell.forecast > 0 || cell.planned > 0) && (
-                              <div>
-                                {editingCell?.line_item_id === cell.line_item_id && 
-                                 editingCell?.month === cell.month && 
-                                 editingCell?.type === 'actual' ? (
-                                  <Input
-                                    value={editValue}
-                                    onChange={(e) => setEditValue(e.target.value)}
-                                    onBlur={handleCellSave}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleCellSave()}
-                                    className="h-7 text-xs"
-                                    id={`actual-input-${cell.line_item_id}-${cell.month}`}
-                                    name={`actual-${cell.line_item_id}-${cell.month}`}
-                                    aria-label={`Actual value for ${cell.line_item_id} month ${cell.month}`}
-                                    autoFocus
-                                  />
-                                ) : (
-                                  <div className="flex items-center gap-1">
-                                    <div
-                                      className={`px-2 py-1 rounded flex-1 transition-colors ${
-                                        canEditActual 
-                                          ? 'cursor-pointer hover:bg-blue-50 bg-blue-50/50 text-blue-700 font-medium'
-                                          : 'cursor-default bg-muted/10 text-muted-foreground'
-                                      }`}
-                                      onClick={() => canEditActual && handleCellEdit(cell.line_item_id, cell.month, 'actual')}
-                                      title={canEditActual ? 'Click to edit actual' : 'No permission to edit actuals'}
-                                    >
-                                      A: {formatGridCurrency(cell.actual)}
-                                    </div>
-                                    {/* Always show reconciliation icon for organic actuals entry */}
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-5 w-5 p-0 hover:bg-blue-100"
-                                      onClick={() => navigateToReconciliation(cell.line_item_id, cell.month)}
-                                      title={cell.actual > 0 ? 'View/Edit Factura' : 'Add Factura / Enter Actuals'}
-                                    >
-                                      <ExternalLink size={12} />
-                                    </Button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            
-                            {/* Variance Indicator */}
-                            {cell.variance !== 0 && (
-                              <div className={`px-2 py-1 rounded text-xs font-medium text-center ${getVarianceColor(cell.variance)}`}>
-                                {cell.variance > 0 ? '+' : ''}{formatGridCurrency(cell.variance)}
-                              </div>
-                            )}
-                            
-                            {/* TODO: Show change request indicator when backend provides change_request_id
+
+                                {/* TODO: Show change request indicator when backend provides change_request_id
                             {cell.change_request_id && (
                               <Badge variant="outline" className="text-[10px] mt-1">
                                 Change #{cell.change_request_id.slice(0, 8)}
                               </Badge>
                             )}
                             */}
-                          </div>
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                              </div>
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Charts and Analytics - Single Project Mode Only */}
-      {!isPortfolioView && !loading && forecastData.length > 0 && (() => {
-        const charts = [
-          <LineChartComponent
-            key={`forecast-trends-${selectedProjectId}`}
-            data={monthlyTrends}
-            lines={[
-              { dataKey: 'Planned', name: ES_TEXTS.forecast.plan.replace(' (P)', ''), color: 'oklch(0.45 0.12 200)', strokeDasharray: '5 5' },
-              { dataKey: 'Forecast', name: ES_TEXTS.forecast.forecast.replace(' (F)', ''), color: 'oklch(0.61 0.15 160)', strokeWidth: 3 },
-              { dataKey: 'Actual', name: ES_TEXTS.forecast.actual.replace(' (A)', ''), color: 'oklch(0.72 0.15 65)' },
-              // Add Budget line when simulation is enabled OR when annual budget is set
-              ...(isPortfolioView && (
-                (budgetSimulation.enabled && budgetTotal > 0) || hasBudgetForVariance
-              )
-                ? [{ dataKey: 'Budget', name: ES_TEXTS.forecast.budgetLineLabel, color: 'oklch(0.5 0.2 350)', strokeDasharray: '8 4', strokeWidth: 2 }]
-                : [])
-            ]}
-            title={ES_TEXTS.forecast.monthlyForecastTrends}
-          />
-        ];
-
-        // ALWAYS add variance analysis chart (required by specs)
-        // Show placeholder if no budget, variance vs budget if budget exists
-        if (hasBudgetForVariance) {
-          // Show variance vs allocated budget
-          charts.push(
-            <StackedColumnsChart
-              key={`variance-analysis-${selectedProjectId}`}
-              data={varianceSeries.map(point => {
-                const forecastVariance = point.forecastVarianceBudget ?? 0;
-                const actualVariance = point.actualVarianceBudget ?? 0;
-                return {
-                  month: point.month,
-                  'Forecast Over Budget': Math.max(0, forecastVariance),
-                  'Forecast Under Budget': Math.abs(Math.min(0, forecastVariance)),
-                  'Actual Over Budget': Math.max(0, actualVariance),
-                  'Actual Under Budget': Math.abs(Math.min(0, actualVariance)),
-                };
-              })}
-              stacks={[
-                { dataKey: 'Forecast Over Budget', name: ES_TEXTS.forecast.forecastOverBudget, color: 'oklch(0.65 0.2 30)' },
-                { dataKey: 'Forecast Under Budget', name: ES_TEXTS.forecast.forecastUnderBudget, color: 'oklch(0.55 0.15 140)' },
-                { dataKey: 'Actual Over Budget', name: ES_TEXTS.forecast.actualOverBudget, color: 'oklch(0.70 0.25 25)' },
-                { dataKey: 'Actual Under Budget', name: ES_TEXTS.forecast.actualUnderBudget, color: 'oklch(0.60 0.18 150)' },
+      {!isPortfolioView &&
+        !loading &&
+        forecastData.length > 0 &&
+        (() => {
+          const charts = [
+            <LineChartComponent
+              key={`forecast-trends-${selectedProjectId}`}
+              data={monthlyTrends}
+              lines={[
+                {
+                  dataKey: "Planned",
+                  name: ES_TEXTS.forecast.plan.replace(" (P)", ""),
+                  color: "oklch(0.45 0.12 200)",
+                  strokeDasharray: "5 5",
+                },
+                {
+                  dataKey: "Forecast",
+                  name: ES_TEXTS.forecast.forecast.replace(" (F)", ""),
+                  color: "oklch(0.61 0.15 160)",
+                  strokeWidth: 3,
+                },
+                {
+                  dataKey: "Actual",
+                  name: ES_TEXTS.forecast.actual.replace(" (A)", ""),
+                  color: "oklch(0.72 0.15 65)",
+                },
+                // Add Budget line when simulation is enabled OR when annual budget is set
+                ...(isPortfolioView &&
+                ((budgetSimulation.enabled && budgetTotal > 0) ||
+                  hasBudgetForVariance)
+                  ? [
+                      {
+                        dataKey: "Budget",
+                        name: ES_TEXTS.forecast.budgetLineLabel,
+                        color: "oklch(0.5 0.2 350)",
+                        strokeDasharray: "8 4",
+                        strokeWidth: 2,
+                      },
+                    ]
+                  : []),
               ]}
-              title={ES_TEXTS.forecast.varianceAnalysisVsBudget}
+              title={ES_TEXTS.forecast.monthlyForecastTrends}
+            />,
+          ];
+
+          // ALWAYS add variance analysis chart (required by specs)
+          // Show placeholder if no budget, variance vs budget if budget exists
+          if (hasBudgetForVariance) {
+            // Show variance vs allocated budget
+            charts.push(
+              <StackedColumnsChart
+                key={`variance-analysis-${selectedProjectId}`}
+                data={varianceSeries.map((point) => {
+                  const forecastVariance = point.forecastVarianceBudget ?? 0;
+                  const actualVariance = point.actualVarianceBudget ?? 0;
+                  return {
+                    month: point.month,
+                    "Forecast Over Budget": Math.max(0, forecastVariance),
+                    "Forecast Under Budget": Math.abs(
+                      Math.min(0, forecastVariance)
+                    ),
+                    "Actual Over Budget": Math.max(0, actualVariance),
+                    "Actual Under Budget": Math.abs(
+                      Math.min(0, actualVariance)
+                    ),
+                  };
+                })}
+                stacks={[
+                  {
+                    dataKey: "Forecast Over Budget",
+                    name: ES_TEXTS.forecast.forecastOverBudget,
+                    color: "oklch(0.65 0.2 30)",
+                  },
+                  {
+                    dataKey: "Forecast Under Budget",
+                    name: ES_TEXTS.forecast.forecastUnderBudget,
+                    color: "oklch(0.55 0.15 140)",
+                  },
+                  {
+                    dataKey: "Actual Over Budget",
+                    name: ES_TEXTS.forecast.actualOverBudget,
+                    color: "oklch(0.70 0.25 25)",
+                  },
+                  {
+                    dataKey: "Actual Under Budget",
+                    name: ES_TEXTS.forecast.actualUnderBudget,
+                    color: "oklch(0.60 0.18 150)",
+                  },
+                ]}
+                title={ES_TEXTS.forecast.varianceAnalysisVsBudget}
+              />
+            );
+          } else {
+            // Show placeholder card prompting to set budget
+            charts.push(
+              <Card
+                key="variance-placeholder"
+                className="border-2 border-dashed border-muted"
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">
+                    {ES_TEXTS.forecast.varianceAnalysis}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center h-[300px] text-center">
+                  <div className="w-16 h-16 bg-muted/50 rounded-lg flex items-center justify-center mb-4">
+                    <Calculator className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground mb-2">
+                    Análisis de Variación No Disponible
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    Define el Presupuesto Anual All-In arriba para ver la
+                    variación mensual vs presupuesto asignado.
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          return (
+            <ChartInsightsPanel
+              title="Forecast Analytics & Trends"
+              charts={charts}
+              insights={[
+                {
+                  title: ES_TEXTS.forecast.forecastAccuracy,
+                  value: `${(100 - Math.abs(variancePercentage)).toFixed(1)}%`,
+                  type:
+                    variancePercentage < 5
+                      ? "positive"
+                      : variancePercentage > 15
+                      ? "negative"
+                      : "neutral",
+                },
+                {
+                  title: ES_TEXTS.forecast.largestVariance,
+                  value: formatCurrency(
+                    Math.max(
+                      ...forecastData.map((c) => Math.abs(c.variance || 0))
+                    )
+                  ),
+                  type: "neutral",
+                },
+                {
+                  title: ES_TEXTS.forecast.forecastVsPlanned,
+                  value:
+                    totalForecast > totalPlanned
+                      ? ES_TEXTS.forecast.overBudget
+                      : totalForecast < totalPlanned
+                      ? ES_TEXTS.forecast.underBudget
+                      : ES_TEXTS.forecast.onTarget,
+                  type:
+                    totalForecast > totalPlanned
+                      ? "negative"
+                      : totalForecast < totalPlanned
+                      ? "positive"
+                      : "neutral",
+                },
+                // Add budget insights when simulation is enabled
+                ...(isPortfolioView &&
+                budgetSimulation.enabled &&
+                budgetTotal > 0
+                  ? [
+                      {
+                        title: ES_TEXTS.forecast.budgetUtilization,
+                        value: `${budgetUtilization.toFixed(1)}%`,
+                        type: (budgetUtilization > 100
+                          ? "negative"
+                          : budgetUtilization > 90
+                          ? "neutral"
+                          : "positive") as "positive" | "negative" | "neutral",
+                      },
+                    ]
+                  : []),
+              ]}
+              onExport={handleExcelExport}
             />
           );
-        } else {
-          // Show placeholder card prompting to set budget
-          charts.push(
-            <Card key="variance-placeholder" className="border-2 border-dashed border-muted">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">{ES_TEXTS.forecast.varianceAnalysis}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center justify-center h-[300px] text-center">
-                <div className="w-16 h-16 bg-muted/50 rounded-lg flex items-center justify-center mb-4">
-                  <Calculator className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <p className="text-sm font-medium text-foreground mb-2">
-                  Análisis de Variación No Disponible
-                </p>
-                <p className="text-xs text-muted-foreground max-w-xs">
-                  Define el Presupuesto Anual All-In arriba para ver la variación mensual vs presupuesto asignado.
-                </p>
-              </CardContent>
-            </Card>
-          );
-        }
-
-        return (
-          <ChartInsightsPanel
-            title="Forecast Analytics & Trends"
-            charts={charts}
-            insights={[
-              {
-                title: ES_TEXTS.forecast.forecastAccuracy,
-                value: `${(100 - Math.abs(variancePercentage)).toFixed(1)}%`,
-                type: variancePercentage < 5 ? 'positive' : variancePercentage > 15 ? 'negative' : 'neutral'
-              },
-              {
-                title: ES_TEXTS.forecast.largestVariance,
-                value: formatCurrency(Math.max(...forecastData.map(c => Math.abs(c.variance || 0)))),
-                type: 'neutral'
-              },
-              {
-                title: ES_TEXTS.forecast.forecastVsPlanned,
-                value: totalForecast > totalPlanned ? ES_TEXTS.forecast.overBudget : totalForecast < totalPlanned ? ES_TEXTS.forecast.underBudget : ES_TEXTS.forecast.onTarget,
-                type: totalForecast > totalPlanned ? 'negative' : totalForecast < totalPlanned ? 'positive' : 'neutral'
-              },
-              // Add budget insights when simulation is enabled
-              ...(isPortfolioView && budgetSimulation.enabled && budgetTotal > 0
-                ? [{
-                    title: ES_TEXTS.forecast.budgetUtilization,
-                    value: `${budgetUtilization.toFixed(1)}%`,
-                    type: (budgetUtilization > 100
-                      ? 'negative'
-                      : budgetUtilization > 90
-                        ? 'neutral'
-                        : 'positive') as 'positive' | 'negative' | 'neutral',
-                  }]
-                : [])
-            ]}
-            onExport={handleExcelExport}
-          />
-        );
-      })()}
+        })()}
     </div>
   );
 }
