@@ -527,7 +527,6 @@ jobs:
 
           if [ "$MISSING" -ne 0 ]; then
             echo "❌ One or more assets were not found in S3 after sync. Aborting."
-            # helpful debug: list the S3 assets folder to inspect
             echo "----- S3 assets listing (finanzas/assets/) -----"
             aws s3 ls "s3://${FINANZAS_BUCKET_NAME}/finanzas/assets/" || true
             exit 1
@@ -539,10 +538,21 @@ jobs:
             echo "❌ dist-finanzas/index.html missing"; exit 1;
           fi
 
-          # Extract referenced assets like: assets/index-abc123.js
-          grep -oE 'assets/index-[0-9a-fA-F]+\.(js|css)' "$INDEX" | sort -u > /tmp/local-references.txt
+          # Extract referenced assets like: assets/index-<fingerprint>.js
+          # Accept alphanumeric + underscore + hyphen + dot in fingerprint
+          grep -oE 'assets/index-[A-Za-z0-9._-]+\.(js|css)' "$INDEX" | sort -u > /tmp/local-references.txt || true
+
+          if [ ! -s /tmp/local-references.txt ]; then
+            echo "❌ No asset references found in $INDEX with the expected pattern."
+            echo "Index snippet (first 200 lines):"
+            head -n 200 "$INDEX" || true
+            echo "----- End index snippet -----"
+            echo "If your bundles use nonstandard names, adjust the regex 'assets/index-[A-Za-z0-9._-]+\\.(js|css)'."
+            exit 1
+          fi
 
           MISSREF=0
+          echo "🔍 Checking referenced assets in index.html exist in S3..."
           while read -r asset; do
             # asset is like "assets/index-abc123.js"
             s3key="finanzas/${asset}"   # keep the 'assets/' directory in the key
@@ -558,10 +568,13 @@ jobs:
             echo "❌ index.html references not found in S3 — possible S3 sync path mismatch or deploy race."
             echo "----- S3 assets listing (finanzas/assets/) -----"
             aws s3 ls "s3://${FINANZAS_BUCKET_NAME}/finanzas/assets/" || true
+            echo "----- index.html referenced assets -----"
+            cat /tmp/local-references.txt || true
             exit 1
           fi
 
           echo "✅ S3 verification complete"
+
 
       - name: Verify Finanzas S3 manifest matches local build
         run: |
