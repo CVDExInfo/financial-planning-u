@@ -2,8 +2,8 @@
 // scripts/find-dev-urls-report.js
 // Generates a detailed JSON report of dev URL findings categorized by origin
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 const FINDINGS_FILE = 'reports/dev-url-guard-findings.json';
 const REPORT_FILE = 'reports/dev-url-guard-report.json';

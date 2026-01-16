@@ -49,6 +49,7 @@ pids
 
 # Backup files
 *.bak
+*.backup-*
 
 # AWS SAM
 .aws-sam/
@@ -62,3 +63,8 @@ public/docs/temp/
 
 # Use pnpm, ignore npm lockfile
 package-lock.json
+
+# Dev URL guard reports and temporary files
+reports/dev-url-guard-*.json
+reports/dev-url-guard-*.txt
+scripts/repair-dev-urls.changes.json

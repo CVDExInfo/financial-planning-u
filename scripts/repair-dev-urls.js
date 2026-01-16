@@ -6,9 +6,9 @@
 // 2. Creating patch-package patches for node_modules issues
 // 3. Rewriting inline source maps as a last resort
 
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+import fs from 'fs';
+import path from 'path';
+import { execSync } from 'child_process';
 
 const PATTERN = /github\.dev|codespaces|githubusercontent\.com|localhost:3000|127\.0\.0\.1/gi;
 const SAFE_PLACEHOLDER = 'REMOVED_DEV_URL';

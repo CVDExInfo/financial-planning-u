@@ -3,8 +3,8 @@
 // Scans dist-finanzas for development URLs that should not be in production builds
 // Includes detection of URLs in inline base64 source maps
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 // Development URL patterns to detect
 const PATTERN = /github\.dev|codespaces|githubusercontent\.com|localhost:3000|127\.0\.0\.1/i;
