@@ -83,6 +83,9 @@ jobs:
           ls dist-finanzas/assets/*.map >/dev/null
           sha256sum dist-finanzas/assets/* | sort > ./dist_hash_after.txt
 
+      - name: Sanitize source maps
+        run: pnpm run sanitize:maps || echo "⚠️ Source maps were sanitized (review reports/dev-url-guard-sanitize.json)"
+
       - name: Check for dev URLs in build
         run: pnpm run find:dev-urls
 

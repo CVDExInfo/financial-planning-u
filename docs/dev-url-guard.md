@@ -31,7 +31,16 @@ Generates a structured JSON report categorizing findings by:
 - File location
 - Provides summary statistics
 
-### 3. `scripts/repair-dev-urls.js`
+### 3. `scripts/sanitize-sourcemaps.js`
+Source map sanitizer that:
+- Scans all `.map` files in `dist-finanzas`
+- Removes dev URLs from `sources` arrays (replaces with basename)
+- Strips `sourcesContent` entries containing dev URLs
+- Creates backups in `dist-finanzas/maps-backup/`
+- Generates `reports/dev-url-guard-sanitize.json` report
+- **Run this before the scanner** to clean source maps automatically
+
+### 4. `scripts/repair-dev-urls.js`
 Conservative automated repair tool that:
 - Fixes dev URLs in git-tracked source files
 - Creates `patch-package` patches for `node_modules` issues
@@ -39,7 +48,7 @@ Conservative automated repair tool that:
 - Creates backups before any modifications
 - Logs all changes to `scripts/repair-dev-urls.changes.json`
 
-### 4. `scripts/build-guards-finanzas.sh`
+### 5. `scripts/build-guards-finanzas.sh`
 Build guard script that:
 - Runs `find-dev-urls.js` as a blocking check
 - Generates timestamped reports on failure
@@ -49,10 +58,25 @@ Build guard script that:
 
 ### Running Locally
 
+#### Sanitize source maps (recommended first step):
+```bash
+# Build first
+BUILD_TARGET=finanzas pnpm run build:finanzas
+
+# Sanitize .map files to remove dev URLs
+pnpm run sanitize:maps
+
+# Review what was sanitized
+cat reports/dev-url-guard-sanitize.json
+```
+
 #### Check for dev URLs in your build:
 ```bash
 # Build first
 BUILD_TARGET=finanzas pnpm run build:finanzas
+
+# Sanitize maps (recommended)
+pnpm run sanitize:maps || echo "Maps sanitized"
 
 # Run the scanner
 pnpm run find:dev-urls
@@ -84,6 +108,10 @@ pnpm run find:dev-urls
 
 The guard runs automatically in:
 - **Preflight checks** (`.github/workflows/preflight.yml`)
+  - Builds the project
+  - **Sanitizes source maps** (automatic cleanup)
+  - Scans for remaining dev URLs
+  - Uploads findings as artifacts on failure
 - **Build guards** (`scripts/build-guards-finanzas.sh`)
 
 If the guard fails in CI:
@@ -141,7 +169,75 @@ This will:
 
 Alternatively, update the package or report to the package maintainer.
 
-### Scenario 3: Inline Source Map with Dev URLs
+### Scenario 3: Source Map (.map file) with Dev URLs
+
+**Finding:**
+```json
+{
+  "file": "dist-finanzas/assets/index-abc123.js.map",
+  "line": 1,
+  "text": "{\"version\":3,\"file\":\"index-abc123.js\",\"sources\":[\"../../node_modules/.pnpm/react@19.2.3/...",
+  "origin": "literal"
+}
+```
+
+**Root Cause:**
+Source maps generated in Codespaces or with absolute paths contain references to:
+- Development host (github.dev, codespaces)
+- Absolute file system paths
+- Raw githubusercontent.com URLs
+
+**Fix (Automatic):**
+Run the source map sanitizer:
+```bash
+pnpm run sanitize:maps
+```
+
+This will:
+- Scan all `.map` files in `dist-finanzas`
+- Replace dev URLs in `sources` with basenames
+- Strip `sourcesContent` containing dev URLs
+- Create backups in `dist-finanzas/maps-backup/`
+- Generate a report in `reports/dev-url-guard-sanitize.json`
+
+**Fix (Long-term):**
+1. **Build in CI instead of Codespaces** (preferred)
+   - CI runners don't embed codespaces/github.dev paths
+   - Configure workflows to always build in GitHub Actions
+
+2. **Configure Vite to use relative source paths:**
+   ```typescript
+   // vite.config.ts
+   export default defineConfig({
+     build: {
+       sourcemap: true,
+       rollupOptions: {
+         output: {
+           sourcemapPathTransform: (relativeSourcePath) => {
+             // Return relative path without absolute prefixes
+             return relativeSourcePath.replace(/^.*\/node_modules\//, 'node_modules/');
+           }
+         }
+       }
+     }
+   })
+   ```
+
+3. **Disable sourcesContent** (reduces bundle size):
+   ```typescript
+   export default defineConfig({
+     build: {
+       sourcemap: true,
+       rollupOptions: {
+         output: {
+           sourcemapExcludeSources: true  // Don't include source code in maps
+         }
+       }
+     }
+   })
+   ```
+
+### Scenario 4: Inline Source Map with Dev URLs
 
 **Finding:**
 ```json

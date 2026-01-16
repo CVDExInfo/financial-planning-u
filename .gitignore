@@ -68,3 +68,7 @@ package-lock.json
 reports/dev-url-guard-*.json
 reports/dev-url-guard-*.txt
 scripts/repair-dev-urls.changes.json
+
+# Source map sanitization backups
+dist-finanzas/maps-backup/
+dist-pmo/maps-backup/

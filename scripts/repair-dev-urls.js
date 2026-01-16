@@ -30,7 +30,7 @@ function isGitTracked(filePath) {
   try {
     // Sanitize file path to prevent command injection
     const sanitizedPath = filePath.replace(/["'`$\\]/g, '\\$&');
-    const result = execSync(`git ls-files --error-unmatch "${sanitizedPath}"`, { 
+    execSync(`git ls-files --error-unmatch "${sanitizedPath}"`, { 
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
     });
