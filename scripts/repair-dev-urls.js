@@ -7,7 +7,6 @@
 // 3. Rewriting inline source maps as a last resort
 
 import fs from 'fs';
-import path from 'path';
 import { execSync } from 'child_process';
 
 const PATTERN = /github\.dev|codespaces|githubusercontent\.com|localhost:3000|127\.0\.0\.1/gi;
