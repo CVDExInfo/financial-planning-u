@@ -426,14 +426,14 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     switch (normalized) {
       case "accepted":
         return (
-          <Badge variant="default" className="bg-green-600 gap-1.5">
+          <Badge variant="default" className="pill-accept gap-1.5">
             <CheckCircle2 size={14} />
             Accepted
           </Badge>
         );
       case "rejected":
         return (
-          <Badge variant="destructive" className="gap-1.5">
+          <Badge variant="destructive" className="pill-reject gap-1.5">
             <XCircle size={14} />
             Rejected
           </Badge>
@@ -441,14 +441,14 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
       case "pending":
       case "handed_off":
         return (
-          <Badge variant="secondary" className="gap-1.5">
+          <Badge variant="secondary" className="pill-pending gap-1.5">
             <Clock size={14} />
             Pending Review
           </Badge>
         );
       default:
         return (
-          <Badge variant="outline" className="gap-1.5">
+          <Badge variant="outline" className="pill-neutral gap-1.5">
             <AlertCircle size={14} />
             {status}
           </Badge>
@@ -477,7 +477,7 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
 
   return (
     <>
-      <Card className={cn("border-l-4", className, {
+      <Card className={cn("card-apple border-l-4", className, {
         "border-l-amber-500": normalizedStatus === "pending" || normalizedStatus === "handed_off",
         "border-l-green-600": normalizedStatus === "accepted",
         "border-l-red-600": normalizedStatus === "rejected",

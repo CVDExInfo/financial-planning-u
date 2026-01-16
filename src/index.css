@@ -38,6 +38,27 @@
 
   --radius: 0.5rem;
 
+  /* Spacing tokens - Apple-level polish */
+  --space-xs: 0.25rem;  /* 4px */
+  --space-sm: 0.5rem;   /* 8px */
+  --space-md: 1rem;     /* 16px */
+  --space-lg: 1.5rem;   /* 24px */
+  --space-xl: 2rem;     /* 32px */
+  --space-2xl: 3rem;    /* 48px */
+
+  /* Typography scale - consistent sizing */
+  --font-size-h1: 1.5rem;      /* 24px */
+  --font-size-h2: 1.25rem;     /* 20px */
+  --font-size-h3: 1.125rem;    /* 18px */
+  --font-size-body: 0.875rem;  /* 14px */
+  --font-size-body-lg: 1rem;   /* 16px */
+  --font-size-small: 0.75rem;  /* 12px */
+
+  /* Micro-interaction timing */
+  --transition-fast: 120ms;
+  --transition-base: 140ms;
+  --transition-slow: 160ms;
+
   /* Font family */
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
@@ -169,6 +190,49 @@
     transform: translateX(-100%);
     animation: shimmer 2s infinite;
   }
+
+  /* Apple-level card styling */
+  .card-apple {
+    background: var(--card);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px oklch(from var(--foreground) l c h / 0.08), 
+                0 1px 2px oklch(from var(--foreground) l c h / 0.06);
+    transition: transform var(--transition-base) ease, 
+                box-shadow var(--transition-base) ease;
+  }
+
+  .card-apple:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 20px oklch(from var(--foreground) l c h / 0.10), 
+                0 4px 8px oklch(from var(--foreground) l c h / 0.06);
+  }
+
+  /* Respect prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    .card-apple,
+    .card-apple:hover {
+      transition: none;
+      transform: none;
+    }
+    
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Number change animation */
+  @keyframes number-fade {
+    0% { opacity: 0.4; transform: scale(0.95); }
+    50% { opacity: 1; transform: scale(1.02); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .animate-number {
+    animation: number-fade var(--transition-slow) ease;
+  }
 }
 
 /* Module-specific badge styles */
@@ -182,6 +246,97 @@
   background: oklch(from var(--sdmt-accent) l c h / 0.1);
   color: var(--sdmt-accent);
   border: 1px solid oklch(from var(--sdmt-accent) l c h / 0.2);
+}
+
+/* Status pill badges - Apple-level polish */
+.pill-accept,
+.pill-accepted {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  background: oklch(from var(--primary) l c h / 0.1);
+  color: oklch(from var(--primary) 0.45 0.15 h);
+  border: 1px solid oklch(from var(--primary) l c h / 0.2);
+  transition: background var(--transition-base) ease, 
+              border-color var(--transition-base) ease;
+}
+
+.pill-accept:hover,
+.pill-accepted:hover {
+  background: oklch(from var(--primary) l c h / 0.15);
+  border-color: oklch(from var(--primary) l c h / 0.3);
+}
+
+.pill-pending,
+.pill-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  background: oklch(from var(--accent) l c h / 0.1);
+  color: oklch(0.55 0.12 75);
+  border: 1px solid oklch(from var(--accent) l c h / 0.2);
+  transition: background var(--transition-base) ease, 
+              border-color var(--transition-base) ease;
+}
+
+.pill-pending:hover,
+.pill-warning:hover {
+  background: oklch(from var(--accent) l c h / 0.15);
+  border-color: oklch(from var(--accent) l c h / 0.3);
+}
+
+.pill-reject,
+.pill-rejected,
+.pill-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  background: oklch(from var(--destructive) l c h / 0.1);
+  color: oklch(from var(--destructive) 0.50 0.18 h);
+  border: 1px solid oklch(from var(--destructive) l c h / 0.2);
+  transition: background var(--transition-base) ease, 
+              border-color var(--transition-base) ease;
+}
+
+.pill-reject:hover,
+.pill-rejected:hover,
+.pill-danger:hover {
+  background: oklch(from var(--destructive) l c h / 0.15);
+  border-color: oklch(from var(--destructive) l c h / 0.3);
+}
+
+.pill-neutral,
+.pill-default {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  background: oklch(from var(--muted) l c h / 0.5);
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+  transition: background var(--transition-base) ease, 
+              border-color var(--transition-base) ease;
+}
+
+.pill-neutral:hover,
+.pill-default:hover {
+  background: var(--muted);
+  border-color: oklch(from var(--border) l c h / 1.2);
 }
 
 /* Premium feature styling */

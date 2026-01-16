@@ -503,17 +503,16 @@ export function MonthlySnapshotGrid({
   function getStatusColor(status: SnapshotRow['status']): string {
     switch (status) {
       case 'En Meta':
-        return 'bg-green-100 text-green-800 border-green-300';
+        return 'pill-accept';
       case 'En Riesgo':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        return 'pill-warning';
       case 'Sobre Presupuesto':
-        return 'bg-red-100 text-red-800 border-red-300';
+        return 'pill-reject';
       case 'Sin Presupuesto':
-        return 'bg-gray-100 text-gray-700 border-gray-300';
       case 'Sin Datos':
-        return 'bg-muted text-muted-foreground border-muted';
+        return 'pill-neutral';
       default:
-        return 'bg-muted text-muted-foreground';
+        return 'pill-neutral';
     }
   }
 
@@ -646,7 +645,7 @@ export function MonthlySnapshotGrid({
   }, [sortedRows, onNavigateToReconciliation]);
 
   return (
-    <Card>
+    <Card className="card-apple">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">

@@ -76,14 +76,14 @@ export function PMOBaselinesQueuePage() {
     switch (normalized) {
       case "accepted":
         return (
-          <Badge variant="default" className="bg-green-600 gap-1.5">
+          <Badge variant="default" className="pill-accept gap-1.5">
             <CheckCircle2 size={14} />
             {ES_TEXTS.baseline.accepted}
           </Badge>
         );
       case "rejected":
         return (
-          <Badge variant="destructive" className="gap-1.5">
+          <Badge variant="destructive" className="pill-reject gap-1.5">
             <XCircle size={14} />
             {ES_TEXTS.baseline.rejected}
           </Badge>
@@ -91,14 +91,14 @@ export function PMOBaselinesQueuePage() {
       case "pending":
       case "handed_off":
         return (
-          <Badge variant="secondary" className="gap-1.5">
+          <Badge variant="secondary" className="pill-pending gap-1.5">
             <Clock size={14} />
             {ES_TEXTS.baseline.pendingReview}
           </Badge>
         );
       default:
         return (
-          <Badge variant="outline" className="gap-1.5">
+          <Badge variant="outline" className="pill-neutral gap-1.5">
             <AlertCircle size={14} />
             {status}
           </Badge>
@@ -237,7 +237,7 @@ export function PMOBaselinesQueuePage() {
       </div>
 
       {/* Status Filter Tabs */}
-      <Card>
+      <Card className="card-apple">
         <CardContent className="pt-6">
           <div className="flex gap-2 flex-wrap">
             <Button
@@ -287,7 +287,7 @@ export function PMOBaselinesQueuePage() {
       </Card>
 
       {/* Baselines Table */}
-      <Card>
+      <Card className="card-apple">
         <CardHeader>
           <CardTitle>{ES_TEXTS.baseline.projectBaselines}</CardTitle>
           <CardDescription>
@@ -465,7 +465,7 @@ export function PMOBaselinesQueuePage() {
 
       {/* Rejection Comments Section - show if any rejected baselines */}
       {filteredProjects?.some((p) => p.baseline_status === "rejected" && p.rejection_comment) && (
-        <Card>
+        <Card className="card-apple">
           <CardHeader>
             <CardTitle>{ES_TEXTS.baseline.rejectionComments}</CardTitle>
             <CardDescription>

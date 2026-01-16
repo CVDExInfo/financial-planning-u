@@ -60,9 +60,9 @@ export function ForecastKpis({ kpis, loading = false }: ForecastKpisProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
       {/* Planned Total */}
-      <Card className="h-full">
+      <Card className="h-full card-apple">
         <CardContent className="p-3">
-          <div className="text-xl font-bold">{formatCurrency(kpis.plannedTotal, kpis.currency)}</div>
+          <div className="text-xl font-bold animate-number">{formatCurrency(kpis.plannedTotal, kpis.currency)}</div>
           <div className="flex items-center gap-1 mt-1">
             <p className="text-xs text-muted-foreground">Total Planeado</p>
             <TooltipProvider>
@@ -80,9 +80,9 @@ export function ForecastKpis({ kpis, loading = false }: ForecastKpisProps) {
       </Card>
 
       {/* Forecast Total */}
-      <Card className="h-full">
+      <Card className="h-full card-apple">
         <CardContent className="p-3">
-          <div className="text-xl font-bold">{formatCurrency(kpis.forecastTotal, kpis.currency)}</div>
+          <div className="text-xl font-bold animate-number">{formatCurrency(kpis.forecastTotal, kpis.currency)}</div>
           <div className="flex items-center gap-1 mt-1">
             <p className="text-xs text-muted-foreground">Pronóstico Total</p>
             <TooltipProvider>
@@ -100,9 +100,9 @@ export function ForecastKpis({ kpis, loading = false }: ForecastKpisProps) {
       </Card>
 
       {/* Actual Total */}
-      <Card className="h-full">
+      <Card className="h-full card-apple">
         <CardContent className="p-3">
-          <div className="text-xl font-bold text-blue-600">{formatCurrency(kpis.actualTotal, kpis.currency)}</div>
+          <div className="text-xl font-bold text-blue-600 animate-number">{formatCurrency(kpis.actualTotal, kpis.currency)}</div>
           <div className="flex items-center gap-1 mt-1">
             <p className="text-xs text-muted-foreground">Total Real</p>
             <TooltipProvider>
@@ -120,15 +120,15 @@ export function ForecastKpis({ kpis, loading = false }: ForecastKpisProps) {
       </Card>
 
       {/* Total FTE */}
-      <Card className="h-full">
+      <Card className="h-full card-apple">
         <CardContent className="p-3">
-          <div className="text-xl font-bold">{kpis.totalFTE?.toLocaleString() || '0'}</div>
+          <div className="text-xl font-bold animate-number">{kpis.totalFTE?.toLocaleString() || '0'}</div>
           <p className="text-xs text-muted-foreground mt-1">Total FTE</p>
         </CardContent>
       </Card>
 
       {/* Variance Forecast */}
-      <Card className="h-full">
+      <Card className="h-full card-apple">
         <CardContent className="p-3">
           <div className={`text-xl font-bold ${kpis.varianceForecast >= 0 ? 'text-red-600' : 'text-green-600'}`}>
             {formatCurrency(Math.abs(kpis.varianceForecast), kpis.currency)}
@@ -154,7 +154,7 @@ export function ForecastKpis({ kpis, loading = false }: ForecastKpisProps) {
       </Card>
 
       {/* Variance Actual */}
-      <Card className="h-full">
+      <Card className="h-full card-apple">
         <CardContent className="p-3">
           <div className={`text-xl font-bold ${kpis.varianceActual >= 0 ? 'text-red-600' : 'text-green-600'}`}>
             {formatCurrency(Math.abs(kpis.varianceActual), kpis.currency)}
