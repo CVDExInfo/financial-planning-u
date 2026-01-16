@@ -790,13 +790,18 @@ export const materializeAllocationsForBaseline = async (
 
     return months.map((month, idx) => {
       const amount = Number(monthly[idx] ?? 0);
-      const sk = `ALLOCATION#${baselineId}#${rubroStableId}#${month}`;
+      // SK format MUST match allocations handler: ALLOCATION#{baselineId}#{month}#{rubroId}
+      // This ensures idempotent writes and allows GET /allocations to find materialized data
+      const sk = `ALLOCATION#${baselineId}#${month}#${rubroStableId}`;
       return {
         pk: `PROJECT#${projectId}`,
         sk,
+        project_id: projectId,
         projectId,
+        baseline_id: baselineId,
         baselineId,
         rubro_id: rubroStableId,
+        calendar_month: month,
         month,
         month_index: idx + 1,
         // P/F/A model: Planned (P) = monthly amount from baseline (immutable)
@@ -806,9 +811,11 @@ export const materializeAllocationsForBaseline = async (
         forecast: amount,
         actual: 0,
         amount, // Keep for backward compatibility
+        allocation_type: "planned",
         source: "baseline_materializer",
         line_item_id: lineItemId,
         createdAt: now,
+        updatedAt: now,
       };
     });
   });
