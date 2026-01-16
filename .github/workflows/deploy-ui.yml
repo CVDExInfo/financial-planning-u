@@ -503,36 +503,64 @@ jobs:
           FINANZAS_BUCKET_NAME: ${{ env.FINANZAS_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          # Use find to safely collect asset files
+
+          # Collect local assets (full local path)
           mapfile -t LOC_ASSETS < <(find dist-finanzas/assets -type f \( -name 'index-*.js' -o -name 'index-*.css' \) 2>/dev/null || true)
+
           if [ ${#LOC_ASSETS[@]} -eq 0 ]; then
-            echo "❌ No local assets found; aborting verification"; exit 1
+            echo "❌ No local assets found in dist-finanzas/assets; aborting verification"
+            exit 1
           fi
+
+          echo "🔍 Verifying local assets are uploaded to S3 under finanzas/assets/ ..."
           MISSING=0
-          for f in "${LOC_ASSETS[@]}"; do
-            key="finanzas/$(basename "$f")"
-            if ! aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$key" >/dev/null 2>&1; then
-              echo "❌ Asset missing in S3: $key"; MISSING=1
+          for lf in "${LOC_ASSETS[@]}"; do
+            base="$(basename "$lf")"
+            s3key="finanzas/assets/${base}"
+            if ! aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$s3key" >/dev/null 2>&1; then
+              echo "❌ Asset missing in S3: ${s3key}"
+              MISSING=1
             else
-              echo "✅ Found in S3: $key"
+              echo "✅ Found in S3: ${s3key}"
             fi
           done
+
           if [ "$MISSING" -ne 0 ]; then
-            echo "❌ One or more assets were not found in S3 after sync. Aborting."; exit 1
+            echo "❌ One or more assets were not found in S3 after sync. Aborting."
+            # helpful debug: list the S3 assets folder to inspect
+            echo "----- S3 assets listing (finanzas/assets/) -----"
+            aws s3 ls "s3://${FINANZAS_BUCKET_NAME}/finanzas/assets/" || true
+            exit 1
           fi
-          INDEX=dist-finanzas/index.html
-          if [ ! -f "$INDEX" ]; then echo "❌ dist-finanzas/index.html missing"; exit 1; fi
+
+          # Now verify the index.html references are present in S3
+          INDEX="dist-finanzas/index.html"
+          if [ ! -f "$INDEX" ]; then
+            echo "❌ dist-finanzas/index.html missing"; exit 1;
+          fi
+
+          # Extract referenced assets like: assets/index-abc123.js
           grep -oE 'assets/index-[0-9a-fA-F]+\.(js|css)' "$INDEX" | sort -u > /tmp/local-references.txt
+
           MISSREF=0
           while read -r asset; do
-            key="finanzas/$(basename "$asset")"
-            if ! aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$key" >/dev/null 2>&1; then
-              echo "❌ Referenced asset NOT in S3: $key"; MISSREF=1
+            # asset is like "assets/index-abc123.js"
+            s3key="finanzas/${asset}"   # keep the 'assets/' directory in the key
+            if ! aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$s3key" >/dev/null 2>&1; then
+              echo "❌ Referenced asset NOT in S3: ${s3key}"
+              MISSREF=1
             else
-              echo "✅ Referenced asset exists: $key"
+              echo "✅ Referenced asset exists: ${s3key}"
             fi
           done < /tmp/local-references.txt
-          if [ "$MISSREF" -ne 0 ]; then echo "❌ index.html references not found in S3 — possible S3 sync path mismatch or deploy race."; exit 1; fi
+
+          if [ "$MISSREF" -ne 0 ]; then
+            echo "❌ index.html references not found in S3 — possible S3 sync path mismatch or deploy race."
+            echo "----- S3 assets listing (finanzas/assets/) -----"
+            aws s3 ls "s3://${FINANZAS_BUCKET_NAME}/finanzas/assets/" || true
+            exit 1
+          fi
+
           echo "✅ S3 verification complete"
 
       - name: Verify Finanzas S3 manifest matches local build
