@@ -153,6 +153,14 @@ jobs:
           echo "ℹ️  Running npm run lint (gating)"
           npm run lint
 
+      # ---- CI Guard 1: Clean build caches (prevent stale bundles) ----
+      - name: Clean build caches (prevent stale bundles)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist-finanzas dist .vite node_modules/.cache || true
+          echo "✅ Local build cache removed"
+
       # ---- Compute the API base URL for the build (DEV_API_URL wins, otherwise derive) ----
       - name: Compute API base URL
         id: apibase
@@ -186,10 +194,6 @@ jobs:
           # make VITE_CLOUDFRONT_URL available too (computed earlier in compute step)
           printf '%s\n' "VITE_CLOUDFRONT_URL=${VITE_CLOUDFRONT_URL}" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
-
-      # ... (the remainder of the file is unchanged) ...
-      # I intentionally preserved all the original steps after Build (Build, Write metadata, Hashes, Upload,
-      # CloudFront invalidation, API Smokes, etc.) — only the top-of-file brittle expression changes were made.
 
       - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
@@ -226,6 +230,21 @@ jobs:
             exit 1
           }
           echo "✅ Finanzas Portal built → dist-finanzas/"
+
+      # ---- CI Guard 2: Verify build produced JS/CSS bundles ----
+      - name: Verify build produced JS/CSS bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          ASSETS=(dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css)
+          if compgen -G "${ASSETS[0]}" >/dev/null || compgen -G "${ASSETS[1]}" >/dev/null; then
+            echo "✅ Bundle assets exist:"
+            ls -l dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
+          else
+            echo "❌ No JS/CSS bundles found in dist-finanzas/assets. Build likely failed or output path changed."
+            exit 1
+          fi
+          sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
 
       - name: Write Finanzas deployment metadata
         run: bash scripts/write-deployment-meta.sh dist-finanzas
@@ -356,15 +375,35 @@ jobs:
           echo "📋 Sample occurrences:"
           grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" | head -3 || true
 
-      - name: Configure AWS (OIDC)
+      # ---- CI Guard 4: AWS credentials guard (OIDC preferred, static fallback) ----
+      - name: Configure AWS credentials (OIDC if available)
+        if: ${{ secrets.OIDC_AWS_ROLE_ARN != '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: deploy-ui-${{ github.run_id }}
 
-      - name: Verify identity
-        run: aws sts get-caller-identity
+      - name: Configure AWS credentials (static creds fallback)
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.OIDC_AWS_ROLE_ARN == '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Guard - ensure AWS creds configured
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! aws sts get-caller-identity --region "${AWS_REGION}" >/dev/null 2>&1; then
+            echo "❌ AWS credentials are not configured. Please provide secrets.OIDC_AWS_ROLE_ARN or AWS access key secrets."
+            echo "Debug: OIDC_AWS_ROLE_ARN set: ${OIDC_AWS_ROLE_ARN:+YES} ; AWS_ACCESS_KEY_ID set: ${AWS_ACCESS_KEY_ID:+YES}"
+            exit 1
+          else
+            echo "✅ AWS credentials are configured"
+            aws sts get-caller-identity --region "${AWS_REGION}" || true
+          fi
 
       - name: Guard - S3 buckets and CloudFront exist
         run: |
@@ -422,6 +461,44 @@ jobs:
             --exclude 'test-helper.html' \
             --delete
           echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
+
+      # ---- CI Guard 3: S3 post-sync verification (post-upload) ----
+      - name: Verify S3 sync and index.html asset references
+        shell: bash
+        env:
+          FINANZAS_BUCKET_NAME: ${{ env.FINANZAS_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          LOC_ASSETS=( $(ls -1 dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css 2>/dev/null || true) )
+          if [ ${#LOC_ASSETS[@]} -eq 0 ]; then
+            echo "❌ No local assets found; aborting verification"; exit 1
+          fi
+          MISSING=0
+          for f in "${LOC_ASSETS[@]}"; do
+            key="finanzas/$(basename "$f")"
+            if ! aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$key" >/dev/null 2>&1; then
+              echo "❌ Asset missing in S3: $key"; MISSING=1
+            else
+              echo "✅ Found in S3: $key"
+            fi
+          done
+          if [ "$MISSING" -ne 0 ]; then
+            echo "❌ One or more assets were not found in S3 after sync. Aborting."; exit 1
+          fi
+          INDEX=dist-finanzas/index.html
+          if [ ! -f "$INDEX" ]; then echo "❌ dist-finanzas/index.html missing"; exit 1; fi
+          grep -oE 'assets/index-[0-9a-fA-F]+\.(js|css)' "$INDEX" | sort -u > /tmp/local-references.txt
+          MISSREF=0
+          while read -r asset; do
+            key="finanzas/$(basename "$asset")"
+            if ! aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$key" >/dev/null 2>&1; then
+              echo "❌ Referenced asset NOT in S3: $key"; MISSREF=1
+            else
+              echo "✅ Referenced asset exists: $key"
+            fi
+          done < /tmp/local-references.txt
+          if [ "$MISSREF" -ne 0 ]; then echo "❌ index.html references not found in S3 — possible S3 sync path mismatch or deploy race."; exit 1; fi
+          echo "✅ S3 verification complete"
 
       - name: Verify Finanzas S3 manifest matches local build
         run: |
