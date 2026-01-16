@@ -1,6 +1,5 @@
 import { useEffect } from "react";
-import { useBlocker } from "react-router";
-import { useBeforeUnload } from "react-router-dom";
+import { useBeforeUnload, useBlocker } from "react-router-dom";
 
 /**
  * Shows navigation warnings when there are unsaved changes.

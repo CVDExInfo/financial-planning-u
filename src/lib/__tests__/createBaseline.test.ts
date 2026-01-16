@@ -64,7 +64,6 @@ const sampleRequest: BaselineCreateRequest = {
       rubroId: "LAB-ENG",
       role: "Engineer",
       level: "senior",
-      rubroId: "LAB-ENG",
       country: "MX",
       fte_count: 1,
       hours_per_month: 160,
