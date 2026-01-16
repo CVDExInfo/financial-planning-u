@@ -14,6 +14,22 @@ This document describes the new forecast page layout available via the `VITE_FIN
 - `true` - Enable new layout with reorganized components
 - `false` or unset - Use original layout (backwards compatible)
 
+## Additional Feature Flags
+
+### Hide Key Trends Cards
+
+**Environment Variable:** `VITE_FINZ_HIDE_KEY_TRENDS`
+
+**Default:** `false` (cards visible)
+
+**Values:**
+- `true` - Hide the two executive Key Trends cards (Proyectos con mayor variación & Rubros con mayor variación)
+- `false` or unset - Show the Key Trends cards (default behavior)
+
+**Description:** This flag allows hiding the "Top Variance" executive cards on the Forecast page for a cleaner executive view. When enabled, the two variance analysis cards that show projects and rubros with the highest variance vs budget will not be rendered. This is useful for streamlined presentations or when these metrics are not needed.
+
+**Usage:** Set `VITE_FINZ_HIDE_KEY_TRENDS=true` in your environment file or environment variables to hide the cards.
+
 ## Changes Summary
 
 ### 1. Component Reorganization
