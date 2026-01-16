@@ -31,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -555,137 +556,27 @@ export function MonthlySnapshotGrid({
             )}
           </div>
 
-          {/* Right Zone: Controls + Mini Visual (desktop only in header, only when expanded) */}
+          {/* Right Zone: Toggle Button (desktop only in header, only when expanded) */}
           {!isCollapsed && (
-            <div className="lg:w-[280px] space-y-3">
-              {/* Toggle Button (desktop only) */}
-              <div className="hidden lg:flex justify-end">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={toggleCollapsed}
-                        className="gap-2"
-                        aria-expanded={!isCollapsed}
-                        aria-label="Colapsar a resumen"
-                      >
-                        <ChevronsUpDown className="h-4 w-4" />
-                        <span className="text-xs font-medium">Resumir</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Ver resumen ejecutivo</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-
-              {/* Month Selector */}
-              <div className="space-y-1">
-                <Label
-                  htmlFor="month-select-header"
-                  className="text-xs text-muted-foreground"
-                >
-                  Período
-                </Label>
-                <Select
-                  value={String(selectedMonth)}
-                  onValueChange={(value) => {
-                    if (value === "current" || value === "previous") {
-                      setSelectedMonth(value);
-                    } else {
-                      setSelectedMonth(parseInt(value));
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    id="month-select-header"
-                    className="h-9 text-sm"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {monthOptions.map((opt) => (
-                      <SelectItem
-                        key={String(opt.value)}
-                        value={String(opt.value)}
-                      >
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Grouping Toggle */}
-              <div className="space-y-1">
-                <Label
-                  htmlFor="grouping-select-header"
-                  className="text-xs text-muted-foreground"
-                >
-                  Agrupar por
-                </Label>
-                <Select
-                  value={groupingMode}
-                  onValueChange={(value) =>
-                    setGroupingMode(value as GroupingMode)
-                  }
-                >
-                  <SelectTrigger
-                    id="grouping-select-header"
-                    className="h-9 text-sm"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="project">Por Proyecto</SelectItem>
-                    <SelectItem value="rubro">Por Rubro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Mini Labor vs No-Labor Visual */}
-              <div className="rounded-lg border bg-muted/30 px-3 py-2 space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">
-                  Presupuesto M{actualMonthIndex}
-                </div>
-
-                {/* Stacked bar visualization */}
-                <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex">
-                  {costBreakdown.laborPct > 0 && (
-                    <div
-                      className="bg-blue-500 h-full"
-                      style={{ width: `${costBreakdown.laborPct}%` }}
-                      title={`Labor: ${costBreakdown.laborPct.toFixed(1)}%`}
-                    />
-                  )}
-                  {costBreakdown.nonLaborPct > 0 && (
-                    <div
-                      className="bg-emerald-500 h-full"
-                      style={{ width: `${costBreakdown.nonLaborPct}%` }}
-                      title={`No Labor: ${costBreakdown.nonLaborPct.toFixed(
-                        1
-                      )}%`}
-                    />
-                  )}
-                </div>
-
-                {/* Legend */}
-                <div className="flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-sm bg-blue-500" />
-                    <span className="text-muted-foreground">
-                      Labor {costBreakdown.laborPct.toFixed(0)}%
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-sm bg-emerald-500" />
-                    <span className="text-muted-foreground">
-                      No Labor {costBreakdown.nonLaborPct.toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
+            <div className="hidden lg:flex justify-end">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleCollapsed}
+                      className="gap-2"
+                      aria-expanded={!isCollapsed}
+                      aria-label="Colapsar a resumen"
+                    >
+                      <ChevronsUpDown className="h-4 w-4" />
+                      <span className="text-xs font-medium">Resumir</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Ver resumen ejecutivo</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           )}
 
@@ -739,82 +630,195 @@ export function MonthlySnapshotGrid({
           />
         ) : (
           <>
-            {/* Expanded View: Search and Filters */}
-            <div className="flex flex-wrap items-end gap-3">
-              {/* Search */}
-              <div className="flex-grow min-w-[200px] max-w-[300px]">
-                <Label
-                  htmlFor="search-input"
-                  className="text-xs text-muted-foreground mb-1"
-                >
-                  Buscar
-                </Label>
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="search-input"
-                    type="text"
-                    placeholder="Proyecto o rubro..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-9 pl-8 text-sm"
+            {/* Expanded View: Compact Filter Strip */}
+            <div className="w-full flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              {/* Left group: search + cost type + checkbox */}
+              <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-end gap-3">
+                {/* Search */}
+                <div className="flex-1 min-w-0 w-full sm:w-auto sm:max-w-[300px]">
+                  <Label
+                    htmlFor="search-input"
+                    className="text-xs text-muted-foreground mb-1 block"
+                  >
+                    Buscar
+                  </Label>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="search-input"
+                      type="text"
+                      placeholder="Proyecto o rubro..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="h-9 pl-8 text-sm w-full"
+                    />
+                  </div>
+                </div>
+
+                {/* Cost Type Filter */}
+                <div className="flex-shrink-0 space-y-1">
+                  <Label className="text-xs text-muted-foreground block">
+                    Tipo de costo
+                  </Label>
+                  <div className="flex rounded-md border bg-background p-0.5 min-w-[220px]">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={costTypeFilter === "all" ? "default" : "ghost"}
+                      className="flex-1 px-2 text-xs h-8"
+                      onClick={() => setCostTypeFilter("all")}
+                    >
+                      Todos
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={costTypeFilter === "labor" ? "default" : "ghost"}
+                      className="flex-1 px-2 text-xs h-8"
+                      onClick={() => setCostTypeFilter("labor")}
+                    >
+                      Labor
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={
+                        costTypeFilter === "non-labor" ? "default" : "ghost"
+                      }
+                      className="flex-1 px-2 text-xs h-8"
+                      onClick={() => setCostTypeFilter("non-labor")}
+                    >
+                      No Labor
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Variance Filter */}
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="variance-filter"
+                    checked={showOnlyVariance}
+                    onCheckedChange={(checked) => setShowOnlyVariance(checked === true)}
                   />
+                  <Label
+                    htmlFor="variance-filter"
+                    className="text-sm cursor-pointer"
+                  >
+                    Solo con variación
+                  </Label>
                 </div>
               </div>
 
-              {/* Cost Type Filter */}
-              <div className="min-w-[220px] space-y-1">
-                <Label className="text-xs text-muted-foreground">
-                  Tipo de costo
-                </Label>
-                <div className="flex rounded-md border bg-background p-0.5">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={costTypeFilter === "all" ? "default" : "ghost"}
-                    className="flex-1 px-2 text-xs h-8"
-                    onClick={() => setCostTypeFilter("all")}
-                  >
-                    Todos
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={costTypeFilter === "labor" ? "default" : "ghost"}
-                    className="flex-1 px-2 text-xs h-8"
-                    onClick={() => setCostTypeFilter("labor")}
-                  >
-                    Labor
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={
-                      costTypeFilter === "non-labor" ? "default" : "ghost"
-                    }
-                    className="flex-1 px-2 text-xs h-8"
-                    onClick={() => setCostTypeFilter("non-labor")}
-                  >
-                    No Labor
-                  </Button>
-                </div>
-              </div>
+              {/* Right group: Period / Agrupar por / Presupuesto tile */}
+              <div className="flex-shrink-0 mt-2 md:mt-0">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  {/* Month Selector */}
+                  <div className="space-y-1 min-w-[140px]">
+                    <Label
+                      htmlFor="month-select-filters"
+                      className="text-xs text-muted-foreground block"
+                    >
+                      Período
+                    </Label>
+                    <Select
+                      value={String(selectedMonth)}
+                      onValueChange={(value) => {
+                        if (value === "current" || value === "previous") {
+                          setSelectedMonth(value);
+                        } else {
+                          setSelectedMonth(parseInt(value));
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        id="month-select-filters"
+                        className="h-9 text-sm"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {monthOptions.map((opt) => (
+                          <SelectItem
+                            key={String(opt.value)}
+                            value={String(opt.value)}
+                          >
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              {/* Variance Filter */}
-              <div className="flex items-center gap-2 pt-5">
-                <input
-                  type="checkbox"
-                  id="variance-filter"
-                  checked={showOnlyVariance}
-                  onChange={(e) => setShowOnlyVariance(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300"
-                />
-                <Label
-                  htmlFor="variance-filter"
-                  className="text-sm cursor-pointer"
-                >
-                  Solo con variación
-                </Label>
+                  {/* Grouping Toggle */}
+                  <div className="space-y-1 min-w-[140px]">
+                    <Label
+                      htmlFor="grouping-select-filters"
+                      className="text-xs text-muted-foreground block"
+                    >
+                      Agrupar por
+                    </Label>
+                    <Select
+                      value={groupingMode}
+                      onValueChange={(value) =>
+                        setGroupingMode(value as GroupingMode)
+                      }
+                    >
+                      <SelectTrigger
+                        id="grouping-select-filters"
+                        className="h-9 text-sm"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="project">Por Proyecto</SelectItem>
+                        <SelectItem value="rubro">Por Rubro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Mini Labor vs No-Labor Visual */}
+                  <div className="rounded-lg border bg-muted/30 px-3 py-2 space-y-2 min-w-[180px]">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      Presupuesto M{actualMonthIndex}
+                    </div>
+
+                    {/* Stacked bar visualization */}
+                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex">
+                      {costBreakdown.laborPct > 0 && (
+                        <div
+                          className="bg-blue-500 h-full"
+                          style={{ width: `${costBreakdown.laborPct}%` }}
+                          title={`Labor: ${costBreakdown.laborPct.toFixed(1)}%`}
+                        />
+                      )}
+                      {costBreakdown.nonLaborPct > 0 && (
+                        <div
+                          className="bg-emerald-500 h-full"
+                          style={{ width: `${costBreakdown.nonLaborPct}%` }}
+                          title={`No Labor: ${costBreakdown.nonLaborPct.toFixed(
+                            1
+                          )}%`}
+                        />
+                      )}
+                    </div>
+
+                    {/* Legend */}
+                    <div className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-sm bg-blue-500" />
+                        <span className="text-muted-foreground">
+                          Labor {costBreakdown.laborPct.toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-sm bg-emerald-500" />
+                        <span className="text-muted-foreground">
+                          No Labor {costBreakdown.nonLaborPct.toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
