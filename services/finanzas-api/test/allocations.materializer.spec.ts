@@ -348,4 +348,119 @@ describe("Allocations Materializer (M1..M60)", () => {
     });
     expect(batchCalls.length).toBeGreaterThan(0);
   });
+
+  it("writes allocations with pk PROJECT#projectId", async () => {
+    const baseline: BaselineStub = {
+      baseline_id: "base_pk_test",
+      project_id: "P-7e4fbaf2-dc12-4b22-a75e-1b8bed96a4c7",
+      start_date: "2025-01-01",
+      duration_months: 12,
+      currency: "USD",
+      labor_estimates: [
+        {
+          id: "labor-pk-test",
+          rubroId: "MOD-TEST-PK",
+          role: "Engineer",
+          periodic: "recurring",
+          total_cost: 120000,
+        },
+      ],
+    };
+
+    await materializeAllocationsForBaseline(baseline, { dryRun: false });
+
+    // Get all batch write calls
+    const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
+      const command = call[0];
+      return command?.input?.RequestItems?.mock_allocations;
+    });
+
+    expect(batchCalls.length).toBeGreaterThan(0);
+
+    // Collect all allocations written
+    const allAllocations = batchCalls.flatMap((call) => {
+      const command = call[0] as { input?: any };
+      return command?.input?.RequestItems?.mock_allocations || [];
+    });
+
+    expect(allAllocations.length).toBe(12);
+
+    // Verify EVERY allocation has correct PK format
+    allAllocations.forEach((allocation: any) => {
+      const item = allocation.PutRequest.Item;
+      
+      // Assert PK matches PROJECT#<projectId> format
+      expect(item.pk).toBe("PROJECT#P-7e4fbaf2-dc12-4b22-a75e-1b8bed96a4c7");
+      
+      // Assert SK matches ALLOCATION#<baselineId>#<rubroId>#<month> format
+      expect(item.sk).toMatch(/^ALLOCATION#base_pk_test#MOD-TEST-PK#\d{4}-\d{2}$/);
+      
+      // Verify other required fields
+      expect(item.projectId).toBe("P-7e4fbaf2-dc12-4b22-a75e-1b8bed96a4c7");
+      expect(item.baselineId).toBe("base_pk_test");
+      expect(item.rubro_id).toBe("MOD-TEST-PK");
+      expect(item.month).toMatch(/^\d{4}-\d{2}$/);
+      expect(item.month_index).toBeGreaterThan(0);
+      expect(item.month_index).toBeLessThanOrEqual(12);
+      expect(item.source).toBe("baseline_materializer");
+    });
+  });
+
+  it("SK format matches expected pattern for all allocations", async () => {
+    const baseline: BaselineStub = {
+      baseline_id: "base_sk_format",
+      project_id: "P-SK-TEST",
+      start_date: "2025-01-01",
+      duration_months: 6,
+      currency: "USD",
+      labor_estimates: [
+        {
+          id: "labor-1",
+          rubroId: "MOD-DEV",
+          role: "Developer",
+          periodic: "recurring",
+          total_cost: 60000,
+        },
+      ],
+      non_labor_estimates: [
+        {
+          id: "nonlabor-1",
+          rubroId: "INFRA-CLOUD",
+          category: "Infrastructure",
+          description: "Cloud Services",
+          amount: 1000,
+          recurring: true,
+        },
+      ],
+    };
+
+    await materializeAllocationsForBaseline(baseline, { dryRun: false });
+
+    const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
+      const command = call[0];
+      return command?.input?.RequestItems?.mock_allocations;
+    });
+
+    const allAllocations = batchCalls.flatMap((call) => {
+      const command = call[0] as { input?: any };
+      return command?.input?.RequestItems?.mock_allocations || [];
+    });
+
+    // 6 months * 2 line items = 12 allocations
+    expect(allAllocations.length).toBe(12);
+
+    // Verify SK format regex for all allocations
+    const skPattern = /^ALLOCATION#.+#.+#\d{4}-\d{2}$/;
+    allAllocations.forEach((allocation: any) => {
+      const item = allocation.PutRequest.Item;
+      expect(item.sk).toMatch(skPattern);
+      
+      // Also verify the SK parts are consistent
+      const skParts = item.sk.split('#');
+      expect(skParts[0]).toBe("ALLOCATION");
+      expect(skParts[1]).toBe("base_sk_format");
+      expect(skParts[2]).toMatch(/^(MOD-DEV|INFRA-CLOUD)$/);
+      expect(skParts[3]).toMatch(/^\d{4}-\d{2}$/);
+    });
+  });
 });

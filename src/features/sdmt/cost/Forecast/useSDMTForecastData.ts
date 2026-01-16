@@ -199,6 +199,16 @@ export function useSDMTForecastData({
       let allocationsCount = 0; // Track for summary logging
       let chosenDataSource: 'serverForecast' | 'allocationsFallback' | 'rubrosFallback' | null = null;
 
+      // Dev-only override: force allocations call
+      let forceAllocations = false;
+      if (typeof window !== 'undefined' && import.meta.env.DEV) {
+        const urlParams = new URLSearchParams(window.location.search);
+        forceAllocations = urlParams.get('forceAllocations') === 'true';
+        if (forceAllocations) {
+          console.info('[useSDMTForecastData] 🔧 DEV MODE: forceAllocations=true, will call getAllocations');
+        }
+      }
+
       // Check if forecast has meaningful data
       const hasForecastData = forecastPayload.data && forecastPayload.data.length > 0;
       const hasCriticalCells = hasForecastData && 
@@ -206,16 +216,28 @@ export function useSDMTForecastData({
           (cell.planned || 0) > 0 || (cell.forecast || 0) > 0
         );
 
-      if (hasCriticalCells) {
+      if (hasCriticalCells && !forceAllocations) {
         // Use server forecast - it has valid data
         rows = forecastPayload.data as ForecastRow[];
         chosenDataSource = 'serverForecast';
         console.log(`[useSDMTForecastData] ✅ Using server forecast data (${rows.length} cells with critical data)`);
       } else {
-        console.warn('[useSDMTForecastData] Server forecast empty or missing critical cells — trying fallback');
+        if (forceAllocations) {
+          console.warn('[useSDMTForecastData] 🔧 DEV: Forcing allocations fallback due to ?forceAllocations=true');
+        } else {
+          console.warn('[useSDMTForecastData] Server forecast empty or missing critical cells — trying fallback');
+        }
         
         // Step 2: Fallback - try to get allocations
         try {
+          // Diagnostic logging before calling getAllocations
+          const allocationsUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/allocations?projectId=${projectId}`;
+          console.debug('[useSDMTForecastData] calling getAllocations', {
+            url: allocationsUrl,
+            projectId,
+            reason: forceAllocations ? 'dev-forceAllocations' : 'server-forecast-empty',
+          });
+          
           const allocations = await getAllocations(projectId);
           if (latestRequestKey.current !== requestKey) return; // stale
           

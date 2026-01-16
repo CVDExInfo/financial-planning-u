@@ -652,9 +652,22 @@ export const materializeAllocationsForBaseline = async (
 
     return months.map((month, idx) => {
       const amount = Number(monthly[idx] ?? 0);
+      const pk = `PROJECT#${projectId}`;
       const sk = `ALLOCATION#${baselineId}#${rubroStableId}#${month}`;
+      
+      // Diagnostic logging for first allocation only (avoid log spam)
+      if (idx === 0) {
+        console.info('[materializers] writing allocation', {
+          pk,
+          sk,
+          projectId,
+          baselineId,
+          rubroId: rubroStableId,
+        });
+      }
+      
       return {
-        pk: `PROJECT#${projectId}`,
+        pk,
         sk,
         projectId,
         baselineId,

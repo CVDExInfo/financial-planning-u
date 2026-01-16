@@ -176,3 +176,53 @@ jobs:
           else
             echo "Pre-merge checks script not found, skipping..."
           fi
+
+      - name: Run finanzas-api unit tests
+        shell: bash
+        working-directory: ./services/finanzas-api
+        run: |
+          set -euo pipefail
+          echo "Running finanzas-api unit tests..."
+          pnpm test 2>&1 | tee ../../ci_tests_output.txt
+          echo "✅ Unit tests completed"
+
+      - name: Run preflight allocations smoke test
+        shell: bash
+        env:
+          COGNITO_TESTER_USERNAME: ${{ vars.COGNITO_TESTER_USERNAME }}
+          COGNITO_TESTER_PASSWORD: ${{ vars.COGNITO_TESTER_PASSWORD }}
+          COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          API_BASE: ${{ secrets.VITE_API_BASE_URL || secrets.API_BASE }}
+          BASELINE_ID: ${{ env.BASELINE_ID }}
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          ARTIFACTS_DIR: ./preflight-artifacts
+        run: |
+          set -euo pipefail
+          echo "Running preflight allocations smoke test..."
+          node services/finanzas-api/scripts/preflight-allocations.js
+          echo "✅ Preflight smoke test completed"
+
+      - name: Upload preflight artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preflight-artifacts
+          path: |
+            preflight-artifacts/
+            ci_tests_output.txt
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          echo "=".repeat(80)
+          echo "PREFLIGHT CHECKS SUMMARY"
+          echo "=".repeat(80)
+          if [ -f preflight-artifacts/preflight_summary.txt ]; then
+            cat preflight-artifacts/preflight_summary.txt
+          fi
+          echo "=".repeat(80)
+          echo "Artifacts uploaded. Check workflow artifacts for detailed results."
+
