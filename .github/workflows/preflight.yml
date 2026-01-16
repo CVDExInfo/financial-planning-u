@@ -41,10 +41,27 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Find TDZ suspects
-        run: node scripts/find-tdz-suspects.js
+        run: node scripts/find-tdz-suspects.cjs
+
+      - name: Run auth-provider TDZ regression test
+        run: |
+          # Use project test runner/tsx to ensure the file runs deterministically
+          pnpm exec tsx --test src/components/__tests__/auth-provider.tdz.test.ts
 
       - name: Check circular imports
-        run: npx madge --circular src || true
+        run: npx madge --circular src
+
+      - name: Save madge output
+        if: failure()
+        run: |
+          npx madge --circular src > madge-circular.txt || true
+
+      - name: Upload madge circular output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: madge-circular
+          path: madge-circular.txt
 
       - name: TypeScript type check
         run: pnpm typecheck
