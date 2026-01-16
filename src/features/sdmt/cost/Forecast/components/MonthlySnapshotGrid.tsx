@@ -120,7 +120,7 @@ interface MonthlySnapshotGridProps {
   onScrollToDetail?: (params?: { projectId?: string; categoryId?: string }) => void;
   
   /** Callback to navigate to reconciliation */
-  onNavigateToReconciliation?: (projectId: string) => void;
+  onNavigateToReconciliation?: (lineItemId: string, projectId?: string) => void;
   
   /** Callback to navigate to cost catalog (Estructura de costos) */
   onNavigateToCostCatalog?: (projectId: string) => void;
@@ -434,26 +434,13 @@ export function MonthlySnapshotGrid({
     let rows = [...snapshotRows];
 
     // Cost type filter - filter based on category
+    // IMPORTANT: Create deep copies to avoid mutating original snapshotRows
     if (costTypeFilter !== 'all') {
-      rows = rows.filter(row => {
-        // For parent rows, filter based on children's categories
-        if (row.children && row.children.length > 0) {
-          const hasMatchingChildren = row.children.some(child => {
-            const category = child.code ? 
-              (lineItems.find(li => li.id === child.code || li.projectId === child.code)?.category) : 
-              undefined;
-            
-            if (costTypeFilter === 'labor') {
-              return isLabor(category);
-            } else if (costTypeFilter === 'non-labor') {
-              return !isLabor(category);
-            }
-            return true;
-          });
-          
-          // If parent has matching children, filter the children array
-          if (hasMatchingChildren) {
-            row.children = row.children.filter(child => {
+      rows = rows
+        .map(row => {
+          // For parent rows, filter based on children's categories
+          if (row.children && row.children.length > 0) {
+            const filteredChildren = row.children.filter(child => {
               const category = child.code ? 
                 (lineItems.find(li => li.id === child.code || li.projectId === child.code)?.category) : 
                 undefined;
@@ -465,23 +452,31 @@ export function MonthlySnapshotGrid({
               }
               return true;
             });
+            
+            // If parent has matching children, return a new row object with filtered children
+            if (filteredChildren.length > 0) {
+              return {
+                ...row,
+                children: filteredChildren,
+              };
+            }
+            
+            return null; // Filter out parent rows with no matching children
           }
           
-          return hasMatchingChildren;
-        }
-        
-        // For leaf rows (no children), filter based on their category
-        const category = row.code ? 
-          (lineItems.find(li => li.id === row.code || li.projectId === row.code)?.category) : 
-          undefined;
-        
-        if (costTypeFilter === 'labor') {
-          return isLabor(category);
-        } else if (costTypeFilter === 'non-labor') {
-          return !isLabor(category);
-        }
-        return true;
-      });
+          // For leaf rows (no children), filter based on their category
+          const category = row.code ? 
+            (lineItems.find(li => li.id === row.code || li.projectId === row.code)?.category) : 
+            undefined;
+          
+          if (costTypeFilter === 'labor') {
+            return isLabor(category) ? row : null;
+          } else if (costTypeFilter === 'non-labor') {
+            return !isLabor(category) ? row : null;
+          }
+          return row;
+        })
+        .filter((row): row is SnapshotRow => row !== null);
     }
 
     // Search filter
@@ -619,8 +614,9 @@ export function MonthlySnapshotGrid({
 
   const handleNavigateToReconciliation = useCallback((row: SnapshotRow) => {
     if (onNavigateToReconciliation) {
-      const projectId = row.projectId || row.id;
-      onNavigateToReconciliation(projectId);
+      const lineItemId = row.rubroId || row.id;
+      const projectId = row.projectId;
+      onNavigateToReconciliation(lineItemId, projectId);
     } else {
       toast.info('Navegación a conciliación no disponible');
     }
@@ -728,8 +724,9 @@ export function MonthlySnapshotGrid({
     // Find the row and navigate to reconciliation
     const row = sortedRows.find(r => r.id === item.id);
     if (row && onNavigateToReconciliation) {
-      const projectId = row.projectId || row.id;
-      onNavigateToReconciliation(projectId);
+      const lineItemId = row.rubroId || row.id;
+      const projectId = row.projectId;
+      onNavigateToReconciliation(lineItemId, projectId);
     }
   }, [sortedRows, onNavigateToReconciliation]);
 

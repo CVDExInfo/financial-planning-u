@@ -2112,9 +2112,12 @@ const totalFTE = useMemo(() => {
                   }, 100);
                 }
               }}
-              onNavigateToReconciliation={(projectId) => {
+              onNavigateToReconciliation={(lineItemId, projectId) => {
                 const params = new URLSearchParams();
-                params.set('projectId', projectId);
+                if (projectId) {
+                  params.set('projectId', projectId);
+                }
+                params.set('line_item', lineItemId);
                 const currentPath = location.pathname + location.search;
                 params.set('returnUrl', currentPath);
                 navigate(`/finanzas/sdmt/cost/reconciliation?${params.toString()}`);
