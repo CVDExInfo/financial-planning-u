@@ -165,6 +165,9 @@ type LineItemLike = Record<string, unknown>;
 // Constants
 const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real project
 
+// Feature flag for new forecast layout
+const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true';
+
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2449,6 +2452,53 @@ export function SDMTForecast() {
         />
       )}
 
+      {/* NEW LAYOUT: Cuadrícula de Pronóstico - Positioned directly below Executive KPI Summary */}
+      {NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && forecastData.length > 0 && (
+        <Collapsible
+          open={isRubrosGridOpen}
+          onOpenChange={setIsRubrosGridOpen}
+          defaultOpen={true}
+        >
+          <Card ref={rubrosSectionRef} tabIndex={-1} className="space-y-2">
+            <CardHeader className="pb-2 pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CardTitle className="text-lg">
+                    Cuadrícula de Pronóstico
+                  </CardTitle>
+                </div>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Expandir/Colapsar cuadrícula de pronóstico"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <ForecastRubrosTable
+                  categoryTotals={categoryTotals}
+                  categoryRubros={categoryRubros}
+                  projectTotals={projectTotals}
+                  projectRubros={projectRubros}
+                  portfolioTotals={portfolioTotalsForCharts}
+                  monthlyBudgets={monthlyBudgets}
+                  onSaveBudget={handleSaveBudgetFromTable}
+                  formatCurrency={formatCurrency}
+                  canEditBudget={canEditBudget}
+                  defaultFilter="labor"
+                />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
+
       {/* Monthly Snapshot Grid - TODOS Mode Only */}
       {isPortfolioView && (
         <>
@@ -3023,7 +3073,7 @@ export function SDMTForecast() {
 
           {/* Collapsible Section: Resumen de todos los proyectos */}
           {!loading && (
-            <Collapsible defaultOpen={false}>
+            <Collapsible defaultOpen={!NEW_FORECAST_LAYOUT_ENABLED}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -3066,17 +3116,20 @@ export function SDMTForecast() {
           )}
 
           {/* Collapsible Section: Cuadrícula de Pronóstico 12 Meses (Rubros Grid) */}
-          {!loading && forecastData.length > 0 && (
+          {/* OLD LAYOUT: Hidden when NEW_FORECAST_LAYOUT_ENABLED in portfolio view */}
+          {!loading && forecastData.length > 0 && !(NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView) && (
             <Collapsible
               open={isRubrosGridOpen}
               onOpenChange={setIsRubrosGridOpen}
             >
-              <Card ref={rubrosSectionRef} tabIndex={-1}>
+              <Card ref={!NEW_FORECAST_LAYOUT_ENABLED ? rubrosSectionRef : undefined} tabIndex={-1}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <CardTitle className="text-lg">
-                        Cuadrícula de Pronóstico 12 Meses
+                        {NEW_FORECAST_LAYOUT_ENABLED 
+                          ? "Cuadrícula de Pronóstico"
+                          : "Cuadrícula de Pronóstico 12 Meses"}
                       </CardTitle>
                     </div>
                     <CollapsibleTrigger asChild>
