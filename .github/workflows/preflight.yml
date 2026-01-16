@@ -42,11 +42,6 @@ jobs:
           cd services/finanzas-api
           pnpm install --frozen-lockfile
           echo "✅ services/finanzas-api deps installed"
-          # Optional fast-check: run service types only
-          pnpm exec tsc --noEmit || {
-            echo "❌ services/finanzas-api TypeScript check failed"
-            exit 1
-          }
           cd -
 
       - name: TypeScript type check

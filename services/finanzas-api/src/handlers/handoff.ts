@@ -69,7 +69,7 @@ type BaselinePayload = {
   start_date?: string;
   end_date?: string;
   duration_months?: number;
-  durationMonths?: number; // alias for callers that expect camelCase
+  durationMonths?: number; // Alias for backward compatibility with camelCase payloads (duration_months takes precedence)
   contract_value?: number;
   sdm_manager_name?: string;
   labor_estimates?: BaselineLaborEstimate[];
