@@ -135,9 +135,16 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
   try {
     await ensureCanRead(event as any);
     
-    const projectId = 
+    const rawProjectId = 
       event.queryStringParameters?.projectId || 
       event.queryStringParameters?.project_id;
+    
+    // Normalize projectId: strip PROJECT# prefix if present
+    let projectId = rawProjectId;
+    if (projectId && projectId.startsWith('PROJECT#')) {
+      projectId = projectId.substring('PROJECT#'.length);
+      console.log(`[allocations] Normalized projectId from ${rawProjectId} to ${projectId}`);
+    }
     
     const allocationsTable = tableName("allocations");
     
@@ -157,7 +164,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
       );
       
       const items = queryResult.Items || [];
-      console.log(`[allocations] GET query for project ${projectId}: ${items.length} items`);
+      console.log(`[allocations] GET query for project ${projectId}: ${items.length} items, sample:`, items.slice(0, 3));
       
       // Return bare array for frontend compatibility
       return ok(event, items);

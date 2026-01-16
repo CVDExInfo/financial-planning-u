@@ -140,18 +140,23 @@ describe("Allocations Materializer (M1..M60)", () => {
     const firstAllocation = allAllocations[0].PutRequest.Item;
     expect(firstAllocation.pk).toBe("PROJECT#P-12345");
     expect(firstAllocation.sk).toMatch(
-      /^ALLOCATION#base_cb688dbe#MOD-ING#\d{4}-\d{2}$/
+      /^ALLOCATION#base_cb688dbe#\d{4}-\d{2}#MOD-ING$/
     );
     expect(firstAllocation.projectId).toBe("P-12345");
+    expect(firstAllocation.project_id).toBe("P-12345");
     expect(firstAllocation.baselineId).toBe("base_cb688dbe");
+    expect(firstAllocation.baseline_id).toBe("base_cb688dbe");
     expect(firstAllocation.rubro_id).toBe("MOD-ING");
     expect(firstAllocation.month).toMatch(/^\d{4}-\d{2}$/);
+    expect(firstAllocation.calendar_month).toMatch(/^\d{4}-\d{2}$/);
     expect(firstAllocation.month_index).toBeGreaterThan(0);
     expect(firstAllocation.month_index).toBeLessThanOrEqual(36);
+    expect(firstAllocation.allocation_type).toBe("planned");
     expect(firstAllocation.source).toBe("baseline_materializer");
     expect(firstAllocation.line_item_id).toBeDefined();
     expect(firstAllocation.amount).toBeCloseTo(10000, 0); // ~$10k per month
     expect(firstAllocation.createdAt).toBeDefined();
+    expect(firstAllocation.updatedAt).toBeDefined();
 
     // Verify month progression
     const months = allAllocations.map((a: any) => a.PutRequest.Item.month);
@@ -194,7 +199,7 @@ describe("Allocations Materializer (M1..M60)", () => {
     (batchGetExistingItems as jest.Mock).mockReset();
 
     // Second run: simulate all allocations already exist
-    // Build existing items matching the SK pattern
+    // Build existing items matching the SK pattern: ALLOCATION#{baselineId}#{month}#{rubroId}
     const existingAllocations: any[] = [];
     const startDate = new Date("2025-01-01");
     for (let i = 0; i < 36; i++) {
@@ -206,7 +211,7 @@ describe("Allocations Materializer (M1..M60)", () => {
 
       existingAllocations.push({
         pk: "PROJECT#P-67890",
-        sk: `ALLOCATION#base_idempotent#MOD-DEV#${calendarMonth}`,
+        sk: `ALLOCATION#base_idempotent#${calendarMonth}#MOD-DEV`,
       });
     }
 
@@ -280,8 +285,8 @@ describe("Allocations Materializer (M1..M60)", () => {
     const uniqueSKs = new Set(allSKs);
     expect(uniqueSKs.size).toBe(12); // 12 months
 
-    // Verify SK format
-    const skPattern = /^ALLOCATION#base_deterministic#MOD-ARCH#\d{4}-\d{2}$/;
+    // Verify SK format: ALLOCATION#{baselineId}#{month}#{rubroId}
+    const skPattern = /^ALLOCATION#base_deterministic#\d{4}-\d{2}#MOD-ARCH$/;
     allSKs.forEach((sk: string) => {
       expect(sk).toMatch(skPattern);
     });
