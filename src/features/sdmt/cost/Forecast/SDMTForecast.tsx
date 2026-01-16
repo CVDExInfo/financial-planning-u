@@ -2100,6 +2100,7 @@ const totalFTE = useMemo(() => {
               useMonthlyBudget={useMonthlyBudget}
               formatCurrency={formatCurrency}
               getCurrentMonthIndex={getCurrentMonthIndex}
+              defaultCollapsed={user?.current_role === 'Gerente'}
               onScrollToDetail={(params) => {
                 // Scroll to the 12-month grid section
                 if (rubrosSectionRef.current) {
