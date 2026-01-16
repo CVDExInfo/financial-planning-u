@@ -38,7 +38,6 @@ import type { ForecastCell, LineItem } from '@/types/domain';
 import { useAuth } from '@/hooks/useAuth';
 import { ALL_PROJECTS_ID, useProject } from '@/contexts/ProjectContext';
 import { handleFinanzasApiError } from '@/features/sdmt/cost/utils/errorHandling';
-import { useViewMode } from '@/contexts/ViewModeContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
 import { PDFExporter, formatReportCurrency, formatReportPercentage, getChangeType } from '@/lib/pdf-export';
@@ -161,8 +160,7 @@ export function SDMTForecast() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   // State for controlling rubros grid collapsible (TODOS view)
-  // Default: SDM mode expands detail, Gerente mode collapses (executive view)
-  const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(() => viewMode === 'sdm');
+  const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(false);
   
   // Stale response guard: Track latest request to prevent race conditions
   const latestRequestKeyRef = useRef<string>('');
@@ -210,16 +208,6 @@ export function SDMTForecast() {
   const { selectedProjectId, setSelectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // Get viewMode from context (with fallback for when context is not available)
-  let viewMode: 'sdm' | 'gerente' = 'sdm';
-  try {
-    const viewModeContext = useViewMode();
-    viewMode = viewModeContext.viewMode;
-  } catch (e) {
-    // Context not available (e.g., direct navigation), use default 'sdm'
-  }
-  
   const {
     lineItems,
     isLoading: isLineItemsLoading,
@@ -2112,7 +2100,6 @@ const totalFTE = useMemo(() => {
               useMonthlyBudget={useMonthlyBudget}
               formatCurrency={formatCurrency}
               getCurrentMonthIndex={getCurrentMonthIndex}
-              defaultCollapsed={viewMode === 'gerente'}
               onScrollToDetail={() => {
                 // Scroll to the 12-month grid section
                 if (rubrosSectionRef.current) {

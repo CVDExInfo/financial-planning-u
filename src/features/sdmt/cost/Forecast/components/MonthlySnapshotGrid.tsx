@@ -117,9 +117,6 @@ interface MonthlySnapshotGridProps {
   
   /** Callback to navigate to reconciliation */
   onNavigateToReconciliation?: (lineItemId: string, projectId?: string) => void;
-  
-  /** Default collapsed state (for persona-based defaults) */
-  defaultCollapsed?: boolean;
 }
 
 type GroupingMode = 'project' | 'rubro';
@@ -153,7 +150,6 @@ export function MonthlySnapshotGrid({
   getCurrentMonthIndex,
   onScrollToDetail,
   onNavigateToReconciliation,
-  defaultCollapsed = false,
 }: MonthlySnapshotGridProps) {
   // Get user context for budget request payloads and sessionStorage key
   const { userEmail } = useFinanzasUser();
@@ -169,7 +165,7 @@ export function MonthlySnapshotGrid({
     row?: SnapshotRow;
   }>({ open: false });
   const [budgetRequestNotes, setBudgetRequestNotes] = useState('');
-  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
 
   // Helper to get/set collapsed state from sessionStorage
