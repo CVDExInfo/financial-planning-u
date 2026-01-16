@@ -104,6 +104,46 @@
                     }
                 ]
             },
+            "get /allocations": {
+                "appliesTo": {
+                    "principalTypes": [
+                        "User"
+                    ],
+                    "resourceTypes": [
+                        "Application"
+                    ],
+                    "context": {
+                        "type": "Record",
+                        "attributes": {}
+                    }
+                },
+                "memberOf": [
+                    {
+                        "id": "FIN",
+                        "type": "finanzassd::Action"
+                    }
+                ]
+            },
+            "post /admin/backfill": {
+                "appliesTo": {
+                    "principalTypes": [
+                        "User"
+                    ],
+                    "resourceTypes": [
+                        "Application"
+                    ],
+                    "context": {
+                        "type": "Record",
+                        "attributes": {}
+                    }
+                },
+                "memberOf": [
+                    {
+                        "id": "FIN",
+                        "type": "finanzassd::Action"
+                    }
+                ]
+            },
             "get /catalog/rubros": {
                 "appliesTo": {
                     "principalTypes": [
