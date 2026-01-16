@@ -19,9 +19,10 @@ jobs:
         with:
           node-version: 20.x
 
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 9
+      - name: Ensure pnpm 9.15.9 via corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.9 --activate
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
@@ -31,8 +32,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-
 
+      - name: Clean build caches
+        run: |
+          rm -rf node_modules .vite dist-finanzas dist-pmo
+          pnpm store prune || true
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Find TDZ suspects
+        run: node scripts/find-tdz-suspects.js
+
+      - name: Check circular imports
+        run: npx madge --circular src || true
 
       - name: TypeScript type check
         run: pnpm typecheck || echo "⚠️ TypeScript errors found (non-blocking)"
@@ -59,6 +71,22 @@ jobs:
         env:
           VITE_API_BASE_URL: http://localhost
         run: pnpm -s test:unit || echo "⚠️ Some unit tests failed (check logs)"
+
+      - name: Build Finanzas and capture bundle hashes
+        env:
+          VITE_API_BASE_URL: https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev
+          VITE_COGNITO_DOMAIN: us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com
+          VITE_CLOUDFRONT_URL: https://d7t9x3j66yd8k.cloudfront.net
+        run: |
+          BUILD_TARGET=finanzas pnpm run build:finanzas
+          ls dist-finanzas/assets/*.css >/dev/null
+          sha256sum dist-finanzas/assets/* | sort > ./dist_hash_after.txt
+
+      - name: Upload Finanzas build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-finanzas
+          path: dist-finanzas
 
       - name: Test summary
         if: always()

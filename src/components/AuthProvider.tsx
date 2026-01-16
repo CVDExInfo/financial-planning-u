@@ -183,6 +183,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [groups]
   );
 
+  async function initializeAuth() {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const storedIdToken = readTokenFromStorage(TOKEN_KEYS);
+      const storedAccessToken = localStorage.getItem("finz_access_token") || null;
+
+      const sessionFromTokens = buildSessionFromTokens(
+        storedIdToken,
+        storedAccessToken
+      );
+
+      if (sessionFromTokens) {
+        setIdToken(sessionFromTokens.idToken);
+        setAccessToken(sessionFromTokens.accessToken);
+        setGroups(sessionFromTokens.groups);
+        setGroupClaims(sessionFromTokens.groups);
+        setAvpDecisions(sessionFromTokens.avpDecisions);
+        const availableSessionRoles = sessionFromTokens.availableRoles;
+        setAvailableRoles(availableSessionRoles);
+
+        const storedRole = localStorage.getItem(ACTIVE_ROLE_KEY) as
+          | UserRole
+          | null;
+        const suggestedRole = getRoleForPath(
+          location.pathname,
+          availableSessionRoles,
+          sessionFromTokens.currentRole,
+        );
+        const effectiveRole =
+          (storedRole && availableSessionRoles.includes(storedRole)
+            ? storedRole
+            : suggestedRole) || sessionFromTokens.currentRole;
+
+        setCurrentRole(effectiveRole);
+        try {
+          localStorage.setItem(ACTIVE_ROLE_KEY, effectiveRole);
+        } catch {
+          /* ignore storage errors */
+        }
+
+        setUser({ ...sessionFromTokens.user, current_role: effectiveRole });
+        return;
+      }
+
+      clearLocalTokens();
+      setIdToken(null);
+      setAccessToken(null);
+      setGroups([]);
+      setAvpDecisions([]);
+      setAvailableRoles([]);
+      setCurrentRole(null);
+      setUser(null);
+    } catch (authError) {
+      console.error("[AuthProvider] Failed to initialize auth", authError);
+      clearLocalTokens();
+      setIdToken(null);
+      setAccessToken(null);
+      setGroups([]);
+      setAvpDecisions([]);
+      setAvailableRoles([]);
+      setCurrentRole(null);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (import.meta.env.DEV) {
       console.debug("[AuthProvider] Derived roles", {
@@ -281,75 +350,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [availableRoles, currentRole, location.pathname, roles, user]);
-
-  async function initializeAuth() {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const storedIdToken = readTokenFromStorage(TOKEN_KEYS);
-      const storedAccessToken = localStorage.getItem("finz_access_token") || null;
-
-      const sessionFromTokens = buildSessionFromTokens(
-        storedIdToken,
-        storedAccessToken
-      );
-
-      if (sessionFromTokens) {
-        setIdToken(sessionFromTokens.idToken);
-        setAccessToken(sessionFromTokens.accessToken);
-        setGroups(sessionFromTokens.groups);
-        setGroupClaims(sessionFromTokens.groups);
-        setAvpDecisions(sessionFromTokens.avpDecisions);
-        const availableSessionRoles = sessionFromTokens.availableRoles;
-        setAvailableRoles(availableSessionRoles);
-
-        const storedRole = localStorage.getItem(ACTIVE_ROLE_KEY) as
-          | UserRole
-          | null;
-        const suggestedRole = getRoleForPath(
-          location.pathname,
-          availableSessionRoles,
-          sessionFromTokens.currentRole,
-        );
-        const effectiveRole =
-          (storedRole && availableSessionRoles.includes(storedRole)
-            ? storedRole
-            : suggestedRole) || sessionFromTokens.currentRole;
-
-        setCurrentRole(effectiveRole);
-        try {
-          localStorage.setItem(ACTIVE_ROLE_KEY, effectiveRole);
-        } catch {
-          /* ignore storage errors */
-        }
-
-        setUser({ ...sessionFromTokens.user, current_role: effectiveRole });
-        return;
-      }
-
-      clearLocalTokens();
-      setIdToken(null);
-      setAccessToken(null);
-      setGroups([]);
-      setAvpDecisions([]);
-      setAvailableRoles([]);
-      setCurrentRole(null);
-      setUser(null);
-    } catch (authError) {
-      console.error("[AuthProvider] Failed to initialize auth", authError);
-      clearLocalTokens();
-      setIdToken(null);
-      setAccessToken(null);
-      setGroups([]);
-      setAvpDecisions([]);
-      setAvailableRoles([]);
-      setCurrentRole(null);
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
   async function loginWithCognito(username: string, password: string): Promise<void> {
     setError(null);
