@@ -35,6 +35,8 @@ fi
 # Call the admin debug endpoint
 echo "Calling admin debug endpoint..."
 RESPONSE=$(curl -s -w "\n%{http_code}" \
+  --connect-timeout 10 \
+  --max-time 30 \
   "${API_ENDPOINT}/admin/allocations/verify?projectId=${SAMPLE_PROJECT_ID}" \
   || echo "000")
 

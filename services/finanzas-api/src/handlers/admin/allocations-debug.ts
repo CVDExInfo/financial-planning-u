@@ -14,6 +14,16 @@ import { logError } from "../../utils/logging";
  * to prevent exposure in production.
  */
 
+/**
+ * Configuration constants for debug endpoint
+ */
+const DEBUG_CONFIG = {
+  /** Maximum number of items to query for debugging */
+  QUERY_LIMIT: 100,
+  /** Maximum number of sample items to return per key */
+  MAX_SAMPLES: 5,
+} as const;
+
 interface TriedKey {
   key: string;
   count: number;
@@ -69,7 +79,7 @@ export const handler = async (
     const timestamp = new Date().toISOString();
 
     // Helper to query and capture results
-    async function queryByPK(pk: string, maxSamples = 5): Promise<any[]> {
+    async function queryByPK(pk: string): Promise<any[]> {
       const queryResult = await ddb.send(
         new QueryCommand({
           TableName: allocationsTable,
@@ -80,12 +90,12 @@ export const handler = async (
           ExpressionAttributeValues: {
             ":pk": pk,
           },
-          Limit: 100, // Reasonable limit for debug purposes
+          Limit: DEBUG_CONFIG.QUERY_LIMIT,
         })
       );
 
       const items = queryResult.Items || [];
-      const sampleItems = items.slice(0, maxSamples);
+      const sampleItems = items.slice(0, DEBUG_CONFIG.MAX_SAMPLES);
       
       triedKeys.push({
         key: pk,

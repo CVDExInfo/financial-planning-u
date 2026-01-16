@@ -6,6 +6,12 @@ import { logError, logInfo } from "../utils/logging";
 import { parseForecastBulkUpdate } from "../validation/allocations";
 
 /**
+ * Regex pattern to identify baseline-like IDs
+ * Matches patterns like: base_, base-, BL-, BL_, baseline-, etc.
+ */
+const BASELINE_ID_PATTERN = /^(base_|base-|base|BL-|BL_)/i;
+
+/**
  * Get project metadata from DynamoDB with composite key
  * Tries sk="METADATA" first, then falls back to sk="META" for legacy tables
  */
@@ -205,7 +211,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
     // If projectId is provided, use robust retrieval with fallbacks
     if (incomingId) {
       // Check if incoming ID looks like a baseline ID
-      const isBaselineLike = /^(base_|base-|base|BL-|BL_)/i.test(incomingId);
+      const isBaselineLike = BASELINE_ID_PATTERN.test(incomingId);
       
       // Primary attempt: query PROJECT#${incomingId}
       let pkCandidate = `PROJECT#${incomingId}`;
