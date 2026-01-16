@@ -68,7 +68,7 @@ function decodeInlineSourceMapAndScan(filePath) {
             findings.push({
               file: filePath,
               location: `inline map sourcesContent[${ix}]`,
-              text: (sc || '').slice(0, 200), // Truncate long content
+              text: sc.slice(0, 200), // Truncate long content
               origin: 'inline-sourcemap-content'
             });
           }
