@@ -5,14 +5,25 @@
  * Provides a single-month command center showing Budget/Forecast/Actual with variances
  * for all projects and rubros at a glance.
  *
+ * BEHAVIOR:
+ * - Collapsed (isCollapsed = true): Shows ONLY KPI metrics (Presupuesto, Pronóstico, Real, % Consumo, Varianza).
+ *   No grid, no filters, no mini Labor/No-Labor bar. Clean, thin summary aligned with "Resumen Ejecutivo - Cartera Completa".
+ * - Expanded (isCollapsed = false): Shows full grid-centric view with all controls, filters, and project/rubro drilldown.
+ *
  * Supports:
  * - Month selection (current, previous, M1-M60)
  * - Grouping by Project or Rubro
  * - Search by project code/name and rubro name
+ * - Labor / Non-labor / Todos filter (in expanded view only)
  * - Filter to show only rows with variance
  * - Expand/collapse groups
  * - Sort by absolute variance vs Budget
  * - Action buttons (view monthly detail, reconciliation, budget request)
+ *
+ * % Consumo Calculation:
+ * - Formula: (Real / Presupuesto) × 100
+ * - Shows actual consumption percentage against allocated budget for the month
+ * - Displayed in both collapsed summary and expanded summary strip
  */
 
 import { useState, useMemo, useCallback, useEffect } from "react";
@@ -441,7 +452,7 @@ export function MonthlySnapshotGrid({
       <CardHeader className="pb-3">
         {/* Two-zone header: Title + Summary on left, Controls + Visual on right */}
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-          {/* Left Zone: Title + 5 KPI Summary Cards */}
+          {/* Left Zone: Title + Badge + Toggle (mobile) */}
           <div className="flex-1 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -544,7 +555,7 @@ export function MonthlySnapshotGrid({
             )}
           </div>
 
-          {/* Right Zone: Controls + Mini Visual (desktop only in header) */}
+          {/* Right Zone: Controls + Mini Visual (desktop only in header, only when expanded) */}
           {!isCollapsed && (
             <div className="lg:w-[280px] space-y-3">
               {/* Toggle Button (desktop only) */}
@@ -677,6 +688,30 @@ export function MonthlySnapshotGrid({
               </div>
             </div>
           )}
+
+          {/* Collapsed Mode: Show toggle button on desktop */}
+          {isCollapsed && (
+            <div className="hidden lg:flex justify-end">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleCollapsed}
+                      className="gap-2"
+                      aria-expanded={!isCollapsed}
+                      aria-label="Expandir desglose"
+                    >
+                      <ChevronsUpDown className="h-4 w-4" />
+                      <span className="text-xs font-medium">Expandir</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Ver desglose completo</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          )}
         </div>
       </CardHeader>
 
@@ -693,25 +728,14 @@ export function MonthlySnapshotGrid({
             : "Mostrando desglose completo"}
         </div>
 
-        {/* Collapsed View: Summary */}
+        {/* Collapsed View: Simple KPI Summary Only */}
         {isCollapsed ? (
           <MonthlySnapshotSummary
             month={actualMonthIndex}
             totalBudget={summaryTotals.totalBudget}
             totalForecast={summaryTotals.totalForecast}
             totalActual={summaryTotals.totalActual}
-            costBreakdown={costBreakdown}
-            variances={sortedRows.map((row) => ({
-              id: row.id,
-              name: row.name,
-              code: row.code,
-              varianceBudget: row.varianceBudget,
-              varianceBudgetPercent: row.varianceBudgetPercent,
-              projectId: row.projectId,
-              rubroId: row.rubroId,
-            }))}
             formatCurrency={formatCurrency}
-            onVarianceClick={handleSummaryVarianceClick}
           />
         ) : (
           <>
