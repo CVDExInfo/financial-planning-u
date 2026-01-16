@@ -187,10 +187,7 @@ export function ForecastRubrosTable({
 
   // Helper to recalculate category totals from filtered rubros
   // IMPORTANT: Must be declared BEFORE visibleCategories useMemo to avoid TDZ error
-  const recalculateCategoryTotals = (
-    category: string,
-    rubros: CategoryRubro[]
-  ): CategoryTotals => {
+  const recalculateCategoryTotals = (rubros: CategoryRubro[]): CategoryTotals => {
     const byMonth: Record<number, { forecast: number; actual: number; planned: number }> = {};
     let overallForecast = 0;
     let overallActual = 0;
@@ -216,7 +213,6 @@ export function ForecastRubrosTable({
     });
 
     return {
-      category,
       byMonth,
       overall: {
         forecast: overallForecast,
@@ -309,7 +305,7 @@ export function ForecastRubrosTable({
       // Special case: always include labor category if filter is 'labor' even if empty
       if (filteredRubros.length > 0 || (filterMode === 'labor' && category.toLowerCase().includes('mano de obra'))) {
         // Recalculate category totals based on filtered rubros
-        const recalculatedTotals = recalculateCategoryTotals(category, filteredRubros);
+        const recalculatedTotals = recalculateCategoryTotals(filteredRubros);
         filtered.push([category, recalculatedTotals, filteredRubros]);
       }
     });
@@ -1001,3 +997,4 @@ export function ForecastRubrosTable({
     </Card>
   );
 }
+

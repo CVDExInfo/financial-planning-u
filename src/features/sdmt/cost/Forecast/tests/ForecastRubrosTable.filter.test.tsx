@@ -9,8 +9,6 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import type { CategoryTotals, CategoryRubro } from '../categoryGrouping';
 
-type CategoryRubroWithRole = CategoryRubro & { role?: string; subtype?: string };
-
 // Mock data helpers
 function createMockRubro(
   rubroId: string,
@@ -19,7 +17,7 @@ function createMockRubro(
   isLaborRole: boolean,
   forecast: number = 1000,
   actual: number = 900
-): CategoryRubroWithRole {
+): CategoryRubro {
   return {
     rubroId,
     description,
@@ -45,13 +43,13 @@ function createMockRubro(
       actual,
       planned: forecast,
       varianceActual: actual - forecast,
-      varianceForecast: 0,
+      variancePlanned: 0,
       percentConsumption: (actual / forecast) * 100,
     },
   };
 }
 
-function createMockCategoryTotals(category: string, rubros: CategoryRubro[]): CategoryTotals {
+function createMockCategoryTotals(rubros: CategoryRubro[]): CategoryTotals {
   const byMonth: Record<number, { forecast: number; actual: number; planned: number }> = {};
   let overallForecast = 0;
   let overallActual = 0;
@@ -75,24 +73,23 @@ function createMockCategoryTotals(category: string, rubros: CategoryRubro[]): Ca
   });
 
   return {
-    category,
     byMonth,
     overall: {
       forecast: overallForecast,
       actual: overallActual,
       planned: overallPlanned,
       varianceActual: overallActual - overallForecast,
-      varianceForecast: overallForecast - overallPlanned,
+      variancePlanned: overallForecast - overallPlanned,
       percentConsumption: overallForecast > 0 ? (overallActual / overallForecast) * 100 : 0,
     },
   };
 }
 
 describe('ForecastRubrosTable Filter Logic', () => {
-  let mockLaborRubros: CategoryRubroWithRole[];
-  let mockNonLaborRubros: CategoryRubroWithRole[];
+  let mockLaborRubros: CategoryRubro[];
+  let mockNonLaborRubros: CategoryRubro[];
   let categoryTotals: Map<string, CategoryTotals>;
-  let categoryRubros: Map<string, CategoryRubroWithRole[]>;
+  let categoryRubros: Map<string, CategoryRubro[]>;
 
   beforeEach(() => {
     // Create mock labor rubros
@@ -113,10 +110,10 @@ describe('ForecastRubrosTable Filter Logic', () => {
     categoryTotals = new Map();
     categoryRubros = new Map();
 
-    categoryTotals.set('Mano de Obra Directa', createMockCategoryTotals('Mano de Obra Directa', mockLaborRubros));
-    categoryTotals.set('Hardware', createMockCategoryTotals('Hardware', [mockNonLaborRubros[0]]));
-    categoryTotals.set('Software', createMockCategoryTotals('Software', [mockNonLaborRubros[1]]));
-    categoryTotals.set('Administrative', createMockCategoryTotals('Administrative', [mockNonLaborRubros[2]]));
+    categoryTotals.set('Mano de Obra Directa', createMockCategoryTotals(mockLaborRubros));
+    categoryTotals.set('Hardware', createMockCategoryTotals([mockNonLaborRubros[0]]));
+    categoryTotals.set('Software', createMockCategoryTotals([mockNonLaborRubros[1]]));
+    categoryTotals.set('Administrative', createMockCategoryTotals([mockNonLaborRubros[2]]));
 
     categoryRubros.set('Mano de Obra Directa', mockLaborRubros);
     categoryRubros.set('Hardware', [mockNonLaborRubros[0]]);

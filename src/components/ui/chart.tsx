@@ -1,6 +1,5 @@
 import { ComponentProps, ComponentType, createContext, CSSProperties, ReactNode, useContext, useId, useMemo } from "react"
 import * as RechartsPrimitive from "recharts"
-import type { ValueType } from "recharts/types/component/DefaultTooltipContent"
 
 import { cn } from "@/lib/utils"
 
@@ -22,9 +21,6 @@ type ChartContextProps = {
 }
 
 const ChartContext = createContext<ChartContextProps | null>(null)
-
-const isValueType = (value: unknown): value is ValueType =>
-  typeof value === "number" || typeof value === "string" || value instanceof Date
 
 function useChart() {
   const context = useContext(ChartContext)
@@ -191,16 +187,6 @@ function ChartTooltipContent({
           const key = `${nameKey || item.name || item.dataKey || "value"}`
           const itemConfig = getPayloadConfigFromPayload(config, item as any, key)
           const indicatorColor = color || (item as any).payload?.fill || (item as any).color
-          const rawName = itemConfig?.label ?? item.name
-          const safeName =
-            typeof rawName === "string" || typeof rawName === "number"
-              ? rawName
-              : String(rawName ?? "")
-          const safeValue = isValueType(item.value) ? item.value : null
-          const nameValue =
-            typeof item.name === "string" || typeof item.name === "number"
-              ? item.name
-              : String(item.name ?? "")
 
           return (
             <div
@@ -210,8 +196,8 @@ function ChartTooltipContent({
                 indicator === "dot" && "items-center"
               )}
             >
-              {formatter && safeValue !== null ? (
-                formatter(safeValue, nameValue, item as any, index, (item as any).payload)
+              {formatter && item?.value !== undefined && item.name ? (
+                formatter(item.value, item.name, item, index, item.payload)
               ) : (
                 <>
                   {itemConfig?.icon ? (
@@ -247,14 +233,12 @@ function ChartTooltipContent({
                     <div className="grid gap-1.5">
                       {nestLabel ? tooltipLabel : null}
                       <span className="text-muted-foreground">
-                        {safeName}
+                        {itemConfig?.label || item.name}
                       </span>
                     </div>
-                    {safeValue !== null && (
+                    {item.value && (
                       <span className="text-foreground font-mono font-medium tabular-nums">
-                        {typeof safeValue === "number"
-                          ? safeValue.toLocaleString()
-                          : String(safeValue)}
+                        {item.value.toLocaleString()}
                       </span>
                     )}
                   </div>

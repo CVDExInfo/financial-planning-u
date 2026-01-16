@@ -14,7 +14,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { computeForecastFromAllocations } from '../computeForecastFromAllocations';
-import type { ForecastCell, LineItem } from '@/types/domain';
+import type { LineItem } from '@/types/domain';
 
 // Re-implement helper functions locally to avoid importing React hook
 function isMaterialized(baseline: any): boolean {
@@ -393,7 +393,7 @@ describe('useSDMTForecastData Integration Tests', () => {
         { line_item_id: 'R-1', month: 1, amount: 980, status: 'Matched' },
       ];
       
-      const rowsWithActuals = forecastRows.map<ForecastCell & { varianceActual?: number }>(cell => {
+      const rowsWithActuals = forecastRows.map(cell => {
         const matchedInvoice = invoices.find(
           inv => inv.line_item_id === cell.line_item_id && inv.month === cell.month
         );
@@ -405,10 +405,7 @@ describe('useSDMTForecastData Integration Tests', () => {
             varianceActual: matchedInvoice.amount - cell.planned,
           };
         }
-        return {
-          ...cell,
-          varianceActual: cell.actual - cell.planned,
-        };
+        return cell;
       });
       
       // 4. Validate results
