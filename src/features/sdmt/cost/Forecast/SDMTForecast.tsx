@@ -2452,12 +2452,67 @@ export function SDMTForecast() {
         />
       )}
 
-      {/* NEW LAYOUT: Cuadrícula de Pronóstico - Positioned directly below Executive KPI Summary */}
-      {/* Extract condition to const for clarity and prevent duplication */}
-      {(() => {
-        const showNewLayoutGrid = NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && forecastData.length > 0;
+      {/* NEW LAYOUT: Cuadrícula de Pronóstico (MonthlySnapshotGrid) - Positioned directly below Executive KPI Summary */}
+      {NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && (
+        <>
+          {isLoadingForecast ? (
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-center min-h-[200px]">
+                  <div className="text-center">
+                    <LoadingSpinner size="lg" />
+                    <p className="text-muted-foreground mt-4">
+                      Cargando pronóstico...
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : forecastData.length > 0 ? (
+            <MonthlySnapshotGrid
+              forecastData={forecastData}
+              lineItems={portfolioLineItems}
+              monthlyBudgets={monthlyBudgets}
+              useMonthlyBudget={useMonthlyBudget}
+              formatCurrency={formatCurrency}
+              getCurrentMonthIndex={getCurrentMonthIndex}
+              onScrollToDetail={(params) => {
+                // Scroll to the 12-month grid section
+                if (rubrosSectionRef.current) {
+                  setIsRubrosGridOpen(true);
+                  setTimeout(() => {
+                    rubrosSectionRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  }, 100);
+                }
+              }}
+              onNavigateToReconciliation={(lineItemId, projectId) => {
+                const params = new URLSearchParams();
+                if (projectId) {
+                  params.set("projectId", projectId);
+                }
+                params.set("line_item", lineItemId);
+                const currentPath = location.pathname + location.search;
+                params.set("returnUrl", currentPath);
+                navigate(
+                  `/finanzas/sdmt/cost/reconciliation?${params.toString()}`
+                );
+              }}
+              onNavigateToCostCatalog={(projectId) => {
+                navigate(`/sdmt/cost/catalog?projectId=${projectId}`);
+              }}
+            />
+          ) : null}
+        </>
+      )}
+
+      {/* OLD LAYOUT: ForecastRubrosTable grid - Only shown when new layout is disabled */}
+      {!NEW_FORECAST_LAYOUT_ENABLED && (() => {
+        const showOldLayoutGrid = isPortfolioView && !loading && forecastData.length > 0;
         
-        if (!showNewLayoutGrid) return null;
+        if (!showOldLayoutGrid) return null;
         
         return (
           <Collapsible
@@ -2470,7 +2525,7 @@ export function SDMTForecast() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <CardTitle className="text-lg">
-                      Cuadrícula de Pronóstico
+                      Cuadrícula de Pronóstico (12 Meses)
                     </CardTitle>
                   </div>
                   <CollapsibleTrigger asChild>
@@ -2506,8 +2561,8 @@ export function SDMTForecast() {
         );
       })()}
 
-      {/* Monthly Snapshot Grid - TODOS Mode Only */}
-      {isPortfolioView && (
+      {/* OLD LAYOUT: Monthly Snapshot Grid - Only shown when new layout is disabled */}
+      {!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && (
         <>
           {isLoadingForecast ? (
             <Card>
@@ -3056,11 +3111,12 @@ export function SDMTForecast() {
             />
           )}
 
-          {/* Top Variance Tables - Executive View */}
+          {/* Top Variance Tables - Executive View - Guarded by VITE_FINZ_SHOW_KEYTRENDS */}
           {!loading &&
             isPortfolioView &&
             forecastData.length > 0 &&
-            hasBudgetForVariance && (
+            hasBudgetForVariance &&
+            import.meta.env.VITE_FINZ_SHOW_KEYTRENDS === 'true' && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <TopVarianceProjectsTable
                   projects={projectSummaries}
