@@ -236,14 +236,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ASSETS=(dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css)
-          if compgen -G "${ASSETS[0]}" >/dev/null || compgen -G "${ASSETS[1]}" >/dev/null; then
-            echo "✅ Bundle assets exist:"
-            ls -l dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
-          else
-            echo "❌ No JS/CSS bundles found in dist-finanzas/assets. Build likely failed or output path changed."
+          # Check if index JS bundle exists
+          if ! compgen -G "dist-finanzas/assets/index-*.js" > /dev/null; then
+            echo "❌ No JS bundles found in dist-finanzas/assets. Build likely failed or output path changed."
             exit 1
           fi
+          # Check if index CSS bundle exists
+          if ! compgen -G "dist-finanzas/assets/index-*.css" > /dev/null; then
+            echo "❌ No CSS bundles found in dist-finanzas/assets. Build likely failed or output path changed."
+            exit 1
+          fi
+          echo "✅ Bundle assets exist:"
+          ls -l dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
           sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
 
       - name: Write Finanzas deployment metadata
@@ -398,7 +402,6 @@ jobs:
           set -euo pipefail
           if ! aws sts get-caller-identity --region "${AWS_REGION}" >/dev/null 2>&1; then
             echo "❌ AWS credentials are not configured. Please provide secrets.OIDC_AWS_ROLE_ARN or AWS access key secrets."
-            echo "Debug: OIDC_AWS_ROLE_ARN set: ${OIDC_AWS_ROLE_ARN:+YES} ; AWS_ACCESS_KEY_ID set: ${AWS_ACCESS_KEY_ID:+YES}"
             exit 1
           else
             echo "✅ AWS credentials are configured"
@@ -469,7 +472,8 @@ jobs:
           FINANZAS_BUCKET_NAME: ${{ env.FINANZAS_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          LOC_ASSETS=( $(ls -1 dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css 2>/dev/null || true) )
+          # Use find to safely collect asset files
+          mapfile -t LOC_ASSETS < <(find dist-finanzas/assets -type f \( -name 'index-*.js' -o -name 'index-*.css' \) 2>/dev/null || true)
           if [ ${#LOC_ASSETS[@]} -eq 0 ]; then
             echo "❌ No local assets found; aborting verification"; exit 1
           fi

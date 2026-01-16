@@ -2453,51 +2453,58 @@ export function SDMTForecast() {
       )}
 
       {/* NEW LAYOUT: Cuadrícula de Pronóstico - Positioned directly below Executive KPI Summary */}
-      {NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && forecastData.length > 0 && (
-        <Collapsible
-          open={isRubrosGridOpen}
-          onOpenChange={setIsRubrosGridOpen}
-          defaultOpen={true}
-        >
-          <Card ref={rubrosSectionRef} tabIndex={-1} className="space-y-2">
-            <CardHeader className="pb-2 pt-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <CardTitle className="text-lg">
-                    Cuadrícula de Pronóstico
-                  </CardTitle>
+      {/* Extract condition to const for clarity and prevent duplication */}
+      {(() => {
+        const showNewLayoutGrid = NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && forecastData.length > 0;
+        
+        if (!showNewLayoutGrid) return null;
+        
+        return (
+          <Collapsible
+            open={isRubrosGridOpen}
+            onOpenChange={setIsRubrosGridOpen}
+            defaultOpen={true}
+          >
+            <Card ref={rubrosSectionRef} tabIndex={-1} className="space-y-2">
+              <CardHeader className="pb-2 pt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="text-lg">
+                      Cuadrícula de Pronóstico
+                    </CardTitle>
+                  </div>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label="Expandir/Colapsar cuadrícula de pronóstico"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </CollapsibleTrigger>
                 </div>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    aria-label="Expandir/Colapsar cuadrícula de pronóstico"
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </CollapsibleTrigger>
-              </div>
-            </CardHeader>
-            <CollapsibleContent>
-              <CardContent className="pt-0">
-                <ForecastRubrosTable
-                  categoryTotals={categoryTotals}
-                  categoryRubros={categoryRubros}
-                  projectTotals={projectTotals}
-                  projectRubros={projectRubros}
-                  portfolioTotals={portfolioTotalsForCharts}
-                  monthlyBudgets={monthlyBudgets}
-                  onSaveBudget={handleSaveBudgetFromTable}
-                  formatCurrency={formatCurrency}
-                  canEditBudget={canEditBudget}
-                  defaultFilter="labor"
-                />
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-      )}
+              </CardHeader>
+              <CollapsibleContent>
+                <CardContent className="pt-0">
+                  <ForecastRubrosTable
+                    categoryTotals={categoryTotals}
+                    categoryRubros={categoryRubros}
+                    projectTotals={projectTotals}
+                    projectRubros={projectRubros}
+                    portfolioTotals={portfolioTotalsForCharts}
+                    monthlyBudgets={monthlyBudgets}
+                    onSaveBudget={handleSaveBudgetFromTable}
+                    formatCurrency={formatCurrency}
+                    canEditBudget={canEditBudget}
+                    defaultFilter="labor"
+                  />
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        );
+      })()}
 
       {/* Monthly Snapshot Grid - TODOS Mode Only */}
       {isPortfolioView && (
@@ -3122,7 +3129,10 @@ export function SDMTForecast() {
               open={isRubrosGridOpen}
               onOpenChange={setIsRubrosGridOpen}
             >
-              <Card ref={!NEW_FORECAST_LAYOUT_ENABLED ? rubrosSectionRef : undefined} tabIndex={-1}>
+              <Card 
+                ref={NEW_FORECAST_LAYOUT_ENABLED ? undefined : rubrosSectionRef} 
+                tabIndex={-1}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
