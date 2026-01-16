@@ -35,14 +35,62 @@ describe("Allocations Materializer (M1..M60)", () => {
   beforeEach(() => {
     (ddb.send as jest.Mock).mockReset();
     (batchGetExistingItems as jest.Mock).mockReset();
-    
+
     // Default: no existing items
     (batchGetExistingItems as jest.Mock).mockResolvedValue([]);
-    
+
     // Mock DynamoDB send for BatchWriteCommand
     (ddb.send as jest.Mock).mockImplementation((command: any) => {
       return Promise.resolve({});
     });
+  });
+
+  it("normalizes projectId values that already include PROJECT# prefix", async () => {
+    const baseline: BaselineStub = {
+      baseline_id: "base_prefixed",
+      project_id: "PROJECT#P-PREFIXED",
+      start_date: "2025-01-01",
+      duration_months: 12,
+      labor_estimates: [
+        {
+          id: "labor-prefixed",
+          rubroId: "MOD-PREFIX",
+          total_cost: 120000,
+        },
+      ],
+    };
+
+    await materializeAllocationsForBaseline(baseline, { dryRun: false });
+
+    const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
+      const command = call[0];
+      return command?.input?.RequestItems?.mock_allocations;
+    });
+
+    const allocations = batchCalls.flatMap((call) => {
+      const command = call[0] as { input?: any };
+      return command?.input?.RequestItems?.mock_allocations || [];
+    });
+
+    expect(allocations.length).toBeGreaterThan(0);
+    allocations.forEach((entry: any) => {
+      expect(entry.PutRequest.Item.pk).toBe("PROJECT#P-PREFIXED");
+    });
+  });
+
+  it("throws when projectId is missing from baseline", async () => {
+    const baseline: BaselineStub = {
+      baseline_id: "base_missing_project",
+      project_id: undefined as any,
+      start_date: "2025-01-01",
+      duration_months: 6,
+      labor_estimates: [],
+      non_labor_estimates: [],
+    };
+
+    await expect(
+      materializeAllocationsForBaseline(baseline, { dryRun: false })
+    ).rejects.toThrow(/projectId/);
   });
 
   it("materializes allocations for 36-month baseline", async () => {
@@ -63,7 +111,9 @@ describe("Allocations Materializer (M1..M60)", () => {
       ],
     };
 
-    const result = await materializeAllocationsForBaseline(baseline, { dryRun: false });
+    const result = await materializeAllocationsForBaseline(baseline, {
+      dryRun: false,
+    });
 
     // Verify the result
     expect(result.allocationsAttempted).toBe(36);
@@ -89,7 +139,9 @@ describe("Allocations Materializer (M1..M60)", () => {
     // Verify structure of first allocation
     const firstAllocation = allAllocations[0].PutRequest.Item;
     expect(firstAllocation.pk).toBe("PROJECT#P-12345");
-    expect(firstAllocation.sk).toMatch(/^ALLOCATION#base_cb688dbe#MOD-ING#\d{4}-\d{2}$/);
+    expect(firstAllocation.sk).toMatch(
+      /^ALLOCATION#base_cb688dbe#MOD-ING#\d{4}-\d{2}$/
+    );
     expect(firstAllocation.projectId).toBe("P-12345");
     expect(firstAllocation.baselineId).toBe("base_cb688dbe");
     expect(firstAllocation.rubro_id).toBe("MOD-ING");
@@ -130,7 +182,9 @@ describe("Allocations Materializer (M1..M60)", () => {
     // First run: no existing allocations
     (batchGetExistingItems as jest.Mock).mockResolvedValue([]);
 
-    const firstRun = await materializeAllocationsForBaseline(baseline, { dryRun: false });
+    const firstRun = await materializeAllocationsForBaseline(baseline, {
+      dryRun: false,
+    });
     expect(firstRun.allocationsAttempted).toBe(36);
     expect(firstRun.allocationsWritten).toBe(36);
     expect(firstRun.allocationsSkipped).toBe(0);
@@ -149,7 +203,7 @@ describe("Allocations Materializer (M1..M60)", () => {
       const year = monthDate.getUTCFullYear();
       const month = String(monthDate.getUTCMonth() + 1).padStart(2, "0");
       const calendarMonth = `${year}-${month}`;
-      
+
       existingAllocations.push({
         pk: "PROJECT#P-67890",
         sk: `ALLOCATION#base_idempotent#MOD-DEV#${calendarMonth}`,
@@ -158,16 +212,20 @@ describe("Allocations Materializer (M1..M60)", () => {
 
     (batchGetExistingItems as jest.Mock).mockResolvedValue(existingAllocations);
 
-    const secondRun = await materializeAllocationsForBaseline(baseline, { dryRun: false });
+    const secondRun = await materializeAllocationsForBaseline(baseline, {
+      dryRun: false,
+    });
     expect(secondRun.allocationsAttempted).toBe(36);
     expect(secondRun.allocationsWritten).toBe(0); // All skipped
     expect(secondRun.allocationsSkipped).toBe(36);
 
     // Verify BatchWriteCommand was NOT called in second run
-    const batchWriteCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
-      const command = call[0];
-      return command?.input?.RequestItems?.mock_allocations;
-    });
+    const batchWriteCalls = (ddb.send as jest.Mock).mock.calls.filter(
+      (call) => {
+        const command = call[0];
+        return command?.input?.RequestItems?.mock_allocations;
+      }
+    );
     expect(batchWriteCalls.length).toBe(0);
   });
 
@@ -193,7 +251,10 @@ describe("Allocations Materializer (M1..M60)", () => {
     for (let run = 0; run < 2; run++) {
       (ddb.send as jest.Mock).mockReset();
       (ddb.send as jest.Mock).mockImplementation((command: any) => {
-        if (command.constructor.name === "QueryCommand" || command.input?.KeyConditionExpression) {
+        if (
+          command.constructor.name === "QueryCommand" ||
+          command.input?.KeyConditionExpression
+        ) {
           return Promise.resolve({ Items: [] });
         }
         return Promise.resolve({});
@@ -257,11 +318,15 @@ describe("Allocations Materializer (M1..M60)", () => {
     });
 
     // Verify M13 = Jan 2026
-    const month13 = allAllocations.find((a: any) => a.PutRequest.Item.month_index === 13);
+    const month13 = allAllocations.find(
+      (a: any) => a.PutRequest.Item.month_index === 13
+    );
     expect(month13?.PutRequest.Item.month).toBe("2026-01");
 
     // Verify M24 = Dec 2026
-    const month24 = allAllocations.find((a: any) => a.PutRequest.Item.month_index === 24);
+    const month24 = allAllocations.find(
+      (a: any) => a.PutRequest.Item.month_index === 24
+    );
     expect(month24?.PutRequest.Item.month).toBe("2026-12");
   });
 
@@ -283,7 +348,9 @@ describe("Allocations Materializer (M1..M60)", () => {
       ],
     };
 
-    const result = await materializeAllocationsForBaseline(baseline, { dryRun: false });
+    const result = await materializeAllocationsForBaseline(baseline, {
+      dryRun: false,
+    });
 
     expect(result.allocationsAttempted).toBe(60);
     expect(result.allocationsWritten).toBe(60);
@@ -301,7 +368,9 @@ describe("Allocations Materializer (M1..M60)", () => {
     expect(allAllocations).toHaveLength(60);
 
     // Verify M60 = Dec 2029
-    const month60 = allAllocations.find((a: any) => a.PutRequest.Item.month_index === 60);
+    const month60 = allAllocations.find(
+      (a: any) => a.PutRequest.Item.month_index === 60
+    );
     expect(month60?.PutRequest.Item.month).toBe("2029-12");
   });
 
@@ -321,21 +390,25 @@ describe("Allocations Materializer (M1..M60)", () => {
               rubroId: "MOD-NEST",
               role: "EngineerNested",
               periodic: "recurring",
-              total_cost: 360000
-            }
+              total_cost: 360000,
+            },
           ],
-          non_labor_estimates: []
-        }
-      }
+          non_labor_estimates: [],
+        },
+      },
     };
 
     // Reset mocks
     (ddb.send as jest.Mock).mockReset();
     (batchGetExistingItems as jest.Mock).mockReset();
     (batchGetExistingItems as jest.Mock).mockResolvedValue([]);
-    (ddb.send as jest.Mock).mockImplementation((command: any) => Promise.resolve({}));
+    (ddb.send as jest.Mock).mockImplementation((command: any) =>
+      Promise.resolve({})
+    );
 
-    const result = await materializeAllocationsForBaseline(baseline as any, { dryRun: false });
+    const result = await materializeAllocationsForBaseline(baseline as any, {
+      dryRun: false,
+    });
 
     expect(result.allocationsAttempted).toBe(36);
     expect(result.allocationsWritten).toBe(36);
