@@ -31,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -694,12 +695,10 @@ export function MonthlySnapshotGrid({
 
                 {/* Variance Filter */}
                 <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="variance-filter"
                     checked={showOnlyVariance}
-                    onChange={(e) => setShowOnlyVariance(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300"
+                    onCheckedChange={(checked) => setShowOnlyVariance(!!checked)}
                   />
                   <Label
                     htmlFor="variance-filter"
