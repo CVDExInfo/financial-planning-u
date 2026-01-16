@@ -9,6 +9,7 @@ import AccessControl from "@/components/AccessControl";
 import { AuthProvider } from "@/components/AuthProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { ProjectProvider } from "@/contexts/ProjectContext";
+import { PersonaProvider } from "@/contexts/PersonaContext";
 import LoginPage from "@/components/LoginPage";
 import NoAccess from "@/components/NoAccess";
 
@@ -168,10 +169,11 @@ function AppContent() {
         </div>
       )}
 
-      <ProjectProvider>
-        {showProjectContextBar && <ProjectContextBar />}
-        <main>
-          <AccessControl>
+      <PersonaProvider>
+        <ProjectProvider>
+          {showProjectContextBar && <ProjectContextBar />}
+          <main>
+            <AccessControl>
             <Routes>
               {/* Finanzas root (app served under /finanzas) */}
               <Route
@@ -295,9 +297,10 @@ function AppContent() {
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-          </AccessControl>
-        </main>
-      </ProjectProvider>
+            </AccessControl>
+          </main>
+        </ProjectProvider>
+      </PersonaProvider>
 
       <Toaster position="top-right" />
     </div>

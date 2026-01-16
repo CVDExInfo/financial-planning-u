@@ -117,6 +117,9 @@ interface MonthlySnapshotGridProps {
   
   /** Callback to navigate to reconciliation */
   onNavigateToReconciliation?: (lineItemId: string, projectId?: string) => void;
+  
+  /** Default collapsed state (optional). If not provided, will load from sessionStorage or default to false */
+  defaultCollapsed?: boolean;
 }
 
 type GroupingMode = 'project' | 'rubro';
@@ -150,6 +153,7 @@ export function MonthlySnapshotGrid({
   getCurrentMonthIndex,
   onScrollToDetail,
   onNavigateToReconciliation,
+  defaultCollapsed = false,
 }: MonthlySnapshotGridProps) {
   // Get user context for budget request payloads and sessionStorage key
   const { userEmail } = useFinanzasUser();
@@ -169,15 +173,17 @@ export function MonthlySnapshotGrid({
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
 
   // Helper to get/set collapsed state from sessionStorage
-  const getStoredCollapsedState = useCallback(() => {
+  const getStoredCollapsedState = useCallback((): boolean | null => {
     try {
       // For portfolio view, use 'portfolio' as the context identifier
       const storageKey = `monthlyGridCollapsed:portfolio:${userEmail || 'user'}`;
       const stored = sessionStorage.getItem(storageKey);
-      return stored === 'true';
+      if (stored === 'true') return true;
+      if (stored === 'false') return false;
+      return null; // Not set yet
     } catch (e) {
       // sessionStorage may not be available in some environments
-      return false;
+      return null;
     }
   }, [userEmail]);
 
@@ -191,14 +197,18 @@ export function MonthlySnapshotGrid({
     }
   }, [userEmail]);
 
-  // Load initial collapsed state from sessionStorage once
+  // Load initial collapsed state from sessionStorage once, or use defaultCollapsed
   useEffect(() => {
     if (!hasLoadedFromStorage) {
       const storedState = getStoredCollapsedState();
-      setIsCollapsed(storedState);
+      // If there's a stored value, use it; otherwise use defaultCollapsed prop
+      const initialState = storedState !== null && storedState !== undefined
+        ? storedState
+        : defaultCollapsed;
+      setIsCollapsed(initialState);
       setHasLoadedFromStorage(true);
     }
-  }, [hasLoadedFromStorage, getStoredCollapsedState]);
+  }, [hasLoadedFromStorage, getStoredCollapsedState, defaultCollapsed]);
 
   // Persist collapsed state to sessionStorage whenever it changes
   useEffect(() => {

@@ -37,6 +37,8 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import type { ForecastCell, LineItem } from '@/types/domain';
 import { useAuth } from '@/hooks/useAuth';
 import { ALL_PROJECTS_ID, useProject } from '@/contexts/ProjectContext';
+import { usePersona } from '@/contexts/PersonaContext';
+import { PersonaTabs } from '@/components/PersonaTabs';
 import { handleFinanzasApiError } from '@/features/sdmt/cost/utils/errorHandling';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { excelExporter, downloadExcelFile } from '@/lib/excel-export';
@@ -160,6 +162,7 @@ export function SDMTForecast() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   // State for controlling rubros grid collapsible (TODOS view)
+  // Persona-based defaults are applied via useEffect below
   const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(false);
   
   // Stale response guard: Track latest request to prevent race conditions
@@ -206,6 +209,7 @@ export function SDMTForecast() {
   } | null>(null);
   const { user, login } = useAuth();
   const { selectedProjectId, setSelectedProjectId, selectedPeriod, currentProject, projectChangeCount, projects } = useProject();
+  const { viewMode } = usePersona();
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -327,6 +331,20 @@ export function SDMTForecast() {
       setBaselineDetail(null);
     }
   }, [currentProject?.baselineId, isPortfolioView]);
+
+  // Apply persona-based defaults for collapsible sections
+  // This effect runs when viewMode or isPortfolioView changes
+  useEffect(() => {
+    if (isPortfolioView) {
+      // In portfolio/TODOS mode, apply persona defaults:
+      // - SDM: rubros grid open (detailed view)
+      // - Gerente: rubros grid collapsed (executive summary focus)
+      setIsRubrosGridOpen(viewMode === 'SDM');
+    } else {
+      // In single project mode, always keep rubros grid open
+      setIsRubrosGridOpen(true);
+    }
+  }, [viewMode, isPortfolioView]);
 
   const loadForecastData = async () => {
     if (!selectedProjectId) {
@@ -1931,9 +1949,11 @@ const totalFTE = useMemo(() => {
       <div className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold">{ES_TEXTS.forecast.title}</h1>
               <ModuleBadge />
+              {/* Persona View Mode Toggle - Only show in portfolio/TODOS mode */}
+              {isPortfolioView && <PersonaTabs className="w-48" />}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               {ES_TEXTS.forecast.description}
@@ -2100,6 +2120,7 @@ const totalFTE = useMemo(() => {
               useMonthlyBudget={useMonthlyBudget}
               formatCurrency={formatCurrency}
               getCurrentMonthIndex={getCurrentMonthIndex}
+              defaultCollapsed={false} // Matriz del Mes expanded by default for both personas
               onScrollToDetail={() => {
                 // Scroll to the 12-month grid section
                 if (rubrosSectionRef.current) {
