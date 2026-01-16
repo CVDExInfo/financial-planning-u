@@ -18,7 +18,7 @@ import assert from 'node:assert';
 describe('HIDE_KEY_TRENDS Feature Flag', () => {
   it('should be false by default (cards visible)', () => {
     // Simulate default environment where flag is not set
-    const envValue = undefined;
+    const envValue: string | undefined = undefined;
     const hideKeyTrends = envValue === 'true';
     
     assert.strictEqual(
