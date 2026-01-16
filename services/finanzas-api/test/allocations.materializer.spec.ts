@@ -450,7 +450,7 @@ describe("Allocations Materializer (M1..M60)", () => {
     expect(allAllocations.length).toBe(12);
 
     // Verify SK format regex for all allocations
-    const skPattern = /^ALLOCATION#.+#.+#\d{4}-\d{2}$/;
+    const skPattern = /^ALLOCATION#[^#]+#[^#]+#\d{4}-\d{2}$/;
     allAllocations.forEach((allocation: any) => {
       const item = allocation.PutRequest.Item;
       expect(item.sk).toMatch(skPattern);

@@ -126,8 +126,9 @@ async function migrateAllocations() {
               new PutCommand({
                 TableName: tableName,
                 Item: newItem,
-                // Idempotency: only write if this exact pk+sk doesn't exist
-                ConditionExpression: "attribute_not_exists(pk) AND attribute_not_exists(sk)",
+                // Idempotency: only write if this exact pk+sk combination doesn't exist
+                // Note: pk and sk together form the composite key, so checking both ensures we don't overwrite
+                ConditionExpression: "attribute_not_exists(pk)",
               })
             );
             console.log(`✅ Migrated: ${item.pk} -> ${newPk} (sk: ${item.sk})`);

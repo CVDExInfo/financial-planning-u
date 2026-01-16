@@ -28,6 +28,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Configuration from environment
+// Priority: Specific variable names (COGNITO_TESTER_*) take precedence over generic ones (COGNITO_*)
 const config = {
   cognitoUsername: process.env.COGNITO_TESTER_USERNAME || process.env.COGNITO_USER,
   cognitoPassword: process.env.COGNITO_TESTER_PASSWORD || process.env.COGNITO_PASS,
@@ -130,7 +131,8 @@ function makeRequest(url, options, postData = null) {
           try {
             const parsed = JSON.parse(data);
             resolve({ statusCode: res.statusCode, data: parsed });
-          } catch {
+          } catch (parseError) {
+            // Some responses may not be JSON (e.g., plain text), return as-is
             resolve({ statusCode: res.statusCode, data });
           }
         } else {

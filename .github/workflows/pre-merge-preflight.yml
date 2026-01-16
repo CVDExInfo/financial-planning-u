@@ -217,12 +217,12 @@ jobs:
         if: always()
         shell: bash
         run: |
-          echo "=".repeat(80)
+          echo "================================================================================"
           echo "PREFLIGHT CHECKS SUMMARY"
-          echo "=".repeat(80)
+          echo "================================================================================"
           if [ -f preflight-artifacts/preflight_summary.txt ]; then
             cat preflight-artifacts/preflight_summary.txt
           fi
-          echo "=".repeat(80)
+          echo "================================================================================"
           echo "Artifacts uploaded. Check workflow artifacts for detailed results."
 
