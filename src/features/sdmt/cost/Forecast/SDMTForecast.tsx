@@ -168,6 +168,9 @@ const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real pr
 // Feature flag for new forecast layout
 const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true';
 
+// Feature flag to hide executive key-trends (projects & rubros) cards
+const HIDE_KEY_TRENDS = import.meta.env.VITE_FINZ_HIDE_KEY_TRENDS === 'true';
+
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3056,8 +3059,9 @@ export function SDMTForecast() {
             />
           )}
 
-          {/* Top Variance Tables - Executive View */}
-          {!loading &&
+          {/* Top Variance Tables - Executive View (Key Trends / hidden when HIDE_KEY_TRENDS is true) */}
+          {!HIDE_KEY_TRENDS &&
+            !loading &&
             isPortfolioView &&
             forecastData.length > 0 &&
             hasBudgetForVariance && (
