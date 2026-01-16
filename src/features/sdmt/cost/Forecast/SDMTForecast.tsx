@@ -70,9 +70,7 @@ import {
   type BaselineDetail,
 } from "@/api/finanzas";
 import { getForecastPayload, getProjectInvoices } from "./forecastService";
-import finanzasClient, {
-  type BaselineDetailResponse,
-} from "@/api/finanzasClient";
+import finanzasClient from "@/api/finanzasClient";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { BaselineStatusPanel } from "@/components/baseline/BaselineStatusPanel";
 import { BudgetSimulatorCard } from "./BudgetSimulatorCard";
@@ -208,7 +206,7 @@ export function SDMTForecast() {
 
   // Baseline detail for FTE calculation
   const [baselineDetail, setBaselineDetail] =
-    useState<BaselineDetailResponse | null>(null);
+    useState<BaselineDetail | null>(null);
 
   // Sorting state for forecast grid
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -3085,6 +3083,59 @@ export function SDMTForecast() {
           )}
 
 
+
+          {/* Collapsible Section: Cuadrícula de Pronóstico 12 Meses (Rubros Grid) */}
+          {/* OLD LAYOUT: Only render old rubros grid when NEW_FORECAST_LAYOUT_ENABLED is false */}
+          {/* and we are in portfolio view and have data. */}
+          {!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && forecastData.length > 0 && (
+            <Collapsible
+              open={isRubrosGridOpen}
+              onOpenChange={setIsRubrosGridOpen}
+            >
+              <Card 
+                ref={NEW_FORECAST_LAYOUT_ENABLED ? undefined : rubrosSectionRef} 
+                tabIndex={-1}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CardTitle className="text-lg">
+                        {NEW_FORECAST_LAYOUT_ENABLED 
+                          ? "Cuadrícula de Pronóstico"
+                          : "Cuadrícula de Pronóstico 12 Meses"}
+                      </CardTitle>
+                    </div>
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label="Expandir/Colapsar cuadrícula de rubros"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                </CardHeader>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <ForecastRubrosTable
+                      categoryTotals={categoryTotals}
+                      categoryRubros={categoryRubros}
+                      projectTotals={projectTotals}
+                      projectRubros={projectRubros}
+                      portfolioTotals={portfolioTotalsForCharts}
+                      monthlyBudgets={monthlyBudgets}
+                      onSaveBudget={handleSaveBudgetFromTable}
+                      formatCurrency={formatCurrency}
+                      canEditBudget={canEditBudget}
+                      defaultFilter="labor"
+                    />
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          )}
 
           {/* Collapsible Section: Simulador de Presupuesto */}
           <Collapsible defaultOpen={false}>

@@ -50,18 +50,19 @@ describe('Forecast Layout - Duplicate Prevention', () => {
     assert.strictEqual(oldLayoutMonthlySnapshot, false, 'Old layout MonthlySnapshotGrid should NOT render');
   });
 
-  it('should show no grid when OLD layout is configured (old layout removed)', () => {
+  it('should show old layout grid when OLD layout is configured', () => {
     const NEW_FORECAST_LAYOUT_ENABLED = false;
     const isPortfolioView = true;
     const loading = false;
     const forecastDataLength = 10;
 
-    // After the fix, the old layout blocks were completely removed
-    // So when NEW_FORECAST_LAYOUT_ENABLED=false, nothing renders
+    // After the fix, when NEW_FORECAST_LAYOUT_ENABLED=false, the old ForecastRubrosTable should render
     const newLayoutMonthlySnapshot = NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView;
+    const oldLayoutForecastRubros = !NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && forecastDataLength > 0;
 
-    // Assert: New layout should not render when flag is false
+    // Assert: Old layout should render when flag is false
     assert.strictEqual(newLayoutMonthlySnapshot, false, 'New layout MonthlySnapshotGrid should NOT render when flag is false');
+    assert.strictEqual(oldLayoutForecastRubros, true, 'Old layout ForecastRubrosTable should render when flag is false');
   });
 
   it('should validate Key Trends visibility logic', () => {

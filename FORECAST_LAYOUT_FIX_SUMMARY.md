@@ -14,14 +14,21 @@ Fixed duplicate "Cuadrícula de Pronóstico" rendering issue and added feature f
 
 ### 1. Duplicate Grid Removal ✅
 **What was removed:**
-- Lines 2523-2624: Old ForecastRubrosTable grid (duplicate #1)
-- Lines 2571-2624: Old MonthlySnapshotGrid (duplicate #2)
-- Lines 3184-3235: Second ForecastRubrosTable grid (duplicate #3)
+- Lines 2523-2568: First OLD ForecastRubrosTable grid duplicate (before TODOS section)
+- Lines 2571-2624: OLD MonthlySnapshotGrid duplicate
+
+**What was restored:**
+- Lines 3084-3135: OLD ForecastRubrosTable grid in TODOS section (when NEW_FORECAST_LAYOUT_ENABLED=false)
 
 **What remains:**
 - Lines 2467-2521: NEW layout MonthlySnapshotGrid (canonical version)
   - Renders when: `NEW_FORECAST_LAYOUT_ENABLED === true && isPortfolioView`
   - Title: "Cuadrícula de Pronóstico" (without "12 Meses" suffix)
+- Lines 3084-3135: OLD layout ForecastRubrosTable (fallback for old layout)
+  - Renders when: `!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && forecastData.length > 0`
+  - Title: "Cuadrícula de Pronóstico 12 Meses"
+  
+**Result:** Single grid renders regardless of flag state - NEW layout when flag is true, OLD layout when flag is false.
 
 ### 2. Chart Placement ✅
 - **ForecastChartsPanel** already correctly positioned at bottom (line 3427-3436)
