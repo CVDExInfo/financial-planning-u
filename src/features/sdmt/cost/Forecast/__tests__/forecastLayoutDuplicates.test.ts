@@ -5,6 +5,9 @@
  * sections when NEW_FORECAST_LAYOUT_ENABLED is true.
  * 
  * This test validates the fix for the duplicate grid rendering issue.
+ * 
+ * Note: Uses Node.js built-in test runner to match the existing test pattern
+ * in this directory (see gridEmptyState.test.ts, budgetState.test.ts, etc.)
  */
 
 import { describe, it } from 'node:test';

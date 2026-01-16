@@ -3007,12 +3007,16 @@ export function SDMTForecast() {
         <>
           {/* Top Variance Tables - Executive View (Key Trends) */}
           {/* Visible only when:
-               - !HIDE_KEY_TRENDS (not explicitly hidden)
-               - SHOW_KEY_TRENDS is true (opt-in)
+               - !HIDE_KEY_TRENDS (not explicitly hidden - takes precedence)
+               - SHOW_KEY_TRENDS is true (opt-in to show)
                - not loading
                - portfolio view
                - forecastData present
-               - budget available for variance */}
+               - budget available for variance
+               
+               Note: HIDE_KEY_TRENDS takes precedence over SHOW_KEY_TRENDS to allow
+               explicit hiding even if SHOW_KEY_TRENDS is enabled.
+          */}
           {isPortfolioView &&
             !loading &&
             forecastData.length > 0 &&
