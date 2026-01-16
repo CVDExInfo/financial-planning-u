@@ -174,6 +174,12 @@ const SHOW_KEY_TRENDS = import.meta.env.VITE_FINZ_SHOW_KEYTRENDS === 'true';
 // Feature flag to hide executive key-trends (projects & rubros) cards
 const HIDE_KEY_TRENDS = import.meta.env.VITE_FINZ_HIDE_KEY_TRENDS === 'true';
 
+// Feature flag to hide Real Annual Budget KPIs in TODOS/Portfolio view
+const HIDE_REAL_ANNUAL_KPIS = import.meta.env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS === 'true';
+
+// Feature flag to hide Resumen de todos los proyectos in TODOS mode
+const HIDE_PROJECT_SUMMARY = import.meta.env.VITE_FINZ_HIDE_PROJECT_SUMMARY === 'true';
+
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2931,7 +2937,7 @@ export function SDMTForecast() {
       )}
 
       {/* Real Annual Budget KPIs - Show when budget is set and portfolio view (not simulation) */}
-      {isPortfolioView && !budgetSimulation.enabled && (
+      {!HIDE_REAL_ANNUAL_KPIS && isPortfolioView && !budgetSimulation.enabled && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
@@ -3100,20 +3106,20 @@ export function SDMTForecast() {
       {/* ========== TODOS / PORTFOLIO VIEW LAYOUT ========== */}
       {isPortfolioView && (
         <>
-          {/* Charts Panel - Prominent position after KPI bar */}
-          {!loading && forecastData.length > 0 && (
-            <ForecastChartsPanel
-              portfolioTotals={portfolioTotalsForCharts}
-              categoryTotals={categoryTotals}
-              monthlyBudgets={monthlyBudgets}
-              useMonthlyBudget={useMonthlyBudget}
-              formatCurrency={formatCurrency}
-            />
-          )}
-
           {/* Top Variance Tables - Executive View (Key Trends) */}
-          {/* Visible only when SHOW_KEY_TRENDS is true, not loading, portfolio view, and variance budget available */}
-          {SHOW_KEY_TRENDS && !loading && isPortfolioView && forecastData.length > 0 && hasBudgetForVariance && (
+          {/* Visible only when:
+               - SHOW_KEY_TRENDS is true (opt-in)
+               - HIDE_KEY_TRENDS is not true (override to hide)
+               - not loading
+               - portfolio view
+               - forecastData present
+               - budget available for variance */}
+          {isPortfolioView &&
+            !loading &&
+            forecastData.length > 0 &&
+            hasBudgetForVariance &&
+            SHOW_KEY_TRENDS &&
+            !HIDE_KEY_TRENDS && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <TopVarianceProjectsTable
                   projects={projectSummaries}
@@ -3123,7 +3129,7 @@ export function SDMTForecast() {
                 />
                 <TopVarianceRubrosTable
                   categories={categoryTotals}
-                  budgetOverall={parseFloat(budgetAmount)}
+                  budgetOverall={parseFloat(budgetAmount || "0")}
                   formatCurrency={formatCurrency}
                   onCategoryClick={handleCategoryClick}
                   topN={5}
@@ -3132,7 +3138,7 @@ export function SDMTForecast() {
             )}
 
           {/* Collapsible Section: Resumen de todos los proyectos */}
-          {!loading && (
+          {!HIDE_PROJECT_SUMMARY && !loading && (
             <Collapsible defaultOpen={!NEW_FORECAST_LAYOUT_ENABLED}>
               <Card>
                 <CardHeader className="pb-3">
@@ -3176,8 +3182,9 @@ export function SDMTForecast() {
           )}
 
           {/* Collapsible Section: Cuadrícula de Pronóstico 12 Meses (Rubros Grid) */}
-          {/* OLD LAYOUT: Hidden when NEW_FORECAST_LAYOUT_ENABLED in portfolio view */}
-          {!loading && forecastData.length > 0 && !(NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView) && (
+          {/* OLD LAYOUT: Only render old rubros grid when NEW_FORECAST_LAYOUT_ENABLED is false */}
+          {/* and we are in portfolio view and have data. */}
+          {!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && forecastData.length > 0 && (
             <Collapsible
               open={isRubrosGridOpen}
               onOpenChange={setIsRubrosGridOpen}
@@ -3416,6 +3423,17 @@ export function SDMTForecast() {
               </CollapsibleContent>
             </Card>
           </Collapsible>
+
+          {/* Charts Panel - Positioned at end of TODOS section */}
+          {!loading && forecastData.length > 0 && (
+            <ForecastChartsPanel
+              portfolioTotals={portfolioTotalsForCharts}
+              categoryTotals={categoryTotals}
+              monthlyBudgets={monthlyBudgets}
+              useMonthlyBudget={useMonthlyBudget}
+              formatCurrency={formatCurrency}
+            />
+          )}
         </>
       )}
 
