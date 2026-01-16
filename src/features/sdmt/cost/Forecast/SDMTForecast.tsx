@@ -169,6 +169,9 @@ const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real pr
 const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true';
 const SHOW_KEY_TRENDS = import.meta.env.VITE_FINZ_SHOW_KEYTRENDS === 'true';
 
+// Backward compatibility: HIDE_KEY_TRENDS is deprecated, use SHOW_KEY_TRENDS instead
+const HIDE_KEY_TRENDS = import.meta.env.VITE_FINZ_HIDE_KEY_TRENDS === 'true';
+
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3106,12 +3109,9 @@ export function SDMTForecast() {
             />
           )}
 
-          {/* Top Variance Tables - Executive View - Guarded by VITE_FINZ_SHOW_KEYTRENDS */}
-          {!loading &&
-            isPortfolioView &&
-            forecastData.length > 0 &&
-            hasBudgetForVariance &&
-            SHOW_KEY_TRENDS && (
+          {/* Top Variance Tables - Executive View (Key Trends) */}
+          {/* Visible only when SHOW_KEY_TRENDS is true, not loading, portfolio view, and variance budget available */}
+          {SHOW_KEY_TRENDS && !loading && isPortfolioView && forecastData.length > 0 && hasBudgetForVariance && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <TopVarianceProjectsTable
                   projects={projectSummaries}
