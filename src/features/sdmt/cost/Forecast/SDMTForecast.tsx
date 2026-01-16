@@ -164,6 +164,8 @@ type LineItemLike = Record<string, unknown>;
 
 // Constants
 const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real project
+const SHOW_MONTHLY_SNAPSHOT_GRID = false; // Phase 5 request: hide snapshot grid in TODOS view
+const SHOW_VARIANCE_TABLES = false; // Phase 5 request: hide variance tables until redesign lands
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
@@ -2449,8 +2451,8 @@ export function SDMTForecast() {
         />
       )}
 
-      {/* Monthly Snapshot Grid - TODOS Mode Only */}
-      {isPortfolioView && (
+      {/* Monthly Snapshot Grid - TODOS Mode Only (temporarily hidden per phase 5 request) */}
+      {isPortfolioView && SHOW_MONTHLY_SNAPSHOT_GRID && (
         <>
           {isLoadingForecast ? (
             <Card>
@@ -2988,19 +2990,9 @@ export function SDMTForecast() {
       {/* ========== TODOS / PORTFOLIO VIEW LAYOUT ========== */}
       {isPortfolioView && (
         <>
-          {/* Charts Panel - Prominent position after KPI bar */}
-          {!loading && forecastData.length > 0 && (
-            <ForecastChartsPanel
-              portfolioTotals={portfolioTotalsForCharts}
-              categoryTotals={categoryTotals}
-              monthlyBudgets={monthlyBudgets}
-              useMonthlyBudget={useMonthlyBudget}
-              formatCurrency={formatCurrency}
-            />
-          )}
-
-          {/* Top Variance Tables - Executive View */}
-          {!loading &&
+          {/* Top Variance Tables - Executive View (hidden pending redesign) */}
+          {SHOW_VARIANCE_TABLES &&
+            !loading &&
             isPortfolioView &&
             forecastData.length > 0 &&
             hasBudgetForVariance && (
@@ -4406,6 +4398,17 @@ export function SDMTForecast() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Charts Panel - moved to bottom/end per latest exec layout */}
+      {isPortfolioView && !loading && forecastData.length > 0 && (
+        <ForecastChartsPanel
+          portfolioTotals={portfolioTotalsForCharts}
+          categoryTotals={categoryTotals}
+          monthlyBudgets={monthlyBudgets}
+          useMonthlyBudget={useMonthlyBudget}
+          formatCurrency={formatCurrency}
+        />
       )}
 
       {/* Charts and Analytics - Single Project Mode Only */}
