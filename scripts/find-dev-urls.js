@@ -52,7 +52,7 @@ function decodeInlineSourceMapAndScan(filePath) {
         map.sources.forEach((src, ix) => {
           if (PATTERN.test(src)) {
             findings.push({
-              file: `${filePath}`,
+              file: filePath,
               location: `inline map source[${ix}]`,
               text: src,
               origin: 'inline-sourcemap-sources'
@@ -66,7 +66,7 @@ function decodeInlineSourceMapAndScan(filePath) {
         map.sourcesContent.forEach((sc, ix) => {
           if (sc && PATTERN.test(sc)) {
             findings.push({
-              file: `${filePath}`,
+              file: filePath,
               location: `inline map sourcesContent[${ix}]`,
               text: (sc || '').slice(0, 200), // Truncate long content
               origin: 'inline-sourcemap-content'

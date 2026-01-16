@@ -28,7 +28,9 @@ let changes = {
  */
 function isGitTracked(filePath) {
   try {
-    const result = execSync(`git ls-files --error-unmatch "${filePath}"`, { 
+    // Sanitize file path to prevent command injection
+    const sanitizedPath = filePath.replace(/["'`$\\]/g, '\\$&');
+    const result = execSync(`git ls-files --error-unmatch "${sanitizedPath}"`, { 
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
     });
@@ -75,7 +77,7 @@ function fixSourceFile(filePath) {
     file: filePath,
     backup: backupPath,
     matchesFound: matches.length,
-    matchesReplaced: matches.filter((v, i, a) => a.indexOf(v) === i) // unique matches
+    uniqueMatches: matches.filter((v, i, a) => a.indexOf(v) === i) // unique matches
   });
   
   console.log(`   ✅ Replaced ${matches.length} occurrence(s) with ${SAFE_PLACEHOLDER}`);
@@ -105,8 +107,9 @@ function createDependencyPatch(packageName, filePath) {
     const fixed = content.replace(PATTERN, SAFE_PLACEHOLDER);
     fs.writeFileSync(filePath, fixed);
     
-    // Create the patch
-    execSync(`npx patch-package ${packageName}`, { stdio: 'inherit' });
+    // Create the patch - sanitize package name to prevent command injection
+    const sanitizedPackageName = packageName.replace(/[^a-zA-Z0-9@/_-]/g, '');
+    execSync(`npx patch-package ${sanitizedPackageName}`, { stdio: 'inherit' });
     
     changes.dependencies.push({
       package: packageName,
