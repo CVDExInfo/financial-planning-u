@@ -1,15 +1,15 @@
 /**
  * MonthlySnapshotSummary Component
- * 
+ *
  * Compact summary view for MonthlySnapshotGrid when collapsed.
  * Shows top-line KPIs and top N variances for quick executive overview.
  */
 
-import { useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
 interface VarianceItem {
   id: string;
@@ -24,22 +24,30 @@ interface VarianceItem {
 interface MonthlySnapshotSummaryProps {
   /** Selected month index (1-12) */
   month: number;
-  
+
   /** Total budget for the month */
   totalBudget: number;
-  
+
   /** Total forecast for the month */
   totalForecast: number;
-  
+
   /** Total actual for the month */
   totalActual: number;
-  
+
+  /** Optional breakdown between labor and non-labor totals */
+  costBreakdown?: {
+    laborTotal: number;
+    nonLaborTotal: number;
+    laborPct: number;
+    nonLaborPct: number;
+  };
+
   /** All variance items (from rows) */
   variances: VarianceItem[];
-  
+
   /** Currency formatter */
   formatCurrency: (amount: number) => string;
-  
+
   /** Callback when a variance item is clicked */
   onVarianceClick?: (item: VarianceItem) => void;
 }
@@ -49,41 +57,46 @@ export function MonthlySnapshotSummary({
   totalBudget,
   totalForecast,
   totalActual,
+  costBreakdown,
   variances,
   formatCurrency,
   onVarianceClick,
 }: MonthlySnapshotSummaryProps) {
   // Calculate total variance
   const totalVarianceBudget = totalForecast - totalBudget;
-  const totalVarianceBudgetPercent = totalBudget > 0 
-    ? (totalVarianceBudget / totalBudget) * 100 
-    : null;
+  const totalVarianceBudgetPercent =
+    totalBudget > 0 ? (totalVarianceBudget / totalBudget) * 100 : null;
 
   // Get top 5 positive (overspend) and top 5 negative (savings) variances
   const { topPositive, topNegative } = useMemo(() => {
     const positive = [...variances]
-      .filter(v => v.varianceBudget > 0)
+      .filter((v) => v.varianceBudget > 0)
       .sort((a, b) => b.varianceBudget - a.varianceBudget)
       .slice(0, 5);
-    
+
     const negative = [...variances]
-      .filter(v => v.varianceBudget < 0)
+      .filter((v) => v.varianceBudget < 0)
       .sort((a, b) => a.varianceBudget - b.varianceBudget)
       .slice(0, 5);
-    
+
     return { topPositive: positive, topNegative: negative };
   }, [variances]);
 
   // Format variance with color
   const formatVariance = (value: number, percent: number | null) => {
     const isPositive = value > 0;
-    const color = isPositive ? 'text-red-600' : value < 0 ? 'text-green-600' : 'text-muted-foreground';
-    const sign = isPositive ? '+' : '';
-    
+    const color = isPositive
+      ? "text-red-600"
+      : value < 0
+      ? "text-green-600"
+      : "text-muted-foreground";
+    const sign = isPositive ? "+" : "";
+
     // For percent, only add '+' for positive values; negative values show '-' automatically via toFixed()
-    const percentSign = percent !== null && percent > 0 ? '+' : '';
-    const percentText = percent !== null ? `${percentSign}${percent.toFixed(1)}%` : '—';
-    
+    const percentSign = percent !== null && percent > 0 ? "+" : "";
+    const percentText =
+      percent !== null ? `${percentSign}${percent.toFixed(1)}%` : "—";
+
     return {
       text: `${sign}${formatCurrency(value)}`,
       percentText,
@@ -91,7 +104,10 @@ export function MonthlySnapshotSummary({
     };
   };
 
-  const totalVariance = formatVariance(totalVarianceBudget, totalVarianceBudgetPercent);
+  const totalVariance = formatVariance(
+    totalVarianceBudget,
+    totalVarianceBudgetPercent
+  );
 
   return (
     <Card className="border-2">
@@ -101,25 +117,72 @@ export function MonthlySnapshotSummary({
           <div className="space-y-1">
             <div className="text-xs text-muted-foreground">Presupuesto</div>
             <div className="text-lg font-semibold">
-              {totalBudget > 0 ? formatCurrency(totalBudget) : '—'}
+              {totalBudget > 0 ? formatCurrency(totalBudget) : "—"}
             </div>
           </div>
           <div className="space-y-1">
             <div className="text-xs text-muted-foreground">Pronóstico</div>
-            <div className="text-lg font-semibold">{formatCurrency(totalForecast)}</div>
+            <div className="text-lg font-semibold">
+              {formatCurrency(totalForecast)}
+            </div>
           </div>
           <div className="space-y-1">
             <div className="text-xs text-muted-foreground">Real</div>
-            <div className="text-lg font-semibold">{formatCurrency(totalActual)}</div>
+            <div className="text-lg font-semibold">
+              {formatCurrency(totalActual)}
+            </div>
           </div>
           <div className="space-y-1">
-            <div className="text-xs text-muted-foreground">Var vs Presupuesto</div>
+            <div className="text-xs text-muted-foreground">
+              Var vs Presupuesto
+            </div>
             <div className={`text-lg font-semibold ${totalVariance.color}`}>
               <div>{totalVariance.text}</div>
               <div className="text-sm">({totalVariance.percentText})</div>
             </div>
           </div>
         </div>
+
+        {/* Labor vs Non-Labor Breakdown */}
+        {costBreakdown && (
+          <div className="border-t pt-3 space-y-2">
+            <div className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+              <span>Distribución por tipo de costo</span>
+              <span>
+                Labor {costBreakdown.laborPct.toFixed(0)}% · No Labor{" "}
+                {costBreakdown.nonLaborPct.toFixed(0)}%
+              </span>
+            </div>
+            <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex">
+              {costBreakdown.laborPct > 0 && (
+                <div
+                  className="bg-blue-500 h-full"
+                  style={{ width: `${costBreakdown.laborPct}%` }}
+                />
+              )}
+              {costBreakdown.nonLaborPct > 0 && (
+                <div
+                  className="bg-emerald-500 h-full"
+                  style={{ width: `${costBreakdown.nonLaborPct}%` }}
+                />
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="rounded-md bg-blue-50 px-2 py-1">
+                <div className="text-[11px] text-blue-700">Labor</div>
+                <div className="font-semibold">
+                  {formatCurrency(costBreakdown.laborTotal)}
+                </div>
+              </div>
+              <div className="rounded-md bg-emerald-50 px-2 py-1 text-right">
+                <div className="text-[11px] text-emerald-700">No Labor</div>
+                <div className="font-semibold">
+                  {formatCurrency(costBreakdown.nonLaborTotal)}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Variances Section */}
         {(topPositive.length > 0 || topNegative.length > 0) && (
@@ -138,7 +201,10 @@ export function MonthlySnapshotSummary({
                   </div>
                   <div className="space-y-1">
                     {topPositive.map((item) => {
-                      const variance = formatVariance(item.varianceBudget, item.varianceBudgetPercent);
+                      const variance = formatVariance(
+                        item.varianceBudget,
+                        item.varianceBudgetPercent
+                      );
                       return (
                         <Button
                           key={item.id}
@@ -149,9 +215,14 @@ export function MonthlySnapshotSummary({
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-medium truncate">{item.name}</span>
+                              <span className="text-xs font-medium truncate">
+                                {item.name}
+                              </span>
                               {item.code && (
-                                <Badge variant="outline" className="text-[9px] px-1 py-0">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] px-1 py-0"
+                                >
                                   {item.code}
                                 </Badge>
                               )}
@@ -176,7 +247,10 @@ export function MonthlySnapshotSummary({
                   </div>
                   <div className="space-y-1">
                     {topNegative.map((item) => {
-                      const variance = formatVariance(item.varianceBudget, item.varianceBudgetPercent);
+                      const variance = formatVariance(
+                        item.varianceBudget,
+                        item.varianceBudgetPercent
+                      );
                       return (
                         <Button
                           key={item.id}
@@ -187,9 +261,14 @@ export function MonthlySnapshotSummary({
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-medium truncate">{item.name}</span>
+                              <span className="text-xs font-medium truncate">
+                                {item.name}
+                              </span>
                               {item.code && (
-                                <Badge variant="outline" className="text-[9px] px-1 py-0">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] px-1 py-0"
+                                >
                                   {item.code}
                                 </Badge>
                               )}

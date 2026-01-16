@@ -10,6 +10,10 @@ permissions:
   id-token: write
   contents: write
 
+concurrency:
+  group: deploy-finanzas-ui-${{ github.ref }}
+  cancel-in-progress: true
+
 # --------- GLOBAL ENV (branch-aware) ----------
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
@@ -224,6 +228,33 @@ jobs:
             exit 1
           }
           echo "✅ Finanzas Portal built → dist-finanzas/"
+
+      - name: Write Finanzas deployment metadata
+        run: |
+          set -euo pipefail
+
+          if [ ! -d dist-finanzas ]; then
+            echo "❌ dist-finanzas directory not found after build"
+            exit 1
+          fi
+
+          BUILD_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          SHORT_SHA="${GITHUB_SHA::7}"
+
+          cat > dist-finanzas/deployment-meta.json <<EOF
+{
+  "sha": "${GITHUB_SHA}",
+  "shortSha": "${SHORT_SHA}",
+  "builtAt": "${BUILD_TS}",
+  "runId": "${GITHUB_RUN_ID}",
+  "runNumber": "${GITHUB_RUN_NUMBER}",
+  "workflow": "${GITHUB_WORKFLOW}",
+  "repository": "${GITHUB_REPOSITORY}",
+  "ref": "${GITHUB_REF}"
+}
+EOF
+
+          echo "✅ deployment-meta.json written"
 
       - name: Record Finanzas bundle hashes
         run: |
@@ -610,6 +641,27 @@ jobs:
           fi
           echo "✅ auth/callback.html present in S3 at finanzas/auth/callback.html"
 
+      - name: Verify deployment metadata in S3
+        run: |
+          set -euo pipefail
+
+          TMP_FILE=$(mktemp)
+          aws s3 cp "s3://${FINANZAS_BUCKET_NAME}/finanzas/deployment-meta.json" "$TMP_FILE" >/dev/null
+          DEPLOY_SHA=$(jq -r '.sha // empty' "$TMP_FILE")
+
+          if [ -z "$DEPLOY_SHA" ]; then
+            echo "❌ deployment-meta.json missing sha field"
+            cat "$TMP_FILE"
+            exit 1
+          fi
+
+          if [ "$DEPLOY_SHA" != "${GITHUB_SHA}" ]; then
+            echo "❌ deployment-meta.json sha ($DEPLOY_SHA) does not match current commit ${GITHUB_SHA}"
+            exit 1
+          fi
+
+          echo "✅ deployment-meta.json in S3 matches current commit ${GITHUB_SHA}"
+
       - name: Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)
         run: |
           set -euo pipefail
@@ -630,6 +682,38 @@ jobs:
             --paths '/*' '/finanzas/*' '/finanzas/index.html' \
             --query 'Invalidation.Id' --output text)
           echo "✅ Invalidation queued: $INVALIDATION_ID"
+
+      - name: Verify CloudFront serves latest deployment metadata
+        run: |
+          set -euo pipefail
+
+          DOMAIN="${CF_DOMAIN}"
+          if [ -z "$DOMAIN" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          fi
+
+          URL="https://${DOMAIN}/finanzas/deployment-meta.json"
+          echo "🔍 Waiting for CloudFront to serve ${URL} with sha ${GITHUB_SHA}"
+
+          ATTEMPTS=12
+          SLEEP_SECONDS=10
+
+          for ((i=1; i<=ATTEMPTS; i++)); do
+            RESPONSE=$(curl -sS --fail "$URL" || true)
+            SHA=$(printf '%s' "$RESPONSE" | jq -r '.sha // empty' 2>/dev/null || true)
+
+            if [ "$SHA" = "${GITHUB_SHA}" ]; then
+              echo "✅ CloudFront is serving the latest deployment metadata (attempt $i)"
+              exit 0
+            fi
+
+            echo "⏳ Attempt $i/${ATTEMPTS}: sha='$SHA' (wanted ${GITHUB_SHA})"
+            sleep "$SLEEP_SECONDS"
+          done
+
+          echo "❌ CloudFront did not serve the latest deployment metadata within $((ATTEMPTS * SLEEP_SECONDS)) seconds"
+          echo "    URL: $URL"
+          exit 1
 
       - name: UI Smoke (Finanzas /finanzas/)
         run: |

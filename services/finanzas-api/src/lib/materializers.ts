@@ -1,4 +1,7 @@
-import { BatchWriteCommand, BatchWriteCommandInput } from "@aws-sdk/lib-dynamodb";
+import {
+  BatchWriteCommand,
+  BatchWriteCommandInput,
+} from "@aws-sdk/lib-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { ddb, tableName, GetCommand, ScanCommand } from "./dynamo";
 import { logError } from "../utils/logging";
@@ -56,18 +59,17 @@ type TaxonomyIndex = {
 let taxonomyIndexCache: TaxonomyIndex | null = null;
 
 const normalizeKeyPart = (value?: string | null) =>
-  (value || "")
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
+  (value || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
 
 const taxonomyKey = (category?: string | null, description?: string | null) =>
   `${normalizeKeyPart(category)}|${normalizeKeyPart(description)}`;
 
 const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
   const now = Date.now();
-  if (taxonomyIndexCache && now - taxonomyIndexCache.fetchedAt < TAXONOMY_CACHE_TTL_MS) {
+  if (
+    taxonomyIndexCache &&
+    now - taxonomyIndexCache.fetchedAt < TAXONOMY_CACHE_TTL_MS
+  ) {
     return taxonomyIndexCache;
   }
 
@@ -92,7 +94,10 @@ const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
     const description =
       entry.descripcion || entry.linea_gasto || entry.linea_codigo || "";
     if (entry.categoria || description) {
-      byCategoryDescription.set(taxonomyKey(entry.categoria, description), entry);
+      byCategoryDescription.set(
+        taxonomyKey(entry.categoria, description),
+        entry
+      );
     }
     if (description) {
       byDescription.set(normalizeKeyPart(description), entry);
@@ -116,114 +121,205 @@ const unmarshallIfNeeded = (value: unknown): any => {
   if (!value || typeof value !== "object") {
     return value;
   }
-  
+
   // Handle arrays
   if (Array.isArray(value)) {
     return value.map((item) => unmarshallIfNeeded(item));
   }
-  
+
   // Check if this looks like marshalled DynamoDB data by looking for type descriptors
   const obj = value as Record<string, unknown>;
   const keys = Object.keys(obj);
-  
+
   // DynamoDB type descriptors: S, N, B, SS, NS, BS, M, L, NULL, BOOL
-  const dynamoTypes = ["S", "N", "B", "SS", "NS", "BS", "M", "L", "NULL", "BOOL"];
-  
+  const dynamoTypes = [
+    "S",
+    "N",
+    "B",
+    "SS",
+    "NS",
+    "BS",
+    "M",
+    "L",
+    "NULL",
+    "BOOL",
+  ];
+
   // If the object has exactly one key and it's a DynamoDB type descriptor, unmarshall it
   if (keys.length === 1 && dynamoTypes.includes(keys[0])) {
     try {
       return unmarshall({ temp: value as any }).temp;
     } catch (err) {
-      logError("[materializers] failed to unmarshall DynamoDB data", { value, error: err });
+      logError("[materializers] failed to unmarshall DynamoDB data", {
+        value,
+        error: err,
+      });
       return value;
     }
   }
-  
+
   // If it's an object with multiple fields that might be marshalled, try each field
   const result: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(obj)) {
     result[key] = unmarshallIfNeeded(val);
   }
-  
+
   return result;
+};
+
+const normalizeProjectId = (rawProjectId: string | undefined | null) => {
+  const value = (rawProjectId ?? "").toString().trim();
+  if (!value) {
+    throw new Error(
+      "[materializers] Baseline missing projectId; cannot materialize allocations"
+    );
+  }
+
+  const sanitized = value.startsWith("PROJECT#")
+    ? value.slice("PROJECT#".length)
+    : value;
+
+  if (sanitized.startsWith("BASELINE#")) {
+    console.warn(
+      "[materializers] projectId looks like a baseline pk, stripping prefix",
+      {
+        rawProjectId: value,
+      }
+    );
+    return sanitized.replace(/^BASELINE#+/i, "");
+  }
+
+  if (sanitized !== value) {
+    console.info(
+      "[materializers] normalized projectId by removing PROJECT# prefix",
+      {
+        rawProjectId: value,
+        normalizedProjectId: sanitized,
+      }
+    );
+  }
+
+  return sanitized;
 };
 
 const normalizeBaseline = (baseline: BaselineLike) => {
   // ---------- START PATCH for normalizeBaseline ----------
-  const rawPayloadCandidate = (baseline.payload as Record<string, unknown> | undefined) ?? baseline ?? {};
+  const rawPayloadCandidate =
+    (baseline.payload as Record<string, unknown> | undefined) ?? baseline ?? {};
   // Try to unmarshall the candidate
-  const payloadCandidate = unmarshallIfNeeded(rawPayloadCandidate) as Record<string, unknown>;
+  const payloadCandidate = unmarshallIfNeeded(rawPayloadCandidate) as Record<
+    string,
+    unknown
+  >;
 
   // Helper: try to find estimates within 0..2 extra payload nestings
   const tryUnwrapForEstimates = (p: any): Record<string, unknown> => {
     if (!p || typeof p !== "object") return {};
     // Level 0: direct
-    if (Array.isArray(p.labor_estimates) || Array.isArray(p.non_labor_estimates)) return p;
+    if (
+      Array.isArray(p.labor_estimates) ||
+      Array.isArray(p.non_labor_estimates)
+    )
+      return p;
     // Level 1: p.payload
     if (p.payload) {
       const p1 = unmarshallIfNeeded(p.payload);
-      if (Array.isArray((p1 as any).labor_estimates) || Array.isArray((p1 as any).non_labor_estimates)) return p1 as Record<string, unknown>;
+      if (
+        Array.isArray((p1 as any).labor_estimates) ||
+        Array.isArray((p1 as any).non_labor_estimates)
+      )
+        return p1 as Record<string, unknown>;
       // Level 2: p.payload.payload
       if ((p1 as any).payload) {
         const p2 = unmarshallIfNeeded((p1 as any).payload);
-        if (Array.isArray((p2 as any).labor_estimates) || Array.isArray((p2 as any).non_labor_estimates)) return p2 as Record<string, unknown>;
+        if (
+          Array.isArray((p2 as any).labor_estimates) ||
+          Array.isArray((p2 as any).non_labor_estimates)
+        )
+          return p2 as Record<string, unknown>;
       }
     }
     // Last resort: return the original unmarshalled candidate
     return p;
   };
 
-  const payload = tryUnwrapForEstimates(payloadCandidate) as Record<string, unknown>;
+  const payload = tryUnwrapForEstimates(payloadCandidate) as Record<
+    string,
+    unknown
+  >;
 
   // Diagnostic: helpful preview for CloudWatch (so operators can confirm what materializer received)
   try {
-    const previewLaborCount =
-      Array.isArray((payload as any).labor_estimates)
-        ? (payload as any).labor_estimates.length
-        : 0;
-    const previewNonLaborCount =
-      Array.isArray((payload as any).non_labor_estimates)
-        ? (payload as any).non_labor_estimates.length
-        : 0;
+    const previewLaborCount = Array.isArray((payload as any).labor_estimates)
+      ? (payload as any).labor_estimates.length
+      : 0;
+    const previewNonLaborCount = Array.isArray(
+      (payload as any).non_labor_estimates
+    )
+      ? (payload as any).non_labor_estimates.length
+      : 0;
     console.info("[materializers] normalizeBaseline preview", {
       baselineId: baseline.baseline_id || baseline.baselineId,
-      projectId: baseline.project_id || baseline.projectId || (payload as any).project_id,
+      projectId:
+        baseline.project_id ||
+        baseline.projectId ||
+        (payload as any).project_id,
       startDate: baseline.start_date || (payload as any).start_date || null,
-      durationMonths: baseline.duration_months || baseline.durationMonths || (payload as any).duration_months || (payload as any).durationMonths || 0,
+      durationMonths:
+        baseline.duration_months ||
+        baseline.durationMonths ||
+        (payload as any).duration_months ||
+        (payload as any).durationMonths ||
+        0,
       laborCount: previewLaborCount,
-      nonLaborCount: previewNonLaborCount
+      nonLaborCount: previewNonLaborCount,
     });
   } catch (e) {
     // don't fail normalization on logging issues
-    console.warn("[materializers] normalizeBaseline preview logging failed", String(e));
+    console.warn(
+      "[materializers] normalizeBaseline preview logging failed",
+      String(e)
+    );
   }
   // ---------- END PATCH ----------
-  
-  const payloadLabor = asArray((payload as { labor_estimates?: any[] }).labor_estimates);
-  const payloadNonLabor = asArray((payload as { non_labor_estimates?: any[] }).non_labor_estimates);
+
+  const payloadLabor = asArray(
+    (payload as { labor_estimates?: any[] }).labor_estimates
+  );
+  const payloadNonLabor = asArray(
+    (payload as { non_labor_estimates?: any[] }).non_labor_estimates
+  );
   const labor = asArray(baseline.labor_estimates);
   const nonLabor = asArray(baseline.non_labor_estimates);
 
   return {
-    baselineId: baseline.baseline_id || baseline.baselineId || (payload as { baseline_id?: string; baselineId?: string }).baseline_id ||
+    baselineId:
+      baseline.baseline_id ||
+      baseline.baselineId ||
+      (payload as { baseline_id?: string; baselineId?: string }).baseline_id ||
       (payload as { baseline_id?: string; baselineId?: string }).baselineId ||
       "unknown",
-    projectId: baseline.project_id || baseline.projectId || (payload as { project_id?: string; projectId?: string }).project_id ||
-      (payload as { project_id?: string; projectId?: string }).projectId ||
-      "unknown",
+    projectId: normalizeProjectId(
+      baseline.project_id ||
+        baseline.projectId ||
+        (payload as { project_id?: string; projectId?: string }).project_id ||
+        (payload as { project_id?: string; projectId?: string }).projectId ||
+        ""
+    ),
     durationMonths:
       baseline.duration_months ||
       baseline.durationMonths ||
-      (payload as { duration_months?: number; durationMonths?: number }).duration_months ||
-      (payload as { duration_months?: number; durationMonths?: number }).durationMonths ||
+      (payload as { duration_months?: number; durationMonths?: number })
+        .duration_months ||
+      (payload as { duration_months?: number; durationMonths?: number })
+        .durationMonths ||
       0,
     startDate:
       baseline.start_date ||
       (payload as { start_date?: string }).start_date ||
       new Date().toISOString(),
     currency:
-      baseline.currency || (payload as { currency?: string }).currency ||
-      "USD",
+      baseline.currency || (payload as { currency?: string }).currency || "USD",
     laborEstimates: labor.length > 0 ? labor : payloadLabor,
     nonLaborEstimates: nonLabor.length > 0 ? nonLabor : payloadNonLabor,
   };
@@ -274,9 +370,13 @@ type BaselineNonLaborEstimate = {
   line_item_id?: string;
 };
 
-const stableIdFromParts = (...parts: Array<string | number | undefined | null>) =>
+const stableIdFromParts = (
+  ...parts: Array<string | number | undefined | null>
+) =>
   parts
-    .filter((part) => part !== undefined && part !== null && `${part}`.length > 0)
+    .filter(
+      (part) => part !== undefined && part !== null && `${part}`.length > 0
+    )
     .map((part) =>
       `${part}`
         .trim()
@@ -314,10 +414,12 @@ export const buildRubrosFromBaselinePayload = async (
   baselineId: string
 ): Promise<BaselineRubrosBuildResult> => {
   const laborEstimates = asArray(
-    (baselinePayload as { labor_estimates?: BaselineLaborEstimate[] }).labor_estimates
+    (baselinePayload as { labor_estimates?: BaselineLaborEstimate[] })
+      .labor_estimates
   ) as BaselineLaborEstimate[];
   const nonLaborEstimates = asArray(
-    (baselinePayload as { non_labor_estimates?: BaselineNonLaborEstimate[] }).non_labor_estimates
+    (baselinePayload as { non_labor_estimates?: BaselineNonLaborEstimate[] })
+      .non_labor_estimates
   ) as BaselineNonLaborEstimate[];
   const currency = (baselinePayload as { currency?: string }).currency || "USD";
 
@@ -336,7 +438,9 @@ export const buildRubrosFromBaselinePayload = async (
     const resolvedLineaCodigo = canonicalRubroId || UNMAPPED_RUBRO_ID;
     if (!canonicalRubroId) {
       warnings.push(
-        `Labor estimate missing taxonomy mapping for role "${estimate.role ?? "unknown"}". Using ${UNMAPPED_RUBRO_ID}.`
+        `Labor estimate missing taxonomy mapping for role "${
+          estimate.role ?? "unknown"
+        }". Using ${UNMAPPED_RUBRO_ID}.`
       );
     }
 
@@ -419,11 +523,15 @@ export const buildRubrosFromBaselinePayload = async (
     if (!resolvedLineaCodigo) {
       resolvedLineaCodigo = UNMAPPED_RUBRO_ID;
       warnings.push(
-        `Non-labor estimate missing taxonomy mapping for "${category ?? ""} ${description ?? ""}". Using ${UNMAPPED_RUBRO_ID}.`
+        `Non-labor estimate missing taxonomy mapping for "${category ?? ""} ${
+          description ?? ""
+        }". Using ${UNMAPPED_RUBRO_ID}.`
       );
     }
 
-    const amount = Number(estimate.amount ?? estimate.cost ?? estimate.total ?? 0);
+    const amount = Number(
+      estimate.amount ?? estimate.cost ?? estimate.total ?? 0
+    );
     const recurring = !(estimate.one_time ?? estimate.oneTime ?? false);
     const startMonth = Math.max(
       Number(estimate.start_month ?? estimate.startMonth ?? 1),
@@ -492,12 +600,14 @@ const monthSequence = (startDate: string, durationMonths: number): string[] => {
   // Contract month alignment: M1 = baseline start_date month
   let start: Date;
   let startDateWasFallback = false;
-  
+
   if (startDate) {
     start = new Date(startDate);
     // Validate the date
     if (isNaN(start.getTime())) {
-      console.error("[materializers] Invalid start_date, using current month", { startDate });
+      console.error("[materializers] Invalid start_date, using current month", {
+        startDate,
+      });
       start = new Date();
       startDateWasFallback = true;
     }
@@ -506,14 +616,14 @@ const monthSequence = (startDate: string, durationMonths: number): string[] => {
     start = new Date();
     startDateWasFallback = true;
   }
-  
+
   if (startDateWasFallback) {
     console.warn("[materializers] Contract month alignment may be incorrect", {
       startDateWasFallback: true,
       fallbackMonth: formatMonth(start),
     });
   }
-  
+
   const months: string[] = [];
   for (let i = 0; i < durationMonths; i += 1) {
     const next = new Date(start);
@@ -523,10 +633,15 @@ const monthSequence = (startDate: string, durationMonths: number): string[] => {
   return months;
 };
 
-const resolveTotalCost = (item: Record<string, any>, monthsCount: number): number => {
+const resolveTotalCost = (
+  item: Record<string, any>,
+  monthsCount: number
+): number => {
   const qty = Number(item.qty ?? item.quantity ?? 1);
   const unitCost = Number(item.unit_cost ?? item.unitCost ?? item.amount ?? 0);
-  const explicitTotal = Number(item.total_cost ?? item.totalCost ?? item.total_amount ?? 0);
+  const explicitTotal = Number(
+    item.total_cost ?? item.totalCost ?? item.total_amount ?? 0
+  );
   if (!Number.isNaN(explicitTotal) && explicitTotal > 0) return explicitTotal;
   const recurring = item.periodic === "recurring" || item.recurring === true;
   if (!Number.isNaN(unitCost) && unitCost > 0) {
@@ -557,13 +672,17 @@ const resolveMonthlyAmounts = (
     return months.map((month, idx) => {
       const key = month as keyof typeof explicit;
       const fallback = idx + 1;
-      return Number((explicit as Record<string, any>)[key] ?? (explicit as Record<string, any>)[fallback] ?? 0);
+      return Number(
+        (explicit as Record<string, any>)[key] ??
+          (explicit as Record<string, any>)[fallback] ??
+          0
+      );
     });
   }
 
   const recurring = item.periodic === "recurring" || item.recurring === true;
   const monthlyValue = totalCost / months.length;
-  return months.map(() => Number.isFinite(monthlyValue) ? monthlyValue : 0);
+  return months.map(() => (Number.isFinite(monthlyValue) ? monthlyValue : 0));
 };
 
 const dedupeByKey = <T>(items: T[], keyFn: (item: T) => string): T[] => {
@@ -593,7 +712,7 @@ const batchWriteAll = async (table: string, items: Record<string, any>[]) => {
     let pending: BatchWriteCommandInput | undefined = batch;
     let retryCount = 0;
     const maxRetries = 3;
-    
+
     while (pending && retryCount < maxRetries) {
       try {
         const response = await ddb.send(new BatchWriteCommand(pending));
@@ -603,7 +722,9 @@ const batchWriteAll = async (table: string, items: Record<string, any>[]) => {
           retryCount++;
           // Exponential backoff for retries
           if (retryCount < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)));
+            await new Promise((resolve) =>
+              setTimeout(resolve, 100 * Math.pow(2, retryCount))
+            );
           }
         } else {
           pending = undefined;
@@ -614,10 +735,12 @@ const batchWriteAll = async (table: string, items: Record<string, any>[]) => {
           throw error;
         }
         // Exponential backoff for errors
-        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)));
+        await new Promise((resolve) =>
+          setTimeout(resolve, 100 * Math.pow(2, retryCount))
+        );
       }
     }
-    
+
     if (pending && retryCount >= maxRetries) {
       throw new Error(`Failed to write batch after ${maxRetries} retries`);
     }
@@ -628,8 +751,15 @@ export const materializeAllocationsForBaseline = async (
   baseline: BaselineLike,
   options: MaterializerOptions = { dryRun: true }
 ) => {
-  const { baselineId, projectId, durationMonths, startDate, currency, laborEstimates, nonLaborEstimates } =
-    normalizeBaseline(baseline);
+  const {
+    baselineId,
+    projectId,
+    durationMonths,
+    startDate,
+    currency,
+    laborEstimates,
+    nonLaborEstimates,
+  } = normalizeBaseline(baseline);
 
   console.info("[materializers] materializeAllocationsForBaseline start", {
     projectId,
@@ -645,8 +775,16 @@ export const materializeAllocationsForBaseline = async (
   const now = new Date().toISOString();
 
   const allocations = lineItems.flatMap((item) => {
-    const rubroStableId = item.rubroId || item.rubro_id || item.linea_codigo || item.id || "unknown";
-    const lineItemId = item.id || item.line_item_id || stableIdFromParts(rubroStableId, item.role, item.category);
+    const rubroStableId =
+      item.rubroId ||
+      item.rubro_id ||
+      item.linea_codigo ||
+      item.id ||
+      "unknown";
+    const lineItemId =
+      item.id ||
+      item.line_item_id ||
+      stableIdFromParts(rubroStableId, item.role, item.category);
     const totalCost = resolveTotalCost(item, months.length);
     const monthly = resolveMonthlyAmounts(item, months, totalCost);
 
@@ -675,24 +813,39 @@ export const materializeAllocationsForBaseline = async (
     });
   });
 
-  const uniqueAllocations = dedupeByKey(allocations, (item) => `${item.pk}#${item.sk}`);
+  const uniqueAllocations = dedupeByKey(
+    allocations,
+    (item) => `${item.pk}#${item.sk}`
+  );
   const allocationsAttempted = uniqueAllocations.length;
 
   if (options.dryRun) {
-    return { allocationsAttempted, allocationsPlanned: uniqueAllocations.length, months: months.length };
+    return {
+      allocationsAttempted,
+      allocationsPlanned: uniqueAllocations.length,
+      months: months.length,
+    };
   }
 
   // Idempotency: Check for existing allocations
   let existingKeys = new Set<string>();
   try {
-    const keys = uniqueAllocations.map((allocation) => ({ pk: allocation.pk, sk: allocation.sk }));
+    const keys = uniqueAllocations.map((allocation) => ({
+      pk: allocation.pk,
+      sk: allocation.sk,
+    }));
     console.info("[materializers] checking existing allocations", {
       baselineId,
       projectId,
-      sampleSKsToCheck: keys.slice(0, 3).map(k => k.sk),
+      sampleSKsToCheck: keys.slice(0, 3).map((k) => k.sk),
     });
-    const existingAllocations = await batchGetExistingItems(tableName("allocations"), keys);
-    existingKeys = new Set(existingAllocations.map((item) => `${item.pk}#${item.sk}`));
+    const existingAllocations = await batchGetExistingItems(
+      tableName("allocations"),
+      keys
+    );
+    existingKeys = new Set(
+      existingAllocations.map((item) => `${item.pk}#${item.sk}`)
+    );
     console.info("[materializers] existing allocations found", {
       baselineId,
       projectId,
@@ -727,22 +880,32 @@ export const materializeAllocationsForBaseline = async (
       allocationsWritten,
       allocationsSkipped,
       months: months.length,
-      monthRange: months.length > 0 ? `${months[0]} to ${months[months.length - 1]}` : 'none',
+      monthRange:
+        months.length > 0
+          ? `${months[0]} to ${months[months.length - 1]}`
+          : "none",
     });
 
     // WARN if we attempted to create allocations but wrote 0 (all skipped)
     if (allocationsAttempted > 0 && allocationsWritten === 0) {
-      console.warn("[materializers] All allocations were skipped (idempotent)", {
-        baselineId,
-        projectId,
-        allocationsAttempted,
-        note: "This is normal if allocations were already materialized",
-      });
+      console.warn(
+        "[materializers] All allocations were skipped (idempotent)",
+        {
+          baselineId,
+          projectId,
+          allocationsAttempted,
+          note: "This is normal if allocations were already materialized",
+        }
+      );
     }
 
     return { allocationsAttempted, allocationsWritten, allocationsSkipped };
   } catch (error) {
-    logError("[materializers] failed to write allocations", { baselineId, projectId, error });
+    logError("[materializers] failed to write allocations", {
+      baselineId,
+      projectId,
+      error,
+    });
     throw error;
   }
 };
@@ -779,8 +942,13 @@ export const materializeRubrosForBaseline = async (
   let existingKeys = new Set<string>();
   try {
     const keys = uniqueRubros.map((rubro) => ({ pk: rubro.pk, sk: rubro.sk }));
-    const existingRubros = await batchGetExistingItems(tableName("rubros"), keys);
-    existingKeys = new Set(existingRubros.map((item) => `${item.pk}#${item.sk}`));
+    const existingRubros = await batchGetExistingItems(
+      tableName("rubros"),
+      keys
+    );
+    existingKeys = new Set(
+      existingRubros.map((item) => `${item.pk}#${item.sk}`)
+    );
   } catch (error) {
     logError("[materializers] failed to batch check existing rubros", {
       baselineId,
@@ -812,7 +980,11 @@ export const materializeRubrosForBaseline = async (
       warnings,
     };
   } catch (error) {
-    logError("[materializers] failed to write rubros", { baselineId, projectId, error });
+    logError("[materializers] failed to write rubros", {
+      baselineId,
+      projectId,
+      error,
+    });
     throw error;
   }
 };
@@ -839,7 +1011,9 @@ export const materializeRubrosFromBaseline = async ({
   );
 
   if (!result.Item) {
-    const error = new Error(`Baseline ${baselineId} not found in prefacturas store.`);
+    const error = new Error(
+      `Baseline ${baselineId} not found in prefacturas store.`
+    );
     (error as { statusCode?: number }).statusCode = 404;
     throw error;
   }
