@@ -13,7 +13,7 @@
  */
 
 import { DynamoDBDocumentClient, GetCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
-import crypto from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 export interface ResolveProjectParams {
   ddb: DynamoDBDocumentClient;
@@ -258,7 +258,7 @@ export async function resolveProjectForHandoff(
   }
 
   // Step 3: No project owns this baseline yet - decide what to do with incomingProjectId
-  let resolvedProjectId = incomingProjectId ?? `P-${crypto.randomUUID()}`;
+  let resolvedProjectId = incomingProjectId ?? `P-${randomUUID()}`;
   let existingProjectMetadata: Record<string, unknown> | undefined;
 
   // If a projectId was provided in the path (e.g., QA project or existing project),
@@ -277,7 +277,7 @@ export async function resolveProjectForHandoff(
           existingBaseline,
           newBaseline: normalizedBaselineId,
         });
-        resolvedProjectId = `P-${crypto.randomUUID()}`;
+        resolvedProjectId = `P-${randomUUID()}`;
       } else if (!existingBaseline) {
         // Project exists but has no baseline yet (e.g., QA project)
         // Assign this baseline to the project. Note: This does not verify

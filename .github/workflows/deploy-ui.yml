@@ -379,9 +379,32 @@ jobs:
           echo "📋 Sample occurrences:"
           grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" | head -3 || true
 
-      # ---- CI Guard 4: AWS credentials guard (OIDC preferred, static fallback) ----
+      # ---- CI Guard 4: AWS credentials guard (detect method + configure) ----
+      - name: Detect AWS credential method
+        id: aws_creds
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Detecting available AWS credential configuration..."
+
+          # Default outputs
+          echo "oidc=false" > "$GITHUB_OUTPUT"
+          echo "static=false" > "$GITHUB_OUTPUT"
+
+          # Detect OIDC role secret
+          if [ -n "${{ secrets.OIDC_AWS_ROLE_ARN }}" ]; then
+            echo "oidc=true" > "$GITHUB_OUTPUT"
+            echo "Detected OIDC_AWS_ROLE_ARN"
+          fi
+
+          # Detect static AWS keys
+          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "static=true" > "$GITHUB_OUTPUT"
+            echo "Detected static AWS credentials"
+          fi
+
       - name: Configure AWS credentials (OIDC if available)
-        if: ${{ secrets.OIDC_AWS_ROLE_ARN != '' }}
+        if: ${{ steps.aws_creds.outputs.oidc == 'true' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
@@ -389,7 +412,7 @@ jobs:
           role-session-name: deploy-ui-${{ github.run_id }}
 
       - name: Configure AWS credentials (static creds fallback)
-        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.OIDC_AWS_ROLE_ARN == '' }}
+        if: ${{ steps.aws_creds.outputs.static == 'true' && steps.aws_creds.outputs.oidc == 'false' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -400,11 +423,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo "Checking AWS credentials are configured..."
           if ! aws sts get-caller-identity --region "${AWS_REGION}" >/dev/null 2>&1; then
-            echo "❌ AWS credentials are not configured. Please provide secrets.OIDC_AWS_ROLE_ARN or AWS access key secrets."
+            echo "❌ AWS credentials are not configured. Please provide either:"
+            echo "   - secrets.OIDC_AWS_ROLE_ARN (preferred) with GitHub OIDC trust configured in AWS"
+            echo "   - OR secrets.AWS_ACCESS_KEY_ID and secrets.AWS_SECRET_ACCESS_KEY"
+            echo ""
+            echo "Debug info (secrets detection step outputs):"
+            echo "  oidc=${{ steps.aws_creds.outputs.oidc }}"
+            echo "  static=${{ steps.aws_creds.outputs.static }}"
             exit 1
           else
-            echo "✅ AWS credentials are configured"
+            echo "✅ AWS credentials are configured (sts get-caller-identity ok)"
             aws sts get-caller-identity --region "${AWS_REGION}" || true
           fi
 
