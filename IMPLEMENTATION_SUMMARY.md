@@ -187,3 +187,125 @@ All core requirements from the problem statement have been successfully implemen
 ✅ Consolidated info banners for cleaner page layout
 
 The implementation is minimal, focused, and follows existing patterns in the codebase.
+
+---
+
+## Follow-up Refinement: Two-Zone Header Layout
+
+### 5. Two-Zone Header Layout ✅ (Added in follow-up)
+**Location:** `MonthlySnapshotGrid.tsx` - CardHeader
+
+**What was added:**
+- Refactored CardHeader into two-zone flex layout:
+  - **Left zone (flex-1)**: Title + 5 KPI summary cards
+  - **Right zone (280px on desktop)**: Controls + mini Labor/No-Labor visual
+- Responsive behavior:
+  - Desktop (lg+): Two-zone horizontal layout
+  - Mobile/Tablet: Stacks vertically
+- Controls moved to right zone:
+  - Toggle button (Expandir/Resumir)
+  - Month selector (Período)
+  - Grouping mode (Agrupar por)
+  - Cost type filter (Todos/Labor/No Labor) - renamed for brevity
+- Search and variance filter remain in CardContent
+
+**Benefits:**
+- Better desktop space utilization - no blank areas
+- All controls organized in one location
+- Cleaner, more executive look
+- Easy to scan and use
+
+### 6. Mini Labor vs No-Labor Visualization ✅ (Added in follow-up)
+**Location:** `MonthlySnapshotGrid.tsx` - Right zone of CardHeader
+
+**What was added:**
+- Compact visualization showing budget breakdown by cost type for selected month
+- Stacked horizontal bar showing labor vs non-labor percentages
+- Color-coded: Blue for labor, emerald for non-labor
+- Legend with percentages: "Labor X%" and "No Labor Y%"
+- Height: ~60px total, compact and non-intrusive
+- Updates automatically based on filtered rows
+
+**Implementation:**
+```typescript
+const laborBreakdown = useMemo(() => {
+  let laborBudget = 0;
+  let nonLaborBudget = 0;
+
+  filteredRows.forEach(row => {
+    // Aggregate budget by cost type for all filtered rows
+    if (row.children && row.children.length > 0) {
+      row.children.forEach(child => {
+        const category = child.code ? 
+          (lineItems.find(li => li.id === child.code || li.projectId === child.code)?.category) : 
+          undefined;
+        
+        if (isLabor(category)) {
+          laborBudget += child.budget || 0;
+        } else {
+          nonLaborBudget += child.budget || 0;
+        }
+      });
+    }
+    // ... handle leaf rows
+  });
+
+  const total = laborBudget + nonLaborBudget;
+  const laborPct = total > 0 ? (laborBudget / total) * 100 : 0;
+  const nonLaborPct = total > 0 ? (nonLaborBudget / total) * 100 : 0;
+
+  return { laborBudget, nonLaborBudget, laborPct, nonLaborPct };
+}, [filteredRows, lineItems]);
+```
+
+**Benefits:**
+- At-a-glance understanding of cost structure
+- Reinforces the cost type filter functionality
+- Provides context for budget planning decisions
+- Compact and non-intrusive design
+
+---
+
+## Updated Testing Checklist
+
+### Desktop Layout Testing (1440px+)
+- [ ] Verify two-zone header layout
+- [ ] Left zone shows title + 5 summary cards
+- [ ] Right zone shows all controls + mini visual
+- [ ] No blank space on right side
+- [ ] Controls are usable and properly sized
+- [ ] Mini visual displays correct percentages
+- [ ] Mini visual updates when cost type filter changes
+
+### Responsive Testing
+- [ ] Mobile (375px): Stacks vertically (title → summary → controls → mini visual → search)
+- [ ] Tablet (768px): Stacks vertically
+- [ ] Desktop (1280px+): Two-zone horizontal layout
+
+### Mini Visual Testing
+- [ ] Shows correct labor/non-labor percentages
+- [ ] Updates when filters change
+- [ ] Bar visualization is clear and readable
+- [ ] Colors match design system (blue for labor, emerald for non-labor)
+- [ ] Legend is readable at small size
+
+---
+
+## Final Summary
+
+All requirements from the original problem statement AND the follow-up comment have been successfully implemented:
+
+**Original Requirements (PR #884):**
+✅ Compact summary view with % Consumo metric
+✅ Project-level action icons including direct link to Estructura de costos
+✅ Labor / Non-Labor / Ambos filter with decluttered UI
+✅ Consolidated info banners for cleaner page layout
+
+**Follow-up Refinement:**
+✅ Two-zone header layout for better desktop space utilization
+✅ All controls organized in right zone
+✅ Mini Labor vs No-Labor visualization for quick insights
+✅ Responsive design that stacks on mobile
+✅ Consistent with existing design patterns
+
+The implementation is minimal, focused, follows existing patterns in the codebase, and provides a significantly improved UX for the Matriz del Mes executive view.
