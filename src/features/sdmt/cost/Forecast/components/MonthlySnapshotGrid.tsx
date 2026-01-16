@@ -967,10 +967,19 @@ export function MonthlySnapshotGrid({
           </div>
         </div>
 
-        {/* Budget Info Banner */}
-        {!useMonthlyBudget && (
-          <div className="text-xs text-amber-600 bg-amber-50 rounded px-3 py-2 border border-amber-200">
-            ℹ️ Presupuesto mensual no configurado. Active el presupuesto mensual para ver métricas precisas.
+        {/* Consolidated Info Banner */}
+        {(selectedMonth === 'current' || !useMonthlyBudget) && (
+          <div className="flex flex-wrap gap-2 text-xs">
+            {selectedMonth === 'current' && (
+              <div className="flex-1 min-w-[250px] p-1.5 rounded bg-blue-50 text-blue-900 border border-blue-100">
+                📅 Mostrando solo el mes actual (M{actualMonthIndex})
+              </div>
+            )}
+            {!useMonthlyBudget && (
+              <div className="flex-1 min-w-[250px] p-1.5 rounded bg-amber-50 text-amber-900 border border-amber-100">
+                ℹ️ Presupuesto mensual no configurado. Active el presupuesto mensual para ver métricas precisas.
+              </div>
+            )}
           </div>
         )}
 
