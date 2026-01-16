@@ -1,44 +1,112 @@
-# Pull Request: Add "Desglose mensual vs presupuesto" by Project to TODOS Dashboard
+# PR Summary: CI Guards + Forecast Layout (Feature Flagged)
 
-## 📋 Summary
+## Quick Links
+- **Branch:** `copilot/ci-guards-and-forecast-layout`
+- **Documentation:** `docs/visual/forecast_layout.md`
+- **Full Summary:** `IMPLEMENTATION_SUMMARY_CI_GUARDS_FORECAST.md`
 
-This PR implements a new **"Por Proyecto"** (By Project) view for the 12-month forecast grid in TODOS/ALL_PROJECTS mode. Users can now toggle between grouping rubros by category or by project, with full support for filtering, search, and persistence.
+## What This PR Does
 
-## 🎯 Objectives Met
+### Part 1: CI Deployment Guards 🛡️
+Adds 4 critical guards to prevent stale bundle uploads:
 
-✅ Add toggleable project view to "Cuadrícula de Pronóstico 12 Meses"  
-✅ Reuse existing table UI and styles  
-✅ Lightweight and performant (useMemo heavy-lifting)  
-✅ Preserve existing filters (Mano de Obra / Todo / No Mano de Obra)  
-✅ Persist view mode and filter to sessionStorage per user+project  
-✅ Include unit tests (12 tests, all passing)  
-✅ Minimal docs updated  
+1. **Pre-Build Cleanup** - Removes old caches
+2. **Bundle Verification** - Ensures build produced JS/CSS
+3. **S3 Verification** - Confirms upload success & references match
+4. **AWS Credentials** - OIDC preferred, static fallback
 
-## 📈 Key Metrics
+### Part 2: Forecast Layout Improvements 🎨
+Feature-flagged layout reorganization (`VITE_FINZ_NEW_FORECAST_LAYOUT`):
 
-| Metric | Value |
-|--------|-------|
-| **Tests Added** | 12 (all passing ✅) |
-| **Lines Added** | ~1,649 |
-| **API Changes** | 0 |
-| **Dependencies** | 0 |
-| **Breaking Changes** | 0 |
+**When enabled:**
+- ✅ "Cuadrícula de Pronóstico" moved to top (below KPI summary)
+- ✅ Renamed from "...12 Meses" to just "Cuadrícula de Pronóstico"
+- ✅ "Resumen de todos los proyectos" collapsed by default
+- ✅ Compact spacing for cleaner look
 
-## 🧪 Testing
+**When disabled:** Original layout preserved
 
-**Automated**: 12/12 tests passing ✅  
-**Manual QA**: Checklist in `FORECAST_PROJECT_BREAKDOWN_IMPLEMENTATION.md`
+## Files Changed
 
-## 📚 Documentation
+```
+.github/workflows/deploy-ui.yml                      │ +84 lines  │ CI guards
+src/features/sdmt/cost/Forecast/SDMTForecast.tsx    │ +67/-53    │ Layout changes
+.env.example                                         │ +3        │ Flag docs
+.env.development                                     │ +2        │ Flag enabled
+docs/visual/forecast_layout.md                      │ +229      │ Documentation
+IMPLEMENTATION_SUMMARY_CI_GUARDS_FORECAST.md        │ +328      │ Full summary
+```
 
-- ✅ `FORECAST_PROJECT_BREAKDOWN_IMPLEMENTATION.md` - Comprehensive guide
-- ✅ `VISUAL_CHANGES_SUMMARY.md` - Feature description
-- ✅ Code comments and JSDoc
+## Testing Status
 
-## 👥 Reviewers
+- ✅ **Code Review:** Completed, all feedback addressed
+- ✅ **Security Scan:** 0 vulnerabilities (CodeQL)
+- ✅ **Backwards Compatible:** Both layouts work
+- ⏳ **Manual Testing:** Pending (requires running app)
+- ⏳ **CI Validation:** Pending (requires AWS credentials)
 
-@valencia94 @aigor
+## Preview Instructions
+
+### Enable New Layout
+```bash
+# Set flag
+echo "VITE_FINZ_NEW_FORECAST_LAYOUT=true" >> .env.local
+
+# Run dev server
+pnpm run dev
+
+# Navigate to /finanzas/sdmt/cost/forecast and select "TODOS"
+```
+
+### Test CI Guards (local)
+```bash
+# Run build
+pnpm run build:finanzas
+
+# Verify bundles exist
+ls -l dist-finanzas/assets/index-*.{js,css}
+```
+
+## Key Benefits
+
+1. **Prevents Deployment Failures** - CI guards catch issues early
+2. **Improved UX** - Frequently used grid moved to top
+3. **Progressive Disclosure** - Less clutter with collapsed panels
+4. **Safe Rollout** - Feature flag allows gradual deployment
+5. **No Breaking Changes** - Fully backwards compatible
+
+## Next Steps
+
+1. ✅ Code review (DONE)
+2. ✅ Security scan (DONE)
+3. ⏳ Manual testing in staging
+4. ⏳ Screenshot capture
+5. ⏳ Stakeholder approval
+6. ⏳ CI validation with real AWS creds
+7. ⏳ Merge & deploy
+
+## Security ✅
+
+**CodeQL Scan Results:**
+- Actions: 0 alerts
+- JavaScript: 0 alerts
+- **Total: 0 vulnerabilities**
+
+No secrets exposed, no security regressions.
+
+## Rollback Plan
+
+If issues arise after deployment:
+
+```bash
+# Disable feature flag
+VITE_FINZ_NEW_FORECAST_LAYOUT=false pnpm run build:finanzas
+```
+
+Or set repo variable to `false` to revert to original layout.
 
 ---
 
-See full PR description in this file for detailed information.
+**Status:** ✅ Ready for final review and testing
+**Risk Level:** Low (feature-flagged, backwards compatible)
+**Estimated Testing Time:** 30 minutes
