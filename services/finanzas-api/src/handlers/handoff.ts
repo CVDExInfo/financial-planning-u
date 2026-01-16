@@ -69,6 +69,7 @@ type BaselinePayload = {
   start_date?: string;
   end_date?: string;
   duration_months?: number;
+  durationMonths?: number; // alias for callers that expect camelCase
   contract_value?: number;
   sdm_manager_name?: string;
   labor_estimates?: BaselineLaborEstimate[];
@@ -791,7 +792,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
       currency,
       labor_estimates: normalizedBaseline.labor_estimates,
       non_labor_estimates: normalizedBaseline.non_labor_estimates,
-      payload: baseline?.payload || {},
+      payload: (baseline?.payload ?? {}) as Record<string, unknown>,
     };
 
     const [allocationsSummary, rubrosSummary] = await Promise.all([
