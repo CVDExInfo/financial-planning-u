@@ -64,6 +64,12 @@ jobs:
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing repo var: $k"; exit 1; }
           done
           printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
+          if [ -n "${CF_DOMAIN:-}" ]; then
+            printf '%s\n' "CF_DOMAIN_URL=https://${CF_DOMAIN}" >> "$GITHUB_ENV"
+          else
+            echo "❌ CF_DOMAIN not set"
+            exit 1
+          fi
           sed -i 's/\r$//' "$GITHUB_ENV"
           echo "✅ Env OK"
 
@@ -76,7 +82,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install CLI tools
         run: |
@@ -201,7 +207,7 @@ jobs:
           VITE_COGNITO_CLIENT_ID: ${{ env.COGNITO_WEB_CLIENT }}
           VITE_COGNITO_IDENTITY_POOL_ID: ${{ env.COGNITO_IDENTITY_POOL_ID }}
           VITE_COGNITO_DOMAIN: ${{ env.COGNITO_DOMAIN }}
-          VITE_CLOUDFRONT_URL: ${{ format('https://{0}', env.CF_DOMAIN) }}
+          VITE_CLOUDFRONT_URL: ${{ env.CF_DOMAIN_URL }}
         run: |
           set -euo pipefail
 
@@ -230,31 +236,7 @@ jobs:
           echo "✅ Finanzas Portal built → dist-finanzas/"
 
       - name: Write Finanzas deployment metadata
-        run: |
-          set -euo pipefail
-
-          if [ ! -d dist-finanzas ]; then
-            echo "❌ dist-finanzas directory not found after build"
-            exit 1
-          fi
-
-          BUILD_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          SHORT_SHA="${GITHUB_SHA::7}"
-
-          cat > dist-finanzas/deployment-meta.json <<EOF
-{
-  "sha": "${GITHUB_SHA}",
-  "shortSha": "${SHORT_SHA}",
-  "builtAt": "${BUILD_TS}",
-  "runId": "${GITHUB_RUN_ID}",
-  "runNumber": "${GITHUB_RUN_NUMBER}",
-  "workflow": "${GITHUB_WORKFLOW}",
-  "repository": "${GITHUB_REPOSITORY}",
-  "ref": "${GITHUB_REF}"
-}
-EOF
-
-          echo "✅ deployment-meta.json written"
+        run: bash scripts/write-deployment-meta.sh dist-finanzas
 
       - name: Record Finanzas bundle hashes
         run: |
@@ -279,6 +261,12 @@ EOF
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "ℹ️  gh CLI not available on runner; skipping previous-run hash comparison."
+            printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           BRANCH_NAME="${GITHUB_REF##*/}"
           echo "🔎 Looking for previous successful run on branch: $BRANCH_NAME"
@@ -343,165 +331,11 @@ EOF
 
       - name: Detect Finanzas source changes
         id: finz_changed
-        run: |
-          set -euo pipefail
-
-          echo "🔍 Detecting Finanzas source changes..."
-          
-          COMPARE_REF="${{ github.event.before || '' }}"
-          if [ -z "$COMPARE_REF" ]; then
-            COMPARE_REF="HEAD~1"
-          fi
-
-          if ! git rev-parse "$COMPARE_REF" >/dev/null 2>&1; then
-            COMPARE_REF="HEAD~1"
-          fi
-
-          echo "📊 Comparing $COMPARE_REF...HEAD"
-          CHANGED_FILES=$(git diff --name-only "$COMPARE_REF"...HEAD || git diff --name-only "$COMPARE_REF" HEAD || true)
-          echo "$CHANGED_FILES" > /tmp/finz-changed-files.txt
-          
-          echo "📝 Total files changed: $(wc -l < /tmp/finz-changed-files.txt)"
-          
-          # Detect Finanzas-specific changes (src, public, config, dependencies)
-          # Pattern matches ONLY frontend bundle inputs, excluding:
-          # - .github/workflows/ (CI config doesn't affect bundle)
-          # - services/ subdirectories (backend services don't affect frontend bundle)
-          # - public/docs/ (documentation doesn't affect JS/CSS bundle)
-          # Match root-level package.json and pnpm-lock.yaml only (not in subdirs)
-          FINZ_PATTERN='^(src/modules/finanzas|src/features/sdmt|src/components|src/api|public/|index\.html|vite\.config|package\.json$|pnpm-lock\.yaml$|tailwind\.config\.js|tsconfig)'
-          FINZ_FILES=$(echo "$CHANGED_FILES" | grep -E "$FINZ_PATTERN" || true)
-          
-          # Exclude public/docs/ - documentation files don't affect the bundle
-          # (they're just static assets copied as-is, not processed by Vite)
-          if [ -n "$FINZ_FILES" ]; then
-            FINZ_FILES=$(echo "$FINZ_FILES" | grep -v '^public/docs/' || true)
-          fi
-          
-          # Additional check: if only package.json changed, verify it's a meaningful change
-          # (not just packageManager field metadata)
-          if [ "$FINZ_FILES" = "package.json" ]; then
-            echo "📋 Checking if package.json change affects bundle..."
-            # Check if dependencies, devDependencies, or scripts changed (not just packageManager)
-            if git diff "$COMPARE_REF"...HEAD -- package.json | grep -E '^\+.*"(dependencies|devDependencies|scripts)"' > /dev/null 2>&1; then
-              echo "✅ package.json has dependency or script changes (affects bundle)"
-            elif git diff "$COMPARE_REF"...HEAD -- package.json | grep -E '^\+' | grep -v '^\+\+\+' | grep -v 'packageManager' | grep -v '^$' > /dev/null 2>&1; then
-              echo "✅ package.json has non-packageManager changes"
-            else
-              echo "ℹ️  package.json changed but only metadata (packageManager field)"
-              FINZ_FILES=""
-            fi
-          fi
-          
-          if [ -n "$FINZ_FILES" ]; then
-            echo "✅ Finanzas source files changed:"
-            echo "$FINZ_FILES" | head -20
-            printf 'finz_changed=true\n' >> "$GITHUB_OUTPUT"
-            echo "finz_changed=true" >> "$GITHUB_ENV"
-            FINZ_CHANGED_VAL="true"
-          else
-            echo "ℹ️  No Finanzas source files changed (CI-only changes or other modules)"
-            printf 'finz_changed=false\n' >> "$GITHUB_OUTPUT"
-            echo "finz_changed=false" >> "$GITHUB_ENV"
-            FINZ_CHANGED_VAL="false"
-          fi
-
-          # Print diagnostics: changed files list
-          echo ""
-          echo "📋 Changed files (first 50):"
-          head -50 /tmp/finz-changed-files.txt || true
-          
-          # Print diagnostics: FINZ_FILES matched
-          if [ -n "$FINZ_FILES" ]; then
-            echo ""
-            echo "📋 Finanzas-relevant files (matched by pattern):"
-            echo "$FINZ_FILES"
-          fi
-          
-          # Print diagnostics: pnpm-lock.yaml info if changed
-          if echo "$CHANGED_FILES" | grep -q 'pnpm-lock\.yaml'; then
-            echo ""
-            echo "📋 pnpm-lock.yaml changed - checking dependency updates..."
-            if [ -f pnpm-lock.yaml ]; then
-              echo "  pnpm-lock.yaml size: $(wc -c < pnpm-lock.yaml) bytes"
-              echo "  pnpm-lock.yaml lockfileVersion: $(grep -m1 'lockfileVersion:' pnpm-lock.yaml || echo 'N/A')"
-            fi
-          fi
-
-          {
-            echo "### Finanzas file changes (detected vs $COMPARE_REF)"
-            echo "- Total files changed: $(wc -l < /tmp/finz-changed-files.txt)"
-            echo "- Finanzas source changed: $FINZ_CHANGED_VAL"
-            echo ""
-            echo "#### Changed files:"
-            head -50 /tmp/finz-changed-files.txt
-            echo ""
-            if [ -n "$FINZ_FILES" ]; then
-              echo "#### Finanzas-relevant files:"
-              echo "$FINZ_FILES"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: bash scripts/detect-finz-changes.sh "${{ github.event.before || '' }}"
 
       - name: Guard - Bundle hash vs source changes consistency
         if: steps.prev_run.outputs.previous_run_found == 'true'
-        run: |
-          set -euo pipefail
-
-          echo "🔍 Validating bundle hash vs source changes consistency..."
-          echo "📊 Debug info:"
-          echo "  - Previous hash file: ${{ steps.prev_run.outputs.previous_hash_file }}"
-          echo "  - Finanzas source changed: ${{ steps.finz_changed.outputs.finz_changed }}"
-          
-          echo ""
-          echo "📝 Previous bundle hashes:"
-          cat "${{ steps.prev_run.outputs.previous_hash_file }}" || echo "  (file not readable)"
-          
-          echo ""
-          echo "📝 Current bundle hashes:"
-          cat dist-finanzas-bundle-hashes.txt
-          
-          echo ""
-          echo "🔬 Comparing hashes..."
-          
-          # Use explicit comparison instead of cmp for better diagnostics
-          if diff -u "${{ steps.prev_run.outputs.previous_hash_file }}" dist-finanzas-bundle-hashes.txt > /tmp/hash-diff.txt; then
-            HASHES_MATCH=true
-            echo "ℹ️  Bundle hashes are IDENTICAL to previous successful deploy"
-          else
-            HASHES_MATCH=false
-            echo "✅ Bundle hashes DIFFER from previous successful deploy:"
-            cat /tmp/hash-diff.txt
-          fi
-          
-          echo ""
-          FINZ_CHANGED="${{ steps.finz_changed.outputs.finz_changed }}"
-          echo "🔎 Source change detection: finz_changed=$FINZ_CHANGED"
-          
-          # Guard logic: fail if hashes match but source changed
-          if [ "$HASHES_MATCH" = "true" ]; then
-            if [ "$FINZ_CHANGED" = "true" ]; then
-              echo ""
-              echo "❌ GUARD FAILURE: Bundle hashes match previous successful deploy, but Finanzas source files changed."
-              echo ""
-              echo "This indicates a build problem:"
-              echo "  - Source files were modified (detected by git diff)"
-              echo "  - But the build output hashes are identical"
-              echo "  - This suggests the build is not picking up the source changes"
-              echo ""
-              echo "🔧 Possible causes:"
-              echo "  1. Build cache issue (try clearing node_modules and dist)"
-              echo "  2. Vite configuration not watching certain files"
-              echo "  3. Source changes in files that don't affect the bundle"
-              echo ""
-              echo "Changed files were:"
-              cat /tmp/finz-changed-files.txt || echo "(file list not available)"
-              exit 1
-            else
-              echo "✅ Bundle hashes unchanged and no Finanzas source files changed; safe to continue."
-            fi
-          else
-            echo "✅ Bundle hashes differ from previous deploy; changes detected correctly."
-          fi
+        run: bash scripts/guard-bundle-vs-source.sh "${{ steps.prev_run.outputs.previous_hash_file }}" "${{ steps.finz_changed.outputs.finz_changed }}"
 
       - name: Verify API URL embedded in Finanzas bundle
         env:
@@ -628,7 +462,7 @@ EOF
             echo "   Ensure sync completed successfully and CloudFront invalidation is executed"
             exit 1
           fi
-          
+
           echo "✅ Finanzas S3 manifest matches local build"
 
       - name: Verify auth callback in S3
@@ -799,44 +633,6 @@ EOF
           if [ -z "$DOMAIN" ]; then
             DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
           fi
-          API="${VITE_API_BASE_URL:-N/A}"
-          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
-          # 🚀 Finanzas UI Deployment — ${DEPLOYMENT_ENV}
-
-          ## 📊 Build Target
-          - Finanzas → dist-finanzas/ (/finanzas/)
-
-          ## ⚙️ Environment
-          - AWS_REGION: ${AWS_REGION}
-          - FINZ_API_ID: ${FINZ_API_ID}
-          - FINZ_API_STAGE: ${FINZ_API_STAGE}
-          - VITE_API_BASE_URL: ${API}
-
-          ## ☁️ AWS
-          - Finanzas Bucket: ${FINANZAS_BUCKET_NAME}
-          - CloudFront ID: ${CLOUDFRONT_DIST_ID}
-          - CloudFront Domain: ${DOMAIN}
-
-          ## 🌐 Access
-          - Finanzas: https://${DOMAIN}/finanzas/
-
-                    ## ✅ Checklist
-          - Base path OK (/finanzas/)
-          - /finanzas/* behavior exists
-          - /health returns 200
-          - catalog/rubros returns JSON (length shown above)
-          ## 🔬 Evidence Pack
-          ### 1. API Base URL Computation
-          - Computed during "Compute API base URL" step
-          - Value used at build time: ${API}
-          - Stage/environment alignment verified
-          ### 2. CORS & Authentication Validation
-          - OPTIONS preflight tests: ✅ (see validate-api-config.sh output)
-          - JWT authentication flow: ✅ (see validate-api-config.sh output)
-          - Protected endpoint access: ✅ (see validate-api-config.sh output)
-          ### 3. Deep-route SPA Verification
-          - Root route (/finanzas/): ✅ HTTP 200
-          - Deep route (/finanzas/sdmt/cost/forecast): ✅ HTTP 200 + asset markers
-          - Auth callback (/finanzas/auth/callback.html): ✅ (see post-deploy-verify.sh output)
-          - Nested SPA routes: ✅ (see post-deploy-verify.sh output)
-          EOF
+          export SUMMARY_DOMAIN="$DOMAIN"
+          export SUMMARY_API="${VITE_API_BASE_URL:-N/A}"
+          bash scripts/append-finanzas-summary.sh
