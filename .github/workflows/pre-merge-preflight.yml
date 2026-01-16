@@ -162,17 +162,26 @@ jobs:
           set -euo pipefail
           pnpm install --frozen-lockfile
 
-      - name: Run allocations PK diagnostic (dry-run)
+      - name: Install finanzas API dependencies
         shell: bash
+        working-directory: services/finanzas-api
         run: |
           set -euo pipefail
-          pnpm --filter finanzas-sd-api run diagnose:allocations-pk
+          pnpm install --frozen-lockfile
+
+      - name: Run allocations PK diagnostic (dry-run)
+        shell: bash
+        working-directory: services/finanzas-api
+        run: |
+          set -euo pipefail
+          pnpm run diagnose:allocations-pk
 
       - name: Run finanzas API unit tests
         shell: bash
+        working-directory: services/finanzas-api
         run: |
           set -euo pipefail
-          pnpm --filter finanzas-sd-api run test:unit
+          pnpm run test:unit
 
       - name: Run pre-merge checks
         shell: bash
