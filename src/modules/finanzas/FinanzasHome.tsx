@@ -13,7 +13,6 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PageHeader from "@/components/PageHeader";
 import usePermissions from "@/hooks/usePermissions";
-import { ViewModeProvider, useViewMode, type ViewMode } from "@/contexts/ViewModeContext";
 
 const tiles = [
   {
@@ -73,11 +72,10 @@ const tiles = [
   },
 ];
 
-function FinanzasHomeContent() {
+export default function FinanzasHome() {
   const navigate = useNavigate();
   const { isSDMT, isExecRO } = usePermissions();
   const canAccessHub = isSDMT || isExecRO;
-  const { viewMode, setViewMode } = useViewMode();
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
@@ -87,36 +85,6 @@ function FinanzasHomeContent() {
         description="Consolida costos de proyectos, rubros y facturación en un solo lugar, con trazabilidad completa para Finanzas y Service Delivery de Ikusi."
         icon={<FolderKanban className="h-5 w-5 text-white" />}
       />
-
-      {/* Persona Tabs - Apple-like minimalist design */}
-      <div className="flex items-center justify-center gap-4">
-        <button
-          onClick={() => setViewMode('sdm')}
-          aria-selected={viewMode === 'sdm'}
-          className={`
-            px-6 py-3 text-sm font-medium rounded-lg transition-all
-            ${viewMode === 'sdm'
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
-            }
-          `}
-        >
-          Vista SDM – Actualización Mensual
-        </button>
-        <button
-          onClick={() => setViewMode('gerente')}
-          aria-selected={viewMode === 'gerente'}
-          className={`
-            px-6 py-3 text-sm font-medium rounded-lg transition-all
-            ${viewMode === 'gerente'
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
-            }
-          `}
-        >
-          Vista Gerencial – Control de MOD vs Nómina
-        </button>
-      </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {tiles.map((tile) => (
@@ -214,13 +182,5 @@ function FinanzasHomeContent() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-export default function FinanzasHome() {
-  return (
-    <ViewModeProvider>
-      <FinanzasHomeContent />
-    </ViewModeProvider>
   );
 }
