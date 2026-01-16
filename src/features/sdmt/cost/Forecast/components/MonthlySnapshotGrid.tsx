@@ -124,9 +124,6 @@ interface MonthlySnapshotGridProps {
   
   /** Callback to navigate to cost catalog (Estructura de costos) */
   onNavigateToCostCatalog?: (projectId: string) => void;
-  
-  /** Default collapsed state (for persona-based defaults) */
-  defaultCollapsed?: boolean;
 }
 
 type GroupingMode = 'project' | 'rubro';
@@ -162,7 +159,6 @@ export function MonthlySnapshotGrid({
   onScrollToDetail,
   onNavigateToReconciliation,
   onNavigateToCostCatalog,
-  defaultCollapsed = false,
 }: MonthlySnapshotGridProps) {
   // Get user context for budget request payloads and sessionStorage key
   const { userEmail } = useFinanzasUser();
@@ -179,7 +175,7 @@ export function MonthlySnapshotGrid({
     row?: SnapshotRow;
   }>({ open: false });
   const [budgetRequestNotes, setBudgetRequestNotes] = useState('');
-  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
 
   // Helper to get/set collapsed state from sessionStorage
@@ -188,12 +184,12 @@ export function MonthlySnapshotGrid({
       // For portfolio view, use 'portfolio' as the context identifier
       const storageKey = `monthlyGridCollapsed:portfolio:${userEmail || 'user'}`;
       const stored = sessionStorage.getItem(storageKey);
-      return stored !== null ? stored === 'true' : defaultCollapsed;
+      return stored === 'true';
     } catch (e) {
       // sessionStorage may not be available in some environments
-      return defaultCollapsed;
+      return false;
     }
-  }, [userEmail, defaultCollapsed]);
+  }, [userEmail]);
 
   const setStoredCollapsedState = useCallback((collapsed: boolean) => {
     try {
