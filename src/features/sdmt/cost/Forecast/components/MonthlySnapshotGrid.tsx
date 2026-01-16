@@ -694,16 +694,19 @@ export function MonthlySnapshotGrid({
 
                 {/* Variance Filter */}
                 <div className="flex items-center gap-2 sm:pt-5">
-                  <label className="inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      id="variance-filter"
-                      checked={showOnlyVariance}
-                      onChange={(e) => setShowOnlyVariance(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 mr-2"
-                    />
-                    <span className="text-sm">Solo con variación</span>
-                  </label>
+                  <input
+                    type="checkbox"
+                    id="variance-filter"
+                    checked={showOnlyVariance}
+                    onChange={(e) => setShowOnlyVariance(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label
+                    htmlFor="variance-filter"
+                    className="text-sm cursor-pointer"
+                  >
+                    Solo con variación
+                  </Label>
                 </div>
               </div>
 
