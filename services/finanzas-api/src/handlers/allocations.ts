@@ -2,7 +2,7 @@ import { APIGatewayProxyEventV2, Context } from "aws-lambda";
 import { ensureCanRead, ensureCanWrite, getUserContext } from "../lib/auth";
 import { bad, ok, noContent, serverError } from "../lib/http";
 import { ddb, tableName, QueryCommand, ScanCommand, PutCommand, GetCommand } from "../lib/dynamo";
-import { logError } from "../utils/logging";
+import { logError, logInfo } from "../utils/logging";
 import { parseForecastBulkUpdate } from "../validation/allocations";
 
 /**
@@ -42,6 +42,30 @@ async function getMetadata(
     });
     // Rethrow so caller can handle as 500/400
     throw err;
+  }
+}
+
+/**
+ * Get baseline metadata from DynamoDB
+ * Retrieves baseline information including project_id for baseline->project resolution
+ */
+async function getBaselineMetadata(baselineId: string): Promise<any> {
+  try {
+    const prefacturasTable = tableName("prefacturas");
+    const lookup = await ddb.send(
+      new GetCommand({
+        TableName: prefacturasTable,
+        Key: { pk: `BASELINE#${baselineId}`, sk: "METADATA" },
+      })
+    );
+    return lookup.Item || null;
+  } catch (err: any) {
+    console.error('[allocations] Failed to get baseline metadata', {
+      baselineId,
+      error: err.name,
+      message: err.message,
+    });
+    return null;
   }
 }
 
@@ -130,6 +154,13 @@ function normalizeMonth(
  * GET /allocations
  * Returns allocations from DynamoDB, optionally filtered by projectId
  * Always returns an array (never {data: []}) for frontend compatibility
+ * 
+ * Robust retrieval with fallback logic:
+ * 1. Primary: query PROJECT#${projectId}
+ * 2. Fallback 1: If baselineId-like, resolve baseline→project and retry PROJECT#${project_id}
+ * 3. Fallback 2: Try BASELINE#${baselineId} for legacy allocations
+ * 
+ * Tracks all attempted keys for diagnostics
  */
 async function getAllocations(event: APIGatewayProxyEventV2) {
   try {
@@ -140,16 +171,19 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
       event.queryStringParameters?.project_id;
     
     // Normalize projectId: strip PROJECT# prefix if present
-    let projectId = rawProjectId;
-    if (projectId && projectId.startsWith('PROJECT#')) {
-      projectId = projectId.substring('PROJECT#'.length);
-      console.log(`[allocations] Normalized projectId from ${rawProjectId} to ${projectId}`);
+    let incomingId = rawProjectId;
+    if (incomingId && incomingId.startsWith('PROJECT#')) {
+      incomingId = incomingId.substring('PROJECT#'.length);
+      console.log(`[allocations] Normalized projectId from ${rawProjectId} to ${incomingId}`);
     }
     
     const allocationsTable = tableName("allocations");
     
-    // If projectId is provided, query for that project's allocations
-    if (projectId) {
+    // Track all attempted partition keys and their results for diagnostics
+    const triedKeys: Array<{ key: string; count: number }> = [];
+    
+    // Helper function to query by partition key
+    async function queryByPK(pk: string): Promise<any[]> {
       const queryResult = await ddb.send(
         new QueryCommand({
           TableName: allocationsTable,
@@ -158,15 +192,71 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
             "#pk": "pk",
           },
           ExpressionAttributeValues: {
-            ":pk": `PROJECT#${projectId}`,
+            ":pk": pk,
           },
         })
       );
       
       const items = queryResult.Items || [];
-      console.log(`[allocations] GET query for project ${projectId}: ${items.length} items, sample:`, items.slice(0, 3));
+      triedKeys.push({ key: pk, count: items.length });
+      return items;
+    }
+    
+    // If projectId is provided, use robust retrieval with fallbacks
+    if (incomingId) {
+      // Check if incoming ID looks like a baseline ID
+      const isBaselineLike = /^(base_|base-|base|BL-|BL_)/i.test(incomingId);
       
-      // Return bare array for frontend compatibility
+      // Primary attempt: query PROJECT#${incomingId}
+      let pkCandidate = `PROJECT#${incomingId}`;
+      let items = await queryByPK(pkCandidate);
+      
+      if (items.length > 0) {
+        logInfo(`[allocations] Found ${items.length} allocations by ${pkCandidate}`);
+        return ok(event, items);
+      }
+      
+      // Fallback 1: If incomingId is baseline-like, try to resolve baseline → project
+      if (isBaselineLike) {
+        try {
+          const baseline = await getBaselineMetadata(incomingId);
+          if (baseline) {
+            const projectId = baseline.project_id || baseline.projectId;
+            if (projectId) {
+              pkCandidate = `PROJECT#${projectId}`;
+              items = await queryByPK(pkCandidate);
+              
+              if (items.length > 0) {
+                logInfo(`[allocations] Found ${items.length} allocations via baseline→project resolution: ${pkCandidate}`);
+                return ok(event, items);
+              }
+            } else {
+              console.warn(`[allocations] Baseline ${incomingId} has no project_id`);
+            }
+          } else {
+            console.warn(`[allocations] Baseline ${incomingId} not found for resolution`);
+          }
+        } catch (err: any) {
+          console.warn(`[allocations] Baseline→project lookup failed for ${incomingId}:`, err.message);
+        }
+        
+        // Fallback 2: Try querying by BASELINE# pk (legacy format)
+        pkCandidate = `BASELINE#${incomingId}`;
+        items = await queryByPK(pkCandidate);
+        
+        if (items.length > 0) {
+          logInfo(`[allocations] Found ${items.length} allocations by legacy baseline pk: ${pkCandidate}`);
+          return ok(event, items);
+        }
+      }
+      
+      // No allocations found - log diagnostic info
+      console.warn(`[allocations] No allocations found for ${incomingId}`, {
+        triedKeys,
+        isBaselineLike,
+      });
+      
+      // Return empty array with diagnostic info (for debugging)
       return ok(event, items);
     }
     
