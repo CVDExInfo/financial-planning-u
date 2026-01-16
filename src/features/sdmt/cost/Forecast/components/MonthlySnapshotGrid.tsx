@@ -632,7 +632,7 @@ export function MonthlySnapshotGrid({
             {/* Expanded View: Compact Filter Strip */}
             <div className="w-full flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               {/* Left group: search + cost type + checkbox */}
-              <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-end gap-3">
                 {/* Search */}
                 <div className="flex-1 min-w-0 w-full sm:w-auto sm:max-w-[300px]">
                   <Label
@@ -693,7 +693,7 @@ export function MonthlySnapshotGrid({
                 </div>
 
                 {/* Variance Filter */}
-                <div className="flex items-center gap-2 sm:pt-5">
+                <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     id="variance-filter"
