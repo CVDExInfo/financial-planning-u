@@ -2,6 +2,8 @@
 import fs from 'fs';
 import path from 'path';
 
+let suspectCount = 0;
+
 function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, entry.name);
@@ -30,6 +32,7 @@ function walk(dir) {
             after.includes(`var ${fn} =`)
           ) {
             console.log('Suspect TDZ:', p, 'used in memo before declaration ->', fn);
+            suspectCount++;
           }
         });
       });
@@ -37,3 +40,12 @@ function walk(dir) {
   }
 }
 walk('src');
+
+// Exit with nonzero code if any TDZ suspects found
+if (suspectCount > 0) {
+  console.log(`\n❌ Found ${suspectCount} suspect TDZ issue(s)`);
+  process.exit(1);
+} else {
+  console.log('\n✅ No TDZ suspects found');
+  process.exit(0);
+}

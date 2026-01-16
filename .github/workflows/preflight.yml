@@ -44,7 +44,7 @@ jobs:
         run: node scripts/find-tdz-suspects.js
 
       - name: Check circular imports
-        run: npx madge --circular src || true
+        run: npx madge --circular src
 
       - name: TypeScript type check
         run: pnpm typecheck
@@ -82,6 +82,17 @@ jobs:
           ls dist-finanzas/assets/*.css >/dev/null
           ls dist-finanzas/assets/*.map >/dev/null
           sha256sum dist-finanzas/assets/* | sort > ./dist_hash_after.txt
+
+      - name: Check for dev URLs in build
+        run: pnpm run find:dev-urls
+
+      - name: Upload dev URL findings on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-url-guard-findings
+          path: reports/dev-url-guard-*.json
+          if-no-files-found: ignore
 
       - name: Run Finanzas forecast smoke test
         env:

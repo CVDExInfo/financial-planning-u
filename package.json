@@ -37,7 +37,9 @@
     "render-docs": "node --loader ts-node/esm scripts/docs/render-docs.ts",
     "test:finanzas-ui-diagnostic": "node tests/finanzas-ui-diagnostic/smoke-test.mjs",
     "migrate:handoff-baselines": "node --loader ts-node/esm services/finanzas-api/scripts/migrate-handoff-baseline-projects.ts",
-    "diagnose:handoff-baselines": "node --loader ts-node/esm services/finanzas-api/scripts/diagnose-handoff-baseline-collisions.ts"
+    "diagnose:handoff-baselines": "node --loader ts-node/esm services/finanzas-api/scripts/diagnose-handoff-baseline-collisions.ts",
+    "find:dev-urls": "node scripts/find-dev-urls.js",
+    "repair:dev-urls": "node scripts/repair-dev-urls.js"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

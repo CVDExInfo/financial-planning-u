@@ -130,36 +130,45 @@ fi
 echo ""
 
 # ============================================================
-# Guard 3: Hardcoded Development URL Checks
+# Guard 3: Hardcoded Development URL Checks (Enhanced)
 # ============================================================
-echo -e "${BLUE}🔍 Guard 3: Development URL Detection${NC}"
+echo -e "${BLUE}🔍 Guard 3: Development URL Detection (Enhanced)${NC}"
 echo "────────────────────────────────────────────────────────────────"
 
-DEV_URL_PATTERNS=(
-  "github\.dev"
-  "codespaces"
-  "githubusercontent\.com"
-  "localhost:3000"
-  "127\.0\.0\.1"
-)
-
-FOUND_DEV_URLS=false
-
-for pattern in "${DEV_URL_PATTERNS[@]}"; do
-  if grep -r -i -E "$pattern" "$BUILD_DIR" 2>/dev/null | grep -v ".map" | grep -v "node_modules" > /dev/null 2>&1; then
-    if [ "$FOUND_DEV_URLS" = false ]; then
-      echo -e "${RED}❌ FAILED: Development URLs found in build${NC}"
-      FOUND_DEV_URLS=true
-      ((FAILED_CHECKS++))
-    fi
-    echo "   Pattern: $pattern"
-    grep -r -i -E "$pattern" "$BUILD_DIR" 2>/dev/null | grep -v ".map" | grep -v "node_modules" | head -3 | sed 's/^/   /'
-  fi
-done
-
-if [ "$FOUND_DEV_URLS" = false ]; then
+# Use the enhanced scanner that checks inline source maps
+if node scripts/find-dev-urls.js; then
   echo -e "${GREEN}✅ PASS: No development URLs found${NC}"
-  echo "   Checked patterns: ${DEV_URL_PATTERNS[*]}"
+else
+  echo -e "${RED}❌ FAILED: Development URLs found in build${NC}"
+  echo ""
+  echo "   The find-dev-urls.js scanner detected development URLs in your build."
+  echo "   A detailed report has been saved to: reports/dev-url-guard-findings.json"
+  echo ""
+  echo "   💡 Recommended actions:"
+  echo "      1. Review the findings in reports/dev-url-guard-findings.json"
+  echo "      2. Try automated repair: pnpm run repair:dev-urls"
+  echo "      3. Manually remove dev URLs from source files if needed"
+  echo "      4. Rebuild: BUILD_TARGET=finanzas pnpm run build:finanzas"
+  echo "      5. Re-run this guard to verify"
+  echo ""
+  
+  # Generate the detailed report
+  node scripts/find-dev-urls-report.js 2>/dev/null || true
+  
+  # Create a timestamped report for CI artifacts
+  TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+  REPORT_FILE="reports/dev-url-guard-${TIMESTAMP}.txt"
+  
+  if [ -f "reports/dev-url-guard-findings.json" ]; then
+    echo "Dev URL Guard Failure Report - ${TIMESTAMP}" > "$REPORT_FILE"
+    echo "=============================================" >> "$REPORT_FILE"
+    echo "" >> "$REPORT_FILE"
+    cat reports/dev-url-guard-findings.json >> "$REPORT_FILE"
+    echo "" >> "$REPORT_FILE"
+    echo "Report saved to: $REPORT_FILE"
+  fi
+  
+  ((FAILED_CHECKS++))
 fi
 
 echo ""
