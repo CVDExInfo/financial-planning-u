@@ -47,7 +47,7 @@ jobs:
         run: npx madge --circular src || true
 
       - name: TypeScript type check
-        run: pnpm typecheck || echo "⚠️ TypeScript errors found (non-blocking)"
+        run: pnpm typecheck
 
       - name: Lint
         run: pnpm lint || echo "⚠️ Lint warnings found (non-blocking)"
@@ -80,13 +80,42 @@ jobs:
         run: |
           BUILD_TARGET=finanzas pnpm run build:finanzas
           ls dist-finanzas/assets/*.css >/dev/null
+          ls dist-finanzas/assets/*.map >/dev/null
           sha256sum dist-finanzas/assets/* | sort > ./dist_hash_after.txt
+
+      - name: Run Finanzas forecast smoke test
+        env:
+          SMOKE_BASE_URL: http://127.0.0.1:4173/finanzas
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          npx --yes serve -s dist-finanzas -l 4173 &
+          SERVER_PID=$!
+          npx --yes wait-on http://127.0.0.1:4173/finanzas/
+          pnpm exec playwright test --config playwright.smoke.config.ts
+          kill $SERVER_PID
 
       - name: Upload Finanzas build artifact
         uses: actions/upload-artifact@v4
         with:
           name: dist-finanzas
           path: dist-finanzas
+
+      - name: Upload Finanzas sourcemaps
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-finanzas-sourcemaps
+          path: dist-finanzas/assets/*.map
+
+      - name: Upload sourcemaps to Sentry (optional)
+        if: env.SENTRY_AUTH_TOKEN != ''
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          npx @sentry/cli releases new "$GITHUB_SHA"
+          npx @sentry/cli releases files "$GITHUB_SHA" upload-sourcemaps dist-finanzas --ext map --ext js
+          npx @sentry/cli releases finalize "$GITHUB_SHA"
 
       - name: Test summary
         if: always()

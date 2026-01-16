@@ -554,10 +554,11 @@ const resolveMonthlyAmounts = (
   }
 
   if (explicit && typeof explicit === "object") {
+    const explicitRecord = explicit as Record<string, any>;
     return months.map((month, idx) => {
-      const key = month as keyof typeof explicit;
-      const fallback = idx + 1;
-      return Number((explicit as Record<string, any>)[key] ?? (explicit as Record<string, any>)[fallback] ?? 0);
+      const key = String(month);
+      const fallback = String(idx + 1);
+      return Number(explicitRecord[key] ?? explicitRecord[fallback] ?? 0);
     });
   }
 
@@ -794,7 +795,7 @@ export const materializeRubrosForBaseline = async (
     ...rubro,
     createdAt: rubro.createdAt || now,
     updatedAt: now,
-  }));
+  })) as Array<Record<string, any> & { pk: string; sk: string; createdAt?: string; updatedAt?: string }>;
 
   try {
     if (rubrosToWrite.length > 0) {
@@ -845,12 +846,16 @@ export const materializeRubrosFromBaseline = async ({
   }
 
   const payload = result.Item;
-  const resolvedProjectId =
+  const resolvedProjectIdCandidate =
     projectId ||
     (payload.project_id as string | undefined) ||
     (payload.projectId as string | undefined) ||
     (payload.payload as Record<string, unknown> | undefined)?.project_id ||
     (payload.payload as Record<string, unknown> | undefined)?.projectId;
+  const resolvedProjectId =
+    typeof resolvedProjectIdCandidate === "string"
+      ? resolvedProjectIdCandidate
+      : undefined;
 
   if (!resolvedProjectId) {
     const error = new Error(

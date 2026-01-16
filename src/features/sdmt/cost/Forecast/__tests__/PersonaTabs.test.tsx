@@ -8,8 +8,11 @@
  * - MonthlySnapshotGrid compact mode behavior
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
+
+const isSdmMode = (mode: 'sdm' | 'gerente') => mode === 'sdm';
+const isGerenteMode = (mode: 'sdm' | 'gerente') => mode === 'gerente';
 
 describe('PersonaTabs - ViewMode Context', () => {
   // Mock sessionStorage for testing
@@ -42,7 +45,7 @@ describe('PersonaTabs - ViewMode Context', () => {
   });
 
   it('should persist viewMode to sessionStorage', () => {
-    const viewMode = 'gerente';
+    const viewMode: 'sdm' | 'gerente' = 'gerente';
     sessionStorage.setItem('finanzas:viewMode', viewMode);
     
     const stored = sessionStorage.getItem('finanzas:viewMode');
@@ -58,7 +61,7 @@ describe('PersonaTabs - ViewMode Context', () => {
 
   it('should toggle between SDM and Gerente modes', () => {
     // Start with SDM
-    let currentMode = 'sdm';
+    let currentMode: 'sdm' | 'gerente' = 'sdm';
     sessionStorage.setItem('finanzas:viewMode', currentMode);
     assert.strictEqual(sessionStorage.getItem('finanzas:viewMode'), 'sdm');
     
@@ -76,29 +79,29 @@ describe('PersonaTabs - ViewMode Context', () => {
 
 describe('PersonaTabs - Default States', () => {
   it('should set isRubrosGridOpen=true for SDM mode', () => {
-    const viewMode = 'sdm';
-    const isRubrosGridOpen = viewMode === 'sdm';
+    const viewMode: 'sdm' | 'gerente' = 'sdm';
+    const isRubrosGridOpen = isSdmMode(viewMode);
     
     assert.strictEqual(isRubrosGridOpen, true, 'SDM mode should have rubros grid expanded by default');
   });
 
   it('should set isRubrosGridOpen=false for Gerente mode', () => {
-    const viewMode = 'gerente';
-    const isRubrosGridOpen = viewMode === 'sdm';
+    const viewMode: 'sdm' | 'gerente' = 'gerente';
+    const isRubrosGridOpen = isSdmMode(viewMode);
     
     assert.strictEqual(isRubrosGridOpen, false, 'Gerente mode should have rubros grid collapsed by default');
   });
 
   it('should set MonthlySnapshotGrid defaultCollapsed=false for SDM', () => {
-    const viewMode = 'sdm';
-    const defaultCollapsed = viewMode === 'gerente';
+    const viewMode: 'sdm' | 'gerente' = 'sdm';
+    const defaultCollapsed = isGerenteMode(viewMode);
     
     assert.strictEqual(defaultCollapsed, false, 'SDM mode should have MonthlySnapshotGrid expanded by default');
   });
 
   it('should set MonthlySnapshotGrid defaultCollapsed=true for Gerente', () => {
-    const viewMode = 'gerente';
-    const defaultCollapsed = viewMode === 'gerente';
+    const viewMode: 'sdm' | 'gerente' = 'gerente';
+    const defaultCollapsed = isGerenteMode(viewMode);
     
     assert.strictEqual(defaultCollapsed, true, 'Gerente mode should have MonthlySnapshotGrid collapsed by default');
   });
@@ -156,24 +159,24 @@ describe('PersonaTabs - Integration Scenarios', () => {
   });
 
   it('should apply correct defaults for full SDM workflow', () => {
-    const viewMode = 'sdm';
+    const viewMode: 'sdm' | 'gerente' = 'sdm';
     sessionStorage.setItem('finanzas:viewMode', viewMode);
     
     // Check all SDM defaults
-    const isRubrosGridOpen = viewMode === 'sdm'; // true
-    const monthlySnapshotDefaultCollapsed = viewMode === 'gerente'; // false
+    const isRubrosGridOpen = isSdmMode(viewMode); // true
+    const monthlySnapshotDefaultCollapsed = isGerenteMode(viewMode); // false
     
     assert.strictEqual(isRubrosGridOpen, true, 'SDM: Rubros grid should be expanded');
     assert.strictEqual(monthlySnapshotDefaultCollapsed, false, 'SDM: Monthly snapshot should be expanded');
   });
 
   it('should apply correct defaults for full Gerente workflow', () => {
-    const viewMode = 'gerente';
+    const viewMode: 'sdm' | 'gerente' = 'gerente';
     sessionStorage.setItem('finanzas:viewMode', viewMode);
     
     // Check all Gerente defaults
-    const isRubrosGridOpen = viewMode === 'sdm'; // false
-    const monthlySnapshotDefaultCollapsed = viewMode === 'gerente'; // true
+    const isRubrosGridOpen = isSdmMode(viewMode); // false
+    const monthlySnapshotDefaultCollapsed = isGerenteMode(viewMode); // true
     
     assert.strictEqual(isRubrosGridOpen, false, 'Gerente: Rubros grid should be collapsed');
     assert.strictEqual(monthlySnapshotDefaultCollapsed, true, 'Gerente: Monthly snapshot should be collapsed');
@@ -182,14 +185,14 @@ describe('PersonaTabs - Integration Scenarios', () => {
 
 describe('PersonaTabs - Accessibility', () => {
   it('should have aria-selected attribute for active tab', () => {
-    const viewMode = 'sdm';
+    const viewMode: 'sdm' | 'gerente' = 'sdm';
     
     // SDM tab should be selected
-    const sdmTabSelected = viewMode === 'sdm';
+    const sdmTabSelected = isSdmMode(viewMode);
     assert.strictEqual(sdmTabSelected, true, 'SDM tab should have aria-selected=true');
     
     // Gerente tab should not be selected
-    const gerenteTabSelected = viewMode === 'gerente';
+    const gerenteTabSelected = isGerenteMode(viewMode);
     assert.strictEqual(gerenteTabSelected, false, 'Gerente tab should have aria-selected=false');
   });
 
@@ -197,12 +200,12 @@ describe('PersonaTabs - Accessibility', () => {
     let viewMode: 'sdm' | 'gerente' = 'sdm';
     
     // Check initial state
-    assert.strictEqual(viewMode === 'sdm', true);
-    assert.strictEqual(viewMode === 'gerente', false);
+    assert.strictEqual(isSdmMode(viewMode), true);
+    assert.strictEqual(isGerenteMode(viewMode), false);
     
     // Switch to Gerente
     viewMode = 'gerente';
-    assert.strictEqual(viewMode === 'sdm', false);
-    assert.strictEqual(viewMode === 'gerente', true);
+    assert.strictEqual(isSdmMode(viewMode), false);
+    assert.strictEqual(isGerenteMode(viewMode), true);
   });
 });
