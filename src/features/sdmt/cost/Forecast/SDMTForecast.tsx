@@ -2143,6 +2143,15 @@ const totalFTE = useMemo(() => {
                 params.set('returnUrl', currentPath);
                 navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
               }}
+              onNavigateToCostCatalog={(rubroId, projectId) => {
+                // Navigate to cost catalog/structure page
+                const targetProjectId = projectId || selectedProjectId;
+                if (targetProjectId && targetProjectId !== ALL_PROJECTS_ID) {
+                  navigate(`/sdmt/cost/catalog?projectId=${targetProjectId}&rubroId=${rubroId}`);
+                } else {
+                  navigate(`/sdmt/cost/catalog?rubroId=${rubroId}`);
+                }
+              }}
             />
           ) : null}
         </>

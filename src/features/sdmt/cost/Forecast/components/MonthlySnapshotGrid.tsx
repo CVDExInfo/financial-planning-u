@@ -60,6 +60,7 @@ import {
   Edit,
   Search,
   ChevronsUpDown,
+  FolderTree,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useFinanzasUser } from '@/hooks/useFinanzasUser';
@@ -118,6 +119,9 @@ interface MonthlySnapshotGridProps {
   /** Callback to navigate to reconciliation */
   onNavigateToReconciliation?: (lineItemId: string, projectId?: string) => void;
   
+  /** Callback to navigate to cost catalog/structure */
+  onNavigateToCostCatalog?: (rubroId: string, projectId?: string) => void;
+  
   /** Default collapsed state (optional). If not provided, will load from sessionStorage or default to false */
   defaultCollapsed?: boolean;
 }
@@ -153,6 +157,7 @@ export function MonthlySnapshotGrid({
   getCurrentMonthIndex,
   onScrollToDetail,
   onNavigateToReconciliation,
+  onNavigateToCostCatalog,
   defaultCollapsed = false,
 }: MonthlySnapshotGridProps) {
   // Get user context for budget request payloads and sessionStorage key
@@ -576,6 +581,16 @@ export function MonthlySnapshotGrid({
     }
   }, [onNavigateToReconciliation]);
 
+  const handleNavigateToCostCatalog = useCallback((row: SnapshotRow) => {
+    if (onNavigateToCostCatalog) {
+      const rubroId = row.rubroId || row.id;
+      const projectId = row.projectId;
+      onNavigateToCostCatalog(rubroId, projectId);
+    } else {
+      toast.info('Navegación a estructura de costos no disponible');
+    }
+  }, [onNavigateToCostCatalog]);
+
   const handleOpenBudgetRequest = useCallback((row: SnapshotRow) => {
     setBudgetRequestModal({ open: true, row });
     setBudgetRequestNotes('');
@@ -941,6 +956,24 @@ export function MonthlySnapshotGrid({
                               <TooltipContent>Ir a conciliación</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
+
+                          {onNavigateToCostCatalog && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleNavigateToCostCatalog(row)}
+                                  >
+                                    <FolderTree className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Estructura de costos</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
 
                           <TooltipProvider>
                             <Tooltip>
