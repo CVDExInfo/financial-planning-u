@@ -13,17 +13,6 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 
 /**
- * Mock environment variable helper
- */
-function mockEnv(overrides: Record<string, string>) {
-  const originalEnv = { ...import.meta.env };
-  Object.assign(import.meta.env, overrides);
-  return () => {
-    Object.assign(import.meta.env, originalEnv);
-  };
-}
-
-/**
  * Test: Feature flag constants are correctly defined
  */
 describe("SDMTForecast - Feature Flag Constants", () => {
