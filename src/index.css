@@ -216,10 +216,8 @@
       transform: none;
     }
     
-    * {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
+    .animate-number {
+      animation: none;
     }
   }
 
@@ -249,74 +247,14 @@
 }
 
 /* Status pill badges - Apple-level polish */
+/* Base pill badge class with common properties */
 .pill-accept,
-.pill-accepted {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: var(--font-size-small);
-  font-weight: 500;
-  background: oklch(from var(--primary) l c h / 0.1);
-  color: oklch(from var(--primary) 0.45 0.15 h);
-  border: 1px solid oklch(from var(--primary) l c h / 0.2);
-  transition: background var(--transition-base) ease, 
-              border-color var(--transition-base) ease;
-}
-
-.pill-accept:hover,
-.pill-accepted:hover {
-  background: oklch(from var(--primary) l c h / 0.15);
-  border-color: oklch(from var(--primary) l c h / 0.3);
-}
-
+.pill-accepted,
 .pill-pending,
-.pill-warning {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: var(--font-size-small);
-  font-weight: 500;
-  background: oklch(from var(--accent) l c h / 0.1);
-  color: oklch(0.55 0.12 75);
-  border: 1px solid oklch(from var(--accent) l c h / 0.2);
-  transition: background var(--transition-base) ease, 
-              border-color var(--transition-base) ease;
-}
-
-.pill-pending:hover,
-.pill-warning:hover {
-  background: oklch(from var(--accent) l c h / 0.15);
-  border-color: oklch(from var(--accent) l c h / 0.3);
-}
-
+.pill-warning,
 .pill-reject,
 .pill-rejected,
-.pill-danger {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: var(--font-size-small);
-  font-weight: 500;
-  background: oklch(from var(--destructive) l c h / 0.1);
-  color: oklch(from var(--destructive) 0.50 0.18 h);
-  border: 1px solid oklch(from var(--destructive) l c h / 0.2);
-  transition: background var(--transition-base) ease, 
-              border-color var(--transition-base) ease;
-}
-
-.pill-reject:hover,
-.pill-rejected:hover,
-.pill-danger:hover {
-  background: oklch(from var(--destructive) l c h / 0.15);
-  border-color: oklch(from var(--destructive) l c h / 0.3);
-}
-
+.pill-danger,
 .pill-neutral,
 .pill-default {
   display: inline-flex;
@@ -326,17 +264,66 @@
   border-radius: 9999px;
   font-size: var(--font-size-small);
   font-weight: 500;
+  transition: background var(--transition-base) ease, 
+              border-color var(--transition-base) ease;
+}
+
+/* Accept/Success variant */
+.pill-accept,
+.pill-accepted {
+  background: oklch(from var(--primary) l c h / 0.1);
+  color: oklch(from var(--primary) 0.45 0.15 h);
+  border: 1px solid oklch(from var(--primary) l c h / 0.2);
+}
+
+.pill-accept:hover,
+.pill-accepted:hover {
+  background: oklch(from var(--primary) l c h / 0.15);
+  border-color: oklch(from var(--primary) l c h / 0.3);
+}
+
+/* Pending/Warning variant */
+.pill-pending,
+.pill-warning {
+  background: oklch(from var(--accent) l c h / 0.1);
+  color: oklch(0.55 0.12 75);
+  border: 1px solid oklch(from var(--accent) l c h / 0.2);
+}
+
+.pill-pending:hover,
+.pill-warning:hover {
+  background: oklch(from var(--accent) l c h / 0.15);
+  border-color: oklch(from var(--accent) l c h / 0.3);
+}
+
+/* Reject/Danger variant */
+.pill-reject,
+.pill-rejected,
+.pill-danger {
+  background: oklch(from var(--destructive) l c h / 0.1);
+  color: oklch(from var(--destructive) 0.50 0.18 h);
+  border: 1px solid oklch(from var(--destructive) l c h / 0.2);
+}
+
+.pill-reject:hover,
+.pill-rejected:hover,
+.pill-danger:hover {
+  background: oklch(from var(--destructive) l c h / 0.15);
+  border-color: oklch(from var(--destructive) l c h / 0.3);
+}
+
+/* Neutral/Default variant */
+.pill-neutral,
+.pill-default {
   background: oklch(from var(--muted) l c h / 0.5);
   color: var(--muted-foreground);
   border: 1px solid var(--border);
-  transition: background var(--transition-base) ease, 
-              border-color var(--transition-base) ease;
 }
 
 .pill-neutral:hover,
 .pill-default:hover {
   background: var(--muted);
-  border-color: oklch(from var(--border) l c h / 1.2);
+  border-color: var(--border);
 }
 
 /* Premium feature styling */
