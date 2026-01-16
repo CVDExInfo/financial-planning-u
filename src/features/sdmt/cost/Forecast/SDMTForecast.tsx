@@ -2100,7 +2100,7 @@ const totalFTE = useMemo(() => {
               useMonthlyBudget={useMonthlyBudget}
               formatCurrency={formatCurrency}
               getCurrentMonthIndex={getCurrentMonthIndex}
-              onScrollToDetail={() => {
+              onScrollToDetail={(params) => {
                 // Scroll to the 12-month grid section
                 if (rubrosSectionRef.current) {
                   setIsRubrosGridOpen(true);
@@ -2112,15 +2112,15 @@ const totalFTE = useMemo(() => {
                   }, 100);
                 }
               }}
-              onNavigateToReconciliation={(lineItemId, projectId) => {
+              onNavigateToReconciliation={(projectId) => {
                 const params = new URLSearchParams();
-                if (projectId) {
-                  params.set('projectId', projectId);
-                }
-                params.set('line_item', lineItemId);
+                params.set('projectId', projectId);
                 const currentPath = location.pathname + location.search;
                 params.set('returnUrl', currentPath);
-                navigate(`/sdmt/cost/reconciliation?${params.toString()}`);
+                navigate(`/finanzas/sdmt/cost/reconciliation?${params.toString()}`);
+              }}
+              onNavigateToCostCatalog={(projectId) => {
+                navigate(`/sdmt/cost/catalog?projectId=${projectId}`);
               }}
             />
           ) : null}

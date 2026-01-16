@@ -60,10 +60,14 @@ import {
   Edit,
   Search,
   ChevronsUpDown,
+  Layers,
+  Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useFinanzasUser } from '@/hooks/useFinanzasUser';
 import { MonthlySnapshotSummary } from './MonthlySnapshotSummary';
+import { cn } from '@/lib/utils';
+import { isLabor } from '@/lib/rubros-category-utils';
 
 // Types
 export interface ForecastCell {
@@ -113,14 +117,18 @@ interface MonthlySnapshotGridProps {
   getCurrentMonthIndex: () => number;
   
   /** Callback to scroll to monthly detail section */
-  onScrollToDetail?: () => void;
+  onScrollToDetail?: (params?: { projectId?: string; categoryId?: string }) => void;
   
   /** Callback to navigate to reconciliation */
-  onNavigateToReconciliation?: (lineItemId: string, projectId?: string) => void;
+  onNavigateToReconciliation?: (projectId: string) => void;
+  
+  /** Callback to navigate to cost catalog (Estructura de costos) */
+  onNavigateToCostCatalog?: (projectId: string) => void;
 }
 
 type GroupingMode = 'project' | 'rubro';
 type MonthOption = 'current' | 'previous' | number; // 'current', 'previous', or 1-60
+type CostTypeFilter = 'all' | 'labor' | 'non-labor';
 
 interface SnapshotRow {
   id: string;
@@ -150,6 +158,7 @@ export function MonthlySnapshotGrid({
   getCurrentMonthIndex,
   onScrollToDetail,
   onNavigateToReconciliation,
+  onNavigateToCostCatalog,
 }: MonthlySnapshotGridProps) {
   // Get user context for budget request payloads and sessionStorage key
   const { userEmail } = useFinanzasUser();
@@ -159,6 +168,7 @@ export function MonthlySnapshotGrid({
   const [groupingMode, setGroupingMode] = useState<GroupingMode>('project');
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyVariance, setShowOnlyVariance] = useState(false);
+  const [costTypeFilter, setCostTypeFilter] = useState<CostTypeFilter>('all');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [budgetRequestModal, setBudgetRequestModal] = useState<{
     open: boolean;
@@ -419,9 +429,60 @@ export function MonthlySnapshotGrid({
     }
   }, [forecastData, actualMonthIndex, groupingMode, monthBudget]);
 
-  // Apply search and variance filters
+  // Apply search, variance, and cost type filters
   const filteredRows = useMemo(() => {
     let rows = [...snapshotRows];
+
+    // Cost type filter - filter based on category
+    if (costTypeFilter !== 'all') {
+      rows = rows.filter(row => {
+        // For parent rows, filter based on children's categories
+        if (row.children && row.children.length > 0) {
+          const hasMatchingChildren = row.children.some(child => {
+            const category = child.code ? 
+              (lineItems.find(li => li.id === child.code || li.projectId === child.code)?.category) : 
+              undefined;
+            
+            if (costTypeFilter === 'labor') {
+              return isLabor(category);
+            } else if (costTypeFilter === 'non-labor') {
+              return !isLabor(category);
+            }
+            return true;
+          });
+          
+          // If parent has matching children, filter the children array
+          if (hasMatchingChildren) {
+            row.children = row.children.filter(child => {
+              const category = child.code ? 
+                (lineItems.find(li => li.id === child.code || li.projectId === child.code)?.category) : 
+                undefined;
+              
+              if (costTypeFilter === 'labor') {
+                return isLabor(category);
+              } else if (costTypeFilter === 'non-labor') {
+                return !isLabor(category);
+              }
+              return true;
+            });
+          }
+          
+          return hasMatchingChildren;
+        }
+        
+        // For leaf rows (no children), filter based on their category
+        const category = row.code ? 
+          (lineItems.find(li => li.id === row.code || li.projectId === row.code)?.category) : 
+          undefined;
+        
+        if (costTypeFilter === 'labor') {
+          return isLabor(category);
+        } else if (costTypeFilter === 'non-labor') {
+          return !isLabor(category);
+        }
+        return true;
+      });
+    }
 
     // Search filter
     if (searchQuery.trim()) {
@@ -457,7 +518,7 @@ export function MonthlySnapshotGrid({
     }
 
     return rows;
-  }, [snapshotRows, searchQuery, showOnlyVariance]);
+  }, [snapshotRows, searchQuery, showOnlyVariance, costTypeFilter, lineItems]);
 
   // Sort by absolute variance vs Budget (descending)
   const sortedRows = useMemo(() => {
@@ -548,9 +609,9 @@ export function MonthlySnapshotGrid({
     });
   }, []);
 
-  const handleScrollToDetail = useCallback(() => {
+  const handleScrollToDetail = useCallback((params?: { projectId?: string }) => {
     if (onScrollToDetail) {
-      onScrollToDetail();
+      onScrollToDetail(params);
     } else {
       toast.info('Función de navegación no disponible');
     }
@@ -558,13 +619,21 @@ export function MonthlySnapshotGrid({
 
   const handleNavigateToReconciliation = useCallback((row: SnapshotRow) => {
     if (onNavigateToReconciliation) {
-      const lineItemId = row.rubroId || row.id;
-      const projectId = row.projectId;
-      onNavigateToReconciliation(lineItemId, projectId);
+      const projectId = row.projectId || row.id;
+      onNavigateToReconciliation(projectId);
     } else {
       toast.info('Navegación a conciliación no disponible');
     }
   }, [onNavigateToReconciliation]);
+
+  const handleNavigateToCostCatalog = useCallback((row: SnapshotRow) => {
+    if (onNavigateToCostCatalog) {
+      const projectId = row.projectId || row.id;
+      onNavigateToCostCatalog(projectId);
+    } else {
+      toast.info('Navegación a estructura de costos no disponible');
+    }
+  }, [onNavigateToCostCatalog]);
 
   const handleOpenBudgetRequest = useCallback((row: SnapshotRow) => {
     setBudgetRequestModal({ open: true, row });
@@ -630,6 +699,26 @@ export function MonthlySnapshotGrid({
     };
   }, [sortedRows]);
 
+  // Calculate summary metrics for the selected month (used in expanded view summary strip)
+  const summaryForMonth = useMemo(() => {
+    const budget = summaryTotals.totalBudget;
+    const forecast = summaryTotals.totalForecast;
+    const actual = summaryTotals.totalActual;
+    
+    const consumoPct = budget > 0 ? (actual / budget) * 100 : 0;
+    const varianceAbs = actual - budget;
+    const variancePct = budget > 0 ? (varianceAbs / budget) * 100 : 0;
+    
+    return {
+      budget,
+      forecast,
+      actual,
+      consumoPct,
+      varianceAbs,
+      variancePct,
+    };
+  }, [summaryTotals]);
+
   // Handler for variance item click in summary
   const handleSummaryVarianceClick = useCallback((item: { 
     id: string; 
@@ -639,9 +728,8 @@ export function MonthlySnapshotGrid({
     // Find the row and navigate to reconciliation
     const row = sortedRows.find(r => r.id === item.id);
     if (row && onNavigateToReconciliation) {
-      const lineItemId = row.rubroId || row.id;
-      const projectId = row.projectId;
-      onNavigateToReconciliation(lineItemId, projectId);
+      const projectId = row.projectId || row.id;
+      onNavigateToReconciliation(projectId);
     }
   }, [sortedRows, onNavigateToReconciliation]);
 
@@ -713,6 +801,55 @@ export function MonthlySnapshotGrid({
         ) : (
           <>
             {/* Expanded View: Full Grid with Controls */}
+            
+            {/* Summary strip for the selected month */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+              <div className="rounded-lg border bg-background px-3 py-2">
+                <div className="text-xs text-muted-foreground">Presupuesto</div>
+                <div className="text-base font-semibold">
+                  {formatCurrency(summaryForMonth.budget)}
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-background px-3 py-2">
+                <div className="text-xs text-muted-foreground">Pronóstico</div>
+                <div className="text-base font-semibold">
+                  {formatCurrency(summaryForMonth.forecast)}
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-background px-3 py-2">
+                <div className="text-xs text-muted-foreground">Real</div>
+                <div className="text-base font-semibold text-blue-700">
+                  {formatCurrency(summaryForMonth.actual)}
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-background px-3 py-2">
+                <div className="text-xs text-muted-foreground">% Consumo (Real/Budget)</div>
+                <div className="text-base font-semibold">
+                  {summaryForMonth.consumoPct.toFixed(1)}%
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-background px-3 py-2">
+                <div className="text-xs text-muted-foreground">Var vs Presupuesto</div>
+                <div
+                  className={cn(
+                    "text-base font-semibold",
+                    summaryForMonth.varianceAbs > 0 ? "text-red-600" : "text-emerald-600"
+                  )}
+                >
+                  {summaryForMonth.varianceAbs > 0 ? "+" : ""}
+                  {formatCurrency(summaryForMonth.varianceAbs)}{" "}
+                  <span className="text-xs">
+                    ({summaryForMonth.variancePct > 0 ? "+" : ""}
+                    {summaryForMonth.variancePct.toFixed(1)}%)
+                  </span>
+                </div>
+              </div>
+            </div>
+
         <div className="flex flex-wrap items-end gap-3">
           {/* Month Selector */}
           <div className="flex-shrink-0 w-32">
@@ -791,6 +928,42 @@ export function MonthlySnapshotGrid({
             <Label htmlFor="variance-filter" className="text-sm cursor-pointer">
               Solo con variación
             </Label>
+          </div>
+
+          {/* Cost Type Filter */}
+          <div className="flex-shrink-0">
+            <Label className="text-xs text-muted-foreground mb-1 block">
+              Tipo de costo
+            </Label>
+            <div className="inline-flex rounded-md border bg-background p-0.5">
+              <Button
+                type="button"
+                size="sm"
+                variant={costTypeFilter === 'all' ? 'default' : 'ghost'}
+                className="px-2 text-xs h-8"
+                onClick={() => setCostTypeFilter('all')}
+              >
+                Ambos
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={costTypeFilter === 'labor' ? 'default' : 'ghost'}
+                className="px-2 text-xs h-8"
+                onClick={() => setCostTypeFilter('labor')}
+              >
+                Mano de obra
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={costTypeFilter === 'non-labor' ? 'default' : 'ghost'}
+                className="px-2 text-xs h-8"
+                onClick={() => setCostTypeFilter('non-labor')}
+              >
+                Gastos directos
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -900,6 +1073,7 @@ export function MonthlySnapshotGrid({
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
+                          {/* Ver detalle mensual */}
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -907,15 +1081,16 @@ export function MonthlySnapshotGrid({
                                   variant="ghost"
                                   size="sm"
                                   className="h-8 w-8 p-0"
-                                  onClick={handleScrollToDetail}
+                                  onClick={() => handleScrollToDetail({ projectId: row.projectId || row.id })}
                                 >
-                                  <FileSpreadsheet className="h-4 w-4" />
+                                  <Eye className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Ver detalle mensual</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
 
+                          {/* Ir a conciliación */}
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -925,13 +1100,33 @@ export function MonthlySnapshotGrid({
                                   className="h-8 w-8 p-0"
                                   onClick={() => handleNavigateToReconciliation(row)}
                                 >
-                                  <ExternalLink className="h-4 w-4" />
+                                  <FileSpreadsheet className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Ir a conciliación</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
 
+                          {/* Estructura de costos (catalog) - only for project rows */}
+                          {groupingMode === 'project' && onNavigateToCostCatalog && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleNavigateToCostCatalog(row)}
+                                  >
+                                    <Layers className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Estructura de costos</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+
+                          {/* Budget request */}
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
