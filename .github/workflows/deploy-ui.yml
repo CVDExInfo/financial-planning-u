@@ -98,7 +98,12 @@ jobs:
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing repo var: $k"; exit 1; }
           done
           printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
-          # normalize line endings
+          if [ -n "${CF_DOMAIN:-}" ]; then
+            printf '%s\n' "CF_DOMAIN_URL=https://${CF_DOMAIN}" >> "$GITHUB_ENV"
+          else
+            echo "❌ CF_DOMAIN not set"
+            exit 1
+          fi
           sed -i 's/\r$//' "$GITHUB_ENV"
           echo "✅ Env OK"
 
@@ -111,7 +116,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install CLI tools
         shell: bash
@@ -222,4 +227,404 @@ jobs:
           }
           echo "✅ Finanzas Portal built → dist-finanzas/"
 
-      # (rest of job unchanged --- keep your existing steps from here on, unchanged)
+      - name: Write Finanzas deployment metadata
+        run: bash scripts/write-deployment-meta.sh dist-finanzas
+
+      - name: Record Finanzas bundle hashes
+        run: |
+          set -euo pipefail
+          ls -R dist-finanzas
+          sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css > dist-finanzas-bundle-hashes.txt
+          {
+            echo "### Finanzas bundle hashes"
+            echo ""
+            cat dist-finanzas-bundle-hashes.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Finanzas bundle hash artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: finanzas-bundle-hashes
+          path: dist-finanzas-bundle-hashes.txt
+
+      - name: Find previous successful Finanzas run
+        id: prev_run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "ℹ️  gh CLI not available on runner; skipping previous-run hash comparison."
+            printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BRANCH_NAME="${GITHUB_REF##*/}"
+          echo "🔎 Looking for previous successful run on branch: $BRANCH_NAME"
+
+          # Try to fetch last 20 runs; if this fails (e.g. 403), degrade gracefully
+          if ! RAW_JSON=$(gh run list \
+              --workflow "Deploy Finanzas UI" \
+              --branch "$BRANCH_NAME" \
+              --json databaseId,headSha,conclusion,status \
+              -L 20 2>/tmp/gh_run_list_err.log); then
+            echo "ℹ️  gh run list failed (likely permission issue). Skipping previous-run hash comparison."
+            echo "----- gh run list stderr -----"
+            cat /tmp/gh_run_list_err.log || true
+            printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PREV_RUN_ID=$(printf '%s\n' "$RAW_JSON" \
+            | jq -r --arg current "$GITHUB_SHA" '
+                [ .[]
+                  | select(.conclusion=="success" and .headSha != $current)
+                ][0].databaseId // ""
+              ')
+
+          if [ -z "$PREV_RUN_ID" ]; then
+            echo "ℹ️  No previous successful run found for this branch (or only current SHA present)."
+            printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "✅ Previous successful run id: $PREV_RUN_ID"
+
+          mkdir -p /tmp/prev-hashes
+
+          if gh run download "$PREV_RUN_ID" --name finanzas-bundle-hashes --dir /tmp/prev-hashes 2>/tmp/gh_run_download_err.log; then
+            if [ -f /tmp/prev-hashes/dist-finanzas-bundle-hashes.txt ]; then
+              printf 'previous_run_found=true\n' >> "$GITHUB_OUTPUT"
+              printf 'previous_hash_file=/tmp/prev-hashes/dist-finanzas-bundle-hashes.txt\n' >> "$GITHUB_OUTPUT"
+              echo "✅ Previous hash file found at /tmp/prev-hashes/dist-finanzas-bundle-hashes.txt"
+            else
+              echo "ℹ️  Previous run had no dist-finanzas-bundle-hashes.txt artifact."
+              printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "ℹ️  gh run download failed (likely permission issue). Skipping previous-run hash comparison."
+            echo "----- gh run download stderr -----"
+            cat /tmp/gh_run_download_err.log || true
+            printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compare bundle hashes with previous run
+        if: steps.prev_run.outputs.previous_run_found == 'true'
+        run: |
+          set -euo pipefail
+          PREV_FILE="${{ steps.prev_run.outputs.previous_hash_file }}"
+          echo "🔍 Comparing current bundle hashes with: $PREV_FILE"
+          if diff -u "$PREV_FILE" dist-finanzas-bundle-hashes.txt; then
+            echo "ℹ️  Bundle hashes match previous successful run."
+          else
+            echo "ℹ️  Bundle hashes differ from previous run (expected when Finanzas UI changed)."
+          fi
+
+      - name: Detect Finanzas source changes
+        id: finz_changed
+        run: bash scripts/detect-finz-changes.sh "${{ github.event.before || '' }}"
+
+      - name: Guard - Bundle hash vs source changes consistency
+        if: steps.prev_run.outputs.previous_run_found == 'true'
+        run: bash scripts/guard-bundle-vs-source.sh "${{ steps.prev_run.outputs.previous_hash_file }}" "${{ steps.finz_changed.outputs.finz_changed }}"
+
+      - name: Verify API URL embedded in Finanzas bundle
+        env:
+          VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
+        run: |
+          set -euo pipefail
+
+          VITE_API_BASE_URL="$(printf '%s' "$VITE_API_BASE_URL" | tr -d '\r\n')"
+          VITE_API_BASE_URL="${VITE_API_BASE_URL%/}"
+
+          DIST="dist-finanzas"
+          echo "🔍 Searching for VITE_API_BASE_URL in build artifacts..."
+
+          if ! grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" >/dev/null; then
+            echo "❌ CRITICAL: VITE_API_BASE_URL ($VITE_API_BASE_URL) not found in $DIST"
+            echo "   This means the API URL was not injected during build"
+            echo ""
+            echo "🔧 Troubleshooting:"
+            echo "   1. Check that VITE_API_BASE_URL was set during build"
+            echo "   2. Verify vite.config.ts is properly injecting the value"
+            echo "   3. Review build logs for Vite configuration errors"
+            exit 1
+          fi
+
+          echo "✅ VITE_API_BASE_URL found in Finanzas bundle"
+          echo "📋 Sample occurrences:"
+          grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" | head -3 || true
+
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: deploy-ui-${{ github.run_id }}
+
+      - name: Verify identity
+        run: aws sts get-caller-identity
+
+      - name: Guard - S3 buckets and CloudFront exist
+        run: |
+          set -euo pipefail
+          aws s3api head-bucket --bucket "${FINANZAS_BUCKET_NAME}" >/dev/null || { echo "❌ Missing Finanzas bucket ${FINANZAS_BUCKET_NAME}"; exit 1; }
+          aws cloudfront get-distribution --id "${CLOUDFRONT_DIST_ID}" >/dev/null || { echo "❌ Missing CloudFront distribution ${CLOUDFRONT_DIST_ID}"; exit 1; }
+          echo "✅ Buckets & CloudFront found"
+
+      - name: Guard - API endpoint present (VITE_API_BASE_URL)
+        run: |
+          set -euo pipefail
+          : ${VITE_API_BASE_URL:?VITE_API_BASE_URL missing}
+          BASE="${VITE_API_BASE_URL%/}"
+          HOST_ID=$(echo "$BASE" | awk -F'[/.]' '{print $3}')
+          : ${EXPECTED_API_ID:?EXPECTED_API_ID missing}
+          if [ "$HOST_ID" != "$EXPECTED_API_ID" ]; then
+            echo "❌ Expected API id ${EXPECTED_API_ID}, got ${HOST_ID}"; exit 1;
+          fi
+          CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || true)
+          if [ "$CODE" != "200" ]; then
+            echo "❌ /health returned $CODE — check stage deployment"; exit 1;
+          fi
+          echo "✅ API endpoint ID and /health verified: $BASE"
+
+      - name: Guard - Finanzas build artifacts
+        run: |
+          set -euo pipefail
+          if grep -R -nE 'src="/assets/|href="/assets/' dist-finanzas/index.html; then
+            echo "❌ dist-finanzas/index.html points to /assets/* (missing base '/finanzas/')"; exit 1;
+          fi
+          if [ ! -f dist-finanzas/auth/callback.html ]; then
+            echo "❌ Missing auth callback asset at dist-finanzas/auth/callback.html (expected from public/auth/callback.html)"
+            exit 1
+          fi
+          if [ -f dist-finanzas/finanzas/auth/callback.html ]; then
+            echo "❌ Unexpected nested callback found at dist-finanzas/finanzas/auth/callback.html"
+            echo "   This would publish to /finanzas/finanzas/auth/callback.html and break the Hosted UI redirect"
+            exit 1
+          fi
+          if grep -R -i 'github\.dev\|codespaces' dist-finanzas/ 2>/dev/null; then
+            echo "❌ Build contains github.dev/codespaces references"; exit 1;
+          fi
+          if find dist-finanzas -name "aws-exports.js" -o -name "aws-exports.ts" | grep -q .; then
+            echo "❌ CRITICAL: aws-exports.js found in Finanzas build!";
+            echo "   aws-exports.js is a PMO/Amplify concern and should NOT be in Finanzas";
+            exit 1;
+          fi
+          echo "✅ Finanzas build artifacts look good"
+
+      - name: Upload Finanzas Portal to S3 (/finanzas prefix)
+        run: |
+          aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
+            --exclude '*.map' \
+            --exclude 'docs/*' \
+            --exclude 'test-helper.html' \
+            --delete
+          echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
+
+      - name: Verify Finanzas S3 manifest matches local build
+        run: |
+          set -euo pipefail
+
+          # Compare only the SPA assets we actually sync (exclude source maps, legacy docx, and docs/ bundles managed elsewhere)
+          find dist-finanzas -type f \
+            ! -name '*.map' \
+            ! -name '*.docx' \
+            ! -path 'dist-finanzas/docs/*' \
+            -print \
+            | sed 's|^dist-finanzas/||' \
+            | sort > /tmp/local-finanzas-manifest.txt
+
+          aws s3api list-objects-v2 \
+            --bucket "${FINANZAS_BUCKET_NAME}" \
+            --prefix "finanzas/" \
+            --output json \
+            | jq -r '.Contents[]?.Key
+              | sub("^finanzas/"; "")
+              | select(. | endswith(".map") | not)
+              | select(. | endswith(".docx") | not)
+              | select(. | startswith("docs/") | not)
+            ' \
+            | sort > /tmp/s3-finanzas-manifest.txt
+
+          echo "🔍 Comparing local vs S3 manifests (excluding .map/.docx files and docs/ prefix)..."
+          if ! diff -u /tmp/local-finanzas-manifest.txt /tmp/s3-finanzas-manifest.txt; then
+            echo "❌ Finanzas S3 manifest mismatch — bucket drift detected"
+            echo "   Ensure sync completed successfully and CloudFront invalidation is executed"
+            exit 1
+          fi
+
+          echo "✅ Finanzas S3 manifest matches local build"
+
+      - name: Verify auth callback in S3
+        run: |
+          set -euo pipefail
+          if ! aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "finanzas/auth/callback.html" >/dev/null 2>&1; then
+            echo "❌ auth/callback.html missing in S3 at finanzas/auth/callback.html"
+            echo "   Ensure public/auth/callback.html exists and dist-finanzas/auth/callback.html is produced by the build"
+            exit 1
+          fi
+          echo "✅ auth/callback.html present in S3 at finanzas/auth/callback.html"
+
+      - name: Verify deployment metadata in S3
+        run: |
+          set -euo pipefail
+
+          TMP_FILE=$(mktemp)
+          aws s3 cp "s3://${FINANZAS_BUCKET_NAME}/finanzas/deployment-meta.json" "$TMP_FILE" >/dev/null
+          DEPLOY_SHA=$(jq -r '.sha // empty' "$TMP_FILE")
+
+          if [ -z "$DEPLOY_SHA" ]; then
+            echo "❌ deployment-meta.json missing sha field"
+            cat "$TMP_FILE"
+            exit 1
+          fi
+
+          if [ "$DEPLOY_SHA" != "${GITHUB_SHA}" ]; then
+            echo "❌ deployment-meta.json sha ($DEPLOY_SHA) does not match current commit ${GITHUB_SHA}"
+            exit 1
+          fi
+
+          echo "✅ deployment-meta.json in S3 matches current commit ${GITHUB_SHA}"
+
+      - name: Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)
+        run: |
+          set -euo pipefail
+          BEHAVIOR_COUNT=$(aws cloudfront get-distribution-config \
+            --id "${CLOUDFRONT_DIST_ID}" \
+            --query 'DistributionConfig.CacheBehaviors.Items[?PathPattern==`/finanzas/*`] | length(@)' \
+            --output text)
+          if [ "$BEHAVIOR_COUNT" != "1" ]; then
+            echo "❌ CRITICAL: /finanzas/* behavior missing in CloudFront ${CLOUDFRONT_DIST_ID}"; exit 1;
+          fi
+          echo "✅ /finanzas/* behavior configured"
+
+      - name: Invalidate CloudFront (all + Finanzas SPA)
+        run: |
+          set -euo pipefail
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "${CLOUDFRONT_DIST_ID}" \
+            --paths '/*' '/finanzas/*' '/finanzas/index.html' \
+            --query 'Invalidation.Id' --output text)
+          echo "✅ Invalidation queued: $INVALIDATION_ID"
+
+      - name: Verify CloudFront serves latest deployment metadata
+        run: |
+          set -euo pipefail
+
+          DOMAIN="${CF_DOMAIN}"
+          if [ -z "$DOMAIN" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          fi
+
+          URL="https://${DOMAIN}/finanzas/deployment-meta.json"
+          echo "🔍 Waiting for CloudFront to serve ${URL} with sha ${GITHUB_SHA}"
+
+          ATTEMPTS=12
+          SLEEP_SECONDS=10
+
+          for ((i=1; i<=ATTEMPTS; i++)); do
+            RESPONSE=$(curl -sS --fail "$URL" || true)
+            SHA=$(printf '%s' "$RESPONSE" | jq -r '.sha // empty' 2>/dev/null || true)
+
+            if [ "$SHA" = "${GITHUB_SHA}" ]; then
+              echo "✅ CloudFront is serving the latest deployment metadata (attempt $i)"
+              exit 0
+            fi
+
+            echo "⏳ Attempt $i/${ATTEMPTS}: sha='$SHA' (wanted ${GITHUB_SHA})"
+            sleep "$SLEEP_SECONDS"
+          done
+
+          echo "❌ CloudFront did not serve the latest deployment metadata within $((ATTEMPTS * SLEEP_SECONDS)) seconds"
+          echo "    URL: $URL"
+          exit 1
+
+      - name: UI Smoke (Finanzas /finanzas/)
+        run: |
+          set -euo pipefail
+          DOMAIN="${CF_DOMAIN}"
+          if [ -z "$DOMAIN" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          fi
+          FINZ="https://${DOMAIN}/finanzas/"
+          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "$FINZ")
+          echo "Finanzas /finanzas/ status: $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            HTML_SNIPPET=$(curl -sS "$FINZ" | head -n 40)
+            echo "$HTML_SNIPPET" | grep -q "/finanzas/assets/" || { echo "⚠️ HTML missing /finanzas/assets references"; }
+          else
+            echo "❌ Finanzas portal not accessible (HTTP $STATUS)"; exit 1;
+          fi
+
+      - name: Deep-route SPA smoke test
+        run: |
+          set -euo pipefail
+          DOMAIN="${CF_DOMAIN}"
+          if [ -z "$DOMAIN" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          fi
+
+          DEEP_ROUTE="https://${DOMAIN}/finanzas/sdmt/cost/forecast"
+          echo "Testing deep SPA route: $DEEP_ROUTE"
+
+          STATUS=$(curl -sS -o /tmp/deep_route.html -w '%{http_code}' "$DEEP_ROUTE" 2>/dev/null || echo "000")
+          echo "Deep route status: $STATUS"
+
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Deep-route test failed (HTTP $STATUS)"
+            echo "   SPA routing may not be configured correctly"
+            exit 1
+          fi
+
+          if [ -f /tmp/deep_route.html ]; then
+            if grep -q "/finanzas/assets/" /tmp/deep_route.html; then
+              echo "✅ Deep-route returns valid SPA content (found /finanzas/assets/)"
+            else
+              echo "❌ Deep-route response missing /finanzas/assets/ references"
+              echo "   This may indicate CloudFront is not handling SPA routing correctly"
+              exit 1
+            fi
+          fi
+
+          echo "✅ Deep-route SPA smoke test passed"
+
+      - name: API Smokes (public /health, /catalog/rubros)
+        run: |
+          set -euo pipefail
+          : ${VITE_API_BASE_URL:?VITE_API_BASE_URL missing}
+          BASE="${VITE_API_BASE_URL%/}"
+          echo "API base: $BASE"
+          CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || true)
+          [ "$CODE" = "200" ] || { echo "❌ /health returned $CODE"; exit 1; }
+          LEN=$(curl -sS "$BASE/catalog/rubros" | jq '.data | length' || echo "0")
+          echo "Catalog items: $LEN"
+          [ "$LEN" != "0" ] || echo "⚠️ catalog/rubros length is 0 (seed missing?)"
+
+      - name: Post-Deployment Comprehensive Verification
+        run: |
+          set -euo pipefail
+          export CLOUDFRONT_DOMAIN="${CF_DOMAIN}"
+          export VITE_API_BASE_URL="${VITE_API_BASE_URL}"
+          export S3_BUCKET="${FINANZAS_BUCKET_NAME}"
+
+          echo "🔍 Running comprehensive post-deployment verification..."
+          bash scripts/post-deploy-verify.sh || {
+            echo "❌ Post-deployment verification failed"
+            echo "   This indicates the deployment may not be functioning correctly"
+            echo "   Review the errors above before proceeding"
+            exit 1
+          }
+
+      - name: Summary & Evidence Pack
+        if: always()
+        run: |
+          set -eo pipefail
+          DOMAIN="${CF_DOMAIN}"
+          if [ -z "$DOMAIN" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          fi
+          export SUMMARY_DOMAIN="$DOMAIN"
+          export SUMMARY_API="${VITE_API_BASE_URL:-N/A}"
+          bash scripts/append-finanzas-summary.sh
