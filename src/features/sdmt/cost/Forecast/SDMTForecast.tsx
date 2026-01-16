@@ -165,8 +165,9 @@ type LineItemLike = Record<string, unknown>;
 // Constants
 const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real project
 
-// Feature flag for new forecast layout
+// Feature flags for new forecast layout
 const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true';
+const SHOW_KEY_TRENDS = import.meta.env.VITE_FINZ_SHOW_KEYTRENDS === 'true';
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
@@ -2509,57 +2510,51 @@ export function SDMTForecast() {
       )}
 
       {/* OLD LAYOUT: ForecastRubrosTable grid - Only shown when new layout is disabled */}
-      {!NEW_FORECAST_LAYOUT_ENABLED && (() => {
-        const showOldLayoutGrid = isPortfolioView && !loading && forecastData.length > 0;
-        
-        if (!showOldLayoutGrid) return null;
-        
-        return (
-          <Collapsible
-            open={isRubrosGridOpen}
-            onOpenChange={setIsRubrosGridOpen}
-            defaultOpen={true}
-          >
-            <Card ref={rubrosSectionRef} tabIndex={-1} className="space-y-2">
-              <CardHeader className="pb-2 pt-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="text-lg">
-                      Cuadrícula de Pronóstico (12 Meses)
-                    </CardTitle>
-                  </div>
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      aria-label="Expandir/Colapsar cuadrícula de pronóstico"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </CollapsibleTrigger>
+      {!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && forecastData.length > 0 && (
+        <Collapsible
+          open={isRubrosGridOpen}
+          onOpenChange={setIsRubrosGridOpen}
+          defaultOpen={true}
+        >
+          <Card ref={rubrosSectionRef} tabIndex={-1} className="space-y-2">
+            <CardHeader className="pb-2 pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CardTitle className="text-lg">
+                    Cuadrícula de Pronóstico (12 Meses)
+                  </CardTitle>
                 </div>
-              </CardHeader>
-              <CollapsibleContent>
-                <CardContent className="pt-0">
-                  <ForecastRubrosTable
-                    categoryTotals={categoryTotals}
-                    categoryRubros={categoryRubros}
-                    projectTotals={projectTotals}
-                    projectRubros={projectRubros}
-                    portfolioTotals={portfolioTotalsForCharts}
-                    monthlyBudgets={monthlyBudgets}
-                    onSaveBudget={handleSaveBudgetFromTable}
-                    formatCurrency={formatCurrency}
-                    canEditBudget={canEditBudget}
-                    defaultFilter="labor"
-                  />
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        );
-      })()}
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Expandir/Colapsar cuadrícula de pronóstico"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <ForecastRubrosTable
+                  categoryTotals={categoryTotals}
+                  categoryRubros={categoryRubros}
+                  projectTotals={projectTotals}
+                  projectRubros={projectRubros}
+                  portfolioTotals={portfolioTotalsForCharts}
+                  monthlyBudgets={monthlyBudgets}
+                  onSaveBudget={handleSaveBudgetFromTable}
+                  formatCurrency={formatCurrency}
+                  canEditBudget={canEditBudget}
+                  defaultFilter="labor"
+                />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
 
       {/* OLD LAYOUT: Monthly Snapshot Grid - Only shown when new layout is disabled */}
       {!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && (
@@ -3116,7 +3111,7 @@ export function SDMTForecast() {
             isPortfolioView &&
             forecastData.length > 0 &&
             hasBudgetForVariance &&
-            import.meta.env.VITE_FINZ_SHOW_KEYTRENDS === 'true' && (
+            SHOW_KEY_TRENDS && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <TopVarianceProjectsTable
                   projects={projectSummaries}
