@@ -3,7 +3,6 @@
 // Generates a detailed JSON report of dev URL findings categorized by origin
 
 import fs from 'fs';
-
 const FINDINGS_FILE = 'reports/dev-url-guard-findings.json';
 const REPORT_FILE = 'reports/dev-url-guard-report.json';
 
