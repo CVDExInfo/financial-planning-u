@@ -116,7 +116,6 @@ export default defineConfig(() => {
     },
     build: {
       outDir: outDir,
-      sourcemap: true,
       commonjsOptions: {
         include: [/node_modules/],
         transformMixedEsModules: true,

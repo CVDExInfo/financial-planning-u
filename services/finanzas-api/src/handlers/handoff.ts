@@ -779,14 +779,10 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
       projectId: resolvedProjectId,
       baselineId,
       start_date: normalizedBaseline.start_date,
-      duration_months: normalizedBaseline.duration_months,
+      durationMonths: normalizedBaseline.durationMonths,
     });
 
     // Prepare baseline record for materializers (they expect specific field names)
-    const payloadForMaterializers =
-      baseline?.payload && typeof baseline.payload === "object"
-        ? (baseline.payload as Record<string, unknown>)
-        : {};
     const baselineForMaterializers = {
       baseline_id: baselineId,
       project_id: resolvedProjectId,
@@ -795,7 +791,7 @@ async function createHandoff(event: APIGatewayProxyEventV2) {
       currency,
       labor_estimates: normalizedBaseline.labor_estimates,
       non_labor_estimates: normalizedBaseline.non_labor_estimates,
-      payload: payloadForMaterializers,
+      payload: baseline?.payload || {},
     };
 
     const [allocationsSummary, rubrosSummary] = await Promise.all([

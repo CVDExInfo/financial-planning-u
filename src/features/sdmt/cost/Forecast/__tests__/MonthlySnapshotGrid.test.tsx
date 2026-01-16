@@ -346,8 +346,8 @@ describe('MonthlySnapshotGrid - Only Variance Filter', () => {
  */
 describe('MonthlySnapshotGrid - Denominator Zero Percent Rule', () => {
   it('should return null percent when budget (denominator) is 0', () => {
-    const budget: number = 0;
-    const varianceBudget: number = 100; // forecast - budget
+    const budget = 0;
+    const varianceBudget = 100; // forecast - budget
     
     // Denominator=0 → percent must be null (explicit)
     const varianceBudgetPercent =
@@ -359,8 +359,8 @@ describe('MonthlySnapshotGrid - Denominator Zero Percent Rule', () => {
   });
 
   it('should return null percent when forecast (denominator) is 0', () => {
-    const forecast: number = 0;
-    const varianceForecast: number = 50; // actual - forecast
+    const forecast = 0;
+    const varianceForecast = 50; // actual - forecast
 
     // Denominator=0 → percent must be null (explicit)
     const varianceForecastPercent =
