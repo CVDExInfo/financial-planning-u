@@ -698,7 +698,7 @@ export function MonthlySnapshotGrid({
                   <Checkbox
                     id="variance-filter"
                     checked={showOnlyVariance}
-                    onCheckedChange={(checked) => setShowOnlyVariance(!!checked)}
+                    onCheckedChange={(checked) => setShowOnlyVariance(checked === true)}
                   />
                   <Label
                     htmlFor="variance-filter"
