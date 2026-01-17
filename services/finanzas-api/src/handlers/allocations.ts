@@ -277,7 +277,8 @@ function normalizeMonth(
       // This ensures multi-year baselines are mapped to M1..M60 unambiguously.
       if (projectStartDate && /^\d{4}-\d{2}-\d{2}$/.test(projectStartDate)) {
         const [calYear, calMonth] = monthInput.split('-').map(Number);
-        const startDate = new Date(projectStartDate);
+        // Parse start date with explicit UTC to avoid timezone issues
+        const startDate = new Date(projectStartDate + 'T00:00:00.000Z');
         const startYear = startDate.getUTCFullYear();
         const startMonth = startDate.getUTCMonth() + 1; // 1-12
         // months difference = (calYear - startYear) * 12 + (calMonth - startMonth)
@@ -329,20 +330,23 @@ function normalizeMonth(
   // Compute calendarMonthKey from projectStartDate + (monthIndex - 1) months
   let calendarMonthKey: string;
   if (projectStartDate && /^\d{4}-\d{2}-\d{2}$/.test(projectStartDate)) {
-    const startDate = new Date(projectStartDate);
-    startDate.setUTCMonth(startDate.getUTCMonth() + (monthIndex - 1));
-    const year = startDate.getUTCFullYear();
-    const month = String(startDate.getUTCMonth() + 1).padStart(2, "0");
+    // Parse start date with explicit UTC to avoid timezone issues
+    const startDate = new Date(projectStartDate + 'T00:00:00.000Z');
+    // Use Date.UTC to avoid timezone issues when computing future dates
+    const startYear = startDate.getUTCFullYear();
+    const startMonth = startDate.getUTCMonth();
+    const futureDate = new Date(Date.UTC(startYear, startMonth + (monthIndex - 1), 1));
+    const year = futureDate.getUTCFullYear();
+    const month = String(futureDate.getUTCMonth() + 1).padStart(2, "0");
     calendarMonthKey = `${year}-${month}`;
   } else {
-    // If no valid project start date, this is an error condition
-    // Log warning and use monthIndex as fallback for development
+    // If no valid project start date, use a fixed reference year (2020) to avoid
+    // generating time-dependent calendar keys that would change over time
     console.warn(
-      `[allocations] Missing or invalid project start date: ${projectStartDate}. Using monthIndex ${monthIndex} without calendar computation.`
+      `[allocations] Missing or invalid project start date: ${projectStartDate}. Using fixed reference year 2020 for monthIndex ${monthIndex}.`
     );
-    // Use current year as emergency fallback - this should be rare in production
-    const currentYear = new Date().getUTCFullYear();
-    calendarMonthKey = `${currentYear}-${String(monthIndex).padStart(2, "0")}`;
+    const referenceYear = 2020;
+    calendarMonthKey = `${referenceYear}-${String(monthIndex).padStart(2, "0")}`;
   }
 
   return { monthIndex, calendarMonthKey };
