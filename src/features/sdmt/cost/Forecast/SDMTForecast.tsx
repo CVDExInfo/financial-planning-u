@@ -2028,6 +2028,34 @@ export function SDMTForecast() {
     return buildPortfolioTotals(forecastData);
   }, [isPortfolioView, forecastData]);
 
+  // Compute projects per month (M/M) for chart bar series
+  const projectsPerMonth = useMemo(() => {
+    if (!isPortfolioView || forecastData.length === 0) {
+      return Array.from({ length: 12 }, (_, i) => ({ month: i + 1, count: 0 }));
+    }
+
+    // Count unique projects per month
+    const monthlyProjects = new Map<number, Set<string>>();
+    
+    forecastData.forEach((cell) => {
+      const month = cell.month;
+      const projectId = cell.projectId;
+      
+      if (!month || !projectId || month < 1 || month > 12) return;
+      
+      if (!monthlyProjects.has(month)) {
+        monthlyProjects.set(month, new Set());
+      }
+      monthlyProjects.get(month)!.add(projectId);
+    });
+
+    return Array.from({ length: 12 }, (_, i) => {
+      const month = i + 1;
+      const count = monthlyProjects.get(month)?.size || 0;
+      return { month, count };
+    });
+  }, [isPortfolioView, forecastData]);
+
   // Check if we have a valid budget for variance analysis
   const hasBudgetForVariance = useMemo(() => {
     const annualBudget = parseFloat(budgetAmount);
@@ -3172,7 +3200,7 @@ export function SDMTForecast() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">
-                      Resumen de Portafolio
+                      Monitoreo mensual de proyectos vs. presupuesto
                     </CardTitle>
                     <CollapsibleTrigger asChild>
                       <Button
@@ -3209,58 +3237,7 @@ export function SDMTForecast() {
             </Collapsible>
           )}
 
-          {/* Collapsible Section: Cuadrícula de Pronóstico 12 Meses (Rubros Grid) */}
-          {/* OLD LAYOUT: Only render old rubros grid when NEW_FORECAST_LAYOUT_ENABLED is false */}
-          {/* and we are in portfolio view and have data. */}
-          {!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && forecastData.length > 0 && (
-            <Collapsible
-              open={isRubrosGridOpen}
-              onOpenChange={setIsRubrosGridOpen}
-            >
-              <Card 
-                ref={NEW_FORECAST_LAYOUT_ENABLED ? undefined : rubrosSectionRef} 
-                tabIndex={-1}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <CardTitle className="text-lg">
-                        {NEW_FORECAST_LAYOUT_ENABLED 
-                          ? "Cuadrícula de Pronóstico"
-                          : "Cuadrícula de Pronóstico 12 Meses"}
-                      </CardTitle>
-                    </div>
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        aria-label="Expandir/Colapsar cuadrícula de rubros"
-                      >
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </CollapsibleTrigger>
-                  </div>
-                </CardHeader>
-                <CollapsibleContent>
-                  <CardContent className="pt-0">
-                    <ForecastRubrosTable
-                      categoryTotals={categoryTotals}
-                      categoryRubros={categoryRubros}
-                      projectTotals={projectTotals}
-                      projectRubros={projectRubros}
-                      portfolioTotals={portfolioTotalsForCharts}
-                      monthlyBudgets={monthlyBudgets}
-                      onSaveBudget={handleSaveBudgetFromTable}
-                      formatCurrency={formatCurrency}
-                      canEditBudget={canEditBudget}
-                      defaultFilter="labor"
-                    />
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
-          )}
+          {/* Duplicate ForecastRubrosTable removed - keeping only the first instance at line ~2551 */}
 
           {/* Collapsible Section: Simulador de Presupuesto */}
           <Collapsible defaultOpen={false}>
@@ -3460,6 +3437,7 @@ export function SDMTForecast() {
               monthlyBudgets={monthlyBudgets}
               useMonthlyBudget={useMonthlyBudget}
               formatCurrency={formatCurrency}
+              projectsPerMonth={projectsPerMonth}
             />
           )}
         </>
