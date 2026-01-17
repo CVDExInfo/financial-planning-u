@@ -215,11 +215,14 @@ describe("allocations handler - robust GET with fallbacks", () => {
     expect(body).toEqual(mockAllocations);
     expect(mockDdbSend).toHaveBeenCalledTimes(3);
     
-    // Verify BASELINE# query was called
+    // Verify BASELINE# query was called with SK filter
     expect(mockDdbSend).toHaveBeenCalledWith(
       expect.objectContaining({
         input: expect.objectContaining({
-          ExpressionAttributeValues: { ":pk": `BASELINE#${baselineId}` },
+          ExpressionAttributeValues: expect.objectContaining({
+            ":pk": `BASELINE#${baselineId}`,
+            ":skPrefix": `ALLOCATION#${baselineId}#`,
+          }),
         }),
       })
     );
