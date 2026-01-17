@@ -167,6 +167,18 @@ describe("isLabor", () => {
     assert.equal(isLabor("  Mano de Obra Directa  ", undefined), true);
   });
 
+  it("returns true for canonical 'Labor' category", () => {
+    assert.equal(isLabor("Labor", undefined), true);
+    assert.equal(isLabor("labor", undefined), true);
+    assert.equal(isLabor("LABOR", undefined), true);
+  });
+
+  it("returns true for 'Labor Cost' and similar labor categories", () => {
+    assert.equal(isLabor("Labor Cost", undefined), true);
+    assert.equal(isLabor("MOD", undefined), true);
+    assert.equal(isLabor("Mano de Obra", undefined), true);
+  });
+
   it("returns true for labor role when category is missing", () => {
     assert.equal(isLabor(undefined, "Ingeniero"), true);
     assert.equal(isLabor("", "Service Delivery Manager"), true);
