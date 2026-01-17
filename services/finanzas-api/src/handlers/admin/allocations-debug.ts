@@ -129,7 +129,7 @@ export const handler = async (
     // Attempt 3: If baseline-like, try BASELINE# pk
     if (isBaselineLike) {
       pkCandidate = `BASELINE#${incomingId}`;
-      items = await queryByPK(pkCandidate);
+      await queryByPK(pkCandidate);
     }
 
     // Build diagnostic response
