@@ -76,6 +76,138 @@ async function getBaselineMetadata(baselineId: string): Promise<any> {
 }
 
 /**
+ * Coerce a value to a number, returning 0 if invalid
+ */
+function coerceNumber(v: any): number {
+  if (v === undefined || v === null) return 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Parse month index from calendar key (YYYY-MM format)
+ * 
+ * NOTE: This extracts the calendar month number (1-12), NOT the contract month index.
+ * For multi-year baselines, this is a fallback that loses contract month context.
+ * Example: "2026-05" returns 5, but could represent M13 in a multi-year baseline.
+ * 
+ * The normalization logic prioritizes actual month_index/monthIndex fields when available.
+ * This fallback is only used when those fields are missing and no numeric month is provided.
+ */
+function parseMonthIndexFromCalendarKey(calKey?: string): number | undefined {
+  if (!calKey || typeof calKey !== 'string') return undefined;
+  const m = calKey.match(/^\d{4}-(\d{2})$/);
+  if (m) return parseInt(m[1], 10);
+  return undefined;
+}
+
+/**
+ * Normalize allocations to canonical format and derive labour amounts when needed
+ * 
+ * This function:
+ * 1. Normalizes field names (amount, month_index, etc.) from various legacy formats
+ * 2. Derives labour monthly amounts from baseline when amount is 0
+ * 3. Ensures all allocations have consistent shape for UI consumption
+ * 
+ * @param items - Raw allocation items from DynamoDB
+ * @param baselineIdCandidate - Optional baseline ID to use for derivation
+ * @returns Normalized allocation items
+ */
+async function normalizeAllocations(items: any[], baselineIdCandidate?: string): Promise<any[]> {
+  const baselineCache: {[k:string]: any} = {};
+  
+  async function loadBaseline(bid: string) {
+    if (!bid) return null;
+    if (!baselineCache[bid]) baselineCache[bid] = await getBaselineMetadata(bid);
+    return baselineCache[bid];
+  }
+
+  return Promise.all(items.map(async (it: any) => {
+    // Canonicalize rubro/line item id
+    const rubroId = it.rubroId || it.rubro_id || it.line_item_id || it.lineItemId || it.rubro || null;
+
+    // Canonical amount: try multiple fields in priority order
+    let amount = coerceNumber(
+      it.amount ?? 
+      it.planned ?? 
+      it.monto_planeado ?? 
+      it.monto_proyectado ?? 
+      it.monto_real ?? 
+      it.forecast
+    );
+
+    // Month indices / calendar key
+    // Priority: 1) explicit month_index/monthIndex, 2) numeric month, 3) parse from calendar key
+    // Note: parseMonthIndexFromCalendarKey extracts calendar month (1-12), which may not equal
+    // contract month index for multi-year baselines. This is acceptable as a fallback since
+    // properly materialized allocations should have explicit month_index set.
+    let monthIndex = it.month_index ?? it.monthIndex;
+    if (!monthIndex && typeof it.month === 'number') monthIndex = it.month;
+    if (!monthIndex) monthIndex = parseMonthIndexFromCalendarKey(it.calendarMonthKey ?? it.month ?? it.mes);
+
+    const calendarMonthKey = it.calendarMonthKey ?? it.calendar_month ?? it.month ?? it.mes;
+
+    // If labour-like rubro and amount==0, try to derive from baseline labour estimates
+    // Heuristic: checks if rubroId starts with "MOD" (case-insensitive)
+    // This matches standard labour rubros like MOD-LEAD, MOD-SDM, MOD-ING, etc.
+    // Note: If your taxonomy includes labour rubros that don't start with "MOD",
+    // consider enhancing this to check against a canonical labour category list.
+    const isMOD = /^MOD/i.test(String(rubroId));
+    if (isMOD && !amount) {
+      // Prefer explicit baselineId else fallback to provided candidate
+      const bid = it.baselineId || it.baseline_id || baselineIdCandidate;
+      if (bid) {
+        try {
+          const baseline = await loadBaseline(bid);
+          if (baseline) {
+            const laborEstimates = (baseline.labor_estimates || baseline.payload?.labor_estimates || baseline.payload?.payload?.labor_estimates) || [];
+            // Attempt match by rubroId or line_item_id
+            const matched = (laborEstimates || []).find((le: any) => {
+              const leRubro = le.rubroId || le.rubro_id || le.line_item_id || le.id;
+              return leRubro && String(leRubro).toLowerCase() === String(rubroId).toLowerCase();
+            });
+            if (matched) {
+              // Derivation requires either:
+              // 1) total_cost field (preferred), or
+              // 2) hourly_rate + hours_per_month fields (fallback)
+              // If neither is available, derivation is skipped and amount remains 0
+              if (matched.total_cost || matched.totalCost) {
+                const totalCost = coerceNumber(matched.total_cost ?? matched.totalCost);
+                const duration = baseline.durationMonths || baseline.duration_months || matched.duration_months || matched.durationMonths || 12;
+                if (duration > 0) amount = Math.round((totalCost / duration) * 100) / 100;
+              } else if (matched.hourly_rate || matched.hourlyRate) {
+                const hr = coerceNumber(matched.hourly_rate ?? matched.hourlyRate);
+                const hours = coerceNumber(matched.hours_per_month ?? matched.hoursPerMonth ?? matched.hours ?? 160);
+                const fte = coerceNumber(matched.fte_count ?? matched.fteCount ?? 1);
+                const oncost = coerceNumber(matched.on_cost_percentage ?? matched.onCostPercentage ?? 0);
+                const base = hr * hours * fte;
+                amount = Math.round((base * (1 + oncost / 100)) * 100) / 100;
+              }
+              if (amount && amount > 0) {
+                console.info(`[allocations] Derived amount=${amount} for labour rubro ${rubroId} from baseline ${bid}`);
+              }
+            }
+          }
+        } catch (e: any) {
+          console.warn(`[allocations] Failed to derive labour amount for ${rubroId} / baseline ${bid}:`, e?.message || e);
+        }
+      }
+    }
+
+    return {
+      ...it,
+      amount,
+      month_index: monthIndex,
+      monthIndex,
+      calendarMonthKey,
+      rubroId,
+      rubro_id: it.rubro_id ?? rubroId,
+      line_item_id: it.line_item_id ?? it.lineItemId ?? rubroId,
+    };
+  }));
+}
+
+/**
  * Normalize month input to monthIndex (1-12) and compute calendarMonthKey (YYYY-MM)
  * Accepts:
  * - number 1-12 (monthIndex) - treated as contract month offset
@@ -209,7 +341,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
         },
         // Return only fields needed by UI to avoid oversized responses
         // Note: 'mes' is legacy Spanish field, 'month' is English equivalent (both kept for compatibility)
-        ProjectionExpression: "pk, sk, projectId, baselineId, rubroId, #month, mes, monthIndex, calendarMonthKey, planned, forecast, actual, monto_planeado, monto_proyectado, monto_real",
+        ProjectionExpression: "pk, sk, projectId, baselineId, baseline_id, rubroId, rubro_id, line_item_id, #month, mes, monthIndex, month_index, calendarMonthKey, amount, planned, forecast, actual, monto_planeado, monto_proyectado, monto_real",
       };
       
       if (skPrefix) {
@@ -251,7 +383,8 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
       
       if (items.length > 0) {
         logInfo(`[allocations] ✅ Found ${items.length} allocations by ${pkCandidate}${skPrefix ? ` with SK filter ${skPrefix}` : ''}`);
-        return ok(event, items);
+        const normalized = await normalizeAllocations(items, baselineId);
+        return ok(event, normalized);
       }
       
       // If no baselineId was provided but we got 0 results, try to derive baselineId from project
@@ -276,7 +409,8 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
               
               if (items.length > 0) {
                 logInfo(`[allocations] ✅ Found ${items.length} allocations using derived baselineId ${derivedBaselineId}`);
-                return ok(event, items);
+                const normalized = await normalizeAllocations(items, derivedBaselineId);
+                return ok(event, normalized);
               }
             }
           }
@@ -300,7 +434,8 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
               
               if (items.length > 0) {
                 logInfo(`[allocations] ✅ Found ${items.length} allocations via baseline→project resolution: ${pkCandidate} with baselineId ${incomingId}`);
-                return ok(event, items);
+                const normalized = await normalizeAllocations(items, incomingId);
+                return ok(event, normalized);
               }
             } else {
               console.warn(`[allocations] Baseline ${incomingId} has no project_id`);
@@ -319,7 +454,8 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
         
         if (items.length > 0) {
           logInfo(`[allocations] ✅ Found ${items.length} allocations by legacy baseline pk: ${pkCandidate}`);
-          return ok(event, items);
+          const normalized = await normalizeAllocations(items, incomingId);
+          return ok(event, normalized);
         }
       }
       
@@ -344,8 +480,11 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
     const items = scanResult.Items || [];
     console.log(`[allocations] GET scan (all projects): ${items.length} items (limit: ${limit})`);
     
+    // Normalize items before returning
+    const normalized = await normalizeAllocations(items);
+    
     // Return bare array for frontend compatibility
-    return ok(event, items);
+    return ok(event, normalized);
   } catch (error) {
     logError("Error fetching allocations", error);
     return serverError(event as any, "Failed to fetch allocations");

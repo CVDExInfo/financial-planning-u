@@ -106,7 +106,20 @@ describe("allocations handler - robust GET with fallbacks", () => {
 
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
-    expect(body).toEqual(mockAllocations);
+    // Check that allocations are returned with normalized fields
+    expect(body).toHaveLength(mockAllocations.length);
+    body.forEach((item: any, idx: number) => {
+      expect(item).toMatchObject({
+        pk: mockAllocations[idx].pk,
+        sk: mockAllocations[idx].sk,
+        rubroId: mockAllocations[idx].rubroId,
+        month: mockAllocations[idx].month,
+        planned: mockAllocations[idx].planned,
+      });
+      // Verify normalization added expected fields
+      expect(item).toHaveProperty('amount');
+      expect(item).toHaveProperty('monthIndex');
+    });
     expect(mockDdbSend).toHaveBeenCalledTimes(1);
     expect(mockDdbSend).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -159,7 +172,18 @@ describe("allocations handler - robust GET with fallbacks", () => {
 
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
-    expect(body).toEqual(mockAllocations);
+    // Check that allocations are returned with normalized fields
+    expect(body).toHaveLength(mockAllocations.length);
+    expect(body[0]).toMatchObject({
+      pk: mockAllocations[0].pk,
+      sk: mockAllocations[0].sk,
+      rubroId: mockAllocations[0].rubroId,
+      month: mockAllocations[0].month,
+      planned: mockAllocations[0].planned,
+    });
+    // Verify normalization added expected fields
+    expect(body[0]).toHaveProperty('amount');
+    expect(body[0]).toHaveProperty('monthIndex');
     expect(mockDdbSend).toHaveBeenCalledTimes(3);
     
     // Verify baseline lookup was called
@@ -212,7 +236,18 @@ describe("allocations handler - robust GET with fallbacks", () => {
 
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
-    expect(body).toEqual(mockAllocations);
+    // Check that allocations are returned with normalized fields
+    expect(body).toHaveLength(mockAllocations.length);
+    expect(body[0]).toMatchObject({
+      pk: mockAllocations[0].pk,
+      sk: mockAllocations[0].sk,
+      rubroId: mockAllocations[0].rubroId,
+      month: mockAllocations[0].month,
+      planned: mockAllocations[0].planned,
+    });
+    // Verify normalization added expected fields
+    expect(body[0]).toHaveProperty('amount');
+    expect(body[0]).toHaveProperty('monthIndex');
     expect(mockDdbSend).toHaveBeenCalledTimes(3);
     
     // Verify BASELINE# query was called with SK filter
