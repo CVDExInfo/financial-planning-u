@@ -2,8 +2,14 @@ import { APIGatewayProxyEventV2, Context } from "aws-lambda";
 import { ensureCanRead, ensureCanWrite, getUserContext } from "../lib/auth";
 import { bad, ok, noContent, serverError } from "../lib/http";
 import { ddb, tableName, QueryCommand, ScanCommand, PutCommand, GetCommand } from "../lib/dynamo";
-import { logError } from "../utils/logging";
+import { logError, logInfo } from "../utils/logging";
 import { parseForecastBulkUpdate } from "../validation/allocations";
+
+/**
+ * Regex pattern to identify baseline-like IDs
+ * Matches patterns like: base_, base-, BL-, BL_, baseline-, etc.
+ */
+const BASELINE_ID_PATTERN = /^(base_|base-|base|BL-|BL_)/i;
 
 /**
  * Get project metadata from DynamoDB with composite key
@@ -42,6 +48,30 @@ async function getMetadata(
     });
     // Rethrow so caller can handle as 500/400
     throw err;
+  }
+}
+
+/**
+ * Get baseline metadata from DynamoDB
+ * Retrieves baseline information including project_id for baseline->project resolution
+ */
+async function getBaselineMetadata(baselineId: string): Promise<any> {
+  try {
+    const prefacturasTable = tableName("prefacturas");
+    const lookup = await ddb.send(
+      new GetCommand({
+        TableName: prefacturasTable,
+        Key: { pk: `BASELINE#${baselineId}`, sk: "METADATA" },
+      })
+    );
+    return lookup.Item || null;
+  } catch (err: any) {
+    console.error('[allocations] Failed to get baseline metadata', {
+      baselineId,
+      error: err.name,
+      message: err.message,
+    });
+    return null;
   }
 }
 
@@ -128,8 +158,19 @@ function normalizeMonth(
 
 /**
  * GET /allocations
- * Returns allocations from DynamoDB, optionally filtered by projectId
+ * Returns allocations from DynamoDB, filtered by projectId and optionally by baselineId
  * Always returns an array (never {data: []}) for frontend compatibility
+ * 
+ * Query parameters:
+ * - projectId (required): The project ID
+ * - baseline or baselineId (optional): Filter allocations by baseline
+ * 
+ * Robust retrieval with SK filtering:
+ * 1. Primary: query pk=PROJECT#${projectId} + sk begins_with ALLOCATION#${baselineId}#
+ * 2. Fallback 1: If baselineId-like projectId, resolve baseline→project
+ * 3. Fallback 2: Try BASELINE#${baselineId} for legacy allocations
+ * 
+ * Tracks all attempted keys for diagnostics
  */
 async function getAllocations(event: APIGatewayProxyEventV2) {
   try {
@@ -139,35 +180,156 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
       event.queryStringParameters?.projectId || 
       event.queryStringParameters?.project_id;
     
+    const baselineId = 
+      event.queryStringParameters?.baseline ||
+      event.queryStringParameters?.baselineId;
+    
     // Normalize projectId: strip PROJECT# prefix if present
-    let projectId = rawProjectId;
-    if (projectId && projectId.startsWith('PROJECT#')) {
-      projectId = projectId.substring('PROJECT#'.length);
-      console.log(`[allocations] Normalized projectId from ${rawProjectId} to ${projectId}`);
+    let incomingId = rawProjectId;
+    if (incomingId && incomingId.startsWith('PROJECT#')) {
+      incomingId = incomingId.substring('PROJECT#'.length);
+      console.log(`[allocations] Normalized projectId from ${rawProjectId} to ${incomingId}`);
     }
     
     const allocationsTable = tableName("allocations");
     
-    // If projectId is provided, query for that project's allocations
-    if (projectId) {
-      const queryResult = await ddb.send(
-        new QueryCommand({
-          TableName: allocationsTable,
-          KeyConditionExpression: "#pk = :pk",
-          ExpressionAttributeNames: {
-            "#pk": "pk",
-          },
-          ExpressionAttributeValues: {
-            ":pk": `PROJECT#${projectId}`,
-          },
-        })
-      );
+    // Track all attempted partition keys and their results for diagnostics
+    const triedKeys: Array<{ key: string; count: number; skPrefix?: string }> = [];
+    
+    // Helper function to query by partition key with optional SK filter
+    async function queryByPK(pk: string, skPrefix?: string): Promise<any[]> {
+      const params: any = {
+        TableName: allocationsTable,
+        ExpressionAttributeNames: {
+          "#pk": "pk",
+          "#month": "month", // 'month' is a reserved word in DynamoDB
+        },
+        ExpressionAttributeValues: {
+          ":pk": pk,
+        },
+        // Return only fields needed by UI to avoid oversized responses
+        // Note: 'mes' is legacy Spanish field, 'month' is English equivalent (both kept for compatibility)
+        ProjectionExpression: "pk, sk, projectId, baselineId, rubroId, #month, mes, monthIndex, calendarMonthKey, planned, forecast, actual, monto_planeado, monto_proyectado, monto_real",
+      };
+      
+      if (skPrefix) {
+        // Filter by SK prefix to get only ALLOCATION# items for this baseline
+        params.KeyConditionExpression = "#pk = :pk AND begins_with(sk, :skPrefix)";
+        params.ExpressionAttributeNames["#sk"] = "sk";
+        params.ExpressionAttributeValues[":skPrefix"] = skPrefix;
+      } else {
+        // Query by PK only (less efficient, may return non-allocation items)
+        params.KeyConditionExpression = "#pk = :pk";
+      }
+      
+      const queryResult = await ddb.send(new QueryCommand(params));
       
       const items = queryResult.Items || [];
-      console.log(`[allocations] GET query for project ${projectId}: ${items.length} items, sample:`, items.slice(0, 3));
       
-      // Return bare array for frontend compatibility
-      return ok(event, items);
+      // Filter to ensure we only return ALLOCATION# items (defense in depth)
+      const allocations = items.filter(item => 
+        item.sk && typeof item.sk === 'string' && item.sk.startsWith('ALLOCATION#')
+      );
+      
+      triedKeys.push({ key: pk, count: allocations.length, skPrefix });
+      
+      console.log(`[allocations] Query: pk=${pk}, skPrefix=${skPrefix || 'none'}, found=${allocations.length} allocations`);
+      
+      return allocations;
+    }
+    
+    // If projectId is provided, use robust retrieval with SK filtering
+    if (incomingId) {
+      // Check if incoming ID looks like a baseline ID
+      const isBaselineLike = BASELINE_ID_PATTERN.test(incomingId);
+      
+      // Primary attempt: query PROJECT#${incomingId} with SK filter if baselineId provided
+      let pkCandidate = `PROJECT#${incomingId}`;
+      let skPrefix = baselineId ? `ALLOCATION#${baselineId}#` : undefined;
+      
+      let items = await queryByPK(pkCandidate, skPrefix);
+      
+      if (items.length > 0) {
+        logInfo(`[allocations] ✅ Found ${items.length} allocations by ${pkCandidate}${skPrefix ? ` with SK filter ${skPrefix}` : ''}`);
+        return ok(event, items);
+      }
+      
+      // If no baselineId was provided but we got 0 results, try to derive baselineId from project
+      if (!baselineId && !isBaselineLike) {
+        console.log(`[allocations] No results with pk=${pkCandidate}, no baselineId provided. Trying to derive from project metadata...`);
+        
+        try {
+          const projectsTable = tableName("projects");
+          const projectMeta = await ddb.send(
+            new GetCommand({
+              TableName: projectsTable,
+              Key: { pk: `PROJECT#${incomingId}`, sk: 'METADATA' },
+            })
+          );
+          
+          if (projectMeta.Item) {
+            const derivedBaselineId = projectMeta.Item.baseline_id || projectMeta.Item.baselineId;
+            if (derivedBaselineId) {
+              console.log(`[allocations] Derived baselineId=${derivedBaselineId} from project metadata`);
+              skPrefix = `ALLOCATION#${derivedBaselineId}#`;
+              items = await queryByPK(pkCandidate, skPrefix);
+              
+              if (items.length > 0) {
+                logInfo(`[allocations] ✅ Found ${items.length} allocations using derived baselineId ${derivedBaselineId}`);
+                return ok(event, items);
+              }
+            }
+          }
+        } catch (metaErr: any) {
+          console.warn(`[allocations] Failed to derive baselineId from project metadata:`, metaErr.message);
+        }
+      }
+      
+      // Fallback 1: If incomingId is baseline-like, try to resolve baseline → project
+      if (isBaselineLike) {
+        console.log(`[allocations] ID appears baseline-like: ${incomingId}, attempting baseline→project resolution`);
+        
+        try {
+          const baseline = await getBaselineMetadata(incomingId);
+          if (baseline) {
+            const resolvedProjectId = baseline.project_id || baseline.projectId;
+            if (resolvedProjectId) {
+              pkCandidate = `PROJECT#${resolvedProjectId}`;
+              skPrefix = `ALLOCATION#${incomingId}#`; // Use the baselineId for SK filter
+              items = await queryByPK(pkCandidate, skPrefix);
+              
+              if (items.length > 0) {
+                logInfo(`[allocations] ✅ Found ${items.length} allocations via baseline→project resolution: ${pkCandidate} with baselineId ${incomingId}`);
+                return ok(event, items);
+              }
+            } else {
+              console.warn(`[allocations] Baseline ${incomingId} has no project_id`);
+            }
+          } else {
+            console.warn(`[allocations] Baseline ${incomingId} not found for resolution`);
+          }
+        } catch (err: any) {
+          console.warn(`[allocations] Baseline→project lookup failed for ${incomingId}:`, err.message);
+        }
+        
+        // Fallback 2: Try querying by BASELINE# pk (legacy format)
+        pkCandidate = `BASELINE#${incomingId}`;
+        skPrefix = `ALLOCATION#${incomingId}#`;
+        items = await queryByPK(pkCandidate, skPrefix);
+        
+        if (items.length > 0) {
+          logInfo(`[allocations] ✅ Found ${items.length} allocations by legacy baseline pk: ${pkCandidate}`);
+          return ok(event, items);
+        }
+      }
+      
+      // No allocations found - log diagnostic info and return empty array
+      console.warn(`[allocations] ⚠️ No allocations found for projectId=${incomingId}, baselineId=${baselineId || 'none'}`, {
+        triedKeys,
+        isBaselineLike,
+      });
+      
+      return ok(event, []);
     }
     
     // No projectId - return all allocations with pagination limit
