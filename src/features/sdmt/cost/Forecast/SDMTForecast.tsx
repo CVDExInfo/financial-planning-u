@@ -188,6 +188,17 @@ const HIDE_REAL_ANNUAL_KPIS = import.meta.env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS ==
 // Feature flag to hide Resumen de Portafolio in TODOS mode
 const HIDE_PROJECT_SUMMARY = import.meta.env.VITE_FINZ_HIDE_PROJECT_SUMMARY === 'true';
 
+// Debug logging for feature flags (development only)
+if (import.meta.env.DEV) {
+  console.log('[SDMTForecast] Feature Flags:', {
+    NEW_FORECAST_LAYOUT_ENABLED,
+    SHOW_KEY_TRENDS,
+    HIDE_KEY_TRENDS,
+    HIDE_REAL_ANNUAL_KPIS,
+    HIDE_PROJECT_SUMMARY,
+  });
+}
+
 // Feature flags for portfolio summary view customization
 // (Flags for ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED, HIDE_EXPANDABLE_PROJECT_LIST,
 // and HIDE_RUNWAY_METRICS are declared and used inside PortfolioSummaryView.tsx)
@@ -229,19 +240,16 @@ export function SDMTForecast() {
   const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(false);
 
   // Breakdown view mode for TODOS/portfolio view (Proyectos vs Rubros)
-  // TODO: Wire up rubros grouping logic to conditionally render grouped rubros by project
-  // When breakdownMode === 'rubros', should use buildProjectRubros() from projectGrouping.ts
-  // and pass grouped data to a modified grid renderer that shows project headers with nested rubros
+  // The ForecastRubrosTable component has its own internal viewMode that switches between
+  // 'category' and 'project' views. This state tracks the user's preference at the page level.
   const [breakdownMode, setBreakdownMode] = useState<'project' | 'rubros'>('project');
   
   // Handler for breakdown mode changes
   const handleBreakdownModeChange = (newMode: 'project' | 'rubros') => {
     setBreakdownMode(newMode);
-    if (newMode === 'rubros') {
-      toast.info('Vista de Rubros por Proyecto', {
-        description: 'La vista de rubros agrupados por proyecto estará disponible próximamente.'
-      });
-    }
+    // Note: The ForecastRubrosTable component manages its own viewMode internally
+    // and persists it in sessionStorage. This handler updates the page-level state
+    // which could be used to control other aspects of the view in the future.
   };
 
   // Stale response guard: Track latest request to prevent race conditions
@@ -2536,7 +2544,7 @@ export function SDMTForecast() {
                 </div>
               </CardContent>
             </Card>
-          ) : forecastData.length > 0 ? (
+          ) : (forecastData.length > 0 || portfolioLineItems.length > 0) ? (
             <MonthlySnapshotGrid
               forecastData={forecastData}
               lineItems={portfolioLineItems}
