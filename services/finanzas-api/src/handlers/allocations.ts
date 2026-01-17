@@ -86,6 +86,13 @@ function coerceNumber(v: any): number {
 
 /**
  * Parse month index from calendar key (YYYY-MM format)
+ * 
+ * NOTE: This extracts the calendar month number (1-12), NOT the contract month index.
+ * For multi-year baselines, this is a fallback that loses contract month context.
+ * Example: "2026-05" returns 5, but could represent M13 in a multi-year baseline.
+ * 
+ * The normalization logic prioritizes actual month_index/monthIndex fields when available.
+ * This fallback is only used when those fields are missing and no numeric month is provided.
  */
 function parseMonthIndexFromCalendarKey(calKey?: string): number | undefined {
   if (!calKey || typeof calKey !== 'string') return undefined;
@@ -130,12 +137,21 @@ async function normalizeAllocations(items: any[], baselineIdCandidate?: string):
     );
 
     // Month indices / calendar key
-    let monthIndex = it.month_index ?? it.monthIndex ?? parseMonthIndexFromCalendarKey(it.calendarMonthKey ?? it.month ?? it.mes);
+    // Priority: 1) explicit month_index/monthIndex, 2) numeric month, 3) parse from calendar key
+    // Note: parseMonthIndexFromCalendarKey extracts calendar month (1-12), which may not equal
+    // contract month index for multi-year baselines. This is acceptable as a fallback since
+    // properly materialized allocations should have explicit month_index set.
+    let monthIndex = it.month_index ?? it.monthIndex;
     if (!monthIndex && typeof it.month === 'number') monthIndex = it.month;
+    if (!monthIndex) monthIndex = parseMonthIndexFromCalendarKey(it.calendarMonthKey ?? it.month ?? it.mes);
 
     const calendarMonthKey = it.calendarMonthKey ?? it.calendar_month ?? it.month ?? it.mes;
 
     // If labour-like rubro and amount==0, try to derive from baseline labour estimates
+    // Heuristic: checks if rubroId starts with "MOD" (case-insensitive)
+    // This matches standard labour rubros like MOD-LEAD, MOD-SDM, MOD-ING, etc.
+    // Note: If your taxonomy includes labour rubros that don't start with "MOD",
+    // consider enhancing this to check against a canonical labour category list.
     const isMOD = /^MOD/i.test(String(rubroId));
     if (isMOD && !amount) {
       // Prefer explicit baselineId else fallback to provided candidate
@@ -151,6 +167,10 @@ async function normalizeAllocations(items: any[], baselineIdCandidate?: string):
               return leRubro && String(leRubro).toLowerCase() === String(rubroId).toLowerCase();
             });
             if (matched) {
+              // Derivation requires either:
+              // 1) total_cost field (preferred), or
+              // 2) hourly_rate + hours_per_month fields (fallback)
+              // If neither is available, derivation is skipped and amount remains 0
               if (matched.total_cost || matched.totalCost) {
                 const totalCost = coerceNumber(matched.total_cost ?? matched.totalCost);
                 const duration = baseline.durationMonths || baseline.duration_months || matched.duration_months || matched.durationMonths || 12;

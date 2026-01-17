@@ -258,6 +258,34 @@ This implementation is a surgical fix for the immediate issue. Future enhancemen
 3. **Field standardization**: Migrate all allocations to use canonical field names
 4. **Performance monitoring**: Add CloudWatch metrics for derivation frequency
 
+## Known Limitations
+
+### Month Semantics for Multi-Year Baselines
+
+The `parseMonthIndexFromCalendarKey()` function extracts calendar month number (1-12) from "YYYY-MM" format, NOT contract month index (M1-M60). This is a fallback that's only used when explicit `month_index`/`monthIndex` fields are missing.
+
+**Impact**: For multi-year baselines without explicit month_index:
+- Month 1 (May 2025) with `calendarMonthKey = "2025-05"` → `monthIndex = 5` (should be 1)
+- Month 13 (May 2026) with `calendarMonthKey = "2026-05"` → `monthIndex = 5` (should be 13)
+
+**Mitigation**: Properly materialized allocations should have explicit `month_index` set. The calendar month extraction is a last-resort fallback for legacy data. For multi-year baselines, consider a follow-up enhancement to compute contract month_index from baseline start date and calendarMonthKey.
+
+### Labour Rubro Detection
+
+The implementation uses `/^MOD/i` regex to identify labour rubros, which matches standard patterns like MOD-LEAD, MOD-SDM, MOD-ING.
+
+**Limitation**: Labour rubros that don't start with "MOD" won't trigger automatic derivation.
+
+**Future enhancement**: Consider checking against a canonical labour category taxonomy instead of pattern matching.
+
+### Derivation Requirements
+
+Labour amount derivation requires baseline `labor_estimates` to contain either:
+- `total_cost` (preferred), OR
+- `hourly_rate` + `hours_per_month` (fallback)
+
+If neither is available, derivation is skipped and `amount` remains 0. Ensure your materializer/baseline creation process populates at least one of these fields for all labour estimates.
+
 ## Related Documentation
 
 - Original problem report: See problem statement at top of this document
