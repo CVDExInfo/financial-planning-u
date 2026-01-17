@@ -354,7 +354,7 @@ describe('Portfolio Summary Components Coverage', () => {
     const hasMonthlyData = true;
 
     const componentVisibility = {
-      MonthlyBreakdownTable: (ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED || showMonthlyBreakdown) && hasMonthlyData,
+      MonthlyBreakdownTable: ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED && hasMonthlyData,
       ExpandableProjectList: !HIDE_EXPANDABLE_PROJECT_LIST,
       RunwayMetricsSummary: !HIDE_RUNWAY_METRICS && hasRunwayMetrics,
     };
