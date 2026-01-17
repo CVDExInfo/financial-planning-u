@@ -2585,7 +2585,7 @@ export function SDMTForecast() {
       )}
 
       {/* OLD LAYOUT: ForecastRubrosTable grid - Only shown when new layout is disabled */}
-      {!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && forecastData.length > 0 && (
+      {!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && (forecastData.length > 0 || portfolioLineItems.length > 0) && (
         <Collapsible
           open={isRubrosGridOpen}
           onOpenChange={setIsRubrosGridOpen}
@@ -2647,7 +2647,7 @@ export function SDMTForecast() {
                 </div>
               </CardContent>
             </Card>
-          ) : forecastData.length > 0 ? (
+          ) : (forecastData.length > 0 || portfolioLineItems.length > 0) ? (
             <MonthlySnapshotGrid
               forecastData={forecastData}
               lineItems={portfolioLineItems}
