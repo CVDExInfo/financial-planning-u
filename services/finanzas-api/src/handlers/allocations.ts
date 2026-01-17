@@ -136,8 +136,8 @@ async function normalizeAllocations(items: any[], baselineIdCandidate?: string):
     const calendarMonthKey = it.calendarMonthKey ?? it.calendar_month ?? it.month ?? it.mes;
 
     // If labour-like rubro and amount==0, try to derive from baseline labour estimates
-    const isMOD = typeof rubroId === 'string' && /^MOD/i.test(String(rubroId));
-    if (isMOD && (!amount || amount === 0)) {
+    const isMOD = /^MOD/i.test(String(rubroId));
+    if (isMOD && !amount) {
       // Prefer explicit baselineId else fallback to provided candidate
       const bid = it.baselineId || it.baseline_id || baselineIdCandidate;
       if (bid) {
