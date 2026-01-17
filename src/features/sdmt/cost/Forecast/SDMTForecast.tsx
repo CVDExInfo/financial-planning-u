@@ -233,7 +233,20 @@ export function SDMTForecast() {
   const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(false);
 
   // Breakdown view mode for TODOS/portfolio view (Proyectos vs Rubros)
+  // TODO: Wire up rubros grouping logic to conditionally render grouped rubros by project
+  // When breakdownMode === 'rubros', should use buildProjectRubros() from projectGrouping.ts
+  // and pass grouped data to a modified grid renderer that shows project headers with nested rubros
   const [breakdownMode, setBreakdownMode] = useState<'project' | 'rubros'>('project');
+  
+  // Handler for breakdown mode changes
+  const handleBreakdownModeChange = (newMode: 'project' | 'rubros') => {
+    setBreakdownMode(newMode);
+    if (newMode === 'rubros') {
+      toast.info('Vista de Rubros por Proyecto', {
+        description: 'La vista de rubros agrupados por proyecto estará disponible próximamente.'
+      });
+    }
+  };
 
   // Stale response guard: Track latest request to prevent race conditions
   const latestRequestKeyRef = useRef<string>("");
@@ -3533,7 +3546,7 @@ export function SDMTForecast() {
                   <Label htmlFor="breakdown-mode-select" className="text-sm">Vista</Label>
                   <Select
                     value={breakdownMode}
-                    onValueChange={(v) => setBreakdownMode(v as 'project' | 'rubros')}
+                    onValueChange={(v) => handleBreakdownModeChange(v as 'project' | 'rubros')}
                   >
                     <SelectTrigger
                       id="breakdown-mode-select"
