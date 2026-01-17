@@ -197,3 +197,19 @@ jobs:
           else
             echo "Pre-merge checks script not found, skipping..."
           fi
+
+      - name: Verify allocations retrieval (preflight check)
+        shell: bash
+        env:
+          ENABLE_ADMIN_DEBUG: "true"
+          API_ENDPOINT: ${{ secrets.VITE_API_BASE_URL || secrets.API_BASE }}
+          SAMPLE_PROJECT_ID: ${{ env.PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -f ./scripts/preflight-checks/verify-allocations.sh ]; then
+            chmod +x ./scripts/preflight-checks/verify-allocations.sh
+            ./scripts/preflight-checks/verify-allocations.sh
+          else
+            echo "⚠️  Allocations verification script not found, skipping..."
+          fi
+

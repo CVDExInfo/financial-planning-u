@@ -459,7 +459,7 @@ export function MonthlySnapshotGrid({
               <div className="flex items-center gap-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-primary" />
-                  Cuadrícula de Pronóstico
+                  Matriz del Mes — Vista Ejecutiva
                 </CardTitle>
                 <Badge variant="outline" className="text-xs">
                   M{actualMonthIndex}

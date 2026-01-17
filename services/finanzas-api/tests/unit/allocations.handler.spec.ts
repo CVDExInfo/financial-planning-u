@@ -31,6 +31,7 @@ jest.mock("../../src/lib/auth", () => ({
 // Mock logging
 jest.mock("../../src/utils/logging", () => ({
   logError: jest.fn(),
+  logInfo: jest.fn(),
 }));
 
 // Mock validation

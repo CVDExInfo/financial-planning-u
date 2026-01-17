@@ -256,7 +256,7 @@ export async function bulkUploadPayrollActuals(payload: PayrollActualInput[] | F
   }
 }
 
-export async function getAllocations(projectId?: string): Promise<any[]> {
+export async function getAllocations(projectId?: string, baselineId?: string): Promise<any[]> {
   ensureApiBase();
 
   if (USE_MOCKS) {
@@ -264,9 +264,11 @@ export async function getAllocations(projectId?: string): Promise<any[]> {
     return MOCK_ALLOCATIONS_ROWS;
   }
 
-  const url = `${requireApiBase()}/allocations${
-    projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""
-  }`;
+  const params = new URLSearchParams();
+  if (projectId) params.set('projectId', projectId);
+  if (baselineId) params.set('baseline', baselineId);
+  
+  const url = `${requireApiBase()}/allocations${params.toString() ? `?${params.toString()}` : ''}`;
 
   try {
     return await fetchArraySource(url, "getAllocations");
