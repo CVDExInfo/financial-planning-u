@@ -769,4 +769,313 @@ describe("allocations handler", () => {
       });
     });
   });
+
+  describe("allocation normalization", () => {
+    it("normalizes allocation with monto_planeado to amount field", async () => {
+      const mockAllocations = [
+        {
+          pk: "PROJECT#P-123",
+          sk: "ALLOCATION#base_001#2025-01#TEC-ITSM",
+          projectId: "P-123",
+          baselineId: "base_001",
+          rubroId: "TEC-ITSM",
+          month: "2025-01",
+          monto_planeado: 1145.83,
+          // Note: amount field is missing
+        },
+      ];
+
+      (dynamo.ddb.send as jest.Mock).mockResolvedValue({
+        Items: mockAllocations,
+      });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "GET" } },
+        queryStringParameters: { projectId: "P-123", baseline: "base_001" },
+        __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.length).toBe(1);
+      expect(payload[0].amount).toBe(1145.83); // Should be normalized from monto_planeado
+    });
+
+    it("derives labour amount from baseline total_cost when amount is 0", async () => {
+      const mockAllocations = [
+        {
+          pk: "PROJECT#P-123",
+          sk: "ALLOCATION#base_bbf111163bb7#2025-06#MOD-LEAD",
+          projectId: "P-123",
+          baselineId: "base_bbf111163bb7",
+          rubroId: "MOD-LEAD",
+          month: "2025-06",
+          amount: 0, // Zero amount - should be derived
+          allocation_type: "planned",
+        },
+      ];
+
+      const mockBaseline = {
+        pk: "BASELINE#base_bbf111163bb7",
+        sk: "METADATA",
+        durationMonths: 12,
+        labor_estimates: [
+          {
+            rubroId: "MOD-LEAD",
+            total_cost: 120000,
+          },
+        ],
+      };
+
+      // First call: query allocations
+      // Second call: getBaselineMetadata
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Items: mockAllocations,
+        })
+        .mockResolvedValueOnce({
+          Item: mockBaseline,
+        });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "GET" } },
+        queryStringParameters: { projectId: "P-123", baseline: "base_bbf111163bb7" },
+        __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.length).toBe(1);
+      // Should derive: 120000 / 12 = 10000
+      expect(payload[0].amount).toBe(10000);
+    });
+
+    it("derives labour amount from hourly rate when amount is 0", async () => {
+      const mockAllocations = [
+        {
+          pk: "PROJECT#P-123",
+          sk: "ALLOCATION#base_001#2025-01#MOD-SDM",
+          projectId: "P-123",
+          baselineId: "base_001",
+          rubroId: "MOD-SDM",
+          month: "2025-01",
+          amount: 0,
+        },
+      ];
+
+      const mockBaseline = {
+        pk: "BASELINE#base_001",
+        sk: "METADATA",
+        durationMonths: 12,
+        labor_estimates: [
+          {
+            rubroId: "MOD-SDM",
+            hourly_rate: 50,
+            hours_per_month: 160,
+            fte_count: 1,
+            on_cost_percentage: 25,
+          },
+        ],
+      };
+
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Items: mockAllocations,
+        })
+        .mockResolvedValueOnce({
+          Item: mockBaseline,
+        });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "GET" } },
+        queryStringParameters: { projectId: "P-123", baseline: "base_001" },
+        __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.length).toBe(1);
+      // Should derive: 50 * 160 * 1 * 1.25 = 10000
+      expect(payload[0].amount).toBe(10000);
+    });
+
+    it("does not derive amount for non-labour rubros", async () => {
+      const mockAllocations = [
+        {
+          pk: "PROJECT#P-123",
+          sk: "ALLOCATION#base_001#2025-01#TEC-ITSM",
+          projectId: "P-123",
+          baselineId: "base_001",
+          rubroId: "TEC-ITSM",
+          month: "2025-01",
+          amount: 0, // Zero but not MOD
+        },
+      ];
+
+      (dynamo.ddb.send as jest.Mock).mockResolvedValue({
+        Items: mockAllocations,
+      });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "GET" } },
+        queryStringParameters: { projectId: "P-123", baseline: "base_001" },
+        __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.length).toBe(1);
+      expect(payload[0].amount).toBe(0); // Should remain 0 for non-labour
+    });
+
+    it("handles missing baseline gracefully for labour derivation", async () => {
+      const mockAllocations = [
+        {
+          pk: "PROJECT#P-123",
+          sk: "ALLOCATION#base_missing#2025-01#MOD-LEAD",
+          projectId: "P-123",
+          baselineId: "base_missing",
+          rubroId: "MOD-LEAD",
+          month: "2025-01",
+          amount: 0,
+        },
+      ];
+
+      // First call: query allocations
+      // Second call: getBaselineMetadata returns null
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Items: mockAllocations,
+        })
+        .mockResolvedValueOnce({
+          Item: null, // Baseline not found
+        });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "GET" } },
+        queryStringParameters: { projectId: "P-123", baseline: "base_missing" },
+        __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.length).toBe(1);
+      expect(payload[0].amount).toBe(0); // Should remain 0 when baseline not found
+    });
+
+    it("normalizes month_index from various sources", async () => {
+      const mockAllocations = [
+        {
+          pk: "PROJECT#P-123",
+          sk: "ALLOCATION#base_001#2025-06#TEC-ITSM",
+          projectId: "P-123",
+          baselineId: "base_001",
+          rubroId: "TEC-ITSM",
+          calendarMonthKey: "2025-06",
+          monto_planeado: 1000,
+          // month_index is missing, should be derived from calendarMonthKey
+        },
+      ];
+
+      (dynamo.ddb.send as jest.Mock).mockResolvedValue({
+        Items: mockAllocations,
+      });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "GET" } },
+        queryStringParameters: { projectId: "P-123", baseline: "base_001" },
+        __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.length).toBe(1);
+      expect(payload[0].month_index).toBe(6); // Should be derived from "2025-06"
+      expect(payload[0].monthIndex).toBe(6);
+    });
+
+    it("handles multiple labour rubros in single request", async () => {
+      const mockAllocations = [
+        {
+          pk: "PROJECT#P-123",
+          sk: "ALLOCATION#base_001#2025-01#MOD-LEAD",
+          projectId: "P-123",
+          baselineId: "base_001",
+          rubroId: "MOD-LEAD",
+          month: "2025-01",
+          amount: 0,
+        },
+        {
+          pk: "PROJECT#P-123",
+          sk: "ALLOCATION#base_001#2025-01#MOD-SDM",
+          projectId: "P-123",
+          baselineId: "base_001",
+          rubroId: "MOD-SDM",
+          month: "2025-01",
+          amount: 0,
+        },
+      ];
+
+      const mockBaseline = {
+        pk: "BASELINE#base_001",
+        sk: "METADATA",
+        durationMonths: 12,
+        labor_estimates: [
+          {
+            rubroId: "MOD-LEAD",
+            total_cost: 120000,
+          },
+          {
+            rubroId: "MOD-SDM",
+            total_cost: 96000,
+          },
+        ],
+      };
+
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Items: mockAllocations,
+        })
+        .mockResolvedValue({
+          Item: mockBaseline,
+        });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "GET" } },
+        queryStringParameters: { projectId: "P-123", baseline: "base_001" },
+        __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.length).toBe(2);
+      
+      const leadAlloc = payload.find((p: any) => p.rubroId === "MOD-LEAD");
+      const sdmAlloc = payload.find((p: any) => p.rubroId === "MOD-SDM");
+      
+      expect(leadAlloc.amount).toBe(10000); // 120000 / 12
+      expect(sdmAlloc.amount).toBe(8000); // 96000 / 12
+    });
+  });
 });
