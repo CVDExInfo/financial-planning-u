@@ -27,7 +27,10 @@ interface EstimatorStep {
   component: ComponentType<any>;
 }
 
-const STEPS: EstimatorStep[] = [
+// Check if FX parameters should be shown (defaults to false/hidden)
+const SHOW_FX_PARAMS = import.meta.env.VITE_ENABLE_FX_PARAMS === 'true';
+
+const ALL_STEPS: EstimatorStep[] = [
   {
     id: 'deal-inputs',
     title: 'Datos del Proyecto',
@@ -59,6 +62,15 @@ const STEPS: EstimatorStep[] = [
     component: ReviewSignStep
   }
 ];
+
+// Filter steps based on feature flags
+const STEPS: EstimatorStep[] = ALL_STEPS.filter(step => {
+  // Hide FX step unless explicitly enabled
+  if (step.id === 'fx-indexation' && !SHOW_FX_PARAMS) {
+    return false;
+  }
+  return true;
+});
 
 export function PMOEstimatorWizard() {
   const navigate = useNavigate();

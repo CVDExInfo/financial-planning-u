@@ -123,17 +123,34 @@ export function ensureCategory(lineItem: LineItem): LineItem {
  * @returns true if item should be classified as labor
  */
 export function isLabor(category?: string, role?: string): boolean {
-  // Primary check: category matches labor category (case-insensitive, trimmed)
-  if (category && category.trim().toLowerCase() === LABOR_CATEGORY.toLowerCase()) {
+  if (!category) {
+    // Fallback: if no category, check role
+    if (role) {
+      return isLaborRole(role);
+    }
+    return false;
+  }
+  
+  const normalized = category.trim().toLowerCase();
+  
+  // Check for canonical "Labor" category (from API normalization)
+  if (normalized === 'labor') {
     return true;
   }
   
-  // Fallback: if no category, check role
-  if (!category && role) {
-    return isLaborRole(role);
+  // Check for Spanish "Mano de Obra Directa" category
+  if (normalized === LABOR_CATEGORY.toLowerCase()) {
+    return true;
   }
   
-  return false;
+  // Check for any labor-related keywords in category
+  const laborPatterns = [
+    /\blabor\b/i,
+    /mano\s*de\s*obra/i,
+    /\bmod\b/i,
+  ];
+  
+  return laborPatterns.some(pattern => pattern.test(category));
 }
 
 /**
