@@ -1078,4 +1078,265 @@ describe("allocations handler", () => {
       expect(sdmAlloc.amount).toBe(8000); // 96000 / 12
     });
   });
+
+  describe("contract month index calculation (M1..M60)", () => {
+    it("computes monthIndex from YYYY-MM calendar key with project start date", async () => {
+      // Project starts June 2025, allocation for November 2026
+      // June 2025 = M1, November 2026 = M18 (June + 17 months)
+      const mockProject = {
+        pk: "PROJECT#P-123",
+        sk: "METADATA",
+        baseline_id: "base_001",
+        start_date: "2025-06-01",
+      };
+
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: mockProject,
+        })
+        // Mock existing allocation check (not found)
+        .mockResolvedValueOnce({ Item: undefined })
+        // Mock put command
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" }, requestId: "test-monthindex" },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "2026-11", // November 2026
+              forecast: 50000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.updated_count).toBe(1);
+      expect(payload.allocations[0].monthIndex).toBe(18); // June 2025 + 17 months = November 2026 = M18
+      expect(payload.allocations[0].calendarMonthKey).toBe("2026-11");
+    });
+
+    it("handles YYYY-MM for first month (project start)", async () => {
+      const mockProject = {
+        pk: "PROJECT#P-123",
+        sk: "METADATA",
+        baseline_id: "base_001",
+        start_date: "2025-06-01",
+      };
+
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: mockProject,
+        })
+        .mockResolvedValueOnce({ Item: undefined })
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" }, requestId: "test-m1" },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "2025-06", // June 2025 = M1
+              forecast: 30000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.allocations[0].monthIndex).toBe(1); // M1
+      expect(payload.allocations[0].calendarMonthKey).toBe("2025-06");
+    });
+
+    it("handles M-notation correctly with calendar computation", async () => {
+      const mockProject = {
+        pk: "PROJECT#P-123",
+        sk: "METADATA",
+        baseline_id: "base_001",
+        start_date: "2025-06-01",
+      };
+
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: mockProject,
+        })
+        .mockResolvedValueOnce({ Item: undefined })
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" }, requestId: "test-mnotation" },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "M13", // M13 should map to June 2026 (June 2025 + 12 months)
+              forecast: 40000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.allocations[0].monthIndex).toBe(13);
+      expect(payload.allocations[0].calendarMonthKey).toBe("2026-06"); // M13 = June 2026
+    });
+
+    it("normalizes allocation retrieval with calendarMonthKey to correct month_index", async () => {
+      const mockAllocations = [
+        {
+          pk: "PROJECT#P-123",
+          sk: "ALLOCATION#base_001#2026-11#MOD-ING",
+          projectId: "P-123",
+          baselineId: "base_001",
+          rubroId: "MOD-ING",
+          calendarMonthKey: "2026-11", // November 2026
+          monto_planeado: 50000,
+        },
+      ];
+
+      const mockBaseline = {
+        pk: "BASELINE#base_001",
+        sk: "METADATA",
+        start_date: "2025-06-01", // Project starts June 2025
+        durationMonths: 24,
+      };
+
+      // First call: query allocations
+      // Second call: getBaselineMetadata for normalization
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Items: mockAllocations,
+        })
+        .mockResolvedValueOnce({
+          Item: mockBaseline,
+        });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "GET" } },
+        queryStringParameters: { projectId: "P-123", baseline: "base_001" },
+        __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.length).toBe(1);
+      expect(payload[0].month_index).toBe(18); // November 2026 = M18 from June 2025 start
+      expect(payload[0].monthIndex).toBe(18);
+      expect(payload[0].calendarMonthKey).toBe("2026-11");
+    });
+
+    it("falls back to month-of-year when projectStartDate is missing", async () => {
+      const mockAllocations = [
+        {
+          pk: "PROJECT#P-123",
+          sk: "ALLOCATION#base_001#2026-11#MOD-ING",
+          projectId: "P-123",
+          baselineId: "base_001",
+          rubroId: "MOD-ING",
+          calendarMonthKey: "2026-11",
+          monto_planeado: 50000,
+        },
+      ];
+
+      // Baseline has no start_date
+      const mockBaseline = {
+        pk: "BASELINE#base_001",
+        sk: "METADATA",
+        durationMonths: 24,
+        // No start_date field
+      };
+
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Items: mockAllocations,
+        })
+        .mockResolvedValueOnce({
+          Item: mockBaseline,
+        });
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "GET" } },
+        queryStringParameters: { projectId: "P-123", baseline: "base_001" },
+        __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.length).toBe(1);
+      // Should fall back to month-of-year = 11 (November)
+      expect(payload[0].month_index).toBe(11);
+      expect(payload[0].monthIndex).toBe(11);
+      expect(payload[0].calendarMonthKey).toBe("2026-11");
+    });
+
+    it("clamps monthIndex to 1-60 range for out-of-range dates", async () => {
+      const mockProject = {
+        pk: "PROJECT#P-123",
+        sk: "METADATA",
+        baseline_id: "base_001",
+        start_date: "2020-01-01", // Old project start date
+      };
+
+      (dynamo.ddb.send as jest.Mock)
+        .mockResolvedValueOnce({
+          Item: mockProject,
+        })
+        .mockResolvedValueOnce({ Item: undefined })
+        .mockResolvedValueOnce({});
+
+      const event: any = {
+        headers: baseHeaders,
+        requestContext: { http: { method: "PUT" }, requestId: "test-clamp" },
+        pathParameters: { id: "P-123" },
+        queryStringParameters: { type: "forecast" },
+        body: JSON.stringify({
+          items: [
+            {
+              rubroId: "MOD-ING",
+              month: "2026-11", // This would be M83 from 2020-01, should clamp to M60
+              forecast: 50000,
+            },
+          ],
+        }),
+        __verifiedClaims: { "cognito:groups": ["SDMT"], email: "test@example.com" },
+      };
+
+      const response = await allocationsHandler(event);
+      const payload = JSON.parse(response.body);
+
+      expect(response.statusCode).toBe(200);
+      expect(payload.allocations[0].monthIndex).toBe(60); // Clamped to max
+      expect(payload.allocations[0].calendarMonthKey).toBe("2026-11");
+    });
+  });
 });

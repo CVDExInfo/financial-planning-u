@@ -136,16 +136,54 @@ async function normalizeAllocations(items: any[], baselineIdCandidate?: string):
       it.forecast
     );
 
-    // Month indices / calendar key
-    // Priority: 1) explicit month_index/monthIndex, 2) numeric month, 3) parse from calendar key
-    // Note: parseMonthIndexFromCalendarKey extracts calendar month (1-12), which may not equal
-    // contract month index for multi-year baselines. This is acceptable as a fallback since
-    // properly materialized allocations should have explicit month_index set.
-    let monthIndex = it.month_index ?? it.monthIndex;
-    if (!monthIndex && typeof it.month === 'number') monthIndex = it.month;
-    if (!monthIndex) monthIndex = parseMonthIndexFromCalendarKey(it.calendarMonthKey ?? it.month ?? it.mes);
+    // Month indices / calendar key - now with robust normalization
+    // Load projectStartDate for each item (via baseline metadata first, fallback to project metadata)
+    let projectStartDate: string | undefined;
 
-    const calendarMonthKey = it.calendarMonthKey ?? it.calendar_month ?? it.month ?? it.mes;
+    // Prefer baseline to obtain start_date (baseline includes project info)
+    const bidForMonth = it.baselineId || it.baseline_id || baselineIdCandidate;
+    if (bidForMonth) {
+      try {
+        const baseline = await loadBaseline(bidForMonth);
+        projectStartDate = baseline?.start_date || baseline?.payload?.start_date || baseline?.project_start_date;
+        // baseline may also have durationMonths; we already use that elsewhere
+      } catch (e) {
+        // ignore; we'll try project metadata next
+      }
+    }
+
+    // If still no projectStartDate, attempt to derive from the allocation's project key (PK=PROJECT#<id>)
+    if (!projectStartDate) {
+      let projectIdFromItem: string | undefined;
+      if (it.PK) projectIdFromItem = String(it.PK).replace(/^PROJECT#/, "");
+      else if (it.projectId) projectIdFromItem = it.projectId;
+      else if (it.project_id) projectIdFromItem = it.project_id;
+      if (projectIdFromItem) {
+        try {
+          const projectMeta = await getMetadata(projectIdFromItem, tableName("prefacturas"), /*context*/ undefined);
+          projectStartDate = projectMeta?.start_date || projectMeta?.payload?.start_date;
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
+    // Now compute monthIndex/calendarMonthKey robustly
+    let monthIndex = undefined;
+    let calendarMonthKey = it.calendarMonthKey ?? it.calendar_month ?? it.month ?? it.mes;
+    if (calendarMonthKey) {
+      try {
+        const normalized = normalizeMonth(calendarMonthKey, projectStartDate);
+        monthIndex = normalized.monthIndex;
+        calendarMonthKey = normalized.calendarMonthKey;
+      } catch (e) {
+        // fallback to previous parsing logic if normalizeMonth throws
+        monthIndex = parseMonthIndexFromCalendarKey(calendarMonthKey);
+      }
+    } else {
+      // existing handling for numeric month inputs - unchanged
+      monthIndex = it.month_index ?? it.monthIndex ?? (typeof it.month === 'number' ? it.month : undefined);
+    }
 
     // If labour-like rubro and amount==0, try to derive from baseline labour estimates
     // Heuristic: checks if rubroId starts with "MOD" (case-insensitive)
@@ -235,14 +273,36 @@ function normalizeMonth(
   } else if (typeof monthInput === "string") {
     // Check if it's in YYYY-MM format (explicit calendar month)
     if (/^\d{4}-\d{2}$/.test(monthInput)) {
-      // For backward compatibility: preserve the calendar month as-is
-      // Extract the month number to use as monthIndex
-      const month = parseInt(monthInput.substring(5, 7), 10);
-      isExplicitCalendarMonth = true;
-      return {
-        monthIndex: month,
-        calendarMonthKey: monthInput,
-      };
+      // If projectStartDate present, compute contract monthIndex as months since start + 1
+      // This ensures multi-year baselines are mapped to M1..M60 unambiguously.
+      if (projectStartDate && /^\d{4}-\d{2}-\d{2}$/.test(projectStartDate)) {
+        const [calYear, calMonth] = monthInput.split('-').map(Number);
+        const startDate = new Date(projectStartDate);
+        const startYear = startDate.getUTCFullYear();
+        const startMonth = startDate.getUTCMonth() + 1; // 1-12
+        // months difference = (calYear - startYear) * 12 + (calMonth - startMonth)
+        const monthsDiff = (calYear - startYear) * 12 + (calMonth - startMonth);
+        monthIndex = monthsDiff + 1; // M1 = start month
+        // safety: allow up to 60
+        if (monthIndex < 1 || monthIndex > 60) {
+          // clamp, but also warn for unexpected large offsets
+          console.warn(`[normalizeMonth] Computed monthIndex (${monthIndex}) outside [1..60] for calendar ${monthInput} with projectStartDate ${projectStartDate}. Clamping.`);
+          monthIndex = Math.max(1, Math.min(60, monthIndex));
+        }
+        return {
+          monthIndex,
+          calendarMonthKey: monthInput
+        };
+      } else {
+        // Backwards-compatible fallback when projectStartDate is missing:
+        // Extract month-of-year - retains current behavior but logs a dev warning.
+        const month = parseInt(monthInput.substring(5, 7), 10);
+        console.warn(`[normalizeMonth] Received YYYY-MM ${monthInput} but no valid projectStartDate to compute contract month; falling back to month-of-year ${month}`);
+        return {
+          monthIndex: month,
+          calendarMonthKey: monthInput
+        };
+      }
     }
     
     // Check if it's in "M1", "M2", etc. format
