@@ -208,7 +208,7 @@ export function PortfolioSummaryView({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FolderOpen className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">Resumen de todos los proyectos</CardTitle>
+              <CardTitle className="text-lg">Resumen de Portafolio</CardTitle>
               <Badge variant="outline" className="ml-2">
                 {portfolioSummary.projectCount} proyectos
               </Badge>
