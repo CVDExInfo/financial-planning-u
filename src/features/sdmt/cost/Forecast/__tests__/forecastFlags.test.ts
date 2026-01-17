@@ -321,7 +321,7 @@ describe('Flag Combinations', () => {
 describe('Portfolio Summary Components Coverage', () => {
   it('should handle each flag independently', () => {
     // Test HIDE_EXPANDABLE_PROJECT_LIST independently
-    let hideProjectList = true;
+    const hideProjectList = true;
     assert.strictEqual(
       !hideProjectList,
       false,
@@ -329,7 +329,7 @@ describe('Portfolio Summary Components Coverage', () => {
     );
 
     // Test HIDE_RUNWAY_METRICS independently
-    let hideRunway = true;
+    const hideRunway = true;
     assert.strictEqual(
       !hideRunway,
       false,
@@ -337,7 +337,7 @@ describe('Portfolio Summary Components Coverage', () => {
     );
 
     // Test ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED independently
-    let showTransposed = true;
+    const showTransposed = true;
     assert.strictEqual(
       showTransposed,
       true,
