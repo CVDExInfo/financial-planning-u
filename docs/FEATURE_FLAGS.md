@@ -88,6 +88,38 @@ This document describes the environment-based feature flags used in the Finanzas
 
 ---
 
+## Tabla de flags y vistas impactadas (Español)
+
+| Flag | Nombre (Español) | Vista / Componente afectado | Comportamiento |
+|------|------------------|-----------------------------|----------------|
+| `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS` | Ocultar KPIs Anuales Reales | `ForecastKpis.tsx` / Resumen Ejecutivo | Si `true`, oculta las 4 tarjetas de KPIs anuales en vista TODOS/Portfolio. |
+| `VITE_FINZ_HIDE_PROJECT_SUMMARY` | Ocultar Resumen de Portafolio | `PortfolioSummaryView.tsx` | Si `true`, oculta la sección "Resumen de todos los proyectos". |
+| `VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED` | Mostrar Desglose Mensual (Transpuesto) | `PortfolioSummaryView.tsx` - Cuadrícula mensual | Si `true`, fuerza la tabla de Desglose Mensual a mostrarse transpuesta (meses como columnas). |
+| `VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST` | Ocultar Lista Expandible de Proyectos | `PortfolioSummaryView.tsx` | Si `true`, no muestra la lista expandible de proyectos dentro del resumen de portafolio. |
+| `VITE_FINZ_HIDE_RUNWAY_METRICS` | Ocultar Runway / Control Presupuestario | `PortfolioSummaryView.tsx` | Si `true`, oculta el resumen de Runway & Control Presupuestario en Resumen de Portafolio. |
+| `VITE_FINZ_NEW_FORECAST_LAYOUT` | Nuevo Layout de Pronóstico | `SDMTForecast.tsx` / layout | Controla la reorganización compacta de la página (no afecta visibilidad por sí solo). Default: `false`. |
+| `VITE_FINZ_SHOW_KEYTRENDS` | Mostrar Tendencias Clave | `SDMTForecast.tsx` / Key Trends | Si `true`, muestra las tablas de Tendencias Clave (Top Variance Projects & Rubros). Default: `false`. |
+| `VITE_FINZ_HIDE_KEY_TRENDS` | Ocultar Tendencias Clave | `SDMTForecast.tsx` / Key Trends | Si `true`, oculta las Tendencias Clave incluso si `SHOW_KEY_TRENDS` es `true`. Default: `false`. |
+
+### Ejemplos de uso
+
+```bash
+# Ejemplo 1: Ocultar KPIs anuales reales
+VITE_FINZ_HIDE_REAL_ANNUAL_KPIS=true
+
+# Ejemplo 2: Vista compacta - solo tabla transpuesta
+VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED=true
+VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST=true
+VITE_FINZ_HIDE_RUNWAY_METRICS=true
+
+# Ejemplo 3: Vista mínima ejecutiva
+VITE_FINZ_NEW_FORECAST_LAYOUT=true
+VITE_FINZ_HIDE_REAL_ANNUAL_KPIS=true
+VITE_FINZ_HIDE_PROJECT_SUMMARY=true
+```
+
+---
+
 ## Testing Feature Flags Locally
 
 ### Setup

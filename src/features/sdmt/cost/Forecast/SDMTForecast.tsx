@@ -189,12 +189,8 @@ const HIDE_REAL_ANNUAL_KPIS = import.meta.env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS ==
 const HIDE_PROJECT_SUMMARY = import.meta.env.VITE_FINZ_HIDE_PROJECT_SUMMARY === 'true';
 
 // Feature flags for portfolio summary view customization
-const ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED =
-  import.meta.env.VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED === 'true';
-const HIDE_EXPANDABLE_PROJECT_LIST =
-  import.meta.env.VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST === 'true';
-const HIDE_RUNWAY_METRICS =
-  import.meta.env.VITE_FINZ_HIDE_RUNWAY_METRICS === 'true';
+// (Flags for ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED, HIDE_EXPANDABLE_PROJECT_LIST,
+// and HIDE_RUNWAY_METRICS are declared and used inside PortfolioSummaryView.tsx)
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
@@ -3530,7 +3526,7 @@ export function SDMTForecast() {
       {/* Forecast Grid - Common for both modes, but with collapsible wrapper for TODOS */}
       {isPortfolioView ? (
         /* TODOS mode - wrapped in collapsible "Monitoreo mensual de proyectos vs. presupuesto" */
-        <Collapsible defaultOpen={false}>
+        <Collapsible defaultOpen={true}>
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
