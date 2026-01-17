@@ -2511,7 +2511,7 @@ export function SDMTForecast() {
       {/* Data Health Debug Panel (Dev Only) */}
       <DataHealthPanel />
 
-      {/* Executive KPI Summary Bar - TODOS Mode Only */}
+      {/* Position #1: Resumen Ejecutivo - Cartera Completa (ForecastSummaryBar) - Always visible at top */}
       {isPortfolioView && summaryBarKpis && (
         <ForecastSummaryBar
           totalBudget={summaryBarKpis.totalBudget}
@@ -2528,164 +2528,7 @@ export function SDMTForecast() {
         />
       )}
 
-      {/* NEW LAYOUT: Cuadrícula de Pronóstico (MonthlySnapshotGrid) - Positioned directly below Executive KPI Summary */}
-      {NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && (
-        <>
-          {isLoadingForecast ? (
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-center min-h-[200px]">
-                  <div className="text-center">
-                    <LoadingSpinner size="lg" />
-                    <p className="text-muted-foreground mt-4">
-                      Cargando pronóstico...
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (forecastData.length > 0 || portfolioLineItems.length > 0) ? (
-            <MonthlySnapshotGrid
-              forecastData={forecastData}
-              lineItems={portfolioLineItems}
-              monthlyBudgets={monthlyBudgets}
-              useMonthlyBudget={useMonthlyBudget}
-              formatCurrency={formatCurrency}
-              getCurrentMonthIndex={getCurrentMonthIndex}
-              onScrollToDetail={(params) => {
-                // Scroll to the 12-month grid section
-                if (rubrosSectionRef.current) {
-                  setIsRubrosGridOpen(true);
-                  setTimeout(() => {
-                    rubrosSectionRef.current?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "start",
-                    });
-                  }, 100);
-                }
-              }}
-              onNavigateToReconciliation={(lineItemId, projectId) => {
-                const params = new URLSearchParams();
-                if (projectId) {
-                  params.set("projectId", projectId);
-                }
-                params.set("line_item", lineItemId);
-                const currentPath = location.pathname + location.search;
-                params.set("returnUrl", currentPath);
-                navigate(
-                  `/finanzas/sdmt/cost/reconciliation?${params.toString()}`
-                );
-              }}
-              onNavigateToCostCatalog={(projectId) => {
-                navigate(`/sdmt/cost/catalog?projectId=${projectId}`);
-              }}
-            />
-          ) : null}
-        </>
-      )}
 
-      {/* OLD LAYOUT: ForecastRubrosTable grid - Only shown when new layout is disabled */}
-      {!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && (forecastData.length > 0 || portfolioLineItems.length > 0) && (
-        <Collapsible
-          open={isRubrosGridOpen}
-          onOpenChange={setIsRubrosGridOpen}
-          defaultOpen={true}
-        >
-          <Card ref={rubrosSectionRef} tabIndex={-1} className="space-y-2">
-            <CardHeader className="pb-2 pt-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <CardTitle className="text-lg">
-                    Cuadrícula de Pronóstico (12 Meses)
-                  </CardTitle>
-                </div>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    aria-label="Expandir/Colapsar cuadrícula de pronóstico"
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </CollapsibleTrigger>
-              </div>
-            </CardHeader>
-            <CollapsibleContent>
-              <CardContent className="pt-0">
-                <ForecastRubrosTable
-                  categoryTotals={categoryTotals}
-                  categoryRubros={categoryRubros}
-                  projectTotals={projectTotals}
-                  projectRubros={projectRubros}
-                  portfolioTotals={portfolioTotalsForCharts}
-                  monthlyBudgets={monthlyBudgets}
-                  onSaveBudget={handleSaveBudgetFromTable}
-                  formatCurrency={formatCurrency}
-                  canEditBudget={canEditBudget}
-                  defaultFilter="labor"
-                />
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-      )}
-
-      {/* OLD LAYOUT: Monthly Snapshot Grid - Only shown when new layout is disabled */}
-      {!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && (
-        <>
-          {isLoadingForecast ? (
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-center min-h-[200px]">
-                  <div className="text-center">
-                    <LoadingSpinner size="lg" />
-                    <p className="text-muted-foreground mt-4">
-                      Cargando pronóstico...
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (forecastData.length > 0 || portfolioLineItems.length > 0) ? (
-            <MonthlySnapshotGrid
-              forecastData={forecastData}
-              lineItems={portfolioLineItems}
-              monthlyBudgets={monthlyBudgets}
-              useMonthlyBudget={useMonthlyBudget}
-              formatCurrency={formatCurrency}
-              getCurrentMonthIndex={getCurrentMonthIndex}
-              onScrollToDetail={(params) => {
-                // Scroll to the 12-month grid section
-                if (rubrosSectionRef.current) {
-                  setIsRubrosGridOpen(true);
-                  setTimeout(() => {
-                    rubrosSectionRef.current?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "start",
-                    });
-                  }, 100);
-                }
-              }}
-              onNavigateToReconciliation={(lineItemId, projectId) => {
-                const params = new URLSearchParams();
-                if (projectId) {
-                  params.set("projectId", projectId);
-                }
-                params.set("line_item", lineItemId);
-                const currentPath = location.pathname + location.search;
-                params.set("returnUrl", currentPath);
-                navigate(
-                  `/finanzas/sdmt/cost/reconciliation?${params.toString()}`
-                );
-              }}
-              onNavigateToCostCatalog={(projectId) => {
-                navigate(`/sdmt/cost/catalog?projectId=${projectId}`);
-              }}
-            />
-          ) : null}
-        </>
-      )}
 
       {/* KPI Summary - Standardized & Compact - Single Project Mode Only */}
       {!isPortfolioView && (
@@ -3170,45 +3013,113 @@ export function SDMTForecast() {
       {/* ========== TODOS / PORTFOLIO VIEW LAYOUT ========== */}
       {isPortfolioView && (
         <>
-          {/* Top Variance Tables - Executive View (Key Trends) */}
-          {/* Visible only when:
-               - SHOW_KEY_TRENDS is true (opt-in)
-               - HIDE_KEY_TRENDS is not true (override to hide)
-               - not loading
-               - portfolio view
-               - forecastData present
-               - budget available for variance */}
-          {isPortfolioView &&
-            !loading &&
-            forecastData.length > 0 &&
-            hasBudgetForVariance &&
-            SHOW_KEY_TRENDS &&
-            !HIDE_KEY_TRENDS && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <TopVarianceProjectsTable
-                  projects={projectSummaries}
-                  formatCurrency={formatCurrency}
-                  onProjectClick={navigateToProject}
-                  topN={5}
-                />
-                <TopVarianceRubrosTable
-                  categories={categoryTotals}
-                  budgetOverall={parseFloat(budgetAmount || "0")}
-                  formatCurrency={formatCurrency}
-                  onCategoryClick={handleCategoryClick}
-                  topN={5}
-                />
-              </div>
-            )}
+          {/* Position #2: Cuadrícula de Pronóstico (12 Meses) - ForecastRubrosTable */}
+          {!loading && (forecastData.length > 0 || portfolioLineItems.length > 0) && (
+            <Collapsible
+              open={isRubrosGridOpen}
+              onOpenChange={setIsRubrosGridOpen}
+              defaultOpen={true}
+            >
+              <Card ref={rubrosSectionRef} tabIndex={-1} className="space-y-2">
+                <CardHeader className="pb-2 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CardTitle className="text-lg">
+                        Cuadrícula de Pronóstico (12 Meses)
+                      </CardTitle>
+                    </div>
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label="Expandir/Colapsar cuadrícula de pronóstico"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                </CardHeader>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <ForecastRubrosTable
+                      categoryTotals={categoryTotals}
+                      categoryRubros={categoryRubros}
+                      projectTotals={projectTotals}
+                      projectRubros={projectRubros}
+                      portfolioTotals={portfolioTotalsForCharts}
+                      monthlyBudgets={monthlyBudgets}
+                      onSaveBudget={handleSaveBudgetFromTable}
+                      formatCurrency={formatCurrency}
+                      canEditBudget={canEditBudget}
+                      defaultFilter="labor"
+                    />
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          )}
 
-          {/* Collapsible Section: Resumen de Portafolio*/}
+          {/* Position #3: Matriz del Mes — Vista Ejecutiva - MonthlySnapshotGrid */}
+          {isLoadingForecast ? (
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-center min-h-[200px]">
+                  <div className="text-center">
+                    <LoadingSpinner size="lg" />
+                    <p className="text-muted-foreground mt-4">
+                      Cargando pronóstico...
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (forecastData.length > 0 || portfolioLineItems.length > 0) ? (
+            <MonthlySnapshotGrid
+              forecastData={forecastData}
+              lineItems={portfolioLineItems}
+              monthlyBudgets={monthlyBudgets}
+              useMonthlyBudget={useMonthlyBudget}
+              formatCurrency={formatCurrency}
+              getCurrentMonthIndex={getCurrentMonthIndex}
+              onScrollToDetail={(params) => {
+                // Scroll to the 12-month grid section
+                if (rubrosSectionRef.current) {
+                  setIsRubrosGridOpen(true);
+                  setTimeout(() => {
+                    rubrosSectionRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  }, 100);
+                }
+              }}
+              onNavigateToReconciliation={(lineItemId, projectId) => {
+                const params = new URLSearchParams();
+                if (projectId) {
+                  params.set("projectId", projectId);
+                }
+                params.set("line_item", lineItemId);
+                const currentPath = location.pathname + location.search;
+                params.set("returnUrl", currentPath);
+                navigate(
+                  `/finanzas/sdmt/cost/reconciliation?${params.toString()}`
+                );
+              }}
+              onNavigateToCostCatalog={(projectId) => {
+                navigate(`/sdmt/cost/catalog?projectId=${projectId}`);
+              }}
+            />
+          ) : null}
+
+          {/* Position #4: Resumen de Portafolio - PortfolioSummaryView */}
           {!HIDE_PROJECT_SUMMARY && !loading && (
-            <Collapsible defaultOpen={!NEW_FORECAST_LAYOUT_ENABLED}>
+            <Collapsible defaultOpen={true}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">
-                      Monitoreo mensual de proyectos vs. presupuesto
+                      Resumen de Portafolio
                     </CardTitle>
                     <CollapsibleTrigger asChild>
                       <Button
@@ -3247,7 +3158,7 @@ export function SDMTForecast() {
 
           {/* Duplicate ForecastRubrosTable removed - keeping only the first instance at line ~2551 */}
 
-          {/* Collapsible Section: Simulador de Presupuesto */}
+          {/* Position #5: Simulador de Presupuesto - Collapsible (defaultOpen={false}) */}
           <Collapsible defaultOpen={false}>
             <Card className="border-2 border-primary/20">
               <CardHeader className="pb-3">
@@ -3437,7 +3348,7 @@ export function SDMTForecast() {
             </Card>
           </Collapsible>
 
-          {/* Charts Panel - Positioned at end of TODOS section */}
+          {/* Position #6: Gráficos de Tendencias - ForecastChartsPanel (Collapsible) */}
           {!loading && forecastData.length > 0 && (
             <ForecastChartsPanel
               portfolioTotals={portfolioTotalsForCharts}
@@ -3448,6 +3359,9 @@ export function SDMTForecast() {
               projectsPerMonth={projectsPerMonth}
             />
           )}
+
+          {/* Position #7: Monitoreo mensual de proyectos vs. presupuesto - Expanded by default with Vista selector */}
+          {/* This section is rendered below after the portfolio wrapper closes - see line 3570+ */}
         </>
       )}
 

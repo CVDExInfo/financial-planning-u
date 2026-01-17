@@ -11,7 +11,10 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ChevronDown } from 'lucide-react';
 import LineChartComponent from '@/components/charts/LineChart';
 import type { PortfolioTotals, CategoryTotals } from '../categoryGrouping';
 import { 
@@ -173,11 +176,25 @@ export function ForecastChartsPanel({
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Gráficos de Tendencias</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Collapsible defaultOpen={false}>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Gráficos de Tendencias</CardTitle>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                aria-label="Expandir/Colapsar gráficos de tendencias"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent>
         <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)}>
           <TabsList className="grid w-full grid-cols-3 mb-4">
             <TabsTrigger value="monthly">Tendencia Mensual</TabsTrigger>
@@ -363,7 +380,9 @@ export function ForecastChartsPanel({
             />
           </TabsContent>
         </Tabs>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }
