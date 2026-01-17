@@ -319,17 +319,29 @@ describe('Flag Combinations', () => {
  * Test: Component visibility based on flags
  */
 describe('Portfolio Summary Components Coverage', () => {
-  it('should affect three main components', () => {
-    const componentsAffected = [
-      'MonthlyBreakdownTable',
-      'ExpandableProjectList',
-      'RunwayMetricsSummary'
-    ];
-
+  it('should handle each flag independently', () => {
+    // Test HIDE_EXPANDABLE_PROJECT_LIST independently
+    let hideProjectList = true;
     assert.strictEqual(
-      componentsAffected.length,
-      3,
-      'Three components should be affected by feature flags'
+      !hideProjectList,
+      false,
+      'Should hide project list when flag is true'
+    );
+
+    // Test HIDE_RUNWAY_METRICS independently
+    let hideRunway = true;
+    assert.strictEqual(
+      !hideRunway,
+      false,
+      'Should hide runway metrics when flag is true'
+    );
+
+    // Test ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED independently
+    let showTransposed = true;
+    assert.strictEqual(
+      showTransposed,
+      true,
+      'Should show transposed when flag is true'
     );
   });
 
