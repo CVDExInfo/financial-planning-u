@@ -13,12 +13,14 @@ const toNumber = (value: unknown, fallback = 0): number => {
 /**
  * Labor keyword patterns for category detection (English/Spanish)
  * Matches common labor-related terms in categories, roles, and descriptions
+ * Note: MOD and PM patterns are here for category field detection but have
+ * special uppercase-only handling for role/description fields to avoid false positives
  */
 const LABOR_KEYWORDS = [
   /\blabor\b/i,
   /\blabour\b/i,
   /mano\s*de\s*obra/i,
-  /\bmod\b/i,  // MOD = Mano de Obra Directa (when uppercased in context)
+  /\bmod\b/i,  // MOD in category field (all cases), uppercase-only in role/description
   /\bfte\b/i,
   /ingenier[oía]/i,
   /engineer/i,
@@ -26,7 +28,7 @@ const LABOR_KEYWORDS = [
   /project\s*manager/i,
   /service\s*delivery\s*manager/i,
   /\bsdm\b/i,
-  /\bpm\b/i,  // PM = Project Manager (when uppercased in context)
+  /\bpm\b/i,  // PM in category field (all cases), uppercase-only in role/description
   /soporte/i,
   /support/i,
   /delivery/i,
@@ -51,24 +53,23 @@ const canonicalizeCategory = (raw: any): string => {
     return "Labor";
   }
   
-  // For ambiguous abbreviations (MOD, PM), only match if they appear in uppercase
-  // to avoid false matches with "model", "equipment", etc.
+  // Combine role, description, and subtype for checking
   const textFields = [role, description, subtype].join(" ");
   
-  // Check for specific uppercase abbreviations first
-  if (/\bMOD\b/.test(textFields) || /\bPM\b/.test(textFields) || /\bSDM\b/.test(textFields) || /\bFTE\b/.test(textFields)) {
+  // For ambiguous abbreviations (MOD, PM, FTE, SDM), only match if uppercase
+  // to avoid false matches with "model", "equipment", "pm" (time), etc.
+  const uppercaseAbbreviations = /\b(MOD|PM|SDM|FTE)\b/;
+  if (uppercaseAbbreviations.test(textFields)) {
     return "Labor";
   }
   
   // Check other labor indicators (case-insensitive)
-  const hasLaborIndicators = LABOR_KEYWORDS.some((rx) => {
-    // Skip MOD and PM patterns here as they're handled above
-    if (rx.source.includes('\\bmod\\b') || rx.source.includes('\\bpm\\b')) {
-      return false;
-    }
-    return rx.test(textFields);
-  });
+  // Skip abbreviations that are already handled above
+  const nonAbbreviationKeywords = LABOR_KEYWORDS.filter(
+    rx => !rx.source.includes('\\bmod\\b') && !rx.source.includes('\\bpm\\b')
+  );
   
+  const hasLaborIndicators = nonAbbreviationKeywords.some((rx) => rx.test(textFields));
   if (hasLaborIndicators) {
     return "Labor";
   }
