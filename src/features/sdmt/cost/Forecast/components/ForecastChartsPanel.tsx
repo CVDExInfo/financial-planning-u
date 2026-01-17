@@ -15,16 +15,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import LineChartComponent from '@/components/charts/LineChart';
 import type { PortfolioTotals, CategoryTotals } from '../categoryGrouping';
 import { 
+  Bar,
   BarChart, 
-  Bar, 
+  CartesianGrid, 
+  ComposedChart,
+  Legend,
+  Line,
+  ResponsiveContainer, 
+  Tooltip, 
   XAxis, 
   YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  Legend,
-  ComposedChart,
-  Line,
 } from 'recharts';
 
 interface ForecastChartsPanelProps {
@@ -43,6 +43,11 @@ const CHART_COLORS = {
   budget: 'oklch(0.5 0.2 350)', // Gray/Green
   planned: 'oklch(0.45 0.12 200)', // Light Blue
   projects: 'oklch(0.65 0.18 30)', // Orange for projects bar
+};
+
+// Chart styling constants
+const CHART_STYLES = {
+  barOpacity: 0.7,
 };
 
 export function ForecastChartsPanel({
@@ -267,7 +272,7 @@ export function ForecastChartsPanel({
                       dataKey="Proyectos"
                       name="Proyectos (M/M)"
                       fill={CHART_COLORS.projects}
-                      opacity={0.7}
+                      opacity={CHART_STYLES.barOpacity}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
