@@ -202,16 +202,15 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
         TableName: allocationsTable,
         ExpressionAttributeNames: {
           "#pk": "pk",
+          "#month": "month", // 'month' is a reserved word in DynamoDB
         },
         ExpressionAttributeValues: {
           ":pk": pk,
         },
         // Return only fields needed by UI to avoid oversized responses
-        ProjectionExpression: "pk, sk, projectId, baselineId, rubroId, #month, monthIndex, calendarMonthKey, planned, forecast, actual, monto_planeado, monto_proyectado, monto_real, mes",
+        // Note: 'mes' is legacy Spanish field, 'month' is English equivalent (both kept for compatibility)
+        ProjectionExpression: "pk, sk, projectId, baselineId, rubroId, #month, mes, monthIndex, calendarMonthKey, planned, forecast, actual, monto_planeado, monto_proyectado, monto_real",
       };
-      
-      // Add month to expression attribute names since it's a reserved word
-      params.ExpressionAttributeNames["#month"] = "month";
       
       if (skPrefix) {
         // Filter by SK prefix to get only ALLOCATION# items for this baseline
@@ -324,13 +323,12 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
         }
       }
       
-      // No allocations found - log diagnostic info
+      // No allocations found - log diagnostic info and return empty array
       console.warn(`[allocations] ⚠️ No allocations found for projectId=${incomingId}, baselineId=${baselineId || 'none'}`, {
         triedKeys,
         isBaselineLike,
       });
       
-      // Return empty array
       return ok(event, []);
     }
     

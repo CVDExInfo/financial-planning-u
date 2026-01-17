@@ -315,18 +315,18 @@ export function useSDMTForecastData({
         // Step 2: Fallback - try to get allocations
         try {
           // Extract baselineId from the loaded baseline
-          const currentBaselineId = baselineResp?.baseline_id || baselineResp?.baselineId || baselineResp?.id;
+          const extractedBaselineId = baselineResp?.baseline_id || baselineResp?.baselineId || baselineResp?.id;
           
           console.log(
-            `[useSDMTForecastData] Fetching allocations for projectId=${projectId}, baselineId=${currentBaselineId || 'none'}`
+            `[useSDMTForecastData] Fetching allocations for projectId=${projectId}, baselineId=${extractedBaselineId || 'none'}`
           );
           
-          const allocations = await getAllocations(projectId, currentBaselineId);
+          const allocations = await getAllocations(projectId, extractedBaselineId);
           if (latestRequestKey.current !== requestKey) return; // stale
 
           allocationsCount = allocations?.length || 0;
           console.log(
-            `[useSDMTForecastData] ✅ Retrieved ${allocationsCount} allocations from DynamoDB for project ${projectId}${currentBaselineId ? `, baseline ${currentBaselineId}` : ''}`
+            `[useSDMTForecastData] ✅ Retrieved ${allocationsCount} allocations from DynamoDB for project ${projectId}${extractedBaselineId ? `, baseline ${extractedBaselineId}` : ''}`
           );
 
           if (allocations && allocations.length > 0) {
