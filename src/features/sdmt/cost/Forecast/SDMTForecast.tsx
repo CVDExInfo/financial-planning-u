@@ -177,7 +177,7 @@ const HIDE_KEY_TRENDS = import.meta.env.VITE_FINZ_HIDE_KEY_TRENDS === 'true';
 // Feature flag to hide Real Annual Budget KPIs in TODOS/Portfolio view
 const HIDE_REAL_ANNUAL_KPIS = import.meta.env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS === 'true';
 
-// Feature flag to hide Resumen de todos los proyectos in TODOS mode
+// Feature flag to hide Resumen de Portafolio in TODOS mode
 const HIDE_PROJECT_SUMMARY = import.meta.env.VITE_FINZ_HIDE_PROJECT_SUMMARY === 'true';
 
 export function SDMTForecast() {
@@ -3137,21 +3137,21 @@ export function SDMTForecast() {
               </div>
             )}
 
-          {/* Collapsible Section: Resumen de todos los proyectos */}
+          {/* Collapsible Section: Resumen de Portafolio*/}
           {!HIDE_PROJECT_SUMMARY && !loading && (
             <Collapsible defaultOpen={!NEW_FORECAST_LAYOUT_ENABLED}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">
-                      Resumen de todos los proyectos
+                      Resumen de Portafolio
                     </CardTitle>
                     <CollapsibleTrigger asChild>
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0"
-                        aria-label="Expandir/Colapsar resumen de proyectos"
+                        aria-label="Expandir/Colapsar resumen de Portafolio"
                       >
                         <ChevronDown className="h-4 w-4" />
                       </Button>
