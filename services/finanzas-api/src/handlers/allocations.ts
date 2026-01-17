@@ -265,7 +265,6 @@ function normalizeMonth(
   projectStartDate: string | undefined
 ): { monthIndex: number; calendarMonthKey: string } {
   let monthIndex: number;
-  let isExplicitCalendarMonth = false;
 
   if (typeof monthInput === "number") {
     // Already a number, use as monthIndex (contract month)
