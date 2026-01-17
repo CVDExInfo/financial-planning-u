@@ -64,6 +64,8 @@ const LABOR_PRESETS = {
 
 /**
  * Format currency value with no decimals
+ * Currently hardcoded to USD as it's the default currency for the application
+ * TODO: Make currency and locale configurable when i18n is implemented
  */
 const formatCurrencyNoDecimals = (value: number): string => {
   return new Intl.NumberFormat('en-US', {

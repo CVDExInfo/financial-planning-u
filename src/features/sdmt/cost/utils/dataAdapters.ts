@@ -18,7 +18,7 @@ const LABOR_KEYWORDS = [
   /\blabor\b/i,
   /\blabour\b/i,
   /mano\s*de\s*obra/i,
-  /\bmod\b/i,
+  /\bmod\b/i,  // MOD = Mano de Obra Directa (when uppercased in context)
   /\bfte\b/i,
   /ingenier[oía]/i,
   /engineer/i,
@@ -26,7 +26,7 @@ const LABOR_KEYWORDS = [
   /project\s*manager/i,
   /service\s*delivery\s*manager/i,
   /\bsdm\b/i,
-  /\bpm\b/i,
+  /\bpm\b/i,  // PM = Project Manager (when uppercased in context)
   /soporte/i,
   /support/i,
   /delivery/i,
@@ -51,9 +51,23 @@ const canonicalizeCategory = (raw: any): string => {
     return "Labor";
   }
   
-  // Check role, description, and subtype for labor indicators
+  // For ambiguous abbreviations (MOD, PM), only match if they appear in uppercase
+  // to avoid false matches with "model", "equipment", etc.
   const textFields = [role, description, subtype].join(" ");
-  const hasLaborIndicators = LABOR_KEYWORDS.some((rx) => rx.test(textFields));
+  
+  // Check for specific uppercase abbreviations first
+  if (/\bMOD\b/.test(textFields) || /\bPM\b/.test(textFields) || /\bSDM\b/.test(textFields) || /\bFTE\b/.test(textFields)) {
+    return "Labor";
+  }
+  
+  // Check other labor indicators (case-insensitive)
+  const hasLaborIndicators = LABOR_KEYWORDS.some((rx) => {
+    // Skip MOD and PM patterns here as they're handled above
+    if (rx.source.includes('\\bmod\\b') || rx.source.includes('\\bpm\\b')) {
+      return false;
+    }
+    return rx.test(textFields);
+  });
   
   if (hasLaborIndicators) {
     return "Labor";
