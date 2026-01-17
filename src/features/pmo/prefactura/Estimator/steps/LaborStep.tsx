@@ -62,6 +62,18 @@ const LABOR_PRESETS = {
  * - Project Manager
  */
 
+/**
+ * Format currency value with no decimals
+ */
+const formatCurrencyNoDecimals = (value: number): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
 interface LaborStepProps {
   data: LaborEstimate[];
   setData: (data: LaborEstimate[]) => void;
@@ -344,20 +356,25 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                           <Label className="sr-only" htmlFor={rateId}>
                             Tarifa por hora
                           </Label>
-                          <Input
-                            id={rateId}
-                            name={rateId}
-                            type="number"
-                            value={item.hourly_rate}
-                            onChange={(e) =>
-                              updateLaborItem(
-                                index,
-                                "hourly_rate",
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            className="w-24"
-                          />
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm text-muted-foreground">$</span>
+                            <Input
+                              id={rateId}
+                              name={rateId}
+                              type="number"
+                              value={item.hourly_rate}
+                              onChange={(e) =>
+                                updateLaborItem(
+                                  index,
+                                  "hourly_rate",
+                                  parseFloat(e.target.value) || 0
+                                )
+                              }
+                              className="w-20"
+                              step="1"
+                              min="0"
+                            />
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Label className="sr-only" htmlFor={hoursId}>
@@ -503,13 +520,12 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                   Tarifa Mensual Promedio
                 </Label>
                 <p className="text-2xl font-bold">
-                  $
-                  {(
+                  {formatCurrencyNoDecimals(
                     laborEstimates.reduce(
                       (sum, item) => sum + item.hourly_rate,
                       0
                     ) / laborEstimates.length
-                  ).toLocaleString()}
+                  )}
                 </p>
               </div>
               <div>
