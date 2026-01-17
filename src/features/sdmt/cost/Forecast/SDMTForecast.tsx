@@ -5,6 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -40,6 +47,7 @@ import {
   Info,
   Calculator,
   ChevronDown,
+  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ChartInsightsPanel } from "@/components/ChartInsightsPanel";
@@ -180,6 +188,10 @@ const HIDE_REAL_ANNUAL_KPIS = import.meta.env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS ==
 // Feature flag to hide Resumen de Portafolio in TODOS mode
 const HIDE_PROJECT_SUMMARY = import.meta.env.VITE_FINZ_HIDE_PROJECT_SUMMARY === 'true';
 
+// Feature flags for portfolio summary view customization
+// (Flags for ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED, HIDE_EXPANDABLE_PROJECT_LIST,
+// and HIDE_RUNWAY_METRICS are declared and used inside PortfolioSummaryView.tsx)
+
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -215,6 +227,22 @@ export function SDMTForecast() {
 
   // State for controlling rubros grid collapsible (TODOS view)
   const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(false);
+
+  // Breakdown view mode for TODOS/portfolio view (Proyectos vs Rubros)
+  // TODO: Wire up rubros grouping logic to conditionally render grouped rubros by project
+  // When breakdownMode === 'rubros', should use buildProjectRubros() from projectGrouping.ts
+  // and pass grouped data to a modified grid renderer that shows project headers with nested rubros
+  const [breakdownMode, setBreakdownMode] = useState<'project' | 'rubros'>('project');
+  
+  // Handler for breakdown mode changes
+  const handleBreakdownModeChange = (newMode: 'project' | 'rubros') => {
+    setBreakdownMode(newMode);
+    if (newMode === 'rubros') {
+      toast.info('Vista de Rubros por Proyecto', {
+        description: 'La vista de rubros agrupados por proyecto estará disponible próximamente.'
+      });
+    }
+  };
 
   // Stale response guard: Track latest request to prevent race conditions
   const latestRequestKeyRef = useRef<string>("");
@@ -3644,26 +3672,49 @@ export function SDMTForecast() {
 
       {/* Forecast Grid - Common for both modes, but with collapsible wrapper for TODOS */}
       {isPortfolioView ? (
-        /* TODOS mode - wrapped in collapsible "Desglose mensual vs presupuesto" */
-        <Collapsible defaultOpen={false}>
+        /* TODOS mode - wrapped in collapsible "Monitoreo mensual de proyectos vs. presupuesto" */
+        <Collapsible defaultOpen={true}>
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">
-                  {selectedPeriod === "CURRENT_MONTH"
-                    ? `Desglose mensual vs presupuesto - Mes Actual (M${getCurrentMonthIndex()})`
-                    : "Desglose mensual vs presupuesto"}
-                </CardTitle>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    aria-label="Expandir/Colapsar desglose mensual"
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">
+                    Monitoreo mensual de proyectos vs. presupuesto
+                  </CardTitle>
+                  <Badge variant="secondary" className="ml-2">M1-M12</Badge>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="breakdown-mode-select" className="text-sm">Vista</Label>
+                  <Select
+                    value={breakdownMode}
+                    onValueChange={(v) => handleBreakdownModeChange(v as 'project' | 'rubros')}
                   >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </CollapsibleTrigger>
+                    <SelectTrigger
+                      id="breakdown-mode-select"
+                      className="h-8 w-[200px]"
+                      aria-label="Seleccionar vista: Proyectos o Rubros por proyecto"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="project">Proyectos</SelectItem>
+                      <SelectItem value="rubros">Rubros por proyecto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label="Expandir/Colapsar desglose mensual"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
               </div>
             </CardHeader>
             <CollapsibleContent>

@@ -33,6 +33,14 @@ import { calculateVariances } from './budgetAllocation';
 const OVER_BUDGET_THRESHOLD = 100; // Percentage
 const WARNING_THRESHOLD = 90; // Percentage
 
+// Feature flags for portfolio summary view customization
+const ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED =
+  import.meta.env.VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED === 'true';
+const HIDE_EXPANDABLE_PROJECT_LIST =
+  import.meta.env.VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST === 'true';
+const HIDE_RUNWAY_METRICS =
+  import.meta.env.VITE_FINZ_HIDE_RUNWAY_METRICS === 'true';
+
 type ForecastRow = ForecastCell & { projectId?: string; projectName?: string };
 type ProjectLineItem = LineItem & { projectId?: string; projectName?: string };
 
@@ -266,8 +274,8 @@ export function PortfolioSummaryView({
             </div>
           </div>
 
-          {/* Runway Metrics Summary - Only show if runway metrics are available */}
-          {hasRunwayMetrics && runwayMetrics.length > 0 && (() => {
+          {/* Runway Metrics Summary - Only show if runway metrics are available and not hidden by flag */}
+          {!HIDE_RUNWAY_METRICS && hasRunwayMetrics && runwayMetrics.length > 0 && (() => {
             // Get latest month with actuals
             const latestWithActuals = [...runwayMetrics].reverse().find(r => r.actualForMonth > 0);
             const latestMetrics = latestWithActuals || runwayMetrics[runwayMetrics.length - 1];
@@ -335,12 +343,13 @@ export function PortfolioSummaryView({
             );
           })()}
 
-          {/* Expandable Project List */}
-          <CollapsibleContent>
-            <div className="space-y-2 mt-4 pt-4 border-t">
-              <div className="text-sm font-medium text-muted-foreground mb-3">
-                Desglose por proyecto ({projectSummaries.length} proyectos)
-              </div>
+          {/* Expandable Project List - hide if flag is set */}
+          {!HIDE_EXPANDABLE_PROJECT_LIST && (
+            <CollapsibleContent>
+              <div className="space-y-2 mt-4 pt-4 border-t">
+                <div className="text-sm font-medium text-muted-foreground mb-3">
+                  Desglose por proyecto ({projectSummaries.length} proyectos)
+                </div>
               {projectSummaries.map(project => (
                 <Collapsible
                   key={project.projectId}
@@ -443,11 +452,13 @@ export function PortfolioSummaryView({
               ))}
             </div>
           </CollapsibleContent>
+          )}
         </CardContent>
       </Card>
 
       {/* Monthly Breakdown Table - TRANSPOSED: Months as Columns */}
-      {monthlyBudgetAllocations && monthlyBudgetAllocations.some(m => m.budgetAllocated > 0) && (
+      {(ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED || showMonthlyBreakdown) && 
+       monthlyBudgetAllocations && monthlyBudgetAllocations.some(m => m.budgetAllocated > 0) && (
         <Card className="mt-3">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -458,25 +469,27 @@ export function PortfolioSummaryView({
                   M1-M12
                 </Badge>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 gap-2"
-                onClick={() => setShowMonthlyBreakdown(!showMonthlyBreakdown)}
-                aria-label={showMonthlyBreakdown ? "Ocultar desglose mensual" : "Mostrar desglose mensual"}
-              >
-                <span className="text-sm">
-                  {showMonthlyBreakdown ? 'Ocultar' : 'Ver desglose'}
-                </span>
-                {showMonthlyBreakdown ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
-              </Button>
+              {!ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-2"
+                  onClick={() => setShowMonthlyBreakdown(!showMonthlyBreakdown)}
+                  aria-label={showMonthlyBreakdown ? "Ocultar desglose mensual" : "Mostrar desglose mensual"}
+                >
+                  <span className="text-sm">
+                    {showMonthlyBreakdown ? 'Ocultar' : 'Ver desglose'}
+                  </span>
+                  {showMonthlyBreakdown ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
             </div>
           </CardHeader>
-          {showMonthlyBreakdown && (
+          {(ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED || showMonthlyBreakdown) && (
             <CardContent>
               <div className="overflow-x-auto">
                 <TooltipProvider>

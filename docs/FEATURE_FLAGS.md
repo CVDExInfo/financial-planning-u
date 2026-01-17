@@ -59,6 +59,65 @@ This document describes the environment-based feature flags used in the Finanzas
   - When `false`: Shows project summary section (default)
 - **Note:** Does not affect the monthly forecast grid
 
+#### `VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED`
+- **Type:** Boolean (`'true'` / `'false'`)
+- **Default:** `false`
+- **Purpose:** When `true` and in TODOS/portfolio mode, the Portfolio Summary renders the Monthly Breakdown Table **transposed** (months as columns). In this mode, the Expandable Project List and Runway Metrics Summary are also hidden by default.
+- **Impact:**
+  - When `true`: Monthly breakdown table shows months as columns (M1, M2, ..., M12) with line items as rows
+  - When `false`: Shows default table orientation
+- **Scope:** Only affects portfolio view; single-project view is unaffected
+
+#### `VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST`
+- **Type:** Boolean (`'true'` / `'false'`)
+- **Default:** `false`
+- **Purpose:** When `true`, hides the expandable list of projects in the Portfolio Summary in TODOS/portfolio mode.
+- **Impact:**
+  - When `true`: Expandable project list is hidden
+  - When `false`: Shows expandable project list (default behavior)
+- **Scope:** Only affects portfolio view; single-project view is unaffected
+
+#### `VITE_FINZ_HIDE_RUNWAY_METRICS`
+- **Type:** Boolean (`'true'` / `'false'`)
+- **Default:** `false`
+- **Purpose:** When `true`, hides the Runway Metrics Summary in the Portfolio Summary in TODOS/portfolio mode.
+- **Impact:**
+  - When `true`: Runway metrics section is hidden
+  - When `false`: Shows runway metrics (default behavior)
+- **Scope:** Only affects portfolio view; single-project view is unaffected
+
+---
+
+## Tabla de flags y vistas impactadas (Español)
+
+| Flag | Nombre (Español) | Vista / Componente afectado | Comportamiento |
+|------|------------------|-----------------------------|----------------|
+| `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS` | Ocultar KPIs Anuales Reales | `ForecastKpis.tsx` / Resumen Ejecutivo | Si `true`, oculta las 4 tarjetas de KPIs anuales en vista TODOS/Portfolio. |
+| `VITE_FINZ_HIDE_PROJECT_SUMMARY` | Ocultar Resumen de Portafolio | `PortfolioSummaryView.tsx` | Si `true`, oculta la sección "Resumen de todos los proyectos". |
+| `VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED` | Mostrar Desglose Mensual (Transpuesto) | `PortfolioSummaryView.tsx` - Cuadrícula mensual | Si `true`, fuerza la tabla de Desglose Mensual a mostrarse transpuesta (meses como columnas). |
+| `VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST` | Ocultar Lista Expandible de Proyectos | `PortfolioSummaryView.tsx` | Si `true`, no muestra la lista expandible de proyectos dentro del resumen de portafolio. |
+| `VITE_FINZ_HIDE_RUNWAY_METRICS` | Ocultar Runway / Control Presupuestario | `PortfolioSummaryView.tsx` | Si `true`, oculta el resumen de Runway & Control Presupuestario en Resumen de Portafolio. |
+| `VITE_FINZ_NEW_FORECAST_LAYOUT` | Nuevo Layout de Pronóstico | `SDMTForecast.tsx` / layout | Controla la reorganización compacta de la página (no afecta visibilidad por sí solo). Default: `false`. |
+| `VITE_FINZ_SHOW_KEYTRENDS` | Mostrar Tendencias Clave | `SDMTForecast.tsx` / Key Trends | Si `true`, muestra las tablas de Tendencias Clave (Top Variance Projects & Rubros). Default: `false`. |
+| `VITE_FINZ_HIDE_KEY_TRENDS` | Ocultar Tendencias Clave | `SDMTForecast.tsx` / Key Trends | Si `true`, oculta las Tendencias Clave incluso si `SHOW_KEY_TRENDS` es `true`. Default: `false`. |
+
+### Ejemplos de uso
+
+```bash
+# Ejemplo 1: Ocultar KPIs anuales reales
+VITE_FINZ_HIDE_REAL_ANNUAL_KPIS=true
+
+# Ejemplo 2: Vista compacta - solo tabla transpuesta
+VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED=true
+VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST=true
+VITE_FINZ_HIDE_RUNWAY_METRICS=true
+
+# Ejemplo 3: Vista mínima ejecutiva
+VITE_FINZ_NEW_FORECAST_LAYOUT=true
+VITE_FINZ_HIDE_REAL_ANNUAL_KPIS=true
+VITE_FINZ_HIDE_PROJECT_SUMMARY=true
+```
+
 ---
 
 ## Testing Feature Flags Locally
@@ -121,6 +180,24 @@ VITE_FINZ_HIDE_PROJECT_SUMMARY=true
 ```
 **Expected:** Minimal portfolio view with only essential grids
 
+#### Scenario 6: Transposed Monthly Breakdown
+```bash
+VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED=true
+```
+**Expected:** Monthly breakdown table shows months as columns (M1-M12) in portfolio view
+
+#### Scenario 7: Hide Expandable Project List
+```bash
+VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST=true
+```
+**Expected:** Expandable project list is hidden in portfolio summary
+
+#### Scenario 8: Hide Runway Metrics
+```bash
+VITE_FINZ_HIDE_RUNWAY_METRICS=true
+```
+**Expected:** Runway metrics summary is hidden in portfolio view
+
 ---
 
 ## CI/CD Configuration
@@ -134,6 +211,9 @@ env:
   VITE_FINZ_HIDE_KEY_TRENDS: ${{ vars.VITE_FINZ_HIDE_KEY_TRENDS || 'false' }}
   VITE_FINZ_HIDE_REAL_ANNUAL_KPIS: ${{ vars.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS || 'false' }}
   VITE_FINZ_HIDE_PROJECT_SUMMARY: ${{ vars.VITE_FINZ_HIDE_PROJECT_SUMMARY || 'false' }}
+  VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED: ${{ vars.VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED || 'false' }}
+  VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST: ${{ vars.VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST || 'false' }}
+  VITE_FINZ_HIDE_RUNWAY_METRICS: ${{ vars.VITE_FINZ_HIDE_RUNWAY_METRICS || 'false' }}
 ```
 
 ---
@@ -144,7 +224,8 @@ env:
 
 1. `HIDE_KEY_TRENDS` takes precedence over `SHOW_KEY_TRENDS`
 2. All visibility flags are AND-ed with other runtime conditions (loading state, data availability, etc.)
-3. Portfolio-only flags (`HIDE_REAL_ANNUAL_KPIS`, `HIDE_PROJECT_SUMMARY`) do not affect single-project view
+3. Portfolio-only flags (`HIDE_REAL_ANNUAL_KPIS`, `HIDE_PROJECT_SUMMARY`, `ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED`, `HIDE_EXPANDABLE_PROJECT_LIST`, `HIDE_RUNWAY_METRICS`) do not affect single-project view
+4. When `ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED` is `true`, it implies hiding expandable project list and runway metrics unless explicitly overridden
 
 ### Backward Compatibility
 
