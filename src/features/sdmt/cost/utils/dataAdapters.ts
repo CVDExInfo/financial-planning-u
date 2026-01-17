@@ -10,6 +10,59 @@ const toNumber = (value: unknown, fallback = 0): number => {
   return Number.isFinite(num) ? num : fallback;
 };
 
+/**
+ * Labor keyword patterns for category detection (English/Spanish)
+ * Matches common labor-related terms in categories, roles, and descriptions
+ */
+const LABOR_KEYWORDS = [
+  /\blabor\b/i,
+  /\blabour\b/i,
+  /mano\s*de\s*obra/i,
+  /\bmod\b/i,
+  /\bfte\b/i,
+  /ingenier[oía]/i,
+  /engineer/i,
+  /\bmanager\b/i,
+  /project\s*manager/i,
+  /service\s*delivery\s*manager/i,
+  /\bsdm\b/i,
+  /\bpm\b/i,
+  /soporte/i,
+  /support/i,
+  /delivery/i,
+  /lead/i,
+  /líder/i,
+] as const;
+
+/**
+ * Canonicalize category to ensure labor roles are properly categorized
+ * Returns "Labor" for labor-related items, or the original/fallback category
+ */
+const canonicalizeCategory = (raw: any): string => {
+  // Extract potential category values
+  const rawCategory = (raw?.category || raw?.categoria || raw?.linea_codigo || "").toString().trim();
+  const role = (raw?.role || raw?.rol || "").toString().trim();
+  const description = (raw?.description || raw?.nombre || raw?.descripcion || "").toString().trim();
+  const subtype = (raw?.subtype || raw?.tipo_costo || "").toString().trim();
+  
+  // Check if category already indicates labor
+  const categoryIsLabor = LABOR_KEYWORDS.some((rx) => rx.test(rawCategory));
+  if (categoryIsLabor) {
+    return "Labor";
+  }
+  
+  // Check role, description, and subtype for labor indicators
+  const textFields = [role, description, subtype].join(" ");
+  const hasLaborIndicators = LABOR_KEYWORDS.some((rx) => rx.test(textFields));
+  
+  if (hasLaborIndicators) {
+    return "Labor";
+  }
+  
+  // Return original category or fallback
+  return rawCategory || "Rubro";
+};
+
 export const normalizeLineItemFromApi = (raw: any, options?: { debugMode?: boolean }): LineItem => {
   const id = normalizeRubroId(
     raw?.id || raw?.rubro_id || raw?.rubroId || raw?.line_item_id || raw?.lineItemId
@@ -24,9 +77,12 @@ export const normalizeLineItemFromApi = (raw: any, options?: { debugMode?: boole
   const recurringFlag = Boolean(raw?.recurring);
   const oneTimeFlag = raw?.one_time !== undefined ? Boolean(raw.one_time) : !recurringFlag;
 
+  // Canonicalize category to properly detect labor items
+  const category = canonicalizeCategory(raw);
+
   return {
     id,
-    category: raw?.category || raw?.categoria || raw?.linea_codigo || "Rubro",
+    category,
     subtype: raw?.subtype || raw?.tipo_costo,
     vendor: raw?.vendor,
     description: raw?.description || raw?.nombre || raw?.descripcion || id || "Rubro",
