@@ -78,9 +78,7 @@ import {
   type BaselineDetail,
 } from "@/api/finanzas";
 import { getForecastPayload, getProjectInvoices } from "./forecastService";
-import finanzasClient, {
-  type BaselineDetailResponse,
-} from "@/api/finanzasClient";
+import finanzasClient from "@/api/finanzasClient";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { BaselineStatusPanel } from "@/components/baseline/BaselineStatusPanel";
 import { BudgetSimulatorCard } from "./BudgetSimulatorCard";
@@ -231,7 +229,7 @@ export function SDMTForecast() {
 
   // Baseline detail for FTE calculation
   const [baselineDetail, setBaselineDetail] =
-    useState<BaselineDetailResponse | null>(null);
+    useState<BaselineDetail | null>(null);
 
   // Sorting state for forecast grid
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
