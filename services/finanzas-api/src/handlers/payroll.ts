@@ -512,7 +512,8 @@ async function handlePostActualsBulk(event: APIGatewayProxyEventV2) {
         const metadata = await getProjectMetadata(projectId);
         projectMetadataMap.set(projectId, metadata);
       } catch (err) {
-        // Will be caught in individual row processing
+        // Log error but allow individual row processing to handle it
+        console.warn(`Failed to batch-fetch project metadata for ${projectId}:`, err);
       }
     })
   );
@@ -525,7 +526,8 @@ async function handlePostActualsBulk(event: APIGatewayProxyEventV2) {
         const taxonomy = await getRubroTaxonomy(rubroId);
         rubroTaxonomyMap.set(rubroId, taxonomy);
       } catch (err) {
-        // Will be caught in individual row processing
+        // Log error but allow individual row processing to handle it
+        console.warn(`Failed to batch-fetch rubro taxonomy for ${rubroId}:`, err);
       }
     })
   );

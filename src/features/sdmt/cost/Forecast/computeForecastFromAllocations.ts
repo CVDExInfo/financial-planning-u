@@ -179,10 +179,12 @@ export function computeForecastFromAllocations(
     
     // Index by substring for fuzzy matching (only for keys >= 3 chars)
     if (normalizedKey && normalizedKey.length >= 3) {
-      if (!rubrosBySubstring.has(normalizedKey)) {
-        rubrosBySubstring.set(normalizedKey, []);
+      const substringArray = rubrosBySubstring.get(normalizedKey);
+      if (!substringArray) {
+        rubrosBySubstring.set(normalizedKey, [extended]);
+      } else {
+        substringArray.push(extended);
       }
-      rubrosBySubstring.get(normalizedKey)!.push(extended);
     }
   });
 
