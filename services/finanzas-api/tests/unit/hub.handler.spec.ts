@@ -73,6 +73,18 @@ function createEvent(
   };
 }
 
+// Helper to create event with missing path properties
+function createEventWithMissingPath(
+  method: string,
+  queryStringParameters?: Record<string, string>
+): APIGatewayProxyEventV2 {
+  const event = createEvent(method, '', queryStringParameters);
+  // Remove path properties to simulate edge case
+  delete (event as any).rawPath;
+  delete (event as any).requestContext.http.path;
+  return event;
+}
+
 describe('Hub Handler Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -209,10 +221,8 @@ describe('Hub Handler Tests', () => {
         Items: [],
       });
 
-      // Create event with undefined rawPath and http.path
-      const event = createEvent('GET', '/finanzas/hub/summary', { scope: 'ALL' });
-      delete (event as any).rawPath;
-      delete (event as any).requestContext.http.path;
+      // Create event with missing path properties using helper
+      const event = createEventWithMissingPath('GET', { scope: 'ALL' });
 
       const response = await handler(event);
 

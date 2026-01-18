@@ -22,6 +22,9 @@ import { logError } from "../utils/logging";
 const cache = new Map<string, { data: unknown; expires: number }>();
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
+// Scope validation pattern: allows "ALL" or alphanumeric with hyphens/underscores
+const VALID_SCOPE_PATTERN = /^[A-Z0-9_-]+$/;
+
 function getCached<T>(key: string): T | null {
   const entry = cache.get(key);
   if (entry && entry.expires > Date.now()) {
@@ -64,7 +67,7 @@ function parseScope(queryParams: Record<string, string | undefined>): string {
   const sanitized = scope.trim().toUpperCase();
   
   // Validate scope format: either "ALL" or alphanumeric with hyphens/underscores
-  if (sanitized !== "ALL" && !/^[A-Z0-9_-]+$/.test(sanitized)) {
+  if (sanitized !== "ALL" && !VALID_SCOPE_PATTERN.test(sanitized)) {
     throw { statusCode: 400, body: "Invalid scope parameter. Must be 'ALL' or a valid project code." };
   }
   
