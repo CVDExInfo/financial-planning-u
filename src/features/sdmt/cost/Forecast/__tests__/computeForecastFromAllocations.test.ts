@@ -636,7 +636,6 @@ describe('computeForecastFromAllocations', () => {
       assert.strictEqual(cells[0].rubroId, 'ORIGINAL-RUBRO-ID');
     });
   });
-});
 
   describe('Labor classification with isLabor flag', () => {
     it('should set isLabor=true for canonical labor keys', () => {
