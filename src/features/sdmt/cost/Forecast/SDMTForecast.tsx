@@ -456,6 +456,30 @@ export function SDMTForecast() {
     }
   }, [location.search]);
 
+  // Refresh forecast data when route becomes active or page becomes visible
+  // This ensures we always show fresh data when navigating to Forecast or returning from another tab
+  useEffect(() => {
+    // Refresh when page regains visibility (user switched tabs)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && selectedProjectId) {
+        if (import.meta.env.DEV) {
+          console.log("🔄 Forecast: Refreshing on visibility change");
+        }
+        // Abort any in-flight request and start a fresh one
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        loadForecastData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [location.key, selectedProjectId]); // Re-run when route changes (entering forecast page fresh)
+
   useEffect(() => {
     if (!lineItemsError) return;
 
