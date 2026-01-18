@@ -11,6 +11,7 @@ import {
   type ProjectTotals,
   type ProjectRubro,
 } from '../projectGrouping';
+import { buildTaxonomyMap } from '../lib/taxonomyLookup';
 import type { ForecastCell, LineItem } from '@/types/domain';
 
 describe('Project Grouping Utils', () => {
@@ -478,6 +479,40 @@ describe('Project Grouping Utils', () => {
       // Should detect labor from category
       assert.strictEqual(proj1Rubros[0].isLabor, true);
       assert.strictEqual(proj1Rubros[0].category, 'Mano de Obra Directa');
+    });
+
+    it('should handle allocation SK with MOD-LEAD and classify as labor', () => {
+      const forecastData: ForecastCell[] = [
+        {
+          line_item_id: 'ALLOCATION#base_xxx#2025-06#MOD-LEAD',
+          month: 6,
+          planned: 5000,
+          forecast: 5000,
+          actual: 0,
+          variance: -5000,
+          last_updated: '2025-06-01',
+          updated_by: 'system',
+          project_id: 'proj1',
+          project_name: 'Test Project',
+        } as any,
+      ];
+
+      const lineItems: LineItem[] = [];
+      const taxonomyByRubroId = {};
+      
+      // Build taxonomy map and cache for canonical lookup
+      const taxonomyMap = buildTaxonomyMap(taxonomyByRubroId);
+      const taxonomyCache = new Map();
+
+      const result = buildProjectRubros(forecastData, lineItems, taxonomyByRubroId, taxonomyMap, taxonomyCache);
+      
+      const proj1Rubros = result.get('proj1');
+      assert.ok(proj1Rubros, 'Should have rubros for proj1');
+      assert.strictEqual(proj1Rubros.length, 1, 'Should have 1 rubro');
+      
+      const rubro = proj1Rubros[0];
+      assert.strictEqual(rubro.category, 'Mano de Obra (MOD)', 'Should have MOD category');
+      assert.strictEqual(rubro.isLabor, true, 'Should be classified as labor');
     });
   });
 });

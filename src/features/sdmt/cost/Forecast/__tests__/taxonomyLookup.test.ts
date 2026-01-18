@@ -338,26 +338,26 @@ describe('Taxonomy Lookup', () => {
   describe('LABOR_CANONICAL_KEYS constant', () => {
     it('should contain all required canonical labor identifiers', () => {
       // Line items
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('MOD-EXT')));
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('MOD-OT')));
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('MOD-ING')));
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('MOD-LEAD')));
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('MOD-CONT')));
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('MOD-SDM')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('MOD-EXT')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('MOD-OT')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('MOD-ING')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('MOD-LEAD')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('MOD-CONT')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('MOD-SDM')));
       
       // Engineer variants
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('MOD-IN1')));
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('MOD-IN2')));
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('MOD-IN3')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('MOD-IN1')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('MOD-IN2')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('MOD-IN3')));
       
       // Categories
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('MOD')));
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('Mano de Obra Directa')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('MOD')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('Mano de Obra Directa')));
       
       // Roles
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('Project Manager')));
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('Service Delivery Manager')));
-      assert.ok(LABOR_CANONICAL_KEYS.has(normalizeKey('Ingeniero Lider')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('Project Manager')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('Service Delivery Manager')));
+      assert.ok(LABOR_CANONICAL_KEYS.includes(normalizeKey('Ingeniero Lider')));
     });
 
     it('should have normalized keys (lowercase with hyphens)', () => {

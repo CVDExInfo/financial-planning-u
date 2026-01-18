@@ -36,7 +36,8 @@ export interface TaxonomyEntry {
  * @returns Array of forecast cells with month totals
  */
 import type { LineItem } from '@/types/domain';
-import { lookupTaxonomy, isLaborByKey, normalizeKey, type TaxonomyEntry as TaxLookupEntry, type RubroRow } from './lib/taxonomyLookup';
+import { lookupTaxonomyCanonical } from './lib/lookupTaxonomyCanonical';
+import { isLaborByKey, normalizeKey, type TaxonomyEntry as TaxLookupEntry, type RubroRow } from './lib/taxonomyLookup';
 
 /**
  * Normalize ID for tolerant matching (case-insensitive, whitespace/underscore normalization)
@@ -293,7 +294,7 @@ export function computeForecastFromAllocations(
         description: matchingRubro?.description,
         category: matchingRubro?.category,
       };
-      taxonomy = lookupTaxonomy(taxonomyMap, rubroRow, localCache);
+      taxonomy = lookupTaxonomyCanonical(taxonomyMap, rubroRow, localCache);
     }
     
     const description = matchingRubro?.description ?? taxonomy?.description ?? taxonomyEntry?.description ?? `Allocation ${rubroId}`;
@@ -302,7 +303,7 @@ export function computeForecastFromAllocations(
     // Determine isLabor: taxonomy.isLabor -> taxonomyEntry.isLabor -> canonical key check -> category check
     const isLabor = taxonomy?.isLabor ??
                    taxonomyEntry?.isLabor ??
-                   isLaborByKey(rubroId) ??
+                   (isLaborByKey(rubroId) ? true : undefined) ??
                    (category?.toLowerCase().includes('mano de obra') || category?.toLowerCase() === 'mod') ??
                    false;
     

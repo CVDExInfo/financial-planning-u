@@ -12,57 +12,48 @@
 
 /**
  * Normalize key for consistent matching
- * Strips hash suffix, lowercases, removes non-alphanumeric chars
+ * Preserves the actual rubro token at the end of allocation SKs
+ * E.g., "ALLOCATION#base_xxx#2025-06#MOD-LEAD" -> "mod-lead"
  */
 export const normalizeKey = (s?: string): string => {
   if (!s) return '';
-  return s
-    .toString()
-    .split('#')[0]
+  const raw = s.toString();
+  // Preserve the actual rubro token at the end of allocation SKs:
+  // e.g. "ALLOCATION#base_xxx#2025-06#MOD-LEAD" -> "mod-lead"
+  const last = raw.includes('#') ? raw.split('#').pop() || '' : raw;
+  return last
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, ''); // trim leading/trailing hyphens
+    .replace(/[^a-z0-9-]+/g, '-') // keep letters, numbers and hyphen
+    .replace(/-+/g, '-')          // collapse multiple hyphens
+    .replace(/^-+|-+$/g, '');     // trim leading/trailing hyphens
 };
 
 /**
  * Canonical labor keys - all known MOD (Mano de Obra Directa) identifiers
  * These are normalized variants that should always be treated as Labor
+ * Exported as array for compatibility and Set for fast lookup
  */
-const LABOR_CANONICAL_KEYS_RAW = [
-  // Line item IDs
-  'MOD-EXT', 'LINEA#MOD-EXT',
-  'MOD-OT', 'LINEA#MOD-OT',
-  'MOD-ING', 'LINEA#MOD-ING',
-  'MOD-LEAD', 'LINEA#MOD-LEAD',
-  'MOD-CONT', 'LINEA#MOD-CONT',
-  'MOD-SDM', 'LINEA#MOD-SDM',
-  
-  // Engineer variants
+export const LABOR_CANONICAL_KEYS = [
+  'LINEA#MOD-EXT', 'MOD-EXT', 
+  'LINEA#MOD-OT', 'MOD-OT', 
+  'LINEA#MOD-ING', 'MOD-ING',
+  'LINEA#MOD-LEAD', 'MOD-LEAD', 
+  'LINEA#MOD-CONT', 'MOD-CONT', 
+  'LINEA#MOD-SDM', 'MOD-SDM',
+  'LINEA#MOD-PM', 'MOD-PM',
+  'LINEA#MOD-PMO', 'MOD-PMO',
   'MOD-IN1', 'MOD-IN2', 'MOD-IN3',
-  
-  // PMO variants
-  'MOD-PMO',
-  
-  // Categories
-  'MOD', 'CATEGORIA#MOD',
+  'MOD', 'CATEGORIA#MOD', 
   'Mano de Obra Directa',
-  'Mano de Obra',
-  
-  // Roles/Descriptions
-  'Ingeniero Soporte N1',
-  'Ingeniero Soporte N2',
-  'Ingeniero Soporte N3',
-  'Ingeniero Lider',
-  'Project Manager',
-  'Service Delivery Manager',
-];
+  'Ingeniero Soporte N1', 'Ingeniero Soporte N2', 'Ingeniero Soporte N3',
+  'Ingeniero Lider', 'Project Manager', 'Service Delivery Manager'
+].map(normalizeKey);
 
 /**
  * Normalized canonical labor keys set for O(1) lookup
+ * Exported for use in performance-critical lookups
  */
-export const LABOR_CANONICAL_KEYS = new Set(
-  LABOR_CANONICAL_KEYS_RAW.map(k => normalizeKey(k))
-);
+export const LABOR_CANONICAL_KEYS_SET = new Set(LABOR_CANONICAL_KEYS);
 
 /**
  * Check if a key matches any canonical labor identifier
@@ -75,7 +66,7 @@ export function isLaborByKey(key?: string): boolean {
   const normalized = normalizeKey(key);
   if (!normalized) return false;
   
-  return LABOR_CANONICAL_KEYS.has(normalized);
+  return LABOR_CANONICAL_KEYS_SET.has(normalized);
 }
 
 /**
