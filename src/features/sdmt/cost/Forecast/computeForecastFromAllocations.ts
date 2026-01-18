@@ -17,6 +17,7 @@ export interface Allocation {
 export interface TaxonomyEntry {
   description?: string;
   category?: string;
+  isLabor?: boolean;
 }
 
 /**
@@ -30,29 +31,26 @@ export interface TaxonomyEntry {
  * @param months - Number of months to generate
  * @param projectId - Project identifier
  * @param taxonomyByRubroId - Optional taxonomy lookup for description/category fallback
+ * @param taxonomyMap - Optional taxonomy map for robust lookup
+ * @param taxonomyCache - Optional taxonomy cache for performance
  * @returns Array of forecast cells with month totals
  */
 import type { LineItem } from '@/types/domain';
+import { lookupTaxonomy, isLaborByKey, normalizeKey, type TaxonomyEntry as TaxLookupEntry, type RubroRow } from './lib/taxonomyLookup';
 
 /**
  * Normalize ID for tolerant matching (case-insensitive, whitespace/underscore normalization)
+ * Kept for backward compatibility - delegates to normalizeKey from taxonomyLookup
  */
 function normalizeId(s: string | null | undefined): string {
-  return (s || "").toString().trim().toLowerCase().replace(/[_\s]+/g, "-");
+  return normalizeKey(s || "");
 }
 
 /**
  * Normalize rubro key for defensive allocation→rubro matching
- * Strips hash suffix, lowercases, removes non-alphanumeric chars
+ * Kept for backward compatibility - delegates to normalizeKey from taxonomyLookup
  */
-export const normalizeRubroKey = (s?: string): string => {
-  if (!s) return '';
-  return s
-    .toString()
-    .split('#')[0]
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '');
-};
+export const normalizeRubroKey = normalizeKey;
 
 /**
  * Extended LineItem type that may have alternative ID fields
@@ -78,6 +76,7 @@ export interface ForecastRow {
   rubroId?: string;
   description?: string;
   category?: string;
+  isLabor?: boolean;
   month: number;
   planned: number;
   forecast: number;
@@ -94,7 +93,9 @@ export function computeForecastFromAllocations(
   rubros: LineItem[],
   months: number,
   projectId?: string,
-  taxonomyByRubroId?: Record<string, TaxonomyEntry>
+  taxonomyByRubroId?: Record<string, TaxonomyEntry>,
+  taxonomyMap?: Map<string, TaxLookupEntry>,
+  taxonomyCache?: Map<string, TaxLookupEntry | null>
 ): ForecastRow[] {
   if (!allocations || allocations.length === 0) {
     return [];
@@ -114,6 +115,8 @@ export function computeForecastFromAllocations(
     );
     return [];
   }
+  
+  const localCache = taxonomyCache || new Map<string, TaxLookupEntry | null>();
 
   // Group allocations by month and rubroId
   const allocationMap = new Map<string, { month: number; amount: number; rubroId?: string }[]>();
@@ -280,8 +283,28 @@ export function computeForecastFromAllocations(
     
     // Description and category fallback chain
     const taxonomyEntry = taxonomyByRubroId?.[rubroId] ?? taxonomyByRubroId?.[matchingRubro?.id ?? ""];
-    const description = matchingRubro?.description ?? taxonomyEntry?.description ?? `Allocation ${rubroId}`;
-    const category = matchingRubro?.category ?? taxonomyEntry?.category ?? 'Allocations';
+    
+    // Use taxonomy lookup if available for robust classification
+    let taxonomy: TaxLookupEntry | null = null;
+    if (taxonomyMap && localCache) {
+      const rubroRow: RubroRow = {
+        rubroId,
+        line_item_id: rubroId,
+        description: matchingRubro?.description,
+        category: matchingRubro?.category,
+      };
+      taxonomy = lookupTaxonomy(taxonomyMap, rubroRow, localCache);
+    }
+    
+    const description = matchingRubro?.description ?? taxonomy?.description ?? taxonomyEntry?.description ?? `Allocation ${rubroId}`;
+    const category = matchingRubro?.category ?? taxonomy?.category ?? taxonomyEntry?.category ?? 'Allocations';
+    
+    // Determine isLabor: taxonomy.isLabor -> taxonomyEntry.isLabor -> canonical key check -> category check
+    const isLabor = taxonomy?.isLabor ??
+                   taxonomyEntry?.isLabor ??
+                   isLaborByKey(rubroId) ??
+                   (category?.toLowerCase().includes('mano de obra') || category?.toLowerCase() === 'mod') ??
+                   false;
     
     if (!matchingRubro && taxonomyEntry) {
       taxonomyFallbackCount++;
@@ -292,6 +315,7 @@ export function computeForecastFromAllocations(
       rubroId: rubroId,
       description,
       category,
+      isLabor,
       month: firstAlloc.month,
       planned: totalAmount,
       forecast: totalAmount,
@@ -304,7 +328,7 @@ export function computeForecastFromAllocations(
   });
   
   // Debug logging (DEV only)
-  if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+  if (process.env.NODE_ENV !== 'production') {
     console.info(
       `[computeForecastFromAllocations] Processed ${allocations.length} allocations → ${forecastCells.length} forecast cells`,
       {

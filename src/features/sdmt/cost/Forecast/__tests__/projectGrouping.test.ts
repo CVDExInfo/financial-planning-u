@@ -351,5 +351,133 @@ describe('Project Grouping Utils', () => {
       assert.strictEqual(proj1Rubros.length, 1);
       assert.strictEqual(proj1Rubros[0].description, 'Allocation unknown-rubro');
     });
+
+    it('should classify canonical labor keys as labor with isLabor flag', () => {
+      const forecastData: ForecastCell[] = [
+        {
+          line_item_id: 'MOD-EXT',
+          month: 1,
+          planned: 1000,
+          forecast: 1100,
+          actual: 900,
+          variance: -200,
+          last_updated: '2024-01-01',
+          updated_by: 'user1',
+          project_id: 'proj1',
+          project_name: 'Project Alpha',
+        } as any,
+        {
+          line_item_id: 'MOD-SDM',
+          month: 1,
+          planned: 2000,
+          forecast: 2200,
+          actual: 1800,
+          variance: -400,
+          last_updated: '2024-01-01',
+          updated_by: 'user1',
+          project_id: 'proj1',
+          project_name: 'Project Alpha',
+        } as any,
+        {
+          line_item_id: 'GSV-CLOUD',
+          month: 1,
+          planned: 500,
+          forecast: 550,
+          actual: 450,
+          variance: -100,
+          last_updated: '2024-01-01',
+          updated_by: 'user1',
+          project_id: 'proj1',
+          project_name: 'Project Alpha',
+        } as any,
+      ];
+
+      const result = buildProjectRubros(forecastData, []);
+      
+      const proj1Rubros = result.get('proj1');
+      assert.ok(proj1Rubros);
+      assert.strictEqual(proj1Rubros.length, 3);
+
+      // MOD-EXT should be labor
+      const modExt = proj1Rubros.find(r => r.rubroId === 'MOD-EXT');
+      assert.ok(modExt);
+      assert.strictEqual(modExt.isLabor, true);
+
+      // MOD-SDM should be labor
+      const modSdm = proj1Rubros.find(r => r.rubroId === 'MOD-SDM');
+      assert.ok(modSdm);
+      assert.strictEqual(modSdm.isLabor, true);
+
+      // GSV-CLOUD should not be labor
+      const gsvCloud = proj1Rubros.find(r => r.rubroId === 'GSV-CLOUD');
+      assert.ok(gsvCloud);
+      assert.strictEqual(gsvCloud.isLabor, false);
+    });
+
+    it('should use isLabor flag from taxonomy when provided', () => {
+      const forecastData: ForecastCell[] = [
+        {
+          line_item_id: 'CUSTOM-LABOR',
+          month: 1,
+          planned: 1000,
+          forecast: 1100,
+          actual: 900,
+          variance: -200,
+          last_updated: '2024-01-01',
+          updated_by: 'user1',
+          project_id: 'proj1',
+          project_name: 'Project Alpha',
+        } as any,
+      ];
+
+      const taxonomyByRubroId = {
+        'CUSTOM-LABOR': {
+          description: 'Custom Labor Role',
+          category: 'Custom Category',
+          isLabor: true,
+        },
+      };
+
+      const result = buildProjectRubros(forecastData, [], taxonomyByRubroId);
+      
+      const proj1Rubros = result.get('proj1');
+      assert.ok(proj1Rubros);
+      assert.strictEqual(proj1Rubros.length, 1);
+      assert.strictEqual(proj1Rubros[0].isLabor, true);
+      assert.strictEqual(proj1Rubros[0].description, 'Custom Labor Role');
+    });
+
+    it('should classify by category when isLabor not explicitly set', () => {
+      const forecastData: ForecastCell[] = [
+        {
+          line_item_id: 'SOME-ROLE',
+          month: 1,
+          planned: 1000,
+          forecast: 1100,
+          actual: 900,
+          variance: -200,
+          last_updated: '2024-01-01',
+          updated_by: 'user1',
+          project_id: 'proj1',
+          project_name: 'Project Alpha',
+        } as any,
+      ];
+
+      const taxonomyByRubroId = {
+        'SOME-ROLE': {
+          description: 'Some Role',
+          category: 'Mano de Obra Directa',
+        },
+      };
+
+      const result = buildProjectRubros(forecastData, [], taxonomyByRubroId);
+      
+      const proj1Rubros = result.get('proj1');
+      assert.ok(proj1Rubros);
+      assert.strictEqual(proj1Rubros.length, 1);
+      // Should detect labor from category
+      assert.strictEqual(proj1Rubros[0].isLabor, true);
+      assert.strictEqual(proj1Rubros[0].category, 'Mano de Obra Directa');
+    });
   });
 });

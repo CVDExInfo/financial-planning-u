@@ -636,4 +636,162 @@ describe('computeForecastFromAllocations', () => {
       assert.strictEqual(cells[0].rubroId, 'ORIGINAL-RUBRO-ID');
     });
   });
+
+  describe('Labor classification with isLabor flag', () => {
+    it('should set isLabor=true for canonical labor keys', () => {
+      const allocations: Allocation[] = [
+        {
+          month: 1,
+          amount: 1000,
+          rubroId: 'MOD-EXT',
+          projectId: 'proj-123',
+        },
+        {
+          month: 1,
+          amount: 2000,
+          rubroId: 'MOD-SDM',
+          projectId: 'proj-123',
+        },
+        {
+          month: 1,
+          amount: 500,
+          rubroId: 'GSV-CLOUD',
+          projectId: 'proj-123',
+        },
+      ];
+
+      const rubros: LineItem[] = [];
+
+      const cells = computeForecastFromAllocations(allocations, rubros, 12, 'proj-123');
+
+      assert.strictEqual(cells.length, 3);
+
+      // MOD-EXT should be labor
+      const modExt = cells.find(c => c.line_item_id === 'MOD-EXT');
+      assert.ok(modExt);
+      assert.strictEqual(modExt.isLabor, true);
+
+      // MOD-SDM should be labor
+      const modSdm = cells.find(c => c.line_item_id === 'MOD-SDM');
+      assert.ok(modSdm);
+      assert.strictEqual(modSdm.isLabor, true);
+
+      // GSV-CLOUD should not be labor
+      const gsvCloud = cells.find(c => c.line_item_id === 'GSV-CLOUD');
+      assert.ok(gsvCloud);
+      assert.strictEqual(gsvCloud.isLabor, false);
+    });
+
+    it('should set isLabor=true from taxonomy entry', () => {
+      const allocations: Allocation[] = [
+        {
+          month: 1,
+          amount: 1000,
+          rubroId: 'CUSTOM-LABOR',
+          projectId: 'proj-123',
+        },
+      ];
+
+      const rubros: LineItem[] = [];
+
+      const taxonomy: Record<string, TaxonomyEntry> = {
+        'CUSTOM-LABOR': {
+          description: 'Custom Labor Role',
+          category: 'Custom Category',
+          isLabor: true,
+        },
+      };
+
+      const cells = computeForecastFromAllocations(allocations, rubros, 12, 'proj-123', taxonomy);
+
+      assert.strictEqual(cells.length, 1);
+      assert.strictEqual(cells[0].isLabor, true);
+      assert.strictEqual(cells[0].description, 'Custom Labor Role');
+    });
+
+    it('should detect labor from category when isLabor not set', () => {
+      const allocations: Allocation[] = [
+        {
+          month: 1,
+          amount: 1000,
+          rubroId: 'SOME-ROLE',
+          projectId: 'proj-123',
+        },
+      ];
+
+      const rubros: LineItem[] = [
+        {
+          id: 'SOME-ROLE',
+          description: 'Some Role',
+          category: 'Mano de Obra Directa',
+          start_month: 1,
+          end_month: 12,
+          unit_cost: 1000,
+          qty: 1,
+          currency: 'USD',
+        } as LineItem,
+      ];
+
+      const cells = computeForecastFromAllocations(allocations, rubros, 12, 'proj-123');
+
+      assert.strictEqual(cells.length, 1);
+      assert.strictEqual(cells[0].isLabor, true);
+      assert.strictEqual(cells[0].category, 'Mano de Obra Directa');
+    });
+
+    it('should recognize all canonical MOD variants as labor', () => {
+      const canonicalKeys = [
+        'MOD-EXT', 'MOD-OT', 'MOD-ING', 'MOD-LEAD', 'MOD-CONT', 'MOD-SDM',
+        'MOD-IN1', 'MOD-IN2', 'MOD-IN3', 'MOD-PMO',
+      ];
+
+      const allocations: Allocation[] = canonicalKeys.map((key, i) => ({
+        month: 1,
+        amount: 1000 + i * 100,
+        rubroId: key,
+        projectId: 'proj-123',
+      }));
+
+      const rubros: LineItem[] = [];
+
+      const cells = computeForecastFromAllocations(allocations, rubros, 12, 'proj-123');
+
+      assert.strictEqual(cells.length, canonicalKeys.length);
+
+      // All should be classified as labor
+      cells.forEach(cell => {
+        assert.strictEqual(cell.isLabor, true, `${cell.line_item_id} should be labor`);
+      });
+    });
+
+    it('should set isLabor=false for non-labor categories', () => {
+      const allocations: Allocation[] = [
+        {
+          month: 1,
+          amount: 1000,
+          rubroId: 'EQUIPO-SERVER',
+          projectId: 'proj-123',
+        },
+      ];
+
+      const rubros: LineItem[] = [
+        {
+          id: 'EQUIPO-SERVER',
+          description: 'Server Equipment',
+          category: 'Equipos y Tecnología',
+          start_month: 1,
+          end_month: 12,
+          unit_cost: 1000,
+          qty: 1,
+          currency: 'USD',
+        } as LineItem,
+      ];
+
+      const cells = computeForecastFromAllocations(allocations, rubros, 12, 'proj-123');
+
+      assert.strictEqual(cells.length, 1);
+      assert.strictEqual(cells[0].isLabor, false);
+      assert.strictEqual(cells[0].category, 'Equipos y Tecnología');
+    });
+  });
 });

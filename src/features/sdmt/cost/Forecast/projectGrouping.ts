@@ -6,6 +6,7 @@
  */
 
 import type { ForecastCell, LineItem } from '@/types/domain';
+import { lookupTaxonomy, isLaborByKey, type TaxonomyEntry, type RubroRow } from './lib/taxonomyLookup';
 
 export interface ProjectMonthTotals {
   forecast: number;
@@ -32,6 +33,7 @@ export interface ProjectRubro {
   projectId: string;
   projectName: string;
   category?: string;
+  isLabor?: boolean;
   byMonth: Record<number, ProjectMonthTotals>;
   overall: ProjectOverallTotals;
 }
@@ -111,9 +113,12 @@ export function buildProjectTotals(
 export function buildProjectRubros(
   forecastData: ForecastCell[],
   lineItems: LineItem[],
-  taxonomyByRubroId?: Record<string, { description?: string; category?: string }>
+  taxonomyByRubroId?: Record<string, { description?: string; category?: string; isLabor?: boolean }>,
+  taxonomyMap?: Map<string, TaxonomyEntry>,
+  taxonomyCache?: Map<string, TaxonomyEntry | null>
 ): Map<string, ProjectRubro[]> {
   const projectRubrosMap = new Map<string, Map<string, ProjectRubro>>();
+  const localCache = taxonomyCache || new Map<string, TaxonomyEntry | null>();
 
   // Group data by project and rubro
   forecastData.forEach(cell => {
@@ -136,19 +141,40 @@ export function buildProjectRubros(
         (item as any).rubroId === rubroId
       );
       
-      // Resolve description with fallback chain: lineItem -> cell -> taxonomy -> default
+      // Use taxonomy lookup if available for robust classification
+      let taxonomy: TaxonomyEntry | null = null;
+      if (taxonomyMap && localCache) {
+        const rubroRow: RubroRow = {
+          rubroId,
+          line_item_id: rubroId,
+          description: (cell as any).description,
+          category: (cell as any).category,
+        };
+        taxonomy = lookupTaxonomy(taxonomyMap, rubroRow, localCache);
+      }
+      
+      // Resolve description with fallback chain: lineItem -> taxonomy -> cell -> taxonomyByRubroId -> default
       const taxonomyEntry = taxonomyByRubroId?.[rubroId];
       const description = lineItem?.description || 
+                         taxonomy?.description ||
                          (cell as any).description || 
                          taxonomyEntry?.description || 
                          `Allocation ${rubroId}` || 
                          'Unknown';
       
-      // Resolve category with fallback chain: lineItem -> taxonomy -> cell -> default
+      // Resolve category with fallback chain: lineItem -> taxonomy -> cell -> taxonomyByRubroId -> default
       const category = lineItem?.category || 
+                      taxonomy?.category ||
                       taxonomyEntry?.category || 
                       (cell as any).category || 
                       'Unknown';
+      
+      // Determine isLabor: taxonomy.isLabor -> taxonomyByRubroId.isLabor -> canonical key check -> category check
+      const isLabor = taxonomy?.isLabor ?? 
+                     taxonomyEntry?.isLabor ??
+                     isLaborByKey(rubroId) ??
+                     (category?.toLowerCase().includes('mano de obra') || category?.toLowerCase() === 'mod') ??
+                     false;
 
       projectRubros.set(rubroId, {
         rubroId,
@@ -156,6 +182,7 @@ export function buildProjectRubros(
         projectId,
         projectName,
         category,
+        isLabor,
         byMonth: {},
         overall: {
           forecast: 0,
