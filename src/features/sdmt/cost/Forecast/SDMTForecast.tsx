@@ -2872,7 +2872,8 @@ export function SDMTForecast() {
       )}
 
       {/* Real Annual Budget KPIs - Show when budget is set and portfolio view (not simulation) */}
-      {!HIDE_REAL_ANNUAL_KPIS && isPortfolioView && !budgetSimulation.enabled && (
+      {/* Hide when NEW_FORECAST_LAYOUT is enabled - KPIs are shown in ForecastSummaryBar instead */}
+      {!NEW_FORECAST_LAYOUT_ENABLED && !HIDE_REAL_ANNUAL_KPIS && isPortfolioView && !budgetSimulation.enabled && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
