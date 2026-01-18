@@ -25,13 +25,15 @@ import {
 import type { LineItem } from "@/types/domain";
 import finanzasClient from "@/api/finanzasClient";
 import { taxonomyByRubroId as taxonomyByRubroIdMap } from "@/modules/rubros.catalog.enriched";
+import { buildTaxonomyMap, type TaxonomyEntry as TaxLookupEntry } from "./lib/taxonomyLookup";
 
 // Convert taxonomy Map to Record for easier consumption
-const taxonomyByRubroId: Record<string, { description?: string; category?: string }> = {};
+const taxonomyByRubroId: Record<string, { description?: string; category?: string; isLabor?: boolean }> = {};
 taxonomyByRubroIdMap.forEach((taxonomy, rubroId) => {
   taxonomyByRubroId[rubroId] = {
     description: taxonomy.linea_gasto || taxonomy.descripcion,
     category: taxonomy.categoria,
+    isLabor: taxonomy.categoria?.toLowerCase().includes('mano de obra') || taxonomy.categoria?.toLowerCase() === 'mod',
   };
 });
 
@@ -174,6 +176,10 @@ export function useSDMTForecastData({
     () => computeForceAllocationsOverride(),
     []
   );
+  
+  // Create taxonomy map and cache once for the hook instance
+  const taxonomyMap = useMemo(() => buildTaxonomyMap(taxonomyByRubroId), []);
+  const taxonomyCache = useMemo(() => new Map<string, TaxLookupEntry | null>(), []);
 
   useEffect(() => {
     if (forceAllocationsOverride) {
@@ -387,7 +393,9 @@ export function useSDMTForecastData({
               rubrosResp,
               months,
               projectId,
-              taxonomyByRubroId
+              taxonomyByRubroId,
+              taxonomyMap,
+              taxonomyCache
             );
             console.log(
               `[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from allocations`

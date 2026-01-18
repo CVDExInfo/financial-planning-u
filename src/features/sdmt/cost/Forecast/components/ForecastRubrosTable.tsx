@@ -35,6 +35,7 @@ import type { ProjectTotals, ProjectRubro } from '../projectGrouping';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import VarianceChip from './VarianceChip';
 import { isLabor } from '@/lib/rubros-category-utils';
+import { isLaborByKey } from '../lib/taxonomyLookup';
 import { useProject } from '@/contexts/ProjectContext';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -294,10 +295,12 @@ export function ForecastRubrosTable({
       // Apply labor/non-labor filter
       const filteredRubros = searchFilteredRubros.filter(rubro => {
         // Determine if this rubro is labor
-        // Check category first, then fallback to role/subtype from rubro data
+        // Priority: rubro.isLabor flag -> category check -> canonical key check -> role/subtype check
         const rubroCategory = rubro.category || category;
         const rubroRole = (rubro as any).role || (rubro as any).subtype || '';
-        const isLaborRubro = isLabor(rubroCategory, rubroRole);
+        const isLaborRubro = (rubro as any).isLabor ?? 
+                            isLabor(rubroCategory, rubroRole) ??
+                            isLaborByKey(rubro.rubroId);
         
         if (filterMode === 'labor') return isLaborRubro;
         if (filterMode === 'non-labor') return !isLaborRubro;
@@ -340,10 +343,12 @@ export function ForecastRubrosTable({
       // Apply labor/non-labor filter
       const filteredRubros = searchFilteredRubros.filter(rubro => {
         // Determine if this rubro is labor
-        // Check category first, then fallback to role/subtype from rubro data
+        // Priority: rubro.isLabor flag -> category check -> canonical key check -> role/subtype check
         const rubroCategory = rubro.category || '';
         const rubroRole = (rubro as any).role || (rubro as any).subtype || '';
-        const isLaborRubro = isLabor(rubroCategory, rubroRole);
+        const isLaborRubro = (rubro as any).isLabor ??
+                            isLabor(rubroCategory, rubroRole) ??
+                            isLaborByKey(rubro.rubroId);
         
         if (filterMode === 'labor') return isLaborRubro;
         if (filterMode === 'non-labor') return !isLaborRubro;
