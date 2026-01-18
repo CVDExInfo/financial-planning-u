@@ -505,12 +505,33 @@ jobs:
 
       - name: Upload Finanzas Portal to S3 (/finanzas prefix)
         run: |
+          set -euo pipefail
+          
+          # Upload index.html with no-cache headers
+          aws s3 cp dist-finanzas/index.html "s3://${FINANZAS_BUCKET_NAME}/finanzas/index.html" \
+            --cache-control "max-age=0, no-cache, no-store, must-revalidate" \
+            --content-type "text/html"
+          
+          # Upload assets with long-term cache (they're versioned)
+          aws s3 sync dist-finanzas/assets/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/assets/" \
+            --exclude '*.map' \
+            --cache-control "max-age=31536000, immutable" \
+            --delete
+          
+          # Upload remaining files (excluding index.html, assets, maps, docs, test files)
           aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
+            --exclude 'index.html' \
+            --exclude 'assets/*' \
             --exclude '*.map' \
             --exclude 'docs/*' \
             --exclude 'test-helper.html' \
+            --cache-control "max-age=3600" \
             --delete
+          
           echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
+          echo "  - index.html: no-cache"
+          echo "  - assets/*: long-term cache (1 year)"
+          echo "  - other files: 1 hour cache"
 
       # ---- CI Guard 3: S3 post-sync verification (post-upload) ----
       - name: Verify S3 sync and index.html asset references
@@ -674,9 +695,10 @@ jobs:
           set -euo pipefail
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
             --distribution-id "${CLOUDFRONT_DIST_ID}" \
-            --paths '/*' '/finanzas/*' '/finanzas/index.html' \
+            --paths '/*' '/finanzas/*' '/finanzas/index.html' '/finanzas/assets/*' \
             --query 'Invalidation.Id' --output text)
           echo "✅ Invalidation queued: $INVALIDATION_ID"
+          echo "  Paths: /*, /finanzas/*, /finanzas/index.html, /finanzas/assets/*"
 
       - name: Verify CloudFront serves latest deployment metadata
         run: |

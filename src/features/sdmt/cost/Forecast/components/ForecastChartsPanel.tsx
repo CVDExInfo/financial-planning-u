@@ -290,15 +290,16 @@ export function ForecastChartsPanel({
                       yAxisId="right"
                       dataKey="Proyectos"
                       name="Proyectos (M/M)"
-                      fill="#6366f1"
-                      fillOpacity={0.16}
-                      stroke="#6366f1"
-                      barSize={12}
+                      fill="#6b7280"
+                      fillOpacity={0.7}
+                      barSize={14}
+                      radius={[4, 4, 0, 0]}
                     >
                       <LabelList 
                         dataKey="Proyectos" 
                         position="top" 
-                        style={{ fontSize: 10, fill: '#475569', opacity: 0.85 }} 
+                        style={{ fontSize: 10, fill: '#374151', fontWeight: 500 }} 
+                        formatter={(value: number) => value > 0 ? String(value) : ''}
                       />
                     </Bar>
                   </ComposedChart>
