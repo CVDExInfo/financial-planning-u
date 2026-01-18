@@ -40,6 +40,16 @@ const asArray = (value: unknown): any[] => (Array.isArray(value) ? value : []);
 
 const UNMAPPED_RUBRO_ID = "UNMAPPED";
 const TAXONOMY_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_HOURS_PER_MONTH = 160;
+const DEFAULT_FTE_COUNT = 1;
+
+/**
+ * Safely extract the numeric amount from an allocation item.
+ * Tries amount, planned, and forecast fields in order.
+ */
+const getAllocationAmount = (item: Record<string, any>): number => {
+  return Number(item.amount ?? item.planned ?? item.forecast ?? 0);
+};
 
 type RubroTaxonomyEntry = {
   linea_codigo?: string;
@@ -387,7 +397,9 @@ type BaselineNonLaborEstimate = {
 
 /**
  * Parse a value that might be a number, a string representation of a number,
- * or a currency-formatted string (e.g., "$1,250" or "1.250,00").
+ * or a currency-formatted string (e.g., "$1,250").
+ * Note: Assumes US/English format (comma as thousands separator, period as decimal).
+ * European formats (e.g., "1.250,00") should be normalized before calling this function.
  * Returns null if the value cannot be parsed.
  */
 const parseNumberLike = (value: any): number | null => {
@@ -396,7 +408,8 @@ const parseNumberLike = (value: any): number | null => {
     return Number.isFinite(value) ? value : null;
   }
   if (typeof value === 'string') {
-    // Remove currency symbols, commas, and whitespace
+    // Remove currency symbols and whitespace, keep only digits, periods, and minus signs
+    // Assumes US format: comma = thousands separator, period = decimal
     const stripped = value.replace(/[^0-9.-]+/g, '');
     const parsed = Number(stripped);
     return Number.isFinite(parsed) ? parsed : null;
@@ -450,8 +463,8 @@ const deriveMonthlyAllocationAmount = (
   );
 
   if (hourlyRate != null && hourlyRate > 0) {
-    const hours = hoursPerMonth ?? 160; // Default to 160 hours/month if not specified
-    const fteCount = fte ?? 1; // Default to 1 FTE if not specified
+    const hours = hoursPerMonth ?? DEFAULT_HOURS_PER_MONTH;
+    const fteCount = fte ?? DEFAULT_FTE_COUNT;
     const computed = hourlyRate * hours * fteCount;
 
     if (Number.isFinite(computed) && computed > 0) {
@@ -1038,8 +1051,8 @@ export const materializeAllocationsForBaseline = async (
     
     // If forceRewriteZeros is enabled, check if we should overwrite zero amounts
     if (options.forceRewriteZeros) {
-      const existingAmount = Number(existing.amount ?? existing.planned ?? 0);
-      const newAmount = Number(item.amount ?? item.planned ?? 0);
+      const existingAmount = getAllocationAmount(existing);
+      const newAmount = getAllocationAmount(item);
       
       if (existingAmount === 0 && newAmount > 0) {
         console.info('[materializers] overwriting zero allocation with positive value', {

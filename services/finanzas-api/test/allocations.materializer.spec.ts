@@ -31,6 +31,23 @@ type BaselineStub = {
   payload?: any;
 };
 
+/**
+ * Helper to extract allocations from DynamoDB mock batch write calls
+ */
+const extractAllocationsFromBatchCalls = (
+  ddbSendMock: jest.Mock
+): any[] => {
+  const batchCalls = ddbSendMock.mock.calls.filter((call) => {
+    const command = call[0];
+    return command?.input?.RequestItems?.mock_allocations;
+  });
+
+  return batchCalls.flatMap((call) => {
+    const command = call[0] as { input?: any };
+    return command?.input?.RequestItems?.mock_allocations || [];
+  });
+};
+
 describe("Allocations Materializer (M1..M60)", () => {
   beforeEach(() => {
     (ddb.send as jest.Mock).mockReset();
@@ -62,15 +79,7 @@ describe("Allocations Materializer (M1..M60)", () => {
 
     await materializeAllocationsForBaseline(baseline, { dryRun: false });
 
-    const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
-      const command = call[0];
-      return command?.input?.RequestItems?.mock_allocations;
-    });
-
-    const allocations = batchCalls.flatMap((call) => {
-      const command = call[0] as { input?: any };
-      return command?.input?.RequestItems?.mock_allocations || [];
-    });
+    const allocations = extractAllocationsFromBatchCalls(ddb.send as jest.Mock);
 
     expect(allocations.length).toBeGreaterThan(0);
     allocations.forEach((entry: any) => {
@@ -121,18 +130,7 @@ describe("Allocations Materializer (M1..M60)", () => {
     expect(result.allocationsSkipped).toBe(0);
 
     // Verify DynamoDB was called
-    const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
-      const command = call[0];
-      return command?.input?.RequestItems?.mock_allocations;
-    });
-
-    expect(batchCalls.length).toBeGreaterThan(0);
-
-    // Collect all allocations from batch calls
-    const allAllocations = batchCalls.flatMap((call) => {
-      const command = call[0] as { input?: any };
-      return command?.input?.RequestItems?.mock_allocations || [];
-    });
+    const allAllocations = extractAllocationsFromBatchCalls(ddb.send as jest.Mock);
 
     expect(allAllocations).toHaveLength(36);
 
@@ -312,15 +310,7 @@ describe("Allocations Materializer (M1..M60)", () => {
 
     await materializeAllocationsForBaseline(baseline, { dryRun: false });
 
-    const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
-      const command = call[0];
-      return command?.input?.RequestItems?.mock_allocations;
-    });
-
-    const allAllocations = batchCalls.flatMap((call) => {
-      const command = call[0] as { input?: any };
-      return command?.input?.RequestItems?.mock_allocations || [];
-    });
+    const allAllocations = extractAllocationsFromBatchCalls(ddb.send as jest.Mock);
 
     // Verify M13 = Jan 2026
     const month13 = allAllocations.find(
@@ -360,15 +350,7 @@ describe("Allocations Materializer (M1..M60)", () => {
     expect(result.allocationsAttempted).toBe(60);
     expect(result.allocationsWritten).toBe(60);
 
-    const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
-      const command = call[0];
-      return command?.input?.RequestItems?.mock_allocations;
-    });
-
-    const allAllocations = batchCalls.flatMap((call) => {
-      const command = call[0] as { input?: any };
-      return command?.input?.RequestItems?.mock_allocations || [];
-    });
+    const allAllocations = extractAllocationsFromBatchCalls(ddb.send as jest.Mock);
 
     expect(allAllocations).toHaveLength(60);
 
@@ -459,15 +441,7 @@ describe("Allocations Materializer (M1..M60)", () => {
       expect(result.allocationsAttempted).toBe(12);
       expect(result.allocationsWritten).toBe(12);
 
-      const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
-        const command = call[0];
-        return command?.input?.RequestItems?.mock_allocations;
-      });
-
-      const allAllocations = batchCalls.flatMap((call) => {
-        const command = call[0] as { input?: any };
-        return command?.input?.RequestItems?.mock_allocations || [];
-      });
+      const allAllocations = extractAllocationsFromBatchCalls(ddb.send as jest.Mock);
 
       // Verify all allocations have amount = $8,000
       allAllocations.forEach((a: any) => {
@@ -507,15 +481,7 @@ describe("Allocations Materializer (M1..M60)", () => {
 
       expect(result.allocationsWritten).toBe(12);
 
-      const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
-        const command = call[0];
-        return command?.input?.RequestItems?.mock_allocations;
-      });
-
-      const allAllocations = batchCalls.flatMap((call) => {
-        const command = call[0] as { input?: any };
-        return command?.input?.RequestItems?.mock_allocations || [];
-      });
+      const allAllocations = extractAllocationsFromBatchCalls(ddb.send as jest.Mock);
 
       // Verify all allocations have amount = $24,000
       allAllocations.forEach((a: any) => {
@@ -551,15 +517,7 @@ describe("Allocations Materializer (M1..M60)", () => {
 
       expect(result.allocationsWritten).toBe(12);
 
-      const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
-        const command = call[0];
-        return command?.input?.RequestItems?.mock_allocations;
-      });
-
-      const allAllocations = batchCalls.flatMap((call) => {
-        const command = call[0] as { input?: any };
-        return command?.input?.RequestItems?.mock_allocations || [];
-      });
+      const allAllocations = extractAllocationsFromBatchCalls(ddb.send as jest.Mock);
 
       // Verify all allocations have amount = $15,000
       allAllocations.forEach((a: any) => {
@@ -594,15 +552,7 @@ describe("Allocations Materializer (M1..M60)", () => {
 
       expect(result.allocationsWritten).toBe(12);
 
-      const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
-        const command = call[0];
-        return command?.input?.RequestItems?.mock_allocations;
-      });
-
-      const allAllocations = batchCalls.flatMap((call) => {
-        const command = call[0] as { input?: any };
-        return command?.input?.RequestItems?.mock_allocations || [];
-      });
+      const allAllocations = extractAllocationsFromBatchCalls(ddb.send as jest.Mock);
 
       // Verify all allocations have amount = $12,000
       allAllocations.forEach((a: any) => {
@@ -640,15 +590,7 @@ describe("Allocations Materializer (M1..M60)", () => {
 
       expect(result.allocationsWritten).toBe(12);
 
-      const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
-        const command = call[0];
-        return command?.input?.RequestItems?.mock_allocations;
-      });
-
-      const allAllocations = batchCalls.flatMap((call) => {
-        const command = call[0] as { input?: any };
-        return command?.input?.RequestItems?.mock_allocations || [];
-      });
+      const allAllocations = extractAllocationsFromBatchCalls(ddb.send as jest.Mock);
 
       // Verify all allocations have amount = $8,000
       allAllocations.forEach((a: any) => {
@@ -727,15 +669,7 @@ describe("Allocations Materializer (M1..M60)", () => {
       expect(secondRun.allocationsSkipped).toBe(0);
 
       // Verify the written allocations have non-zero amounts
-      const batchCalls = (ddb.send as jest.Mock).mock.calls.filter((call) => {
-        const command = call[0];
-        return command?.input?.RequestItems?.mock_allocations;
-      });
-
-      const allAllocations = batchCalls.flatMap((call) => {
-        const command = call[0] as { input?: any };
-        return command?.input?.RequestItems?.mock_allocations || [];
-      });
+      const allAllocations = extractAllocationsFromBatchCalls(ddb.send as jest.Mock);
 
       expect(allAllocations.length).toBe(12);
       allAllocations.forEach((a: any) => {
