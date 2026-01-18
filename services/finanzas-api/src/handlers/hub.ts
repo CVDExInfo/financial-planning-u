@@ -22,6 +22,9 @@ import { logError } from "../utils/logging";
 const cache = new Map<string, { data: unknown; expires: number }>();
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
+// Scope validation pattern: allows "ALL" or alphanumeric with hyphens/underscores
+const VALID_SCOPE_PATTERN = /^[A-Z0-9_-]+$/;
+
 function getCached<T>(key: string): T | null {
   const entry = cache.get(key);
   if (entry && entry.expires > Date.now()) {
@@ -57,10 +60,18 @@ async function ensureHubAccess(event: ApiGwEvent): Promise<void> {
 
 /**
  * Parse scope parameter (ALL or project code)
+ * Sanitize to prevent injection issues
  */
 function parseScope(queryParams: Record<string, string | undefined>): string {
   const scope = queryParams.scope || "ALL";
-  return scope.trim().toUpperCase();
+  const sanitized = scope.trim().toUpperCase();
+  
+  // Validate scope format: either "ALL" or alphanumeric with hyphens/underscores
+  if (sanitized !== "ALL" && !VALID_SCOPE_PATTERN.test(sanitized)) {
+    throw { statusCode: 400, body: "Invalid scope parameter. Must be 'ALL' or a valid project code." };
+  }
+  
+  return sanitized;
 }
 
 /**
@@ -568,16 +579,22 @@ async function exportHub(event: ApiGwEvent): Promise<APIGatewayProxyResultV2> {
 export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
-  if (event.requestContext.http.method === "OPTIONS") {
+  // Defensive check for event structure
+  if (!event || !event.requestContext || !event.requestContext.http) {
+    console.error("[hub] Invalid event structure", { event });
+    return serverError("Invalid event structure");
+  }
+
+  const method = event.requestContext.http.method?.toUpperCase() || "GET";
+  const path = event.requestContext.http.path || event.rawPath || '';
+
+  if (method === "OPTIONS") {
     return {
       statusCode: 204,
       headers: defaultCorsHeaders(event),
       body: "",
     };
   }
-
-  const path = event.rawPath || event.requestContext.http.path;
-  const method = event.requestContext.http.method;
   
   console.info("[hub]", { method, path });
   

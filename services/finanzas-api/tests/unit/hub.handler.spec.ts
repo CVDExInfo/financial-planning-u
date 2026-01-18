@@ -73,6 +73,18 @@ function createEvent(
   };
 }
 
+// Helper to create event with missing path properties
+function createEventWithMissingPath(
+  method: string,
+  queryStringParameters?: Record<string, string>
+): APIGatewayProxyEventV2 {
+  const event = createEvent(method, '', queryStringParameters);
+  // Remove path properties to simulate edge case
+  delete (event as any).rawPath;
+  delete (event as any).requestContext.http.path;
+  return event;
+}
+
 describe('Hub Handler Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -200,6 +212,73 @@ describe('Hub Handler Tests', () => {
       
       expect(body).toHaveProperty('status', 'initiated');
       expect(body).toHaveProperty('scope', 'ALL');
+    });
+  });
+
+  describe('Edge Cases and Error Handling', () => {
+    it('should handle missing path gracefully', async () => {
+      (dynamo.ddb.send as jest.Mock).mockResolvedValue({
+        Items: [],
+      });
+
+      // Create event with missing path properties using helper
+      const event = createEventWithMissingPath('GET', { scope: 'ALL' });
+
+      const response = await handler(event);
+
+      // Should still handle the request (default to empty string path)
+      // Since path is empty, it won't match any route and should return 404
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('should return 404 for unknown paths', async () => {
+      const event = createEvent('GET', '/finanzas/hub/unknown', { scope: 'ALL' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(404);
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty('error');
+    });
+
+    it('should handle invalid year parameter', async () => {
+      const event = createEvent('GET', '/finanzas/hub/summary', { scope: 'ALL', year: 'invalid' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(400);
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty('error');
+      expect(body.error).toContain('year');
+    });
+
+    it('should handle year out of range', async () => {
+      const event = createEvent('GET', '/finanzas/hub/summary', { scope: 'ALL', year: '1999' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(400);
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty('error');
+      expect(body.error).toContain('2020');
+    });
+
+    it('should reject invalid scope parameter with special characters', async () => {
+      const event = createEvent('GET', '/finanzas/hub/summary', { scope: 'PROJECT#123; DROP TABLE' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(400);
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty('error');
+      expect(body.error).toContain('scope');
+    });
+
+    it('should accept valid project code scopes', async () => {
+      (dynamo.ddb.send as jest.Mock).mockResolvedValue({
+        Items: [],
+      });
+
+      const event = createEvent('GET', '/finanzas/hub/summary', { scope: 'P-TEST-001' });
+      const response = await handler(event);
+
+      expect(response.statusCode).toBe(200);
     });
   });
 });
