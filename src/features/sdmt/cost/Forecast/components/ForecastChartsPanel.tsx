@@ -285,14 +285,14 @@ export function ForecastChartsPanel({
                       />
                     )}
                     
-                    {/* Bar for project count */}
+                    {/* Bar for project count - thin bar on right axis */}
                     <Bar
                       yAxisId="right"
                       dataKey="Proyectos"
                       name="Proyectos (M/M)"
-                      fill="#6b7280"
-                      fillOpacity={0.7}
-                      barSize={14}
+                      fill="rgba(99,102,241,0.14)"
+                      fillOpacity={1}
+                      barSize={10}
                       radius={[4, 4, 0, 0]}
                     >
                       <LabelList 
