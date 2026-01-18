@@ -12,6 +12,14 @@ export interface Allocation {
 }
 
 /**
+ * Taxonomy metadata for fallback enrichment
+ */
+export interface TaxonomyEntry {
+  description?: string;
+  category?: string;
+}
+
+/**
  * Compute minimal forecast from allocations data
  * 
  * When server forecast is empty but allocations exist, this creates a basic
@@ -21,9 +29,26 @@ export interface Allocation {
  * @param rubros - Line items from /rubros endpoint (for enrichment)
  * @param months - Number of months to generate
  * @param projectId - Project identifier
+ * @param taxonomyByRubroId - Optional taxonomy lookup for description/category fallback
  * @returns Array of forecast cells with month totals
  */
 import type { LineItem } from '@/types/domain';
+
+/**
+ * Normalize ID for tolerant matching (case-insensitive, whitespace/underscore normalization)
+ */
+function normalizeId(s: string | null | undefined): string {
+  return (s || "").toString().trim().toLowerCase().replace(/[_\s]+/g, "-");
+}
+
+/**
+ * Extended LineItem type that may have alternative ID fields
+ */
+export interface ExtendedLineItem extends LineItem {
+  line_item_id?: string;
+  rubroId?: string;
+  projectId?: string;
+}
 
 export interface ForecastRow {
   line_item_id: string;
@@ -45,15 +70,16 @@ export function computeForecastFromAllocations(
   allocations: Allocation[],
   rubros: LineItem[],
   months: number,
-  projectId?: string
+  projectId?: string,
+  taxonomyByRubroId?: Record<string, TaxonomyEntry>
 ): ForecastRow[] {
   if (!allocations || allocations.length === 0) {
     return [];
   }
 
   const rubroWithProject = rubros.find(
-    (rubro) => (rubro as { projectId?: string }).projectId
-  ) as { projectId?: string } | undefined;
+    (rubro) => (rubro as ExtendedLineItem).projectId
+  ) as ExtendedLineItem | undefined;
   const resolvedProjectId =
     projectId ||
     allocations.find((alloc) => alloc.projectId)?.projectId ||
@@ -107,6 +133,10 @@ export function computeForecastFromAllocations(
   // Create forecast cells from aggregated allocations
   const forecastCells: ForecastRow[] = [];
   
+  let tolerantMatchCount = 0;
+  let taxonomyFallbackCount = 0;
+  let exactMatchCount = 0;
+  
   allocationMap.forEach((allocList, key) => {
     if (allocList.length === 0) return;
     
@@ -114,14 +144,45 @@ export function computeForecastFromAllocations(
     const totalAmount = allocList.reduce((sum, a) => sum + a.amount, 0);
     const rubroId = firstAlloc.rubroId || 'UNKNOWN';
     
-    // Try to find matching rubro for metadata
-    const matchingRubro = rubros.find(r => r.id === rubroId);
+    // Try to find matching rubro for metadata using tolerant matching
+    let matchingRubro = rubros.find(r => {
+      const extended = r as ExtendedLineItem;
+      return extended.id === rubroId ||
+             extended.line_item_id === rubroId ||
+             extended.rubroId === rubroId;
+    });
+    
+    if (matchingRubro) {
+      exactMatchCount++;
+    } else {
+      // Try normalized comparison (case-insensitive, replace spaces/underscores with dash)
+      const nRubroId = normalizeId(rubroId);
+      matchingRubro = rubros.find(r => {
+        const extended = r as ExtendedLineItem;
+        return normalizeId(extended.id) === nRubroId ||
+               normalizeId(extended.line_item_id) === nRubroId ||
+               normalizeId(extended.rubroId) === nRubroId;
+      });
+      
+      if (matchingRubro) {
+        tolerantMatchCount++;
+      }
+    }
+    
+    // Description and category fallback chain
+    const taxonomyEntry = taxonomyByRubroId?.[rubroId] ?? taxonomyByRubroId?.[matchingRubro?.id ?? ""];
+    const description = matchingRubro?.description ?? taxonomyEntry?.description ?? `Allocation ${rubroId}`;
+    const category = matchingRubro?.category ?? taxonomyEntry?.category ?? 'Allocations';
+    
+    if (!matchingRubro && taxonomyEntry) {
+      taxonomyFallbackCount++;
+    }
     
     forecastCells.push({
       line_item_id: rubroId,
       rubroId: rubroId,
-      description: matchingRubro?.description || `Allocation ${rubroId}`,
-      category: matchingRubro?.category || 'Allocations',
+      description,
+      category,
       month: firstAlloc.month,
       planned: totalAmount,
       forecast: totalAmount,
@@ -132,6 +193,19 @@ export function computeForecastFromAllocations(
       projectId: resolvedProjectId,
     });
   });
+  
+  // Debug logging (DEV only)
+  if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+    console.info(
+      `[computeForecastFromAllocations] Processed ${allocations.length} allocations → ${forecastCells.length} forecast cells`,
+      {
+        exactMatches: exactMatchCount,
+        tolerantMatches: tolerantMatchCount,
+        taxonomyFallbacks: taxonomyFallbackCount,
+        projectId: resolvedProjectId,
+      }
+    );
+  }
 
   return forecastCells;
 }

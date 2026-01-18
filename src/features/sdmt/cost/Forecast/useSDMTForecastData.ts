@@ -20,6 +20,7 @@ import { getProjectRubros, getAllocations } from "@/api/finanzas";
 import {
   computeForecastFromAllocations,
   type Allocation,
+  type ExtendedLineItem,
 } from "./computeForecastFromAllocations";
 import type { LineItem } from "@/types/domain";
 import finanzasClient from "@/api/finanzasClient";
@@ -357,11 +358,26 @@ export function useSDMTForecastData({
                 allocations.length
               } allocations + ${rubrosResp?.length || 0} rubros`
             );
+            
+            // Build taxonomy lookup from rubros for fallback enrichment
+            const taxonomyByRubroId: Record<string, { description?: string; category?: string }> = {};
+            rubrosResp?.forEach((rubro: LineItem) => {
+              const extendedRubro = rubro as ExtendedLineItem;
+              const id = extendedRubro.id ?? extendedRubro.line_item_id ?? extendedRubro.rubroId;
+              if (id && (extendedRubro.description ?? extendedRubro.category)) {
+                taxonomyByRubroId[id] = {
+                  description: extendedRubro.description,
+                  category: extendedRubro.category,
+                };
+              }
+            });
+            
             rows = computeForecastFromAllocations(
               allocations as Allocation[],
               rubrosResp,
               months,
-              projectId
+              projectId,
+              taxonomyByRubroId
             );
             console.log(
               `[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from allocations`
