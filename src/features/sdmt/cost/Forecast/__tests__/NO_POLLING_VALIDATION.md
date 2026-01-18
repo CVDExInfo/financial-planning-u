@@ -21,6 +21,8 @@ This document validates that the SDMTForecast component does NOT perform automat
 - Single consolidated useEffect at line 972
 - Handles all refresh scenarios in one place
 - Proper dependency array prevents unnecessary re-runs
+- **FIXED**: Added `didRefreshOnVisibility` guard to prevent repeated visibility refreshes
+- **FIXED**: Removed redundant `focus` event listener that caused double-loading
 
 ### 3. Event-Driven Refresh Triggers
 The component now loads forecast data ONLY when:
@@ -29,14 +31,38 @@ The component now loads forecast data ONLY when:
 2. **Dependency changes** - When `selectedProjectId`, `selectedPeriod`, `projectChangeCount`, or `currentProject.baselineId` changes
 3. **Route change** - When `location.key` changes (user navigates to forecast page)
 4. **URL parameter** - When `?_refresh=true` parameter is present (manual refresh from reconciliation)
-5. **Visibility change** - When document.visibilityState changes from 'hidden' to 'visible' (user switches back to tab)
-6. **Window focus** - When window gains focus (user returns to browser window)
+5. **Visibility change** - When document.visibilityState changes from 'hidden' to 'visible' (user switches back to tab) - **ONCE only per visibility cycle**
 
 ### 4. No Polling Code
 - ✅ NO `setInterval` found
 - ✅ NO `setTimeout` used for polling (only for UI scrolling)
 - ✅ NO recursive polling patterns
 - ✅ NO automatic periodic refresh
+
+### 5. Visibility Refresh Guard
+**Implementation** (line 1010):
+```typescript
+// Guard to prevent repeated visibility-based refreshes
+let didRefreshOnVisibility = false;
+
+const onVisibility = () => {
+  if (document.visibilityState === 'visible' && selectedProjectId && !didRefreshOnVisibility) {
+    didRefreshOnVisibility = true;
+    if (import.meta.env.DEV) {
+      console.log("🔄 Forecast: Refreshing on visibility change");
+    }
+    triggerLoad();
+  } else if (document.visibilityState === 'hidden') {
+    // Reset the flag when tab becomes hidden so next visibility will trigger refresh
+    didRefreshOnVisibility = false;
+  }
+};
+```
+
+This ensures:
+- Refresh happens exactly **once** when tab becomes visible
+- Flag resets when tab becomes hidden (ready for next cycle)
+- No repeated refreshes while tab remains visible
 
 ## Verification Steps
 

@@ -1009,32 +1009,27 @@ export function SDMTForecast() {
       // Already triggered above, but this logs the reason
     }
 
+    // Guard to prevent repeated visibility-based refreshes
+    let didRefreshOnVisibility = false;
+
     // Visibility change: when tab becomes visible again, reload once
     const onVisibility = () => {
-      if (document.visibilityState === 'visible' && selectedProjectId) {
+      if (document.visibilityState === 'visible' && selectedProjectId && !didRefreshOnVisibility) {
+        didRefreshOnVisibility = true;
         if (import.meta.env.DEV) {
           console.log("🔄 Forecast: Refreshing on visibility change");
         }
         triggerLoad();
+      } else if (document.visibilityState === 'hidden') {
+        // Reset the flag when tab becomes hidden so next visibility will trigger refresh
+        didRefreshOnVisibility = false;
       }
     };
     window.addEventListener('visibilitychange', onVisibility);
 
-    // Focus change: reload when window gains focus
-    const onFocus = () => {
-      if (selectedProjectId) {
-        if (import.meta.env.DEV) {
-          console.log("🔄 Forecast: Refreshing on window focus");
-        }
-        triggerLoad();
-      }
-    };
-    window.addEventListener('focus', onFocus);
-
     // Cleanup: remove event listeners and abort outstanding request when component unmounts
     return () => {
       window.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('focus', onFocus);
       // Abort any outstanding request when component unmounts
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
