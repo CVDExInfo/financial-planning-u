@@ -63,6 +63,16 @@ export interface ExtendedLineItem extends LineItem {
   projectId?: string;
 }
 
+/**
+ * Helper to extract month number from YYYY-MM format string
+ * @param dateStr - Date string in YYYY-MM format (e.g., "2025-06")
+ * @returns Month number (1-12) or 0 if invalid
+ */
+function extractMonthFromYYYYMM(dateStr: string): number {
+  const match = dateStr.match(/^(\d{4})-(\d{2})$/);
+  return match ? parseInt(match[2], 10) : 0;
+}
+
 export interface ForecastRow {
   line_item_id: string;
   rubroId?: string;
@@ -109,23 +119,45 @@ export function computeForecastFromAllocations(
   const allocationMap = new Map<string, { month: number; amount: number; rubroId?: string }[]>();
   
   allocations.forEach(alloc => {
-    // Determine contract month index. Priority:
-    //  1) alloc.month_index (authoritative, written by materializer)
-    //  2) alloc.month if numeric (legacy)
-    //  3) alloc.month as 'YYYY-MM' fallback (legacy/older rows)
+    // Determine contract month index. Tolerant parsing to accept all common allocation field shapes.
+    // Priority:
+    //  1) month_index (underscore) - authoritative, written by materializer
+    //  2) monthIndex (camelCase) - common in labor allocations
+    //  3) month if numeric (legacy)
+    //  4) month as 'YYYY-MM' or numeric string (legacy/older rows)
+    //  5) calendar_month / calendarMonthKey as 'YYYY-MM'
     let monthNum = 0;
-    if ((alloc as any).month_index !== undefined && (alloc as any).month_index !== null) {
-      monthNum = Number((alloc as any).month_index);
-    } else if (typeof alloc.month === 'number') {
-      monthNum = alloc.month;
-    } else if (typeof alloc.month === 'string') {
-      const match = alloc.month.match(/^(\d{4})-(\d{2})$/);
-      if (match) monthNum = parseInt(match[2], 10);
-      else {
-        const parsed = parseInt(alloc.month as any, 10);
+    const a: any = alloc;
+
+    // 1) explicit (underscore)
+    if (a.month_index != null) {
+      monthNum = Number(a.month_index);
+    }
+    // 2) explicit (camelCase)
+    else if (a.monthIndex != null) {
+      monthNum = Number(a.monthIndex);
+    }
+    // 3) numeric month (legacy)
+    else if (typeof a.month === 'number') {
+      monthNum = a.month;
+    }
+    // 4) string month: "YYYY-MM" or numeric string "6" or "06"
+    else if (typeof a.month === 'string') {
+      monthNum = extractMonthFromYYYYMM(a.month);
+      if (monthNum === 0) {
+        const parsed = parseInt(a.month, 10);
         if (!isNaN(parsed)) monthNum = parsed;
       }
     }
+    // 5) calendar_month or calendarMonthKey as "YYYY-MM"
+    else if (typeof a.calendar_month === 'string') {
+      monthNum = extractMonthFromYYYYMM(a.calendar_month);
+    } else if (typeof a.calendarMonthKey === 'string') {
+      monthNum = extractMonthFromYYYYMM(a.calendarMonthKey);
+    }
+
+    // defensive: coerce and sanity
+    if (!Number.isFinite(monthNum) || monthNum < 0) monthNum = 0;
 
     if (monthNum >= 1 && monthNum <= 60) { // Support up to 60 months
       const rubroId = alloc.rubroId || alloc.rubro_id || alloc.line_item_id || 'UNKNOWN';
@@ -140,6 +172,19 @@ export function computeForecastFromAllocations(
         amount: Number(alloc.amount || 0),
         rubroId,
       });
+    } else if (monthNum === 0) {
+      // Debug: log when allocation is skipped due to month parsing failure
+      console.warn(
+        '[computeForecastFromAllocations] Skipping allocation with unparseable month:',
+        { 
+          rubroId: alloc.rubroId || alloc.rubro_id || alloc.line_item_id,
+          month_index: (alloc as any).month_index,
+          monthIndex: (alloc as any).monthIndex,
+          month: alloc.month,
+          calendar_month: (alloc as any).calendar_month,
+          calendarMonthKey: (alloc as any).calendarMonthKey,
+        }
+      );
     }
   });
 
