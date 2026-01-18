@@ -1,272 +1,208 @@
 # FINAL_FORECAST_LAYOUT.md — Diseño final esperado (Especificación)
 
-**Propósito:**
-Documento de referencia que define el *diseño final* esperado para la pantalla **Gestión de Pronóstico** (`/finanzas/sdmt/cost/forecast`). Use esta guía para QA, desarrollo (Copilot) y UI/UX. Incluye orden de vistas, nombres en español, banderas (`VITE_FINZ_*`) que controlan la visibilidad, comportamientos interactivos, reglas de accesibilidad y pruebas de aceptación.
+**Propósito**
+Documento de referencia que define el *diseño final* esperado para la pantalla **Gestión de Pronóstico** (`/finanzas/sdmt/cost/forecast`). Use esta guía para QA, desarrollo (Copilot) y UI/UX. Incluye el **orden canónico** exacto de vistas (top → bottom), componentes con rutas de archivo, banderas (`VITE_FINZ_*`) que controlan visibilidad, comportamientos interactivos, reglas de accesibilidad y pruebas de aceptación.
 
-> **Nota:** Todos los nombres de componentes se muestran con su ruta de archivo sugerida para implementación. Los textos de la UI deben estar en **español** tal como se indica.
+> **Nota:** Los textos de UI deben estar en **español**. Todos los nombres de componentes se muestran con su ruta de archivo sugerida para implementación.
 
 ---
 
-## 1. Estructura de la página (orden CANÓNICO — de arriba hacia abajo)
+## 1. Orden canónico (IMPRESCINDIBLE)
 
-1. **Header global (page level)**
+**El orden abajo es el único correcto cuando `VITE_FINZ_NEW_FORECAST_LAYOUT` está habilitado.** Debe respetarse exactamente (de arriba → abajo):
 
-   * `h1`: `Gestión de Pronóstico`
-   * Filtros globales situados en la barra superior (selector de Proyecto, selector de Periodo).
-   * Componente: `src/features/sdmt/cost/Forecast/SDMTForecast.tsx` — área superior.
+1. **Resumen Ejecutivo — Cartera Completa** (siempre visible)
 
-2. **Resumen Ejecutivo — Cartera Completa** (SIEMPRE visible, top)
+   * **Componente:** `src/features/sdmt/cost/Forecast/components/ForecastSummaryBar.tsx` (o `ForecastKpiCards.tsx`)
+   * **Contenido:** Presupuesto Total, Pronóstico Total, Real Total, % Consumo, Variación.
+   * **Visibilidad:** Siempre visible en modo `TODOS`. No es colapsable. No debe ocultarse por flags (salvo que se considere un cambio futuro explícito).
 
-   * Componente: `src/features/sdmt/cost/Forecast/components/ForecastSummaryBar.tsx`
-   * Contenido: Presupuesto Total, Pronóstico Total, Real Total, % Consumo, Variación.
-   * Flags: **no** controla visibilidad; siempre arriba en modo **TODOS**.
-   * `defaultOpen`: n/a (no colapsable).
+2. **Cuadrícula de Pronóstico (12 Meses)** — *Canonical 12m grid*
 
-3. **Matriz del Mes — Vista Ejecutiva** (siempre visible)
+   * **Componente:** `src/features/sdmt/cost/Forecast/components/ForecastRubrosTable.tsx`
+   * **Requerimientos clave:**
 
-   * Componente: `src/features/sdmt/cost/Forecast/components/MonthlySnapshotGrid.tsx`
-   * Contenido: KPI compacta del mes seleccionado (Presupuesto, Pronóstico, Real, % Consumo, Varianza).
-   * `defaultOpen`: visible (no colapsado).
-   * Permite: filtro tipo de costo (Labor/No Labor/Todos), búsqueda, selector de periodo.
-   * **Regla visual:** balancear tamaños de filtros/botones (ver sección 5).
+     * **Única instancia en toda la página.** Eliminar cualquier tabla duplicada (ej. la secundaria alrededor de la línea ~3180).
+     * **No colapsada por defecto** al entrar en la página — `defaultOpen = true`.
+     * Soporta edición inline, filtros y los modos de vista (breakdown).
 
-4. **Cuadrícula de Pronóstico (12 Meses)** — **Monitoreo mensual de proyectos vs. presupuesto** (CANÓNICA)
+3. **Matriz del Mes — Vista Ejecutiva** (compacta, filtros)
 
-   * **Título**: `Monitoreo mensual de proyectos vs. presupuesto` (texto exacto)
-   * Componente: `src/features/sdmt/cost/Forecast/components/ForecastRubrosTable.tsx` **(una sola instancia)**
-   * `defaultOpen`: **true** (expandido al entrar en la página).
-   * Soporta: `Vista` → `Por Proyecto` / `Rubros por proyecto` (breakdownMode), filtros, edición inline.
-   * **Importante:** Debe existir **una sola** tabla 12m en página. Cualquier tabla duplicada (p.ej. instancia secundaria hacia ~línea 3180) debe eliminarse o quedar permanentemente oculta.
+   * **Componente:** `src/features/sdmt/cost/Forecast/components/MonthlySnapshotGrid.tsx`
+   * **Contenido:** KPIs del mes seleccionado (Presupuesto M1, Pronóstico, Real, % Consumo, Varianza).
+   * **Regla visual:** filtros y botones compactos y balanceados (controles `h-8`, `text-sm`, `gap-3`).
+   * **Visibilidad:** siempre visible (no colapsado).
 
-5. **Resumen de Portafolio** (antes “Resumen de todos los proyectos”) — *solo este bloque*
+4. **Resumen de Portafolio** — *solo* **Desglose por proyecto** (Summary Grid)
 
-   * Componente: `src/features/sdmt/cost/Forecast/PortfolioSummaryView.tsx`
-   * `defaultOpen`: collapsed por defecto en NEW layout (pero accesible).
-   * Flag: `VITE_FINZ_HIDE_PROJECT_SUMMARY === 'true'` → ocultar completamente.
-   * **Regla crítica:** No debe reemplazar el Monitoreo. El Monitoreo (cuadrícula 12m) va **encima** de esta sección.
-   * **Defecto actual a corregir:** se está ocultando el bloque incorrecto (se oculta el desglose deseado y se muestra detalle no deseado).
+   * **Componente:** `src/features/sdmt/cost/Forecast/PortfolioSummaryView.tsx`
+   * **Requisitos:**
 
-6. **Simulador de Presupuesto** (colapsable)
+     * Mostrar únicamente el **Desglose Mensual vs Presupuesto M1-M12 Grid**  
+     * **No** debe incluir tiles KPI duplicadas (esas sólo en `ForecastSummaryBar`). → ocultar totalmente esta sección.
+     * `defaultOpen` en NEW layout: colapsado por defecto (pero accesible).
+     * `VITE_FINZ_HIDE_PROJECT_SUMMARY === 'FALSE'` → Mostrar únicamente el **Desglose Mensual vs Presupuesto M1-M12 Grid** 
 
-   * Componente: `src/features/sdmt/cost/Forecast/BudgetSimulatorCard.tsx`
-   * `defaultOpen`: collapsed.
+5. **Simulador de Presupuesto** (colapsable — cerrado por defecto)
 
-7. **Gráficos de Tendencias** (colapsable)
+   * **Componente:** `src/features/sdmt/cost/Forecast/BudgetSimulatorCard.tsx`
+   * **Visibilidad:** collapsed por defecto.
 
-   * Componente: `src/features/sdmt/cost/Forecast/components/ForecastChartsPanel.tsx`
-   * `defaultOpen`: collapsed (debe existir trigger de colapsar/expandir).
-   * Contenidos:
+6. **Gráficos de Tendencias** (colapsable)
 
-     * Líneas: Planned, Forecast, Actual (y Budget cuando aplique).
-     * **Barras:** `Proyectos (M/M)` — número de proyectos activos por mes (barra, eje Y derecho).
+   * **Componente:** `src/features/sdmt/cost/Forecast/components/ForecastChartsPanel.tsx`
+   * **Contenido:**
+
+     * Líneas: Planned, Forecast, Actual (y Budget si aplica).
+     * **Bar** series: `Proyectos (M/M)` con eje Y **derecho**, barras delgadas y translucidas.
      * Tabs: `Tendencia Mensual` / `Por Rubro` / `Acumulado`.
+   * **Regla visual:** barras finas (`barSize` ≈ 10–14), `fillOpacity` baja, etiquetas legibles y no crowding. Collapsible control disponible.
+
+7. **Monitoreo mensual de proyectos vs. presupuesto** (expanded; puede usar la misma tabla canónica)
+
+   * **Componente:** `src/features/sdmt/cost/Forecast/components/ForecastRubrosTable.tsx`
+   * **Requisitos:**
+
+     * Soporta **Vista**: `Por Proyecto` | `Rubros por proyecto` + filtros (buscar, tipo costo, periodo).
+     * **Debe** abrir **expandido** al entrar (`defaultOpen = true` o estado `expanded` inicial).
+     * Renderizado para `Por Proyecto`: encabezados por proyecto, toggles expand/collapse con filas de rubros anidadas.
+     * Persistencia del modo de vista en `sessionStorage`.
+
+> **Regla crítica:** La **Cuadrícula (2)** y el **Monitoreo (7)** están íntimamente relacionados: **debe existir una sola tabla canónica 12m** (usar `ForecastRubrosTable` para ambas necesidades), y el Monitoreo siempre debe aparecer por encima del Resumen de Portafolio.
 
 ---
 
-## 2. Wireframe (visual rápido)
+## 2. Tabla de flags (ES) — visibilidad y efectos
 
-```
-+--------------------------------------------------------------+
-| Header: Gestión de Pronóstico  [Proyecto] [Periodo]          |
-+--------------------------------------------------------------+
-| Resumen Ejecutivo - Cartera Completa (ForecastSummaryBar)     |
-+--------------------------------------------------------------+
-| Matriz del Mes — Vista Ejecutiva (MonthlySnapshotGrid)        |
-+--------------------------------------------------------------+
-| Monitoreo mensual de proyectos vs. presupuesto (EXPANDIDO)    |
-| [ Vista: Por Proyecto | Rubros por proyecto ] [Filtros...]    |
-| +----------------------------------------------------------+ |
-| | Cuadrícula de Pronóstico 12 Meses (ForecastRubrosTable)   | |
-| +----------------------------------------------------------+ |
-+--------------------------------------------------------------+
-| Resumen de Portafolio (colapsable / ocultable por flag)       |
-+--------------------------------------------------------------+
-| Simulador de Presupuesto (colapsable)                         |
-+--------------------------------------------------------------+
-| Gráficos de Tendencias (colapsable)                           |
-|  - Lines: Planned/Forecast/Actual (+ Budget si aplica)        |
-|  - Bar: Proyectos (M/M) [eje derecho]                         |
-+--------------------------------------------------------------+
-```
+| Flag                                               | Nombre (ES)                   |         Componente / Vista | Comportamiento                                                                |                        Default |
+| -------------------------------------------------- | ----------------------------- | -------------------------: | ----------------------------------------------------------------------------- | -----------------------------: |
+| `VITE_FINZ_NEW_FORECAST_LAYOUT`                    | Nuevo Layout Pronóstico       |             `SDMTForecast` | Activa el layout ejecutivo nuevo. **No** debe esconder la grid 12m.           | `true`/`false` (según rollout) |
+| `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS`                  | Ocultar KPIs Anuales Reales   |         `ForecastKpis.tsx` | Si `true`, oculta las tarjetas KPI anuales en vista TODOS (no en simulación). |                        `false` |
+| `VITE_FINZ_HIDE_PROJECT_SUMMARY`                   | Ocultar Resumen de Portafolio | `PortfolioSummaryView.tsx` | Si `true`, oculta el resumen de portafolio (NO el Monitoreo).                 |                        `false` |
+| `VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED` | Mostrar Desglose transpuesto  | `PortfolioSummaryView.tsx` | Fuerza transponer meses como columnas en la tabla mensual (si aplica).        |                        `false` |
+| `VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST`           | Ocultar lista expandible      | `PortfolioSummaryView.tsx` | Si `true`, oculta la lista expandible de proyectos.                           |                        `false` |
+| `VITE_FINZ_HIDE_RUNWAY_METRICS`                    | Ocultar Runway                | `PortfolioSummaryView.tsx` | Si `true`, oculta el bloque Runway & Control Presupuestario.                  |                        `false` |
+| `VITE_FINZ_SHOW_KEYTRENDS`                         | Mostrar Key Trends            |             `SDMTForecast` | Controla TopVarianceProjectsTable/KeyTrends visibility.                       |                         `true` |
 
-> **Regla:** El **Monitoreo** debe quedar encima del **Resumen de Portafolio**.
+**Nota técnica:** *Vite env vars se leen en build-time (`import.meta.env`). Cambios en flags requieren rebuild para reflejarse en el cliente.*
 
 ---
 
-## 3. Tabla de flags (español) — visibilidad y alcance
+## 3. Comportamientos interactivos y técnicos (detallado)
 
-| Flag                                               | Nombre (ES)                   | Componente / Vista afectada | Comportamiento                                                           | Default |
-| -------------------------------------------------- | ----------------------------- | --------------------------- | ------------------------------------------------------------------------ | ------- |
-| `VITE_FINZ_NEW_FORECAST_LAYOUT`                    | Nuevo Layout Pronóstico       | `SDMTForecast`              | Activa layout ejecutivo. **No puede esconder** la grid 12m canónica.     | `false` |
-| `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS`                  | Ocultar KPIs Anuales Reales   | `ForecastKpis.tsx`          | Si `true`, oculta KPIs anuales reales (tarjetas).                        | `false` |
-| `VITE_FINZ_HIDE_PROJECT_SUMMARY`                   | Ocultar Resumen de Portafolio | `PortfolioSummaryView.tsx`  | Si `true`, oculta solo Resumen de Portafolio (NO el Monitoreo).          | `false` |
-| `VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED` | Mostrar Desglose transpuesto  | `PortfolioSummaryView.tsx`  | Si `true`, fuerza tabla mensual a transponer meses como columnas.        | `false` |
-| `VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST`           | Ocultar lista expandible      | `PortfolioSummaryView.tsx`  | Si `true`, oculta lista expandible dentro del resumen.                   | `false` |
-| `VITE_FINZ_HIDE_RUNWAY_METRICS`                    | Ocultar Runway                | `PortfolioSummaryView.tsx`  | Si `true`, oculta bloque Runway & Control Presupuestario.                | `false` |
-| `VITE_FINZ_SHOW_KEYTRENDS`                         | Mostrar Key Trends            | `SDMTForecast`              | Controla si TopVarianceProjectsTable/TopVarianceRubrosTable se muestran. | `true`  |
+### 3.1 Estado y persistencia — `breakdownMode`
 
-> **Importante:** Vite env vars se leen en build-time (`import.meta.env`). Cambios en flags requieren rebuild.
-
----
-
-## 4. Comportamientos interactivos y técnicos (detallado)
-
-### 4.1. Monitoreo / Cuadrícula (12 meses)
-
-* **Vista (breakdownMode):** `Por Proyecto` | `Rubros por proyecto`
-
-  * `state key`: `forecastBreakdownMode`
-  * **Persistencia:** `sessionStorage.setItem('forecastBreakdownMode', value)`
-  * **Inicialización:**
+* **State key:** `forecastBreakdownMode`
+* **Persistencia:** `sessionStorage.setItem('forecastBreakdownMode', value)`
+* **Inicialización (ejemplo):**
 
 ```ts
 const [breakdownMode, setBreakdownMode] = useState<'project'|'rubros'>(() => {
   const s = sessionStorage.getItem('forecastBreakdownMode');
   return s === 'rubros' ? 'rubros' : 'project';
 });
+const handleBreakdownModeChange = (mode:'project'|'rubros') => {
+  setBreakdownMode(mode);
+  sessionStorage.setItem('forecastBreakdownMode', mode);
+};
 ```
 
-* **Al cambiar:** actualizar estado, persistir, re-renderizar grid según modo.
-* **Rubros por proyecto:** renderizar encabezados por proyecto con toggle + filas de rubros anidadas.
-* **defaultOpen:** Monitoreo debe entrar **expandido**.
-* **Prohibido:** “coming soon”/placeholder para filtros ya visibles — debe funcionar o no mostrarse.
+### 3.2 Monitoreo / Cuadrícula
 
-### 4.2. Charts — Barras `Proyectos (M/M)`
+* **Renders:**
 
-* **Forma de datos (projectsPerMonth):**
+  * `project` → group by project with collapsible header + nested rubro rows.
+  * `rubros` → classic rubros-by-category table.
+* **Default:** expanded on page entry.
+* **Performance:** use `useMemo` to compute `projectRubros` maps and `projectsPerMonth`.
+
+### 3.3 Charts — `Proyectos (M/M)`
+
+* **Data shape:** `[{ month: 1, projects: 18 }, ...]`
+* **ComposedChart config:** Left axis currency lines, right axis integer projects. `Bar` series: `barSize=10–14`, `fill="rgba(...,0.14)"`, `LabelList` for non-zero months. Tooltip format: `Mes {monthLabel} — Proyectos: {projects}`.
+
+### 3.4 Defensive flags & logging
+
+* Example guard in KPI component:
 
 ```ts
-[{ month: 1, projects: 18 }, { month: 2, projects: 17 }, ...]
+const HIDE_REAL_ANNUAL_KPIS = import.meta.env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS === 'true';
+if (HIDE_REAL_ANNUAL_KPIS) return null;
 ```
 
-* **Cálculo sugerido:**
+* Add `console.debug` on mount in dev for `import.meta.env` to aid QA.
 
-```ts
-const projectsPerMonth = months.map(m => {
-  const set = new Set();
-  forecastData.forEach(cell => {
-    if (cell.month === m && (cell.planned || cell.forecast || cell.actual)) {
-      if (cell.projectId) set.add(cell.projectId);
-    }
-  });
-  return { month: m, projects: set.size };
-});
-```
+### 3.5 Accessibility (a11y)
 
-* **Config:** `ComposedChart` (Recharts)
+* All selects/buttons: `aria-label`.
+* Collapsible triggers: `aria-expanded`.
+* Project headers keyboard-expandable.
+* Charts: include `sr-only` textual summaries.
 
-  * Líneas en eje izquierdo
-  * Barra `Projects` en eje derecho
-  * Tooltip: `Mes {X} — Proyectos: {N}`
-  * Leyenda: `Proyectos (M/M)`
+### 3.6 Responsiveness
 
-### 4.3. Flags — guards defensivos
-
-* Ejemplo:
-
-```ts
-if (import.meta.env.VITE_FINZ_HIDE_PROJECT_SUMMARY === 'true') return null;
-```
-
-* Agregar `console.debug` on-mount para QA (solo en dev).
-
-### 4.4. Accesibilidad
-
-* `aria-label` en selects y triggers.
-* Encabezados de proyecto expandibles por teclado (`aria-expanded`).
-* Charts: resumen textual `sr-only`.
-
-### 4.5. Responsivo
-
-* Desktop: tabla 12m con `overflow-x` y columna izquierda sticky.
-* Tablet: columnas más compactas + scroll.
-* Mobile: listas colapsables + charts full-width.
+* Desktop (≥1024px): full 12-month view with horizontal scroll & sticky left column.
+* Tablet (≥768px & <1024px): compact month columns, show M1..M6 by default with scroll.
+* Mobile (<768px): stacked rows, collapsible per project/category.
 
 ---
 
-## 5. Guías visuales (espaciado / tamaños)
+## 4. Guías visuales y tokens
 
-* Botones: `h-8 text-sm`, `gap-2`.
-* Selects: `className="h-8 w-[180px] text-sm"`.
-* Badges: `text-xs px-2 py-0.5`.
-* Card headers: `py-3 px-4`.
-* Celdas: `min-w-[140px]` meses; columna izquierda `min-w-[300px]`.
-* Gaps: `gap-2` controles, `gap-3` secciones.
+* **Buttons:** `h-8 text-sm px-3`.
+* **Selects:** `h-8 w-[170px] text-sm`.
+* **Search:** `h-8 text-sm w-[340px]`.
+* **Badges:** `text-xs px-2 py-0.5`.
+* **Card header padding:** `py-3 px-4`.
+* **Month cell min-width:** `min-w-[140px]`.
+* **Left column min-width:** `min-w-[300px]`.
+* **Gaps:** controls `gap-3`, sections `gap-4`.
+* **Chart palette:** Project bar color `#6366F1` (semi-transparent); lines use existing theme colors.
 
 ---
 
-## 6. Acceptance tests & QA checklist
+## 5. Acceptance tests & QA checklist
 
 ### Unit tests
 
-1. Render
+* `renders Monitoreo 12m when data present`
+* `ForecastRubrosTable is rendered once (no duplicates)`
+* `breakdownMode project renders project headers`
+* `ForecastChartsPanel renders Projects bar right axis`
+* `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS=true hides KPI cards`
 
-   * `should render Monitoreo (12m) when data exists`
-   * `should render ForecastRubrosTable once`
-2. Breakdown
+### Manual smoke checklist
 
-   * `project mode shows project headers + nested rubros`
-3. Charts
-
-   * `renders Bar named "Proyectos (M/M)"`
-4. Flags
-
-   * `HIDE_PROJECT_SUMMARY hides only PortfolioSummaryView`
-   * `HIDE_REAL_ANNUAL_KPIS hides KPI cards`
-
-### Smoke manual
-
-1. Abrir `/finanzas/sdmt/cost/forecast` en TODOS.
-2. Verificar orden: Resumen Ejecutivo → Matriz Mes → Monitoreo (expandido) → Resumen Portafolio → Simulador → Gráficos (colapsable).
-3. Cambiar `Vista` → `Rubros por proyecto` sin “coming soon”.
-4. Charts: líneas + barra Proyectos por mes.
+1. `pnpm dev` → Visit `/finanzas/sdmt/cost/forecast` (TODOS).
+2. Confirm page order EXACTA:
+   `Resumen Ejecutivo` → `Cuadrícula 12m` → `Matriz del Mes` → `Resumen de Portafolio` → `Simulador` → `Gráficos` → `Monitoreo (expandido)`.
+3. `Cuadrícula 12m` visible by default (no click). Only one instance on page.
+4. Toggle `Vista` → `Por Proyecto` → project headers show nested rubros. Persist on reload.
+5. Charts: Bars thin and labelled, tooltip shows `Mes X — Proyectos: N`.
+6. Set `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS=true` (rebuild) → KPIs hidden.
+7. Confirm accessibility (tab to expand project headers, aria labels present).
 
 ---
 
-## 7. PR Checklist (pre-merge)
+## 6. Snippets (copy/paste)
 
-* [ ] Lint ok (`pnpm lint`).
-* [ ] Tests ok (`pnpm test:unit`).
-* [ ] Build ok (`pnpm build`).
-* [ ] Doc agregado: `docs/FINAL_FORECAST_LAYOUT.md`.
-* [ ] Doc actualizado: `docs/FEATURE_FLAGS.md` (incluye nombres ES y vista impactada).
-* [ ] Smoke test ok.
-
----
-
-## 8. Appendix — snippets
-
-### 1) `projectsPerMonth` (useMemo)
+### projectsPerMonth (useMemo)
 
 ```ts
 const projectsPerMonth = useMemo(() => {
-  if (!isPortfolioView) return monthsForCharts.map(m => ({ month: m, projects: 0 }));
   return monthsForCharts.map(month => {
     const s = new Set<string>();
     forecastData.forEach(cell => {
-      if (cell.month === month && ((cell.planned||0) + (cell.forecast||0) + (cell.actual||0) > 0)) {
+      if (cell.month === month && ((cell.planned||0)+(cell.forecast||0)+(cell.actual||0) > 0)) {
         if (cell.projectId) s.add(String(cell.projectId));
       }
     });
     return { month, projects: s.size };
   });
-}, [isPortfolioView, forecastData, monthsForCharts]);
+}, [forecastData, monthsForCharts]);
 ```
 
-### 2) `breakdownMode` init + handler
-
-```ts
-const [breakdownMode, setBreakdownMode] = useState<'project'|'rubros'>(() => {
-  const s = sessionStorage.getItem('forecastBreakdownMode');
-  return s === 'rubros' ? 'rubros' : 'project';
-});
-const handleBreakdownModeChange = (m:'project'|'rubros') => {
-  setBreakdownMode(m);
-  sessionStorage.setItem('forecastBreakdownMode', m);
-};
-```
-
-### 3) Merge chart data (add Projects)
+### chart merge (add Projects)
 
 ```ts
 chartData.forEach(point => {
@@ -275,14 +211,35 @@ chartData.forEach(point => {
 });
 ```
 
+### breakdownMode init + handler
+
+```ts
+const [breakdownMode, setBreakdownMode] = useState<'project'|'rubros'>(() =>
+  sessionStorage.getItem('forecastBreakdownMode') === 'rubros' ? 'rubros' : 'project'
+);
+const handleBreakdownModeChange = (m:'project'|'rubros') => {
+  setBreakdownMode(m);
+  sessionStorage.setItem('forecastBreakdownMode', m);
+};
+```
+
 ---
 
-## 9. Notas finales
+## 7. PR pre-merge checklist
 
-* Este spec es prescriptivo y es la referencia autoritativa.
-* Si el NEW layout está activo, la tabla canónica 12m debe existir (o MonthlySnapshot debe representar el mismo contenido sin perder datos).
-* Después de cambios, ejecutar unit + smoke antes de merge.
+* [ ] `pnpm lint` OK
+* [ ] Unit tests OK (`pnpm test:unit`)
+* [ ] Build OK (`pnpm build`)
+* [ ] `docs/FINAL_FORECAST_LAYOUT.md` added/updated (this file)
+* [ ] `docs/FEATURE_FLAGS.md` updated (Spanish names + components)
+* [ ] Manual smoke tests passed (see checklist)
 
 ---
 
-**Acción requerida:** Generar el archivo `docs/FINAL_FORECAST_LAYOUT.md` con este contenido y mantenerlo actualizado junto con `docs/FEATURE_FLAGS.md`.
+## 8. Notas finales
+
+*Este documento es la especificación autoritativa.* Si el equipo discute una excepción, anotar el caso y actualizar el doc. Si el `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS` u otras banderas cambian de valor en producción, recuerde que deben estar presentes **en tiempo de build** para que el cliente las respete.
+
+---
+
+**Acción solicitada:** Crear el archivo `docs/FINAL_FORECAST_LAYOUT.md` con este contenido y mantenerlo sincronizado con `docs/FEATURE_FLAGS.md`.
