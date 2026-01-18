@@ -105,13 +105,11 @@ jobs:
           pnpm -v
 
           echo "Checking ts-node..."
-          if pnpm exec ts-node --version >/dev/null 2>&1; then
-            echo "ts-node:"
-            pnpm exec ts-node --version
-          else
+          pnpm exec ts-node --version >/dev/null 2>&1 || {
             echo "ERROR: ts-node not available via pnpm exec - ensure 'ts-node' exists in services/finanzas-api package.json devDependencies and pnpm install succeeded"
             exit 1
-          fi
+          }
+          echo "ts-node is available."
 
       - name: Run backfill dry-run
         working-directory: ./services/finanzas-api
