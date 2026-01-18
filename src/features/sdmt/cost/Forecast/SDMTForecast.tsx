@@ -3147,8 +3147,8 @@ export function SDMTForecast() {
           ) : null)}
 
           {/* Position #4: Resumen de Portafolio - PortfolioSummaryView */}
-          {/* Only show when NEW_FORECAST_LAYOUT is enabled and HIDE_PROJECT_SUMMARY flag is false */}
-          {NEW_FORECAST_LAYOUT_ENABLED && !HIDE_PROJECT_SUMMARY && !loading && (
+          {/* Only show when NEW_FORECAST_LAYOUT is enabled, HIDE_PROJECT_SUMMARY flag is false, and budget simulation is NOT active */}
+          {NEW_FORECAST_LAYOUT_ENABLED && !HIDE_PROJECT_SUMMARY && !loading && !budgetSimulation.enabled && (
             <Collapsible defaultOpen={true}>
               <Card>
                 <CardHeader className="pb-3">
