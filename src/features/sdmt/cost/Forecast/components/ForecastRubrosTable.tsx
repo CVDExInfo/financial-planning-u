@@ -10,7 +10,7 @@
  * - Search/filter functionality
  */
 
-import { useState, useMemo, useEffect, Fragment } from 'react';
+import { useState, useMemo, useEffect, Fragment, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -187,7 +187,8 @@ export function ForecastRubrosTable({
 
   // Helper to recalculate category totals from filtered rubros
   // IMPORTANT: Must be declared BEFORE visibleCategories useMemo to avoid TDZ error
-  const recalculateCategoryTotals = (rubros: CategoryRubro[]): CategoryTotals => {
+  // Memoized with useCallback to prevent unnecessary re-renders
+  const recalculateCategoryTotals = useCallback((rubros: CategoryRubro[]): CategoryTotals => {
     const byMonth: Record<number, { forecast: number; actual: number; planned: number }> = {};
     let overallForecast = 0;
     let overallActual = 0;
@@ -223,11 +224,12 @@ export function ForecastRubrosTable({
         percentConsumption: overallForecast > 0 ? (overallActual / overallForecast) * 100 : 0,
       },
     };
-  };
+  }, []); // No dependencies - pure calculation function
 
   // Helper to recalculate project totals from filtered rubros
   // IMPORTANT: Must be declared BEFORE visibleProjects useMemo to avoid TDZ error
-  const recalculateProjectTotals = (rubros: ProjectRubro[]): ProjectTotals => {
+  // Memoized with useCallback to prevent unnecessary re-renders
+  const recalculateProjectTotals = useCallback((rubros: ProjectRubro[]): ProjectTotals => {
     const byMonth: Record<number, { forecast: number; actual: number; planned: number }> = {};
     let overallForecast = 0;
     let overallActual = 0;
@@ -269,7 +271,7 @@ export function ForecastRubrosTable({
         percentConsumption: overallForecast > 0 ? (overallActual / overallForecast) * 100 : 0,
       },
     };
-  };
+  }, []); // No dependencies - pure calculation function
 
   // Filter categories and rubros based on search and filter mode
   const visibleCategories = useMemo(() => {
