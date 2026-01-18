@@ -63,6 +63,16 @@ export interface ExtendedLineItem extends LineItem {
   projectId?: string;
 }
 
+/**
+ * Helper to extract month number from YYYY-MM format string
+ * @param dateStr - Date string in YYYY-MM format (e.g., "2025-06")
+ * @returns Month number (1-12) or 0 if invalid
+ */
+function extractMonthFromYYYYMM(dateStr: string): number {
+  const match = dateStr.match(/^(\d{4})-(\d{2})$/);
+  return match ? parseInt(match[2], 10) : 0;
+}
+
 export interface ForecastRow {
   line_item_id: string;
   rubroId?: string;
@@ -129,24 +139,21 @@ export function computeForecastFromAllocations(
     }
     // 3) numeric month (legacy)
     else if (typeof a.month === 'number') {
-      monthNum = Number(a.month);
+      monthNum = a.month;
     }
     // 4) string month: "YYYY-MM" or numeric string "6" or "06"
     else if (typeof a.month === 'string') {
-      const match = (a.month as string).match(/^(\d{4})-(\d{2})$/);
-      if (match) monthNum = parseInt(match[2], 10);
-      else {
-        const parsed = parseInt(a.month as any, 10);
+      monthNum = extractMonthFromYYYYMM(a.month);
+      if (monthNum === 0) {
+        const parsed = parseInt(a.month, 10);
         if (!isNaN(parsed)) monthNum = parsed;
       }
     }
     // 5) calendar_month or calendarMonthKey as "YYYY-MM"
     else if (typeof a.calendar_month === 'string') {
-      const match = a.calendar_month.match(/^(\d{4})-(\d{2})$/);
-      if (match) monthNum = parseInt(match[2], 10);
+      monthNum = extractMonthFromYYYYMM(a.calendar_month);
     } else if (typeof a.calendarMonthKey === 'string') {
-      const match = a.calendarMonthKey.match(/^(\d{4})-(\d{2})$/);
-      if (match) monthNum = parseInt(match[2], 10);
+      monthNum = extractMonthFromYYYYMM(a.calendarMonthKey);
     }
 
     // defensive: coerce and sanity
