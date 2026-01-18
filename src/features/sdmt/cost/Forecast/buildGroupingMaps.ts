@@ -46,6 +46,7 @@ export interface RubroTaxonomy {
  * Normalize rubro key for matching
  * Strips hash suffix, lowercases, removes non-alphanumeric chars
  * Uses the same normalization pattern as computeForecastFromAllocations.ts
+ * TODO: Consider extracting to shared utility module to avoid duplication
  */
 const normalizeRubroKey = (s?: string): string => {
   if (!s) return '';

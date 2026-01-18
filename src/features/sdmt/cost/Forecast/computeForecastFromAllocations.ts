@@ -164,7 +164,7 @@ export function computeForecastFromAllocations(
       const rubroKey = normalizeRubroKey(extended.id || extended.line_item_id || extended.rubroId);
       // Accept exact match first
       if (allocKey === rubroKey) return true;
-      // For substring matching, require minimum length of 3 and at least 50% overlap
+      // For substring matching, require minimum length of 3 and at least 70% overlap
       if (allocKey.length >= 3 && rubroKey.length >= 3) {
         const minLength = Math.min(allocKey.length, rubroKey.length);
         const maxLength = Math.max(allocKey.length, rubroKey.length);
