@@ -42,6 +42,19 @@ function normalizeId(s: string | null | undefined): string {
 }
 
 /**
+ * Normalize rubro key for defensive allocation→rubro matching
+ * Strips hash suffix, lowercases, removes non-alphanumeric chars
+ */
+export const normalizeRubroKey = (s?: string): string => {
+  if (!s) return '';
+  return s
+    .toString()
+    .split('#')[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+};
+
+/**
  * Extended LineItem type that may have alternative ID fields
  */
 export interface ExtendedLineItem extends LineItem {
@@ -145,17 +158,28 @@ export function computeForecastFromAllocations(
     const rubroId = firstAlloc.rubroId || 'UNKNOWN';
     
     // Try to find matching rubro for metadata using tolerant matching
+    const allocKey = normalizeRubroKey(rubroId);
     let matchingRubro = rubros.find(r => {
       const extended = r as ExtendedLineItem;
-      return extended.id === rubroId ||
-             extended.line_item_id === rubroId ||
-             extended.rubroId === rubroId;
+      const rubroKey = normalizeRubroKey(extended.id || extended.line_item_id || extended.rubroId);
+      // Accept exact match first
+      if (allocKey === rubroKey) return true;
+      // For substring matching, require minimum length of 3 and at least 70% overlap
+      if (allocKey.length >= 3 && rubroKey.length >= 3) {
+        const minLength = Math.min(allocKey.length, rubroKey.length);
+        const maxLength = Math.max(allocKey.length, rubroKey.length);
+        // Only match if one is a significant substring of the other (>= 70% overlap)
+        if ((allocKey.includes(rubroKey) || rubroKey.includes(allocKey)) && minLength / maxLength >= 0.7) {
+          return true;
+        }
+      }
+      return false;
     });
     
     if (matchingRubro) {
       exactMatchCount++;
     } else {
-      // Try normalized comparison (case-insensitive, replace spaces/underscores with dash)
+      // Try legacy normalized comparison (case-insensitive, replace spaces/underscores with dash)
       const nRubroId = normalizeId(rubroId);
       matchingRubro = rubros.find(r => {
         const extended = r as ExtendedLineItem;
