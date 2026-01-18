@@ -414,78 +414,6 @@ export function SDMTForecast() {
     return `${monthNames[month - 1]} ${year}`;
   };
 
-  // Load data when project or period changes
-  useEffect(() => {
-    if (selectedProjectId) {
-      console.log(
-        "🔄 Forecast: Loading data for project:",
-        selectedProjectId,
-        "change count:",
-        projectChangeCount,
-        "baseline:",
-        currentProject?.baselineId
-      );
-
-      // Abort any previous request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-
-      // Reset state before loading new data
-      setForecastData([]);
-      setPortfolioLineItems([]);
-      loadForecastData();
-    }
-
-    // Cleanup: abort on unmount or when dependencies change
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [
-    selectedProjectId,
-    selectedPeriod,
-    projectChangeCount,
-    currentProject?.baselineId,
-  ]);
-
-  // Reload data when returning from reconciliation with refresh parameter
-  useEffect(() => {
-    const urlParams = new URLSearchParams(location.search);
-    const refreshParam = urlParams.get("_refresh");
-    if (refreshParam && selectedProjectId) {
-      if (import.meta.env.DEV) {
-        console.log("🔄 Forecast: Refreshing after reconciliation");
-      }
-      loadForecastData();
-    }
-  }, [location.search]);
-
-  // Refresh forecast data when route becomes active or page becomes visible
-  // This ensures we always show fresh data when navigating to Forecast or returning from another tab
-  useEffect(() => {
-    // Refresh when page regains visibility (user switched tabs)
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && selectedProjectId) {
-        if (import.meta.env.DEV) {
-          console.log("🔄 Forecast: Refreshing on visibility change");
-        }
-        // Abort any in-flight request and start a fresh one
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-        }
-        loadForecastData();
-      }
-    };
-    
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [location.key, selectedProjectId]); // Re-run when route changes (entering forecast page fresh)
-
   useEffect(() => {
     if (!lineItemsError) return;
 
@@ -517,7 +445,7 @@ export function SDMTForecast() {
     }
   }, [currentProject?.baselineId, isPortfolioView]);
 
-  const loadForecastData = async () => {
+  const loadForecastData = useCallback(async () => {
     // If we're in portfolio (TODOS) view, we MUST load portfolio-wide forecast even when there is
     // no selectedProjectId. Only skip forecast load when not in portfolio view and no project selected.
     if (!isPortfolioView && !selectedProjectId) {
@@ -602,7 +530,7 @@ export function SDMTForecast() {
         setIsLoadingForecast(false);
       }
     }
-  };
+  }, [isPortfolioView, selectedProjectId, currentProject?.baselineId, selectedPeriod, login]);
 
   const transformLineItemsToForecast = (
     lineItems: LineItemLike[],
@@ -1033,6 +961,94 @@ export function SDMTForecast() {
       });
     }
   };
+
+  // Consolidated data loading effect: handles initial load, route changes, and event-driven refreshes
+  // This ensures forecast loads on:
+  // 1. Initial mount / when dependencies change (project, period, baseline)
+  // 2. Route change (location.key)
+  // 3. Document visibility change (hidden → visible)
+  // 4. Window focus
+  // 5. Manual refresh via URL parameter (_refresh)
+  useEffect(() => {
+    // Helper to trigger load and guard against overlapping calls
+    const triggerLoad = () => {
+      if (selectedProjectId) {
+        if (import.meta.env.DEV) {
+          console.log(
+            "🔄 Forecast: Loading data for project:",
+            selectedProjectId,
+            "change count:",
+            projectChangeCount,
+            "baseline:",
+            currentProject?.baselineId
+          );
+        }
+
+        // Abort any previous request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+
+        // Reset state before loading new data
+        setForecastData([]);
+        setPortfolioLineItems([]);
+        loadForecastData();
+      }
+    };
+
+    // Run once on mount / whenever route (location.key) or main deps change
+    triggerLoad();
+
+    // Check for URL refresh parameter
+    const urlParams = new URLSearchParams(location.search);
+    const refreshParam = urlParams.get("_refresh");
+    if (refreshParam && selectedProjectId) {
+      if (import.meta.env.DEV) {
+        console.log("🔄 Forecast: Refreshing after reconciliation (URL param)");
+      }
+      // Already triggered above, but this logs the reason
+    }
+
+    // Visibility change: when tab becomes visible again, reload once
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && selectedProjectId) {
+        if (import.meta.env.DEV) {
+          console.log("🔄 Forecast: Refreshing on visibility change");
+        }
+        triggerLoad();
+      }
+    };
+    window.addEventListener('visibilitychange', onVisibility);
+
+    // Focus change: reload when window gains focus
+    const onFocus = () => {
+      if (selectedProjectId) {
+        if (import.meta.env.DEV) {
+          console.log("🔄 Forecast: Refreshing on window focus");
+        }
+        triggerLoad();
+      }
+    };
+    window.addEventListener('focus', onFocus);
+
+    // Cleanup: remove event listeners and abort outstanding request when component unmounts
+    return () => {
+      window.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+      // Abort any outstanding request when component unmounts
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [
+    loadForecastData,
+    location.key,
+    location.search,
+    selectedProjectId,
+    selectedPeriod,
+    projectChangeCount,
+    currentProject?.baselineId,
+  ]);
 
   const handleCellEdit = (
     line_item_id: string,
