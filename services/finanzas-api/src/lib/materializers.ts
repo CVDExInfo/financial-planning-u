@@ -3,7 +3,7 @@ import {
   BatchWriteCommandInput,
 } from "@aws-sdk/lib-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
-import { ddb, tableName, GetCommand, ScanCommand } from "./dynamo";
+import { ddb, tableName, GetCommand, ScanCommand, QueryCommand } from "./dynamo";
 import { logError } from "../utils/logging";
 import { batchGetExistingItems } from "./dynamodbHelpers";
 import {
@@ -49,6 +49,35 @@ const DEFAULT_FTE_COUNT = 1;
  */
 const getAllocationAmount = (item: Record<string, any>): number => {
   return Number(item.amount ?? item.planned ?? item.forecast ?? 0);
+};
+
+/**
+ * Coerce a value to number, handling strings and currency formats.
+ * Returns 0 if the value cannot be parsed.
+ */
+const coerceNumber = (value: any): number => {
+  if (value == null) return 0;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+  if (typeof value === 'string') {
+    // Remove currency symbols, whitespace, and commas
+    const cleaned = value.trim().replace(/[$€£¥\s,]/g, '');
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+/**
+ * Extract canonical rubro prefix from a rubro ID or SK.
+ * E.g., "MOD-LEAD#base_abc#1" => "MOD-LEAD"
+ */
+const getCanonicalRubroPrefix = (rubroIdOrSk: string | undefined): string => {
+  if (!rubroIdOrSk) return "";
+  const str = String(rubroIdOrSk);
+  const parts = str.split("#");
+  return parts[0] || "";
 };
 
 type RubroTaxonomyEntry = {
@@ -727,6 +756,30 @@ const formatMonth = (date: Date) => {
   return `${year}-${month}`;
 };
 
+/**
+ * Normalize a contract month index (1-based) to calendar month key and index.
+ * @param contractMonthIndex - 1-based month index (M1 = first month of baseline)
+ * @param baselineStartDate - ISO date string of baseline start (e.g., "2025-01-15")
+ * @returns Object with calendarMonthKey (YYYY-MM) and monthIndex (1-based)
+ */
+const normalizeMonth = (contractMonthIndex: number, baselineStartDate: string) => {
+  const start = new Date(baselineStartDate);
+  if (isNaN(start.getTime())) {
+    throw new Error(
+      `[materializers] Invalid baselineStartDate: ${baselineStartDate}. Expected ISO 8601 format (e.g., "2025-01-15")`
+    );
+  }
+  
+  // Calculate the actual calendar month by adding (contractMonthIndex - 1) months to start
+  const calendarDate = new Date(start);
+  calendarDate.setUTCMonth(start.getUTCMonth() + (contractMonthIndex - 1));
+  
+  return {
+    calendarMonthKey: formatMonth(calendarDate),
+    monthIndex: contractMonthIndex,
+  };
+};
+
 const monthSequence = (startDate: string, durationMonths: number): string[] => {
   // Contract month alignment: M1 = baseline start_date month
   let start: Date;
@@ -935,64 +988,217 @@ export const materializeAllocationsForBaseline = async (
     nonLaborEstimates,
   } = normalizeBaseline(baseline);
 
-  console.info("[materializers] materializeAllocationsForBaseline start", {
-    projectId,
-    baselineId,
+  console.info("[materializers] materializeAllocationsForBaseline starting", {
+    baseline: baselineId,
+    project: projectId,
     start_date: startDate,
     durationMonths,
-    laborEstimatesCount: laborEstimates.length,
-    nonLaborEstimatesCount: nonLaborEstimates.length,
   });
 
-  const months = monthSequence(startDate, durationMonths || 0);
-  const lineItems = [...laborEstimates, ...nonLaborEstimates];
-  const now = new Date().toISOString();
+  // STEP 1: Query rubros from database
+  let rubros: any[] = [];
+  try {
+    const rubrosRes = await ddb.send(
+      new QueryCommand({
+        TableName: tableName("rubros"),
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+        ExpressionAttributeValues: {
+          ":pk": `PROJECT#${projectId}`,
+          ":sk": "RUBRO#",
+        },
+        ProjectionExpression:
+          "pk, sk, rubroId, unit_cost, total_cost, start_month, startMonth, end_month, endMonth, metadata, linea_codigo, nombre, category",
+      })
+    );
 
-  const allocations = lineItems.flatMap((item) => {
-    const rubroStableId =
-      item.rubroId ||
-      item.rubro_id ||
-      item.linea_codigo ||
-      item.id ||
-      "unknown";
-    const lineItemId =
-      item.id ||
-      item.line_item_id ||
-      stableIdFromParts(rubroStableId, item.role, item.category);
-    const totalCost = resolveTotalCost(item, months.length);
-    const monthly = resolveMonthlyAmounts(item, months, totalCost);
-
-    return months.map((month, idx) => {
-      const amount = Number(monthly[idx] ?? 0);
-      // SK format MUST match allocations handler: ALLOCATION#{baselineId}#{month}#{rubroId}
-      // This ensures idempotent writes and allows GET /allocations to find materialized data
-      const sk = `ALLOCATION#${baselineId}#${month}#${rubroStableId}`;
-      return {
-        pk: `PROJECT#${projectId}`,
-        sk,
-        project_id: projectId,
-        projectId,
-        baseline_id: baselineId,
-        baselineId,
-        rubro_id: rubroStableId,
-        calendar_month: month,
-        month,
-        month_index: idx + 1,
-        // P/F/A model: Planned (P) = monthly amount from baseline (immutable)
-        //             Forecast (F) = initially equals Planned (can change via cost changes)
-        //             Actual (A) = 0 initially (updated from invoices/payroll)
-        planned: amount,
-        forecast: amount,
-        actual: 0,
-        amount, // Keep for backward compatibility
-        allocation_type: "planned",
-        source: "baseline_materializer",
-        line_item_id: lineItemId,
-        createdAt: now,
-        updatedAt: now,
-      };
+    // Filter rubros related to this baseline
+    const allRubros = (rubrosRes.Items || []).map(unmarshallIfNeeded);
+    rubros = allRubros.filter((r) => {
+      // Prefer metadata.baseline_id
+      if (r.metadata?.baseline_id === baselineId) return true;
+      // Fallback: check if SK contains #${baselineId}#
+      if (String(r.sk || "").includes(`#${baselineId}#`)) return true;
+      return false;
     });
-  });
+
+    console.info("[materializers] rubros query result", {
+      baselineId,
+      projectId,
+      totalRubrosInProject: allRubros.length,
+      rubrosToProcess: rubros.length,
+    });
+  } catch (error) {
+    logError("[materializers] failed to query rubros", {
+      baselineId,
+      projectId,
+      error,
+    });
+    // If rubros query fails, fall back to using labor_estimates/non_labor_estimates
+    console.warn(
+      "[materializers] Falling back to labor_estimates/non_labor_estimates from baseline payload",
+      {
+        baselineId,
+        projectId,
+        laborEstimatesCount: laborEstimates.length,
+        nonLaborEstimatesCount: nonLaborEstimates.length,
+      }
+    );
+  }
+
+  const now = new Date().toISOString();
+  const allocations: any[] = [];
+
+  // STEP 2: If we have rubros, use them; otherwise fall back to estimates
+  if (rubros.length > 0) {
+    // PRIMARY PATH: Generate allocations from seeded rubros
+    for (const rubro of rubros) {
+      const canonicalRubroPrefix = getCanonicalRubroPrefix(
+        rubro.rubroId || rubro.sk || ""
+      );
+      const canonicalRubroId =
+        getCanonicalRubroId(canonicalRubroPrefix) || canonicalRubroPrefix;
+
+      // Extract unit_cost (monthly cost)
+      let unitCost = coerceNumber(rubro.unit_cost);
+      if (unitCost === 0 && rubro.total_cost) {
+        // Derive unit_cost from total_cost if available
+        const totalCost = coerceNumber(rubro.total_cost);
+        const startMonth = Number(rubro.start_month || rubro.startMonth || 1);
+        const endMonth = Number(
+          rubro.end_month || rubro.endMonth || durationMonths || 1
+        );
+        const months = Math.max(endMonth - startMonth + 1, 1);
+        if (totalCost > 0 && months > 0) {
+          unitCost = totalCost / months;
+          if (!Number.isFinite(unitCost)) {
+            console.warn("[materializers] derived unit_cost is not finite", {
+              baselineId,
+              rubroId: rubro.rubroId || rubro.sk,
+              totalCost,
+              months,
+            });
+            unitCost = 0;
+          }
+        }
+      }
+
+      if (unitCost === 0) {
+        console.warn("[materializers] rubro has zero unit_cost", {
+          baselineId,
+          rubroId: rubro.rubroId || rubro.sk,
+          canonicalRubroId,
+        });
+      }
+
+      // Determine start/end months for this rubro
+      const rubroStartMonth = Number(rubro.start_month || rubro.startMonth || 1);
+      const rubroEndMonth = Number(
+        rubro.end_month || rubro.endMonth || durationMonths || rubroStartMonth
+      );
+
+      console.info("[materializers] Processing rubro", {
+        rubroId: rubro.rubroId || rubro.sk,
+        canonical: canonicalRubroId,
+        unit_cost: unitCost,
+        months: `${rubroStartMonth}-${rubroEndMonth}`,
+      });
+
+      // Generate allocations for each month in the rubro's range
+      for (let m = rubroStartMonth; m <= rubroEndMonth; m++) {
+        const normalized = normalizeMonth(m, startDate);
+        const calendarMonthKey = normalized.calendarMonthKey;
+        const monthIndex = normalized.monthIndex;
+
+        const allocationSk = `ALLOCATION#${baselineId}#${calendarMonthKey}#${canonicalRubroId}`;
+        const roundedAmount = Math.round(unitCost * 100) / 100;
+
+        allocations.push({
+          pk: `PROJECT#${projectId}`,
+          sk: allocationSk,
+          project_id: projectId,
+          projectId,
+          baseline_id: baselineId,
+          baselineId,
+          rubro_id: canonicalRubroId,
+          rubroId: canonicalRubroId,
+          line_item_id:
+            rubro.metadata?.role ||
+            rubro.nombre ||
+            String(rubro.sk || "").replace("RUBRO#", ""),
+          calendar_month: calendarMonthKey,
+          calendarMonthKey,
+          month_index: monthIndex,
+          monthIndex,
+          planned: roundedAmount,
+          forecast: roundedAmount,
+          actual: 0,
+          amount: roundedAmount,
+          allocation_type: "planned",
+          source: "baseline_materializer",
+          createdAt: now,
+          createdBy: "baseline_materializer",
+          updatedAt: now,
+        });
+      }
+    }
+  } else {
+    // FALLBACK PATH: Use labor_estimates/non_labor_estimates from baseline
+    console.info(
+      "[materializers] Using fallback path (labor_estimates/non_labor_estimates)",
+      {
+        baselineId,
+        projectId,
+        laborEstimatesCount: laborEstimates.length,
+        nonLaborEstimatesCount: nonLaborEstimates.length,
+      }
+    );
+
+    const months = monthSequence(startDate, durationMonths || 0);
+    const lineItems = [...laborEstimates, ...nonLaborEstimates];
+
+    allocations.push(
+      ...lineItems.flatMap((item) => {
+        const rubroStableId =
+          item.rubroId ||
+          item.rubro_id ||
+          item.linea_codigo ||
+          item.id ||
+          "unknown";
+        const lineItemId =
+          item.id ||
+          item.line_item_id ||
+          stableIdFromParts(rubroStableId, item.role, item.category);
+        const totalCost = resolveTotalCost(item, months.length);
+        const monthly = resolveMonthlyAmounts(item, months, totalCost);
+
+        return months.map((month, idx) => {
+          const amount = Number(monthly[idx] ?? 0);
+          const sk = `ALLOCATION#${baselineId}#${month}#${rubroStableId}`;
+          return {
+            pk: `PROJECT#${projectId}`,
+            sk,
+            project_id: projectId,
+            projectId,
+            baseline_id: baselineId,
+            baselineId,
+            rubro_id: rubroStableId,
+            calendar_month: month,
+            month,
+            month_index: idx + 1,
+            planned: amount,
+            forecast: amount,
+            actual: 0,
+            amount,
+            allocation_type: "planned",
+            source: "baseline_materializer",
+            line_item_id: lineItemId,
+            createdAt: now,
+            updatedAt: now,
+          };
+        });
+      })
+    );
+  }
 
   const uniqueAllocations = dedupeByKey(
     allocations,
@@ -1004,12 +1210,11 @@ export const materializeAllocationsForBaseline = async (
     return {
       allocationsAttempted,
       allocationsPlanned: uniqueAllocations.length,
-      months: months.length,
+      months: durationMonths || 0,
     };
   }
 
-  // Idempotency: Check for existing allocations
-  const existingKeys = new Set<string>();
+  // STEP 3: Idempotency check
   const existingItemsMap = new Map<string, Record<string, any>>();
   try {
     const keys = uniqueAllocations.map((allocation) => ({
@@ -1025,19 +1230,17 @@ export const materializeAllocationsForBaseline = async (
       tableName("allocations"),
       keys
     );
-    
-    // Build a map of existing items for comparison
+
     for (const item of existingAllocations) {
       const key = `${item.pk}#${item.sk}`;
-      existingKeys.add(key);
       existingItemsMap.set(key, item);
     }
-    
+
     console.info("[materializers] existing allocations found", {
       baselineId,
       projectId,
-      existingCount: existingKeys.size,
-      existingSKsSample: Array.from(existingKeys).slice(0, 3),
+      existingCount: existingItemsMap.size,
+      existingSKsSample: Array.from(existingItemsMap.keys()).slice(0, 3),
     });
   } catch (error) {
     logError("[materializers] failed to batch check existing allocations", {
@@ -1047,58 +1250,69 @@ export const materializeAllocationsForBaseline = async (
     });
   }
 
-  // Filter allocations to write based on idempotency rules:
-  // 1. Write if item doesn't exist
-  // 2. Write if forceRewriteZeros is true AND existing.amount === 0 AND new amount > 0
+  // STEP 4: Filter allocations to write based on idempotency rules
+  let allocationsOverwritten = 0;
   const allocationsToWrite = uniqueAllocations.filter((item) => {
     const key = `${item.pk}#${item.sk}`;
     const existing = existingItemsMap.get(key);
-    
+
     if (!existing) {
-      return true; // Write if doesn't exist
+      console.info("[materializers] Writing allocation", {
+        SK: item.sk,
+        amount: item.amount,
+      });
+      return true;
     }
-    
-    // If forceRewriteZeros is enabled, check if we should overwrite zero amounts
+
+    // Skip if existing has non-zero amount (unless forceRewrite)
+    const existingAmount = getAllocationAmount(existing);
+    if (existingAmount > 0) {
+      console.info("[materializers] Skipping allocation", {
+        SK: item.sk,
+        existing_amount: existingAmount,
+        reason: "non-zero",
+      });
+      return false;
+    }
+
+    // If forceRewriteZeros is enabled and existing amount is zero
     if (options.forceRewriteZeros) {
-      const existingAmount = getAllocationAmount(existing);
       const newAmount = getAllocationAmount(item);
-      
-      if (existingAmount === 0 && newAmount > 0) {
-        console.info('[materializers] overwriting zero allocation with positive value', {
-          baselineId,
-          sk: item.sk,
-          existingAmount,
-          newAmount,
-        });
-        return true; // Overwrite zero with positive
+      if (newAmount > 0) {
+        console.info(
+          "[materializers] Overwriting allocation",
+          {
+            SK: item.sk,
+            previous_amount: existingAmount,
+            new_amount: newAmount,
+            reason: "forceRewriteZeros",
+          }
+        );
+        allocationsOverwritten++;
+        return true;
       }
     }
-    
-    return false; // Skip (already exists)
+
+    return false;
   });
 
   const allocationsSkipped = allocationsAttempted - allocationsToWrite.length;
   const allocationsWritten = allocationsToWrite.length;
 
+  // STEP 5: Write allocations
   try {
     if (allocationsToWrite.length > 0) {
       await batchWriteAll(tableName("allocations"), allocationsToWrite);
     }
 
-    console.info("[materializers] materializeAllocationsForBaseline result", {
-      baselineId,
-      projectId,
-      allocationsAttempted,
-      allocationsWritten,
-      allocationsSkipped,
-      months: months.length,
-      monthRange:
-        months.length > 0
-          ? `${months[0]} to ${months[months.length - 1]}`
-          : "none",
+    console.info("[materializers] materialized allocations summary", {
+      baseline: baselineId,
+      attempted: allocationsAttempted,
+      written: allocationsWritten,
+      skipped: allocationsSkipped,
+      overwritten: allocationsOverwritten,
     });
 
-    // WARN if we attempted to create allocations but wrote 0 (all skipped)
     if (allocationsAttempted > 0 && allocationsWritten === 0) {
       console.warn(
         "[materializers] All allocations were skipped (idempotent)",
@@ -1111,7 +1325,12 @@ export const materializeAllocationsForBaseline = async (
       );
     }
 
-    return { allocationsAttempted, allocationsWritten, allocationsSkipped };
+    return {
+      allocationsAttempted,
+      allocationsWritten,
+      allocationsSkipped,
+      allocationsOverwritten,
+    };
   } catch (error) {
     logError("[materializers] failed to write allocations", {
       baselineId,
