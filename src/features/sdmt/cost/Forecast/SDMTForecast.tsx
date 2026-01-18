@@ -2016,39 +2016,57 @@ export function SDMTForecast() {
 
   // Build category totals for TODOS mode (charts and rubros table)
   const categoryTotals = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0) {
+    if (forecastData.length === 0) {
       return new Map();
     }
-    return buildCategoryTotals(forecastData);
-  }, [isPortfolioView, forecastData]);
+    // In single-project mode, filter to selected project
+    const dataToGroup = isPortfolioView 
+      ? forecastData 
+      : forecastData.filter(cell => (cell as any).project_id === selectedProjectId);
+    return buildCategoryTotals(dataToGroup);
+  }, [isPortfolioView, forecastData, selectedProjectId]);
 
   // Build category rubros for TODOS mode (rubros table)
   const categoryRubros = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0) {
+    if (forecastData.length === 0) {
       return new Map();
     }
-    return buildCategoryRubros(forecastData, portfolioLineItems);
-  }, [isPortfolioView, forecastData, portfolioLineItems]);
+    // In single-project mode, filter to selected project
+    const dataToGroup = isPortfolioView 
+      ? forecastData 
+      : forecastData.filter(cell => (cell as any).project_id === selectedProjectId);
+    const lineItemsToUse = isPortfolioView ? portfolioLineItems : safeLineItems;
+    return buildCategoryRubros(dataToGroup, lineItemsToUse);
+  }, [isPortfolioView, forecastData, portfolioLineItems, safeLineItems, selectedProjectId]);
 
   // Build project totals for TODOS mode (project view)
   const projectTotals = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0) {
+    if (forecastData.length === 0) {
       return new Map();
     }
-    return buildProjectTotals(forecastData);
-  }, [isPortfolioView, forecastData]);
+    // In single-project mode, filter to selected project
+    const dataToGroup = isPortfolioView 
+      ? forecastData 
+      : forecastData.filter(cell => (cell as any).project_id === selectedProjectId);
+    return buildProjectTotals(dataToGroup);
+  }, [isPortfolioView, forecastData, selectedProjectId]);
 
   // Build project rubros for TODOS mode (project view)
   const projectRubros = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0) {
+    if (forecastData.length === 0) {
       return new Map();
     }
-    return buildProjectRubros(forecastData, portfolioLineItems, taxonomyByRubroId);
-  }, [isPortfolioView, forecastData, portfolioLineItems, taxonomyByRubroId]);
+    // In single-project mode, filter to selected project
+    const dataToGroup = isPortfolioView 
+      ? forecastData 
+      : forecastData.filter(cell => (cell as any).project_id === selectedProjectId);
+    const lineItemsToUse = isPortfolioView ? portfolioLineItems : safeLineItems;
+    return buildProjectRubros(dataToGroup, lineItemsToUse, taxonomyByRubroId);
+  }, [isPortfolioView, forecastData, portfolioLineItems, safeLineItems, taxonomyByRubroId, selectedProjectId]);
 
   // Build portfolio totals for TODOS mode (charts and rubros table)
   const portfolioTotalsForCharts = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0) {
+    if (forecastData.length === 0) {
       return {
         byMonth: {},
         overall: {
@@ -2061,8 +2079,12 @@ export function SDMTForecast() {
         },
       };
     }
-    return buildPortfolioTotals(forecastData);
-  }, [isPortfolioView, forecastData]);
+    // In single-project mode, filter to selected project
+    const dataToGroup = isPortfolioView 
+      ? forecastData 
+      : forecastData.filter(cell => (cell as any).project_id === selectedProjectId);
+    return buildPortfolioTotals(dataToGroup);
+  }, [isPortfolioView, forecastData, selectedProjectId]);
 
   // Compute projects per month (M/M) for chart bar series
   const projectsPerMonth = useMemo(() => {
