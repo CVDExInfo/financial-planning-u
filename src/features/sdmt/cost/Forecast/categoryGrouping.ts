@@ -34,6 +34,7 @@ export interface CategoryRubro {
   rubroId: string;
   description: string;
   category: string;
+  isLabor?: boolean;
   byMonth: Record<number, CategoryMonthTotals>;
   overall: CategoryOverallTotals;
 }
@@ -130,11 +131,13 @@ export function buildCategoryRubros(
       // Find line item for description
       const lineItem = lineItems.find(item => item.id === rubroId);
       const description = lineItem?.description || (cell as any).description || 'Unknown';
+      const isLabor = (cell as any).isLabor ?? (lineItem as any)?.isLabor ?? category?.toLowerCase().includes('mano de obra');
 
       categoryRubros.set(rubroId, {
         rubroId,
         description,
         category,
+        isLabor,
         byMonth: {},
         overall: {
           forecast: 0,
