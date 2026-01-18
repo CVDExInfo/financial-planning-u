@@ -86,6 +86,16 @@ This document describes the environment-based feature flags used in the Finanzas
   - When `false`: Shows runway metrics (default behavior)
 - **Scope:** Only affects portfolio view; single-project view is unaffected
 
+#### `VITE_FINZ_SHOW_PORTFOLIO_KPIS`
+- **Type:** Boolean (`'true'` / `'false'`)
+- **Default:** `false`
+- **Description:** Controls visibility of Portfolio KPI tiles (4-card grid showing budget, variance, consumption percentages) in TODOS/Portfolio view. When `false`, provides a minimal portfolio view.
+- **Impact:**
+  - When `true`: Shows the portfolio KPI tiles (4 cards: Presupuesto Anual All-In, Sobre/Bajo Presupuesto, % Consumo Pronóstico, % Consumo Real)
+  - When `false`: Hides the KPI tiles (default behavior for minimal view)
+- **Scope:** Only affects portfolio view; single-project view is unaffected
+- **Note:** Works in conjunction with `HIDE_REAL_ANNUAL_KPIS` - both must allow showing for KPIs to appear
+
 ---
 
 ## Tabla de flags y vistas impactadas (Español)
@@ -97,6 +107,7 @@ This document describes the environment-based feature flags used in the Finanzas
 | `VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED` | Mostrar Desglose Mensual (Transpuesto) | `PortfolioSummaryView.tsx` - Cuadrícula mensual | Si `true`, fuerza la tabla de Desglose Mensual a mostrarse transpuesta (meses como columnas). | `false` |
 | `VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST` | Ocultar Lista Expandible de Proyectos | `PortfolioSummaryView.tsx` | Si `true`, no muestra la lista expandible de proyectos dentro del resumen de portafolio. | `false` |
 | `VITE_FINZ_HIDE_RUNWAY_METRICS` | Ocultar Runway / Control Presupuestario | `PortfolioSummaryView.tsx` | Si `true`, oculta el resumen de Runway & Control Presupuestario en Resumen de Portafolio. | `false` |
+| `VITE_FINZ_SHOW_PORTFOLIO_KPIS` | Mostrar KPIs de Portafolio | `SDMTForecast.tsx` / KPIs de presupuesto | Si `true`, muestra las 4 tarjetas de KPIs de portafolio (Presupuesto All-In, Variación, % Consumo Pronóstico, % Consumo Real). Default: `false` (vista mínima). | `false` |
 | `VITE_FINZ_NEW_FORECAST_LAYOUT` | Nuevo Layout de Pronóstico | `SDMTForecast.tsx` / layout | Controla la reorganización compacta de la página (no afecta visibilidad por sí solo). Default: `false`. | `false` |
 | `VITE_FINZ_SHOW_KEYTRENDS` | Mostrar Tendencias Clave | `SDMTForecast.tsx` / Key Trends | Si `true`, muestra las tablas de Tendencias Clave (Top Variance Projects & Rubros). Default: `false`. | `false` |
 | `VITE_FINZ_HIDE_KEY_TRENDS` | Ocultar Tendencias Clave | `SDMTForecast.tsx` / Key Trends | Si `true`, oculta las Tendencias Clave incluso si `SHOW_KEY_TRENDS` es `true`. Default: `false`. | `false` |
@@ -107,14 +118,18 @@ This document describes the environment-based feature flags used in the Finanzas
 # Ejemplo 1: Ocultar KPIs anuales reales
 VITE_FINZ_HIDE_REAL_ANNUAL_KPIS=true
 
-# Ejemplo 2: Vista compacta - solo tabla transpuesta
+# Ejemplo 2: Mostrar KPIs de portafolio en nuevo layout
+VITE_FINZ_NEW_FORECAST_LAYOUT=true
+VITE_FINZ_SHOW_PORTFOLIO_KPIS=true
+
+# Ejemplo 3: Vista compacta - solo tabla transpuesta
 VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED=true
 VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST=true
 VITE_FINZ_HIDE_RUNWAY_METRICS=true
 
-# Ejemplo 3: Vista mínima ejecutiva
+# Ejemplo 4: Vista mínima ejecutiva (default para nuevo layout)
 VITE_FINZ_NEW_FORECAST_LAYOUT=true
-VITE_FINZ_HIDE_REAL_ANNUAL_KPIS=true
+VITE_FINZ_SHOW_PORTFOLIO_KPIS=false
 VITE_FINZ_HIDE_PROJECT_SUMMARY=true
 ```
 
@@ -198,6 +213,20 @@ VITE_FINZ_HIDE_RUNWAY_METRICS=true
 ```
 **Expected:** Runway metrics summary is hidden in portfolio view
 
+#### Scenario 9: Show Portfolio KPIs
+```bash
+VITE_FINZ_NEW_FORECAST_LAYOUT=true
+VITE_FINZ_SHOW_PORTFOLIO_KPIS=true
+```
+**Expected:** Portfolio KPI tiles (4-card grid) visible in portfolio view
+
+#### Scenario 10: Minimal Portfolio View (Default)
+```bash
+VITE_FINZ_NEW_FORECAST_LAYOUT=true
+VITE_FINZ_SHOW_PORTFOLIO_KPIS=false
+```
+**Expected:** Portfolio KPI tiles hidden, minimal clean view
+
 ---
 
 ## CI/CD Configuration
@@ -214,6 +243,7 @@ env:
   VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED: ${{ vars.VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED || 'false' }}
   VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST: ${{ vars.VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST || 'false' }}
   VITE_FINZ_HIDE_RUNWAY_METRICS: ${{ vars.VITE_FINZ_HIDE_RUNWAY_METRICS || 'false' }}
+  VITE_FINZ_SHOW_PORTFOLIO_KPIS: ${{ vars.VITE_FINZ_SHOW_PORTFOLIO_KPIS || 'false' }}
 ```
 
 ---

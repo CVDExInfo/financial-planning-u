@@ -186,6 +186,9 @@ const HIDE_REAL_ANNUAL_KPIS = import.meta.env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS ==
 // Feature flag to hide Resumen de Portafolio in TODOS mode
 const HIDE_PROJECT_SUMMARY = import.meta.env.VITE_FINZ_HIDE_PROJECT_SUMMARY === 'true';
 
+// Feature flag to show Portfolio KPI tiles in new layout (default false for minimal view)
+const SHOW_PORTFOLIO_KPIS = import.meta.env.VITE_FINZ_SHOW_PORTFOLIO_KPIS === 'true';
+
 // Debug logging for feature flags (development only)
 if (import.meta.env.DEV) {
   console.log('[SDMTForecast] Feature Flags:', {
@@ -194,6 +197,7 @@ if (import.meta.env.DEV) {
     HIDE_KEY_TRENDS,
     HIDE_REAL_ANNUAL_KPIS,
     HIDE_PROJECT_SUMMARY,
+    SHOW_PORTFOLIO_KPIS,
   });
 }
 
@@ -514,8 +518,10 @@ export function SDMTForecast() {
   }, [currentProject?.baselineId, isPortfolioView]);
 
   const loadForecastData = async () => {
-    if (!selectedProjectId) {
-      console.log("❌ No project selected, skipping forecast load");
+    // If we're in portfolio (TODOS) view, we MUST load portfolio-wide forecast even when there is
+    // no selectedProjectId. Only skip forecast load when not in portfolio view and no project selected.
+    if (!isPortfolioView && !selectedProjectId) {
+      console.log("❌ No project selected and not portfolio view, skipping forecast load");
       return;
     }
 
@@ -2895,7 +2901,8 @@ export function SDMTForecast() {
 
       {/* Real Annual Budget KPIs - Show when budget is set and portfolio view (not simulation) */}
       {/* Hide when NEW_FORECAST_LAYOUT is enabled - KPIs are shown in ForecastSummaryBar instead */}
-      {!NEW_FORECAST_LAYOUT_ENABLED && !HIDE_REAL_ANNUAL_KPIS && isPortfolioView && !budgetSimulation.enabled && (
+      {/* Gate behind SHOW_PORTFOLIO_KPIS flag (default false) or existing HIDE_REAL_ANNUAL_KPIS */}
+      {SHOW_PORTFOLIO_KPIS && !NEW_FORECAST_LAYOUT_ENABLED && !HIDE_REAL_ANNUAL_KPIS && isPortfolioView && !budgetSimulation.enabled && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
@@ -3066,9 +3073,11 @@ export function SDMTForecast() {
         <>
           {/* Position #2: Cuadrícula de Pronóstico (12 Meses) - Canonical 12m grid */}
           {/* NOTE: This is the canonical 12-month grid when NEW_FORECAST_LAYOUT is enabled. */}
+          {/* This MUST always render in portfolio view (even when forecastData is empty) */}
+          {/* The ForecastRubrosTable component handles empty state internally */}
           {/* Must NOT be collapsed by default on entry (defaultOpen=true). */}
           {/* Single instance on entire page - no duplicates. */}
-          {NEW_FORECAST_LAYOUT_ENABLED && !loading && (forecastData.length > 0 || portfolioLineItems.length > 0) && (
+          {NEW_FORECAST_LAYOUT_ENABLED && !loading && (
             <Collapsible
               open={isRubrosGridOpen}
               onOpenChange={setIsRubrosGridOpen}
@@ -3079,8 +3088,9 @@ export function SDMTForecast() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-lg">
-                        Cuadrícula de Pronóstico (12 Meses)
+                        Cuadrícula de Pronóstico
                       </CardTitle>
+                      <Badge variant="secondary" className="ml-2">M1-M12</Badge>
                     </div>
                     
                     <CollapsibleTrigger asChild>
@@ -3088,7 +3098,7 @@ export function SDMTForecast() {
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0"
-                        aria-label="Expandir/Colapsar cuadrícula de pronóstico"
+                        aria-label="Expandir/Colapsar Cuadrícula de Pronóstico"
                       >
                         <ChevronDown className="h-4 w-4" />
                       </Button>
@@ -3629,10 +3639,10 @@ export function SDMTForecast() {
         </Collapsible>
       )}
 
-      {/* Forecast Grid - Common for both modes, but with collapsible wrapper for TODOS */}
-      {/* NOTE: This old table-based grid is ONLY shown when NEW_FORECAST_LAYOUT is disabled */}
-      {/* When NEW_FORECAST_LAYOUT is enabled, use ForecastRubrosTable (Position #2) instead */}
-      {!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView ? (
+      {/* Forecast Grid / Position #7: Monitoreo mensual de proyectos vs. presupuesto */}
+      {/* This is the legacy grid for old layout, and Position #7 for NEW_FORECAST_LAYOUT */}
+      {/* Shows in portfolio view with breakdown modes (Proyectos | Rubros por proyecto) */}
+      {isPortfolioView ? (
         /* TODOS mode - wrapped in collapsible "Monitoreo mensual de proyectos vs. presupuesto" */
         <Collapsible defaultOpen={true}>
           <Card>
@@ -4128,7 +4138,7 @@ export function SDMTForecast() {
             <CardTitle>
               {selectedPeriod === "CURRENT_MONTH"
                 ? `Cuadrícula de Pronóstico - Mes Actual (M${getCurrentMonthIndex()})`
-                : "Cuadrícula de Pronóstico 12 Meses"}
+                : "Cuadrícula de Pronóstico"}
             </CardTitle>
           </CardHeader>
           <CardContent>
