@@ -284,6 +284,8 @@ const normalizeBaseline = (baseline: BaselineLike) => {
         0,
       laborCount: previewLaborCount,
       nonLaborCount: previewNonLaborCount,
+      // Add sample labor estimate to help debug zero allocations
+      sampleLaborEstimate: previewLaborCount > 0 ? (payload as any).labor_estimates[0] : null,
     });
   } catch (e) {
     // don't fail normalization on logging issues
@@ -795,13 +797,38 @@ const resolveTotalCost = (
       console.warn('[materializers] labor estimate computed to zero', {
         role: item.role,
         id: item.id,
+        rubroId: item.rubroId ?? item.rubro_id,
         reason: result.reason,
-        sampleFields: {
+        allFields: {
+          // Strategy 1 fields (total_cost)
           total_cost: item.total_cost,
-          hourly_rate: item.hourly_rate,
+          totalCost: item.totalCost,
+          total_cost_raw: item.total_cost_raw,
+          // Strategy 2 fields (monthly_cost)
           monthly_cost: item.monthly_cost,
-          hoursPerMonth: item.hoursPerMonth ?? item.hours_per_month,
-          fteCount: item.fteCount ?? item.fte_count,
+          monthlyCost: item.monthlyCost,
+          monthly_rate: item.monthly_rate,
+          monthlyRate: item.monthlyRate,
+          amount: item.amount,
+          // Strategy 3 fields (hourly calculation)
+          hourly_rate: item.hourly_rate,
+          hourlyRate: item.hourlyRate,
+          rate: item.rate,
+          tarifa_hora: item.tarifa_hora,
+          tarifaHora: item.tarifaHora,
+          hours_per_month: item.hours_per_month,
+          hoursPerMonth: item.hoursPerMonth,
+          hours: item.hours,
+          hrs_mes: item.hrs_mes,
+          hrsMes: item.hrsMes,
+          fte_count: item.fte_count,
+          fteCount: item.fteCount,
+          fte: item.fte,
+          // Other potentially useful fields
+          start_month: item.start_month,
+          startMonth: item.startMonth,
+          end_month: item.end_month,
+          endMonth: item.endMonth,
         },
       });
     }
