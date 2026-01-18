@@ -40,6 +40,8 @@ export const LABOR_CANONICAL_KEYS = [
   'LINEA#MOD-LEAD', 'MOD-LEAD', 
   'LINEA#MOD-CONT', 'MOD-CONT', 
   'LINEA#MOD-SDM', 'MOD-SDM',
+  'LINEA#MOD-PM', 'MOD-PM',
+  'LINEA#MOD-PMO', 'MOD-PMO',
   'MOD-IN1', 'MOD-IN2', 'MOD-IN3',
   'MOD', 'CATEGORIA#MOD', 
   'Mano de Obra Directa',
