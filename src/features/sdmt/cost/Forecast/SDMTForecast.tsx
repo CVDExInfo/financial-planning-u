@@ -3041,9 +3041,10 @@ export function SDMTForecast() {
       {/* ========== TODOS / PORTFOLIO VIEW LAYOUT ========== */}
       {isPortfolioView && (
         <>
-          {/* Position #2: Cuadrícula de Pronóstico (12 Meses) / Monitoreo mensual de proyectos vs. presupuesto */}
+          {/* Position #2: Cuadrícula de Pronóstico (12 Meses) - Canonical 12m grid */}
           {/* NOTE: This is the canonical 12-month grid when NEW_FORECAST_LAYOUT is enabled. */}
-          {/* Must NOT be collapsed by default on entry. Supports Vista: Por Proyecto | Rubros por proyecto */}
+          {/* Must NOT be collapsed by default on entry (defaultOpen=true). */}
+          {/* Single instance on entire page - no duplicates. */}
           {NEW_FORECAST_LAYOUT_ENABLED && !loading && (forecastData.length > 0 || portfolioLineItems.length > 0) && (
             <Collapsible
               open={isRubrosGridOpen}
@@ -3054,42 +3055,21 @@ export function SDMTForecast() {
                 <CardHeader className="pb-2 pt-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5 text-primary" />
                       <CardTitle className="text-lg">
-                        Monitoreo mensual de proyectos vs. presupuesto
+                        Cuadrícula de Pronóstico (12 Meses)
                       </CardTitle>
-                      <Badge variant="secondary" className="ml-2">M1-M12</Badge>
                     </div>
                     
-                    <div className="flex items-center gap-3">
-                      <Label htmlFor="breakdown-mode-select-new" className="text-sm">Vista</Label>
-                      <Select
-                        value={breakdownMode}
-                        onValueChange={(v) => handleBreakdownModeChange(v as 'project' | 'rubros')}
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label="Expandir/Colapsar cuadrícula de pronóstico"
                       >
-                        <SelectTrigger
-                          id="breakdown-mode-select-new"
-                          className="h-8 w-[200px]"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="project">Por Proyecto</SelectItem>
-                          <SelectItem value="rubros">Rubros por proyecto</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          aria-label="Expandir/Colapsar cuadrícula de pronóstico"
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </CollapsibleTrigger>
-                    </div>
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </CollapsibleTrigger>
                   </div>
                 </CardHeader>
                 <CollapsibleContent>
@@ -3419,8 +3399,72 @@ export function SDMTForecast() {
             />
           )}
 
-          {/* Position #7: Monitoreo mensual de proyectos vs. presupuesto - Expanded by default with Vista selector */}
-          {/* This section is rendered below after the portfolio wrapper closes - see line 3570+ */}
+          {/* Position #7: Monitoreo mensual de proyectos vs. presupuesto */}
+          {/* NOTE: Expanded by default. Supports Vista: Por Proyecto | Rubros por proyecto */}
+          {/* Uses the same ForecastRubrosTable component as Position #2 */}
+          {NEW_FORECAST_LAYOUT_ENABLED && !loading && (forecastData.length > 0 || portfolioLineItems.length > 0) && (
+            <Collapsible defaultOpen={true}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5 text-primary" />
+                      <CardTitle className="text-lg">
+                        Monitoreo mensual de proyectos vs. presupuesto
+                      </CardTitle>
+                      <Badge variant="secondary" className="ml-2">M1-M12</Badge>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Label htmlFor="breakdown-mode-select-pos7" className="text-sm">Vista</Label>
+                      <Select
+                        value={breakdownMode}
+                        onValueChange={(v) => handleBreakdownModeChange(v as 'project' | 'rubros')}
+                      >
+                        <SelectTrigger
+                          id="breakdown-mode-select-pos7"
+                          className="h-8 w-[200px]"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="project">Por Proyecto</SelectItem>
+                          <SelectItem value="rubros">Rubros por proyecto</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          aria-label="Expandir/Colapsar monitoreo mensual"
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </CollapsibleTrigger>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <ForecastRubrosTable
+                      categoryTotals={categoryTotals}
+                      categoryRubros={categoryRubros}
+                      projectTotals={projectTotals}
+                      projectRubros={projectRubros}
+                      portfolioTotals={portfolioTotalsForCharts}
+                      monthlyBudgets={monthlyBudgets}
+                      onSaveBudget={handleSaveBudgetFromTable}
+                      formatCurrency={formatCurrency}
+                      canEditBudget={canEditBudget}
+                      defaultFilter="labor"
+                    />
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          )}
         </>
       )}
 
