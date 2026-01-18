@@ -21,6 +21,8 @@ jobs:
   backfill-dry-run:
     name: Backfill Allocations (Dry-run)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout repository
