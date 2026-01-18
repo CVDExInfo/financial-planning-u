@@ -10,7 +10,7 @@ on:
         type: choice
         options:
           - staging
-          - production
+          - dev
       force_rewrite_zeros:
         description: 'Enable force rewrite zeros flag (FORCE_REWRITE_ZEROS=yes)'
         required: false
