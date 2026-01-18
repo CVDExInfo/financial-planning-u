@@ -1,4 +1,4 @@
-import {
+ import {
   BatchWriteCommand,
   BatchWriteCommandInput,
 } from "@aws-sdk/lib-dynamodb";
@@ -900,7 +900,7 @@ const resolveMonthlyAmounts = (
       const key = month as keyof typeof explicit;
       const fallback = idx + 1;
       return Number(
-        (explicit as Record<string, any>)[key] ??
+        (explicit as Record<string, any>)[key as string] ??
           (explicit as Record<string, any>)[fallback] ??
           0
       );
@@ -1400,7 +1400,7 @@ export const materializeRubrosForBaseline = async (
       await batchWriteAll(tableName("rubros"), rubrosToWrite);
     }
     const rubrosWritten = rubrosToWrite.filter(
-      (item) => !existingKeys.has(`${item.pk}#${item.sk}`)
+      (item: any) => !existingKeys.has(`${item.pk}#${item.sk}`)
     ).length;
     const rubrosUpdated = rubrosToWrite.length - rubrosWritten;
     return {
@@ -1468,7 +1468,7 @@ export const materializeRubrosFromBaseline = async ({
   return materializeRubrosForBaseline(
     {
       ...payload,
-      project_id: resolvedProjectId,
+      project_id: resolvedProjectId as string,
       baseline_id: baselineId,
     },
     { dryRun }
