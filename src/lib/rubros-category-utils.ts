@@ -62,13 +62,23 @@ function isInvalidCategory(category?: string): boolean {
 /**
  * Check if category already indicates labor
  * Used to make ensureCategory idempotent
+ * 
+ * @param category - The category string to check
+ * @returns true if the category indicates labor, false otherwise
+ * 
+ * @example
+ * isLaborCategory("Mano de Obra Directa") // true
+ * isLaborCategory("Labor") // true
+ * isLaborCategory("MOD") // true
+ * isLaborCategory("Non-Labor") // false
+ * isLaborCategory("Equipos y Tecnología") // false
  */
 function isLaborCategory(category?: string): boolean {
   if (!category) return false;
   
   const normalized = category.trim().toLowerCase();
   
-  // Explicitly exclude "Non-Labor" category
+  // Explicitly exclude "Non-Labor" category and any category starting with "non-"
   if (normalized === 'non-labor' || normalized.startsWith('non-')) {
     return false;
   }
@@ -83,11 +93,15 @@ function isLaborCategory(category?: string): boolean {
     return true;
   }
   
+  // Check for exact "MOD" abbreviation (Mano de Obra Directa)
+  if (normalized === 'mod') {
+    return true;
+  }
+  
   // Check for any labor-related keywords in category
   const laborPatterns = [
     /\blabor\b/i,
     /mano\s*de\s*obra/i,
-    /\bmod\b/i,
   ];
   
   return laborPatterns.some(pattern => pattern.test(category));
