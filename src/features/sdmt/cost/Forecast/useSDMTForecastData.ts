@@ -23,6 +23,16 @@ import {
 } from "./computeForecastFromAllocations";
 import type { LineItem } from "@/types/domain";
 import finanzasClient from "@/api/finanzasClient";
+import { taxonomyByRubroId as taxonomyByRubroIdMap } from "@/modules/rubros.catalog.enriched";
+
+// Convert taxonomy Map to Record for easier consumption
+const taxonomyByRubroId: Record<string, { description?: string; category?: string }> = {};
+taxonomyByRubroIdMap.forEach((taxonomy, rubroId) => {
+  taxonomyByRubroId[rubroId] = {
+    description: taxonomy.linea_gasto || taxonomy.descripcion,
+    category: taxonomy.categoria,
+  };
+});
 
 export interface UseSDMTForecastDataParams {
   projectId: string;
@@ -363,7 +373,7 @@ export function useSDMTForecastData({
             console.warn(
               `[useSDMTForecastData] No allocations found — using ${rubrosResp.length} rubros only`
             );
-            rows = transformLineItemsToForecast(rubrosResp, months, projectId);
+            rows = transformLineItemsToForecast(rubrosResp, months, projectId, undefined, taxonomyByRubroId);
             console.log(
               `[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from rubros fallback`
             );
@@ -392,7 +402,7 @@ export function useSDMTForecastData({
             console.warn(
               `[useSDMTForecastData] Allocations failed — using ${rubrosResp.length} rubros only`
             );
-            rows = transformLineItemsToForecast(rubrosResp, months, projectId);
+            rows = transformLineItemsToForecast(rubrosResp, months, projectId, undefined, taxonomyByRubroId);
             console.log(
               `[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from rubros fallback (after allocation error)`
             );

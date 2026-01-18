@@ -322,11 +322,13 @@ export function SDMTForecast() {
   const location = useLocation();
   const {
     lineItems,
+    taxonomyByRubroId,
     isLoading: isLineItemsLoading,
     error: lineItemsError,
   } = useProjectLineItems({
     useFallback: true,
     baselineId: currentProject?.baselineId,
+    withTaxonomy: true,
   });
   const safeLineItems = useMemo(
     () => (Array.isArray(lineItems) ? lineItems : []),
@@ -2041,8 +2043,8 @@ export function SDMTForecast() {
     if (!isPortfolioView || forecastData.length === 0) {
       return new Map();
     }
-    return buildProjectRubros(forecastData, portfolioLineItems);
-  }, [isPortfolioView, forecastData, portfolioLineItems]);
+    return buildProjectRubros(forecastData, portfolioLineItems, taxonomyByRubroId);
+  }, [isPortfolioView, forecastData, portfolioLineItems, taxonomyByRubroId]);
 
   // Build portfolio totals for TODOS mode (charts and rubros table)
   const portfolioTotalsForCharts = useMemo(() => {

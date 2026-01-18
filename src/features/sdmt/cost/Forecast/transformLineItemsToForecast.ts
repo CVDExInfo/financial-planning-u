@@ -25,13 +25,17 @@ export type ForecastRow = ForecastCell & {
  * 
  * @param lineItems - Array of line items from baseline/rubros
  * @param months - Number of months to generate (default 12)
+ * @param projectId - Optional project ID
+ * @param projectName - Optional project name
+ * @param taxonomyByRubroId - Optional taxonomy lookup for descriptions
  * @returns Array of forecast cells (one per line item per active month)
  */
 export function transformLineItemsToForecast(
   lineItems: LineItem[], 
   months = 12,
   projectId?: string,
-  projectName?: string
+  projectName?: string,
+  taxonomyByRubroId?: Record<string, { description?: string; category?: string }>
 ): ForecastRow[] {
   if (!lineItems || lineItems.length === 0) {
     return [];
@@ -54,14 +58,19 @@ export function transformLineItemsToForecast(
     const activeMonths = Math.max(1, Math.min(endMonth, months) - Math.max(startMonth, 1) + 1);
     const monthlyAmount = totalCost / activeMonths;
     
+    // Use taxonomy fallback for description if item.description is missing
+    const taxonomyEntry = taxonomyByRubroId?.[item.id];
+    const description = item.description || taxonomyEntry?.description || item.id;
+    const category = item.category || taxonomyEntry?.category;
+    
     // Create forecast cells for each active month
     for (let month = 1; month <= months; month++) {
       if (month >= startMonth && month <= endMonth) {
         forecastCells.push({
           line_item_id: item.id,
           rubroId: item.id,
-          description: item.description,
-          category: item.category,
+          description,
+          category,
           month,
           planned: monthlyAmount,
           forecast: monthlyAmount,
