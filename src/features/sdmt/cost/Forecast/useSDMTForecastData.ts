@@ -222,6 +222,11 @@ export function useSDMTForecastData({
           while (attempts < maxAttempts) {
             attempts++;
 
+            // Check if request was aborted
+            if (abortCtrlRef.current?.signal.aborted) {
+              return false;
+            }
+
             // Check if already materialized
             if (isMaterialized(baselineResp)) {
               return true;
@@ -229,6 +234,11 @@ export function useSDMTForecastData({
 
             // Wait 5 seconds before next poll
             await new Promise((r) => setTimeout(r, 5000));
+
+            // Check again if request was aborted after waiting
+            if (abortCtrlRef.current?.signal.aborted) {
+              return false;
+            }
 
             // Re-fetch baseline summary
             try {

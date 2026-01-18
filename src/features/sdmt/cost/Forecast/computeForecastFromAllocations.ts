@@ -188,6 +188,51 @@ export function computeForecastFromAllocations(
     }
   });
 
+  // Performance optimization: Pre-index rubros for O(1) lookups instead of O(n) finds
+  const rubrosByNormalizedKey = new Map<string, ExtendedLineItem>();
+  const rubrosByExactId = new Map<string, ExtendedLineItem>();
+  const rubrosBySubstring = new Map<string, ExtendedLineItem[]>();
+  
+  rubros.forEach(r => {
+    const extended = r as ExtendedLineItem;
+    const id = extended.id || extended.line_item_id || extended.rubroId;
+    if (!id) return;
+    
+    // Index by exact normalized key
+    const normalizedKey = normalizeRubroKey(id);
+    if (normalizedKey && !rubrosByNormalizedKey.has(normalizedKey)) {
+      rubrosByNormalizedKey.set(normalizedKey, extended);
+    }
+    
+    // Index by exact ID
+    const exactKey = normalizeId(id);
+    if (exactKey && !rubrosByExactId.has(exactKey)) {
+      rubrosByExactId.set(exactKey, extended);
+    }
+    if (extended.line_item_id) {
+      const lineKey = normalizeId(extended.line_item_id);
+      if (lineKey && !rubrosByExactId.has(lineKey)) {
+        rubrosByExactId.set(lineKey, extended);
+      }
+    }
+    if (extended.rubroId) {
+      const rubroKey = normalizeId(extended.rubroId);
+      if (rubroKey && !rubrosByExactId.has(rubroKey)) {
+        rubrosByExactId.set(rubroKey, extended);
+      }
+    }
+    
+    // Index by substring for fuzzy matching (only for keys >= 3 chars)
+    if (normalizedKey && normalizedKey.length >= 3) {
+      const substringArray = rubrosBySubstring.get(normalizedKey);
+      if (!substringArray) {
+        rubrosBySubstring.set(normalizedKey, [extended]);
+      } else {
+        substringArray.push(extended);
+      }
+    }
+  });
+
   // Create forecast cells from aggregated allocations
   const forecastCells: ForecastRow[] = [];
   
@@ -202,39 +247,34 @@ export function computeForecastFromAllocations(
     const totalAmount = allocList.reduce((sum, a) => sum + a.amount, 0);
     const rubroId = firstAlloc.rubroId || 'UNKNOWN';
     
-    // Try to find matching rubro for metadata using tolerant matching
+    // Try to find matching rubro for metadata using indexed lookups
     const allocKey = normalizeRubroKey(rubroId);
-    let matchingRubro = rubros.find(r => {
-      const extended = r as ExtendedLineItem;
-      const rubroKey = normalizeRubroKey(extended.id || extended.line_item_id || extended.rubroId);
-      // Accept exact match first
-      if (allocKey === rubroKey) return true;
-      // For substring matching, require minimum length of 3 and at least 70% overlap
-      if (allocKey.length >= 3 && rubroKey.length >= 3) {
-        const minLength = Math.min(allocKey.length, rubroKey.length);
-        const maxLength = Math.max(allocKey.length, rubroKey.length);
-        // Only match if one is a significant substring of the other (>= 70% overlap)
-        if ((allocKey.includes(rubroKey) || rubroKey.includes(allocKey)) && minLength / maxLength >= 0.7) {
-          return true;
-        }
-      }
-      return false;
-    });
+    let matchingRubro = rubrosByNormalizedKey.get(allocKey);
     
     if (matchingRubro) {
       exactMatchCount++;
     } else {
-      // Try legacy normalized comparison (case-insensitive, replace spaces/underscores with dash)
-      const nRubroId = normalizeId(rubroId);
-      matchingRubro = rubros.find(r => {
-        const extended = r as ExtendedLineItem;
-        return normalizeId(extended.id) === nRubroId ||
-               normalizeId(extended.line_item_id) === nRubroId ||
-               normalizeId(extended.rubroId) === nRubroId;
-      });
+      // Try substring matching with pre-indexed data
+      if (allocKey.length >= 3) {
+        for (const [key, candidates] of rubrosBySubstring.entries()) {
+          if (key === allocKey) continue; // Already checked exact match
+          const minLength = Math.min(allocKey.length, key.length);
+          const maxLength = Math.max(allocKey.length, key.length);
+          if ((allocKey.includes(key) || key.includes(allocKey)) && minLength / maxLength >= 0.7) {
+            matchingRubro = candidates[0]; // Take first match
+            break;
+          }
+        }
+      }
       
-      if (matchingRubro) {
-        tolerantMatchCount++;
+      if (!matchingRubro) {
+        // Try legacy normalized comparison
+        const nRubroId = normalizeId(rubroId);
+        matchingRubro = rubrosByExactId.get(nRubroId);
+        
+        if (matchingRubro) {
+          tolerantMatchCount++;
+        }
       }
     }
     
