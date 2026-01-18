@@ -43,7 +43,7 @@ describe('Taxonomy Lookup - Cache All Candidates', () => {
 
     // Cache should have entries for ALL normalized candidate keys
     assert.ok(cache.has('mod-sdm'), 'Cache should have rubroId');
-    assert.ok(cache.has('mod-sdm'), 'Cache should have rubro_id (normalized same as rubroId)');
+    // Note: rubro_id 'MOD_SDM' normalizes to same key 'mod-sdm'
     assert.ok(cache.has('service-delivery-manager'), 'Cache should have line_item_id');
     assert.ok(cache.has('sdm-role'), 'Cache should have description');
 
@@ -74,7 +74,7 @@ describe('Taxonomy Lookup - Cache All Candidates', () => {
 
     // Cache should have entries for all candidate keys
     assert.ok(cache.has('mod-lead'), 'Cache should have rubroId');
-    assert.ok(cache.has('mod-lead'), 'Cache should have rubro_id (normalized same)');
+    // Note: rubro_id 'MOD_LEAD' normalizes to same key 'mod-lead'
     assert.ok(cache.has('ingeniero-lider'), 'Cache should have name');
     assert.ok(cache.has('lead-engineer'), 'Cache should have description');
 
@@ -113,7 +113,7 @@ describe('Taxonomy Lookup - Cache All Candidates', () => {
 
     // Cache should have entries for all candidate keys
     assert.ok(cache.has('equipment-serv'), 'Cache should have rubroId');
-    assert.ok(cache.has('equipment-serv'), 'Cache should have rubro_id (normalized same)');
+    // Note: rubro_id 'EQUIPMENT_SERV' normalizes to same key 'equipment-serv'
     assert.ok(cache.has('server-equip'), 'Cache should have description');
 
     // All cached entries should point to the same result

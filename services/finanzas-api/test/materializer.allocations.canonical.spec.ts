@@ -150,7 +150,8 @@ describe("Materializer - Canonical Rubro ID", () => {
       });
 
       // Check MOD-LEAD allocations
-      const modLeadAllocs = allocations.filter((a) => a.rubroId === "MOD-LEAD");
+      // Note: rubroId is set to the canonical ID by the materializer
+      const modLeadAllocs = allocations.filter((a) => a.rubro_id === "MOD-LEAD");
       expect(modLeadAllocs.length).toBe(3);
       modLeadAllocs.forEach((alloc) => {
         expect(alloc.canonical_rubro_id).toBe("MOD-LEAD");
@@ -158,7 +159,7 @@ describe("Materializer - Canonical Rubro ID", () => {
       });
 
       // Check MOD-ING allocations
-      const modIngAllocs = allocations.filter((a) => a.rubroId === "MOD-ING");
+      const modIngAllocs = allocations.filter((a) => a.rubro_id === "MOD-ING");
       expect(modIngAllocs.length).toBe(3);
       modIngAllocs.forEach((alloc) => {
         expect(alloc.canonical_rubro_id).toBe("MOD-ING");
@@ -350,8 +351,9 @@ describe("Materializer - Canonical Rubro ID", () => {
       const alloc = allocations[0];
 
       // Should use canonical token MOD-ING in SK (not MOD-ENGINEER)
+      // Note: materializer sets both rubroId and rubro_id to the canonical ID
       expect(alloc.canonical_rubro_id).toBe("MOD-ING");
-      expect(alloc.rubroId).toBe("MOD-ING");
+      expect(alloc.rubro_id).toBe("MOD-ING");
       expect(alloc.sk).toMatch(/^ALLOCATION#base_sk_test#2025-01#MOD-ING$/);
     });
 
