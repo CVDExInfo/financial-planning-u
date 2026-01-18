@@ -1454,6 +1454,29 @@ export async function getProjectRubros(
   }
 }
 
+/**
+ * Get project rubros with taxonomy fallback
+ * Returns both normalized line items and taxonomy lookup map
+ */
+export async function getProjectRubrosWithTaxonomy(
+  projectId: string,
+): Promise<{ lineItems: LineItem[]; taxonomyByRubroId: Record<string, { description?: string; category?: string }> }> {
+  const lineItems = await getProjectRubros(projectId);
+  
+  // Build taxonomy lookup from the imported taxonomyByRubroId Map
+  const taxonomyLookup: Record<string, { description?: string; category?: string }> = {};
+  
+  // Convert Map to Record for easier consumption
+  taxonomyByRubroId.forEach((taxonomy, rubroId) => {
+    taxonomyLookup[rubroId] = {
+      description: taxonomy.linea_gasto || taxonomy.descripcion,
+      category: taxonomy.categoria,
+    };
+  });
+  
+  return { lineItems, taxonomyByRubroId: taxonomyLookup };
+}
+
 // ---------- Projects ----------
 export {
   normalizeProjectsPayload,

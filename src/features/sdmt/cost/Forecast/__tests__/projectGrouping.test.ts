@@ -262,7 +262,73 @@ describe('Project Grouping Utils', () => {
       assert.strictEqual(proj1Rubros[0].description, 'Cell Description');
     });
 
-    it('should default to "Unknown" description if not found', () => {
+    it('should use taxonomy fallback when line item and cell lack description', () => {
+      const forecastData: ForecastCell[] = [
+        {
+          line_item_id: 'MOD-SDM',
+          month: 1,
+          planned: 1000,
+          forecast: 1100,
+          actual: 900,
+          variance: -200,
+          last_updated: '2024-01-01',
+          updated_by: 'user1',
+          project_id: 'proj1',
+          project_name: 'Project Alpha',
+        } as any,
+      ];
+
+      const taxonomyByRubroId = {
+        'MOD-SDM': {
+          description: 'Service Delivery Manager (SDM)',
+          category: 'Mano de Obra Directa',
+        },
+      };
+
+      const result = buildProjectRubros(forecastData, [], taxonomyByRubroId);
+      
+      const proj1Rubros = result.get('proj1');
+      assert.ok(proj1Rubros);
+      assert.strictEqual(proj1Rubros.length, 1);
+      assert.strictEqual(proj1Rubros[0].description, 'Service Delivery Manager (SDM)');
+      assert.strictEqual(proj1Rubros[0].category, 'Mano de Obra Directa');
+    });
+
+    it('should match line items by id, line_item_id, or rubroId', () => {
+      const forecastData: ForecastCell[] = [
+        {
+          line_item_id: 'rubro-alt-id',
+          month: 1,
+          planned: 1000,
+          forecast: 1100,
+          actual: 900,
+          variance: -200,
+          last_updated: '2024-01-01',
+          updated_by: 'user1',
+          project_id: 'proj1',
+          project_name: 'Project Alpha',
+        } as any,
+      ];
+
+      // Line item has a different id but matches via rubroId field
+      const lineItems: LineItem[] = [
+        {
+          id: 'different-id',
+          rubroId: 'rubro-alt-id',
+          description: 'Matched by rubroId',
+          category: 'Test Category',
+        } as any,
+      ];
+
+      const result = buildProjectRubros(forecastData, lineItems);
+      
+      const proj1Rubros = result.get('proj1');
+      assert.ok(proj1Rubros);
+      assert.strictEqual(proj1Rubros.length, 1);
+      assert.strictEqual(proj1Rubros[0].description, 'Matched by rubroId');
+    });
+
+    it('should default to "Allocation {rubroId}" description if not found anywhere', () => {
       const forecastData: ForecastCell[] = [
         {
           line_item_id: 'unknown-rubro',
@@ -283,7 +349,7 @@ describe('Project Grouping Utils', () => {
       const proj1Rubros = result.get('proj1');
       assert.ok(proj1Rubros);
       assert.strictEqual(proj1Rubros.length, 1);
-      assert.strictEqual(proj1Rubros[0].description, 'Unknown');
+      assert.strictEqual(proj1Rubros[0].description, 'Allocation unknown-rubro');
     });
   });
 });
