@@ -418,8 +418,9 @@ const parseNumberLike = (value: any): number | null => {
     // Remove commas (thousands separators in US format)
     cleaned = cleaned.replace(/,/g, '');
     
-    // Validate format: optional minus, digits, optional period and more digits
-    if (!/^-?\d+\.?\d*$/.test(cleaned)) {
+    // Validate format: optional minus, at least one digit, optional decimal with digits
+    // This rejects trailing decimals (e.g., "123.") and ensures proper format
+    if (!/^-?\d+(\.\d+)?$/.test(cleaned)) {
       return null;
     }
     
@@ -477,10 +478,14 @@ const deriveMonthlyAllocationAmount = (
   if (hourlyRate != null && hourlyRate > 0) {
     const hours = hoursPerMonth ?? DEFAULT_HOURS_PER_MONTH;
     const fteCount = fte ?? DEFAULT_FTE_COUNT;
-    const computed = hourlyRate * hours * fteCount;
+    
+    // Ensure all values are positive before computing
+    if (hours > 0 && fteCount > 0) {
+      const computed = hourlyRate * hours * fteCount;
 
-    if (Number.isFinite(computed) && computed > 0) {
-      return { amount: Math.round(computed) };
+      if (Number.isFinite(computed) && computed > 0) {
+        return { amount: Math.round(computed) };
+      }
     }
   }
 
