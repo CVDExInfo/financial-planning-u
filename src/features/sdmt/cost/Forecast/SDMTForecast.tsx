@@ -3070,7 +3070,6 @@ export function SDMTForecast() {
                         <SelectTrigger
                           id="breakdown-mode-select-new"
                           className="h-8 w-[200px]"
-                          aria-label="Seleccionar vista: Proyectos o Rubros por proyecto"
                         >
                           <SelectValue />
                         </SelectTrigger>
