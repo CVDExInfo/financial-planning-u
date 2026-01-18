@@ -57,10 +57,18 @@ async function ensureHubAccess(event: ApiGwEvent): Promise<void> {
 
 /**
  * Parse scope parameter (ALL or project code)
+ * Sanitize to prevent injection issues
  */
 function parseScope(queryParams: Record<string, string | undefined>): string {
   const scope = queryParams.scope || "ALL";
-  return scope.trim().toUpperCase();
+  const sanitized = scope.trim().toUpperCase();
+  
+  // Validate scope format: either "ALL" or alphanumeric with hyphens/underscores
+  if (sanitized !== "ALL" && !/^[A-Z0-9_-]+$/.test(sanitized)) {
+    throw { statusCode: 400, body: "Invalid scope parameter. Must be 'ALL' or a valid project code." };
+  }
+  
+  return sanitized;
 }
 
 /**
@@ -568,6 +576,12 @@ async function exportHub(event: ApiGwEvent): Promise<APIGatewayProxyResultV2> {
 export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
+  // Defensive check for event structure
+  if (!event || !event.requestContext || !event.requestContext.http) {
+    console.error("[hub] Invalid event structure", { event });
+    return serverError("Invalid event structure");
+  }
+
   if (event.requestContext.http.method === "OPTIONS") {
     return {
       statusCode: 204,
@@ -576,7 +590,7 @@ export const handler = async (
     };
   }
 
-  const path = event.rawPath || event.requestContext.http.path;
+  const path = event.rawPath || event.requestContext.http.path || '';
   const method = event.requestContext.http.method;
   
   console.info("[hub]", { method, path });
