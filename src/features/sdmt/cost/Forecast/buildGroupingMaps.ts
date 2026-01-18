@@ -45,6 +45,7 @@ export interface RubroTaxonomy {
 /**
  * Normalize rubro key for matching
  * Strips hash suffix, lowercases, removes non-alphanumeric chars
+ * Uses the same normalization pattern as computeForecastFromAllocations.ts
  */
 const normalizeRubroKey = (s?: string): string => {
   if (!s) return '';
@@ -52,7 +53,7 @@ const normalizeRubroKey = (s?: string): string => {
     .toString()
     .split('#')[0]
     .toLowerCase()
-    .replace(/\W+/g, '');
+    .replace(/[^a-z0-9]+/g, '');
 };
 
 /**

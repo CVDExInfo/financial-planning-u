@@ -162,10 +162,18 @@ export function computeForecastFromAllocations(
     let matchingRubro = rubros.find(r => {
       const extended = r as ExtendedLineItem;
       const rubroKey = normalizeRubroKey(extended.id || extended.line_item_id || extended.rubroId);
-      // Accept exact match or substring match (one contains the other)
-      return allocKey === rubroKey || 
-             allocKey.includes(rubroKey) || 
-             rubroKey.includes(allocKey);
+      // Accept exact match first
+      if (allocKey === rubroKey) return true;
+      // For substring matching, require minimum length of 3 and at least 50% overlap
+      if (allocKey.length >= 3 && rubroKey.length >= 3) {
+        const minLength = Math.min(allocKey.length, rubroKey.length);
+        const maxLength = Math.max(allocKey.length, rubroKey.length);
+        // Only match if one is a significant substring of the other (>= 70% overlap)
+        if ((allocKey.includes(rubroKey) || rubroKey.includes(allocKey)) && minLength / maxLength >= 0.7) {
+          return true;
+        }
+      }
+      return false;
     });
     
     if (matchingRubro) {
