@@ -1009,7 +1009,7 @@ export const materializeAllocationsForBaseline = async (
   }
 
   // Idempotency: Check for existing allocations
-  let existingKeys = new Set<string>();
+  const existingKeys = new Set<string>();
   const existingItemsMap = new Map<string, Record<string, any>>();
   try {
     const keys = uniqueAllocations.map((allocation) => ({
