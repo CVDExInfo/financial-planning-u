@@ -369,7 +369,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
                                 updateLaborItem(
                                   index,
                                   "hourly_rate",
-                                  parseFloat(e.target.value) || 0
+                                  Math.round(parseFloat(e.target.value) || 0)
                                 )
                               }
                               className="w-20"
