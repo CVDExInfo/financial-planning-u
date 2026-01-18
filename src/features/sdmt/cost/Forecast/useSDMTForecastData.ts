@@ -350,12 +350,13 @@ export function useSDMTForecastData({
             
             // Build taxonomy lookup from rubros for fallback enrichment
             const taxonomyByRubroId: Record<string, { description?: string; category?: string }> = {};
-            rubrosResp?.forEach((rubro: any) => {
-              const id = rubro.id || rubro.line_item_id || rubro.rubroId;
-              if (id && (rubro.description || rubro.category)) {
+            rubrosResp?.forEach((rubro: LineItem) => {
+              const extendedRubro = rubro as LineItem & { line_item_id?: string; rubroId?: string };
+              const id = extendedRubro.id || extendedRubro.line_item_id || extendedRubro.rubroId;
+              if (id && (extendedRubro.description || extendedRubro.category)) {
                 taxonomyByRubroId[id] = {
-                  description: rubro.description,
-                  category: rubro.category,
+                  description: extendedRubro.description,
+                  category: extendedRubro.category,
                 };
               }
             });

@@ -37,8 +37,17 @@ import type { LineItem } from '@/types/domain';
 /**
  * Normalize ID for tolerant matching (case-insensitive, whitespace/underscore normalization)
  */
-function normalizeId(s: any): string {
+function normalizeId(s: string | null | undefined): string {
   return (s || "").toString().trim().toLowerCase().replace(/[_\s]+/g, "-");
+}
+
+/**
+ * Extended LineItem type that may have alternative ID fields
+ */
+interface ExtendedLineItem extends LineItem {
+  line_item_id?: string;
+  rubroId?: string;
+  projectId?: string;
 }
 
 export interface ForecastRow {
@@ -69,8 +78,8 @@ export function computeForecastFromAllocations(
   }
 
   const rubroWithProject = rubros.find(
-    (rubro) => (rubro as { projectId?: string }).projectId
-  ) as { projectId?: string } | undefined;
+    (rubro) => (rubro as ExtendedLineItem).projectId
+  ) as ExtendedLineItem | undefined;
   const resolvedProjectId =
     projectId ||
     allocations.find((alloc) => alloc.projectId)?.projectId ||
@@ -136,22 +145,24 @@ export function computeForecastFromAllocations(
     const rubroId = firstAlloc.rubroId || 'UNKNOWN';
     
     // Try to find matching rubro for metadata using tolerant matching
-    let matchingRubro = rubros.find(r => 
-      r.id === rubroId ||
-      (r as any).line_item_id === rubroId ||
-      (r as any).rubroId === rubroId
-    );
+    let matchingRubro = rubros.find(r => {
+      const extended = r as ExtendedLineItem;
+      return extended.id === rubroId ||
+             extended.line_item_id === rubroId ||
+             extended.rubroId === rubroId;
+    });
     
     if (matchingRubro) {
       exactMatchCount++;
     } else {
       // Try normalized comparison (case-insensitive, replace spaces/underscores with dash)
       const nRubroId = normalizeId(rubroId);
-      matchingRubro = rubros.find(r => 
-        normalizeId((r as any).id) === nRubroId ||
-        normalizeId((r as any).line_item_id) === nRubroId ||
-        normalizeId((r as any).rubroId) === nRubroId
-      );
+      matchingRubro = rubros.find(r => {
+        const extended = r as ExtendedLineItem;
+        return normalizeId(extended.id) === nRubroId ||
+               normalizeId(extended.line_item_id) === nRubroId ||
+               normalizeId(extended.rubroId) === nRubroId;
+      });
       
       if (matchingRubro) {
         tolerantMatchCount++;
