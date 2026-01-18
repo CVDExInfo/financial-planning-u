@@ -60,6 +60,40 @@ function isInvalidCategory(category?: string): boolean {
 }
 
 /**
+ * Check if category already indicates labor
+ * Used to make ensureCategory idempotent
+ */
+function isLaborCategory(category?: string): boolean {
+  if (!category) return false;
+  
+  const normalized = category.trim().toLowerCase();
+  
+  // Explicitly exclude "Non-Labor" category
+  if (normalized === 'non-labor' || normalized.startsWith('non-')) {
+    return false;
+  }
+  
+  // Check for exact match with canonical labor category
+  if (normalized === LABOR_CATEGORY.toLowerCase()) {
+    return true;
+  }
+  
+  // Check for canonical "Labor" category (from API normalization)
+  if (normalized === 'labor') {
+    return true;
+  }
+  
+  // Check for any labor-related keywords in category
+  const laborPatterns = [
+    /\blabor\b/i,
+    /mano\s*de\s*obra/i,
+    /\bmod\b/i,
+  ];
+  
+  return laborPatterns.some(pattern => pattern.test(category));
+}
+
+/**
  * Extract role from line item metadata
  * Looks in common fields where role information might be stored
  * Returns the first field that contains a recognizable labor role pattern
@@ -90,9 +124,12 @@ function extractRole(lineItem: LineItem): string | undefined {
  * Ensure line item has correct category based on its role.
  * 
  * Rules:
- * 1. If category is empty/undefined or equals 'Sin categoría', AND
- * 2. role matches labor patterns (case-insensitive)
+ * 1. If role matches labor patterns (case-insensitive), AND
+ * 2. category is NOT already labor-like
  * 3. THEN set category='Mano de Obra Directa'
+ * 
+ * This fixes the issue where labor roles (PM, SDM, Ingeniero) appear under
+ * non-labor categories like 'Equipos y Tecnología' in the rubros grid.
  * 
  * This function is idempotent - safe to call multiple times.
  * 
@@ -102,15 +139,15 @@ function extractRole(lineItem: LineItem): string | undefined {
 export function ensureCategory(lineItem: LineItem): LineItem {
   const role = extractRole(lineItem);
   
-  // Only fix if category is invalid AND role is labor
-  if (isInvalidCategory(lineItem.category) && isLaborRole(role)) {
+  // Force labor category when role indicates labor and category is not already labor
+  if (isLaborRole(role) && !isLaborCategory(lineItem.category)) {
     return {
       ...lineItem,
       category: LABOR_CATEGORY,
     };
   }
   
-  // Return unchanged if category is valid or role is not labor
+  // Return unchanged if not a labor role or already has labor category
   return lineItem;
 }
 
