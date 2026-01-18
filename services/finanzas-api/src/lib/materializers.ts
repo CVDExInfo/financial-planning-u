@@ -28,6 +28,7 @@ interface BaselineLike {
 
 interface MaterializerOptions {
   dryRun?: boolean;
+  forceRewriteZeros?: boolean;
 }
 
 const MONTH_FORMAT = new Intl.DateTimeFormat("en", {
@@ -39,6 +40,16 @@ const asArray = (value: unknown): any[] => (Array.isArray(value) ? value : []);
 
 const UNMAPPED_RUBRO_ID = "UNMAPPED";
 const TAXONOMY_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_HOURS_PER_MONTH = 160;
+const DEFAULT_FTE_COUNT = 1;
+
+/**
+ * Safely extract the numeric amount from an allocation item.
+ * Tries amount, planned, and forecast fields in order.
+ */
+const getAllocationAmount = (item: Record<string, any>): number => {
+  return Number(item.amount ?? item.planned ?? item.forecast ?? 0);
+};
 
 type RubroTaxonomyEntry = {
   linea_codigo?: string;
@@ -334,11 +345,24 @@ type BaselineLaborEstimate = {
   hours_per_month?: number;
   hoursPerMonth?: number;
   hours?: number;
+  hrs_mes?: number;
+  hrsMes?: number;
   fte_count?: number;
   fteCount?: number;
+  fte?: number;
   hourly_rate?: number;
   hourlyRate?: number;
   rate?: number;
+  tarifa_hora?: number;
+  tarifaHora?: number;
+  total_cost?: number;
+  totalCost?: number;
+  total_cost_raw?: number;
+  monthly_cost?: number;
+  monthlyCost?: number;
+  monthly_rate?: number;
+  monthlyRate?: number;
+  amount?: number;
   on_cost_percentage?: number;
   onCostPercentage?: number;
   start_month?: number;
@@ -347,6 +371,7 @@ type BaselineLaborEstimate = {
   endMonth?: number;
   id?: string;
   line_item_id?: string;
+  [key: string]: any; // Allow additional fields
 };
 
 type BaselineNonLaborEstimate = {
@@ -368,6 +393,112 @@ type BaselineNonLaborEstimate = {
   endMonth?: number;
   id?: string;
   line_item_id?: string;
+};
+
+/**
+ * Parse a value that might be a number, a string representation of a number,
+ * or a currency-formatted string (e.g., "$1,250").
+ * Note: Assumes US/English format (comma as thousands separator, period as decimal).
+ * European formats (e.g., "1.250,00") should be normalized before calling this function.
+ * Returns null if the value cannot be parsed.
+ */
+const parseNumberLike = (value: any): number | null => {
+  if (value == null) return null;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string') {
+    // Remove currency symbols, whitespace, and commas (thousands separators)
+    // Keep digits, one period (decimal), and one leading minus sign
+    let cleaned = value.trim();
+    
+    // Remove currency symbols and whitespace
+    cleaned = cleaned.replace(/[$€£¥\s]/g, '');
+    
+    // Remove commas (thousands separators in US format)
+    cleaned = cleaned.replace(/,/g, '');
+    
+    // Validate format: optional minus, at least one digit, optional decimal with digits
+    // This rejects trailing decimals (e.g., "123.") and ensures proper format
+    if (!/^-?\d+(\.\d+)?$/.test(cleaned)) {
+      return null;
+    }
+    
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+/**
+ * Derive the monthly allocation amount for a labor estimate.
+ * Tries multiple field naming conventions and computation strategies.
+ * Returns the computed amount and optionally a reason if the amount is zero.
+ */
+const deriveMonthlyAllocationAmount = (
+  labor: BaselineLaborEstimate,
+  durationMonths: number
+): { amount: number; reason?: string } => {
+  // Strategy 1: Prefer explicit total_cost divided by duration
+  const totalCost = parseNumberLike(
+    labor.total_cost ?? labor.totalCost ?? labor.total_cost_raw
+  );
+  if (totalCost != null && totalCost > 0 && durationMonths > 0) {
+    return { amount: Math.round(totalCost / durationMonths) };
+  }
+
+  // Strategy 2: Direct monthly cost field
+  const monthlyCost = parseNumberLike(
+    labor.monthly_cost ?? labor.monthlyCost ?? labor.monthly_rate ?? labor.monthlyRate ?? labor.amount
+  );
+  if (monthlyCost != null && monthlyCost > 0) {
+    return { amount: Math.round(monthlyCost) };
+  }
+
+  // Strategy 3: Hourly-based calculation
+  // Try multiple naming conventions for each field
+  const hourlyRate = parseNumberLike(
+    labor.hourly_rate ??
+      labor.hourlyRate ??
+      labor.rate ??
+      labor.tarifa_hora ??
+      labor.tarifaHora
+  );
+  const hoursPerMonth = parseNumberLike(
+    labor.hours_per_month ??
+      labor.hoursPerMonth ??
+      labor.hours ??
+      labor.hrs_mes ??
+      labor.hrsMes
+  );
+  const fte = parseNumberLike(
+    labor.fte_count ?? labor.fteCount ?? labor.fte
+  );
+
+  if (hourlyRate != null && hourlyRate > 0) {
+    const hours = hoursPerMonth ?? DEFAULT_HOURS_PER_MONTH;
+    const fteCount = fte ?? DEFAULT_FTE_COUNT;
+    
+    // Ensure all values are positive before computing
+    if (hours > 0 && fteCount > 0) {
+      const computed = hourlyRate * hours * fteCount;
+
+      if (Number.isFinite(computed) && computed > 0) {
+        return { amount: Math.round(computed) };
+      }
+    }
+  }
+
+  // If all strategies failed, return 0 with a diagnostic reason
+  const missingFields: string[] = [];
+  if (totalCost == null) missingFields.push('total_cost');
+  if (monthlyCost == null) missingFields.push('monthly_cost');
+  if (hourlyRate == null) missingFields.push('hourly_rate');
+  
+  return {
+    amount: 0,
+    reason: `no numeric fields found: checked ${missingFields.join(', ')}`,
+  };
 };
 
 const stableIdFromParts = (
@@ -637,6 +768,49 @@ const resolveTotalCost = (
   item: Record<string, any>,
   monthsCount: number
 ): number => {
+  // Detect if this is a labor estimate by checking for labor-specific fields
+  const isLaborEstimate =
+    item.role != null ||
+    item.hourly_rate != null ||
+    item.hourlyRate != null ||
+    item.tarifa_hora != null ||
+    item.tarifaHora != null ||
+    item.fte_count != null ||
+    item.fteCount != null ||
+    item.fte != null ||
+    item.hours_per_month != null ||
+    item.hoursPerMonth != null ||
+    item.hrs_mes != null ||
+    item.hrsMes != null;
+
+  // For labor estimates, use the specialized derivation logic
+  if (isLaborEstimate) {
+    const result = deriveMonthlyAllocationAmount(
+      item as BaselineLaborEstimate,
+      monthsCount
+    );
+    
+    // Log when we compute a zero amount for debugging
+    if (result.amount === 0 && result.reason) {
+      console.warn('[materializers] labor estimate computed to zero', {
+        role: item.role,
+        id: item.id,
+        reason: result.reason,
+        sampleFields: {
+          total_cost: item.total_cost,
+          hourly_rate: item.hourly_rate,
+          monthly_cost: item.monthly_cost,
+          hoursPerMonth: item.hoursPerMonth ?? item.hours_per_month,
+          fteCount: item.fteCount ?? item.fte_count,
+        },
+      });
+    }
+    
+    // Return total cost (monthly amount * duration)
+    return result.amount * monthsCount;
+  }
+
+  // Original logic for non-labor estimates
   const qty = Number(item.qty ?? item.quantity ?? 1);
   const unitCost = Number(item.unit_cost ?? item.unitCost ?? item.amount ?? 0);
   const explicitTotal = Number(
@@ -835,7 +1009,8 @@ export const materializeAllocationsForBaseline = async (
   }
 
   // Idempotency: Check for existing allocations
-  let existingKeys = new Set<string>();
+  const existingKeys = new Set<string>();
+  const existingItemsMap = new Map<string, Record<string, any>>();
   try {
     const keys = uniqueAllocations.map((allocation) => ({
       pk: allocation.pk,
@@ -850,9 +1025,14 @@ export const materializeAllocationsForBaseline = async (
       tableName("allocations"),
       keys
     );
-    existingKeys = new Set(
-      existingAllocations.map((item) => `${item.pk}#${item.sk}`)
-    );
+    
+    // Build a map of existing items for comparison
+    for (const item of existingAllocations) {
+      const key = `${item.pk}#${item.sk}`;
+      existingKeys.add(key);
+      existingItemsMap.set(key, item);
+    }
+    
     console.info("[materializers] existing allocations found", {
       baselineId,
       projectId,
@@ -867,10 +1047,35 @@ export const materializeAllocationsForBaseline = async (
     });
   }
 
-  // Filter out existing allocations to avoid duplicates
-  const allocationsToWrite = uniqueAllocations.filter(
-    (item) => !existingKeys.has(`${item.pk}#${item.sk}`)
-  );
+  // Filter allocations to write based on idempotency rules:
+  // 1. Write if item doesn't exist
+  // 2. Write if forceRewriteZeros is true AND existing.amount === 0 AND new amount > 0
+  const allocationsToWrite = uniqueAllocations.filter((item) => {
+    const key = `${item.pk}#${item.sk}`;
+    const existing = existingItemsMap.get(key);
+    
+    if (!existing) {
+      return true; // Write if doesn't exist
+    }
+    
+    // If forceRewriteZeros is enabled, check if we should overwrite zero amounts
+    if (options.forceRewriteZeros) {
+      const existingAmount = getAllocationAmount(existing);
+      const newAmount = getAllocationAmount(item);
+      
+      if (existingAmount === 0 && newAmount > 0) {
+        console.info('[materializers] overwriting zero allocation with positive value', {
+          baselineId,
+          sk: item.sk,
+          existingAmount,
+          newAmount,
+        });
+        return true; // Overwrite zero with positive
+      }
+    }
+    
+    return false; // Skip (already exists)
+  });
 
   const allocationsSkipped = allocationsAttempted - allocationsToWrite.length;
   const allocationsWritten = allocationsToWrite.length;
