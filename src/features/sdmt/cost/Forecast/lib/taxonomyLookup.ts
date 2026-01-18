@@ -218,8 +218,10 @@ export function lookupTaxonomy(
       };
       cache.set(primaryKey, syntheticLabor);
       
-      // Debug log (dev only)
-      if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+      // Debug log (dev only) - use globalThis check instead of import.meta
+      if (typeof globalThis !== 'undefined' && 
+          typeof (globalThis as any).__DEV__ !== 'undefined' && 
+          (globalThis as any).__DEV__) {
         console.debug(
           `[lookupTaxonomy] Labor key match: "${candidateKey}" → synthetic MOD taxonomy`
         );
@@ -233,7 +235,9 @@ export function lookupTaxonomy(
   const tolerantMatch = tolerantRubroLookup(rubroRow, taxonomyMap);
   cache.set(primaryKey, tolerantMatch);
   
-  if (tolerantMatch && typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+  if (tolerantMatch && typeof globalThis !== 'undefined' && 
+      typeof (globalThis as any).__DEV__ !== 'undefined' && 
+      (globalThis as any).__DEV__) {
     console.debug(
       `[lookupTaxonomy] Tolerant match: "${primaryKey}" → ${tolerantMatch.rubroId || tolerantMatch.name}`
     );
@@ -298,7 +302,9 @@ export function buildTaxonomyMap(
     map.get('categoria-mod');
   
   if (modCandidate) {
-    for (const laborKey of LABOR_CANONICAL_KEYS) {
+    // Convert Set to Array for iteration to avoid downlevelIteration requirement
+    const laborKeysArray = Array.from(LABOR_CANONICAL_KEYS);
+    for (const laborKey of laborKeysArray) {
       if (!map.has(laborKey)) {
         // Create a variant of the MOD entry with isLabor flag
         map.set(laborKey, {

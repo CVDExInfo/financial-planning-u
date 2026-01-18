@@ -257,9 +257,10 @@ export function computeForecastFromAllocations(
     if (matchingRubro) {
       exactMatchCount++;
     } else {
-      // Try substring matching with pre-indexed data
+      // Try substring matching with pre-indexed data - convert to Array to avoid downlevelIteration
       if (allocKey.length >= 3) {
-        for (const [key, candidates] of rubrosBySubstring.entries()) {
+        const substringEntries = Array.from(rubrosBySubstring.entries());
+        for (const [key, candidates] of substringEntries) {
           if (key === allocKey) continue; // Already checked exact match
           const minLength = Math.min(allocKey.length, key.length);
           const maxLength = Math.max(allocKey.length, key.length);
@@ -327,8 +328,10 @@ export function computeForecastFromAllocations(
     });
   });
   
-  // Debug logging (DEV only)
-  if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+  // Debug logging (DEV only) - use globalThis check instead of import.meta
+  if (typeof globalThis !== 'undefined' && 
+      typeof (globalThis as any).__DEV__ !== 'undefined' && 
+      (globalThis as any).__DEV__) {
     console.info(
       `[computeForecastFromAllocations] Processed ${allocations.length} allocations → ${forecastCells.length} forecast cells`,
       {
