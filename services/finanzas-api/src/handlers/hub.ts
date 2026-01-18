@@ -582,16 +582,16 @@ export const handler = async (
     return serverError("Invalid event structure");
   }
 
-  if (event.requestContext.http.method === "OPTIONS") {
+  const method = event.requestContext.http.method?.toUpperCase() || "GET";
+  const path = event.requestContext.http.path || event.rawPath || '';
+
+  if (method === "OPTIONS") {
     return {
       statusCode: 204,
       headers: defaultCorsHeaders(event),
       body: "",
     };
   }
-
-  const path = event.rawPath || event.requestContext.http.path || '';
-  const method = event.requestContext.http.method;
   
   console.info("[hub]", { method, path });
   
