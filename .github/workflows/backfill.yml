@@ -1,0 +1,98 @@
+name: Backfill Baseline Materialization
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment (staging or production)'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      force_rewrite_zeros:
+        description: 'Enable force rewrite zeros flag (FORCE_REWRITE_ZEROS=yes)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  backfill-dry-run:
+    name: Backfill Allocations (Dry-run)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.15.9
+          run_install: false
+      
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: ./services/finanzas-api
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+      
+      - name: Set environment variables
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            echo "STAGE_NAME=prod" >> $GITHUB_ENV
+            echo "NODE_ENV=production" >> $GITHUB_ENV
+          else
+            echo "STAGE_NAME=staging" >> $GITHUB_ENV
+            echo "NODE_ENV=development" >> $GITHUB_ENV
+          fi
+          
+          if [ "${{ github.event.inputs.force_rewrite_zeros }}" = "true" ]; then
+            echo "FORCE_REWRITE_ZEROS=yes" >> $GITHUB_ENV
+          fi
+      
+      - name: Run backfill dry-run (SAFE - no writes)
+        run: |
+          # ⚠️  WARNING: This workflow runs in DRY-RUN mode only
+          # ⚠️  NO database writes will be performed
+          # ⚠️  To execute writes in production, use CONFIRM_PROD=YES manually (NOT in this workflow)
+          
+          echo "Running backfill materialization in DRY-RUN mode..."
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Force rewrite zeros: ${{ github.event.inputs.force_rewrite_zeros }}"
+          
+          # DRY-RUN ONLY - CONFIRM is NOT set, so no writes will occur
+          ts-node scripts/backfill-baseline-materialization.ts
+        working-directory: ./services/finanzas-api
+        env:
+          # NOTE: CONFIRM is intentionally NOT set here to ensure dry-run only
+          # Production writes should NEVER be done via GitHub Actions
+          # Always run production writes manually with appropriate safeguards
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Backfill Dry-run Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: DRY-RUN (no writes performed)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Force Rewrite Zeros**: ${{ github.event.inputs.force_rewrite_zeros }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️  **IMPORTANT**: This workflow only performs dry-runs." >> $GITHUB_STEP_SUMMARY
+          echo "For production writes, run the script manually with CONFIRM_PROD=YES" >> $GITHUB_STEP_SUMMARY

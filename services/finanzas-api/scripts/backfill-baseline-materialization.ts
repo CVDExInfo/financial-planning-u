@@ -2,11 +2,14 @@
  * Backfill script to materialize allocations and rubros for existing baselines.
  *
  * Usage:
- *   ts-node scripts/backfill-baseline-materialization.ts          # Dry-run only
- *   CONFIRM=yes ts-node scripts/backfill-baseline-materialization.ts
+ *   ts-node scripts/backfill-baseline-materialization.ts                         # Dry-run only
+ *   CONFIRM=yes ts-node scripts/backfill-baseline-materialization.ts             # Execute writes
+ *   FORCE_REWRITE_ZEROS=yes ts-node scripts/backfill-baseline-materialization.ts # Dry-run with force flag
+ *   CONFIRM=yes FORCE_REWRITE_ZEROS=yes ts-node scripts/backfill-baseline-materialization.ts # Execute with force
  *
  * Safety:
  *   - Requires CONFIRM_PROD=YES when NODE_ENV=production or STAGE_NAME=prod.
+ *   - FORCE_REWRITE_ZEROS=yes allows overwriting existing zero-amount allocations with positive values.
  */
 
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
@@ -22,6 +25,7 @@ const isProd =
 
 const confirm = String(process.env.CONFIRM || "").toLowerCase() === "yes";
 const confirmProd = String(process.env.CONFIRM_PROD || "").toLowerCase() === "yes";
+const forceRewriteZeros = String(process.env.FORCE_REWRITE_ZEROS || "").toLowerCase() === "yes";
 
 if (isProd && !confirmProd) {
   console.error("❌ Refusing to run materialization backfill in production without CONFIRM_PROD=YES");
@@ -50,6 +54,11 @@ async function scanBaselines() {
 async function main() {
   console.log("🔁 Baseline materialization backfill (allocations + rubros)");
   console.log(`   Mode: ${confirm ? "EXECUTE" : "DRY-RUN"}`);
+  console.log(`   Force rewrite zeros: ${forceRewriteZeros ? "ENABLED" : "DISABLED"}`);
+  
+  if (forceRewriteZeros) {
+    console.log("   ⚠️  AUDIT: forceRewriteZeros flag is enabled. Zero allocations will be overwritten with positive values.");
+  }
 
   const baselines = await scanBaselines();
   console.log(`   Found ${baselines.length} baselines to evaluate`);
@@ -65,7 +74,7 @@ async function main() {
 
     console.log(`\n→ Baseline ${baselineId} (project ${projectId})`);
 
-    const allocationDryRun = await materializeAllocationsForBaseline(baseline as any, { dryRun: true });
+    const allocationDryRun = await materializeAllocationsForBaseline(baseline as any, { dryRun: true, forceRewriteZeros });
     const rubroDryRun = await materializeRubrosForBaseline(baseline as any, { dryRun: true });
     console.log(`   Planned allocations: ${allocationDryRun.allocationsPlanned}`);
     console.log(`   Planned rubros: ${rubroDryRun.rubrosPlanned}`);
@@ -75,7 +84,7 @@ async function main() {
     }
 
     const [allocationsResult, rubrosResult] = await Promise.all([
-      materializeAllocationsForBaseline(baseline as any, { dryRun: false }),
+      materializeAllocationsForBaseline(baseline as any, { dryRun: false, forceRewriteZeros }),
       materializeRubrosForBaseline(baseline as any, { dryRun: false }),
     ]);
 
