@@ -406,6 +406,78 @@ describe('computeForecastFromAllocations', () => {
       assert.strictEqual(cells[0].month, 12);
     });
 
+    it('should parse month from monthIndex (camelCase)', () => {
+      const allocations: Allocation[] = [
+        {
+          month: 1, // fallback, but monthIndex should take precedence
+          amount: 1000,
+          rubroId: 'TEST-ITEM',
+          projectId: 'proj-123',
+        } as any,
+      ];
+      // Add monthIndex (camelCase) which should be parsed
+      (allocations[0] as any).monthIndex = 6;
+
+      const rubros: LineItem[] = [];
+      const cells = computeForecastFromAllocations(allocations, rubros, 12, 'proj-123');
+
+      assert.strictEqual(cells.length, 1);
+      assert.strictEqual(cells[0].month, 6);
+    });
+
+    it('should parse month from calendar_month field with YYYY-MM format', () => {
+      const allocations: Allocation[] = [
+        {
+          amount: 1000,
+          rubroId: 'TEST-ITEM',
+          projectId: 'proj-123',
+        } as any,
+      ];
+      // Add calendar_month which should be parsed
+      (allocations[0] as any).calendar_month = '2025-06';
+
+      const rubros: LineItem[] = [];
+      const cells = computeForecastFromAllocations(allocations, rubros, 12, 'proj-123');
+
+      assert.strictEqual(cells.length, 1);
+      assert.strictEqual(cells[0].month, 6);
+    });
+
+    it('should parse month from calendarMonthKey field with YYYY-MM format', () => {
+      const allocations: Allocation[] = [
+        {
+          amount: 1000,
+          rubroId: 'TEST-ITEM',
+          projectId: 'proj-123',
+        } as any,
+      ];
+      // Add calendarMonthKey which should be parsed
+      (allocations[0] as any).calendarMonthKey = '2025-09';
+
+      const rubros: LineItem[] = [];
+      const cells = computeForecastFromAllocations(allocations, rubros, 12, 'proj-123');
+
+      assert.strictEqual(cells.length, 1);
+      assert.strictEqual(cells[0].month, 9);
+    });
+
+    it('should parse month from string "6"', () => {
+      const allocations: Allocation[] = [
+        {
+          month: '6',
+          amount: 1000,
+          rubroId: 'TEST-ITEM',
+          projectId: 'proj-123',
+        },
+      ];
+
+      const rubros: LineItem[] = [];
+      const cells = computeForecastFromAllocations(allocations, rubros, 12, 'proj-123');
+
+      assert.strictEqual(cells.length, 1);
+      assert.strictEqual(cells[0].month, 6);
+    });
+
     it('should handle month values up to 60', () => {
       const allocations: Allocation[] = [
         {
