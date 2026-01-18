@@ -3098,7 +3098,7 @@ export function SDMTForecast() {
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0"
-                        aria-label="Expandir/Colapsar monitoreo mensual"
+                        aria-label="Expandir/Colapsar Cuadrícula de Pronóstico"
                       >
                         <ChevronDown className="h-4 w-4" />
                       </Button>
