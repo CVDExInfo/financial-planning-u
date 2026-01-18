@@ -759,13 +759,15 @@ const formatMonth = (date: Date) => {
 /**
  * Normalize a contract month index (1-based) to calendar month key and index.
  * @param contractMonthIndex - 1-based month index (M1 = first month of baseline)
- * @param baselineStartDate - ISO date string of baseline start
+ * @param baselineStartDate - ISO date string of baseline start (e.g., "2025-01-15")
  * @returns Object with calendarMonthKey (YYYY-MM) and monthIndex (1-based)
  */
 const normalizeMonth = (contractMonthIndex: number, baselineStartDate: string) => {
   const start = new Date(baselineStartDate);
   if (isNaN(start.getTime())) {
-    throw new Error(`[materializers] Invalid baselineStartDate: ${baselineStartDate}`);
+    throw new Error(
+      `[materializers] Invalid baselineStartDate: ${baselineStartDate}. Expected ISO 8601 format (e.g., "2025-01-15")`
+    );
   }
   
   // Calculate the actual calendar month by adding (contractMonthIndex - 1) months to start
@@ -1066,7 +1068,18 @@ export const materializeAllocationsForBaseline = async (
           rubro.end_month || rubro.endMonth || durationMonths || 1
         );
         const months = Math.max(endMonth - startMonth + 1, 1);
-        unitCost = totalCost / months;
+        if (totalCost > 0 && months > 0) {
+          unitCost = totalCost / months;
+          if (!Number.isFinite(unitCost)) {
+            console.warn("[materializers] derived unit_cost is not finite", {
+              baselineId,
+              rubroId: rubro.rubroId || rubro.sk,
+              totalCost,
+              months,
+            });
+            unitCost = 0;
+          }
+        }
       }
 
       if (unitCost === 0) {
