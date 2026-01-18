@@ -76,6 +76,7 @@ jobs:
       - name: Prepare inputs (write to GITHUB_ENV)
         run: |
           set -euo pipefail
+
           echo "STAGE_NAME=${{ github.event.inputs.environment }}" >> "$GITHUB_ENV"
           echo "NODE_ENV=development" >> "$GITHUB_ENV"
 
@@ -105,11 +106,8 @@ jobs:
           pnpm -v
 
           echo "Checking ts-node..."
-          pnpm exec ts-node --version >/dev/null 2>&1 || {
-            echo "ERROR: ts-node not available via pnpm exec - ensure 'ts-node' exists in services/finanzas-api package.json devDependencies and pnpm install succeeded"
-            exit 1
-          }
-          echo "ts-node is available."
+          # This will fail the job if ts-node is not available
+          pnpm exec ts-node --version
 
       - name: Run backfill dry-run
         working-directory: ./services/finanzas-api
