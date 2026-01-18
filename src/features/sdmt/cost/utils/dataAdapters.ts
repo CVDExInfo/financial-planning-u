@@ -10,6 +10,73 @@ const toNumber = (value: unknown, fallback = 0): number => {
   return Number.isFinite(num) ? num : fallback;
 };
 
+/**
+ * Labor keyword patterns for category detection (English/Spanish)
+ * Separated into abbreviations and full keywords for better maintainability
+ */
+const LABOR_ABBREVIATION_KEYWORDS = [
+  /\bmod\b/i,  // MOD in category field (all cases), uppercase-only in role/description
+  /\bfte\b/i,  // FTE (Full-time equivalent)
+  /\bsdm\b/i,  // Service Delivery Manager
+  /\bpm\b/i,   // PM in category field (all cases), uppercase-only in role/description
+] as const;
+
+const LABOR_FULL_KEYWORDS = [
+  /\blabor\b/i,
+  /\blabour\b/i,
+  /mano\s*de\s*obra/i,
+  /ingenier[oía]/i,
+  /engineer/i,
+  /\bmanager\b/i,
+  /project\s*manager/i,
+  /service\s*delivery\s*manager/i,
+  /soporte/i,
+  /support/i,
+  /delivery/i,
+  /lead/i,
+  /líder/i,
+] as const;
+
+// Combined list for category field checking (all patterns)
+const ALL_LABOR_KEYWORDS = [...LABOR_ABBREVIATION_KEYWORDS, ...LABOR_FULL_KEYWORDS] as const;
+
+/**
+ * Canonicalize category to ensure labor roles are properly categorized
+ * Returns "Labor" for labor-related items, or the original/fallback category
+ */
+const canonicalizeCategory = (raw: any): string => {
+  // Extract potential category values
+  const rawCategory = (raw?.category || raw?.categoria || raw?.linea_codigo || "").toString().trim();
+  const role = (raw?.role || raw?.rol || "").toString().trim();
+  const description = (raw?.description || raw?.nombre || raw?.descripcion || "").toString().trim();
+  const subtype = (raw?.subtype || raw?.tipo_costo || "").toString().trim();
+  
+  // Check if category already indicates labor (all patterns, case-insensitive)
+  const categoryIsLabor = ALL_LABOR_KEYWORDS.some((rx) => rx.test(rawCategory));
+  if (categoryIsLabor) {
+    return "Labor";
+  }
+  
+  // Combine role, description, and subtype for checking
+  const textFields = [role, description, subtype].join(" ");
+  
+  // For abbreviations (MOD, PM, FTE, SDM), only match if uppercase
+  // to avoid false matches with "model", "equipment", "pm" (time), etc.
+  const uppercaseAbbreviations = /\b(MOD|PM|SDM|FTE)\b/;
+  if (uppercaseAbbreviations.test(textFields)) {
+    return "Labor";
+  }
+  
+  // Check full keywords (case-insensitive, no abbreviations)
+  const hasLaborIndicators = LABOR_FULL_KEYWORDS.some((rx) => rx.test(textFields));
+  if (hasLaborIndicators) {
+    return "Labor";
+  }
+  
+  // Return original category or fallback
+  return rawCategory || "Rubro";
+};
+
 export const normalizeLineItemFromApi = (raw: any, options?: { debugMode?: boolean }): LineItem => {
   const id = normalizeRubroId(
     raw?.id || raw?.rubro_id || raw?.rubroId || raw?.line_item_id || raw?.lineItemId
@@ -24,9 +91,12 @@ export const normalizeLineItemFromApi = (raw: any, options?: { debugMode?: boole
   const recurringFlag = Boolean(raw?.recurring);
   const oneTimeFlag = raw?.one_time !== undefined ? Boolean(raw.one_time) : !recurringFlag;
 
+  // Canonicalize category to properly detect labor items
+  const category = canonicalizeCategory(raw);
+
   return {
     id,
-    category: raw?.category || raw?.categoria || raw?.linea_codigo || "Rubro",
+    category,
     subtype: raw?.subtype || raw?.tipo_costo,
     vendor: raw?.vendor,
     description: raw?.description || raw?.nombre || raw?.descripcion || id || "Rubro",

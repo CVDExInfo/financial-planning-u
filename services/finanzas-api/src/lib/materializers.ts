@@ -1,4 +1,7 @@
-import { BatchWriteCommand, BatchWriteCommandInput } from "@aws-sdk/lib-dynamodb";
+import {
+  BatchWriteCommand,
+  BatchWriteCommandInput,
+} from "@aws-sdk/lib-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { ddb, tableName, GetCommand, ScanCommand } from "./dynamo";
 import { logError } from "../utils/logging";
@@ -25,6 +28,7 @@ interface BaselineLike {
 
 interface MaterializerOptions {
   dryRun?: boolean;
+  forceRewriteZeros?: boolean;
 }
 
 const MONTH_FORMAT = new Intl.DateTimeFormat("en", {
@@ -36,6 +40,16 @@ const asArray = (value: unknown): any[] => (Array.isArray(value) ? value : []);
 
 const UNMAPPED_RUBRO_ID = "UNMAPPED";
 const TAXONOMY_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_HOURS_PER_MONTH = 160;
+const DEFAULT_FTE_COUNT = 1;
+
+/**
+ * Safely extract the numeric amount from an allocation item.
+ * Tries amount, planned, and forecast fields in order.
+ */
+const getAllocationAmount = (item: Record<string, any>): number => {
+  return Number(item.amount ?? item.planned ?? item.forecast ?? 0);
+};
 
 type RubroTaxonomyEntry = {
   linea_codigo?: string;
@@ -56,18 +70,17 @@ type TaxonomyIndex = {
 let taxonomyIndexCache: TaxonomyIndex | null = null;
 
 const normalizeKeyPart = (value?: string | null) =>
-  (value || "")
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
+  (value || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
 
 const taxonomyKey = (category?: string | null, description?: string | null) =>
   `${normalizeKeyPart(category)}|${normalizeKeyPart(description)}`;
 
 const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
   const now = Date.now();
-  if (taxonomyIndexCache && now - taxonomyIndexCache.fetchedAt < TAXONOMY_CACHE_TTL_MS) {
+  if (
+    taxonomyIndexCache &&
+    now - taxonomyIndexCache.fetchedAt < TAXONOMY_CACHE_TTL_MS
+  ) {
     return taxonomyIndexCache;
   }
 
@@ -92,7 +105,10 @@ const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
     const description =
       entry.descripcion || entry.linea_gasto || entry.linea_codigo || "";
     if (entry.categoria || description) {
-      byCategoryDescription.set(taxonomyKey(entry.categoria, description), entry);
+      byCategoryDescription.set(
+        taxonomyKey(entry.categoria, description),
+        entry
+      );
     }
     if (description) {
       byDescription.set(normalizeKeyPart(description), entry);
@@ -116,114 +132,205 @@ const unmarshallIfNeeded = (value: unknown): any => {
   if (!value || typeof value !== "object") {
     return value;
   }
-  
+
   // Handle arrays
   if (Array.isArray(value)) {
     return value.map((item) => unmarshallIfNeeded(item));
   }
-  
+
   // Check if this looks like marshalled DynamoDB data by looking for type descriptors
   const obj = value as Record<string, unknown>;
   const keys = Object.keys(obj);
-  
+
   // DynamoDB type descriptors: S, N, B, SS, NS, BS, M, L, NULL, BOOL
-  const dynamoTypes = ["S", "N", "B", "SS", "NS", "BS", "M", "L", "NULL", "BOOL"];
-  
+  const dynamoTypes = [
+    "S",
+    "N",
+    "B",
+    "SS",
+    "NS",
+    "BS",
+    "M",
+    "L",
+    "NULL",
+    "BOOL",
+  ];
+
   // If the object has exactly one key and it's a DynamoDB type descriptor, unmarshall it
   if (keys.length === 1 && dynamoTypes.includes(keys[0])) {
     try {
       return unmarshall({ temp: value as any }).temp;
     } catch (err) {
-      logError("[materializers] failed to unmarshall DynamoDB data", { value, error: err });
+      logError("[materializers] failed to unmarshall DynamoDB data", {
+        value,
+        error: err,
+      });
       return value;
     }
   }
-  
+
   // If it's an object with multiple fields that might be marshalled, try each field
   const result: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(obj)) {
     result[key] = unmarshallIfNeeded(val);
   }
-  
+
   return result;
+};
+
+const normalizeProjectId = (rawProjectId: string | undefined | null) => {
+  const value = (rawProjectId ?? "").toString().trim();
+  if (!value) {
+    throw new Error(
+      "[materializers] Baseline missing projectId; cannot materialize allocations"
+    );
+  }
+
+  const sanitized = value.startsWith("PROJECT#")
+    ? value.slice("PROJECT#".length)
+    : value;
+
+  if (sanitized.startsWith("BASELINE#")) {
+    console.warn(
+      "[materializers] projectId looks like a baseline pk, stripping prefix",
+      {
+        rawProjectId: value,
+      }
+    );
+    return sanitized.replace(/^BASELINE#+/i, "");
+  }
+
+  if (sanitized !== value) {
+    console.info(
+      "[materializers] normalized projectId by removing PROJECT# prefix",
+      {
+        rawProjectId: value,
+        normalizedProjectId: sanitized,
+      }
+    );
+  }
+
+  return sanitized;
 };
 
 const normalizeBaseline = (baseline: BaselineLike) => {
   // ---------- START PATCH for normalizeBaseline ----------
-  const rawPayloadCandidate = (baseline.payload as Record<string, unknown> | undefined) ?? baseline ?? {};
+  const rawPayloadCandidate =
+    (baseline.payload as Record<string, unknown> | undefined) ?? baseline ?? {};
   // Try to unmarshall the candidate
-  const payloadCandidate = unmarshallIfNeeded(rawPayloadCandidate) as Record<string, unknown>;
+  const payloadCandidate = unmarshallIfNeeded(rawPayloadCandidate) as Record<
+    string,
+    unknown
+  >;
 
   // Helper: try to find estimates within 0..2 extra payload nestings
   const tryUnwrapForEstimates = (p: any): Record<string, unknown> => {
     if (!p || typeof p !== "object") return {};
     // Level 0: direct
-    if (Array.isArray(p.labor_estimates) || Array.isArray(p.non_labor_estimates)) return p;
+    if (
+      Array.isArray(p.labor_estimates) ||
+      Array.isArray(p.non_labor_estimates)
+    )
+      return p;
     // Level 1: p.payload
     if (p.payload) {
       const p1 = unmarshallIfNeeded(p.payload);
-      if (Array.isArray((p1 as any).labor_estimates) || Array.isArray((p1 as any).non_labor_estimates)) return p1 as Record<string, unknown>;
+      if (
+        Array.isArray((p1 as any).labor_estimates) ||
+        Array.isArray((p1 as any).non_labor_estimates)
+      )
+        return p1 as Record<string, unknown>;
       // Level 2: p.payload.payload
       if ((p1 as any).payload) {
         const p2 = unmarshallIfNeeded((p1 as any).payload);
-        if (Array.isArray((p2 as any).labor_estimates) || Array.isArray((p2 as any).non_labor_estimates)) return p2 as Record<string, unknown>;
+        if (
+          Array.isArray((p2 as any).labor_estimates) ||
+          Array.isArray((p2 as any).non_labor_estimates)
+        )
+          return p2 as Record<string, unknown>;
       }
     }
     // Last resort: return the original unmarshalled candidate
     return p;
   };
 
-  const payload = tryUnwrapForEstimates(payloadCandidate) as Record<string, unknown>;
+  const payload = tryUnwrapForEstimates(payloadCandidate) as Record<
+    string,
+    unknown
+  >;
 
   // Diagnostic: helpful preview for CloudWatch (so operators can confirm what materializer received)
   try {
-    const previewLaborCount =
-      Array.isArray((payload as any).labor_estimates)
-        ? (payload as any).labor_estimates.length
-        : 0;
-    const previewNonLaborCount =
-      Array.isArray((payload as any).non_labor_estimates)
-        ? (payload as any).non_labor_estimates.length
-        : 0;
+    const previewLaborCount = Array.isArray((payload as any).labor_estimates)
+      ? (payload as any).labor_estimates.length
+      : 0;
+    const previewNonLaborCount = Array.isArray(
+      (payload as any).non_labor_estimates
+    )
+      ? (payload as any).non_labor_estimates.length
+      : 0;
     console.info("[materializers] normalizeBaseline preview", {
       baselineId: baseline.baseline_id || baseline.baselineId,
-      projectId: baseline.project_id || baseline.projectId || (payload as any).project_id,
+      projectId:
+        baseline.project_id ||
+        baseline.projectId ||
+        (payload as any).project_id,
       startDate: baseline.start_date || (payload as any).start_date || null,
-      durationMonths: baseline.duration_months || baseline.durationMonths || (payload as any).duration_months || (payload as any).durationMonths || 0,
+      durationMonths:
+        baseline.duration_months ||
+        baseline.durationMonths ||
+        (payload as any).duration_months ||
+        (payload as any).durationMonths ||
+        0,
       laborCount: previewLaborCount,
-      nonLaborCount: previewNonLaborCount
+      nonLaborCount: previewNonLaborCount,
     });
   } catch (e) {
     // don't fail normalization on logging issues
-    console.warn("[materializers] normalizeBaseline preview logging failed", String(e));
+    console.warn(
+      "[materializers] normalizeBaseline preview logging failed",
+      String(e)
+    );
   }
   // ---------- END PATCH ----------
-  
-  const payloadLabor = asArray((payload as { labor_estimates?: any[] }).labor_estimates);
-  const payloadNonLabor = asArray((payload as { non_labor_estimates?: any[] }).non_labor_estimates);
+
+  const payloadLabor = asArray(
+    (payload as { labor_estimates?: any[] }).labor_estimates
+  );
+  const payloadNonLabor = asArray(
+    (payload as { non_labor_estimates?: any[] }).non_labor_estimates
+  );
   const labor = asArray(baseline.labor_estimates);
   const nonLabor = asArray(baseline.non_labor_estimates);
 
   return {
-    baselineId: baseline.baseline_id || baseline.baselineId || (payload as { baseline_id?: string; baselineId?: string }).baseline_id ||
+    baselineId:
+      baseline.baseline_id ||
+      baseline.baselineId ||
+      (payload as { baseline_id?: string; baselineId?: string }).baseline_id ||
       (payload as { baseline_id?: string; baselineId?: string }).baselineId ||
       "unknown",
-    projectId: baseline.project_id || baseline.projectId || (payload as { project_id?: string; projectId?: string }).project_id ||
-      (payload as { project_id?: string; projectId?: string }).projectId ||
-      "unknown",
+    projectId: normalizeProjectId(
+      baseline.project_id ||
+        baseline.projectId ||
+        (payload as { project_id?: string; projectId?: string }).project_id ||
+        (payload as { project_id?: string; projectId?: string }).projectId ||
+        ""
+    ),
     durationMonths:
       baseline.duration_months ||
       baseline.durationMonths ||
-      (payload as { duration_months?: number; durationMonths?: number }).duration_months ||
-      (payload as { duration_months?: number; durationMonths?: number }).durationMonths ||
+      (payload as { duration_months?: number; durationMonths?: number })
+        .duration_months ||
+      (payload as { duration_months?: number; durationMonths?: number })
+        .durationMonths ||
       0,
     startDate:
       baseline.start_date ||
       (payload as { start_date?: string }).start_date ||
       new Date().toISOString(),
     currency:
-      baseline.currency || (payload as { currency?: string }).currency ||
-      "USD",
+      baseline.currency || (payload as { currency?: string }).currency || "USD",
     laborEstimates: labor.length > 0 ? labor : payloadLabor,
     nonLaborEstimates: nonLabor.length > 0 ? nonLabor : payloadNonLabor,
   };
@@ -238,11 +345,24 @@ type BaselineLaborEstimate = {
   hours_per_month?: number;
   hoursPerMonth?: number;
   hours?: number;
+  hrs_mes?: number;
+  hrsMes?: number;
   fte_count?: number;
   fteCount?: number;
+  fte?: number;
   hourly_rate?: number;
   hourlyRate?: number;
   rate?: number;
+  tarifa_hora?: number;
+  tarifaHora?: number;
+  total_cost?: number;
+  totalCost?: number;
+  total_cost_raw?: number;
+  monthly_cost?: number;
+  monthlyCost?: number;
+  monthly_rate?: number;
+  monthlyRate?: number;
+  amount?: number;
   on_cost_percentage?: number;
   onCostPercentage?: number;
   start_month?: number;
@@ -251,6 +371,7 @@ type BaselineLaborEstimate = {
   endMonth?: number;
   id?: string;
   line_item_id?: string;
+  [key: string]: any; // Allow additional fields
 };
 
 type BaselineNonLaborEstimate = {
@@ -274,9 +395,119 @@ type BaselineNonLaborEstimate = {
   line_item_id?: string;
 };
 
-const stableIdFromParts = (...parts: Array<string | number | undefined | null>) =>
+/**
+ * Parse a value that might be a number, a string representation of a number,
+ * or a currency-formatted string (e.g., "$1,250").
+ * Note: Assumes US/English format (comma as thousands separator, period as decimal).
+ * European formats (e.g., "1.250,00") should be normalized before calling this function.
+ * Returns null if the value cannot be parsed.
+ */
+const parseNumberLike = (value: any): number | null => {
+  if (value == null) return null;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string') {
+    // Remove currency symbols, whitespace, and commas (thousands separators)
+    // Keep digits, one period (decimal), and one leading minus sign
+    let cleaned = value.trim();
+    
+    // Remove currency symbols and whitespace
+    cleaned = cleaned.replace(/[$€£¥\s]/g, '');
+    
+    // Remove commas (thousands separators in US format)
+    cleaned = cleaned.replace(/,/g, '');
+    
+    // Validate format: optional minus, at least one digit, optional decimal with digits
+    // This rejects trailing decimals (e.g., "123.") and ensures proper format
+    if (!/^-?\d+(\.\d+)?$/.test(cleaned)) {
+      return null;
+    }
+    
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+/**
+ * Derive the monthly allocation amount for a labor estimate.
+ * Tries multiple field naming conventions and computation strategies.
+ * Returns the computed amount and optionally a reason if the amount is zero.
+ */
+const deriveMonthlyAllocationAmount = (
+  labor: BaselineLaborEstimate,
+  durationMonths: number
+): { amount: number; reason?: string } => {
+  // Strategy 1: Prefer explicit total_cost divided by duration
+  const totalCost = parseNumberLike(
+    labor.total_cost ?? labor.totalCost ?? labor.total_cost_raw
+  );
+  if (totalCost != null && totalCost > 0 && durationMonths > 0) {
+    return { amount: Math.round(totalCost / durationMonths) };
+  }
+
+  // Strategy 2: Direct monthly cost field
+  const monthlyCost = parseNumberLike(
+    labor.monthly_cost ?? labor.monthlyCost ?? labor.monthly_rate ?? labor.monthlyRate ?? labor.amount
+  );
+  if (monthlyCost != null && monthlyCost > 0) {
+    return { amount: Math.round(monthlyCost) };
+  }
+
+  // Strategy 3: Hourly-based calculation
+  // Try multiple naming conventions for each field
+  const hourlyRate = parseNumberLike(
+    labor.hourly_rate ??
+      labor.hourlyRate ??
+      labor.rate ??
+      labor.tarifa_hora ??
+      labor.tarifaHora
+  );
+  const hoursPerMonth = parseNumberLike(
+    labor.hours_per_month ??
+      labor.hoursPerMonth ??
+      labor.hours ??
+      labor.hrs_mes ??
+      labor.hrsMes
+  );
+  const fte = parseNumberLike(
+    labor.fte_count ?? labor.fteCount ?? labor.fte
+  );
+
+  if (hourlyRate != null && hourlyRate > 0) {
+    const hours = hoursPerMonth ?? DEFAULT_HOURS_PER_MONTH;
+    const fteCount = fte ?? DEFAULT_FTE_COUNT;
+    
+    // Ensure all values are positive before computing
+    if (hours > 0 && fteCount > 0) {
+      const computed = hourlyRate * hours * fteCount;
+
+      if (Number.isFinite(computed) && computed > 0) {
+        return { amount: Math.round(computed) };
+      }
+    }
+  }
+
+  // If all strategies failed, return 0 with a diagnostic reason
+  const missingFields: string[] = [];
+  if (totalCost == null) missingFields.push('total_cost');
+  if (monthlyCost == null) missingFields.push('monthly_cost');
+  if (hourlyRate == null) missingFields.push('hourly_rate');
+  
+  return {
+    amount: 0,
+    reason: `no numeric fields found: checked ${missingFields.join(', ')}`,
+  };
+};
+
+const stableIdFromParts = (
+  ...parts: Array<string | number | undefined | null>
+) =>
   parts
-    .filter((part) => part !== undefined && part !== null && `${part}`.length > 0)
+    .filter(
+      (part) => part !== undefined && part !== null && `${part}`.length > 0
+    )
     .map((part) =>
       `${part}`
         .trim()
@@ -314,10 +545,12 @@ export const buildRubrosFromBaselinePayload = async (
   baselineId: string
 ): Promise<BaselineRubrosBuildResult> => {
   const laborEstimates = asArray(
-    (baselinePayload as { labor_estimates?: BaselineLaborEstimate[] }).labor_estimates
+    (baselinePayload as { labor_estimates?: BaselineLaborEstimate[] })
+      .labor_estimates
   ) as BaselineLaborEstimate[];
   const nonLaborEstimates = asArray(
-    (baselinePayload as { non_labor_estimates?: BaselineNonLaborEstimate[] }).non_labor_estimates
+    (baselinePayload as { non_labor_estimates?: BaselineNonLaborEstimate[] })
+      .non_labor_estimates
   ) as BaselineNonLaborEstimate[];
   const currency = (baselinePayload as { currency?: string }).currency || "USD";
 
@@ -336,7 +569,9 @@ export const buildRubrosFromBaselinePayload = async (
     const resolvedLineaCodigo = canonicalRubroId || UNMAPPED_RUBRO_ID;
     if (!canonicalRubroId) {
       warnings.push(
-        `Labor estimate missing taxonomy mapping for role "${estimate.role ?? "unknown"}". Using ${UNMAPPED_RUBRO_ID}.`
+        `Labor estimate missing taxonomy mapping for role "${
+          estimate.role ?? "unknown"
+        }". Using ${UNMAPPED_RUBRO_ID}.`
       );
     }
 
@@ -419,11 +654,15 @@ export const buildRubrosFromBaselinePayload = async (
     if (!resolvedLineaCodigo) {
       resolvedLineaCodigo = UNMAPPED_RUBRO_ID;
       warnings.push(
-        `Non-labor estimate missing taxonomy mapping for "${category ?? ""} ${description ?? ""}". Using ${UNMAPPED_RUBRO_ID}.`
+        `Non-labor estimate missing taxonomy mapping for "${category ?? ""} ${
+          description ?? ""
+        }". Using ${UNMAPPED_RUBRO_ID}.`
       );
     }
 
-    const amount = Number(estimate.amount ?? estimate.cost ?? estimate.total ?? 0);
+    const amount = Number(
+      estimate.amount ?? estimate.cost ?? estimate.total ?? 0
+    );
     const recurring = !(estimate.one_time ?? estimate.oneTime ?? false);
     const startMonth = Math.max(
       Number(estimate.start_month ?? estimate.startMonth ?? 1),
@@ -492,12 +731,14 @@ const monthSequence = (startDate: string, durationMonths: number): string[] => {
   // Contract month alignment: M1 = baseline start_date month
   let start: Date;
   let startDateWasFallback = false;
-  
+
   if (startDate) {
     start = new Date(startDate);
     // Validate the date
     if (isNaN(start.getTime())) {
-      console.error("[materializers] Invalid start_date, using current month", { startDate });
+      console.error("[materializers] Invalid start_date, using current month", {
+        startDate,
+      });
       start = new Date();
       startDateWasFallback = true;
     }
@@ -506,14 +747,14 @@ const monthSequence = (startDate: string, durationMonths: number): string[] => {
     start = new Date();
     startDateWasFallback = true;
   }
-  
+
   if (startDateWasFallback) {
     console.warn("[materializers] Contract month alignment may be incorrect", {
       startDateWasFallback: true,
       fallbackMonth: formatMonth(start),
     });
   }
-  
+
   const months: string[] = [];
   for (let i = 0; i < durationMonths; i += 1) {
     const next = new Date(start);
@@ -523,10 +764,58 @@ const monthSequence = (startDate: string, durationMonths: number): string[] => {
   return months;
 };
 
-const resolveTotalCost = (item: Record<string, any>, monthsCount: number): number => {
+const resolveTotalCost = (
+  item: Record<string, any>,
+  monthsCount: number
+): number => {
+  // Detect if this is a labor estimate by checking for labor-specific fields
+  const isLaborEstimate =
+    item.role != null ||
+    item.hourly_rate != null ||
+    item.hourlyRate != null ||
+    item.tarifa_hora != null ||
+    item.tarifaHora != null ||
+    item.fte_count != null ||
+    item.fteCount != null ||
+    item.fte != null ||
+    item.hours_per_month != null ||
+    item.hoursPerMonth != null ||
+    item.hrs_mes != null ||
+    item.hrsMes != null;
+
+  // For labor estimates, use the specialized derivation logic
+  if (isLaborEstimate) {
+    const result = deriveMonthlyAllocationAmount(
+      item as BaselineLaborEstimate,
+      monthsCount
+    );
+    
+    // Log when we compute a zero amount for debugging
+    if (result.amount === 0 && result.reason) {
+      console.warn('[materializers] labor estimate computed to zero', {
+        role: item.role,
+        id: item.id,
+        reason: result.reason,
+        sampleFields: {
+          total_cost: item.total_cost,
+          hourly_rate: item.hourly_rate,
+          monthly_cost: item.monthly_cost,
+          hoursPerMonth: item.hoursPerMonth ?? item.hours_per_month,
+          fteCount: item.fteCount ?? item.fte_count,
+        },
+      });
+    }
+    
+    // Return total cost (monthly amount * duration)
+    return result.amount * monthsCount;
+  }
+
+  // Original logic for non-labor estimates
   const qty = Number(item.qty ?? item.quantity ?? 1);
   const unitCost = Number(item.unit_cost ?? item.unitCost ?? item.amount ?? 0);
-  const explicitTotal = Number(item.total_cost ?? item.totalCost ?? item.total_amount ?? 0);
+  const explicitTotal = Number(
+    item.total_cost ?? item.totalCost ?? item.total_amount ?? 0
+  );
   if (!Number.isNaN(explicitTotal) && explicitTotal > 0) return explicitTotal;
   const recurring = item.periodic === "recurring" || item.recurring === true;
   if (!Number.isNaN(unitCost) && unitCost > 0) {
@@ -557,13 +846,17 @@ const resolveMonthlyAmounts = (
     return months.map((month, idx) => {
       const key = month as keyof typeof explicit;
       const fallback = idx + 1;
-      return Number((explicit as Record<string, any>)[key] ?? (explicit as Record<string, any>)[fallback] ?? 0);
+      return Number(
+        (explicit as Record<string, any>)[key] ??
+          (explicit as Record<string, any>)[fallback] ??
+          0
+      );
     });
   }
 
   const recurring = item.periodic === "recurring" || item.recurring === true;
   const monthlyValue = totalCost / months.length;
-  return months.map(() => Number.isFinite(monthlyValue) ? monthlyValue : 0);
+  return months.map(() => (Number.isFinite(monthlyValue) ? monthlyValue : 0));
 };
 
 const dedupeByKey = <T>(items: T[], keyFn: (item: T) => string): T[] => {
@@ -593,7 +886,7 @@ const batchWriteAll = async (table: string, items: Record<string, any>[]) => {
     let pending: BatchWriteCommandInput | undefined = batch;
     let retryCount = 0;
     const maxRetries = 3;
-    
+
     while (pending && retryCount < maxRetries) {
       try {
         const response = await ddb.send(new BatchWriteCommand(pending));
@@ -603,7 +896,9 @@ const batchWriteAll = async (table: string, items: Record<string, any>[]) => {
           retryCount++;
           // Exponential backoff for retries
           if (retryCount < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)));
+            await new Promise((resolve) =>
+              setTimeout(resolve, 100 * Math.pow(2, retryCount))
+            );
           }
         } else {
           pending = undefined;
@@ -614,10 +909,12 @@ const batchWriteAll = async (table: string, items: Record<string, any>[]) => {
           throw error;
         }
         // Exponential backoff for errors
-        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)));
+        await new Promise((resolve) =>
+          setTimeout(resolve, 100 * Math.pow(2, retryCount))
+        );
       }
     }
-    
+
     if (pending && retryCount >= maxRetries) {
       throw new Error(`Failed to write batch after ${maxRetries} retries`);
     }
@@ -628,8 +925,15 @@ export const materializeAllocationsForBaseline = async (
   baseline: BaselineLike,
   options: MaterializerOptions = { dryRun: true }
 ) => {
-  const { baselineId, projectId, durationMonths, startDate, currency, laborEstimates, nonLaborEstimates } =
-    normalizeBaseline(baseline);
+  const {
+    baselineId,
+    projectId,
+    durationMonths,
+    startDate,
+    currency,
+    laborEstimates,
+    nonLaborEstimates,
+  } = normalizeBaseline(baseline);
 
   console.info("[materializers] materializeAllocationsForBaseline start", {
     projectId,
@@ -645,20 +949,33 @@ export const materializeAllocationsForBaseline = async (
   const now = new Date().toISOString();
 
   const allocations = lineItems.flatMap((item) => {
-    const rubroStableId = item.rubroId || item.rubro_id || item.linea_codigo || item.id || "unknown";
-    const lineItemId = item.id || item.line_item_id || stableIdFromParts(rubroStableId, item.role, item.category);
+    const rubroStableId =
+      item.rubroId ||
+      item.rubro_id ||
+      item.linea_codigo ||
+      item.id ||
+      "unknown";
+    const lineItemId =
+      item.id ||
+      item.line_item_id ||
+      stableIdFromParts(rubroStableId, item.role, item.category);
     const totalCost = resolveTotalCost(item, months.length);
     const monthly = resolveMonthlyAmounts(item, months, totalCost);
 
     return months.map((month, idx) => {
       const amount = Number(monthly[idx] ?? 0);
-      const sk = `ALLOCATION#${baselineId}#${rubroStableId}#${month}`;
+      // SK format MUST match allocations handler: ALLOCATION#{baselineId}#{month}#{rubroId}
+      // This ensures idempotent writes and allows GET /allocations to find materialized data
+      const sk = `ALLOCATION#${baselineId}#${month}#${rubroStableId}`;
       return {
         pk: `PROJECT#${projectId}`,
         sk,
+        project_id: projectId,
         projectId,
+        baseline_id: baselineId,
         baselineId,
         rubro_id: rubroStableId,
+        calendar_month: month,
         month,
         month_index: idx + 1,
         // P/F/A model: Planned (P) = monthly amount from baseline (immutable)
@@ -668,31 +985,54 @@ export const materializeAllocationsForBaseline = async (
         forecast: amount,
         actual: 0,
         amount, // Keep for backward compatibility
+        allocation_type: "planned",
         source: "baseline_materializer",
         line_item_id: lineItemId,
         createdAt: now,
+        updatedAt: now,
       };
     });
   });
 
-  const uniqueAllocations = dedupeByKey(allocations, (item) => `${item.pk}#${item.sk}`);
+  const uniqueAllocations = dedupeByKey(
+    allocations,
+    (item) => `${item.pk}#${item.sk}`
+  );
   const allocationsAttempted = uniqueAllocations.length;
 
   if (options.dryRun) {
-    return { allocationsAttempted, allocationsPlanned: uniqueAllocations.length, months: months.length };
+    return {
+      allocationsAttempted,
+      allocationsPlanned: uniqueAllocations.length,
+      months: months.length,
+    };
   }
 
   // Idempotency: Check for existing allocations
-  let existingKeys = new Set<string>();
+  const existingKeys = new Set<string>();
+  const existingItemsMap = new Map<string, Record<string, any>>();
   try {
-    const keys = uniqueAllocations.map((allocation) => ({ pk: allocation.pk, sk: allocation.sk }));
+    const keys = uniqueAllocations.map((allocation) => ({
+      pk: allocation.pk,
+      sk: allocation.sk,
+    }));
     console.info("[materializers] checking existing allocations", {
       baselineId,
       projectId,
-      sampleSKsToCheck: keys.slice(0, 3).map(k => k.sk),
+      sampleSKsToCheck: keys.slice(0, 3).map((k) => k.sk),
     });
-    const existingAllocations = await batchGetExistingItems(tableName("allocations"), keys);
-    existingKeys = new Set(existingAllocations.map((item) => `${item.pk}#${item.sk}`));
+    const existingAllocations = await batchGetExistingItems(
+      tableName("allocations"),
+      keys
+    );
+    
+    // Build a map of existing items for comparison
+    for (const item of existingAllocations) {
+      const key = `${item.pk}#${item.sk}`;
+      existingKeys.add(key);
+      existingItemsMap.set(key, item);
+    }
+    
     console.info("[materializers] existing allocations found", {
       baselineId,
       projectId,
@@ -707,10 +1047,35 @@ export const materializeAllocationsForBaseline = async (
     });
   }
 
-  // Filter out existing allocations to avoid duplicates
-  const allocationsToWrite = uniqueAllocations.filter(
-    (item) => !existingKeys.has(`${item.pk}#${item.sk}`)
-  );
+  // Filter allocations to write based on idempotency rules:
+  // 1. Write if item doesn't exist
+  // 2. Write if forceRewriteZeros is true AND existing.amount === 0 AND new amount > 0
+  const allocationsToWrite = uniqueAllocations.filter((item) => {
+    const key = `${item.pk}#${item.sk}`;
+    const existing = existingItemsMap.get(key);
+    
+    if (!existing) {
+      return true; // Write if doesn't exist
+    }
+    
+    // If forceRewriteZeros is enabled, check if we should overwrite zero amounts
+    if (options.forceRewriteZeros) {
+      const existingAmount = getAllocationAmount(existing);
+      const newAmount = getAllocationAmount(item);
+      
+      if (existingAmount === 0 && newAmount > 0) {
+        console.info('[materializers] overwriting zero allocation with positive value', {
+          baselineId,
+          sk: item.sk,
+          existingAmount,
+          newAmount,
+        });
+        return true; // Overwrite zero with positive
+      }
+    }
+    
+    return false; // Skip (already exists)
+  });
 
   const allocationsSkipped = allocationsAttempted - allocationsToWrite.length;
   const allocationsWritten = allocationsToWrite.length;
@@ -727,22 +1092,32 @@ export const materializeAllocationsForBaseline = async (
       allocationsWritten,
       allocationsSkipped,
       months: months.length,
-      monthRange: months.length > 0 ? `${months[0]} to ${months[months.length - 1]}` : 'none',
+      monthRange:
+        months.length > 0
+          ? `${months[0]} to ${months[months.length - 1]}`
+          : "none",
     });
 
     // WARN if we attempted to create allocations but wrote 0 (all skipped)
     if (allocationsAttempted > 0 && allocationsWritten === 0) {
-      console.warn("[materializers] All allocations were skipped (idempotent)", {
-        baselineId,
-        projectId,
-        allocationsAttempted,
-        note: "This is normal if allocations were already materialized",
-      });
+      console.warn(
+        "[materializers] All allocations were skipped (idempotent)",
+        {
+          baselineId,
+          projectId,
+          allocationsAttempted,
+          note: "This is normal if allocations were already materialized",
+        }
+      );
     }
 
     return { allocationsAttempted, allocationsWritten, allocationsSkipped };
   } catch (error) {
-    logError("[materializers] failed to write allocations", { baselineId, projectId, error });
+    logError("[materializers] failed to write allocations", {
+      baselineId,
+      projectId,
+      error,
+    });
     throw error;
   }
 };
@@ -779,8 +1154,13 @@ export const materializeRubrosForBaseline = async (
   let existingKeys = new Set<string>();
   try {
     const keys = uniqueRubros.map((rubro) => ({ pk: rubro.pk, sk: rubro.sk }));
-    const existingRubros = await batchGetExistingItems(tableName("rubros"), keys);
-    existingKeys = new Set(existingRubros.map((item) => `${item.pk}#${item.sk}`));
+    const existingRubros = await batchGetExistingItems(
+      tableName("rubros"),
+      keys
+    );
+    existingKeys = new Set(
+      existingRubros.map((item) => `${item.pk}#${item.sk}`)
+    );
   } catch (error) {
     logError("[materializers] failed to batch check existing rubros", {
       baselineId,
@@ -812,7 +1192,11 @@ export const materializeRubrosForBaseline = async (
       warnings,
     };
   } catch (error) {
-    logError("[materializers] failed to write rubros", { baselineId, projectId, error });
+    logError("[materializers] failed to write rubros", {
+      baselineId,
+      projectId,
+      error,
+    });
     throw error;
   }
 };
@@ -839,7 +1223,9 @@ export const materializeRubrosFromBaseline = async ({
   );
 
   if (!result.Item) {
-    const error = new Error(`Baseline ${baselineId} not found in prefacturas store.`);
+    const error = new Error(
+      `Baseline ${baselineId} not found in prefacturas store.`
+    );
     (error as { statusCode?: number }).statusCode = 404;
     throw error;
   }

@@ -1,6 +1,6 @@
 # Finanzas SD API Map
 
-Generated from API `m3g6am67aj` (stage `dev`) on 2025-11-19 15:46 UTC.
+Generated from API `pyorjw6lbe` (stage `dev`) on 2025-11-19 15:46 UTC.
 
 | Method | Path | Lambda (integration) | Security |
 | --- | --- | --- | --- |

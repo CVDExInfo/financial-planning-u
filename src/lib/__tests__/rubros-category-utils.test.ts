@@ -84,7 +84,20 @@ describe("ensureCategory", () => {
     assert.equal(result, lineItem); // Should return same object if unchanged
   });
 
-  it("does not change category for labor role if already has valid category", () => {
+  it("FORCES labor category when role indicates labor even with existing non-labor category", () => {
+    // Case A from problem statement: Project Manager with non-labor category
+    const lineItem = createLineItem({
+      category: "Equipos y Tecnología",
+      description: "Project Manager",
+    });
+
+    const result = ensureCategory(lineItem);
+
+    // Should override non-labor category with labor category
+    assert.equal(result.category, "Mano de Obra Directa");
+  });
+
+  it("preserves labor category when role indicates labor and category is already labor-like", () => {
     const lineItem = createLineItem({
       category: "Mano de Obra Indirecta",
       description: "Ingeniero Junior",
@@ -92,12 +105,26 @@ describe("ensureCategory", () => {
 
     const result = ensureCategory(lineItem);
 
-    // Preserves the existing category even though it's a labor role
+    // Preserves the existing labor-like category (idempotent)
     assert.equal(result.category, "Mano de Obra Indirecta");
     assert.equal(result, lineItem); // Should return same object if unchanged
   });
 
+  it("preserves labor category 'Labor' when role indicates labor", () => {
+    const lineItem = createLineItem({
+      category: "Labor",
+      description: "Service Delivery Manager",
+    });
+
+    const result = ensureCategory(lineItem);
+
+    // Should not change already correct labor category
+    assert.equal(result.category, "Labor");
+    assert.equal(result, lineItem); // Should return same object if unchanged
+  });
+
   it("does not set category for non-labor role with empty category", () => {
+    // Case B from problem statement: non-labor role remains unchanged
     const lineItem = createLineItem({
       category: "",
       description: "Software License",
@@ -106,6 +133,19 @@ describe("ensureCategory", () => {
     const result = ensureCategory(lineItem);
 
     assert.equal(result.category, "");
+    assert.equal(result, lineItem); // Should return same object if unchanged
+  });
+
+  it("preserves non-labor category for non-labor items", () => {
+    const lineItem = createLineItem({
+      category: "Equipos y Tecnología",
+      description: "Server Infrastructure",
+    });
+
+    const result = ensureCategory(lineItem);
+
+    // Should preserve non-labor category for non-labor items
+    assert.equal(result.category, "Equipos y Tecnología");
     assert.equal(result, lineItem); // Should return same object if unchanged
   });
 
@@ -151,6 +191,61 @@ describe("ensureCategory", () => {
 
     assert.equal(result.category, "Mano de Obra Directa");
   });
+
+  it("FORCES labor category for 'Ingeniero Soporte N1' even with wrong category", () => {
+    const lineItem = createLineItem({
+      category: "Equipos y Tecnología",
+      description: "Ingeniero Soporte N1",
+    });
+
+    const result = ensureCategory(lineItem);
+
+    assert.equal(result.category, "Mano de Obra Directa");
+  });
+
+  it("FORCES labor category for 'Ingeniero Soporte N2' even with wrong category", () => {
+    const lineItem = createLineItem({
+      category: "Gastos Generales",
+      description: "Ingeniero Soporte N2",
+    });
+
+    const result = ensureCategory(lineItem);
+
+    assert.equal(result.category, "Mano de Obra Directa");
+  });
+
+  it("FORCES labor category for 'Ingeniero Soporte N3' even with wrong category", () => {
+    const lineItem = createLineItem({
+      category: "Servicios Profesionales",
+      description: "Ingeniero Soporte N3",
+    });
+
+    const result = ensureCategory(lineItem);
+
+    assert.equal(result.category, "Mano de Obra Directa");
+  });
+
+  it("FORCES labor category for 'SDM' abbreviation even with wrong category", () => {
+    const lineItem = createLineItem({
+      category: "Equipos y Tecnología",
+      description: "SDM - Juan Pérez",
+    });
+
+    const result = ensureCategory(lineItem);
+
+    assert.equal(result.category, "Mano de Obra Directa");
+  });
+
+  it("FORCES labor category for 'PM' abbreviation even with wrong category", () => {
+    const lineItem = createLineItem({
+      category: "Non-Labor",
+      description: "PM - María García",
+    });
+
+    const result = ensureCategory(lineItem);
+
+    assert.equal(result.category, "Mano de Obra Directa");
+  });
 });
 
 describe("isLabor", () => {
@@ -165,6 +260,18 @@ describe("isLabor", () => {
 
   it("returns true for category match with extra whitespace", () => {
     assert.equal(isLabor("  Mano de Obra Directa  ", undefined), true);
+  });
+
+  it("returns true for canonical 'Labor' category", () => {
+    assert.equal(isLabor("Labor", undefined), true);
+    assert.equal(isLabor("labor", undefined), true);
+    assert.equal(isLabor("LABOR", undefined), true);
+  });
+
+  it("returns true for 'Labor Cost' and similar labor categories", () => {
+    assert.equal(isLabor("Labor Cost", undefined), true);
+    assert.equal(isLabor("MOD", undefined), true);
+    assert.equal(isLabor("Mano de Obra", undefined), true);
   });
 
   it("returns true for labor role when category is missing", () => {

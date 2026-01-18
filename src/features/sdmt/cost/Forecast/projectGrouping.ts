@@ -110,7 +110,8 @@ export function buildProjectTotals(
  */
 export function buildProjectRubros(
   forecastData: ForecastCell[],
-  lineItems: LineItem[]
+  lineItems: LineItem[],
+  taxonomyByRubroId?: Record<string, { description?: string; category?: string }>
 ): Map<string, ProjectRubro[]> {
   const projectRubrosMap = new Map<string, Map<string, ProjectRubro>>();
 
@@ -128,10 +129,26 @@ export function buildProjectRubros(
     const projectRubros = projectRubrosMap.get(projectId)!;
 
     if (!projectRubros.has(rubroId)) {
-      // Find line item for description
-      const lineItem = lineItems.find(item => item.id === rubroId);
-      const description = lineItem?.description || (cell as any).description || 'Unknown';
-      const category = lineItem?.category || (cell as any).category;
+      // Tolerant lookup: try id, line_item_id, and rubroId fields
+      const lineItem = lineItems.find(item => 
+        item.id === rubroId || 
+        (item as any).line_item_id === rubroId || 
+        (item as any).rubroId === rubroId
+      );
+      
+      // Resolve description with fallback chain: lineItem -> cell -> taxonomy -> default
+      const taxonomyEntry = taxonomyByRubroId?.[rubroId];
+      const description = lineItem?.description || 
+                         (cell as any).description || 
+                         taxonomyEntry?.description || 
+                         `Allocation ${rubroId}` || 
+                         'Unknown';
+      
+      // Resolve category with fallback chain: lineItem -> taxonomy -> cell -> default
+      const category = lineItem?.category || 
+                      taxonomyEntry?.category || 
+                      (cell as any).category || 
+                      'Unknown';
 
       projectRubros.set(rubroId, {
         rubroId,

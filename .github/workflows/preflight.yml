@@ -34,6 +34,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install finanzas-api deps
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Installing services/finanzas-api dependencies..."
+          cd services/finanzas-api
+          pnpm install --frozen-lockfile
+          echo "✅ services/finanzas-api deps installed"
+          cd -
+
       - name: TypeScript type check
         run: pnpm typecheck || echo "⚠️ TypeScript errors found (non-blocking)"
 

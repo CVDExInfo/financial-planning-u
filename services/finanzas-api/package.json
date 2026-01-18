@@ -14,7 +14,9 @@
     "verify:allocations": "ts-node scripts/verify-allocations-vs-projects.ts",
     "verify:payroll": "ts-node scripts/verify-payroll-vs-projects.ts",
     "verify:forecast-pipeline": "ts-node scripts/verify-forecast-pipeline.ts",
-    "cleanup:canonical-seed": "ts-node scripts/cleanup-canonical-seed-data.ts"
+    "cleanup:canonical-seed": "ts-node scripts/cleanup-canonical-seed-data.ts",
+    "diagnose:allocations-pk": "ts-node scripts/migrate-allocations-project-pk.ts",
+    "migrate:allocations-pk": "ts-node scripts/migrate-allocations-project-pk.ts --apply"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.931.0",

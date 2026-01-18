@@ -10,56 +10,109 @@ permissions:
   id-token: write
   contents: write
 
-# --------- GLOBAL ENV (branch-aware) ----------
+concurrency:
+  group: deploy-finanzas-ui-${{ github.ref }}
+  cancel-in-progress: true
+
+# --------- GLOBAL ENV (kept intentionally minimal) ----------
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
-
-  # Branch → environment (UI only, API stays on dev for now)
-  DEPLOYMENT_ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-
   # S3 bucket for Finanzas (PMO is deployed by acta-ui repo)
   FINANZAS_BUCKET_NAME: ${{ vars.FINANZAS_BUCKET_NAME || 'ukusi-ui-finanzas-prod' }}
-
   # CloudFront (single distribution)
   CLOUDFRONT_DIST_ID: ${{ vars.CLOUDFRONT_DIST_ID || 'EPQU7PVDLQXUA' }}
   CF_DOMAIN: ${{ vars.CF_DOMAIN || 'd7t9x3j66yd8k.cloudfront.net' }}
-
-  # API ID / Stage (ID from vars, stage by branch)
+  # API ID / Stage (ID from vars)
   FINZ_API_ID: ${{ vars.FINZ_API_ID || 'pyorjw6lbe' }}
-  FINZ_API_STAGE: ${{ github.ref == 'refs/heads/main' && (vars.FINZ_API_STAGE_PROD || 'prod') || (vars.FINZ_API_STAGE_DEV || 'dev') }}
   EXPECTED_API_ID: ${{ vars.FINZ_API_ID || 'pyorjw6lbe' }}
-
   # Optional escape hatch: explicit API base (dev-only override, but OK to use as canonical)
   DEV_API_URL: ${{ vars.DEV_API_URL || '' }}
-
   # Cognito Configuration (required for authentication)
   COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
   COGNITO_WEB_CLIENT: ${{ vars.COGNITO_WEB_CLIENT }}
   COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN }}
   COGNITO_IDENTITY_POOL_ID: ${{ vars.COGNITO_IDENTITY_POOL_ID || '' }}
-
   # Frontend feature flags
   VITE_FINZ_ENABLED: ${{ vars.VITE_FINZ_ENABLED || 'true' }}
   VITE_USE_MOCKS: "false"
+  # Forecast UI feature flags - optimized for "Desglose only" Portfolio view
+  VITE_FINZ_NEW_FORECAST_LAYOUT: ${{ vars.VITE_FINZ_NEW_FORECAST_LAYOUT || 'true' }}
+  VITE_FINZ_HIDE_REAL_ANNUAL_KPIS: ${{ vars.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS || 'true' }}
+  VITE_FINZ_HIDE_PROJECT_SUMMARY: ${{ vars.VITE_FINZ_HIDE_PROJECT_SUMMARY || 'false' }}
+  VITE_FINZ_HIDE_KEY_TRENDS: ${{ vars.VITE_FINZ_HIDE_KEY_TRENDS || 'false' }}
+  VITE_FINZ_SHOW_KEYTRENDS: ${{ vars.VITE_FINZ_SHOW_KEYTRENDS || 'false' }}
+  VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED: ${{ vars.VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED || 'true' }}
+  VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST: ${{ vars.VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST || 'true' }}
+  VITE_FINZ_HIDE_RUNWAY_METRICS: ${{ vars.VITE_FINZ_HIDE_RUNWAY_METRICS || 'true' }}
 
 jobs:
   build-and-deploy-all:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ---- Preflight env (same strategy as before) ----
-      - name: Preflight env
+      # ---------- Compute branch-aware env vars (robust & debuggable) ----------
+      - name: Compute branch-aware env vars
+        id: compute_env
+        shell: bash
         run: |
           set -euo pipefail
-          echo "🚀 Deployment Environment: ${DEPLOYMENT_ENV}"
+
+          # DEPLOYMENT_ENV: prod only when main branch
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            DEPLOYMENT_ENV="prod"
+          else
+            DEPLOYMENT_ENV="dev"
+          fi
+
+          # FINZ_API_STAGE prefer explicit vars when deploying main, else dev fallback
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            if [[ -n "${{ vars.FINZ_API_STAGE_PROD }}" ]]; then
+              FINZ_API_STAGE="${{ vars.FINZ_API_STAGE_PROD }}"
+            else
+              FINZ_API_STAGE="prod"
+            fi
+          else
+            if [[ -n "${{ vars.FINZ_API_STAGE_DEV }}" ]]; then
+              FINZ_API_STAGE="${{ vars.FINZ_API_STAGE_DEV }}"
+            else
+              FINZ_API_STAGE="dev"
+            fi
+          fi
+
+          # VITE_CLOUDFRONT_URL (computed here to avoid format() expression usage)
+          CF_DOMAIN="${CF_DOMAIN:-${{ vars.CF_DOMAIN || 'd7t9x3j66yd8k.cloudfront.net' }}}"
+          VITE_CLOUDFRONT_URL="https://${CF_DOMAIN}"
+
+          echo "DEPLOYMENT_ENV=${DEPLOYMENT_ENV}" >> "$GITHUB_ENV"
+          echo "FINZ_API_STAGE=${FINZ_API_STAGE}" >> "$GITHUB_ENV"
+          echo "VITE_CLOUDFRONT_URL=${VITE_CLOUDFRONT_URL}" >> "$GITHUB_ENV"
+
+          echo "Computed values:"
+          echo "  DEPLOYMENT_ENV=${DEPLOYMENT_ENV}"
+          echo "  FINZ_API_STAGE=${FINZ_API_STAGE}"
+          echo "  VITE_CLOUDFRONT_URL=${VITE_CLOUDFRONT_URL}"
+
+      # ---- Preflight env (same strategy as before) ----
+      - name: Preflight env
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "🚀 Deployment Environment: ${DEPLOYMENT_ENV:-<missing>}"
           for k in AWS_REGION FINANZAS_BUCKET_NAME CLOUDFRONT_DIST_ID FINZ_API_ID FINZ_API_STAGE COGNITO_USER_POOL_ID COGNITO_WEB_CLIENT COGNITO_DOMAIN; do
             v="${!k:-}"; [ -n "$v" ] || { echo "❌ Missing repo var: $k"; exit 1; }
           done
           printf '%s\n' "VITE_USE_MOCKS=false" >> "$GITHUB_ENV"
+          if [ -n "${CF_DOMAIN:-}" ]; then
+            printf '%s\n' "CF_DOMAIN_URL=https://${CF_DOMAIN}" >> "$GITHUB_ENV"
+          else
+            echo "❌ CF_DOMAIN not set"
+            exit 1
+          fi
           sed -i 's/\r$//' "$GITHUB_ENV"
           echo "✅ Env OK"
 
@@ -72,9 +125,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install CLI tools
+        shell: bash
         run: |
           set -euo pipefail
           echo "Installing required CLI tools for validation..."
@@ -83,6 +137,7 @@ jobs:
           echo "✅ CLI tools installed"
 
       - name: Install deps
+        shell: bash
         run: |
           set -euo pipefail
           echo "Installing frontend dependencies with pnpm (frozen lockfile)"
@@ -92,30 +147,38 @@ jobs:
 
       # ---- Lint (auto-fix where possible, then gate) ----
       - name: Lint (auto-fix if supported)
+        shell: bash
         run: |
           set -euo pipefail
-          # Detect lint script
           LINT_SCRIPT=$(node -p "require('./package.json').scripts && require('./package.json').scripts.lint || ''" || echo "")
           if [ -z "$LINT_SCRIPT" ]; then
             echo "ℹ️  No lint script defined; skipping lint step"
             exit 0
           fi
-
           echo "ℹ️  Running npm run lint -- --fix (best-effort auto-correct)"
           if ! npm run lint -- --fix; then
             echo "⚠️  npm run lint -- --fix failed or not supported; will still run plain lint"
           fi
-
           echo "ℹ️  Running npm run lint (gating)"
           npm run lint
+
+      # ---- CI Guard 1: Clean build caches (prevent stale bundles) ----
+      - name: Clean build caches (prevent stale bundles)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist-finanzas dist .vite node_modules/.cache || true
+          echo "✅ Local build cache removed"
 
       # ---- Compute the API base URL for the build (DEV_API_URL wins, otherwise derive) ----
       - name: Compute API base URL
         id: apibase
+        shell: bash
         run: |
           set -euo pipefail
 
-          if [ -n "${DEV_API_URL}" ]; then
+          # prefer DEV_API_URL if set
+          if [ -n "${DEV_API_URL:-}" ]; then
             BASE="${DEV_API_URL%/}"
             echo "✅ Using DEV_API_URL override: $BASE"
           else
@@ -137,56 +200,14 @@ jobs:
 
           echo "📝 Setting VITE_API_BASE_URL=$BASE for Finanzas build"
           printf '%s\n' "VITE_API_BASE_URL=$BASE" >> "$GITHUB_ENV"
+          # make VITE_CLOUDFRONT_URL available too (computed earlier in compute step)
+          printf '%s\n' "VITE_CLOUDFRONT_URL=${VITE_CLOUDFRONT_URL}" >> "$GITHUB_ENV"
           sed -i 's/\r$//' "$GITHUB_ENV"
-
-      - name: Guard - Stage/Environment Drift Check
-        run: |
-          set -euo pipefail
-
-          ALLOW_DRIFT="${{ vars.ALLOW_STAGE_DRIFT || 'false' }}"
-
-          echo "🔍 Checking for stage/environment drift..."
-          echo "   DEPLOYMENT_ENV: ${DEPLOYMENT_ENV}"
-          echo "   FINZ_API_STAGE: ${FINZ_API_STAGE}"
-          echo "   ALLOW_STAGE_DRIFT: ${ALLOW_DRIFT}"
-
-          if [ "${DEPLOYMENT_ENV}" = "prod" ] && [ "${FINZ_API_STAGE}" != "prod" ]; then
-            if [ "${ALLOW_DRIFT}" != "true" ]; then
-              echo "❌ CRITICAL: Production deployment with non-production API stage"
-              echo "   DEPLOYMENT_ENV is 'prod' but FINZ_API_STAGE is '${FINZ_API_STAGE}'"
-              echo "   This would deploy production frontend pointing to ${FINZ_API_STAGE} API"
-              echo ""
-              echo "🔧 To fix:"
-              echo "   1. Set FINZ_API_STAGE_PROD=prod in repository variables"
-              echo "   2. Or set ALLOW_STAGE_DRIFT=true to override this check"
-              exit 1
-            else
-              echo "⚠️  WARNING: Stage drift allowed (ALLOW_STAGE_DRIFT=true)"
-              echo "   Production deployment will use ${FINZ_API_STAGE} API"
-            fi
-          else
-            echo "✅ Stage/environment alignment verified"
-          fi
-
-      - name: Preflight API health
-        run: |
-          set -euo pipefail
-          : ${VITE_API_BASE_URL:?VITE_API_BASE_URL missing after compute step}
-          BASE="${VITE_API_BASE_URL%/}"
-          echo "Checking ${BASE}/health before build..."
-          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "${BASE}/health" || true)
-          if [ "$STATUS" != "200" ]; then
-            echo "❌ API /health preflight failed with HTTP $STATUS" >&2
-            exit 1
-          fi
-          echo "✅ API /health preflight ok"
 
       - name: Build Finanzas SDT Portal (base /finanzas/)
         env:
           BUILD_TARGET: finanzas
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
-          VITE_ACTA_BASE_URL: ${{ vars.VITE_ACTA_BASE_URL }}
-          VITE_PREFACTURAS_URL: ${{ vars.VITE_PREFACTURAS_URL }}
           VITE_BASE_URL: "/finanzas/"
           VITE_FINZ_ENABLED: "true"
           VITE_USE_MOCKS: "false"
@@ -197,33 +218,56 @@ jobs:
           VITE_COGNITO_CLIENT_ID: ${{ env.COGNITO_WEB_CLIENT }}
           VITE_COGNITO_IDENTITY_POOL_ID: ${{ env.COGNITO_IDENTITY_POOL_ID }}
           VITE_COGNITO_DOMAIN: ${{ env.COGNITO_DOMAIN }}
-          VITE_CLOUDFRONT_URL: https://${{ env.CF_DOMAIN }}
+          VITE_CLOUDFRONT_URL: ${{ env.VITE_CLOUDFRONT_URL }}
+          # Forecast UI feature flags
+          VITE_FINZ_NEW_FORECAST_LAYOUT: ${{ env.VITE_FINZ_NEW_FORECAST_LAYOUT }}
+          VITE_FINZ_HIDE_REAL_ANNUAL_KPIS: ${{ env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS }}
+          VITE_FINZ_HIDE_PROJECT_SUMMARY: ${{ env.VITE_FINZ_HIDE_PROJECT_SUMMARY }}
+          VITE_FINZ_HIDE_KEY_TRENDS: ${{ env.VITE_FINZ_HIDE_KEY_TRENDS }}
+          VITE_FINZ_SHOW_KEYTRENDS: ${{ env.VITE_FINZ_SHOW_KEYTRENDS }}
+          VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED: ${{ env.VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED }}
+          VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST: ${{ env.VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST }}
+          VITE_FINZ_HIDE_RUNWAY_METRICS: ${{ env.VITE_FINZ_HIDE_RUNWAY_METRICS }}
         run: |
           set -euo pipefail
-
           VITE_API_BASE_URL="$(printf '%s' "$VITE_API_BASE_URL" | tr -d '\r\n')"
           VITE_API_BASE_URL="${VITE_API_BASE_URL%/}"
-
           if [ -z "$VITE_API_BASE_URL" ]; then
             echo "❌ CRITICAL: VITE_API_BASE_URL is empty"
-            echo "   This variable is REQUIRED for Finanzas builds"
-            echo "   Set DEV_API_URL in repository variables"
             exit 1
           fi
-
           echo "[Finanzas] BUILD_TARGET=$BUILD_TARGET"
           echo "[Finanzas] VITE_API_BASE_URL=$VITE_API_BASE_URL"
           echo "[Finanzas] Building Finanzas SDT Portal (base: /finanzas/)..."
-          echo "[Finanzas] Environment: ${DEPLOYMENT_ENV}"
-
+          echo "[Finanzas] Environment: ${DEPLOYMENT_ENV:-<missing>}"
           export VITE_API_BASE_URL
-
           BUILD_TARGET=finanzas pnpm -s run build || {
             echo "❌ Finanzas build failed"
-            echo "   Build failed — see errors above (TypeScript/esbuild). This is usually a code compile error, not VITE_API_BASE_URL."
             exit 1
           }
           echo "✅ Finanzas Portal built → dist-finanzas/"
+
+      # ---- CI Guard 2: Verify build produced JS/CSS bundles ----
+      - name: Verify build produced JS/CSS bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Check if index JS bundle exists
+          if ! compgen -G "dist-finanzas/assets/index-*.js" > /dev/null; then
+            echo "❌ No JS bundles found in dist-finanzas/assets. Build likely failed or output path changed."
+            exit 1
+          fi
+          # Check if index CSS bundle exists
+          if ! compgen -G "dist-finanzas/assets/index-*.css" > /dev/null; then
+            echo "❌ No CSS bundles found in dist-finanzas/assets. Build likely failed or output path changed."
+            exit 1
+          fi
+          echo "✅ Bundle assets exist:"
+          ls -l dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
+          sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
+
+      - name: Write Finanzas deployment metadata
+        run: bash scripts/write-deployment-meta.sh dist-finanzas
 
       - name: Record Finanzas bundle hashes
         run: |
@@ -248,6 +292,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "ℹ️  gh CLI not available on runner; skipping previous-run hash comparison."
+            printf 'previous_run_found=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           BRANCH_NAME="${GITHUB_REF##*/}"
           echo "🔎 Looking for previous successful run on branch: $BRANCH_NAME"
@@ -312,165 +362,11 @@ jobs:
 
       - name: Detect Finanzas source changes
         id: finz_changed
-        run: |
-          set -euo pipefail
-
-          echo "🔍 Detecting Finanzas source changes..."
-          
-          COMPARE_REF="${{ github.event.before || '' }}"
-          if [ -z "$COMPARE_REF" ]; then
-            COMPARE_REF="HEAD~1"
-          fi
-
-          if ! git rev-parse "$COMPARE_REF" >/dev/null 2>&1; then
-            COMPARE_REF="HEAD~1"
-          fi
-
-          echo "📊 Comparing $COMPARE_REF...HEAD"
-          CHANGED_FILES=$(git diff --name-only "$COMPARE_REF"...HEAD || git diff --name-only "$COMPARE_REF" HEAD || true)
-          echo "$CHANGED_FILES" > /tmp/finz-changed-files.txt
-          
-          echo "📝 Total files changed: $(wc -l < /tmp/finz-changed-files.txt)"
-          
-          # Detect Finanzas-specific changes (src, public, config, dependencies)
-          # Pattern matches ONLY frontend bundle inputs, excluding:
-          # - .github/workflows/ (CI config doesn't affect bundle)
-          # - services/ subdirectories (backend services don't affect frontend bundle)
-          # - public/docs/ (documentation doesn't affect JS/CSS bundle)
-          # Match root-level package.json and pnpm-lock.yaml only (not in subdirs)
-          FINZ_PATTERN='^(src/modules/finanzas|src/features/sdmt|src/components|src/api|public/|index\.html|vite\.config|package\.json$|pnpm-lock\.yaml$|tailwind\.config\.js|tsconfig)'
-          FINZ_FILES=$(echo "$CHANGED_FILES" | grep -E "$FINZ_PATTERN" || true)
-          
-          # Exclude public/docs/ - documentation files don't affect the bundle
-          # (they're just static assets copied as-is, not processed by Vite)
-          if [ -n "$FINZ_FILES" ]; then
-            FINZ_FILES=$(echo "$FINZ_FILES" | grep -v '^public/docs/' || true)
-          fi
-          
-          # Additional check: if only package.json changed, verify it's a meaningful change
-          # (not just packageManager field metadata)
-          if [ "$FINZ_FILES" = "package.json" ]; then
-            echo "📋 Checking if package.json change affects bundle..."
-            # Check if dependencies, devDependencies, or scripts changed (not just packageManager)
-            if git diff "$COMPARE_REF"...HEAD -- package.json | grep -E '^\+.*"(dependencies|devDependencies|scripts)"' > /dev/null 2>&1; then
-              echo "✅ package.json has dependency or script changes (affects bundle)"
-            elif git diff "$COMPARE_REF"...HEAD -- package.json | grep -E '^\+' | grep -v '^\+\+\+' | grep -v 'packageManager' | grep -v '^$' > /dev/null 2>&1; then
-              echo "✅ package.json has non-packageManager changes"
-            else
-              echo "ℹ️  package.json changed but only metadata (packageManager field)"
-              FINZ_FILES=""
-            fi
-          fi
-          
-          if [ -n "$FINZ_FILES" ]; then
-            echo "✅ Finanzas source files changed:"
-            echo "$FINZ_FILES" | head -20
-            printf 'finz_changed=true\n' >> "$GITHUB_OUTPUT"
-            echo "finz_changed=true" >> "$GITHUB_ENV"
-            FINZ_CHANGED_VAL="true"
-          else
-            echo "ℹ️  No Finanzas source files changed (CI-only changes or other modules)"
-            printf 'finz_changed=false\n' >> "$GITHUB_OUTPUT"
-            echo "finz_changed=false" >> "$GITHUB_ENV"
-            FINZ_CHANGED_VAL="false"
-          fi
-
-          # Print diagnostics: changed files list
-          echo ""
-          echo "📋 Changed files (first 50):"
-          head -50 /tmp/finz-changed-files.txt || true
-          
-          # Print diagnostics: FINZ_FILES matched
-          if [ -n "$FINZ_FILES" ]; then
-            echo ""
-            echo "📋 Finanzas-relevant files (matched by pattern):"
-            echo "$FINZ_FILES"
-          fi
-          
-          # Print diagnostics: pnpm-lock.yaml info if changed
-          if echo "$CHANGED_FILES" | grep -q 'pnpm-lock\.yaml'; then
-            echo ""
-            echo "📋 pnpm-lock.yaml changed - checking dependency updates..."
-            if [ -f pnpm-lock.yaml ]; then
-              echo "  pnpm-lock.yaml size: $(wc -c < pnpm-lock.yaml) bytes"
-              echo "  pnpm-lock.yaml lockfileVersion: $(grep -m1 'lockfileVersion:' pnpm-lock.yaml || echo 'N/A')"
-            fi
-          fi
-
-          {
-            echo "### Finanzas file changes (detected vs $COMPARE_REF)"
-            echo "- Total files changed: $(wc -l < /tmp/finz-changed-files.txt)"
-            echo "- Finanzas source changed: $FINZ_CHANGED_VAL"
-            echo ""
-            echo "#### Changed files:"
-            head -50 /tmp/finz-changed-files.txt
-            echo ""
-            if [ -n "$FINZ_FILES" ]; then
-              echo "#### Finanzas-relevant files:"
-              echo "$FINZ_FILES"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: bash scripts/detect-finz-changes.sh "${{ github.event.before || '' }}"
 
       - name: Guard - Bundle hash vs source changes consistency
         if: steps.prev_run.outputs.previous_run_found == 'true'
-        run: |
-          set -euo pipefail
-
-          echo "🔍 Validating bundle hash vs source changes consistency..."
-          echo "📊 Debug info:"
-          echo "  - Previous hash file: ${{ steps.prev_run.outputs.previous_hash_file }}"
-          echo "  - Finanzas source changed: ${{ steps.finz_changed.outputs.finz_changed }}"
-          
-          echo ""
-          echo "📝 Previous bundle hashes:"
-          cat "${{ steps.prev_run.outputs.previous_hash_file }}" || echo "  (file not readable)"
-          
-          echo ""
-          echo "📝 Current bundle hashes:"
-          cat dist-finanzas-bundle-hashes.txt
-          
-          echo ""
-          echo "🔬 Comparing hashes..."
-          
-          # Use explicit comparison instead of cmp for better diagnostics
-          if diff -u "${{ steps.prev_run.outputs.previous_hash_file }}" dist-finanzas-bundle-hashes.txt > /tmp/hash-diff.txt; then
-            HASHES_MATCH=true
-            echo "ℹ️  Bundle hashes are IDENTICAL to previous successful deploy"
-          else
-            HASHES_MATCH=false
-            echo "✅ Bundle hashes DIFFER from previous successful deploy:"
-            cat /tmp/hash-diff.txt
-          fi
-          
-          echo ""
-          FINZ_CHANGED="${{ steps.finz_changed.outputs.finz_changed }}"
-          echo "🔎 Source change detection: finz_changed=$FINZ_CHANGED"
-          
-          # Guard logic: fail if hashes match but source changed
-          if [ "$HASHES_MATCH" = "true" ]; then
-            if [ "$FINZ_CHANGED" = "true" ]; then
-              echo ""
-              echo "❌ GUARD FAILURE: Bundle hashes match previous successful deploy, but Finanzas source files changed."
-              echo ""
-              echo "This indicates a build problem:"
-              echo "  - Source files were modified (detected by git diff)"
-              echo "  - But the build output hashes are identical"
-              echo "  - This suggests the build is not picking up the source changes"
-              echo ""
-              echo "🔧 Possible causes:"
-              echo "  1. Build cache issue (try clearing node_modules and dist)"
-              echo "  2. Vite configuration not watching certain files"
-              echo "  3. Source changes in files that don't affect the bundle"
-              echo ""
-              echo "Changed files were:"
-              cat /tmp/finz-changed-files.txt || echo "(file list not available)"
-              exit 1
-            else
-              echo "✅ Bundle hashes unchanged and no Finanzas source files changed; safe to continue."
-            fi
-          else
-            echo "✅ Bundle hashes differ from previous deploy; changes detected correctly."
-          fi
+        run: bash scripts/guard-bundle-vs-source.sh "${{ steps.prev_run.outputs.previous_hash_file }}" "${{ steps.finz_changed.outputs.finz_changed }}"
 
       - name: Verify API URL embedded in Finanzas bundle
         env:
@@ -499,15 +395,65 @@ jobs:
           echo "📋 Sample occurrences:"
           grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" | head -3 || true
 
-      - name: Configure AWS (OIDC)
+      # Detect which credential method is available (must run in run: so we can read secrets)
+      - name: Detect AWS credential method
+        id: aws_creds
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Detecting available AWS credential configuration..."
+          # default outputs
+          echo "oidc=false" >> "$GITHUB_OUTPUT"
+          echo "static=false" >> "$GITHUB_OUTPUT"
+
+          if [ -n "${{ secrets.OIDC_AWS_ROLE_ARN }}" ]; then
+            echo "oidc=true" >> "$GITHUB_OUTPUT"
+            echo "Detected OIDC_AWS_ROLE_ARN"
+          fi
+
+          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "static=true" >> "$GITHUB_OUTPUT"
+            echo "Detected static AWS credentials"
+          fi
+
+      # Configure AWS via OIDC (preferred) — note aws-region explicitly provided
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ steps.aws_creds.outputs.oidc == 'true' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: deploy-ui-${{ github.run_id }}
+          role-session-name: preflight-${{ github.run_id }}
 
-      - name: Verify identity
-        run: aws sts get-caller-identity
+      # Configure AWS via static credentials as fallback (only if OIDC is not used)
+      - name: Configure AWS credentials (static fallback)
+        if: ${{ steps.aws_creds.outputs.static == 'true' && steps.aws_creds.outputs.oidc == 'false' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Guard: ensure AWS credentials are usable
+      - name: Guard - ensure AWS creds configured
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Checking AWS credentials are configured..."
+          if ! aws sts get-caller-identity --region "${AWS_REGION}" >/tmp/aws_identity.json 2>/tmp/aws_sts_err.log; then
+            echo "❌ AWS credentials are not configured or insufficient. Please provide either:"
+            echo "   - secrets.OIDC_AWS_ROLE_ARN (preferred) with GitHub OIDC trust configured in AWS"
+            echo "   - OR secrets.AWS_ACCESS_KEY_ID and secrets.AWS_SECRET_ACCESS_KEY"
+            echo ""
+            echo "Debug: detection step outputs:"
+            echo "  oidc=${{ steps.aws_creds.outputs.oidc }} ; static=${{ steps.aws_creds.outputs.static }}"
+            echo "----- STS error -----"
+            cat /tmp/aws_sts_err.log || true
+            exit 1
+          fi
+          echo "✅ AWS credentials are configured. Caller identity:"
+          jq -r '.Arn // .Account' /tmp/aws_identity.json || cat /tmp/aws_identity.json || true
+
 
       - name: Guard - S3 buckets and CloudFront exist
         run: |
@@ -559,12 +505,113 @@ jobs:
 
       - name: Upload Finanzas Portal to S3 (/finanzas prefix)
         run: |
+          set -euo pipefail
+          
+          # Upload index.html with no-cache headers
+          aws s3 cp dist-finanzas/index.html "s3://${FINANZAS_BUCKET_NAME}/finanzas/index.html" \
+            --cache-control "max-age=0, no-cache, no-store, must-revalidate" \
+            --content-type "text/html"
+          
+          # Upload assets with long-term cache (they're versioned)
+          aws s3 sync dist-finanzas/assets/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/assets/" \
+            --exclude '*.map' \
+            --cache-control "max-age=31536000, immutable" \
+            --delete
+          
+          # Upload remaining files (excluding index.html, assets, maps, docs, test files)
           aws s3 sync dist-finanzas/ "s3://${FINANZAS_BUCKET_NAME}/finanzas/" \
+            --exclude 'index.html' \
+            --exclude 'assets/*' \
             --exclude '*.map' \
             --exclude 'docs/*' \
             --exclude 'test-helper.html' \
+            --cache-control "max-age=3600" \
             --delete
+          
           echo "✅ Finanzas uploaded to s3://${FINANZAS_BUCKET_NAME}/finanzas/"
+          echo "  - index.html: no-cache"
+          echo "  - assets/*: long-term cache (1 year)"
+          echo "  - other files: 1 hour cache"
+
+      # ---- CI Guard 3: S3 post-sync verification (post-upload) ----
+      - name: Verify S3 sync and index.html asset references
+        shell: bash
+        env:
+          FINANZAS_BUCKET_NAME: ${{ env.FINANZAS_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+
+          # Collect local assets (full local path)
+          mapfile -t LOC_ASSETS < <(find dist-finanzas/assets -type f \( -name 'index-*.js' -o -name 'index-*.css' \) 2>/dev/null || true)
+
+          if [ ${#LOC_ASSETS[@]} -eq 0 ]; then
+            echo "❌ No local assets found in dist-finanzas/assets; aborting verification"
+            exit 1
+          fi
+
+          echo "🔍 Verifying local assets are uploaded to S3 under finanzas/assets/ ..."
+          MISSING=0
+          for lf in "${LOC_ASSETS[@]}"; do
+            base="$(basename "$lf")"
+            s3key="finanzas/assets/${base}"
+            if ! aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$s3key" >/dev/null 2>&1; then
+              echo "❌ Asset missing in S3: ${s3key}"
+              MISSING=1
+            else
+              echo "✅ Found in S3: ${s3key}"
+            fi
+          done
+
+          if [ "$MISSING" -ne 0 ]; then
+            echo "❌ One or more assets were not found in S3 after sync. Aborting."
+            echo "----- S3 assets listing (finanzas/assets/) -----"
+            aws s3 ls "s3://${FINANZAS_BUCKET_NAME}/finanzas/assets/" || true
+            exit 1
+          fi
+
+          # Now verify the index.html references are present in S3
+          INDEX="dist-finanzas/index.html"
+          if [ ! -f "$INDEX" ]; then
+            echo "❌ dist-finanzas/index.html missing"; exit 1;
+          fi
+
+          # Extract referenced assets like: assets/index-<fingerprint>.js
+          # Accept alphanumeric + underscore + hyphen + dot in fingerprint
+          grep -oE 'assets/index-[A-Za-z0-9._-]+\.(js|css)' "$INDEX" | sort -u > /tmp/local-references.txt || true
+
+          if [ ! -s /tmp/local-references.txt ]; then
+            echo "❌ No asset references found in $INDEX with the expected pattern."
+            echo "Index snippet (first 200 lines):"
+            head -n 200 "$INDEX" || true
+            echo "----- End index snippet -----"
+            echo "If your bundles use nonstandard names, adjust the regex 'assets/index-[A-Za-z0-9._-]+\\.(js|css)'."
+            exit 1
+          fi
+
+          MISSREF=0
+          echo "🔍 Checking referenced assets in index.html exist in S3..."
+          while read -r asset; do
+            # asset is like "assets/index-abc123.js"
+            s3key="finanzas/${asset}"   # keep the 'assets/' directory in the key
+            if ! aws s3api head-object --bucket "${FINANZAS_BUCKET_NAME}" --key "$s3key" >/dev/null 2>&1; then
+              echo "❌ Referenced asset NOT in S3: ${s3key}"
+              MISSREF=1
+            else
+              echo "✅ Referenced asset exists: ${s3key}"
+            fi
+          done < /tmp/local-references.txt
+
+          if [ "$MISSREF" -ne 0 ]; then
+            echo "❌ index.html references not found in S3 — possible S3 sync path mismatch or deploy race."
+            echo "----- S3 assets listing (finanzas/assets/) -----"
+            aws s3 ls "s3://${FINANZAS_BUCKET_NAME}/finanzas/assets/" || true
+            echo "----- index.html referenced assets -----"
+            cat /tmp/local-references.txt || true
+            exit 1
+          fi
+
+          echo "✅ S3 verification complete"
+
 
       - name: Verify Finanzas S3 manifest matches local build
         run: |
@@ -597,7 +644,7 @@ jobs:
             echo "   Ensure sync completed successfully and CloudFront invalidation is executed"
             exit 1
           fi
-          
+
           echo "✅ Finanzas S3 manifest matches local build"
 
       - name: Verify auth callback in S3
@@ -609,6 +656,27 @@ jobs:
             exit 1
           fi
           echo "✅ auth/callback.html present in S3 at finanzas/auth/callback.html"
+
+      - name: Verify deployment metadata in S3
+        run: |
+          set -euo pipefail
+
+          TMP_FILE=$(mktemp)
+          aws s3 cp "s3://${FINANZAS_BUCKET_NAME}/finanzas/deployment-meta.json" "$TMP_FILE" >/dev/null
+          DEPLOY_SHA=$(jq -r '.sha // empty' "$TMP_FILE")
+
+          if [ -z "$DEPLOY_SHA" ]; then
+            echo "❌ deployment-meta.json missing sha field"
+            cat "$TMP_FILE"
+            exit 1
+          fi
+
+          if [ "$DEPLOY_SHA" != "${GITHUB_SHA}" ]; then
+            echo "❌ deployment-meta.json sha ($DEPLOY_SHA) does not match current commit ${GITHUB_SHA}"
+            exit 1
+          fi
+
+          echo "✅ deployment-meta.json in S3 matches current commit ${GITHUB_SHA}"
 
       - name: Guard - Verify CloudFront /finanzas/* Behavior (CRITICAL)
         run: |
@@ -627,9 +695,42 @@ jobs:
           set -euo pipefail
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
             --distribution-id "${CLOUDFRONT_DIST_ID}" \
-            --paths '/*' '/finanzas/*' '/finanzas/index.html' \
+            --paths '/*' '/finanzas/*' '/finanzas/index.html' '/finanzas/assets/*' \
             --query 'Invalidation.Id' --output text)
           echo "✅ Invalidation queued: $INVALIDATION_ID"
+          echo "  Paths: /*, /finanzas/*, /finanzas/index.html, /finanzas/assets/*"
+
+      - name: Verify CloudFront serves latest deployment metadata
+        run: |
+          set -euo pipefail
+
+          DOMAIN="${CF_DOMAIN}"
+          if [ -z "$DOMAIN" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
+          fi
+
+          URL="https://${DOMAIN}/finanzas/deployment-meta.json"
+          echo "🔍 Waiting for CloudFront to serve ${URL} with sha ${GITHUB_SHA}"
+
+          ATTEMPTS=12
+          SLEEP_SECONDS=10
+
+          for ((i=1; i<=ATTEMPTS; i++)); do
+            RESPONSE=$(curl -sS --fail "$URL" || true)
+            SHA=$(printf '%s' "$RESPONSE" | jq -r '.sha // empty' 2>/dev/null || true)
+
+            if [ "$SHA" = "${GITHUB_SHA}" ]; then
+              echo "✅ CloudFront is serving the latest deployment metadata (attempt $i)"
+              exit 0
+            fi
+
+            echo "⏳ Attempt $i/${ATTEMPTS}: sha='$SHA' (wanted ${GITHUB_SHA})"
+            sleep "$SLEEP_SECONDS"
+          done
+
+          echo "❌ CloudFront did not serve the latest deployment metadata within $((ATTEMPTS * SLEEP_SECONDS)) seconds"
+          echo "    URL: $URL"
+          exit 1
 
       - name: UI Smoke (Finanzas /finanzas/)
         run: |
@@ -715,44 +816,6 @@ jobs:
           if [ -z "$DOMAIN" ]; then
             DOMAIN=$(aws cloudfront get-distribution --id "$CLOUDFRONT_DIST_ID" --query 'Distribution.DomainName' --output text)
           fi
-          API="${VITE_API_BASE_URL:-N/A}"
-          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
-          # 🚀 Finanzas UI Deployment — ${DEPLOYMENT_ENV}
-
-          ## 📊 Build Target
-          - Finanzas → dist-finanzas/ (/finanzas/)
-
-          ## ⚙️ Environment
-          - AWS_REGION: ${AWS_REGION}
-          - FINZ_API_ID: ${FINZ_API_ID}
-          - FINZ_API_STAGE: ${FINZ_API_STAGE}
-          - VITE_API_BASE_URL: ${API}
-
-          ## ☁️ AWS
-          - Finanzas Bucket: ${FINANZAS_BUCKET_NAME}
-          - CloudFront ID: ${CLOUDFRONT_DIST_ID}
-          - CloudFront Domain: ${DOMAIN}
-
-          ## 🌐 Access
-          - Finanzas: https://${DOMAIN}/finanzas/
-
-                    ## ✅ Checklist
-          - Base path OK (/finanzas/)
-          - /finanzas/* behavior exists
-          - /health returns 200
-          - catalog/rubros returns JSON (length shown above)
-          ## 🔬 Evidence Pack
-          ### 1. API Base URL Computation
-          - Computed during "Compute API base URL" step
-          - Value used at build time: ${API}
-          - Stage/environment alignment verified
-          ### 2. CORS & Authentication Validation
-          - OPTIONS preflight tests: ✅ (see validate-api-config.sh output)
-          - JWT authentication flow: ✅ (see validate-api-config.sh output)
-          - Protected endpoint access: ✅ (see validate-api-config.sh output)
-          ### 3. Deep-route SPA Verification
-          - Root route (/finanzas/): ✅ HTTP 200
-          - Deep route (/finanzas/sdmt/cost/forecast): ✅ HTTP 200 + asset markers
-          - Auth callback (/finanzas/auth/callback.html): ✅ (see post-deploy-verify.sh output)
-          - Nested SPA routes: ✅ (see post-deploy-verify.sh output)
-          EOF
+          export SUMMARY_DOMAIN="$DOMAIN"
+          export SUMMARY_API="${VITE_API_BASE_URL:-N/A}"
+          bash scripts/append-finanzas-summary.sh

@@ -101,7 +101,7 @@ jobs:
             echo "::error::One or more required AWS secrets are missing. Please set repository secrets and re-run the workflow."
             exit 1
           fi
-          
+
           # Verify hardcoded values are set
           echo "Verifying hardcoded BASELINE_ID and PROJECT_ID..."
           if [ -z "$BASELINE_ID" ] || [ -z "$PROJECT_ID" ]; then
@@ -110,7 +110,7 @@ jobs:
           fi
           echo "BASELINE_ID: $BASELINE_ID"
           echo "PROJECT_ID: $PROJECT_ID"
-          
+
           # Verify API_BASE is set
           if [ -z "$API_BASE" ]; then
             echo "::error::API_BASE not set (requires VITE_API_BASE_URL or API_BASE secret)"
@@ -162,6 +162,27 @@ jobs:
           set -euo pipefail
           pnpm install --frozen-lockfile
 
+      - name: Install finanzas API dependencies
+        shell: bash
+        working-directory: services/finanzas-api
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+
+      - name: Run allocations PK diagnostic (dry-run)
+        shell: bash
+        working-directory: services/finanzas-api
+        run: |
+          set -euo pipefail
+          pnpm run diagnose:allocations-pk
+
+      - name: Run finanzas API unit tests
+        shell: bash
+        working-directory: services/finanzas-api
+        run: |
+          set -euo pipefail
+          pnpm run test:unit
+
       - name: Run pre-merge checks
         shell: bash
         env:
@@ -176,3 +197,19 @@ jobs:
           else
             echo "Pre-merge checks script not found, skipping..."
           fi
+
+      - name: Verify allocations retrieval (preflight check)
+        shell: bash
+        env:
+          ENABLE_ADMIN_DEBUG: "true"
+          API_ENDPOINT: ${{ secrets.VITE_API_BASE_URL || secrets.API_BASE }}
+          SAMPLE_PROJECT_ID: ${{ env.PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -f ./scripts/preflight-checks/verify-allocations.sh ]; then
+            chmod +x ./scripts/preflight-checks/verify-allocations.sh
+            ./scripts/preflight-checks/verify-allocations.sh
+          else
+            echo "⚠️  Allocations verification script not found, skipping..."
+          fi
+

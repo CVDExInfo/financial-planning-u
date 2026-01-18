@@ -1,194 +1,166 @@
-# Pull Request: Fix SDMT Access Restriction Bug
+# PR: MonthlySnapshotGrid UX Improvements
 
-## 🎯 Overview
+## 🎯 Objective
+Enhance the "Matriz del Mes — Vista Ejecutiva" component to be more compact, digital, and intuitive with better filtering and navigation capabilities.
 
-This PR fixes a critical bug that prevented SDMT and EXEC_RO users from accessing SDMT cost management pages they were authorized to view.
+## ✅ What Was Implemented
 
-## 🐛 The Problem
+### 1. Compact Summary Strip
+**Problem:** Large empty box wasted space and provided no useful information.
 
-Users with **SDMT** or **EXEC_RO** roles were seeing "Access Restricted" errors when trying to access legitimate SDMT pages:
+**Solution:** Added 5-card digital summary strip showing:
+- Presupuesto (Budget)
+- Pronóstico (Forecast)
+- Real (Actual)
+- **% Consumo (Real/Budget)** ← NEW metric
+- Var vs Presupuesto (with absolute and percentage)
 
-- ❌ `/finanzas/sdmt/cost/catalog` (Catálogo de Rubros)
-- ❌ `/finanzas/sdmt/cost/forecast` (Gestión de Pronóstico)
-- ❌ `/finanzas/sdmt/cost/reconciliation` (Conciliación)
-- ❌ `/finanzas/sdmt/cost/changes` (Cambios y Ajustes)
-- ❌ And all other SDMT routes
+**Benefits:**
+- Immediate visibility of key metrics
+- Matches existing KPI card styling
+- Responsive layout (2 cols mobile → 5 cols desktop)
+- Auto-updates based on active filters
 
-**Error message shown:**
-> "Access Restricted – You don't have permission to view this page"  
-> "Required roles: Not specified"
+### 2. Project-Level Action Icons
+**Problem:** No direct way to navigate to "Estructura de costos" (cost catalog) from the executive matrix view.
 
-## 🔍 Root Cause
+**Solution:** Enhanced the "Acciones" column with 4 action buttons:
+1. 👁️ Ver detalle mensual (scrolls to detail grid)
+2. 📋 Ir a conciliación (navigates to reconciliation)
+3. 🏗️ **Estructura de costos** (navigates to catalog) ← NEW!
+4. ✏️ Solicitar ajuste de presupuesto
 
-**File:** `src/lib/auth.ts` (line 209)
+**Benefits:**
+- Direct navigation to cost catalog with project context
+- Clear visual icons with tooltips
+- Conditional display (catalog only in project mode)
+- Improved user workflow efficiency
 
-The `canAccessRoute` function had incorrect glob pattern replacement logic:
+### 3. Labor / Non-Labor / Ambos Filter
+**Problem:** No way to filter the executive matrix by cost type, making it difficult to focus on specific cost categories.
 
-```typescript
-// BROKEN:
-const regex = new RegExp(
-  `^${pattern.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*")}$`
-);
-```
+**Solution:** Added 3-way segmented button filter:
+- **Ambos** - Shows all cost types
+- **Mano de obra** - Shows only labor costs
+- **Gastos directos** - Shows only non-labor costs
 
-**Problem:** The two replacements interfere with each other:
-1. `**` → `.*`
-2. `*` → `[^/]*` (this corrupts step 1's output: `.*` → `.[^/]*`)
+**Benefits:**
+- Declutters the view for focused analysis
+- Summary metrics automatically recalculate
+- Uses existing `isLabor()` utility for consistency
+- Filters both parent and child rows
 
-**Result:** Pattern `/sdmt/**` incorrectly becomes `/sdmt/.[^/]*` instead of `/sdmt/.*`
+### 4. Page Decluttering
+**Problem:** Multiple full-width info banners consumed too much vertical space.
 
-## ✅ The Solution
+**Solution:** Consolidated banners into single slim flex container:
+- Side-by-side layout when both are active
+- Reduced padding (p-1.5 vs px-3 py-2)
+- Smart display (only shown when relevant)
 
-Use a placeholder to prevent replacement interference:
-
-```typescript
-const GLOB_DOUBLE_STAR_PLACEHOLDER = "___DOUBLESTAR___";
-
-const regexPattern = pattern
-  .replace(/\*\*/g, GLOB_DOUBLE_STAR_PLACEHOLDER)  // Step 1: Protect **
-  .replace(/\*/g, "[^/]*")                         // Step 2: Replace *
-  .replace(new RegExp(GLOB_DOUBLE_STAR_PLACEHOLDER, "g"), ".*");  // Step 3: Replace **
-
-const regex = new RegExp(`^${regexPattern}$`);
-```
-
-**Result:** Pattern `/sdmt/**` correctly becomes `/sdmt/.*` ✅
-
-## 📋 Changes Made
-
-### Core Fix
-- ✅ **src/lib/auth.ts** - Fixed glob pattern replacement in `canAccessRoute`
-
-### Testing
-- ✅ **src/lib/__tests__/auth-routes.test.ts** - Added comprehensive RBAC tests
-  - PM role tests (limited access)
-  - SDMT role tests (full access)
-  - EXEC_RO role tests (read-only access)
-  - PMO role tests (workspace isolation)
-
-### Verification Tools
-- ✅ **scripts/verify-rbac-fix.js** - Verification script (16 scenarios)
-
-### Documentation
-- ✅ **SDMT_ACCESS_FIX_SUMMARY.md** - Technical details and deployment guide
-- ✅ **SECURITY_SUMMARY.md** - Security review results
-- ✅ **RBAC_VISUAL_COMPARISON.md** - Before/after visual comparison
-
-## 🧪 Testing Results
-
-### Unit Tests
-```
-✔ PM role route visibility (2 tests)
-✔ SDMT role route visibility (2 tests)
-✔ EXEC_RO role route visibility (2 tests)
-✔ PMO role route visibility (2 tests)
-
-Total: 8/8 tests passed ✅
-```
-
-### Verification Script
-```bash
-node scripts/verify-rbac-fix.js
-```
-```
-Test Summary: 16/16 passed, 0 failed ✅
-```
-
-### Security Scan
-```
-CodeQL Analysis: 0 vulnerabilities found ✅
-```
-
-## 🔒 Security Impact
-
-**Status:** ✅ APPROVED FOR DEPLOYMENT
-
-This fix **improves** security by resolving a Broken Access Control issue:
-
-| Role | Before | After | Impact |
-|------|--------|-------|--------|
-| SDMT | ❌ Incorrectly blocked | ✅ Full access | 🟢 Fixed |
-| EXEC_RO | ❌ Incorrectly blocked | ✅ Read-only access | 🟢 Fixed |
-| PM | ⚠️ Limited access | ⚠️ Limited access | 🟢 Preserved |
-| PMO | ✅ PMO only | ✅ PMO only | 🟢 Preserved |
-
-**Security guarantees:**
-- ✅ No privilege escalation
-- ✅ No unauthorized access granted
-- ✅ PM restrictions preserved (can't access forecast, reconciliation, changes)
-- ✅ PMO workspace isolation maintained
+**Benefits:**
+- More compact vertical layout
+- Cleaner visual hierarchy
+- Better use of horizontal space
 
 ## 📊 Impact
 
-### Users Affected (Positive Impact)
-- ✅ **SDMT users** - Can now access all authorized SDMT pages
-- ✅ **EXEC_RO users** - Can now access all pages in read-only mode
+### Lines Changed
+- **Modified:** 2 TypeScript files
+- **Added:** ~300 lines of code
+- **Documentation:** 3 comprehensive guides
 
-### Users Unaffected (Restrictions Preserved)
-- ✅ **PM users** - Still restricted to estimator + catalog only
-- ✅ **PMO users** - Still isolated to PMO workspace
+### Code Quality
+- ✅ Zero new TypeScript errors
+- ✅ Follows existing code patterns
+- ✅ Uses existing utilities (`isLabor()`, `cn()`)
+- ✅ Properly typed with interfaces
 
-### Pages Fixed
-1. Catálogo de Rubros
-2. Gestión de Pronóstico
-3. Conciliación
-4. Cambios y Ajustes
-5. Flujo de Caja
-6. Escenarios
-7. All other SDMT routes
+### Performance
+- ✅ All filtering uses `useMemo` for optimization
+- ✅ Minimal re-renders on filter changes
+- ✅ Conditional rendering to avoid unnecessary DOM nodes
 
-## 🚀 Deployment Guide
+## 🔍 Files Changed
 
-### Pre-Deployment Checklist
-- [x] Code changes reviewed
-- [x] All tests passing
-- [x] Security scan passed
-- [x] Documentation complete
-- [ ] Manual verification in staging
+### Core Implementation
+1. **`src/features/sdmt/cost/Forecast/components/MonthlySnapshotGrid.tsx`**
+   - Added summary strip calculation and UI
+   - Added cost type filter state and logic
+   - Updated action icons with catalog navigation
+   - Consolidated info banners
+   - Extended props interface
 
-### Deployment Steps
-1. Deploy to staging environment
-2. Verify with test accounts:
-   - SDMT user can access all SDMT routes
-   - EXEC_RO user has read-only access
-   - PM user still restricted (can't access forecast)
-   - PMO user still isolated to PMO workspace
-3. Deploy to production
-4. Monitor for any authorization errors
+2. **`src/features/sdmt/cost/Forecast/SDMTForecast.tsx`**
+   - Wired up `onNavigateToCostCatalog` callback
+   - Updated callback signatures for new props
+   - Connected catalog navigation to router
 
-### Verification (Post-Deploy)
+### Documentation
+3. **`IMPLEMENTATION_SUMMARY.md`**
+   - Detailed technical documentation
+   - Implementation notes by feature
+   - Complete testing checklist
+   - Future enhancement ideas
 
-Run verification script:
-```bash
-node scripts/verify-rbac-fix.js
+4. **`VISUAL_GUIDE.md`**
+   - Before/after visual comparisons
+   - User journey flows
+   - Responsive behavior diagrams
+   - Testing scenarios with expected results
+
+5. **`PR_README.md`** (this file)
+   - High-level overview for reviewers
+   - Quick reference for testing
+   - Deployment notes
+
+## 📋 Quick Testing Guide
+
+### Essential Tests (5 minutes)
+1. Load `/finanzas/sdmt/cost/forecast` with Project="TODOS"
+2. Verify summary strip shows 5 metrics
+3. Click each of the 3 cost type filter buttons
+4. Click the Layers icon (🏗️) on a project row
+5. Verify you navigate to `/sdmt/cost/catalog?projectId=...`
+
+### Complete Testing Checklist
+See `IMPLEMENTATION_SUMMARY.md` for full testing checklist
+
+## 🎨 Visual Changes Summary
+
+```
+BEFORE: Empty box + separate banners
+┌────────────────────────────────┐
+│ [Large empty space]            │
+│ Banner 1                       │
+│ Banner 2                       │
+│ Controls...                    │
+└────────────────────────────────┘
+
+AFTER: Summary cards + consolidated banners
+┌────────────────────────────────┐
+│ [Card1][Card2][Card3][Card4][Card5]
+│ [Banner1     ][Banner2     ]   │
+│ Controls + Cost Type Filter... │
+└────────────────────────────────┘
 ```
 
-Expected: All 16 scenarios should pass.
+## 🚀 Ready for Review
 
-### Rollback Plan
-If issues occur, revert commits: `eeda042` through `d539bc7`
+✅ **Code Review** - Clean implementation following existing patterns  
+✅ **TypeScript** - No new errors  
+✅ **Documentation** - Comprehensive guides included  
+⏳ **Manual Testing** - Awaiting QA verification  
+⏳ **Screenshots** - Needed after manual testing
 
 ## 📚 Documentation
 
-- **[SDMT_ACCESS_FIX_SUMMARY.md](./SDMT_ACCESS_FIX_SUMMARY.md)** - Full technical details, root cause, and deployment notes
-- **[SECURITY_SUMMARY.md](./SECURITY_SUMMARY.md)** - Security review and vulnerability assessment
-- **[RBAC_VISUAL_COMPARISON.md](./RBAC_VISUAL_COMPARISON.md)** - Visual before/after comparison with examples
-
-## 🎉 Summary
-
-This PR:
-- ✅ Fixes critical access control bug
-- ✅ Restores SDMT and EXEC_RO user access
-- ✅ Preserves PM and PMO restrictions
-- ✅ Includes comprehensive tests
-- ✅ Passes security scan (0 vulnerabilities)
-- ✅ Has complete documentation
-
-**Ready for deployment** with confidence! 🚀
+- **Technical Details:** `IMPLEMENTATION_SUMMARY.md`
+- **Visual Guide:** `VISUAL_GUIDE.md`
+- **PR Overview:** `PR_README.md` (this file)
 
 ---
 
-**Issue Type:** Bug Fix (Critical)  
-**Severity:** High (Broken Access Control)  
-**Risk:** Low (Bug fix with test coverage)  
-**Status:** ✅ Ready for Review & Deployment
+**Branch:** `copilot/update-summary-view-and-filters`  
+**Status:** ✅ Ready for Review  
+**Commits:** 5 commits
