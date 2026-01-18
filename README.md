@@ -272,6 +272,17 @@ VITE_API_BASE_URL=https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev \
   npm run build
 ```
 
+**⚠️ Important Feature Flags for Deployment:**
+
+When deploying to production, ensure the following environment variable is set in your CI/CD pipeline:
+
+```bash
+# Disable FX and Indexation parameters step in estimator wizard
+VITE_ENABLE_FX_PARAMS=false
+```
+
+This hides the FX/Indexation step in the PMO Estimator Wizard. If you need to enable this feature in the future, set `VITE_ENABLE_FX_PARAMS=true` in your deployment pipeline environment variables.
+
 ### 📋 Environment Configuration Files
 
 | File               | Purpose                                | Git Tracked         |
