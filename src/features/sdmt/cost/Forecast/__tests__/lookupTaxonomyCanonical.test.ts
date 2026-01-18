@@ -10,7 +10,7 @@ import assert from 'node:assert';
 import { lookupTaxonomyCanonical } from '../lib/lookupTaxonomyCanonical';
 import type { TaxonomyEntry } from '../lib/taxonomyLookup';
 
-test('labour canonical override', () => {
+test('labor canonical override', () => {
   const map = new Map<string, TaxonomyEntry>();
   const cache = new Map<string, TaxonomyEntry | null>();
   

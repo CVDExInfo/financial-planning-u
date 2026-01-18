@@ -1165,8 +1165,9 @@ export const materializeAllocationsForBaseline = async (
           item.linea_codigo ||
           item.id ||
           "unknown";
-        const canonical = getCanonicalRubroId(rubroStableId) || rubroStableId;
-        if (!getCanonicalRubroId(rubroStableId)) {
+        const canonical = getCanonicalRubroId(rubroStableId);
+        if (canonical === rubroStableId) {
+          // No mapping found - log warning
           console.warn(`[materializers] No canonical mapping for rubro: ${rubroStableId}`);
         }
         const lineItemId =

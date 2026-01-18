@@ -51,8 +51,9 @@ export const LABOR_CANONICAL_KEYS = [
 
 /**
  * Normalized canonical labor keys set for O(1) lookup
+ * Exported for use in performance-critical lookups
  */
-const LABOR_CANONICAL_KEYS_SET = new Set(LABOR_CANONICAL_KEYS);
+export const LABOR_CANONICAL_KEYS_SET = new Set(LABOR_CANONICAL_KEYS);
 
 /**
  * Check if a key matches any canonical labor identifier
