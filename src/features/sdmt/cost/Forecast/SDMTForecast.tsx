@@ -2014,21 +2014,23 @@ export function SDMTForecast() {
     return calculateRunwayMetrics(annualBudget, monthlyBudgetAllocations);
   }, [budgetAmount, monthlyBudgetAllocations]);
 
-  // Build category totals for TODOS mode (charts and rubros table)
+  // Build category totals for both portfolio and single project mode
   const categoryTotals = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0) {
+    if (forecastData.length === 0) {
       return new Map();
     }
     return buildCategoryTotals(forecastData);
-  }, [isPortfolioView, forecastData]);
+  }, [forecastData]);
 
-  // Build category rubros for TODOS mode (rubros table)
+  // Build category rubros for both portfolio and single project mode
   const categoryRubros = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0) {
+    if (forecastData.length === 0) {
       return new Map();
     }
-    return buildCategoryRubros(forecastData, portfolioLineItems);
-  }, [isPortfolioView, forecastData, portfolioLineItems]);
+    // Use portfolioLineItems for portfolio view, safeLineItems for single project
+    const lineItemsToUse = isPortfolioView ? portfolioLineItems : safeLineItems;
+    return buildCategoryRubros(forecastData, lineItemsToUse);
+  }, [forecastData, portfolioLineItems, safeLineItems, isPortfolioView]);
 
   // Build project totals for TODOS mode (project view)
   const projectTotals = useMemo(() => {

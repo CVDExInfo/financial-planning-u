@@ -104,7 +104,7 @@ export const handler = async (event: SQSEvent) => {
       // Materialize rubros and allocations
       const [rubrosSummary, allocationsSummary] = await Promise.all([
         materializeRubrosForBaseline(baseline, { dryRun: false }),
-        materializeAllocationsForBaseline(baseline, { dryRun: false })
+        materializeAllocationsForBaseline(baseline, { dryRun: false, forceRewriteZeros: true })
       ]);
       
       // Count rubros and categorize by type
