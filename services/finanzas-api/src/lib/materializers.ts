@@ -408,10 +408,22 @@ const parseNumberLike = (value: any): number | null => {
     return Number.isFinite(value) ? value : null;
   }
   if (typeof value === 'string') {
-    // Remove currency symbols and whitespace, keep only digits, periods, and minus signs
-    // Assumes US format: comma = thousands separator, period = decimal
-    const stripped = value.replace(/[^0-9.-]+/g, '');
-    const parsed = Number(stripped);
+    // Remove currency symbols, whitespace, and commas (thousands separators)
+    // Keep digits, one period (decimal), and one leading minus sign
+    let cleaned = value.trim();
+    
+    // Remove currency symbols and whitespace
+    cleaned = cleaned.replace(/[$€£¥\s]/g, '');
+    
+    // Remove commas (thousands separators in US format)
+    cleaned = cleaned.replace(/,/g, '');
+    
+    // Validate format: optional minus, digits, optional period and more digits
+    if (!/^-?\d+\.?\d*$/.test(cleaned)) {
+      return null;
+    }
+    
+    const parsed = Number(cleaned);
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
@@ -467,14 +479,6 @@ const deriveMonthlyAllocationAmount = (
     const fteCount = fte ?? DEFAULT_FTE_COUNT;
     const computed = hourlyRate * hours * fteCount;
 
-    if (Number.isFinite(computed) && computed > 0) {
-      return { amount: Math.round(computed) };
-    }
-  }
-
-  // Strategy 4: If we have FTE and monthly rate but no hourly breakdown
-  if (fte != null && fte > 0 && monthlyCost != null) {
-    const computed = monthlyCost * fte;
     if (Number.isFinite(computed) && computed > 0) {
       return { amount: Math.round(computed) };
     }
