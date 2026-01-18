@@ -3088,7 +3088,7 @@ export function SDMTForecast() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-lg">
-                        Monitoreo mensual de proyectos vs. presupuesto
+                        Cuadrícula de Pronóstico
                       </CardTitle>
                       <Badge variant="secondary" className="ml-2">M1-M12</Badge>
                     </div>
@@ -4138,7 +4138,7 @@ export function SDMTForecast() {
             <CardTitle>
               {selectedPeriod === "CURRENT_MONTH"
                 ? `Cuadrícula de Pronóstico - Mes Actual (M${getCurrentMonthIndex()})`
-                : "Cuadrícula de Pronóstico 12 Meses"}
+                : "Cuadrícula de Pronóstico"}
             </CardTitle>
           </CardHeader>
           <CardContent>
