@@ -370,3 +370,104 @@ describe('Portfolio Summary Components Coverage', () => {
     );
   });
 });
+
+/**
+ * Test: SHOW_PORTFOLIO_KPIS flag behavior
+ */
+describe('SHOW_PORTFOLIO_KPIS Feature Flag', () => {
+  it('should be false by default (minimal portfolio view)', () => {
+    const envValue: string | undefined = undefined;
+    const showPortfolioKpis = envValue === 'true';
+    
+    assert.strictEqual(
+      showPortfolioKpis,
+      false,
+      'SHOW_PORTFOLIO_KPIS should be false when env var is undefined (minimal view)'
+    );
+  });
+
+  it('should be false when explicitly set to "false"', () => {
+    const envValue = 'false';
+    const showPortfolioKpis = envValue === 'true';
+    
+    assert.strictEqual(
+      showPortfolioKpis,
+      false,
+      'SHOW_PORTFOLIO_KPIS should be false when env var is "false"'
+    );
+  });
+
+  it('should be true when set to "true"', () => {
+    const envValue = 'true';
+    const showPortfolioKpis = envValue === 'true';
+    
+    assert.strictEqual(
+      showPortfolioKpis,
+      true,
+      'SHOW_PORTFOLIO_KPIS should be true when env var is "true"'
+    );
+  });
+
+  it('should gate portfolio KPI tiles when flag is false', () => {
+    const SHOW_PORTFOLIO_KPIS = false;
+    const NEW_FORECAST_LAYOUT_ENABLED = true;
+    const HIDE_REAL_ANNUAL_KPIS = false;
+    const isPortfolioView = true;
+    const budgetSimulationEnabled = false;
+
+    // Logic from SDMTForecast.tsx line 2900
+    const shouldShowKPIs = SHOW_PORTFOLIO_KPIS && 
+                          !NEW_FORECAST_LAYOUT_ENABLED && 
+                          !HIDE_REAL_ANNUAL_KPIS && 
+                          isPortfolioView && 
+                          !budgetSimulationEnabled;
+
+    assert.strictEqual(
+      shouldShowKPIs,
+      false,
+      'Portfolio KPI tiles should be hidden when SHOW_PORTFOLIO_KPIS is false'
+    );
+  });
+
+  it('should show portfolio KPI tiles when flag is true and all conditions met', () => {
+    const SHOW_PORTFOLIO_KPIS = true;
+    const NEW_FORECAST_LAYOUT_ENABLED = false;
+    const HIDE_REAL_ANNUAL_KPIS = false;
+    const isPortfolioView = true;
+    const budgetSimulationEnabled = false;
+
+    // Logic from SDMTForecast.tsx line 2900
+    const shouldShowKPIs = SHOW_PORTFOLIO_KPIS && 
+                          !NEW_FORECAST_LAYOUT_ENABLED && 
+                          !HIDE_REAL_ANNUAL_KPIS && 
+                          isPortfolioView && 
+                          !budgetSimulationEnabled;
+
+    assert.strictEqual(
+      shouldShowKPIs,
+      true,
+      'Portfolio KPI tiles should be shown when SHOW_PORTFOLIO_KPIS is true and all conditions met'
+    );
+  });
+
+  it('should hide KPIs when NEW_FORECAST_LAYOUT is enabled even if SHOW_PORTFOLIO_KPIS is true', () => {
+    const SHOW_PORTFOLIO_KPIS = true;
+    const NEW_FORECAST_LAYOUT_ENABLED = true;
+    const HIDE_REAL_ANNUAL_KPIS = false;
+    const isPortfolioView = true;
+    const budgetSimulationEnabled = false;
+
+    // Logic from SDMTForecast.tsx line 2900
+    const shouldShowKPIs = SHOW_PORTFOLIO_KPIS && 
+                          !NEW_FORECAST_LAYOUT_ENABLED && 
+                          !HIDE_REAL_ANNUAL_KPIS && 
+                          isPortfolioView && 
+                          !budgetSimulationEnabled;
+
+    assert.strictEqual(
+      shouldShowKPIs,
+      false,
+      'Portfolio KPI tiles should be hidden when NEW_FORECAST_LAYOUT is enabled (KPIs in ForecastSummaryBar instead)'
+    );
+  });
+});

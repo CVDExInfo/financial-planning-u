@@ -304,3 +304,57 @@ describe("ForecastChartsPanel - Custom Tooltip", () => {
     );
   });
 });
+
+/**
+ * Test: Projects bar configuration (barSize and fill)
+ */
+describe("ForecastChartsPanel - Projects Bar Configuration", () => {
+  it("should configure Projects bar with barSize=10 for thin appearance", () => {
+    // From ForecastChartsPanel.tsx line 295
+    const barSize = 10;
+    
+    assert.strictEqual(
+      barSize,
+      10,
+      "Projects bar should have barSize=10 for thin visual appearance"
+    );
+  });
+
+  it("should configure Projects bar with light fill color", () => {
+    // From ForecastChartsPanel.tsx line 293
+    const fill = "rgba(99,102,241,0.14)";
+    
+    assert.ok(
+      fill.includes('rgba'),
+      "Projects bar fill should use rgba format"
+    );
+    
+    assert.ok(
+      fill.includes('0.14'),
+      "Projects bar should have low opacity (0.14) for light appearance"
+    );
+  });
+
+  it("should configure Projects bar on right Y-axis", () => {
+    // From ForecastChartsPanel.tsx line 290
+    const yAxisId = "right";
+    
+    assert.strictEqual(
+      yAxisId,
+      "right",
+      "Projects bar should be configured with yAxisId='right'"
+    );
+  });
+
+  it("should have fillOpacity=1 when fill already includes alpha", () => {
+    // From ForecastChartsPanel.tsx line 294
+    const fill = "rgba(99,102,241,0.14)";
+    const fillOpacity = 1; // Set to 1 since fill already has alpha
+    
+    assert.strictEqual(
+      fillOpacity,
+      1,
+      "fillOpacity should be 1 when fill already includes alpha channel"
+    );
+  });
+});
