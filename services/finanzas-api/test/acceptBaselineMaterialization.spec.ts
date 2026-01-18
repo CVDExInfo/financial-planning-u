@@ -238,15 +238,13 @@ describe("AcceptBaseline Materialization Integration", () => {
 
     // Verify logging was called with correct structure (updated log format)
     expect(consoleInfoSpy).toHaveBeenCalledWith(
-      "[materializers] materializeAllocationsForBaseline result",
+      "[materializers] materialized allocations summary",
       expect.objectContaining({
-        baselineId: "base_logging_test",
-        projectId: "P-LOGGING",
-        allocationsAttempted: expect.any(Number),
-        allocationsWritten: expect.any(Number),
-        allocationsSkipped: expect.any(Number),
-        months: expect.any(Number),
-        monthRange: expect.any(String),
+        baseline: "base_logging_test",
+        attempted: expect.any(Number),
+        written: expect.any(Number),
+        skipped: expect.any(Number),
+        overwritten: expect.any(Number),
       })
     );
 
