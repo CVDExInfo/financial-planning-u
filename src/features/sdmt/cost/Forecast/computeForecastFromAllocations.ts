@@ -44,7 +44,7 @@ function normalizeId(s: string | null | undefined): string {
 /**
  * Extended LineItem type that may have alternative ID fields
  */
-interface ExtendedLineItem extends LineItem {
+export interface ExtendedLineItem extends LineItem {
   line_item_id?: string;
   rubroId?: string;
   projectId?: string;
@@ -170,9 +170,9 @@ export function computeForecastFromAllocations(
     }
     
     // Description and category fallback chain
-    const taxonomyEntry = taxonomyByRubroId?.[rubroId] || taxonomyByRubroId?.[matchingRubro?.id || ""];
-    const description = matchingRubro?.description || taxonomyEntry?.description || `Allocation ${rubroId}`;
-    const category = matchingRubro?.category || taxonomyEntry?.category || 'Allocations';
+    const taxonomyEntry = taxonomyByRubroId?.[rubroId] ?? taxonomyByRubroId?.[matchingRubro?.id ?? ""];
+    const description = matchingRubro?.description ?? taxonomyEntry?.description ?? `Allocation ${rubroId}`;
+    const category = matchingRubro?.category ?? taxonomyEntry?.category ?? 'Allocations';
     
     if (!matchingRubro && taxonomyEntry) {
       taxonomyFallbackCount++;
@@ -195,7 +195,7 @@ export function computeForecastFromAllocations(
   });
   
   // Debug logging (DEV only)
-  if ((import.meta as any)?.env?.DEV) {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
     console.info(
       `[computeForecastFromAllocations] Processed ${allocations.length} allocations → ${forecastCells.length} forecast cells`,
       {
