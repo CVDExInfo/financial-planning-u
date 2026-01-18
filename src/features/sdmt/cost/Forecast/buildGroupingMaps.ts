@@ -71,7 +71,7 @@ export function buildGroupingMaps(opts: {
   rubroMap: Map<string, RubroData>;
   totalsMap: Map<string, Totals>;
 } {
-  const { forecastRows, taxonomy } = opts;
+  const { forecastRows, taxonomy, viewMode } = opts;
 
   const categoryMap = new Map<string, RubroData[]>();
   const rubroMap = new Map<string, RubroData>();
