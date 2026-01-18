@@ -51,7 +51,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-2' }}
 
       - name: Set environment variables (stage & force flag)
         env:
@@ -87,11 +87,13 @@ jobs:
           echo "node: $(node -v)"
           echo "pnpm: $(pnpm -v)"
           echo "Checking ts-node availability via pnpm exec..."
-          if pnpm exec -c 'pnpm exec ts-node --version >/dev/null 2>&1'; then
+          # Directly test ts-node availability via pnpm exec (no nested exec)
+          if pnpm exec ts-node --version >/dev/null 2>&1; then
             echo "ts-node is available via pnpm exec"
             pnpm exec ts-node --version || true
           else
-            echo "WARNING: ts-node not available via pnpm exec - ensure ts-node is a devDependency"
+            echo "ERROR: ts-node not available via pnpm exec - ensure ts-node is a devDependency and pnpm install succeeded"
+            exit 1
           fi
 
       - name: Run backfill dry-run (SAFE - no writes)
@@ -99,7 +101,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-2' }}
           STAGE_NAME: ${{ env.STAGE_NAME }}
           NODE_ENV: ${{ env.NODE_ENV }}
           FORCE_REWRITE_ZEROS: ${{ env.FORCE_REWRITE_ZEROS }}
@@ -110,7 +112,6 @@ jobs:
           echo "Node env: $NODE_ENV"
           echo "Force rewrite zeros: $FORCE_REWRITE_ZEROS"
           echo "---------------------------------------------------------"
-          # The script should detect FORCE_REWRITE_ZEROS env var and act accordingly.
           pnpm exec ts-node ./scripts/backfill-baseline-materialization.ts --dry-run
 
       - name: Summary
