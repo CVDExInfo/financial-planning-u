@@ -94,7 +94,7 @@ jobs:
 
           echo "Prepared inputs: STAGE_NAME=${{ github.event.inputs.environment }}, FORCE_REWRITE_ZEROS=${{ github.event.inputs.force_rewrite_zeros }}, CONFIRM=${{ github.event.inputs.confirm }}"
 
-      - name: Sanity: node / pnpm / ts-node
+      - name: "Sanity: node / pnpm / ts-node"
         working-directory: ./services/finanzas-api
         run: |
           set -euo pipefail
