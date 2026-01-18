@@ -295,12 +295,10 @@ export function ForecastRubrosTable({
       // Apply labor/non-labor filter
       const filteredRubros = searchFilteredRubros.filter(rubro => {
         // Determine if this rubro is labor
-        // Priority: rubro.isLabor flag -> category check -> canonical key check -> role/subtype check
-        const rubroCategory = rubro.category || category;
-        const rubroRole = (rubro as any).role || (rubro as any).subtype || '';
-        const isLaborRubro = (rubro as any).isLabor ?? 
-                            isLabor(rubroCategory, rubroRole) ??
-                            isLaborByKey(rubro.rubroId);
+        // Priority: rubro.isLabor flag -> category check -> canonical key check
+        const isLaborRubro = rubro.isLabor ?? 
+                            rubro.category?.toLowerCase().includes('mano de obra') ?? 
+                            false;
         
         if (filterMode === 'labor') return isLaborRubro;
         if (filterMode === 'non-labor') return !isLaborRubro;
@@ -344,11 +342,9 @@ export function ForecastRubrosTable({
       const filteredRubros = searchFilteredRubros.filter(rubro => {
         // Determine if this rubro is labor
         // Priority: rubro.isLabor flag -> category check -> canonical key check -> role/subtype check
-        const rubroCategory = rubro.category || '';
-        const rubroRole = (rubro as any).role || (rubro as any).subtype || '';
-        const isLaborRubro = (rubro as any).isLabor ??
-                            isLabor(rubroCategory, rubroRole) ??
-                            isLaborByKey(rubro.rubroId);
+        const isLaborRubro = rubro.isLabor ?? 
+                            rubro.category?.toLowerCase().includes('mano de obra') ?? 
+                            false;
         
         if (filterMode === 'labor') return isLaborRubro;
         if (filterMode === 'non-labor') return !isLaborRubro;

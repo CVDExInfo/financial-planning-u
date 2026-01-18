@@ -1121,6 +1121,7 @@ export const materializeAllocationsForBaseline = async (
           baselineId,
           rubro_id: canonicalRubroId,
           rubroId: canonicalRubroId,
+          canonical_rubro_id: canonicalRubroId,
           line_item_id:
             rubro.metadata?.role ||
             rubro.nombre ||
@@ -1164,6 +1165,10 @@ export const materializeAllocationsForBaseline = async (
           item.linea_codigo ||
           item.id ||
           "unknown";
+        const canonical = getCanonicalRubroId(rubroStableId) || rubroStableId;
+        if (!getCanonicalRubroId(rubroStableId)) {
+          console.warn(`[materializers] No canonical mapping for rubro: ${rubroStableId}`);
+        }
         const lineItemId =
           item.id ||
           item.line_item_id ||
@@ -1173,7 +1178,7 @@ export const materializeAllocationsForBaseline = async (
 
         return months.map((month, idx) => {
           const amount = Number(monthly[idx] ?? 0);
-          const sk = `ALLOCATION#${baselineId}#${month}#${rubroStableId}`;
+          const sk = `ALLOCATION#${baselineId}#${month}#${canonical}`;
           return {
             pk: `PROJECT#${projectId}`,
             sk,
@@ -1181,7 +1186,8 @@ export const materializeAllocationsForBaseline = async (
             projectId,
             baseline_id: baselineId,
             baselineId,
-            rubro_id: rubroStableId,
+            rubro_id: canonical,
+            canonical_rubro_id: canonical,
             calendar_month: month,
             month,
             month_index: idx + 1,

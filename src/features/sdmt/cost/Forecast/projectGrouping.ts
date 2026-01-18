@@ -6,7 +6,8 @@
  */
 
 import type { ForecastCell, LineItem } from '@/types/domain';
-import { lookupTaxonomy, isLaborByKey, type TaxonomyEntry, type RubroRow } from './lib/taxonomyLookup';
+import { lookupTaxonomyCanonical } from './lib/lookupTaxonomyCanonical';
+import { isLaborByKey, type TaxonomyEntry, type RubroRow } from './lib/taxonomyLookup';
 
 export interface ProjectMonthTotals {
   forecast: number;
@@ -150,7 +151,7 @@ export function buildProjectRubros(
           description: (cell as any).description,
           category: (cell as any).category,
         };
-        taxonomy = lookupTaxonomy(taxonomyMap, rubroRow, localCache);
+        taxonomy = lookupTaxonomyCanonical(taxonomyMap, rubroRow, localCache);
       }
       
       // Resolve description with fallback chain: lineItem -> taxonomy -> cell -> taxonomyByRubroId -> default
@@ -172,7 +173,7 @@ export function buildProjectRubros(
       // Determine isLabor: taxonomy.isLabor -> taxonomyByRubroId.isLabor -> canonical key check -> category check
       const isLabor = taxonomy?.isLabor ?? 
                      taxonomyEntry?.isLabor ??
-                     isLaborByKey(rubroId) ??
+                     (isLaborByKey(rubroId) ? true : undefined) ??
                      (category?.toLowerCase().includes('mano de obra') || category?.toLowerCase() === 'mod') ??
                      false;
 
