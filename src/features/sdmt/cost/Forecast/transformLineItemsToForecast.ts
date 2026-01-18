@@ -6,6 +6,7 @@
  */
 
 import type { LineItem, ForecastCell } from '@/types/domain';
+import { isLaborByKey } from './lib/taxonomyLookup';
 
 /**
  * ForecastRow extends ForecastCell with optional project metadata
@@ -18,6 +19,7 @@ export type ForecastRow = ForecastCell & {
   rubroId?: string;
   description?: string;
   category?: string;
+  isLabor?: boolean;
 };
 
 /**
@@ -35,7 +37,7 @@ export function transformLineItemsToForecast(
   months = 12,
   projectId?: string,
   projectName?: string,
-  taxonomyByRubroId?: Record<string, { description?: string; category?: string }>
+  taxonomyByRubroId?: Record<string, { description?: string; category?: string; isLabor?: boolean }>
 ): ForecastRow[] {
   if (!lineItems || lineItems.length === 0) {
     return [];
@@ -63,6 +65,12 @@ export function transformLineItemsToForecast(
     const description = item.description || taxonomyEntry?.description || item.id;
     const category = item.category || taxonomyEntry?.category;
     
+    // Determine isLabor: taxonomy.isLabor -> canonical key check -> category check
+    const isLabor = taxonomyEntry?.isLabor ??
+                   isLaborByKey(item.id) ??
+                   (category?.toLowerCase().includes('mano de obra') || category?.toLowerCase() === 'mod') ??
+                   false;
+    
     // Create forecast cells for each active month
     for (let month = 1; month <= months; month++) {
       if (month >= startMonth && month <= endMonth) {
@@ -71,6 +79,7 @@ export function transformLineItemsToForecast(
           rubroId: item.id,
           description,
           category,
+          isLabor,
           month,
           planned: monthlyAmount,
           forecast: monthlyAmount,
