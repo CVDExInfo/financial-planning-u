@@ -15,12 +15,12 @@ Documento de referencia que define el *diseño final* esperado para la pantalla 
 
    * **Componente:** `src/features/sdmt/cost/Forecast/components/ForecastSummaryBar.tsx` (o `ForecastKpiCards.tsx`)
    * **Contenido:** Presupuesto Total, Pronóstico Total, Real Total, % Consumo, Variación.
-   * **Visibilidad:** Siempre visible en modo `TODOS`. No es colapsable. No debe ocultarse por flags (salvo que se considere un cambio futuro explícito).
+   * **Visibilidad:** Siempre visible en modo `TODOS`. No es colapsable.
 
 2. **Cuadrícula de Pronóstico (12 Meses)** — *Canonical 12m grid*
 
    * **Componente:** `src/features/sdmt/cost/Forecast/components/ForecastRubrosTable.tsx`
-   * **Requerimientos clave:**
+   * **Requisitos clave:**
 
      * **Única instancia en toda la página.** Eliminar cualquier tabla duplicada (ej. la secundaria alrededor de la línea ~3180).
      * **No colapsada por defecto** al entrar en la página — `defaultOpen = true`.
@@ -33,15 +33,17 @@ Documento de referencia que define el *diseño final* esperado para la pantalla 
    * **Regla visual:** filtros y botones compactos y balanceados (controles `h-8`, `text-sm`, `gap-3`).
    * **Visibilidad:** siempre visible (no colapsado).
 
-4. **Resumen de Portafolio** — *solo* **Desglose por proyecto** (Summary Grid)
+4. **Resumen de Portafolio — *solo* Desglose Mensual vs Presupuesto (M1–M12) (SUMMARY GRID)**
 
    * **Componente:** `src/features/sdmt/cost/Forecast/PortfolioSummaryView.tsx`
-   * **Requisitos:**
+   * **Requisitos (IMPRESCINDIBLES):**
 
-     * Mostrar únicamente el **Desglose Mensual vs Presupuesto M1-M12 Grid**  
-     * **No** debe incluir tiles KPI duplicadas (esas sólo en `ForecastSummaryBar`). → ocultar totalmente esta sección.
-     * `defaultOpen` en NEW layout: colapsado por defecto (pero accesible).
-     * `VITE_FINZ_HIDE_PROJECT_SUMMARY === 'FALSE'` → Mostrar únicamente el **Desglose Mensual vs Presupuesto M1-M12 Grid** 
+     * **Mostrar únicamente el** **`Desglose Mensual vs Presupuesto M1–M12`** **Grid** (etiquetado en UI como *Desglose Mensual vs Presupuesto* o *Rubros por Categoría / Rubros por Proyecto* según la vista).
+     * **No** debe incluir tiles KPI duplicadas ni otros “extra tiles” (esas tarjetas KPI son exclusivas de `ForecastSummaryBar`). El `PortfolioSummaryView` **no** debe renderizar las tarjetas KPI anuales u otros bloques que ya aparezcan arriba.
+     * `defaultOpen` en NEW layout: **colapsado por defecto** (pero accesible y expandible por el usuario).
+     * Si la bandera `VITE_FINZ_HIDE_PROJECT_SUMMARY === 'true'`, ocultar completamente esta sección.
+     * Si la bandera `VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED === 'true'`, la tabla debe mostrarse en su modo *transposed* (meses como columnas).
+   * **Nota crítica:** El **Monitoreo / Cuadrícula 12m** (elemento 2) debe permanecer encima de esta sección. **PortfolioSummaryView** sólo debe contener el **Desglose Mensual** (Summary Grid) — eliminar o refactorizar cualquier otro contenido dentro de `PortfolioSummaryView` que duplique KPIs u otros bloques.
 
 5. **Simulador de Presupuesto** (colapsable — cerrado por defecto)
 
@@ -72,19 +74,19 @@ Documento de referencia que define el *diseño final* esperado para la pantalla 
 
 ---
 
-## 2. Tabla de flags (ES) — visibilidad y efectos
+## 2. Tabla de flags (ES) — visibilidad y efectos (alineada con #4)
 
-| Flag                                               | Nombre (ES)                   |         Componente / Vista | Comportamiento                                                                |                        Default |
-| -------------------------------------------------- | ----------------------------- | -------------------------: | ----------------------------------------------------------------------------- | -----------------------------: |
-| `VITE_FINZ_NEW_FORECAST_LAYOUT`                    | Nuevo Layout Pronóstico       |             `SDMTForecast` | Activa el layout ejecutivo nuevo. **No** debe esconder la grid 12m.           | `true`/`false` (según rollout) |
-| `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS`                  | Ocultar KPIs Anuales Reales   |         `ForecastKpis.tsx` | Si `true`, oculta las tarjetas KPI anuales en vista TODOS (no en simulación). |                        `false` |
-| `VITE_FINZ_HIDE_PROJECT_SUMMARY`                   | Ocultar Resumen de Portafolio | `PortfolioSummaryView.tsx` | Si `true`, oculta el resumen de portafolio (NO el Monitoreo).                 |                        `false` |
-| `VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED` | Mostrar Desglose transpuesto  | `PortfolioSummaryView.tsx` | Fuerza transponer meses como columnas en la tabla mensual (si aplica).        |                        `false` |
-| `VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST`           | Ocultar lista expandible      | `PortfolioSummaryView.tsx` | Si `true`, oculta la lista expandible de proyectos.                           |                        `false` |
-| `VITE_FINZ_HIDE_RUNWAY_METRICS`                    | Ocultar Runway                | `PortfolioSummaryView.tsx` | Si `true`, oculta el bloque Runway & Control Presupuestario.                  |                        `false` |
-| `VITE_FINZ_SHOW_KEYTRENDS`                         | Mostrar Key Trends            |             `SDMTForecast` | Controla TopVarianceProjectsTable/KeyTrends visibility.                       |                         `true` |
+| Flag                                               | Nombre (ES)                   | Componente / Vista         | Comportamiento                                                                                                                                                                                                | Default |
+| -------------------------------------------------- | ----------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------: |
+| `VITE_FINZ_NEW_FORECAST_LAYOUT`                    | Nuevo Layout Pronóstico       | `SDMTForecast`             | Activa el layout ejecutivo nuevo. **No** debe esconder la grid 12m canónica ni invertir el orden.                                                                                                             | `false` |
+| `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS`                  | Ocultar KPIs Anuales Reales   | `ForecastKpis.tsx`         | Si `true`, oculta las tarjetas KPI anuales en `ForecastSummaryBar`.                                                                                                                                           | `false` |
+| `VITE_FINZ_HIDE_PROJECT_SUMMARY`                   | Ocultar Resumen de Portafolio | `PortfolioSummaryView.tsx` | Si `true`, **oculta completamente** la sección Resumen de Portafolio (el Desglose Mensual M1–M12). **NOTA:** si se mantiene `false`, `PortfolioSummaryView` debe renderizar *solo* la tabla Desglose Mensual. | `false` |
+| `VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED` | Mostrar Desglose transpuesto  | `PortfolioSummaryView.tsx` | Si `true`, fuerza que el Desglose Mensual se renderice *transpuesto* (meses como columnas).                                                                                                                   | `false` |
+| `VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST`           | Ocultar lista expandible      | `PortfolioSummaryView.tsx` | Si `true`, oculta la lista expandible de proyectos dentro del resumen (manteniendo la tabla Desglose).                                                                                                        | `false` |
+| `VITE_FINZ_HIDE_RUNWAY_METRICS`                    | Ocultar Runway                | `PortfolioSummaryView.tsx` | Si `true`, oculta el bloque Runway & Control Presupuestario en el Resumen de Portafolio.                                                                                                                      | `false` |
+| `VITE_FINZ_SHOW_KEYTRENDS`                         | Mostrar Key Trends            | `SDMTForecast`             | Controla visibilidad de TopVarianceProjectsTable/KeyTrends.                                                                                                                                                   |  `true` |
 
-**Nota técnica:** *Vite env vars se leen en build-time (`import.meta.env`). Cambios en flags requieren rebuild para reflejarse en el cliente.*
+**Importante técnico:** *Vite env vars se leen en build-time (`import.meta.env`). Cambios en flags requieren rebuild para que los bundles de cliente reflejen los nuevos valores.*
 
 ---
 
@@ -132,7 +134,7 @@ if (HIDE_REAL_ANNUAL_KPIS) return null;
 
 * Add `console.debug` on mount in dev for `import.meta.env` to aid QA.
 
-### 3.5 Accessibility (a11y)
+### 3.5 Accesibilidad (a11y)
 
 * All selects/buttons: `aria-label`.
 * Collapsible triggers: `aria-expanded`.
@@ -175,12 +177,12 @@ if (HIDE_REAL_ANNUAL_KPIS) return null;
 
 1. `pnpm dev` → Visit `/finanzas/sdmt/cost/forecast` (TODOS).
 2. Confirm page order EXACTA:
-   `Resumen Ejecutivo` → `Cuadrícula 12m` → `Matriz del Mes` → `Resumen de Portafolio` → `Simulador` → `Gráficos` → `Monitoreo (expandido)`.
+   `Resumen Ejecutivo` → `Cuadrícula 12m` → `Matriz del Mes` → `Resumen de Portafolio (Desglose Mensual M1–M12)` → `Simulador` → `Gráficos` → `Monitoreo (expandido)`.
 3. `Cuadrícula 12m` visible by default (no click). Only one instance on page.
-4. Toggle `Vista` → `Por Proyecto` → project headers show nested rubros. Persist on reload.
-5. Charts: Bars thin and labelled, tooltip shows `Mes X — Proyectos: N`.
-6. Set `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS=true` (rebuild) → KPIs hidden.
-7. Confirm accessibility (tab to expand project headers, aria labels present).
+4. `Resumen de Portafolio` muestra **solo** la tabla *Desglose Mensual vs Presupuesto (M1–M12)*; no tarjetas KPI duplicadas.
+5. Toggle `Vista` → `Por Proyecto` → project headers show nested rubros. Persist on reload.
+6. Charts: Bars thin and labelled, tooltip shows `Mes X — Proyectos: N`.
+7. Set `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS=true` (rebuild) → KPIs hidden.
 
 ---
 
@@ -230,16 +232,16 @@ const handleBreakdownModeChange = (m:'project'|'rubros') => {
 * [ ] `pnpm lint` OK
 * [ ] Unit tests OK (`pnpm test:unit`)
 * [ ] Build OK (`pnpm build`)
-* [ ] `docs/FINAL_FORECAST_LAYOUT.md` added/updated (this file)
+* [ ] `docs/FINAL_FORECAST_LAYOUT.md` added/updated (este archivo)
 * [ ] `docs/FEATURE_FLAGS.md` updated (Spanish names + components)
-* [ ] Manual smoke tests passed (see checklist)
+* [ ] Manual smoke tests passed (ver checklist)
 
 ---
 
 ## 8. Notas finales
 
-*Este documento es la especificación autoritativa.* Si el equipo discute una excepción, anotar el caso y actualizar el doc. Si el `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS` u otras banderas cambian de valor en producción, recuerde que deben estar presentes **en tiempo de build** para que el cliente las respete.
+*Este documento es la especificación autoritativa.* Si el equipo acuerda una excepción, anotar el caso y actualizar el doc. Si se cambia el comportamiento de las flags, recordar que los valores Vite (`import.meta.env`) se fijan en build-time y requieren rebuild para reflejar cambios.
 
 ---
 
-**Acción solicitada:** Crear el archivo `docs/FINAL_FORECAST_LAYOUT.md` con este contenido y mantenerlo sincronizado con `docs/FEATURE_FLAGS.md`.
+**Acción requerida:** Reemplazar `docs/FINAL_FORECAST_LAYOUT.md` con este contenido y ajustar `docs/FEATURE_FLAGS.md` para que su tabla de flags refleje exactamente la columna *Comportamiento* mostrada aquí.
