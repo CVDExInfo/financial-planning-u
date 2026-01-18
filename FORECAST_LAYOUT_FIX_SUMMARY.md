@@ -88,19 +88,20 @@ const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOU
 │ 1. Resumen Ejecutivo - Cartera Completa                    │
 │    (ForecastSummaryBar - always visible)                    │
 │    [Total Budget | Total Forecast | Total Actual | %]      │
+│    ✅ ALL portfolio KPIs shown here (no duplicates)         │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│ 2. 📅 Monitoreo mensual de proyectos vs. presupuesto  M1-12│
-│    Vista: [Por Proyecto ▼] | Rubros por proyecto     [▼]   │
+│ 2. Cuadrícula de Pronóstico (12 Meses)                     │
 │    ┌───────────────────────────────────────────────┐       │
-│    │ ForecastRubrosTable (12-month canonical grid)  │       │
+│    │ ForecastRubrosTable (canonical 12-month grid)  │       │
 │    │ - Category subtotals                            │       │
 │    │ - Individual rubros (indented)                  │       │
 │    │ - Inline budget editing                         │       │
 │    │ - Search/filter functionality                   │       │
 │    └───────────────────────────────────────────────┘       │
 │    ✅ EXPANDED BY DEFAULT (defaultOpen={true})              │
+│    ✅ NO Vista selector (simplified canonical view)         │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
@@ -113,7 +114,8 @@ const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOU
 ┌─────────────────────────────────────────────────────────────┐
 │ 4. Resumen de Portafolio                            [▼]    │
 │    (PortfolioSummaryView - collapsible)                    │
-│    Shows: Desglose por proyecto (Summary Grid)             │
+│    ✅ Shows ONLY: Desglose Mensual vs Presupuesto (M1-M12) │
+│    ✅ NO KPI tiles (those are in ForecastSummaryBar)       │
 │    Hidden when: VITE_FINZ_HIDE_PROJECT_SUMMARY=true        │
 └─────────────────────────────────────────────────────────────┘
 
@@ -132,7 +134,20 @@ const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOU
 │    Bar improvements: wider (14px), better labels           │
 └─────────────────────────────────────────────────────────────┘
 
-   ❌ Old table-based grid (line 3604+) HIDDEN
+┌─────────────────────────────────────────────────────────────┐
+│ 7. 📅 Monitoreo mensual de proyectos vs. presupuesto  M1-12│
+│    Vista: [Por Proyecto ▼] | Rubros por proyecto           │
+│    ┌───────────────────────────────────────────────┐       │
+│    │ ForecastRubrosTable (same component as #2)     │       │
+│    │ - Supports Vista toggle                         │       │
+│    │ - Por Proyecto: project headers with nested     │       │
+│    │ - Rubros por proyecto: classic rubros view      │       │
+│    └───────────────────────────────────────────────┘       │
+│    ✅ EXPANDED BY DEFAULT (defaultOpen={true})              │
+│    ✅ HAS Vista selector for breakdown modes                │
+└─────────────────────────────────────────────────────────────┘
+
+   ❌ Old table-based grid (line 3604+) HIDDEN when flag=true
 ```
 
 ---
