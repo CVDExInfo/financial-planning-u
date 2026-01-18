@@ -631,9 +631,9 @@ export function MonthlySnapshotGrid({
         ) : (
           <>
             {/* Expanded View: Compact Filter Strip */}
-            <div className="w-full flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="w-full flex flex-col md:flex-row md:items-center md:justify-between gap-2">
               {/* Left group: search + cost type + checkbox */}
-              <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-end gap-3">
+              <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-end gap-2">
                 {/* Search */}
                 <div className="flex-1 min-w-0 w-full sm:w-auto sm:max-w-[300px]">
                   <Label
@@ -650,7 +650,7 @@ export function MonthlySnapshotGrid({
                       placeholder="Proyecto o rubro..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="h-9 pl-8 text-sm w-full"
+                      className="h-8 pl-8 text-sm w-full"
                     />
                   </div>
                 </div>
@@ -711,7 +711,7 @@ export function MonthlySnapshotGrid({
 
               {/* Right group: Period / Agrupar por / Presupuesto tile */}
               <div className="flex-shrink-0 mt-2 md:mt-0">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                   {/* Month Selector */}
                   <div className="space-y-1 min-w-[140px]">
                     <Label
@@ -732,7 +732,7 @@ export function MonthlySnapshotGrid({
                     >
                       <SelectTrigger
                         id="month-select-filters"
-                        className="h-9 text-sm"
+                        className="h-8 text-sm"
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -765,7 +765,7 @@ export function MonthlySnapshotGrid({
                     >
                       <SelectTrigger
                         id="grouping-select-filters"
-                        className="h-9 text-sm"
+                        className="h-8 text-sm"
                       >
                         <SelectValue />
                       </SelectTrigger>

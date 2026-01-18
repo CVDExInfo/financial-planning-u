@@ -22,6 +22,7 @@ import {
   BarChart, 
   CartesianGrid, 
   ComposedChart,
+  LabelList,
   Legend,
   Line,
   ResponsiveContainer, 
@@ -213,10 +214,10 @@ export function ForecastChartsPanel({
                   <ComposedChart
                     data={monthlyTrendData}
                     margin={{
-                      top: 20,
-                      right: 60,
-                      left: 20,
-                      bottom: 5,
+                      top: 10,
+                      right: 40,
+                      left: 0,
+                      bottom: 10,
                     }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.90 0.02 160)" />
@@ -247,6 +248,7 @@ export function ForecastChartsPanel({
                       stroke="oklch(0.45 0 0)"
                       fontSize={12}
                       label={{ value: 'Proyectos', angle: 90, position: 'insideRight' }}
+                      tickFormatter={(value) => Math.round(value).toString()}
                     />
                     <Tooltip content={<CustomMonthlyTooltip />} />
                     <Legend formatter={(value) => <span className="text-sm">{value}</span>} />
@@ -288,9 +290,17 @@ export function ForecastChartsPanel({
                       yAxisId="right"
                       dataKey="Proyectos"
                       name="Proyectos (M/M)"
-                      fill={CHART_COLORS.projects}
-                      opacity={CHART_STYLES.barOpacity}
-                    />
+                      fill="#6366f1"
+                      fillOpacity={0.16}
+                      stroke="#6366f1"
+                      barSize={12}
+                    >
+                      <LabelList 
+                        dataKey="Proyectos" 
+                        position="top" 
+                        style={{ fontSize: 10, fill: '#475569', opacity: 0.85 }} 
+                      />
+                    </Bar>
                   </ComposedChart>
                 </ResponsiveContainer>
               </CardContent>

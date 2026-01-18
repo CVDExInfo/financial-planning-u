@@ -240,11 +240,15 @@ export function SDMTForecast() {
   // Breakdown view mode for TODOS/portfolio view (Proyectos vs Rubros)
   // The ForecastRubrosTable component has its own internal viewMode that switches between
   // 'category' and 'project' views. This state tracks the user's preference at the page level.
-  const [breakdownMode, setBreakdownMode] = useState<'project' | 'rubros'>('project');
+  const [breakdownMode, setBreakdownMode] = useState<'project' | 'rubros'>(() => {
+    const stored = sessionStorage.getItem('forecastBreakdownMode');
+    return stored === 'rubros' ? 'rubros' : 'project';
+  });
   
   // Handler for breakdown mode changes
   const handleBreakdownModeChange = (newMode: 'project' | 'rubros') => {
     setBreakdownMode(newMode);
+    sessionStorage.setItem('forecastBreakdownMode', newMode);
     // Note: The ForecastRubrosTable component manages its own viewMode internally
     // and persists it in sessionStorage. This handler updates the page-level state
     // which could be used to control other aspects of the view in the future.
