@@ -347,11 +347,25 @@ export function useSDMTForecastData({
                 allocations.length
               } allocations + ${rubrosResp?.length || 0} rubros`
             );
+            
+            // Build taxonomy lookup from rubros for fallback enrichment
+            const taxonomyByRubroId: Record<string, { description?: string; category?: string }> = {};
+            rubrosResp?.forEach((rubro: any) => {
+              const id = rubro.id || rubro.line_item_id || rubro.rubroId;
+              if (id && (rubro.description || rubro.category)) {
+                taxonomyByRubroId[id] = {
+                  description: rubro.description,
+                  category: rubro.category,
+                };
+              }
+            });
+            
             rows = computeForecastFromAllocations(
               allocations as Allocation[],
               rubrosResp,
               months,
-              projectId
+              projectId,
+              taxonomyByRubroId
             );
             console.log(
               `[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from allocations`
