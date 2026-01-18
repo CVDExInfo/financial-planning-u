@@ -2872,7 +2872,8 @@ export function SDMTForecast() {
       )}
 
       {/* Real Annual Budget KPIs - Show when budget is set and portfolio view (not simulation) */}
-      {!HIDE_REAL_ANNUAL_KPIS && isPortfolioView && !budgetSimulation.enabled && (
+      {/* Hide when NEW_FORECAST_LAYOUT is enabled - KPIs are shown in ForecastSummaryBar instead */}
+      {!NEW_FORECAST_LAYOUT_ENABLED && !HIDE_REAL_ANNUAL_KPIS && isPortfolioView && !budgetSimulation.enabled && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
@@ -3041,8 +3042,11 @@ export function SDMTForecast() {
       {/* ========== TODOS / PORTFOLIO VIEW LAYOUT ========== */}
       {isPortfolioView && (
         <>
-          {/* Position #2: Cuadrícula de Pronóstico (12 Meses) - ForecastRubrosTable */}
-          {!loading && (forecastData.length > 0 || portfolioLineItems.length > 0) && (
+          {/* Position #2: Cuadrícula de Pronóstico (12 Meses) - Canonical 12m grid */}
+          {/* NOTE: This is the canonical 12-month grid when NEW_FORECAST_LAYOUT is enabled. */}
+          {/* Must NOT be collapsed by default on entry (defaultOpen=true). */}
+          {/* Single instance on entire page - no duplicates. */}
+          {NEW_FORECAST_LAYOUT_ENABLED && !loading && (forecastData.length > 0 || portfolioLineItems.length > 0) && (
             <Collapsible
               open={isRubrosGridOpen}
               onOpenChange={setIsRubrosGridOpen}
@@ -3051,11 +3055,12 @@ export function SDMTForecast() {
               <Card ref={rubrosSectionRef} tabIndex={-1} className="space-y-2">
                 <CardHeader className="pb-2 pt-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <CardTitle className="text-lg">
                         Cuadrícula de Pronóstico (12 Meses)
                       </CardTitle>
                     </div>
+                    
                     <CollapsibleTrigger asChild>
                       <Button
                         variant="ghost"
@@ -3089,7 +3094,9 @@ export function SDMTForecast() {
           )}
 
           {/* Position #3: Matriz del Mes — Vista Ejecutiva - MonthlySnapshotGrid */}
-          {isLoadingForecast ? (
+          {/* Visual: filters & buttons must be compact and balanced (see #3 in expected layout). */}
+          {/* Only show when NEW_FORECAST_LAYOUT is enabled */}
+          {NEW_FORECAST_LAYOUT_ENABLED && (isLoadingForecast ? (
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-center min-h-[200px]">
@@ -3138,10 +3145,11 @@ export function SDMTForecast() {
                 navigate(`/sdmt/cost/catalog?projectId=${projectId}`);
               }}
             />
-          ) : null}
+          ) : null)}
 
           {/* Position #4: Resumen de Portafolio - PortfolioSummaryView */}
-          {!HIDE_PROJECT_SUMMARY && !loading && (
+          {/* Only show when NEW_FORECAST_LAYOUT is enabled, HIDE_PROJECT_SUMMARY flag is false, and budget simulation is NOT active */}
+          {NEW_FORECAST_LAYOUT_ENABLED && !HIDE_PROJECT_SUMMARY && !loading && !budgetSimulation.enabled && (
             <Collapsible defaultOpen={true}>
               <Card>
                 <CardHeader className="pb-3">
@@ -3187,6 +3195,8 @@ export function SDMTForecast() {
           {/* Duplicate ForecastRubrosTable removed - keeping only the first instance at line ~2551 */}
 
           {/* Position #5: Simulador de Presupuesto - Collapsible (defaultOpen={false}) */}
+          {/* Only show when NEW_FORECAST_LAYOUT is enabled */}
+          {NEW_FORECAST_LAYOUT_ENABLED && (
           <Collapsible defaultOpen={false}>
             <Card className="border-2 border-primary/20">
               <CardHeader className="pb-3">
@@ -3375,9 +3385,11 @@ export function SDMTForecast() {
               </CollapsibleContent>
             </Card>
           </Collapsible>
+          )}
 
           {/* Position #6: Gráficos de Tendencias - ForecastChartsPanel (Collapsible) */}
-          {!loading && forecastData.length > 0 && (
+          {/* Only show when NEW_FORECAST_LAYOUT is enabled */}
+          {NEW_FORECAST_LAYOUT_ENABLED && !loading && forecastData.length > 0 && (
             <ForecastChartsPanel
               portfolioTotals={portfolioTotalsForCharts}
               categoryTotals={categoryTotals}
@@ -3387,9 +3399,6 @@ export function SDMTForecast() {
               projectsPerMonth={projectsPerMonth}
             />
           )}
-
-          {/* Position #7: Monitoreo mensual de proyectos vs. presupuesto - Expanded by default with Vista selector */}
-          {/* This section is rendered below after the portfolio wrapper closes - see line 3570+ */}
         </>
       )}
 
@@ -3599,7 +3608,9 @@ export function SDMTForecast() {
       )}
 
       {/* Forecast Grid - Common for both modes, but with collapsible wrapper for TODOS */}
-      {isPortfolioView ? (
+      {/* NOTE: This old table-based grid is ONLY shown when NEW_FORECAST_LAYOUT is disabled */}
+      {/* When NEW_FORECAST_LAYOUT is enabled, use ForecastRubrosTable (Position #2) instead */}
+      {!NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView ? (
         /* TODOS mode - wrapped in collapsible "Monitoreo mensual de proyectos vs. presupuesto" */
         <Collapsible defaultOpen={true}>
           <Card>

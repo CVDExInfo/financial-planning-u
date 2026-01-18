@@ -693,20 +693,8 @@ export function MonthlySnapshotGrid({
                   </div>
                 </div>
 
-                {/* Variance Filter */}
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="variance-filter"
-                    checked={showOnlyVariance}
-                    onCheckedChange={(checked) => setShowOnlyVariance(checked === true)}
-                  />
-                  <Label
-                    htmlFor="variance-filter"
-                    className="text-sm cursor-pointer"
-                  >
-                    Solo con variación
-                  </Label>
-                </div>
+                {/* Variance Filter - Removed per UI spec */}
+                {/* The "Solo con variación" checkbox has been removed for cleaner UI */}
               </div>
 
               {/* Right group: Period / Agrupar por / Presupuesto tile */}

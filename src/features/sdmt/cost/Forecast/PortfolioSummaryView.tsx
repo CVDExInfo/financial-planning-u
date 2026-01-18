@@ -40,6 +40,8 @@ const HIDE_EXPANDABLE_PROJECT_LIST =
   import.meta.env.VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST === 'true';
 const HIDE_RUNWAY_METRICS =
   import.meta.env.VITE_FINZ_HIDE_RUNWAY_METRICS === 'true';
+const NEW_FORECAST_LAYOUT_ENABLED =
+  import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true';
 
 type ForecastRow = ForecastCell & { projectId?: string; projectName?: string };
 type ProjectLineItem = LineItem & { projectId?: string; projectName?: string };
@@ -244,7 +246,9 @@ export function PortfolioSummaryView({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Portfolio-level Summary Row */}
+          {/* Portfolio-level Summary Row - ONLY show when NEW_FORECAST_LAYOUT is disabled */}
+          {/* When NEW_FORECAST_LAYOUT is enabled, these KPIs are shown in ForecastSummaryBar instead */}
+          {!NEW_FORECAST_LAYOUT_ENABLED && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 p-4 bg-muted/50 rounded-lg border-2 border-primary/20">
             <div>
               <div className="text-sm text-muted-foreground mb-1">Total Planificado</div>
@@ -273,6 +277,7 @@ export function PortfolioSummaryView({
               </div>
             </div>
           </div>
+          )}
 
           {/* Runway Metrics Summary - Only show if runway metrics are available and not hidden by flag */}
           {!HIDE_RUNWAY_METRICS && hasRunwayMetrics && runwayMetrics.length > 0 && (() => {
