@@ -3618,8 +3618,9 @@ export function SDMTForecast() {
         </Collapsible>
       )}
 
-      {/* Forecast Grid - Common for both modes, but with collapsible wrapper for TODOS */}
-      {isPortfolioView ? (
+      {/* Forecast Grid - Portfolio view now uses ForecastRubrosTable at Position #3 above */}
+      {/* This duplicate section is disabled - set to false to prevent rendering */}
+      {false ? (
         /* TODOS mode - wrapped in collapsible "Monitoreo mensual de proyectos vs. presupuesto" */
         <Collapsible defaultOpen={true}>
           <Card>
