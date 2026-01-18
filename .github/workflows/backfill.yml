@@ -4,17 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Target environment (dev | staging | production)'
+        description: "Target environment (dev | staging | production)"
         required: true
-        default: 'dev'
+        default: "dev"
       force_rewrite_zeros:
-        description: 'Set FORCE_REWRITE_ZEROS (true|false) for backfill script (string)'
+        description: "Set FORCE_REWRITE_ZEROS (true|false) for backfill script (string)"
         required: false
-        default: 'false'
+        default: "false"
       confirm:
         description: 'Set to "true" to confirm writes (CONFIRM=yes). Default is false (dry-run).'
         required: false
-        default: 'false'
+        default: "false"
 
 concurrency:
   group: backfill-baseline-materialization
@@ -45,6 +45,7 @@ jobs:
 
       - name: Enable corepack (pnpm)
         run: |
+          set -euo pipefail
           corepack enable
           corepack prepare pnpm@latest --activate
           pnpm -v
@@ -58,6 +59,7 @@ jobs:
 
       - name: Validate AWS_REGION secret exists
         run: |
+          set -euo pipefail
           if [ -z "${{ secrets.AWS_REGION }}" ]; then
             echo "ERROR: AWS_REGION secret is not set. Please set repository secret AWS_REGION (e.g. us-east-2)."
             exit 1
@@ -74,19 +76,19 @@ jobs:
       - name: Prepare inputs (write to GITHUB_ENV)
         run: |
           set -euo pipefail
-          echo "STAGE_NAME=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
-          echo "NODE_ENV=development" >> $GITHUB_ENV
+          echo "STAGE_NAME=${{ github.event.inputs.environment }}" >> "$GITHUB_ENV"
+          echo "NODE_ENV=development" >> "$GITHUB_ENV"
 
           if [ "${{ github.event.inputs.force_rewrite_zeros }}" = "true" ]; then
-            echo "FORCE_REWRITE_ZEROS=yes" >> $GITHUB_ENV
+            echo "FORCE_REWRITE_ZEROS=yes" >> "$GITHUB_ENV"
           else
-            echo "FORCE_REWRITE_ZEROS=no" >> $GITHUB_ENV
+            echo "FORCE_REWRITE_ZEROS=no" >> "$GITHUB_ENV"
           fi
 
           if [ "${{ github.event.inputs.confirm }}" = "true" ]; then
-            echo "CONFIRM=yes" >> $GITHUB_ENV
+            echo "CONFIRM=yes" >> "$GITHUB_ENV"
           else
-            echo "CONFIRM=no" >> $GITHUB_ENV
+            echo "CONFIRM=no" >> "$GITHUB_ENV"
           fi
 
           echo "Prepared inputs: STAGE_NAME=${{ github.event.inputs.environment }}, FORCE_REWRITE_ZEROS=${{ github.event.inputs.force_rewrite_zeros }}, CONFIRM=${{ github.event.inputs.confirm }}"
@@ -95,11 +97,17 @@ jobs:
         working-directory: ./services/finanzas-api
         run: |
           set -euo pipefail
-          echo "node: $(node -v)"
-          echo "pnpm: $(pnpm -v)"
+
+          echo "node:"
+          node -v
+
+          echo "pnpm:"
+          pnpm -v
+
           echo "Checking ts-node..."
           if pnpm exec ts-node --version >/dev/null 2>&1; then
-            echo "ts-node: $(pnpm exec ts-node --version)"
+            echo "ts-node:"
+            pnpm exec ts-node --version
           else
             echo "ERROR: ts-node not available via pnpm exec - ensure 'ts-node' exists in services/finanzas-api package.json devDependencies and pnpm install succeeded"
             exit 1
@@ -129,15 +137,20 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backfill-dry-run-logs
-          path: services/finanzas-api/logs || services/finanzas-api/backfill-output.log || .
+          path: |
+            services/finanzas-api/logs
+            services/finanzas-api/backfill-output.log
+            .
 
       - name: Summary
         if: always()
         run: |
-          echo "## Backfill Dry-run Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Environment: $STAGE_NAME" >> $GITHUB_STEP_SUMMARY
-          echo "- FORCE_REWRITE_ZEROS: $FORCE_REWRITE_ZEROS" >> $GITHUB_STEP_SUMMARY
-          echo "- CONFIRM: $CONFIRM" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Check backfill logs above for detailed per-baseline results." >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Backfill Dry-run Summary"
+            echo ""
+            echo "- Environment: $STAGE_NAME"
+            echo "- FORCE_REWRITE_ZEROS: $FORCE_REWRITE_ZEROS"
+            echo "- CONFIRM: $CONFIRM"
+            echo ""
+            echo "Check backfill logs above for detailed per-baseline results."
+          } >> "$GITHUB_STEP_SUMMARY"
