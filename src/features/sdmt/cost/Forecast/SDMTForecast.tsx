@@ -240,11 +240,15 @@ export function SDMTForecast() {
   // Breakdown view mode for TODOS/portfolio view (Proyectos vs Rubros)
   // The ForecastRubrosTable component has its own internal viewMode that switches between
   // 'category' and 'project' views. This state tracks the user's preference at the page level.
-  const [breakdownMode, setBreakdownMode] = useState<'project' | 'rubros'>('project');
+  const [breakdownMode, setBreakdownMode] = useState<'project' | 'rubros'>(() => {
+    const stored = sessionStorage.getItem('forecastBreakdownMode');
+    return stored === 'rubros' ? 'rubros' : 'project';
+  });
   
   // Handler for breakdown mode changes
   const handleBreakdownModeChange = (newMode: 'project' | 'rubros') => {
     setBreakdownMode(newMode);
+    sessionStorage.setItem('forecastBreakdownMode', newMode);
     // Note: The ForecastRubrosTable component manages its own viewMode internally
     // and persists it in sessionStorage. This handler updates the page-level state
     // which could be used to control other aspects of the view in the future.
@@ -451,6 +455,30 @@ export function SDMTForecast() {
       loadForecastData();
     }
   }, [location.search]);
+
+  // Refresh forecast data when route becomes active or page becomes visible
+  // This ensures we always show fresh data when navigating to Forecast or returning from another tab
+  useEffect(() => {
+    // Refresh when page regains visibility (user switched tabs)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && selectedProjectId) {
+        if (import.meta.env.DEV) {
+          console.log("🔄 Forecast: Refreshing on visibility change");
+        }
+        // Abort any in-flight request and start a fresh one
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        loadForecastData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [location.key, selectedProjectId]); // Re-run when route changes (entering forecast page fresh)
 
   useEffect(() => {
     if (!lineItemsError) return;

@@ -27,6 +27,11 @@ interface ForecastKpisProps {
  * Refactored from SDMTForecast to improve modularity.
  */
 export function ForecastKpis({ kpis, loading = false }: ForecastKpisProps) {
+  // Defensive return if HIDE_REAL_ANNUAL_KPIS flag is set
+  if (import.meta.env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS === 'true') {
+    return null;
+  }
+
   const formatCurrency = (value: number, currency = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
