@@ -342,7 +342,7 @@ export function useSDMTForecastData({
         // Step 2: Fallback - try to get allocations
         try {
           // Extract baselineId from the loaded baseline
-          const extractedBaselineId = baselineResp?.baselineId || baselineResp?.id || undefined;
+          const extractedBaselineId = baselineResp?.baselineId || baselineResp?.id;
           
           console.log(
             `[useSDMTForecastData] Fetching allocations for projectId=${projectId}, baselineId=${extractedBaselineId || 'none'}`
