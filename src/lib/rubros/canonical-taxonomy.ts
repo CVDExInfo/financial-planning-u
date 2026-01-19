@@ -1035,7 +1035,7 @@ const _rubrosWarned = new Set<string>();
  * Warn about unknown rubro ID (throttled to once per normalized key)
  */
 function warnUnknownRubro(legacyId: string) {
-  const normalized = legacyId.toLowerCase();
+  const normalized = normalizeKey(legacyId);
   if (_rubrosWarned.has(normalized)) return;
   _rubrosWarned.add(normalized);
   console.warn(

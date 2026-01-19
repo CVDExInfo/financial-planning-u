@@ -38,9 +38,8 @@ test.describe('SDMT Forecast - Rubros Taxonomy Warnings', () => {
     // Login to the application
     await login(page);
 
-    // Navigate to SDMT forecast page
-    // The exact URL might vary - adjust based on your routing
-    await page.goto('./finanzas/sdmt/cost/forecast', {
+    // Navigate to SDMT forecast page using relative path from finanzas base
+    await page.goto('finanzas/sdmt/cost/forecast', {
       waitUntil: 'networkidle',
       timeout: 60000,
     });
@@ -56,8 +55,11 @@ test.describe('SDMT Forecast - Rubros Taxonomy Warnings', () => {
       await page.waitForLoadState('networkidle');
     }
 
-    // Wait a few seconds for any async data loading
-    await page.waitForTimeout(5000);
+    // Wait for data to load - look for network activity to settle
+    await page.waitForLoadState('networkidle');
+    
+    // Additional wait for any async data processing
+    await page.waitForTimeout(3000);
 
     // Filter console messages for rubros-taxonomy warnings
     const rubrosWarnings = consoleMessages.filter(m => 
@@ -106,14 +108,13 @@ test.describe('SDMT Forecast - Rubros Taxonomy Warnings', () => {
     await login(page);
 
     // Navigate to forecast page
-    await page.goto('./finanzas/sdmt/cost/forecast', {
+    await page.goto('finanzas/sdmt/cost/forecast', {
       waitUntil: 'networkidle',
       timeout: 60000,
     });
 
-    // Wait for page to load
+    // Wait for page to load and network to settle
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
 
     // Check for any console errors related to taxonomy or allocations
     const taxonomyErrors = consoleErrors.filter(e =>
@@ -139,13 +140,12 @@ test.describe('SDMT Forecast - Rubros Taxonomy Warnings', () => {
     
     await login(page);
 
-    await page.goto('./finanzas/sdmt/cost/forecast', {
+    await page.goto('finanzas/sdmt/cost/forecast', {
       waitUntil: 'networkidle',
       timeout: 60000,
     });
 
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
 
     // Look for labor-related content on the page
     // The exact selectors will depend on your UI structure
