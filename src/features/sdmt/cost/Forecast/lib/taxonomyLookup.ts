@@ -191,7 +191,10 @@ export function lookupTaxonomy(
   for (const candidateKey of candidates) {
     const tax = taxonomyMap.get(candidateKey);
     if (tax) {
-      cache.set(primaryKey, tax);
+      // Cache under all candidate keys for consistency
+      for (const ck of candidates) {
+        cache.set(ck, tax);
+      }
       return tax;
     }
   }
@@ -207,7 +210,10 @@ export function lookupTaxonomy(
         name: 'Mano de Obra (MOD)',
         description: rubroRow.description || 'Mano de Obra Directa',
       };
-      cache.set(primaryKey, syntheticLabor);
+      // Cache under all candidate keys for consistency
+      for (const ck of candidates) {
+        cache.set(ck, syntheticLabor);
+      }
       
       // Debug log (dev only)
       if (process.env.NODE_ENV !== 'production') {
@@ -222,7 +228,10 @@ export function lookupTaxonomy(
   
   // Step 4: Tolerant fallback (substring/fuzzy matching)
   const tolerantMatch = tolerantRubroLookup(rubroRow, taxonomyMap);
-  cache.set(primaryKey, tolerantMatch);
+  // Cache under all candidate keys for consistency
+  for (const ck of candidates) {
+    cache.set(ck, tolerantMatch);
+  }
   
   if (tolerantMatch && process.env.NODE_ENV !== 'production') {
     console.debug(
