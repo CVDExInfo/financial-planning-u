@@ -112,6 +112,7 @@ import {
   buildPortfolioTotals,
 } from "./categoryGrouping";
 import { buildProjectTotals, buildProjectRubros } from "./projectGrouping";
+import { getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
 
 import { getBaselineDuration, clampMonthIndex } from "./monthHelpers";
 
@@ -659,16 +660,26 @@ export function SDMTForecast() {
           ? monthlyOverride
           : defaultMonthlyAmount;
 
+        // Try to resolve category and description from canonical taxonomy
+        const taxonomy = getTaxonomyById(lineItemId) || getTaxonomyById(rubroKey);
+        
+        const description = 
+          resolveString(item.description) ||
+          resolveString(item.descripcion) ||
+          (taxonomy ? taxonomy.linea_gasto || taxonomy.descripcion : '') ||
+          lineItemId;
+        
+        const category = 
+          resolveString(item.category) || 
+          resolveString(item.categoria) || 
+          (taxonomy ? taxonomy.categoria : '');
+
         forecastCells.push({
           line_item_id: lineItemId,
           rubroId: rubroKey,
           projectId,
-          description:
-            resolveString(item.description) ||
-            resolveString(item.descripcion) ||
-            "",
-          category:
-            resolveString(item.category) || resolveString(item.categoria) || "",
+          description,
+          category,
           month,
           planned: amount,
           forecast: amount,
