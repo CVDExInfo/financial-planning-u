@@ -7,6 +7,7 @@
 
 import type { LineItem, ForecastCell } from '@/types/domain';
 import { isLaborByKey } from './lib/taxonomyLookup';
+import { getTaxonomyById } from '@/lib/rubros/canonical-taxonomy';
 
 /**
  * ForecastRow extends ForecastCell with optional project metadata
@@ -60,13 +61,24 @@ export function transformLineItemsToForecast(
     const activeMonths = Math.max(1, Math.min(endMonth, months) - Math.max(startMonth, 1) + 1);
     const monthlyAmount = totalCost / activeMonths;
     
-    // Use taxonomy fallback for description if item.description is missing
+    // Try to resolve from canonical taxonomy first, then fallback to taxonomyByRubroId
+    const canonicalTaxonomy = getTaxonomyById(item.id);
     const taxonomyEntry = taxonomyByRubroId?.[item.id];
-    const description = item.description || taxonomyEntry?.description || item.id;
-    const category = item.category || taxonomyEntry?.category;
     
-    // Determine isLabor: taxonomy.isLabor -> canonical key check -> category check
-    const isLabor = taxonomyEntry?.isLabor ??
+    // Priority chain for description: item.description -> canonical taxonomy -> taxonomyByRubroId -> item.id
+    const description = item.description || 
+                       (canonicalTaxonomy ? canonicalTaxonomy.linea_gasto || canonicalTaxonomy.descripcion : undefined) ||
+                       taxonomyEntry?.description || 
+                       item.id;
+    
+    // Priority chain for category: item.category -> canonical taxonomy -> taxonomyByRubroId
+    const category = item.category || 
+                    canonicalTaxonomy?.categoria ||
+                    taxonomyEntry?.category;
+    
+    // Determine isLabor: canonical taxonomy (MOD check) -> taxonomyByRubroId -> canonical key check -> category check
+    const isLabor = (canonicalTaxonomy?.categoria_codigo === 'MOD') ??
+                   taxonomyEntry?.isLabor ??
                    isLaborByKey(item.id) ??
                    (category?.toLowerCase().includes('mano de obra') || category?.toLowerCase() === 'mod') ??
                    false;

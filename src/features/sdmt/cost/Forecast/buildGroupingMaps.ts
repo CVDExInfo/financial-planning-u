@@ -6,6 +6,7 @@
  */
 
 import type { ForecastCell, LineItem } from '@/types/domain';
+import { getTaxonomyById } from '@/lib/rubros/canonical-taxonomy';
 
 export interface RubroData {
   rubroId: string;
@@ -85,18 +86,21 @@ export function buildGroupingMaps(opts: {
     const rubroId = cell.line_item_id || (cell as any).rubroId || (cell as any).sk || 'UNKNOWN';
     const normalizedKey = normalizeRubroKey(rubroId);
     
-    // Lookup taxonomy for category and description
+    // Try canonical taxonomy first, then lookup from provided taxonomy parameter
+    const canonicalTaxonomy = getTaxonomyById(rubroId);
     const taxonomyEntry = taxonomy[rubroId] || taxonomy[normalizedKey];
     
-    // Determine category
+    // Determine category: cell.category -> canonical taxonomy -> provided taxonomy -> 'UNMAPPED'
     const category = 
       (cell as any).category || 
+      canonicalTaxonomy?.categoria ||
       taxonomyEntry?.category || 
       'UNMAPPED';
     
-    // Determine description
+    // Determine description: cell.description -> canonical taxonomy -> provided taxonomy -> fallback
     const description = 
       (cell as any).description || 
+      (canonicalTaxonomy ? canonicalTaxonomy.linea_gasto || canonicalTaxonomy.descripcion : undefined) ||
       taxonomyEntry?.description || 
       `Allocation ${rubroId}`;
     
