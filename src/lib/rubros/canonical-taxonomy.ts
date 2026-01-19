@@ -1008,6 +1008,14 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'RUBRO-AWS-INFRA': 'INF-CLOUD',
   'RUBRO-LICENSE': 'TEC-LIC-MON',
   'RUBRO-CONSULTING': 'GSV-REU',
+  
+  // Allocation tokens and human-readable names (observed in console warnings)
+  'mod-lead-ingeniero-delivery': 'MOD-LEAD',
+  'mod-lead-ingeniero': 'MOD-LEAD',
+  'ingeniero-delivery': 'MOD-LEAD',
+  'Ingeniero Delivery': 'MOD-LEAD',
+  'mod-sdm-service-delivery-manager': 'MOD-SDM',
+  'mod-sdm-sdm': 'MOD-SDM',
 };
 
 /**
@@ -1017,6 +1025,24 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
 export const TAXONOMY_BY_ID = new Map(
   CANONICAL_RUBROS_TAXONOMY.map(r => [r.id, r])
 );
+
+/**
+ * Set to track warned rubro IDs (throttle warnings to once per normalized key)
+ */
+const _rubrosWarned = new Set<string>();
+
+/**
+ * Warn about unknown rubro ID (throttled to once per normalized key)
+ */
+function warnUnknownRubro(legacyId: string) {
+  const normalized = legacyId.toLowerCase();
+  if (_rubrosWarned.has(normalized)) return;
+  _rubrosWarned.add(normalized);
+  console.warn(
+    `[rubros-taxonomy] Unknown rubro_id: "${legacyId}" - not in canonical taxonomy or legacy map. ` +
+    `Suggest adding alias to canonical taxonomy or legacy map.`
+  );
+}
 
 /**
  * Index by category for grouped operations
@@ -1048,8 +1074,8 @@ export function getCanonicalRubroId(legacyId: string): string {
     return legacyId;
   }
   
-  // Unknown ID - log warning and return as-is
-  console.warn(`[rubros-taxonomy] Unknown rubro_id: ${legacyId} - not in canonical taxonomy or legacy map`);
+  // Unknown ID - log throttled warning and return as-is
+  warnUnknownRubro(legacyId);
   return legacyId;
 }
 
@@ -1125,7 +1151,13 @@ export const LABOR_CANONICAL_KEYS = [
   'LINEA#MOD-PM','MOD-PM','LINEA#MOD-PMO','MOD-PMO',
   'MOD-IN1','MOD-IN2','MOD-IN3','MOD','CATEGORIA#MOD','Mano de Obra Directa',
   'Ingeniero Soporte N1','Ingeniero Soporte N2','Ingeniero Soporte N3',
-  'Ingeniero Lider','Project Manager','Service Delivery Manager'
+  'Ingeniero Lider','Project Manager','Service Delivery Manager',
+  // Additional MOD-LEAD aliases
+  'mod-lead-ingeniero-delivery','ingeniero delivery','ingeniero-delivery',
+  'mod-lead-ingeniero','Ingeniero Delivery',
+  // Additional MOD-SDM aliases
+  'mod-sdm-service-delivery-manager','service delivery manager','service-delivery-manager',
+  'mod-sdm-sdm'
 ].map(normalizeKey);
 
 /**
