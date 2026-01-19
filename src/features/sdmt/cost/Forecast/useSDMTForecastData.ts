@@ -26,7 +26,6 @@ import type { LineItem } from "@/types/domain";
 import finanzasClient from "@/api/finanzasClient";
 import { 
   CANONICAL_RUBROS_TAXONOMY, 
-  getTaxonomyById,
   type CanonicalRubroTaxonomy 
 } from "@/lib/rubros/canonical-taxonomy";
 import { buildTaxonomyMap, type TaxonomyEntry as TaxLookupEntry } from "./lib/taxonomyLookup";
