@@ -10,6 +10,8 @@
  * 3. Tolerant fallback (substring/fuzzy matching)
  */
 
+import { LABOR_CANONICAL_KEYS_SET } from '@/lib/rubros/canonical-taxonomy';
+
 /**
  * Normalize key for consistent matching
  * Preserves the actual rubro token at the end of allocation SKs
@@ -29,31 +31,10 @@ export const normalizeKey = (s?: string): string => {
 };
 
 /**
- * Canonical labor keys - all known MOD (Mano de Obra Directa) identifiers
- * These are normalized variants that should always be treated as Labor
- * Exported as array for compatibility and Set for fast lookup
+ * Re-export LABOR_CANONICAL_KEYS_SET from canonical-taxonomy
+ * for backward compatibility with existing code
  */
-export const LABOR_CANONICAL_KEYS = [
-  'LINEA#MOD-EXT', 'MOD-EXT', 
-  'LINEA#MOD-OT', 'MOD-OT', 
-  'LINEA#MOD-ING', 'MOD-ING',
-  'LINEA#MOD-LEAD', 'MOD-LEAD', 
-  'LINEA#MOD-CONT', 'MOD-CONT', 
-  'LINEA#MOD-SDM', 'MOD-SDM',
-  'LINEA#MOD-PM', 'MOD-PM',
-  'LINEA#MOD-PMO', 'MOD-PMO',
-  'MOD-IN1', 'MOD-IN2', 'MOD-IN3',
-  'MOD', 'CATEGORIA#MOD', 
-  'Mano de Obra Directa',
-  'Ingeniero Soporte N1', 'Ingeniero Soporte N2', 'Ingeniero Soporte N3',
-  'Ingeniero Lider', 'Project Manager', 'Service Delivery Manager'
-].map(normalizeKey);
-
-/**
- * Normalized canonical labor keys set for O(1) lookup
- * Exported for use in performance-critical lookups
- */
-export const LABOR_CANONICAL_KEYS_SET = new Set(LABOR_CANONICAL_KEYS);
+export { LABOR_CANONICAL_KEYS_SET };
 
 /**
  * Check if a key matches any canonical labor identifier
