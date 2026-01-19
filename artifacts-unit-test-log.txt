@@ -1,0 +1,51 @@
+TAP version 13
+# [rubros-taxonomy] Unknown rubro_id: "COMPLETELY-UNKNOWN-RUBRO-XYZ" - not in canonical taxonomy or legacy map. Suggest adding alias to canonical taxonomy or legacy map.
+# Subtest: MOD-LEAD canonical aliases map to MOD-LEAD
+ok 1 - MOD-LEAD canonical aliases map to MOD-LEAD
+  ---
+  duration_ms: 0.867928
+  ...
+# Subtest: MOD-SDM canonical aliases map to MOD-SDM
+ok 2 - MOD-SDM canonical aliases map to MOD-SDM
+  ---
+  duration_ms: 0.166289
+  ...
+# Subtest: LEGACY_RUBRO_ID_MAP contains all new aliases
+ok 3 - LEGACY_RUBRO_ID_MAP contains all new aliases
+  ---
+  duration_ms: 0.18811
+  ...
+# Subtest: LABOR_CANONICAL_KEYS_SET includes normalized aliases
+ok 4 - LABOR_CANONICAL_KEYS_SET includes normalized aliases
+  ---
+  duration_ms: 0.222174
+  ...
+# Subtest: lookupTaxonomyCanonical recognizes new aliases as labor
+ok 5 - lookupTaxonomyCanonical recognizes new aliases as labor
+  ---
+  duration_ms: 0.318192
+  ...
+# Subtest: allocation SK patterns with new aliases
+ok 6 - allocation SK patterns with new aliases
+  ---
+  duration_ms: 0.194883
+  ...
+# Subtest: throttled warnings do not repeat for same normalized key
+ok 7 - throttled warnings do not repeat for same normalized key
+  ---
+  duration_ms: 0.990806
+  ...
+# Subtest: human-readable names map to labor
+ok 8 - human-readable names map to labor
+  ---
+  duration_ms: 0.836799
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 213.461354

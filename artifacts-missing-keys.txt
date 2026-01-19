@@ -1,0 +1,25 @@
+=== Rubros Taxonomy Diagnostic ===
+
+Total Canonical Rubros: 71
+Legacy Mappings: 88
+Labor Canonical Keys: 37
+
+No allocations file provided.
+
+To analyze allocations, run:
+  npx tsx scripts/find-missing-rubros.ts <path-to-allocations.json>
+
+=== Newly Added Aliases (from this PR) ===
+
+MOD-LEAD aliases:
+  mod-lead-ingeniero-delivery → MOD-LEAD (valid: true)
+  mod-lead-ingeniero → MOD-LEAD (valid: true)
+  ingeniero-delivery → MOD-LEAD (valid: true)
+  Ingeniero Delivery → MOD-LEAD (valid: true)
+
+MOD-SDM aliases:
+  mod-sdm-service-delivery-manager → MOD-SDM (valid: true)
+  mod-sdm-sdm → MOD-SDM (valid: true)
+
+✅ All aliases validated successfully!
+
