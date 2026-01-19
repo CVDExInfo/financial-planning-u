@@ -201,8 +201,62 @@ assert.notStrictEqual(modRubros[0].description, 'Unknown');
    - Added getTaxonomyById import
    - Updated transformLineItemsToForecast to use canonical taxonomy
 
-4. `src/features/sdmt/cost/Forecast/__tests__/categoryGrouping.canonical.test.ts` (NEW)
+4. `src/features/sdmt/cost/Forecast/transformLineItemsToForecast.ts` (NEW - Additional file)
+   - Added getTaxonomyById import
+   - Updated to use canonical taxonomy with priority chains
+   - Priority: item → canonical taxonomy → taxonomyByRubroId → fallback
+
+5. `src/features/sdmt/cost/Forecast/buildGroupingMaps.ts` (NEW - Additional file)
+   - Added getTaxonomyById import
+   - Updated to try canonical taxonomy before provided taxonomy parameter
+   - Priority: cell → canonical taxonomy → provided taxonomy → fallback
+
+6. `src/features/sdmt/cost/Forecast/__tests__/categoryGrouping.canonical.test.ts` (NEW)
    - Comprehensive test suite for canonical taxonomy integration
+
+**Files Verified (Already Properly Integrated):**
+- `projectGrouping.ts` - Already uses lookupTaxonomyCanonical ✓
+- `computeForecastFromAllocations.ts` - Already uses lookupTaxonomyCanonical ✓
+- Server-side files (`materializers.ts`, `rubros-taxonomy.ts`) - Have proper mapping logic ✓
+
+## Complete Data Flow (Allocations Matching Matrix)
+
+### Server-Side Flow
+1. **Estimator/Baseline Creation**: `services/finanzas-api/src/lib/rubros-taxonomy.ts`
+   - Maps MOD roles to canonical `line_item_id` (e.g., "Service Delivery Manager" → "MOD-SDM")
+   - Uses canonical taxonomy for consistent rubro identification
+
+2. **Materialization**: `services/finanzas-api/src/lib/materializers.ts`
+   - Writes allocations to DynamoDB with canonical `line_item_id`
+   - Ensures consistency with CANONICAL_RUBROS_TAXONOMY
+
+### Client-Side Flow
+3. **Loading Allocations**: `computeForecastFromAllocations.ts`
+   - Uses `lookupTaxonomyCanonical` for robust allocation matching
+   - Resolves category, description, isLabor from canonical taxonomy
+   - Caches lookups for performance
+
+4. **Fallback from Baseline**: `transformLineItemsToForecast.ts`
+   - Uses canonical taxonomy when server forecast is empty
+   - Priority: item → canonical taxonomy → taxonomyByRubroId → fallback
+   - Ensures consistent labels even in fallback scenarios
+
+5. **Grouping for Display**:
+   - `categoryGrouping.ts`: Groups by category using canonical taxonomy
+   - `projectGrouping.ts`: Groups by project using lookupTaxonomyCanonical
+   - `buildGroupingMaps.ts`: Universal grouping using canonical taxonomy first
+
+6. **UI Components**: All receive properly labeled data
+   - `ForecastRubrosTable.tsx`: Displays categoryRubros/projectRubros with proper labels
+   - `TopVarianceProjectsTable.tsx`, `TopVarianceRubrosTable.tsx`: Use grouped data
+   - `ForecastSummaryBar.tsx`: Uses aggregated totals with correct categories
+   - `PortfolioSummaryView.tsx`: Uses buildPortfolioTotals from categoryGrouping
+
+### Result
+- ✅ Single canonical source of truth throughout the entire data pipeline
+- ✅ Consistent allocation matching from server to client
+- ✅ Proper labels at every stage of transformation and display
+- ✅ No "Unknown" labels for canonical rubros
 
 ## Impact on the 7 Forecast Views
 
