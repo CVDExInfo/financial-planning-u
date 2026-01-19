@@ -10,50 +10,14 @@
  * 3. Tolerant fallback (substring/fuzzy matching)
  */
 
-/**
- * Normalize key for consistent matching
- * Preserves the actual rubro token at the end of allocation SKs
- * E.g., "ALLOCATION#base_xxx#2025-06#MOD-LEAD" -> "mod-lead"
- */
-export const normalizeKey = (s?: string): string => {
-  if (!s) return '';
-  const raw = s.toString();
-  // Preserve the actual rubro token at the end of allocation SKs:
-  // e.g. "ALLOCATION#base_xxx#2025-06#MOD-LEAD" -> "mod-lead"
-  const last = raw.includes('#') ? raw.split('#').pop() || '' : raw;
-  return last
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-') // keep letters, numbers and hyphen
-    .replace(/-+/g, '-')          // collapse multiple hyphens
-    .replace(/^-+|-+$/g, '');     // trim leading/trailing hyphens
-};
+import { LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET } from '@/lib/rubros/canonical-taxonomy';
+import { normalizeKey } from '@/lib/rubros/normalize-key';
 
 /**
- * Canonical labor keys - all known MOD (Mano de Obra Directa) identifiers
- * These are normalized variants that should always be treated as Labor
- * Exported as array for compatibility and Set for fast lookup
+ * Re-export normalizeKey, LABOR_CANONICAL_KEYS and LABOR_CANONICAL_KEYS_SET
+ * from shared locations for backward compatibility with existing code
  */
-export const LABOR_CANONICAL_KEYS = [
-  'LINEA#MOD-EXT', 'MOD-EXT', 
-  'LINEA#MOD-OT', 'MOD-OT', 
-  'LINEA#MOD-ING', 'MOD-ING',
-  'LINEA#MOD-LEAD', 'MOD-LEAD', 
-  'LINEA#MOD-CONT', 'MOD-CONT', 
-  'LINEA#MOD-SDM', 'MOD-SDM',
-  'LINEA#MOD-PM', 'MOD-PM',
-  'LINEA#MOD-PMO', 'MOD-PMO',
-  'MOD-IN1', 'MOD-IN2', 'MOD-IN3',
-  'MOD', 'CATEGORIA#MOD', 
-  'Mano de Obra Directa',
-  'Ingeniero Soporte N1', 'Ingeniero Soporte N2', 'Ingeniero Soporte N3',
-  'Ingeniero Lider', 'Project Manager', 'Service Delivery Manager'
-].map(normalizeKey);
-
-/**
- * Normalized canonical labor keys set for O(1) lookup
- * Exported for use in performance-critical lookups
- */
-export const LABOR_CANONICAL_KEYS_SET = new Set(LABOR_CANONICAL_KEYS);
+export { normalizeKey, LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET };
 
 /**
  * Check if a key matches any canonical labor identifier
