@@ -24,17 +24,29 @@ import {
 } from "./computeForecastFromAllocations";
 import type { LineItem } from "@/types/domain";
 import finanzasClient from "@/api/finanzasClient";
-import { taxonomyByRubroId as taxonomyByRubroIdMap } from "@/modules/rubros.catalog.enriched";
+import { 
+  CANONICAL_RUBROS_TAXONOMY, 
+  type CanonicalRubroTaxonomy 
+} from "@/lib/rubros/canonical-taxonomy";
 import { buildTaxonomyMap, type TaxonomyEntry as TaxLookupEntry } from "./lib/taxonomyLookup";
 
-// Convert taxonomy Map to Record for easier consumption
+// Build taxonomy from canonical source (the single source of truth)
 const taxonomyByRubroId: Record<string, { description?: string; category?: string; isLabor?: boolean }> = {};
-taxonomyByRubroIdMap.forEach((taxonomy, rubroId) => {
-  taxonomyByRubroId[rubroId] = {
+CANONICAL_RUBROS_TAXONOMY.forEach((taxonomy) => {
+  taxonomyByRubroId[taxonomy.id] = {
     description: taxonomy.linea_gasto || taxonomy.descripcion,
     category: taxonomy.categoria,
-    isLabor: taxonomy.categoria?.toLowerCase().includes('mano de obra') || taxonomy.categoria?.toLowerCase() === 'mod',
+    isLabor: taxonomy.categoria_codigo === 'MOD',
   };
+  
+  // Also index by linea_codigo if different from id
+  if (taxonomy.linea_codigo && taxonomy.linea_codigo !== taxonomy.id) {
+    taxonomyByRubroId[taxonomy.linea_codigo] = {
+      description: taxonomy.linea_gasto || taxonomy.descripcion,
+      category: taxonomy.categoria,
+      isLabor: taxonomy.categoria_codigo === 'MOD',
+    };
+  }
 });
 
 export interface UseSDMTForecastDataParams {

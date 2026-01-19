@@ -6,6 +6,7 @@
  */
 
 import type { ForecastCell, LineItem } from '@/types/domain';
+import { getTaxonomyById } from '@/lib/rubros/canonical-taxonomy';
 
 export interface CategoryMonthTotals {
   forecast: number;
@@ -50,8 +51,20 @@ export function buildCategoryTotals(
 
   // Group data by category
   forecastData.forEach(cell => {
-    const category = (cell as any).category || 'Sin categoría';
+    const rubroId = cell.line_item_id;
     const month = cell.month;
+    
+    // Try to resolve category from canonical taxonomy if not present on cell
+    let category = (cell as any).category;
+    if (!category) {
+      const taxonomy = getTaxonomyById(rubroId);
+      if (taxonomy) {
+        category = taxonomy.categoria;
+      }
+    }
+    if (!category) {
+      category = 'Sin categoría';
+    }
 
     if (!categoryMap.has(category)) {
       categoryMap.set(category, {
@@ -117,9 +130,24 @@ export function buildCategoryRubros(
 
   // Group data by category and rubro
   forecastData.forEach(cell => {
-    const category = (cell as any).category || 'Sin categoría';
     const rubroId = cell.line_item_id;
     const month = cell.month;
+    
+    // Try to resolve category and description from canonical taxonomy first
+    const taxonomy = getTaxonomyById(rubroId);
+    
+    // Priority chain for category: cell.category -> taxonomy.categoria -> lineItem.category -> 'Sin categoría'
+    let category = (cell as any).category;
+    if (!category && taxonomy) {
+      category = taxonomy.categoria;
+    }
+    if (!category) {
+      const lineItem = lineItems.find(item => item.id === rubroId);
+      category = lineItem?.category;
+    }
+    if (!category) {
+      category = 'Sin categoría';
+    }
 
     if (!categoryRubrosMap.has(category)) {
       categoryRubrosMap.set(category, new Map());
@@ -128,10 +156,21 @@ export function buildCategoryRubros(
     const categoryRubros = categoryRubrosMap.get(category)!;
 
     if (!categoryRubros.has(rubroId)) {
-      // Find line item for description
+      // Priority chain for description: lineItem.description -> cell.description -> taxonomy.linea_gasto -> 'Unknown'
       const lineItem = lineItems.find(item => item.id === rubroId);
-      const description = lineItem?.description || (cell as any).description || 'Unknown';
-      const isLabor = (cell as any).isLabor ?? (lineItem as any)?.isLabor ?? category?.toLowerCase().includes('mano de obra');
+      let description = lineItem?.description || (cell as any).description;
+      if (!description && taxonomy) {
+        description = taxonomy.linea_gasto || taxonomy.descripcion;
+      }
+      if (!description) {
+        description = 'Unknown';
+      }
+      
+      // Priority chain for isLabor: cell.isLabor -> taxonomy (MOD categoria) -> lineItem.isLabor -> category check
+      const isLabor = (cell as any).isLabor ?? 
+                     (taxonomy?.categoria_codigo === 'MOD' ? true : undefined) ?? 
+                     (lineItem as any)?.isLabor ?? 
+                     category?.toLowerCase().includes('mano de obra');
 
       categoryRubros.set(rubroId, {
         rubroId,
