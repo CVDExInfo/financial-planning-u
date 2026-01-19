@@ -1106,3 +1106,30 @@ export function getLaborRubros(): CanonicalRubroTaxonomy[] {
 export function getNonLaborRubros(): CanonicalRubroTaxonomy[] {
   return CANONICAL_RUBROS_TAXONOMY.filter(r => r.categoria_codigo !== 'MOD' && r.isActive);
 }
+
+/**
+ * Canonical labor keys - all known MOD (Mano de Obra Directa) identifiers
+ * These are normalized variants that should always be treated as Labor
+ * 
+ * Used by taxonomy lookup functions to ensure consistent labor classification
+ * across SDMT Forecast, PMO Estimator, and other modules.
+ */
+import { normalizeKey } from './normalize-key';
+
+// Re-export normalizeKey for convenience
+export { normalizeKey } from './normalize-key';
+
+export const LABOR_CANONICAL_KEYS = [
+  'LINEA#MOD-EXT','MOD-EXT','LINEA#MOD-OT','MOD-OT','LINEA#MOD-ING','MOD-ING',
+  'LINEA#MOD-LEAD','MOD-LEAD','LINEA#MOD-CONT','MOD-CONT','LINEA#MOD-SDM','MOD-SDM',
+  'LINEA#MOD-PM','MOD-PM','LINEA#MOD-PMO','MOD-PMO',
+  'MOD-IN1','MOD-IN2','MOD-IN3','MOD','CATEGORIA#MOD','Mano de Obra Directa',
+  'Ingeniero Soporte N1','Ingeniero Soporte N2','Ingeniero Soporte N3',
+  'Ingeniero Lider','Project Manager','Service Delivery Manager'
+].map(normalizeKey);
+
+/**
+ * Normalized canonical labor keys set for O(1) lookup
+ * Used for fast labor classification checks
+ */
+export const LABOR_CANONICAL_KEYS_SET = new Set(LABOR_CANONICAL_KEYS);
