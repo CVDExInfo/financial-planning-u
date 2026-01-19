@@ -11,30 +11,13 @@
  */
 
 import { LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET } from '@/lib/rubros/canonical-taxonomy';
+import { normalizeKey } from '@/lib/rubros/normalize-key';
 
 /**
- * Normalize key for consistent matching
- * Preserves the actual rubro token at the end of allocation SKs
- * E.g., "ALLOCATION#base_xxx#2025-06#MOD-LEAD" -> "mod-lead"
+ * Re-export normalizeKey, LABOR_CANONICAL_KEYS and LABOR_CANONICAL_KEYS_SET
+ * from shared locations for backward compatibility with existing code
  */
-export const normalizeKey = (s?: string): string => {
-  if (!s) return '';
-  const raw = s.toString();
-  // Preserve the actual rubro token at the end of allocation SKs:
-  // e.g. "ALLOCATION#base_xxx#2025-06#MOD-LEAD" -> "mod-lead"
-  const last = raw.includes('#') ? raw.split('#').pop() || '' : raw;
-  return last
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-') // keep letters, numbers and hyphen
-    .replace(/-+/g, '-')          // collapse multiple hyphens
-    .replace(/^-+|-+$/g, '');     // trim leading/trailing hyphens
-};
-
-/**
- * Re-export LABOR_CANONICAL_KEYS and LABOR_CANONICAL_KEYS_SET from canonical-taxonomy
- * for backward compatibility with existing code
- */
-export { LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET };
+export { normalizeKey, LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET };
 
 /**
  * Check if a key matches any canonical labor identifier

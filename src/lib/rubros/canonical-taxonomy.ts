@@ -1108,29 +1108,17 @@ export function getNonLaborRubros(): CanonicalRubroTaxonomy[] {
 }
 
 /**
- * Normalize key for consistent matching
- * Preserves the actual rubro token at the end of allocation SKs
- * E.g., "ALLOCATION#base_xxx#2025-06#MOD-LEAD" -> "mod-lead"
- */
-function normalizeKeyForTaxonomy(s?: string): string {
-  if (!s) return '';
-  const raw = String(s);
-  // Preserve last token if SK (ALLOCATION#...#MOD-LEAD)
-  const last = raw.includes('#') ? raw.split('#').pop() || '' : raw;
-  return last
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/(^-+|-+$)/g, '');
-}
-
-/**
  * Canonical labor keys - all known MOD (Mano de Obra Directa) identifiers
  * These are normalized variants that should always be treated as Labor
  * 
  * Used by taxonomy lookup functions to ensure consistent labor classification
  * across SDMT Forecast, PMO Estimator, and other modules.
  */
+import { normalizeKey } from './normalize-key';
+
+// Re-export normalizeKey for convenience
+export { normalizeKey } from './normalize-key';
+
 export const LABOR_CANONICAL_KEYS = [
   'LINEA#MOD-EXT','MOD-EXT','LINEA#MOD-OT','MOD-OT','LINEA#MOD-ING','MOD-ING',
   'LINEA#MOD-LEAD','MOD-LEAD','LINEA#MOD-CONT','MOD-CONT','LINEA#MOD-SDM','MOD-SDM',
@@ -1138,7 +1126,7 @@ export const LABOR_CANONICAL_KEYS = [
   'MOD-IN1','MOD-IN2','MOD-IN3','MOD','CATEGORIA#MOD','Mano de Obra Directa',
   'Ingeniero Soporte N1','Ingeniero Soporte N2','Ingeniero Soporte N3',
   'Ingeniero Lider','Project Manager','Service Delivery Manager'
-].map(normalizeKeyForTaxonomy);
+].map(normalizeKey);
 
 /**
  * Normalized canonical labor keys set for O(1) lookup
