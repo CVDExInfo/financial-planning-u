@@ -10,7 +10,7 @@
  * 3. Tolerant fallback (substring/fuzzy matching)
  */
 
-import { LABOR_CANONICAL_KEYS_SET } from '@/lib/rubros/canonical-taxonomy';
+import { LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET } from '@/lib/rubros/canonical-taxonomy';
 
 /**
  * Normalize key for consistent matching
@@ -31,10 +31,10 @@ export const normalizeKey = (s?: string): string => {
 };
 
 /**
- * Re-export LABOR_CANONICAL_KEYS_SET from canonical-taxonomy
+ * Re-export LABOR_CANONICAL_KEYS and LABOR_CANONICAL_KEYS_SET from canonical-taxonomy
  * for backward compatibility with existing code
  */
-export { LABOR_CANONICAL_KEYS_SET };
+export { LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET };
 
 /**
  * Check if a key matches any canonical labor identifier

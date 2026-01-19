@@ -1134,6 +1134,7 @@ function normalizeKeyForTaxonomy(s?: string): string {
 export const LABOR_CANONICAL_KEYS = [
   'LINEA#MOD-EXT','MOD-EXT','LINEA#MOD-OT','MOD-OT','LINEA#MOD-ING','MOD-ING',
   'LINEA#MOD-LEAD','MOD-LEAD','LINEA#MOD-CONT','MOD-CONT','LINEA#MOD-SDM','MOD-SDM',
+  'LINEA#MOD-PM','MOD-PM','LINEA#MOD-PMO','MOD-PMO',
   'MOD-IN1','MOD-IN2','MOD-IN3','MOD','CATEGORIA#MOD','Mano de Obra Directa',
   'Ingeniero Soporte N1','Ingeniero Soporte N2','Ingeniero Soporte N3',
   'Ingeniero Lider','Project Manager','Service Delivery Manager'
