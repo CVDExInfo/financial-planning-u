@@ -168,7 +168,7 @@ export function buildCategoryRubros(
       
       // Priority chain for isLabor: cell.isLabor -> taxonomy (MOD categoria) -> lineItem.isLabor -> category check
       const isLabor = (cell as any).isLabor ?? 
-                     (taxonomy?.categoria_codigo === 'MOD') ?? 
+                     (taxonomy?.categoria_codigo === 'MOD' ? true : undefined) ?? 
                      (lineItem as any)?.isLabor ?? 
                      category?.toLowerCase().includes('mano de obra');
 

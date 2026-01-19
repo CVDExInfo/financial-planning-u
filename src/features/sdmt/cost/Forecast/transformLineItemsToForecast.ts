@@ -77,10 +77,10 @@ export function transformLineItemsToForecast(
                     taxonomyEntry?.category;
     
     // Determine isLabor: canonical taxonomy (MOD check) -> taxonomyByRubroId -> canonical key check -> category check
-    const isLabor = (canonicalTaxonomy?.categoria_codigo === 'MOD') ??
+    const isLabor = (canonicalTaxonomy?.categoria_codigo === 'MOD' ? true : undefined) ??
                    taxonomyEntry?.isLabor ??
                    isLaborByKey(item.id) ??
-                   (category?.toLowerCase().includes('mano de obra') || category?.toLowerCase() === 'mod') ??
+                   ((category?.toLowerCase().includes('mano de obra') || category?.toLowerCase() === 'mod') ? true : undefined) ??
                    false;
     
     // Create forecast cells for each active month
