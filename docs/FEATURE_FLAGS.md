@@ -48,6 +48,41 @@ This document describes the environment-based feature flags used in the Finanzas
 - **Impact:** 
   - When `true`: Hides the annual budget KPI cards in portfolio view
   - When `false`: Shows the KPI cards (default behavior)
+
+---
+
+## Incremental Migration Flags
+
+### `VITE_ENABLE_RUBROS_ADAPTER`
+
+- **Type:** Boolean (`'true'` / `'false'`)
+- **Default:** `false`
+- **Description:** Enable ForecastRubrosAdapter for Position #7 in SDMTForecast (incremental migration).
+- **Purpose:** Replace legacy custom `<Table>` with modern ForecastRubrosAdapter that delegates to ForecastRubrosTable while preserving all legacy behaviors.
+- **Impact:**
+  - When `true`: Uses ForecastRubrosAdapter (new implementation)
+  - When `false`: Uses legacy table (default, safe fallback)
+- **Legacy Behaviors Preserved:**
+  - External viewMode control (breakdownMode → externalViewMode)
+  - Inline budget editing → handleSaveMonthlyBudget
+  - Reconciliation actions and modals
+  - Selection, bulk actions, and exports
+  - Catalog links and change-history popovers
+  - Telemetry for unmatched rubros
+- **How to Enable:**
+  - **Development:** Add to `.env.development`: `VITE_ENABLE_RUBROS_ADAPTER=true`
+  - **Staging/Production:** Set environment variable: `REACT_APP_ENABLE_RUBROS_ADAPTER=true`
+- **QA Steps:**
+  1. Enable flag in staging
+  2. Navigate to TODOS view
+  3. Toggle breakdown Select (Proyectos ↔ Rubros por proyecto)
+  4. Verify parity with legacy table rendering
+  5. Test budget editing, reconciliation flows
+  6. Validate exports and bulk actions
+- **Related:**
+  - PR #958 (initial table attempt - kept as reference)
+  - Adapter PR (this implementation)
+  - See `docs/FORECAST_DASHBOARD_LAYOUT.md` for Position #7 details
 - **Scope:** Only affects portfolio view; single-project view is unaffected
 
 #### `VITE_FINZ_HIDE_PROJECT_SUMMARY`
