@@ -45,6 +45,8 @@ env:
   VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST: ${{ vars.VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST || 'true' }}
   VITE_FINZ_HIDE_RUNWAY_METRICS: ${{ vars.VITE_FINZ_HIDE_RUNWAY_METRICS || 'true' }}
   VITE_FINZ_SHOW_PORTFOLIO_KPIS: ${{ vars.VITE_FINZ_SHOW_PORTFOLIO_KPIS || 'false' }}
+  # Incremental migration flags
+  VITE_ENABLE_RUBROS_ADAPTER: ${{ vars.VITE_ENABLE_RUBROS_ADAPTER || 'false' }}
 
 jobs:
   build-and-deploy-all:
@@ -230,6 +232,8 @@ jobs:
           VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST: ${{ env.VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST }}
           VITE_FINZ_HIDE_RUNWAY_METRICS: ${{ env.VITE_FINZ_HIDE_RUNWAY_METRICS }}
           VITE_FINZ_SHOW_PORTFOLIO_KPIS: ${{ env.VITE_FINZ_SHOW_PORTFOLIO_KPIS }}
+          # Incremental migration flags
+          VITE_ENABLE_RUBROS_ADAPTER: ${{ env.VITE_ENABLE_RUBROS_ADAPTER }}
         run: |
           set -euo pipefail
           VITE_API_BASE_URL="$(printf '%s' "$VITE_API_BASE_URL" | tr -d '\r\n')"
