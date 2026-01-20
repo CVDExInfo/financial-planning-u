@@ -1026,10 +1026,7 @@ export function SDMTForecast() {
     };
 
     // Run once on mount / whenever route (location.key) or main deps change
-    // Trigger if single project selected OR we are in portfolio mode
-    if (isPortfolioView || selectedProjectId) {
-      triggerLoad();
-    }
+    triggerLoad();
 
     // Check for URL refresh parameter
     const urlParams = new URLSearchParams(location.search);
