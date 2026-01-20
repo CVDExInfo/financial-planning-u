@@ -53,6 +53,9 @@ interface ForecastRubrosTableProps {
   formatCurrency: (amount: number) => string;
   canEditBudget: boolean;
   defaultFilter?: FilterMode;
+  // External viewMode control (controlled/uncontrolled pattern)
+  externalViewMode?: ViewMode;
+  onViewModeChange?: (mode: ViewMode) => void;
 }
 
 export function ForecastRubrosTable({
@@ -66,6 +69,8 @@ export function ForecastRubrosTable({
   formatCurrency,
   canEditBudget,
   defaultFilter = 'labor',
+  externalViewMode,
+  onViewModeChange,
 }: ForecastRubrosTableProps) {
   const { selectedProject } = useProject();
   const { user } = useAuth();
@@ -74,7 +79,10 @@ export function ForecastRubrosTable({
   const [editedBudgets, setEditedBudgets] = useState<Array<{ month: number; budget: number }>>([]);
   const [savingBudget, setSavingBudget] = useState(false);
   const [filterMode, setFilterMode] = useState<FilterMode>(defaultFilter);
-  const [viewMode, setViewMode] = useState<ViewMode>('category');
+  const [internalViewMode, setInternalViewMode] = useState<ViewMode>('category');
+  
+  // Hybrid control: use external if provided, otherwise internal state
+  const effectiveViewMode = externalViewMode ?? internalViewMode;
 
   // Session storage key for persistence
   const sessionKey = useMemo(() => {
@@ -127,22 +135,28 @@ export function ForecastRubrosTable({
     sessionStorage.setItem(sessionKey, filterMode);
   }, [filterMode, sessionKey]);
 
-  // Load viewMode from sessionStorage on mount
+  // Load viewMode from sessionStorage on mount (only when uncontrolled)
   useEffect(() => {
+    // Skip session restore if externally controlled
+    if (externalViewMode) return;
+    
     try {
       const savedViewMode = sessionStorage.getItem(viewModeSessionKey);
       if (savedViewMode === 'category' || savedViewMode === 'project') {
-        setViewMode(savedViewMode as ViewMode);
+        setInternalViewMode(savedViewMode as ViewMode);
       }
     } catch (err) {
       console.warn('[ForecastRubrosTable] failed to read saved view mode', err);
     }
-  }, [viewModeSessionKey]);
+  }, [viewModeSessionKey, externalViewMode]);
 
-  // Persist viewMode to sessionStorage when it changes
+  // Persist viewMode to sessionStorage when it changes (only when uncontrolled)
   useEffect(() => {
-    sessionStorage.setItem(viewModeSessionKey, viewMode);
-  }, [viewMode, viewModeSessionKey]);
+    // Skip session write if externally controlled
+    if (externalViewMode) return;
+    
+    sessionStorage.setItem(viewModeSessionKey, internalViewMode);
+  }, [internalViewMode, viewModeSessionKey, externalViewMode]);
 
   // Start budget editing
   const handleStartEditBudget = () => {
@@ -227,6 +241,17 @@ export function ForecastRubrosTable({
       },
     };
   }, []); // No dependencies - pure calculation function
+  
+  // Handler for internal view mode changes
+  const handleViewModeToggle = useCallback((newMode: ViewMode) => {
+    if (externalViewMode) {
+      // Controlled: notify parent
+      onViewModeChange?.(newMode);
+    } else {
+      // Uncontrolled: update internal state (will auto-persist via useEffect)
+      setInternalViewMode(newMode);
+    }
+  }, [externalViewMode, onViewModeChange]);
 
   // Helper to recalculate project totals from filtered rubros
   // IMPORTANT: Must be declared BEFORE visibleProjects useMemo to avoid TDZ error
@@ -413,27 +438,27 @@ export function ForecastRubrosTable({
             {projectTotals && projectRubros && (
               <div className="flex items-center gap-1 border rounded-md p-1 bg-muted/30">
                 <button
-                  onClick={() => setViewMode('category')}
+                  onClick={() => handleViewModeToggle('category')}
                   className={`px-3 py-1 text-xs rounded transition-colors ${
-                    viewMode === 'category'
+                    effectiveViewMode === 'category'
                       ? 'bg-primary text-primary-foreground font-medium shadow-sm'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
                   aria-label="Ver por Categoría"
-                  aria-pressed={viewMode === 'category'}
+                  aria-pressed={effectiveViewMode === 'category'}
                   role="button"
                 >
                   Por Categoría
                 </button>
                 <button
-                  onClick={() => setViewMode('project')}
+                  onClick={() => handleViewModeToggle('project')}
                   className={`px-3 py-1 text-xs rounded transition-colors ${
-                    viewMode === 'project'
+                    effectiveViewMode === 'project'
                       ? 'bg-primary text-primary-foreground font-medium shadow-sm'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
                   aria-label="Ver por Proyecto"
-                  aria-pressed={viewMode === 'project'}
+                  aria-pressed={effectiveViewMode === 'project'}
                   role="button"
                 >
                   Por Proyecto
@@ -488,11 +513,11 @@ export function ForecastRubrosTable({
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder={viewMode === 'project' ? 'Buscar por proyecto o rubro' : 'Buscar por rubro o categoría'}
+                placeholder={effectiveViewMode === 'project' ? 'Buscar por proyecto o rubro' : 'Buscar por rubro o categoría'}
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
                 className="pl-8 w-64"
-                aria-label={viewMode === 'project' ? 'Buscar por proyecto o rubro' : 'Buscar por rubro o categoría'}
+                aria-label={effectiveViewMode === 'project' ? 'Buscar por proyecto o rubro' : 'Buscar por rubro o categoría'}
               />
             </div>
           </div>
@@ -605,7 +630,7 @@ export function ForecastRubrosTable({
                 </TableRow>
 
                 {/* Category and Rubro Rows OR Project and Rubro Rows */}
-                {viewMode === 'category' ? (
+                {effectiveViewMode === 'category' ? (
                   /* Category View */
                   visibleCategories.length === 0 ? (
                     /* Empty State */
