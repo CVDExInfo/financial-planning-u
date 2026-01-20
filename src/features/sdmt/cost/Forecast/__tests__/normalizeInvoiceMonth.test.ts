@@ -2,12 +2,18 @@
  * Standalone tests for normalizeInvoiceMonth utility
  * 
  * Tests month normalization for invoice matching
+ * 
+ * Note: This test file contains a copy of normalizeInvoiceMonth for standalone testing
+ * without React dependencies. The production implementation is in useSDMTForecastData.ts
  */
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 /**
+ * Test-only copy of normalizeInvoiceMonth
+ * Production implementation is in useSDMTForecastData.ts
+ * 
  * Normalize invoice month to match forecast cell month index
  * Handles both numeric month indices (1-12) and YYYY-MM string formats
  * 
@@ -15,7 +21,7 @@ import { describe, it } from 'node:test';
  * @param baselineStartMonth - Optional baseline start month for relative indexing
  * @returns Numeric month index (1-based) or 0 if invalid
  */
-export const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: number): number => {
+const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: number): number => {
   // If already a valid numeric month index, return it
   if (typeof invoiceMonth === 'number' && invoiceMonth >= 1 && invoiceMonth <= 60) {
     return invoiceMonth;
