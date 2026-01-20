@@ -25,7 +25,12 @@ export function useProjectLineItems(options?: { useFallback?: boolean; baselineI
     queryKey: lineItemsKey(projectId),
     queryFn: async () => {
       if (!projectId || projectId === ALL_PROJECTS_ID) {
-        throw new Error("Project is required before loading line items");
+        if (import.meta.env.DEV) {
+          console.log(
+            `[useProjectLineItems] Guarded call with projectId=${projectId} - returning empty result (ALL_PROJECTS not supported)`
+          );
+        }
+        return { lineItems: [], taxonomyByRubroId: undefined };
       }
       
       // Fetch line items with taxonomy if requested
