@@ -42,19 +42,30 @@ function buildCostCategories(
   for (const item of taxonomy) {
     if (!item.isActive) continue; // Only include active rubros
 
-    const categoryCode = item.categoria_codigo || 'OTHER';
+    // Canonical taxonomy should always have these fields
+    // If they're missing, it indicates a data quality issue that should be fixed at the source
+    if (!item.categoria_codigo || !item.categoria) {
+      console.warn(
+        '[cost-categories] Skipping canonical entry with missing category fields:',
+        item.id
+      );
+      continue;
+    }
+
+    const categoryCode = item.categoria_codigo;
     
     if (!categoryMap.has(categoryCode)) {
       categoryMap.set(categoryCode, {
         codigo: categoryCode,
-        nombre: item.categoria || categoryCode,
+        nombre: item.categoria,
         lineas: [],
       });
     }
 
     const category = categoryMap.get(categoryCode)!;
+    // linea_codigo should always equal id in canonical taxonomy, but using id is more explicit
     category.lineas.push({
-      codigo: item.linea_codigo || item.id,
+      codigo: item.id,
       nombre: item.linea_gasto,
       descripcion: item.descripcion,
       tipo_ejecucion: item.tipo_ejecucion,
