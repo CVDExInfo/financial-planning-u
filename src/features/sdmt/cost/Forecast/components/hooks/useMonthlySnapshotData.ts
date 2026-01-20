@@ -6,6 +6,7 @@ import {
   CostTypeFilter,
   deriveCostType,
 } from '../monthlySnapshotTypes';
+import { isLabor } from '@/lib/rubros-category-utils';
 
 interface UseMonthlySnapshotDataParams {
   forecastData: ForecastCell[];
@@ -137,11 +138,17 @@ export function buildSnapshotRows({
 }: BuildSnapshotRowsParams): SnapshotRow[] {
   const monthData = forecastData.filter((cell) => cell.month === actualMonthIndex);
 
-  if (import.meta.env.DEV) {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
     const totalActual = monthData.reduce((sum, cell) => sum + (cell.actual || 0), 0);
     const totalForecast = monthData.reduce((sum, cell) => sum + (cell.forecast || 0), 0);
+    const missingCategoryCount = monthData.filter(
+      (c) =>
+        !c.category &&
+        !lineItemCategoryMap.get(c.line_item_id) &&
+        !lineItemCategoryMap.get(c.rubroId || c.line_item_id)
+    ).length;
     console.log(
-      `[useMonthlySnapshotData] monthDataLen=${monthData.length}, totalActual=${totalActual}, totalForecast=${totalForecast}, month=${actualMonthIndex}`
+      `[useMonthlySnapshotData] monthDataLen=${monthData.length}, totalActual=${totalActual}, totalForecast=${totalForecast}, month=${actualMonthIndex}, missingCategoryCount=${missingCategoryCount}`
     );
   }
 
@@ -154,7 +161,11 @@ export function buildSnapshotRows({
       const rubroId = cell.rubroId || cell.line_item_id;
       const rubroName = cell.description || 'Sin descripción';
       const resolvedCategory = cell.category || lineItemCategoryMap.get(cell.line_item_id) || lineItemCategoryMap.get(rubroId);
-      const costType = deriveCostType(resolvedCategory);
+      
+      // Prefer explicit category, but fall back to description / name when category missing.
+      // For project grouping: use cell.description or rubroName.
+      const fallbackText = cell.description || rubroName || cell.projectName || '';
+      const costType = deriveCostType(resolvedCategory, fallbackText);
 
       if (!projectMap.has(projectId)) {
         projectMap.set(projectId, {
@@ -229,7 +240,11 @@ export function buildSnapshotRows({
     const projectId = cell.projectId || 'unknown';
     const projectName = cell.projectName || 'Proyecto desconocido';
     const resolvedCategory = cell.category || lineItemCategoryMap.get(cell.line_item_id) || lineItemCategoryMap.get(rubroId);
-    const costType = deriveCostType(resolvedCategory);
+    
+    // Prefer explicit category, but fall back to description / name when category missing.
+    // For rubro grouping: use cell.description or projectName.
+    const fallbackText = cell.description || projectName || rubroName || '';
+    const costType = deriveCostType(resolvedCategory, fallbackText);
 
     if (!rubroMap.has(rubroId)) {
       rubroMap.set(rubroId, {
@@ -338,6 +353,10 @@ const filterRowByCostType = (row: SnapshotRow, costTypeFilter: CostTypeFilter): 
   }
 
   if (row.costType === undefined) {
+    // Try to infer from name/code using same labor heuristics
+    const inferredLabor = isLabor(undefined, row.name) || isLabor(undefined, row.code);
+    if (costTypeFilter === 'labor' && inferredLabor) return row;
+    if (costTypeFilter === 'non-labor' && !inferredLabor) return row;
     return costTypeFilter === 'all' ? row : null;
   }
 
