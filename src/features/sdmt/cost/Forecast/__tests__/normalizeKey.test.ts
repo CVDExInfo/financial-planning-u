@@ -82,3 +82,44 @@ test('normalizeKey removes non-alphanumeric characters', () => {
     'Should extract last segment and normalize special chars'
   );
 });
+
+test('normalizeKey handles diacritics correctly', () => {
+  // Spanish diacritics
+  assert.strictEqual(
+    normalizeKey('Mañana de Obra'),
+    'manana-de-obra',
+    'Should remove Spanish ñ diacritic'
+  );
+  
+  assert.strictEqual(
+    normalizeKey('café'),
+    'cafe',
+    'Should remove accents from vowels'
+  );
+  
+  assert.strictEqual(
+    normalizeKey('Ñoño'),
+    'nono',
+    'Should handle multiple ñ characters'
+  );
+  
+  assert.strictEqual(
+    normalizeKey('Ingeniero Líder'),
+    'ingeniero-lider',
+    'Should normalize Spanish accented í'
+  );
+  
+  // Complex allocation SK with diacritics
+  assert.strictEqual(
+    normalizeKey('ALLOCATION#base_xxx#2025-06#Gestión'),
+    'gestion',
+    'Should extract last segment and remove diacritics'
+  );
+  
+  // Combined test
+  assert.strictEqual(
+    normalizeKey('Administración & Gestión'),
+    'administracion-gestion',
+    'Should handle multiple diacritics and special chars'
+  );
+});
