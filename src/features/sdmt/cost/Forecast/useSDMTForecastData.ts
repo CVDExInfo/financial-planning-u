@@ -140,19 +140,22 @@ export const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: nu
       return monthNum;
     }
     
-    // Try ISO datetime (e.g., 2026-01-20T12:34:56Z or similar)
-    const isoDate = Date.parse(invoiceMonth);
-    if (!isNaN(isoDate)) {
-      const d = new Date(isoDate);
-      const m = d.getUTCMonth() + 1; // getUTCMonth() returns 0-11, we need 1-12
-      if (m >= 1 && m <= 12) return m;
-    }
-    
     // Try M\d+ format (M1, M01, M11, M12, m11, etc. - with optional leading zero)
     const mMatch = invoiceMonth.match(/^m\s*0?(\d{1,2})$/i);
     if (mMatch) {
       const mm = parseInt(mMatch[1], 10);
       if (mm >= 1 && mm <= 60) return mm;
+    }
+    
+    // Try ISO datetime (e.g., 2026-01-20T12:34:56Z or similar)
+    // Only attempt Date.parse if string looks like a datetime (contains 'T' or timestamp pattern)
+    if (invoiceMonth.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(invoiceMonth)) {
+      const isoDate = Date.parse(invoiceMonth);
+      if (!isNaN(isoDate)) {
+        const d = new Date(isoDate);
+        const m = d.getUTCMonth() + 1; // getUTCMonth() returns 0-11, we need 1-12
+        if (m >= 1 && m <= 12) return m;
+      }
     }
     
     // Try parsing as plain number string
@@ -191,6 +194,8 @@ export const matchInvoiceToCell = (
 
   // 1) projectId guard: both present → must match
   // Normalize both camelCase and snake_case variants
+  // Note: Using defensive field access since invoices may come from different sources
+  // with varying field naming conventions (projectId vs project_id)
   const invProject = inv.projectId || inv.project_id || inv.project;
   const cellProject = (cell as any).projectId || (cell as any).project_id || (cell as any).project;
   if (invProject && cellProject && String(invProject) !== String(cellProject)) {
@@ -676,6 +681,8 @@ export function useSDMTForecastData({
             // Invoice has no valid month - track for batch logging
             invalidMonthCount++;
             if (invalidMonthInvoices.length < 5) { // Keep first 5 for sample
+              // Note: Using 'as any' for defensive field access since invoices may have
+              // varying field names (rubroId vs rubro_id, projectId vs project_id) depending on source
               invalidMonthInvoices.push({
                 line_item_id: inv.line_item_id,
                 rubroId: (inv as any).rubroId || (inv as any).rubro_id,
@@ -689,6 +696,8 @@ export function useSDMTForecastData({
             unmatchedInvoicesCount++;
             // Collect sample of unmatched invoices for debugging
             if (unmatchedInvoicesSample.length < 5) {
+              // Note: Using 'as any' for defensive field access since invoices may have
+              // varying field names depending on source
               unmatchedInvoicesSample.push({
                 line_item_id: inv.line_item_id,
                 rubroId: (inv as any).rubroId || (inv as any).rubro_id,

@@ -45,19 +45,22 @@ const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: number): 
       return monthNum;
     }
     
-    // Try ISO datetime (e.g., 2026-01-20T12:34:56Z or similar)
-    const isoDate = Date.parse(invoiceMonth);
-    if (!isNaN(isoDate)) {
-      const d = new Date(isoDate);
-      const m = d.getUTCMonth() + 1; // getUTCMonth() returns 0-11, we need 1-12
-      if (m >= 1 && m <= 12) return m;
-    }
-    
     // Try M\d+ format (M1, M11, M12, m11, etc.)
     const mMatch = invoiceMonth.match(/^m\s*0?(\d{1,2})$/i);
     if (mMatch) {
       const mm = parseInt(mMatch[1], 10);
       if (mm >= 1 && mm <= 60) return mm;
+    }
+    
+    // Try ISO datetime (e.g., 2026-01-20T12:34:56Z or similar)
+    // Only attempt Date.parse if string looks like a datetime (contains 'T' or timestamp pattern)
+    if (invoiceMonth.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(invoiceMonth)) {
+      const isoDate = Date.parse(invoiceMonth);
+      if (!isNaN(isoDate)) {
+        const d = new Date(isoDate);
+        const m = d.getUTCMonth() + 1; // getUTCMonth() returns 0-11, we need 1-12
+        if (m >= 1 && m <= 12) return m;
+      }
     }
     
     // Try parsing as plain number string
