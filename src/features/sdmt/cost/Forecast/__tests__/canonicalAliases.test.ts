@@ -26,6 +26,8 @@ test('MOD-LEAD canonical aliases map to MOD-LEAD', () => {
     'mod-lead-ingeniero',
     'ingeniero-delivery',
     'Ingeniero Delivery',
+    'ingeniero-lider',
+    'project-manager', // Maps to MOD-LEAD since MOD-PM doesn't exist in canonical taxonomy
   ];
   
   for (const alias of aliases) {
@@ -43,6 +45,7 @@ test('MOD-SDM canonical aliases map to MOD-SDM', () => {
   const aliases = [
     'mod-sdm-service-delivery-manager',
     'mod-sdm-sdm',
+    'service-delivery-manager',
   ];
   
   for (const alias of aliases) {
@@ -55,6 +58,22 @@ test('MOD-SDM canonical aliases map to MOD-SDM', () => {
   }
 });
 
+test('MOD-ING canonical aliases map to MOD-ING', () => {
+  // Test that all MOD-ING variants resolve to canonical MOD-ING
+  const aliases = [
+    'mod-ing-ingeniero-soporte-n1',
+  ];
+  
+  for (const alias of aliases) {
+    const canonical = getCanonicalRubroId(alias);
+    assert.strictEqual(
+      canonical, 
+      'MOD-ING', 
+      `${alias} should map to MOD-ING, got ${canonical}`
+    );
+  }
+});
+
 test('LEGACY_RUBRO_ID_MAP contains all new aliases', () => {
   // Verify that the legacy map was updated with the new entries
   const expectedMappings = {
@@ -62,8 +81,12 @@ test('LEGACY_RUBRO_ID_MAP contains all new aliases', () => {
     'mod-lead-ingeniero': 'MOD-LEAD',
     'ingeniero-delivery': 'MOD-LEAD',
     'Ingeniero Delivery': 'MOD-LEAD',
+    'ingeniero-lider': 'MOD-LEAD',
+    'project-manager': 'MOD-LEAD',
     'mod-sdm-service-delivery-manager': 'MOD-SDM',
     'mod-sdm-sdm': 'MOD-SDM',
+    'service-delivery-manager': 'MOD-SDM',
+    'mod-ing-ingeniero-soporte-n1': 'MOD-ING',
   };
   
   for (const [legacy, canonical] of Object.entries(expectedMappings)) {
@@ -81,10 +104,12 @@ test('LABOR_CANONICAL_KEYS_SET includes normalized aliases', () => {
     'mod-lead-ingeniero-delivery',
     'ingeniero-delivery',
     'mod-lead-ingeniero',
-    'ingeniero-delivery', // already normalized
+    'ingeniero-lider',
+    'project-manager',
     'mod-sdm-service-delivery-manager',
     'service-delivery-manager',
     'mod-sdm-sdm',
+    'mod-ing-ingeniero-soporte-n1',
   ].map(normalizeKey);
   
   for (const key of expectedKeys) {
