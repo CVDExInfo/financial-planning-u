@@ -59,6 +59,36 @@ describe('Invoice Matching Logic', () => {
       
       assert.equal(matchInvoiceToCell(invoice, cell), true);
     });
+
+    it('should match with snake_case project_id in invoice', () => {
+      const invoice = {
+        project_id: 'PROJ-123',
+        line_item_id: 'LI-MATCH',
+      };
+      
+      const cell = {
+        ...baseCell,
+        projectId: 'PROJ-123',
+        line_item_id: 'LI-MATCH',
+      };
+      
+      assert.equal(matchInvoiceToCell(invoice, cell), true);
+    });
+
+    it('should match with snake_case project_id in both invoice and cell', () => {
+      const invoice = {
+        project_id: 'PROJ-123',
+        line_item_id: 'LI-MATCH',
+      };
+      
+      const cell = {
+        ...baseCell,
+        project_id: 'PROJ-123',
+        line_item_id: 'LI-MATCH',
+      } as any;
+      
+      assert.equal(matchInvoiceToCell(invoice, cell), true);
+    });
   });
 
   it('should match by line_item_id (highest priority)', () => {
@@ -225,6 +255,19 @@ describe('Invoice Month Normalization', () => {
     assert.equal(normalizeInvoiceMonth('2026-06'), 6);
     assert.equal(normalizeInvoiceMonth('2026-12'), 12);
     assert.equal(normalizeInvoiceMonth('2025-03'), 3);
+  });
+
+  it('should extract month from YYYY-MM-DD format (ISO date)', () => {
+    assert.equal(normalizeInvoiceMonth('2026-01-20'), 1);
+    assert.equal(normalizeInvoiceMonth('2026-06-15'), 6);
+    assert.equal(normalizeInvoiceMonth('2026-12-31'), 12);
+    assert.equal(normalizeInvoiceMonth('2025-03-01'), 3);
+  });
+
+  it('should extract month from ISO datetime strings', () => {
+    assert.equal(normalizeInvoiceMonth('2026-01-20T12:34:56Z'), 1);
+    assert.equal(normalizeInvoiceMonth('2026-06-15T08:30:00.000Z'), 6);
+    assert.equal(normalizeInvoiceMonth('2026-12-31T23:59:59Z'), 12);
   });
 
   it('should parse numeric strings', () => {

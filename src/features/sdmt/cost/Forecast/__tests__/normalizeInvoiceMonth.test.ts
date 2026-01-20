@@ -15,9 +15,9 @@ import { describe, it } from 'node:test';
  * Production implementation is in useSDMTForecastData.ts
  * 
  * Normalize invoice month to match forecast cell month index
- * Handles numeric indices, YYYY-MM formats, and M\d+ formats (M1, M11, etc.)
+ * Handles numeric indices, YYYY-MM formats, YYYY-MM-DD (ISO dates), ISO datetimes, and M\d+ formats (M1, M11, etc.)
  * 
- * @param invoiceMonth - Month value from invoice (could be number, "YYYY-MM", or "M11" string)
+ * @param invoiceMonth - Month value from invoice (could be number, "YYYY-MM", "YYYY-MM-DD", ISO datetime, or "M11" string)
  * @param baselineStartMonth - Optional baseline start month for relative indexing
  * @returns Numeric month index (1-based) or 0 if invalid
  */
@@ -27,13 +27,21 @@ const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: number): 
     return invoiceMonth;
   }
   
-  // If string in YYYY-MM format, extract month number
+  // If string, try various formats
   if (typeof invoiceMonth === 'string') {
-    const match = invoiceMonth.match(/^(\d{4})-(\d{2})$/);
-    if (match) {
-      const monthNum = parseInt(match[2], 10);
+    // Try YYYY-MM format first
+    const yymmMatch = invoiceMonth.match(/^(\d{4})-(\d{2})$/);
+    if (yymmMatch) {
+      const monthNum = parseInt(yymmMatch[2], 10);
       // If we have baseline start, could calculate relative index
       // For now, just return the month number (1-12)
+      return monthNum;
+    }
+    
+    // Try full ISO date format (YYYY-MM-DD)
+    const isoMatch = invoiceMonth.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      const monthNum = parseInt(isoMatch[2], 10);
       return monthNum;
     }
     
@@ -42,6 +50,17 @@ const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: number): 
     if (mMatch) {
       const mm = parseInt(mMatch[1], 10);
       if (mm >= 1 && mm <= 60) return mm;
+    }
+    
+    // Try ISO datetime (e.g., 2026-01-20T12:34:56Z or similar)
+    // Only attempt Date.parse if string looks like a datetime (contains 'T' or timestamp pattern)
+    if (invoiceMonth.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(invoiceMonth)) {
+      const isoDate = Date.parse(invoiceMonth);
+      if (!isNaN(isoDate)) {
+        const d = new Date(isoDate);
+        const m = d.getUTCMonth() + 1; // getUTCMonth() returns 0-11, we need 1-12
+        if (m >= 1 && m <= 12) return m;
+      }
     }
     
     // Try parsing as plain number string
@@ -66,6 +85,21 @@ describe('Invoice Month Normalization', () => {
     assert.equal(normalizeInvoiceMonth('2026-06'), 6);
     assert.equal(normalizeInvoiceMonth('2026-12'), 12);
     assert.equal(normalizeInvoiceMonth('2025-03'), 3);
+  });
+
+  it('should extract month number from YYYY-MM-DD format (ISO date)', () => {
+    assert.equal(normalizeInvoiceMonth('2026-01-20'), 1);
+    assert.equal(normalizeInvoiceMonth('2026-06-15'), 6);
+    assert.equal(normalizeInvoiceMonth('2026-12-31'), 12);
+    assert.equal(normalizeInvoiceMonth('2025-03-01'), 3);
+    assert.equal(normalizeInvoiceMonth('2024-02-29'), 2); // Leap year
+  });
+
+  it('should extract month from ISO datetime strings', () => {
+    assert.equal(normalizeInvoiceMonth('2026-01-20T12:34:56Z'), 1);
+    assert.equal(normalizeInvoiceMonth('2026-06-15T08:30:00.000Z'), 6);
+    assert.equal(normalizeInvoiceMonth('2026-12-31T23:59:59Z'), 12);
+    assert.equal(normalizeInvoiceMonth('2025-03-01T00:00:00Z'), 3);
   });
 
   it('should parse M\\d+ format (M1, M11, M12)', () => {
