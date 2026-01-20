@@ -820,6 +820,12 @@ export function SDMTForecast() {
   };
 
   const loadPortfolioForecast = async (months: number, requestKey: string) => {
+    if (import.meta.env.DEV) {
+      console.log(
+        `[loadPortfolioForecast] projects loaded: ${projects.length}, ids: ${JSON.stringify(projects.map(p => p.id))}`
+      );
+    }
+    
     const candidateProjects = projects.filter(
       (project) => project.id && project.id !== ALL_PROJECTS_ID
     );
@@ -922,6 +928,12 @@ export function SDMTForecast() {
               projectName: project.name,
             };
           });
+
+          if (import.meta.env.DEV) {
+            console.log(
+              `[loadPortfolioForecast] project ${project.id} forecastRows=${projectData.length} invoices=${invoices.length}`
+            );
+          }
 
           return {
             project,

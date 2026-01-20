@@ -137,6 +137,14 @@ export function buildSnapshotRows({
 }: BuildSnapshotRowsParams): SnapshotRow[] {
   const monthData = forecastData.filter((cell) => cell.month === actualMonthIndex);
 
+  if (import.meta.env.DEV) {
+    const totalActual = monthData.reduce((sum, cell) => sum + (cell.actual || 0), 0);
+    const totalForecast = monthData.reduce((sum, cell) => sum + (cell.forecast || 0), 0);
+    console.log(
+      `[useMonthlySnapshotData] monthDataLen=${monthData.length}, totalActual=${totalActual}, totalForecast=${totalForecast}, month=${actualMonthIndex}`
+    );
+  }
+
   if (groupingMode === 'project') {
     const projectMap = new Map<string, SnapshotRow>();
 

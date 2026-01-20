@@ -632,9 +632,9 @@ export function useSDMTForecastData({
       
       if (isDev) {
         console.log(
-          `[useSDMTForecastData] ✅ Retrieved ${
+          `[useSDMTForecastData] invoices fetched for project ${projectId}: ${
             invoices?.length || 0
-          } invoices for project ${projectId}`
+          }`
         );
       }
 
@@ -646,7 +646,7 @@ export function useSDMTForecastData({
       
       if (isDev) {
         console.log(
-          `[useSDMTForecastData] Found ${validInvoices.length} valid invoices (statuses: matched/paid/approved/posted/received/validated)`
+          `[useSDMTForecastData] valid invoices: ${validInvoices.length}`
         );
       }
 
@@ -654,6 +654,7 @@ export function useSDMTForecastData({
       let matchedInvoicesCount = 0;
       let unmatchedInvoicesCount = 0;
       let invalidMonthCount = 0;
+      let fallbackMatchedCount = 0; // Track fallback matches for DEV logging
       const invalidMonthInvoices: any[] = [];
       const unmatchedInvoicesSample: any[] = [];
       
@@ -672,6 +673,52 @@ export function useSDMTForecastData({
               matchedInvoicesCount++;
               matched = true;
               break; // Stop after first match to prevent double-counting
+            }
+          }
+        }
+        
+        // DEV-only fallback matching: If invoice didn't match, try relaxed matching
+        // This helps diagnose whether minor formatting differences are causing failures
+        if (!matched && invMonth > 0 && isDev) {
+          for (const row of rows) {
+            if (row.month !== invMonth) continue;
+            
+            // Try canonical rubro comparison
+            const invRubroId = inv.rubroId || inv.rubro_id || inv.line_item_id;
+            const rowRubroId = row.rubroId || row.line_item_id;
+            
+            if (invRubroId && rowRubroId) {
+              const invCanonical = getCanonicalRubroId(invRubroId);
+              const rowCanonical = getCanonicalRubroId(rowRubroId);
+              
+              if (invCanonical && rowCanonical && invCanonical === rowCanonical) {
+                const invAmount = normalizeInvoiceAmount(inv);
+                row.actual = (row.actual || 0) + invAmount;
+                fallbackMatchedCount++;
+                matched = true;
+                if (isDev) {
+                  console.log(
+                    `[useSDMTForecastData] Fallback match: inv.rubroId=${invRubroId} → ${invCanonical}, row.rubroId=${rowRubroId} → ${rowCanonical}, amount=${invAmount}`
+                  );
+                }
+                break;
+              }
+            }
+            
+            // Try normalized description comparison
+            if (!matched && inv.description && row.description) {
+              if (normalizeString(inv.description) === normalizeString(row.description)) {
+                const invAmount = normalizeInvoiceAmount(inv);
+                row.actual = (row.actual || 0) + invAmount;
+                fallbackMatchedCount++;
+                matched = true;
+                if (isDev) {
+                  console.log(
+                    `[useSDMTForecastData] Fallback match by description: "${inv.description}" → "${row.description}", amount=${invAmount}`
+                  );
+                }
+                break;
+              }
             }
           }
         }
@@ -715,20 +762,18 @@ export function useSDMTForecastData({
 
       if (isDev) {
         console.log(
-          `[useSDMTForecastData] Invoice matching complete: ${matchedInvoicesCount} matched, ${unmatchedInvoicesCount} unmatched, ${invalidMonthCount} invalid month`
+          `[useSDMTForecastData] matchedInvoices: ${matchedInvoicesCount}, unmatchedSample: ${JSON.stringify(unmatchedInvoicesSample)}`
         );
         
-        if (invalidMonthCount > 0) {
+        if (fallbackMatchedCount > 0) {
           console.warn(
-            `[useSDMTForecastData] ${invalidMonthCount} invoices skipped due to invalid month. Sample:`,
-            invalidMonthInvoices
+            `[useSDMTForecastData] ${fallbackMatchedCount} invoices matched using DEV fallback logic (canonical/description matching)`
           );
         }
         
-        if (unmatchedInvoicesCount > 0 && unmatchedInvoicesSample.length > 0) {
+        if (invalidMonthCount > 0) {
           console.warn(
-            `[useSDMTForecastData] ${unmatchedInvoicesCount} invoices could not be matched to forecast rows. Sample:`,
-            unmatchedInvoicesSample
+            `[useSDMTForecastData] invalidMonthInvoiceSample: ${JSON.stringify(invalidMonthInvoices)}`
           );
         }
       }
