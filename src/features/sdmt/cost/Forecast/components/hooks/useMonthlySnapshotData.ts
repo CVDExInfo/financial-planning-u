@@ -162,8 +162,8 @@ export function buildSnapshotRows({
       const rubroName = cell.description || 'Sin descripción';
       const resolvedCategory = cell.category || lineItemCategoryMap.get(cell.line_item_id) || lineItemCategoryMap.get(rubroId);
       
-      // Prefer explicit category, but fall back to description / name when category missing.
-      // For project grouping: use cell.description or rubroName.
+      // Prefer explicit category, but fall back to descriptive fields when category missing.
+      // Fallback order: cell.description → rubroName → cell.projectName → empty string
       const fallbackText = cell.description || rubroName || cell.projectName || '';
       const costType = deriveCostType(resolvedCategory, fallbackText);
 
@@ -241,8 +241,8 @@ export function buildSnapshotRows({
     const projectName = cell.projectName || 'Proyecto desconocido';
     const resolvedCategory = cell.category || lineItemCategoryMap.get(cell.line_item_id) || lineItemCategoryMap.get(rubroId);
     
-    // Prefer explicit category, but fall back to description / name when category missing.
-    // For rubro grouping: use cell.description or projectName.
+    // Prefer explicit category, but fall back to descriptive fields when category missing.
+    // Fallback order: cell.description → projectName → rubroName → empty string
     const fallbackText = cell.description || projectName || rubroName || '';
     const costType = deriveCostType(resolvedCategory, fallbackText);
 
