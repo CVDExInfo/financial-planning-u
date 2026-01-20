@@ -78,6 +78,7 @@ import {
   type BaselineDetail,
 } from "@/api/finanzas";
 import { getForecastPayload, getProjectInvoices } from "./forecastService";
+import { normalizeInvoiceMonth } from "./useSDMTForecastData";
 import finanzasClient from "@/api/finanzasClient";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { BaselineStatusPanel } from "@/components/baseline/BaselineStatusPanel";
@@ -899,11 +900,13 @@ export function SDMTForecast() {
           );
 
           const projectData: ForecastRow[] = normalized.map((cell) => {
-            const matchedInvoice = matchedInvoices.find(
-              (inv) =>
+            const matchedInvoice = matchedInvoices.find((inv) => {
+              const invoiceMonth = normalizeInvoiceMonth(inv.month);
+              return (
                 inv.line_item_id === cell.line_item_id &&
-                inv.month === cell.month
-            );
+                invoiceMonth === cell.month
+              );
+            });
 
             const withActuals = matchedInvoice
               ? {
@@ -1616,11 +1619,13 @@ export function SDMTForecast() {
           projectId?: string;
           projectName?: string;
         };
-        const itemForecasts = filteredForecastData.filter(
-          (f) =>
+        const itemForecasts = filteredForecastData.filter((f) => {
+          const forecastProjectId = (f as any).projectId || (f as any).project_id;
+          return (
             f.line_item_id === lineItem.id &&
-            (!lineItemData.projectId || f.projectId === lineItemData.projectId)
-        );
+            (!lineItemData.projectId || forecastProjectId === lineItemData.projectId)
+          );
+        });
 
         // In current month mode, only show the current month; otherwise show all 12 months
         const months = isCurrentMonthMode
