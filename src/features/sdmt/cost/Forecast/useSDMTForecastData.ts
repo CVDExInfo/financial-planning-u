@@ -26,9 +26,12 @@ import type { LineItem } from "@/types/domain";
 import finanzasClient from "@/api/finanzasClient";
 import { 
   CANONICAL_RUBROS_TAXONOMY, 
-  type CanonicalRubroTaxonomy 
+  type CanonicalRubroTaxonomy,
+  getCanonicalRubroId,
 } from "@/lib/rubros/canonical-taxonomy";
 import { buildTaxonomyMap, type TaxonomyEntry as TaxLookupEntry } from "./lib/taxonomyLookup";
+import { normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
+import { lookupTaxonomyCanonical } from "./lib/lookupTaxonomyCanonical";
 
 // Build taxonomy from canonical source (the single source of truth)
 const taxonomyByRubroId: Record<string, { description?: string; category?: string; isLabor?: boolean }> = {};
@@ -91,9 +94,9 @@ export const normalizeString = (s: any): string => {
 
 /**
  * Normalize invoice month to match forecast cell month index
- * Handles both numeric month indices (1-12) and YYYY-MM string formats
+ * Handles numeric indices, YYYY-MM formats, and M\d+ formats (M1, M11, etc.)
  * 
- * @param invoiceMonth - Month value from invoice (could be number or "YYYY-MM" string)
+ * @param invoiceMonth - Month value from invoice (could be number, "YYYY-MM", or "M11" string)
  * @param baselineStartMonth - Optional baseline start month for relative indexing
  * @returns Numeric month index (1-based) or 0 if invalid
  */
@@ -113,6 +116,13 @@ export const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: nu
       return monthNum;
     }
     
+    // Try M\d+ format (M1, M11, M12, m11, etc.)
+    const mMatch = invoiceMonth.match(/^m\s*0?(\d{1,2})$/i);
+    if (mMatch) {
+      const mm = parseInt(mMatch[1], 10);
+      if (mm >= 1 && mm <= 60) return mm;
+    }
+    
     // Try parsing as plain number string
     const parsed = parseInt(invoiceMonth, 10);
     if (!isNaN(parsed) && parsed >= 1 && parsed <= 60) {
@@ -124,22 +134,77 @@ export const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: nu
 };
 
 /**
- * Helper function for robust invoice matching
+ * Helper function for robust invoice matching with canonicalization
+ * 
+ * Matching rules (in order):
+ * 1. projectId guard: If both present and different → no match
+ * 2. line_item_id: Compare canonicalized line_item_id
+ * 3. canonical rubroId: Use getCanonicalRubroId to compare
+ * 4. taxonomy lookup: Check if both resolve to same canonical taxonomy entry
+ * 5. normalized description: Final fallback
+ * 
+ * @param inv - Invoice object
+ * @param cell - Forecast row
+ * @param taxonomyMap - Optional taxonomy map for robust lookup
+ * @param taxonomyCache - Optional taxonomy cache for performance
+ * @returns true if invoice matches cell
  */
-export const matchInvoiceToCell = (inv: any, cell: ForecastRow): boolean => {
+export const matchInvoiceToCell = (
+  inv: any,
+  cell: ForecastRow,
+  taxonomyMap?: Map<string, TaxLookupEntry>,
+  taxonomyCache?: Map<string, TaxLookupEntry | null>
+): boolean => {
   if (!inv) return false;
 
-  // Priority 1: Match by line_item_id
-  if (inv.line_item_id && inv.line_item_id === cell.line_item_id) {
-    return true;
+  // 1) projectId guard: both present → must match
+  if (inv.projectId && cell.projectId && inv.projectId !== cell.projectId) {
+    return false;
   }
 
-  // Priority 2: Match by rubroId
-  if (inv.rubroId && inv.rubroId === cell.rubroId) {
-    return true;
+  // 2) line_item_id: canonicalize and compare
+  if (inv.line_item_id && cell.line_item_id) {
+    const invLineId = normalizeRubroId(inv.line_item_id);
+    const cellLineId = normalizeRubroId(cell.line_item_id);
+    if (invLineId && cellLineId && invLineId === cellLineId) {
+      return true;
+    }
   }
 
-  // Priority 3: Match by normalized description
+  // 3) canonical rubroId: use getCanonicalRubroId
+  const invRubroId = inv.rubroId || inv.rubro_id;
+  const cellRubroId = cell.rubroId || cell.line_item_id;
+  
+  if (invRubroId && cellRubroId) {
+    const invCanonical = getCanonicalRubroId(invRubroId);
+    const cellCanonical = getCanonicalRubroId(cellRubroId);
+    if (invCanonical && cellCanonical && invCanonical === cellCanonical) {
+      return true;
+    }
+  }
+
+  // 4) taxonomy lookup: check if both resolve to same canonical entry
+  if (taxonomyMap && taxonomyCache) {
+    const invRow = {
+      rubroId: invRubroId,
+      line_item_id: inv.line_item_id,
+      description: inv.description,
+    };
+    const cellRow = {
+      rubroId: cellRubroId,
+      line_item_id: cell.line_item_id,
+      description: cell.description,
+    };
+    
+    const invTax = lookupTaxonomyCanonical(taxonomyMap, invRow, taxonomyCache);
+    const cellTax = lookupTaxonomyCanonical(taxonomyMap, cellRow, taxonomyCache);
+    
+    if (invTax && cellTax && invTax.rubroId === cellTax.rubroId) {
+      return true;
+    }
+  }
+
+  // 5) normalized description: final fallback
   if (
     inv.description &&
     cell.description &&
@@ -501,7 +566,7 @@ export function useSDMTForecastData({
       }
 
       // Load and merge invoices as actuals
-      const invoices = await getProjectInvoices(projectId);
+      const invoices = await getProjectInvoices(projectId === 'ALL_PROJECTS' ? undefined : projectId);
       if (latestRequestKey.current !== requestKey) return; // stale
 
       console.log(
@@ -510,41 +575,58 @@ export function useSDMTForecastData({
         } invoices for project ${projectId}`
       );
 
-      const matchedInvoices = invoices.filter(
-        (inv) => inv.status === "Matched"
+      // Filter to valid invoice statuses (accepted/paid/posted/received)
+      const validInvoices = invoices.filter(
+        (inv) => ['matched', 'paid', 'approved', 'posted', 'received'].includes(
+          (inv.status || 'matched').toLowerCase()
+        )
       );
+      
       console.log(
-        `[useSDMTForecastData] Found ${matchedInvoices.length} matched invoices (status='Matched')`
+        `[useSDMTForecastData] Found ${validInvoices.length} valid invoices (statuses: matched/paid/approved/posted/received)`
+      );
+
+      // Apply invoices to forecast rows
+      let matchedInvoicesCount = 0;
+      let unmatchedInvoicesCount = 0;
+      
+      for (const inv of validInvoices) {
+        let matched = false;
+        const invMonth = normalizeInvoiceMonth(inv.month || inv.calendar_month || inv.period || inv.periodKey);
+        
+        for (const row of rows) {
+          // Use improved matching with taxonomy
+          if (matchInvoiceToCell(inv, row, taxonomyMap, taxonomyCache)) {
+            // Also check month matches (defensive)
+            if (!invMonth || row.month === invMonth) {
+              const invAmount = Number(inv.amount || inv.total || inv.monto || 0);
+              row.actual = (row.actual || 0) + invAmount;
+              matchedInvoicesCount++;
+              matched = true;
+            }
+          }
+        }
+        
+        if (!matched) {
+          unmatchedInvoicesCount++;
+        }
+      }
+
+      console.log(
+        `[useSDMTForecastData] Invoice matching complete: ${matchedInvoicesCount} matched, ${unmatchedInvoicesCount} unmatched`
       );
 
       const rowsWithActuals = rows.map((cell) => {
-        const matchedInvoice = matchedInvoices.find((inv) => {
-          // Match by line item/rubro AND normalized month
-          const invoiceMonth = normalizeInvoiceMonth(inv.month);
-          return matchInvoiceToCell(inv, cell) && invoiceMonth === cell.month;
-        });
-
-        if (matchedInvoice) {
-          const actualAmount = matchedInvoice.amount || 0;
-          return {
-            ...cell,
-            actual: actualAmount,
-            // Calculate both variance types
-            varianceActual: actualAmount - cell.planned,
-            varianceForecast:
-              cell.forecast != null ? cell.forecast - cell.planned : null,
-            // Legacy variance field for backward compatibility
-            variance: actualAmount - cell.planned,
-          };
-        }
-
-        // No matched invoice - calculate variance based on forecast vs planned
+        const actualAmount = cell.actual || 0;
+        
         return {
           ...cell,
-          varianceActual: null, // No actual data
+          // Calculate both variance types
+          varianceActual: actualAmount > 0 ? actualAmount - cell.planned : null,
           varianceForecast:
             cell.forecast != null ? cell.forecast - cell.planned : null,
-          variance: cell.forecast - cell.planned,
+          // Legacy variance field for backward compatibility
+          variance: actualAmount > 0 ? actualAmount - cell.planned : cell.forecast - cell.planned,
         };
       });
 

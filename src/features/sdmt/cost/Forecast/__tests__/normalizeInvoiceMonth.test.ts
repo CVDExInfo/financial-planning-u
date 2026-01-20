@@ -15,9 +15,9 @@ import { describe, it } from 'node:test';
  * Production implementation is in useSDMTForecastData.ts
  * 
  * Normalize invoice month to match forecast cell month index
- * Handles both numeric month indices (1-12) and YYYY-MM string formats
+ * Handles numeric indices, YYYY-MM formats, and M\d+ formats (M1, M11, etc.)
  * 
- * @param invoiceMonth - Month value from invoice (could be number or "YYYY-MM" string)
+ * @param invoiceMonth - Month value from invoice (could be number, "YYYY-MM", or "M11" string)
  * @param baselineStartMonth - Optional baseline start month for relative indexing
  * @returns Numeric month index (1-based) or 0 if invalid
  */
@@ -35,6 +35,13 @@ const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: number): 
       // If we have baseline start, could calculate relative index
       // For now, just return the month number (1-12)
       return monthNum;
+    }
+    
+    // Try M\d+ format (M1, M11, M12, m11, etc.)
+    const mMatch = invoiceMonth.match(/^m\s*0?(\d{1,2})$/i);
+    if (mMatch) {
+      const mm = parseInt(mMatch[1], 10);
+      if (mm >= 1 && mm <= 60) return mm;
     }
     
     // Try parsing as plain number string
@@ -61,6 +68,20 @@ describe('Invoice Month Normalization', () => {
     assert.equal(normalizeInvoiceMonth('2025-03'), 3);
   });
 
+  it('should parse M\\d+ format (M1, M11, M12)', () => {
+    assert.equal(normalizeInvoiceMonth('M1'), 1);
+    assert.equal(normalizeInvoiceMonth('M11'), 11);
+    assert.equal(normalizeInvoiceMonth('M12'), 12);
+    assert.equal(normalizeInvoiceMonth('M01'), 1);
+    assert.equal(normalizeInvoiceMonth('M06'), 6);
+    // Case insensitive
+    assert.equal(normalizeInvoiceMonth('m1'), 1);
+    assert.equal(normalizeInvoiceMonth('m11'), 11);
+    // With spaces
+    assert.equal(normalizeInvoiceMonth('M 1'), 1);
+    assert.equal(normalizeInvoiceMonth('m 11'), 11);
+  });
+
   it('should parse numeric strings', () => {
     assert.equal(normalizeInvoiceMonth('1'), 1);
     assert.equal(normalizeInvoiceMonth('6'), 6);
@@ -79,11 +100,15 @@ describe('Invoice Month Normalization', () => {
     assert.equal(normalizeInvoiceMonth(13), 13);
     assert.equal(normalizeInvoiceMonth(24), 24);
     assert.equal(normalizeInvoiceMonth(36), 36);
+    // M\d+ format also supports extended months
+    assert.equal(normalizeInvoiceMonth('M13'), 13);
+    assert.equal(normalizeInvoiceMonth('M24'), 24);
   });
 
   it('should reject months outside valid range', () => {
     assert.equal(normalizeInvoiceMonth(0), 0);
     assert.equal(normalizeInvoiceMonth(-1), 0);
     assert.equal(normalizeInvoiceMonth(61), 0); // > 60 months
+    assert.equal(normalizeInvoiceMonth('M61'), 0); // > 60 months
   });
 });
