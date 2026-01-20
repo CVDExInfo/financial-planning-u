@@ -251,6 +251,13 @@ export function SDMTForecast() {
     return stored === 'rubros' ? 'rubros' : 'project';
   });
   
+  // Map breakdown mode to ForecastRubrosTable viewMode
+  // 'project' → show data grouped by project
+  // 'rubros' → show data grouped by category (rubros are within categories)
+  const mapBreakdownModeToViewMode = (mode: 'project' | 'rubros'): 'project' | 'category' => {
+    return mode === 'rubros' ? 'category' : 'project';
+  };
+  
   // Handler for breakdown mode changes
   const handleBreakdownModeChange = (newMode: 'project' | 'rubros') => {
     setBreakdownMode(newMode);
@@ -3858,7 +3865,7 @@ export function SDMTForecast() {
                     formatCurrency={formatCurrency}
                     canEditBudget={canEditBudget}
                     defaultFilter="all"
-                    externalViewMode={breakdownMode === 'rubros' ? 'category' : 'project'}
+                    externalViewMode={mapBreakdownModeToViewMode(breakdownMode)}
                     hideViewModeToggle={true}
                   />
                 )}

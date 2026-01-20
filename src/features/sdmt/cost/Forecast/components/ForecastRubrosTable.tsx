@@ -82,6 +82,7 @@ export function ForecastRubrosTable({
   
   // Use external viewMode if provided, otherwise use internal state
   const viewMode = externalViewMode || internalViewMode;
+  const isExternallyControlled = externalViewMode !== undefined;
 
   // Session storage key for persistence
   const sessionKey = useMemo(() => {
@@ -423,7 +424,7 @@ export function ForecastRubrosTable({
               <div className="flex items-center gap-1 border rounded-md p-1 bg-muted/30">
                 <button
                   onClick={() => setInternalViewMode('category')}
-                  disabled={externalViewMode !== undefined}
+                  disabled={isExternallyControlled}
                   className={`px-3 py-1 text-xs rounded transition-colors ${
                     viewMode === 'category'
                       ? 'bg-primary text-primary-foreground font-medium shadow-sm'
@@ -437,7 +438,7 @@ export function ForecastRubrosTable({
                 </button>
                 <button
                   onClick={() => setInternalViewMode('project')}
-                  disabled={externalViewMode !== undefined}
+                  disabled={isExternallyControlled}
                   className={`px-3 py-1 text-xs rounded transition-colors ${
                     viewMode === 'project'
                       ? 'bg-primary text-primary-foreground font-medium shadow-sm'
