@@ -138,6 +138,21 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'RUBRO-AWS-INFRA': 'INF-CLOUD',
   'RUBRO-LICENSE': 'TEC-LIC-MON',
   'RUBRO-CONSULTING': 'GSV-REU',
+  
+  // Allocation tokens and human-readable names (added for frontend-backend alignment)
+  // PR #942 and #945 aliases
+  // Note: Mixed case entries are intentional - they match allocation data as-is
+  // The lookup logic normalizes keys before comparison
+  'mod-lead-ingeniero-delivery': 'MOD-LEAD',
+  'mod-lead-ingeniero': 'MOD-LEAD',
+  'ingeniero-delivery': 'MOD-LEAD',
+  'Ingeniero Delivery': 'MOD-LEAD',
+  'ingeniero-lider': 'MOD-LEAD',
+  'mod-sdm-service-delivery-manager': 'MOD-SDM',
+  'mod-sdm-sdm': 'MOD-SDM',
+  'service-delivery-manager': 'MOD-SDM',
+  'mod-ing-ingeniero-soporte-n1': 'MOD-ING',
+  'project-manager': 'MOD-LEAD', // Map to MOD-LEAD as MOD-PM/MOD-PMO doesn't exist in canonical taxonomy
 };
 
 /**
