@@ -128,8 +128,8 @@ describe("Baseline Creation with Taxonomy Mapping", () => {
     expect(projectScopedItem.labor_estimates).toBeDefined();
     expect(projectScopedItem.labor_estimates.length).toBe(3);
     
-    // Project Manager → MOD-PM
-    expect(projectScopedItem.labor_estimates[0].rubroId).toBe("MOD-PM");
+    // Project Manager → MOD-LEAD (changed from MOD-PM per canonical taxonomy)
+    expect(projectScopedItem.labor_estimates[0].rubroId).toBe("MOD-LEAD");
     expect(projectScopedItem.labor_estimates[0].role).toBe("Project Manager");
     
     // Ingeniero Delivery → MOD-LEAD
