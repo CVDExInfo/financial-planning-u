@@ -110,7 +110,7 @@ const getInvoiceMonth = (invoice: any): any => {
 
 /**
  * Normalize invoice month to match forecast cell month index
- * Handles numeric indices, YYYY-MM formats, and M\d+ formats (M1, M11, etc.)
+ * Handles numeric indices, YYYY-MM formats, and M\d+ formats (M1, M01, M11, etc.)
  * 
  * @param invoiceMonth - Month value from invoice (could be number, "YYYY-MM", or "M11" string)
  * @param baselineStartMonth - Optional baseline start month for relative indexing
@@ -132,7 +132,7 @@ export const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: nu
       return monthNum;
     }
     
-    // Try M\d+ format (M1, M11, M12, m11, etc.)
+    // Try M\d+ format (M1, M01, M11, M12, m11, etc. - with optional leading zero)
     const mMatch = invoiceMonth.match(/^m\s*0?(\d{1,2})$/i);
     if (mMatch) {
       const mm = parseInt(mMatch[1], 10);
@@ -611,6 +611,8 @@ export function useSDMTForecastData({
       // Apply invoices to forecast rows
       let matchedInvoicesCount = 0;
       let unmatchedInvoicesCount = 0;
+      let invalidMonthCount = 0;
+      const invalidMonthInvoices: any[] = [];
       
       for (const inv of validInvoices) {
         let matched = false;
@@ -619,32 +621,45 @@ export function useSDMTForecastData({
         for (const row of rows) {
           // Use improved matching with taxonomy
           if (matchInvoiceToCell(inv, row, taxonomyMap, taxonomyCache)) {
-            // Also check month matches (defensive) - only skip month check if invMonth is explicitly invalid (0)
+            // Also check month matches (defensive) - only match if invMonth is valid (> 0)
             // This ensures we don't accidentally match invoices with no month data
             if (invMonth > 0 && row.month === invMonth) {
               const invAmount = normalizeInvoiceAmount(inv);
               row.actual = (row.actual || 0) + invAmount;
               matchedInvoicesCount++;
               matched = true;
-            } else if (invMonth === 0) {
-              // Invoice has no valid month - log warning but don't match
-              console.warn(`[useSDMTForecastData] Invoice has invalid month, skipping:`, {
-                rubroId: inv.rubroId || inv.rubro_id,
-                amount: normalizeInvoiceAmount(inv),
-                rawMonth: getInvoiceMonth(inv),
-              });
+              break; // Stop after first match to prevent double-counting
             }
           }
         }
         
         if (!matched) {
-          unmatchedInvoicesCount++;
+          if (invMonth === 0) {
+            // Invoice has no valid month - track for batch logging
+            invalidMonthCount++;
+            if (invalidMonthInvoices.length < 5) { // Keep first 5 for sample
+              invalidMonthInvoices.push({
+                rubroId: inv.rubroId || inv.rubro_id,
+                amount: normalizeInvoiceAmount(inv),
+                rawMonth: getInvoiceMonth(inv),
+              });
+            }
+          } else {
+            unmatchedInvoicesCount++;
+          }
         }
       }
 
       console.log(
-        `[useSDMTForecastData] Invoice matching complete: ${matchedInvoicesCount} matched, ${unmatchedInvoicesCount} unmatched`
+        `[useSDMTForecastData] Invoice matching complete: ${matchedInvoicesCount} matched, ${unmatchedInvoicesCount} unmatched, ${invalidMonthCount} invalid month`
       );
+      
+      if (invalidMonthCount > 0) {
+        console.warn(
+          `[useSDMTForecastData] ${invalidMonthCount} invoices skipped due to invalid month. Sample:`,
+          invalidMonthInvoices
+        );
+      }
 
       const rowsWithActuals = rows.map((cell) => {
         const actualAmount = cell.actual || 0;
