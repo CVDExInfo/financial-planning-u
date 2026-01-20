@@ -5,11 +5,13 @@
  * 1. Match by line_item_id (highest priority)
  * 2. Match by rubroId (medium priority)
  * 3. Match by normalized description (fallback)
+ * 
+ * Also tests invoice month normalization
  */
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { matchInvoiceToCell } from '../useSDMTForecastData';
+import { matchInvoiceToCell, normalizeInvoiceMonth } from '../useSDMTForecastData';
 
 describe('Invoice Matching Logic', () => {
   const baseCell = {
@@ -159,5 +161,46 @@ describe('Variance Calculations', () => {
     const varianceForecast = forecast != null ? forecast - planned : null;
     
     assert.equal(varianceForecast, null);
+  });
+});
+
+describe('Invoice Month Normalization', () => {
+  it('should return numeric month indices as-is', () => {
+    assert.equal(normalizeInvoiceMonth(1), 1);
+    assert.equal(normalizeInvoiceMonth(6), 6);
+    assert.equal(normalizeInvoiceMonth(12), 12);
+  });
+
+  it('should extract month number from YYYY-MM format', () => {
+    assert.equal(normalizeInvoiceMonth('2026-01'), 1);
+    assert.equal(normalizeInvoiceMonth('2026-06'), 6);
+    assert.equal(normalizeInvoiceMonth('2026-12'), 12);
+    assert.equal(normalizeInvoiceMonth('2025-03'), 3);
+  });
+
+  it('should parse numeric strings', () => {
+    assert.equal(normalizeInvoiceMonth('1'), 1);
+    assert.equal(normalizeInvoiceMonth('6'), 6);
+    assert.equal(normalizeInvoiceMonth('12'), 12);
+  });
+
+  it('should handle edge cases', () => {
+    // Invalid month returns 0
+    assert.equal(normalizeInvoiceMonth('invalid'), 0);
+    assert.equal(normalizeInvoiceMonth(''), 0);
+    assert.equal(normalizeInvoiceMonth(null), 0);
+    assert.equal(normalizeInvoiceMonth(undefined), 0);
+  });
+
+  it('should support months beyond 12 (for multi-year projects)', () => {
+    assert.equal(normalizeInvoiceMonth(13), 13);
+    assert.equal(normalizeInvoiceMonth(24), 24);
+    assert.equal(normalizeInvoiceMonth(36), 36);
+  });
+
+  it('should reject months outside valid range', () => {
+    assert.equal(normalizeInvoiceMonth(0), 0);
+    assert.equal(normalizeInvoiceMonth(-1), 0);
+    assert.equal(normalizeInvoiceMonth(61), 0); // > 60 months
   });
 });

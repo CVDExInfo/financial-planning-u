@@ -90,6 +90,40 @@ export const normalizeString = (s: any): string => {
 };
 
 /**
+ * Normalize invoice month to match forecast cell month index
+ * Handles both numeric month indices (1-12) and YYYY-MM string formats
+ * 
+ * @param invoiceMonth - Month value from invoice (could be number or "YYYY-MM" string)
+ * @param baselineStartMonth - Optional baseline start month for relative indexing
+ * @returns Numeric month index (1-based) or 0 if invalid
+ */
+export const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: number): number => {
+  // If already a valid numeric month index, return it
+  if (typeof invoiceMonth === 'number' && invoiceMonth >= 1 && invoiceMonth <= 60) {
+    return invoiceMonth;
+  }
+  
+  // If string in YYYY-MM format, extract month number
+  if (typeof invoiceMonth === 'string') {
+    const match = invoiceMonth.match(/^(\d{4})-(\d{2})$/);
+    if (match) {
+      const monthNum = parseInt(match[2], 10);
+      // If we have baseline start, could calculate relative index
+      // For now, just return the month number (1-12)
+      return monthNum;
+    }
+    
+    // Try parsing as plain number string
+    const parsed = parseInt(invoiceMonth, 10);
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= 60) {
+      return parsed;
+    }
+  }
+  
+  return 0; // Invalid month
+};
+
+/**
  * Helper function for robust invoice matching
  */
 export const matchInvoiceToCell = (inv: any, cell: ForecastRow): boolean => {
@@ -484,9 +518,11 @@ export function useSDMTForecastData({
       );
 
       const rowsWithActuals = rows.map((cell) => {
-        const matchedInvoice = matchedInvoices.find(
-          (inv) => matchInvoiceToCell(inv, cell) && inv.month === cell.month
-        );
+        const matchedInvoice = matchedInvoices.find((inv) => {
+          // Match by line item/rubro AND normalized month
+          const invoiceMonth = normalizeInvoiceMonth(inv.month);
+          return matchInvoiceToCell(inv, cell) && invoiceMonth === cell.month;
+        });
 
         if (matchedInvoice) {
           const actualAmount = matchedInvoice.amount || 0;

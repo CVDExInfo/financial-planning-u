@@ -41,7 +41,7 @@ export interface ProjectRubro {
 
 /**
  * Build project totals from forecast data
- * Groups by project_id, computes monthly and overall totals
+ * Groups by projectId, computes monthly and overall totals
  */
 export function buildProjectTotals(
   forecastData: ForecastCell[]
@@ -50,8 +50,8 @@ export function buildProjectTotals(
 
   // Group data by project
   forecastData.forEach(cell => {
-    const projectId = (cell as any).project_id || 'unknown-project';
-    const projectName = (cell as any).project_name || 'Unknown Project';
+    const projectId = (cell as any).projectId || (cell as any).project_id || 'unknown-project';
+    const projectName = (cell as any).projectName || (cell as any).project_name || 'Unknown Project';
     const month = cell.month;
 
     if (!projectMap.has(projectId)) {
@@ -123,8 +123,8 @@ export function buildProjectRubros(
 
   // Group data by project and rubro
   forecastData.forEach(cell => {
-    const projectId = (cell as any).project_id || 'unknown-project';
-    const projectName = (cell as any).project_name || 'Unknown Project';
+    const projectId = (cell as any).projectId || (cell as any).project_id || 'unknown-project';
+    const projectName = (cell as any).projectName || (cell as any).project_name || 'Unknown Project';
     const rubroId = cell.line_item_id;
     const month = cell.month;
 
