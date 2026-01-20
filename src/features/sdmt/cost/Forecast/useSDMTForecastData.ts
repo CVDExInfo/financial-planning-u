@@ -677,13 +677,14 @@ export function useSDMTForecastData({
           }
         }
         
-        // DEV-only fallback matching: If invoice didn't match, try relaxed matching
+        // DEV-only fallback diagnostic: If invoice didn't match, log potential matches
         // This helps diagnose whether minor formatting differences are causing failures
+        // NOTE: This is DIAGNOSTIC ONLY - it does NOT modify row.actual
         if (!matched && invMonth > 0 && isDev) {
           for (const row of rows) {
             if (row.month !== invMonth) continue;
             
-            // Try canonical rubro comparison
+            // Check if canonical rubro comparison would match
             const invRubroId = inv.rubroId || inv.rubro_id || inv.line_item_id;
             const rowRubroId = row.rubroId || row.line_item_id;
             
@@ -693,31 +694,23 @@ export function useSDMTForecastData({
               
               if (invCanonical && rowCanonical && invCanonical === rowCanonical) {
                 const invAmount = normalizeInvoiceAmount(inv);
-                row.actual = (row.actual || 0) + invAmount;
                 fallbackMatchedCount++;
-                matched = true;
-                if (isDev) {
-                  console.log(
-                    `[useSDMTForecastData] Fallback match: inv.rubroId=${invRubroId} → ${invCanonical}, row.rubroId=${rowRubroId} → ${rowCanonical}, amount=${invAmount}`
-                  );
-                }
-                break;
+                console.log(
+                  `[useSDMTForecastData] DIAGNOSTIC: Would match via canonical rubro: inv.rubroId=${invRubroId} → ${invCanonical}, row.rubroId=${rowRubroId} → ${rowCanonical}, amount=${invAmount}`
+                );
+                break; // Only log first potential match
               }
             }
             
-            // Try normalized description comparison
-            if (!matched && inv.description && row.description) {
+            // Check if normalized description comparison would match
+            if (inv.description && row.description) {
               if (normalizeString(inv.description) === normalizeString(row.description)) {
                 const invAmount = normalizeInvoiceAmount(inv);
-                row.actual = (row.actual || 0) + invAmount;
                 fallbackMatchedCount++;
-                matched = true;
-                if (isDev) {
-                  console.log(
-                    `[useSDMTForecastData] Fallback match by description: "${inv.description}" → "${row.description}", amount=${invAmount}`
-                  );
-                }
-                break;
+                console.log(
+                  `[useSDMTForecastData] DIAGNOSTIC: Would match via description: "${inv.description}" → "${row.description}", amount=${invAmount}`
+                );
+                break; // Only log first potential match
               }
             }
           }
@@ -767,7 +760,7 @@ export function useSDMTForecastData({
         
         if (fallbackMatchedCount > 0) {
           console.warn(
-            `[useSDMTForecastData] ${fallbackMatchedCount} invoices matched using DEV fallback logic (canonical/description matching)`
+            `[useSDMTForecastData] DIAGNOSTIC: ${fallbackMatchedCount} invoices would match using relaxed rules (canonical/description). Primary matching may need improvement.`
           );
         }
         
