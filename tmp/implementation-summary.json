@@ -1,0 +1,62 @@
+{
+  "branch": "copilot/implement-surgical-fix-regression",
+  "commits": [
+    {
+      "sha": "c8606ad",
+      "message": "fix(normalizeKey): add NFKD diacritic normalization for consistent key matching"
+    },
+    {
+      "sha": "2ae808a",
+      "message": "fix(server): align canonical-taxonomy with frontend aliases for MOD variants"
+    },
+    {
+      "sha": "75b9257",
+      "message": "docs: add comprehensive implementation report and validation artifacts"
+    },
+    {
+      "sha": "6dbe718",
+      "message": "fix: address code review feedback - clarify comments and move test script"
+    },
+    {
+      "sha": "d97f2a0",
+      "message": "docs: add final implementation summary with QA steps"
+    }
+  ],
+  "files_changed": [
+    "src/lib/rubros/normalize-key.ts",
+    "src/features/sdmt/cost/Forecast/__tests__/normalizeKey.test.ts",
+    "services/finanzas-api/src/lib/canonical-taxonomy.ts",
+    "tmp/report.md",
+    "tmp/missing-keys-after.txt",
+    "tmp/test-normalize-key.ts",
+    "IMPLEMENTATION_FINAL_SUMMARY.md"
+  ],
+  "test_results": {
+    "unit_tests": {
+      "normalizeKey": "5/5 passing",
+      "canonicalAliases": "9/9 passing",
+      "lookupTaxonomyCanonical": "6/6 passing",
+      "total": "20/20 passing"
+    },
+    "logs": [
+      "artifacts-unit-test-log.txt",
+      "tmp/missing-keys-after.txt"
+    ]
+  },
+  "missing_keys_before": "Not applicable - PRs #942 and #945 already added aliases",
+  "missing_keys_after": "tmp/missing-keys-after.txt",
+  "browser_console": "Manual QA pending - see IMPLEMENTATION_FINAL_SUMMARY.md for steps",
+  "report": "tmp/report.md",
+  "pr_url": "https://github.com/CVDExInfo/financial-planning-u/pull/[to-be-created]",
+  "status": "implementation_complete_pending_manual_qa",
+  "acceptance_criteria": {
+    "unit_tests_passing": true,
+    "diacritic_normalization": true,
+    "server_client_alignment": true,
+    "backward_compatible": true,
+    "performance_maintained": true,
+    "code_review_addressed": true,
+    "e2e_tests": "pending_manual_execution",
+    "manual_qa": "pending_browser_validation"
+  }
+}
