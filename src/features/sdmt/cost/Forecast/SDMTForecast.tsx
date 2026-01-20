@@ -998,11 +998,14 @@ export function SDMTForecast() {
   useEffect(() => {
     // Helper to trigger load and guard against overlapping calls
     const triggerLoad = () => {
-      if (selectedProjectId) {
+      // Allow portfolio mode OR a single selected project to start the load
+      if (isPortfolioView || selectedProjectId) {
         if (import.meta.env.DEV) {
           console.log(
             "🔄 Forecast: Loading data for project:",
             selectedProjectId,
+            "isPortfolioView:",
+            isPortfolioView,
             "change count:",
             projectChangeCount,
             "baseline:",
@@ -1023,12 +1026,15 @@ export function SDMTForecast() {
     };
 
     // Run once on mount / whenever route (location.key) or main deps change
-    triggerLoad();
+    // Trigger if single project selected OR we are in portfolio mode
+    if (isPortfolioView || selectedProjectId) {
+      triggerLoad();
+    }
 
     // Check for URL refresh parameter
     const urlParams = new URLSearchParams(location.search);
     const refreshParam = urlParams.get("_refresh");
-    if (refreshParam && selectedProjectId) {
+    if (refreshParam && (selectedProjectId || isPortfolioView)) {
       if (import.meta.env.DEV) {
         console.log("🔄 Forecast: Refreshing after reconciliation (URL param)");
       }
@@ -1040,7 +1046,7 @@ export function SDMTForecast() {
 
     // Visibility change: when tab becomes visible again, reload once
     const onVisibility = () => {
-      if (document.visibilityState === 'visible' && selectedProjectId && !didRefreshOnVisibility) {
+      if (document.visibilityState === 'visible' && (selectedProjectId || isPortfolioView) && !didRefreshOnVisibility) {
         didRefreshOnVisibility = true;
         if (import.meta.env.DEV) {
           console.log("🔄 Forecast: Refreshing on visibility change");
@@ -1069,6 +1075,8 @@ export function SDMTForecast() {
     selectedPeriod,
     projectChangeCount,
     currentProject?.baselineId,
+    isPortfolioView,
+    projects.length,
   ]);
 
   const handleCellEdit = (
