@@ -108,9 +108,11 @@ export function computeForecastFromAllocations(
   const resolvedProjectId =
     projectId ||
     allocations.find((alloc) => alloc.projectId)?.projectId ||
-    rubroWithProject?.projectId;
+    rubroWithProject?.projectId ||
+    'ALL_PROJECTS'; // Allow ALL_PROJECTS as fallback
 
-  if (!resolvedProjectId) {
+  // Note: We now allow 'ALL_PROJECTS' as a valid projectId for aggregated views
+  if (!resolvedProjectId && projectId !== 'ALL_PROJECTS') {
     console.warn(
       "[computeForecastFromAllocations] Missing projectId; cannot build fallback forecast rows."
     );
