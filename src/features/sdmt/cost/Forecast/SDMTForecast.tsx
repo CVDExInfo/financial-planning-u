@@ -98,6 +98,8 @@ import type {
 } from "./budgetSimulation";
 import { applyBudgetSimulation, applyBudgetToTrends } from "./budgetSimulation";
 import { isBudgetNotFoundError, resolveAnnualBudgetState } from "./budgetState";
+import { FEATURE_FLAGS } from "@/config/featureFlags";
+import { ForecastRubrosAdapter } from "./components/ForecastRubrosAdapter";
 import {
   allocateBudgetMonthly,
   aggregateMonthlyTotals,
@@ -3846,6 +3848,22 @@ export function SDMTForecast() {
                       </div>
                     </div>
                   </div>
+                ) : FEATURE_FLAGS.ENABLE_RUBROS_ADAPTER ? (
+                  <ForecastRubrosAdapter
+                    categoryTotals={categoryTotals}
+                    categoryRubros={categoryRubros}
+                    projectTotals={projectTotals}
+                    projectRubros={projectRubros}
+                    portfolioTotals={portfolioTotalsForCharts}
+                    monthlyBudgets={monthlyBudgets}
+                    baselineDetail={baselineDetail}
+                    selectedPeriod={selectedPeriod}
+                    externalViewMode={breakdownMode === 'project' ? 'project' : 'category'}
+                    onViewModeChange={(v) => handleBreakdownModeChange(v === 'project' ? 'project' : 'rubros')}
+                    onSaveMonthlyBudget={handleSaveMonthlyBudget}
+                    formatCurrency={formatCurrency}
+                    canEditBudget={canEditBudget}
+                  />
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
