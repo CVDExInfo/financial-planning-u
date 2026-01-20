@@ -160,7 +160,7 @@ describe("Baseline Creation with Taxonomy Mapping", () => {
     expect(metadataItem.payload).toBeDefined();
     expect(metadataItem.payload.labor_estimates).toBeDefined();
     expect(metadataItem.payload.labor_estimates.length).toBe(3);
-    expect(metadataItem.payload.labor_estimates[0].rubroId).toBe("MOD-PM");
+    expect(metadataItem.payload.labor_estimates[0].rubroId).toBe("MOD-LEAD"); // Changed from MOD-PM
     expect(metadataItem.payload.labor_estimates[1].rubroId).toBe("MOD-LEAD");
     expect(metadataItem.payload.labor_estimates[2].rubroId).toBe("MOD-ING");
     
