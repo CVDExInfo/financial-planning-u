@@ -163,8 +163,8 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       console.warn(`[normalizeForecastCells] Cell at index ${index} has no valid line_item_id. Raw cell:`, cell);
     }
 
-    // Defensive check: warn if month is invalid
-    if (month < 1 || month > 12) {
+    // Defensive check: warn if month is invalid (extended range 1-60 for multi-year forecasts)
+    if (month < 1 || month > 60) {
       if (options?.debugMode) {
         console.warn(`[normalizeForecastCells] Cell at index ${index} has invalid month: ${month}. Raw cell:`, cell);
       }
@@ -175,6 +175,44 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       varianceBase !== undefined && varianceBase !== null
         ? toNumber(varianceBase)
         : forecast - planned;
+
+    // Build matching IDs array for robust invoice matching
+    const matchingIds: string[] = [];
+    if (lineItemId) matchingIds.push(lineItemId);
+    
+    // Add all potential ID variations for matching
+    const rubroId = cell?.rubroId || cell?.rubro_id;
+    if (rubroId && !matchingIds.includes(normalizeRubroId(rubroId))) {
+      matchingIds.push(normalizeRubroId(rubroId));
+    }
+    
+    // Add original IDs before normalization for backend compatibility
+    const origLineItemId = cell?.line_item_id || cell?.lineItemId;
+    if (origLineItemId && origLineItemId !== lineItemId && !matchingIds.includes(origLineItemId)) {
+      matchingIds.push(origLineItemId);
+    }
+    
+    const origRubroId = cell?.rubroId || cell?.rubro_id;
+    if (origRubroId && !matchingIds.includes(origRubroId)) {
+      matchingIds.push(origRubroId);
+    }
+    
+    // Add linea_codigo for taxonomy alignment
+    const lineaCode = cell?.linea_codigo || cell?.lineaCodigo;
+    if (lineaCode && !matchingIds.includes(lineaCode)) {
+      matchingIds.push(lineaCode);
+    }
+
+    // Calculate monthLabel (YYYY-MM format) for calendar alignment
+    // Supports both calendar months (1-12) and extended project months (1-60)
+    let monthLabel: string | undefined;
+    if (cell?.monthLabel || cell?.month_label || cell?.calendar_month) {
+      monthLabel = cell.monthLabel || cell.month_label || cell.calendar_month;
+    } else if (month >= 1 && month <= 12) {
+      // For simple calendar months (1-12), create YYYY-MM format
+      const year = new Date().getFullYear();
+      monthLabel = `${year}-${String(month).padStart(2, '0')}`;
+    }
 
     const normalizedCell: ForecastCell = {
       line_item_id: lineItemId,
@@ -187,6 +225,9 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       notes: cell?.notes,
       last_updated: cell?.last_updated || cell?.updated_at || "",
       updated_by: cell?.updated_by || cell?.user || "",
+      matchingIds: matchingIds.length > 0 ? matchingIds : undefined,
+      monthLabel,
+      rubroId: rubroId || lineItemId,
     };
 
     // Add baseline_id to the cell if provided (for traceability)
@@ -201,7 +242,7 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
 
   // Defensive check: log summary of normalization
   if (options?.debugMode) {
-    const validCells = normalized.filter(c => c.line_item_id && c.month >= 1 && c.month <= 12);
+    const validCells = normalized.filter(c => c.line_item_id && c.month >= 1 && c.month <= 60);
     const invalidCells = normalized.length - validCells.length;
     
     console.log('[normalizeForecastCells] Summary:', {
@@ -210,6 +251,10 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       validCells: validCells.length,
       invalidCells,
       baselineId: options?.baselineId,
+      sampleMatchingIds: normalized.slice(0, 3).map(c => ({ 
+        line_item_id: c.line_item_id, 
+        matchingIds: c.matchingIds 
+      })),
     });
   }
 
