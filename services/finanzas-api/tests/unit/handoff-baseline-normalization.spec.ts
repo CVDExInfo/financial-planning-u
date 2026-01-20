@@ -245,18 +245,19 @@ describe("Baseline Normalization & Taxonomy Mapping", () => {
       expect(writtenRubros.length).toBe(5); // 3 labor + 2 non-labor
 
       // Verify labor rubros have canonical IDs derived from roles
-      const pmRubro = writtenRubros.find((r) => r.metadata?.linea_codigo === "MOD-PM");
+      // Note: Project Manager now maps to MOD-LEAD (changed from MOD-PM per canonical taxonomy)
+      const pmRubro = writtenRubros.find((r) => r.metadata?.role === "Project Manager");
       expect(pmRubro).toBeDefined();
       expect(pmRubro.nombre).toBe("Project Manager");
       expect(pmRubro.metadata.role).toBe("Project Manager");
-      expect(pmRubro.metadata.linea_codigo).toBe("MOD-PM");
+      expect(pmRubro.metadata.linea_codigo).toBe("MOD-LEAD"); // Changed from MOD-PM to MOD-LEAD
 
-      const leadRubro = writtenRubros.find((r) => r.metadata?.linea_codigo === "MOD-LEAD");
+      const leadRubro = writtenRubros.find((r) => r.metadata?.role === "Ingeniero Delivery");
       expect(leadRubro).toBeDefined();
       expect(leadRubro.nombre).toBe("Ingeniero Delivery");
       expect(leadRubro.metadata.linea_codigo).toBe("MOD-LEAD");
 
-      const sdmRubro = writtenRubros.find((r) => r.metadata?.linea_codigo === "MOD-SDM");
+      const sdmRubro = writtenRubros.find((r) => r.metadata?.role === "Service Delivery Manager");
       expect(sdmRubro).toBeDefined();
       expect(sdmRubro.nombre).toBe("Service Delivery Manager");
       expect(sdmRubro.metadata.linea_codigo).toBe("MOD-SDM");
