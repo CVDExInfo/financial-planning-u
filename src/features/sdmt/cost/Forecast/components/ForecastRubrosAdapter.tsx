@@ -134,36 +134,66 @@ export function ForecastRubrosAdapter({
       categoryCount: categoryTotals.size,
       projectCount: projectTotals?.size || 0,
       hasMaterialization: materializationPending !== undefined,
+      materializationPending,
+      materializationFailed,
+      materializationTimeout,
     });
   }
   
-  // TODO: Add materialization banner if baseline not materialized
-  // if (materializationPending || materializationFailed || materializationTimeout) {
-  //   return <MaterializationBanner 
-  //     pending={materializationPending}
-  //     failed={materializationFailed}
-  //     timeout={materializationTimeout}
-  //     onRetry={onRetryMaterialization}
-  //   />;
-  // }
-  
-  return (
-    <>
-      {/* Materialization hint (optional) */}
-      {(materializationPending || materializationFailed) && import.meta.env.DEV && (
-        <div className="mb-3 p-2 bg-amber-50 rounded text-sm text-amber-900 border border-amber-200">
-          ⚠️ {materializationPending ? 'Baseline materialization pending...' : 'Materialization failed'}
+  // Materialization banner - show if baseline not materialized
+  if (materializationPending) {
+    return (
+      <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <div className="flex items-center justify-between">
+          <div>
+            <strong>Materialización en progreso</strong>
+            <div className="text-xs mt-1">
+              La línea base se está materializando. Algunos rubros o asignaciones pueden aparecer pronto.
+            </div>
+            {materializationTimeout && materializationTimeout > 0 && (
+              <div className="text-xs text-amber-700 mt-1">
+                ⏱️ Materializado desde hace {materializationTimeout} minuto{materializationTimeout > 1 ? 's' : ''}
+              </div>
+            )}
+          </div>
           {onRetryMaterialization && (
             <button
               onClick={onRetryMaterialization}
-              className="ml-2 underline hover:no-underline"
+              className="px-3 py-1 text-xs font-medium bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors"
             >
-              Retry
+              Reintentar
             </button>
           )}
         </div>
-      )}
-      
+      </div>
+    );
+  }
+
+  if (materializationFailed) {
+    return (
+      <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
+        <div className="flex items-center justify-between">
+          <div>
+            <strong>La materialización falló</strong>
+            <div className="text-xs mt-1">
+              No se pudo completar la materialización de la línea base.
+            </div>
+          </div>
+          {onRetryMaterialization && (
+            <button
+              onClick={onRetryMaterialization}
+              className="px-3 py-1 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+            >
+              Reintentar
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <>
       {/* Delegate to ForecastRubrosTable for core rendering */}
       <ForecastRubrosTable
         categoryTotals={categoryTotals}

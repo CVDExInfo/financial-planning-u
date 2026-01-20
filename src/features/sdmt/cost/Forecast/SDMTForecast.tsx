@@ -76,6 +76,7 @@ import {
   getProjectRubros,
   getBaselineById,
   type BaselineDetail,
+  acceptBaseline,
 } from "@/api/finanzas";
 import { getForecastPayload, getProjectInvoices } from "./forecastService";
 import { normalizeInvoiceMonth } from "./useSDMTForecastData";
@@ -238,6 +239,11 @@ export function SDMTForecast() {
   // Baseline detail for FTE calculation
   const [baselineDetail, setBaselineDetail] =
     useState<BaselineDetail | null>(null);
+
+  // Materialization state tracking
+  const [materializationPending, setMaterializationPending] = useState(false);
+  const [materializationFailed, setMaterializationFailed] = useState(false);
+  const [materializationTimeout, setMaterializationTimeout] = useState<number | null>(null);
 
   // Sorting state for forecast grid
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -428,24 +434,67 @@ export function SDMTForecast() {
     setForecastError((prev) => prev || message);
   }, [lineItemsError, login]);
 
-  // Load baseline details for FTE calculation
+  // Helper to check if baseline is materialized
+  const isBaselineMaterialized = useCallback((baseline: BaselineDetail | null): boolean => {
+    if (!baseline) return false;
+    const meta = baseline.metadata ?? {};
+    const materializedAt = meta?.materializedAt ?? baseline.materializedAt ?? meta?.materialized_at;
+    return Boolean(materializedAt || baseline.materialization_status === 'completed');
+  }, []);
+
+  // Load baseline details for FTE calculation and track materialization status
   useEffect(() => {
     if (currentProject?.baselineId && !isPortfolioView) {
       getBaselineById(currentProject.baselineId)
         .then((data) => {
           if (import.meta.env.DEV) {
             console.log(
-              "[SDMTForecast] Baseline details loaded for FTE calculation"
+              "[SDMTForecast] Baseline details loaded for FTE calculation",
+              { baselineId: currentProject.baselineId, data }
             );
           }
           setBaselineDetail(data);
+          
+          // Track materialization status from metadata
+          const meta = data?.metadata ?? {};
+          const isPending = !!meta?.materialization_queued_at || meta?.materialization_status === 'pending';
+          const isFailed = meta?.materialization_status === 'failed' || !!meta?.materialization_failed;
+          const materializedAt = meta?.materializedAt ?? data?.materializedAt ?? meta?.materialized_at;
+          
+          if (import.meta.env.DEV) {
+            console.log("[SDMTForecast] Baseline materialization status:", {
+              isPending,
+              isFailed,
+              materializedAt,
+              materialization_status: meta?.materialization_status,
+              materialization_queued_at: meta?.materialization_queued_at,
+            });
+          }
+          
+          setMaterializationPending(isPending && !materializedAt);
+          setMaterializationFailed(isFailed);
+          
+          // Compute timeout if queued for more than 15 minutes
+          if (isPending && meta?.materialization_queued_at && !materializedAt) {
+            const queuedTs = new Date(meta.materialization_queued_at).getTime();
+            const elapsedMin = (Date.now() - queuedTs) / (1000 * 60);
+            setMaterializationTimeout(elapsedMin > 15 ? Math.round(elapsedMin) : null);
+          } else {
+            setMaterializationTimeout(null);
+          }
         })
         .catch((err) => {
           console.error("Failed to load baseline details:", err);
           setBaselineDetail(null);
+          setMaterializationFailed(true);
+          setMaterializationPending(false);
+          setMaterializationTimeout(null);
         });
     } else {
       setBaselineDetail(null);
+      setMaterializationPending(false);
+      setMaterializationFailed(false);
+      setMaterializationTimeout(null);
     }
   }, [currentProject?.baselineId, isPortfolioView]);
 
@@ -1489,6 +1538,82 @@ export function SDMTForecast() {
       setSavingMonthlyBudget(false);
     }
   };
+
+  // Retry materialization - reload baseline and forecast data with polling
+  const handleRetryMaterialization = useCallback(async () => {
+    if (!selectedProjectId || !currentProject?.baselineId) {
+      console.warn("[SDMTForecast] Cannot retry materialization: no baseline ID");
+      return;
+    }
+
+    if (import.meta.env.DEV) {
+      console.log("[SDMTForecast] Retrying materialization for baseline:", currentProject.baselineId);
+    }
+
+    setMaterializationPending(true);
+    setMaterializationFailed(false);
+    setMaterializationTimeout(null);
+
+    try {
+      // Call acceptBaseline to re-enqueue materialization
+      await acceptBaseline(selectedProjectId, {
+        baseline_id: currentProject.baselineId,
+        accepted_by: user?.email || user?.login,
+      });
+
+      if (import.meta.env.DEV) {
+        console.log("[SDMTForecast] acceptBaseline called successfully, polling for materialization...");
+      }
+
+      // Poll baseline until materialized (max 10 attempts, 2 seconds apart)
+      const poll = async () => {
+        for (let i = 0; i < 10; i++) {
+          await new Promise(r => setTimeout(r, 2000));
+          
+          const latest = await getBaselineById(currentProject.baselineId!);
+          const meta = latest?.metadata ?? {};
+          const materializedAt = meta?.materializedAt ?? latest?.materializedAt ?? meta?.materialized_at;
+          
+          if (import.meta.env.DEV) {
+            console.log(`[SDMTForecast] Poll attempt ${i + 1}/10:`, {
+              materializedAt,
+              materialization_status: meta?.materialization_status,
+            });
+          }
+          
+          if (materializedAt) {
+            // Materialization complete!
+            setBaselineDetail(latest);
+            setMaterializationPending(false);
+            setMaterializationFailed(false);
+            setMaterializationTimeout(null);
+            
+            // Reload forecast data to show materialized rubros/allocations
+            await loadForecastData();
+            
+            if (import.meta.env.DEV) {
+              console.log("[SDMTForecast] Materialization complete, forecast reloaded");
+            }
+            return;
+          }
+        }
+        
+        // Timeout - still pending after 10 polls
+        if (import.meta.env.DEV) {
+          console.warn("[SDMTForecast] Materialization polling timed out after 20 seconds");
+        }
+        setMaterializationPending(true);
+        setMaterializationTimeout(1); // Indicate timeout occurred
+      };
+      
+      await poll();
+    } catch (err) {
+      console.error("[SDMTForecast] Failed to retry materialization:", err);
+      setMaterializationFailed(true);
+      setMaterializationPending(false);
+      setMaterializationTimeout(null);
+    }
+  }, [selectedProjectId, currentProject?.baselineId, user?.email, user?.login, loadForecastData]);
 
   // Reset monthly budget to auto-distribution
   const handleResetMonthlyBudget = () => {
@@ -3863,6 +3988,10 @@ export function SDMTForecast() {
                     onSaveMonthlyBudget={handleSaveMonthlyBudget}
                     formatCurrency={formatCurrency}
                     canEditBudget={canEditBudget}
+                    materializationPending={materializationPending}
+                    materializationFailed={materializationFailed}
+                    materializationTimeout={materializationTimeout}
+                    onRetryMaterialization={handleRetryMaterialization}
                   />
                 ) : (
                   <div className="overflow-x-auto">
