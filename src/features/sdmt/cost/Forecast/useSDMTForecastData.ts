@@ -110,9 +110,9 @@ const getInvoiceMonth = (invoice: any): any => {
 
 /**
  * Normalize invoice month to match forecast cell month index
- * Handles numeric indices, YYYY-MM formats, and M\d+ formats (M1, M01, M11, etc.)
+ * Handles numeric indices, YYYY-MM formats, YYYY-MM-DD (ISO dates), ISO datetimes, and M\d+ formats (M1, M01, M11, etc.)
  * 
- * @param invoiceMonth - Month value from invoice (could be number, "YYYY-MM", or "M11" string)
+ * @param invoiceMonth - Month value from invoice (could be number, "YYYY-MM", "YYYY-MM-DD", ISO datetime, or "M11" string)
  * @param baselineStartMonth - Optional baseline start month for relative indexing
  * @returns Numeric month index (1-based) or 0 if invalid
  */
@@ -122,14 +122,30 @@ export const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: nu
     return invoiceMonth;
   }
   
-  // If string in YYYY-MM format, extract month number
+  // If string, try various formats
   if (typeof invoiceMonth === 'string') {
-    const match = invoiceMonth.match(/^(\d{4})-(\d{2})$/);
-    if (match) {
-      const monthNum = parseInt(match[2], 10);
+    // Try YYYY-MM format first
+    const yymmMatch = invoiceMonth.match(/^(\d{4})-(\d{2})$/);
+    if (yymmMatch) {
+      const monthNum = parseInt(yymmMatch[2], 10);
       // If we have baseline start, could calculate relative index
       // For now, just return the month number (1-12)
       return monthNum;
+    }
+    
+    // Try full ISO date format (YYYY-MM-DD)
+    const isoMatch = invoiceMonth.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      const monthNum = parseInt(isoMatch[2], 10);
+      return monthNum;
+    }
+    
+    // Try ISO datetime (e.g., 2026-01-20T12:34:56Z or similar)
+    const isoDate = Date.parse(invoiceMonth);
+    if (!isNaN(isoDate)) {
+      const d = new Date(isoDate);
+      const m = d.getUTCMonth() + 1; // getUTCMonth() returns 0-11, we need 1-12
+      if (m >= 1 && m <= 12) return m;
     }
     
     // Try M\d+ format (M1, M01, M11, M12, m11, etc. - with optional leading zero)
@@ -174,7 +190,10 @@ export const matchInvoiceToCell = (
   if (!inv) return false;
 
   // 1) projectId guard: both present → must match
-  if (inv.projectId && cell.projectId && inv.projectId !== cell.projectId) {
+  // Normalize both camelCase and snake_case variants
+  const invProject = inv.projectId || inv.project_id || inv.project;
+  const cellProject = (cell as any).projectId || (cell as any).project_id || (cell as any).project;
+  if (invProject && cellProject && String(invProject) !== String(cellProject)) {
     return false;
   }
 
@@ -239,7 +258,20 @@ const FORCE_ALLOC_STORAGE_KEY = "finz.forceAllocationsOverride";
  * Valid invoice statuses for including in actuals calculation
  * These statuses indicate the invoice has been verified and should be counted
  */
-const VALID_INVOICE_STATUSES = ['matched', 'paid', 'approved', 'posted', 'received'] as const;
+const VALID_INVOICE_STATUSES = ['matched', 'paid', 'approved', 'posted', 'received', 'validated'] as const;
+
+/**
+ * Normalize invoice status from various field names and handle case-insensitivity
+ * Supports common variants: status, invoice_status, state, status_code
+ * 
+ * @param inv - Invoice object
+ * @returns Normalized status string (lowercase) or null if no status found
+ */
+const invoiceStatusNormalized = (inv: any): string | null => {
+  const rawStatus = inv.status || inv.invoice_status || inv.state || inv.status_code;
+  if (!rawStatus) return null;
+  return rawStatus.toString().trim().toLowerCase();
+};
 
 const parseBooleanFlag = (value: string | null): boolean => {
   if (value === null || value === undefined) return true;
@@ -591,28 +623,34 @@ export function useSDMTForecastData({
       const invoices = await getProjectInvoices(projectId === 'ALL_PROJECTS' ? undefined : projectId);
       if (latestRequestKey.current !== requestKey) return; // stale
 
-      console.log(
-        `[useSDMTForecastData] ✅ Retrieved ${
-          invoices?.length || 0
-        } invoices for project ${projectId}`
-      );
-
-      // Filter to valid invoice statuses (accepted/paid/posted/received)
-      const validInvoices = invoices.filter(
-        (inv) => VALID_INVOICE_STATUSES.includes(
-          (inv.status || 'matched').toLowerCase() as typeof VALID_INVOICE_STATUSES[number]
-        )
-      );
+      const isDev = process.env.NODE_ENV !== 'production';
       
-      console.log(
-        `[useSDMTForecastData] Found ${validInvoices.length} valid invoices (statuses: matched/paid/approved/posted/received)`
-      );
+      if (isDev) {
+        console.log(
+          `[useSDMTForecastData] ✅ Retrieved ${
+            invoices?.length || 0
+          } invoices for project ${projectId}`
+        );
+      }
+
+      // Filter to valid invoice statuses (using normalized status helper)
+      const validInvoices = invoices.filter((inv) => {
+        const status = invoiceStatusNormalized(inv);
+        return status && VALID_INVOICE_STATUSES.includes(status as typeof VALID_INVOICE_STATUSES[number]);
+      });
+      
+      if (isDev) {
+        console.log(
+          `[useSDMTForecastData] Found ${validInvoices.length} valid invoices (statuses: matched/paid/approved/posted/received/validated)`
+        );
+      }
 
       // Apply invoices to forecast rows
       let matchedInvoicesCount = 0;
       let unmatchedInvoicesCount = 0;
       let invalidMonthCount = 0;
       const invalidMonthInvoices: any[] = [];
+      const unmatchedInvoicesSample: any[] = [];
       
       for (const inv of validInvoices) {
         let matched = false;
@@ -639,26 +677,51 @@ export function useSDMTForecastData({
             invalidMonthCount++;
             if (invalidMonthInvoices.length < 5) { // Keep first 5 for sample
               invalidMonthInvoices.push({
+                line_item_id: inv.line_item_id,
                 rubroId: inv.rubroId || inv.rubro_id,
                 amount: normalizeInvoiceAmount(inv),
                 rawMonth: getInvoiceMonth(inv),
+                project_id: inv.projectId || inv.project_id,
+                status: invoiceStatusNormalized(inv),
               });
             }
           } else {
             unmatchedInvoicesCount++;
+            // Collect sample of unmatched invoices for debugging
+            if (unmatchedInvoicesSample.length < 5) {
+              unmatchedInvoicesSample.push({
+                line_item_id: inv.line_item_id,
+                rubroId: inv.rubroId || inv.rubro_id,
+                description: inv.description,
+                month: invMonth,
+                rawMonth: getInvoiceMonth(inv),
+                project_id: inv.projectId || inv.project_id,
+                status: invoiceStatusNormalized(inv),
+                amount: normalizeInvoiceAmount(inv),
+              });
+            }
           }
         }
       }
 
-      console.log(
-        `[useSDMTForecastData] Invoice matching complete: ${matchedInvoicesCount} matched, ${unmatchedInvoicesCount} unmatched, ${invalidMonthCount} invalid month`
-      );
-      
-      if (invalidMonthCount > 0) {
-        console.warn(
-          `[useSDMTForecastData] ${invalidMonthCount} invoices skipped due to invalid month. Sample:`,
-          invalidMonthInvoices
+      if (isDev) {
+        console.log(
+          `[useSDMTForecastData] Invoice matching complete: ${matchedInvoicesCount} matched, ${unmatchedInvoicesCount} unmatched, ${invalidMonthCount} invalid month`
         );
+        
+        if (invalidMonthCount > 0) {
+          console.warn(
+            `[useSDMTForecastData] ${invalidMonthCount} invoices skipped due to invalid month. Sample:`,
+            invalidMonthInvoices
+          );
+        }
+        
+        if (unmatchedInvoicesCount > 0 && unmatchedInvoicesSample.length > 0) {
+          console.warn(
+            `[useSDMTForecastData] ${unmatchedInvoicesCount} invoices could not be matched to forecast rows. Sample:`,
+            unmatchedInvoicesSample
+          );
+        }
       }
 
       const rowsWithActuals = rows.map((cell) => {
@@ -681,17 +744,22 @@ export function useSDMTForecastData({
       setDataSource(chosenDataSource);
 
       // Summary logging for data validation (use local variable for accuracy)
-      console.log("[useSDMTForecastData] 📊 Data Summary:", {
-        projectId,
-        rubrosRetrieved: rubrosResp?.length || 0,
-        allocationsRetrieved: allocationsCount,
-        forecastCellsGenerated: rowsWithActuals.length,
-        invoicesRetrieved: invoices?.length || 0,
-        matchedInvoices: matchedInvoices.length,
-        dataSource: chosenDataSource,
-        months,
-        forceAllocationsOverride,
-      });
+      if (isDev) {
+        console.log("[useSDMTForecastData] 📊 Data Summary:", {
+          projectId,
+          rubrosRetrieved: rubrosResp?.length || 0,
+          allocationsRetrieved: allocationsCount,
+          forecastCellsGenerated: rowsWithActuals.length,
+          invoicesRetrieved: invoices?.length || 0,
+          validInvoices: validInvoices.length,
+          matchedInvoices: matchedInvoicesCount,
+          unmatchedInvoices: unmatchedInvoicesCount,
+          invalidMonthInvoices: invalidMonthCount,
+          dataSource: chosenDataSource,
+          months,
+          forceAllocationsOverride,
+        });
+      }
 
       if (usedFallback) {
         console.info("[useSDMTForecastData] Using fallback data source");
