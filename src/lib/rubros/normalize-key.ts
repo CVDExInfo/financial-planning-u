@@ -28,7 +28,7 @@ export function normalizeKey(s?: string): string {
   return last
     .toLowerCase()
     .normalize('NFKD')                   // Decompose characters with diacritics
-    .replace(/[\u0300-\u036f]/g, '')     // Remove diacritics (combining marks)
+    .replace(/[\u0300-\u036f]/g, '')     // Remove combining diacritical marks (\u0300-\u036f)
     .replace(/[^a-z0-9-]+/g, '-')        // Keep only alnum and hyphen
     .replace(/-+/g, '-')                 // Collapse multiple hyphens
     .replace(/(^-|-$)/g, '');            // Trim leading/trailing hyphens

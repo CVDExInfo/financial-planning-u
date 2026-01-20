@@ -141,6 +141,8 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   
   // Allocation tokens and human-readable names (added for frontend-backend alignment)
   // PR #942 and #945 aliases
+  // Note: Mixed case entries are intentional - they match allocation data as-is
+  // The lookup logic normalizes keys before comparison
   'mod-lead-ingeniero-delivery': 'MOD-LEAD',
   'mod-lead-ingeniero': 'MOD-LEAD',
   'ingeniero-delivery': 'MOD-LEAD',
