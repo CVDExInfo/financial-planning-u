@@ -623,7 +623,7 @@ export function useSDMTForecastData({
       const invoices = await getProjectInvoices(projectId === 'ALL_PROJECTS' ? undefined : projectId);
       if (latestRequestKey.current !== requestKey) return; // stale
 
-      const isDev = process.env.NODE_ENV !== 'production';
+      const isDev = import.meta.env.DEV;
       
       if (isDev) {
         console.log(
@@ -678,10 +678,10 @@ export function useSDMTForecastData({
             if (invalidMonthInvoices.length < 5) { // Keep first 5 for sample
               invalidMonthInvoices.push({
                 line_item_id: inv.line_item_id,
-                rubroId: inv.rubroId || inv.rubro_id,
+                rubroId: (inv as any).rubroId || (inv as any).rubro_id,
                 amount: normalizeInvoiceAmount(inv),
                 rawMonth: getInvoiceMonth(inv),
-                project_id: inv.projectId || inv.project_id,
+                project_id: (inv as any).projectId || (inv as any).project_id,
                 status: invoiceStatusNormalized(inv),
               });
             }
@@ -691,11 +691,11 @@ export function useSDMTForecastData({
             if (unmatchedInvoicesSample.length < 5) {
               unmatchedInvoicesSample.push({
                 line_item_id: inv.line_item_id,
-                rubroId: inv.rubroId || inv.rubro_id,
-                description: inv.description,
+                rubroId: (inv as any).rubroId || (inv as any).rubro_id,
+                description: (inv as any).description,
                 month: invMonth,
                 rawMonth: getInvoiceMonth(inv),
-                project_id: inv.projectId || inv.project_id,
+                project_id: (inv as any).projectId || (inv as any).project_id,
                 status: invoiceStatusNormalized(inv),
                 amount: normalizeInvoiceAmount(inv),
               });
