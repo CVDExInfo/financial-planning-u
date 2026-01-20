@@ -434,14 +434,6 @@ export function SDMTForecast() {
     setForecastError((prev) => prev || message);
   }, [lineItemsError, login]);
 
-  // Helper to check if baseline is materialized
-  const isBaselineMaterialized = useCallback((baseline: BaselineDetail | null): boolean => {
-    if (!baseline) return false;
-    const meta = baseline.metadata ?? {};
-    const materializedAt = meta?.materializedAt ?? baseline.materializedAt ?? meta?.materialized_at;
-    return Boolean(materializedAt || baseline.materialization_status === 'completed');
-  }, []);
-
   // Load baseline details for FTE calculation and track materialization status
   useEffect(() => {
     if (currentProject?.baselineId && !isPortfolioView) {
