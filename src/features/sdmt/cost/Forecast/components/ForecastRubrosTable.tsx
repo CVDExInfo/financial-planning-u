@@ -53,6 +53,8 @@ interface ForecastRubrosTableProps {
   formatCurrency: (amount: number) => string;
   canEditBudget: boolean;
   defaultFilter?: FilterMode;
+  externalViewMode?: ViewMode; // External control for viewMode (optional)
+  hideViewModeToggle?: boolean; // Hide internal view mode toggle if controlled externally
 }
 
 export function ForecastRubrosTable({
@@ -66,6 +68,8 @@ export function ForecastRubrosTable({
   formatCurrency,
   canEditBudget,
   defaultFilter = 'labor',
+  externalViewMode,
+  hideViewModeToggle = false,
 }: ForecastRubrosTableProps) {
   const { selectedProject } = useProject();
   const { user } = useAuth();
@@ -74,7 +78,10 @@ export function ForecastRubrosTable({
   const [editedBudgets, setEditedBudgets] = useState<Array<{ month: number; budget: number }>>([]);
   const [savingBudget, setSavingBudget] = useState(false);
   const [filterMode, setFilterMode] = useState<FilterMode>(defaultFilter);
-  const [viewMode, setViewMode] = useState<ViewMode>('category');
+  const [internalViewMode, setInternalViewMode] = useState<ViewMode>('category');
+  
+  // Use external viewMode if provided, otherwise use internal state
+  const viewMode = externalViewMode || internalViewMode;
 
   // Session storage key for persistence
   const sessionKey = useMemo(() => {
@@ -127,22 +134,24 @@ export function ForecastRubrosTable({
     sessionStorage.setItem(sessionKey, filterMode);
   }, [filterMode, sessionKey]);
 
-  // Load viewMode from sessionStorage on mount
+  // Load viewMode from sessionStorage on mount (only if not externally controlled)
   useEffect(() => {
+    if (externalViewMode) return; // Skip if externally controlled
     try {
       const savedViewMode = sessionStorage.getItem(viewModeSessionKey);
       if (savedViewMode === 'category' || savedViewMode === 'project') {
-        setViewMode(savedViewMode as ViewMode);
+        setInternalViewMode(savedViewMode as ViewMode);
       }
     } catch (err) {
       console.warn('[ForecastRubrosTable] failed to read saved view mode', err);
     }
-  }, [viewModeSessionKey]);
+  }, [viewModeSessionKey, externalViewMode]);
 
-  // Persist viewMode to sessionStorage when it changes
+  // Persist viewMode to sessionStorage when it changes (only if not externally controlled)
   useEffect(() => {
-    sessionStorage.setItem(viewModeSessionKey, viewMode);
-  }, [viewMode, viewModeSessionKey]);
+    if (externalViewMode) return; // Skip if externally controlled
+    sessionStorage.setItem(viewModeSessionKey, internalViewMode);
+  }, [internalViewMode, viewModeSessionKey, externalViewMode]);
 
   // Start budget editing
   const handleStartEditBudget = () => {
@@ -409,11 +418,12 @@ export function ForecastRubrosTable({
           <CardTitle className="text-lg">Rubros por Categoría</CardTitle>
           {/* Search Filter and Labor/Non-Labor Filter */}
           <div className="flex items-center gap-3">
-            {/* View Mode Toggle (Category / Project) */}
-            {projectTotals && projectRubros && (
+            {/* View Mode Toggle (Category / Project) - Only show if not externally controlled */}
+            {!hideViewModeToggle && projectTotals && projectRubros && (
               <div className="flex items-center gap-1 border rounded-md p-1 bg-muted/30">
                 <button
-                  onClick={() => setViewMode('category')}
+                  onClick={() => setInternalViewMode('category')}
+                  disabled={externalViewMode !== undefined}
                   className={`px-3 py-1 text-xs rounded transition-colors ${
                     viewMode === 'category'
                       ? 'bg-primary text-primary-foreground font-medium shadow-sm'
@@ -426,7 +436,8 @@ export function ForecastRubrosTable({
                   Por Categoría
                 </button>
                 <button
-                  onClick={() => setViewMode('project')}
+                  onClick={() => setInternalViewMode('project')}
+                  disabled={externalViewMode !== undefined}
                   className={`px-3 py-1 text-xs rounded transition-colors ${
                     viewMode === 'project'
                       ? 'bg-primary text-primary-foreground font-medium shadow-sm'
