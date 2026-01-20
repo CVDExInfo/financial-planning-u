@@ -153,6 +153,8 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'service-delivery-manager': 'MOD-SDM',
   'mod-ing-ingeniero-soporte-n1': 'MOD-ING',
   'project-manager': 'MOD-LEAD', // Map to MOD-LEAD as MOD-PM/MOD-PMO doesn't exist in canonical taxonomy
+  'MOD-PM': 'MOD-LEAD', // Legacy server-generated MOD-PM mapping (from old PMO estimator)
+  'mod-pm': 'MOD-LEAD', // Lowercase variant
 };
 
 /**

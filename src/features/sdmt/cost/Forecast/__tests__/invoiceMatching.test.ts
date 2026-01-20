@@ -1,12 +1,14 @@
 /**
  * Tests for robust invoice matching logic in useSDMTForecastData
  * 
- * Tests the three-tier matching strategy:
- * 1. Match by line_item_id (highest priority)
- * 2. Match by rubroId (medium priority)
- * 3. Match by normalized description (fallback)
+ * Tests the enhanced matching strategy with canonicalization:
+ * 1. projectId guard
+ * 2. Canonicalized line_item_id
+ * 3. Canonical rubroId via getCanonicalRubroId
+ * 4. Taxonomy lookup
+ * 5. Normalized description
  * 
- * Also tests invoice month normalization
+ * Also tests invoice month normalization including M\d+ formats
  */
 
 import assert from 'node:assert/strict';
@@ -24,6 +26,40 @@ describe('Invoice Matching Logic', () => {
     last_updated: new Date().toISOString(),
     updated_by: 'test-user',
   };
+
+  describe('projectId guard', () => {
+    it('should reject when both projectIds present but different', () => {
+      const invoice = {
+        projectId: 'PROJ-123',
+        line_item_id: 'LI-MATCH',
+        rubroId: 'MOD-ING',
+      };
+      
+      const cell = {
+        ...baseCell,
+        projectId: 'PROJ-456',
+        line_item_id: 'LI-MATCH',
+        rubroId: 'MOD-ING',
+      };
+      
+      assert.equal(matchInvoiceToCell(invoice, cell), false);
+    });
+
+    it('should accept when projectIds match', () => {
+      const invoice = {
+        projectId: 'PROJ-123',
+        line_item_id: 'LI-MATCH',
+      };
+      
+      const cell = {
+        ...baseCell,
+        projectId: 'PROJ-123',
+        line_item_id: 'LI-MATCH',
+      };
+      
+      assert.equal(matchInvoiceToCell(invoice, cell), true);
+    });
+  });
 
   it('should match by line_item_id (highest priority)', () => {
     const invoice = {
@@ -52,6 +88,19 @@ describe('Invoice Matching Logic', () => {
       ...baseCell,
       rubroId: 'RUBRO-456',
       description: 'Original Description'
+    };
+    
+    assert.equal(matchInvoiceToCell(invoice, cell), true);
+  });
+
+  it('should match canonical rubroIds (MOD-ING)', () => {
+    const invoice = {
+      rubroId: 'MOD-ING',
+    };
+    
+    const cell = {
+      ...baseCell,
+      rubroId: 'MOD-ING',
     };
     
     assert.equal(matchInvoiceToCell(invoice, cell), true);
