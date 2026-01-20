@@ -20,6 +20,18 @@ import { normalizeKey } from '@/lib/rubros/normalize-key';
 export { normalizeKey, LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET };
 
 /**
+ * Throttled warning helper to avoid console spam
+ * Warns once per unique key
+ */
+const WARNED_KEYS = new Set<string>();
+
+export function warnOnce(key: string, message: string): void {
+  if (WARNED_KEYS.has(key)) return;
+  WARNED_KEYS.add(key);
+  console.warn(message);
+}
+
+/**
  * Check if a key matches any canonical labor identifier
  * 
  * @param key - The key to check (will be normalized internally)
@@ -200,6 +212,14 @@ export function lookupTaxonomy(
   if (tolerantMatch && process.env.NODE_ENV !== 'production') {
     console.debug(
       `[lookupTaxonomy] Tolerant match: "${primaryKey}" → ${tolerantMatch.rubroId || tolerantMatch.name}`
+    );
+  }
+  
+  // If no match found, log warning (throttled)
+  if (!tolerantMatch && primaryKey && process.env.NODE_ENV !== 'production') {
+    warnOnce(
+      primaryKey,
+      `[rubros-taxonomy] Unknown rubro_id: "${primaryKey}" (rubroRow keys: ${candidates.join(', ')})`
     );
   }
   

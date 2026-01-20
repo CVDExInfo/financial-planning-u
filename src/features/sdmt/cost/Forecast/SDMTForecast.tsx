@@ -2050,7 +2050,7 @@ export function SDMTForecast() {
     // In single-project mode, filter to selected project
     const dataToGroup = isPortfolioView 
       ? forecastData 
-      : forecastData.filter(cell => (cell as any).project_id === selectedProjectId);
+      : forecastData.filter(cell => ((cell as any).projectId || (cell as any).project_id) === selectedProjectId);
     return buildCategoryTotals(dataToGroup);
   }, [isPortfolioView, forecastData, selectedProjectId]);
 
@@ -2062,7 +2062,7 @@ export function SDMTForecast() {
     // In single-project mode, filter to selected project
     const dataToGroup = isPortfolioView 
       ? forecastData 
-      : forecastData.filter(cell => (cell as any).project_id === selectedProjectId);
+      : forecastData.filter(cell => ((cell as any).projectId || (cell as any).project_id) === selectedProjectId);
     const lineItemsToUse = isPortfolioView ? portfolioLineItems : safeLineItems;
     return buildCategoryRubros(dataToGroup, lineItemsToUse);
   }, [isPortfolioView, forecastData, portfolioLineItems, safeLineItems, selectedProjectId]);
@@ -2075,7 +2075,7 @@ export function SDMTForecast() {
     // In single-project mode, filter to selected project
     const dataToGroup = isPortfolioView 
       ? forecastData 
-      : forecastData.filter(cell => (cell as any).project_id === selectedProjectId);
+      : forecastData.filter(cell => ((cell as any).projectId || (cell as any).project_id) === selectedProjectId);
     return buildProjectTotals(dataToGroup);
   }, [isPortfolioView, forecastData, selectedProjectId]);
 
@@ -2087,7 +2087,7 @@ export function SDMTForecast() {
     // In single-project mode, filter to selected project
     const dataToGroup = isPortfolioView 
       ? forecastData 
-      : forecastData.filter(cell => (cell as any).project_id === selectedProjectId);
+      : forecastData.filter(cell => ((cell as any).projectId || (cell as any).project_id) === selectedProjectId);
     const lineItemsToUse = isPortfolioView ? portfolioLineItems : safeLineItems;
     return buildProjectRubros(dataToGroup, lineItemsToUse, taxonomyByRubroId);
   }, [isPortfolioView, forecastData, portfolioLineItems, safeLineItems, taxonomyByRubroId, selectedProjectId]);
@@ -2110,7 +2110,7 @@ export function SDMTForecast() {
     // In single-project mode, filter to selected project
     const dataToGroup = isPortfolioView 
       ? forecastData 
-      : forecastData.filter(cell => (cell as any).project_id === selectedProjectId);
+      : forecastData.filter(cell => ((cell as any).projectId || (cell as any).project_id) === selectedProjectId);
     return buildPortfolioTotals(dataToGroup);
   }, [isPortfolioView, forecastData, selectedProjectId]);
 
