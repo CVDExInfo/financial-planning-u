@@ -53,6 +53,8 @@ interface ForecastRubrosTableProps {
   formatCurrency: (amount: number) => string;
   canEditBudget: boolean;
   defaultFilter?: FilterMode;
+  externalViewMode?: ViewMode; // External control for view mode
+  onViewModeChange?: (v: ViewMode) => void; // Callback for view mode changes
 }
 
 export function ForecastRubrosTable({
@@ -66,6 +68,8 @@ export function ForecastRubrosTable({
   formatCurrency,
   canEditBudget,
   defaultFilter = 'labor',
+  externalViewMode,
+  onViewModeChange,
 }: ForecastRubrosTableProps) {
   const { selectedProject } = useProject();
   const { user } = useAuth();
@@ -75,6 +79,9 @@ export function ForecastRubrosTable({
   const [savingBudget, setSavingBudget] = useState(false);
   const [filterMode, setFilterMode] = useState<FilterMode>(defaultFilter);
   const [viewMode, setViewMode] = useState<ViewMode>('category');
+  
+  // Use external viewMode if provided, otherwise use internal state
+  const effectiveViewMode = externalViewMode ?? viewMode;
 
   // Session storage key for persistence
   const sessionKey = useMemo(() => {
@@ -129,6 +136,9 @@ export function ForecastRubrosTable({
 
   // Load viewMode from sessionStorage on mount
   useEffect(() => {
+    // Only load from session storage if not externally controlled
+    if (externalViewMode) return;
+    
     try {
       const savedViewMode = sessionStorage.getItem(viewModeSessionKey);
       if (savedViewMode === 'category' || savedViewMode === 'project') {
@@ -137,12 +147,15 @@ export function ForecastRubrosTable({
     } catch (err) {
       console.warn('[ForecastRubrosTable] failed to read saved view mode', err);
     }
-  }, [viewModeSessionKey]);
+  }, [viewModeSessionKey, externalViewMode]);
 
   // Persist viewMode to sessionStorage when it changes
   useEffect(() => {
+    // Only persist to session storage if not externally controlled
+    if (externalViewMode) return;
+    
     sessionStorage.setItem(viewModeSessionKey, viewMode);
-  }, [viewMode, viewModeSessionKey]);
+  }, [viewMode, viewModeSessionKey, externalViewMode]);
 
   // Start budget editing
   const handleStartEditBudget = () => {
@@ -413,27 +426,39 @@ export function ForecastRubrosTable({
             {projectTotals && projectRubros && (
               <div className="flex items-center gap-1 border rounded-md p-1 bg-muted/30">
                 <button
-                  onClick={() => setViewMode('category')}
+                  onClick={() => {
+                    if (externalViewMode) {
+                      onViewModeChange?.('category');
+                    } else {
+                      setViewMode('category');
+                    }
+                  }}
                   className={`px-3 py-1 text-xs rounded transition-colors ${
-                    viewMode === 'category'
+                    effectiveViewMode === 'category'
                       ? 'bg-primary text-primary-foreground font-medium shadow-sm'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
                   aria-label="Ver por Categoría"
-                  aria-pressed={viewMode === 'category'}
+                  aria-pressed={effectiveViewMode === 'category'}
                   role="button"
                 >
                   Por Categoría
                 </button>
                 <button
-                  onClick={() => setViewMode('project')}
+                  onClick={() => {
+                    if (externalViewMode) {
+                      onViewModeChange?.('project');
+                    } else {
+                      setViewMode('project');
+                    }
+                  }}
                   className={`px-3 py-1 text-xs rounded transition-colors ${
-                    viewMode === 'project'
+                    effectiveViewMode === 'project'
                       ? 'bg-primary text-primary-foreground font-medium shadow-sm'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
                   aria-label="Ver por Proyecto"
-                  aria-pressed={viewMode === 'project'}
+                  aria-pressed={effectiveViewMode === 'project'}
                   role="button"
                 >
                   Por Proyecto
@@ -488,11 +513,11 @@ export function ForecastRubrosTable({
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder={viewMode === 'project' ? 'Buscar por proyecto o rubro' : 'Buscar por rubro o categoría'}
+                placeholder={effectiveViewMode === 'project' ? 'Buscar por proyecto o rubro' : 'Buscar por rubro o categoría'}
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
                 className="pl-8 w-64"
-                aria-label={viewMode === 'project' ? 'Buscar por proyecto o rubro' : 'Buscar por rubro o categoría'}
+                aria-label={effectiveViewMode === 'project' ? 'Buscar por proyecto o rubro' : 'Buscar por rubro o categoría'}
               />
             </div>
           </div>
@@ -605,7 +630,7 @@ export function ForecastRubrosTable({
                 </TableRow>
 
                 {/* Category and Rubro Rows OR Project and Rubro Rows */}
-                {viewMode === 'category' ? (
+                {effectiveViewMode === 'category' ? (
                   /* Category View */
                   visibleCategories.length === 0 ? (
                     /* Empty State */

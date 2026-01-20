@@ -3151,6 +3151,7 @@ export function SDMTForecast() {
                 </CardHeader>
                 <CollapsibleContent>
                   <CardContent className="pt-0">
+                    {/* Map page breakdownMode to table viewMode */}
                     <ForecastRubrosTable
                       categoryTotals={categoryTotals}
                       categoryRubros={categoryRubros}
@@ -3162,6 +3163,11 @@ export function SDMTForecast() {
                       formatCurrency={formatCurrency}
                       canEditBudget={canEditBudget}
                       defaultFilter="labor"
+                      externalViewMode={breakdownMode === 'project' ? 'project' : 'category'}
+                      onViewModeChange={(v) => {
+                        // Keep UI-level breakdownMode in-sync if user changed inside table
+                        handleBreakdownModeChange(v === 'project' ? 'project' : 'rubros');
+                      }}
                     />
                   </CardContent>
                 </CollapsibleContent>
