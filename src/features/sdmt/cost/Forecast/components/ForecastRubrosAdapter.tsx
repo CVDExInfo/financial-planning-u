@@ -52,7 +52,7 @@ export interface ForecastRubrosAdapterProps {
   // Materializer props
   materializationPending?: boolean;
   materializationFailed?: boolean;
-  materializationTimeout?: boolean;
+  materializationTimeout?: number | null;
   onRetryMaterialization?: () => void;
   
   // Formatting and permissions
@@ -140,60 +140,56 @@ export function ForecastRubrosAdapter({
     });
   }
   
-  // Materialization banner - show if baseline not materialized
-  if (materializationPending) {
-    return (
-      <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-        <div className="flex items-center justify-between">
-          <div>
-            <strong>Materialización en progreso</strong>
-            <div className="text-xs mt-1">
-              La línea base se está materializando. Algunos rubros o asignaciones pueden aparecer pronto.
-            </div>
-            {materializationTimeout && materializationTimeout > 0 && (
-              <div className="text-xs text-amber-700 mt-1">
-                ⏱️ Materializado desde hace {materializationTimeout} minuto{materializationTimeout > 1 ? 's' : ''}
-              </div>
-            )}
-          </div>
-          {onRetryMaterialization && (
-            <button
-              onClick={onRetryMaterialization}
-              className="px-3 py-1 text-xs font-medium bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors"
-            >
-              Reintentar
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (materializationFailed) {
-    return (
-      <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
-        <div className="flex items-center justify-between">
-          <div>
-            <strong>La materialización falló</strong>
-            <div className="text-xs mt-1">
-              No se pudo completar la materialización de la línea base.
-            </div>
-          </div>
-          {onRetryMaterialization && (
-            <button
-              onClick={onRetryMaterialization}
-              className="px-3 py-1 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-            >
-              Reintentar
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-  
   return (
     <>
+      {/* Materialization banner - show above table for better situational awareness */}
+      {materializationPending && (
+        <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <div className="flex items-center justify-between">
+            <div>
+              <strong>Materialización en progreso</strong>
+              <div className="text-xs mt-1">
+                La línea base se está materializando. Algunos rubros o asignaciones pueden aparecer pronto.
+              </div>
+              {materializationTimeout && materializationTimeout > 0 && (
+                <div className="text-xs text-amber-700 mt-1">
+                  ⏱️ Materializado desde hace {materializationTimeout} minuto{materializationTimeout > 1 ? 's' : ''}
+                </div>
+              )}
+            </div>
+            {onRetryMaterialization && (
+              <button
+                onClick={onRetryMaterialization}
+                className="px-3 py-1 text-xs font-medium bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors"
+              >
+                Reintentar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {materializationFailed && (
+        <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
+          <div className="flex items-center justify-between">
+            <div>
+              <strong>La materialización falló</strong>
+              <div className="text-xs mt-1">
+                No se pudo completar la materialización de la línea base.
+              </div>
+            </div>
+            {onRetryMaterialization && (
+              <button
+                onClick={onRetryMaterialization}
+                className="px-3 py-1 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              >
+                Reintentar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      
       {/* Delegate to ForecastRubrosTable for core rendering */}
       <ForecastRubrosTable
         categoryTotals={categoryTotals}
