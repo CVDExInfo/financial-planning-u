@@ -93,6 +93,22 @@ export const normalizeString = (s: any): string => {
 };
 
 /**
+ * Helper to extract amount from invoice with various field names
+ * Handles common variations: amount, total, monto
+ */
+const normalizeInvoiceAmount = (invoice: any): number => {
+  return Number(invoice.amount || invoice.total || invoice.monto || 0);
+};
+
+/**
+ * Helper to extract month from invoice with various field names
+ * Handles common variations: month, calendar_month, period, periodKey
+ */
+const getInvoiceMonth = (invoice: any): any => {
+  return invoice.month || invoice.calendar_month || invoice.period || invoice.periodKey;
+};
+
+/**
  * Normalize invoice month to match forecast cell month index
  * Handles numeric indices, YYYY-MM formats, and M\d+ formats (M1, M11, etc.)
  * 
@@ -218,6 +234,12 @@ export const matchInvoiceToCell = (
 
 const FORCE_ALLOC_PARAM = "forceAllocations";
 const FORCE_ALLOC_STORAGE_KEY = "finz.forceAllocationsOverride";
+
+/**
+ * Valid invoice statuses for including in actuals calculation
+ * These statuses indicate the invoice has been verified and should be counted
+ */
+const VALID_INVOICE_STATUSES = ['matched', 'paid', 'approved', 'posted', 'received'] as const;
 
 const parseBooleanFlag = (value: string | null): boolean => {
   if (value === null || value === undefined) return true;
@@ -577,8 +599,8 @@ export function useSDMTForecastData({
 
       // Filter to valid invoice statuses (accepted/paid/posted/received)
       const validInvoices = invoices.filter(
-        (inv) => ['matched', 'paid', 'approved', 'posted', 'received'].includes(
-          (inv.status || 'matched').toLowerCase()
+        (inv) => VALID_INVOICE_STATUSES.includes(
+          (inv.status || 'matched').toLowerCase() as typeof VALID_INVOICE_STATUSES[number]
         )
       );
       
@@ -592,17 +614,25 @@ export function useSDMTForecastData({
       
       for (const inv of validInvoices) {
         let matched = false;
-        const invMonth = normalizeInvoiceMonth(inv.month || inv.calendar_month || inv.period || inv.periodKey);
+        const invMonth = normalizeInvoiceMonth(getInvoiceMonth(inv));
         
         for (const row of rows) {
           // Use improved matching with taxonomy
           if (matchInvoiceToCell(inv, row, taxonomyMap, taxonomyCache)) {
-            // Also check month matches (defensive)
-            if (!invMonth || row.month === invMonth) {
-              const invAmount = Number(inv.amount || inv.total || inv.monto || 0);
+            // Also check month matches (defensive) - only skip month check if invMonth is explicitly invalid (0)
+            // This ensures we don't accidentally match invoices with no month data
+            if (invMonth > 0 && row.month === invMonth) {
+              const invAmount = normalizeInvoiceAmount(inv);
               row.actual = (row.actual || 0) + invAmount;
               matchedInvoicesCount++;
               matched = true;
+            } else if (invMonth === 0) {
+              // Invoice has no valid month - log warning but don't match
+              console.warn(`[useSDMTForecastData] Invoice has invalid month, skipping:`, {
+                rubroId: inv.rubroId || inv.rubro_id,
+                amount: normalizeInvoiceAmount(inv),
+                rawMonth: getInvoiceMonth(inv),
+              });
             }
           }
         }
