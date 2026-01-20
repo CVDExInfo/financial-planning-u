@@ -1014,8 +1014,12 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'mod-lead-ingeniero': 'MOD-LEAD',
   'ingeniero-delivery': 'MOD-LEAD',
   'Ingeniero Delivery': 'MOD-LEAD',
+  'ingeniero-lider': 'MOD-LEAD',
   'mod-sdm-service-delivery-manager': 'MOD-SDM',
   'mod-sdm-sdm': 'MOD-SDM',
+  'service-delivery-manager': 'MOD-SDM',
+  'mod-ing-ingeniero-soporte-n1': 'MOD-ING',
+  'project-manager': 'MOD-LEAD', // Map to MOD-LEAD as MOD-PM/MOD-PMO doesn't exist in canonical taxonomy
 };
 
 /**
@@ -1154,10 +1158,14 @@ export const LABOR_CANONICAL_KEYS = [
   'Ingeniero Lider','Project Manager','Service Delivery Manager',
   // Additional MOD-LEAD aliases
   'mod-lead-ingeniero-delivery','ingeniero delivery','ingeniero-delivery',
-  'mod-lead-ingeniero','Ingeniero Delivery',
+  'mod-lead-ingeniero','Ingeniero Delivery','ingeniero-lider',
   // Additional MOD-SDM aliases
   'mod-sdm-service-delivery-manager','service delivery manager','service-delivery-manager',
-  'mod-sdm-sdm'
+  'mod-sdm-sdm',
+  // Additional MOD-ING aliases
+  'mod-ing-ingeniero-soporte-n1','ingeniero soporte n1','ingeniero-soporte-n1',
+  // Additional Project Manager aliases
+  'project-manager','project manager'
 ].map(normalizeKey);
 
 /**
