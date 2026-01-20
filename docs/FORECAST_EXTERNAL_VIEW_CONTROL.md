@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `ForecastRubrosTable` component now supports external view mode control, allowing parent components to manage the table's display mode (Category vs Project view) programmatically.
+The `ForecastRubrosTable` component now supports external view mode control, allowing parent components to manage the table's display mode (Category vs Project view) programmatically. This fix has been applied to **both** Position #2 and Position #7 in the forecast dashboard.
 
 ## Changes
 
@@ -33,16 +33,31 @@ interface ForecastRubrosTableProps {
 
 ### Integration with SDMTForecast
 
-In Position #7 (Monitoreo mensual de proyectos vs. presupuesto), the table is now controlled by the page-level `breakdownMode`:
+External control is applied to two locations:
+
+#### Position #2 (NEW_FORECAST_LAYOUT)
+Line ~3154 - "Cuadrícula de Pronóstico" - Shown when `NEW_FORECAST_LAYOUT_ENABLED=true`:
 
 ```typescript
-// Mapping
-const tableViewMode = breakdownMode === 'project' ? 'project' : 'category';
-
-// Props
 <ForecastRubrosTable
   {...otherProps}
-  externalViewMode={tableViewMode}
+  externalViewMode={breakdownMode === 'project' ? 'project' : 'category'}
+  onViewModeChange={(v) => {
+    handleBreakdownModeChange(v === 'project' ? 'project' : 'rubros');
+  }}
+/>
+```
+
+#### Position #7 (Portfolio View)
+Line ~3744 - "Monitoreo mensual de proyectos vs. presupuesto" - Shown when `isPortfolioView=true`:
+
+**Before:** Used 437 lines of custom `<Table>` implementation
+**After:** Refactored to use `ForecastRubrosTable` with external control:
+
+```typescript
+<ForecastRubrosTable
+  {...otherProps}
+  externalViewMode={breakdownMode === 'project' ? 'project' : 'category'}
   onViewModeChange={(v) => {
     handleBreakdownModeChange(v === 'project' ? 'project' : 'rubros');
   }}
@@ -53,6 +68,14 @@ const tableViewMode = breakdownMode === 'project' ? 'project' : 'category';
 
 - **Page-level (SDMTForecast)**: `forecastBreakdownMode` (values: `'project'` | `'rubros'`)
 - **Table-level**: `forecastGridViewMode:{projectId}:{userEmail}` (only used when uncontrolled)
+
+## Benefits
+
+1. **Eliminates code duplication**: Position #7 no longer maintains separate custom Table code
+2. **Consistent UX**: Both positions use the same component with identical features
+3. **Synchronized state**: `breakdownMode` selector controls both table instances
+4. **All features retained**: Budget editing, filters, search, labor/non-labor filtering all work
+5. **Backward compatible**: Single project view and other usages unchanged
 
 ## Testing
 
