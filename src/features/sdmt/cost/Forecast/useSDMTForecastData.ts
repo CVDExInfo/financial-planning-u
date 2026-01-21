@@ -51,14 +51,31 @@ CANONICAL_RUBROS_TAXONOMY.forEach((taxonomy) => {
   }
   
   // Also index by linea_gasto for invoice matching (normalize to handle matching)
+  // Note: Normalized keys may collide, but this is acceptable for fuzzy matching fallback
+  // Primary matching still uses canonical IDs via getCanonicalRubroId()
   if (taxonomy.linea_gasto) {
     const normalizedLineaGasto = normalizeString(taxonomy.linea_gasto);
+    if (import.meta.env.DEV && taxonomyByRubroId[normalizedLineaGasto]) {
+      console.debug('[taxonomy] linea_gasto collision:', {
+        key: normalizedLineaGasto,
+        existing: taxonomyByRubroId[normalizedLineaGasto],
+        new: entry,
+      });
+    }
     taxonomyByRubroId[normalizedLineaGasto] = entry;
   }
   
   // Also index by descripcion for invoice matching (normalize to handle matching)
+  // Note: Normalized keys may collide, but this is acceptable for fuzzy matching fallback
   if (taxonomy.descripcion) {
     const normalizedDescripcion = normalizeString(taxonomy.descripcion);
+    if (import.meta.env.DEV && taxonomyByRubroId[normalizedDescripcion]) {
+      console.debug('[taxonomy] descripcion collision:', {
+        key: normalizedDescripcion,
+        existing: taxonomyByRubroId[normalizedDescripcion],
+        new: entry,
+      });
+    }
     taxonomyByRubroId[normalizedDescripcion] = entry;
   }
 });
