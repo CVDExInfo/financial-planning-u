@@ -299,11 +299,110 @@ Este documento describe el orden final y la estructura de componentes en la pág
 
 ---
 
+### Posición #7A: ForecastRubrosAdapter — Compatibilidad y Migración Incremental
+**Nombre en español:** Adaptador de Rubros (Capa de Compatibilidad)  
+**Componente:** `ForecastRubrosAdapter`  
+**Archivo:** `src/features/sdmt/cost/Forecast/components/ForecastRubrosAdapter.tsx`  
+**Estado:** Feature-flagged (controlled by `VITE_ENABLE_RUBROS_ADAPTER`)  
+**Propósito:** Compatibility layer para migración incremental de tabla legacy a `ForecastRubrosTable`
+
+**Feature Flag:** `VITE_ENABLE_RUBROS_ADAPTER`
+- `true` = Usa `ForecastRubrosAdapter` (delega a `ForecastRubrosTable`)
+- `false` = Usa tabla legacy inline en `SDMTForecast.tsx`
+
+**Arquitectura:**
+```typescript
+ForecastRubrosAdapter (Wrapper)
+  └─> ForecastRubrosTable (Core Rendering)
+  
+Props Flow:
+  SDMTForecast → ForecastRubrosAdapter → ForecastRubrosTable
+```
+
+**Props clave:**
+- **Data:** `categoryTotals`, `categoryRubros`, `projectTotals`, `projectRubros`, `portfolioTotals`, `monthlyBudgets`
+- **Callbacks:** `onSaveMonthlyBudget`, `onReconcile`, `onExport`
+- **Control externo:** `externalViewMode`, `onViewModeChange` (controlled mode)
+- **Materialización:** `materializationPending`, `materializationFailed`, `onRetryMaterialization`
+- **Formato:** `formatCurrency`, `canEditBudget`
+
+**Renderizado en:** `SDMTForecast.tsx` línea ~3851
+```typescript
+{FEATURE_FLAGS.ENABLE_RUBROS_ADAPTER ? (
+  <ForecastRubrosAdapter
+    categoryTotals={categoryTotals}
+    categoryRubros={categoryRubros}
+    projectTotals={projectTotals}
+    projectRubros={projectRubros}
+    portfolioTotals={portfolioTotalsForCharts}
+    monthlyBudgets={monthlyBudgets}
+    baselineDetail={baselineDetail}
+    selectedPeriod={selectedPeriod}
+    externalViewMode={breakdownMode === 'project' ? 'project' : 'category'}
+    onViewModeChange={(v) => handleBreakdownModeChange(v === 'project' ? 'project' : 'rubros')}
+    onSaveMonthlyBudget={handleSaveMonthlyBudget}
+    formatCurrency={formatCurrency}
+    canEditBudget={canEditBudget}
+  />
+) : (
+  // Legacy inline table rendering
+)}
+```
+
+**Características principales:**
+1. **API pública idéntica:** Acepta las mismas props que la tabla legacy
+2. **Delegación:** Delega renderizado core a `ForecastRubrosTable`
+3. **Shims:** Implementa shims para características legacy no en `ForecastRubrosTable`
+4. **Modo controlado:** Soporte para `externalViewMode` (sincroniza con `breakdownMode` de SDMTForecast)
+5. **Callbacks preservados:** `onSaveMonthlyBudget`, `onReconcile`, `onExport`
+
+**Comportamientos legacy preservados:**
+- ✅ Control externo de viewMode (breakdownMode → externalViewMode)
+- ✅ Edición inline de presupuesto mensual
+- ✅ Formateo de moneda customizable
+- ✅ Permisos de edición (`canEditBudget`)
+- 🚧 Acciones de reconciliación (callback definido, UI pendiente)
+- 🚧 Exportaciones (callback definido, UI pendiente)
+- 🚧 Links a catálogo de rubros (pendiente)
+- 🚧 Popovers de historial de cambios (pendiente)
+- 🚧 Telemetría para rubros no emparejados (pendiente)
+
+**TODOs pendientes en el adapter:**
+```typescript
+// TODO: Add materialization banner if baseline not materialized
+// TODO: Add reconciliation modals (call onReconcile)
+// TODO: Add export actions (call onExport)
+// TODO: Add catalog links (link to canonical rubros catalog)
+// TODO: Add change history popovers (show change request IDs)
+// TODO: Add telemetry for unmatched rubros (log warnings)
+```
+
+**Plan de migración:**
+1. **Fase 1 (Actual):** Feature flag `false` por defecto → Legacy table
+2. **Fase 2:** Feature flag `true` en dev/staging → Testing con adapter
+3. **Fase 3:** Feature flag `true` en producción → Adapter en vivo
+4. **Fase 4:** Implementar TODOs pendientes → Feature parity completa
+5. **Fase 5:** Eliminar código legacy → Adapter se convierte en default
+6. **Fase 6:** Eliminar adapter wrapper → `ForecastRubrosTable` se usa directamente
+
+**Testing:**
+- ✅ Tests de paridad: `ForecastRubrosAdapter.legacyParity.spec.tsx`
+- ✅ Tests de modo controlado: `ForecastRubrosTable.controlledView.spec.tsx`
+- ✅ Tests de vista de proyecto: `ForecastRubrosTable.projectView.test.ts`
+- ✅ Tests de proyecto único: `ForecastRubrosTable.singleProject.spec.tsx`
+- ✅ Tests TDZ: `ForecastRubrosTable.tdz.test.ts`
+- ✅ Tests de varianza: `ForecastRubrosTable.variance.test.ts`
+- ✅ Tests de filtros: `ForecastRubrosTable.filter.test.tsx`
+- ✅ Tests de normalización: `ForecastRubrosTable.filterNormalization.test.ts`
+
+---
+
 ## 🎛️ Feature Flags que Afectan el Layout
 
 | Flag | Componente Afectado | Comportamiento |
 |------|---------------------|----------------|
 | `VITE_FINZ_NEW_FORECAST_LAYOUT` | Layout completo | `true` = nuevo layout (actual), `false` = layout antiguo |
+| `VITE_ENABLE_RUBROS_ADAPTER` | **#7A - ForecastRubrosAdapter** | **`true` = usa adapter (delega a ForecastRubrosTable), `false` = tabla legacy** |
 | `VITE_FINZ_HIDE_PROJECT_SUMMARY` | #4 - PortfolioSummaryView | `true` = oculta toda la sección #4 |
 | `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS` | KPI cards (no en lista) | `true` = oculta KPIs anuales |
 | `VITE_FINZ_SHOW_KEYTRENDS` | Key Trends (no en lista) | `true` = muestra tablas de tendencias clave |
@@ -467,6 +566,8 @@ Al revisar el dashboard en modo TODOS/Portfolio, verifica:
 - [ ] **#6** - Tooltip muestra "Mes N — Proyectos: X" al pasar sobre barras
 - [ ] **#7** - Monitoreo mensual **expandido** por defecto
 - [ ] **#7** - Selector "Vista" presente con opciones "Proyectos" / "Rubros por proyecto"
+- [ ] **#7A** - `VITE_ENABLE_RUBROS_ADAPTER=true` usa ForecastRubrosAdapter
+- [ ] **#7A** - `VITE_ENABLE_RUBROS_ADAPTER=false` usa tabla legacy
 - [ ] **GENERAL** - Solo UNA instancia de cuadrícula de 12 meses (no duplicados)
 - [ ] **GENERAL** - Orden correcto: 1 → 2 → 3 → 4 → 5 → 6 → 7
 - [ ] **FLAGS** - `VITE_FINZ_HIDE_PROJECT_SUMMARY=true` oculta componente #4
@@ -543,10 +644,197 @@ const projectsPerMonth = useMemo(() => {
 | 2026-01-17 | 5d60da5 | Proyectos M/M chart, duplicates removed, título corregido |
 | 2026-01-17 | 4b27109 | Grid visibility fix - OLD layout paths |
 | 2026-01-17 | b2cbfb8 | Grid visibility fix - NEW layout, debug logging |
+| 2026-01-17 | TBD | **ForecastRubrosAdapter implementation and incremental migration support** |
+
+---
+
+## 🧪 QA Testing Guide - ForecastRubrosAdapter
+
+### Prerequisites
+1. Access to Finanzas module with forecast data
+2. Console access for development mode logging
+3. Ability to modify environment variables or `.env.development`
+
+### Test Scenarios
+
+#### Scenario 1: Feature Flag Toggle
+**Objetivo:** Verificar que el feature flag controla correctamente qué componente se renderiza
+
+**Steps:**
+1. Set `VITE_ENABLE_RUBROS_ADAPTER=false` in `.env.development`
+2. Reload app and navigate to Forecast (TODOS view)
+3. Verify legacy table renders (check console for "[ForecastRubrosAdapter]" logs - should NOT appear)
+4. Note the UI appearance and functionality
+5. Set `VITE_ENABLE_RUBROS_ADAPTER=true`
+6. Reload app and navigate to Forecast (TODOS view)
+7. Verify adapter renders (check console for "[ForecastRubrosAdapter] Rendering with:" log)
+8. Verify ForecastRubrosTable delegates rendering (check console for "[ForecastRubrosTable]" logs)
+
+**Expected:**
+- ✅ Flag `false` → Legacy table renders, NO adapter logs
+- ✅ Flag `true` → Adapter renders, delegate logs appear
+- ✅ No errors in console
+- ✅ Data displays correctly in both modes
+
+#### Scenario 2: ViewMode Synchronization (Controlled Mode)
+**Objetivo:** Verificar que el modo controlado sincroniza viewMode entre SDMTForecast y el adapter
+
+**Steps:**
+1. Enable adapter: `VITE_ENABLE_RUBROS_ADAPTER=true`
+2. Navigate to Forecast (TODOS view)
+3. Open console and filter for "[ForecastRubrosAdapter]"
+4. Click "Vista" selector in Monitoreo section
+5. Select "Proyectos"
+6. Observe console log: `controlledMode: true, externalViewMode: 'project'`
+7. Verify table switches to project view
+8. Select "Rubros por proyecto"
+9. Observe console log: `externalViewMode: 'category'`
+10. Verify table switches to category view
+
+**Expected:**
+- ✅ `externalViewMode` syncs with `breakdownMode` from SDMTForecast
+- ✅ Table view updates immediately when selector changes
+- ✅ No flicker or re-mount of table component
+- ✅ Console shows `controlledMode: true`
+
+#### Scenario 3: Budget Editing
+**Objetivo:** Verificar que la edición de presupuestos funciona con el adapter
+
+**Steps:**
+1. Enable adapter: `VITE_ENABLE_RUBROS_ADAPTER=true`
+2. Navigate to Forecast (TODOS view)
+3. Ensure user has budget editing permissions (`canEditBudget=true`)
+4. Click edit button on monthly budget row
+5. Modify budget value for a month
+6. Save changes
+7. Verify `handleSaveMonthlyBudget` callback is invoked
+8. Verify budget updates in UI
+
+**Expected:**
+- ✅ Budget edit UI appears
+- ✅ Changes can be made and saved
+- ✅ `onSaveMonthlyBudget` callback fires
+- ✅ UI reflects updated budget values
+- ✅ No console errors
+
+#### Scenario 4: Data Parity (Legacy vs Adapter)
+**Objetivo:** Verificar que adapter muestra los mismos datos que la tabla legacy
+
+**Steps:**
+1. Set `VITE_ENABLE_RUBROS_ADAPTER=false`
+2. Navigate to Forecast (TODOS view)
+3. Take screenshot of table data
+4. Note total values for categories/projects
+5. Export data if possible (mental note or screenshot)
+6. Set `VITE_ENABLE_RUBROS_ADAPTER=true`
+7. Reload and navigate to Forecast (TODOS view)
+8. Compare table data with legacy
+9. Verify totals match
+10. Verify cell values match
+
+**Expected:**
+- ✅ All category totals match (12 months)
+- ✅ All project totals match (if in project view)
+- ✅ Portfolio totals match
+- ✅ Budget values match
+- ✅ Variance calculations match
+- ✅ No data loss or corruption
+
+#### Scenario 5: Materialization States
+**Objetivo:** Verificar que adapter muestra indicadores de materialización
+
+**Steps:**
+1. Enable adapter: `VITE_ENABLE_RUBROS_ADAPTER=true`
+2. Navigate to Forecast for a project with pending materialization
+3. Verify warning banner appears (in dev mode)
+4. Check console for materialization state logs
+5. If retry button available, click it
+6. Verify `onRetryMaterialization` callback fires
+
+**Expected:**
+- ✅ Dev mode shows amber banner when `materializationPending=true`
+- ✅ Banner shows "Baseline materialization pending..." message
+- ✅ Retry button appears when `onRetryMaterialization` provided
+- ✅ Clicking retry invokes callback
+- ✅ Production mode does NOT show dev banner (check separately)
+
+#### Scenario 6: Filter and Grouping
+**Objetivo:** Verificar que filtros y agrupaciones funcionan correctamente
+
+**Steps:**
+1. Enable adapter: `VITE_ENABLE_RUBROS_ADAPTER=true`
+2. Navigate to Forecast (TODOS view)
+3. Verify default filter is "Mano de Obra" (`defaultFilter="labor"`)
+4. Change filter to "Todos"
+5. Verify all rubros display
+6. Change to "Por Categoría"
+7. Verify grouped by category
+8. Change to "Por Proyecto"
+9. Verify grouped by project
+
+**Expected:**
+- ✅ Default filter applies on mount
+- ✅ Filter changes work correctly
+- ✅ Grouping switches smoothly
+- ✅ No data loss when switching views
+- ✅ Totals recalculate correctly
+
+#### Scenario 7: Currency Formatting
+**Objetivo:** Verificar que el formateo de moneda funciona
+
+**Steps:**
+1. Enable adapter: `VITE_ENABLE_RUBROS_ADAPTER=true`
+2. Navigate to Forecast (TODOS view)
+3. Verify currency values display with locale formatting (es-MX, USD)
+4. Check format: "$X,XXX" (no decimals, comma separators)
+5. Verify negative values display correctly (if any)
+
+**Expected:**
+- ✅ Default formatter: `es-MX` locale, USD currency
+- ✅ No decimal places
+- ✅ Comma thousands separators
+- ✅ Dollar sign prefix
+- ✅ Custom `formatCurrency` prop respected if provided
+
+### Regression Testing
+
+#### Critical Paths to Test
+- [ ] Portfolio view (TODOS) loads without errors
+- [ ] Single project view still works (adapter not used in single project)
+- [ ] Budget editing flow (create, update, delete monthly budgets)
+- [ ] Navigation to Reconciliation works
+- [ ] Navigation to Cost Catalog works
+- [ ] Export functionality (Excel/PDF) - when implemented
+- [ ] Responsive layout on mobile/tablet
+- [ ] Dark mode compatibility (if supported)
+
+#### Performance Checks
+- [ ] Initial render time < 2s for 100 projects
+- [ ] ViewMode switch < 200ms
+- [ ] Filter change < 200ms
+- [ ] No memory leaks on repeated mount/unmount
+- [ ] Console shows no unnecessary re-renders
+
+### Known Limitations (TODOs)
+- ⚠️ Reconciliation modals NOT yet implemented (callback defined)
+- ⚠️ Export actions NOT yet implemented (callback defined)
+- ⚠️ Catalog links NOT yet implemented
+- ⚠️ Change history popovers NOT yet implemented
+- ⚠️ Telemetry for unmatched rubros NOT yet implemented
+- ⚠️ Materialization banner only in dev mode (prod UI pending)
+
+### Reporting Issues
+When reporting bugs, include:
+1. Feature flag value: `VITE_ENABLE_RUBROS_ADAPTER=true/false`
+2. Browser and version
+3. Console logs (filter for "[ForecastRubrosAdapter]")
+4. Screenshots of unexpected behavior
+5. Steps to reproduce
+6. Expected vs actual behavior
 
 ---
 
 **Documento creado:** 2026-01-17  
-**Última actualización:** 2026-01-17  
-**Versión:** 1.0  
+**Última actualización:** 2026-01-17 (Adapter documentation added)  
+**Versión:** 1.1  
 **Autor:** GitHub Copilot (automated documentation)

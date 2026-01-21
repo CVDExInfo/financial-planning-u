@@ -52,7 +52,14 @@ export interface SnapshotRow {
   costType?: CostType;
 }
 
-export const deriveCostType = (category?: string): CostType | undefined => {
-  if (!category) return undefined;
-  return isLabor(category) ? 'labor' : 'non-labor';
+export const deriveCostType = (category?: string, fallbackText?: string): CostType | undefined => {
+  if (!category && !fallbackText) return undefined;
+  
+  // If category exists, use it for classification
+  if (category) {
+    return isLabor(category) ? 'labor' : 'non-labor';
+  }
+  
+  // If no category, try to infer from fallbackText using role patterns
+  return isLabor(undefined, fallbackText) ? 'labor' : 'non-labor';
 };

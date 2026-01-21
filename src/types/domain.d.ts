@@ -111,6 +111,10 @@ export type ForecastCell = {
   notes?: string;
   last_updated: string;
   updated_by: string;
+  // Extended fields for robust ID matching and month handling
+  matchingIds?: string[]; // Alternative IDs for invoice matching (canonical, synthetic, aliases)
+  monthLabel?: string; // YYYY-MM format for calendar month alignment
+  rubroId?: string; // Explicit rubro ID for canonical taxonomy lookup
 };
 
 // Invoice/Evidence documents
