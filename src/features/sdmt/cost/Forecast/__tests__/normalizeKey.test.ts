@@ -72,8 +72,8 @@ test('normalizeKey removes non-alphanumeric characters', () => {
   
   assert.strictEqual(
     normalizeKey('Test (Value)'),
-    'test-value',
-    'Should remove parentheses and normalize'
+    'test',
+    'Should remove parenthetical content'
   );
   
   assert.strictEqual(
