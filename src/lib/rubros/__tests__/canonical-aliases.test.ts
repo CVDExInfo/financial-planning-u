@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { getCanonicalRubroId, LEGACY_RUBRO_ID_MAP, LABOR_CANONICAL_KEYS_SET } from '../canonical-taxonomy';
+import { CANONICAL_ALIASES } from '../canonical-aliases';
 import { normalizeKey } from '../normalize-key';
 
 describe('Canonical Aliases - Console Warning Fixes', () => {
@@ -51,6 +52,44 @@ describe('Canonical Aliases - Console Warning Fixes', () => {
     newAliases.forEach(alias => {
       expect(LEGACY_RUBRO_ID_MAP[alias]).toBeDefined();
       expect(LEGACY_RUBRO_ID_MAP[alias]).not.toBe('');
+    });
+  });
+});
+
+describe('New Canonical Aliases for Role Strings', () => {
+  it('should have Service Delivery Manager aliases', () => {
+    expect(CANONICAL_ALIASES['Service Delivery Manager']).toBe('MOD-SDM');
+    expect(CANONICAL_ALIASES['service delivery manager']).toBe('MOD-SDM');
+    expect(CANONICAL_ALIASES['SDM']).toBe('MOD-SDM');
+    expect(CANONICAL_ALIASES['sdm']).toBe('MOD-SDM');
+  });
+
+  it('should have Project Manager aliases', () => {
+    expect(CANONICAL_ALIASES['Project Manager']).toBe('MOD-LEAD');
+    expect(CANONICAL_ALIASES['project manager']).toBe('MOD-LEAD');
+    expect(CANONICAL_ALIASES['PM']).toBe('MOD-LEAD');
+    expect(CANONICAL_ALIASES['pm']).toBe('MOD-LEAD');
+  });
+
+  it('should have Ingeniero Delivery aliases', () => {
+    expect(CANONICAL_ALIASES['Ingeniero Delivery']).toBe('MOD-LEAD');
+    expect(CANONICAL_ALIASES['ingeniero delivery']).toBe('MOD-LEAD');
+    expect(CANONICAL_ALIASES['Ingeniero Lider']).toBe('MOD-LEAD');
+    expect(CANONICAL_ALIASES['ingeniero lider']).toBe('MOD-LEAD');
+  });
+
+  it('should have support engineer aliases', () => {
+    expect(CANONICAL_ALIASES['Ingeniero Soporte N1']).toBe('MOD-ING');
+    expect(CANONICAL_ALIASES['Ingeniero Soporte N2']).toBe('MOD-ING');
+    expect(CANONICAL_ALIASES['Ingeniero Soporte N3']).toBe('MOD-ING');
+  });
+
+  it('should have all aliases properly normalized when looked up', () => {
+    Object.entries(CANONICAL_ALIASES).forEach(([alias, rubroId]) => {
+      const normalized = normalizeKey(alias);
+      expect(normalized).toBeTruthy();
+      expect(rubroId).toBeTruthy();
+      expect(rubroId).toMatch(/^[A-Z]{3,4}(-[A-Z]+)?$/); // Should be a valid rubro ID format
     });
   });
 });

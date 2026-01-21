@@ -12,6 +12,7 @@
 
 import { LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET } from '@/lib/rubros/canonical-taxonomy';
 import { normalizeKey } from '@/lib/rubros/normalize-key';
+import { CANONICAL_ALIASES } from '@/lib/rubros/canonical-aliases';
 
 /**
  * Re-export normalizeKey, LABOR_CANONICAL_KEYS and LABOR_CANONICAL_KEYS_SET
@@ -266,6 +267,20 @@ export function buildTaxonomyMap(
       }
     }
     
+    // Index by linea_gasto (human readable canonical label) and descripcion to enable matches
+    if (taxonomy.linea_gasto) {
+      const linea = normalizeKey(taxonomy.linea_gasto);
+      if (linea && !map.has(linea)) {
+        map.set(linea, taxonomy);
+      }
+    }
+    if (taxonomy.descripcion) {
+      const desc = normalizeKey(taxonomy.descripcion);
+      if (desc && !map.has(desc)) {
+        map.set(desc, taxonomy);
+      }
+    }
+    
     // Index by original key
     const normalizedRubroId = normalizeKey(rubroId);
     if (normalizedRubroId && !map.has(normalizedRubroId)) {
@@ -291,6 +306,18 @@ export function buildTaxonomyMap(
           isLabor: true,
         });
       }
+    }
+  }
+  
+  // Seed canonical aliases to resolve common role strings and legacy values
+  for (const [alias, rubroId] of Object.entries(CANONICAL_ALIASES)) {
+    const normalizedAlias = normalizeKey(alias);
+    if (!normalizedAlias) continue;
+    
+    // Find the canonical taxonomy entry for this rubroId
+    const tax = taxonomyByRubroId[rubroId];
+    if (tax && !map.has(normalizedAlias)) {
+      map.set(normalizedAlias, tax);
     }
   }
   

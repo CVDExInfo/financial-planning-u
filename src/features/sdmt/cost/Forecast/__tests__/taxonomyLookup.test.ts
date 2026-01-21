@@ -368,4 +368,154 @@ describe('Taxonomy Lookup', () => {
       });
     });
   });
+
+  describe('linea_gasto and descripcion indexing', () => {
+    it('should index by linea_gasto field', () => {
+      const taxonomy: Record<string, TaxonomyEntry> = {
+        'MOD-SDM': {
+          rubroId: 'MOD-SDM',
+          linea_gasto: 'Service Delivery Manager (SDM)',
+          description: 'SDM Role',
+          category: 'Labor',
+        },
+      };
+
+      const map = buildTaxonomyMap(taxonomy);
+
+      // Should be able to find by linea_gasto
+      assert.ok(map.has('service-delivery-manager-sdm'));
+      const entry = map.get('service-delivery-manager-sdm');
+      assert.strictEqual(entry?.rubroId, 'MOD-SDM');
+    });
+
+    it('should index by descripcion field', () => {
+      const taxonomy: Record<string, TaxonomyEntry> = {
+        'MOD-SDM': {
+          rubroId: 'MOD-SDM',
+          descripcion: 'Gestión operativa, relación con cliente',
+          category: 'Labor',
+        },
+      };
+
+      const map = buildTaxonomyMap(taxonomy);
+
+      // Should be able to find by descripcion
+      assert.ok(map.has('gestion-operativa-relacion-con-cliente'));
+      const entry = map.get('gestion-operativa-relacion-con-cliente');
+      assert.strictEqual(entry?.rubroId, 'MOD-SDM');
+    });
+
+    it('should not overwrite existing entries when indexing linea_gasto', () => {
+      const taxonomy: Record<string, TaxonomyEntry> = {
+        'MOD-SDM': {
+          rubroId: 'MOD-SDM',
+          name: 'SDM',
+          description: 'Service Delivery Manager',
+          category: 'Labor',
+        },
+        'OTHER': {
+          rubroId: 'OTHER',
+          linea_gasto: 'SDM',
+          description: 'Some other thing',
+          category: 'Other',
+        },
+      };
+
+      const map = buildTaxonomyMap(taxonomy);
+
+      // The first entry (by name) should win - no overwrite
+      const entry = map.get('sdm');
+      assert.strictEqual(entry?.rubroId, 'MOD-SDM');
+    });
+  });
+
+  describe('canonical aliases', () => {
+    it('should resolve Service Delivery Manager via alias', () => {
+      const taxonomy: Record<string, TaxonomyEntry> = {
+        'MOD-SDM': {
+          rubroId: 'MOD-SDM',
+          description: 'Service Delivery Manager',
+          category: 'Labor',
+        },
+      };
+
+      const map = buildTaxonomyMap(taxonomy);
+      const cache = new Map<string, TaxonomyEntry | null>();
+
+      const rubroRow: RubroRow = {
+        name: 'Service Delivery Manager',
+      };
+
+      const result = lookupTaxonomy(map, rubroRow, cache);
+
+      assert.ok(result);
+      assert.strictEqual(result.rubroId, 'MOD-SDM');
+    });
+
+    it('should resolve service delivery manager (lowercase) via alias', () => {
+      const taxonomy: Record<string, TaxonomyEntry> = {
+        'MOD-SDM': {
+          rubroId: 'MOD-SDM',
+          description: 'Service Delivery Manager',
+          category: 'Labor',
+        },
+      };
+
+      const map = buildTaxonomyMap(taxonomy);
+      const cache = new Map<string, TaxonomyEntry | null>();
+
+      const rubroRow: RubroRow = {
+        name: 'service delivery manager',
+      };
+
+      const result = lookupTaxonomy(map, rubroRow, cache);
+
+      assert.ok(result);
+      assert.strictEqual(result.rubroId, 'MOD-SDM');
+    });
+
+    it('should resolve SDM abbreviation via alias', () => {
+      const taxonomy: Record<string, TaxonomyEntry> = {
+        'MOD-SDM': {
+          rubroId: 'MOD-SDM',
+          description: 'Service Delivery Manager',
+          category: 'Labor',
+        },
+      };
+
+      const map = buildTaxonomyMap(taxonomy);
+      const cache = new Map<string, TaxonomyEntry | null>();
+
+      const rubroRow: RubroRow = {
+        name: 'SDM',
+      };
+
+      const result = lookupTaxonomy(map, rubroRow, cache);
+
+      assert.ok(result);
+      assert.strictEqual(result.rubroId, 'MOD-SDM');
+    });
+
+    it('should resolve Project Manager via alias to MOD-LEAD', () => {
+      const taxonomy: Record<string, TaxonomyEntry> = {
+        'MOD-LEAD': {
+          rubroId: 'MOD-LEAD',
+          description: 'Lead Engineer',
+          category: 'Labor',
+        },
+      };
+
+      const map = buildTaxonomyMap(taxonomy);
+      const cache = new Map<string, TaxonomyEntry | null>();
+
+      const rubroRow: RubroRow = {
+        name: 'Project Manager',
+      };
+
+      const result = lookupTaxonomy(map, rubroRow, cache);
+
+      assert.ok(result);
+      assert.strictEqual(result.rubroId, 'MOD-LEAD');
+    });
+  });
 });
