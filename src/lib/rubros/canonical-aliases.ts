@@ -35,8 +35,6 @@ export const CANONICAL_ALIASES: Record<string, string> = {
   'ingeniero delivery': 'MOD-LEAD',
   'Ingeniero Lider': 'MOD-LEAD',
   'ingeniero lider': 'MOD-LEAD',
-  'Ingeniero Líder': 'MOD-LEAD',
-  'ingeniero líder': 'MOD-LEAD',
   
   // Engineer support variants
   'Ingeniero Soporte N1': 'MOD-ING',

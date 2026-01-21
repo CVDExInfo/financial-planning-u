@@ -58,6 +58,8 @@ export interface TaxonomyEntry {
   isLabor?: boolean;
   name?: string;
   slug?: string;
+  linea_gasto?: string;
+  descripcion?: string;
   [key: string]: any;
 }
 
