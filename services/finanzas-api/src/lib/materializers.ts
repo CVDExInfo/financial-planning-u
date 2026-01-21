@@ -10,6 +10,7 @@ import {
   getCanonicalRubroId,
   mapModRoleToRubroId,
   mapNonLaborCategoryToRubroId,
+  LEGACY_RUBRO_ID_MAP,
 } from "./rubros-taxonomy";
 
 interface BaselineLike {
@@ -141,6 +142,25 @@ const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
     }
     if (description) {
       byDescription.set(normalizeKeyPart(description), entry);
+    }
+    
+    // Also index by linea_gasto if different from descripcion
+    if (entry.linea_gasto && entry.linea_gasto !== description) {
+      byDescription.set(normalizeKeyPart(entry.linea_gasto), entry);
+    }
+  }
+  
+  // Seed with canonical aliases from LEGACY_RUBRO_ID_MAP for consistent server-side lookup
+  // This ensures aliases like "Service Delivery Manager" → MOD-SDM work on the server
+  for (const [alias, canonicalId] of Object.entries(LEGACY_RUBRO_ID_MAP)) {
+    const normalizedAlias = normalizeKeyPart(alias);
+    // Only add if not already in the map (avoid overwriting actual taxonomy entries)
+    if (!byDescription.has(normalizedAlias)) {
+      // Find the canonical entry for this ID
+      const canonicalEntry = entries.find(e => e.linea_codigo === canonicalId);
+      if (canonicalEntry) {
+        byDescription.set(normalizedAlias, canonicalEntry);
+      }
     }
   }
 
