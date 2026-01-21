@@ -904,7 +904,7 @@ export function useSDMTForecastData({
             if (row.month !== invMonth) continue;
             
             // Check if canonical rubro comparison would match
-            const invRubroIdLocal = inv.rubroId || inv.rubro_id || inv.line_item_id;
+            const invRubroIdLocal = (inv as any).rubroId || (inv as any).rubro_id || inv.line_item_id;
             const rowRubroId = row.rubroId || row.line_item_id;
             
             if (invRubroIdLocal && rowRubroId) {
@@ -922,12 +922,12 @@ export function useSDMTForecastData({
             }
             
             // Check if normalized description comparison would match
-            if (inv.description && row.description) {
-              if (normalizeString(inv.description) === normalizeString(row.description)) {
+            if ((inv as any).description && row.description) {
+              if (normalizeString((inv as any).description) === normalizeString(row.description)) {
                 const invAmount = normalizeInvoiceAmount(inv);
                 fallbackMatchedCount++;
                 console.log(
-                  `[useSDMTForecastData] DIAGNOSTIC: Would match via description: "${inv.description}" → "${row.description}", amount=${invAmount}`
+                  `[useSDMTForecastData] DIAGNOSTIC: Would match via description: "${(inv as any).description}" → "${row.description}", amount=${invAmount}`
                 );
                 break; // Only log first potential match
               }

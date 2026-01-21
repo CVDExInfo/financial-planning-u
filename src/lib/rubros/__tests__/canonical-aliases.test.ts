@@ -3,8 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getCanonicalRubroId, LEGACY_RUBRO_ID_MAP, LABOR_CANONICAL_KEYS_SET } from '../canonical-taxonomy';
-import { CANONICAL_ALIASES } from '../canonical-aliases';
+import { getCanonicalRubroId, LEGACY_RUBRO_ID_MAP, LABOR_CANONICAL_KEYS_SET, CANONICAL_ALIASES } from '../canonical-taxonomy';
 import { normalizeKey } from '@/lib/strings/normalizeKey';
 
 describe('Canonical Aliases - Console Warning Fixes', () => {
