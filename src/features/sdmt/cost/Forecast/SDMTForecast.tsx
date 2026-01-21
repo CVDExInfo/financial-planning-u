@@ -5,6 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -40,6 +47,7 @@ import {
   Info,
   Calculator,
   ChevronDown,
+  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ChartInsightsPanel } from "@/components/ChartInsightsPanel";
@@ -68,11 +76,11 @@ import {
   getProjectRubros,
   getBaselineById,
   type BaselineDetail,
+  acceptBaseline,
 } from "@/api/finanzas";
 import { getForecastPayload, getProjectInvoices } from "./forecastService";
-import finanzasClient, {
-  type BaselineDetailResponse,
-} from "@/api/finanzasClient";
+import { normalizeInvoiceMonth } from "./useSDMTForecastData";
+import finanzasClient from "@/api/finanzasClient";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { BaselineStatusPanel } from "@/components/baseline/BaselineStatusPanel";
 import { BudgetSimulatorCard } from "./BudgetSimulatorCard";
@@ -91,6 +99,8 @@ import type {
 } from "./budgetSimulation";
 import { applyBudgetSimulation, applyBudgetToTrends } from "./budgetSimulation";
 import { isBudgetNotFoundError, resolveAnnualBudgetState } from "./budgetState";
+import { FEATURE_FLAGS } from "@/config/featureFlags";
+import { ForecastRubrosAdapter } from "./components/ForecastRubrosAdapter";
 import {
   allocateBudgetMonthly,
   aggregateMonthlyTotals,
@@ -106,6 +116,7 @@ import {
   buildPortfolioTotals,
 } from "./categoryGrouping";
 import { buildProjectTotals, buildProjectRubros } from "./projectGrouping";
+import { getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
 
 import { getBaselineDuration, clampMonthIndex } from "./monthHelpers";
 
@@ -165,11 +176,39 @@ type LineItemLike = Record<string, unknown>;
 // Constants
 const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real project
 
-// Feature flag for new forecast layout
+// Feature flags for new forecast layout
 const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true';
+const SHOW_KEY_TRENDS = import.meta.env.VITE_FINZ_SHOW_KEYTRENDS === 'true';
+
+// Backward compatibility: HIDE_KEY_TRENDS is deprecated, use SHOW_KEY_TRENDS instead
 
 // Feature flag to hide executive key-trends (projects & rubros) cards
 const HIDE_KEY_TRENDS = import.meta.env.VITE_FINZ_HIDE_KEY_TRENDS === 'true';
+
+// Feature flag to hide Real Annual Budget KPIs in TODOS/Portfolio view
+const HIDE_REAL_ANNUAL_KPIS = import.meta.env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS === 'true';
+
+// Feature flag to hide Resumen de Portafolio in TODOS mode
+const HIDE_PROJECT_SUMMARY = import.meta.env.VITE_FINZ_HIDE_PROJECT_SUMMARY === 'true';
+
+// Feature flag to show Portfolio KPI tiles in new layout (default false for minimal view)
+const SHOW_PORTFOLIO_KPIS = import.meta.env.VITE_FINZ_SHOW_PORTFOLIO_KPIS === 'true';
+
+// Debug logging for feature flags (development only)
+if (import.meta.env.DEV) {
+  console.log('[SDMTForecast] Feature Flags:', {
+    NEW_FORECAST_LAYOUT_ENABLED,
+    SHOW_KEY_TRENDS,
+    HIDE_KEY_TRENDS,
+    HIDE_REAL_ANNUAL_KPIS,
+    HIDE_PROJECT_SUMMARY,
+    SHOW_PORTFOLIO_KPIS,
+  });
+}
+
+// Feature flags for portfolio summary view customization
+// (Flags for ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED, HIDE_EXPANDABLE_PROJECT_LIST,
+// and HIDE_RUNWAY_METRICS are declared and used inside PortfolioSummaryView.tsx)
 
 export function SDMTForecast() {
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
@@ -199,13 +238,35 @@ export function SDMTForecast() {
 
   // Baseline detail for FTE calculation
   const [baselineDetail, setBaselineDetail] =
-    useState<BaselineDetailResponse | null>(null);
+    useState<BaselineDetail | null>(null);
+
+  // Materialization state tracking
+  const [materializationPending, setMaterializationPending] = useState(false);
+  const [materializationFailed, setMaterializationFailed] = useState(false);
+  const [materializationTimeout, setMaterializationTimeout] = useState<number | null>(null);
 
   // Sorting state for forecast grid
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // State for controlling rubros grid collapsible (TODOS view)
   const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(false);
+
+  // Breakdown view mode for TODOS/portfolio view (Proyectos vs Rubros)
+  // The ForecastRubrosTable component has its own internal viewMode that switches between
+  // 'category' and 'project' views. This state tracks the user's preference at the page level.
+  const [breakdownMode, setBreakdownMode] = useState<'project' | 'rubros'>(() => {
+    const stored = sessionStorage.getItem('forecastBreakdownMode');
+    return stored === 'rubros' ? 'rubros' : 'project';
+  });
+  
+  // Handler for breakdown mode changes
+  const handleBreakdownModeChange = (newMode: 'project' | 'rubros') => {
+    setBreakdownMode(newMode);
+    sessionStorage.setItem('forecastBreakdownMode', newMode);
+    // Note: The ForecastRubrosTable component manages its own viewMode internally
+    // and persists it in sessionStorage. This handler updates the page-level state
+    // which could be used to control other aspects of the view in the future.
+  };
 
   // Stale response guard: Track latest request to prevent race conditions
   const latestRequestKeyRef = useRef<string>("");
@@ -275,11 +336,13 @@ export function SDMTForecast() {
   const location = useLocation();
   const {
     lineItems,
+    taxonomyByRubroId,
     isLoading: isLineItemsLoading,
     error: lineItemsError,
   } = useProjectLineItems({
     useFallback: true,
     baselineId: currentProject?.baselineId,
+    withTaxonomy: true,
   });
   const safeLineItems = useMemo(
     () => (Array.isArray(lineItems) ? lineItems : []),
@@ -361,54 +424,6 @@ export function SDMTForecast() {
     return `${monthNames[month - 1]} ${year}`;
   };
 
-  // Load data when project or period changes
-  useEffect(() => {
-    if (selectedProjectId) {
-      console.log(
-        "🔄 Forecast: Loading data for project:",
-        selectedProjectId,
-        "change count:",
-        projectChangeCount,
-        "baseline:",
-        currentProject?.baselineId
-      );
-
-      // Abort any previous request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-
-      // Reset state before loading new data
-      setForecastData([]);
-      setPortfolioLineItems([]);
-      loadForecastData();
-    }
-
-    // Cleanup: abort on unmount or when dependencies change
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [
-    selectedProjectId,
-    selectedPeriod,
-    projectChangeCount,
-    currentProject?.baselineId,
-  ]);
-
-  // Reload data when returning from reconciliation with refresh parameter
-  useEffect(() => {
-    const urlParams = new URLSearchParams(location.search);
-    const refreshParam = urlParams.get("_refresh");
-    if (refreshParam && selectedProjectId) {
-      if (import.meta.env.DEV) {
-        console.log("🔄 Forecast: Refreshing after reconciliation");
-      }
-      loadForecastData();
-    }
-  }, [location.search]);
-
   useEffect(() => {
     if (!lineItemsError) return;
 
@@ -419,30 +434,67 @@ export function SDMTForecast() {
     setForecastError((prev) => prev || message);
   }, [lineItemsError, login]);
 
-  // Load baseline details for FTE calculation
+  // Load baseline details for FTE calculation and track materialization status
   useEffect(() => {
     if (currentProject?.baselineId && !isPortfolioView) {
       getBaselineById(currentProject.baselineId)
         .then((data) => {
           if (import.meta.env.DEV) {
             console.log(
-              "[SDMTForecast] Baseline details loaded for FTE calculation"
+              "[SDMTForecast] Baseline details loaded for FTE calculation",
+              { baselineId: currentProject.baselineId, data }
             );
           }
           setBaselineDetail(data);
+          
+          // Track materialization status from metadata
+          const meta = data?.metadata ?? {};
+          const isPending = !!meta?.materialization_queued_at || meta?.materialization_status === 'pending';
+          const isFailed = meta?.materialization_status === 'failed' || !!meta?.materialization_failed;
+          const materializedAt = meta?.materializedAt ?? data?.materializedAt ?? meta?.materialized_at;
+          
+          if (import.meta.env.DEV) {
+            console.log("[SDMTForecast] Baseline materialization status:", {
+              isPending,
+              isFailed,
+              materializedAt,
+              materialization_status: meta?.materialization_status,
+              materialization_queued_at: meta?.materialization_queued_at,
+            });
+          }
+          
+          setMaterializationPending(isPending && !materializedAt);
+          setMaterializationFailed(isFailed);
+          
+          // Compute timeout if queued for more than 15 minutes
+          if (isPending && meta?.materialization_queued_at && !materializedAt) {
+            const queuedTs = new Date(meta.materialization_queued_at).getTime();
+            const elapsedMin = (Date.now() - queuedTs) / (1000 * 60);
+            setMaterializationTimeout(elapsedMin > 15 ? Math.round(elapsedMin) : null);
+          } else {
+            setMaterializationTimeout(null);
+          }
         })
         .catch((err) => {
           console.error("Failed to load baseline details:", err);
           setBaselineDetail(null);
+          setMaterializationFailed(true);
+          setMaterializationPending(false);
+          setMaterializationTimeout(null);
         });
     } else {
       setBaselineDetail(null);
+      setMaterializationPending(false);
+      setMaterializationFailed(false);
+      setMaterializationTimeout(null);
     }
   }, [currentProject?.baselineId, isPortfolioView]);
 
-  const loadForecastData = async () => {
-    if (!selectedProjectId) {
-      console.log("❌ No project selected, skipping forecast load");
+  const loadForecastData = useCallback(async () => {
+    // If we're in portfolio (TODOS) view, we MUST load portfolio-wide forecast even when there is
+    // no selectedProjectId. Only skip forecast load when not in portfolio view and no project selected.
+    if (!isPortfolioView && !selectedProjectId) {
+      console.log("❌ No project selected and not portfolio view, skipping forecast load");
       return;
     }
 
@@ -523,7 +575,7 @@ export function SDMTForecast() {
         setIsLoadingForecast(false);
       }
     }
-  };
+  }, [isPortfolioView, selectedProjectId, currentProject?.baselineId, selectedPeriod, login]);
 
   const transformLineItemsToForecast = (
     lineItems: LineItemLike[],
@@ -652,16 +704,26 @@ export function SDMTForecast() {
           ? monthlyOverride
           : defaultMonthlyAmount;
 
+        // Try to resolve category and description from canonical taxonomy
+        const taxonomy = getTaxonomyById(lineItemId) || getTaxonomyById(rubroKey);
+        
+        const description = 
+          resolveString(item.description) ||
+          resolveString(item.descripcion) ||
+          (taxonomy ? taxonomy.linea_gasto || taxonomy.descripcion : '') ||
+          lineItemId;
+        
+        const category = 
+          resolveString(item.category) || 
+          resolveString(item.categoria) || 
+          (taxonomy ? taxonomy.categoria : '');
+
         forecastCells.push({
           line_item_id: lineItemId,
           rubroId: rubroKey,
           projectId,
-          description:
-            resolveString(item.description) ||
-            resolveString(item.descripcion) ||
-            "",
-          category:
-            resolveString(item.category) || resolveString(item.categoria) || "",
+          description,
+          category,
           month,
           planned: amount,
           forecast: amount,
@@ -782,6 +844,32 @@ export function SDMTForecast() {
         usedFallback,
         generatedAt: payload.generatedAt,
       });
+      
+      // DEV telemetry: Track unmatched invoices to help debug actuals
+      const unmatchedInvoices = matchedInvoices.filter(inv => {
+        return !normalized.some(cell => 
+          cell.line_item_id === inv.line_item_id && cell.month === inv.month
+        );
+      });
+      
+      if (unmatchedInvoices.length > 0) {
+        console.debug(
+          `[Forecast] unmatchedInvoices=${unmatchedInvoices.length}/${matchedInvoices.length}`,
+          {
+            sample: unmatchedInvoices.slice(0, 3).map(inv => ({
+              line_item_id: inv.line_item_id,
+              month: inv.month,
+              amount: inv.amount,
+              rubroId: inv.rubroId || inv.rubro_id,
+            })),
+            forecastKeys: normalized.slice(0, 5).map(cell => ({
+              line_item_id: cell.line_item_id,
+              month: cell.month,
+              rubroId: cell.rubroId,
+            })),
+          }
+        );
+      }
     }
 
     // Final check before setting state
@@ -801,6 +889,12 @@ export function SDMTForecast() {
   };
 
   const loadPortfolioForecast = async (months: number, requestKey: string) => {
+    if (import.meta.env.DEV) {
+      console.log(
+        `[loadPortfolioForecast] projects loaded: ${projects.length}, ids: ${JSON.stringify(projects.map(p => p.id))}`
+      );
+    }
+    
     const candidateProjects = projects.filter(
       (project) => project.id && project.id !== ALL_PROJECTS_ID
     );
@@ -881,11 +975,13 @@ export function SDMTForecast() {
           );
 
           const projectData: ForecastRow[] = normalized.map((cell) => {
-            const matchedInvoice = matchedInvoices.find(
-              (inv) =>
+            const matchedInvoice = matchedInvoices.find((inv) => {
+              const invoiceMonth = normalizeInvoiceMonth(inv.month);
+              return (
                 inv.line_item_id === cell.line_item_id &&
-                inv.month === cell.month
-            );
+                invoiceMonth === cell.month
+              );
+            });
 
             const withActuals = matchedInvoice
               ? {
@@ -901,6 +997,39 @@ export function SDMTForecast() {
               projectName: project.name,
             };
           });
+
+          if (import.meta.env.DEV) {
+            console.log(
+              `[loadPortfolioForecast] project ${project.id} forecastRows=${projectData.length} invoices=${invoices.length}`
+            );
+            
+            // DEV telemetry: Track unmatched invoices to help debug actuals
+            const unmatchedInvoices = matchedInvoices.filter(inv => {
+              const invoiceMonth = normalizeInvoiceMonth(inv.month);
+              return !normalized.some(cell => 
+                cell.line_item_id === inv.line_item_id && cell.month === invoiceMonth
+              );
+            });
+            
+            if (unmatchedInvoices.length > 0) {
+              console.debug(
+                `[loadPortfolioForecast] project ${project.id} unmatchedInvoices=${unmatchedInvoices.length}/${matchedInvoices.length}`,
+                {
+                  sample: unmatchedInvoices.slice(0, 3).map(inv => ({
+                    line_item_id: inv.line_item_id,
+                    month: inv.month,
+                    amount: inv.amount,
+                    rubroId: inv.rubroId || inv.rubro_id,
+                  })),
+                  forecastKeys: normalized.slice(0, 5).map(cell => ({
+                    line_item_id: cell.line_item_id,
+                    month: cell.month,
+                    rubroId: cell.rubroId,
+                  })),
+                }
+              );
+            }
+          }
 
           return {
             project,
@@ -954,6 +1083,94 @@ export function SDMTForecast() {
       });
     }
   };
+
+  // Consolidated data loading effect: handles initial load, route changes, and event-driven refreshes
+  // This ensures forecast loads on:
+  // 1. Initial mount / when dependencies change (project, period, baseline)
+  // 2. Route change (location.key)
+  // 3. Document visibility change (hidden → visible)
+  // 4. Window focus
+  // 5. Manual refresh via URL parameter (_refresh)
+  useEffect(() => {
+    // Helper to trigger load and guard against overlapping calls
+    const triggerLoad = () => {
+      // Allow portfolio mode OR a single selected project to start the load
+      if (isPortfolioView || selectedProjectId) {
+        if (import.meta.env.DEV) {
+          console.log(
+            "🔄 Forecast: Loading data for project:",
+            selectedProjectId,
+            "isPortfolioView:",
+            isPortfolioView,
+            "change count:",
+            projectChangeCount,
+            "baseline:",
+            currentProject?.baselineId
+          );
+        }
+
+        // Abort any previous request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+
+        // Reset state before loading new data
+        setForecastData([]);
+        setPortfolioLineItems([]);
+        loadForecastData();
+      }
+    };
+
+    // Run once on mount / whenever route (location.key) or main deps change
+    triggerLoad();
+
+    // Check for URL refresh parameter
+    const urlParams = new URLSearchParams(location.search);
+    const refreshParam = urlParams.get("_refresh");
+    if (refreshParam && (selectedProjectId || isPortfolioView)) {
+      if (import.meta.env.DEV) {
+        console.log("🔄 Forecast: Refreshing after reconciliation (URL param)");
+      }
+      // Already triggered above, but this logs the reason
+    }
+
+    // Guard to prevent repeated visibility-based refreshes
+    let didRefreshOnVisibility = false;
+
+    // Visibility change: when tab becomes visible again, reload once
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && (selectedProjectId || isPortfolioView) && !didRefreshOnVisibility) {
+        didRefreshOnVisibility = true;
+        if (import.meta.env.DEV) {
+          console.log("🔄 Forecast: Refreshing on visibility change");
+        }
+        triggerLoad();
+      } else if (document.visibilityState === 'hidden') {
+        // Reset the flag when tab becomes hidden so next visibility will trigger refresh
+        didRefreshOnVisibility = false;
+      }
+    };
+    window.addEventListener('visibilitychange', onVisibility);
+
+    // Cleanup: remove event listeners and abort outstanding request when component unmounts
+    return () => {
+      window.removeEventListener('visibilitychange', onVisibility);
+      // Abort any outstanding request when component unmounts
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [
+    loadForecastData,
+    location.key,
+    location.search,
+    selectedProjectId,
+    selectedPeriod,
+    projectChangeCount,
+    currentProject?.baselineId,
+    isPortfolioView,
+    projects.length,
+  ]);
 
   const handleCellEdit = (
     line_item_id: string,
@@ -1286,6 +1503,17 @@ export function SDMTForecast() {
         if (budgets.length > 0) {
           setUseMonthlyBudget(true);
         }
+
+        // DEV: Log monthly budgets loaded to help debug budget display issues
+        if (import.meta.env.DEV) {
+          console.debug('[SDMTForecast] monthlyBudgets loaded', {
+            year,
+            count: budgets.length,
+            monthlyBudgets: budgets,
+            useMonthlyBudget: budgets.length > 0,
+            totalBudget: budgets.reduce((sum, b) => sum + b.budget, 0),
+          });
+        }
       } else {
         setMonthlyBudgets([]);
         setMonthlyBudgetLastUpdated(null);
@@ -1304,6 +1532,14 @@ export function SDMTForecast() {
         setMonthlyBudgetLastUpdated(null);
         setMonthlyBudgetUpdatedBy(null);
         setUseMonthlyBudget(false);
+
+        // DEV: Log zeroed monthly budgets to help debug budget display issues
+        if (import.meta.env.DEV) {
+          console.debug('[SDMTForecast] monthlyBudgets initialized to zero (not found)', {
+            year,
+            useMonthlyBudget: false,
+          });
+        }
       } else {
         console.error("Error loading monthly budget:", error);
 
@@ -1366,6 +1602,82 @@ export function SDMTForecast() {
       setSavingMonthlyBudget(false);
     }
   };
+
+  // Retry materialization - reload baseline and forecast data with polling
+  const handleRetryMaterialization = useCallback(async () => {
+    if (!selectedProjectId || !currentProject?.baselineId) {
+      console.warn("[SDMTForecast] Cannot retry materialization: no baseline ID");
+      return;
+    }
+
+    if (import.meta.env.DEV) {
+      console.log("[SDMTForecast] Retrying materialization for baseline:", currentProject.baselineId);
+    }
+
+    setMaterializationPending(true);
+    setMaterializationFailed(false);
+    setMaterializationTimeout(null);
+
+    try {
+      // Call acceptBaseline to re-enqueue materialization
+      await acceptBaseline(selectedProjectId, {
+        baseline_id: currentProject.baselineId,
+        accepted_by: user?.email || user?.login,
+      });
+
+      if (import.meta.env.DEV) {
+        console.log("[SDMTForecast] acceptBaseline called successfully, polling for materialization...");
+      }
+
+      // Poll baseline until materialized (max 10 attempts, 2 seconds apart)
+      const poll = async () => {
+        for (let i = 0; i < 10; i++) {
+          await new Promise(r => setTimeout(r, 2000));
+          
+          const latest = await getBaselineById(currentProject.baselineId!);
+          const meta = latest?.metadata ?? {};
+          const materializedAt = meta?.materializedAt ?? latest?.materializedAt ?? meta?.materialized_at;
+          
+          if (import.meta.env.DEV) {
+            console.log(`[SDMTForecast] Poll attempt ${i + 1}/10:`, {
+              materializedAt,
+              materialization_status: meta?.materialization_status,
+            });
+          }
+          
+          if (materializedAt) {
+            // Materialization complete!
+            setBaselineDetail(latest);
+            setMaterializationPending(false);
+            setMaterializationFailed(false);
+            setMaterializationTimeout(null);
+            
+            // Reload forecast data to show materialized rubros/allocations
+            await loadForecastData();
+            
+            if (import.meta.env.DEV) {
+              console.log("[SDMTForecast] Materialization complete, forecast reloaded");
+            }
+            return;
+          }
+        }
+        
+        // Timeout - still pending after 10 polls
+        if (import.meta.env.DEV) {
+          console.warn("[SDMTForecast] Materialization polling timed out after 20 seconds");
+        }
+        setMaterializationPending(true);
+        setMaterializationTimeout(1); // Indicate timeout occurred
+      };
+      
+      await poll();
+    } catch (err) {
+      console.error("[SDMTForecast] Failed to retry materialization:", err);
+      setMaterializationFailed(true);
+      setMaterializationPending(false);
+      setMaterializationTimeout(null);
+    }
+  }, [selectedProjectId, currentProject?.baselineId, user?.email, user?.login, loadForecastData]);
 
   // Reset monthly budget to auto-distribution
   const handleResetMonthlyBudget = () => {
@@ -1515,11 +1827,13 @@ export function SDMTForecast() {
           projectId?: string;
           projectName?: string;
         };
-        const itemForecasts = filteredForecastData.filter(
-          (f) =>
+        const itemForecasts = filteredForecastData.filter((f) => {
+          const forecastProjectId = (f as any).projectId || (f as any).project_id;
+          return (
             f.line_item_id === lineItem.id &&
-            (!lineItemData.projectId || f.projectId === lineItemData.projectId)
-        );
+            (!lineItemData.projectId || forecastProjectId === lineItemData.projectId)
+          );
+        });
 
         // In current month mode, only show the current month; otherwise show all 12 months
         const months = isCurrentMonthMode
@@ -1943,39 +2257,57 @@ export function SDMTForecast() {
 
   // Build category totals for TODOS mode (charts and rubros table)
   const categoryTotals = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0) {
+    if (forecastData.length === 0) {
       return new Map();
     }
-    return buildCategoryTotals(forecastData);
-  }, [isPortfolioView, forecastData]);
+    // In single-project mode, filter to selected project
+    const dataToGroup = isPortfolioView 
+      ? forecastData 
+      : forecastData.filter(cell => ((cell as any).projectId || (cell as any).project_id) === selectedProjectId);
+    return buildCategoryTotals(dataToGroup);
+  }, [isPortfolioView, forecastData, selectedProjectId]);
 
   // Build category rubros for TODOS mode (rubros table)
   const categoryRubros = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0) {
+    if (forecastData.length === 0) {
       return new Map();
     }
-    return buildCategoryRubros(forecastData, portfolioLineItems);
-  }, [isPortfolioView, forecastData, portfolioLineItems]);
+    // In single-project mode, filter to selected project
+    const dataToGroup = isPortfolioView 
+      ? forecastData 
+      : forecastData.filter(cell => ((cell as any).projectId || (cell as any).project_id) === selectedProjectId);
+    const lineItemsToUse = isPortfolioView ? portfolioLineItems : safeLineItems;
+    return buildCategoryRubros(dataToGroup, lineItemsToUse);
+  }, [isPortfolioView, forecastData, portfolioLineItems, safeLineItems, selectedProjectId]);
 
   // Build project totals for TODOS mode (project view)
   const projectTotals = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0) {
+    if (forecastData.length === 0) {
       return new Map();
     }
-    return buildProjectTotals(forecastData);
-  }, [isPortfolioView, forecastData]);
+    // In single-project mode, filter to selected project
+    const dataToGroup = isPortfolioView 
+      ? forecastData 
+      : forecastData.filter(cell => ((cell as any).projectId || (cell as any).project_id) === selectedProjectId);
+    return buildProjectTotals(dataToGroup);
+  }, [isPortfolioView, forecastData, selectedProjectId]);
 
   // Build project rubros for TODOS mode (project view)
   const projectRubros = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0) {
+    if (forecastData.length === 0) {
       return new Map();
     }
-    return buildProjectRubros(forecastData, portfolioLineItems);
-  }, [isPortfolioView, forecastData, portfolioLineItems]);
+    // In single-project mode, filter to selected project
+    const dataToGroup = isPortfolioView 
+      ? forecastData 
+      : forecastData.filter(cell => ((cell as any).projectId || (cell as any).project_id) === selectedProjectId);
+    const lineItemsToUse = isPortfolioView ? portfolioLineItems : safeLineItems;
+    return buildProjectRubros(dataToGroup, lineItemsToUse, taxonomyByRubroId);
+  }, [isPortfolioView, forecastData, portfolioLineItems, safeLineItems, taxonomyByRubroId, selectedProjectId]);
 
   // Build portfolio totals for TODOS mode (charts and rubros table)
   const portfolioTotalsForCharts = useMemo(() => {
-    if (!isPortfolioView || forecastData.length === 0) {
+    if (forecastData.length === 0) {
       return {
         byMonth: {},
         overall: {
@@ -1988,7 +2320,39 @@ export function SDMTForecast() {
         },
       };
     }
-    return buildPortfolioTotals(forecastData);
+    // In single-project mode, filter to selected project
+    const dataToGroup = isPortfolioView 
+      ? forecastData 
+      : forecastData.filter(cell => ((cell as any).projectId || (cell as any).project_id) === selectedProjectId);
+    return buildPortfolioTotals(dataToGroup);
+  }, [isPortfolioView, forecastData, selectedProjectId]);
+
+  // Compute projects per month (M/M) for chart bar series
+  const projectsPerMonth = useMemo(() => {
+    if (!isPortfolioView || forecastData.length === 0) {
+      return Array.from({ length: 12 }, (_, i) => ({ month: i + 1, count: 0 }));
+    }
+
+    // Count unique projects per month
+    const monthlyProjects = new Map<number, Set<string>>();
+    
+    forecastData.forEach((cell) => {
+      const month = cell.month;
+      const projectId = cell.projectId;
+      
+      if (!month || !projectId || month < 1 || month > 12) return;
+      
+      if (!monthlyProjects.has(month)) {
+        monthlyProjects.set(month, new Set());
+      }
+      monthlyProjects.get(month)!.add(projectId);
+    });
+
+    return Array.from({ length: 12 }, (_, i) => {
+      const month = i + 1;
+      const count = monthlyProjects.get(month)?.size || 0;
+      return { month, count };
+    });
   }, [isPortfolioView, forecastData]);
 
   // Check if we have a valid budget for variance analysis
@@ -2438,7 +2802,7 @@ export function SDMTForecast() {
       {/* Data Health Debug Panel (Dev Only) */}
       <DataHealthPanel />
 
-      {/* Executive KPI Summary Bar - TODOS Mode Only */}
+      {/* Position #1: Resumen Ejecutivo - Cartera Completa (ForecastSummaryBar) - Always visible at top */}
       {isPortfolioView && summaryBarKpis && (
         <ForecastSummaryBar
           totalBudget={summaryBarKpis.totalBudget}
@@ -2455,115 +2819,7 @@ export function SDMTForecast() {
         />
       )}
 
-      {/* NEW LAYOUT: Cuadrícula de Pronóstico - Positioned directly below Executive KPI Summary */}
-      {/* Extract condition to const for clarity and prevent duplication */}
-      {(() => {
-        const showNewLayoutGrid = NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView && !loading && forecastData.length > 0;
-        
-        if (!showNewLayoutGrid) return null;
-        
-        return (
-          <Collapsible
-            open={isRubrosGridOpen}
-            onOpenChange={setIsRubrosGridOpen}
-            defaultOpen={true}
-          >
-            <Card ref={rubrosSectionRef} tabIndex={-1} className="space-y-2">
-              <CardHeader className="pb-2 pt-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="text-lg">
-                      Cuadrícula de Pronóstico
-                    </CardTitle>
-                  </div>
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      aria-label="Expandir/Colapsar cuadrícula de pronóstico"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </CollapsibleTrigger>
-                </div>
-              </CardHeader>
-              <CollapsibleContent>
-                <CardContent className="pt-0">
-                  <ForecastRubrosTable
-                    categoryTotals={categoryTotals}
-                    categoryRubros={categoryRubros}
-                    projectTotals={projectTotals}
-                    projectRubros={projectRubros}
-                    portfolioTotals={portfolioTotalsForCharts}
-                    monthlyBudgets={monthlyBudgets}
-                    onSaveBudget={handleSaveBudgetFromTable}
-                    formatCurrency={formatCurrency}
-                    canEditBudget={canEditBudget}
-                    defaultFilter="labor"
-                  />
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        );
-      })()}
 
-      {/* Monthly Snapshot Grid - TODOS Mode Only */}
-      {isPortfolioView && (
-        <>
-          {isLoadingForecast ? (
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-center min-h-[200px]">
-                  <div className="text-center">
-                    <LoadingSpinner size="lg" />
-                    <p className="text-muted-foreground mt-4">
-                      Cargando pronóstico...
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : forecastData.length > 0 ? (
-            <MonthlySnapshotGrid
-              forecastData={forecastData}
-              lineItems={portfolioLineItems}
-              monthlyBudgets={monthlyBudgets}
-              useMonthlyBudget={useMonthlyBudget}
-              formatCurrency={formatCurrency}
-              getCurrentMonthIndex={getCurrentMonthIndex}
-              onScrollToDetail={(params) => {
-                // Scroll to the 12-month grid section
-                if (rubrosSectionRef.current) {
-                  setIsRubrosGridOpen(true);
-                  setTimeout(() => {
-                    rubrosSectionRef.current?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "start",
-                    });
-                  }, 100);
-                }
-              }}
-              onNavigateToReconciliation={(lineItemId, projectId) => {
-                const params = new URLSearchParams();
-                if (projectId) {
-                  params.set("projectId", projectId);
-                }
-                params.set("line_item", lineItemId);
-                const currentPath = location.pathname + location.search;
-                params.set("returnUrl", currentPath);
-                navigate(
-                  `/finanzas/sdmt/cost/reconciliation?${params.toString()}`
-                );
-              }}
-              onNavigateToCostCatalog={(projectId) => {
-                navigate(`/sdmt/cost/catalog?projectId=${projectId}`);
-              }}
-            />
-          ) : null}
-        </>
-      )}
 
       {/* KPI Summary - Standardized & Compact - Single Project Mode Only */}
       {!isPortfolioView && (
@@ -2879,7 +3135,9 @@ export function SDMTForecast() {
       )}
 
       {/* Real Annual Budget KPIs - Show when budget is set and portfolio view (not simulation) */}
-      {isPortfolioView && !budgetSimulation.enabled && (
+      {/* Hide when NEW_FORECAST_LAYOUT is enabled - KPIs are shown in ForecastSummaryBar instead */}
+      {/* Gate behind SHOW_PORTFOLIO_KPIS flag (default false) or existing HIDE_REAL_ANNUAL_KPIS */}
+      {SHOW_PORTFOLIO_KPIS && !NEW_FORECAST_LAYOUT_ENABLED && !HIDE_REAL_ANNUAL_KPIS && isPortfolioView && !budgetSimulation.enabled && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
           <Card className="border-blue-500/30">
             <CardContent className="p-3">
@@ -3048,55 +3306,130 @@ export function SDMTForecast() {
       {/* ========== TODOS / PORTFOLIO VIEW LAYOUT ========== */}
       {isPortfolioView && (
         <>
-          {/* Charts Panel - Prominent position after KPI bar */}
-          {!loading && forecastData.length > 0 && (
-            <ForecastChartsPanel
-              portfolioTotals={portfolioTotalsForCharts}
-              categoryTotals={categoryTotals}
+          {/* Position #2: Cuadrícula de Pronóstico (12 Meses) - Canonical 12m grid */}
+          {/* NOTE: This is the canonical 12-month grid when NEW_FORECAST_LAYOUT is enabled. */}
+          {/* This MUST always render in portfolio view (even when forecastData is empty) */}
+          {/* The ForecastRubrosTable component handles empty state internally */}
+          {/* Must NOT be collapsed by default on entry (defaultOpen=true). */}
+          {/* Single instance on entire page - no duplicates. */}
+          {NEW_FORECAST_LAYOUT_ENABLED && !loading && (
+            <Collapsible
+              open={isRubrosGridOpen}
+              onOpenChange={setIsRubrosGridOpen}
+              defaultOpen={true}
+            >
+              <Card ref={rubrosSectionRef} tabIndex={-1} className="space-y-2">
+                <CardHeader className="pb-2 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">
+                        Cuadrícula de Pronóstico
+                      </CardTitle>
+                      <Badge variant="secondary" className="ml-2">M1-M12</Badge>
+                    </div>
+                    
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label="Expandir/Colapsar Cuadrícula de Pronóstico"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                </CardHeader>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <ForecastRubrosTable
+                      categoryTotals={categoryTotals}
+                      categoryRubros={categoryRubros}
+                      projectTotals={projectTotals}
+                      projectRubros={projectRubros}
+                      portfolioTotals={portfolioTotalsForCharts}
+                      monthlyBudgets={monthlyBudgets}
+                      onSaveBudget={handleSaveBudgetFromTable}
+                      formatCurrency={formatCurrency}
+                      canEditBudget={canEditBudget}
+                      defaultFilter="labor"
+                    />
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          )}
+
+          {/* Position #3: Matriz del Mes — Vista Ejecutiva - MonthlySnapshotGrid */}
+          {/* Visual: filters & buttons must be compact and balanced (see #3 in expected layout). */}
+          {/* Only show when NEW_FORECAST_LAYOUT is enabled */}
+          {NEW_FORECAST_LAYOUT_ENABLED && (isLoadingForecast ? (
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-center min-h-[200px]">
+                  <div className="text-center">
+                    <LoadingSpinner size="lg" />
+                    <p className="text-muted-foreground mt-4">
+                      Cargando pronóstico...
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (forecastData.length > 0 || portfolioLineItems.length > 0) ? (
+            <MonthlySnapshotGrid
+              forecastData={forecastData}
+              lineItems={portfolioLineItems}
               monthlyBudgets={monthlyBudgets}
               useMonthlyBudget={useMonthlyBudget}
               formatCurrency={formatCurrency}
+              getCurrentMonthIndex={getCurrentMonthIndex}
+              onScrollToDetail={(params) => {
+                // Scroll to the 12-month grid section
+                if (rubrosSectionRef.current) {
+                  setIsRubrosGridOpen(true);
+                  setTimeout(() => {
+                    rubrosSectionRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  }, 100);
+                }
+              }}
+              onNavigateToReconciliation={(lineItemId, projectId) => {
+                const params = new URLSearchParams();
+                if (projectId) {
+                  params.set("projectId", projectId);
+                }
+                params.set("line_item", lineItemId);
+                const currentPath = location.pathname + location.search;
+                params.set("returnUrl", currentPath);
+                navigate(
+                  `/finanzas/sdmt/cost/reconciliation?${params.toString()}`
+                );
+              }}
+              onNavigateToCostCatalog={(projectId) => {
+                navigate(`/sdmt/cost/catalog?projectId=${projectId}`);
+              }}
             />
-          )}
+          ) : null)}
 
-          {/* Top Variance Tables - Executive View (Key Trends / hidden when HIDE_KEY_TRENDS is true) */}
-          {!HIDE_KEY_TRENDS &&
-            !loading &&
-            isPortfolioView &&
-            forecastData.length > 0 &&
-            hasBudgetForVariance && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <TopVarianceProjectsTable
-                  projects={projectSummaries}
-                  formatCurrency={formatCurrency}
-                  onProjectClick={navigateToProject}
-                  topN={5}
-                />
-                <TopVarianceRubrosTable
-                  categories={categoryTotals}
-                  budgetOverall={parseFloat(budgetAmount)}
-                  formatCurrency={formatCurrency}
-                  onCategoryClick={handleCategoryClick}
-                  topN={5}
-                />
-              </div>
-            )}
-
-          {/* Collapsible Section: Resumen de todos los proyectos */}
-          {!loading && (
-            <Collapsible defaultOpen={!NEW_FORECAST_LAYOUT_ENABLED}>
+          {/* Position #4: Resumen de Portafolio - PortfolioSummaryView */}
+          {/* Only show when NEW_FORECAST_LAYOUT is enabled, HIDE_PROJECT_SUMMARY flag is false, and budget simulation is NOT active */}
+          {NEW_FORECAST_LAYOUT_ENABLED && !HIDE_PROJECT_SUMMARY && !loading && !budgetSimulation.enabled && (
+            <Collapsible defaultOpen={true}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">
-                      Resumen de todos los proyectos
+                      Resumen de Portafolio
                     </CardTitle>
                     <CollapsibleTrigger asChild>
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0"
-                        aria-label="Expandir/Colapsar resumen de proyectos"
+                        aria-label="Expandir/Colapsar resumen de Portafolio"
                       >
                         <ChevronDown className="h-4 w-4" />
                       </Button>
@@ -3126,59 +3459,11 @@ export function SDMTForecast() {
             </Collapsible>
           )}
 
-          {/* Collapsible Section: Cuadrícula de Pronóstico 12 Meses (Rubros Grid) */}
-          {/* OLD LAYOUT: Hidden when NEW_FORECAST_LAYOUT_ENABLED in portfolio view */}
-          {!loading && forecastData.length > 0 && !(NEW_FORECAST_LAYOUT_ENABLED && isPortfolioView) && (
-            <Collapsible
-              open={isRubrosGridOpen}
-              onOpenChange={setIsRubrosGridOpen}
-            >
-              <Card 
-                ref={NEW_FORECAST_LAYOUT_ENABLED ? undefined : rubrosSectionRef} 
-                tabIndex={-1}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <CardTitle className="text-lg">
-                        {NEW_FORECAST_LAYOUT_ENABLED 
-                          ? "Cuadrícula de Pronóstico"
-                          : "Cuadrícula de Pronóstico 12 Meses"}
-                      </CardTitle>
-                    </div>
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        aria-label="Expandir/Colapsar cuadrícula de rubros"
-                      >
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </CollapsibleTrigger>
-                  </div>
-                </CardHeader>
-                <CollapsibleContent>
-                  <CardContent className="pt-0">
-                    <ForecastRubrosTable
-                      categoryTotals={categoryTotals}
-                      categoryRubros={categoryRubros}
-                      projectTotals={projectTotals}
-                      projectRubros={projectRubros}
-                      portfolioTotals={portfolioTotalsForCharts}
-                      monthlyBudgets={monthlyBudgets}
-                      onSaveBudget={handleSaveBudgetFromTable}
-                      formatCurrency={formatCurrency}
-                      canEditBudget={canEditBudget}
-                      defaultFilter="labor"
-                    />
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
-          )}
+          {/* Duplicate ForecastRubrosTable removed - keeping only the first instance at line ~2551 */}
 
-          {/* Collapsible Section: Simulador de Presupuesto */}
+          {/* Position #5: Simulador de Presupuesto - Collapsible (defaultOpen={false}) */}
+          {/* Only show when NEW_FORECAST_LAYOUT is enabled */}
+          {NEW_FORECAST_LAYOUT_ENABLED && (
           <Collapsible defaultOpen={false}>
             <Card className="border-2 border-primary/20">
               <CardHeader className="pb-3">
@@ -3367,6 +3652,20 @@ export function SDMTForecast() {
               </CollapsibleContent>
             </Card>
           </Collapsible>
+          )}
+
+          {/* Position #6: Gráficos de Tendencias - ForecastChartsPanel (Collapsible) */}
+          {/* Only show when NEW_FORECAST_LAYOUT is enabled */}
+          {NEW_FORECAST_LAYOUT_ENABLED && !loading && forecastData.length > 0 && (
+            <ForecastChartsPanel
+              portfolioTotals={portfolioTotalsForCharts}
+              categoryTotals={categoryTotals}
+              monthlyBudgets={monthlyBudgets}
+              useMonthlyBudget={useMonthlyBudget}
+              formatCurrency={formatCurrency}
+              projectsPerMonth={projectsPerMonth}
+            />
+          )}
         </>
       )}
 
@@ -3575,28 +3874,53 @@ export function SDMTForecast() {
         </Collapsible>
       )}
 
-      {/* Forecast Grid - Common for both modes, but with collapsible wrapper for TODOS */}
+      {/* Forecast Grid / Position #7: Monitoreo mensual de proyectos vs. presupuesto */}
+      {/* This is the legacy grid for old layout, and Position #7 for NEW_FORECAST_LAYOUT */}
+      {/* Shows in portfolio view with breakdown modes (Proyectos | Rubros por proyecto) */}
       {isPortfolioView ? (
-        /* TODOS mode - wrapped in collapsible "Desglose mensual vs presupuesto" */
-        <Collapsible defaultOpen={false}>
+        /* TODOS mode - wrapped in collapsible "Monitoreo mensual de proyectos vs. presupuesto" */
+        <Collapsible defaultOpen={true}>
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">
-                  {selectedPeriod === "CURRENT_MONTH"
-                    ? `Desglose mensual vs presupuesto - Mes Actual (M${getCurrentMonthIndex()})`
-                    : "Desglose mensual vs presupuesto"}
-                </CardTitle>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    aria-label="Expandir/Colapsar desglose mensual"
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">
+                    Monitoreo mensual de proyectos vs. presupuesto
+                  </CardTitle>
+                  <Badge variant="secondary" className="ml-2">M1-M12</Badge>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="breakdown-mode-select" className="text-sm">Vista</Label>
+                  <Select
+                    value={breakdownMode}
+                    onValueChange={(v) => handleBreakdownModeChange(v as 'project' | 'rubros')}
                   >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </CollapsibleTrigger>
+                    <SelectTrigger
+                      id="breakdown-mode-select"
+                      className="h-8 w-[200px]"
+                      aria-label="Seleccionar vista: Proyectos o Rubros por proyecto"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="project">Proyectos</SelectItem>
+                      <SelectItem value="rubros">Rubros por proyecto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label="Expandir/Colapsar desglose mensual"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
               </div>
             </CardHeader>
             <CollapsibleContent>
@@ -3713,6 +4037,26 @@ export function SDMTForecast() {
                       </div>
                     </div>
                   </div>
+                ) : FEATURE_FLAGS.ENABLE_RUBROS_ADAPTER ? (
+                  <ForecastRubrosAdapter
+                    categoryTotals={categoryTotals}
+                    categoryRubros={categoryRubros}
+                    projectTotals={projectTotals}
+                    projectRubros={projectRubros}
+                    portfolioTotals={portfolioTotalsForCharts}
+                    monthlyBudgets={monthlyBudgets}
+                    baselineDetail={baselineDetail}
+                    selectedPeriod={selectedPeriod}
+                    externalViewMode={breakdownMode === 'project' ? 'project' : 'category'}
+                    onViewModeChange={(v) => handleBreakdownModeChange(v === 'project' ? 'project' : 'rubros')}
+                    onSaveMonthlyBudget={handleSaveMonthlyBudget}
+                    formatCurrency={formatCurrency}
+                    canEditBudget={canEditBudget}
+                    materializationPending={materializationPending}
+                    materializationFailed={materializationFailed}
+                    materializationTimeout={materializationTimeout}
+                    onRetryMaterialization={handleRetryMaterialization}
+                  />
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
@@ -4049,7 +4393,7 @@ export function SDMTForecast() {
             <CardTitle>
               {selectedPeriod === "CURRENT_MONTH"
                 ? `Cuadrícula de Pronóstico - Mes Actual (M${getCurrentMonthIndex()})`
-                : "Cuadrícula de Pronóstico 12 Meses"}
+                : "Cuadrícula de Pronóstico"}
             </CardTitle>
           </CardHeader>
           <CardContent>

@@ -62,3 +62,7 @@ public/docs/temp/
 
 # Use pnpm, ignore npm lockfile
 package-lock.json
+.env.local
+
+# Test artifacts
+artifacts-*.txt

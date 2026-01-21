@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Tooltip,
@@ -27,6 +28,24 @@ interface ForecastKpisProps {
  * Refactored from SDMTForecast to improve modularity.
  */
 export function ForecastKpis({ kpis, loading = false }: ForecastKpisProps) {
+  // Defensive return if HIDE_REAL_ANNUAL_KPIS flag is set
+  const HIDE_REAL_ANNUAL_KPIS = import.meta.env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS === 'true';
+  
+  // Debug log for QA (only in development)
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.debug('ForecastKpis flags:', {
+        HIDE_REAL_ANNUAL_KPIS,
+        NEW_LAYOUT: import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT,
+        raw_hide_kpis: import.meta.env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS,
+      });
+    }
+  }, [HIDE_REAL_ANNUAL_KPIS]);
+
+  if (HIDE_REAL_ANNUAL_KPIS) {
+    return null;
+  }
+
   const formatCurrency = (value: number, currency = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',

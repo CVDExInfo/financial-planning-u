@@ -2,8 +2,14 @@ import { APIGatewayProxyEventV2, Context } from "aws-lambda";
 import { ensureCanRead, ensureCanWrite, getUserContext } from "../lib/auth";
 import { bad, ok, noContent, serverError } from "../lib/http";
 import { ddb, tableName, QueryCommand, ScanCommand, PutCommand, GetCommand } from "../lib/dynamo";
-import { logError } from "../utils/logging";
+import { logError, logInfo } from "../utils/logging";
 import { parseForecastBulkUpdate } from "../validation/allocations";
+
+/**
+ * Regex pattern to identify baseline-like IDs
+ * Matches patterns like: base_, base-, BL-, BL_, baseline-, etc.
+ */
+const BASELINE_ID_PATTERN = /^(base_|base-|base|BL-|BL_)/i;
 
 /**
  * Get project metadata from DynamoDB with composite key
@@ -46,6 +52,200 @@ async function getMetadata(
 }
 
 /**
+ * Get baseline metadata from DynamoDB
+ * Retrieves baseline information including project_id for baseline->project resolution
+ */
+async function getBaselineMetadata(baselineId: string): Promise<any> {
+  try {
+    const prefacturasTable = tableName("prefacturas");
+    const lookup = await ddb.send(
+      new GetCommand({
+        TableName: prefacturasTable,
+        Key: { pk: `BASELINE#${baselineId}`, sk: "METADATA" },
+      })
+    );
+    return lookup.Item || null;
+  } catch (err: any) {
+    console.error('[allocations] Failed to get baseline metadata', {
+      baselineId,
+      error: err.name,
+      message: err.message,
+    });
+    return null;
+  }
+}
+
+/**
+ * Coerce a value to a number, returning 0 if invalid
+ */
+function coerceNumber(v: any): number {
+  if (v === undefined || v === null) return 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Parse month index from calendar key (YYYY-MM format)
+ * 
+ * NOTE: This extracts the calendar month number (1-12), NOT the contract month index.
+ * For multi-year baselines, this is a fallback that loses contract month context.
+ * Example: "2026-05" returns 5, but could represent M13 in a multi-year baseline.
+ * 
+ * The normalization logic prioritizes actual month_index/monthIndex fields when available.
+ * This fallback is only used when those fields are missing and no numeric month is provided.
+ */
+function parseMonthIndexFromCalendarKey(calKey?: string): number | undefined {
+  if (!calKey || typeof calKey !== 'string') return undefined;
+  const m = calKey.match(/^\d{4}-(\d{2})$/);
+  if (m) return parseInt(m[1], 10);
+  return undefined;
+}
+
+/**
+ * Normalize allocations to canonical format and derive labour amounts when needed
+ * 
+ * This function:
+ * 1. Normalizes field names (amount, month_index, etc.) from various legacy formats
+ * 2. Derives labour monthly amounts from baseline when amount is 0
+ * 3. Ensures all allocations have consistent shape for UI consumption
+ * 
+ * @param items - Raw allocation items from DynamoDB
+ * @param baselineIdCandidate - Optional baseline ID to use for derivation
+ * @returns Normalized allocation items
+ */
+async function normalizeAllocations(items: any[], baselineIdCandidate?: string): Promise<any[]> {
+  const baselineCache: {[k:string]: any} = {};
+  
+  async function loadBaseline(bid: string) {
+    if (!bid) return null;
+    if (!baselineCache[bid]) baselineCache[bid] = await getBaselineMetadata(bid);
+    return baselineCache[bid];
+  }
+
+  return Promise.all(items.map(async (it: any) => {
+    // Canonicalize rubro/line item id
+    const rubroId = it.rubroId || it.rubro_id || it.line_item_id || it.lineItemId || it.rubro || null;
+
+    // Canonical amount: try multiple fields in priority order
+    let amount = coerceNumber(
+      it.amount ?? 
+      it.planned ?? 
+      it.monto_planeado ?? 
+      it.monto_proyectado ?? 
+      it.monto_real ?? 
+      it.forecast
+    );
+
+    // Month indices / calendar key - now with robust normalization
+    // Load projectStartDate for each item (via baseline metadata first, fallback to project metadata)
+    let projectStartDate: string | undefined;
+
+    // Prefer baseline to obtain start_date (baseline includes project info)
+    const bidForMonth = it.baselineId || it.baseline_id || baselineIdCandidate;
+    if (bidForMonth) {
+      try {
+        const baseline = await loadBaseline(bidForMonth);
+        projectStartDate = baseline?.start_date || baseline?.payload?.start_date || baseline?.project_start_date;
+        // baseline may also have durationMonths; we already use that elsewhere
+      } catch (e) {
+        // ignore; we'll try project metadata next
+      }
+    }
+
+    // If still no projectStartDate, attempt to derive from the allocation's project key (PK=PROJECT#<id>)
+    if (!projectStartDate) {
+      let projectIdFromItem: string | undefined;
+      if (it.PK) projectIdFromItem = String(it.PK).replace(/^PROJECT#/, "");
+      else if (it.projectId) projectIdFromItem = it.projectId;
+      else if (it.project_id) projectIdFromItem = it.project_id;
+      if (projectIdFromItem) {
+        try {
+          const projectMeta = await getMetadata(projectIdFromItem, tableName("prefacturas"), /*context*/ undefined);
+          projectStartDate = projectMeta?.start_date || projectMeta?.payload?.start_date;
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
+    // Now compute monthIndex/calendarMonthKey robustly
+    let monthIndex = undefined;
+    let calendarMonthKey = it.calendarMonthKey ?? it.calendar_month ?? it.month ?? it.mes;
+    if (calendarMonthKey) {
+      try {
+        const normalized = normalizeMonth(calendarMonthKey, projectStartDate);
+        monthIndex = normalized.monthIndex;
+        calendarMonthKey = normalized.calendarMonthKey;
+      } catch (e) {
+        // fallback to previous parsing logic if normalizeMonth throws
+        monthIndex = parseMonthIndexFromCalendarKey(calendarMonthKey);
+      }
+    } else {
+      // existing handling for numeric month inputs - unchanged
+      monthIndex = it.month_index ?? it.monthIndex ?? (typeof it.month === 'number' ? it.month : undefined);
+    }
+
+    // If labour-like rubro and amount==0, try to derive from baseline labour estimates
+    // Heuristic: checks if rubroId starts with "MOD" (case-insensitive)
+    // This matches standard labour rubros like MOD-LEAD, MOD-SDM, MOD-ING, etc.
+    // Note: If your taxonomy includes labour rubros that don't start with "MOD",
+    // consider enhancing this to check against a canonical labour category list.
+    const isMOD = /^MOD/i.test(String(rubroId));
+    if (isMOD && !amount) {
+      // Prefer explicit baselineId else fallback to provided candidate
+      const bid = it.baselineId || it.baseline_id || baselineIdCandidate;
+      if (bid) {
+        try {
+          const baseline = await loadBaseline(bid);
+          if (baseline) {
+            const laborEstimates = (baseline.labor_estimates || baseline.payload?.labor_estimates || baseline.payload?.payload?.labor_estimates) || [];
+            // Attempt match by rubroId or line_item_id
+            const matched = (laborEstimates || []).find((le: any) => {
+              const leRubro = le.rubroId || le.rubro_id || le.line_item_id || le.id;
+              return leRubro && String(leRubro).toLowerCase() === String(rubroId).toLowerCase();
+            });
+            if (matched) {
+              // Derivation requires either:
+              // 1) total_cost field (preferred), or
+              // 2) hourly_rate + hours_per_month fields (fallback)
+              // If neither is available, derivation is skipped and amount remains 0
+              if (matched.total_cost || matched.totalCost) {
+                const totalCost = coerceNumber(matched.total_cost ?? matched.totalCost);
+                const duration = baseline.durationMonths || baseline.duration_months || matched.duration_months || matched.durationMonths || 12;
+                if (duration > 0) amount = Math.round((totalCost / duration) * 100) / 100;
+              } else if (matched.hourly_rate || matched.hourlyRate) {
+                const hr = coerceNumber(matched.hourly_rate ?? matched.hourlyRate);
+                const hours = coerceNumber(matched.hours_per_month ?? matched.hoursPerMonth ?? matched.hours ?? 160);
+                const fte = coerceNumber(matched.fte_count ?? matched.fteCount ?? 1);
+                const oncost = coerceNumber(matched.on_cost_percentage ?? matched.onCostPercentage ?? 0);
+                const base = hr * hours * fte;
+                amount = Math.round((base * (1 + oncost / 100)) * 100) / 100;
+              }
+              if (amount && amount > 0) {
+                console.info(`[allocations] Derived amount=${amount} for labour rubro ${rubroId} from baseline ${bid}`);
+              }
+            }
+          }
+        } catch (e: any) {
+          console.warn(`[allocations] Failed to derive labour amount for ${rubroId} / baseline ${bid}:`, e?.message || e);
+        }
+      }
+    }
+
+    return {
+      ...it,
+      amount,
+      month_index: monthIndex,
+      monthIndex,
+      calendarMonthKey,
+      rubroId,
+      rubro_id: it.rubro_id ?? rubroId,
+      line_item_id: it.line_item_id ?? it.lineItemId ?? rubroId,
+    };
+  }));
+}
+
+/**
  * Normalize month input to monthIndex (1-12) and compute calendarMonthKey (YYYY-MM)
  * Accepts:
  * - number 1-12 (monthIndex) - treated as contract month offset
@@ -65,7 +265,6 @@ function normalizeMonth(
   projectStartDate: string | undefined
 ): { monthIndex: number; calendarMonthKey: string } {
   let monthIndex: number;
-  let isExplicitCalendarMonth = false;
 
   if (typeof monthInput === "number") {
     // Already a number, use as monthIndex (contract month)
@@ -73,14 +272,37 @@ function normalizeMonth(
   } else if (typeof monthInput === "string") {
     // Check if it's in YYYY-MM format (explicit calendar month)
     if (/^\d{4}-\d{2}$/.test(monthInput)) {
-      // For backward compatibility: preserve the calendar month as-is
-      // Extract the month number to use as monthIndex
-      const month = parseInt(monthInput.substring(5, 7), 10);
-      isExplicitCalendarMonth = true;
-      return {
-        monthIndex: month,
-        calendarMonthKey: monthInput,
-      };
+      // If projectStartDate present, compute contract monthIndex as months since start + 1
+      // This ensures multi-year baselines are mapped to M1..M60 unambiguously.
+      if (projectStartDate && /^\d{4}-\d{2}-\d{2}$/.test(projectStartDate)) {
+        const [calYear, calMonth] = monthInput.split('-').map(Number);
+        // Parse start date with explicit UTC to avoid timezone issues
+        const startDate = new Date(projectStartDate + 'T00:00:00.000Z');
+        const startYear = startDate.getUTCFullYear();
+        const startMonth = startDate.getUTCMonth() + 1; // 1-12
+        // months difference = (calYear - startYear) * 12 + (calMonth - startMonth)
+        const monthsDiff = (calYear - startYear) * 12 + (calMonth - startMonth);
+        monthIndex = monthsDiff + 1; // M1 = start month
+        // safety: allow up to 60
+        if (monthIndex < 1 || monthIndex > 60) {
+          // clamp, but also warn for unexpected large offsets
+          console.warn(`[normalizeMonth] Computed monthIndex (${monthIndex}) outside [1..60] for calendar ${monthInput} with projectStartDate ${projectStartDate}. Clamping.`);
+          monthIndex = Math.max(1, Math.min(60, monthIndex));
+        }
+        return {
+          monthIndex,
+          calendarMonthKey: monthInput
+        };
+      } else {
+        // Backwards-compatible fallback when projectStartDate is missing:
+        // Extract month-of-year - retains current behavior but logs a dev warning.
+        const month = parseInt(monthInput.substring(5, 7), 10);
+        console.warn(`[normalizeMonth] Received YYYY-MM ${monthInput} but no valid projectStartDate to compute contract month; falling back to month-of-year ${month}`);
+        return {
+          monthIndex: month,
+          calendarMonthKey: monthInput
+        };
+      }
     }
     
     // Check if it's in "M1", "M2", etc. format
@@ -107,20 +329,23 @@ function normalizeMonth(
   // Compute calendarMonthKey from projectStartDate + (monthIndex - 1) months
   let calendarMonthKey: string;
   if (projectStartDate && /^\d{4}-\d{2}-\d{2}$/.test(projectStartDate)) {
-    const startDate = new Date(projectStartDate);
-    startDate.setUTCMonth(startDate.getUTCMonth() + (monthIndex - 1));
-    const year = startDate.getUTCFullYear();
-    const month = String(startDate.getUTCMonth() + 1).padStart(2, "0");
+    // Parse start date with explicit UTC to avoid timezone issues
+    const startDate = new Date(projectStartDate + 'T00:00:00.000Z');
+    // Use Date.UTC to avoid timezone issues when computing future dates
+    const startYear = startDate.getUTCFullYear();
+    const startMonth = startDate.getUTCMonth();
+    const futureDate = new Date(Date.UTC(startYear, startMonth + (monthIndex - 1), 1));
+    const year = futureDate.getUTCFullYear();
+    const month = String(futureDate.getUTCMonth() + 1).padStart(2, "0");
     calendarMonthKey = `${year}-${month}`;
   } else {
-    // If no valid project start date, this is an error condition
-    // Log warning and use monthIndex as fallback for development
+    // If no valid project start date, use a fixed reference year (2020) to avoid
+    // generating time-dependent calendar keys that would change over time
     console.warn(
-      `[allocations] Missing or invalid project start date: ${projectStartDate}. Using monthIndex ${monthIndex} without calendar computation.`
+      `[allocations] Missing or invalid project start date: ${projectStartDate}. Using fixed reference year 2020 for monthIndex ${monthIndex}.`
     );
-    // Use current year as emergency fallback - this should be rare in production
-    const currentYear = new Date().getUTCFullYear();
-    calendarMonthKey = `${currentYear}-${String(monthIndex).padStart(2, "0")}`;
+    const referenceYear = 2020;
+    calendarMonthKey = `${referenceYear}-${String(monthIndex).padStart(2, "0")}`;
   }
 
   return { monthIndex, calendarMonthKey };
@@ -128,39 +353,182 @@ function normalizeMonth(
 
 /**
  * GET /allocations
- * Returns allocations from DynamoDB, optionally filtered by projectId
+ * Returns allocations from DynamoDB, filtered by projectId and optionally by baselineId
  * Always returns an array (never {data: []}) for frontend compatibility
+ * 
+ * Query parameters:
+ * - projectId (required): The project ID
+ * - baseline or baselineId (optional): Filter allocations by baseline
+ * 
+ * Robust retrieval with SK filtering:
+ * 1. Primary: query pk=PROJECT#${projectId} + sk begins_with ALLOCATION#${baselineId}#
+ * 2. Fallback 1: If baselineId-like projectId, resolve baseline→project
+ * 3. Fallback 2: Try BASELINE#${baselineId} for legacy allocations
+ * 
+ * Tracks all attempted keys for diagnostics
  */
 async function getAllocations(event: APIGatewayProxyEventV2) {
   try {
     await ensureCanRead(event as any);
     
-    const projectId = 
+    const rawProjectId = 
       event.queryStringParameters?.projectId || 
       event.queryStringParameters?.project_id;
     
+    const baselineId = 
+      event.queryStringParameters?.baseline ||
+      event.queryStringParameters?.baselineId;
+    
+    // Normalize projectId: strip PROJECT# prefix if present
+    let incomingId = rawProjectId;
+    if (incomingId && incomingId.startsWith('PROJECT#')) {
+      incomingId = incomingId.substring('PROJECT#'.length);
+      console.log(`[allocations] Normalized projectId from ${rawProjectId} to ${incomingId}`);
+    }
+    
     const allocationsTable = tableName("allocations");
     
-    // If projectId is provided, query for that project's allocations
-    if (projectId) {
-      const queryResult = await ddb.send(
-        new QueryCommand({
-          TableName: allocationsTable,
-          KeyConditionExpression: "#pk = :pk",
-          ExpressionAttributeNames: {
-            "#pk": "pk",
-          },
-          ExpressionAttributeValues: {
-            ":pk": `PROJECT#${projectId}`,
-          },
-        })
-      );
+    // Track all attempted partition keys and their results for diagnostics
+    const triedKeys: Array<{ key: string; count: number; skPrefix?: string }> = [];
+    
+    // Helper function to query by partition key with optional SK filter
+    async function queryByPK(pk: string, skPrefix?: string): Promise<any[]> {
+      const params: any = {
+        TableName: allocationsTable,
+        ExpressionAttributeNames: {
+          "#pk": "pk",
+          "#month": "month", // 'month' is a reserved word in DynamoDB
+        },
+        ExpressionAttributeValues: {
+          ":pk": pk,
+        },
+        // Return only fields needed by UI to avoid oversized responses
+        // Note: 'mes' is legacy Spanish field, 'month' is English equivalent (both kept for compatibility)
+        ProjectionExpression: "pk, sk, projectId, baselineId, baseline_id, rubroId, rubro_id, line_item_id, #month, mes, monthIndex, month_index, calendarMonthKey, amount, planned, forecast, actual, monto_planeado, monto_proyectado, monto_real",
+      };
+      
+      if (skPrefix) {
+        // Filter by SK prefix to get only ALLOCATION# items for this baseline
+        params.KeyConditionExpression = "#pk = :pk AND begins_with(sk, :skPrefix)";
+        params.ExpressionAttributeNames["#sk"] = "sk";
+        params.ExpressionAttributeValues[":skPrefix"] = skPrefix;
+      } else {
+        // Query by PK only (less efficient, may return non-allocation items)
+        params.KeyConditionExpression = "#pk = :pk";
+      }
+      
+      const queryResult = await ddb.send(new QueryCommand(params));
       
       const items = queryResult.Items || [];
-      console.log(`[allocations] GET query for project ${projectId}: ${items.length} items`);
       
-      // Return bare array for frontend compatibility
-      return ok(event, items);
+      // Filter to ensure we only return ALLOCATION# items (defense in depth)
+      const allocations = items.filter(item => 
+        item.sk && typeof item.sk === 'string' && item.sk.startsWith('ALLOCATION#')
+      );
+      
+      triedKeys.push({ key: pk, count: allocations.length, skPrefix });
+      
+      console.log(`[allocations] Query: pk=${pk}, skPrefix=${skPrefix || 'none'}, found=${allocations.length} allocations`);
+      
+      return allocations;
+    }
+    
+    // If projectId is provided, use robust retrieval with SK filtering
+    if (incomingId) {
+      // Check if incoming ID looks like a baseline ID
+      const isBaselineLike = BASELINE_ID_PATTERN.test(incomingId);
+      
+      // Primary attempt: query PROJECT#${incomingId} with SK filter if baselineId provided
+      let pkCandidate = `PROJECT#${incomingId}`;
+      let skPrefix = baselineId ? `ALLOCATION#${baselineId}#` : undefined;
+      
+      let items = await queryByPK(pkCandidate, skPrefix);
+      
+      if (items.length > 0) {
+        logInfo(`[allocations] ✅ Found ${items.length} allocations by ${pkCandidate}${skPrefix ? ` with SK filter ${skPrefix}` : ''}`);
+        const normalized = await normalizeAllocations(items, baselineId);
+        return ok(event, normalized);
+      }
+      
+      // If no baselineId was provided but we got 0 results, try to derive baselineId from project
+      if (!baselineId && !isBaselineLike) {
+        console.log(`[allocations] No results with pk=${pkCandidate}, no baselineId provided. Trying to derive from project metadata...`);
+        
+        try {
+          const projectsTable = tableName("projects");
+          const projectMeta = await ddb.send(
+            new GetCommand({
+              TableName: projectsTable,
+              Key: { pk: `PROJECT#${incomingId}`, sk: 'METADATA' },
+            })
+          );
+          
+          if (projectMeta.Item) {
+            const derivedBaselineId = projectMeta.Item.baseline_id || projectMeta.Item.baselineId;
+            if (derivedBaselineId) {
+              console.log(`[allocations] Derived baselineId=${derivedBaselineId} from project metadata`);
+              skPrefix = `ALLOCATION#${derivedBaselineId}#`;
+              items = await queryByPK(pkCandidate, skPrefix);
+              
+              if (items.length > 0) {
+                logInfo(`[allocations] ✅ Found ${items.length} allocations using derived baselineId ${derivedBaselineId}`);
+                const normalized = await normalizeAllocations(items, derivedBaselineId);
+                return ok(event, normalized);
+              }
+            }
+          }
+        } catch (metaErr: any) {
+          console.warn(`[allocations] Failed to derive baselineId from project metadata:`, metaErr.message);
+        }
+      }
+      
+      // Fallback 1: If incomingId is baseline-like, try to resolve baseline → project
+      if (isBaselineLike) {
+        console.log(`[allocations] ID appears baseline-like: ${incomingId}, attempting baseline→project resolution`);
+        
+        try {
+          const baseline = await getBaselineMetadata(incomingId);
+          if (baseline) {
+            const resolvedProjectId = baseline.project_id || baseline.projectId;
+            if (resolvedProjectId) {
+              pkCandidate = `PROJECT#${resolvedProjectId}`;
+              skPrefix = `ALLOCATION#${incomingId}#`; // Use the baselineId for SK filter
+              items = await queryByPK(pkCandidate, skPrefix);
+              
+              if (items.length > 0) {
+                logInfo(`[allocations] ✅ Found ${items.length} allocations via baseline→project resolution: ${pkCandidate} with baselineId ${incomingId}`);
+                const normalized = await normalizeAllocations(items, incomingId);
+                return ok(event, normalized);
+              }
+            } else {
+              console.warn(`[allocations] Baseline ${incomingId} has no project_id`);
+            }
+          } else {
+            console.warn(`[allocations] Baseline ${incomingId} not found for resolution`);
+          }
+        } catch (err: any) {
+          console.warn(`[allocations] Baseline→project lookup failed for ${incomingId}:`, err.message);
+        }
+        
+        // Fallback 2: Try querying by BASELINE# pk (legacy format)
+        pkCandidate = `BASELINE#${incomingId}`;
+        skPrefix = `ALLOCATION#${incomingId}#`;
+        items = await queryByPK(pkCandidate, skPrefix);
+        
+        if (items.length > 0) {
+          logInfo(`[allocations] ✅ Found ${items.length} allocations by legacy baseline pk: ${pkCandidate}`);
+          const normalized = await normalizeAllocations(items, incomingId);
+          return ok(event, normalized);
+        }
+      }
+      
+      // No allocations found - log diagnostic info and return empty array
+      console.warn(`[allocations] ⚠️ No allocations found for projectId=${incomingId}, baselineId=${baselineId || 'none'}`, {
+        triedKeys,
+        isBaselineLike,
+      });
+      
+      return ok(event, []);
     }
     
     // No projectId - return all allocations with pagination limit
@@ -175,8 +543,11 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
     const items = scanResult.Items || [];
     console.log(`[allocations] GET scan (all projects): ${items.length} items (limit: ${limit})`);
     
+    // Normalize items before returning
+    const normalized = await normalizeAllocations(items);
+    
     // Return bare array for frontend compatibility
-    return ok(event, items);
+    return ok(event, normalized);
   } catch (error) {
     logError("Error fetching allocations", error);
     return serverError(event as any, "Failed to fetch allocations");

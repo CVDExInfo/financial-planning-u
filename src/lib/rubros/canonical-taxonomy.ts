@@ -1008,6 +1008,39 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'RUBRO-AWS-INFRA': 'INF-CLOUD',
   'RUBRO-LICENSE': 'TEC-LIC-MON',
   'RUBRO-CONSULTING': 'GSV-REU',
+  
+  // Allocation tokens and human-readable names (observed in console warnings)
+  'mod-lead-ingeniero-delivery': 'MOD-LEAD',
+  'mod-lead-ingeniero': 'MOD-LEAD',
+  'ingeniero-delivery': 'MOD-LEAD',
+  'Ingeniero Delivery': 'MOD-LEAD',
+  'ingeniero-lider': 'MOD-LEAD',
+  'mod-sdm-service-delivery-manager': 'MOD-SDM',
+  'mod-sdm-sdm': 'MOD-SDM',
+  'service-delivery-manager': 'MOD-SDM',
+  'Service Delivery Manager': 'MOD-SDM', // Add title case variant
+  'Service Delivery Manager (SDM)': 'MOD-SDM', // Add variant with abbreviation
+  'SDM': 'MOD-SDM', // Add abbreviation alone
+  'mod-ing-ingeniero-soporte-n1': 'MOD-ING',
+  'Ingeniero Soporte N1': 'MOD-ING', // Add title case variant
+  'Ingeniero Soporte N2': 'MOD-ING', // Add title case variant
+  'Ingeniero Soporte N3': 'MOD-ING', // Add title case variant
+  'project-manager': 'MOD-LEAD', // Map to MOD-LEAD as MOD-PM/MOD-PMO doesn't exist in canonical taxonomy
+  'Project Manager': 'MOD-LEAD', // Add title case variant
+  'mod-pm-project-manager': 'MOD-LEAD',
+  
+  // Category-suffixed patterns - Generated when allocation materializers or 
+  // PMO Estimator append the Spanish categoria name to the rubro_id 
+  // (e.g., 'TEC-HW-RPL' + 'Equipos y Tecnología' → 'tec-hw-rpl-equipos-y-tecnologia')
+  // These appear in DynamoDB allocation table SKs and cause console warnings.
+  // Source: finanzas-api materializers & PMO Estimator baseline generation
+  // Added: 2026-01-20 to fix console warnings in SDMT Forecast (issue #948)
+  'tec-hw-rpl-equipos-y-tecnolog-a': 'TEC-HW-RPL',
+  'tec-hw-rpl-equipos-y-tecnologia': 'TEC-HW-RPL',
+  'tec-itsm-equipos-y-tecnolog-a': 'TEC-ITSM',
+  'tec-itsm-equipos-y-tecnologia': 'TEC-ITSM',
+  'inf-cloud-infraestructura-nube-data-center': 'INF-CLOUD',
+  'inf-rack-infraestructura-nube-data-center': 'INF-RACK',
 };
 
 /**
@@ -1017,6 +1050,24 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
 export const TAXONOMY_BY_ID = new Map(
   CANONICAL_RUBROS_TAXONOMY.map(r => [r.id, r])
 );
+
+/**
+ * Set to track warned rubro IDs (throttle warnings to once per normalized key)
+ */
+const _rubrosWarned = new Set<string>();
+
+/**
+ * Warn about unknown rubro ID (throttled to once per normalized key)
+ */
+function warnUnknownRubro(legacyId: string) {
+  const normalized = normalizeKey(legacyId);
+  if (_rubrosWarned.has(normalized)) return;
+  _rubrosWarned.add(normalized);
+  console.warn(
+    `[rubros-taxonomy] Unknown rubro_id: "${legacyId}" - not in canonical taxonomy or legacy map. ` +
+    `Suggest adding alias to canonical taxonomy or legacy map.`
+  );
+}
 
 /**
  * Index by category for grouped operations
@@ -1048,8 +1099,8 @@ export function getCanonicalRubroId(legacyId: string): string {
     return legacyId;
   }
   
-  // Unknown ID - log warning and return as-is
-  console.warn(`[rubros-taxonomy] Unknown rubro_id: ${legacyId} - not in canonical taxonomy or legacy map`);
+  // Unknown ID - log throttled warning and return as-is
+  warnUnknownRubro(legacyId);
   return legacyId;
 }
 
@@ -1106,3 +1157,124 @@ export function getLaborRubros(): CanonicalRubroTaxonomy[] {
 export function getNonLaborRubros(): CanonicalRubroTaxonomy[] {
   return CANONICAL_RUBROS_TAXONOMY.filter(r => r.categoria_codigo !== 'MOD' && r.isActive);
 }
+
+/**
+ * Canonical labor keys - all known MOD (Mano de Obra Directa) identifiers
+ * These are normalized variants that should always be treated as Labor
+ * 
+ * Used by taxonomy lookup functions to ensure consistent labor classification
+ * across SDMT Forecast, PMO Estimator, and other modules.
+ */
+import { normalizeKey } from './normalize-key';
+
+// Re-export normalizeKey for convenience
+export { normalizeKey } from './normalize-key';
+
+export const LABOR_CANONICAL_KEYS = [
+  'LINEA#MOD-EXT','MOD-EXT','LINEA#MOD-OT','MOD-OT','LINEA#MOD-ING','MOD-ING',
+  'LINEA#MOD-LEAD','MOD-LEAD','LINEA#MOD-CONT','MOD-CONT','LINEA#MOD-SDM','MOD-SDM',
+  'LINEA#MOD-PM','MOD-PM','LINEA#MOD-PMO','MOD-PMO',
+  'MOD-IN1','MOD-IN2','MOD-IN3','MOD','CATEGORIA#MOD','Mano de Obra Directa',
+  'Ingeniero Soporte N1','Ingeniero Soporte N2','Ingeniero Soporte N3',
+  'Ingeniero Lider','Project Manager','Service Delivery Manager',
+  // Additional MOD-LEAD aliases
+  'mod-lead-ingeniero-delivery','ingeniero delivery','ingeniero-delivery',
+  'mod-lead-ingeniero','Ingeniero Delivery','ingeniero-lider',
+  // Additional MOD-SDM aliases
+  'mod-sdm-service-delivery-manager','service delivery manager','service-delivery-manager',
+  'mod-sdm-sdm',
+  // Additional MOD-ING aliases
+  'mod-ing-ingeniero-soporte-n1','ingeniero soporte n1','ingeniero-soporte-n1',
+  // Additional Project Manager aliases
+  'project-manager','project manager',
+  // Additional MOD-PM aliases
+  'mod-pm-project-manager', 'mod-pm'
+].map(normalizeKey);
+
+/**
+ * Normalized canonical labor keys set for O(1) lookup
+ * Used for fast labor classification checks
+ */
+export const LABOR_CANONICAL_KEYS_SET = new Set(LABOR_CANONICAL_KEYS);
+
+/**
+ * CANONICAL_ALIASES - Explicit mapping of common textual forms to canonical IDs
+ * 
+ * This map provides fast, explicit resolution of frequently-seen rubro textual names
+ * to their canonical taxonomy IDs. Used by lookupTaxonomy before tolerant fallback.
+ * 
+ * These aliases address the high-frequency textual rubros/roles seen in logs and warnings.
+ * Added to fix: "Service Delivery Manager" → MOD-SDM, "Project Manager" → MOD-LEAD, etc.
+ * 
+ * All keys are pre-normalized for consistent O(1) lookup.
+ */
+const _buildCanonicalAliases = (): Record<string, string> => {
+  const aliases: Record<string, string> = {
+    // Service Delivery Manager variations
+    // Note: normalizeKey converts parentheses to hyphens, spaces to hyphens
+    'service delivery manager': 'MOD-SDM',
+    'service delivery manager (sdm)': 'MOD-SDM',
+    'service-delivery-manager-sdm': 'MOD-SDM',  // Result of normalizing "(SDM)" variant
+    'service delivery mgr': 'MOD-SDM',
+    'sdm': 'MOD-SDM',
+    'service-delivery-manager': 'MOD-SDM',
+    
+    // Project Manager variations
+    'project manager': 'MOD-LEAD',
+    'project mgr': 'MOD-LEAD',
+    'pm': 'MOD-LEAD',
+    'project-manager': 'MOD-LEAD',
+    
+    // Ingeniero Líder / Coordinator variations
+    // Note: Spanish accents (í → i) are removed by normalizeKey
+    'ingeniero líder / coordinador': 'MOD-LEAD',
+    'ingeniero lider / coordinador': 'MOD-LEAD',
+    'ingeniero líder coordinador': 'MOD-LEAD',
+    'ingeniero lider coordinador': 'MOD-LEAD',
+    'ingeniero lider': 'MOD-LEAD',
+    'ingeniero líder': 'MOD-LEAD',
+    'ingeniero delivery': 'MOD-LEAD',
+    'ingeniero-lider': 'MOD-LEAD',
+    'ingeniero-delivery': 'MOD-LEAD',
+    
+    // Support Engineers variations
+    'ingenieros de soporte (mensual)': 'MOD-ING',
+    'ingenieros de soporte mensual': 'MOD-ING',
+    'ingeniero soporte': 'MOD-ING',
+    'ingeniero soporte n1': 'MOD-ING',
+    'ingeniero-soporte': 'MOD-ING',
+    'ingeniero-soporte-n1': 'MOD-ING',
+    
+    // Overtime / Guards variations
+    'horas extra / guardias': 'MOD-OT',
+    'horas extra guardias': 'MOD-OT',
+    'horas extra': 'MOD-OT',
+    'guardias': 'MOD-OT',
+    
+    // Internal Contractors variations
+    // Note: técnicos → tecnicos (accent removed)
+    'contratistas técnicos internos': 'MOD-CONT',
+    'contratistas tecnicos internos': 'MOD-CONT',
+    'contratistas internos': 'MOD-CONT',
+    
+    // External Contractors variations
+    'contratistas externos (labor)': 'MOD-EXT',
+    'contratistas externos labor': 'MOD-EXT',
+    'contratistas externos': 'MOD-EXT',
+  };
+  
+  // Normalize all keys to ensure consistent lookup
+  const normalized: Record<string, string> = {};
+  Object.entries(aliases).forEach(([key, value]) => {
+    const normKey = normalizeKey(key);
+    normalized[normKey] = value;
+    // Also keep original key if it differs from normalized (for debugging/clarity)
+    if (normKey !== key) {
+      normalized[key] = value;
+    }
+  });
+  
+  return normalized;
+};
+
+export const CANONICAL_ALIASES = _buildCanonicalAliases();

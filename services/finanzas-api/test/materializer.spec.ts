@@ -142,8 +142,8 @@ describe("materializers", () => {
     expect(firstAllocation.month_index).toBeDefined();
     expect(firstAllocation.line_item_id).toBeDefined();
 
-    // Verify SK format: ALLOCATION#baselineId#rubroId#month
-    const skPattern = /^ALLOCATION#base_long#MOD-DEV#\d{4}-\d{2}$/;
+    // Verify SK format: ALLOCATION#baselineId#month#rubroId (month comes before rubroId)
+    const skPattern = /^ALLOCATION#base_long#\d{4}-\d{2}#MOD-DEV$/;
     expect(firstAllocation.sk).toMatch(skPattern);
   });
 

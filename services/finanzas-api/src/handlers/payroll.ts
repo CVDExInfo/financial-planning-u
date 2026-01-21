@@ -320,6 +320,8 @@ async function getRubroTaxonomy(rubroId: string) {
 async function buildPayrollActualItem(
   data: Record<string, unknown>,
   event: APIGatewayProxyEventV2,
+  projectMetadataMap?: Map<string, Record<string, unknown>>,
+  rubroTaxonomyMap?: Map<string, Record<string, unknown>>,
 ) {
   const projectId = data.projectId as string | undefined;
   const month = data.month as string | undefined;
@@ -336,8 +338,9 @@ async function buildPayrollActualItem(
     throw new Error("rubroId is required");
   }
 
-  const projectMetadata = await getProjectMetadata(projectId);
-  const rubro = await getRubroTaxonomy((data.rubroId as string) || "");
+  // Use cached metadata if available, otherwise fetch
+  const projectMetadata = projectMetadataMap?.get(projectId) || await getProjectMetadata(projectId);
+  const rubro = rubroTaxonomyMap?.get((data.rubroId as string) || "") || await getRubroTaxonomy((data.rubroId as string) || "");
 
   const currency =
     typeof data.currency === "string" && data.currency.trim()
@@ -490,6 +493,45 @@ async function handlePostActualsBulk(event: APIGatewayProxyEventV2) {
   const validItems: any[] = [];
   const errors: { index: number; message: string }[] = [];
 
+  // Performance optimization: batch-fetch unique project IDs and rubro IDs to avoid N+1 queries
+  const uniqueProjectIds = new Set<string>();
+  const uniqueRubroIds = new Set<string>();
+  
+  for (const row of rows) {
+    const projectId = (row as any).projectId || (row as any).project_id;
+    const rubroId = (row as any).rubroId || (row as any).rubro_id;
+    if (projectId) uniqueProjectIds.add(projectId);
+    if (rubroId) uniqueRubroIds.add(rubroId);
+  }
+
+  // Batch fetch all project metadata
+  const projectMetadataMap = new Map<string, Record<string, unknown>>();
+  await Promise.all(
+    Array.from(uniqueProjectIds).map(async (projectId) => {
+      try {
+        const metadata = await getProjectMetadata(projectId);
+        projectMetadataMap.set(projectId, metadata);
+      } catch (err) {
+        // Log error but allow individual row processing to handle it
+        console.warn(`Failed to batch-fetch project metadata for ${projectId}:`, err);
+      }
+    })
+  );
+
+  // Batch fetch all rubro taxonomy
+  const rubroTaxonomyMap = new Map<string, Record<string, unknown>>();
+  await Promise.all(
+    Array.from(uniqueRubroIds).map(async (rubroId) => {
+      try {
+        const taxonomy = await getRubroTaxonomy(rubroId);
+        rubroTaxonomyMap.set(rubroId, taxonomy);
+      } catch (err) {
+        // Log error but allow individual row processing to handle it
+        console.warn(`Failed to batch-fetch rubro taxonomy for ${rubroId}:`, err);
+      }
+    })
+  );
+
   for (const [index, row] of rows.entries()) {
     try {
       const item = await buildPayrollActualItem(
@@ -510,6 +552,8 @@ async function handlePostActualsBulk(event: APIGatewayProxyEventV2) {
           uploadedBy: (row as any).uploadedBy || (row as any).uploaded_by,
         },
         event,
+        projectMetadataMap,
+        rubroTaxonomyMap,
       );
       validItems.push(item);
     } catch (err) {

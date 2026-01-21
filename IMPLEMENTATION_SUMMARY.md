@@ -1,311 +1,167 @@
-# MonthlySnapshotGrid UX Improvements - Implementation Summary
+# Fix Missing Canonical Rubro Aliases - Implementation Summary
 
 ## Overview
-Enhanced the "Matriz del Mes — Vista Ejecutiva" component to be more compact, digital, and intuitive by adding summary metrics, project-level actions, and labor/non-labor filtering.
+Fixed repeated console warnings where canonical lookup reports unknown rubro_ids by adding safe canonical aliases and legacy map entries, throttling warnings, adding comprehensive tests, and producing evidence that warnings are eliminated.
 
-## Completed Implementation
+## Changes Made
 
-### 1. Compact Summary Strip ✅
-**Location:** `MonthlySnapshotGrid.tsx` (lines ~855-907)
+### 1. Canonical Taxonomy Updates (`src/lib/rubros/canonical-taxonomy.ts`)
 
-**What was added:**
-- 5-card summary strip showing key metrics for the selected month
-- Cards display: Presupuesto, Pronóstico, Real, % Consumo (Real/Budget), Var vs Presupuesto
-- Responsive grid layout (2 columns on mobile, 5 on desktop)
-- Digital card styling matching existing KPI cards
-- Automatic recalculation based on active filters
+#### Added Aliases to LEGACY_RUBRO_ID_MAP
+- `mod-lead-ingeniero-delivery` → MOD-LEAD
+- `mod-lead-ingeniero` → MOD-LEAD
+- `ingeniero-delivery` → MOD-LEAD
+- `Ingeniero Delivery` → MOD-LEAD
+- `mod-sdm-service-delivery-manager` → MOD-SDM
+- `mod-sdm-sdm` → MOD-SDM
 
-**Implementation details:**
-```typescript
-const summaryForMonth = useMemo(() => {
-  const budget = summaryTotals.totalBudget;
-  const forecast = summaryTotals.totalForecast;
-  const actual = summaryTotals.totalActual;
-  
-  const consumoPct = budget > 0 ? (actual / budget) * 100 : 0;
-  const varianceAbs = actual - budget;
-  const variancePct = budget > 0 ? (varianceAbs / budget) * 100 : 0;
-  
-  return { budget, forecast, actual, consumoPct, varianceAbs, variancePct };
-}, [summaryTotals]);
+#### Extended LABOR_CANONICAL_KEYS
+Added human-readable and allocation token forms:
+- Additional MOD-LEAD aliases: 'mod-lead-ingeniero-delivery', 'ingeniero delivery', 'ingeniero-delivery', 'mod-lead-ingeniero', 'Ingeniero Delivery'
+- Additional MOD-SDM aliases: 'mod-sdm-service-delivery-manager', 'service delivery manager', 'service-delivery-manager', 'mod-sdm-sdm'
+
+#### Implemented Warning Throttling
+- Created `_rubrosWarned` Set to track warned keys
+- Implemented `warnUnknownRubro()` function that warns only once per normalized key
+- Uses consistent `normalizeKey()` function for normalization
+- Provides clearer guidance in warning messages
+
+### 2. Unit Tests (`src/features/sdmt/cost/Forecast/__tests__/canonicalAliases.test.ts`)
+
+Created comprehensive test suite with 8 test cases:
+1. ✅ MOD-LEAD canonical aliases map to MOD-LEAD
+2. ✅ MOD-SDM canonical aliases map to MOD-SDM
+3. ✅ LEGACY_RUBRO_ID_MAP contains all new aliases
+4. ✅ LABOR_CANONICAL_KEYS_SET includes normalized aliases
+5. ✅ lookupTaxonomyCanonical recognizes new aliases as labor
+6. ✅ Allocation SK patterns with new aliases
+7. ✅ Throttled warnings do not repeat for same normalized key
+8. ✅ Human-readable names map to labor
+
+**All tests pass successfully!**
+
+### 3. Diagnostic Script (`scripts/find-missing-rubros.ts`)
+
+Created diagnostic tool to:
+- Validate all canonical aliases
+- List taxonomy coverage statistics
+- Analyze allocation files for missing keys (when provided)
+- Display newly added aliases with validation status
+
+Output:
+```
+Total Canonical Rubros: 71
+Legacy Mappings: 88
+Labor Canonical Keys: 37
+
+MOD-LEAD aliases:
+  mod-lead-ingeniero-delivery → MOD-LEAD (valid: true)
+  mod-lead-ingeniero → MOD-LEAD (valid: true)
+  ingeniero-delivery → MOD-LEAD (valid: true)
+  Ingeniero Delivery → MOD-LEAD (valid: true)
+
+MOD-SDM aliases:
+  mod-sdm-service-delivery-manager → MOD-SDM (valid: true)
+  mod-sdm-sdm → MOD-SDM (valid: true)
+
+✅ All aliases validated successfully!
 ```
 
-### 2. Project-Level Action Icons ✅
-**Location:** `MonthlySnapshotGrid.tsx` (lines ~1075-1143)
+### 4. E2E Smoke Test (`tests/e2e/finanzas/forecast-rubros-warnings.spec.ts`)
 
-**What was added:**
-- Extended `MonthlySnapshotGridProps` with `onNavigateToCostCatalog` callback
-- Action column with 4 icon buttons per project row:
-  1. **Eye icon** - Ver detalle mensual (scrolls to detail grid with project context)
-  2. **FileSpreadsheet icon** - Ir a conciliación (navigates to reconciliation view)
-  3. **Layers icon** - Estructura de costos (navigates to catalog, only for project grouping)
-  4. **Edit icon** - Solicitar ajuste de presupuesto
+Created Playwright test suite with 3 test cases:
+1. Forecast page does not log unknown rubros taxonomy warnings
+2. Forecast page loads allocation data without errors
+3. Canonical aliases are recognized in labor classification
 
-**Wiring in SDMTForecast.tsx:**
-```typescript
-onNavigateToCostCatalog={(projectId) => {
-  navigate(`/sdmt/cost/catalog?projectId=${projectId}`);
-}}
+Features:
+- Captures all console messages during page load
+- Filters for rubros-taxonomy warnings
+- Validates no taxonomy-related errors
+- Uses reliable network idle detection
+
+### 5. Code Review Feedback Addressed
+
+✅ Use `normalizeKey()` function for consistent throttling
+✅ Update e2e tests to use reliable path navigation
+✅ Reduce hard-coded timeouts, rely on network idle states
+
+## Root Cause Explanation
+
+Previously, the canonical taxonomy did **not** contain aliases for some normalized keys emitted by allocations (e.g., `mod-lead-ingeniero-delivery` vs canonical `mod-lead`). Because canonical-first logic is strict, those keys were not found and the tolerant fallback either didn't match them or was not triggered consistently. 
+
+Tests added previously validated tolerant fallback but did not include the specific alias forms coming from allocation SKs. The fix is to add canonical aliases + legacy mappings and tests that assert these normalized tokens map to canonical MOD entries. We also throttled warnings so remaining unknowns are visible but not spammy.
+
+## Test Results
+
+### Unit Tests
+```
+✔ MOD-LEAD canonical aliases map to MOD-LEAD
+✔ MOD-SDM canonical aliases map to MOD-SDM
+✔ LEGACY_RUBRO_ID_MAP contains all new aliases
+✔ LABOR_CANONICAL_KEYS_SET includes normalized aliases
+✔ lookupTaxonomyCanonical recognizes new aliases as labor
+✔ allocation SK patterns with new aliases
+✔ throttled warnings do not repeat for same normalized key
+✔ human-readable names map to labor
+ℹ tests 8
+ℹ pass 8
+ℹ fail 0
 ```
 
-### 3. Labor / Non-Labor / Ambos Filter ✅
-**Location:** `MonthlySnapshotGrid.tsx` (lines ~931-969, ~429-507)
-
-**What was added:**
-- Cost type filter state: `'all' | 'labor' | 'non-labor'`
-- Segmented button control with 3 options:
-  - **Ambos** - Shows all cost types
-  - **Mano de obra** - Shows only labor costs
-  - **Gastos directos** - Shows only non-labor costs
-- Filter logic using `isLabor()` utility from `rubros-category-utils`
-- Filters both parent and child rows appropriately
-- Summary metrics automatically reflect filtered data
-
-**Implementation details:**
-```typescript
-// Filter based on cost type
-if (costTypeFilter !== 'all') {
-  rows = rows.filter(row => {
-    // Check children for matching categories
-    if (row.children && row.children.length > 0) {
-      const hasMatchingChildren = row.children.some(child => {
-        const category = /* get category from lineItems */;
-        if (costTypeFilter === 'labor') {
-          return isLabor(category);
-        } else if (costTypeFilter === 'non-labor') {
-          return !isLabor(category);
-        }
-        return true;
-      });
-      // Filter children array if parent has matches
-      if (hasMatchingChildren) {
-        row.children = row.children.filter(/* same logic */);
-      }
-      return hasMatchingChildren;
-    }
-    // For leaf rows, filter based on category
-    // ...
-  });
-}
+### Existing Tests
+All existing taxonomy lookup tests continue to pass (6 tests):
+```
+✔ labor canonical override
+✔ canonical lookup from map
+✔ cache-all-candidates strategy
+✔ labor keys have priority over map
+✔ returns null for unknown entries
+✔ uses cache on subsequent lookups
+ℹ tests 6
+ℹ pass 6
+ℹ fail 0
 ```
 
-### 4. Page-Level Decluttering ✅
-**Location:** `MonthlySnapshotGrid.tsx` (lines ~971-987)
+### Security Scan
+CodeQL analysis: **0 security vulnerabilities found**
 
-**What was changed:**
-- Consolidated separate info banners into a single slim bar
-- Banners display side-by-side in flex layout when both are active
-- Reduced padding from `px-3 py-2` to `p-1.5`
-- Only shown when relevant:
-  - Current month banner: when `selectedMonth === 'current'`
-  - Budget banner: when `!useMonthlyBudget`
+## Files Changed
 
-**Before:** Two separate banners with full width and padding
-**After:** Single responsive flex container with compact cards
+1. `src/lib/rubros/canonical-taxonomy.ts` - Added aliases and throttling
+2. `src/features/sdmt/cost/Forecast/__tests__/canonicalAliases.test.ts` - New unit tests
+3. `scripts/find-missing-rubros.ts` - New diagnostic script
+4. `tests/e2e/finanzas/forecast-rubros-warnings.spec.ts` - New e2e test
 
-## Files Modified
+## QA & Validation Steps
 
-1. **`src/features/sdmt/cost/Forecast/components/MonthlySnapshotGrid.tsx`**
-   - Added imports: `Layers`, `Eye` icons, `cn` utility, `isLabor` function
-   - Extended interface with new props
-   - Added `CostTypeFilter` type
-   - Added `costTypeFilter` state
-   - Implemented summary metrics calculation
-   - Added summary strip UI
-   - Added cost type filter UI
-   - Updated filtering logic to include cost type
-   - Updated action handlers for new callbacks
-   - Updated action icons in table
-   - Consolidated info banners
+### Manual Testing
+1. Run diagnostic script: `npx tsx scripts/find-missing-rubros.ts`
+2. Run unit tests: `npx tsx --test src/features/sdmt/cost/Forecast/__tests__/canonicalAliases.test.ts`
+3. Run existing tests: `npx tsx --test src/features/sdmt/cost/Forecast/__tests__/lookupTaxonomyCanonical.test.ts`
+4. Start dev server and navigate to forecast page
+5. Open browser console and verify no "[rubros-taxonomy] Unknown rubro_id" warnings appear
+6. Run e2e test: `npx playwright test tests/e2e/finanzas/forecast-rubros-warnings.spec.ts`
 
-2. **`src/features/sdmt/cost/Forecast/SDMTForecast.tsx`**
-   - Updated `MonthlySnapshotGrid` usage to wire up new callbacks
-   - Changed `onScrollToDetail` to accept params
-   - Changed `onNavigateToReconciliation` signature to use projectId
-   - Added `onNavigateToCostCatalog` callback
+### Production Validation
+After deployment:
+1. Navigate to SDMT forecast page
+2. Open browser console (F12)
+3. Verify no repeated "[rubros-taxonomy] Unknown rubro_id" warnings
+4. If warnings appear for new keys, add them to taxonomy following this pattern
+5. Monitor CloudWatch logs for any remaining taxonomy warnings
 
-## TypeScript Compliance
+## Impact
 
-All changes are TypeScript-compliant. No new type errors were introduced.
-Pre-existing type errors in the repository (react types, node types) remain unchanged.
+✅ **No Breaking Changes** - All existing tests pass
+✅ **Backward Compatible** - Legacy IDs still work via LEGACY_RUBRO_ID_MAP
+✅ **Performance** - O(1) lookups maintained via Set-based checking
+✅ **Maintainability** - Clear pattern for adding new aliases in the future
+✅ **User Experience** - Cleaner console output, no warning spam
 
-## Testing Checklist
+## Future Improvements
 
-### Manual Testing Required:
-- [ ] Load `/finanzas/sdmt/cost/forecast` in portfolio view (Project: TODOS)
-- [ ] Verify the Matriz del Mes summary strip shows all 5 metrics correctly
-- [ ] Test "Ambos" filter - should show all projects/rubros
-- [ ] Test "Mano de obra" filter - should show only labor costs
-- [ ] Test "Gastos directos" filter - should show only non-labor costs
-- [ ] Verify summary strip updates when filter changes
-- [ ] Click "Ver detalle mensual" (Eye icon) - should scroll to detail grid
-- [ ] Click "Ir a conciliación" (FileSpreadsheet icon) - should navigate to reconciliation
-- [ ] Click "Estructura de costos" (Layers icon) - should navigate to catalog with projectId
-- [ ] Click "Solicitar ajuste de presupuesto" (Edit icon) - should open budget request modal
-- [ ] Verify consolidated banner shows correctly when:
-  - Current month is selected
-  - Monthly budget is not configured
-  - Both conditions are true
-- [ ] Test responsive layout at:
-  - 1280px width (laptop)
-  - 1440px+ width (desktop)
-  - Mobile/tablet widths
-
-### Expected Behavior:
-1. **Summary Strip**: Always visible in expanded view, shows aggregated metrics for filtered data
-2. **Cost Type Filter**: Three-way toggle that filters table rows and updates summary
-3. **Action Icons**: All four actions work correctly, catalog navigation only appears in project grouping mode
-4. **Banners**: Slim, side-by-side layout when multiple banners active
-5. **Filtering**: Smooth interaction, immediate visual feedback
-
-## Performance Considerations
-
-- All filtering and summary calculations use `useMemo` for optimization
-- Filter state changes trigger minimal re-renders
-- Icon rendering is conditional to avoid unnecessary DOM nodes
-
-## Accessibility
-
-- All action buttons have proper ARIA labels via Tooltip content
-- Segmented filter buttons have clear visual states
-- Summary metrics use semantic HTML structure
-- Filter changes are properly reflected in the UI
-
-## Future Enhancements (Not Implemented)
-
-The following items from the original spec were deemed out of scope or already handled:
-1. Collapsible Matriz section - Already implemented via existing toggle button
-2. Additional scroll anchoring - Existing implementation is sufficient
-3. Backend integration for budget requests - Placeholder implemented, backend TODO
-
-## Conclusion
-
-All core requirements from the problem statement have been successfully implemented:
-✅ Compact summary view with % Consumo metric
-✅ Project-level action icons including direct link to Estructura de costos
-✅ Labor / Non-Labor / Ambos filter with decluttered UI
-✅ Consolidated info banners for cleaner page layout
-
-The implementation is minimal, focused, and follows existing patterns in the codebase.
-
----
-
-## Follow-up Refinement: Two-Zone Header Layout
-
-### 5. Two-Zone Header Layout ✅ (Added in follow-up)
-**Location:** `MonthlySnapshotGrid.tsx` - CardHeader
-
-**What was added:**
-- Refactored CardHeader into two-zone flex layout:
-  - **Left zone (flex-1)**: Title + 5 KPI summary cards
-  - **Right zone (280px on desktop)**: Controls + mini Labor/No-Labor visual
-- Responsive behavior:
-  - Desktop (lg+): Two-zone horizontal layout
-  - Mobile/Tablet: Stacks vertically
-- Controls moved to right zone:
-  - Toggle button (Expandir/Resumir)
-  - Month selector (Período)
-  - Grouping mode (Agrupar por)
-  - Cost type filter (Todos/Labor/No Labor) - renamed for brevity
-- Search and variance filter remain in CardContent
-
-**Benefits:**
-- Better desktop space utilization - no blank areas
-- All controls organized in one location
-- Cleaner, more executive look
-- Easy to scan and use
-
-### 6. Mini Labor vs No-Labor Visualization ✅ (Added in follow-up)
-**Location:** `MonthlySnapshotGrid.tsx` - Right zone of CardHeader
-
-**What was added:**
-- Compact visualization showing budget breakdown by cost type for selected month
-- Stacked horizontal bar showing labor vs non-labor percentages
-- Color-coded: Blue for labor, emerald for non-labor
-- Legend with percentages: "Labor X%" and "No Labor Y%"
-- Height: ~60px total, compact and non-intrusive
-- Updates automatically based on filtered rows
-
-**Implementation:**
-```typescript
-const laborBreakdown = useMemo(() => {
-  let laborBudget = 0;
-  let nonLaborBudget = 0;
-
-  filteredRows.forEach(row => {
-    // Aggregate budget by cost type for all filtered rows
-    if (row.children && row.children.length > 0) {
-      row.children.forEach(child => {
-        const category = child.code ? 
-          (lineItems.find(li => li.id === child.code || li.projectId === child.code)?.category) : 
-          undefined;
-        
-        if (isLabor(category)) {
-          laborBudget += child.budget || 0;
-        } else {
-          nonLaborBudget += child.budget || 0;
-        }
-      });
-    }
-    // ... handle leaf rows
-  });
-
-  const total = laborBudget + nonLaborBudget;
-  const laborPct = total > 0 ? (laborBudget / total) * 100 : 0;
-  const nonLaborPct = total > 0 ? (nonLaborBudget / total) * 100 : 0;
-
-  return { laborBudget, nonLaborBudget, laborPct, nonLaborPct };
-}, [filteredRows, lineItems]);
-```
-
-**Benefits:**
-- At-a-glance understanding of cost structure
-- Reinforces the cost type filter functionality
-- Provides context for budget planning decisions
-- Compact and non-intrusive design
-
----
-
-## Updated Testing Checklist
-
-### Desktop Layout Testing (1440px+)
-- [ ] Verify two-zone header layout
-- [ ] Left zone shows title + 5 summary cards
-- [ ] Right zone shows all controls + mini visual
-- [ ] No blank space on right side
-- [ ] Controls are usable and properly sized
-- [ ] Mini visual displays correct percentages
-- [ ] Mini visual updates when cost type filter changes
-
-### Responsive Testing
-- [ ] Mobile (375px): Stacks vertically (title → summary → controls → mini visual → search)
-- [ ] Tablet (768px): Stacks vertically
-- [ ] Desktop (1280px+): Two-zone horizontal layout
-
-### Mini Visual Testing
-- [ ] Shows correct labor/non-labor percentages
-- [ ] Updates when filters change
-- [ ] Bar visualization is clear and readable
-- [ ] Colors match design system (blue for labor, emerald for non-labor)
-- [ ] Legend is readable at small size
-
----
-
-## Final Summary
-
-All requirements from the original problem statement AND the follow-up comment have been successfully implemented:
-
-**Original Requirements (PR #884):**
-✅ Compact summary view with % Consumo metric
-✅ Project-level action icons including direct link to Estructura de costos
-✅ Labor / Non-Labor / Ambos filter with decluttered UI
-✅ Consolidated info banners for cleaner page layout
-
-**Follow-up Refinement:**
-✅ Two-zone header layout for better desktop space utilization
-✅ All controls organized in right zone
-✅ Mini Labor vs No-Labor visualization for quick insights
-✅ Responsive design that stacks on mobile
-✅ Consistent with existing design patterns
-
-The implementation is minimal, focused, follows existing patterns in the codebase, and provides a significantly improved UX for the Matriz del Mes executive view.
+1. Monitor console warnings in production for any new missing keys
+2. Consider adding automated alerts if unknown rubro_ids exceed threshold
+3. Document the alias addition process in contribution guidelines
+4. Consider creating a validation step in CI/CD to catch missing aliases early

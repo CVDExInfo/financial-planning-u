@@ -11,10 +11,25 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ChevronDown } from 'lucide-react';
 import LineChartComponent from '@/components/charts/LineChart';
 import type { PortfolioTotals, CategoryTotals } from '../categoryGrouping';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { 
+  Bar,
+  BarChart, 
+  CartesianGrid, 
+  ComposedChart,
+  LabelList,
+  Legend,
+  Line,
+  ResponsiveContainer, 
+  Tooltip, 
+  XAxis, 
+  YAxis, 
+} from 'recharts';
 
 interface ForecastChartsPanelProps {
   portfolioTotals: PortfolioTotals;
@@ -22,6 +37,7 @@ interface ForecastChartsPanelProps {
   monthlyBudgets?: Array<{ month: number; budget: number }>;
   useMonthlyBudget?: boolean;
   formatCurrency: (amount: number) => string;
+  projectsPerMonth?: Array<{ month: number; count: number }>;
 }
 
 // Consistent color palette for charts
@@ -30,6 +46,12 @@ const CHART_COLORS = {
   actual: 'oklch(0.72 0.15 65)', // Blue
   budget: 'oklch(0.5 0.2 350)', // Gray/Green
   planned: 'oklch(0.45 0.12 200)', // Light Blue
+  projects: 'oklch(0.65 0.18 30)', // Orange for projects bar
+};
+
+// Chart styling constants
+const CHART_STYLES = {
+  barOpacity: 0.7,
 };
 
 export function ForecastChartsPanel({
@@ -38,6 +60,7 @@ export function ForecastChartsPanel({
   monthlyBudgets = [],
   useMonthlyBudget = false,
   formatCurrency,
+  projectsPerMonth = [],
 }: ForecastChartsPanelProps) {
   const [activeTab, setActiveTab] = useState<'monthly' | 'category' | 'cumulative'>('monthly');
 
@@ -51,11 +74,13 @@ export function ForecastChartsPanel({
     };
     
     const budgetData = monthlyBudgets.find(b => b.month === month);
+    const projectCount = projectsPerMonth.find(p => p.month === month)?.count || 0;
     
     return {
       month,
       Forecast: monthData.forecast,
       Actual: monthData.actual,
+      Proyectos: projectCount,
       ...(useMonthlyBudget && budgetData ? { Budget: budgetData.budget } : {}),
     };
   });
@@ -122,12 +147,55 @@ export function ForecastChartsPanel({
     return null;
   };
 
+  // Custom tooltip for monthly trend (supports both currency and count)
+  const CustomMonthlyTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+          <p className="font-medium mb-2">Mes {label}</p>
+          {payload.map((entry: any, index: number) => {
+            const isProjectCount = entry.dataKey === 'Proyectos';
+            return (
+              <div key={index} className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded"
+                    style={{ backgroundColor: entry.color }}
+                  />
+                  <span className="text-sm">{entry.name}:</span>
+                </div>
+                <span className="text-sm font-medium">
+                  {isProjectCount ? entry.value : formatCurrency(entry.value)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Gráficos de Tendencias</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Collapsible defaultOpen={false}>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Gráficos de Tendencias</CardTitle>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                aria-label="Expandir/Colapsar gráficos de tendencias"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent>
         <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)}>
           <TabsList className="grid w-full grid-cols-3 mb-4">
             <TabsTrigger value="monthly">Tendencia Mensual</TabsTrigger>
@@ -137,37 +205,107 @@ export function ForecastChartsPanel({
 
           {/* Monthly Trend Tab */}
           <TabsContent value="monthly">
-            <LineChartComponent
-              data={monthlyTrendData}
-              lines={[
-                {
-                  dataKey: 'Forecast',
-                  name: 'Pronóstico',
-                  color: CHART_COLORS.forecast,
-                  strokeWidth: 3,
-                },
-                {
-                  dataKey: 'Actual',
-                  name: 'Real',
-                  color: CHART_COLORS.actual,
-                  strokeWidth: 2,
-                },
-                ...(useMonthlyBudget
-                  ? [
-                      {
-                        dataKey: 'Budget',
-                        name: 'Presupuesto',
-                        color: CHART_COLORS.budget,
-                        strokeDasharray: '8 4',
-                        strokeWidth: 2,
-                      },
-                    ]
-                  : []),
-              ]}
-              title="Tendencia Mensual"
-              labelPrefix="Mes"
-              valueFormatter={formatCurrency}
-            />
+            <Card className="border-0 shadow-none">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Tendencia Mensual</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={350}>
+                  <ComposedChart
+                    data={monthlyTrendData}
+                    margin={{
+                      top: 10,
+                      right: 40,
+                      left: 0,
+                      bottom: 10,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.90 0.02 160)" />
+                    <XAxis
+                      dataKey="month"
+                      stroke="oklch(0.45 0 0)"
+                      fontSize={12}
+                      label={{ value: 'Mes', position: 'insideBottom', offset: -5 }}
+                    />
+                    {/* Left Y-axis for currency values */}
+                    <YAxis
+                      yAxisId="left"
+                      stroke="oklch(0.45 0 0)"
+                      fontSize={12}
+                      tickFormatter={(value) =>
+                        new Intl.NumberFormat('en-US', {
+                          style: 'currency',
+                          currency: 'USD',
+                          minimumFractionDigits: 0,
+                          notation: 'compact',
+                        }).format(value)
+                      }
+                    />
+                    {/* Right Y-axis for project count */}
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      stroke="oklch(0.45 0 0)"
+                      fontSize={12}
+                      label={{ value: 'Proyectos', angle: 90, position: 'insideRight' }}
+                      tickFormatter={(value) => Math.round(value).toString()}
+                    />
+                    <Tooltip content={<CustomMonthlyTooltip />} />
+                    <Legend formatter={(value) => <span className="text-sm">{value}</span>} />
+                    
+                    {/* Lines for financial data */}
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="Forecast"
+                      name="Pronóstico"
+                      stroke={CHART_COLORS.forecast}
+                      strokeWidth={3}
+                      dot={{ fill: CHART_COLORS.forecast, r: 4 }}
+                    />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="Actual"
+                      name="Real"
+                      stroke={CHART_COLORS.actual}
+                      strokeWidth={2}
+                      dot={{ fill: CHART_COLORS.actual, r: 3 }}
+                    />
+                    {useMonthlyBudget && (
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="Budget"
+                        name="Presupuesto"
+                        stroke={CHART_COLORS.budget}
+                        strokeWidth={2}
+                        strokeDasharray="8 4"
+                        dot={{ fill: CHART_COLORS.budget, r: 3 }}
+                      />
+                    )}
+                    
+                    {/* Bar for project count - thin bar on right axis */}
+                    <Bar
+                      yAxisId="right"
+                      dataKey="Proyectos"
+                      name="Proyectos (M/M)"
+                      fill="rgba(99,102,241,0.14)"
+                      fillOpacity={1}
+                      barSize={10}
+                      radius={[4, 4, 0, 0]}
+                    >
+                      <LabelList 
+                        dataKey="Proyectos" 
+                        position="top" 
+                        style={{ fontSize: 10, fill: '#374151', fontWeight: 500 }} 
+                        formatter={(value: number) => value > 0 ? String(value) : ''}
+                      />
+                    </Bar>
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* By Category Tab */}
@@ -253,7 +391,9 @@ export function ForecastChartsPanel({
             />
           </TabsContent>
         </Tabs>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }

@@ -20,9 +20,65 @@ import { getProjectRubros, getAllocations } from "@/api/finanzas";
 import {
   computeForecastFromAllocations,
   type Allocation,
+  type ExtendedLineItem,
 } from "./computeForecastFromAllocations";
 import type { LineItem } from "@/types/domain";
 import finanzasClient from "@/api/finanzasClient";
+import { 
+  CANONICAL_RUBROS_TAXONOMY, 
+  type CanonicalRubroTaxonomy,
+  getCanonicalRubroId,
+} from "@/lib/rubros/canonical-taxonomy";
+import { buildTaxonomyMap, type TaxonomyEntry as TaxLookupEntry } from "./lib/taxonomyLookup";
+import { normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
+import { lookupTaxonomyCanonical } from "./lib/lookupTaxonomyCanonical";
+
+// Build taxonomy from canonical source (the single source of truth)
+const taxonomyByRubroId: Record<string, { description?: string; category?: string; isLabor?: boolean }> = {};
+CANONICAL_RUBROS_TAXONOMY.forEach((taxonomy) => {
+  const entry = {
+    description: taxonomy.linea_gasto || taxonomy.descripcion,
+    category: taxonomy.categoria,
+    isLabor: taxonomy.categoria_codigo === 'MOD',
+  };
+  
+  // Index by canonical ID
+  taxonomyByRubroId[taxonomy.id] = entry;
+  
+  // Also index by linea_codigo if different from id
+  if (taxonomy.linea_codigo && taxonomy.linea_codigo !== taxonomy.id) {
+    taxonomyByRubroId[taxonomy.linea_codigo] = entry;
+  }
+  
+  // Also index by linea_gasto for invoice matching (normalize to handle matching)
+  // Note: Normalized keys may collide, but this is acceptable for fuzzy matching fallback
+  // Primary matching still uses canonical IDs via getCanonicalRubroId()
+  if (taxonomy.linea_gasto) {
+    const normalizedLineaGasto = normalizeString(taxonomy.linea_gasto);
+    if (import.meta.env.DEV && taxonomyByRubroId[normalizedLineaGasto]) {
+      console.debug('[taxonomy] linea_gasto collision:', {
+        key: normalizedLineaGasto,
+        existing: taxonomyByRubroId[normalizedLineaGasto],
+        new: entry,
+      });
+    }
+    taxonomyByRubroId[normalizedLineaGasto] = entry;
+  }
+  
+  // Also index by descripcion for invoice matching (normalize to handle matching)
+  // Note: Normalized keys may collide, but this is acceptable for fuzzy matching fallback
+  if (taxonomy.descripcion) {
+    const normalizedDescripcion = normalizeString(taxonomy.descripcion);
+    if (import.meta.env.DEV && taxonomyByRubroId[normalizedDescripcion]) {
+      console.debug('[taxonomy] descripcion collision:', {
+        key: normalizedDescripcion,
+        existing: taxonomyByRubroId[normalizedDescripcion],
+        new: entry,
+      });
+    }
+    taxonomyByRubroId[normalizedDescripcion] = entry;
+  }
+});
 
 export interface UseSDMTForecastDataParams {
   projectId: string;
@@ -65,28 +121,293 @@ export const normalizeString = (s: any): string => {
 };
 
 /**
- * Helper function for robust invoice matching
+ * Helper to extract amount from invoice with various field names
+ * Handles common variations: amount, total, monto
  */
-export const matchInvoiceToCell = (inv: any, cell: ForecastRow): boolean => {
+const normalizeInvoiceAmount = (invoice: any): number => {
+  return Number(invoice.amount || invoice.total || invoice.monto || 0);
+};
+
+/**
+ * Helper to extract month from invoice with various field names
+ * Handles common variations: month, calendar_month, period, periodKey
+ */
+const getInvoiceMonth = (invoice: any): any => {
+  return invoice.month || invoice.calendar_month || invoice.period || invoice.periodKey;
+};
+
+/**
+ * Normalize invoice month to match forecast cell month index
+ * Handles numeric indices, YYYY-MM formats, YYYY-MM-DD (ISO dates), ISO datetimes, and M\d+ formats (M1, M01, M11, etc.)
+ * Supports extended month ranges (1-60) for multi-year forecasts
+ * 
+ * @param invoiceMonth - Month value from invoice (could be number, "YYYY-MM", "YYYY-MM-DD", ISO datetime, or "M11" string)
+ * @param baselineStartMonth - Optional baseline start month for relative indexing
+ * @param debugMode - Optional flag to enable detailed logging
+ * @returns Numeric month index (1-based, supports 1-60 range) or 0 if invalid
+ */
+export const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: number, debugMode?: boolean): number => {
+  // If already a valid numeric month index, return it (extended range 1-60)
+  if (typeof invoiceMonth === 'number' && invoiceMonth >= 1 && invoiceMonth <= 60) {
+    return invoiceMonth;
+  }
+  
+  // If string, try various formats
+  if (typeof invoiceMonth === 'string') {
+    // Try YYYY-MM format first
+    const yymmMatch = invoiceMonth.match(/^(\d{4})-(\d{2})$/);
+    if (yymmMatch) {
+      const monthNum = parseInt(yymmMatch[2], 10);
+      // If we have baseline start, could calculate relative index
+      // For now, just return the month number (1-12)
+      if (debugMode) {
+        console.log('[normalizeInvoiceMonth] Parsed YYYY-MM:', { input: invoiceMonth, monthNum });
+      }
+      return monthNum;
+    }
+    
+    // Try full ISO date format (YYYY-MM-DD)
+    const isoMatch = invoiceMonth.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      const monthNum = parseInt(isoMatch[2], 10);
+      if (debugMode) {
+        console.log('[normalizeInvoiceMonth] Parsed ISO date:', { input: invoiceMonth, monthNum });
+      }
+      return monthNum;
+    }
+    
+    // Try M\d+ format (M1, M01, M11, M12, m11, etc. - with optional leading zero)
+    const mMatch = invoiceMonth.match(/^m\s*0?(\d{1,2})$/i);
+    if (mMatch) {
+      const mm = parseInt(mMatch[1], 10);
+      if (mm >= 1 && mm <= 60) {
+        if (debugMode) {
+          console.log('[normalizeInvoiceMonth] Parsed M format:', { input: invoiceMonth, monthNum: mm });
+        }
+        return mm;
+      }
+    }
+    
+    // Try ISO datetime (e.g., 2026-01-20T12:34:56Z or similar)
+    // Only attempt Date.parse if string looks like a datetime (contains 'T' or timestamp pattern)
+    if (invoiceMonth.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(invoiceMonth)) {
+      const isoDate = Date.parse(invoiceMonth);
+      if (!isNaN(isoDate)) {
+        const d = new Date(isoDate);
+        const m = d.getUTCMonth() + 1; // getUTCMonth() returns 0-11, we need 1-12
+        if (m >= 1 && m <= 12) {
+          if (debugMode) {
+            console.log('[normalizeInvoiceMonth] Parsed ISO datetime:', { input: invoiceMonth, monthNum: m });
+          }
+          return m;
+        }
+      }
+    }
+    
+    // Try parsing as plain number string
+    const parsed = parseInt(invoiceMonth, 10);
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= 60) {
+      if (debugMode) {
+        console.log('[normalizeInvoiceMonth] Parsed numeric string:', { input: invoiceMonth, monthNum: parsed });
+      }
+      return parsed;
+    }
+  }
+  
+  if (debugMode) {
+    console.warn('[normalizeInvoiceMonth] Failed to parse month:', { input: invoiceMonth });
+  }
+  
+  return 0; // Invalid month
+};
+
+/**
+ * Helper function for robust invoice matching with canonicalization
+ * 
+ * Matching rules (in order):
+ * 1. projectId guard: If both present and different → no match
+ * 2. line_item_id: Compare canonicalized line_item_id
+ * 3. matchingIds array: Check if invoice ID is in cell's matching IDs
+ * 4. canonical rubroId: Use getCanonicalRubroId to compare
+ * 5. taxonomy lookup: Check if both resolve to same canonical taxonomy entry
+ * 6. normalized description: Final fallback
+ * 
+ * @param inv - Invoice object
+ * @param cell - Forecast row
+ * @param taxonomyMap - Optional taxonomy map for robust lookup
+ * @param taxonomyCache - Optional taxonomy cache for performance
+ * @param debugMode - Optional flag to enable detailed logging
+ * @returns true if invoice matches cell
+ */
+export const matchInvoiceToCell = (
+  inv: any,
+  cell: ForecastRow,
+  taxonomyMap?: Map<string, TaxLookupEntry>,
+  taxonomyCache?: Map<string, TaxLookupEntry | null>,
+  debugMode?: boolean
+): boolean => {
   if (!inv) return false;
 
-  // Priority 1: Match by line_item_id
-  if (inv.line_item_id && inv.line_item_id === cell.line_item_id) {
-    return true;
+  // Enhanced diagnostics (DEV only)
+  const shouldLogDiagnostics = debugMode && import.meta.env.DEV;
+  
+  if (shouldLogDiagnostics) {
+    console.debug('[matchInvoiceToCell] Starting match attempt:', {
+      invoice: {
+        line_item_id: inv.line_item_id,
+        rubroId: inv.rubroId || inv.rubro_id,
+        projectId: inv.projectId || inv.project_id || inv.project,
+        month: getInvoiceMonth(inv),
+        normalizedMonth: normalizeInvoiceMonth(getInvoiceMonth(inv), undefined, true),
+        amount: normalizeInvoiceAmount(inv),
+        status: invoiceStatusNormalized(inv),
+        description: inv.description,
+      },
+      cell: {
+        line_item_id: cell.line_item_id,
+        rubroId: cell.rubroId,
+        projectId: (cell as any).projectId || (cell as any).project_id || (cell as any).project,
+        monthIndex: (cell as any).monthIndex || (cell as any).month,
+        description: cell.description,
+      }
+    });
   }
 
-  // Priority 2: Match by rubroId
-  if (inv.rubroId && inv.rubroId === cell.rubroId) {
-    return true;
+  // 1) projectId guard: both present → must match
+  // Normalize both camelCase and snake_case variants
+  // Note: Using defensive field access since invoices may come from different sources
+  // with varying field naming conventions (projectId vs project_id)
+  const invProject = inv.projectId || inv.project_id || inv.project;
+  const cellProject = (cell as any).projectId || (cell as any).project_id || (cell as any).project;
+  if (invProject && cellProject && String(invProject) !== String(cellProject)) {
+    if (shouldLogDiagnostics) {
+      console.debug('[matchInvoiceToCell] FAIL: Project mismatch', { invProject, cellProject });
+    }
+    return false;
   }
 
-  // Priority 3: Match by normalized description
+  // 2) line_item_id: canonicalize and compare
+  if (inv.line_item_id && cell.line_item_id) {
+    const invLineId = normalizeRubroId(inv.line_item_id);
+    const cellLineId = normalizeRubroId(cell.line_item_id);
+    if (invLineId && cellLineId && invLineId === cellLineId) {
+      if (shouldLogDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via line_item_id:', { invLineId, cellLineId });
+      }
+      return true;
+    }
+  }
+
+  // 3) matchingIds array: Check if invoice ID is in cell's matching IDs list
+  // Support multiple invoice field variants: rubroId, rubro_id, line_item_id, linea_codigo, linea_id, descripcion
+  const invRubroId = inv.rubroId || inv.rubro_id || inv.line_item_id || inv.linea_codigo || inv.linea_id;
+  if (invRubroId && (cell as any).matchingIds) {
+    const normalizedInvId = normalizeRubroId(invRubroId);
+    const matchingIds = (cell as any).matchingIds as string[];
+    
+    // Try exact match first
+    if (matchingIds.includes(normalizedInvId) || matchingIds.includes(invRubroId)) {
+      if (shouldLogDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via matchingIds:', { invRubroId, normalizedInvId, matchingIds });
+      }
+      return true;
+    }
+    
+    // Try normalized versions of all matching IDs
+    for (const matchId of matchingIds) {
+      if (normalizeRubroId(matchId) === normalizedInvId) {
+        if (shouldLogDiagnostics) {
+          console.debug('[matchInvoiceToCell] ✓ MATCH via normalized matchingIds:', { matchId, normalizedInvId });
+        }
+        return true;
+      }
+    }
+  }
+
+  // 4) canonical rubroId: use getCanonicalRubroId
+  const cellRubroId = cell.rubroId || cell.line_item_id;
+  
+  if (invRubroId && cellRubroId) {
+    const invCanonical = getCanonicalRubroId(invRubroId);
+    const cellCanonical = getCanonicalRubroId(cellRubroId);
+    if (invCanonical && cellCanonical && invCanonical === cellCanonical) {
+      if (shouldLogDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via canonical rubroId:', { 
+          invRubroId, 
+          invCanonical, 
+          cellRubroId,
+          cellCanonical 
+        });
+      }
+      return true;
+    }
+  }
+
+  // 5) taxonomy lookup: check if both resolve to same canonical entry
+  // Support additional invoice fields: linea_gasto, descripcion
+  if (taxonomyMap && taxonomyCache) {
+    const invRow = {
+      rubroId: invRubroId,
+      line_item_id: inv.line_item_id,
+      description: inv.description || inv.descripcion,
+      linea_gasto: inv.linea_gasto,
+    };
+    const cellRow = {
+      rubroId: cellRubroId,
+      line_item_id: cell.line_item_id,
+      description: cell.description,
+    };
+    
+    const invTax = lookupTaxonomyCanonical(taxonomyMap, invRow, taxonomyCache);
+    const cellTax = lookupTaxonomyCanonical(taxonomyMap, cellRow, taxonomyCache);
+    
+    if (invTax && cellTax && invTax.rubroId === cellTax.rubroId) {
+      if (shouldLogDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via taxonomy lookup:', { 
+          invTaxRubroId: invTax.rubroId, 
+          cellTaxRubroId: cellTax.rubroId 
+        });
+      }
+      return true;
+    }
+  }
+
+  // 6) normalized description: final fallback
   if (
     inv.description &&
     cell.description &&
     normalizeString(inv.description) === normalizeString(cell.description)
   ) {
+    if (shouldLogDiagnostics) {
+      console.debug('[matchInvoiceToCell] ✓ MATCH via normalized description:', { 
+        inv: normalizeString(inv.description), 
+        cell: normalizeString(cell.description) 
+      });
+    }
     return true;
+  }
+
+  // No match found - log reason
+  if (shouldLogDiagnostics) {
+    const reasons = [];
+    if (!invRubroId || !cellRubroId) {
+      reasons.push('Missing rubroId in invoice or cell');
+    }
+    if (invRubroId && cellRubroId) {
+      const invCanonical = getCanonicalRubroId(invRubroId);
+      const cellCanonical = getCanonicalRubroId(cellRubroId);
+      if (invCanonical !== cellCanonical) {
+        reasons.push(`Canonical mismatch: ${invCanonical} !== ${cellCanonical}`);
+      }
+    }
+    if (!inv.description || !cell.description) {
+      reasons.push('Missing description');
+    }
+    console.debug('[matchInvoiceToCell] ✗ NO MATCH', { 
+      reasons,
+      invRubroId,
+      cellRubroId 
+    });
   }
 
   return false;
@@ -94,6 +415,25 @@ export const matchInvoiceToCell = (inv: any, cell: ForecastRow): boolean => {
 
 const FORCE_ALLOC_PARAM = "forceAllocations";
 const FORCE_ALLOC_STORAGE_KEY = "finz.forceAllocationsOverride";
+
+/**
+ * Valid invoice statuses for including in actuals calculation
+ * These statuses indicate the invoice has been verified and should be counted
+ */
+const VALID_INVOICE_STATUSES = ['matched', 'paid', 'approved', 'posted', 'received', 'validated'] as const;
+
+/**
+ * Normalize invoice status from various field names and handle case-insensitivity
+ * Supports common variants: status, invoice_status, state, status_code
+ * 
+ * @param inv - Invoice object
+ * @returns Normalized status string (lowercase) or null if no status found
+ */
+const invoiceStatusNormalized = (inv: any): string | null => {
+  const rawStatus = inv.status || inv.invoice_status || inv.state || inv.status_code;
+  if (!rawStatus) return null;
+  return rawStatus.toString().trim().toLowerCase();
+};
 
 const parseBooleanFlag = (value: string | null): boolean => {
   if (value === null || value === undefined) return true;
@@ -163,6 +503,10 @@ export function useSDMTForecastData({
     () => computeForceAllocationsOverride(),
     []
   );
+  
+  // Create taxonomy map and cache once for the hook instance
+  const taxonomyMap = useMemo(() => buildTaxonomyMap(taxonomyByRubroId), []);
+  const taxonomyCache = useMemo(() => new Map<string, TaxLookupEntry | null>(), []);
 
   useEffect(() => {
     if (forceAllocationsOverride) {
@@ -194,7 +538,16 @@ export function useSDMTForecastData({
     try {
       // Load baseline summary
       let baselineResp = await finanzasClient.getBaselineSummary(projectId);
-      if (latestRequestKey.current !== requestKey) return; // stale
+      if (latestRequestKey.current !== requestKey) {
+        if ((import.meta as any)?.env?.DEV) {
+          console.warn('[useSDMTForecastData] Dropping baseline response (stale request):', { 
+            requestKey, 
+            latestRequestKey: latestRequestKey.current,
+            projectId 
+          });
+        }
+        return; // stale
+      }
       setBaseline(baselineResp);
 
       // Check if materialization is pending and poll if necessary
@@ -211,6 +564,11 @@ export function useSDMTForecastData({
           while (attempts < maxAttempts) {
             attempts++;
 
+            // Check if request was aborted
+            if (abortCtrlRef.current?.signal.aborted) {
+              return false;
+            }
+
             // Check if already materialized
             if (isMaterialized(baselineResp)) {
               return true;
@@ -219,10 +577,23 @@ export function useSDMTForecastData({
             // Wait 5 seconds before next poll
             await new Promise((r) => setTimeout(r, 5000));
 
+            // Check again if request was aborted after waiting
+            if (abortCtrlRef.current?.signal.aborted) {
+              return false;
+            }
+
             // Re-fetch baseline summary
             try {
               baselineResp = await finanzasClient.getBaselineSummary(projectId);
-              if (latestRequestKey.current !== requestKey) return false; // stale
+              if (latestRequestKey.current !== requestKey) {
+                if ((import.meta as any)?.env?.DEV) {
+                  console.warn('[useSDMTForecastData] Dropping baseline poll response (stale request):', { 
+                    requestKey, 
+                    latestRequestKey: latestRequestKey.current 
+                  });
+                }
+                return false; // stale
+              }
               setBaseline(baselineResp);
             } catch (pollErr: any) {
               if (pollErr.name === "AbortError") {
@@ -249,7 +620,16 @@ export function useSDMTForecastData({
 
       // Load rubros / line items (only after materialization completes or is already complete)
       const rubrosResp = await getProjectRubros(projectId);
-      if (latestRequestKey.current !== requestKey) return; // stale
+      if (latestRequestKey.current !== requestKey) {
+        if ((import.meta as any)?.env?.DEV) {
+          console.warn('[useSDMTForecastData] Dropping rubros response (stale request):', { 
+            requestKey, 
+            latestRequestKey: latestRequestKey.current,
+            rubrosCount: rubrosResp?.length || 0 
+          });
+        }
+        return; // stale
+      }
       setRubros(rubrosResp || []);
 
       // Enhanced logging for data validation vs DynamoDB
@@ -274,7 +654,15 @@ export function useSDMTForecastData({
       // ROBUST FALLBACK FLOW
       // Step 1: Try to load server-side forecast
       const forecastPayload = await getForecastPayload(projectId, months);
-      if (latestRequestKey.current !== requestKey) return; // stale
+      if (latestRequestKey.current !== requestKey) {
+        if ((import.meta as any)?.env?.DEV) {
+          console.warn('[useSDMTForecastData] Dropping forecast payload response (stale request):', { 
+            requestKey, 
+            latestRequestKey: latestRequestKey.current 
+          });
+        }
+        return; // stale
+      }
 
       let rows: ForecastRow[] = [];
       let usedFallback = false;
@@ -314,12 +702,19 @@ export function useSDMTForecastData({
 
         // Step 2: Fallback - try to get allocations
         try {
-          const allocations = await getAllocations(projectId);
+          // Extract baselineId from the loaded baseline
+          const extractedBaselineId = baselineResp?.baselineId || baselineResp?.id;
+          
+          console.log(
+            `[useSDMTForecastData] Fetching allocations for projectId=${projectId}, baselineId=${extractedBaselineId || 'none'}`
+          );
+          
+          const allocations = await getAllocations(projectId, extractedBaselineId);
           if (latestRequestKey.current !== requestKey) return; // stale
 
           allocationsCount = allocations?.length || 0;
           console.log(
-            `[useSDMTForecastData] ✅ Retrieved ${allocationsCount} allocations from DynamoDB for project ${projectId}`
+            `[useSDMTForecastData] ✅ Retrieved ${allocationsCount} allocations from DynamoDB for project ${projectId}${extractedBaselineId ? `, baseline ${extractedBaselineId}` : ''}`
           );
 
           if (allocations && allocations.length > 0) {
@@ -340,11 +735,28 @@ export function useSDMTForecastData({
                 allocations.length
               } allocations + ${rubrosResp?.length || 0} rubros`
             );
+            
+            // Build taxonomy lookup from rubros for fallback enrichment
+            const taxonomyByRubroId: Record<string, { description?: string; category?: string }> = {};
+            rubrosResp?.forEach((rubro: LineItem) => {
+              const extendedRubro = rubro as ExtendedLineItem;
+              const id = extendedRubro.id ?? extendedRubro.line_item_id ?? extendedRubro.rubroId;
+              if (id && (extendedRubro.description ?? extendedRubro.category)) {
+                taxonomyByRubroId[id] = {
+                  description: extendedRubro.description,
+                  category: extendedRubro.category,
+                };
+              }
+            });
+            
             rows = computeForecastFromAllocations(
               allocations as Allocation[],
               rubrosResp,
               months,
-              projectId
+              projectId,
+              taxonomyByRubroId,
+              taxonomyMap,
+              taxonomyCache
             );
             console.log(
               `[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from allocations`
@@ -356,7 +768,7 @@ export function useSDMTForecastData({
             console.warn(
               `[useSDMTForecastData] No allocations found — using ${rubrosResp.length} rubros only`
             );
-            rows = transformLineItemsToForecast(rubrosResp, months, projectId);
+            rows = transformLineItemsToForecast(rubrosResp, months, projectId, undefined, taxonomyByRubroId);
             console.log(
               `[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from rubros fallback`
             );
@@ -385,7 +797,7 @@ export function useSDMTForecastData({
             console.warn(
               `[useSDMTForecastData] Allocations failed — using ${rubrosResp.length} rubros only`
             );
-            rows = transformLineItemsToForecast(rubrosResp, months, projectId);
+            rows = transformLineItemsToForecast(rubrosResp, months, projectId, undefined, taxonomyByRubroId);
             console.log(
               `[useSDMTForecastData] ✅ Generated ${rows.length} forecast cells from rubros fallback (after allocation error)`
             );
@@ -404,48 +816,163 @@ export function useSDMTForecastData({
       }
 
       // Load and merge invoices as actuals
-      const invoices = await getProjectInvoices(projectId);
+      const invoices = await getProjectInvoices(projectId === 'ALL_PROJECTS' ? undefined : projectId);
       if (latestRequestKey.current !== requestKey) return; // stale
 
-      console.log(
-        `[useSDMTForecastData] ✅ Retrieved ${
-          invoices?.length || 0
-        } invoices for project ${projectId}`
-      );
+      const isDev = import.meta.env.DEV;
+      
+      if (isDev) {
+        console.log(
+          `[useSDMTForecastData] invoices fetched for project ${projectId}: ${
+            invoices?.length || 0
+          }`
+        );
+      }
 
-      const matchedInvoices = invoices.filter(
-        (inv) => inv.status === "Matched"
-      );
-      console.log(
-        `[useSDMTForecastData] Found ${matchedInvoices.length} matched invoices (status='Matched')`
-      );
+      // Filter to valid invoice statuses (using normalized status helper)
+      const validInvoices = invoices.filter((inv) => {
+        const status = invoiceStatusNormalized(inv);
+        return status && VALID_INVOICE_STATUSES.includes(status as typeof VALID_INVOICE_STATUSES[number]);
+      });
+      
+      if (isDev) {
+        console.log(
+          `[useSDMTForecastData] valid invoices: ${validInvoices.length}`
+        );
+      }
+
+      // Apply invoices to forecast rows
+      let matchedInvoicesCount = 0;
+      let unmatchedInvoicesCount = 0;
+      let invalidMonthCount = 0;
+      let fallbackMatchedCount = 0; // Track fallback matches for DEV logging
+      const invalidMonthInvoices: any[] = [];
+      const unmatchedInvoicesSample: any[] = [];
+      
+      for (const inv of validInvoices) {
+        let matched = false;
+        const invMonth = normalizeInvoiceMonth(getInvoiceMonth(inv), undefined, isDev);
+        
+        for (const row of rows) {
+          // Use improved matching with taxonomy and debug mode
+          if (matchInvoiceToCell(inv, row, taxonomyMap, taxonomyCache, isDev)) {
+            // Also check month matches (defensive) - only match if invMonth is valid (> 0)
+            // This ensures we don't accidentally match invoices with no month data
+            if (invMonth > 0 && row.month === invMonth) {
+              const invAmount = normalizeInvoiceAmount(inv);
+              row.actual = (row.actual || 0) + invAmount;
+              matchedInvoicesCount++;
+              matched = true;
+              break; // Stop after first match to prevent double-counting
+            }
+          }
+        }
+        
+        // DEV-only fallback diagnostic: If invoice didn't match, log potential matches
+        // This helps diagnose whether minor formatting differences are causing failures
+        // NOTE: This is DIAGNOSTIC ONLY - it does NOT modify row.actual
+        if (!matched && invMonth > 0 && isDev) {
+          for (const row of rows) {
+            if (row.month !== invMonth) continue;
+            
+            // Check if canonical rubro comparison would match
+            const invRubroId = inv.rubroId || inv.rubro_id || inv.line_item_id;
+            const rowRubroId = row.rubroId || row.line_item_id;
+            
+            if (invRubroId && rowRubroId) {
+              const invCanonical = getCanonicalRubroId(invRubroId);
+              const rowCanonical = getCanonicalRubroId(rowRubroId);
+              
+              if (invCanonical && rowCanonical && invCanonical === rowCanonical) {
+                const invAmount = normalizeInvoiceAmount(inv);
+                fallbackMatchedCount++;
+                console.log(
+                  `[useSDMTForecastData] DIAGNOSTIC: Would match via canonical rubro: inv.rubroId=${invRubroId} → ${invCanonical}, row.rubroId=${rowRubroId} → ${rowCanonical}, amount=${invAmount}`
+                );
+                break; // Only log first potential match
+              }
+            }
+            
+            // Check if normalized description comparison would match
+            if (inv.description && row.description) {
+              if (normalizeString(inv.description) === normalizeString(row.description)) {
+                const invAmount = normalizeInvoiceAmount(inv);
+                fallbackMatchedCount++;
+                console.log(
+                  `[useSDMTForecastData] DIAGNOSTIC: Would match via description: "${inv.description}" → "${row.description}", amount=${invAmount}`
+                );
+                break; // Only log first potential match
+              }
+            }
+          }
+        }
+        
+        if (!matched) {
+          if (invMonth === 0) {
+            // Invoice has no valid month - track for batch logging
+            invalidMonthCount++;
+            if (invalidMonthInvoices.length < 5) { // Keep first 5 for sample
+              // Note: Using 'as any' for defensive field access since invoices may have
+              // varying field names (rubroId vs rubro_id, projectId vs project_id) depending on source
+              invalidMonthInvoices.push({
+                line_item_id: inv.line_item_id,
+                rubroId: (inv as any).rubroId || (inv as any).rubro_id,
+                amount: normalizeInvoiceAmount(inv),
+                rawMonth: getInvoiceMonth(inv),
+                project_id: (inv as any).projectId || (inv as any).project_id,
+                status: invoiceStatusNormalized(inv),
+              });
+            }
+          } else {
+            unmatchedInvoicesCount++;
+            // Collect sample of unmatched invoices for debugging
+            if (unmatchedInvoicesSample.length < 5) {
+              // Note: Using 'as any' for defensive field access since invoices may have
+              // varying field names depending on source
+              unmatchedInvoicesSample.push({
+                line_item_id: inv.line_item_id,
+                rubroId: (inv as any).rubroId || (inv as any).rubro_id,
+                description: (inv as any).description,
+                month: invMonth,
+                rawMonth: getInvoiceMonth(inv),
+                project_id: (inv as any).projectId || (inv as any).project_id,
+                status: invoiceStatusNormalized(inv),
+                amount: normalizeInvoiceAmount(inv),
+              });
+            }
+          }
+        }
+      }
+
+      if (isDev) {
+        console.log(
+          `[useSDMTForecastData] matchedInvoices: ${matchedInvoicesCount}, unmatchedSample: ${JSON.stringify(unmatchedInvoicesSample)}`
+        );
+        
+        if (fallbackMatchedCount > 0) {
+          console.warn(
+            `[useSDMTForecastData] DIAGNOSTIC: ${fallbackMatchedCount} invoices would match using relaxed rules (canonical/description). Primary matching may need improvement.`
+          );
+        }
+        
+        if (invalidMonthCount > 0) {
+          console.warn(
+            `[useSDMTForecastData] invalidMonthInvoiceSample: ${JSON.stringify(invalidMonthInvoices)}`
+          );
+        }
+      }
 
       const rowsWithActuals = rows.map((cell) => {
-        const matchedInvoice = matchedInvoices.find(
-          (inv) => matchInvoiceToCell(inv, cell) && inv.month === cell.month
-        );
-
-        if (matchedInvoice) {
-          const actualAmount = matchedInvoice.amount || 0;
-          return {
-            ...cell,
-            actual: actualAmount,
-            // Calculate both variance types
-            varianceActual: actualAmount - cell.planned,
-            varianceForecast:
-              cell.forecast != null ? cell.forecast - cell.planned : null,
-            // Legacy variance field for backward compatibility
-            variance: actualAmount - cell.planned,
-          };
-        }
-
-        // No matched invoice - calculate variance based on forecast vs planned
+        const actualAmount = cell.actual || 0;
+        
         return {
           ...cell,
-          varianceActual: null, // No actual data
+          // Calculate both variance types
+          varianceActual: actualAmount > 0 ? actualAmount - cell.planned : null,
           varianceForecast:
             cell.forecast != null ? cell.forecast - cell.planned : null,
-          variance: cell.forecast - cell.planned,
+          // Legacy variance field for backward compatibility
+          variance: actualAmount > 0 ? actualAmount - cell.planned : cell.forecast - cell.planned,
         };
       });
 
@@ -455,17 +982,22 @@ export function useSDMTForecastData({
       setDataSource(chosenDataSource);
 
       // Summary logging for data validation (use local variable for accuracy)
-      console.log("[useSDMTForecastData] 📊 Data Summary:", {
-        projectId,
-        rubrosRetrieved: rubrosResp?.length || 0,
-        allocationsRetrieved: allocationsCount,
-        forecastCellsGenerated: rowsWithActuals.length,
-        invoicesRetrieved: invoices?.length || 0,
-        matchedInvoices: matchedInvoices.length,
-        dataSource: chosenDataSource,
-        months,
-        forceAllocationsOverride,
-      });
+      if (isDev) {
+        console.log("[useSDMTForecastData] 📊 Data Summary:", {
+          projectId,
+          rubrosRetrieved: rubrosResp?.length || 0,
+          allocationsRetrieved: allocationsCount,
+          forecastCellsGenerated: rowsWithActuals.length,
+          invoicesRetrieved: invoices?.length || 0,
+          validInvoices: validInvoices.length,
+          matchedInvoices: matchedInvoicesCount,
+          unmatchedInvoices: unmatchedInvoicesCount,
+          invalidMonthInvoices: invalidMonthCount,
+          dataSource: chosenDataSource,
+          months,
+          forceAllocationsOverride,
+        });
+      }
 
       if (usedFallback) {
         console.info("[useSDMTForecastData] Using fallback data source");

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getProjectRubros } from "@/api/finanzas";
+import { getProjectRubros, getProjectRubrosWithTaxonomy } from "@/api/finanzas";
 import { getRubrosWithFallback } from "@/lib/api";
 import { ALL_PROJECTS_ID, useProject } from "@/contexts/ProjectContext";
 import type { LineItem } from "@/types/domain";
@@ -9,19 +9,37 @@ import { ensureCategory } from "@/lib/rubros-category-utils";
 const lineItemsKey = (projectId?: string, baselineId?: string) =>
   ["lineItems", projectId ?? "none", baselineId ?? "none"] as const;
 
-export function useProjectLineItems(options?: { useFallback?: boolean; baselineId?: string }) {
+export function useProjectLineItems(options?: { useFallback?: boolean; baselineId?: string; withTaxonomy?: boolean }) {
   const { selectedProject } = useProject();
   const projectId = selectedProject?.id;
   const projectBaselineId = selectedProject?.baselineId;
   const queryClient = useQueryClient();
   const useFallback = options?.useFallback ?? false;
+  const withTaxonomy = options?.withTaxonomy ?? false;
   const baselineId = options?.baselineId ?? projectBaselineId;
 
-  const query = useQuery<LineItem[]>({
+  const query = useQuery<{ 
+    lineItems: LineItem[]; 
+    taxonomyByRubroId?: Record<string, { description?: string; category?: string }> 
+  }>({
     queryKey: lineItemsKey(projectId),
     queryFn: async () => {
       if (!projectId || projectId === ALL_PROJECTS_ID) {
-        throw new Error("Project is required before loading line items");
+        if (import.meta.env.DEV) {
+          console.log(
+            `[useProjectLineItems] Guarded call with projectId=${projectId} - returning empty result (ALL_PROJECTS not supported)`
+          );
+        }
+        return { lineItems: [], taxonomyByRubroId: undefined };
+      }
+      
+      // Fetch line items with taxonomy if requested
+      if (withTaxonomy) {
+        const result = await getProjectRubrosWithTaxonomy(projectId);
+        return {
+          lineItems: result.lineItems.map(ensureCategory),
+          taxonomyByRubroId: result.taxonomyByRubroId,
+        };
       }
       
       // Fetch line items using fallback method if requested
@@ -33,7 +51,9 @@ export function useProjectLineItems(options?: { useFallback?: boolean; baselineI
       }
       
       // Ensure proper category assignment for labor roles
-      return items.map(ensureCategory);
+      return {
+        lineItems: items.map(ensureCategory),
+      };
     },
     enabled: !!projectId && projectId !== ALL_PROJECTS_ID,
     staleTime: 5 * 60 * 1000,
@@ -41,19 +61,22 @@ export function useProjectLineItems(options?: { useFallback?: boolean; baselineI
     refetchOnWindowFocus: false,
   });
 
-  const lineItems = useMemo(() => query.data ?? [], [query.data]);
+  const lineItems = useMemo(() => query.data?.lineItems ?? [], [query.data?.lineItems]);
+  const taxonomyByRubroId = useMemo(() => query.data?.taxonomyByRubroId, [query.data?.taxonomyByRubroId]);
 
   useEffect(() => {
-    if (import.meta.env.DEV && projectId && Array.isArray(query.data)) {
+    if (import.meta.env.DEV && projectId && Array.isArray(query.data?.lineItems)) {
       console.info("[useProjectLineItems] loaded", {
         projectId,
         baselineId,
-        count: query.data.length,
-        ids: query.data.map((li) => li.id).filter(Boolean),
+        count: query.data.lineItems.length,
+        ids: query.data.lineItems.map((li) => li.id).filter(Boolean),
         useFallback,
+        withTaxonomy,
+        hasTaxonomy: !!query.data.taxonomyByRubroId,
       });
     }
-  }, [projectId, query.data, useFallback]);
+  }, [projectId, query.data, useFallback, withTaxonomy]);
 
   const invalidate = useCallback(async () => {
     if (!projectId) return;
@@ -64,6 +87,7 @@ export function useProjectLineItems(options?: { useFallback?: boolean; baselineI
     ...query,
     projectId,
     lineItems,
+    taxonomyByRubroId,
     invalidate,
   };
 }

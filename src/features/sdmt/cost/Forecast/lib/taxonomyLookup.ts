@@ -1,0 +1,378 @@
+/**
+ * Taxonomy Lookup with Canonical Labor Classification
+ * 
+ * Provides robust lookup of rubros taxonomy with explicit labor key detection.
+ * Ensures the canonical MOD (Mano de Obra Directa) items are always classified as Labor.
+ * 
+ * Lookup chain:
+ * 1. Strict map lookup (O(1) performance)
+ * 2. Canonical labor key heuristic (fast Set lookup)
+ * 3. Tolerant fallback (substring/fuzzy matching)
+ */
+
+import { LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET, CANONICAL_ALIASES } from '@/lib/rubros/canonical-taxonomy';
+import { normalizeKey } from '@/lib/rubros/normalize-key';
+
+/**
+ * Re-export normalizeKey, LABOR_CANONICAL_KEYS and LABOR_CANONICAL_KEYS_SET
+ * from shared locations for backward compatibility with existing code
+ */
+export { normalizeKey, LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET };
+
+/**
+ * Throttled warning helper to avoid console spam
+ * Warns once per unique key
+ */
+const WARNED_KEYS = new Set<string>();
+
+export function warnOnce(key: string, message: string): void {
+  if (WARNED_KEYS.has(key)) return;
+  WARNED_KEYS.add(key);
+  console.warn(message);
+}
+
+/**
+ * Check if a key matches any canonical labor identifier
+ * 
+ * @param key - The key to check (will be normalized internally)
+ * @returns true if the key matches a canonical labor identifier
+ */
+export function isLaborByKey(key?: string): boolean {
+  if (!key) return false;
+  const normalized = normalizeKey(key);
+  if (!normalized) return false;
+  
+  return LABOR_CANONICAL_KEYS_SET.has(normalized);
+}
+
+/**
+ * Taxonomy entry interface
+ */
+export interface TaxonomyEntry {
+  rubroId?: string;
+  rubro_id?: string;
+  line_item_id?: string;
+  description?: string;
+  category?: string;
+  isLabor?: boolean;
+  name?: string;
+  slug?: string;
+  linea_gasto?: string;
+  descripcion?: string;
+  [key: string]: any;
+}
+
+/**
+ * Rubro row interface (generic allocation/forecast row)
+ */
+export interface RubroRow {
+  rubroId?: string;
+  rubro_id?: string;
+  line_item_id?: string;
+  lineItemId?: string;
+  name?: string;
+  description?: string;
+  category?: string;
+  [key: string]: any;
+}
+
+/**
+ * Tolerant rubro lookup - substring and fuzzy matching fallback
+ * 
+ * This implements the tolerant matching logic from PR #921
+ * Used as a fallback when strict map lookup and labor key heuristic fail
+ */
+export function tolerantRubroLookup(
+  rubroRow: RubroRow,
+  taxonomyMap: Map<string, TaxonomyEntry>
+): TaxonomyEntry | null {
+  // Extract all candidate keys from the rubro row
+  const candidates = [
+    rubroRow.rubroId,
+    rubroRow.rubro_id,
+    rubroRow.line_item_id,
+    rubroRow.lineItemId,
+    rubroRow.name,
+    rubroRow.description,
+  ].filter(Boolean).map(k => normalizeKey(k as string));
+  
+  if (candidates.length === 0) return null;
+  
+  // Try substring matching for each candidate
+  const allTaxonomyKeys = Array.from(taxonomyMap.keys());
+  
+  for (const candidate of candidates) {
+    if (!candidate || candidate.length < 3) continue;
+    
+    // Look for partial matches
+    for (const taxKey of allTaxonomyKeys) {
+      if (!taxKey || taxKey.length < 3) continue;
+      
+      const minLength = Math.min(candidate.length, taxKey.length);
+      const maxLength = Math.max(candidate.length, taxKey.length);
+      
+      // Check if one contains the other and similarity ratio is good
+      if ((candidate.includes(taxKey) || taxKey.includes(candidate)) && 
+          minLength / maxLength >= 0.6) {
+        const match = taxonomyMap.get(taxKey);
+        if (match) {
+          return match;
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Lookup taxonomy entry for a rubro row with robust fallback chain
+ * 
+ * Lookup order:
+ * 1. Strict map lookup by exact keys (O(1))
+ * 2. Canonical alias map (O(1) explicit alias resolution)
+ * 3. Canonical labor key heuristic (O(1) Set lookup) → returns synthetic labor taxonomy
+ * 4. Explicit linea_gasto/descripcion field matching
+ * 5. Tolerant fallback (substring/fuzzy matching) → O(n) but cached
+ * 
+ * @param taxonomyMap - Pre-built taxonomy map (indexed by normalized keys)
+ * @param rubroRow - The rubro/allocation row to look up
+ * @param cache - Cache map to store lookup results (for performance)
+ * @returns Taxonomy entry or null if not found
+ */
+export function lookupTaxonomy(
+  taxonomyMap: Map<string, TaxonomyEntry>,
+  rubroRow: RubroRow,
+  cache: Map<string, TaxonomyEntry | null>
+): TaxonomyEntry | null {
+  // Extract candidate keys from rubro row
+  const candidates = [
+    rubroRow.rubroId,
+    rubroRow.rubro_id,
+    rubroRow.line_item_id,
+    rubroRow.lineItemId,
+    rubroRow.name,
+    rubroRow.description,
+  ].filter(Boolean).map(k => normalizeKey(k as string));
+  
+  if (candidates.length === 0) return null;
+  
+  const primaryKey = candidates[0];
+  
+  // Step 1: Check cache first
+  for (const candidateKey of candidates) {
+    if (cache.has(candidateKey)) {
+      const cached = cache.get(candidateKey);
+      return cached ?? null;
+    }
+  }
+  
+  // Step 2: Try strict map lookup
+  for (const candidateKey of candidates) {
+    const tax = taxonomyMap.get(candidateKey);
+    if (tax) {
+      // Cache under all candidate keys for consistency
+      for (const ck of candidates) {
+        cache.set(ck, tax);
+      }
+      return tax;
+    }
+  }
+  
+  // Step 2.5: Check canonical alias map
+  // This provides explicit resolution for common textual forms like "Service Delivery Manager"
+  for (const candidateKey of candidates) {
+    const aliasId = CANONICAL_ALIASES[candidateKey];
+    if (aliasId) {
+      // Look up the canonical taxonomy by alias
+      const canonicalTax = taxonomyMap.get(normalizeKey(aliasId));
+      if (canonicalTax) {
+        // Cache under all candidate keys for consistency
+        for (const ck of candidates) {
+          cache.set(ck, canonicalTax);
+        }
+        
+        // Debug log (dev only)
+        if (import.meta.env.DEV) {
+          console.debug(
+            `[lookupTaxonomy] Alias match: "${candidateKey}" → ${aliasId} (${canonicalTax.name || canonicalTax.rubroId})`
+          );
+        }
+        
+        return canonicalTax;
+      }
+    }
+  }
+  
+  // Step 3: Try canonical labor key heuristic
+  // If any candidate matches a canonical labor key, return synthetic labor taxonomy
+  for (const candidateKey of candidates) {
+    if (isLaborByKey(candidateKey)) {
+      const syntheticLabor: TaxonomyEntry = {
+        rubroId: 'MOD',
+        category: 'Mano de Obra (MOD)',
+        isLabor: true,
+        name: 'Mano de Obra (MOD)',
+        description: rubroRow.description || 'Mano de Obra Directa',
+      };
+      // Cache under all candidate keys for consistency
+      for (const ck of candidates) {
+        cache.set(ck, syntheticLabor);
+      }
+      
+      // Debug log (dev only)
+      if (import.meta.env.DEV) {
+        console.debug(
+          `[lookupTaxonomy] Labor key match: "${candidateKey}" → synthetic MOD taxonomy`
+        );
+      }
+      
+      return syntheticLabor;
+    }
+  }
+  
+  // Step 3.5: Check explicit linea_gasto/descripcion fields (fallback/defensive)
+  // This is a defensive fallback in case linea_gasto/descripcion weren't indexed in buildTaxonomyMap
+  // or if the taxonomy structure differs from expected. Should rarely execute since buildTaxonomyMap
+  // already indexes these fields, but provides robustness for edge cases.
+  // Note: This has O(n*m) complexity but is rarely hit due to earlier indexing in buildTaxonomyMap.
+  for (const candidate of candidates) {
+    for (const [, tax] of taxonomyMap.entries()) {
+      const linea = normalizeKey((tax as any).linea_gasto || '');
+      const desc = normalizeKey((tax as any).descripcion || '');
+      if ((linea && linea === candidate) || (desc && desc === candidate)) {
+        // Cache under all candidates
+        for (const ck of candidates) {
+          cache.set(ck, tax);
+        }
+        
+        // Debug log (dev only)
+        if (import.meta.env.DEV) {
+          console.debug(
+            `[lookupTaxonomy] Field match: "${candidate}" → ${tax.rubroId || tax.name} (via ${linea === candidate ? 'linea_gasto' : 'descripcion'})`
+          );
+        }
+        
+        return tax;
+      }
+    }
+  }
+  
+  // Step 4: Tolerant fallback (substring/fuzzy matching)
+  const tolerantMatch = tolerantRubroLookup(rubroRow, taxonomyMap);
+  // Cache under all candidate keys for consistency
+  for (const ck of candidates) {
+    cache.set(ck, tolerantMatch);
+  }
+  
+  if (tolerantMatch && import.meta.env.DEV) {
+    console.debug(
+      `[lookupTaxonomy] Tolerant match: "${primaryKey}" → ${tolerantMatch.rubroId || tolerantMatch.name}`
+    );
+  }
+  
+  // If no match found, log warning (throttled)
+  if (!tolerantMatch && primaryKey && import.meta.env.DEV) {
+    warnOnce(
+      primaryKey,
+      `[rubros-taxonomy] Unknown rubro_id: "${primaryKey}" (rubroRow keys: ${candidates.join(', ')})`
+    );
+  }
+  
+  return tolerantMatch;
+}
+
+/**
+ * Build a taxonomy map from a taxonomy dictionary
+ * Seeds the map with multiple keys per entry for fast lookup
+ * 
+ * @param taxonomyByRubroId - Dictionary of taxonomy entries indexed by rubroId
+ * @returns Map with normalized keys for O(1) lookups
+ */
+export function buildTaxonomyMap(
+  taxonomyByRubroId: Record<string, TaxonomyEntry>
+): Map<string, TaxonomyEntry> {
+  const map = new Map<string, TaxonomyEntry>();
+  
+  /**
+   * Helper to safely index a field value into the map
+   */
+  const indexField = (fieldValue: string | undefined, taxonomy: TaxonomyEntry) => {
+    if (fieldValue) {
+      const normalized = normalizeKey(fieldValue);
+      if (normalized && !map.has(normalized)) {
+        map.set(normalized, taxonomy);
+      }
+    }
+  };
+  
+  for (const [rubroId, taxonomy] of Object.entries(taxonomyByRubroId)) {
+    if (!taxonomy) continue;
+    
+    // Index by rubroId variants
+    indexField(taxonomy.rubroId, taxonomy);
+    indexField(taxonomy.rubro_id, taxonomy);
+    indexField(taxonomy.line_item_id, taxonomy);
+    
+    // Index by name/slug
+    indexField(taxonomy.name, taxonomy);
+    indexField(taxonomy.slug, taxonomy);
+    
+    // Index by linea_gasto (human readable canonical label) and descripcion to enable matches
+    indexField(taxonomy.linea_gasto, taxonomy);
+    indexField(taxonomy.descripcion, taxonomy);
+    
+    // Index linea_gasto and descripcion so human-friendly labels are searchable
+    // This fixes the "Service Delivery Manager" → MOD-SDM mapping issue
+    if ((taxonomy as any).linea_gasto) {
+      const linea = normalizeKey((taxonomy as any).linea_gasto);
+      if (linea && !map.has(linea)) {
+        map.set(linea, taxonomy);
+      }
+    }
+    if ((taxonomy as any).descripcion) {
+      const desc = normalizeKey((taxonomy as any).descripcion);
+      if (desc && !map.has(desc)) {
+        map.set(desc, taxonomy);
+      }
+    }
+    
+    // Index by original key
+    indexField(rubroId, taxonomy);
+  }
+  
+  // Seed canonical labor keys if they don't already have taxonomy entries
+  // Map them to a canonical MOD entry if one exists
+  const modCandidate = 
+    map.get('mod') || 
+    map.get('mod-lead') || 
+    map.get('mod-sdm') ||
+    map.get('categoria-mod');
+  
+  if (modCandidate) {
+    // Iterate Set directly - ES2020 supports this
+    for (const laborKey of LABOR_CANONICAL_KEYS) {
+      if (!map.has(laborKey)) {
+        // Create a variant of the MOD entry with isLabor flag
+        map.set(laborKey, {
+          ...modCandidate,
+          isLabor: true,
+        });
+      }
+    }
+  }
+  
+  // Seed canonical aliases to resolve common role strings and legacy values
+  for (const [alias, rubroId] of Object.entries(CANONICAL_ALIASES)) {
+    const normalizedAlias = normalizeKey(alias);
+    if (!normalizedAlias) continue;
+    
+    // Find the canonical taxonomy entry for this rubroId
+    const tax = taxonomyByRubroId[rubroId];
+    if (tax && !map.has(normalizedAlias)) {
+      map.set(normalizedAlias, tax);
+    }
+  }
+  
+  return map;
+}

@@ -6,6 +6,8 @@
  */
 
 import type { LineItem, ForecastCell } from '@/types/domain';
+import { isLaborByKey } from './lib/taxonomyLookup';
+import { getTaxonomyById } from '@/lib/rubros/canonical-taxonomy';
 
 /**
  * ForecastRow extends ForecastCell with optional project metadata
@@ -18,6 +20,7 @@ export type ForecastRow = ForecastCell & {
   rubroId?: string;
   description?: string;
   category?: string;
+  isLabor?: boolean;
 };
 
 /**
@@ -25,13 +28,17 @@ export type ForecastRow = ForecastCell & {
  * 
  * @param lineItems - Array of line items from baseline/rubros
  * @param months - Number of months to generate (default 12)
+ * @param projectId - Optional project ID
+ * @param projectName - Optional project name
+ * @param taxonomyByRubroId - Optional taxonomy lookup for descriptions
  * @returns Array of forecast cells (one per line item per active month)
  */
 export function transformLineItemsToForecast(
   lineItems: LineItem[], 
   months = 12,
   projectId?: string,
-  projectName?: string
+  projectName?: string,
+  taxonomyByRubroId?: Record<string, { description?: string; category?: string; isLabor?: boolean }>
 ): ForecastRow[] {
   if (!lineItems || lineItems.length === 0) {
     return [];
@@ -54,14 +61,37 @@ export function transformLineItemsToForecast(
     const activeMonths = Math.max(1, Math.min(endMonth, months) - Math.max(startMonth, 1) + 1);
     const monthlyAmount = totalCost / activeMonths;
     
+    // Try to resolve from canonical taxonomy first, then fallback to taxonomyByRubroId
+    const canonicalTaxonomy = getTaxonomyById(item.id);
+    const taxonomyEntry = taxonomyByRubroId?.[item.id];
+    
+    // Priority chain for description: item.description -> canonical taxonomy -> taxonomyByRubroId -> item.id
+    const description = item.description || 
+                       (canonicalTaxonomy ? canonicalTaxonomy.linea_gasto || canonicalTaxonomy.descripcion : undefined) ||
+                       taxonomyEntry?.description || 
+                       item.id;
+    
+    // Priority chain for category: item.category -> canonical taxonomy -> taxonomyByRubroId
+    const category = item.category || 
+                    canonicalTaxonomy?.categoria ||
+                    taxonomyEntry?.category;
+    
+    // Determine isLabor: canonical taxonomy (MOD check) -> taxonomyByRubroId -> canonical key check -> category check
+    const isLabor = (canonicalTaxonomy?.categoria_codigo === 'MOD' ? true : undefined) ??
+                   taxonomyEntry?.isLabor ??
+                   isLaborByKey(item.id) ??
+                   ((category?.toLowerCase().includes('mano de obra') || category?.toLowerCase() === 'mod') ? true : undefined) ??
+                   false;
+    
     // Create forecast cells for each active month
     for (let month = 1; month <= months; month++) {
       if (month >= startMonth && month <= endMonth) {
         forecastCells.push({
           line_item_id: item.id,
           rubroId: item.id,
-          description: item.description,
-          category: item.category,
+          description,
+          category,
+          isLabor,
           month,
           planned: monthlyAmount,
           forecast: monthlyAmount,

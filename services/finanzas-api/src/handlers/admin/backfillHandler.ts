@@ -24,9 +24,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     // SECURITY: Ensure only authorized users (PMO, SDMT, SDM) can run backfill
     await ensureCanWrite(event as never);
     
-    // Input: JSON body { projectId, baselineId, dryRun }
+    // Input: JSON body { projectId, baselineId, dryRun, forceRewriteZeros }
     const body = event.body ? JSON.parse(event.body) : {};
-    const { projectId, baselineId, dryRun = true } = body;
+    const { projectId, baselineId, dryRun = true, forceRewriteZeros = false } = body;
     
     if (!projectId && !baselineId) {
       return withCors(
@@ -114,6 +114,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     console.info('[backfill] calling allocations materializer', {
       baselineId: resolvedBaselineId,
       projectId: resolvedProjectId,
+      forceRewriteZeros: !!forceRewriteZeros,
       preview: {
         start_date: suppliedPayload?.start_date ?? null,
         duration_months: suppliedPayload?.duration_months ?? null,
@@ -126,7 +127,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       }
     });
 
-    // Call allocations materializer with the normalized payload
+    // Call allocations materializer with the normalized payload and forceRewriteZeros flag
     const allocationsResult = await materializeAllocationsForBaseline(
       {
         baseline_id: resolvedBaselineId,
@@ -134,7 +135,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
         // Pass the normalized suppliedPayload if present, otherwise the raw baselinePayload
         payload: suppliedPayload || baselinePayload || {},
       },
-      { dryRun: !!dryRun }
+      { dryRun: !!dryRun, forceRewriteZeros: !!forceRewriteZeros }
     );
 
     return withCors(

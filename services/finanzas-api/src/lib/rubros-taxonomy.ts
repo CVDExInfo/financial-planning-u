@@ -27,7 +27,7 @@ const MOD_ROLE_TO_LINEA_CODIGO: Record<MODRole, string> = {
   'Ingeniero Soporte N2': 'MOD-ING',
   'Ingeniero Soporte N3': 'MOD-ING',
   'Service Delivery Manager': 'MOD-SDM',
-  'Project Manager': 'MOD-PM',
+  'Project Manager': 'MOD-LEAD', // Changed from MOD-PM to MOD-LEAD per canonical taxonomy
 };
 
 /**
@@ -100,10 +100,20 @@ const NON_LABOR_CATEGORY_MAP: Record<string, string> = {
 };
 
 /**
+ * Legacy alias map for common human-readable role names to canonical IDs
+ * Helps with invoice and allocation matching where human names might be used
+ */
+const LEGACY_ROLE_ALIASES: Record<string, string> = {
+  'SDM': 'MOD-SDM',
+  'Service Delivery Manager (SDM)': 'MOD-SDM',
+  'PM': 'MOD-LEAD',
+};
+
+/**
  * Map a MOD role name to its canonical linea_codigo
  * 
  * @param role - MOD role name (e.g., "Ingeniero Delivery", "Project Manager")
- * @returns Canonical linea_codigo (e.g., "MOD-LEAD", "MOD-PM") or undefined if not found
+ * @returns Canonical linea_codigo (e.g., "MOD-LEAD", "MOD-SDM") or undefined if not found
  */
 export function mapModRoleToRubroId(role: string | undefined): string | undefined {
   if (!role) return undefined;
@@ -112,9 +122,21 @@ export function mapModRoleToRubroId(role: string | undefined): string | undefine
   const exactMatch = MOD_ROLE_TO_LINEA_CODIGO[role as MODRole];
   if (exactMatch) return exactMatch;
   
+  // Try legacy aliases
+  if (LEGACY_ROLE_ALIASES[role]) {
+    return LEGACY_ROLE_ALIASES[role];
+  }
+  
   // Try case-insensitive match
   const normalizedRole = role.trim();
   for (const [key, value] of Object.entries(MOD_ROLE_TO_LINEA_CODIGO)) {
+    if (key.toLowerCase() === normalizedRole.toLowerCase()) {
+      return value;
+    }
+  }
+  
+  // Try legacy aliases case-insensitive
+  for (const [key, value] of Object.entries(LEGACY_ROLE_ALIASES)) {
     if (key.toLowerCase() === normalizedRole.toLowerCase()) {
       return value;
     }

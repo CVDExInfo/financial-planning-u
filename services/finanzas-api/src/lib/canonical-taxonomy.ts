@@ -138,6 +138,71 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'RUBRO-AWS-INFRA': 'INF-CLOUD',
   'RUBRO-LICENSE': 'TEC-LIC-MON',
   'RUBRO-CONSULTING': 'GSV-REU',
+  
+  // Allocation tokens and human-readable names (added for frontend-backend alignment)
+  // PR #942 and #945 aliases
+  // Note: Mixed case entries are intentional - they match allocation data as-is
+  // The lookup logic normalizes keys before comparison
+  
+  // Service Delivery Manager variations (mirror client-side aliases)
+  'Service Delivery Manager': 'MOD-SDM',
+  'Service Delivery Manager (SDM)': 'MOD-SDM',
+  'service delivery manager': 'MOD-SDM',
+  'service delivery manager (sdm)': 'MOD-SDM',
+  'service-delivery-manager-sdm': 'MOD-SDM',
+  'service delivery mgr': 'MOD-SDM',
+  'sdm': 'MOD-SDM',
+  'service-delivery-manager': 'MOD-SDM',
+  'mod-sdm-service-delivery-manager': 'MOD-SDM',
+  'mod-sdm-sdm': 'MOD-SDM',
+  
+  // Project Manager variations (mirror client-side aliases)
+  'Project Manager': 'MOD-LEAD',
+  'project manager': 'MOD-LEAD',
+  'project mgr': 'MOD-LEAD',
+  'pm': 'MOD-LEAD',
+  'project-manager': 'MOD-LEAD',
+  'MOD-PM': 'MOD-LEAD', // Legacy server-generated MOD-PM mapping (from old PMO estimator)
+  'mod-pm': 'MOD-LEAD', // Lowercase variant
+  
+  // Ingeniero Líder / Coordinator variations (mirror client-side aliases)
+  'ingeniero líder / coordinador': 'MOD-LEAD',
+  'ingeniero lider / coordinador': 'MOD-LEAD',
+  'ingeniero líder coordinador': 'MOD-LEAD',
+  'ingeniero lider coordinador': 'MOD-LEAD',
+  'ingeniero lider': 'MOD-LEAD',
+  'ingeniero líder': 'MOD-LEAD',
+  'ingeniero delivery': 'MOD-LEAD',
+  'ingeniero-lider': 'MOD-LEAD',
+  'ingeniero-delivery': 'MOD-LEAD',
+  'mod-lead-ingeniero-delivery': 'MOD-LEAD',
+  'mod-lead-ingeniero': 'MOD-LEAD',
+  'Ingeniero Delivery': 'MOD-LEAD',
+  
+  // Support Engineers variations (mirror client-side aliases)
+  'ingenieros de soporte (mensual)': 'MOD-ING',
+  'ingenieros de soporte mensual': 'MOD-ING',
+  'ingeniero soporte': 'MOD-ING',
+  'ingeniero soporte n1': 'MOD-ING',
+  'ingeniero-soporte': 'MOD-ING',
+  'ingeniero-soporte-n1': 'MOD-ING',
+  'mod-ing-ingeniero-soporte-n1': 'MOD-ING',
+  
+  // Overtime / Guards variations (mirror client-side aliases)
+  'horas extra / guardias': 'MOD-OT',
+  'horas extra guardias': 'MOD-OT',
+  'horas extra': 'MOD-OT',
+  'guardias': 'MOD-OT',
+  
+  // Internal Contractors variations (mirror client-side aliases)
+  'contratistas técnicos internos': 'MOD-CONT',
+  'contratistas tecnicos internos': 'MOD-CONT',
+  'contratistas internos': 'MOD-CONT',
+  
+  // External Contractors variations (mirror client-side aliases)
+  'contratistas externos (labor)': 'MOD-EXT',
+  'contratistas externos labor': 'MOD-EXT',
+  'contratistas externos': 'MOD-EXT',
 };
 
 /**

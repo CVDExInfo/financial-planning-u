@@ -1,0 +1,152 @@
+name: Backfill Baseline Materialization
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (dev | staging | production)"
+        required: true
+        default: "dev"
+      force_rewrite_zeros:
+        description: "Set FORCE_REWRITE_ZEROS (true|false) for backfill script (string)"
+        required: false
+        default: "false"
+      confirm:
+        description: 'Set to "true" to confirm writes (CONFIRM=yes). Default is false (dry-run).'
+        required: false
+        default: "false"
+
+concurrency:
+  group: backfill-baseline-materialization
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup Node (match deploy-ui)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Enable corepack (pnpm)
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@latest --activate
+          pnpm -v
+
+      - name: Install finanzas-api dependencies
+        working-directory: ./services/finanzas-api
+        run: |
+          set -euo pipefail
+          echo "Installing dependencies for services/finanzas-api"
+          pnpm install --frozen-lockfile
+
+      - name: Validate AWS_REGION secret exists
+        run: |
+          set -euo pipefail
+          if [ -z "${{ secrets.AWS_REGION }}" ]; then
+            echo "ERROR: AWS_REGION secret is not set. Please set repository secret AWS_REGION (e.g. us-east-2)."
+            exit 1
+          fi
+          echo "AWS_REGION is set to: ${{ secrets.AWS_REGION }}"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Prepare inputs (write to GITHUB_ENV)
+        run: |
+          set -euo pipefail
+
+          echo "STAGE_NAME=${{ github.event.inputs.environment }}" >> "$GITHUB_ENV"
+          echo "NODE_ENV=development" >> "$GITHUB_ENV"
+
+          if [ "${{ github.event.inputs.force_rewrite_zeros }}" = "true" ]; then
+            echo "FORCE_REWRITE_ZEROS=yes" >> "$GITHUB_ENV"
+          else
+            echo "FORCE_REWRITE_ZEROS=no" >> "$GITHUB_ENV"
+          fi
+
+          if [ "${{ github.event.inputs.confirm }}" = "true" ]; then
+            echo "CONFIRM=yes" >> "$GITHUB_ENV"
+          else
+            echo "CONFIRM=no" >> "$GITHUB_ENV"
+          fi
+
+          echo "Prepared inputs: STAGE_NAME=${{ github.event.inputs.environment }}, FORCE_REWRITE_ZEROS=${{ github.event.inputs.force_rewrite_zeros }}, CONFIRM=${{ github.event.inputs.confirm }}"
+
+      - name: "Sanity: node / pnpm / ts-node"
+        working-directory: ./services/finanzas-api
+        run: |
+          set -euo pipefail
+
+          echo "node:"
+          node -v
+
+          echo "pnpm:"
+          pnpm -v
+
+          echo "Checking ts-node..."
+          # This will fail the job if ts-node is not available
+          pnpm exec ts-node --version
+
+      - name: Run backfill dry-run
+        working-directory: ./services/finanzas-api
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          STAGE_NAME: ${{ env.STAGE_NAME }}
+          NODE_ENV: ${{ env.NODE_ENV }}
+          FORCE_REWRITE_ZEROS: ${{ env.FORCE_REWRITE_ZEROS }}
+          CONFIRM: ${{ env.CONFIRM }}
+        run: |
+          set -euo pipefail
+          echo "---------------------------------------------------------"
+          echo "Backfill Baseline Materialization (DRY-RUN)"
+          echo "Environment: $STAGE_NAME"
+          echo "Force rewrite zeros: $FORCE_REWRITE_ZEROS"
+          echo "Confirm writes: $CONFIRM"
+          echo "---------------------------------------------------------"
+          pnpm exec ts-node ./scripts/backfill-baseline-materialization.ts --dry-run
+        timeout-minutes: 30
+
+      - name: Upload dry-run log (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backfill-dry-run-logs
+          path: |
+            services/finanzas-api/logs
+            services/finanzas-api/backfill-output.log
+            .
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Backfill Dry-run Summary"
+            echo ""
+            echo "- Environment: $STAGE_NAME"
+            echo "- FORCE_REWRITE_ZEROS: $FORCE_REWRITE_ZEROS"
+            echo "- CONFIRM: $CONFIRM"
+            echo ""
+            echo "Check backfill logs above for detailed per-baseline results."
+          } >> "$GITHUB_STEP_SUMMARY"

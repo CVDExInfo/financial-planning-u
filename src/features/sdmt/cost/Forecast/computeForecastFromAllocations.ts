@@ -12,6 +12,15 @@ export interface Allocation {
 }
 
 /**
+ * Taxonomy metadata for fallback enrichment
+ */
+export interface TaxonomyEntry {
+  description?: string;
+  category?: string;
+  isLabor?: boolean;
+}
+
+/**
  * Compute minimal forecast from allocations data
  * 
  * When server forecast is empty but allocations exist, this creates a basic
@@ -21,15 +30,54 @@ export interface Allocation {
  * @param rubros - Line items from /rubros endpoint (for enrichment)
  * @param months - Number of months to generate
  * @param projectId - Project identifier
+ * @param taxonomyByRubroId - Optional taxonomy lookup for description/category fallback
+ * @param taxonomyMap - Optional taxonomy map for robust lookup
+ * @param taxonomyCache - Optional taxonomy cache for performance
  * @returns Array of forecast cells with month totals
  */
 import type { LineItem } from '@/types/domain';
+import { lookupTaxonomyCanonical } from './lib/lookupTaxonomyCanonical';
+import { isLaborByKey, normalizeKey, type TaxonomyEntry as TaxLookupEntry, type RubroRow } from './lib/taxonomyLookup';
+
+/**
+ * Normalize ID for tolerant matching (case-insensitive, whitespace/underscore normalization)
+ * Kept for backward compatibility - delegates to normalizeKey from taxonomyLookup
+ */
+function normalizeId(s: string | null | undefined): string {
+  return normalizeKey(s || "");
+}
+
+/**
+ * Normalize rubro key for defensive allocation→rubro matching
+ * Kept for backward compatibility - delegates to normalizeKey from taxonomyLookup
+ */
+export const normalizeRubroKey = normalizeKey;
+
+/**
+ * Extended LineItem type that may have alternative ID fields
+ */
+export interface ExtendedLineItem extends LineItem {
+  line_item_id?: string;
+  rubroId?: string;
+  projectId?: string;
+}
+
+/**
+ * Helper to extract month number from YYYY-MM format string
+ * @param dateStr - Date string in YYYY-MM format (e.g., "2025-06")
+ * @returns Month number (1-12) or 0 if invalid
+ */
+function extractMonthFromYYYYMM(dateStr: string): number {
+  const match = dateStr.match(/^(\d{4})-(\d{2})$/);
+  return match ? parseInt(match[2], 10) : 0;
+}
 
 export interface ForecastRow {
   line_item_id: string;
   rubroId?: string;
   description?: string;
   category?: string;
+  isLabor?: boolean;
   month: number;
   planned: number;
   forecast: number;
@@ -45,48 +93,77 @@ export function computeForecastFromAllocations(
   allocations: Allocation[],
   rubros: LineItem[],
   months: number,
-  projectId?: string
+  projectId?: string,
+  taxonomyByRubroId?: Record<string, TaxonomyEntry>,
+  taxonomyMap?: Map<string, TaxLookupEntry>,
+  taxonomyCache?: Map<string, TaxLookupEntry | null>
 ): ForecastRow[] {
   if (!allocations || allocations.length === 0) {
     return [];
   }
 
   const rubroWithProject = rubros.find(
-    (rubro) => (rubro as { projectId?: string }).projectId
-  ) as { projectId?: string } | undefined;
+    (rubro) => (rubro as ExtendedLineItem).projectId
+  ) as ExtendedLineItem | undefined;
   const resolvedProjectId =
     projectId ||
     allocations.find((alloc) => alloc.projectId)?.projectId ||
-    rubroWithProject?.projectId;
+    rubroWithProject?.projectId ||
+    'ALL_PROJECTS'; // Allow ALL_PROJECTS as fallback
 
-  if (!resolvedProjectId) {
+  // Note: We now allow 'ALL_PROJECTS' as a valid projectId for aggregated views
+  if (!resolvedProjectId && projectId !== 'ALL_PROJECTS') {
     console.warn(
       "[computeForecastFromAllocations] Missing projectId; cannot build fallback forecast rows."
     );
     return [];
   }
+  
+  const localCache = taxonomyCache || new Map<string, TaxLookupEntry | null>();
 
   // Group allocations by month and rubroId
   const allocationMap = new Map<string, { month: number; amount: number; rubroId?: string }[]>();
   
   allocations.forEach(alloc => {
-    // Determine contract month index. Priority:
-    //  1) alloc.month_index (authoritative, written by materializer)
-    //  2) alloc.month if numeric (legacy)
-    //  3) alloc.month as 'YYYY-MM' fallback (legacy/older rows)
+    // Determine contract month index. Tolerant parsing to accept all common allocation field shapes.
+    // Priority:
+    //  1) month_index (underscore) - authoritative, written by materializer
+    //  2) monthIndex (camelCase) - common in labor allocations
+    //  3) month if numeric (legacy)
+    //  4) month as 'YYYY-MM' or numeric string (legacy/older rows)
+    //  5) calendar_month / calendarMonthKey as 'YYYY-MM'
     let monthNum = 0;
-    if ((alloc as any).month_index !== undefined && (alloc as any).month_index !== null) {
-      monthNum = Number((alloc as any).month_index);
-    } else if (typeof alloc.month === 'number') {
-      monthNum = alloc.month;
-    } else if (typeof alloc.month === 'string') {
-      const match = alloc.month.match(/^(\d{4})-(\d{2})$/);
-      if (match) monthNum = parseInt(match[2], 10);
-      else {
-        const parsed = parseInt(alloc.month as any, 10);
+    const a: any = alloc;
+
+    // 1) explicit (underscore)
+    if (a.month_index != null) {
+      monthNum = Number(a.month_index);
+    }
+    // 2) explicit (camelCase)
+    else if (a.monthIndex != null) {
+      monthNum = Number(a.monthIndex);
+    }
+    // 3) numeric month (legacy)
+    else if (typeof a.month === 'number') {
+      monthNum = a.month;
+    }
+    // 4) string month: "YYYY-MM" or numeric string "6" or "06"
+    else if (typeof a.month === 'string') {
+      monthNum = extractMonthFromYYYYMM(a.month);
+      if (monthNum === 0) {
+        const parsed = parseInt(a.month, 10);
         if (!isNaN(parsed)) monthNum = parsed;
       }
     }
+    // 5) calendar_month or calendarMonthKey as "YYYY-MM"
+    else if (typeof a.calendar_month === 'string') {
+      monthNum = extractMonthFromYYYYMM(a.calendar_month);
+    } else if (typeof a.calendarMonthKey === 'string') {
+      monthNum = extractMonthFromYYYYMM(a.calendarMonthKey);
+    }
+
+    // defensive: coerce and sanity
+    if (!Number.isFinite(monthNum) || monthNum < 0) monthNum = 0;
 
     if (monthNum >= 1 && monthNum <= 60) { // Support up to 60 months
       const rubroId = alloc.rubroId || alloc.rubro_id || alloc.line_item_id || 'UNKNOWN';
@@ -101,11 +178,73 @@ export function computeForecastFromAllocations(
         amount: Number(alloc.amount || 0),
         rubroId,
       });
+    } else if (monthNum === 0) {
+      // Debug: log when allocation is skipped due to month parsing failure
+      console.warn(
+        '[computeForecastFromAllocations] Skipping allocation with unparseable month:',
+        { 
+          rubroId: alloc.rubroId || alloc.rubro_id || alloc.line_item_id,
+          month_index: (alloc as any).month_index,
+          monthIndex: (alloc as any).monthIndex,
+          month: alloc.month,
+          calendar_month: (alloc as any).calendar_month,
+          calendarMonthKey: (alloc as any).calendarMonthKey,
+        }
+      );
+    }
+  });
+
+  // Performance optimization: Pre-index rubros for O(1) lookups instead of O(n) finds
+  const rubrosByNormalizedKey = new Map<string, ExtendedLineItem>();
+  const rubrosByExactId = new Map<string, ExtendedLineItem>();
+  const rubrosBySubstring = new Map<string, ExtendedLineItem[]>();
+  
+  rubros.forEach(r => {
+    const extended = r as ExtendedLineItem;
+    const id = extended.id || extended.line_item_id || extended.rubroId;
+    if (!id) return;
+    
+    // Index by exact normalized key
+    const normalizedKey = normalizeRubroKey(id);
+    if (normalizedKey && !rubrosByNormalizedKey.has(normalizedKey)) {
+      rubrosByNormalizedKey.set(normalizedKey, extended);
+    }
+    
+    // Index by exact ID
+    const exactKey = normalizeId(id);
+    if (exactKey && !rubrosByExactId.has(exactKey)) {
+      rubrosByExactId.set(exactKey, extended);
+    }
+    if (extended.line_item_id) {
+      const lineKey = normalizeId(extended.line_item_id);
+      if (lineKey && !rubrosByExactId.has(lineKey)) {
+        rubrosByExactId.set(lineKey, extended);
+      }
+    }
+    if (extended.rubroId) {
+      const rubroKey = normalizeId(extended.rubroId);
+      if (rubroKey && !rubrosByExactId.has(rubroKey)) {
+        rubrosByExactId.set(rubroKey, extended);
+      }
+    }
+    
+    // Index by substring for fuzzy matching (only for keys >= 3 chars)
+    if (normalizedKey && normalizedKey.length >= 3) {
+      const substringArray = rubrosBySubstring.get(normalizedKey);
+      if (!substringArray) {
+        rubrosBySubstring.set(normalizedKey, [extended]);
+      } else {
+        substringArray.push(extended);
+      }
     }
   });
 
   // Create forecast cells from aggregated allocations
   const forecastCells: ForecastRow[] = [];
+  
+  let tolerantMatchCount = 0;
+  let taxonomyFallbackCount = 0;
+  let exactMatchCount = 0;
   
   allocationMap.forEach((allocList, key) => {
     if (allocList.length === 0) return;
@@ -114,14 +253,86 @@ export function computeForecastFromAllocations(
     const totalAmount = allocList.reduce((sum, a) => sum + a.amount, 0);
     const rubroId = firstAlloc.rubroId || 'UNKNOWN';
     
-    // Try to find matching rubro for metadata
-    const matchingRubro = rubros.find(r => r.id === rubroId);
+    // Try to find matching rubro for metadata using indexed lookups
+    const allocKey = normalizeRubroKey(rubroId);
+    let matchingRubro = rubrosByNormalizedKey.get(allocKey);
+    
+    if (matchingRubro) {
+      exactMatchCount++;
+    } else {
+      // Try substring matching with pre-indexed data
+      if (allocKey.length >= 3) {
+        for (const [key, candidates] of rubrosBySubstring.entries()) {
+          if (key === allocKey) continue; // Already checked exact match
+          const minLength = Math.min(allocKey.length, key.length);
+          const maxLength = Math.max(allocKey.length, key.length);
+          if ((allocKey.includes(key) || key.includes(allocKey)) && minLength / maxLength >= 0.7) {
+            matchingRubro = candidates[0]; // Take first match
+            break;
+          }
+        }
+      }
+      
+      if (!matchingRubro) {
+        // Try legacy normalized comparison
+        const nRubroId = normalizeId(rubroId);
+        matchingRubro = rubrosByExactId.get(nRubroId);
+        
+        if (matchingRubro) {
+          tolerantMatchCount++;
+        }
+      }
+    }
+    
+    // Description and category fallback chain
+    const taxonomyEntry = taxonomyByRubroId?.[rubroId] ?? taxonomyByRubroId?.[matchingRubro?.id ?? ""];
+    
+    // Use taxonomy lookup if available for robust classification
+    let taxonomy: TaxLookupEntry | null = null;
+    if (taxonomyMap && localCache) {
+      const rubroRow: RubroRow = {
+        rubroId,
+        line_item_id: rubroId,
+        description: matchingRubro?.description,
+        category: matchingRubro?.category,
+      };
+      taxonomy = lookupTaxonomyCanonical(taxonomyMap, rubroRow, localCache);
+    }
+    
+    const description = matchingRubro?.description ?? taxonomy?.description ?? taxonomyEntry?.description ?? `Allocation ${rubroId}`;
+    const category = matchingRubro?.category ?? taxonomy?.category ?? taxonomyEntry?.category ?? 'Allocations';
+    
+    // Determine isLabor: taxonomy.isLabor -> taxonomyEntry.isLabor -> canonical key check -> category check
+    const isLabor = taxonomy?.isLabor ??
+                   taxonomyEntry?.isLabor ??
+                   (isLaborByKey(rubroId) ? true : undefined) ??
+                   (category?.toLowerCase().includes('mano de obra') || category?.toLowerCase() === 'mod') ??
+                   false;
+    
+    if (!matchingRubro && taxonomyEntry) {
+      taxonomyFallbackCount++;
+    }
+    
+    // Build matching IDs array for robust invoice matching
+    const matchingIds: string[] = [];
+    if (rubroId) matchingIds.push(rubroId);
+    if (matchingRubro?.id && matchingRubro.id !== rubroId) matchingIds.push(matchingRubro.id);
+    if (matchingRubro?.line_item_id && !matchingIds.includes(matchingRubro.line_item_id)) {
+      matchingIds.push(matchingRubro.line_item_id);
+    }
+    if (matchingRubro?.rubroId && !matchingIds.includes(matchingRubro.rubroId)) {
+      matchingIds.push(matchingRubro.rubroId);
+    }
+    if (taxonomy?.rubroId && !matchingIds.includes(taxonomy.rubroId)) {
+      matchingIds.push(taxonomy.rubroId);
+    }
     
     forecastCells.push({
       line_item_id: rubroId,
       rubroId: rubroId,
-      description: matchingRubro?.description || `Allocation ${rubroId}`,
-      category: matchingRubro?.category || 'Allocations',
+      description,
+      category,
+      isLabor,
       month: firstAlloc.month,
       planned: totalAmount,
       forecast: totalAmount,
@@ -130,8 +341,22 @@ export function computeForecastFromAllocations(
       last_updated: new Date().toISOString(),
       updated_by: 'system-allocations',
       projectId: resolvedProjectId,
-    });
+      matchingIds: matchingIds.length > 0 ? matchingIds : undefined,
+    } as any); // Cast as any to avoid type issues with extended properties
   });
+  
+  // Debug logging (DEV only)
+  if (process.env.NODE_ENV !== 'production') {
+    console.info(
+      `[computeForecastFromAllocations] Processed ${allocations.length} allocations → ${forecastCells.length} forecast cells`,
+      {
+        exactMatches: exactMatchCount,
+        tolerantMatches: tolerantMatchCount,
+        taxonomyFallbacks: taxonomyFallbackCount,
+        projectId: resolvedProjectId,
+      }
+    );
+  }
 
   return forecastCells;
 }

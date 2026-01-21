@@ -10,6 +10,73 @@ const toNumber = (value: unknown, fallback = 0): number => {
   return Number.isFinite(num) ? num : fallback;
 };
 
+/**
+ * Labor keyword patterns for category detection (English/Spanish)
+ * Separated into abbreviations and full keywords for better maintainability
+ */
+const LABOR_ABBREVIATION_KEYWORDS = [
+  /\bmod\b/i,  // MOD in category field (all cases), uppercase-only in role/description
+  /\bfte\b/i,  // FTE (Full-time equivalent)
+  /\bsdm\b/i,  // Service Delivery Manager
+  /\bpm\b/i,   // PM in category field (all cases), uppercase-only in role/description
+] as const;
+
+const LABOR_FULL_KEYWORDS = [
+  /\blabor\b/i,
+  /\blabour\b/i,
+  /mano\s*de\s*obra/i,
+  /ingenier[oía]/i,
+  /engineer/i,
+  /\bmanager\b/i,
+  /project\s*manager/i,
+  /service\s*delivery\s*manager/i,
+  /soporte/i,
+  /support/i,
+  /delivery/i,
+  /lead/i,
+  /líder/i,
+] as const;
+
+// Combined list for category field checking (all patterns)
+const ALL_LABOR_KEYWORDS = [...LABOR_ABBREVIATION_KEYWORDS, ...LABOR_FULL_KEYWORDS] as const;
+
+/**
+ * Canonicalize category to ensure labor roles are properly categorized
+ * Returns "Labor" for labor-related items, or the original/fallback category
+ */
+const canonicalizeCategory = (raw: any): string => {
+  // Extract potential category values
+  const rawCategory = (raw?.category || raw?.categoria || raw?.linea_codigo || "").toString().trim();
+  const role = (raw?.role || raw?.rol || "").toString().trim();
+  const description = (raw?.description || raw?.nombre || raw?.descripcion || "").toString().trim();
+  const subtype = (raw?.subtype || raw?.tipo_costo || "").toString().trim();
+  
+  // Check if category already indicates labor (all patterns, case-insensitive)
+  const categoryIsLabor = ALL_LABOR_KEYWORDS.some((rx) => rx.test(rawCategory));
+  if (categoryIsLabor) {
+    return "Labor";
+  }
+  
+  // Combine role, description, and subtype for checking
+  const textFields = [role, description, subtype].join(" ");
+  
+  // For abbreviations (MOD, PM, FTE, SDM), only match if uppercase
+  // to avoid false matches with "model", "equipment", "pm" (time), etc.
+  const uppercaseAbbreviations = /\b(MOD|PM|SDM|FTE)\b/;
+  if (uppercaseAbbreviations.test(textFields)) {
+    return "Labor";
+  }
+  
+  // Check full keywords (case-insensitive, no abbreviations)
+  const hasLaborIndicators = LABOR_FULL_KEYWORDS.some((rx) => rx.test(textFields));
+  if (hasLaborIndicators) {
+    return "Labor";
+  }
+  
+  // Return original category or fallback
+  return rawCategory || "Rubro";
+};
+
 export const normalizeLineItemFromApi = (raw: any, options?: { debugMode?: boolean }): LineItem => {
   const id = normalizeRubroId(
     raw?.id || raw?.rubro_id || raw?.rubroId || raw?.line_item_id || raw?.lineItemId
@@ -24,9 +91,12 @@ export const normalizeLineItemFromApi = (raw: any, options?: { debugMode?: boole
   const recurringFlag = Boolean(raw?.recurring);
   const oneTimeFlag = raw?.one_time !== undefined ? Boolean(raw.one_time) : !recurringFlag;
 
+  // Canonicalize category to properly detect labor items
+  const category = canonicalizeCategory(raw);
+
   return {
     id,
-    category: raw?.category || raw?.categoria || raw?.linea_codigo || "Rubro",
+    category,
     subtype: raw?.subtype || raw?.tipo_costo,
     vendor: raw?.vendor,
     description: raw?.description || raw?.nombre || raw?.descripcion || id || "Rubro",
@@ -93,8 +163,8 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       console.warn(`[normalizeForecastCells] Cell at index ${index} has no valid line_item_id. Raw cell:`, cell);
     }
 
-    // Defensive check: warn if month is invalid
-    if (month < 1 || month > 12) {
+    // Defensive check: warn if month is invalid (extended range 1-60 for multi-year forecasts)
+    if (month < 1 || month > 60) {
       if (options?.debugMode) {
         console.warn(`[normalizeForecastCells] Cell at index ${index} has invalid month: ${month}. Raw cell:`, cell);
       }
@@ -105,6 +175,44 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       varianceBase !== undefined && varianceBase !== null
         ? toNumber(varianceBase)
         : forecast - planned;
+
+    // Build matching IDs array for robust invoice matching
+    const matchingIds: string[] = [];
+    if (lineItemId) matchingIds.push(lineItemId);
+    
+    // Add all potential ID variations for matching
+    const rubroId = cell?.rubroId || cell?.rubro_id;
+    if (rubroId && !matchingIds.includes(normalizeRubroId(rubroId))) {
+      matchingIds.push(normalizeRubroId(rubroId));
+    }
+    
+    // Add original IDs before normalization for backend compatibility
+    const origLineItemId = cell?.line_item_id || cell?.lineItemId;
+    if (origLineItemId && origLineItemId !== lineItemId && !matchingIds.includes(origLineItemId)) {
+      matchingIds.push(origLineItemId);
+    }
+    
+    const origRubroId = cell?.rubroId || cell?.rubro_id;
+    if (origRubroId && !matchingIds.includes(origRubroId)) {
+      matchingIds.push(origRubroId);
+    }
+    
+    // Add linea_codigo for taxonomy alignment
+    const lineaCode = cell?.linea_codigo || cell?.lineaCodigo;
+    if (lineaCode && !matchingIds.includes(lineaCode)) {
+      matchingIds.push(lineaCode);
+    }
+
+    // Calculate monthLabel (YYYY-MM format) for calendar alignment
+    // Supports both calendar months (1-12) and extended project months (1-60)
+    let monthLabel: string | undefined;
+    if (cell?.monthLabel || cell?.month_label || cell?.calendar_month) {
+      monthLabel = cell.monthLabel || cell.month_label || cell.calendar_month;
+    } else if (month >= 1 && month <= 12) {
+      // For simple calendar months (1-12), create YYYY-MM format
+      const year = new Date().getFullYear();
+      monthLabel = `${year}-${String(month).padStart(2, '0')}`;
+    }
 
     const normalizedCell: ForecastCell = {
       line_item_id: lineItemId,
@@ -117,6 +225,9 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       notes: cell?.notes,
       last_updated: cell?.last_updated || cell?.updated_at || "",
       updated_by: cell?.updated_by || cell?.user || "",
+      matchingIds: matchingIds.length > 0 ? matchingIds : undefined,
+      monthLabel,
+      rubroId: rubroId || lineItemId,
     };
 
     // Add baseline_id to the cell if provided (for traceability)
@@ -131,7 +242,7 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
 
   // Defensive check: log summary of normalization
   if (options?.debugMode) {
-    const validCells = normalized.filter(c => c.line_item_id && c.month >= 1 && c.month <= 12);
+    const validCells = normalized.filter(c => c.line_item_id && c.month >= 1 && c.month <= 60);
     const invalidCells = normalized.length - validCells.length;
     
     console.log('[normalizeForecastCells] Summary:', {
@@ -140,6 +251,10 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       validCells: validCells.length,
       invalidCells,
       baselineId: options?.baselineId,
+      sampleMatchingIds: normalized.slice(0, 3).map(c => ({ 
+        line_item_id: c.line_item_id, 
+        matchingIds: c.matchingIds 
+      })),
     });
   }
 

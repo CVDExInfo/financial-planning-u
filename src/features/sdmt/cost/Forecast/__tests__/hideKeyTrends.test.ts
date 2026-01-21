@@ -1,23 +1,64 @@
 /**
  * Hide Key Trends Feature Flag Test
  * 
- * Tests that the VITE_FINZ_HIDE_KEY_TRENDS feature flag properly controls
- * the visibility of the Key Trends executive cards (TopVarianceProjectsTable
- * and TopVarianceRubrosTable) on the Forecast page.
+ * Tests that the VITE_FINZ_SHOW_KEYTRENDS and VITE_FINZ_HIDE_KEY_TRENDS 
+ * feature flags properly control the visibility of the Key Trends executive 
+ * cards (TopVarianceProjectsTable and TopVarianceRubrosTable) on the Forecast page.
+ * 
+ * Key Behavior:
+ * - SHOW_KEY_TRENDS is an opt-in flag (default: false)
+ * - HIDE_KEY_TRENDS is an override that takes precedence
+ * - Both flags must allow rendering for Key Trends to appear
  */
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
 /**
- * Test: Feature flag value detection
- * 
- * Note: These tests verify the flag value logic. Integration tests would verify
- * the actual rendering behavior, but those require a full React testing setup.
+ * Test: SHOW_KEY_TRENDS flag behavior
+ */
+describe('SHOW_KEY_TRENDS Feature Flag', () => {
+  it('should be false by default (cards hidden)', () => {
+    const envValue: string | undefined = undefined;
+    const showKeyTrends = envValue === 'true';
+    
+    assert.strictEqual(
+      showKeyTrends,
+      false,
+      'SHOW_KEY_TRENDS should be false when env var is undefined'
+    );
+  });
+
+  it('should be true when set to "true"', () => {
+    const envValue = 'true';
+    const showKeyTrends = envValue === 'true';
+    
+    assert.strictEqual(
+      showKeyTrends,
+      true,
+      'SHOW_KEY_TRENDS should be true when env var is "true"'
+    );
+  });
+
+  it('should be false for any other string value', () => {
+    const testValues = ['1', 'yes', 'TRUE', 'false', ''];
+    
+    testValues.forEach((envValue) => {
+      const showKeyTrends = envValue === 'true';
+      assert.strictEqual(
+        showKeyTrends,
+        false,
+        `SHOW_KEY_TRENDS should be false for value "${envValue}"`
+      );
+    });
+  });
+});
+
+/**
+ * Test: HIDE_KEY_TRENDS flag behavior
  */
 describe('HIDE_KEY_TRENDS Feature Flag', () => {
   it('should be false by default (cards visible)', () => {
-    // Simulate default environment where flag is not set
     const envValue: string | undefined = undefined;
     const hideKeyTrends = envValue === 'true';
     
@@ -29,7 +70,6 @@ describe('HIDE_KEY_TRENDS Feature Flag', () => {
   });
 
   it('should be false when explicitly set to "false"', () => {
-    // Simulate environment where flag is explicitly set to 'false'
     const envValue = 'false';
     const hideKeyTrends = envValue === 'true';
     
@@ -41,7 +81,6 @@ describe('HIDE_KEY_TRENDS Feature Flag', () => {
   });
 
   it('should be true when set to "true"', () => {
-    // Simulate environment where flag is set to 'true'
     const envValue = 'true';
     const hideKeyTrends = envValue === 'true';
     
@@ -51,29 +90,16 @@ describe('HIDE_KEY_TRENDS Feature Flag', () => {
       'HIDE_KEY_TRENDS should be true when env var is "true"'
     );
   });
-
-  it('should be false for any other string value', () => {
-    // Simulate environment where flag is set to some other value
-    const testValues = ['1', 'yes', 'TRUE', 'True', 'on', ''];
-    
-    testValues.forEach((envValue) => {
-      const hideKeyTrends = envValue === 'true';
-      assert.strictEqual(
-        hideKeyTrends,
-        false,
-        `HIDE_KEY_TRENDS should be false for value "${envValue}"`
-      );
-    });
-  });
 });
 
 /**
- * Test: Conditional rendering logic
+ * Test: Conditional rendering logic with both flags
  * 
  * Simulates the conditional logic used in SDMTForecast.tsx
  */
-describe('Key Trends Conditional Rendering Logic', () => {
-  it('should render when all conditions are met and flag is false', () => {
+describe('Key Trends Conditional Rendering Logic (Both Flags)', () => {
+  it('should render when SHOW_KEY_TRENDS=true, HIDE_KEY_TRENDS=false, and all conditions met', () => {
+    const SHOW_KEY_TRENDS = true;
     const HIDE_KEY_TRENDS = false;
     const loading = false;
     const isPortfolioView = true;
@@ -81,41 +107,91 @@ describe('Key Trends Conditional Rendering Logic', () => {
     const hasBudgetForVariance = true;
 
     const shouldRender = 
-      !HIDE_KEY_TRENDS &&
-      !loading &&
       isPortfolioView &&
+      !loading &&
       forecastDataLength > 0 &&
-      hasBudgetForVariance;
+      hasBudgetForVariance &&
+      SHOW_KEY_TRENDS &&
+      !HIDE_KEY_TRENDS;
 
     assert.strictEqual(
       shouldRender,
       true,
-      'Should render Key Trends cards when flag is false and all conditions met'
+      'Should render Key Trends when SHOW=true, HIDE=false, and all conditions met'
     );
   });
 
-  it('should NOT render when flag is true', () => {
-    const HIDE_KEY_TRENDS = true;
+  it('should NOT render when SHOW_KEY_TRENDS=false (default)', () => {
+    const SHOW_KEY_TRENDS = false;
+    const HIDE_KEY_TRENDS = false;
     const loading = false;
     const isPortfolioView = true;
     const forecastDataLength = 10;
     const hasBudgetForVariance = true;
 
     const shouldRender = 
-      !HIDE_KEY_TRENDS &&
-      !loading &&
       isPortfolioView &&
+      !loading &&
       forecastDataLength > 0 &&
-      hasBudgetForVariance;
+      hasBudgetForVariance &&
+      SHOW_KEY_TRENDS &&
+      !HIDE_KEY_TRENDS;
 
     assert.strictEqual(
       shouldRender,
       false,
-      'Should NOT render Key Trends cards when HIDE_KEY_TRENDS is true'
+      'Should NOT render when SHOW_KEY_TRENDS is false (default behavior)'
     );
   });
 
-  it('should NOT render when not in portfolio view (even if flag is false)', () => {
+  it('should NOT render when HIDE_KEY_TRENDS=true (override)', () => {
+    const SHOW_KEY_TRENDS = true;
+    const HIDE_KEY_TRENDS = true; // Override
+    const loading = false;
+    const isPortfolioView = true;
+    const forecastDataLength = 10;
+    const hasBudgetForVariance = true;
+
+    const shouldRender = 
+      isPortfolioView &&
+      !loading &&
+      forecastDataLength > 0 &&
+      hasBudgetForVariance &&
+      SHOW_KEY_TRENDS &&
+      !HIDE_KEY_TRENDS;
+
+    assert.strictEqual(
+      shouldRender,
+      false,
+      'Should NOT render when HIDE_KEY_TRENDS is true (override takes precedence)'
+    );
+  });
+
+  it('should NOT render when both flags are false (default state)', () => {
+    const SHOW_KEY_TRENDS = false;
+    const HIDE_KEY_TRENDS = false;
+    const loading = false;
+    const isPortfolioView = true;
+    const forecastDataLength = 10;
+    const hasBudgetForVariance = true;
+
+    const shouldRender = 
+      isPortfolioView &&
+      !loading &&
+      forecastDataLength > 0 &&
+      hasBudgetForVariance &&
+      SHOW_KEY_TRENDS &&
+      !HIDE_KEY_TRENDS;
+
+    assert.strictEqual(
+      shouldRender,
+      false,
+      'Should NOT render when both flags are false (default, cards hidden)'
+    );
+  });
+
+  it('should NOT render when not in portfolio view', () => {
+    const SHOW_KEY_TRENDS = true;
     const HIDE_KEY_TRENDS = false;
     const loading = false;
     const isPortfolioView = false; // Single project view
@@ -123,20 +199,22 @@ describe('Key Trends Conditional Rendering Logic', () => {
     const hasBudgetForVariance = true;
 
     const shouldRender = 
-      !HIDE_KEY_TRENDS &&
-      !loading &&
       isPortfolioView &&
+      !loading &&
       forecastDataLength > 0 &&
-      hasBudgetForVariance;
+      hasBudgetForVariance &&
+      SHOW_KEY_TRENDS &&
+      !HIDE_KEY_TRENDS;
 
     assert.strictEqual(
       shouldRender,
       false,
-      'Should NOT render Key Trends cards in single project view'
+      'Should NOT render in single project view'
     );
   });
 
   it('should NOT render when loading', () => {
+    const SHOW_KEY_TRENDS = true;
     const HIDE_KEY_TRENDS = false;
     const loading = true;
     const isPortfolioView = true;
@@ -144,20 +222,22 @@ describe('Key Trends Conditional Rendering Logic', () => {
     const hasBudgetForVariance = true;
 
     const shouldRender = 
-      !HIDE_KEY_TRENDS &&
-      !loading &&
       isPortfolioView &&
+      !loading &&
       forecastDataLength > 0 &&
-      hasBudgetForVariance;
+      hasBudgetForVariance &&
+      SHOW_KEY_TRENDS &&
+      !HIDE_KEY_TRENDS;
 
     assert.strictEqual(
       shouldRender,
       false,
-      'Should NOT render Key Trends cards while loading'
+      'Should NOT render while loading'
     );
   });
 
   it('should NOT render when no forecast data', () => {
+    const SHOW_KEY_TRENDS = true;
     const HIDE_KEY_TRENDS = false;
     const loading = false;
     const isPortfolioView = true;
@@ -165,20 +245,22 @@ describe('Key Trends Conditional Rendering Logic', () => {
     const hasBudgetForVariance = true;
 
     const shouldRender = 
-      !HIDE_KEY_TRENDS &&
-      !loading &&
       isPortfolioView &&
+      !loading &&
       forecastDataLength > 0 &&
-      hasBudgetForVariance;
+      hasBudgetForVariance &&
+      SHOW_KEY_TRENDS &&
+      !HIDE_KEY_TRENDS;
 
     assert.strictEqual(
       shouldRender,
       false,
-      'Should NOT render Key Trends cards when no forecast data'
+      'Should NOT render when no forecast data'
     );
   });
 
   it('should NOT render when no budget for variance', () => {
+    const SHOW_KEY_TRENDS = true;
     const HIDE_KEY_TRENDS = false;
     const loading = false;
     const isPortfolioView = true;
@@ -186,28 +268,52 @@ describe('Key Trends Conditional Rendering Logic', () => {
     const hasBudgetForVariance = false; // No budget set
 
     const shouldRender = 
-      !HIDE_KEY_TRENDS &&
-      !loading &&
       isPortfolioView &&
+      !loading &&
       forecastDataLength > 0 &&
-      hasBudgetForVariance;
+      hasBudgetForVariance &&
+      SHOW_KEY_TRENDS &&
+      !HIDE_KEY_TRENDS;
 
     assert.strictEqual(
       shouldRender,
       false,
-      'Should NOT render Key Trends cards when no budget is set'
+      'Should NOT render when no budget is set'
     );
   });
 });
 
 /**
- * Test: Component visibility based on flag
- * 
- * Verifies the expected components are affected by the flag
+ * Test: Flag precedence rules
+ */
+describe('Flag Precedence Rules', () => {
+  it('HIDE_KEY_TRENDS takes precedence over SHOW_KEY_TRENDS', () => {
+    const scenarios = [
+      { show: true, hide: true, expected: false, description: 'HIDE wins when both true' },
+      { show: true, hide: false, expected: true, description: 'SHOW works when HIDE is false' },
+      { show: false, hide: true, expected: false, description: 'Hidden when SHOW is false' },
+      { show: false, hide: false, expected: false, description: 'Hidden when both false (default)' },
+    ];
+
+    scenarios.forEach(({ show, hide, expected, description }) => {
+      // Simplified check - just the flag logic, assuming other conditions are met
+      const flagsAllow = show && !hide;
+      
+      assert.strictEqual(
+        flagsAllow,
+        expected,
+        description
+      );
+    });
+  });
+});
+
+/**
+ * Test: Component visibility based on flags
  */
 describe('Key Trends Components Coverage', () => {
   it('should hide both TopVarianceProjectsTable and TopVarianceRubrosTable', () => {
-    // Both components are wrapped in the same conditional
+    const SHOW_KEY_TRENDS = true;
     const HIDE_KEY_TRENDS = true;
     const componentsAffected = [
       'TopVarianceProjectsTable',
@@ -215,18 +321,18 @@ describe('Key Trends Components Coverage', () => {
     ];
 
     componentsAffected.forEach((componentName) => {
-      // When flag is true, components should not render
-      const shouldRender = !HIDE_KEY_TRENDS;
+      const shouldRender = SHOW_KEY_TRENDS && !HIDE_KEY_TRENDS;
       
       assert.strictEqual(
         shouldRender,
         false,
-        `${componentName} should be hidden when HIDE_KEY_TRENDS is true`
+        `${componentName} should be hidden when HIDE_KEY_TRENDS overrides`
       );
     });
   });
 
-  it('should show both components when flag is false', () => {
+  it('should show both components when flags allow', () => {
+    const SHOW_KEY_TRENDS = true;
     const HIDE_KEY_TRENDS = false;
     const componentsAffected = [
       'TopVarianceProjectsTable',
@@ -234,13 +340,12 @@ describe('Key Trends Components Coverage', () => {
     ];
 
     componentsAffected.forEach((componentName) => {
-      // When flag is false, components can render (subject to other conditions)
-      const flagAllowsRender = !HIDE_KEY_TRENDS;
+      const flagsAllow = SHOW_KEY_TRENDS && !HIDE_KEY_TRENDS;
       
       assert.strictEqual(
-        flagAllowsRender,
+        flagsAllow,
         true,
-        `${componentName} should be allowed to render when HIDE_KEY_TRENDS is false`
+        `${componentName} flags should allow rendering when SHOW=true, HIDE=false`
       );
     });
   });

@@ -39,6 +39,10 @@ Parameters:
     Type: String
     Default: ''
     Description: Optional email address for CloudWatch alarm notifications
+  EnableAdminDebug:
+    Type: String
+    Default: 'false'
+    Description: Enable admin debug endpoints (set to 'true' for development/testing only)
 
 Conditions:
   HasPolicyStore: !Not [!Equals [!Ref PolicyStoreId, '']]
@@ -818,6 +822,41 @@ Resources:
             Auth:
               Authorizer: CognitoJwt
 
+  AdminAllocationsDebugFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/admin/allocations-debug.ts
+        External:
+          - aws-sdk
+        Minify: true
+        Sourcemap: true
+        Target: node20
+    Properties:
+      CodeUri: .
+      Handler: admin/allocations-debug.handler
+      Timeout: 15
+      Environment:
+        Variables:
+          ENABLE_ADMIN_DEBUG: !Ref EnableAdminDebug
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBReadPolicy:
+            TableName: !Ref AllocationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref PrefacturasTable
+      Events:
+        AdminAllocationsVerify:
+          Type: HttpApi
+          Properties:
+            Path: /admin/allocations/verify
+            Method: GET
+            ApiId: !Ref Api
+            Auth:
+              Authorizer: CognitoJwt
+
   UploadDocumentFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -1007,6 +1046,8 @@ Resources:
             TableName: !Ref AllocationsTable
         - DynamoDBReadPolicy:
             TableName: !Ref ProjectsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref PrefacturasTable
         - !If
           - HasPolicyStore
           - Version: '2012-10-17'

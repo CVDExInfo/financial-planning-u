@@ -6,6 +6,8 @@
  */
 
 import type { ForecastCell, LineItem } from '@/types/domain';
+import { lookupTaxonomyCanonical } from './lib/lookupTaxonomyCanonical';
+import { isLaborByKey, type TaxonomyEntry, type RubroRow } from './lib/taxonomyLookup';
 
 export interface ProjectMonthTotals {
   forecast: number;
@@ -32,13 +34,14 @@ export interface ProjectRubro {
   projectId: string;
   projectName: string;
   category?: string;
+  isLabor?: boolean;
   byMonth: Record<number, ProjectMonthTotals>;
   overall: ProjectOverallTotals;
 }
 
 /**
  * Build project totals from forecast data
- * Groups by project_id, computes monthly and overall totals
+ * Groups by projectId, computes monthly and overall totals
  */
 export function buildProjectTotals(
   forecastData: ForecastCell[]
@@ -47,8 +50,8 @@ export function buildProjectTotals(
 
   // Group data by project
   forecastData.forEach(cell => {
-    const projectId = (cell as any).project_id || 'unknown-project';
-    const projectName = (cell as any).project_name || 'Unknown Project';
+    const projectId = (cell as any).projectId || (cell as any).project_id || 'unknown-project';
+    const projectName = (cell as any).projectName || (cell as any).project_name || 'Unknown Project';
     const month = cell.month;
 
     if (!projectMap.has(projectId)) {
@@ -110,14 +113,18 @@ export function buildProjectTotals(
  */
 export function buildProjectRubros(
   forecastData: ForecastCell[],
-  lineItems: LineItem[]
+  lineItems: LineItem[],
+  taxonomyByRubroId?: Record<string, { description?: string; category?: string; isLabor?: boolean }>,
+  taxonomyMap?: Map<string, TaxonomyEntry>,
+  taxonomyCache?: Map<string, TaxonomyEntry | null>
 ): Map<string, ProjectRubro[]> {
   const projectRubrosMap = new Map<string, Map<string, ProjectRubro>>();
+  const localCache = taxonomyCache || new Map<string, TaxonomyEntry | null>();
 
   // Group data by project and rubro
   forecastData.forEach(cell => {
-    const projectId = (cell as any).project_id || 'unknown-project';
-    const projectName = (cell as any).project_name || 'Unknown Project';
+    const projectId = (cell as any).projectId || (cell as any).project_id || 'unknown-project';
+    const projectName = (cell as any).projectName || (cell as any).project_name || 'Unknown Project';
     const rubroId = cell.line_item_id;
     const month = cell.month;
 
@@ -128,10 +135,47 @@ export function buildProjectRubros(
     const projectRubros = projectRubrosMap.get(projectId)!;
 
     if (!projectRubros.has(rubroId)) {
-      // Find line item for description
-      const lineItem = lineItems.find(item => item.id === rubroId);
-      const description = lineItem?.description || (cell as any).description || 'Unknown';
-      const category = lineItem?.category || (cell as any).category;
+      // Tolerant lookup: try id, line_item_id, and rubroId fields
+      const lineItem = lineItems.find(item => 
+        item.id === rubroId || 
+        (item as any).line_item_id === rubroId || 
+        (item as any).rubroId === rubroId
+      );
+      
+      // Use taxonomy lookup if available for robust classification
+      let taxonomy: TaxonomyEntry | null = null;
+      if (taxonomyMap && localCache) {
+        const rubroRow: RubroRow = {
+          rubroId,
+          line_item_id: rubroId,
+          description: (cell as any).description,
+          category: (cell as any).category,
+        };
+        taxonomy = lookupTaxonomyCanonical(taxonomyMap, rubroRow, localCache);
+      }
+      
+      // Resolve description with fallback chain: lineItem -> taxonomy -> cell -> taxonomyByRubroId -> default
+      const taxonomyEntry = taxonomyByRubroId?.[rubroId];
+      const description = lineItem?.description || 
+                         taxonomy?.description ||
+                         (cell as any).description || 
+                         taxonomyEntry?.description || 
+                         `Allocation ${rubroId}` || 
+                         'Unknown';
+      
+      // Resolve category with fallback chain: lineItem -> taxonomy -> cell -> taxonomyByRubroId -> default
+      const category = lineItem?.category || 
+                      taxonomy?.category ||
+                      taxonomyEntry?.category || 
+                      (cell as any).category || 
+                      'Unknown';
+      
+      // Determine isLabor: taxonomy.isLabor -> taxonomyByRubroId.isLabor -> canonical key check -> category check
+      const isLabor = taxonomy?.isLabor ?? 
+                     taxonomyEntry?.isLabor ??
+                     (isLaborByKey(rubroId) ? true : undefined) ??
+                     (category?.toLowerCase().includes('mano de obra') || category?.toLowerCase() === 'mod') ??
+                     false;
 
       projectRubros.set(rubroId, {
         rubroId,
@@ -139,6 +183,7 @@ export function buildProjectRubros(
         projectId,
         projectName,
         category,
+        isLabor,
         byMonth: {},
         overall: {
           forecast: 0,
