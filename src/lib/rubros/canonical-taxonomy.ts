@@ -1165,10 +1165,10 @@ export function getNonLaborRubros(): CanonicalRubroTaxonomy[] {
  * Used by taxonomy lookup functions to ensure consistent labor classification
  * across SDMT Forecast, PMO Estimator, and other modules.
  */
-import { normalizeKey } from '@/lib/strings/normalizeKey';
+import { normalizeKey } from './normalize-key';
 
 // Re-export normalizeKey for convenience
-export { normalizeKey } from '@/lib/strings/normalizeKey';
+export { normalizeKey } from './normalize-key';
 
 export const LABOR_CANONICAL_KEYS = [
   'LINEA#MOD-EXT','MOD-EXT','LINEA#MOD-OT','MOD-OT','LINEA#MOD-ING','MOD-ING',
