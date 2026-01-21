@@ -1018,8 +1018,15 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'mod-sdm-service-delivery-manager': 'MOD-SDM',
   'mod-sdm-sdm': 'MOD-SDM',
   'service-delivery-manager': 'MOD-SDM',
+  'Service Delivery Manager': 'MOD-SDM', // Add title case variant
+  'Service Delivery Manager (SDM)': 'MOD-SDM', // Add variant with abbreviation
+  'SDM': 'MOD-SDM', // Add abbreviation alone
   'mod-ing-ingeniero-soporte-n1': 'MOD-ING',
+  'Ingeniero Soporte N1': 'MOD-ING', // Add title case variant
+  'Ingeniero Soporte N2': 'MOD-ING', // Add title case variant
+  'Ingeniero Soporte N3': 'MOD-ING', // Add title case variant
   'project-manager': 'MOD-LEAD', // Map to MOD-LEAD as MOD-PM/MOD-PMO doesn't exist in canonical taxonomy
+  'Project Manager': 'MOD-LEAD', // Add title case variant
   'mod-pm-project-manager': 'MOD-LEAD',
   
   // Category-suffixed patterns - Generated when allocation materializers or 

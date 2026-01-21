@@ -844,6 +844,32 @@ export function SDMTForecast() {
         usedFallback,
         generatedAt: payload.generatedAt,
       });
+      
+      // DEV telemetry: Track unmatched invoices to help debug actuals
+      const unmatchedInvoices = matchedInvoices.filter(inv => {
+        return !normalized.some(cell => 
+          cell.line_item_id === inv.line_item_id && cell.month === inv.month
+        );
+      });
+      
+      if (unmatchedInvoices.length > 0) {
+        console.debug(
+          `[Forecast] unmatchedInvoices=${unmatchedInvoices.length}/${matchedInvoices.length}`,
+          {
+            sample: unmatchedInvoices.slice(0, 3).map(inv => ({
+              line_item_id: inv.line_item_id,
+              month: inv.month,
+              amount: inv.amount,
+              rubroId: inv.rubroId || inv.rubro_id,
+            })),
+            forecastKeys: normalized.slice(0, 5).map(cell => ({
+              line_item_id: cell.line_item_id,
+              month: cell.month,
+              rubroId: cell.rubroId,
+            })),
+          }
+        );
+      }
     }
 
     // Final check before setting state
@@ -976,6 +1002,33 @@ export function SDMTForecast() {
             console.log(
               `[loadPortfolioForecast] project ${project.id} forecastRows=${projectData.length} invoices=${invoices.length}`
             );
+            
+            // DEV telemetry: Track unmatched invoices to help debug actuals
+            const unmatchedInvoices = matchedInvoices.filter(inv => {
+              const invoiceMonth = normalizeInvoiceMonth(inv.month);
+              return !normalized.some(cell => 
+                cell.line_item_id === inv.line_item_id && cell.month === invoiceMonth
+              );
+            });
+            
+            if (unmatchedInvoices.length > 0) {
+              console.debug(
+                `[loadPortfolioForecast] project ${project.id} unmatchedInvoices=${unmatchedInvoices.length}/${matchedInvoices.length}`,
+                {
+                  sample: unmatchedInvoices.slice(0, 3).map(inv => ({
+                    line_item_id: inv.line_item_id,
+                    month: inv.month,
+                    amount: inv.amount,
+                    rubroId: inv.rubroId || inv.rubro_id,
+                  })),
+                  forecastKeys: normalized.slice(0, 5).map(cell => ({
+                    line_item_id: cell.line_item_id,
+                    month: cell.month,
+                    rubroId: cell.rubroId,
+                  })),
+                }
+              );
+            }
           }
 
           return {
@@ -1450,6 +1503,17 @@ export function SDMTForecast() {
         if (budgets.length > 0) {
           setUseMonthlyBudget(true);
         }
+
+        // DEV: Log monthly budgets loaded to help debug budget display issues
+        if (import.meta.env.DEV) {
+          console.debug('[SDMTForecast] monthlyBudgets loaded', {
+            year,
+            count: budgets.length,
+            monthlyBudgets: budgets,
+            useMonthlyBudget: budgets.length > 0,
+            totalBudget: budgets.reduce((sum, b) => sum + b.budget, 0),
+          });
+        }
       } else {
         setMonthlyBudgets([]);
         setMonthlyBudgetLastUpdated(null);
@@ -1468,6 +1532,14 @@ export function SDMTForecast() {
         setMonthlyBudgetLastUpdated(null);
         setMonthlyBudgetUpdatedBy(null);
         setUseMonthlyBudget(false);
+
+        // DEV: Log zeroed monthly budgets to help debug budget display issues
+        if (import.meta.env.DEV) {
+          console.debug('[SDMTForecast] monthlyBudgets initialized to zero (not found)', {
+            year,
+            useMonthlyBudget: false,
+          });
+        }
       } else {
         console.error("Error loading monthly budget:", error);
 

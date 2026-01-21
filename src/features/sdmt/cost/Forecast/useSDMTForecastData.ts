@@ -36,19 +36,47 @@ import { lookupTaxonomyCanonical } from "./lib/lookupTaxonomyCanonical";
 // Build taxonomy from canonical source (the single source of truth)
 const taxonomyByRubroId: Record<string, { description?: string; category?: string; isLabor?: boolean }> = {};
 CANONICAL_RUBROS_TAXONOMY.forEach((taxonomy) => {
-  taxonomyByRubroId[taxonomy.id] = {
+  const entry = {
     description: taxonomy.linea_gasto || taxonomy.descripcion,
     category: taxonomy.categoria,
     isLabor: taxonomy.categoria_codigo === 'MOD',
   };
   
+  // Index by canonical ID
+  taxonomyByRubroId[taxonomy.id] = entry;
+  
   // Also index by linea_codigo if different from id
   if (taxonomy.linea_codigo && taxonomy.linea_codigo !== taxonomy.id) {
-    taxonomyByRubroId[taxonomy.linea_codigo] = {
-      description: taxonomy.linea_gasto || taxonomy.descripcion,
-      category: taxonomy.categoria,
-      isLabor: taxonomy.categoria_codigo === 'MOD',
-    };
+    taxonomyByRubroId[taxonomy.linea_codigo] = entry;
+  }
+  
+  // Also index by linea_gasto for invoice matching (normalize to handle matching)
+  // Note: Normalized keys may collide, but this is acceptable for fuzzy matching fallback
+  // Primary matching still uses canonical IDs via getCanonicalRubroId()
+  if (taxonomy.linea_gasto) {
+    const normalizedLineaGasto = normalizeString(taxonomy.linea_gasto);
+    if (import.meta.env.DEV && taxonomyByRubroId[normalizedLineaGasto]) {
+      console.debug('[taxonomy] linea_gasto collision:', {
+        key: normalizedLineaGasto,
+        existing: taxonomyByRubroId[normalizedLineaGasto],
+        new: entry,
+      });
+    }
+    taxonomyByRubroId[normalizedLineaGasto] = entry;
+  }
+  
+  // Also index by descripcion for invoice matching (normalize to handle matching)
+  // Note: Normalized keys may collide, but this is acceptable for fuzzy matching fallback
+  if (taxonomy.descripcion) {
+    const normalizedDescripcion = normalizeString(taxonomy.descripcion);
+    if (import.meta.env.DEV && taxonomyByRubroId[normalizedDescripcion]) {
+      console.debug('[taxonomy] descripcion collision:', {
+        key: normalizedDescripcion,
+        existing: taxonomyByRubroId[normalizedDescripcion],
+        new: entry,
+      });
+    }
+    taxonomyByRubroId[normalizedDescripcion] = entry;
   }
 });
 
@@ -271,7 +299,8 @@ export const matchInvoiceToCell = (
   }
 
   // 3) matchingIds array: Check if invoice ID is in cell's matching IDs list
-  const invRubroId = inv.rubroId || inv.rubro_id || inv.line_item_id;
+  // Support multiple invoice field variants: rubroId, rubro_id, line_item_id, linea_codigo, linea_id, descripcion
+  const invRubroId = inv.rubroId || inv.rubro_id || inv.line_item_id || inv.linea_codigo || inv.linea_id;
   if (invRubroId && (cell as any).matchingIds) {
     const normalizedInvId = normalizeRubroId(invRubroId);
     const matchingIds = (cell as any).matchingIds as string[];
@@ -315,11 +344,13 @@ export const matchInvoiceToCell = (
   }
 
   // 5) taxonomy lookup: check if both resolve to same canonical entry
+  // Support additional invoice fields: linea_gasto, descripcion
   if (taxonomyMap && taxonomyCache) {
     const invRow = {
       rubroId: invRubroId,
       line_item_id: inv.line_item_id,
-      description: inv.description,
+      description: inv.description || inv.descripcion,
+      linea_gasto: inv.linea_gasto,
     };
     const cellRow = {
       rubroId: cellRubroId,
