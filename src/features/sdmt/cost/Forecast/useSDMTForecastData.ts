@@ -34,6 +34,9 @@ import { normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
 import { lookupTaxonomyCanonical } from "./lib/lookupTaxonomyCanonical";
 import { normalizeKey } from "@/lib/strings/normalizeKey";
 
+// Helper to check if running in development mode (safe for test environments)
+const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
+
 // Build taxonomy from canonical source (the single source of truth)
 const taxonomyByRubroId: Record<string, { description?: string; category?: string; isLabor?: boolean }> = {};
 CANONICAL_RUBROS_TAXONOMY.forEach((taxonomy) => {
@@ -221,7 +224,6 @@ export const matchInvoiceToCell = (
 ): boolean => {
   if (!inv) return false;
 
-  const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
   const invId = inv.id || inv.invoiceId || 'unknown';
 
   // 1) projectId guard: both present → must match
@@ -243,7 +245,7 @@ export const matchInvoiceToCell = (
     const invLineId = normalizeRubroId(inv.line_item_id);
     const cellLineId = normalizeRubroId(cell.line_item_id);
     if (invLineId && cellLineId && invLineId === cellLineId) {
-      if (isDev) {
+      if (IS_DEV) {
         console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via line_item_id`);
       }
       return true;
@@ -255,7 +257,7 @@ export const matchInvoiceToCell = (
     const invLineaCodigo = normalizeRubroId(inv.linea_codigo);
     const cellLineId = normalizeRubroId(cell.line_item_id);
     if (invLineaCodigo && cellLineId && invLineaCodigo === cellLineId) {
-      if (isDev) {
+      if (IS_DEV) {
         console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via linea_codigo`);
       }
       return true;
@@ -267,7 +269,7 @@ export const matchInvoiceToCell = (
     const invLineaId = normalizeRubroId(inv.linea_id);
     const cellLineId = normalizeRubroId(cell.line_item_id);
     if (invLineaId && cellLineId && invLineaId === cellLineId) {
-      if (isDev) {
+      if (IS_DEV) {
         console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via linea_id`);
       }
       return true;
@@ -281,7 +283,7 @@ export const matchInvoiceToCell = (
     
     // Try exact match first
     if (matchingIds.includes(normalizedInvId) || matchingIds.includes(invRubroId)) {
-      if (isDev) {
+      if (IS_DEV) {
         console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via matchingIds`);
       }
       return true;
@@ -290,7 +292,7 @@ export const matchInvoiceToCell = (
     // Try normalized versions of all matching IDs
     for (const matchId of matchingIds) {
       if (normalizeRubroId(matchId) === normalizedInvId) {
-        if (isDev) {
+        if (IS_DEV) {
           console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via normalized matchingIds`);
         }
         return true;
@@ -305,7 +307,7 @@ export const matchInvoiceToCell = (
     const invCanonical = getCanonicalRubroId(invRubroId);
     const cellCanonical = getCanonicalRubroId(cellRubroId);
     if (invCanonical && cellCanonical && invCanonical === cellCanonical) {
-      if (isDev) {
+      if (IS_DEV) {
         console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via canonical rubroId`);
       }
       return true;
@@ -334,7 +336,7 @@ export const matchInvoiceToCell = (
       const cellTax = lookupTaxonomyCanonical(taxonomyMap, cellRow, taxonomyCache);
       
       if (invTax && cellTax && invTax.rubroId === cellTax.rubroId) {
-        if (isDev) {
+        if (IS_DEV) {
           console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via description taxonomy lookup`);
         }
         return true;
@@ -359,7 +361,7 @@ export const matchInvoiceToCell = (
     const cellTax = lookupTaxonomyCanonical(taxonomyMap, cellRow, taxonomyCache);
     
     if (invTax && cellTax && invTax.rubroId === cellTax.rubroId) {
-      if (isDev) {
+      if (IS_DEV) {
         console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via taxonomy lookup`);
       }
       return true;
@@ -373,7 +375,7 @@ export const matchInvoiceToCell = (
     const normalizedCellDesc = normalizeKey(cell.description);
     
     if (normalizedInvDesc && normalizedCellDesc && normalizedInvDesc === normalizedCellDesc) {
-      if (isDev) {
+      if (IS_DEV) {
         console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via normalized description`);
       }
       return true;
@@ -381,7 +383,7 @@ export const matchInvoiceToCell = (
   }
 
   // Log failed matches in DEV mode
-  if (isDev) {
+  if (IS_DEV) {
     console.log(`[matchInvoice] unmatched invoice ${invId} with keys:`, {
       rubroId: inv.rubroId,
       rubro_id: inv.rubro_id,
@@ -801,10 +803,8 @@ export function useSDMTForecastData({
       // Load and merge invoices as actuals
       const invoices = await getProjectInvoices(projectId === 'ALL_PROJECTS' ? undefined : projectId);
       if (latestRequestKey.current !== requestKey) return; // stale
-
-      const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
       
-      if (isDev) {
+      if (IS_DEV) {
         console.log(
           `[useSDMTForecastData] invoices fetched for project ${projectId}: ${
             invoices?.length || 0
@@ -818,7 +818,7 @@ export function useSDMTForecastData({
         return status && VALID_INVOICE_STATUSES.includes(status as typeof VALID_INVOICE_STATUSES[number]);
       });
       
-      if (isDev) {
+      if (IS_DEV) {
         console.log(
           `[useSDMTForecastData] valid invoices: ${validInvoices.length}`
         );
@@ -927,7 +927,7 @@ export function useSDMTForecastData({
         }
       }
 
-      if (isDev) {
+      if (IS_DEV) {
         console.log(
           `[useSDMTForecastData] matchedInvoices: ${matchedInvoicesCount}, unmatchedSample: ${JSON.stringify(unmatchedInvoicesSample)}`
         );
@@ -965,7 +965,7 @@ export function useSDMTForecastData({
       setDataSource(chosenDataSource);
 
       // Summary logging for data validation (use local variable for accuracy)
-      if (isDev) {
+      if (IS_DEV) {
         console.log("[useSDMTForecastData] 📊 Data Summary:", {
           projectId,
           rubrosRetrieved: rubrosResp?.length || 0,
