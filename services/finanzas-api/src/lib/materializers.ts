@@ -10,8 +10,8 @@ import {
   getCanonicalRubroId,
   mapModRoleToRubroId,
   mapNonLaborCategoryToRubroId,
-  LEGACY_RUBRO_ID_MAP,
 } from "./rubros-taxonomy";
+import { LEGACY_RUBRO_ID_MAP } from "./canonical-taxonomy";
 
 interface BaselineLike {
   baseline_id?: string;
