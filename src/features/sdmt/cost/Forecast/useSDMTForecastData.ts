@@ -33,7 +33,7 @@ import {
 import { buildTaxonomyMap, type TaxonomyEntry as TaxLookupEntry } from "./lib/taxonomyLookup";
 import { normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
 import { lookupTaxonomyCanonical } from "./lib/lookupTaxonomyCanonical";
-import { normalizeKey } from "@/lib/strings/normalizeKey";
+
 
 // Helper to check if running in development mode (safe for test environments)
 const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
