@@ -1189,3 +1189,69 @@ export const LABOR_CANONICAL_KEYS = [
  * Used for fast labor classification checks
  */
 export const LABOR_CANONICAL_KEYS_SET = new Set(LABOR_CANONICAL_KEYS);
+
+/**
+ * CANONICAL_ALIASES - Explicit mapping of common textual forms to canonical IDs
+ * 
+ * This map provides fast, explicit resolution of frequently-seen rubro textual names
+ * to their canonical taxonomy IDs. Used by lookupTaxonomy before tolerant fallback.
+ * 
+ * These aliases address the high-frequency textual rubros/roles seen in logs and warnings.
+ * Added to fix: "Service Delivery Manager" → MOD-SDM, "Project Manager" → MOD-LEAD, etc.
+ */
+export const CANONICAL_ALIASES: Record<string, string> = {
+  // Service Delivery Manager variations
+  'service delivery manager': 'MOD-SDM',
+  'service delivery manager (sdm)': 'MOD-SDM',
+  'service delivery mgr': 'MOD-SDM',
+  'sdm': 'MOD-SDM',
+  'service-delivery-manager': 'MOD-SDM',
+  'mod-sdm-service-delivery-manager': 'MOD-SDM',
+  'mod-sdm-sdm': 'MOD-SDM',
+  
+  // Project Manager variations
+  'project manager': 'MOD-LEAD',
+  'project mgr': 'MOD-LEAD',
+  'pm': 'MOD-LEAD',
+  'project-manager': 'MOD-LEAD',
+  'mod-pm-project-manager': 'MOD-LEAD',
+  'mod-pm': 'MOD-LEAD',
+  
+  // Ingeniero Líder / Coordinator variations
+  'ingeniero líder / coordinador': 'MOD-LEAD',
+  'ingeniero lider': 'MOD-LEAD',
+  'ingeniero líder': 'MOD-LEAD',
+  'ingeniero-lider': 'MOD-LEAD',
+  'ingeniero delivery': 'MOD-LEAD',
+  'ingeniero-delivery': 'MOD-LEAD',
+  'mod-lead-ingeniero-delivery': 'MOD-LEAD',
+  'mod-lead-ingeniero': 'MOD-LEAD',
+  
+  // Support Engineers variations
+  'ingenieros de soporte (mensual)': 'MOD-ING',
+  'ingeniero soporte': 'MOD-ING',
+  'ingeniero soporte n1': 'MOD-ING',
+  'ingeniero-soporte-n1': 'MOD-ING',
+  'mod-ing-ingeniero-soporte-n1': 'MOD-ING',
+  
+  // Overtime / Guards variations
+  'horas extra / guardias': 'MOD-OT',
+  'horas extra': 'MOD-OT',
+  'guardias': 'MOD-OT',
+  
+  // Internal Contractors variations
+  'contratistas técnicos internos': 'MOD-CONT',
+  'contratistas internos': 'MOD-CONT',
+  
+  // External Contractors variations
+  'contratistas externos (labor)': 'MOD-EXT',
+  'contratistas externos': 'MOD-EXT',
+};
+
+// Normalize all alias keys for consistent lookup
+Object.keys(CANONICAL_ALIASES).forEach(key => {
+  const normalized = normalizeKey(key);
+  if (normalized !== key) {
+    CANONICAL_ALIASES[normalized] = CANONICAL_ALIASES[key];
+  }
+});

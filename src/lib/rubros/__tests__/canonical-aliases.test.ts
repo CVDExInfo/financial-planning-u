@@ -3,7 +3,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getCanonicalRubroId, LEGACY_RUBRO_ID_MAP, LABOR_CANONICAL_KEYS_SET } from '../canonical-taxonomy';
+import { 
+  getCanonicalRubroId, 
+  LEGACY_RUBRO_ID_MAP, 
+  LABOR_CANONICAL_KEYS_SET,
+  CANONICAL_ALIASES 
+} from '../canonical-taxonomy';
 import { normalizeKey } from '../normalize-key';
 
 describe('Canonical Aliases - Console Warning Fixes', () => {
@@ -51,6 +56,46 @@ describe('Canonical Aliases - Console Warning Fixes', () => {
     newAliases.forEach(alias => {
       expect(LEGACY_RUBRO_ID_MAP[alias]).toBeDefined();
       expect(LEGACY_RUBRO_ID_MAP[alias]).not.toBe('');
+    });
+  });
+
+  describe('CANONICAL_ALIASES map', () => {
+    it('should map "Service Delivery Manager" to MOD-SDM', () => {
+      const normalized = normalizeKey('Service Delivery Manager');
+      expect(CANONICAL_ALIASES[normalized]).toBe('MOD-SDM');
+    });
+
+    it('should map "Project Manager" to MOD-LEAD', () => {
+      const normalized = normalizeKey('Project Manager');
+      expect(CANONICAL_ALIASES[normalized]).toBe('MOD-LEAD');
+    });
+
+    it('should map "sdm" to MOD-SDM', () => {
+      const normalized = normalizeKey('sdm');
+      expect(CANONICAL_ALIASES[normalized]).toBe('MOD-SDM');
+    });
+
+    it('should map "pm" to MOD-LEAD', () => {
+      const normalized = normalizeKey('pm');
+      expect(CANONICAL_ALIASES[normalized]).toBe('MOD-LEAD');
+    });
+
+    it('should map "Ingeniero Lider" to MOD-LEAD', () => {
+      const normalized = normalizeKey('Ingeniero Lider');
+      expect(CANONICAL_ALIASES[normalized]).toBe('MOD-LEAD');
+    });
+
+    it('should map "Ingeniero Soporte N1" to MOD-ING', () => {
+      const normalized = normalizeKey('Ingeniero Soporte N1');
+      expect(CANONICAL_ALIASES[normalized]).toBe('MOD-ING');
+    });
+
+    it('should have all keys normalized', () => {
+      Object.keys(CANONICAL_ALIASES).forEach(key => {
+        const normalized = normalizeKey(key);
+        // The key should already be normalized or have a normalized variant
+        expect(CANONICAL_ALIASES[normalized]).toBeDefined();
+      });
     });
   });
 });

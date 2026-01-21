@@ -333,6 +333,112 @@ describe('Taxonomy Lookup', () => {
       // The buildTaxonomyMap should have the entry, not synthetic
       assert.strictEqual(result.description, 'External Labor (from taxonomy)');
     });
+
+    it('should index and lookup by linea_gasto field', () => {
+      const taxonomy: Record<string, TaxonomyEntry> = {
+        'MOD-SDM': {
+          rubroId: 'MOD-SDM',
+          description: 'SDM Role',
+          category: 'Mano de Obra (MOD)',
+          linea_gasto: 'Service Delivery Manager (SDM)', // This should be indexed
+        } as any,
+      };
+
+      const map = buildTaxonomyMap(taxonomy);
+      const cache = new Map<string, TaxonomyEntry | null>();
+
+      // Lookup by linea_gasto value
+      const rubroRow: RubroRow = {
+        description: 'Service Delivery Manager (SDM)', // Matches linea_gasto
+      };
+
+      const result = lookupTaxonomy(map, rubroRow, cache);
+
+      assert.ok(result, 'Should find taxonomy entry by linea_gasto');
+      assert.strictEqual(result.rubroId, 'MOD-SDM');
+      assert.strictEqual(result.description, 'SDM Role');
+    });
+
+    it('should index and lookup by descripcion field', () => {
+      const taxonomy: Record<string, TaxonomyEntry> = {
+        'MOD-LEAD': {
+          rubroId: 'MOD-LEAD',
+          description: 'Project Lead',
+          category: 'Mano de Obra (MOD)',
+          descripcion: 'Perfil senior técnico con responsabilidad de coordinación técnica.', // This should be indexed
+        } as any,
+      };
+
+      const map = buildTaxonomyMap(taxonomy);
+      const cache = new Map<string, TaxonomyEntry | null>();
+
+      // Lookup by descripcion value
+      const rubroRow: RubroRow = {
+        description: 'Perfil senior técnico con responsabilidad de coordinación técnica.',
+      };
+
+      const result = lookupTaxonomy(map, rubroRow, cache);
+
+      assert.ok(result, 'Should find taxonomy entry by descripcion');
+      assert.strictEqual(result.rubroId, 'MOD-LEAD');
+    });
+
+    it('should resolve via CANONICAL_ALIASES map', () => {
+      const taxonomy: Record<string, TaxonomyEntry> = {
+        'MOD-SDM': {
+          rubroId: 'MOD-SDM',
+          description: 'Service Delivery Manager',
+          category: 'Mano de Obra (MOD)',
+        },
+        'MOD-LEAD': {
+          rubroId: 'MOD-LEAD',
+          description: 'Project Manager',
+          category: 'Mano de Obra (MOD)',
+        },
+      };
+
+      const map = buildTaxonomyMap(taxonomy);
+      const cache = new Map<string, TaxonomyEntry | null>();
+
+      // Test Service Delivery Manager variations
+      const sdmRow: RubroRow = {
+        description: 'Service Delivery Manager', // Should match alias
+      };
+      const sdmResult = lookupTaxonomy(map, sdmRow, cache);
+      assert.ok(sdmResult, 'Should find MOD-SDM via alias');
+      assert.strictEqual(sdmResult.rubroId, 'MOD-SDM');
+
+      // Test Project Manager variations
+      const pmRow: RubroRow = {
+        description: 'Project Manager', // Should match alias
+      };
+      const pmResult = lookupTaxonomy(map, pmRow, cache);
+      assert.ok(pmResult, 'Should find MOD-LEAD via alias');
+      assert.strictEqual(pmResult.rubroId, 'MOD-LEAD');
+    });
+
+    it('should match "Service Delivery Manager" to MOD-SDM via alias', () => {
+      const taxonomy: Record<string, TaxonomyEntry> = {
+        'MOD-SDM': {
+          rubroId: 'MOD-SDM',
+          description: 'Service Delivery Manager',
+          category: 'Mano de Obra (MOD)',
+        },
+      };
+
+      const map = buildTaxonomyMap(taxonomy);
+      const cache = new Map<string, TaxonomyEntry | null>();
+
+      const rubroRow: RubroRow = {
+        description: 'Service Delivery Manager',
+      };
+
+      const result = lookupTaxonomy(map, rubroRow, cache);
+
+      assert.ok(result, 'Should find taxonomy entry for Service Delivery Manager');
+      assert.strictEqual(result.rubroId, 'MOD-SDM');
+      assert.strictEqual(result.category, 'Mano de Obra (MOD)');
+    });
   });
 
   describe('LABOR_CANONICAL_KEYS constant', () => {

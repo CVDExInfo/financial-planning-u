@@ -220,6 +220,31 @@ export const matchInvoiceToCell = (
 ): boolean => {
   if (!inv) return false;
 
+  // Enhanced diagnostics (DEV only)
+  const logDiagnostics = debugMode && import.meta.env.DEV;
+  
+  if (logDiagnostics) {
+    console.debug('[matchInvoiceToCell] Starting match attempt:', {
+      invoice: {
+        line_item_id: inv.line_item_id,
+        rubroId: inv.rubroId || inv.rubro_id,
+        projectId: inv.projectId || inv.project_id || inv.project,
+        month: getInvoiceMonth(inv),
+        normalizedMonth: normalizeInvoiceMonth(getInvoiceMonth(inv), undefined, true),
+        amount: normalizeInvoiceAmount(inv),
+        status: invoiceStatusNormalized(inv),
+        description: inv.description,
+      },
+      cell: {
+        line_item_id: cell.line_item_id,
+        rubroId: cell.rubroId,
+        projectId: (cell as any).projectId || (cell as any).project_id || (cell as any).project,
+        monthIndex: (cell as any).monthIndex || (cell as any).month,
+        description: cell.description,
+      }
+    });
+  }
+
   // 1) projectId guard: both present → must match
   // Normalize both camelCase and snake_case variants
   // Note: Using defensive field access since invoices may come from different sources
@@ -227,6 +252,9 @@ export const matchInvoiceToCell = (
   const invProject = inv.projectId || inv.project_id || inv.project;
   const cellProject = (cell as any).projectId || (cell as any).project_id || (cell as any).project;
   if (invProject && cellProject && String(invProject) !== String(cellProject)) {
+    if (logDiagnostics) {
+      console.debug('[matchInvoiceToCell] FAIL: Project mismatch', { invProject, cellProject });
+    }
     return false;
   }
 
@@ -235,8 +263,8 @@ export const matchInvoiceToCell = (
     const invLineId = normalizeRubroId(inv.line_item_id);
     const cellLineId = normalizeRubroId(cell.line_item_id);
     if (invLineId && cellLineId && invLineId === cellLineId) {
-      if (debugMode) {
-        console.log('[matchInvoiceToCell] Match via line_item_id:', { invLineId, cellLineId });
+      if (logDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via line_item_id:', { invLineId, cellLineId });
       }
       return true;
     }
@@ -250,8 +278,8 @@ export const matchInvoiceToCell = (
     
     // Try exact match first
     if (matchingIds.includes(normalizedInvId) || matchingIds.includes(invRubroId)) {
-      if (debugMode) {
-        console.log('[matchInvoiceToCell] Match via matchingIds:', { invRubroId, normalizedInvId, matchingIds });
+      if (logDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via matchingIds:', { invRubroId, normalizedInvId, matchingIds });
       }
       return true;
     }
@@ -259,8 +287,8 @@ export const matchInvoiceToCell = (
     // Try normalized versions of all matching IDs
     for (const matchId of matchingIds) {
       if (normalizeRubroId(matchId) === normalizedInvId) {
-        if (debugMode) {
-          console.log('[matchInvoiceToCell] Match via normalized matchingIds:', { matchId, normalizedInvId });
+        if (logDiagnostics) {
+          console.debug('[matchInvoiceToCell] ✓ MATCH via normalized matchingIds:', { matchId, normalizedInvId });
         }
         return true;
       }
@@ -274,8 +302,13 @@ export const matchInvoiceToCell = (
     const invCanonical = getCanonicalRubroId(invRubroId);
     const cellCanonical = getCanonicalRubroId(cellRubroId);
     if (invCanonical && cellCanonical && invCanonical === cellCanonical) {
-      if (debugMode) {
-        console.log('[matchInvoiceToCell] Match via canonical rubroId:', { invCanonical, cellCanonical });
+      if (logDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via canonical rubroId:', { 
+          invRubroId, 
+          invCanonical, 
+          cellRubroId,
+          cellCanonical 
+        });
       }
       return true;
     }
@@ -298,8 +331,11 @@ export const matchInvoiceToCell = (
     const cellTax = lookupTaxonomyCanonical(taxonomyMap, cellRow, taxonomyCache);
     
     if (invTax && cellTax && invTax.rubroId === cellTax.rubroId) {
-      if (debugMode) {
-        console.log('[matchInvoiceToCell] Match via taxonomy lookup:', { invTax, cellTax });
+      if (logDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via taxonomy lookup:', { 
+          invTaxRubroId: invTax.rubroId, 
+          cellTaxRubroId: cellTax.rubroId 
+        });
       }
       return true;
     }
@@ -311,13 +347,36 @@ export const matchInvoiceToCell = (
     cell.description &&
     normalizeString(inv.description) === normalizeString(cell.description)
   ) {
-    if (debugMode) {
-      console.log('[matchInvoiceToCell] Match via normalized description:', { 
+    if (logDiagnostics) {
+      console.debug('[matchInvoiceToCell] ✓ MATCH via normalized description:', { 
         inv: normalizeString(inv.description), 
         cell: normalizeString(cell.description) 
       });
     }
     return true;
+  }
+
+  // No match found - log reason
+  if (logDiagnostics) {
+    const reasons = [];
+    if (!invRubroId || !cellRubroId) {
+      reasons.push('Missing rubroId in invoice or cell');
+    }
+    if (invRubroId && cellRubroId) {
+      const invCanonical = getCanonicalRubroId(invRubroId);
+      const cellCanonical = getCanonicalRubroId(cellRubroId);
+      if (invCanonical !== cellCanonical) {
+        reasons.push(`Canonical mismatch: ${invCanonical} !== ${cellCanonical}`);
+      }
+    }
+    if (!inv.description || !cell.description) {
+      reasons.push('Missing description');
+    }
+    console.debug('[matchInvoiceToCell] ✗ NO MATCH', { 
+      reasons,
+      invRubroId,
+      cellRubroId 
+    });
   }
 
   return false;
