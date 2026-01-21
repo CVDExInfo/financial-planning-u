@@ -313,6 +313,20 @@ export function computeForecastFromAllocations(
       taxonomyFallbackCount++;
     }
     
+    // Build matching IDs array for robust invoice matching
+    const matchingIds: string[] = [];
+    if (rubroId) matchingIds.push(rubroId);
+    if (matchingRubro?.id && matchingRubro.id !== rubroId) matchingIds.push(matchingRubro.id);
+    if (matchingRubro?.line_item_id && !matchingIds.includes(matchingRubro.line_item_id)) {
+      matchingIds.push(matchingRubro.line_item_id);
+    }
+    if (matchingRubro?.rubroId && !matchingIds.includes(matchingRubro.rubroId)) {
+      matchingIds.push(matchingRubro.rubroId);
+    }
+    if (taxonomy?.rubroId && !matchingIds.includes(taxonomy.rubroId)) {
+      matchingIds.push(taxonomy.rubroId);
+    }
+    
     forecastCells.push({
       line_item_id: rubroId,
       rubroId: rubroId,
@@ -327,7 +341,8 @@ export function computeForecastFromAllocations(
       last_updated: new Date().toISOString(),
       updated_by: 'system-allocations',
       projectId: resolvedProjectId,
-    });
+      matchingIds: matchingIds.length > 0 ? matchingIds : undefined,
+    } as any); // Cast as any to avoid type issues with extended properties
   });
   
   // Debug logging (DEV only)

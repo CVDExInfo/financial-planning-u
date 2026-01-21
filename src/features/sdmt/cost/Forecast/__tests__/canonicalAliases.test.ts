@@ -40,6 +40,25 @@ test('MOD-LEAD canonical aliases map to MOD-LEAD', () => {
   }
 });
 
+test('MOD-LEAD title case variants map to MOD-LEAD', () => {
+  // Test that title case variants (Service Delivery Manager, Project Manager) resolve to canonical IDs
+  const titleCaseAliases = [
+    'Project Manager',
+    'project manager',
+    'project mgr',
+    'pm',
+  ];
+  
+  for (const alias of titleCaseAliases) {
+    const canonical = getCanonicalRubroId(alias);
+    assert.strictEqual(
+      canonical, 
+      'MOD-LEAD', 
+      `${alias} should map to MOD-LEAD, got ${canonical}`
+    );
+  }
+});
+
 test('MOD-SDM canonical aliases map to MOD-SDM', () => {
   // Test that all MOD-SDM variants resolve to canonical MOD-SDM
   const aliases = [
@@ -58,10 +77,33 @@ test('MOD-SDM canonical aliases map to MOD-SDM', () => {
   }
 });
 
+test('MOD-SDM title case variants map to MOD-SDM', () => {
+  // Test that title case variants (Service Delivery Manager) resolve to MOD-SDM
+  const titleCaseAliases = [
+    'Service Delivery Manager',
+    'service delivery manager',
+    'Service Delivery Manager (SDM)',
+    'service delivery manager (sdm)',
+    'sdm',
+    'SDM',
+  ];
+  
+  for (const alias of titleCaseAliases) {
+    const canonical = getCanonicalRubroId(alias);
+    assert.strictEqual(
+      canonical, 
+      'MOD-SDM', 
+      `${alias} should map to MOD-SDM, got ${canonical}`
+    );
+  }
+});
+
 test('MOD-ING canonical aliases map to MOD-ING', () => {
   // Test that all MOD-ING variants resolve to canonical MOD-ING
   const aliases = [
     'mod-ing-ingeniero-soporte-n1',
+    'ingeniero soporte',
+    'ingeniero soporte n1',
   ];
   
   for (const alias of aliases) {
@@ -94,6 +136,28 @@ test('LEGACY_RUBRO_ID_MAP contains all new aliases', () => {
       LEGACY_RUBRO_ID_MAP[legacy],
       canonical,
       `LEGACY_RUBRO_ID_MAP should map ${legacy} to ${canonical}`
+    );
+  }
+});
+
+test('LEGACY_RUBRO_ID_MAP contains title case aliases from server-side', () => {
+  // Verify that the title case aliases from server-side canonical-taxonomy.ts are present
+  const serverSideAliases = {
+    'Service Delivery Manager': 'MOD-SDM',
+    'Service Delivery Manager (SDM)': 'MOD-SDM',
+    'service delivery manager': 'MOD-SDM',
+    'Project Manager': 'MOD-LEAD',
+    'project manager': 'MOD-LEAD',
+    'ingenieros de soporte (mensual)': 'MOD-ING',
+    'horas extra / guardias': 'MOD-OT',
+    'contratistas externos (labor)': 'MOD-EXT',
+  };
+  
+  for (const [alias, canonical] of Object.entries(serverSideAliases)) {
+    assert.strictEqual(
+      LEGACY_RUBRO_ID_MAP[alias],
+      canonical,
+      `LEGACY_RUBRO_ID_MAP should map server-side alias "${alias}" to ${canonical}`
     );
   }
 });
@@ -207,6 +271,7 @@ test('human-readable names map to labor', () => {
     { name: 'Ingeniero Delivery' },
     { description: 'Service Delivery Manager' },
     { line_item_id: 'ingeniero-delivery' },
+    { description: 'Project Manager' },
   ];
   
   for (const row of humanReadableNames) {
