@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * useSDMTForecastData Hook
  *
@@ -36,23 +37,52 @@ import { normalizeKey } from "@/lib/strings/normalizeKey";
 
 // Helper to check if running in development mode (safe for test environments)
 const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
+const isDev = IS_DEV;
 
 // Build taxonomy from canonical source (the single source of truth)
 const taxonomyByRubroId: Record<string, { description?: string; category?: string; isLabor?: boolean }> = {};
 CANONICAL_RUBROS_TAXONOMY.forEach((taxonomy) => {
-  taxonomyByRubroId[taxonomy.id] = {
+  const entry = {
     description: taxonomy.linea_gasto || taxonomy.descripcion,
     category: taxonomy.categoria,
     isLabor: taxonomy.categoria_codigo === 'MOD',
   };
   
+  // Index by canonical ID
+  taxonomyByRubroId[taxonomy.id] = entry;
+  
   // Also index by linea_codigo if different from id
   if (taxonomy.linea_codigo && taxonomy.linea_codigo !== taxonomy.id) {
-    taxonomyByRubroId[taxonomy.linea_codigo] = {
-      description: taxonomy.linea_gasto || taxonomy.descripcion,
-      category: taxonomy.categoria,
-      isLabor: taxonomy.categoria_codigo === 'MOD',
-    };
+    taxonomyByRubroId[taxonomy.linea_codigo] = entry;
+  }
+  
+  // Also index by linea_gasto for invoice matching (normalize to handle matching)
+  // Note: Normalized keys may collide, but this is acceptable for fuzzy matching fallback
+  // Primary matching still uses canonical IDs via getCanonicalRubroId()
+  if (taxonomy.linea_gasto) {
+    const normalizedLineaGasto = normalizeString(taxonomy.linea_gasto);
+    if (IS_DEV && taxonomyByRubroId[normalizedLineaGasto]) {
+      console.debug('[taxonomy] linea_gasto collision:', {
+        key: normalizedLineaGasto,
+        existing: taxonomyByRubroId[normalizedLineaGasto],
+        new: entry,
+      });
+    }
+    taxonomyByRubroId[normalizedLineaGasto] = entry;
+  }
+  
+  // Also index by descripcion for invoice matching (normalize to handle matching)
+  // Note: Normalized keys may collide, but this is acceptable for fuzzy matching fallback
+  if (taxonomy.descripcion) {
+    const normalizedDescripcion = normalizeString(taxonomy.descripcion);
+    if (IS_DEV && taxonomyByRubroId[normalizedDescripcion]) {
+      console.debug('[taxonomy] descripcion collision:', {
+        key: normalizedDescripcion,
+        existing: taxonomyByRubroId[normalizedDescripcion],
+        new: entry,
+      });
+    }
+    taxonomyByRubroId[normalizedDescripcion] = entry;
   }
 });
 
@@ -224,67 +254,81 @@ export const matchInvoiceToCell = (
 ): boolean => {
   if (!inv) return false;
 
-  const invId = inv.id || inv.invoiceId || 'unknown';
+  // Gate for verbose diagnostics
+  const shouldLogDiagnostics = Boolean(debugMode && IS_DEV);
+
+  // invId used for DEV logging
+  const invId = inv.id || inv.invoiceId || inv.invoice_id || 'unknown';
+
+  if (shouldLogDiagnostics) {
+    console.debug('[matchInvoiceToCell] Starting match attempt:', {
+      invoice: {
+        line_item_id: inv.line_item_id,
+        rubroId: inv.rubroId || inv.rubro_id,
+        projectId: inv.projectId || inv.project_id || inv.project,
+        month: getInvoiceMonth(inv),
+        normalizedMonth: normalizeInvoiceMonth(getInvoiceMonth(inv), undefined, true),
+        amount: normalizeInvoiceAmount(inv),
+        status: invoiceStatusNormalized(inv),
+        description: inv.description || inv.descripcion,
+      },
+      cell: {
+        line_item_id: cell.line_item_id,
+        rubroId: cell.rubroId,
+        projectId: (cell as any).projectId || (cell as any).project_id || (cell as any).project,
+        monthIndex: (cell as any).monthIndex || (cell as any).month,
+        description: cell.description,
+      }
+    });
+  }
 
   // 1) projectId guard: both present → must match
-  // Normalize both camelCase and snake_case variants
-  // Note: Using defensive field access since invoices may come from different sources
-  // with varying field naming conventions (projectId vs project_id)
   const invProject = inv.projectId || inv.project_id || inv.project;
   const cellProject = (cell as any).projectId || (cell as any).project_id || (cell as any).project;
   if (invProject && cellProject && String(invProject) !== String(cellProject)) {
+    if (shouldLogDiagnostics) {
+      console.debug('[matchInvoiceToCell] FAIL: Project mismatch', { invProject, cellProject });
+    }
     return false;
   }
 
   // 2) Robust lookup chain for invoice rubro/line_item identification
   // Try: rubroId || rubro_id || line_item_id || linea_codigo || linea_id
   const invRubroId = inv.rubroId || inv.rubro_id || inv.line_item_id || inv.linea_codigo || inv.linea_id;
-  
+
   // 3) line_item_id: canonicalize and compare
   if (inv.line_item_id && cell.line_item_id) {
     const invLineId = normalizeRubroId(inv.line_item_id);
     const cellLineId = normalizeRubroId(cell.line_item_id);
     if (invLineId && cellLineId && invLineId === cellLineId) {
-      if (IS_DEV) {
-        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via line_item_id`);
+      if (shouldLogDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via line_item_id:', { invLineId, cellLineId });
       }
       return true;
     }
   }
 
-  // 4) linea_codigo: direct match
-  if (inv.linea_codigo && cell.line_item_id) {
-    const invLineaCodigo = normalizeRubroId(inv.linea_codigo);
+  // 4) linea_codigo or linea_id: direct match
+  if ((inv.linea_codigo || inv.linea_id) && cell.line_item_id) {
+    const invLinea = normalizeRubroId(inv.linea_codigo || inv.linea_id);
     const cellLineId = normalizeRubroId(cell.line_item_id);
-    if (invLineaCodigo && cellLineId && invLineaCodigo === cellLineId) {
-      if (IS_DEV) {
-        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via linea_codigo`);
+    if (invLinea && cellLineId && invLinea === cellLineId) {
+      if (shouldLogDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via linea_codigo/linea_id:', { invLinea, cellLineId });
       }
       return true;
     }
   }
 
-  // 5) linea_id: direct match
-  if (inv.linea_id && cell.line_item_id) {
-    const invLineaId = normalizeRubroId(inv.linea_id);
-    const cellLineId = normalizeRubroId(cell.line_item_id);
-    if (invLineaId && cellLineId && invLineaId === cellLineId) {
-      if (IS_DEV) {
-        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via linea_id`);
-      }
-      return true;
-    }
-  }
-
-  // 6) matchingIds array: Check if invoice ID is in cell's matching IDs list
+  // 5) matchingIds array: Check if invoice ID is in cell's matching IDs list
   if (invRubroId && (cell as any).matchingIds) {
     const normalizedInvId = normalizeRubroId(invRubroId);
     const matchingIds = (cell as any).matchingIds as string[];
     
     // Try exact match first
     if (matchingIds.includes(normalizedInvId) || matchingIds.includes(invRubroId)) {
-      if (IS_DEV) {
-        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via matchingIds`);
+      if (shouldLogDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via matchingIds:', { invRubroId, normalizedInvId, matchingIds });
       }
       return true;
     }
@@ -292,64 +336,40 @@ export const matchInvoiceToCell = (
     // Try normalized versions of all matching IDs
     for (const matchId of matchingIds) {
       if (normalizeRubroId(matchId) === normalizedInvId) {
-        if (IS_DEV) {
-          console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via normalized matchingIds`);
+        if (shouldLogDiagnostics) {
+          console.debug('[matchInvoiceToCell] ✓ MATCH via normalized matchingIds:', { matchId, normalizedInvId });
         }
         return true;
       }
     }
   }
 
-  // 7) canonical rubroId: use getCanonicalRubroId
+  // 6) canonical rubroId: use getCanonicalRubroId
   const cellRubroId = cell.rubroId || cell.line_item_id;
   
   if (invRubroId && cellRubroId) {
     const invCanonical = getCanonicalRubroId(invRubroId);
     const cellCanonical = getCanonicalRubroId(cellRubroId);
     if (invCanonical && cellCanonical && invCanonical === cellCanonical) {
-      if (IS_DEV) {
-        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via canonical rubroId`);
+      if (shouldLogDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via canonical rubroId:', { 
+          invRubroId, 
+          invCanonical, 
+          cellRubroId,
+          cellCanonical 
+        });
       }
       return true;
     }
   }
 
-  // 8) Description-based lookup with taxonomy: If no rubroId, use description
-  if (!invRubroId && (inv.description || inv.descripcion)) {
-    const invDescription = inv.description || inv.descripcion;
-    const normalizedDesc = normalizeKey(invDescription);
-    
-    // Attempt taxonomy lookup from normalized description
-    if (taxonomyMap && taxonomyCache) {
-      const invRow = {
-        rubroId: '',
-        line_item_id: '',
-        description: invDescription,
-      };
-      
-      const invTax = lookupTaxonomyCanonical(taxonomyMap, invRow, taxonomyCache);
-      const cellRow = {
-        rubroId: cellRubroId,
-        line_item_id: cell.line_item_id,
-        description: cell.description,
-      };
-      const cellTax = lookupTaxonomyCanonical(taxonomyMap, cellRow, taxonomyCache);
-      
-      if (invTax && cellTax && invTax.rubroId === cellTax.rubroId) {
-        if (IS_DEV) {
-          console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via description taxonomy lookup`);
-        }
-        return true;
-      }
-    }
-  }
-
-  // 9) taxonomy lookup: check if both resolve to same canonical entry
-  if (taxonomyMap && taxonomyCache && invRubroId) {
+  // 7) taxonomy lookup: check if both resolve to same canonical entry
+  if (taxonomyMap && taxonomyCache) {
     const invRow = {
       rubroId: invRubroId,
       line_item_id: inv.line_item_id,
       description: inv.description || inv.descripcion,
+      linea_gasto: inv.linea_gasto,
     };
     const cellRow = {
       rubroId: cellRubroId,
@@ -361,30 +381,34 @@ export const matchInvoiceToCell = (
     const cellTax = lookupTaxonomyCanonical(taxonomyMap, cellRow, taxonomyCache);
     
     if (invTax && cellTax && invTax.rubroId === cellTax.rubroId) {
-      if (IS_DEV) {
-        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via taxonomy lookup`);
+      if (shouldLogDiagnostics) {
+        console.debug('[matchInvoiceToCell] ✓ MATCH via taxonomy lookup:', { 
+          invTaxRubroId: invTax.rubroId, 
+          cellTaxRubroId: cellTax.rubroId 
+        });
       }
       return true;
     }
   }
 
-  // 10) normalized description: final fallback (with diacritics removal)
-  const invDesc = inv.description || inv.descripcion;
-  if (invDesc && cell.description) {
-    const normalizedInvDesc = normalizeKey(invDesc);
-    const normalizedCellDesc = normalizeKey(cell.description);
-    
-    if (normalizedInvDesc && normalizedCellDesc && normalizedInvDesc === normalizedCellDesc) {
-      if (IS_DEV) {
-        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via normalized description`);
-      }
-      return true;
+  // 8) normalized description: final fallback
+  if (
+    inv.description &&
+    cell.description &&
+    normalizeString(inv.description) === normalizeString(cell.description)
+  ) {
+    if (shouldLogDiagnostics) {
+      console.debug('[matchInvoiceToCell] ✓ MATCH via normalized description:', { 
+        inv: normalizeString(inv.description), 
+        cell: normalizeString(cell.description) 
+      });
     }
+    return true;
   }
 
   // Log failed matches in DEV mode
   if (IS_DEV) {
-    console.log(`[matchInvoice] unmatched invoice ${invId} with keys:`, {
+    console.log(`[matchInvoiceToCell] unmatched invoice ${invId} with keys:`, {
       rubroId: inv.rubroId,
       rubro_id: inv.rubro_id,
       line_item_id: inv.line_item_id,
@@ -392,6 +416,29 @@ export const matchInvoiceToCell = (
       linea_id: inv.linea_id,
       description: inv.description,
       descripcion: inv.descripcion,
+    });
+  }
+
+  // No match found - diagnostics logging
+  if (shouldLogDiagnostics) {
+    const reasons: string[] = [];
+    if (!invRubroId || !cellRubroId) {
+      reasons.push('Missing rubroId in invoice or cell');
+    }
+    if (invRubroId && cellRubroId) {
+      const invCanonical = getCanonicalRubroId(invRubroId);
+      const cellCanonical = getCanonicalRubroId(cellRubroId);
+      if (invCanonical !== cellCanonical) {
+        reasons.push(`Canonical mismatch: ${invCanonical} !== ${cellCanonical}`);
+      }
+    }
+    if (!inv.description || !cell.description) {
+      reasons.push('Missing description');
+    }
+    console.debug('[matchInvoiceToCell] ✗ NO MATCH', { 
+      reasons,
+      invRubroId,
+      cellRubroId 
     });
   }
 
@@ -433,7 +480,7 @@ const parseBooleanFlag = (value: string | null): boolean => {
 
 const computeForceAllocationsOverride = (): boolean => {
   if (typeof window === "undefined") return false;
-  if (!(import.meta as any)?.env?.DEV) return false;
+  if (!IS_DEV) return false;
 
   try {
     const url = new URL(window.location.href);
@@ -524,7 +571,7 @@ export function useSDMTForecastData({
       // Load baseline summary
       let baselineResp = await finanzasClient.getBaselineSummary(projectId);
       if (latestRequestKey.current !== requestKey) {
-        if ((import.meta as any)?.env?.DEV) {
+        if (IS_DEV) {
           console.warn('[useSDMTForecastData] Dropping baseline response (stale request):', { 
             requestKey, 
             latestRequestKey: latestRequestKey.current,
@@ -571,7 +618,7 @@ export function useSDMTForecastData({
             try {
               baselineResp = await finanzasClient.getBaselineSummary(projectId);
               if (latestRequestKey.current !== requestKey) {
-                if ((import.meta as any)?.env?.DEV) {
+                if (IS_DEV) {
                   console.warn('[useSDMTForecastData] Dropping baseline poll response (stale request):', { 
                     requestKey, 
                     latestRequestKey: latestRequestKey.current 
@@ -606,7 +653,7 @@ export function useSDMTForecastData({
       // Load rubros / line items (only after materialization completes or is already complete)
       const rubrosResp = await getProjectRubros(projectId);
       if (latestRequestKey.current !== requestKey) {
-        if ((import.meta as any)?.env?.DEV) {
+        if (IS_DEV) {
           console.warn('[useSDMTForecastData] Dropping rubros response (stale request):', { 
             requestKey, 
             latestRequestKey: latestRequestKey.current,
@@ -640,7 +687,7 @@ export function useSDMTForecastData({
       // Step 1: Try to load server-side forecast
       const forecastPayload = await getForecastPayload(projectId, months);
       if (latestRequestKey.current !== requestKey) {
-        if ((import.meta as any)?.env?.DEV) {
+        if (IS_DEV) {
           console.warn('[useSDMTForecastData] Dropping forecast payload response (stale request):', { 
             requestKey, 
             latestRequestKey: latestRequestKey.current 
@@ -852,25 +899,23 @@ export function useSDMTForecastData({
         }
         
         // DEV-only fallback diagnostic: If invoice didn't match, log potential matches
-        // This helps diagnose whether minor formatting differences are causing failures
-        // NOTE: This is DIAGNOSTIC ONLY - it does NOT modify row.actual
         if (!matched && invMonth > 0 && isDev) {
           for (const row of rows) {
             if (row.month !== invMonth) continue;
             
             // Check if canonical rubro comparison would match
-            const invRubroId = inv.rubroId || inv.rubro_id || inv.line_item_id;
+            const invRubroIdLocal = inv.rubroId || inv.rubro_id || inv.line_item_id;
             const rowRubroId = row.rubroId || row.line_item_id;
             
-            if (invRubroId && rowRubroId) {
-              const invCanonical = getCanonicalRubroId(invRubroId);
+            if (invRubroIdLocal && rowRubroId) {
+              const invCanonical = getCanonicalRubroId(invRubroIdLocal);
               const rowCanonical = getCanonicalRubroId(rowRubroId);
               
               if (invCanonical && rowCanonical && invCanonical === rowCanonical) {
                 const invAmount = normalizeInvoiceAmount(inv);
                 fallbackMatchedCount++;
                 console.log(
-                  `[useSDMTForecastData] DIAGNOSTIC: Would match via canonical rubro: inv.rubroId=${invRubroId} → ${invCanonical}, row.rubroId=${rowRubroId} → ${rowCanonical}, amount=${invAmount}`
+                  `[useSDMTForecastData] DIAGNOSTIC: Would match via canonical rubro: inv.rubroId=${invRubroIdLocal} → ${invCanonical}, row.rubroId=${rowRubroId} → ${rowCanonical}, amount=${invAmount}`
                 );
                 break; // Only log first potential match
               }
@@ -895,8 +940,6 @@ export function useSDMTForecastData({
             // Invoice has no valid month - track for batch logging
             invalidMonthCount++;
             if (invalidMonthInvoices.length < 5) { // Keep first 5 for sample
-              // Note: Using 'as any' for defensive field access since invoices may have
-              // varying field names (rubroId vs rubro_id, projectId vs project_id) depending on source
               invalidMonthInvoices.push({
                 line_item_id: inv.line_item_id,
                 rubroId: (inv as any).rubroId || (inv as any).rubro_id,
@@ -910,8 +953,6 @@ export function useSDMTForecastData({
             unmatchedInvoicesCount++;
             // Collect sample of unmatched invoices for debugging
             if (unmatchedInvoicesSample.length < 5) {
-              // Note: Using 'as any' for defensive field access since invoices may have
-              // varying field names depending on source
               unmatchedInvoicesSample.push({
                 line_item_id: inv.line_item_id,
                 rubroId: (inv as any).rubroId || (inv as any).rubro_id,

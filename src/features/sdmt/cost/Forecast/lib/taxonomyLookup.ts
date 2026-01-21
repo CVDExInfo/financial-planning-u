@@ -131,8 +131,10 @@ export function tolerantRubroLookup(
  * 
  * Lookup order:
  * 1. Strict map lookup by exact keys (O(1))
- * 2. Canonical labor key heuristic (O(1) Set lookup) → returns synthetic labor taxonomy
- * 3. Tolerant fallback (substring/fuzzy matching) → O(n) but cached
+ * 2. Canonical alias map (O(1) explicit alias resolution)
+ * 3. Canonical labor key heuristic (O(1) Set lookup) → returns synthetic labor taxonomy
+ * 4. Explicit linea_gasto/descripcion field matching
+ * 5. Tolerant fallback (substring/fuzzy matching) → O(n) but cached
  * 
  * @param taxonomyMap - Pre-built taxonomy map (indexed by normalized keys)
  * @param rubroRow - The rubro/allocation row to look up
@@ -178,6 +180,31 @@ export function lookupTaxonomy(
     }
   }
   
+  // Step 2.5: Check canonical alias map
+  // This provides explicit resolution for common textual forms like "Service Delivery Manager"
+  for (const candidateKey of candidates) {
+    const aliasId = CANONICAL_ALIASES[candidateKey];
+    if (aliasId) {
+      // Look up the canonical taxonomy by alias
+      const canonicalTax = taxonomyMap.get(normalizeKey(aliasId));
+      if (canonicalTax) {
+        // Cache under all candidate keys for consistency
+        for (const ck of candidates) {
+          cache.set(ck, canonicalTax);
+        }
+        
+        // Debug log (dev only)
+        if (import.meta.env.DEV) {
+          console.debug(
+            `[lookupTaxonomy] Alias match: "${candidateKey}" → ${aliasId} (${canonicalTax.name || canonicalTax.rubroId})`
+          );
+        }
+        
+        return canonicalTax;
+      }
+    }
+  }
+  
   // Step 3: Try canonical labor key heuristic
   // If any candidate matches a canonical labor key, return synthetic labor taxonomy
   for (const candidateKey of candidates) {
@@ -195,13 +222,40 @@ export function lookupTaxonomy(
       }
       
       // Debug log (dev only)
-      if (process.env.NODE_ENV !== 'production') {
+      if (import.meta.env.DEV) {
         console.debug(
           `[lookupTaxonomy] Labor key match: "${candidateKey}" → synthetic MOD taxonomy`
         );
       }
       
       return syntheticLabor;
+    }
+  }
+  
+  // Step 3.5: Check explicit linea_gasto/descripcion fields (fallback/defensive)
+  // This is a defensive fallback in case linea_gasto/descripcion weren't indexed in buildTaxonomyMap
+  // or if the taxonomy structure differs from expected. Should rarely execute since buildTaxonomyMap
+  // already indexes these fields, but provides robustness for edge cases.
+  // Note: This has O(n*m) complexity but is rarely hit due to earlier indexing in buildTaxonomyMap.
+  for (const candidate of candidates) {
+    for (const [, tax] of taxonomyMap.entries()) {
+      const linea = normalizeKey((tax as any).linea_gasto || '');
+      const desc = normalizeKey((tax as any).descripcion || '');
+      if ((linea && linea === candidate) || (desc && desc === candidate)) {
+        // Cache under all candidates
+        for (const ck of candidates) {
+          cache.set(ck, tax);
+        }
+        
+        // Debug log (dev only)
+        if (import.meta.env.DEV) {
+          console.debug(
+            `[lookupTaxonomy] Field match: "${candidate}" → ${tax.rubroId || tax.name} (via ${linea === candidate ? 'linea_gasto' : 'descripcion'})`
+          );
+        }
+        
+        return tax;
+      }
     }
   }
   
@@ -212,14 +266,14 @@ export function lookupTaxonomy(
     cache.set(ck, tolerantMatch);
   }
   
-  if (tolerantMatch && process.env.NODE_ENV !== 'production') {
+  if (tolerantMatch && import.meta.env.DEV) {
     console.debug(
       `[lookupTaxonomy] Tolerant match: "${primaryKey}" → ${tolerantMatch.rubroId || tolerantMatch.name}`
     );
   }
   
   // If no match found, log warning (throttled)
-  if (!tolerantMatch && primaryKey && process.env.NODE_ENV !== 'production') {
+  if (!tolerantMatch && primaryKey && import.meta.env.DEV) {
     warnOnce(
       primaryKey,
       `[rubros-taxonomy] Unknown rubro_id: "${primaryKey}" (rubroRow keys: ${candidates.join(', ')})`
@@ -268,6 +322,21 @@ export function buildTaxonomyMap(
     // Index by linea_gasto (human readable canonical label) and descripcion to enable matches
     indexField(taxonomy.linea_gasto, taxonomy);
     indexField(taxonomy.descripcion, taxonomy);
+    
+    // Index linea_gasto and descripcion so human-friendly labels are searchable
+    // This fixes the "Service Delivery Manager" → MOD-SDM mapping issue
+    if ((taxonomy as any).linea_gasto) {
+      const linea = normalizeKey((taxonomy as any).linea_gasto);
+      if (linea && !map.has(linea)) {
+        map.set(linea, taxonomy);
+      }
+    }
+    if ((taxonomy as any).descripcion) {
+      const desc = normalizeKey((taxonomy as any).descripcion);
+      if (desc && !map.has(desc)) {
+        map.set(desc, taxonomy);
+      }
+    }
     
     // Index by original key
     indexField(rubroId, taxonomy);
