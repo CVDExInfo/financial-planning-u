@@ -1204,38 +1204,56 @@ export const LABOR_CANONICAL_KEYS_SET = new Set(LABOR_CANONICAL_KEYS);
 const _buildCanonicalAliases = (): Record<string, string> => {
   const aliases: Record<string, string> = {
     // Service Delivery Manager variations
+    // Note: parentheses get converted to hyphens by normalizeKey, so both forms are added
     'service delivery manager': 'MOD-SDM',
     'service delivery manager (sdm)': 'MOD-SDM',
+    'service delivery manager sdm': 'MOD-SDM',  // After parentheses removal
     'service delivery mgr': 'MOD-SDM',
     'sdm': 'MOD-SDM',
+    'service-delivery-manager': 'MOD-SDM',
+    'service-delivery-manager-sdm': 'MOD-SDM',
     
     // Project Manager variations
     'project manager': 'MOD-LEAD',
     'project mgr': 'MOD-LEAD',
     'pm': 'MOD-LEAD',
+    'project-manager': 'MOD-LEAD',
     
     // Ingeniero Líder / Coordinator variations
+    // Note: Spanish accents (í → i) are removed by normalizeKey
     'ingeniero líder / coordinador': 'MOD-LEAD',
+    'ingeniero lider / coordinador': 'MOD-LEAD',
+    'ingeniero líder coordinador': 'MOD-LEAD',
+    'ingeniero lider coordinador': 'MOD-LEAD',
     'ingeniero lider': 'MOD-LEAD',
     'ingeniero líder': 'MOD-LEAD',
     'ingeniero delivery': 'MOD-LEAD',
+    'ingeniero-lider': 'MOD-LEAD',
+    'ingeniero-delivery': 'MOD-LEAD',
     
     // Support Engineers variations
     'ingenieros de soporte (mensual)': 'MOD-ING',
+    'ingenieros de soporte mensual': 'MOD-ING',
     'ingeniero soporte': 'MOD-ING',
     'ingeniero soporte n1': 'MOD-ING',
+    'ingeniero-soporte': 'MOD-ING',
+    'ingeniero-soporte-n1': 'MOD-ING',
     
     // Overtime / Guards variations
     'horas extra / guardias': 'MOD-OT',
+    'horas extra guardias': 'MOD-OT',
     'horas extra': 'MOD-OT',
     'guardias': 'MOD-OT',
     
     // Internal Contractors variations
+    // Note: técnicos → tecnicos (accent removed)
     'contratistas técnicos internos': 'MOD-CONT',
+    'contratistas tecnicos internos': 'MOD-CONT',
     'contratistas internos': 'MOD-CONT',
     
     // External Contractors variations
     'contratistas externos (labor)': 'MOD-EXT',
+    'contratistas externos labor': 'MOD-EXT',
     'contratistas externos': 'MOD-EXT',
   };
   
@@ -1244,7 +1262,7 @@ const _buildCanonicalAliases = (): Record<string, string> => {
   Object.entries(aliases).forEach(([key, value]) => {
     const normKey = normalizeKey(key);
     normalized[normKey] = value;
-    // Also keep original key if it differs from normalized
+    // Also keep original key if it differs from normalized (for debugging/clarity)
     if (normKey !== key) {
       normalized[key] = value;
     }
