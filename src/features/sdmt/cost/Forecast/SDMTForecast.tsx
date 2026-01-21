@@ -1450,6 +1450,17 @@ export function SDMTForecast() {
         if (budgets.length > 0) {
           setUseMonthlyBudget(true);
         }
+
+        // DEV: Log monthly budgets loaded to help debug budget display issues
+        if (import.meta.env.DEV) {
+          console.debug('[SDMTForecast] monthlyBudgets loaded', {
+            year,
+            count: budgets.length,
+            monthlyBudgets: budgets,
+            useMonthlyBudget: budgets.length > 0,
+            totalBudget: budgets.reduce((sum, b) => sum + b.budget, 0),
+          });
+        }
       } else {
         setMonthlyBudgets([]);
         setMonthlyBudgetLastUpdated(null);
@@ -1468,6 +1479,14 @@ export function SDMTForecast() {
         setMonthlyBudgetLastUpdated(null);
         setMonthlyBudgetUpdatedBy(null);
         setUseMonthlyBudget(false);
+
+        // DEV: Log zeroed monthly budgets to help debug budget display issues
+        if (import.meta.env.DEV) {
+          console.debug('[SDMTForecast] monthlyBudgets initialized to zero (not found)', {
+            year,
+            useMonthlyBudget: false,
+          });
+        }
       } else {
         console.error("Error loading monthly budget:", error);
 
