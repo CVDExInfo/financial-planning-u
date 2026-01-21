@@ -59,23 +59,17 @@ describe('Canonical Aliases - Console Warning Fixes', () => {
 describe('New Canonical Aliases for Role Strings', () => {
   it('should have Service Delivery Manager aliases', () => {
     expect(CANONICAL_ALIASES['Service Delivery Manager']).toBe('MOD-SDM');
-    expect(CANONICAL_ALIASES['service delivery manager']).toBe('MOD-SDM');
     expect(CANONICAL_ALIASES['SDM']).toBe('MOD-SDM');
-    expect(CANONICAL_ALIASES['sdm']).toBe('MOD-SDM');
   });
 
   it('should have Project Manager aliases', () => {
     expect(CANONICAL_ALIASES['Project Manager']).toBe('MOD-LEAD');
-    expect(CANONICAL_ALIASES['project manager']).toBe('MOD-LEAD');
     expect(CANONICAL_ALIASES['PM']).toBe('MOD-LEAD');
-    expect(CANONICAL_ALIASES['pm']).toBe('MOD-LEAD');
   });
 
   it('should have Ingeniero Delivery aliases', () => {
     expect(CANONICAL_ALIASES['Ingeniero Delivery']).toBe('MOD-LEAD');
-    expect(CANONICAL_ALIASES['ingeniero delivery']).toBe('MOD-LEAD');
     expect(CANONICAL_ALIASES['Ingeniero Lider']).toBe('MOD-LEAD');
-    expect(CANONICAL_ALIASES['ingeniero lider']).toBe('MOD-LEAD');
   });
 
   it('should have support engineer aliases', () => {

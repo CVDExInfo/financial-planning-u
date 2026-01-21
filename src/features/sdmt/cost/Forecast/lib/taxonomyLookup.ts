@@ -241,53 +241,36 @@ export function buildTaxonomyMap(
 ): Map<string, TaxonomyEntry> {
   const map = new Map<string, TaxonomyEntry>();
   
+  /**
+   * Helper to safely index a field value into the map
+   */
+  const indexField = (fieldValue: string | undefined, taxonomy: TaxonomyEntry) => {
+    if (fieldValue) {
+      const normalized = normalizeKey(fieldValue);
+      if (normalized && !map.has(normalized)) {
+        map.set(normalized, taxonomy);
+      }
+    }
+  };
+  
   for (const [rubroId, taxonomy] of Object.entries(taxonomyByRubroId)) {
     if (!taxonomy) continue;
     
     // Index by rubroId variants
-    if (taxonomy.rubroId) {
-      map.set(normalizeKey(taxonomy.rubroId), taxonomy);
-    }
-    if (taxonomy.rubro_id) {
-      map.set(normalizeKey(taxonomy.rubro_id), taxonomy);
-    }
-    if (taxonomy.line_item_id) {
-      map.set(normalizeKey(taxonomy.line_item_id), taxonomy);
-    }
+    indexField(taxonomy.rubroId, taxonomy);
+    indexField(taxonomy.rubro_id, taxonomy);
+    indexField(taxonomy.line_item_id, taxonomy);
     
     // Index by name/slug
-    if (taxonomy.name) {
-      const slug = normalizeKey(taxonomy.name);
-      if (slug && !map.has(slug)) {
-        map.set(slug, taxonomy);
-      }
-    }
-    if (taxonomy.slug) {
-      const slug = normalizeKey(taxonomy.slug);
-      if (slug && !map.has(slug)) {
-        map.set(slug, taxonomy);
-      }
-    }
+    indexField(taxonomy.name, taxonomy);
+    indexField(taxonomy.slug, taxonomy);
     
     // Index by linea_gasto (human readable canonical label) and descripcion to enable matches
-    if (taxonomy.linea_gasto) {
-      const linea = normalizeKey(taxonomy.linea_gasto);
-      if (linea && !map.has(linea)) {
-        map.set(linea, taxonomy);
-      }
-    }
-    if (taxonomy.descripcion) {
-      const desc = normalizeKey(taxonomy.descripcion);
-      if (desc && !map.has(desc)) {
-        map.set(desc, taxonomy);
-      }
-    }
+    indexField(taxonomy.linea_gasto, taxonomy);
+    indexField(taxonomy.descripcion, taxonomy);
     
     // Index by original key
-    const normalizedRubroId = normalizeKey(rubroId);
-    if (normalizedRubroId && !map.has(normalizedRubroId)) {
-      map.set(normalizedRubroId, taxonomy);
-    }
+    indexField(rubroId, taxonomy);
   }
   
   // Seed canonical labor keys if they don't already have taxonomy entries
