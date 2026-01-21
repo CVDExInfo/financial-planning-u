@@ -243,26 +243,26 @@ test('normalizeKey - simple strings', () => {
 test('normalizeKey - edge cases', () => {
   assert.strictEqual(
     normalizeKey(''),
-    null,
-    'Should return null for empty string'
+    '',
+    'Should return empty string for empty string'
   );
   
   assert.strictEqual(
     normalizeKey(null),
-    null,
-    'Should return null for null input'
+    '',
+    'Should return empty string for null input'
   );
   
   assert.strictEqual(
     normalizeKey(undefined),
-    null,
-    'Should return null for undefined input'
+    '',
+    'Should return empty string for undefined input'
   );
   
   assert.strictEqual(
     normalizeKey('   '),
-    null,
-    'Should return null for whitespace-only string'
+    '',
+    'Should return empty string for whitespace-only string'
   );
   
   assert.strictEqual(

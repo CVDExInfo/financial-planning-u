@@ -17,7 +17,7 @@
  * Normalize key for consistent matching across the application
  * 
  * @param s - The string to normalize (can be null/undefined)
- * @returns Normalized lowercase string with hyphens, diacritics removed, or null if input is null/undefined
+ * @returns Normalized lowercase string with hyphens and diacritics removed, or empty string if input is null/undefined
  * 
  * @example
  * normalizeKey('ALLOCATION#base_xxx#2025-06#MOD-LEAD') // 'mod-lead'
@@ -25,14 +25,14 @@
  * normalizeKey('Mano de Obra') // 'mano-de-obra'
  * normalizeKey('Mañana de Obra') // 'manana-de-obra'
  * normalizeKey('café') // 'cafe'
- * normalizeKey(null) // null
- * normalizeKey(undefined) // null
+ * normalizeKey(null) // ''
+ * normalizeKey(undefined) // ''
  */
-export function normalizeKey(s?: string | null): string | null {
-  if (s === null || s === undefined) return null;
+export function normalizeKey(s?: string | null): string {
+  if (s === null || s === undefined) return '';
   
   const raw = String(s).trim();
-  if (!raw) return null;
+  if (!raw) return '';
   
   // If the value is an ALLOCATION SK with '#', prefer last segment
   const last = raw.includes('#') ? raw.split('#').pop() || raw : raw;

@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { getCanonicalRubroId, LEGACY_RUBRO_ID_MAP, LABOR_CANONICAL_KEYS_SET } from '../canonical-taxonomy';
 import { CANONICAL_ALIASES } from '../canonical-aliases';
-import { normalizeKey } from '../normalize-key';
+import { normalizeKey } from '@/lib/strings/normalizeKey';
 
 describe('Canonical Aliases - Console Warning Fixes', () => {
   it('should map mod-pm-project-manager to MOD-LEAD', () => {
