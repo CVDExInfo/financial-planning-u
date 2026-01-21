@@ -229,8 +229,11 @@ export function lookupTaxonomy(
     }
   }
   
-  // Step 3.5: Check explicit linea_gasto/descripcion fields (useful for canonical taxonomy)
-  // This handles cases where linea_gasto/descripcion weren't indexed in buildTaxonomyMap
+  // Step 3.5: Check explicit linea_gasto/descripcion fields (fallback/defensive)
+  // This is a defensive fallback in case linea_gasto/descripcion weren't indexed in buildTaxonomyMap
+  // or if the taxonomy structure differs from expected. Should rarely execute since buildTaxonomyMap
+  // already indexes these fields, but provides robustness for edge cases.
+  // Note: This has O(n*m) complexity but is rarely hit due to earlier indexing in buildTaxonomyMap.
   for (const candidate of candidates) {
     for (const [, tax] of taxonomyMap.entries()) {
       const linea = normalizeKey((tax as any).linea_gasto || '');

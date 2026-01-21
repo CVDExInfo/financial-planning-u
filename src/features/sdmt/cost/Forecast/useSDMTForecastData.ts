@@ -221,9 +221,9 @@ export const matchInvoiceToCell = (
   if (!inv) return false;
 
   // Enhanced diagnostics (DEV only)
-  const logDiagnostics = debugMode && import.meta.env.DEV;
+  const shouldLogDiagnostics = debugMode && import.meta.env.DEV;
   
-  if (logDiagnostics) {
+  if (shouldLogDiagnostics) {
     console.debug('[matchInvoiceToCell] Starting match attempt:', {
       invoice: {
         line_item_id: inv.line_item_id,
@@ -252,7 +252,7 @@ export const matchInvoiceToCell = (
   const invProject = inv.projectId || inv.project_id || inv.project;
   const cellProject = (cell as any).projectId || (cell as any).project_id || (cell as any).project;
   if (invProject && cellProject && String(invProject) !== String(cellProject)) {
-    if (logDiagnostics) {
+    if (shouldLogDiagnostics) {
       console.debug('[matchInvoiceToCell] FAIL: Project mismatch', { invProject, cellProject });
     }
     return false;
@@ -263,7 +263,7 @@ export const matchInvoiceToCell = (
     const invLineId = normalizeRubroId(inv.line_item_id);
     const cellLineId = normalizeRubroId(cell.line_item_id);
     if (invLineId && cellLineId && invLineId === cellLineId) {
-      if (logDiagnostics) {
+      if (shouldLogDiagnostics) {
         console.debug('[matchInvoiceToCell] ✓ MATCH via line_item_id:', { invLineId, cellLineId });
       }
       return true;
@@ -278,7 +278,7 @@ export const matchInvoiceToCell = (
     
     // Try exact match first
     if (matchingIds.includes(normalizedInvId) || matchingIds.includes(invRubroId)) {
-      if (logDiagnostics) {
+      if (shouldLogDiagnostics) {
         console.debug('[matchInvoiceToCell] ✓ MATCH via matchingIds:', { invRubroId, normalizedInvId, matchingIds });
       }
       return true;
@@ -287,7 +287,7 @@ export const matchInvoiceToCell = (
     // Try normalized versions of all matching IDs
     for (const matchId of matchingIds) {
       if (normalizeRubroId(matchId) === normalizedInvId) {
-        if (logDiagnostics) {
+        if (shouldLogDiagnostics) {
           console.debug('[matchInvoiceToCell] ✓ MATCH via normalized matchingIds:', { matchId, normalizedInvId });
         }
         return true;
@@ -302,7 +302,7 @@ export const matchInvoiceToCell = (
     const invCanonical = getCanonicalRubroId(invRubroId);
     const cellCanonical = getCanonicalRubroId(cellRubroId);
     if (invCanonical && cellCanonical && invCanonical === cellCanonical) {
-      if (logDiagnostics) {
+      if (shouldLogDiagnostics) {
         console.debug('[matchInvoiceToCell] ✓ MATCH via canonical rubroId:', { 
           invRubroId, 
           invCanonical, 
@@ -331,7 +331,7 @@ export const matchInvoiceToCell = (
     const cellTax = lookupTaxonomyCanonical(taxonomyMap, cellRow, taxonomyCache);
     
     if (invTax && cellTax && invTax.rubroId === cellTax.rubroId) {
-      if (logDiagnostics) {
+      if (shouldLogDiagnostics) {
         console.debug('[matchInvoiceToCell] ✓ MATCH via taxonomy lookup:', { 
           invTaxRubroId: invTax.rubroId, 
           cellTaxRubroId: cellTax.rubroId 
@@ -347,7 +347,7 @@ export const matchInvoiceToCell = (
     cell.description &&
     normalizeString(inv.description) === normalizeString(cell.description)
   ) {
-    if (logDiagnostics) {
+    if (shouldLogDiagnostics) {
       console.debug('[matchInvoiceToCell] ✓ MATCH via normalized description:', { 
         inv: normalizeString(inv.description), 
         cell: normalizeString(cell.description) 
@@ -357,7 +357,7 @@ export const matchInvoiceToCell = (
   }
 
   // No match found - log reason
-  if (logDiagnostics) {
+  if (shouldLogDiagnostics) {
     const reasons = [];
     if (!invRubroId || !cellRubroId) {
       reasons.push('Missing rubroId in invoice or cell');
