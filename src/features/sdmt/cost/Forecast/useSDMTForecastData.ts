@@ -32,6 +32,7 @@ import {
 import { buildTaxonomyMap, type TaxonomyEntry as TaxLookupEntry } from "./lib/taxonomyLookup";
 import { normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
 import { lookupTaxonomyCanonical } from "./lib/lookupTaxonomyCanonical";
+import { normalizeKey } from "@/lib/strings/normalizeKey";
 
 // Build taxonomy from canonical source (the single source of truth)
 const taxonomyByRubroId: Record<string, { description?: string; category?: string; isLabor?: boolean }> = {};
@@ -220,6 +221,9 @@ export const matchInvoiceToCell = (
 ): boolean => {
   if (!inv) return false;
 
+  const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
+  const invId = inv.id || inv.invoiceId || 'unknown';
+
   // 1) projectId guard: both present → must match
   // Normalize both camelCase and snake_case variants
   // Note: Using defensive field access since invoices may come from different sources
@@ -230,28 +234,55 @@ export const matchInvoiceToCell = (
     return false;
   }
 
-  // 2) line_item_id: canonicalize and compare
+  // 2) Robust lookup chain for invoice rubro/line_item identification
+  // Try: rubroId || rubro_id || line_item_id || linea_codigo || linea_id
+  const invRubroId = inv.rubroId || inv.rubro_id || inv.line_item_id || inv.linea_codigo || inv.linea_id;
+  
+  // 3) line_item_id: canonicalize and compare
   if (inv.line_item_id && cell.line_item_id) {
     const invLineId = normalizeRubroId(inv.line_item_id);
     const cellLineId = normalizeRubroId(cell.line_item_id);
     if (invLineId && cellLineId && invLineId === cellLineId) {
-      if (debugMode) {
-        console.log('[matchInvoiceToCell] Match via line_item_id:', { invLineId, cellLineId });
+      if (isDev) {
+        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via line_item_id`);
       }
       return true;
     }
   }
 
-  // 3) matchingIds array: Check if invoice ID is in cell's matching IDs list
-  const invRubroId = inv.rubroId || inv.rubro_id || inv.line_item_id;
+  // 4) linea_codigo: direct match
+  if (inv.linea_codigo && cell.line_item_id) {
+    const invLineaCodigo = normalizeRubroId(inv.linea_codigo);
+    const cellLineId = normalizeRubroId(cell.line_item_id);
+    if (invLineaCodigo && cellLineId && invLineaCodigo === cellLineId) {
+      if (isDev) {
+        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via linea_codigo`);
+      }
+      return true;
+    }
+  }
+
+  // 5) linea_id: direct match
+  if (inv.linea_id && cell.line_item_id) {
+    const invLineaId = normalizeRubroId(inv.linea_id);
+    const cellLineId = normalizeRubroId(cell.line_item_id);
+    if (invLineaId && cellLineId && invLineaId === cellLineId) {
+      if (isDev) {
+        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via linea_id`);
+      }
+      return true;
+    }
+  }
+
+  // 6) matchingIds array: Check if invoice ID is in cell's matching IDs list
   if (invRubroId && (cell as any).matchingIds) {
     const normalizedInvId = normalizeRubroId(invRubroId);
     const matchingIds = (cell as any).matchingIds as string[];
     
     // Try exact match first
     if (matchingIds.includes(normalizedInvId) || matchingIds.includes(invRubroId)) {
-      if (debugMode) {
-        console.log('[matchInvoiceToCell] Match via matchingIds:', { invRubroId, normalizedInvId, matchingIds });
+      if (isDev) {
+        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via matchingIds`);
       }
       return true;
     }
@@ -259,34 +290,64 @@ export const matchInvoiceToCell = (
     // Try normalized versions of all matching IDs
     for (const matchId of matchingIds) {
       if (normalizeRubroId(matchId) === normalizedInvId) {
-        if (debugMode) {
-          console.log('[matchInvoiceToCell] Match via normalized matchingIds:', { matchId, normalizedInvId });
+        if (isDev) {
+          console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via normalized matchingIds`);
         }
         return true;
       }
     }
   }
 
-  // 4) canonical rubroId: use getCanonicalRubroId
+  // 7) canonical rubroId: use getCanonicalRubroId
   const cellRubroId = cell.rubroId || cell.line_item_id;
   
   if (invRubroId && cellRubroId) {
     const invCanonical = getCanonicalRubroId(invRubroId);
     const cellCanonical = getCanonicalRubroId(cellRubroId);
     if (invCanonical && cellCanonical && invCanonical === cellCanonical) {
-      if (debugMode) {
-        console.log('[matchInvoiceToCell] Match via canonical rubroId:', { invCanonical, cellCanonical });
+      if (isDev) {
+        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via canonical rubroId`);
       }
       return true;
     }
   }
 
-  // 5) taxonomy lookup: check if both resolve to same canonical entry
-  if (taxonomyMap && taxonomyCache) {
+  // 8) Description-based lookup with taxonomy: If no rubroId, use description
+  if (!invRubroId && (inv.description || inv.descripcion)) {
+    const invDescription = inv.description || inv.descripcion;
+    const normalizedDesc = normalizeKey(invDescription);
+    
+    // Attempt taxonomy lookup from normalized description
+    if (taxonomyMap && taxonomyCache) {
+      const invRow = {
+        rubroId: '',
+        line_item_id: '',
+        description: invDescription,
+      };
+      
+      const invTax = lookupTaxonomyCanonical(taxonomyMap, invRow, taxonomyCache);
+      const cellRow = {
+        rubroId: cellRubroId,
+        line_item_id: cell.line_item_id,
+        description: cell.description,
+      };
+      const cellTax = lookupTaxonomyCanonical(taxonomyMap, cellRow, taxonomyCache);
+      
+      if (invTax && cellTax && invTax.rubroId === cellTax.rubroId) {
+        if (isDev) {
+          console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via description taxonomy lookup`);
+        }
+        return true;
+      }
+    }
+  }
+
+  // 9) taxonomy lookup: check if both resolve to same canonical entry
+  if (taxonomyMap && taxonomyCache && invRubroId) {
     const invRow = {
       rubroId: invRubroId,
       line_item_id: inv.line_item_id,
-      description: inv.description,
+      description: inv.description || inv.descripcion,
     };
     const cellRow = {
       rubroId: cellRubroId,
@@ -298,26 +359,38 @@ export const matchInvoiceToCell = (
     const cellTax = lookupTaxonomyCanonical(taxonomyMap, cellRow, taxonomyCache);
     
     if (invTax && cellTax && invTax.rubroId === cellTax.rubroId) {
-      if (debugMode) {
-        console.log('[matchInvoiceToCell] Match via taxonomy lookup:', { invTax, cellTax });
+      if (isDev) {
+        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via taxonomy lookup`);
       }
       return true;
     }
   }
 
-  // 6) normalized description: final fallback
-  if (
-    inv.description &&
-    cell.description &&
-    normalizeString(inv.description) === normalizeString(cell.description)
-  ) {
-    if (debugMode) {
-      console.log('[matchInvoiceToCell] Match via normalized description:', { 
-        inv: normalizeString(inv.description), 
-        cell: normalizeString(cell.description) 
-      });
+  // 10) normalized description: final fallback (with diacritics removal)
+  const invDesc = inv.description || inv.descripcion;
+  if (invDesc && cell.description) {
+    const normalizedInvDesc = normalizeKey(invDesc);
+    const normalizedCellDesc = normalizeKey(cell.description);
+    
+    if (normalizedInvDesc && normalizedCellDesc && normalizedInvDesc === normalizedCellDesc) {
+      if (isDev) {
+        console.log(`[matchInvoice] matched invoice ${invId} -> forecast cell ${cell.line_item_id} month ${cell.month} via normalized description`);
+      }
+      return true;
     }
-    return true;
+  }
+
+  // Log failed matches in DEV mode
+  if (isDev) {
+    console.log(`[matchInvoice] unmatched invoice ${invId} with keys:`, {
+      rubroId: inv.rubroId,
+      rubro_id: inv.rubro_id,
+      line_item_id: inv.line_item_id,
+      linea_codigo: inv.linea_codigo,
+      linea_id: inv.linea_id,
+      description: inv.description,
+      descripcion: inv.descripcion,
+    });
   }
 
   return false;
@@ -729,7 +802,7 @@ export function useSDMTForecastData({
       const invoices = await getProjectInvoices(projectId === 'ALL_PROJECTS' ? undefined : projectId);
       if (latestRequestKey.current !== requestKey) return; // stale
 
-      const isDev = import.meta.env.DEV;
+      const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
       
       if (isDev) {
         console.log(
