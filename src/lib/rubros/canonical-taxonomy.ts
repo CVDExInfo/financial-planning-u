@@ -1189,3 +1189,85 @@ export const LABOR_CANONICAL_KEYS = [
  * Used for fast labor classification checks
  */
 export const LABOR_CANONICAL_KEYS_SET = new Set(LABOR_CANONICAL_KEYS);
+
+/**
+ * CANONICAL_ALIASES - Explicit mapping of common textual forms to canonical IDs
+ * 
+ * This map provides fast, explicit resolution of frequently-seen rubro textual names
+ * to their canonical taxonomy IDs. Used by lookupTaxonomy before tolerant fallback.
+ * 
+ * These aliases address the high-frequency textual rubros/roles seen in logs and warnings.
+ * Added to fix: "Service Delivery Manager" → MOD-SDM, "Project Manager" → MOD-LEAD, etc.
+ * 
+ * All keys are pre-normalized for consistent O(1) lookup.
+ */
+const _buildCanonicalAliases = (): Record<string, string> => {
+  const aliases: Record<string, string> = {
+    // Service Delivery Manager variations
+    // Note: normalizeKey converts parentheses to hyphens, spaces to hyphens
+    'service delivery manager': 'MOD-SDM',
+    'service delivery manager (sdm)': 'MOD-SDM',
+    'service-delivery-manager-sdm': 'MOD-SDM',  // Result of normalizing "(SDM)" variant
+    'service delivery mgr': 'MOD-SDM',
+    'sdm': 'MOD-SDM',
+    'service-delivery-manager': 'MOD-SDM',
+    
+    // Project Manager variations
+    'project manager': 'MOD-LEAD',
+    'project mgr': 'MOD-LEAD',
+    'pm': 'MOD-LEAD',
+    'project-manager': 'MOD-LEAD',
+    
+    // Ingeniero Líder / Coordinator variations
+    // Note: Spanish accents (í → i) are removed by normalizeKey
+    'ingeniero líder / coordinador': 'MOD-LEAD',
+    'ingeniero lider / coordinador': 'MOD-LEAD',
+    'ingeniero líder coordinador': 'MOD-LEAD',
+    'ingeniero lider coordinador': 'MOD-LEAD',
+    'ingeniero lider': 'MOD-LEAD',
+    'ingeniero líder': 'MOD-LEAD',
+    'ingeniero delivery': 'MOD-LEAD',
+    'ingeniero-lider': 'MOD-LEAD',
+    'ingeniero-delivery': 'MOD-LEAD',
+    
+    // Support Engineers variations
+    'ingenieros de soporte (mensual)': 'MOD-ING',
+    'ingenieros de soporte mensual': 'MOD-ING',
+    'ingeniero soporte': 'MOD-ING',
+    'ingeniero soporte n1': 'MOD-ING',
+    'ingeniero-soporte': 'MOD-ING',
+    'ingeniero-soporte-n1': 'MOD-ING',
+    
+    // Overtime / Guards variations
+    'horas extra / guardias': 'MOD-OT',
+    'horas extra guardias': 'MOD-OT',
+    'horas extra': 'MOD-OT',
+    'guardias': 'MOD-OT',
+    
+    // Internal Contractors variations
+    // Note: técnicos → tecnicos (accent removed)
+    'contratistas técnicos internos': 'MOD-CONT',
+    'contratistas tecnicos internos': 'MOD-CONT',
+    'contratistas internos': 'MOD-CONT',
+    
+    // External Contractors variations
+    'contratistas externos (labor)': 'MOD-EXT',
+    'contratistas externos labor': 'MOD-EXT',
+    'contratistas externos': 'MOD-EXT',
+  };
+  
+  // Normalize all keys to ensure consistent lookup
+  const normalized: Record<string, string> = {};
+  Object.entries(aliases).forEach(([key, value]) => {
+    const normKey = normalizeKey(key);
+    normalized[normKey] = value;
+    // Also keep original key if it differs from normalized (for debugging/clarity)
+    if (normKey !== key) {
+      normalized[key] = value;
+    }
+  });
+  
+  return normalized;
+};
+
+export const CANONICAL_ALIASES = _buildCanonicalAliases();
