@@ -62,7 +62,7 @@ export function useProjectLineItems(options?: { useFallback?: boolean; baselineI
   });
 
   const lineItems = useMemo(() => query.data?.lineItems ?? [], [query.data?.lineItems]);
-  const taxonomyByRubroId = useMemo(() => query.data?.taxonomyByRubroId ?? {}, [query.data?.taxonomyByRubroId]);
+  const taxonomyByRubroId = useMemo(() => query.data?.taxonomyByRubroId, [query.data?.taxonomyByRubroId]);
 
   useEffect(() => {
     if (import.meta.env.DEV && projectId && Array.isArray(query.data?.lineItems)) {
@@ -75,16 +75,8 @@ export function useProjectLineItems(options?: { useFallback?: boolean; baselineI
         withTaxonomy,
         hasTaxonomy: !!query.data.taxonomyByRubroId,
       });
-      
-      // Dev warning when taxonomy is expected but not available
-      if (withTaxonomy && !query.data.taxonomyByRubroId) {
-        console.warn('[useProjectLineItems] withTaxonomy=true but taxonomy data not available', {
-          projectId,
-          baselineId
-        });
-      }
     }
-  }, [projectId, baselineId, query.data, useFallback, withTaxonomy]);
+  }, [projectId, query.data, useFallback, withTaxonomy]);
 
   const invalidate = useCallback(async () => {
     if (!projectId) return;
