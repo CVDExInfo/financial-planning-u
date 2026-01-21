@@ -248,9 +248,12 @@ describe('Invoice → Forecast Join Integration', () => {
         projectId: 'PROJ-001',
       };
 
-      // Verify getCanonicalRubroId works
+      // Verify getCanonicalRubroId works for this case
+      // Note: getCanonicalRubroId uses LEGACY_RUBRO_ID_MAP which may not have all textual forms
+      // The real matching happens via taxonomy lookup in matchInvoiceToCell
       const canonicalId = getCanonicalRubroId('Service Delivery Manager');
-      // Note: getCanonicalRubroId may not have this alias, but matchInvoiceToCell uses taxonomy lookup
+      // getCanonicalRubroId returns the input if not found in legacy map
+      // matchInvoiceToCell handles this via taxonomy lookup
 
       const matched = matchInvoiceToCell(
         invoice,

@@ -1204,14 +1204,13 @@ export const LABOR_CANONICAL_KEYS_SET = new Set(LABOR_CANONICAL_KEYS);
 const _buildCanonicalAliases = (): Record<string, string> => {
   const aliases: Record<string, string> = {
     // Service Delivery Manager variations
-    // Note: parentheses get converted to hyphens by normalizeKey, so both forms are added
+    // Note: normalizeKey converts parentheses to hyphens, spaces to hyphens
     'service delivery manager': 'MOD-SDM',
     'service delivery manager (sdm)': 'MOD-SDM',
-    'service delivery manager sdm': 'MOD-SDM',  // After parentheses removal
+    'service-delivery-manager-sdm': 'MOD-SDM',  // Result of normalizing "(SDM)" variant
     'service delivery mgr': 'MOD-SDM',
     'sdm': 'MOD-SDM',
     'service-delivery-manager': 'MOD-SDM',
-    'service-delivery-manager-sdm': 'MOD-SDM',
     
     // Project Manager variations
     'project manager': 'MOD-LEAD',
